@@ -1,0 +1,40 @@
+import type { YesNoQuestion } from "@artfct-ai/adapters/gateway/types";
+import { askYesNo } from "../../../decisions/ask";
+import type { WorkflowRuntime } from "../../../workflow/types";
+
+/** The `purpose` a humans-accepted call records its usage under. */
+export const HUMANS_ACCEPTED_PURPOSE = "humans_accepted";
+
+const ACCEPTED_FLOOR = 0.7;
+
+const ACCEPTS: YesNoQuestion = {
+  instructions:
+    "A person was given the work named in `artifact` to look at. `messages` holds what the person wrote since. Do the words in `messages` accept that work, so the next step can start? A person who tells you to act on the work accepts it. They do not need to say the word accept.",
+  yes: "The person approves the work, says it looks good, says to ship it, or answers with a check mark. Or the person tells you to go on, to start the next step, or to start working on or through the work, in any wording or slang, such as 'go ahead', 'start on these', or 'start burning them down'. Or the person says an earlier instruction to go on was their approval.",
+  no: "The person asks for a change, asks a question, says to wait or hold off, writes about something else, or says nothing about the work.",
+};
+
+/** True when the probability says the humans accepted the artifact. */
+export function acceptedAt(probability: number): boolean {
+  return probability >= ACCEPTED_FLOOR;
+}
+
+/**
+ * Ask the decisions model whether the person's messages of this turn accept the artifact. Null
+ * when no answer came.
+ */
+export async function humansAccepted(
+  workflow: WorkflowRuntime,
+  artifact: string,
+  messages: string[],
+): Promise<boolean | null> {
+  const probabilities = await askYesNo(
+    workflow,
+    HUMANS_ACCEPTED_PURPOSE,
+    { artifact, messages: messages.join("\n\n") },
+    { accepts: ACCEPTS },
+  );
+  if (!probabilities) return null;
+  workflow.log(null, `humans accepted: ${probabilities.accepts.toFixed(2)}`);
+  return acceptedAt(probabilities.accepts);
+}

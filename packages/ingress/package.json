@@ -1,0 +1,25 @@
+{
+  "name": "@artfct-ai/ingress",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "types": "wrangler types -c wrangler.test.jsonc --strict-vars=false",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "lint": "oxlint"
+  },
+  "dependencies": {
+    "@artfct-ai/acp": "workspace:*",
+    "@artfct-ai/adapters": "workspace:*",
+    "@artfct-ai/contracts": "workspace:*",
+    "hono": "^4.13.11"
+  },
+  "devDependencies": {
+    "wrangler": "^4.143.0"
+  }
+}

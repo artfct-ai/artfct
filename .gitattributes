@@ -1,0 +1,2 @@
+packages/orchestrator/migrations/**/meta/** linguist-generated=true
+packages/orchestrator/migrations/**/migrations.js linguist-generated=true

@@ -1,0 +1,20 @@
+{
+  "name": "@artfct-ai/sandbox-bridge",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "build": "bun build src/cli.ts --target=bun --outfile dist/artfct-bridge",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "lint": "oxlint"
+  },
+  "dependencies": {
+    "@artfct-ai/adapters": "workspace:*",
+    "@artfct-ai/bridge": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.4.2"
+  }
+}

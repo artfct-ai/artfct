@@ -1,0 +1,50 @@
+# Settings and secrets for the orchestrator Worker. Copy to .dev.vars, which git ignores.
+# Upload it with `npx wrangler secret bulk orchestrator/.dev.vars -c orchestrator/wrangler.jsonc`.
+
+# --- Runtime settings ---
+# Public origin of the ingress Worker. The bridge dials wss://<ingress host>/bridge/<wf>/<task>.
+PUBLIC_URL=
+
+# --- Model gateways. artfct.yaml picks one per consumer with `gateway:`. ---
+# Cloudflare AI Gateway (`gateway: cloudflare`). Carries every provider and Workers AI billing.
+# Leave empty while no consumer in artfct.yaml names that gateway.
+CF_ACCOUNT_ID=
+AI_GATEWAY_ID=
+# Cloudflare API token (My Profile > API Tokens > Create Token > Custom) with permissions
+# "AI Gateway - Run" and "Workers AI - Read".
+AI_GATEWAY_TOKEN=
+# OpenRouter key. Needed by every `openrouter/<slug>` model on either gateway: the Cloudflare
+# gateway passes it through, and `gateway: openrouter` sends it to OpenRouter directly.
+OPEN_ROUTER_API_KEY=
+
+# --- Claude Code auth for the claude-code harness. Set up one of the two. ---
+# 1. A Claude subscription. Paste the output of `claude setup-token`. Only the token owner's own
+#    work may run on it.
+# 2. The Anthropic route of the Cloudflare AI Gateway. Leave this empty, set `providers.gateway:
+#    cloudflare` in artfct.yaml, and fill in the Cloudflare AI Gateway settings above. The gateway
+#    holds the Anthropic credential.
+CLAUDE_CODE_OAUTH_TOKEN=
+
+# --- GitHub App installed on the target repo ---
+GITHUB_APP_ID=
+GITHUB_INSTALLATION_ID=
+# The .pem file GitHub downloads when you generate a private key for the App.
+# Paste the whole file inside the double quotes, line breaks included.
+GITHUB_PRIVATE_KEY=""
+
+# --- Linear OAuth app (the agent that can be mentioned and delegated to) ---
+# Settings > API > OAuth applications. Create one, enable webhooks with "Agent session events",
+# "Comments", and "Issues", and add <ingress>/linear/oauth/callback as a callback URL. After the
+# first deploy, install it with GET <ingress>/admin/linear/install.
+LINEAR_CLIENT_ID=
+LINEAR_CLIENT_SECRET=
+
+# --- Optional. Empty values disable the integration. ---
+SLACK_BOT_TOKEN=
+NOTION_TOKEN=
+
+# --- Optional. Secrets of the MCP servers that `mcp_servers` in artfct.yaml lists. ---
+# Add one line per name that a server references as ${NAME}.
+# An account API token with only Workers Metadata Read-Only at the Workers product scope and
+# Account Analytics Read. Empty means harness sessions do not get the Cloudflare MCP server.
+CF_READ_API_TOKEN=

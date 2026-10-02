@@ -1,0 +1,15 @@
+node_modules
+dist
+.turbo
+.wrangler
+.dev.vars
+worker-configuration.d.ts
+template-config.json
+*.log
+.DS_Store
+*.pem
+.claude/settings.local.json
+artifacts
+.local-runs
+.claude/worktrees/
+.env*

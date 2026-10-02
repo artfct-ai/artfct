@@ -1,0 +1,17 @@
+{
+  "name": "@artfct-ai/contracts",
+  "version": "0.1.0",
+  "private": true,
+  "license": "Apache-2.0",
+  "type": "module",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "lint": "oxlint"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260929.1"
+  }
+}

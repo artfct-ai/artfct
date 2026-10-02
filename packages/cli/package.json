@@ -1,0 +1,43 @@
+{
+  "name": "artfct",
+  "version": "0.1.0",
+  "description": "The artfct command line. It scaffolds a deployment repo and checks it before a deploy.",
+  "homepage": "https://github.com/artfct-ai/artfct#readme",
+  "bugs": {
+    "url": "https://github.com/artfct-ai/artfct/issues"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/artfct-ai/artfct.git",
+    "directory": "packages/cli"
+  },
+  "bin": {
+    "artfct": "./dist/artfct.js"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "scripts": {
+    "build": "bun scripts/build.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test",
+    "lint": "oxlint"
+  },
+  "dependencies": {
+    "jsonc-parser": "^3.3.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@artfct-ai/core": "^0.1.0",
+    "@artfct-ai/orchestrator": "workspace:*",
+    "@types/bun": "^1.4.2"
+  },
+  "peerDependencies": {
+    "@artfct-ai/core": "^0.1.0"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

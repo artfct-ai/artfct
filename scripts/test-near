@@ -1,0 +1,61 @@
+#!/bin/sh
+# Runs the tests next to a source file, or every test under a directory, in its package.
+# Small tests (`*.test.ts`) run under `bun test`. Medium tests (`*.test.medium.ts`) need the
+# Workers runtime and run under vitest with `@cloudflare/vitest-plugin`.
+# A package with a `template-config` script gets it run first, as turbo does before its tests.
+# Usage: test-near <file-or-dir>...
+set -u
+
+if [ $# -eq 0 ]; then
+  echo "usage: test-near <file-or-dir>..." >&2
+  exit 2
+fi
+
+absolute() {
+  echo "$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+}
+
+package_of() {
+  dir=$1
+  while [ ! -f "$dir/package.json" ]; do
+    [ "$dir" = / ] && return 1
+    dir=$(dirname "$dir")
+  done
+  echo "$dir"
+}
+
+run_small() {
+  (cd "$1" && bun run --silent --if-present template-config && bun test "$2") || status=$?
+}
+
+run_medium() {
+  (cd "$1" && bun run --silent --if-present template-config && bunx vitest run "$2") || status=$?
+}
+
+status=0
+for target in "$@"; do
+  if [ -d "$target" ]; then
+    path=$(cd "$target" && pwd)
+    package_dir=$(package_of "$path") || { echo "$target: not inside a package, skipped" >&2; continue; }
+    [ -n "$(find "$path" -name '*.test.ts' -not -path '*/node_modules/*' | head -1)" ] && run_small "$package_dir" "$path"
+    [ -n "$(find "$path" -name '*.test.medium.ts' -not -path '*/node_modules/*' | head -1)" ] && run_medium "$package_dir" "$path"
+    continue
+  fi
+  if [ ! -f "$target" ]; then
+    echo "$target: no such file or directory" >&2
+    status=2
+    continue
+  fi
+  case $target in
+    *.test.medium.ts) small=""; medium=$target ;;
+    *.test.ts) small=$target; medium="" ;;
+    *.ts) small=${target%.ts}.test.ts; medium=${target%.ts}.test.medium.ts ;;
+    *) echo "$target: not a TypeScript file, skipped" >&2; continue ;;
+  esac
+  package_dir=$(package_of "$(dirname "$(absolute "$target")")") || { echo "$target: not inside a package, skipped" >&2; continue; }
+  found=0
+  if [ -n "$small" ] && [ -f "$small" ]; then found=1; run_small "$package_dir" "$(absolute "$small")"; fi
+  if [ -n "$medium" ] && [ -f "$medium" ]; then found=1; run_medium "$package_dir" "$(absolute "$medium")"; fi
+  [ $found -eq 0 ] && echo "$target: no test file next to it, skipped" >&2
+done
+exit $status

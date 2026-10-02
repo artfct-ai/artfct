@@ -1,0 +1,18 @@
+# Secrets for the ingress Worker in local development. Copy to .dev.vars, which git ignores.
+# `bun run dev` and `bun run smoke` read it.
+# Every webhook route rejects requests with 401 until its signing secret is set.
+
+# Any long random string. Authorizes /admin routes.
+ADMIN_TOKEN=
+# The webhook signing secret of the Linear OAuth app (Settings > API > OAuth applications).
+LINEAR_WEBHOOK_SECRET=
+# GitHub App > Webhook secret.
+GITHUB_WEBHOOK_SECRET=
+
+# --- Optional. Empty values disable the integration. ---
+SLACK_SIGNING_SECRET=
+SLACK_BOT_TOKEN=
+# Notion sends the verification token once, on the subscription handshake. Ingress logs it.
+NOTION_VERIFICATION_TOKEN=
+# Same integration token as the orchestrator. Ingress fetches comment bodies with it.
+NOTION_TOKEN=

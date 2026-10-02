@@ -1,0 +1,43 @@
+# Slack app manifest. Create the app at https://api.slack.com/apps > Create New App > From a manifest.
+# Verify request_url under App Manifest after ingress has SLACK_SIGNING_SECRET. Ingress answers
+# the signed url_verification handshake only then.
+display_information:
+  name: artfct
+  description: Hands software engineering work to coding agents and reports back in the thread.
+features:
+  agent_view:
+    agent_description: Hands software engineering work to coding agents and reports back in the thread.
+  bot_user:
+    display_name: artfct
+    always_online: true
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read
+      - assistant:write
+      - channels:history
+      - channels:read
+      - groups:history
+      - groups:read
+      - im:history
+      - chat:write
+      - reactions:read
+      - reactions:write
+      - users:read
+      - users:read.email
+settings:
+  event_subscriptions:
+    request_url: https://REPLACE_ME/webhooks/slack
+    bot_events:
+      - app_mention
+      # Ingress greets the channel when this app joins and ignores every other join.
+      - member_joined_channel
+      - message.channels
+      - message.groups
+      - reaction_added
+      # Agent View expects these. Ingress ignores DMs and app home opens for now.
+      - message.im
+      - app_home_opened
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false

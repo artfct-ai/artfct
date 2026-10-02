@@ -1,0 +1,46 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "unicorn", "oxc"],
+  "options": {
+    "typeAware": true,
+    "typeCheck": true
+  },
+  "categories": {
+    "correctness": "error",
+    "suspicious": "warn"
+  },
+  "rules": {
+    "no-unused-vars": [
+      "error",
+      {
+        "argsIgnorePattern": "^_"
+      }
+    ],
+    "no-unused-expressions": [
+      "error",
+      {
+        "allowTaggedTemplates": true,
+        "allowShortCircuit": true
+      }
+    ],
+    "typescript/no-unsafe-type-assertion": "off",
+    "id-denylist": [
+      "error",
+      "passTask",
+      "passTaskId",
+      "passIndex",
+      "reviewerTask",
+      "polisherTask",
+      "verdict",
+      "Verdict"
+    ]
+  },
+  "overrides": [
+    {
+      // bun-types declares the `resolves` and `rejects` matchers as void, though they return promises.
+      "files": ["**/*.test.ts"],
+      "rules": { "typescript/await-thenable": "off" }
+    }
+  ],
+  "ignorePatterns": ["dist", "node_modules", ".wrangler", "*.d.ts"]
+}

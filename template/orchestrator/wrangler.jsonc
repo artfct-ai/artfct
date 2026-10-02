@@ -1,0 +1,46 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "artfct-orchestrator",
+  "main": "dist/index.js",
+  "build": { "command": "npm run build" },
+  "compatibility_date": "2026-08-28",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true, "traces": { "enabled": true } },
+  // Do not enable. Only ingress calls this Worker, over its service binding.
+  "workers_dev": false,
+  "preview_urls": false,
+  "durable_objects": {
+    "bindings": [
+      { "name": "Workflow", "class_name": "Workflow" },
+      { "name": "Sandbox", "class_name": "Sandbox" },
+      { "name": "SandboxLarge", "class_name": "SandboxLarge" },
+    ],
+  },
+  "migrations": [
+    { "tag": "v1", "new_sqlite_classes": ["Workflow", "Sandbox"] },
+    { "tag": "v2", "new_sqlite_classes": ["SandboxLarge"] },
+  ],
+  "containers": [
+    {
+      "class_name": "Sandbox",
+      "image": "../node_modules/@artfct-ai/core/dist/sandbox/Dockerfile",
+      "instance_type": "standard-3",
+      "max_instances": 100,
+    },
+    {
+      "class_name": "SandboxLarge",
+      "image": "../node_modules/@artfct-ai/core/dist/sandbox/Dockerfile",
+      "instance_type": "standard-4",
+      "max_instances": 100,
+    },
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "artfct",
+      // `npx artfct init` creates the database and writes its id here.
+      "database_id": "<your D1 database id>",
+      "migrations_dir": "../node_modules/@artfct-ai/core/dist/migrations/d1",
+    },
+  ],
+}

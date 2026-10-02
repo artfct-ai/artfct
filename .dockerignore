@@ -1,0 +1,10 @@
+# The sandbox image build (packages/orchestrator/sandbox/Dockerfile) uses the repository root
+# as its context and copies the prebuilt bridge executable, the license and notice, the image
+# notices, and the manifest and lockfile of the agent packages.
+*
+!packages/sandbox-bridge/dist/artfct-bridge
+!LICENSE
+!NOTICE
+!packages/orchestrator/sandbox/NOTICES.md
+!packages/orchestrator/sandbox/agents/package.json
+!packages/orchestrator/sandbox/agents/package-lock.json

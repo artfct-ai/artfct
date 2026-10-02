@@ -1,0 +1,15 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["./worker-configuration.d.ts", "@cloudflare/vitest-plugin/types", "node"],
+    "resolveJsonModule": true
+  },
+  "include": [
+    "src",
+    "test",
+    "drizzle.d1.config.ts",
+    "drizzle.workflow.config.ts",
+    "vitest.config.ts",
+    "vitest.setup.ts"
+  ]
+}

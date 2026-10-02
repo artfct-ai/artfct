@@ -1,0 +1,10 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "artfct-ingress",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-08-28",
+  "compatibility_flags": ["nodejs_compat"],
+  "services": [{ "binding": "ORCHESTRATOR", "service": "artfct-orchestrator" }],
+  "vars": { "GITHUB_APP_LOGIN": "artfct-agent" },
+  "dev": { "port": 8787 },
+}

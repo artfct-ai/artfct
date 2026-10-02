@@ -1,0 +1,63 @@
+{
+  "name": "@artfct-ai/core",
+  "version": "0.1.0",
+  "description": "The artfct engine: the orchestrator and ingress Workers, their Durable Objects, and the deployment config schema.",
+  "homepage": "https://github.com/artfct-ai/artfct#readme",
+  "bugs": {
+    "url": "https://github.com/artfct-ai/artfct/issues"
+  },
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/artfct-ai/artfct.git",
+    "directory": "packages/core"
+  },
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    "./orchestrator": "./dist/orchestrator.js",
+    "./ingress": "./dist/ingress.js",
+    "./durable-objects": "./dist/durable-objects.js",
+    "./config": "./dist/config.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "bun scripts/build.ts",
+    "types": "wrangler types -c ../../template/orchestrator/wrangler.jsonc --strict-vars=false",
+    "typecheck": "tsc --noEmit",
+    "test": "bun test && vitest run",
+    "lint": "oxlint"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "^1.5.1",
+    "@ai-sdk/openai-compatible": "^3.0.59",
+    "@ai-sdk/provider": "^4.0.19",
+    "@cloudflare/sandbox": "^0.12.10",
+    "@linear/sdk": "^97.0.0",
+    "@notionhq/client": "^5.26.0",
+    "@octokit/auth-app": "^8.3.1",
+    "@octokit/rest": "^22.0.1",
+    "@octokit/webhooks-methods": "^6.0.0",
+    "@openrouter/sdk": "^1.4.3",
+    "@slack/web-api": "^8.1.1",
+    "agents": "^0.24.0",
+    "ai": "^7.0.122",
+    "cloudflare": "^7.2.0",
+    "drizzle-orm": "^0.45.3",
+    "hono": "^4.13.11",
+    "p-limit": "^7.3.3",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@artfct-ai/ingress": "workspace:*",
+    "@artfct-ai/orchestrator": "workspace:*",
+    "@cloudflare/vitest-plugin": "^1.3.1",
+    "@types/bun": "^1.4.2",
+    "wrangler": "^4.143.0"
+  }
+}

@@ -1,0 +1,12 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "artfct-ingress",
+  "main": "index.ts",
+  "compatibility_date": "2026-08-28",
+  "compatibility_flags": ["nodejs_compat"],
+  "observability": { "enabled": true, "traces": { "enabled": true } },
+  "services": [{ "binding": "ORCHESTRATOR", "service": "artfct-orchestrator" }],
+  // The slug of your GitHub App. Reviews and comments under it are the orchestrator's own.
+  // `npx artfct connect code` writes it.
+  "vars": { "GITHUB_APP_LOGIN": "<your GitHub App slug>" },
+}

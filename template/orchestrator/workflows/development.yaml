@@ -1,0 +1,116 @@
+# The stages run in order. You can kickoff a workflow from any stage with a pre-existing artifact.
+description: Take a request from design through pull requests.
+
+stages:
+  - name: architectural directions
+    artifact: page
+    research:
+      harness: claude-code
+      model: claude-opus-5-5
+      effort: high
+      skill: research
+    author:
+      produce:
+        execution: model
+        model: openrouter/google/gemini-3.8-flash
+        effort: high
+        skill: directions
+      revise:
+        execution: model
+        model: openrouter/z-ai/glm-5.3
+        effort: high
+        skill: page-revise
+    reviewers:
+      - name: facts
+        model: claude-opus-5-5
+        skill: design-facts-review
+      - name: functionality
+        model: claude-opus-5-5
+        skill: design-functionality-review
+    ending: choice
+
+  - name: design
+    artifact: page
+    author:
+      produce:
+        execution: model
+        model: openrouter/google/gemini-3.8-flash
+        effort: high
+        skill: design
+      revise:
+        execution: model
+        model: openrouter/z-ai/glm-5.3
+        effort: high
+        skill: design-revise
+    reviewers:
+      - name: consistency
+        model: claude-opus-5-5
+        effort: medium
+        skill: design-consistency-review
+      - name: facts
+        model: claude-opus-5-5
+        skill: design-facts-review
+      - name: functionality
+        model: claude-opus-5-5
+        skill: design-functionality-review
+
+  - name: plan
+    artifact: page
+    research:
+      harness: claude-code
+      model: claude-opus-5-5
+      effort: high
+      skill: plan-research
+    author:
+      produce:
+        execution: model
+        model: openrouter/google/gemini-3.8-flash
+        effort: high
+        skill: plan
+      revise:
+        execution: model
+        model: openrouter/z-ai/glm-5.3
+        effort: high
+        skill: page-revise
+    reviewers:
+      - name: review
+        skill: plan-review
+
+  - name: breakdown
+    artifact: issues
+    when: the plan is more than one pull request of work
+    author:
+      produce:
+        execution: harness
+        skill: breakdown
+    reviewers:
+      - name: review
+        skill: breakdown-review
+
+  - name: implement
+    artifact: pull
+    branch: true
+    author:
+      produce:
+        execution: harness
+        harness: claude-code
+        model: claude-opus-5-5
+        skill: implement
+    reviewers:
+      - name: alignment
+        model: claude-opus-5-5
+        mode: judge
+        rejects_when:
+          question: Does the reviewer in `conclusion` say the approach of the change is wrong and the change needs a rewrite or a different design?
+          "yes": The reviewer says the design is wrong, names a better approach, or says to start over.
+          "no": The reviewer says the approach is right or acceptable. Bugs, missing guards, and fixes a follow-up commit can make do not count, even under a BLOCKING label.
+        skill: implement-approach-judge
+      - name: review
+        model: claude-opus-5-5
+        skill: implement-review
+    polishers:
+      - name: code cleaner
+        harness: claude-code
+        model: claude-sonnet-5-5
+        effort: high
+        skill: code-cleaner

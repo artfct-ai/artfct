@@ -1,0 +1,69 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "agentGuidance": false,
+  "globalDependencies": [
+    ".oxfmtrc.jsonc",
+    ".oxlintrc.json",
+    "package.json",
+    "tsconfig.base.json",
+    "template/**"
+  ],
+  "tasks": {
+    "transit": {
+      "dependsOn": ["^transit"]
+    },
+    "types": {
+      "inputs": ["wrangler.jsonc", "wrangler.test.jsonc"],
+      "outputs": ["worker-configuration.d.ts"]
+    },
+    "template-config": {
+      "outputs": ["test/template-config.json"]
+    },
+    "artfct-template#build": {
+      "dependsOn": ["^build"],
+      "outputs": ["orchestrator/dist/**"]
+    },
+    "build": {
+      "dependsOn": ["transit"],
+      "outputs": ["dist/**"]
+    },
+    "@artfct-ai/core#build": {
+      "dependsOn": ["transit", "@artfct-ai/sandbox-bridge#build"],
+      "outputs": ["dist/**"]
+    },
+    "@artfct-ai/core#test": {
+      "dependsOn": ["transit", "types", "build", "artfct-template#build"]
+    },
+    "artfct#test": {
+      "dependsOn": ["transit", "@artfct-ai/core#build"]
+    },
+    "@artfct-ai/core#lint": {
+      "dependsOn": ["transit", "types", "artfct-template#build"]
+    },
+    "@artfct-ai/core#typecheck": {
+      "dependsOn": ["transit", "types", "artfct-template#build"]
+    },
+    "typecheck": {
+      "dependsOn": ["transit", "types", "template-config"]
+    },
+    "test": {
+      "dependsOn": ["transit", "types", "template-config"]
+    },
+    "lint": {
+      "dependsOn": ["transit", "types", "template-config"]
+    },
+    "db:migrate:local": {
+      "cache": false
+    },
+    "db:generate": {
+      "cache": false
+    },
+    "//#typecheck:root": {
+      "dependsOn": ["@artfct-ai/orchestrator#template-config"]
+    },
+    "//#lint:root": {
+      "dependsOn": ["@artfct-ai/orchestrator#template-config"]
+    },
+    "//#fmt:check": {}
+  }
+}

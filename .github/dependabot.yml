@@ -1,0 +1,30 @@
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: docker
+    directory: /packages/orchestrator/sandbox
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: npm
+    directory: /packages/orchestrator/sandbox/agents
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: bun
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      # Bump it by hand. Its version must equal SANDBOX_VERSION in the sandbox Dockerfile.
+      - dependency-name: "@cloudflare/sandbox"
+      # @cloudflare/vitest-pool-workers supports vitest 4 only.
+      - dependency-name: vitest
+        update-types: ["version-update:semver-major"]
+      # Hold the types at the Node 24 line.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]

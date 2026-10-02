@@ -1,0 +1,17 @@
+{
+  "name": "artfct-template",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node orchestrator/build.js"
+  },
+  "dependencies": {
+    "@artfct-ai/core": "^0.1.0",
+    "artfct": "^0.1.0",
+    "wrangler": "^4.143.0"
+  },
+  "devDependencies": {
+    "esbuild": "^0.28.2"
+  }
+}

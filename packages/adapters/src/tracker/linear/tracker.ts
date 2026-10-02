@@ -1,0 +1,166 @@
+/**
+ * The Linear work tracker over the official `@linear/sdk`. Consumers see only the plain types
+ * from `./types`. SDK model classes stay inside this file.
+ */
+import { isGoneError, LinearSdk, type LinearOptions, type TokenSource } from "./sdk";
+import { fetchIssue, fetchProjectIssues, type RawQuery } from "./issues";
+import type {
+  ActivityOptions,
+  AgentActivityContent,
+  AppUser,
+  ExternalUrl,
+  IssueUpdate,
+  TeamMembership,
+  Tracker,
+  TrackerIssue,
+  TrackerUser,
+  WorkflowState,
+} from "../types";
+
+/** Construction options. `appUserId` is the agent's own user id, known for an app-actor install. */
+export type LinearTrackerOptions = LinearOptions & { appUserId?: string };
+
+/** Linear requires a label on every session link. The URL stands in when the caller has none. */
+function toExternalUrlInput(url: ExternalUrl): { url: string; label: string } {
+  return { url: url.url, label: url.label ?? url.url };
+}
+
+/**
+ * Linear tracker. Authenticates with a fixed token, or with a token source that is asked on
+ * every call so a refreshed OAuth token is picked up.
+ */
+export class LinearTracker implements Tracker {
+  /** The agent's user id under an app-actor install. Null under a personal API key. */
+  readonly appUserId: string | null;
+  private readonly sdk: LinearSdk;
+
+  constructor(token: string | TokenSource, options: LinearTrackerOptions = {}) {
+    this.appUserId = options.appUserId ?? null;
+    this.sdk = new LinearSdk(token, options);
+  }
+
+  private client() {
+    return this.sdk.client();
+  }
+
+  /** Run one GraphQL document through the SDK's transport. Throws a `LinearError` on failure. */
+  private readonly raw: RawQuery = async <Data>(
+    query: string,
+    variables: Record<string, unknown>,
+  ): Promise<Data> => {
+    const client = await this.client();
+    const response = await client.client.rawRequest<Data, Record<string, unknown>>(
+      query,
+      variables,
+    );
+    if (response.data === undefined) throw new Error("linear: response without data");
+    return response.data;
+  };
+
+  async appUser(): Promise<AppUser> {
+    const client = await this.client();
+    const viewer = await client.viewer;
+    const organization = await viewer.organization;
+    return {
+      id: viewer.id,
+      name: viewer.name,
+      organization: { id: organization.id, name: organization.name },
+    };
+  }
+
+  /** Membership of a team named by id or key. Linear accepts either in `team(id:)`. */
+  async teamMembership(teamIdOrKey: string, userId: string): Promise<TeamMembership> {
+    const client = await this.client();
+    const team = await client.team(teamIdOrKey);
+    const members = await team.members({ filter: { id: { eq: userId } } });
+    return { team_id: team.id, member: members.nodes.length > 0 };
+  }
+
+  async userByEmail(email: string): Promise<TrackerUser | null> {
+    const client = await this.client();
+    const users = await client.users({ filter: { email: { eq: email } } });
+    const user = users.nodes[0];
+    return user ? { id: user.id, name: user.name } : null;
+  }
+
+  async teamStates(teamId: string): Promise<WorkflowState[]> {
+    const client = await this.client();
+    const team = await client.team(teamId);
+    const states = await team.states();
+    return states.nodes
+      .map((state) => ({
+        id: state.id,
+        name: state.name,
+        type: state.type,
+        position: state.position,
+      }))
+      .toSorted((left, right) => left.position - right.position);
+  }
+
+  async updateIssue(issueId: string, input: IssueUpdate): Promise<void> {
+    const client = await this.client();
+    await client.updateIssue(issueId, input);
+  }
+
+  async commentOnIssue(issueId: string, body: string): Promise<{ id: string }> {
+    const client = await this.client();
+    const payload = await client.createComment({ issueId, body });
+    if (!payload.commentId) throw new Error("linear: commentCreate returned no comment id");
+    return { id: payload.commentId };
+  }
+
+  async updateComment(commentId: string, body: string): Promise<void> {
+    const client = await this.client();
+    await client.updateComment(commentId, { body });
+  }
+
+  /** Delete one comment by id. */
+  async deleteComment(commentId: string): Promise<void> {
+    const client = await this.client();
+    await client.deleteComment(commentId);
+  }
+
+  /** A link to one comment by id. */
+  async commentPermalink(commentId: string): Promise<string> {
+    const client = await this.client();
+    const comment = await client.comment({ id: commentId });
+    return comment.url;
+  }
+
+  /** Link a URL to an issue. Linear renders it through whichever workspace integration matches. */
+  async attachUrl(issueId: string, url: string): Promise<void> {
+    const client = await this.client();
+    await client.attachmentLinkURL(issueId, url);
+  }
+
+  issue(idOrKey: string): Promise<TrackerIssue | null> {
+    return fetchIssue(this.raw, idOrKey);
+  }
+
+  projectIssues(projectId: string): Promise<TrackerIssue[]> {
+    return fetchProjectIssues(this.raw, projectId);
+  }
+
+  /** Emit an agent activity. `externalUrls` belong to the session, so they go in a second call. */
+  async activity(
+    sessionId: string,
+    content: AgentActivityContent,
+    options: ActivityOptions = {},
+  ): Promise<void> {
+    const client = await this.client();
+    await client.createAgentActivity({
+      agentSessionId: sessionId,
+      content,
+      ephemeral: options.ephemeral ?? false,
+    });
+    if (!options.externalUrls?.length) return;
+    await client.updateAgentSession(sessionId, {
+      addedExternalUrls: options.externalUrls.map(toExternalUrlInput),
+    });
+  }
+
+  /** True when Linear says the entity is gone. */
+  isGone(error: unknown): boolean {
+    return isGoneError(error);
+  }
+}

@@ -1,0 +1,44 @@
+# Deployment-wide settings. Each workflow definition lives in workflows/<name>.yaml.
+
+# One vendor per adapter capability. Every stage, artifact, and MCP server follows from these.
+providers:
+  code: github
+  tracker: linear
+  chat: slack
+  docs: notion
+  gateway: openrouter
+
+# Who may give this deployment work. Replace each placeholder with your team, or delete its line.
+# Delete the whole block to let in everyone who reaches the bot.
+access:
+  tracker_team: <team key>
+  chat_team: <team id>
+
+mcp_servers:
+  - name: cloudflare
+    url: https://mcp.cloudflare.com/mcp
+    headers:
+      Authorization: Bearer ${CF_READ_API_TOKEN}
+
+orchestrator:
+  model: openrouter/deepseek/deepseek-v4.1-flash
+  # Compaction, condensed tool results, and digest summaries all run on this model.
+  summarization:
+    model: openrouter/minimax/minimax-m3
+  # Times the reviewers run on one artifact. Past it the author's revision is handed over without
+  # another review.
+  max_review_runs: 3
+  # What a task runs on when its stage does not say.
+  task:
+    harness: claude-code
+    model: claude-opus-5-5
+    timeouts:
+      # A harness turn that runs longer than this fails its task.
+      time_elapsed_minutes: 120
+      # A harness turn that sends no update for this long is nudged, then restarted.
+      no_progress_minutes: 10
+  sandbox:
+    # An idle sandbox sleeps after this long.
+    sleep_after: 30m
+    # Tasks one workflow runs at the same time.
+    max_concurrency: 100

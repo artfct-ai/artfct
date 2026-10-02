@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "artfct-orchestrator",
+  "main": "test/worker.ts",
+  "compatibility_date": "2026-08-28",
+  "compatibility_flags": ["nodejs_compat"],
+  "rules": [
+    {
+      "type": "Text",
+      "globs": ["**/*.sql"],
+      "fallthrough": true,
+    },
+  ],
+  "durable_objects": {
+    "bindings": [
+      { "name": "Workflow", "class_name": "Workflow" },
+      { "name": "Sandbox", "class_name": "Sandbox" },
+      { "name": "SandboxLarge", "class_name": "SandboxLarge" },
+    ],
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Workflow", "Sandbox", "SandboxLarge"] }],
+  "d1_databases": [
+    { "binding": "DB", "database_name": "artfct", "migrations_dir": "migrations/d1" },
+  ],
+  "dev": { "port": 8788, "enable_containers": false },
+}

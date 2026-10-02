@@ -1,0 +1,9 @@
+{
+  "name": "artfct-sandbox-agents",
+  "private": true,
+  "description": "The coding agent harnesses the sandbox image installs with npm ci.",
+  "dependencies": {
+    "@agentclientprotocol/claude-agent-acp": "0.84.0",
+    "@opencode/cli": "2.0.22"
+  }
+}

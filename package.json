@@ -1,0 +1,44 @@
+{
+  "name": "artfct-monorepo",
+  "private": true,
+  "license": "Apache-2.0",
+  "workspaces": [
+    "packages/*",
+    "template"
+  ],
+  "type": "module",
+  "scripts": {
+    "dev": "bun run --cwd packages/orchestrator template-config && bun scripts/dev-config.ts MOCK_SANDBOX_URL=http://localhost:9797 PUBLIC_URL=http://localhost:8787 && wrangler dev -c packages/ingress/wrangler.test.jsonc -c packages/orchestrator/.wrangler/dev/wrangler.jsonc --var ADMIN_DEBUG:true --persist-to .wrangler/state",
+    "dev:sandbox": "bun scripts/mock-sandbox.ts",
+    "smoke": "bun run --cwd packages/orchestrator template-config && bun scripts/smoke.ts",
+    "sandbox:build": "bun run --cwd packages/sandbox-bridge build && docker build --platform linux/amd64 -f packages/orchestrator/sandbox/Dockerfile -t artfct-sandbox:local .",
+    "local-run": "bun run --cwd packages/orchestrator template-config && bun --env-file=packages/orchestrator/.dev.vars packages/orchestrator/test/local-run/run.ts",
+    "build": "turbo run build",
+    "types": "turbo run types",
+    "typecheck": "turbo run typecheck typecheck:root",
+    "test": "turbo run test",
+    "lint": "turbo run lint lint:root",
+    "check": "turbo run test lint build lint:root fmt:check",
+    "check:affected": "turbo run test lint build lint:root fmt:check --filter=...[${TURBO_SCM_BASE:-main}] --filter=//",
+    "fmt": "oxfmt",
+    "fmt:check": "oxfmt --check",
+    "db:migrate:local": "turbo run db:migrate:local",
+    "db:generate": "turbo run db:generate",
+    "typecheck:root": "tsc --noEmit -p tsconfig.json",
+    "lint:root": "oxlint scripts"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20260929.1",
+    "@types/bun": "^1.4.2",
+    "@types/node": "^24.19.0",
+    "bun-types": "^1.4.2",
+    "oxfmt": "^0.71.0",
+    "oxlint": "^1.86.0",
+    "oxlint-tsgolint": "^7.0.2003",
+    "turbo": "^2.11.5",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.143.0"
+  },
+  "packageManager": "bun@1.4.2"
+}
