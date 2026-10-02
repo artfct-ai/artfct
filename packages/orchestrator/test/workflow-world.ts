@@ -185,6 +185,7 @@ export class WorkflowWorld {
   readonly authors: WorldAuthor[] = [];
   private readonly pulls = new Map<number, WorldPull>();
   private readonly bridges: FakeBridge[] = [];
+  private readonly promptsAtNormalTurnEnd = new Map<string, number>();
   private hostReadable = true;
   private hostReviewComments: Record<number, PullRequestReviewComment[]> = {};
   private reviewNumber = 0;
@@ -232,6 +233,10 @@ export class WorkflowWorld {
     const facts = (await action.run(this)) ?? {};
     this.adoptNewAuthors();
     await this.dropClosedSockets();
+    const ended = facts.refinerTurnEnd?.task_id;
+    if (ended && !this.runningBridgeOf(ended)) {
+      this.promptsAtNormalTurnEnd.set(ended, this.promptsSentTo(ended));
+    }
     const step: Step = {
       action: String(action),
       before,
@@ -558,6 +563,12 @@ export class WorkflowWorld {
     }
   }
 
+  private promptsSentTo(taskId: string): number {
+    return this.bridges
+      .filter((bridge) => bridge.taskId === taskId)
+      .reduce((total, bridge) => total + bridge.promptsSent, 0);
+  }
+
   private observe(): Observation {
     const { store } = this.workflow;
     const authors = new Set(this.authors.map((author) => author.taskId));
@@ -574,6 +585,8 @@ export class WorkflowWorld {
         job_id: task.job_id,
         refiner_index: task.refiner_index,
         ruling: task.result?.kind === "ruling" ? JSON.stringify(task.result) : null,
+        quietSinceTurnEnd:
+          this.promptsAtNormalTurnEnd.get(task.task_id) === this.promptsSentTo(task.task_id),
       })),
       artifacts: store.artifacts().map((artifact) => ({
         job_id: artifact.job_id,

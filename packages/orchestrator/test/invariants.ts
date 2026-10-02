@@ -11,6 +11,8 @@ export type ObservedTask = {
   job_id: string;
   refiner_index: number | null;
   ruling: string | null;
+  /** True when the task's latest turn ended normally and the task took no prompt since. */
+  quietSinceTurnEnd: boolean;
 };
 
 /** One artifact row as an observer saw it. */
@@ -194,7 +196,10 @@ export function inReviewTaskHasAnArtifact(workflow: WorkflowRuntime): void {
   }
 }
 
-/** A refiner run ends `done` only when its turn ended normally. */
+/**
+ * A refiner run ends `done` only when its turn ended normally. A polisher that waits on the
+ * checks of its push ends in a later step, and only when it took no prompt since that turn end.
+ */
 export function refinerRunIsDoneOnlyAfterItsTurnEnded(
   _workflow: WorkflowRuntime,
   step: Step,
@@ -203,6 +208,7 @@ export function refinerRunIsDoneOnlyAfterItsTurnEnded(
     if (!REFINER_ROLES.includes(after.role) || after.status !== "done") continue;
     const before = step.before.tasks.find((task) => task.task_id === after.task_id);
     if (before?.status === "done" || step.refinerTurnEnd?.task_id === after.task_id) continue;
+    if (before?.role === "polisher" && before.quietSinceTurnEnd) continue;
     violated(
       "refinerRunIsDoneOnlyAfterItsTurnEnded",
       `${after.task_id} went from ${before?.status ?? "nothing"} to done with no turn end`,
