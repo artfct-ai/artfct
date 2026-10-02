@@ -28,11 +28,16 @@ export type NotionOptions = { baseUrl?: string; fetch?: typeof fetch };
 export class NotionDocuments implements Documents {
   private readonly client: Client;
 
+  /**
+   * The SDK refuses a token where `WorkerGlobalScope` exists, which it reads as a browser worker.
+   * workerd defines that global, so the client opts out. A Worker is a server.
+   */
   constructor(token: string, options: NotionOptions = {}) {
     this.client = new Client({
       auth: token,
       baseUrl: options.baseUrl,
       fetch: workerdFetch(options.fetch),
+      dangerouslyAllowBrowser: true,
     });
   }
 
