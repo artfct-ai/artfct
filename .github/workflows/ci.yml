@@ -51,7 +51,7 @@ jobs:
       - name: Publish the preview packages to pkg.pr.new
         run: bunx pkg-pr-new publish --bun --no-compact --no-template --comment=off ./packages/core ./packages/cli
       - name: Start the deploy of the install that tracks main
-        run: gh workflow run deploy.yml --repo "$PREVIEW_DEPLOY_REPO"
+        run: gh workflow run deploy.yml --ref main --repo "$PREVIEW_DEPLOY_REPO"
         env:
           PREVIEW_DEPLOY_REPO: ${{ secrets.PREVIEW_DEPLOY_REPO }}
           GH_TOKEN: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
