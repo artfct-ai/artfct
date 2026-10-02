@@ -53,6 +53,5 @@ jobs:
       - name: Start the deploy of the install that tracks main
         run: gh workflow run deploy.yml --repo "$PREVIEW_DEPLOY_REPO"
         env:
-          # A secret, so the public logs mask the repository's name.
           PREVIEW_DEPLOY_REPO: ${{ secrets.PREVIEW_DEPLOY_REPO }}
           GH_TOKEN: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
