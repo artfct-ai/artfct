@@ -41,9 +41,6 @@ jobs:
       # In commit order, so the `@main` tag ends on the newest commit.
       group: preview
       cancel-in-progress: false
-    env:
-      # A secret, so the public logs mask the repository's name.
-      PREVIEW_DEPLOY_REPO: ${{ secrets.PREVIEW_DEPLOY_REPO }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -54,8 +51,8 @@ jobs:
       - name: Publish the preview packages to pkg.pr.new
         run: bunx pkg-pr-new publish --bun --no-compact --no-template --comment=off ./packages/core ./packages/cli
       - name: Start the deploy of the install that tracks main
-        # A fork does not hold the secret, so it skips the step.
-        if: env.PREVIEW_DEPLOY_REPO != ''
         run: gh workflow run deploy.yml --repo "$PREVIEW_DEPLOY_REPO"
         env:
+          # A secret, so the public logs mask the repository's name.
+          PREVIEW_DEPLOY_REPO: ${{ secrets.PREVIEW_DEPLOY_REPO }}
           GH_TOKEN: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}
