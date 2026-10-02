@@ -6,6 +6,12 @@ An agent orchestrator. It takes software engineering requests from a chat channe
 
 To run artfct on your own Cloudflare account, follow the install guide in [`docs/index.md`](docs/index.md). `docs/vendors/` has one setup page per vendor. You do not need to clone this repository. `npx artfct init` scaffolds a deployment repo from `template`.
 
+CI publishes a preview build of both packages from every commit on `main` through [pkg.pr.new](https://pkg.pr.new). To run the latest `main` before a release, install the previews in your deployment repo:
+
+```sh
+npm install https://pkg.pr.new/artfct-ai/artfct/@artfct-ai/core@main https://pkg.pr.new/artfct-ai/artfct/artfct@main
+```
+
 ## Repository
 
 - `packages` holds the engine. `packages/orchestrator` and `packages/ingress` are the two Workers. `packages/sandbox-bridge` is the bridge that runs in each sandbox.

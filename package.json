@@ -35,10 +35,11 @@
     "oxfmt": "^0.71.0",
     "oxlint": "^1.86.0",
     "oxlint-tsgolint": "^7.0.2003",
+    "pkg-pr-new": "^0.0.88",
     "turbo": "^2.11.5",
     "typescript": "^7.0.2",
     "vitest": "^4.1.11",
-    "wrangler": "^4.143.0"
+    "wrangler": "^4.143.1"
   },
   "packageManager": "bun@1.4.2"
 }
