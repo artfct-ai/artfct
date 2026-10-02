@@ -37,7 +37,7 @@
         "@artfct-ai/acp": "workspace:*",
         "@artfct-ai/contracts": "workspace:*",
         "@linear/sdk": "^97.0.0",
-        "@notionhq/client": "^5.26.0",
+        "@notionhq/client": "^5.27.0",
         "@octokit/auth-app": "^8.3.1",
         "@octokit/rest": "^22.0.1",
         "@octokit/webhooks-methods": "^6.0.0",
@@ -96,7 +96,7 @@
         "@ai-sdk/provider": "^4.0.19",
         "@cloudflare/sandbox": "^0.12.10",
         "@linear/sdk": "^97.0.0",
-        "@notionhq/client": "^5.26.0",
+        "@notionhq/client": "^5.27.0",
         "@octokit/auth-app": "^8.3.1",
         "@octokit/rest": "^22.0.1",
         "@octokit/webhooks-methods": "^6.0.0",
@@ -419,7 +419,7 @@
 
     "@modelcontextprotocol/server": ["@modelcontextprotocol/server@2.0.0", "", { "dependencies": { "@modelcontextprotocol/core": "2.0.0", "zod": "^4.2.0" } }, "sha512-YhHWdHfpFMQfd0prsEnxKeS3Qz3ytIGmsS0sth4KDjnacIT7hxk6hXHkJ9KysxlkvTM+WZAtQbbcUhdoP4Hvtw=="],
 
-    "@notionhq/client": ["@notionhq/client@5.26.0", "", {}, "sha512-Oc3438nQ5YmZkVO7YJG8fcTYl0V46CirdCvO33azZ9f7ZfD2rsHE4fUVANJiBB9Xf1sqpCs82nd8oKPxeXLmMg=="],
+    "@notionhq/client": ["@notionhq/client@5.27.0", "", {}, "sha512-JnkLtAzSDrEnvtZ8dQ5L4KO+xyL5g01xK5qmKTmhJ5KFY8LWsMyFG033vHCj0mFcsz9thAMjfcAQz/SWxiexag=="],
 
     "@octokit/auth-app": ["@octokit/auth-app@8.3.1", "", { "dependencies": { "@octokit/auth-oauth-app": "^9.0.5", "@octokit/auth-oauth-user": "^6.0.4", "@octokit/request": "^10.0.16", "@octokit/request-error": "^7.1.2", "@octokit/types": "^18.0.0", "toad-cache": "^3.7.0", "universal-github-app-jwt": "^2.2.0", "universal-user-agent": "^7.0.0" } }, "sha512-XHWxZsF4mvGTQCv7AOxgby9t9OjVO19FBuKq+QmyBxFrf+B2hR/P5j/MTF8g95bITf8cRtR17KIXThpFNqiKbg=="],
 
