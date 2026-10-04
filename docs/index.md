@@ -7,7 +7,9 @@ artfct runs software engineering requests through coding agents on your Cloudfla
 - [Deploy](deploy.md)
 - [Claude Code auth](#claude-code-auth)
 - [OpenRouter region](#openrouter-region)
+- [Skills](skills.md)
 - [MCP servers](mcp-servers.md)
+- [Local run](local-run.md), for work on artfct itself
 - Vendors: [GitHub](vendors/github.md), [Slack](vendors/slack.md), [Linear](vendors/linear.md), [Notion](vendors/notion.md)
 
 ## Architecture
