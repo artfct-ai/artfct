@@ -14,7 +14,7 @@ Both Workers AI hosted models and the AI Gateway have latency issues today, so b
 
 - bun workspaces, turborepo, TypeScript 7, oxlint/oxfmt. Small tests run under `bun test`. Medium tests run under vitest with `@cloudflare/vitest-plugin`, because they need workerd.
 - `deploy` depends on `bun run check`. The lint is type aware and is the type gate. Nothing in CI runs `tsc`.
-- `scripts/test-near <file-or-dir>...` runs the tests next to a file or under a directory in seconds. Use it for every change. CI runs everything else.
+- `scripts/test-near <file-or-dir>...` runs the tests next to a file or under a directory in seconds. Use it while you work. `bun run check` runs what CI runs.
 - `bun run fmt` formats. `bun run smoke` runs the end-to-end mock flow and must print `SMOKE PASSED`.
 - `wrangler types` generates `worker-configuration.d.ts` per app. Never add `@cloudflare/workers-types` to an app.
 - The decisions model is a System One model. It answers yes-or-no and choice questions with probabilities and does not generate text. Each gateway picks its own, such as TypeSafe's Jev or Cloudflare's Clef. Write a decisions question against the `Decisions` interface, not against one vendor's model. Load the `typesafe:typesafe-ai` skill before you write or change a decisions question.
@@ -90,6 +90,6 @@ Judge a change by the complexity it leaves behind. Do not judge it by its size. 
 
 ## Done means
 
-Never run `bun run check`, `bun run test`, or a full package test suite yourself. They take minutes, and CI runs them. Run `scripts/test-near` on the files you changed, `bun run lint`, and `bun run fmt` until they pass with zero errors and zero warnings. `bun run smoke` passes. `README.md` reflects a setup change. Push the branch and open a draft PR. Then run `gh pr checks <number> --watch --fail-fast`, fix what fails, and push again until every check is green. Do not stop at a local commit, and do not ask first. Never leave a lint warning or a failing test because it was already there. Fix it in the same change and mention the fix in one line.
+CI does not run on a pull request from a fork until a maintainer approves it, so test every change fully before you push. Use `scripts/test-near` on the files you change while you work. Before you push, `bun run check` passes with zero errors and zero warnings, and `bun run smoke` prints `SMOKE PASSED`. Push the branch and open a draft PR. Then run `gh pr checks <number> --watch --fail-fast`, fix what fails, and push again until every check is green. Do not stop at a local commit, and do not ask first. Never leave a lint warning or a failing test because it was already there. Fix it in the same change and mention the fix in one line.
 
 The PR description states the reason for each part of the change. That is where rationale lives. When a stacked PR's base merges, replay the branch with `git rebase --onto origin/main <old-base-tip> <branch>`, push with `--force-with-lease`, and retarget with `gh pr edit <number> --base main`.

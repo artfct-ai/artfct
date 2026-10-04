@@ -95,3 +95,11 @@ jobs:
 ```
 
 Another CI system runs the same five commands with the same two environment variables. Serialize deploys so two runs never apply migrations at once.
+
+## Run the latest main
+
+CI publishes a preview build of both packages from every commit on `main` through [pkg.pr.new](https://pkg.pr.new). To run the latest `main` before a release, install the previews in your deployment repo:
+
+```sh
+npm install https://pkg.pr.new/artfct-ai/artfct/@artfct-ai/core@main https://pkg.pr.new/artfct-ai/artfct/artfct@main
+```

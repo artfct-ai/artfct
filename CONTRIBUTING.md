@@ -2,28 +2,32 @@
 
 ## Set up
 
-You need bun at the version the root `package.json` names under `packageManager`, and Node.js 22 or later.
+You need:
+
+- bun at the version `packageManager` names in `package.json`.
+- Node.js 22 or later.
+- A harness CLI on your `PATH` for `bun run dev`, such as Claude Code or opencode. The bridge starts it for each sandbox.
+- Docker for `bun run local-run`.
 
 ```sh
 bun install
 cp packages/ingress/.dev.vars.example packages/ingress/.dev.vars
 cp packages/orchestrator/.dev.vars.example packages/orchestrator/.dev.vars
+bun run db:migrate:local
+bun run dev:sandbox          # terminal 1: the mock sandbox host
+bun run dev                  # terminal 2: both Workers under wrangler dev
 ```
-
-The README describes the local dev loop and the layout of the repository. `CLAUDE.md` holds the rules for code in this repository. Read both before you change code.
 
 ## Before you open a pull request
 
-Run these from the repository root. Each must pass with zero errors and zero warnings.
+CI does not run on a pull request from a fork until a maintainer approves it. Test the change fully on your machine first. Run these from the repository root. Each must pass with zero errors and zero warnings.
 
 ```sh
-scripts/test-near <file-or-dir>...   # the tests next to each file you changed
-bun run lint
-bun run fmt
-bun run smoke                        # must print SMOKE PASSED
+bun run check   # the tests, the lint, the build, and the format check that CI runs
+bun run smoke   # must print SMOKE PASSED
 ```
 
-CI runs the full test suite, the build, and the format check on every pull request.
+While you work, `scripts/test-near <file-or-dir>...` runs the tests next to a file in seconds, and `bun run fmt` formats. To run one stage of a workflow in a local container, see [Local run](docs/local-run.md).
 
 ## Pull requests
 
