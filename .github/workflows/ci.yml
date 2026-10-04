@@ -9,6 +9,9 @@ permissions:
   contents: read
 
 env:
+  TURBO_API: ${{ vars.TURBO_API }}
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ao
   # First parent: the merge base on a pull request, the previous commit on main, which only takes squash merges.
   TURBO_SCM_BASE: HEAD^1
 
