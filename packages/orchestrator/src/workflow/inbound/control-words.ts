@@ -5,7 +5,7 @@ export type ParsedControl = { control: Control; rest: string };
 /** A leading bot mention: a Slack `<@U123>` or a plain `@name`. */
 const MENTION = /^\s*(?:<@[A-Z0-9]+>|@[\w.-]+)?\s*/i;
 /** The whole message is one verb, with optional trailing punctuation. */
-const BARE_VERB = /^(cancel|stop|pause|resume|continue|retry)\s*[.!?]*\s*$/i;
+const BARE_VERB = /^(cancel|stop|pause|resume|continue|retry)\s*[.!?]*$/i;
 /** `instruct` carries the text for the harness after it. */
 const INSTRUCT = /^instruct\b[:\s]*/i;
 
@@ -16,7 +16,7 @@ const INSTRUCT = /^instruct\b[:\s]*/i;
  */
 export function parseControl(text: string): ParsedControl | null {
   const body = text.replace(MENTION, "");
-  const verb = BARE_VERB.exec(body);
+  const verb = BARE_VERB.exec(body.trimEnd());
   if (verb?.[1]) return { control: controlFor(verb[1].toLowerCase()), rest: "" };
   const instruct = INSTRUCT.exec(body);
   if (instruct) return { control: "instruct", rest: body.slice(instruct[0].length).trim() };
