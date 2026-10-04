@@ -1,6 +1,8 @@
 # artfct
 
-artfct runs software engineering requests through coding agents on your Cloudflare account. A person asks for work in Slack or Linear. The orchestrator agent splits the request into stages, and a coding agent in a sandbox does each stage. Each stage ends in an artifact the humans review, such as a design page, a set of issues, or a pull request.
+art(i)f(a)ct is a framework designed for professional software engineers to minimize cognitive load and retain context about how their systems work while working with coding agents.
+
+Please note this project is still under early development and hasn't been released yet in any form. A docs site and more detail on the project will be published prior to the initial release.
 
 ## Deploy
 
