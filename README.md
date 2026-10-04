@@ -1,6 +1,6 @@
 # artfct
 
-art(i)f(a)ct is a framework designed for professional software engineers to minimize cognitive load and retain context about how their systems work while working with coding agents.
+art(i)f(a)ct is a framework designed for professional software engineers to minimize cognitive load and retain context about how their systems work while using coding agents.
 
 Please note this project is still under early development and hasn't been released yet in any form. A docs site and more detail on the project will be published prior to the initial release.
 
