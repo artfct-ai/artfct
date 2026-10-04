@@ -9,8 +9,6 @@ permissions:
   contents: read
 
 env:
-  # The optional turbo remote cache, shared by pull request and main runs. Turbo turns it off when
-  # the token is empty, as on a fork.
   TURBO_API: ${{ vars.TURBO_API }}
   TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
   TURBO_TEAM: ao
