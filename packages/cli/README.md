@@ -8,6 +8,7 @@ It needs Node.js 22 or later.
 npx artfct init          # scaffold the deployment repo in the current directory
 npx artfct connect code  # create and install the GitHub App
 npx artfct check         # check the deployment repo before a deploy
+npx artfct check --offline  # skip the Cloudflare credential, for a pull request job
 ```
 
 Follow the [install guide](https://github.com/artfct-ai/artfct/blob/main/docs/index.md).

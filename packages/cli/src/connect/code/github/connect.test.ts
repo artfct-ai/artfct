@@ -13,7 +13,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fakeGithubBrowser, readGithubManifestForm } from "../../../../test/github-browser";
 import { TEMPLATE_DIR } from "../../../../test/template";
-import { readDevVar } from "../../dev-vars";
+import { readDevVar } from "../../../dev-vars";
 import { connectGithubApp } from "./connect";
 
 const PRIVATE_KEY =

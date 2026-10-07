@@ -1,5 +1,7 @@
 import { cpSync, rmSync } from "node:fs";
 import { join, relative } from "node:path";
+import { rolldown } from "rolldown";
+import { dts } from "rolldown-plugin-dts";
 import manifest from "../package.json";
 import { bundledDependencies, type Manifest } from "./bundled-dependencies";
 
@@ -43,10 +45,11 @@ if (JSON.stringify(expected) !== JSON.stringify(manifest.dependencies)) {
 
 rmSync(DIST, { recursive: true, force: true });
 
+const entrypoints = ["orchestrator", "ingress", "durable-objects", "config"].map((entry) =>
+  join(PACKAGE_DIR, "src", `${entry}.ts`),
+);
 const result = await Bun.build({
-  entrypoints: ["orchestrator", "ingress", "durable-objects", "config"].map((entry) =>
-    join(PACKAGE_DIR, "src", `${entry}.ts`),
-  ),
+  entrypoints,
   root: join(PACKAGE_DIR, "src"),
   outdir: DIST,
   target: "browser",
@@ -59,6 +62,18 @@ if (!result.success) {
   for (const log of result.logs) console.error(log);
   process.exit(1);
 }
+
+const declarations = await rolldown({
+  cwd: PACKAGE_DIR,
+  input: entrypoints,
+  external: (id) =>
+    /^(cloudflare|node):/.test(id) ||
+    Object.keys(manifest.dependencies).some(
+      (dependency) => id === dependency || id.startsWith(`${dependency}/`),
+    ),
+  plugins: [dts({ emitDtsOnly: true, tsconfig: join(REPO_DIR, "tsconfig.declarations.json") })],
+});
+await declarations.write({ dir: DIST, format: "esm" });
 
 cpSync(D1_MIGRATIONS, join(DIST, "migrations/d1"), {
   recursive: true,

@@ -4,7 +4,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from "node:ht
 import type { AddressInfo } from "node:net";
 import { basename, join } from "node:path";
 import { describeError } from "../../../describe-error";
-import { readDevVar, writeDevVarsFile } from "../../dev-vars";
+import { readDevVar, writeDevVarsFile } from "../../../dev-vars";
 import {
   consumeGithubCallbackState,
   parseGithubAppConversion,

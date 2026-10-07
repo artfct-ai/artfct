@@ -34,6 +34,17 @@ async function accessReport(repoDir: string) {
   return reports.find((report) => report.check === "access");
 }
 
+async function documentsReport(repoDir: string) {
+  const reports = await runChecks({ repoDir, runWrangler: loggedIn });
+  return reports.find((report) => report.check === "documents credential");
+}
+
+function templateCopyWithDevVars(devVars: string): string {
+  const repoDir = templateCopy();
+  writeFileSync(join(repoDir, "orchestrator/.dev.vars"), devVars);
+  return repoDir;
+}
+
 afterEach(() => {
   for (const repoDir of repoDirs.splice(0)) rmSync(repoDir, { recursive: true, force: true });
 });
@@ -47,6 +58,7 @@ describe("runChecks", () => {
     expect(reports.map((report) => [report.check, report.outcome])).toEqual([
       ["Cloudflare credential", "passed"],
       ["config", "passed"],
+      ["documents credential", "skipped"],
       ["access", "failed"],
       ["skills", "passed"],
       ["sandbox image", "passed"],
@@ -236,7 +248,59 @@ describe("runChecks", () => {
       "failed",
       "failed",
       "failed",
+      "failed",
     ]);
+  });
+
+  it("skips the Cloudflare credential offline and runs the other checks", async () => {
+    const reports = await runChecks({ repoDir: TEMPLATE_DIR, runWrangler: null });
+    expect(reports[0]).toEqual({
+      check: "Cloudflare credential",
+      outcome: "skipped",
+      detail: "--offline skips it",
+    });
+    expect(reports.find((report) => report.check === "config")?.outcome).toBe("passed");
+  });
+});
+
+describe("the documents credential check", () => {
+  it("warns on an empty Notion token and names each stage that writes a page", async () => {
+    const repoDir = templateCopyWithDevVars("SLACK_BOT_TOKEN=xoxb-1\nNOTION_TOKEN=\n");
+    expect(await documentsReport(repoDir)).toEqual({
+      check: "documents credential",
+      outcome: "warned",
+      problems: [
+        "NOTION_TOKEN is empty in orchestrator/.dev.vars. The orchestrator refuses to start the stages that write a page: architectural directions, design, plan",
+      ],
+    });
+  });
+
+  it("warns on a .dev.vars without a Notion token line", async () => {
+    const repoDir = templateCopyWithDevVars("SLACK_BOT_TOKEN=xoxb-1\n");
+    expect((await documentsReport(repoDir))?.outcome).toBe("warned");
+  });
+
+  it("passes a set Notion token", async () => {
+    const repoDir = templateCopyWithDevVars("NOTION_TOKEN=ntn_123\n");
+    expect(await documentsReport(repoDir)).toEqual({
+      check: "documents credential",
+      outcome: "passed",
+      detail: "NOTION_TOKEN is set",
+    });
+  });
+
+  it("skips Linear documents, which use the Linear install", async () => {
+    const repoDir = templateCopyWithDevVars("NOTION_TOKEN=\n");
+    const configFile = join(repoDir, "orchestrator/artfct.yaml");
+    writeFileSync(
+      configFile,
+      readFileSync(configFile, "utf8").replace(/provider: notion/, "provider: linear"),
+    );
+    expect(await documentsReport(repoDir)).toEqual({
+      check: "documents credential",
+      outcome: "skipped",
+      detail: "Linear documents use the Linear install",
+    });
   });
 });
 
@@ -245,8 +309,12 @@ describe("formatChecksReport", () => {
     expect(
       formatChecksReport([
         { check: "skills", outcome: "passed", detail: "2 skills" },
+        { check: "Cloudflare credential", outcome: "skipped", detail: "--offline skips it" },
+        { check: "documents credential", outcome: "warned", problems: ["empty"] },
         { check: "config", outcome: "failed", problems: ["first\nsecond"] },
       ]),
-    ).toBe("ok    skills: 2 skills\nFAIL  config\n      first\n      second\n");
+    ).toBe(
+      "ok    skills: 2 skills\nskip  Cloudflare credential: --offline skips it\nWARN  documents credential\n      empty\nFAIL  config\n      first\n      second\n",
+    );
   });
 });

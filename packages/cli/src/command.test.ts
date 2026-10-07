@@ -1,9 +1,19 @@
 import { describe, expect, it } from "bun:test";
-import { parseCommand } from "./command";
+import { type Command, parseCommand } from "./command";
 
 describe("parseCommand", () => {
   it("reads check", () => {
-    expect(parseCommand(["check"])).toEqual({ kind: "check" });
+    expect(parseCommand(["check"])).toEqual({ kind: "check", offline: false });
+  });
+
+  it("reads check --offline", () => {
+    expect(parseCommand(["check", "--offline"])).toEqual({ kind: "check", offline: true });
+  });
+
+  it("rejects --offline on init and connect code", () => {
+    const invalid: Command = { kind: "invalid", message: "--offline is an option of check." };
+    expect(parseCommand(["init", "--offline"])).toEqual(invalid);
+    expect(parseCommand(["connect", "code", "--offline"])).toEqual(invalid);
   });
 
   it("reads init", () => {
