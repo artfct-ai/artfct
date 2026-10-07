@@ -18,7 +18,7 @@ import { markAuthorInReview, recordArtifact, stageHasRefiners } from "../artifac
 import { flushBoards } from "../board/board";
 import { failTask } from "../lifecycle";
 import { heldForReview, settleRefinersForAuthor } from "../refiner/loop";
-import { newPageParent } from "../root-page";
+import { newPageParent, rootPageStage } from "../root-page";
 import { markArtifactReady, reopenChangedArtifact } from "../refiner/outcome";
 import { isTaskFinished, workflowName } from "../store/state";
 import type { JobRow, TaskRow } from "../store/tasks";
@@ -137,7 +137,7 @@ async function producePage(
   if (!text) return { failure: "The model answered with no document text." };
   const stage = workflow.stageForTask(task);
   const root = workflow.state.root_page;
-  if (stage.root_page && root?.source === "container") {
+  if (rootPageStage(workflow)?.name === stage.name && root?.source === "container") {
     const filled = aboveResources(text, await host.documents.readPageContent(root.page_id));
     await host.documents.updatePageContent(root.page_id, filled);
     workflow.log(task.task_id, `root page filled: ${root.url}`);

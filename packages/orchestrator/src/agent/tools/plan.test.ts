@@ -47,7 +47,7 @@ function addPlanStage(workflow: FakeRuntime): void {
   const [design, ...rest] = workflow.workflowDefinition().stages;
   if (!design) throw new Error("the test definition has no design stage");
   workflow.patchWorkflowDefinition({
-    stages: [design, { ...design, name: "plan", root_page: false }, ...rest],
+    stages: [design, { ...design, name: "plan" }, ...rest],
   });
 }
 
@@ -624,7 +624,10 @@ describe("list_repositories", () => {
     describe("a plan with the root page stage and a page parent in the workflow definition", () => {
       const planned = scenario(freshRuntime, async (workflow) => {
         patchNestingHost(workflow);
-        workflow.patchWorkflowDefinition({ page_parent: "db-default" });
+        const { documents } = workflow.workflowDefinition();
+        workflow.patchWorkflowDefinition({
+          documents: { ...documents, page_parent: "db-default" },
+        });
         await planWithPages(workflow, { stages: ["design"] });
       });
 

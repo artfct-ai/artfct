@@ -19,7 +19,6 @@ function stageOf(reviewers: ReviewerEntry[], polishers: RefinerEntry[]): Stage {
     polishers,
     author: { produce: { execution: "harness", skill: "implement" } },
     ending: "acceptance",
-    root_page: false,
   };
 }
 

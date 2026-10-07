@@ -8,7 +8,7 @@ Set `adapters.documents.provider: notion` in `orchestrator/artfct.yaml`. The tem
 
 The page parent is the page or database that holds a workflow's documents. A database must have exactly one table. Each document becomes a row of that table, with its title in the table's title column.
 
-The stage marked `root_page: true` in the workflow definition makes the root page. In the template that is `design`. The root page is the page people read first, and it holds every other page of the workflow:
+The stage that `documents.root_page` names in the workflow definition makes the root page. In the template that is `design`. The root page is the page people read first, and it holds every other page of the workflow:
 
 - When the plan includes that stage, the orchestrator creates the root page under the page parent as an empty container. The stage fills it in. Every other page of the workflow is created as its subpage.
 - A request that starts from an existing page, such as architectural directions, keeps that page where it is. The root page links to it, and the agent asks once whether to move it in instead.
@@ -37,7 +37,7 @@ Harness tasks in the sandbox, such as the template's page reviewers, work on Not
 3. Give it the capabilities Read content, Update content, Insert content, Read comments, Insert comments, and User information with email addresses. The orchestrator matches Notion users to people by email. A comment reaches the workflow only when its author's email belongs to a user of the installed Linear workspace. See `access.tracker_team` on the [Linear page](linear.md).
 4. Copy the token from the connection's Configuration tab into both `.dev.vars` files as `NOTION_TOKEN`. Ingress uses it to fetch comment bodies. The orchestrator uses it to write pages and reply, and hands it to harness tasks on page stages.
 5. Share the page or database that holds your documents with the connection. Open its ••• menu, choose Add connections, and pick `artfct`. The connection sees only the pages shared with it and their children.
-6. Set `page_parent` in the workflow definition, `orchestrator/workflows/development.yaml` in the template, to its link. Each workflow definition has its own default, so different kinds of work can keep their documents in different places. A request can name another page or database by its link, and that one wins. Without either, the agent asks.
+6. Set `documents.page_parent` in the workflow definition, `orchestrator/workflows/development.yaml` in the template, to its link. Each workflow definition has its own default, so different kinds of work can keep their documents in different places. A request can name another page or database by its link, and that one wins. Without either, the agent asks.
 
 | File | Name | Value |
 |---|---|---|

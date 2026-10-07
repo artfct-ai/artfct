@@ -81,27 +81,11 @@ export const Stage = z
     research: StageResearch.optional(),
     /** `choice` completes a job only on a selection among the options on its page. */
     ending: StageEnding.default("acceptance"),
-    /** The page of this stage is the root page, on a document host that nests pages. */
-    root_page: z.boolean().default(false),
   })
   .refine((stage) => stage.ending === "acceptance" || stage.artifact === "page", {
     message: "a stage with a choice ending produces a page, where its options are listed",
     path: ["ending"],
-  })
-  .refine((stage) => !stage.root_page || stage.artifact === "page", {
-    message: "root_page marks a stage that produces a page",
-    path: ["root_page"],
-  })
-  .refine(
-    (stage) =>
-      !stage.root_page ||
-      (stage.author.produce.execution === "model" && stage.polishers.length === 0),
-    {
-      message:
-        "the root page stage needs a model-call author and no polishers. A harness rewrites the whole page, and the root page keeps its resources section.",
-      path: ["root_page"],
-    },
-  );
+  });
 export type Stage = z.infer<typeof Stage>;
 
 /** The harness, model, effort, and skill one task runs with, task settings applied. */

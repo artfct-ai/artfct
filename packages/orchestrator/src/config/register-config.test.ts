@@ -25,14 +25,14 @@ describe("loadDeploymentConfig", () => {
 
   describe("a workflow definition with a default page parent", () => {
     const LINK = "https://www.notion.so/acme/Design-docs-3eb92fd781108088b848ebb16c8f4838";
-    const withPageParent = `page_parent: "${LINK}"\n${DEFINITION}`;
+    const withPageParent = `documents: { page_parent: "${LINK}" }\n${DEFINITION}`;
 
     it("keeps it on a document host that nests pages", () => {
       const loaded = loadDeploymentConfig({
         config: "adapters: { documents: { provider: notion } }",
         workflowDefinitions: [{ name: "development", text: withPageParent }],
       });
-      expect(loaded.workflowDefinition.page_parent).toBe(LINK);
+      expect(loaded.workflowDefinition.documents.page_parent).toBe(LINK);
     });
 
     it("is unset when the workflow definition names none", () => {
@@ -40,7 +40,7 @@ describe("loadDeploymentConfig", () => {
         config: "",
         workflowDefinitions: [{ name: "development", text: DEFINITION }],
       });
-      expect(loaded.workflowDefinition.page_parent).toBeUndefined();
+      expect(loaded.workflowDefinition.documents.page_parent).toBeUndefined();
     });
 
     it("refuses it on Linear, where the issue's project holds the documents", () => {
@@ -49,7 +49,7 @@ describe("loadDeploymentConfig", () => {
           config: "",
           workflowDefinitions: [{ name: "development", text: withPageParent }],
         }),
-      ).toThrow(/workflows\/development\.yaml sets page_parent/);
+      ).toThrow(/workflows\/development\.yaml sets documents\.page_parent/);
     });
   });
 

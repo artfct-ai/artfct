@@ -20,6 +20,13 @@ function definitionWithStages(stages: string) {
   return loadWorkflowDefinition("development", `${DESCRIPTION}\nstages:\n${stages}`);
 }
 
+function definitionWithRootPage(rootPage: string, stages: string) {
+  return loadWorkflowDefinition(
+    "development",
+    `${DESCRIPTION}\ndocuments: { root_page: ${rootPage} }\nstages:\n${stages}`,
+  );
+}
+
 describe("loadWorkflowDefinition", () => {
   describe("a definition with one stage", () => {
     const definition = loadWorkflowDefinition("development", MINIMAL_YAML);
@@ -137,35 +144,42 @@ describe("loadWorkflowDefinition", () => {
     const MODEL_PAGE =
       "artifact: page, author: { produce: { execution: model, skill: design, model: openrouter/x-ai/grok-4.6 } }";
 
-    it("marks the stage whose page is the root page", () => {
-      const definition = definitionWithStages(
-        `  - { name: design, ${MODEL_PAGE}, root_page: true }\n  - { name: plan, ${MODEL_PAGE} }`,
+    it("names the stage whose page is the root page", () => {
+      const definition = definitionWithRootPage(
+        "design",
+        `  - { name: design, ${MODEL_PAGE} }\n  - { name: plan, ${MODEL_PAGE} }`,
       );
-      expect(definition.stages.map((stage) => stage.root_page)).toEqual([true, false]);
+      expect(definition.documents.root_page).toBe("design");
+    });
+
+    it("is unset when the definition names none", () => {
+      expect(
+        loadWorkflowDefinition("development", MINIMAL_YAML).documents.root_page,
+      ).toBeUndefined();
+    });
+
+    it("refuses a stage the definition does not have", () => {
+      expect(() =>
+        definitionWithRootPage("overview", `  - { name: design, ${MODEL_PAGE} }`),
+      ).toThrow(/documents\.root_page names overview, which is not a stage/);
     });
 
     it("refuses a root page stage that produces no page", () => {
       expect(() =>
-        definitionWithStages(
-          "  - { name: x, artifact: pull, root_page: true, author: { produce: { execution: harness, skill: implement } } }",
+        definitionWithRootPage(
+          "x",
+          "  - { name: x, artifact: pull, author: { produce: { execution: harness, skill: implement } } }",
         ),
-      ).toThrow(/root_page marks a stage that produces a page/);
+      ).toThrow(/documents\.root_page names x, which does not produce a page/);
     });
 
     it("refuses a root page stage whose author runs in a harness", () => {
       expect(() =>
-        definitionWithStages(
-          "  - { name: design, artifact: page, root_page: true, author: { produce: { execution: harness, skill: design } } }",
+        definitionWithRootPage(
+          "design",
+          "  - { name: design, artifact: page, author: { produce: { execution: harness, skill: design } } }",
         ),
       ).toThrow(/model-call author/);
-    });
-
-    it("refuses two root page stages", () => {
-      expect(() =>
-        definitionWithStages(
-          `  - { name: design, ${MODEL_PAGE}, root_page: true }\n  - { name: plan, ${MODEL_PAGE}, root_page: true }`,
-        ),
-      ).toThrow(/one stage at most sets root_page/);
     });
   });
 

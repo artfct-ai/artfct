@@ -33,9 +33,9 @@ export function loadDeploymentConfig(
       `the deployment has ${definitions.length} workflow definitions (${names}). Multiple workflow definitions are not supported yet. Keep one`,
     );
   }
-  if (workflowDefinition.page_parent && config.adapters.documents.provider === "linear") {
+  if (workflowDefinition.documents.page_parent && config.adapters.documents.provider === "linear") {
     throw new Error(
-      `workflows/${workflowDefinition.name}.yaml sets page_parent, which is for a document host that nests pages. Linear puts the documents of a workflow in the project of its issue, or the agent asks`,
+      `workflows/${workflowDefinition.name}.yaml sets documents.page_parent, which is for a document host that nests pages. Linear puts the documents of a workflow in the project of its issue, or the agent asks`,
     );
   }
   return { config, workflowDefinition };

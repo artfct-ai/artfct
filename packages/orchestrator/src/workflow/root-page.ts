@@ -12,9 +12,10 @@ import type { WorkflowRuntime } from "./types";
 /** A page on the document host, by the id `pageFromUrl` gives and its link. */
 export type HostPage = { page_id: string; url: string };
 
-/** The stage of the workflow definition whose page is the root page. Undefined when none sets it. */
+/** The stage `documents.root_page` names, whose page is the root page. Undefined when it names none. */
 export function rootPageStage(workflow: WorkflowRuntime): Stage | undefined {
-  return workflow.workflowDefinition().stages.find((stage) => stage.root_page);
+  const { documents, stages } = workflow.workflowDefinition();
+  return stages.find((stage) => stage.name === documents.root_page);
 }
 
 /** Where a new page of the workflow goes: under the root page once there is one, else the page parent. */

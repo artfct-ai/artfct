@@ -1,9 +1,13 @@
 # The stages run in order. You can kickoff a workflow from any stage with a pre-existing artifact.
 description: Take a request from design through pull requests.
 
-# Where Notion puts the pages of this workflow when the request names no place. A link to a page,
-# or to a database with one table. Without it the agent asks.
-# page_parent: https://www.notion.so/<workspace>/<page or database id>
+# Settings for the pages this workflow writes, across its stages.
+documents:
+  # On Notion, the page of this stage holds every other page of the workflow.
+  root_page: design
+  # Where Notion puts the pages of this workflow when the request names no place. A link to a
+  # page, or to a database with one table. Without it the agent asks.
+  # page_parent: https://www.notion.so/<workspace>/<page or database id>
 
 stages:
   - name: architectural directions
@@ -35,8 +39,6 @@ stages:
 
   - name: design
     artifact: page
-    # On Notion, the design page holds every other page of the workflow.
-    root_page: true
     author:
       produce:
         execution: model

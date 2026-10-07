@@ -26,10 +26,12 @@ export async function planPages(
   workflow: WorkflowRuntime,
   input: PagePlanInput,
 ): Promise<PagePlan | { refusal: string }> {
-  const pageParent = input.page_parent ?? workflow.workflowDefinition().page_parent ?? null;
+  const pageParent =
+    input.page_parent ?? workflow.workflowDefinition().documents.page_parent ?? null;
   const documents = await workflow.documents();
   const nesting = documents?.nesting;
-  if (!documents || !nesting || !rootPageStage(workflow)) return flatPagePlan(input, pageParent);
+  const rootPageStageName = rootPageStage(workflow)?.name;
+  if (!documents || !nesting || !rootPageStageName) return flatPagePlan(input, pageParent);
   const current = workflow.state.root_page ?? null;
   if (current) {
     const named = input.root_page ? await documents.pageFromUrl(input.root_page) : null;
@@ -44,7 +46,7 @@ export async function planPages(
       refusal: "No planned stage writes a page, so there is no root page. Pass root_page null.",
     };
   }
-  const rootStage = input.stages.find((stage) => stage.root_page);
+  const rootStage = input.stages.find((stage) => stage.name === rootPageStageName);
   try {
     if (rootStage) {
       if (input.root_page) {

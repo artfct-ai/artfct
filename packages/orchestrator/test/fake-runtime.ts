@@ -531,14 +531,11 @@ export function patchNestingHost(
   answers: DocumentsAnswers = {},
 ): FakeDocuments {
   patchModelExecution(workflow);
-  workflow.patchWorkflowDefinition({
-    stages: workflow
-      .workflowDefinition()
-      .stages.map((stage) => ({ ...stage, root_page: stage.name === "design" })),
-  });
-  const documents = new FakeDocuments({ ...answers, nests: true });
-  workflow.documentsInstance = documents;
-  return documents;
+  const definition = workflow.workflowDefinition();
+  workflow.patchWorkflowDefinition({ documents: { ...definition.documents, root_page: "design" } });
+  const host = new FakeDocuments({ ...answers, nests: true });
+  workflow.documentsInstance = host;
+  return host;
 }
 
 /** The fake document host the runtime holds. */

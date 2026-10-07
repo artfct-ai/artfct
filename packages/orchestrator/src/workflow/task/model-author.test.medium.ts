@@ -165,11 +165,7 @@ describe("runModelAuthorTurn", () => {
   describe("a page stage after the root page", () => {
     const written = scenario(freshDurableRuntime, async (workflow) => {
       const documents = patchNestingHost(workflow);
-      workflow.patchWorkflowDefinition({
-        stages: workflow
-          .workflowDefinition()
-          .stages.map((stage) => ({ ...stage, root_page: false })),
-      });
+      workflow.patchWorkflowDefinition({ documents: {} });
       documents.seedPage("root-1", "# Design\n\n## Resources");
       workflow.patchState({
         name: "SSO sign-in",
