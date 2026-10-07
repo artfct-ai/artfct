@@ -22,27 +22,6 @@ describe("loadConfig", () => {
     });
   });
 
-  describe("a default page parent", () => {
-    const LINK = "https://www.notion.so/acme/Design-docs-3eb92fd781108088b848ebb16c8f4838";
-
-    it("keeps it on a document host that nests pages", () => {
-      const config = loadConfig(
-        `adapters: { documents: { provider: notion, page_parent: "${LINK}" } }`,
-      );
-      expect(config.adapters.documents.page_parent).toBe(LINK);
-    });
-
-    it("is unset when the config names none", () => {
-      expect(loadConfig("").adapters.documents.page_parent).toBeUndefined();
-    });
-
-    it("refuses it on Linear, where the issue's project holds the documents", () => {
-      expect(() => loadConfig("adapters: { documents: { page_parent: project-1 } }")).toThrow(
-        /page_parent/,
-      );
-    });
-  });
-
   describe("an orchestrator with request fields", () => {
     const { orchestrator } = loadConfig(`
 orchestrator:

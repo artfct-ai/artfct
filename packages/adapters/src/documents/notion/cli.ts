@@ -30,4 +30,4 @@ export const NOTION_PAGE_INSTRUCTIONS: PageInstructions = {
 
 /** Where the orchestrator agent finds the page parent of a workflow on Notion. */
 export const NOTION_PAGE_PARENT_HINT =
-  "the link of a Notion page or database the request names as the place for the documents. Null when the request names none, and the default from the config applies.";
+  "the link of a Notion page or database the request names as the place for the documents. Null when the request names none, and the workflow definition's default applies.";

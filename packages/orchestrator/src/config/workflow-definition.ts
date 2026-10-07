@@ -3,10 +3,15 @@ import { z } from "zod";
 import { SkillRef } from "./skill-frontmatter";
 import { Stage } from "./stage";
 
-/** The two keys of a workflow definition file. An unknown key fails. */
+/** The keys of a workflow definition file. An unknown key fails. */
 const WorkflowDefinitionFile = z.strictObject({
   /** What kind of work the definition is for. The orchestrator agent reads it. */
   description: z.string().trim().min(1),
+  /**
+   * Where the pages of this kind of work go when the request names no place. A link to a page,
+   * or to a database, on a document host that nests pages.
+   */
+  page_parent: z.string().trim().min(1).optional(),
   /** The stages in order. A task reads the one its job runs. */
   stages: z
     .array(Stage)

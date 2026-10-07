@@ -11,9 +11,6 @@ adapters:
     provider: slack
   documents:
     provider: notion
-    # Where pages go when the request names no place. A link to a page, or to a database with
-    # one table. Without it the agent asks.
-    # page_parent: https://www.notion.so/<workspace>/<page or database id>
   gateway:
     provider: openrouter
 

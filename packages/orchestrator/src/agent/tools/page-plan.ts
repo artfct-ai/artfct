@@ -16,7 +16,8 @@ export type PagePlanInput = {
 export type PagePlan = { page_parent: string | null; root_page: RootPage | null; note: string };
 
 /**
- * Settle where the pages of the workflow go. The page parent falls back to the config default.
+ * Settle where the pages of the workflow go. The page parent falls back to the workflow
+ * definition's default.
  * On a host that nests pages, in a workflow definition with a root page stage, a plan that
  * writes pages gets its root page here: a container when a planned stage makes the root page,
  * else the existing page `root_page` names.
@@ -25,7 +26,7 @@ export async function planPages(
   workflow: WorkflowRuntime,
   input: PagePlanInput,
 ): Promise<PagePlan | { refusal: string }> {
-  const pageParent = input.page_parent ?? workflow.config().adapters.documents.page_parent ?? null;
+  const pageParent = input.page_parent ?? workflow.workflowDefinition().page_parent ?? null;
   const documents = await workflow.documents();
   const nesting = documents?.nesting;
   if (!documents || !nesting || !rootPageStage(workflow)) return flatPagePlan(input, pageParent);
@@ -51,7 +52,7 @@ export async function planPages(
       }
       if (!pageParent) {
         return {
-          refusal: `Stage ${rootStage.name} makes the root page, and no page parent was given or set in the config. Ask the requester where the documents go, then call set_plan again with page_parent.`,
+          refusal: `Stage ${rootStage.name} makes the root page, and no page parent was given or set in the workflow definition. Ask the requester where the documents go, then call set_plan again with page_parent.`,
         };
       }
       const title = modelAuthorPageTitle(input.name, rootStage.name);
@@ -91,7 +92,7 @@ function flatPagePlan(
   if (needsPageParent && !pageParent) {
     return {
       refusal:
-        "A planned stage writes its page as a model call, and no page parent was given or set in the config. Find it as the page_parent field describes, then call set_plan again. Ask only when nothing points to one.",
+        "A planned stage writes its page as a model call, and no page parent was given or set in the workflow definition. Find it as the page_parent field describes, then call set_plan again. Ask only when nothing points to one.",
     };
   }
   return { page_parent: pageParent, root_page: null, note: "" };

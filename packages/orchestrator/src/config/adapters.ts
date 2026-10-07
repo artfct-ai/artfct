@@ -17,25 +17,12 @@ export type ChatProvider = z.infer<typeof ChatProvider>;
 export const DocumentsProvider = z.enum(["notion", "linear"]);
 export type DocumentsProvider = z.infer<typeof DocumentsProvider>;
 
-/** The document host and where it puts pages when a request names no place. */
-export const DocumentsAdapter = z
-  .strictObject({
-    provider: DocumentsProvider.default("linear"),
-    /** The default page parent, a link to a page or a database, on a host that nests pages. */
-    page_parent: z.string().trim().min(1).optional(),
-  })
-  .refine((documents) => documents.page_parent === undefined || documents.provider !== "linear", {
-    message:
-      "page_parent is for a document host that nests pages. Linear puts the documents of a workflow in the project of its issue, or the agent asks.",
-    path: ["page_parent"],
-  });
-
 /** One vendor per adapter capability, with that capability's settings. */
 export const Adapters = z.strictObject({
   code: z.strictObject({ provider: CodeProvider.default("github") }).prefault({}),
   tracker: z.strictObject({ provider: TrackerProvider.default("linear") }).prefault({}),
   chat: z.strictObject({ provider: ChatProvider.default("slack") }).prefault({}),
-  documents: DocumentsAdapter.prefault({}),
+  documents: z.strictObject({ provider: DocumentsProvider.default("linear") }).prefault({}),
   gateway: GatewayAdapter.prefault({}),
 });
 export type Adapters = z.infer<typeof Adapters>;

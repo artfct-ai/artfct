@@ -621,20 +621,14 @@ describe("list_repositories", () => {
         }));
     });
 
-    describe("a plan with the root page stage and a page parent in the config", () => {
+    describe("a plan with the root page stage and a page parent in the workflow definition", () => {
       const planned = scenario(freshRuntime, async (workflow) => {
         patchNestingHost(workflow);
-        const { adapters } = workflow.config();
-        workflow.patchConfig({
-          adapters: {
-            ...adapters,
-            documents: { provider: "notion", page_parent: "db-default" },
-          },
-        });
+        workflow.patchWorkflowDefinition({ page_parent: "db-default" });
         await planWithPages(workflow, { stages: ["design"] });
       });
 
-      it("creates the root page under the config default", () =>
+      it("creates the root page under the workflow definition's default", () =>
         planned((workflow) => {
           expect(workflow.state.page_parent).toBe("db-default");
           expect(fakeDocumentsOf(workflow).argsOf("createRootPage")[0]?.[2]).toBe("db-default");
