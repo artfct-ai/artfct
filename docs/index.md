@@ -141,21 +141,21 @@ npx wrangler secret bulk ingress/.dev.vars -c ingress/wrangler.jsonc
 
 ## Claude Code auth
 
-The `claude-code` harness needs a credential for Anthropic models. The template runs every harness author on `claude-code`. Set up one of these two routes. When both are set, the token wins.
+The `claude-code` harness needs an Anthropic API key. The template runs every harness author on `claude-code`. Give the key to the sandboxes directly, or store it in a Cloudflare AI Gateway. When both are set, the direct key wins.
 
-### A Claude subscription token
+### An API key
 
-Run `claude setup-token` on a machine where you are logged in to Claude Code. Paste its output into `orchestrator/.dev.vars`:
+Create a key in the Claude Console. Paste it into `orchestrator/.dev.vars`:
 
 ```sh
-CLAUDE_CODE_OAUTH_TOKEN=<output of claude setup-token>
+ANTHROPIC_API_KEY=<your API key>
 ```
 
-Each sandbox receives the token as `CLAUDE_CODE_OAUTH_TOKEN`. Only the token owner's own work may run on it.
+Each sandbox receives the key as `ANTHROPIC_API_KEY`, and its usage bills the key's organization. It works with either gateway.
 
 ### The Cloudflare AI Gateway
 
-Leave `CLAUDE_CODE_OAUTH_TOKEN` empty and route Claude Code through the Anthropic endpoint of a Cloudflare AI Gateway. The gateway holds the Anthropic credential.
+Leave `ANTHROPIC_API_KEY` empty and route Claude Code through the Anthropic endpoint of a Cloudflare AI Gateway. The gateway holds the Anthropic credential.
 
 1. Create an AI Gateway and store your Anthropic key in it.
 2. Create a Cloudflare API token with the permissions AI Gateway Run and Workers AI Read.
@@ -174,7 +174,7 @@ Leave `CLAUDE_CODE_OAUTH_TOKEN` empty and route Claude Code through the Anthropi
      gateway: cloudflare
    ```
 
-The sandbox gateway comes from `providers.gateway`. The OpenRouter gateway has no Anthropic endpoint, so a task on `claude-code` fails with `claude-code needs CLAUDE_CODE_OAUTH_TOKEN or a gateway with an Anthropic endpoint` when neither route is set up.
+The sandbox gateway comes from `providers.gateway`. The OpenRouter gateway has no Anthropic endpoint, so a task on `claude-code` fails with `claude-code needs ANTHROPIC_API_KEY or a gateway with an Anthropic endpoint` when neither route is set up.
 
 ## OpenRouter region
 
@@ -192,4 +192,4 @@ The region covers every call the OpenRouter gateway makes: the orchestrator agen
 
 - Replace each model the region does not serve. A region serves fewer models than the global host, and OpenRouter fails a request for a model with no provider in the region. `https://eu.openrouter.ai/api/v1/models` lists the models of the EU, and `https://us.openrouter.ai/api/v1/models` lists the models of the US. Check every `openrouter/` model in `orchestrator/artfct.yaml` and in each workflow definition, the template's included.
 - Use `gateway: openrouter` for every `openrouter/` model. The Cloudflare gateway passes such a model through to OpenRouter's global host, so it refuses the model while a region is set.
-- The region does not cover Claude Code on a subscription token. Those calls go to Anthropic.
+- The region does not cover Claude Code on `ANTHROPIC_API_KEY`. Those calls go to Anthropic.

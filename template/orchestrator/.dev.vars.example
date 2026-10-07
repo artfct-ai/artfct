@@ -18,12 +18,11 @@ AI_GATEWAY_TOKEN=
 OPEN_ROUTER_API_KEY=
 
 # --- Claude Code auth for the claude-code harness. Set up one of the two. ---
-# 1. A Claude subscription. Paste the output of `claude setup-token`. Only the token owner's own
-#    work may run on it.
+# 1. An Anthropic API key. Usage bills the key's organization.
 # 2. The Anthropic route of the Cloudflare AI Gateway. Leave this empty, set `providers.gateway:
 #    cloudflare` in artfct.yaml, and fill in the Cloudflare AI Gateway settings above. The gateway
-#    holds the Anthropic credential.
-CLAUDE_CODE_OAUTH_TOKEN=
+#    holds the Anthropic API key.
+ANTHROPIC_API_KEY=
 
 # --- GitHub App installed on the target repo ---
 GITHUB_APP_ID=

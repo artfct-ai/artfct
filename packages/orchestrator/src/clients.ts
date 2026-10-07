@@ -94,9 +94,12 @@ export function gateway(env: Env, provider: GatewayProvider, settings: Gateways)
   });
 }
 
-/** The adapter for a harness, with the subscription token when the deployment has one. */
+/** The adapter for a harness, with the deployment's Claude credentials when it has them. */
 export function harness(env: Env, name: Harness): HarnessAdapter {
-  return harnessAdapter(name, { claudeOauthToken: env.CLAUDE_CODE_OAUTH_TOKEN?.trim() || null });
+  return harnessAdapter(name, {
+    claudeOauthToken: env.CLAUDE_CODE_OAUTH_TOKEN?.trim() || null,
+    anthropicApiKey: env.ANTHROPIC_API_KEY?.trim() || null,
+  });
 }
 
 /** Page reads over HTTP for the orchestrator agent. */
