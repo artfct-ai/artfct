@@ -13,10 +13,17 @@ import {
   type HarnessTaskInput,
 } from "../types";
 
+/** A credential Claude Code sends to Anthropic directly, without a gateway. */
+export type ClaudeCredential =
+  /** Long-lived token from `claude setup-token`. Bills the owner's Claude subscription. */
+  | { kind: "oauth_token"; token: string }
+  /** A Claude Platform API key. Bills the key's organization. */
+  | { kind: "api_key"; key: string };
+
 /** What the Claude Code adapter takes from the deployment. */
 export type ClaudeCodeOptions = {
-  /** Long-lived token from `claude setup-token`. Bills the owner's Claude subscription. */
-  oauthToken: string | null;
+  /** Wins over the gateway's Anthropic route when set. */
+  credential: ClaudeCredential | null;
   /** A seam for tests. */
   fetch?: typeof fetch;
 };
@@ -26,7 +33,7 @@ const ANTHROPIC_VENDOR = "anthropic";
 
 /**
  * Claude Code through the official ACP adapter over the Claude Agent SDK. It speaks the
- * Anthropic API only: a subscription token, or a gateway with an Anthropic route.
+ * Anthropic API only: a subscription token, an API key, or a gateway with an Anthropic route.
  */
 export class ClaudeCodeHarness implements HarnessAdapter {
   readonly name = "claude-code";
@@ -65,17 +72,15 @@ export class ClaudeCodeHarness implements HarnessAdapter {
     const env = { ANTHROPIC_MODEL: input.model, ...TODO_TOOLS_ENV };
     const files = input.effort ? [settingsFile(input.effort)] : [];
     const commands = [RTK_HOOK_INSTALL];
-    if (this.options.oauthToken) {
-      const token = this.options.oauthToken;
-      return { env: { ...env, CLAUDE_CODE_OAUTH_TOKEN: token }, files, commands };
-    }
+    const credential = this.options.credential;
+    if (credential) return { env: { ...env, ...credentialEnv(credential) }, files, commands };
     const anthropic = input.gateway?.anthropic;
     if (anthropic) return { env: { ...env, ...routeEnv(anthropic) }, files, commands };
     const why = input.gateway
       ? "The configured gateway has no Anthropic endpoint."
       : "No gateway is configured.";
     return {
-      error: `claude-code needs CLAUDE_CODE_OAUTH_TOKEN or a gateway with an Anthropic endpoint. ${why}`,
+      error: `claude-code needs ANTHROPIC_API_KEY or a gateway with an Anthropic endpoint. ${why}`,
     };
   }
 }
@@ -92,6 +97,15 @@ function settingsFile(effort: Effort): HarnessFile {
     path: `${SANDBOX_HOME}/.claude/settings.json`,
     content: JSON.stringify({ effortLevel: effort }),
   };
+}
+
+function credentialEnv(credential: ClaudeCredential): Record<string, string> {
+  switch (credential.kind) {
+    case "oauth_token":
+      return { CLAUDE_CODE_OAUTH_TOKEN: credential.token };
+    case "api_key":
+      return { ANTHROPIC_API_KEY: credential.key };
+  }
 }
 
 /** Claude Code takes its route as a base URL plus custom headers, one `name: value` per line. */

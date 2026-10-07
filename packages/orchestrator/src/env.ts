@@ -18,6 +18,7 @@ type Secrets = {
   AI_GATEWAY_TOKEN?: string;
   OPEN_ROUTER_API_KEY?: string;
   CLAUDE_CODE_OAUTH_TOKEN?: string;
+  ANTHROPIC_API_KEY?: string;
 };
 
 export type Env = Cloudflare.Env & Secrets;

@@ -27,8 +27,11 @@ const settings = { path: "/home/node/.claude/settings.json", content: '{"effortL
 
 const RTK_HOOK_INSTALL = "rtk init --global --hook-only --auto-patch";
 
-const withToken = new ClaudeCodeHarness({ oauthToken: "sk-ant-oat" });
-const withoutToken = new ClaudeCodeHarness({ oauthToken: null });
+const withToken = new ClaudeCodeHarness({
+  credential: { kind: "oauth_token", token: "sk-ant-oat" },
+});
+const withApiKey = new ClaudeCodeHarness({ credential: { kind: "api_key", key: "sk-ant-api" } });
+const withoutToken = new ClaudeCodeHarness({ credential: null });
 
 describe("ClaudeCodeHarness", () => {
   describe("the todo list", () => {
@@ -97,6 +100,20 @@ describe("ClaudeCodeHarness", () => {
     });
   });
 
+  describe("a configured API key", () => {
+    it("goes in env and skips the gateway", () => {
+      expect(withApiKey.setup(input)).toEqual({
+        env: {
+          ANTHROPIC_MODEL: "claude-sonnet-5",
+          CLAUDE_CODE_ENABLE_TODO_TOOLS: "1",
+          ANTHROPIC_API_KEY: "sk-ant-api",
+        },
+        files: [settings],
+        commands: [RTK_HOOK_INSTALL],
+      });
+    });
+  });
+
   describe("no subscription token", () => {
     it("routes through the gateway with its headers, one per line", () => {
       expect(withoutToken.setup(input)).toEqual({
@@ -149,7 +166,7 @@ describe("ClaudeCodeHarness", () => {
         },
       };
       const harness = new ClaudeCodeHarness({
-        oauthToken: null,
+        credential: null,
         fetch: async () => Response.json(catalog),
       });
 

@@ -17,9 +17,11 @@ AI_GATEWAY_TOKEN=
 # gateway passes it through, and `gateway: openrouter` sends it to OpenRouter directly.
 OPEN_ROUTER_API_KEY=
 
-# --- Claude Code subscription for the claude-code harness ---
+# --- Claude Code auth for the claude-code harness. Set one. The token wins when both are set. ---
 # Output of `claude setup-token`. Only the token owner's own work may run on it.
 CLAUDE_CODE_OAUTH_TOKEN=
+# A Claude Platform API key. Usage bills the key's organization.
+ANTHROPIC_API_KEY=
 
 # --- GitHub App installed on the target repo ---
 GITHUB_APP_ID=

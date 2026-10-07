@@ -112,6 +112,7 @@ export async function planLocalRun(
   const sandbox = workflow.store.requireSandbox(task.task_id);
   workflow.harnessInstance = harnessAdapter(sandbox.harness, {
     claudeOauthToken: secrets.CLAUDE_CODE_OAUTH_TOKEN?.trim() || null,
+    anthropicApiKey: secrets.ANTHROPIC_API_KEY?.trim() || null,
   });
 
   const stage = workflow.stageForTask(task);
