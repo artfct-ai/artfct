@@ -12,13 +12,13 @@ const INPUT_URL = "https://docs.test/directions";
 const INPUT_TARGET = { url: INPUT_URL, ref: { kind: "page" as const, page_id: "directions-1" } };
 
 function seedRootPage(workflow: FakeRuntime, rootText: string) {
-  const docs = patchNestingHost(workflow, {
+  const documents = patchNestingHost(workflow, {
     pages: { [INPUT_URL]: "directions-1", [ROOT.url]: "root-1" },
   });
-  docs.seedPage("root-1", rootText);
-  docs.seedPage("directions-1", "# Directions");
+  documents.seedPage("root-1", rootText);
+  documents.seedPage("directions-1", "# Directions");
   workflow.patchState({ root_page: ROOT });
-  return docs;
+  return documents;
 }
 
 describe("linkInputPage", () => {
@@ -108,11 +108,11 @@ describe("move_into_root_page", () => {
 
   it("refuses the root page itself", () =>
     freshRuntime(async (workflow) => {
-      const docs = seedRootPage(workflow, "## Resources");
+      const documents = seedRootPage(workflow, "## Resources");
       const { move_into_root_page } = rootPageTools(workflow);
       expect(toolText(await move_into_root_page.execute({ page: ROOT.url }, call))).toBe(
         `${ROOT.url} is the root page.`,
       );
-      expect(docs.argsOf("movePage")).toEqual([]);
+      expect(documents.argsOf("movePage")).toEqual([]);
     }));
 });

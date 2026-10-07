@@ -21,7 +21,7 @@ export async function linearCommentEvent(
       id: await linearEventId(payload, context.deliveryId),
       kind: "feedback",
       actor,
-      bindings: [{ source: "docs_page", external_id: contentId }],
+      bindings: [{ source: "documents_page", external_id: contentId }],
       links: [],
       text: payload.data.body ?? "",
       page: { page_id: contentId, comment_id: payload.data.id },

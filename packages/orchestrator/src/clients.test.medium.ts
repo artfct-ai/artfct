@@ -210,8 +210,8 @@ describe("SDK adapters under workerd's fetch", () => {
     let email: string | null | undefined;
     beforeEach(async () => {
       requests = stubValidatingFetch(() => Response.json(person));
-      const docs = await documents({ ...env, NOTION_TOKEN: "secret_test" }, "notion");
-      email = await docs?.userEmail("u1");
+      const host = await documents({ ...env, NOTION_TOKEN: "secret_test" }, "notion");
+      email = await host?.userEmail("u1");
     });
 
     it("reads the reply", () => {
@@ -269,7 +269,7 @@ function artifactClients(kinds: Adapters): ArtifactClients {
   return {
     adapters: kinds,
     code: () => null,
-    docs: async () => null,
+    documents: async () => null,
     repo: () => null,
     log: () => {},
   };
@@ -312,7 +312,7 @@ describe("artifact", () => {
     });
   });
 
-  describe("a page on the configured docs provider", () => {
+  describe("a page on the configured documents provider", () => {
     it("asks the document host when it is Linear", async () => {
       const kind = artifact("page", artifactClients(adapters));
       const text = "Wrote https://linear.app/acme/document/design-abc";
@@ -352,8 +352,8 @@ describe("mcpCredential", () => {
       );
     });
 
-    it("gives the docs capability on Linear the same token", async () => {
-      const capability = "docs" as const;
+    it("gives the documents capability on Linear the same token", async () => {
+      const capability = "documents" as const;
       expect(await mcpCredential({ env: oauth, capability, adapters })).toBe(
         installed.access_token,
       );
@@ -367,13 +367,13 @@ describe("mcpCredential", () => {
     });
   });
 
-  describe("the docs capability on Notion", () => {
+  describe("the documents capability on Notion", () => {
     it("is the Notion token", async () => {
       const notion = Adapters.parse({ documents: { provider: "notion" } });
       const withToken: Env = { ...env, NOTION_TOKEN: "secret_t" };
-      expect(await mcpCredential({ env: withToken, capability: "docs", adapters: notion })).toBe(
-        "secret_t",
-      );
+      expect(
+        await mcpCredential({ env: withToken, capability: "documents", adapters: notion }),
+      ).toBe("secret_t");
     });
   });
 

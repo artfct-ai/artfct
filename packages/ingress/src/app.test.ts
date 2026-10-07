@@ -345,7 +345,7 @@ describe("linear webhook", () => {
 
       it("binds it to the document the artifact lives in", () => {
         expect(app.rpc.deliveries[0]?.bindings).toEqual([
-          { source: "docs_page", external_id: "content1" },
+          { source: "documents_page", external_id: "content1" },
         ]);
       });
     });
@@ -445,12 +445,12 @@ describe("notion webhook", () => {
   });
 
   describe("a signed comment with a documents client available", () => {
-    let docs: ReturnType<typeof fakeDocuments>;
+    let documents: ReturnType<typeof fakeDocuments>;
     let response: Response;
 
     beforeEach(async () => {
-      docs = fakeDocuments();
-      app = harness({ clients: { docs } });
+      documents = fakeDocuments();
+      app = harness({ clients: { documents } });
       response = await app.request(await notionPost(comment));
     });
 
@@ -459,7 +459,7 @@ describe("notion webhook", () => {
     });
 
     it("fetches the comment and then its author", () => {
-      expect(docs.calls).toEqual([
+      expect(documents.calls).toEqual([
         { method: "fetchComment", args: ["cmt1"] },
         { method: "userEmail", args: ["n1"] },
       ]);
@@ -467,7 +467,7 @@ describe("notion webhook", () => {
 
     it("asks the orchestrator to resolve the author", () => {
       expect(app.rpc.queries).toEqual([
-        { source: "docs", user: { id: "n1", email: "dev@acme.test" } },
+        { source: "documents", user: { id: "n1", email: "dev@acme.test" } },
       ]);
     });
 
@@ -477,8 +477,8 @@ describe("notion webhook", () => {
         kind: "feedback",
         page: { page_id: NOTION_PAGE_ID.replace(/-/g, ""), comment_id: "cmt1" },
         text: "lgtm, ship it",
-        bindings: [{ source: "docs_page", external_id: NOTION_PAGE_ID.replace(/-/g, "") }],
-        reply_to: { source: "docs", page_id: NOTION_PAGE_ID },
+        bindings: [{ source: "documents_page", external_id: NOTION_PAGE_ID.replace(/-/g, "") }],
+        reply_to: { source: "documents", page_id: NOTION_PAGE_ID },
         actor: { person_id: "p_n1", email: "dev@acme.test" },
       });
     });

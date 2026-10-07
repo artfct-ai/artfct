@@ -110,7 +110,7 @@ async function assertDocumentAnnounced(options: {
     bindings.some(
       (binding) =>
         binding.workflow_id === workflowId &&
-        binding.source === "docs_page" &&
+        binding.source === "documents_page" &&
         binding.external_id === pageId,
     ),
     `${stage}: notion_page binding exists`,

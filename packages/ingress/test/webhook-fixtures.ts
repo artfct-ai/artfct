@@ -1,5 +1,5 @@
 import type { SlackEventCallback } from "@artfct-ai/adapters/chat/slack/inbound";
-import type { NotionWebhook } from "@artfct-ai/adapters/docs/notion/inbound";
+import type { NotionWebhook } from "@artfct-ai/adapters/documents/notion/inbound";
 import type {
   AgentSessionPayload,
   CommentPayload,

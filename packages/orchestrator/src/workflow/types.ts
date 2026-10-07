@@ -1,6 +1,6 @@
 import type { Chat } from "@artfct-ai/adapters/chat/types";
 import type { CodeHost } from "@artfct-ai/adapters/code/types";
-import type { Documents } from "@artfct-ai/adapters/docs/types";
+import type { Documents } from "@artfct-ai/adapters/documents/types";
 import type { Decisions, Gateway } from "@artfct-ai/adapters/gateway/types";
 import type { Harness, HarnessAdapter } from "@artfct-ai/adapters/harness/types";
 import type { Tracker } from "@artfct-ai/adapters/tracker/types";
@@ -105,7 +105,7 @@ export interface WorkflowRuntime {
   chat(): Chat | null;
   tracker(): Promise<Tracker | null>;
   /** The configured document host. Null without its credential. */
-  docs(): Promise<Documents | null>;
+  documents(): Promise<Documents | null>;
   /** Page reads over HTTP. */
   web(): Web;
   /** The credential the deployment holds for one capability's MCP server. Null without one. */

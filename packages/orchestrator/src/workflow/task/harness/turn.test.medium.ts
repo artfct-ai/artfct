@@ -18,7 +18,7 @@ function chunk(text: string): SessionNotification {
 }
 
 function knowsTheDocument(workflow: FakeRuntime): void {
-  workflow.docsInstance = new FakeDocuments({ pages: { [DOC]: "content1" } });
+  workflow.documentsInstance = new FakeDocuments({ pages: { [DOC]: "content1" } });
 }
 
 describe("onSessionUpdate", () => {

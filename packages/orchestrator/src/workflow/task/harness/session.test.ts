@@ -275,7 +275,7 @@ describe("onInitialized", () => {
   });
 
   describe("a stage that produces a page", () => {
-    describe("with the docs credential set", () => {
+    describe("with the documents credential set", () => {
       let code: FakeCodeHost;
       const opened = handshake({ stage: "design" }, (workflow) => {
         workflow.mcpCredentialValue = "lin_oauth_a";
@@ -283,7 +283,7 @@ describe("onInitialized", () => {
         workflow.codeHostInstance = code;
       });
 
-      it("opens the session with the docs server on the deployment credential", () =>
+      it("opens the session with the documents server on the deployment credential", () =>
         opened(({ servers }) => {
           expect(servers).toEqual([
             {
@@ -306,7 +306,7 @@ describe("onInitialized", () => {
         }));
     });
 
-    describe("with no docs credential", () => {
+    describe("with no documents credential", () => {
       const opened = handshake({ stage: "design" }, () => {});
 
       it("opens the session with no server", () =>

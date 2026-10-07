@@ -5,7 +5,7 @@ import type {
   DocumentsUser,
   FetchedComment,
   HeldComment,
-} from "@artfct-ai/adapters/docs/types";
+} from "@artfct-ai/adapters/documents/types";
 import type { PageInstructions } from "@artfct-ai/adapters/instructions";
 import type { McpServer } from "@artfct-ai/adapters/mcp";
 import type { Binding } from "@artfct-ai/contracts/sources";
@@ -94,7 +94,7 @@ async function detect(clients: PageClients, text: string): Promise<ArtifactTarge
 
 function binding(ref: ArtifactRef): Binding | null {
   if (ref.kind !== "page") return null;
-  return { source: "docs_page", external_id: ref.page_id };
+  return { source: "documents_page", external_id: ref.page_id };
 }
 
 async function postRejection(clients: PageClients, ref: ArtifactRef, text: string): Promise<void> {

@@ -1,4 +1,4 @@
-import type { Documents } from "@artfct-ai/adapters/docs/types";
+import type { Documents } from "@artfct-ai/adapters/documents/types";
 import type { Effort } from "@artfct-ai/adapters/harness/types";
 import type { JSONValue, LanguageModel } from "ai";
 import { aboveResources, splitAtResources } from "../../artifact/resources-section";
@@ -33,9 +33,9 @@ export function modelAuthorPageTitle(name: string, stage: string): string {
 
 /** The first turn of a model-call author: the produce activity. */
 export async function runModelAuthorTurn(workflow: WorkflowRuntime, task: TaskRow): Promise<void> {
-  const docs = await workflow.docs();
+  const documents = await workflow.documents();
   const parent = newPageParent(workflow.state);
-  if (!docs || !parent) {
+  if (!documents || !parent) {
     return failTask(
       workflow,
       task,
@@ -44,13 +44,15 @@ export async function runModelAuthorTurn(workflow: WorkflowRuntime, task: TaskRo
   }
   workflow.store.updateTask(task.task_id, { status: "working" });
   await flushBoards(workflow, task.job_id);
-  const outcome = await producePage(workflow, task, { docs, parent }).catch((error: unknown) => {
-    workflow.log(
-      task.task_id,
-      `model call or page create failed: ${String(error).slice(0, LOGGED_ERROR_CHARS)}`,
-    );
-    return { failure: loggedFailureReason(task.task_id, "The model call or the page create") };
-  });
+  const outcome = await producePage(workflow, task, { documents, parent }).catch(
+    (error: unknown) => {
+      workflow.log(
+        task.task_id,
+        `model call or page create failed: ${String(error).slice(0, LOGGED_ERROR_CHARS)}`,
+      );
+      return { failure: loggedFailureReason(task.task_id, "The model call or the page create") };
+    },
+  );
   if ("failure" in outcome) {
     return failTask(workflow, workflow.store.requireTask(task.task_id), outcome.failure);
   }
@@ -109,7 +111,7 @@ async function resumeModelAuthor(
 }
 
 /** Where the page goes. */
-type PageHost = { docs: Documents; parent: string };
+type PageHost = { documents: Documents; parent: string };
 
 /**
  * Produce the page and create it on the host. The root page stage fills the root page the
@@ -121,7 +123,11 @@ async function producePage(
   host: PageHost,
 ): Promise<{ target: ArtifactTarget | null } | { failure: string }> {
   const job = workflow.store.requireJob(task.job_id);
-  const call = await produceCall(workflow, task, await inputPageText(workflow, host.docs, job));
+  const call = await produceCall(
+    workflow,
+    task,
+    await inputPageText(workflow, host.documents, job),
+  );
   const text = await callAuthorModel(workflow, task, {
     model: call.model,
     system: call.system,
@@ -132,13 +138,13 @@ async function producePage(
   const stage = workflow.stageForTask(task);
   const root = workflow.state.root_page;
   if (stage.root_page && root?.source === "container") {
-    const filled = aboveResources(text, await host.docs.readPageContent(root.page_id));
-    await host.docs.updatePageContent(root.page_id, filled);
+    const filled = aboveResources(text, await host.documents.readPageContent(root.page_id));
+    await host.documents.updatePageContent(root.page_id, filled);
     workflow.log(task.task_id, `root page filled: ${root.url}`);
     return { target: { url: root.url, ref: { kind: "page", page_id: root.page_id } } };
   }
   const title = modelAuthorPageTitle(workflowName(workflow.state), stage.name);
-  const page = await host.docs.createPage(title, text, host.parent);
+  const page = await host.documents.createPage(title, text, host.parent);
   workflow.log(task.task_id, `page created: ${page.url}`);
   return { target: { url: page.url, ref: { kind: "page", page_id: page.contentId ?? page.id } } };
 }
@@ -153,18 +159,18 @@ async function revisePage(
   task: TaskRow,
   findings: string,
 ): Promise<{ closingText: string | null } | { failure: string }> {
-  const docs = await workflow.docs();
+  const documents = await workflow.documents();
   const ref = workflow.store.artifact(task.job_id)?.ref;
-  if (!docs || ref?.kind !== "page") {
+  if (!documents || ref?.kind !== "page") {
     return { failure: "A model-call author revises only a page on the document host." };
   }
   const job = workflow.store.requireJob(task.job_id);
   const { revise } = workflow.stageForTask(task).author;
   const isRootPage = ref.page_id === workflow.state.root_page?.page_id;
-  const pageText = await docs.readPageContent(ref.page_id);
+  const pageText = await documents.readPageContent(ref.page_id);
   const prompt = revisePrompt({
     context: taskContext(workflow, task),
-    inputPageText: await inputPageText(workflow, docs, job),
+    inputPageText: await inputPageText(workflow, documents, job),
     findings,
     pageText: isRootPage ? splitAtResources(pageText).body : pageText,
   });
@@ -178,9 +184,9 @@ async function revisePage(
   if (!revision) return { failure: "The model answered with no closing text." };
   if (!revision.pageText) return { failure: "The model answered with no document text." };
   const revised = isRootPage
-    ? aboveResources(revision.pageText, await docs.readPageContent(ref.page_id))
+    ? aboveResources(revision.pageText, await documents.readPageContent(ref.page_id))
     : revision.pageText;
-  await docs.updatePageContent(ref.page_id, revised);
+  await documents.updatePageContent(ref.page_id, revised);
   workflow.store.updateTask(task.task_id, { summary: revision.closingText.slice(-SUMMARY_CHARS) });
   workflow.log(task.task_id, `page updated: ${ref.page_id}`);
   return { closingText: revision.closingText };
@@ -250,12 +256,12 @@ function activityModel(
  */
 async function inputPageText(
   workflow: WorkflowRuntime,
-  docs: Documents,
+  documents: Documents,
   job: JobRow,
 ): Promise<string | null> {
-  if (job.input_ref?.kind === "page") return docs.readPageContent(job.input_ref.page_id);
+  if (job.input_ref?.kind === "page") return documents.readPageContent(job.input_ref.page_id);
   if (!job.preceding_job_id) return null;
   const artifact = workflow.store.artifact(job.preceding_job_id);
   if (artifact?.ref.kind !== "page") return null;
-  return docs.readPageContent(artifact.ref.page_id);
+  return documents.readPageContent(artifact.ref.page_id);
 }

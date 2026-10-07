@@ -6,14 +6,14 @@ import type { Actor, InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { ExternalUser } from "@artfct-ai/contracts/types";
 
 /** Resolves a document host user to a person the orchestrator trusts, or to null. */
-export type DocsActorResolver = (user: ExternalUser) => Promise<Actor | null>;
+export type DocumentsActorResolver = (user: ExternalUser) => Promise<Actor | null>;
 
 /** A normalized event ready to deliver, or the reason the webhook is ignored. */
-export type DocsInbound = { event: InboundEvent } | { ignore: string };
+export type DocumentsInbound = { event: InboundEvent } | { ignore: string };
 
 /** What a document host webhook mapper needs besides the payload. */
-export type DocsInboundContext = {
-  resolveActor: DocsActorResolver;
+export type DocumentsInboundContext = {
+  resolveActor: DocumentsActorResolver;
   /** The host itself. A webhook carries comment ids, so the body is read back through it. */
   documents: Documents;
 };

@@ -6,7 +6,7 @@ import { artifacts, DELIVERY_ERROR, events, jobs, log, outbox, tasks } from "./s
 import { FINISHED_TASK_STATUSES, now } from "./state";
 
 /** Outbox channels a human reads. Board and internal rows reach nobody. */
-const HUMAN_CHANNELS = ["chat", "tracker", "docs"] as const;
+const HUMAN_CHANNELS = ["chat", "tracker", "documents"] as const;
 /** Rows on a human channel that carry no message: an issue state move, a call that failed. */
 const SILENT_KINDS = ["issue_update", DELIVERY_ERROR] as const;
 

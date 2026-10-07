@@ -1,8 +1,8 @@
 import { GithubCodeHost } from "@artfct-ai/adapters/code/github/code-host";
 import type { CodeHost } from "@artfct-ai/adapters/code/types";
-import { LinearDocuments } from "@artfct-ai/adapters/docs/linear/documents";
-import { NotionDocuments } from "@artfct-ai/adapters/docs/notion/documents";
-import type { Documents } from "@artfct-ai/adapters/docs/types";
+import { LinearDocuments } from "@artfct-ai/adapters/documents/linear/documents";
+import { NotionDocuments } from "@artfct-ai/adapters/documents/notion/documents";
+import type { Documents } from "@artfct-ai/adapters/documents/types";
 import { CloudflareGateway } from "@artfct-ai/adapters/gateway/cloudflare/gateway";
 import { OpenRouterGateway } from "@artfct-ai/adapters/gateway/openrouter/gateway";
 import type { Gateway } from "@artfct-ai/adapters/gateway/types";
@@ -96,7 +96,7 @@ export async function planLocalRun(
   workflow.configOverride = config;
   workflow.workflowDefinitionOverride = workflowDefinition;
   workflow.codeHostInstance = codeHost(secrets);
-  workflow.docsInstance = documents(config, secrets);
+  workflow.documentsInstance = documents(config, secrets);
   workflow.gatewayInstance = gateway(config, secrets);
   workflow.patchState({
     workflow_id: "local",
@@ -262,7 +262,9 @@ function mcpCredential(
 ): string | null {
   if (capability === "code") return null;
   const provider =
-    capability === "docs" ? config.adapters.documents.provider : config.adapters.tracker.provider;
+    capability === "documents"
+      ? config.adapters.documents.provider
+      : config.adapters.tracker.provider;
   return (provider === "notion" ? secrets.NOTION_TOKEN : secrets.LINEAR_API_KEY) ?? null;
 }
 

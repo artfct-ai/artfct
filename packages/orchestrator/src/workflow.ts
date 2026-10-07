@@ -2,7 +2,7 @@ import type { Chat } from "@artfct-ai/adapters/chat/types";
 import type { CodeHost } from "@artfct-ai/adapters/code/types";
 import type { Decisions, Gateway } from "@artfct-ai/adapters/gateway/types";
 import type { Harness, HarnessAdapter } from "@artfct-ai/adapters/harness/types";
-import type { Documents } from "@artfct-ai/adapters/docs/types";
+import type { Documents } from "@artfct-ai/adapters/documents/types";
 import type { Tracker } from "@artfct-ai/adapters/tracker/types";
 import type { Web } from "@artfct-ai/adapters/web/types";
 import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
@@ -13,7 +13,7 @@ import { orchestratorGateway, type GatewayAdapter, type GatewayProvider } from "
 import type {
   ChatProvider,
   CodeProvider,
-  DocsProvider,
+  DocumentsProvider,
   McpCapability,
   Adapters,
 } from "./config/adapters";
@@ -100,7 +100,7 @@ export type WorkflowServices = {
   harness: (env: Env, name: Harness) => HarnessAdapter;
   code: (env: Env, provider: CodeProvider) => CodeHost | null;
   tracker: (env: Env) => Promise<Tracker | null>;
-  docs: (env: Env, provider: DocsProvider) => Promise<Documents | null>;
+  documents: (env: Env, provider: DocumentsProvider) => Promise<Documents | null>;
   web: () => Web;
   mcpCredential: (options: {
     env: Env;
@@ -123,7 +123,7 @@ export const defaultServices: WorkflowServices = {
   harness,
   code: codeHost,
   tracker,
-  docs: documents,
+  documents: documents,
   web,
   mcpCredential,
   chat,
@@ -152,7 +152,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
   /** Built once so the token caches live as long as the DO. */
   private codeMemo: CodeHost | null | undefined;
   private trackerMemo: Promise<Tracker | null> | undefined;
-  private docsMemo: Promise<Documents | null> | undefined;
+  private documentsMemo: Promise<Documents | null> | undefined;
   /** The credential the connected MCP server holds, so a rotated one is connected again. */
   connectedMcpCredential: string | null = null;
   /** The outside world. Tests swap entries for fakes. */
@@ -165,7 +165,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     this.transcript = new TranscriptStore(db);
     this.chatClient = this.services.chat(this.env, this.config().adapters.chat.provider);
     this.notifier = new Notifier(
-      { tracker: () => this.tracker(), chat: this.chatClient, docs: () => this.docs() },
+      { tracker: () => this.tracker(), chat: this.chatClient, documents: () => this.documents() },
       (entry) => this.store.writeOutbox(entry),
     );
     await resumeLostTurn(this);
@@ -441,14 +441,14 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     return this.trackerMemo;
   }
 
-  docs(): Promise<Documents | null> {
-    this.docsMemo ??= keepClientOnly(
-      this.services.docs(this.env, this.config().adapters.documents.provider),
+  documents(): Promise<Documents | null> {
+    this.documentsMemo ??= keepClientOnly(
+      this.services.documents(this.env, this.config().adapters.documents.provider),
       () => {
-        this.docsMemo = undefined;
+        this.documentsMemo = undefined;
       },
     );
-    return this.docsMemo;
+    return this.documentsMemo;
   }
 
   web(): Web {
@@ -467,7 +467,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     return artifact(kind, {
       adapters: this.config().adapters,
       code: () => this.code(),
-      docs: () => this.docs(),
+      documents: () => this.documents(),
       repo: () => this.state.repo?.full ?? null,
       log: (line) => this.log(null, line),
     });

@@ -135,7 +135,7 @@ describe("set_plan", () => {
       }));
 
     describe("and a second call with stages that need no repository", () => {
-      const docsPlan = scenario(refused, async (workflow) => {
+      const documentsPlan = scenario(refused, async (workflow) => {
         const { set_plan } = planTools(workflow);
         result = toolText(
           await set_plan.execute(
@@ -152,14 +152,14 @@ describe("set_plan", () => {
       });
 
       it("answers with the stages and the job limit", () =>
-        docsPlan(() => {
+        documentsPlan(() => {
           expect(result).toBe(
             "Plan set: design, up to 100 jobs at once. Call start_job with stage design and a brief for it.",
           );
         }));
 
       it("stores the plan without a repository", () =>
-        docsPlan((workflow) => {
+        documentsPlan((workflow) => {
           expect(workflow.state).toMatchObject({
             status: "running",
             stages: ["design"],

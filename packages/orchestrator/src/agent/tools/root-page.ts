@@ -40,11 +40,11 @@ export async function linkInputPage(
 ): Promise<string> {
   const root = workflow.state.root_page;
   if (target.ref.kind !== "page" || root?.source !== "container") return "";
-  const docs = await workflow.docs();
-  if (!docs?.nesting) return "";
+  const documents = await workflow.documents();
+  if (!documents?.nesting) return "";
   const page = { page_id: target.ref.page_id, url: target.url };
   try {
-    if (!(await linkFromRootPage(docs, docs.nesting, { root, page }))) return "";
+    if (!(await linkFromRootPage(documents, documents.nesting, { root, page }))) return "";
   } catch (error) {
     return ` Could not link ${target.url} from the root page: ${String(error).slice(0, 200)}`;
   }
@@ -54,13 +54,13 @@ export async function linkInputPage(
 async function movePage(workflow: WorkflowRuntime, url: string): Promise<string> {
   const root = workflow.state.root_page;
   if (!root) return "This workflow has no root page.";
-  const docs = await workflow.docs();
-  if (!docs?.nesting) return "The document host does not nest pages.";
-  const page = await docs.pageFromUrl(url);
+  const documents = await workflow.documents();
+  if (!documents?.nesting) return "The document host does not nest pages.";
+  const page = await documents.pageFromUrl(url);
   if (!page) return `${url} is not a page on the document host.`;
   if (page.page_id === root.page_id) return `${url} is the root page.`;
   try {
-    await moveIntoRootPage(docs, docs.nesting, { root, pageId: page.page_id });
+    await moveIntoRootPage(documents, documents.nesting, { root, pageId: page.page_id });
   } catch (error) {
     return `Could not move ${url}: ${String(error).slice(0, 300)}`;
   }

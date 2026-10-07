@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CodeProvider, DocsProvider, TrackerProvider } from "./adapters";
+import { CodeProvider, DocumentsProvider, TrackerProvider } from "./adapters";
 
 /** An MCP server reached over the network. Any value may reference a secret as `${NAME}`. */
 const RemoteMcpServerEntry = z.strictObject({
@@ -25,7 +25,7 @@ export type McpServerEntry = z.infer<typeof McpServerEntry>;
 const PROVIDER_NAMES: ReadonlySet<string> = new Set([
   ...CodeProvider.options,
   ...TrackerProvider.options,
-  ...DocsProvider.options,
+  ...DocumentsProvider.options,
 ]);
 
 /** The customer's MCP servers, added to every harness session. Names are unique. */

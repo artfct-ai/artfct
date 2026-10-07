@@ -26,12 +26,12 @@ export async function planPages(
   input: PagePlanInput,
 ): Promise<PagePlan | { refusal: string }> {
   const pageParent = input.page_parent ?? workflow.config().adapters.documents.page_parent ?? null;
-  const docs = await workflow.docs();
-  const nesting = docs?.nesting;
-  if (!docs || !nesting || !rootPageStage(workflow)) return flatPagePlan(input, pageParent);
+  const documents = await workflow.documents();
+  const nesting = documents?.nesting;
+  if (!documents || !nesting || !rootPageStage(workflow)) return flatPagePlan(input, pageParent);
   const current = workflow.state.root_page ?? null;
   if (current) {
-    const named = input.root_page ? await docs.pageFromUrl(input.root_page) : null;
+    const named = input.root_page ? await documents.pageFromUrl(input.root_page) : null;
     if (input.root_page && named?.page_id !== current.page_id) {
       return { refusal: `The root page is already ${current.url}. Pass root_page null.` };
     }
@@ -65,9 +65,9 @@ export async function planPages(
           "The plan writes pages, and no planned stage makes the root page. Ask the requester which existing page is the root page, the one people read first. When they have none, use the page the workflow starts from. Then call set_plan again with root_page.",
       };
     }
-    const named = await docs.pageFromUrl(input.root_page);
+    const named = await documents.pageFromUrl(input.root_page);
     if (!named) return { refusal: `${input.root_page} is not a page on the document host.` };
-    const root = await nameRootPage(docs, nesting, {
+    const root = await nameRootPage(documents, nesting, {
       page_id: named.page_id,
       url: input.root_page,
     });

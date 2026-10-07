@@ -26,7 +26,7 @@ describe("runModelAuthorTurn", () => {
   describe("with no document host", () => {
     const hostless = scenario(freshRuntime, async (workflow) => {
       patchModelExecution(workflow);
-      workflow.docsInstance = null;
+      workflow.documentsInstance = null;
       workflow.modelInstance = new EchoModel("# Design");
       await runModelAuthorTurn(workflow, seedModelAuthor(workflow));
     });
@@ -127,9 +127,9 @@ const CLOSING_TEXT = "Named the identity provider. The change was straightforwar
 const REVISE_ANSWER = `${REVISED_PAGE}\n${CLOSING_TEXT_MARKER}\n${CLOSING_TEXT}`;
 
 async function seedPageWithHumans(workflow: FakeRuntime): Promise<TaskRow> {
-  const docs = patchModelExecution(workflow);
+  const documents = patchModelExecution(workflow);
   const author = seedModelAuthor(workflow);
-  const page = await docs.createPage("Add SSO (design)", FIRST_PAGE, PAGE_PARENT);
+  const page = await documents.createPage("Add SSO (design)", FIRST_PAGE, PAGE_PARENT);
   workflow.store.upsertArtifact({
     job_id: "wf_x-1",
     kind: "page",
@@ -171,9 +171,9 @@ describe("reviseModelAuthorPage", () => {
 
     it("updates the same page with the document part of the answer", () =>
       revised((workflow) => {
-        const docs = fakeDocumentsOf(workflow);
-        expect(docs.argsOf("updatePageContent")).toEqual([["page-1", REVISED_PAGE]]);
-        expect(docs.argsOf("createPage")).toHaveLength(1);
+        const documents = fakeDocumentsOf(workflow);
+        expect(documents.argsOf("updatePageContent")).toEqual([["page-1", REVISED_PAGE]]);
+        expect(documents.argsOf("createPage")).toHaveLength(1);
       }));
 
     it("takes the prompt off the queue", () =>
@@ -304,9 +304,9 @@ describe("reviseModelAuthorPage", () => {
     const ROOT_TEXT = `${FIRST_PAGE}\n\n## Resources\n${CHILD}`;
 
     const revised = scenario(freshRuntime, async (workflow) => {
-      const docs = patchNestingHost(workflow);
+      const documents = patchNestingHost(workflow);
       const author = seedModelAuthor(workflow);
-      docs.seedPage("root-1", ROOT_TEXT);
+      documents.seedPage("root-1", ROOT_TEXT);
       workflow.patchState({
         root_page: { page_id: "root-1", url: "https://docs.test/root-1", source: "container" },
       });

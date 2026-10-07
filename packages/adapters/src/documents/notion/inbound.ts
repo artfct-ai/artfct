@@ -1,7 +1,7 @@
 import type { Actor } from "@artfct-ai/contracts/inbound";
 import { extractLinks } from "../../links";
 import { notionPageId } from "./page-id";
-import type { DocsInbound, DocsInboundContext } from "../types";
+import type { DocumentsInbound, DocumentsInboundContext } from "../types";
 
 /** Notion webhook envelope. Comments arrive as ids only. */
 export type NotionWebhook = {
@@ -15,8 +15,8 @@ export type NotionWebhook = {
 /** A comment on a page is feedback on the artifact bound to that page. */
 export async function notionInbound(
   payload: NotionWebhook,
-  context: DocsInboundContext,
-): Promise<DocsInbound> {
+  context: DocumentsInboundContext,
+): Promise<DocumentsInbound> {
   if (payload.type !== "comment.created") return { ignore: payload.type };
   const pageUrlId = pageIdOf(payload);
   const pageId = pageUrlId ? notionPageId(pageUrlId) : null;
@@ -33,10 +33,10 @@ export async function notionInbound(
       id: `notion:${payload.id}`,
       kind: "feedback",
       actor,
-      bindings: [{ source: "docs_page", external_id: pageId }],
+      bindings: [{ source: "documents_page", external_id: pageId }],
       links: extractLinks(comment.text),
       text: comment.text,
-      reply_to: { source: "docs", page_id: pageUrlId },
+      reply_to: { source: "documents", page_id: pageUrlId },
       page: { page_id: pageId, comment_id: commentId },
     },
   };
@@ -49,7 +49,7 @@ function pageIdOf(payload: NotionWebhook): string | null {
 
 /** The comment author, with the email the host holds when the comment itself carries none. */
 async function resolveAuthor(
-  context: DocsInboundContext,
+  context: DocumentsInboundContext,
   author: { id: string; email: string | null } | null,
 ): Promise<Actor | null> {
   if (!author) return null;

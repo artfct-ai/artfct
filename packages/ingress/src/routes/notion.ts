@@ -1,9 +1,9 @@
 import { Hono } from "hono";
-import { notionInbound, type NotionWebhook } from "@artfct-ai/adapters/docs/notion/inbound";
+import { notionInbound, type NotionWebhook } from "@artfct-ai/adapters/documents/notion/inbound";
 import {
   notionVerificationToken,
   verifyNotionWebhook,
-} from "@artfct-ai/adapters/docs/notion/webhook";
+} from "@artfct-ai/adapters/documents/notion/webhook";
 import { clientsFromEnv } from "../clients";
 import type { HonoEnv } from "../env";
 import { parseJsonBody, secretNotConfigured } from "./guards";
@@ -37,16 +37,16 @@ notionRoutes.post("/webhooks/notion", async (ctx) => {
   const payload = parseJsonBody(body) as NotionWebhook | null;
   if (!payload) return ctx.text("malformed body", 400);
   if (payload.type !== "comment.created") return ctx.json({ ignored: payload.type });
-  const { docs } = ctx.get("clients") ?? clientsFromEnv(ctx.env);
-  if (!docs) {
+  const { documents } = ctx.get("clients") ?? clientsFromEnv(ctx.env);
+  if (!documents) {
     console.error("NOTION_TOKEN is not set. Comment bodies cannot be fetched.");
     return ctx.text("NOTION_TOKEN not configured", 503);
   }
 
   const rpc = ctx.env.ORCHESTRATOR;
   const normalized = await notionInbound(payload, {
-    resolveActor: (user) => rpc.resolveActor({ source: "docs", user }),
-    documents: docs,
+    resolveActor: (user) => rpc.resolveActor({ source: "documents", user }),
+    documents: documents,
   });
   tagSpan(ctx, {
     "artfct.vendor": "notion",

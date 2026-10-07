@@ -7,7 +7,7 @@ import type {
   FetchedComment,
   HeldComment,
   PageNesting,
-} from "../src/docs/types";
+} from "../src/documents/types";
 import { CallLog, type RecordedCall } from "./calls";
 
 /** Fixed answers for a `FakeDocuments`. */

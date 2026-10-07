@@ -1,4 +1,4 @@
-import type { HeldComment } from "@artfct-ai/adapters/docs/types";
+import type { HeldComment } from "@artfct-ai/adapters/documents/types";
 import type { HostInstructions } from "@artfct-ai/adapters/instructions";
 import type {
   CheckFailure,

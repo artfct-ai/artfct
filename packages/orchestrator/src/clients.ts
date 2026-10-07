@@ -13,15 +13,15 @@ import {
 import type { CodeHost, CodeReview } from "@artfct-ai/adapters/code/types";
 import { SlackChat } from "@artfct-ai/adapters/chat/slack/chat";
 import type { Chat } from "@artfct-ai/adapters/chat/types";
-import { LinearDocuments } from "@artfct-ai/adapters/docs/linear/documents";
-import { NotionDocuments } from "@artfct-ai/adapters/docs/notion/documents";
+import { LinearDocuments } from "@artfct-ai/adapters/documents/linear/documents";
+import { NotionDocuments } from "@artfct-ai/adapters/documents/notion/documents";
 import {
   NOTION_PAGE_INSTRUCTIONS,
   NOTION_PAGE_PARENT_HINT,
   notionCliEnv,
-} from "@artfct-ai/adapters/docs/notion/cli";
-import { notionPageFromUrl } from "@artfct-ai/adapters/docs/notion/page-id";
-import type { Documents } from "@artfct-ai/adapters/docs/types";
+} from "@artfct-ai/adapters/documents/notion/cli";
+import { notionPageFromUrl } from "@artfct-ai/adapters/documents/notion/page-id";
+import type { Documents } from "@artfct-ai/adapters/documents/types";
 import { CloudflareGateway } from "@artfct-ai/adapters/gateway/cloudflare/gateway";
 import { OpenRouterGateway } from "@artfct-ai/adapters/gateway/openrouter/gateway";
 import type { Gateway } from "@artfct-ai/adapters/gateway/types";
@@ -51,7 +51,7 @@ import type { GatewayAdapter, GatewayProvider } from "./config/gateway";
 import type {
   ChatProvider,
   CodeProvider,
-  DocsProvider,
+  DocumentsProvider,
   McpCapability,
   Adapters,
   TrackerProvider,
@@ -149,7 +149,7 @@ export async function tracker(env: Env, options: TokenOptions = {}): Promise<Tra
  */
 export async function documents(
   env: Env,
-  provider: DocsProvider,
+  provider: DocumentsProvider,
   options: TokenOptions = {},
 ): Promise<Documents | null> {
   switch (provider) {
@@ -163,7 +163,7 @@ export async function documents(
     }
     default: {
       const unreachable: never = provider;
-      throw new Error(`unhandled docs provider ${String(unreachable)}`);
+      throw new Error(`unhandled documents provider ${String(unreachable)}`);
     }
   }
 }
@@ -186,7 +186,7 @@ export type ArtifactClients = {
   /** The code host, for the kinds that live on it. Null without a credential. */
   code: () => CodeHost | null;
   /** The document host, for the kinds that live on it. Null without a credential. */
-  docs: () => Promise<Documents | null>;
+  documents: () => Promise<Documents | null>;
   /** The repository the workflow works in. Another repository's artifact is not this one. */
   repo: () => string | null;
   log: (line: string) => void;
@@ -198,7 +198,7 @@ export function artifactCapability(kind: ArtifactKind): McpCapability {
     case "pull":
       return "code";
     case "page":
-      return "docs";
+      return "documents";
     case "issues":
       return "tracker";
     default: {
@@ -229,15 +229,18 @@ export function artifact(kind: ArtifactKind, clients: ArtifactClients): Artifact
       });
     case "page":
       return pageArtifact({
-        readUrl: (url) => pageFromUrl(adapters.documents.provider, url, clients.docs),
-        page: async (pageId) => (await clients.docs())?.page(pageId) ?? null,
-        removed: async (url) => (await (await clients.docs())?.pageRemoved(url)) ?? false,
-        comments: async (pageId, since) => (await clients.docs())?.comments(pageId, since) ?? [],
-        fetchComment: async (commentId) => (await clients.docs())?.fetchComment(commentId) ?? null,
-        heldComments: async (pageId) => (await clients.docs())?.heldComments(pageId) ?? [],
-        self: async () => (await clients.docs())?.self() ?? null,
-        comment: async (pageId, text) => (await clients.docs())?.comment(pageId, text),
-        acknowledgeComment: async (comment) => (await clients.docs())?.acknowledgeComment(comment),
+        readUrl: (url) => pageFromUrl(adapters.documents.provider, url, clients.documents),
+        page: async (pageId) => (await clients.documents())?.page(pageId) ?? null,
+        removed: async (url) => (await (await clients.documents())?.pageRemoved(url)) ?? false,
+        comments: async (pageId, since) =>
+          (await clients.documents())?.comments(pageId, since) ?? [],
+        fetchComment: async (commentId) =>
+          (await clients.documents())?.fetchComment(commentId) ?? null,
+        heldComments: async (pageId) => (await clients.documents())?.heldComments(pageId) ?? [],
+        self: async () => (await clients.documents())?.self() ?? null,
+        comment: async (pageId, text) => (await clients.documents())?.comment(pageId, text),
+        acknowledgeComment: async (comment) =>
+          (await clients.documents())?.acknowledgeComment(comment),
         instructions: pageInstructions(adapters.documents.provider),
         pageParentHint: pageParentHint(adapters.documents.provider),
         mcp,
@@ -325,18 +328,18 @@ function inspectChecksNote(provider: CodeProvider): string {
 }
 
 async function pageFromUrl(
-  provider: DocsProvider,
+  provider: DocumentsProvider,
   url: string,
-  docs: () => Promise<Documents | null>,
+  documentHost: () => Promise<Documents | null>,
 ): Promise<{ page_id: string } | null> {
   switch (provider) {
     case "notion":
       return notionPageFromUrl(url);
     case "linear":
-      return (await (await docs())?.pageFromUrl(url)) ?? null;
+      return (await (await documentHost())?.pageFromUrl(url)) ?? null;
     default: {
       const unreachable: never = provider;
-      throw new Error(`unhandled docs provider ${String(unreachable)}`);
+      throw new Error(`unhandled documents provider ${String(unreachable)}`);
     }
   }
 }
@@ -367,8 +370,8 @@ export async function mcpCredential(options: {
       return null;
     case "tracker":
       return trackerCredential(env, adapters.tracker.provider);
-    case "docs":
-      return docsCredential(env, adapters.documents.provider);
+    case "documents":
+      return documentsCredential(env, adapters.documents.provider);
     default: {
       const unreachable: never = capability;
       throw new Error(`unhandled capability ${String(unreachable)}`);
@@ -387,7 +390,7 @@ function trackerCredential(env: Env, provider: TrackerProvider): Promise<string 
   }
 }
 
-async function docsCredential(env: Env, provider: DocsProvider): Promise<string | null> {
+async function documentsCredential(env: Env, provider: DocumentsProvider): Promise<string | null> {
   switch (provider) {
     case "notion":
       return env.NOTION_TOKEN || null;
@@ -395,7 +398,7 @@ async function docsCredential(env: Env, provider: DocsProvider): Promise<string 
       return linearToken(env);
     default: {
       const unreachable: never = provider;
-      throw new Error(`unhandled docs provider ${String(unreachable)}`);
+      throw new Error(`unhandled documents provider ${String(unreachable)}`);
     }
   }
 }
@@ -422,8 +425,8 @@ export function mcpServer(options: {
       return codeMcpServer(adapters.code.provider, credential, log);
     case "tracker":
       return trackerMcpServer(adapters.tracker.provider, credential, log);
-    case "docs":
-      return docsMcpServer(adapters.documents.provider, credential, log);
+    case "documents":
+      return documentsMcpServer(adapters.documents.provider, credential, log);
     default: {
       const unreachable: never = capability;
       throw new Error(`unhandled capability ${String(unreachable)}`);
@@ -463,8 +466,8 @@ function trackerMcpServer(
   }
 }
 
-function docsMcpServer(
-  provider: DocsProvider,
+function documentsMcpServer(
+  provider: DocumentsProvider,
   token: string | null,
   log: (line: string) => void,
 ): McpServer | null {
@@ -475,7 +478,7 @@ function docsMcpServer(
       return linearMcp(token, log);
     default: {
       const unreachable: never = provider;
-      throw new Error(`unhandled docs provider ${String(unreachable)}`);
+      throw new Error(`unhandled documents provider ${String(unreachable)}`);
     }
   }
 }
@@ -495,8 +498,8 @@ export function cliEnv(options: {
     case "code":
     case "tracker":
       return {};
-    case "docs":
-      return docsCliEnv(adapters.documents.provider, credential, log);
+    case "documents":
+      return documentsCliEnv(adapters.documents.provider, credential, log);
     default: {
       const unreachable: never = capability;
       throw new Error(`unhandled capability ${String(unreachable)}`);
@@ -504,8 +507,8 @@ export function cliEnv(options: {
   }
 }
 
-function docsCliEnv(
-  provider: DocsProvider,
+function documentsCliEnv(
+  provider: DocumentsProvider,
   token: string | null,
   log: (line: string) => void,
 ): Record<string, string> {
@@ -518,7 +521,7 @@ function docsCliEnv(
       return {};
     default: {
       const unreachable: never = provider;
-      throw new Error(`unhandled docs provider ${String(unreachable)}`);
+      throw new Error(`unhandled documents provider ${String(unreachable)}`);
     }
   }
 }
@@ -573,7 +576,7 @@ function pullInstructions(provider: CodeProvider): HostInstructions {
   }
 }
 
-function pageInstructions(provider: DocsProvider): PageInstructions {
+function pageInstructions(provider: DocumentsProvider): PageInstructions {
   switch (provider) {
     case "notion":
       return NOTION_PAGE_INSTRUCTIONS;
@@ -581,12 +584,12 @@ function pageInstructions(provider: DocsProvider): PageInstructions {
       return LINEAR_PAGE_INSTRUCTIONS;
     default: {
       const unreachable: never = provider;
-      throw new Error(`unhandled docs provider ${String(unreachable)}`);
+      throw new Error(`unhandled documents provider ${String(unreachable)}`);
     }
   }
 }
 
-function pageParentHint(provider: DocsProvider): string {
+function pageParentHint(provider: DocumentsProvider): string {
   switch (provider) {
     case "notion":
       return NOTION_PAGE_PARENT_HINT;
@@ -594,7 +597,7 @@ function pageParentHint(provider: DocsProvider): string {
       return LINEAR_PAGE_PARENT_HINT;
     default: {
       const unreachable: never = provider;
-      throw new Error(`unhandled docs provider ${String(unreachable)}`);
+      throw new Error(`unhandled documents provider ${String(unreachable)}`);
     }
   }
 }

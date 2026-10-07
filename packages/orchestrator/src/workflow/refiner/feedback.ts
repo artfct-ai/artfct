@@ -1,4 +1,4 @@
-import type { HeldComment } from "@artfct-ai/adapters/docs/types";
+import type { HeldComment } from "@artfct-ai/adapters/documents/types";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { ArtifactChange, ArtifactTarget, Feedback } from "../../artifact/types";
 import { screenText, type Screened } from "../../decisions/screen";

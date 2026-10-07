@@ -2,7 +2,7 @@ import type {
   PageCommentRef,
   DocumentComment,
   FetchedComment,
-} from "@artfct-ai/adapters/docs/types";
+} from "@artfct-ai/adapters/documents/types";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { describe, expect, it } from "bun:test";
 import { pageArtifact, withoutMention, type PageClients } from "./page";
@@ -121,7 +121,7 @@ describe("detect", () => {
 describe("binding", () => {
   it("binds the page, so a comment on it routes back to the workflow", () => {
     expect(build().binding({ kind: "page", page_id: PAGE_ID })).toEqual({
-      source: "docs_page",
+      source: "documents_page",
       external_id: PAGE_ID,
     });
   });
@@ -358,7 +358,7 @@ describe("change", () => {
       id: "notion:evt-1",
       kind: "feedback",
       actor: ACTOR,
-      bindings: [{ source: "docs_page", external_id: PAGE_ID }],
+      bindings: [{ source: "documents_page", external_id: PAGE_ID }],
       links: [],
       text: "Tighten the intro.",
       page: commented,

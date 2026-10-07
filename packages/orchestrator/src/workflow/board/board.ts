@@ -276,7 +276,7 @@ function channelFor(target: ReplyTarget, job: JobRow): BoardChannel | null {
       return { source: "chat", channel: target.channel, thread: target.thread };
     case "tracker":
       return { source: "tracker", issue_id: job.issue_id ?? target.issue_id };
-    case "docs":
+    case "documents":
     case "code":
       return null;
     default: {

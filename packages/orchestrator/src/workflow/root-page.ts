@@ -1,4 +1,4 @@
-import type { Documents, PageNesting } from "@artfct-ai/adapters/docs/types";
+import type { Documents, PageNesting } from "@artfct-ai/adapters/documents/types";
 import {
   RESOURCES_HEADING,
   resourcesNamePage,
@@ -33,11 +33,11 @@ export async function createRootContainer(
 
 /** Make an existing page the root page. It gets a resources section when it has none. */
 export async function nameRootPage(
-  docs: Documents,
+  documents: Documents,
   nesting: PageNesting,
   page: HostPage,
 ): Promise<RootPage> {
-  if (!splitAtResources(await docs.readPageContent(page.page_id)).resources) {
+  if (!splitAtResources(await documents.readPageContent(page.page_id)).resources) {
     await nesting.appendToPage(page.page_id, RESOURCES_HEADING);
   }
   return { ...page, source: "named" };
@@ -45,24 +45,24 @@ export async function nameRootPage(
 
 /** Link a page from the resources section of the root page. False when the section names it already. */
 export async function linkFromRootPage(
-  docs: Documents,
+  documents: Documents,
   nesting: PageNesting,
   { root, page }: { root: RootPage; page: HostPage },
 ): Promise<boolean> {
   if (page.page_id === root.page_id) return false;
-  if (resourcesNamePage(await docs.readPageContent(root.page_id), page.page_id)) return false;
+  if (resourcesNamePage(await documents.readPageContent(root.page_id), page.page_id)) return false;
   await nesting.appendToPage(root.page_id, `- ${page.url}`);
   return true;
 }
 
 /** Move a page under the root page. Its link goes first, so the resources section lists it once. */
 export async function moveIntoRootPage(
-  docs: Documents,
+  documents: Documents,
   nesting: PageNesting,
   { root, pageId }: { root: RootPage; pageId: string },
 ): Promise<void> {
-  const text = await docs.readPageContent(root.page_id);
+  const text = await documents.readPageContent(root.page_id);
   const unlinked = withoutResourceLink(text, pageId);
-  if (unlinked !== text) await docs.updatePageContent(root.page_id, unlinked);
+  if (unlinked !== text) await documents.updatePageContent(root.page_id, unlinked);
   await nesting.movePage(pageId, root.page_id);
 }

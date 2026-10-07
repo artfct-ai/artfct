@@ -491,7 +491,7 @@ describe("start_job", () => {
     const PAGE_URL = "https://docs.test/design-7";
 
     function pageHost(): WorkflowClients {
-      return { docs: new FakeDocuments({ pages: { [PAGE_URL]: "page-7" } }) };
+      return { documents: new FakeDocuments({ pages: { [PAGE_URL]: "page-7" } }) };
     }
 
     describe("a page on the document host", () => {
@@ -563,7 +563,7 @@ describe("start_job", () => {
     });
 
     describe("a page link with no document host", () => {
-      const refused = startFrom(PAGE_URL, () => ({ docs: null }));
+      const refused = startFrom(PAGE_URL, () => ({ documents: null }));
 
       it("refuses", () =>
         refused(({ result }) => {

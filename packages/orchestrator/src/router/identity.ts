@@ -34,8 +34,8 @@ export async function resolveActor(
       return identity.fromTracker(query.user);
     case "chat":
       return identity.fromChat(query.user);
-    case "docs":
-      return identity.fromDocs(query.user);
+    case "documents":
+      return identity.fromDocuments(query.user);
     default: {
       const unhandled: never = query;
       throw new Error(`unhandled identity source ${JSON.stringify(unhandled)}`);
@@ -106,7 +106,7 @@ export class Identity {
     return this.joinByEmail(email, { slack_user_id: user.id });
   }
 
-  async fromDocs(user: ExternalUser): Promise<Actor | null> {
+  async fromDocuments(user: ExternalUser): Promise<Actor | null> {
     if (!user.email) return null;
     return this.joinByEmail(user.email, {});
   }

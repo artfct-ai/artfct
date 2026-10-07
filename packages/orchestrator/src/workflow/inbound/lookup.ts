@@ -76,7 +76,7 @@ function jobByBinding(workflow: WorkflowRuntime, binding: Binding): JobRow | nul
   switch (binding.source) {
     case "tracker_issue":
       return workflow.store.jobByIssue(binding.external_id);
-    case "docs_page": {
+    case "documents_page": {
       const artifact = workflow.store.artifactByPage(binding.external_id);
       return artifact ? workflow.store.requireJob(artifact.job_id) : null;
     }

@@ -14,13 +14,13 @@ export const ChatProvider = z.enum(["slack"]);
 export type ChatProvider = z.infer<typeof ChatProvider>;
 
 /** The document host every page lives on. */
-export const DocsProvider = z.enum(["notion", "linear"]);
-export type DocsProvider = z.infer<typeof DocsProvider>;
+export const DocumentsProvider = z.enum(["notion", "linear"]);
+export type DocumentsProvider = z.infer<typeof DocumentsProvider>;
 
 /** The document host and where it puts pages when a request names no place. */
 export const DocumentsAdapter = z
   .strictObject({
-    provider: DocsProvider.default("linear"),
+    provider: DocumentsProvider.default("linear"),
     /** The default page parent, a link to a page or a database, on a host that nests pages. */
     page_parent: z.string().trim().min(1).optional(),
   })
@@ -41,4 +41,4 @@ export const Adapters = z.strictObject({
 export type Adapters = z.infer<typeof Adapters>;
 
 /** The capabilities that serve an MCP server. Chat has none, so no agent asks for one. */
-export type McpCapability = "code" | "tracker" | "docs";
+export type McpCapability = "code" | "tracker" | "documents";

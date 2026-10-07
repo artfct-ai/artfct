@@ -7,7 +7,7 @@ import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { FakeWeb } from "@artfct-ai/adapters/test/fake-web";
 import { MockHarness } from "@artfct-ai/adapters/test/mock-harness";
 import type { Harness, HarnessAdapter } from "@artfct-ai/adapters/harness/types";
-import type { Documents } from "@artfct-ai/adapters/docs/types";
+import type { Documents } from "@artfct-ai/adapters/documents/types";
 import type { Tracker } from "@artfct-ai/adapters/tracker/types";
 import type { Web } from "@artfct-ai/adapters/web/types";
 import type { ArtifactKind, ArtifactStatus } from "@artfct-ai/contracts/types";
@@ -115,7 +115,7 @@ export class FakeRuntime implements WorkflowRuntime {
   codeHostInstance: CodeHost | null = null;
   chatInstance: Chat | null = null;
   trackerInstance: Tracker | null = null;
-  docsInstance: Documents | null = null;
+  documentsInstance: Documents | null = null;
   webInstance: Web = new FakeWeb();
   mcpCredentialValue: string | null = null;
   mcpToolSet: ToolSet = {};
@@ -134,7 +134,7 @@ export class FakeRuntime implements WorkflowRuntime {
     this.store = new WorkflowStore(db);
     this.transcript = new TranscriptStore(db);
     this.notifier = new Notifier(
-      { tracker: async () => null, chat: null, docs: async () => null },
+      { tracker: async () => null, chat: null, documents: async () => null },
       (entry) => this.store.writeOutbox(entry),
     );
   }
@@ -268,8 +268,8 @@ export class FakeRuntime implements WorkflowRuntime {
     return this.trackerInstance;
   }
 
-  async docs(): Promise<Documents | null> {
-    return this.docsInstance;
+  async documents(): Promise<Documents | null> {
+    return this.documentsInstance;
   }
 
   web(): Web {
@@ -284,7 +284,7 @@ export class FakeRuntime implements WorkflowRuntime {
     return artifact(kind, {
       adapters: this.config().adapters,
       code: () => this.code(),
-      docs: () => this.docs(),
+      documents: () => this.documents(),
       repo: () => this.state.repo?.full ?? null,
       log: (line) => this.log(null, line),
     });
@@ -517,9 +517,9 @@ export function patchModelExecution(workflow: FakeRuntime): FakeDocuments {
       },
     })),
   });
-  const docs = new FakeDocuments();
-  workflow.docsInstance = docs;
-  return docs;
+  const documents = new FakeDocuments();
+  workflow.documentsInstance = documents;
+  return documents;
 }
 
 /**
@@ -536,16 +536,16 @@ export function patchNestingHost(
       .workflowDefinition()
       .stages.map((stage) => ({ ...stage, root_page: stage.name === "design" })),
   });
-  const docs = new FakeDocuments({ ...answers, nests: true });
-  workflow.docsInstance = docs;
-  return docs;
+  const documents = new FakeDocuments({ ...answers, nests: true });
+  workflow.documentsInstance = documents;
+  return documents;
 }
 
 /** The fake document host the runtime holds. */
 export function fakeDocumentsOf(workflow: FakeRuntime): FakeDocuments {
-  const docs = workflow.docsInstance;
-  if (!(docs instanceof FakeDocuments)) throw new Error("the runtime holds no FakeDocuments");
-  return docs;
+  const documents = workflow.documentsInstance;
+  if (!(documents instanceof FakeDocuments)) throw new Error("the runtime holds no FakeDocuments");
+  return documents;
 }
 
 /** A queued model-call author task `wf_x.1` of job `wf_x-1`. */

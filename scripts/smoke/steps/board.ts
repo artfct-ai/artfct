@@ -45,7 +45,9 @@ const SILENT_KINDS = ["issue_update", "delivery_error", "release", "working"];
 /** A message a human reads in Slack, Linear, or Notion. */
 function reachesHumans(message: OutboxMessage): boolean {
   if (SILENT_KINDS.includes(message.kind)) return false;
-  return message.channel === "chat" || message.channel === "tracker" || message.channel === "docs";
+  return (
+    message.channel === "chat" || message.channel === "tracker" || message.channel === "documents"
+  );
 }
 
 /** Runs step 4 over the whole workflow so far. */

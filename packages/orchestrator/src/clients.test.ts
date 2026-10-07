@@ -35,7 +35,7 @@ describe("artifactCapability", () => {
   });
 
   it("serves a page from the document host", () => {
-    expect(artifactCapability("page")).toBe("docs");
+    expect(artifactCapability("page")).toBe("documents");
   });
 
   it("serves issues from the tracker", () => {
@@ -47,7 +47,7 @@ describe("the instructions of a kind", () => {
   const clients = {
     adapters,
     code: () => null,
-    docs: async () => null,
+    documents: async () => null,
     repo: () => null,
     log: () => {},
   };
@@ -94,19 +94,19 @@ describe("mcpServer", () => {
     });
   });
 
-  describe("the docs capability on Linear without a credential", () => {
+  describe("the documents capability on Linear without a credential", () => {
     it("is null and names what is missing", () => {
-      const server = mcpServer({ capability: "docs", adapters, credential: null, log });
+      const server = mcpServer({ capability: "documents", adapters, credential: null, log });
       expect(server).toBeNull();
       expect(lines.at(-1)).toBe("mcp linear skipped: the Linear app is not installed");
     });
   });
 
-  describe("the docs capability on Notion", () => {
+  describe("the documents capability on Notion", () => {
     it("is null, because the Notion CLI reaches the page", () => {
       const notion = Adapters.parse({ documents: { provider: "notion" } });
       const credential = "ntn_secret";
-      expect(mcpServer({ capability: "docs", adapters: notion, credential, log })).toBeNull();
+      expect(mcpServer({ capability: "documents", adapters: notion, credential, log })).toBeNull();
     });
   });
 
@@ -129,10 +129,10 @@ describe("cliEnv", () => {
   const lines: string[] = [];
   const log = (line: string) => lines.push(line);
 
-  describe("the docs capability on Notion with a token", () => {
+  describe("the documents capability on Notion with a token", () => {
     it("gives the Notion CLI the token and keeps it off the keychain", () => {
       const given = cliEnv({
-        capability: "docs",
+        capability: "documents",
         adapters: notion,
         credential: "ntn_secret",
         log,
@@ -141,16 +141,20 @@ describe("cliEnv", () => {
     });
   });
 
-  describe("the docs capability on Notion without a token", () => {
+  describe("the documents capability on Notion without a token", () => {
     it("is empty and names the missing variable", () => {
-      expect(cliEnv({ capability: "docs", adapters: notion, credential: null, log })).toEqual({});
+      expect(cliEnv({ capability: "documents", adapters: notion, credential: null, log })).toEqual(
+        {},
+      );
       expect(lines.at(-1)).toBe("notion cli skipped: NOTION_TOKEN is unset");
     });
   });
 
   describe("a capability whose host has no CLI credential", () => {
-    it("is empty for the docs capability on Linear", () => {
-      expect(cliEnv({ capability: "docs", adapters, credential: "lin_oauth_a", log })).toEqual({});
+    it("is empty for the documents capability on Linear", () => {
+      expect(cliEnv({ capability: "documents", adapters, credential: "lin_oauth_a", log })).toEqual(
+        {},
+      );
     });
 
     it("is empty for the code capability, whose token goes to a file", () => {

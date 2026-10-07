@@ -361,10 +361,10 @@ export async function documentHostRefusal(
   const definition = workflow
     .workflowDefinition()
     .stages.find((candidate) => candidate.name === stageName);
-  if (definition?.ending === "choice" && !(await workflow.docs())) {
+  if (definition?.ending === "choice" && !(await workflow.documents())) {
     return `Stage ${stageName} ends on a choice read from its page on the document host, and this workflow has none.`;
   }
-  if (definition?.author.produce.execution !== "model" || (await workflow.docs())) return null;
+  if (definition?.author.produce.execution !== "model" || (await workflow.documents())) return null;
   return `Stage ${stageName} writes its page on the document host, and this workflow has none.`;
 }
 
@@ -557,9 +557,9 @@ async function checkSelection(
   if (artifact?.ref.kind !== "page") {
     return { refusal: `Job ${job.job_id} has no page yet. Wait for its author task.` };
   }
-  const docs = await workflow.docs();
-  if (!docs) return { refusal: `${stage}, and this workflow has no document host to read.` };
-  const pageText = await docs.readPageContent(artifact.ref.page_id).catch((error: unknown) => {
+  const documents = await workflow.documents();
+  if (!documents) return { refusal: `${stage}, and this workflow has no document host to read.` };
+  const pageText = await documents.readPageContent(artifact.ref.page_id).catch((error: unknown) => {
     workflow.log(null, `page read of job ${job.job_id} failed: ${String(error).slice(0, 200)}`);
     return null;
   });

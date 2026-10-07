@@ -1,4 +1,4 @@
-import type { HeldComment } from "@artfct-ai/adapters/docs/types";
+import type { HeldComment } from "@artfct-ai/adapters/documents/types";
 import type { FeedbackHandle, Finding } from "../../artifact/types";
 
 /** Each held comment as a finding that says who wrote it. */
