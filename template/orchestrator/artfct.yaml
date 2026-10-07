@@ -1,22 +1,27 @@
 # Deployment-wide settings. Each workflow definition lives in workflows/<name>.yaml.
 
-# One vendor per adapter capability. Every stage, artifact, and MCP server follows from these.
-providers:
-  code: github
-  tracker: linear
-  chat: slack
-  docs: notion
-  gateway: openrouter
+# One vendor per adapter capability, with that capability's settings. Every stage, artifact,
+# and MCP server follows from these.
+adapters:
+  code:
+    provider: github
+  tracker:
+    provider: linear
+  chat:
+    provider: slack
+  documents:
+    provider: notion
+    # Where pages go when the request names no place. A link to a page, or to a database with
+    # one table. Without it the agent asks.
+    # page_parent: https://www.notion.so/<workspace>/<page or database id>
+  gateway:
+    provider: openrouter
 
 # Who may give this deployment work. Replace each placeholder with your team, or delete its line.
 # Delete the whole block to let in everyone who reaches the bot.
 access:
   tracker_team: <team key>
   chat_team: <team id>
-
-# Where Notion puts the pages of a workflow when the request names no place. A link to a page, or
-# to a database with one table. Without it the agent asks.
-# page_parent: https://www.notion.so/<workspace>/<page or database id>
 
 mcp_servers:
   - name: cloudflare

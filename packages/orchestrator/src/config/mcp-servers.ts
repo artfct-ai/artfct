@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { CodeProvider, DocsProvider, TrackerProvider } from "./providers";
+import { CodeProvider, DocsProvider, TrackerProvider } from "./adapters";
 
 /** An MCP server reached over the network. Any value may reference a secret as `${NAME}`. */
 const RemoteMcpServerEntry = z.strictObject({

@@ -10,12 +10,12 @@ const DEFINITION = [
 describe("loadDeploymentConfig", () => {
   describe("a deployment with one workflow definition", () => {
     const loaded = loadDeploymentConfig({
-      config: "providers: { docs: notion }",
+      config: "adapters: { documents: { provider: notion } }",
       workflowDefinitions: [{ name: "development", text: DEFINITION }],
     });
 
     it("parses the settings", () => {
-      expect(loaded.config.providers.docs).toBe("notion");
+      expect(loaded.config.adapters.documents.provider).toBe("notion");
     });
 
     it("parses the workflow definition under its name", () => {

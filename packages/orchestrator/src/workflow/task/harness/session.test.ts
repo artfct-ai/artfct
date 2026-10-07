@@ -3,7 +3,7 @@ import { type BridgeHelloParams, BridgeMethods } from "@artfct-ai/acp/methods";
 import { FakeCodeHost } from "@artfct-ai/adapters/test/fake-code-host";
 import type { McpServer, NewSessionRequest, SessionConfigOption } from "@agentclientprotocol/sdk";
 import { describe, expect, it } from "bun:test";
-import { Providers } from "../../../config/providers";
+import { Adapters } from "../../../config/adapters";
 import { freshRuntime } from "../../../../test/fresh-runtime";
 import { effortLine, onInitialized, onSessionNew } from "./session";
 import { onBridgeMessage } from "./bridge";
@@ -322,7 +322,7 @@ describe("onInitialized", () => {
 
     describe("when Notion holds the pages", () => {
       const opened = handshake({ stage: "design" }, (workflow) => {
-        workflow.patchConfig({ providers: Providers.parse({ docs: "notion" }) });
+        workflow.patchConfig({ adapters: Adapters.parse({ documents: { provider: "notion" } }) });
         workflow.mcpCredentialValue = "ntn_secret";
       });
 

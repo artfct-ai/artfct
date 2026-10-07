@@ -19,14 +19,14 @@ import {
   web,
 } from "./clients";
 import type { ArtifactClients } from "./clients";
-import { Providers } from "./config/providers";
+import { Adapters } from "./config/adapters";
 import { createDb } from "./db/client";
 import { saveLinearInstall } from "./db/linear-installs";
 import { linearInstalls } from "./db/schema";
 import type { Env } from "./env";
 
 const db = createDb(env.DB);
-const providers = Providers.parse({});
+const adapters = Adapters.parse({});
 const oauth: Env = { ...env, LINEAR_CLIENT_ID: "cid", LINEAR_CLIENT_SECRET: "sec" };
 const metadata = { workflow_id: "wf_1" };
 
@@ -74,8 +74,8 @@ describe("codeHost", () => {
 });
 
 describe("gateway", () => {
-  const GLOBAL = { openrouter: {} };
-  const IN_EU = { openrouter: { region: "eu" as const } };
+  const GLOBAL = undefined;
+  const IN_EU = "eu" as const;
   const bare: Env = {
     ...env,
     CF_ACCOUNT_ID: "",
@@ -265,9 +265,9 @@ describe("SDK adapters under workerd's fetch", () => {
   });
 });
 
-function artifactClients(kinds: Providers): ArtifactClients {
+function artifactClients(kinds: Adapters): ArtifactClients {
   return {
-    providers: kinds,
+    adapters: kinds,
     code: () => null,
     docs: async () => null,
     repo: () => null,
@@ -279,7 +279,7 @@ describe("artifact", () => {
   describe("a pull request link with a trailing path", () => {
     it("detects the canonical url", async () => {
       const text = "Opened https://github.com/acme/app/pull/3/files";
-      const target = await artifact("pull", artifactClients(providers)).detect(text);
+      const target = await artifact("pull", artifactClients(adapters)).detect(text);
       expect(target).toEqual({
         url: "https://github.com/acme/app/pull/3",
         ref: { kind: "pull", repo: "acme/app", number: 3 },
@@ -291,19 +291,19 @@ describe("artifact", () => {
     const text = "Done: https://example.com/x";
 
     it("is no pull request", async () => {
-      const kind = artifact("pull", artifactClients(providers));
+      const kind = artifact("pull", artifactClients(adapters));
       expect(await kind.detect(text)).toBeNull();
     });
 
     it("is no issue list", async () => {
-      const kind = artifact("issues", artifactClients(providers));
+      const kind = artifact("issues", artifactClients(adapters));
       expect(await kind.detect(text)).toBeNull();
     });
   });
 
   describe("a tracker issue link", () => {
     it("is an issue list", async () => {
-      const kind = artifact("issues", artifactClients(providers));
+      const kind = artifact("issues", artifactClients(adapters));
       const text = "Filed https://linear.app/acme/issue/ENG-1/title";
       expect(await kind.detect(text)).toEqual({
         url: "https://linear.app/acme/issue/ENG-1/title",
@@ -314,13 +314,16 @@ describe("artifact", () => {
 
   describe("a page on the configured docs provider", () => {
     it("asks the document host when it is Linear", async () => {
-      const kind = artifact("page", artifactClients(providers));
+      const kind = artifact("page", artifactClients(adapters));
       const text = "Wrote https://linear.app/acme/document/design-abc";
       expect(await kind.detect(text)).toBeNull();
     });
 
     it("reads a Notion url without a credential", async () => {
-      const kind = artifact("page", artifactClients(Providers.parse({ docs: "notion" })));
+      const kind = artifact(
+        "page",
+        artifactClients(Adapters.parse({ documents: { provider: "notion" } })),
+      );
       const url = "https://www.notion.so/acme/Design-0123456789abcdef0123456789abcdef";
       expect(await kind.detect(`Wrote ${url}`)).toEqual({
         url,
@@ -344,14 +347,14 @@ describe("mcpCredential", () => {
 
     it("gives the tracker capability the app's access token", async () => {
       const capability = "tracker" as const;
-      expect(await mcpCredential({ env: oauth, capability, providers })).toBe(
+      expect(await mcpCredential({ env: oauth, capability, adapters })).toBe(
         installed.access_token,
       );
     });
 
     it("gives the docs capability on Linear the same token", async () => {
       const capability = "docs" as const;
-      expect(await mcpCredential({ env: oauth, capability, providers })).toBe(
+      expect(await mcpCredential({ env: oauth, capability, adapters })).toBe(
         installed.access_token,
       );
     });
@@ -360,15 +363,15 @@ describe("mcpCredential", () => {
   describe("with no install", () => {
     it("is null", async () => {
       const capability = "tracker" as const;
-      expect(await mcpCredential({ env: oauth, capability, providers })).toBeNull();
+      expect(await mcpCredential({ env: oauth, capability, adapters })).toBeNull();
     });
   });
 
   describe("the docs capability on Notion", () => {
     it("is the Notion token", async () => {
-      const notion = Providers.parse({ docs: "notion" });
+      const notion = Adapters.parse({ documents: { provider: "notion" } });
       const withToken: Env = { ...env, NOTION_TOKEN: "secret_t" };
-      expect(await mcpCredential({ env: withToken, capability: "docs", providers: notion })).toBe(
+      expect(await mcpCredential({ env: withToken, capability: "docs", adapters: notion })).toBe(
         "secret_t",
       );
     });
@@ -376,7 +379,7 @@ describe("mcpCredential", () => {
 
   describe("the code capability", () => {
     it("holds none, because every task mints its own", async () => {
-      expect(await mcpCredential({ env, capability: "code", providers })).toBeNull();
+      expect(await mcpCredential({ env, capability: "code", adapters })).toBeNull();
     });
   });
 });

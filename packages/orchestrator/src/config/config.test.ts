@@ -8,12 +8,12 @@ describe("loadConfig", () => {
     const config = loadConfig("");
 
     it("names one provider per capability", () => {
-      expect(config.providers).toEqual({
-        code: "github",
-        tracker: "linear",
-        chat: "slack",
-        docs: "linear",
-        gateway: "cloudflare",
+      expect(config.adapters).toEqual({
+        code: { provider: "github" },
+        tracker: { provider: "linear" },
+        chat: { provider: "slack" },
+        documents: { provider: "linear" },
+        gateway: { provider: "cloudflare" },
       });
     });
 
@@ -23,21 +23,23 @@ describe("loadConfig", () => {
   });
 
   describe("a default page parent", () => {
+    const LINK = "https://www.notion.so/acme/Design-docs-3eb92fd781108088b848ebb16c8f4838";
+
     it("keeps it on a document host that nests pages", () => {
       const config = loadConfig(
-        "providers: { docs: notion }\npage_parent: https://www.notion.so/acme/Design-docs-3eb92fd781108088b848ebb16c8f4838",
+        `adapters: { documents: { provider: notion, page_parent: "${LINK}" } }`,
       );
-      expect(config.page_parent).toBe(
-        "https://www.notion.so/acme/Design-docs-3eb92fd781108088b848ebb16c8f4838",
-      );
+      expect(config.adapters.documents.page_parent).toBe(LINK);
     });
 
     it("is unset when the config names none", () => {
-      expect(loadConfig("").page_parent).toBeUndefined();
+      expect(loadConfig("").adapters.documents.page_parent).toBeUndefined();
     });
 
     it("refuses it on Linear, where the issue's project holds the documents", () => {
-      expect(() => loadConfig("page_parent: project-1")).toThrow(/page_parent/);
+      expect(() => loadConfig("adapters: { documents: { page_parent: project-1 } }")).toThrow(
+        /page_parent/,
+      );
     });
   });
 
@@ -150,22 +152,22 @@ describe("SleepAfter", () => {
   });
 });
 
-describe("providers", () => {
-  describe("a config that names a docs provider", () => {
-    const config = loadConfig("providers: { docs: notion }");
+describe("adapters", () => {
+  describe("a config that names a documents provider", () => {
+    const config = loadConfig("adapters: { documents: { provider: notion } }");
 
     it("takes the named provider", () => {
-      expect(config.providers.docs).toBe("notion");
+      expect(config.adapters.documents.provider).toBe("notion");
     });
 
     it("leaves the rest on their defaults", () => {
-      expect(config.providers.tracker).toBe("linear");
+      expect(config.adapters.tracker.provider).toBe("linear");
     });
   });
 
   describe("a config that names a provider with no implementation", () => {
     it("is refused", () => {
-      expect(() => loadConfig("providers: { docs: confluence }")).toThrow();
+      expect(() => loadConfig("adapters: { documents: { provider: confluence } }")).toThrow();
     });
   });
 });
@@ -195,6 +197,6 @@ describe("the template artfct.yaml", () => {
       join(import.meta.dirname, "../../../../template/orchestrator/artfct.yaml"),
       "utf8",
     );
-    expect(loadConfig(text).providers.code).toBe("github");
+    expect(loadConfig(text).adapters.code.provider).toBe("github");
   });
 });

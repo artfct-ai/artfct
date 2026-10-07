@@ -24,14 +24,15 @@ A deployment is two Workers, one D1 database, and sandbox containers, all on you
 
 Your deployment repo holds the configuration. `orchestrator/artfct.yaml` holds the deployment-wide settings: the default harness and model, one vendor per capability under `providers`, the teams that may use the deployment under `access`, the orchestrator model, and your own MCP servers. Each file under `orchestrator/workflows/` is a workflow definition. It describes the kind of work it is for and names the stages, the harness and model of each author, and the reviewers. A deployment holds one workflow definition today. The template ships `orchestrator/workflows/development.yaml` with the stages `architectural directions`, `design`, `plan`, `breakdown`, and `implement`. `orchestrator/skills/` holds the instructions each stage follows. `orchestrator/writing-rules.md` holds the writing rules every agent reads.
 
-The four capabilities and the vendors each one accepts:
+Each capability has one entry under `adapters` in `orchestrator/artfct.yaml`. The entry names the vendor as `provider` and holds that capability's settings.
 
-| Capability | `providers` key | Vendors | Template default |
+| Capability | `adapters` key | Vendors | Default |
 |---|---|---|---|
 | Code host | `code` | `github` | `github` |
 | Tracker | `tracker` | `linear` | `linear` |
 | Chat | `chat` | `slack` | `slack` |
-| Documents | `docs` | `linear`, `notion` | `linear` |
+| Documents | `documents` | `linear`, `notion` | `linear` |
+| Model gateway | `gateway` | `cloudflare`, `openrouter` | `cloudflare` |
 
 ## Install
 
@@ -119,7 +120,7 @@ A Notion commenter always needs a Linear account with the same email, and `track
 
 ### 4. Connect the vendors
 
-Connect GitHub first, then Linear. The template needs both. Linear is its tracker and keeps its pages. People start requests from Slack or Linear, so Slack is optional. Notion is needed only when `providers.docs` is `notion`. Leave a vendor's values empty to turn it off.
+Connect GitHub first, then Linear. The template needs both. Linear is its tracker and keeps its pages. People start requests from Slack or Linear, so Slack is optional. Notion is needed only when `adapters.documents.provider` is `notion`. Leave a vendor's values empty to turn it off.
 
 - [GitHub](vendors/github.md): `npx artfct connect code` creates and installs the GitHub App. It writes the app slug into `ingress/wrangler.jsonc`. Commit and push that file before you deploy.
 - [Linear](vendors/linear.md): an OAuth application, installed once from an admin link after the first deploy.
@@ -170,19 +171,21 @@ Leave `ANTHROPIC_API_KEY` empty and route Claude Code through the Anthropic endp
 4. Set the gateway in `orchestrator/artfct.yaml`:
 
    ```yaml
-   providers:
-     gateway: cloudflare
+   adapters:
+     gateway:
+       provider: cloudflare
    ```
 
-The sandbox gateway comes from `providers.gateway`. The OpenRouter gateway has no Anthropic endpoint, so a task on `claude-code` fails with `claude-code needs ANTHROPIC_API_KEY or a gateway with an Anthropic endpoint` when neither route is set up.
+The sandbox gateway comes from `adapters.gateway.provider`. The OpenRouter gateway has no Anthropic endpoint, so a task on `claude-code` fails with `claude-code needs ANTHROPIC_API_KEY or a gateway with an Anthropic endpoint` when neither route is set up.
 
 ## OpenRouter region
 
 OpenRouter can keep a request inside the EU or the US, from decryption to the model provider. It needs an OpenRouter Business or Enterprise plan. The same key works in every region. Set the region in `orchestrator/artfct.yaml`:
 
 ```yaml
-gateways:
-  openrouter:
+adapters:
+  gateway:
+    provider: openrouter
     region: eu
 ```
 
@@ -191,5 +194,5 @@ The values are `eu` and `us`. Without the key, calls go to OpenRouter's global h
 The region covers every call the OpenRouter gateway makes: the orchestrator agent, its summaries, the decisions model, the model-call authors, and a sandbox that runs opencode. The model list the agent offers comes from the same region.
 
 - Replace each model the region does not serve. A region serves fewer models than the global host, and OpenRouter fails a request for a model with no provider in the region. `https://eu.openrouter.ai/api/v1/models` lists the models of the EU, and `https://us.openrouter.ai/api/v1/models` lists the models of the US. Check every `openrouter/` model in `orchestrator/artfct.yaml` and in each workflow definition, the template's included.
-- Use `gateway: openrouter` for every `openrouter/` model. The Cloudflare gateway passes such a model through to OpenRouter's global host, so it refuses the model while a region is set.
+- Use the `openrouter` gateway for every `openrouter/` model. The Cloudflare gateway passes such a model through to OpenRouter's global host, so it refuses the model while a region is set.
 - The region does not cover Claude Code on `ANTHROPIC_API_KEY`. Those calls go to Anthropic.

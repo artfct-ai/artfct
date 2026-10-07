@@ -624,7 +624,13 @@ describe("list_repositories", () => {
     describe("a plan with the root page stage and a page parent in the config", () => {
       const planned = scenario(freshRuntime, async (workflow) => {
         patchNestingHost(workflow);
-        workflow.patchConfig({ page_parent: "db-default" });
+        const { adapters } = workflow.config();
+        workflow.patchConfig({
+          adapters: {
+            ...adapters,
+            documents: { provider: "notion", page_parent: "db-default" },
+          },
+        });
         await planWithPages(workflow, { stages: ["design"] });
       });
 

@@ -2,9 +2,9 @@ import { EFFORTS, HARNESSES } from "@artfct-ai/adapters/harness/types";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 import { Duration } from "./duration";
-import { GatewayProvider, Gateways } from "./gateway";
+import { GatewayProvider } from "./gateway";
 import { McpServers } from "./mcp-servers";
-import { Providers } from "./providers";
+import { Adapters } from "./adapters";
 
 /** The time limits of one harness turn of a task. */
 export const TaskTimeouts = z.object({
@@ -37,7 +37,7 @@ export const SandboxConfig = z.object({
 export const OrchestratorConfig = z.object({
   /** A model on the gateway's OpenAI-compatible endpoint. */
   model: z.string().default("dynamic/orchestrator"),
-  /** The gateway `model` goes through. Unset takes `providers.gateway`. */
+  /** The gateway `model` goes through. Unset takes `adapters.gateway.provider`. */
   gateway: GatewayProvider.optional(),
   /** Extra fields on every chat completion request to `model`, sent as they are. */
   model_params: z.record(z.string(), z.json()).default({}),
@@ -87,21 +87,12 @@ export type Access = z.infer<typeof Access>;
  * The deployment-wide settings of `artfct.yaml`. Every section has defaults. An unknown key fails,
  * so a `stages` list in it is refused, not ignored.
  */
-export const Config = z
-  .strictObject({
-    providers: Providers.prefault({}),
-    gateways: Gateways.prefault({}),
-    access: Access.prefault({}),
-    /** The default page parent, a link to a page or a database, for a request that names none. */
-    page_parent: z.string().trim().min(1).optional(),
-    orchestrator: OrchestratorConfig.prefault({}),
-    mcp_servers: McpServers.default([]),
-  })
-  .refine((config) => config.page_parent === undefined || config.providers.docs !== "linear", {
-    message:
-      "page_parent is for a document host that nests pages. Linear puts the documents of a workflow in the project of its issue, or the agent asks.",
-    path: ["page_parent"],
-  });
+export const Config = z.strictObject({
+  adapters: Adapters.prefault({}),
+  access: Access.prefault({}),
+  orchestrator: OrchestratorConfig.prefault({}),
+  mcp_servers: McpServers.default([]),
+});
 export type Config = z.infer<typeof Config>;
 
 /** Parse the text of `artfct.yaml` into validated settings. An empty file takes every default. */

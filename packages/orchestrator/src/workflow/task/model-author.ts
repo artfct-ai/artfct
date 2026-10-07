@@ -241,7 +241,7 @@ function activityModel(
   effort: Effort | undefined,
 ): Promise<LanguageModel> {
   const params: Record<string, JSONValue> = effort ? { reasoning_effort: effort } : {};
-  return workflow.model(model, params, workflow.config().providers.gateway);
+  return workflow.model(model, params, workflow.config().adapters.gateway.provider);
 }
 
 /**

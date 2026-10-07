@@ -282,7 +282,7 @@ export class FakeRuntime implements WorkflowRuntime {
 
   artifact(kind: ArtifactKind): Artifact {
     return artifact(kind, {
-      providers: this.config().providers,
+      adapters: this.config().adapters,
       code: () => this.code(),
       docs: () => this.docs(),
       repo: () => this.state.repo?.full ?? null,

@@ -12,7 +12,7 @@ import { artifactCapability, cliEnv, cloneUrl } from "../../../clients";
 import { registeredConfig } from "../../../config/register-config";
 import { loadHarnessSkills } from "../../../config/skills";
 import { newToken } from "../../../ids";
-import type { Providers } from "../../../config/providers";
+import type { Adapters } from "../../../config/adapters";
 import type { ResolvedStage } from "../../../config/stage";
 import type { SandboxStartSpec } from "../../../sandbox/spec";
 import { armTokenRefresh, hostCredential, taskCredential } from "./credential";
@@ -95,7 +95,7 @@ async function startGeneration(
   const minted = await taskCredential(workflow, fresh);
   const hostEnv = cliEnv({
     capability: artifactCapability(stage.artifact),
-    providers: config.providers,
+    adapters: config.adapters,
     credential: await hostCredential(workflow, fresh, async () => minted?.token ?? null),
     log: (line) => workflow.log(fresh.task_id, line),
   });
@@ -129,7 +129,7 @@ async function startGeneration(
     effort: settings.effort,
     skills,
     harness: workflow.harness(sandbox.harness),
-    providers: config.providers,
+    adapters: config.adapters,
     workflowId: workflow.state.workflow_id,
     publicUrl: workflow.env.PUBLIC_URL ?? "",
     repo: workflow.state.repo,
@@ -188,7 +188,7 @@ export type StartSpecInput = {
   effort: Effort | undefined;
   harness: HarnessAdapter;
   skills: readonly Skill[];
-  providers: Providers;
+  adapters: Adapters;
   workflowId: string;
   publicUrl: string;
   repo: RepoRef | null;
@@ -232,7 +232,7 @@ export function buildStartSpec(
     workspace: WORKSPACE,
     repo: repo
       ? {
-          clone_url: cloneUrl(input.providers, repo.full),
+          clone_url: cloneUrl(input.adapters, repo.full),
           branch: job.branch,
           author: input.commitAuthor,
         }
@@ -281,7 +281,7 @@ function gatewayRouting(
   task: TaskRow,
   job: JobRow,
 ): GatewayRoutes | null {
-  const gateway = workflow.gateway(workflow.config().providers.gateway);
+  const gateway = workflow.gateway(workflow.config().adapters.gateway.provider);
   if (!gateway) return null;
   const metadata = {
     workflow_id: workflow.state.workflow_id,

@@ -93,7 +93,7 @@ describe("runModelAuthorTurn", () => {
       written((workflow) => {
         expect(workflow.modelRequests).toEqual([MODEL_AUTHOR_MODEL]);
         expect(workflow.modelParams).toEqual([{ reasoning_effort: "high" }]);
-        expect(workflow.modelGateways).toEqual([workflow.config().providers.gateway]);
+        expect(workflow.modelGateways).toEqual([workflow.config().adapters.gateway.provider]);
       }));
 
     it("creates the page under the page parent the plan named", () =>

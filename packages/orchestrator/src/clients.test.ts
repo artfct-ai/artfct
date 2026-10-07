@@ -2,10 +2,10 @@ import { ARTIFACT_KINDS } from "@artfct-ai/contracts/types";
 import { describe, expect, it } from "bun:test";
 import { testEnv } from "../test/test-env";
 import { artifact, artifactCapability, cliEnv, cloneUrl, codeHost, mcpServer } from "./clients";
-import { Providers } from "./config/providers";
+import { Adapters } from "./config/adapters";
 
 const env = testEnv();
-const providers = Providers.parse({});
+const adapters = Adapters.parse({});
 
 describe("codeHost", () => {
   it("is null without GitHub credentials", () => {
@@ -25,7 +25,7 @@ describe("codeHost", () => {
 
 describe("cloneUrl", () => {
   it("clones over https from the configured code host", () => {
-    expect(cloneUrl(providers, "acme/app")).toBe("https://github.com/acme/app.git");
+    expect(cloneUrl(adapters, "acme/app")).toBe("https://github.com/acme/app.git");
   });
 });
 
@@ -45,7 +45,7 @@ describe("artifactCapability", () => {
 
 describe("the instructions of a kind", () => {
   const clients = {
-    providers,
+    adapters,
     code: () => null,
     docs: async () => null,
     repo: () => null,
@@ -81,7 +81,7 @@ describe("mcpServer", () => {
     it("is the Linear server on that credential", () => {
       const server = mcpServer({
         capability: "tracker",
-        providers,
+        adapters,
         credential: "lin_oauth_a",
         log,
       });
@@ -96,7 +96,7 @@ describe("mcpServer", () => {
 
   describe("the docs capability on Linear without a credential", () => {
     it("is null and names what is missing", () => {
-      const server = mcpServer({ capability: "docs", providers, credential: null, log });
+      const server = mcpServer({ capability: "docs", adapters, credential: null, log });
       expect(server).toBeNull();
       expect(lines.at(-1)).toBe("mcp linear skipped: the Linear app is not installed");
     });
@@ -104,28 +104,28 @@ describe("mcpServer", () => {
 
   describe("the docs capability on Notion", () => {
     it("is null, because the Notion CLI reaches the page", () => {
-      const notion = Providers.parse({ docs: "notion" });
+      const notion = Adapters.parse({ documents: { provider: "notion" } });
       const credential = "ntn_secret";
-      expect(mcpServer({ capability: "docs", providers: notion, credential, log })).toBeNull();
+      expect(mcpServer({ capability: "docs", adapters: notion, credential, log })).toBeNull();
     });
   });
 
   describe("the code capability with a task token", () => {
     it("is the GitHub server on that token", () => {
-      const server = mcpServer({ capability: "code", providers, credential: "ghs_task", log });
+      const server = mcpServer({ capability: "code", adapters, credential: "ghs_task", log });
       expect(server?.headers).toEqual({ Authorization: "Bearer ghs_task" });
     });
   });
 
   describe("the code capability without a task token", () => {
     it("is null", () => {
-      expect(mcpServer({ capability: "code", providers, credential: null, log })).toBeNull();
+      expect(mcpServer({ capability: "code", adapters, credential: null, log })).toBeNull();
     });
   });
 });
 
 describe("cliEnv", () => {
-  const notion = Providers.parse({ docs: "notion" });
+  const notion = Adapters.parse({ documents: { provider: "notion" } });
   const lines: string[] = [];
   const log = (line: string) => lines.push(line);
 
@@ -133,7 +133,7 @@ describe("cliEnv", () => {
     it("gives the Notion CLI the token and keeps it off the keychain", () => {
       const given = cliEnv({
         capability: "docs",
-        providers: notion,
+        adapters: notion,
         credential: "ntn_secret",
         log,
       });
@@ -143,18 +143,18 @@ describe("cliEnv", () => {
 
   describe("the docs capability on Notion without a token", () => {
     it("is empty and names the missing variable", () => {
-      expect(cliEnv({ capability: "docs", providers: notion, credential: null, log })).toEqual({});
+      expect(cliEnv({ capability: "docs", adapters: notion, credential: null, log })).toEqual({});
       expect(lines.at(-1)).toBe("notion cli skipped: NOTION_TOKEN is unset");
     });
   });
 
   describe("a capability whose host has no CLI credential", () => {
     it("is empty for the docs capability on Linear", () => {
-      expect(cliEnv({ capability: "docs", providers, credential: "lin_oauth_a", log })).toEqual({});
+      expect(cliEnv({ capability: "docs", adapters, credential: "lin_oauth_a", log })).toEqual({});
     });
 
     it("is empty for the code capability, whose token goes to a file", () => {
-      expect(cliEnv({ capability: "code", providers, credential: "ghs_task", log })).toEqual({});
+      expect(cliEnv({ capability: "code", adapters, credential: "ghs_task", log })).toEqual({});
     });
   });
 });

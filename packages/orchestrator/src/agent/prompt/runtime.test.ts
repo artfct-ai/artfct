@@ -4,7 +4,7 @@ import { runtimeLines } from "./runtime";
 
 function config(patch: Record<string, unknown> = {}): Config {
   return Config.parse({
-    providers: { gateway: "openrouter" },
+    adapters: { gateway: { provider: "openrouter" } },
     orchestrator: {
       model: "openrouter/x-ai/grok-4.6",
       summarization: { model: "openrouter/minimax/minimax-m3" },

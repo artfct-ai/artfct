@@ -92,7 +92,7 @@ const input: StartSpecInput = {
   stage: stage("design"),
   effort: undefined,
   skills,
-  providers: registeredConfig().config.providers,
+  adapters: registeredConfig().config.adapters,
   workflowId: "wf_x",
   publicUrl: "https://ao.example.com",
   repo: { full: "acme/app" },

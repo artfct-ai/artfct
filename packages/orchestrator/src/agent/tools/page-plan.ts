@@ -25,7 +25,7 @@ export async function planPages(
   workflow: WorkflowRuntime,
   input: PagePlanInput,
 ): Promise<PagePlan | { refusal: string }> {
-  const pageParent = input.page_parent ?? workflow.config().page_parent ?? null;
+  const pageParent = input.page_parent ?? workflow.config().adapters.documents.page_parent ?? null;
   const docs = await workflow.docs();
   const nesting = docs?.nesting;
   if (!docs || !nesting || !rootPageStage(workflow)) return flatPagePlan(input, pageParent);

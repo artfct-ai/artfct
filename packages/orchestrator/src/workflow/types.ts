@@ -8,7 +8,7 @@ import type { Web } from "@artfct-ai/adapters/web/types";
 import type { Config } from "../config/config";
 import type { WorkflowDefinition } from "../config/workflow-definition";
 import type { GatewayProvider } from "../config/gateway";
-import type { McpCapability } from "../config/providers";
+import type { McpCapability } from "../config/adapters";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { ArtifactKind, RpcAck, WorkflowSummary } from "@artfct-ai/contracts/types";
 import type { Artifact } from "../artifact/types";

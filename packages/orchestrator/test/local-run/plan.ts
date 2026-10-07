@@ -12,7 +12,7 @@ import type { McpServer } from "@agentclientprotocol/sdk";
 import { artifactCapability, artifactNeedsTaskCredential, cliEnv } from "../../src/clients";
 import type { Config } from "../../src/config/config";
 import { loadDeploymentConfig } from "../../src/config/register-config";
-import type { McpCapability } from "../../src/config/providers";
+import type { McpCapability } from "../../src/config/adapters";
 import { loadHarnessSkills } from "../../src/config/skills";
 import { resolveStage } from "../../src/config/stage";
 import type { LoadedDeploymentConfig } from "../../src/config/types";
@@ -127,7 +127,7 @@ export async function planLocalRun(
     : null;
   const kind = stage.artifact;
   const capability = artifactCapability(kind);
-  const credential = artifactNeedsTaskCredential(kind, config.providers)
+  const credential = artifactNeedsTaskCredential(kind, config.adapters)
     ? (minted?.token ?? null)
     : await workflow.mcpCredential();
   const built = buildStartSpec({
@@ -138,13 +138,13 @@ export async function planLocalRun(
     effort: settings.effort,
     skills: loadHarnessSkills(settings.skill),
     harness: workflow.harness(sandbox.harness),
-    providers: config.providers,
+    adapters: config.adapters,
     workflowId: workflow.state.workflow_id,
     publicUrl: "",
     repo: workflow.state.repo,
     commitAuthor: workflow.state.repo ? ((await workflow.code()?.commitAuthor()) ?? null) : null,
     credential: minted?.token ?? null,
-    hostEnv: cliEnv({ capability, providers: config.providers, credential, log: warn }),
+    hostEnv: cliEnv({ capability, adapters: config.adapters, credential, log: warn }),
     gateway: routes,
     sleepAfterMs: 0,
   });
@@ -261,7 +261,8 @@ function mcpCredential(
   secrets: LocalSecrets,
 ): string | null {
   if (capability === "code") return null;
-  const provider = capability === "docs" ? config.providers.docs : config.providers.tracker;
+  const provider =
+    capability === "docs" ? config.adapters.documents.provider : config.adapters.tracker.provider;
   return (provider === "notion" ? secrets.NOTION_TOKEN : secrets.LINEAR_API_KEY) ?? null;
 }
 
@@ -276,7 +277,7 @@ function codeHost(secrets: LocalSecrets): CodeHost | null {
 }
 
 function documents(config: Config, secrets: LocalSecrets): Documents | null {
-  if (config.providers.docs === "notion") {
+  if (config.adapters.documents.provider === "notion") {
     return secrets.NOTION_TOKEN ? new NotionDocuments(secrets.NOTION_TOKEN) : null;
   }
   return secrets.LINEAR_API_KEY ? new LinearDocuments(secrets.LINEAR_API_KEY) : null;
@@ -284,8 +285,8 @@ function documents(config: Config, secrets: LocalSecrets): Documents | null {
 
 function gateway(config: Config, secrets: LocalSecrets): Gateway | null {
   const openRouterKey = secrets.OPEN_ROUTER_API_KEY || undefined;
-  const { region } = config.gateways.openrouter;
-  if (config.providers.gateway === "openrouter") {
+  const { region } = config.adapters.gateway;
+  if (config.adapters.gateway.provider === "openrouter") {
     return openRouterKey ? new OpenRouterGateway({ apiKey: openRouterKey, region }) : null;
   }
   const { CF_ACCOUNT_ID, AI_GATEWAY_ID, AI_GATEWAY_TOKEN } = secrets;

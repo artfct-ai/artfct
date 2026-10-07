@@ -9,10 +9,10 @@ const TEMPLATE_DIR = join(import.meta.dirname, "../../../template/orchestrator")
 
 const LOAD_UNDER_NODE = `
 const { loadConfig, loadWorkflowDefinition, parseSkillName } = await import("@artfct-ai/core/config");
-const config = loadConfig("providers: { docs: notion }");
+const config = loadConfig("adapters: { documents: { provider: notion } }");
 const definition = loadWorkflowDefinition("development", "description: Write designs.\\nstages:\\n  - { name: design, artifact: page, author: { produce: { execution: harness, skill: design } } }");
 const skill = parseSkillName("---\\nname: design\\ndescription: Write a design.\\n---\\n");
-console.log(JSON.stringify({ docs: config.providers.docs, stages: definition.stages.map((stage) => stage.name), skill }));
+console.log(JSON.stringify({ docs: config.adapters.documents.provider, stages: definition.stages.map((stage) => stage.name), skill }));
 `;
 
 const COMPILE_UNDER_NODE = `
