@@ -22,7 +22,9 @@ switch (command.kind) {
     const repoDir = process.cwd();
     const reports = await runChecks({
       repoDir,
-      runWrangler: (args) => runProcess("npx", ["--no", "wrangler", ...args], repoDir),
+      runWrangler: command.offline
+        ? null
+        : (args) => runProcess("npx", ["--no", "wrangler", ...args], repoDir),
     });
     process.stdout.write(formatChecksReport(reports));
     if (reports.some((report) => report.outcome === "failed")) process.exitCode = 1;

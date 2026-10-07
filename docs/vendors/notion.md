@@ -45,6 +45,8 @@ Harness tasks in the sandbox, such as the template's page reviewers, work on Not
 | `ingress/.dev.vars` | `NOTION_TOKEN` | The same secret |
 | `ingress/.dev.vars` | `NOTION_VERIFICATION_TOKEN` | The token from the handshake below |
 
+`npx artfct check` warns while the orchestrator's `NOTION_TOKEN` is empty and names the stages that write a page. The orchestrator refuses to start them without it.
+
 Upload the secrets and deploy ingress before you add the webhook.
 
 ## Add the webhook

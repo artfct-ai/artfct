@@ -6,6 +6,7 @@
     ".oxlintrc.json",
     "package.json",
     "tsconfig.base.json",
+    "tsconfig.declarations.json",
     "template/**"
   ],
   "tasks": {
@@ -28,14 +29,24 @@
       "outputs": ["dist/**"]
     },
     "@artfct-ai/core#build": {
-      "dependsOn": ["transit", "@artfct-ai/sandbox-bridge#build"],
+      "dependsOn": ["transit", "@artfct-ai/sandbox-bridge#build", "@artfct-ai/orchestrator#types"],
       "outputs": ["dist/**"]
+    },
+    "@artfct-ai/core#types": {
+      "dependsOn": ["@artfct-ai/core#build"],
+      "outputs": ["worker-configuration.d.ts"]
     },
     "@artfct-ai/core#test": {
       "dependsOn": ["transit", "types", "build", "artfct-template#build"]
     },
     "artfct#test": {
       "dependsOn": ["transit", "@artfct-ai/core#build"]
+    },
+    "artfct#lint": {
+      "dependsOn": ["transit", "types", "template-config", "@artfct-ai/core#build"]
+    },
+    "artfct#typecheck": {
+      "dependsOn": ["transit", "types", "template-config", "@artfct-ai/core#build"]
     },
     "@artfct-ai/core#lint": {
       "dependsOn": ["transit", "types", "artfct-template#build"]

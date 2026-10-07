@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.base.json",
+  "compilerOptions": {
+    "types": ["./packages/orchestrator/worker-configuration.d.ts", "node"],
+    "resolveJsonModule": true
+  },
+  "include": [
+    "packages/core/src",
+    "packages/orchestrator/src",
+    "packages/ingress/src",
+    "packages/adapters/src",
+    "packages/contracts/src",
+    "packages/acp/src"
+  ],
+  "exclude": ["packages/*/src/**/*.test.ts", "packages/*/src/**/*.test.medium.ts"]
+}

@@ -31,7 +31,6 @@
   },
   "devDependencies": {
     "@artfct-ai/core": "^0.1.0",
-    "@artfct-ai/orchestrator": "workspace:*",
     "@types/bun": "^1.4.2"
   },
   "peerDependencies": {
