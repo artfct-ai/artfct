@@ -6,6 +6,7 @@ import { historyTools } from "./history";
 import { trackerTools } from "./tracker";
 import { planTools } from "./plan";
 import { readTools } from "./read";
+import { rootPageTools } from "./root-page";
 import { startTools, type StartTurn } from "./start/start";
 import { taskTools } from "./task";
 import { webTools } from "./web";
@@ -23,6 +24,7 @@ export function workflowTools(
     ...taskTools(workflow),
     ...artifactTools(workflow),
     ...heldCommentTools(workflow),
+    ...rootPageTools(workflow),
     ...readTools(workflow),
     ...historyTools(workflow),
     ...channelTools(workflow),

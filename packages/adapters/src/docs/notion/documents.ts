@@ -4,13 +4,14 @@ import {
   isFullComment,
   isFullPage,
   isNotionClientError,
-  type PageObjectResponse,
 } from "@notionhq/client";
 import { workerdFetch } from "../../workerd-fetch";
+import { notionDocumentPage } from "./document-page";
 import { NOTION_ACKNOWLEDGEMENT, notionCommentText, notionHeldComments } from "./held-comments";
 import { notionMentionedUserIds } from "./mentions";
 import { notionPageComments } from "./page-comments";
 import { notionPageFromUrl, notionPageId } from "./page-id";
+import { NotionPageNesting } from "./page-nesting";
 import type {
   PageCommentRef,
   DocumentComment,
@@ -26,6 +27,7 @@ export type NotionOptions = { baseUrl?: string; fetch?: typeof fetch };
 
 /** `Documents` over the Notion API for an integration token. */
 export class NotionDocuments implements Documents {
+  readonly nesting: NotionPageNesting;
   private readonly client: Client;
 
   /**
@@ -39,6 +41,7 @@ export class NotionDocuments implements Documents {
       fetch: workerdFetch(options.fetch),
       dangerouslyAllowBrowser: true,
     });
+    this.nesting = new NotionPageNesting(this.client);
   }
 
   /** One page by id. Notion has no slug lookup. A page the integration cannot read reads as null. */
@@ -178,8 +181,4 @@ export class NotionDocuments implements Documents {
     if (user.type !== "person") return null;
     return user.person.email ?? null;
   }
-}
-
-function notionDocumentPage(page: PageObjectResponse): DocumentPage {
-  return { id: page.id, contentId: null, url: page.url, revision: page.last_edited_time };
 }

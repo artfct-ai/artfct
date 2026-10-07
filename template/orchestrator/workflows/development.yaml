@@ -31,6 +31,8 @@ stages:
 
   - name: design
     artifact: page
+    # On Notion, the design page holds every other page of the workflow.
+    root_page: true
     author:
       produce:
         execution: model

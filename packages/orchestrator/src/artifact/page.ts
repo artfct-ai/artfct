@@ -45,6 +45,8 @@ export type PageClients = {
   /** Mark a comment as read, in the host's own way. */
   acknowledgeComment: (comment: PageCommentRef) => Promise<void>;
   instructions: PageInstructions;
+  /** What the page parent names on this host. */
+  pageParentHint: string;
   mcp: (credential: string | null) => McpServer | null;
   /** What the author may do with other repositories in its checkout. */
   notes: string;
@@ -75,6 +77,7 @@ export function pageArtifact(clients: PageClients): Artifact {
       postRejection: (ref, text) => postRejection(clients, ref, text),
     },
     heldComments: { read: (pageId) => clients.heldComments(pageId) },
+    pageParentHint: clients.pageParentHint,
     change: (input) => commentChange(clients, input),
     acknowledge: (handles, ref) => acknowledge(clients, handles, ref),
     removed: (target) => removed(clients, target.url),

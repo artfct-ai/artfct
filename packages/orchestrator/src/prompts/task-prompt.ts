@@ -23,6 +23,8 @@ export type TaskContext = {
   preceding_selection: string | null;
   /** How the job's stage completes. */
   ending: Stage["ending"];
+  /** Where the page of the job goes. Null when its stage produces no page or nothing names a place. */
+  page_parent: string | null;
 };
 
 /** The first prompt of a task: the skill to run, the request, and how the artifact is worked with. */
@@ -39,6 +41,7 @@ export function taskPrompt(options: {
     ...optionsLines(context),
   ];
   if (context.repo) lines.push("", ...repositoryLines(context.repo, context.branch));
+  if (context.page_parent) lines.push("", "## Page parent", context.page_parent);
   lines.push("", "## Progress", TODO_INSTRUCTIONS);
   lines.push(...artifactActionSections(artifact, AUTHOR_ACTIONS));
   return lines.join("\n");

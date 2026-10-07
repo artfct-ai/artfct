@@ -15,7 +15,11 @@ import { SlackChat } from "@artfct-ai/adapters/chat/slack/chat";
 import type { Chat } from "@artfct-ai/adapters/chat/types";
 import { LinearDocuments } from "@artfct-ai/adapters/docs/linear/documents";
 import { NotionDocuments } from "@artfct-ai/adapters/docs/notion/documents";
-import { NOTION_PAGE_INSTRUCTIONS, notionCliEnv } from "@artfct-ai/adapters/docs/notion/cli";
+import {
+  NOTION_PAGE_INSTRUCTIONS,
+  NOTION_PAGE_PARENT_HINT,
+  notionCliEnv,
+} from "@artfct-ai/adapters/docs/notion/cli";
 import { notionPageFromUrl } from "@artfct-ai/adapters/docs/notion/page-id";
 import type { Documents } from "@artfct-ai/adapters/docs/types";
 import { CloudflareGateway } from "@artfct-ai/adapters/gateway/cloudflare/gateway";
@@ -32,6 +36,7 @@ import {
   LINEAR_ISSUES_INSTRUCTIONS,
   LINEAR_MCP_TOOLS,
   LINEAR_PAGE_INSTRUCTIONS,
+  LINEAR_PAGE_PARENT_HINT,
   linearMcpServer,
 } from "@artfct-ai/adapters/tracker/linear/mcp";
 import type { Tracker } from "@artfct-ai/adapters/tracker/types";
@@ -231,6 +236,7 @@ export function artifact(kind: ArtifactKind, clients: ArtifactClients): Artifact
         comment: async (pageId, text) => (await clients.docs())?.comment(pageId, text),
         acknowledgeComment: async (comment) => (await clients.docs())?.acknowledgeComment(comment),
         instructions: pageInstructions(providers.docs),
+        pageParentHint: pageParentHint(providers.docs),
         mcp,
         notes: repositoryInstructions(providers.code),
         log,
@@ -570,6 +576,19 @@ function pageInstructions(provider: DocsProvider): PageInstructions {
       return NOTION_PAGE_INSTRUCTIONS;
     case "linear":
       return LINEAR_PAGE_INSTRUCTIONS;
+    default: {
+      const unreachable: never = provider;
+      throw new Error(`unhandled docs provider ${String(unreachable)}`);
+    }
+  }
+}
+
+function pageParentHint(provider: DocsProvider): string {
+  switch (provider) {
+    case "notion":
+      return NOTION_PAGE_PARENT_HINT;
+    case "linear":
+      return LINEAR_PAGE_PARENT_HINT;
     default: {
       const unreachable: never = provider;
       throw new Error(`unhandled docs provider ${String(unreachable)}`);

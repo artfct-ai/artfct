@@ -3,6 +3,7 @@ import { z } from "zod";
 import { changeWorkflowStatus, completeWorkflow, failWorkflow } from "../../workflow/lifecycle";
 import { isWorkflowFinished } from "../../workflow/store/state";
 import type { WorkflowRuntime } from "../../workflow/types";
+import { planPages } from "./page-plan";
 
 /** The tool that ends the workflow as done. */
 export const FINISH_WORKFLOW = "finish_workflow";
@@ -40,10 +41,11 @@ export const PLAN_RULES = `## Workflow Planning Protocol
 
 /** Tools that shape the workflow: the plan and its concurrency, or the end of the workflow. */
 export function planTools(workflow: WorkflowRuntime) {
+  const pageParentHint = workflow.artifact("page").pageParentHint ?? "";
   return {
     set_plan: tool({
       description:
-        "Set the stages you intend to run, in order, the repository, the page parent, and how many jobs may run at once. Stage names must come from the config. The plan is a guide you can change at any time: call it again when the request changes or a human asks for a different route.",
+        "Set the stages you intend to run, in order, the repository, the page parent, the root page, and how many jobs may run at once. Stage names must come from the config. The plan is a guide you can change at any time: call it again when the request changes or a human asks for a different route.",
       inputSchema: z.object({
         name: z
           .string()
@@ -62,7 +64,14 @@ export function planTools(workflow: WorkflowRuntime) {
           .string()
           .nullable()
           .describe(
-            "where the document host puts this workflow's pages: the id of the tracker project the issue belongs to, or of the parent page the request names. Set it whenever the context names one. Null only when nothing names one and no planned stage writes a page as a model call.",
+            `where the document host puts this workflow's pages: ${pageParentHint} Set it whenever the context names one.`,
+          ),
+        root_page: z
+          .string()
+          .nullable()
+          .optional()
+          .describe(
+            "the link of an existing page that is the root page, the page people read first. Pass it only when set_plan asks for it. Null otherwise.",
           ),
         reason: z.string().describe("one line on why this plan"),
         concurrency: z
@@ -125,6 +134,7 @@ type PlanInput = {
   stages: string[];
   repo: string | null;
   page_parent: string | null;
+  root_page?: string | null;
   reason: string;
   concurrency?: number;
 };
@@ -138,16 +148,17 @@ async function setPlan(workflow: WorkflowRuntime, input: PlanInput): Promise<str
   if (needsRepo && !input.repo) {
     return "A planned stage needs a repository and none was given. Find it in the request, the tracker issue and its project, or list_repositories, then call set_plan again. Ask only when nothing points to one.";
   }
-  const needsPageParent = stages.some(
-    (stage) => input.stages.includes(stage.name) && stage.author.produce.execution === "model",
-  );
-  if (needsPageParent && !input.page_parent) {
-    return "A planned stage writes its page as a model call, and no page parent was given. Find it in the tracker issue's project or the request, then call set_plan again. Ask only when nothing points to one.";
-  }
   const unreachable = input.repo ? await unreachableRepo(workflow, input.repo) : null;
   if (unreachable) return unreachable;
   const ended = endedWorkflowRefusal(workflow);
   if (ended) return ended;
+  const pages = await planPages(workflow, {
+    name: input.name,
+    stages: stages.filter((stage) => input.stages.includes(stage.name)),
+    page_parent: input.page_parent,
+    root_page: input.root_page ?? null,
+  });
+  if ("refusal" in pages) return pages.refusal;
   const cap = workflow.config().orchestrator.sandbox.max_concurrency;
   const concurrency = Math.min(input.concurrency ?? cap, cap);
   const first = workflow.state.stages.length === 0;
@@ -156,7 +167,8 @@ async function setPlan(workflow: WorkflowRuntime, input: PlanInput): Promise<str
     stages: input.stages,
     concurrency,
     repo: input.repo ? { full: input.repo } : null,
-    page_parent: input.page_parent,
+    page_parent: pages.page_parent,
+    root_page: pages.root_page,
     reason: input.reason,
   });
   await changeWorkflowStatus(workflow, "running");
@@ -166,7 +178,7 @@ async function setPlan(workflow: WorkflowRuntime, input: PlanInput): Promise<str
   );
   const origin = workflow.state.origin;
   if (first && origin?.source === "tracker") await workflow.notifier.moveIssue(origin, "started");
-  return `Plan set: ${input.stages.join(" -> ")}, up to ${concurrency} jobs at once. Call start_job with stage ${input.stages[0]} and a brief for it.`;
+  return `Plan set: ${input.stages.join(" -> ")}, up to ${concurrency} jobs at once.${pages.note} Call start_job with stage ${input.stages[0]} and a brief for it.`;
 }
 
 /**

@@ -44,7 +44,7 @@ Check each step in order. The first one that is not done is the next step.
 
 ## Change the configuration
 
-- `orchestrator/artfct.yaml` holds the default harness and model, one vendor per capability under `providers`, the teams that may use the deployment under `access`, the orchestrator model, and the user's MCP servers.
+- `orchestrator/artfct.yaml` holds the default harness and model, one vendor per capability under `providers`, the teams that may use the deployment under `access`, the default `page_parent` for Notion pages, the orchestrator model, and the user's MCP servers.
 - `orchestrator/workflows/development.yaml` is the workflow definition. It names the stages, and for each stage its artifact, its research step, its author, its reviewers, and its polishers. A deployment holds one workflow definition today.
 - `orchestrator/skills/<name>/SKILL.md` holds the instructions a stage names by `skill`. Its frontmatter uses only the keys of the [Agent Skills standard](https://agentskills.io/specification), and its `name` matches its directory.
 - `orchestrator/writing-rules.md` holds the writing rules every agent reads.

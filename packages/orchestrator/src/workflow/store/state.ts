@@ -5,6 +5,12 @@ import type { WorkflowStatus } from "@artfct-ai/contracts/types";
 export type RequestText = { title: string; text: string; links: string[] };
 export type RepoRef = { full: string };
 
+/**
+ * The root page of a workflow. A `container` is the page the workflow created for the root page
+ * stage to fill. A `named` page is an existing page a person named as the root page.
+ */
+export type RootPage = { page_id: string; url: string; source: "container" | "named" };
+
 /** Durable state of one workflow. Small and JSON-shaped. Task rows live in SQLite. */
 export type WorkflowState = {
   workflow_id: string;
@@ -18,6 +24,8 @@ export type WorkflowState = {
   repo: RepoRef | null;
   /** The page parent the plan named. Absent in a workflow stored before the plan could name one. */
   page_parent?: string | null;
+  /** The root page, once the plan made or named one. Absent in a workflow stored before root pages. */
+  root_page?: RootPage | null;
   /** The planned stages in order. A guide for the agent, which may run any configured stage. */
   stages: string[];
   /** Tasks that may run at once. Set by the plan, capped by `sandbox.max_concurrency`. */
@@ -45,6 +53,7 @@ export const initialWorkflowState: WorkflowState = {
   name: "",
   repo: null,
   page_parent: null,
+  root_page: null,
   stages: [],
   concurrency: 1,
   task_seq: 0,

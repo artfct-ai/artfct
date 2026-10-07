@@ -66,6 +66,8 @@ type PageByContentIdData = {
  * the document's content id, which is what its webhooks carry.
  */
 export class LinearDocuments implements Documents {
+  /** A Linear document lives in a project and never holds another document. */
+  readonly nesting = null;
   private readonly sdk: LinearSdk;
 
   constructor(token: string | TokenSource, options: LinearOptions = {}) {

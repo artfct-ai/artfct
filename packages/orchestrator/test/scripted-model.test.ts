@@ -331,6 +331,7 @@ const AUTHOR_CONTEXT: TaskContext = {
   preceding_research_payload: null,
   preceding_selection: null,
   ending: "choice",
+  page_parent: null,
 };
 
 function documentText(decision: ReturnType<typeof scriptedDecision>): string {

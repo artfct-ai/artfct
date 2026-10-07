@@ -87,13 +87,21 @@ export type Access = z.infer<typeof Access>;
  * The deployment-wide settings of `artfct.yaml`. Every section has defaults. An unknown key fails,
  * so a `stages` list in it is refused, not ignored.
  */
-export const Config = z.strictObject({
-  providers: Providers.prefault({}),
-  gateways: Gateways.prefault({}),
-  access: Access.prefault({}),
-  orchestrator: OrchestratorConfig.prefault({}),
-  mcp_servers: McpServers.default([]),
-});
+export const Config = z
+  .strictObject({
+    providers: Providers.prefault({}),
+    gateways: Gateways.prefault({}),
+    access: Access.prefault({}),
+    /** The default page parent, a link to a page or a database, for a request that names none. */
+    page_parent: z.string().trim().min(1).optional(),
+    orchestrator: OrchestratorConfig.prefault({}),
+    mcp_servers: McpServers.default([]),
+  })
+  .refine((config) => config.page_parent === undefined || config.providers.docs !== "linear", {
+    message:
+      "page_parent is for a document host that nests pages. Linear puts the documents of a workflow in the project of its issue, or the agent asks.",
+    path: ["page_parent"],
+  });
 export type Config = z.infer<typeof Config>;
 
 /** Parse the text of `artfct.yaml` into validated settings. An empty file takes every default. */

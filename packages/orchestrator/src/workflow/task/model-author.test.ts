@@ -5,6 +5,7 @@ import {
   PAGE_PARENT,
   fakeDocumentsOf,
   patchModelExecution,
+  patchNestingHost,
   seedModelAuthor,
   type FakeRuntime,
 } from "../../../test/fake-runtime";
@@ -294,6 +295,45 @@ describe("reviseModelAuthorPage", () => {
       outage((workflow) => {
         expect(workflow.lines).toContainEqual(
           expect.stringMatching(/^model call or page update failed: .*model outage/),
+        );
+      }));
+  });
+
+  describe("feedback on the root page", () => {
+    const CHILD = '<page url="https://docs.test/page-2">Add SSO (plan)</page>';
+    const ROOT_TEXT = `${FIRST_PAGE}\n\n## Resources\n${CHILD}`;
+
+    const revised = scenario(freshRuntime, async (workflow) => {
+      const docs = patchNestingHost(workflow);
+      const author = seedModelAuthor(workflow);
+      docs.seedPage("root-1", ROOT_TEXT);
+      workflow.patchState({
+        root_page: { page_id: "root-1", url: "https://docs.test/root-1", source: "container" },
+      });
+      workflow.store.upsertArtifact({
+        job_id: "wf_x-1",
+        kind: "page",
+        external_url: "https://docs.test/root-1",
+        ref: { kind: "page", page_id: "root-1" },
+      });
+      workflow.store.advanceArtifact("wf_x-1", ["drafted"], "ready");
+      workflow.store.updateTask(author.task_id, { status: "in_review" });
+      workflow.modelInstance = new EchoModel(REVISE_ANSWER);
+      await promptTask(workflow, workflow.store.requireTask(author.task_id), FEEDBACK);
+    });
+
+    it("gives the model only the text above the resources section", () =>
+      revised((workflow) => {
+        const model = workflow.modelInstance;
+        const userText = model instanceof EchoModel ? model.userTexts[0] : "";
+        expect(userText).toContain(FIRST_PAGE);
+        expect(userText).not.toContain(CHILD);
+      }));
+
+    it("replaces the text above the resources section and keeps the section", () =>
+      revised((workflow) => {
+        expect(fakeDocumentsOf(workflow).pageText("root-1")).toBe(
+          `${REVISED_PAGE}\n\n## Resources\n${CHILD}`,
         );
       }));
   });

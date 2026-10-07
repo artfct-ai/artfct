@@ -4,6 +4,20 @@ Notion can be the documents capability. Model-call authors write their pages, su
 
 Set `providers.docs: notion` in `orchestrator/artfct.yaml`. The template default is `linear`. Notion is optional. Leave its values empty to turn it off.
 
+## Where pages go
+
+The page parent is the page or database that holds a workflow's documents. A database must have exactly one table. Each document becomes a row of that table, with its title in the table's title column.
+
+The stage marked `root_page: true` in the workflow definition makes the root page. In the template that is `design`. The root page is the page people read first, and it holds every other page of the workflow:
+
+- When the plan includes that stage, the orchestrator creates the root page under the page parent as an empty container. The stage fills it in. Every other page of the workflow is created as its subpage.
+- A request that starts from an existing page, such as architectural directions, keeps that page where it is. The root page links to it, and the agent asks once whether to move it in instead.
+- When the plan skips that stage but still writes pages, the agent asks which existing page is the root page. With none, the page the request starts from becomes the root page.
+
+The root page ends with a `## Resources` section that lists its subpages and links. A revision of the root page replaces only the text above it.
+
+A root page stage must write its page as a model call, without polishers. A harness rewrites the whole page and would drop the resources section.
+
 ## How comments reach the author
 
 A comment a person leaves on a page artifact is held. It does not reach the author or the agent yet, and the orchestrator does not reply to it. When a comment on the page mentions the connection, such as `@artfct`, the author gets every held comment on that page and the mentioning comment as one piece of feedback. The orchestrator then replies 👀 to each of those comments. A person can also ask for the held comments in the workflow's thread. The handover message names the connection as a mention shows it.
@@ -22,8 +36,8 @@ Harness tasks in the sandbox, such as the template's page reviewers, work on Not
 2. Create an internal connection for the workspace, named `artfct`. Do not use a personal access token. It acts as you, so the agent's own pages and comments would read as your feedback.
 3. Give it the capabilities Read content, Update content, Insert content, Read comments, Insert comments, and User information with email addresses. The orchestrator matches Notion users to people by email. A comment reaches the workflow only when its author's email belongs to a user of the installed Linear workspace. See `access.tracker_team` on the [Linear page](linear.md).
 4. Copy the token from the connection's Configuration tab into both `.dev.vars` files as `NOTION_TOKEN`. Ingress uses it to fetch comment bodies. The orchestrator uses it to write pages and reply, and hands it to harness tasks on page stages.
-5. Share a parent page with the connection. Open the page's ••• menu, choose Add connections, and pick `artfct`. The connection sees only the pages shared with it and their children.
-6. Name that parent page in each request, by its link. The agent writes the workflow's pages under it.
+5. Share the page or database that holds your documents with the connection. Open its ••• menu, choose Add connections, and pick `artfct`. The connection sees only the pages shared with it and their children.
+6. Set `page_parent` in `orchestrator/artfct.yaml` to its link. A request can name another page or database by its link, and that one wins. Without either, the agent asks.
 
 | File | Name | Value |
 |---|---|---|

@@ -53,8 +53,20 @@ export type DocumentPage = {
 /** One comment on a page, by the page id and the comment id. */
 export type PageCommentRef = { pageId: string; commentId: string };
 
+/** What a document host whose pages hold other pages does with that tree. */
+export interface PageNesting {
+  /** Create the root page of a workflow under its page parent, a page or a database. */
+  createRootPage(title: string, text: string, pageParent: string): Promise<DocumentPage>;
+  /** Move a page under another page. It goes at the end of its new parent. */
+  movePage(pageId: string, parentPageId: string): Promise<void>;
+  /** Add markdown text at the end of a page. */
+  appendToPage(pageId: string, text: string): Promise<void>;
+}
+
 /** What the orchestrator and ingress ask of a document host. */
 export interface Documents {
+  /** The page tree of a host whose pages hold other pages. Null on a host where they do not. */
+  readonly nesting: PageNesting | null;
   /** One page by the id this host's `pageFromUrl` returned. Null when the host has no such page. */
   page(pageId: string): Promise<DocumentPage | null>;
   /**

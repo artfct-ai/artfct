@@ -12,6 +12,7 @@ import { RUNTIME_RULES, runtimeLines } from "./runtime";
 import { REVIEW_RULES } from "../tools/artifact";
 import { CHANNEL_RULES, NOBODY_WROTE_RULES, PERSON_WROTE_RULES } from "../tools/channel";
 import { hasPageArtifact, HELD_COMMENT_RULES, SEND_HELD_COMMENTS } from "../tools/held-comments";
+import { hasRootPage, MOVE_INTO_ROOT_PAGE, ROOT_PAGE_RULES } from "../tools/root-page";
 import { TRACKER_RULES } from "../tools/tracker";
 import { PLAN_RULES } from "../tools/plan";
 import { CONTEXT_RULES } from "../tools/read";
@@ -85,6 +86,7 @@ const BLOCKS: RuleBlock[] = [
     needed: needsReview,
   },
   { rules: HELD_COMMENT_RULES, tools: [SEND_HELD_COMMENTS], needed: hasPageArtifact },
+  { rules: ROOT_PAGE_RULES, tools: [MOVE_INTO_ROOT_PAGE], needed: hasRootPage },
   { rules: TRACKER_RULES, tools: [], needed: always },
   { rules: WEB_RULES, tools: [], needed: always },
   { rules: CHANNEL_RULES, tools: [], needed: always },
@@ -191,6 +193,7 @@ function stateLines(workflow: WorkflowRuntime): string[] {
     `Plan: ${state.stages.length ? state.stages.join(" -> ") : "not set"}`,
     `Repository: ${state.repo?.full ?? "none"}`,
     `Page parent: ${state.page_parent ?? "none"}`,
+    `Root page: ${state.root_page?.url ?? "none"}`,
     `Active jobs: ${active.length} of ${state.concurrency} slots`,
     ...active.map((task) => jobLine(workflow, task)),
     `Cost so far: $${workflow.store.workflowCost().toFixed(2)}`,

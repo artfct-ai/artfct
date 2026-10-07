@@ -14,6 +14,7 @@ import {
   runningPolisherOf,
 } from "../../refiner/stage-refiner";
 import { flushBoards } from "../../board/board";
+import { newPageParent } from "../../root-page";
 import { startFollowUp } from "../../follow-up";
 import { reviseModelAuthorPage } from "../model-author";
 import { startSandbox } from "../sandbox/sandbox";
@@ -240,5 +241,6 @@ export function taskContext(workflow: WorkflowRuntime, task: TaskRow): TaskConte
     preceding_research_payload: precedingJob?.research_payload ?? null,
     preceding_selection: precedingJob?.selection ?? null,
     ending: workflow.stageFor(job).ending,
+    page_parent: workflow.stageFor(job).artifact === "page" ? newPageParent(workflow.state) : null,
   };
 }

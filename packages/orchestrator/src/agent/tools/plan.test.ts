@@ -1,7 +1,14 @@
 import { FakeCodeHost } from "@artfct-ai/adapters/test/fake-code-host";
 import { describe, expect, it } from "bun:test";
 import { freshRuntime } from "../../../test/fresh-runtime";
-import { patchModelExecution, seedTask } from "../../../test/fake-runtime";
+import {
+  PAGE_PARENT,
+  patchModelExecution,
+  fakeDocumentsOf,
+  patchNestingHost,
+  seedTask,
+  type FakeRuntime,
+} from "../../../test/fake-runtime";
 import { scenario } from "../../../test/scenario";
 import { toolText } from "../../../test/tool-result";
 import { planTools } from "./plan";
@@ -16,6 +23,33 @@ const TRACKER_ORIGIN = {
 } as const;
 
 const THREAD = { source: "chat", channel: "C1", thread: "1.0" } as const;
+
+async function planWithPages(
+  workflow: FakeRuntime,
+  fields: { stages: string[]; page_parent?: string | null; root_page?: string | null },
+): Promise<string> {
+  const { set_plan } = planTools(workflow);
+  return toolText(
+    await set_plan.execute(
+      {
+        name: "Ship it",
+        repo: "acme/app",
+        reason: "test",
+        page_parent: null,
+        ...fields,
+      },
+      call,
+    ),
+  );
+}
+
+function addPlanStage(workflow: FakeRuntime): void {
+  const [design, ...rest] = workflow.workflowDefinition().stages;
+  if (!design) throw new Error("the test definition has no design stage");
+  workflow.patchWorkflowDefinition({
+    stages: [design, { ...design, name: "plan", root_page: false }, ...rest],
+  });
+}
 
 describe("set_plan", () => {
   describe("on a workflow that is done", () => {
@@ -518,5 +552,143 @@ describe("list_repositories", () => {
           /^The code host lookup failed/,
         );
       }));
+  });
+
+  describe("on a document host that nests pages", () => {
+    const EXISTING_URL = "https://docs.test/existing";
+
+    describe("a plan with the root page stage", () => {
+      let result: string;
+      const planned = scenario(freshRuntime, async (workflow) => {
+        patchNestingHost(workflow);
+        result = await planWithPages(workflow, { stages: ["design"], page_parent: "db-1" });
+      });
+
+      it("creates the root page as an empty container under the page parent", () =>
+        planned((workflow) => {
+          expect(fakeDocumentsOf(workflow).argsOf("createRootPage")).toEqual([
+            ["Ship it (design)", "## Resources", "db-1"],
+          ]);
+        }));
+
+      it("stores the root page", () =>
+        planned((workflow) => {
+          expect(workflow.state.root_page).toEqual({
+            page_id: "page-1",
+            url: "https://docs.test/page-1",
+            source: "container",
+          });
+        }));
+
+      it("names the root page in its answer", () =>
+        planned(() => {
+          expect(result).toContain(
+            "Created the root page https://docs.test/page-1 for stage design to fill.",
+          );
+        }));
+
+      describe("and a second call", () => {
+        const replanned = scenario(planned, async (workflow) => {
+          result = await planWithPages(workflow, {
+            stages: ["design", "implement"],
+            page_parent: "db-1",
+          });
+        });
+
+        it("keeps the root page and creates no other", () =>
+          replanned((workflow) => {
+            expect(fakeDocumentsOf(workflow).argsOf("createRootPage")).toHaveLength(1);
+            expect(workflow.state.root_page?.page_id).toBe("page-1");
+          }));
+      });
+    });
+
+    describe("a plan with the root page stage and no page parent", () => {
+      let result: string;
+      const refused = scenario(freshRuntime, async (workflow) => {
+        patchNestingHost(workflow);
+        result = await planWithPages(workflow, { stages: ["design"] });
+      });
+
+      it("asks where the documents go", () =>
+        refused(() => {
+          expect(result).toMatch(/^Stage design makes the root page, and no page parent/);
+        }));
+
+      it("plans no stages", () =>
+        refused((workflow) => {
+          expect(workflow.state.stages).toEqual([]);
+        }));
+    });
+
+    describe("a plan with the root page stage and a page parent in the config", () => {
+      const planned = scenario(freshRuntime, async (workflow) => {
+        patchNestingHost(workflow);
+        workflow.patchConfig({ page_parent: "db-default" });
+        await planWithPages(workflow, { stages: ["design"] });
+      });
+
+      it("creates the root page under the config default", () =>
+        planned((workflow) => {
+          expect(workflow.state.page_parent).toBe("db-default");
+          expect(fakeDocumentsOf(workflow).argsOf("createRootPage")[0]?.[2]).toBe("db-default");
+        }));
+    });
+
+    describe("a plan with a page stage but not the root page stage", () => {
+      let result: string;
+      const refused = scenario(freshRuntime, async (workflow) => {
+        patchNestingHost(workflow, { pages: { [EXISTING_URL]: "existing-1" } });
+        addPlanStage(workflow);
+        fakeDocumentsOf(workflow).seedPage("existing-1", "# Directions");
+        result = await planWithPages(workflow, { stages: ["plan"], page_parent: PAGE_PARENT });
+      });
+
+      it("asks which page is the root page", () =>
+        refused(() => {
+          expect(result).toMatch(
+            /^The plan writes pages, and no planned stage makes the root page/,
+          );
+        }));
+
+      describe("and a second call that names one", () => {
+        const named = scenario(refused, async (workflow) => {
+          result = await planWithPages(workflow, {
+            stages: ["plan"],
+            page_parent: PAGE_PARENT,
+            root_page: EXISTING_URL,
+          });
+        });
+
+        it("stores the named page as the root page", () =>
+          named((workflow) => {
+            expect(workflow.state.root_page).toEqual({
+              page_id: "existing-1",
+              url: EXISTING_URL,
+              source: "named",
+            });
+          }));
+
+        it("adds a resources section to it", () =>
+          named((workflow) => {
+            expect(fakeDocumentsOf(workflow).pageText("existing-1")).toBe(
+              "# Directions\n## Resources",
+            );
+          }));
+      });
+    });
+
+    describe("a plan without a page stage", () => {
+      const planned = scenario(freshRuntime, async (workflow) => {
+        patchNestingHost(workflow);
+        await planWithPages(workflow, { stages: ["implement"] });
+      });
+
+      it("sets no root page", () =>
+        planned((workflow) => {
+          expect(workflow.state.stages).toEqual(["implement"]);
+          expect(workflow.state.root_page).toBeNull();
+        }));
+    });
   });
 });

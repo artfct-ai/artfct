@@ -163,6 +163,8 @@ export interface Artifact {
   review?: ReviewSupport;
   checks?: ChecksSupport;
   heldComments?: HeldCommentSupport;
+  /** What the page parent names on this host, for the plan. Absent on a kind that is not a page. */
+  pageParentHint?: string;
   /** One inbound event as a change, or null when it changes nothing. */
   change(input: ChangeInput): Promise<ArtifactChange | null>;
   /** Show on the host that the comments feedback came in were read. Never throws. */

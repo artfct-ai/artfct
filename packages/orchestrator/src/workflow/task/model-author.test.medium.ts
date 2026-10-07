@@ -10,6 +10,7 @@ import {
   MODEL_AUTHOR_MODEL,
   fakeDocumentsOf,
   patchModelExecution,
+  patchNestingHost,
   seedModelAuthor,
   type FakeRuntime,
 } from "../../../test/fake-runtime";
@@ -124,6 +125,65 @@ describe("runModelAuthorTurn", () => {
     it("starts the reviewer of the stage", () =>
       written((workflow) => {
         expect(workflow.store.tasks().map((task) => task.role)).toEqual(["author", "reviewer"]);
+      }));
+  });
+
+  describe("the root page stage", () => {
+    const ROOT = {
+      page_id: "page-1",
+      url: "https://docs.test/page-1",
+      source: "container" as const,
+    };
+
+    const written = scenario(freshDurableRuntime, async (workflow) => {
+      const docs = patchNestingHost(workflow);
+      await docs.nesting?.createRootPage("SSO sign-in (design)", "## Resources", PAGE_PARENT);
+      workflow.patchState({ name: "SSO sign-in", root_page: ROOT });
+      answerWithDocument(workflow);
+      await runModelAuthorTurn(workflow, seedModelAuthor(workflow));
+    });
+
+    it("fills the root page above its resources section", () =>
+      written((workflow) => {
+        expect(fakeDocumentsOf(workflow).pageText("page-1")).toBe(`${DOCUMENT}\n\n## Resources`);
+      }));
+
+    it("creates no other page", () =>
+      written((workflow) => {
+        expect(fakeDocumentsOf(workflow).argsOf("createPage")).toEqual([]);
+      }));
+
+    it("records the root page as the artifact of the job", () =>
+      written((workflow) => {
+        expect(workflow.store.artifact("wf_x-1")).toMatchObject({
+          external_url: ROOT.url,
+          ref: { kind: "page", page_id: "page-1" },
+        });
+      }));
+  });
+
+  describe("a page stage after the root page", () => {
+    const written = scenario(freshDurableRuntime, async (workflow) => {
+      const docs = patchNestingHost(workflow);
+      workflow.patchWorkflowDefinition({
+        stages: workflow
+          .workflowDefinition()
+          .stages.map((stage) => ({ ...stage, root_page: false })),
+      });
+      docs.seedPage("root-1", "# Design\n\n## Resources");
+      workflow.patchState({
+        name: "SSO sign-in",
+        root_page: { page_id: "root-1", url: "https://docs.test/root-1", source: "container" },
+      });
+      answerWithDocument(workflow);
+      await runModelAuthorTurn(workflow, seedModelAuthor(workflow));
+    });
+
+    it("creates its page under the root page", () =>
+      written((workflow) => {
+        expect(fakeDocumentsOf(workflow).argsOf("createPage")).toEqual([
+          ["SSO sign-in (design)", DOCUMENT, "root-1"],
+        ]);
       }));
   });
 

@@ -2,7 +2,7 @@ import type { Chat } from "@artfct-ai/adapters/chat/types";
 import type { CodeHost } from "@artfct-ai/adapters/code/types";
 import type { Decisions, Gateway } from "@artfct-ai/adapters/gateway/types";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
-import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
+import { FakeDocuments, type DocumentsAnswers } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { FakeWeb } from "@artfct-ai/adapters/test/fake-web";
 import { MockHarness } from "@artfct-ai/adapters/test/mock-harness";
@@ -518,6 +518,25 @@ export function patchModelExecution(workflow: FakeRuntime): FakeDocuments {
     })),
   });
   const docs = new FakeDocuments();
+  workflow.docsInstance = docs;
+  return docs;
+}
+
+/**
+ * Run every author as a model call on a fake host that nests pages, with the design stage
+ * making the root page.
+ */
+export function patchNestingHost(
+  workflow: FakeRuntime,
+  answers: DocumentsAnswers = {},
+): FakeDocuments {
+  patchModelExecution(workflow);
+  workflow.patchWorkflowDefinition({
+    stages: workflow
+      .workflowDefinition()
+      .stages.map((stage) => ({ ...stage, root_page: stage.name === "design" })),
+  });
+  const docs = new FakeDocuments({ ...answers, nests: true });
   workflow.docsInstance = docs;
   return docs;
 }

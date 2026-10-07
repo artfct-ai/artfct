@@ -26,6 +26,7 @@ import { isTaskFinished } from "../../../workflow/store/state";
 import type { ArtifactRow, JobRow } from "../../../workflow/store/tasks";
 import type { WorkflowRuntime } from "../../../workflow/types";
 import { endedWorkflowRefusal } from "../plan";
+import { linkInputPage } from "../root-page";
 
 const jobIdField = z.string().describe("the job id, for example wf_abc-2");
 
@@ -435,13 +436,14 @@ async function start(
     continued_branch: continued.branch ?? undefined,
   });
   if (!job) return "The job could not start. See the failure posted to the channels.";
+  const linked = target ? await linkInputPage(workflow, target) : "";
   const task = workflow.store.authorOrResearcherTaskOf(job.job_id);
   const branch = job.branch ? ` on branch ${job.branch}` : "";
   const on = job.issue_key ? ` for ${job.issue_key}` : "";
   if (target && continued.branch) {
-    return `Started job ${job.job_id} for stage ${job.stage}${branch}. It continues ${target.url}. Its ${task.role} task is ${task.task_id}.`;
+    return `Started job ${job.job_id} for stage ${job.stage}${branch}. It continues ${target.url}. Its ${task.role} task is ${task.task_id}.${linked}`;
   }
-  return `Started job ${job.job_id} for stage ${job.stage}${on}${branch}. Its ${task.role} task is ${task.task_id}.`;
+  return `Started job ${job.job_id} for stage ${job.stage}${on}${branch}. Its ${task.role} task is ${task.task_id}.${linked}`;
 }
 
 type CompleteInput = {

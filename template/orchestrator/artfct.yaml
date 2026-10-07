@@ -14,6 +14,10 @@ access:
   tracker_team: <team key>
   chat_team: <team id>
 
+# Where Notion puts the pages of a workflow when the request names no place. A link to a page, or
+# to a database with one table. Without it the agent asks.
+# page_parent: https://www.notion.so/<workspace>/<page or database id>
+
 mcp_servers:
   - name: cloudflare
     url: https://mcp.cloudflare.com/mcp

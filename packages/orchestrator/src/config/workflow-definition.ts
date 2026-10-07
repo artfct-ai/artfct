@@ -8,7 +8,12 @@ const WorkflowDefinitionFile = z.strictObject({
   /** What kind of work the definition is for. The orchestrator agent reads it. */
   description: z.string().trim().min(1),
   /** The stages in order. A task reads the one its job runs. */
-  stages: z.array(Stage).min(1),
+  stages: z
+    .array(Stage)
+    .min(1)
+    .refine((stages) => stages.filter((stage) => stage.root_page).length <= 1, {
+      message: "one stage at most sets root_page. A workflow has one root page.",
+    }),
 });
 
 /** A named set of stages in config. A workflow runs one. */
