@@ -1,5 +1,5 @@
 import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
-import type { Documents, FetchedComment, HeldComment } from "@artfct-ai/adapters/docs/types";
+import type { Documents, FetchedComment, HeldComment } from "@artfct-ai/adapters/documents/types";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
@@ -18,8 +18,8 @@ const TASK = "wf_x.1";
 const JOB = "wf_x-1";
 const PAGE_ID = "0123456789abcdef0123456789abcdef";
 
-function seedPage(workflow: FakeRuntime, docs: Documents): void {
-  workflow.docsInstance = docs;
+function seedPage(workflow: FakeRuntime, documents: Documents): void {
+  workflow.documentsInstance = documents;
   seedTask(workflow, { stage: "design" }, { prompt_in_flight: 1 });
   workflow.store.upsertArtifact({
     job_id: JOB,
@@ -33,7 +33,7 @@ function pageComment(commentId: string, text: string): Partial<InboundEvent> {
   return {
     kind: "feedback",
     text,
-    bindings: [{ source: "docs_page", external_id: PAGE_ID }],
+    bindings: [{ source: "documents_page", external_id: PAGE_ID }],
     page: { page_id: PAGE_ID, comment_id: commentId },
   };
 }
@@ -247,7 +247,7 @@ describe("applyEvent", () => {
       freshRuntime,
       pageComment("cmt-3", "@artfct please revise"),
       (workflow) => {
-        const docs = new FakeDocuments({
+        const documents = new FakeDocuments({
           self: { id: "bot-1", name: "artfct" },
           comments: { "cmt-3": hostComment("@artfct please revise", ["bot-1"]) },
           held: [
@@ -255,7 +255,7 @@ describe("applyEvent", () => {
             { id: "cmt-3", author_name: "Dev", text: "@artfct please revise" },
           ],
         });
-        seedPage(workflow, docs);
+        seedPage(workflow, documents);
       },
     );
 
@@ -291,7 +291,7 @@ describe("applyEvent", () => {
         workflow.gatewayInstance = new FakeGateway({
           decisions: new FakeDecisions({ overrides_instructions: 0.9 }),
         });
-        const docs = new FakeDocuments({
+        const documents = new FakeDocuments({
           self: { id: "bot-1", name: "artfct" },
           comments: { "cmt-3": hostComment("@artfct please revise", ["bot-1"]) },
           held: [
@@ -299,7 +299,7 @@ describe("applyEvent", () => {
             { id: "cmt-3", author_name: "Dev", text: "@artfct please revise" },
           ],
         });
-        seedPage(workflow, docs);
+        seedPage(workflow, documents);
       },
     );
 
@@ -358,11 +358,11 @@ describe("applyEvent", () => {
       freshRuntime,
       pageComment("cmt-2", "@artfct please revise"),
       (workflow) => {
-        const docs = new HeldUnreadable({
+        const documents = new HeldUnreadable({
           self: { id: "bot-1", name: "artfct" },
           comments: { "cmt-2": hostComment("@artfct please revise", ["bot-1"]) },
         });
-        seedPage(workflow, docs);
+        seedPage(workflow, documents);
       },
     );
 

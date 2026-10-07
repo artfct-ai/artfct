@@ -19,7 +19,7 @@ OPEN_ROUTER_API_KEY=
 
 # --- Claude Code auth for the claude-code harness. Set up one of the two. ---
 # 1. An Anthropic API key. Usage bills the key's organization.
-# 2. The Anthropic route of the Cloudflare AI Gateway. Leave this empty, set `providers.gateway:
+# 2. The Anthropic route of the Cloudflare AI Gateway. Leave this empty, set `adapters.gateway.provider:
 #    cloudflare` in artfct.yaml, and fill in the Cloudflare AI Gateway settings above. The gateway
 #    holds the Anthropic API key.
 ANTHROPIC_API_KEY=

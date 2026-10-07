@@ -42,7 +42,7 @@ export async function hostCredential(
   taskToken: () => Promise<string | null>,
 ): Promise<string | null> {
   const kind = workflow.stageForTask(task).artifact;
-  if (artifactNeedsTaskCredential(kind, workflow.config().providers)) return taskToken();
+  if (artifactNeedsTaskCredential(kind, workflow.config().adapters)) return taskToken();
   return workflow.mcpCredential(artifactCapability(kind));
 }
 

@@ -146,16 +146,16 @@ describe("Workflow", () => {
 
   describe("a tracker and a document host installed after the workflow first asked", () => {
     let tracker: FakeTracker;
-    let docs: FakeDocuments;
+    let documents: FakeDocuments;
     const installedLate = scenario(provisioningTask, async ({ workflow }) => {
       tracker = new FakeTracker();
-      docs = new FakeDocuments();
+      documents = new FakeDocuments();
       const trackers = [null, tracker];
-      const hosts = [null, docs];
+      const hosts = [null, documents];
       workflow.services.tracker = async () => trackers.shift() ?? null;
-      workflow.services.docs = async () => hosts.shift() ?? null;
+      workflow.services.documents = async () => hosts.shift() ?? null;
       await workflow.tracker();
-      await workflow.docs();
+      await workflow.documents();
     });
 
     it("finds the tracker when asked again", () =>
@@ -165,7 +165,7 @@ describe("Workflow", () => {
 
     it("finds the document host when asked again", () =>
       installedLate(async ({ workflow }) => {
-        expect(await workflow.docs()).toBe(docs);
+        expect(await workflow.documents()).toBe(documents);
       }));
 
     it("posts through them", () =>
@@ -175,9 +175,9 @@ describe("Workflow", () => {
           { source: "tracker", session_id: "s1", issue_id: "i1" },
           event,
         );
-        await workflow.notifier.post({ source: "docs", page_id: "p1" }, event);
+        await workflow.notifier.post({ source: "documents", page_id: "p1" }, event);
         expect(tracker.argsOf("activity")).toHaveLength(1);
-        expect(docs.argsOf("comment")).toEqual([["p1", "Hello."]]);
+        expect(documents.argsOf("comment")).toEqual([["p1", "Hello."]]);
       }));
   });
 

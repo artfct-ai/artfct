@@ -18,6 +18,7 @@ const context: TaskContext = {
   preceding_research_payload: null,
   preceding_selection: null,
   ending: "acceptance",
+  page_parent: null,
 };
 
 describe("researcherTaskPrompt", () => {

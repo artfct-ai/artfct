@@ -1,5 +1,5 @@
 import type { CodeHost } from "@artfct-ai/adapters/code/types";
-import type { Documents } from "@artfct-ai/adapters/docs/types";
+import type { Documents } from "@artfct-ai/adapters/documents/types";
 import type { Tracker } from "@artfct-ai/adapters/tracker/types";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { runInDurableObject } from "cloudflare:test";
@@ -13,7 +13,7 @@ import type { Scenario } from "./scenario";
 export type WorkflowClients = {
   tracker?: Tracker | null;
   code?: CodeHost | null;
-  docs?: Documents | null;
+  documents?: Documents | null;
 };
 
 const START_EVENT: InboundEvent = {
@@ -43,7 +43,8 @@ export function freshWorkflow(clients: () => WorkflowClients = () => ({})): Scen
       const outside = clients();
       workflow.services.tracker = async () => outside.tracker ?? null;
       workflow.services.code = () => outside.code ?? null;
-      if (outside.docs !== undefined) workflow.services.docs = async () => outside.docs ?? null;
+      if (outside.documents !== undefined)
+        workflow.services.documents = async () => outside.documents ?? null;
       workflow.services.model = async () => new ScriptedFailure(["text"]);
       await workflow.create(name, START_EVENT);
       await workflow.settle();

@@ -79,7 +79,7 @@ export const BOARD_THREAD = { source: "chat", channel: "C1", thread: "1.0" } as 
 /** Reply on `BOARD_THREAD` through `chat`, so the runtime's boards go there. */
 export function attachChat(workflow: FakeRuntime, chat: FakeChat): void {
   workflow.notifier = new Notifier(
-    { tracker: async () => null, chat, docs: async () => null },
+    { tracker: async () => null, chat, documents: async () => null },
     (entry) => workflow.store.writeOutbox(entry),
   );
   workflow.state.reply_targets = [BOARD_THREAD];

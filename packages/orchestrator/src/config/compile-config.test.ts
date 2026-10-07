@@ -4,7 +4,7 @@ import { tmpdir } from "node:os";
 import { dirname, join } from "node:path";
 import { compileConfig } from "./compile-config";
 
-const CONFIG_YAML = "providers: { docs: notion }\n";
+const CONFIG_YAML = "adapters: { documents: { provider: notion } }\n";
 
 const WORKFLOW_DEFINITION_YAML =
   "description: Write designs.\nstages:\n  - { name: design, artifact: page, author: { produce: { execution: harness, skill: design } } }\n";

@@ -1,5 +1,5 @@
 import type { Chat, SessionStatus } from "@artfct-ai/adapters/chat/types";
-import type { Documents } from "@artfct-ai/adapters/docs/types";
+import type { Documents } from "@artfct-ai/adapters/documents/types";
 import type {
   ActivityOptions,
   AgentActivityContent,
@@ -13,7 +13,7 @@ import type { Destination } from "./destination";
 import { plainText, trackerContent } from "./messages";
 
 type TrackerTarget = Extract<ReplyTarget, { source: "tracker" }>;
-type DocsTarget = Extract<ReplyTarget, { source: "docs" }>;
+type DocumentsTarget = Extract<ReplyTarget, { source: "documents" }>;
 
 /** A chat thread as a reply target. */
 export type ChatTarget = Extract<ReplyTarget, { source: "chat" }>;
@@ -60,7 +60,7 @@ export const CHAT_ACK_DELAY_S = 10;
 export type ChannelClients = {
   tracker: () => Promise<Tracker | null>;
   chat: Chat | null;
-  docs: () => Promise<Documents | null>;
+  documents: () => Promise<Documents | null>;
 };
 
 /** Construction options. `now` is a seam for the progress throttle in tests. */
@@ -73,7 +73,7 @@ export type NotifierOptions = { now?: () => number };
 export class Notifier {
   private tracker: () => Promise<Tracker | null>;
   private chat: Chat | null;
-  private docs: () => Promise<Documents | null>;
+  private documents: () => Promise<Documents | null>;
   private lastChatProgress = new Map<string, number>();
   private now: () => number;
 
@@ -84,7 +84,7 @@ export class Notifier {
   ) {
     this.tracker = clients.tracker;
     this.chat = clients.chat;
-    this.docs = clients.docs;
+    this.documents = clients.documents;
     this.now = options.now ?? Date.now;
   }
 
@@ -110,8 +110,8 @@ export class Notifier {
           return await this.toTracker(target, event);
         case "chat":
           return await this.toChat(target, event, options);
-        case "docs":
-          return await this.toDocs(target, event);
+        case "documents":
+          return await this.toDocuments(target, event);
         case "code":
           return;
       }
@@ -248,7 +248,7 @@ export class Notifier {
       case "tracker":
         this.outbox({ channel: "tracker", kind: "working", target, payload: { text } });
         return this.trackerActivity(target, { type: "thought", body: text }, { ephemeral: true });
-      case "docs":
+      case "documents":
       case "code":
         return;
     }
@@ -267,7 +267,7 @@ export class Notifier {
         if (finished) return;
         this.outbox({ channel: "tracker", kind: "release", target, payload: { finished } });
         return this.trackerActivity(target, { type: "response", body: TRACKER_RELEASE_TEXT });
-      case "docs":
+      case "documents":
       case "code":
         return;
     }
@@ -406,12 +406,12 @@ export class Notifier {
     }
   }
 
-  private async toDocs(target: DocsTarget, event: TaskEvent): Promise<void> {
+  private async toDocuments(target: DocumentsTarget, event: TaskEvent): Promise<void> {
     if (event.type === "progress") return;
     const text = plainText(event);
     if (!text) return;
-    this.outbox({ channel: "docs", kind: event.type, target, payload: { text } });
-    await (await this.docs())?.comment(target.page_id, text);
+    this.outbox({ channel: "documents", kind: event.type, target, payload: { text } });
+    await (await this.documents())?.comment(target.page_id, text);
   }
 
   /** At most one progress message per thread per minute. */

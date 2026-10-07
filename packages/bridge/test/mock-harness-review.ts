@@ -41,15 +41,18 @@ export function nextReview(filed: string[]): string {
 type ListedComments = { results: Array<{ rich_text: Array<{ plain_text: string }> }> };
 
 /** Files one review comment on the page. Returns its first line, or null when the host refused. */
-export async function fileMockPageReview(docsUrl: string, pageId: string): Promise<string | null> {
-  const listed = await fetch(`${docsUrl}/v1/comments?block_id=${pageId}`);
+export async function fileMockPageReview(
+  documentsUrl: string,
+  pageId: string,
+): Promise<string | null> {
+  const listed = await fetch(`${documentsUrl}/v1/comments?block_id=${pageId}`);
   if (!listed.ok) return null;
   const body = (await listed.json()) as ListedComments;
   const filed = body.results.map((comment) =>
     comment.rich_text.map((part) => part.plain_text).join(""),
   );
   const text = nextReview(filed);
-  const posted = await fetch(`${docsUrl}/v1/comments`, {
+  const posted = await fetch(`${documentsUrl}/v1/comments`, {
     method: "POST",
     headers: { "content-type": "application/json" },
     body: JSON.stringify({

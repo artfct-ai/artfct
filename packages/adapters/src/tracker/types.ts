@@ -1,6 +1,6 @@
 /**
  * The work tracker capability: issues, comments, workflow states, users, and agent sessions.
- * Consumers program against `Tracker`. Linear implements it today. Documents live in `../docs`.
+ * Consumers program against `Tracker`. Linear implements it today. Documents live in `../documents`.
  */
 import type { Actor, InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { ExternalUser } from "@artfct-ai/contracts/types";

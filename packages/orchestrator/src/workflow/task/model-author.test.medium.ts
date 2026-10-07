@@ -10,6 +10,7 @@ import {
   MODEL_AUTHOR_MODEL,
   fakeDocumentsOf,
   patchModelExecution,
+  patchNestingHost,
   seedModelAuthor,
   type FakeRuntime,
 } from "../../../test/fake-runtime";
@@ -26,9 +27,9 @@ function reviseAnswer(closingText: string): string {
 }
 
 async function reviseAfterReview(workflow: FakeRuntime, closingText: string): Promise<void> {
-  const docs = patchModelExecution(workflow);
+  const documents = patchModelExecution(workflow);
   const author = seedModelAuthor(workflow);
-  const page = await docs.createPage("Add SSO (design)", "## Goal\nSign in.", PAGE_PARENT);
+  const page = await documents.createPage("Add SSO (design)", "## Goal\nSign in.", PAGE_PARENT);
   workflow.store.upsertArtifact({
     job_id: "wf_x-1",
     kind: "page",
@@ -92,7 +93,7 @@ describe("runModelAuthorTurn", () => {
       written((workflow) => {
         expect(workflow.modelRequests).toEqual([MODEL_AUTHOR_MODEL]);
         expect(workflow.modelParams).toEqual([{ reasoning_effort: "high" }]);
-        expect(workflow.modelGateways).toEqual([workflow.config().providers.gateway]);
+        expect(workflow.modelGateways).toEqual([workflow.config().adapters.gateway.provider]);
       }));
 
     it("creates the page under the page parent the plan named", () =>
@@ -127,12 +128,67 @@ describe("runModelAuthorTurn", () => {
       }));
   });
 
+  describe("the root page stage", () => {
+    const ROOT = {
+      page_id: "page-1",
+      url: "https://docs.test/page-1",
+      source: "container" as const,
+    };
+
+    const written = scenario(freshDurableRuntime, async (workflow) => {
+      const documents = patchNestingHost(workflow);
+      await documents.nesting?.createRootPage("SSO sign-in (design)", "## Resources", PAGE_PARENT);
+      workflow.patchState({ name: "SSO sign-in", root_page: ROOT });
+      answerWithDocument(workflow);
+      await runModelAuthorTurn(workflow, seedModelAuthor(workflow));
+    });
+
+    it("fills the root page above its resources section", () =>
+      written((workflow) => {
+        expect(fakeDocumentsOf(workflow).pageText("page-1")).toBe(`${DOCUMENT}\n\n## Resources`);
+      }));
+
+    it("creates no other page", () =>
+      written((workflow) => {
+        expect(fakeDocumentsOf(workflow).argsOf("createPage")).toEqual([]);
+      }));
+
+    it("records the root page as the artifact of the job", () =>
+      written((workflow) => {
+        expect(workflow.store.artifact("wf_x-1")).toMatchObject({
+          external_url: ROOT.url,
+          ref: { kind: "page", page_id: "page-1" },
+        });
+      }));
+  });
+
+  describe("a page stage after the root page", () => {
+    const written = scenario(freshDurableRuntime, async (workflow) => {
+      const documents = patchNestingHost(workflow);
+      workflow.patchWorkflowDefinition({ documents: {} });
+      documents.seedPage("root-1", "# Design\n\n## Resources");
+      workflow.patchState({
+        name: "SSO sign-in",
+        root_page: { page_id: "root-1", url: "https://docs.test/root-1", source: "container" },
+      });
+      answerWithDocument(workflow);
+      await runModelAuthorTurn(workflow, seedModelAuthor(workflow));
+    });
+
+    it("creates its page under the root page", () =>
+      written((workflow) => {
+        expect(fakeDocumentsOf(workflow).argsOf("createPage")).toEqual([
+          ["SSO sign-in (design)", DOCUMENT, "root-1"],
+        ]);
+      }));
+  });
+
   describe("a job that works from the page of an earlier job", () => {
     const EARLIER_PAGE = "# Design\nUse OIDC.";
 
     const fromPage = scenario(freshDurableRuntime, async (workflow) => {
-      const docs = patchModelExecution(workflow);
-      const earlier = await docs.createPage("Earlier", EARLIER_PAGE, PAGE_PARENT);
+      const documents = patchModelExecution(workflow);
+      const earlier = await documents.createPage("Earlier", EARLIER_PAGE, PAGE_PARENT);
       workflow.store.insertJob({
         job_id: "wf_x-0",
         stage: "design",
@@ -167,8 +223,8 @@ describe("runModelAuthorTurn", () => {
     const GIVEN_PAGE = "# Design\nUse SAML.";
 
     const fromGivenPage = scenario(freshDurableRuntime, async (workflow) => {
-      const docs = patchModelExecution(workflow);
-      const given = await docs.createPage("Given", GIVEN_PAGE, PAGE_PARENT);
+      const documents = patchModelExecution(workflow);
+      const given = await documents.createPage("Given", GIVEN_PAGE, PAGE_PARENT);
       answerWithDocument(workflow);
       await runModelAuthorTurn(
         workflow,
@@ -204,9 +260,9 @@ describe("runModelAuthorTurn", () => {
 
     it("creates the page and then updates it from the prompt", () =>
       followed((workflow) => {
-        const docs = fakeDocumentsOf(workflow);
-        expect(docs.argsOf("createPage")).toHaveLength(1);
-        expect(docs.argsOf("updatePageContent")).toEqual([["page-1", DOCUMENT]]);
+        const documents = fakeDocumentsOf(workflow);
+        expect(documents.argsOf("createPage")).toHaveLength(1);
+        expect(documents.argsOf("updatePageContent")).toEqual([["page-1", DOCUMENT]]);
         expect(workflow.store.queue()).toEqual([]);
       }));
 

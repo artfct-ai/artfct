@@ -6,7 +6,8 @@ import type {
   DocumentsUser,
   FetchedComment,
   HeldComment,
-} from "../src/docs/types";
+  PageNesting,
+} from "../src/documents/types";
 import { CallLog, type RecordedCall } from "./calls";
 
 /** Fixed answers for a `FakeDocuments`. */
@@ -32,19 +33,33 @@ export type DocumentsAnswers = {
   self?: DocumentsUser;
   /** Every call fails. */
   failing?: boolean;
+  /** The host nests pages the way Notion does: a child page shows at the end of its parent. */
+  nests?: boolean;
 };
 
 /** Methods a `FakeDocuments` records. */
-export type DocumentsMethod = keyof Documents;
+export type DocumentsMethod = Exclude<keyof Documents, "nesting"> | keyof PageNesting;
 
 /** An in-memory `Documents` that answers from `DocumentsAnswers` and records every call. */
 export class FakeDocuments implements Documents {
+  readonly nesting: PageNesting | null;
   private readonly log: CallLog<DocumentsMethod>;
   private readonly pageTexts = new Map<string, string>();
   private readonly acknowledged = new Set<string>();
 
   constructor(private readonly answers: DocumentsAnswers = {}) {
     this.log = new CallLog(answers.failing ?? false);
+    this.nesting = answers.nests ? this.fakeNesting() : null;
+  }
+
+  /** The text of a page as the host holds it now. Undefined for a page it does not hold. */
+  pageText(pageId: string): string | undefined {
+    return this.pageTexts.get(pageId);
+  }
+
+  /** Put a page on the host with this text, as a person would have made it. */
+  seedPage(pageId: string, text: string): void {
+    this.pageTexts.set(pageId, text);
   }
 
   get calls(): RecordedCall<DocumentsMethod>[] {
@@ -68,9 +83,43 @@ export class FakeDocuments implements Documents {
 
   async createPage(title: string, text: string, parent: string): Promise<DocumentPage> {
     this.log.record("createPage", title, text, parent);
+    return this.addPage(title, text, parent);
+  }
+
+  private addPage(title: string, text: string, parent: string): DocumentPage {
     const id = `page-${this.pageTexts.size + 1}`;
     this.pageTexts.set(id, text);
-    return { id, contentId: null, url: `https://docs.test/${id}`, revision: "1" };
+    this.showChild(parent, id, title);
+    return { id, contentId: null, url: fakePageUrl(id), revision: "1" };
+  }
+
+  /** A nesting host lists a child page at the end of its parent, the way Notion does. */
+  private showChild(parentId: string, childId: string, title: string): void {
+    const parentText = this.pageTexts.get(parentId);
+    if (!this.answers.nests || parentText === undefined) return;
+    this.pageTexts.set(
+      parentId,
+      `${parentText}\n<page url="${fakePageUrl(childId)}">${title}</page>`,
+    );
+  }
+
+  private fakeNesting(): PageNesting {
+    return {
+      createRootPage: async (title, text, pageParent) => {
+        this.log.record("createRootPage", title, text, pageParent);
+        return this.addPage(title, text, pageParent);
+      },
+      movePage: async (pageId, parentPageId) => {
+        this.log.record("movePage", pageId, parentPageId);
+        this.showChild(parentPageId, pageId, pageId);
+      },
+      appendToPage: async (pageId, text) => {
+        this.log.record("appendToPage", pageId, text);
+        const current = this.pageTexts.get(pageId);
+        if (current === undefined) throw new Error(`appendToPage: no page ${pageId}`);
+        this.pageTexts.set(pageId, current ? `${current}\n${text}` : text);
+      },
+    };
   }
 
   async readPageContent(pageId: string): Promise<string> {
@@ -129,4 +178,8 @@ export class FakeDocuments implements Documents {
     this.log.record("userEmail", userId);
     return this.answers.emails?.[userId] ?? null;
   }
+}
+
+function fakePageUrl(pageId: string): string {
+  return `https://docs.test/${pageId}`;
 }

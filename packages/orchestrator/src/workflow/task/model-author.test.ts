@@ -5,6 +5,7 @@ import {
   PAGE_PARENT,
   fakeDocumentsOf,
   patchModelExecution,
+  patchNestingHost,
   seedModelAuthor,
   type FakeRuntime,
 } from "../../../test/fake-runtime";
@@ -25,7 +26,7 @@ describe("runModelAuthorTurn", () => {
   describe("with no document host", () => {
     const hostless = scenario(freshRuntime, async (workflow) => {
       patchModelExecution(workflow);
-      workflow.docsInstance = null;
+      workflow.documentsInstance = null;
       workflow.modelInstance = new EchoModel("# Design");
       await runModelAuthorTurn(workflow, seedModelAuthor(workflow));
     });
@@ -126,9 +127,9 @@ const CLOSING_TEXT = "Named the identity provider. The change was straightforwar
 const REVISE_ANSWER = `${REVISED_PAGE}\n${CLOSING_TEXT_MARKER}\n${CLOSING_TEXT}`;
 
 async function seedPageWithHumans(workflow: FakeRuntime): Promise<TaskRow> {
-  const docs = patchModelExecution(workflow);
+  const documents = patchModelExecution(workflow);
   const author = seedModelAuthor(workflow);
-  const page = await docs.createPage("Add SSO (design)", FIRST_PAGE, PAGE_PARENT);
+  const page = await documents.createPage("Add SSO (design)", FIRST_PAGE, PAGE_PARENT);
   workflow.store.upsertArtifact({
     job_id: "wf_x-1",
     kind: "page",
@@ -170,9 +171,9 @@ describe("reviseModelAuthorPage", () => {
 
     it("updates the same page with the document part of the answer", () =>
       revised((workflow) => {
-        const docs = fakeDocumentsOf(workflow);
-        expect(docs.argsOf("updatePageContent")).toEqual([["page-1", REVISED_PAGE]]);
-        expect(docs.argsOf("createPage")).toHaveLength(1);
+        const documents = fakeDocumentsOf(workflow);
+        expect(documents.argsOf("updatePageContent")).toEqual([["page-1", REVISED_PAGE]]);
+        expect(documents.argsOf("createPage")).toHaveLength(1);
       }));
 
     it("takes the prompt off the queue", () =>
@@ -294,6 +295,45 @@ describe("reviseModelAuthorPage", () => {
       outage((workflow) => {
         expect(workflow.lines).toContainEqual(
           expect.stringMatching(/^model call or page update failed: .*model outage/),
+        );
+      }));
+  });
+
+  describe("feedback on the root page", () => {
+    const CHILD = '<page url="https://docs.test/page-2">Add SSO (plan)</page>';
+    const ROOT_TEXT = `${FIRST_PAGE}\n\n## Resources\n${CHILD}`;
+
+    const revised = scenario(freshRuntime, async (workflow) => {
+      const documents = patchNestingHost(workflow);
+      const author = seedModelAuthor(workflow);
+      documents.seedPage("root-1", ROOT_TEXT);
+      workflow.patchState({
+        root_page: { page_id: "root-1", url: "https://docs.test/root-1", source: "container" },
+      });
+      workflow.store.upsertArtifact({
+        job_id: "wf_x-1",
+        kind: "page",
+        external_url: "https://docs.test/root-1",
+        ref: { kind: "page", page_id: "root-1" },
+      });
+      workflow.store.advanceArtifact("wf_x-1", ["drafted"], "ready");
+      workflow.store.updateTask(author.task_id, { status: "in_review" });
+      workflow.modelInstance = new EchoModel(REVISE_ANSWER);
+      await promptTask(workflow, workflow.store.requireTask(author.task_id), FEEDBACK);
+    });
+
+    it("gives the model only the text above the resources section", () =>
+      revised((workflow) => {
+        const model = workflow.modelInstance;
+        const userText = model instanceof EchoModel ? model.userTexts[0] : "";
+        expect(userText).toContain(FIRST_PAGE);
+        expect(userText).not.toContain(CHILD);
+      }));
+
+    it("replaces the text above the resources section and keeps the section", () =>
+      revised((workflow) => {
+        expect(fakeDocumentsOf(workflow).pageText("root-1")).toBe(
+          `${REVISED_PAGE}\n\n## Resources\n${CHILD}`,
         );
       }));
   });

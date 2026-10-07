@@ -39,7 +39,7 @@ export const LINEAR_MCP_TOOLS = [
 /** How an agent works with a document on Linear. */
 export const LINEAR_PAGE_INSTRUCTIONS: PageInstructions = {
   create:
-    "Create the document in Linear with the Linear tools. Print the document URL on its own line when it exists.",
+    "Create the document in the Linear project this prompt names as the page parent, with the Linear tools. Print the document URL on its own line when it exists.",
   read: "Read the document with the Linear `get_document` tool. The document slug is the last part of its URL.",
   change: "Change the document in place with the Linear tools. Do not create another document.",
   report: [
@@ -47,6 +47,10 @@ export const LINEAR_PAGE_INSTRUCTIONS: PageInstructions = {
     "Post one comment only. Do not edit the document, reply to another comment, or write anywhere else.",
   ].join("\n"),
 };
+
+/** Where the orchestrator agent finds the page parent of a workflow on Linear. */
+export const LINEAR_PAGE_PARENT_HINT =
+  "the id of the Linear project the tracker issue belongs to, or of a project the request names. Ask when neither names one.";
 
 /** How an agent works with a set of issues on Linear. */
 export const LINEAR_ISSUES_INSTRUCTIONS: HostInstructions = {

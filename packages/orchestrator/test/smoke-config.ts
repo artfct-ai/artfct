@@ -48,7 +48,7 @@ const SMOKE_SETTINGS = [
   `    harness: ${STAGE_HARNESS}`,
   `    model: ${STAGE_MODEL}`,
   "    timeouts: { no_progress_minutes: 5, time_elapsed_minutes: 60 }",
-  "providers: { docs: notion }",
+  "adapters: { documents: { provider: notion } }",
 ].join("\n");
 
 /**

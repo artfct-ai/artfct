@@ -2,7 +2,7 @@
 
 Linear is the tracker. The orchestrator installs into one Linear workspace as an agent. People delegate an issue to the agent or mention it in a comment to start work. The breakdown stage files its issues in Linear. The template also keeps design and plan pages as Linear documents.
 
-Set `providers.tracker: linear` in `orchestrator/artfct.yaml`. It is the only tracker today. Set `providers.docs: linear` to keep pages as Linear documents, which is the template default.
+Set `adapters.tracker.provider: linear` in `orchestrator/artfct.yaml`. It is the only tracker today. Set `adapters.documents.provider: linear` to keep pages as Linear documents, which is the default when the config does not name a documents provider.
 
 ## Comments on Linear documents
 

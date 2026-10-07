@@ -1,12 +1,18 @@
 # Deployment-wide settings. Each workflow definition lives in workflows/<name>.yaml.
 
-# One vendor per adapter capability. Every stage, artifact, and MCP server follows from these.
-providers:
-  code: github
-  tracker: linear
-  chat: slack
-  docs: notion
-  gateway: openrouter
+# One vendor per adapter capability, with that capability's settings. Every stage, artifact,
+# and MCP server follows from these.
+adapters:
+  code:
+    provider: github
+  tracker:
+    provider: linear
+  chat:
+    provider: slack
+  documents:
+    provider: notion
+  gateway:
+    provider: openrouter
 
 # Who may give this deployment work. Replace each placeholder with your team, or delete its line.
 # Delete the whole block to let in everyone who reaches the bot.

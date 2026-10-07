@@ -194,7 +194,7 @@ async function startMockSandbox(): Promise<void> {
       env: {
         ...process.env,
         MOCK_SANDBOX_PORT: String(MOCK_SANDBOX_PORT),
-        ARTFCT_MOCK_DOCS_URL: MOCK_NOTION_URL,
+        ARTFCT_MOCK_DOCUMENTS_URL: MOCK_NOTION_URL,
       },
     }),
   );

@@ -3,7 +3,7 @@ import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { fakeUserActor } from "../../../test/fake-actors";
 import { FakeDocuments } from "../../../test/fake-documents";
 import { notionInbound, type NotionWebhook } from "./inbound";
-import type { DocsInbound, DocsInboundContext } from "../types";
+import type { DocumentsInbound, DocumentsInboundContext } from "../types";
 
 const DASHED_PAGE = "1f2e3d4c-5b6a-7988-9a0b-1c2d3e4f5a6b";
 const PAGE = "1f2e3d4c5b6a79889a0b1c2d3e4f5a6b";
@@ -19,13 +19,13 @@ const documents = new FakeDocuments({
   emails: { n2: "ann@acme.test" },
 });
 
-const context: DocsInboundContext = { resolveActor: fakeUserActor(), documents };
+const context: DocumentsInboundContext = { resolveActor: fakeUserActor(), documents };
 
 function comment(data: NotionWebhook["data"]): NotionWebhook {
   return { id: "evt1", type: "comment.created", entity: { id: "cmt1", type: "comment" }, data };
 }
 
-function expectEvent(normalized: DocsInbound): InboundEvent {
+function expectEvent(normalized: DocumentsInbound): InboundEvent {
   if ("ignore" in normalized) throw new Error(normalized.ignore);
   return normalized.event;
 }
@@ -53,11 +53,11 @@ describe("notionInbound", () => {
     });
 
     it("binds to the page id without dashes", () => {
-      expect(event.bindings).toEqual([{ source: "docs_page", external_id: PAGE }]);
+      expect(event.bindings).toEqual([{ source: "documents_page", external_id: PAGE }]);
     });
 
     it("replies on the page the comment sits on", () => {
-      expect(event.reply_to).toEqual({ source: "docs", page_id: DASHED_PAGE });
+      expect(event.reply_to).toEqual({ source: "documents", page_id: DASHED_PAGE });
     });
 
     it("names the comment author as the actor", () => {
@@ -73,7 +73,7 @@ describe("notionInbound", () => {
           context,
         ),
       );
-      expect(event.bindings).toEqual([{ source: "docs_page", external_id: PAGE }]);
+      expect(event.bindings).toEqual([{ source: "documents_page", external_id: PAGE }]);
     });
   });
 

@@ -3,7 +3,7 @@ export type Binding =
   | { source: "code_pull"; repo: string; number: number }
   | { source: "code_branch"; repo: string; branch: string }
   | {
-      source: "tracker_issue" | "tracker_session" | "docs_page" | "chat_thread";
+      source: "tracker_issue" | "tracker_session" | "documents_page" | "chat_thread";
       external_id: string;
     };
 

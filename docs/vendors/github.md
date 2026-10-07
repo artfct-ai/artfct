@@ -2,7 +2,7 @@
 
 GitHub is the code host. The orchestrator acts through a private GitHub App. The coding agent pushes branches and opens pull requests as that app. Reviews, comments, and CI results on those pull requests reach the workflow that opened them.
 
-Set `providers.code: github` in `orchestrator/artfct.yaml`. It is the only code host today.
+Set `adapters.code.provider: github` in `orchestrator/artfct.yaml`. It is the only code host today.
 
 ## Create and install the app
 

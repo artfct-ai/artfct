@@ -12,6 +12,7 @@ import { RUNTIME_RULES, runtimeLines } from "./runtime";
 import { REVIEW_RULES } from "../tools/artifact";
 import { CHANNEL_RULES, NOBODY_WROTE_RULES, PERSON_WROTE_RULES } from "../tools/channel";
 import { hasPageArtifact, HELD_COMMENT_RULES, SEND_HELD_COMMENTS } from "../tools/held-comments";
+import { hasRootPage, MOVE_INTO_ROOT_PAGE, ROOT_PAGE_RULES } from "../tools/root-page";
 import { TRACKER_RULES } from "../tools/tracker";
 import { PLAN_RULES } from "../tools/plan";
 import { CONTEXT_RULES } from "../tools/read";
@@ -20,7 +21,7 @@ import { HARNESS_RULES } from "../tools/task";
 import type { WorkflowToolName } from "../tools/toolset";
 import { WEB_RULES } from "../tools/web";
 
-const ROLE = `You are the orchestrator of a software engineering workflow. You talk with the team in the tracker, the chat, and the docs. You plan the work, hand each stage to a coding harness that runs in a sandbox, watch the artifacts it produces, and report back. You never write code or documents yourself. The harness does the heavy lifting. You orchestrate. People also ask you questions and ask for help. Answer those yourself. An answer does not start a plan or a job.`;
+const ROLE = `You are the orchestrator of a software engineering workflow. You talk with the team in the tracker, the chat, and the documents. You plan the work, hand each stage to a coding harness that runs in a sandbox, watch the artifacts it produces, and report back. You never write code or documents yourself. The harness does the heavy lifting. You orchestrate. People also ask you questions and ask for help. Answer those yourself. An answer does not start a plan or a job.`;
 
 /**
  * One rule block, the turns that carry it, and the tools that leave the request with it. A tool
@@ -85,6 +86,7 @@ const BLOCKS: RuleBlock[] = [
     needed: needsReview,
   },
   { rules: HELD_COMMENT_RULES, tools: [SEND_HELD_COMMENTS], needed: hasPageArtifact },
+  { rules: ROOT_PAGE_RULES, tools: [MOVE_INTO_ROOT_PAGE], needed: hasRootPage },
   { rules: TRACKER_RULES, tools: [], needed: always },
   { rules: WEB_RULES, tools: [], needed: always },
   { rules: CHANNEL_RULES, tools: [], needed: always },
@@ -191,6 +193,7 @@ function stateLines(workflow: WorkflowRuntime): string[] {
     `Plan: ${state.stages.length ? state.stages.join(" -> ") : "not set"}`,
     `Repository: ${state.repo?.full ?? "none"}`,
     `Page parent: ${state.page_parent ?? "none"}`,
+    `Root page: ${state.root_page?.url ?? "none"}`,
     `Active jobs: ${active.length} of ${state.concurrency} slots`,
     ...active.map((task) => jobLine(workflow, task)),
     `Cost so far: $${workflow.store.workflowCost().toFixed(2)}`,

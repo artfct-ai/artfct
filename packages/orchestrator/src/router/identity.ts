@@ -22,9 +22,9 @@ export async function resolveActor(
   query: IdentityQuery,
   clients: IdentityClients = {},
 ): Promise<Actor | null> {
-  const { access, providers } = registeredConfig().config;
+  const { access, adapters } = registeredConfig().config;
   if (query.source === "code") {
-    const code = clients.code === undefined ? codeHost(env, providers.code) : clients.code;
+    const code = clients.code === undefined ? codeHost(env, adapters.code.provider) : clients.code;
     return resolveCodeActor(db, code, query.user);
   }
   const tracker = clients.tracker === undefined ? await installedTracker(env) : clients.tracker;
@@ -34,8 +34,8 @@ export async function resolveActor(
       return identity.fromTracker(query.user);
     case "chat":
       return identity.fromChat(query.user);
-    case "docs":
-      return identity.fromDocs(query.user);
+    case "documents":
+      return identity.fromDocuments(query.user);
     default: {
       const unhandled: never = query;
       throw new Error(`unhandled identity source ${JSON.stringify(unhandled)}`);
@@ -106,7 +106,7 @@ export class Identity {
     return this.joinByEmail(email, { slack_user_id: user.id });
   }
 
-  async fromDocs(user: ExternalUser): Promise<Actor | null> {
+  async fromDocuments(user: ExternalUser): Promise<Actor | null> {
     if (!user.email) return null;
     return this.joinByEmail(user.email, {});
   }

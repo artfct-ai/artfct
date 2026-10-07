@@ -25,7 +25,7 @@ export type ReplyTarget =
   | { source: "tracker"; session_id: string; issue_id: string; team_id?: string }
   | { source: "chat"; channel: string; thread: string }
   | { source: "code"; repo: string; pull: number }
-  | { source: "docs"; page_id: string };
+  | { source: "documents"; page_id: string };
 
 /** The chat message to mark as received, for channels that show acknowledgement. */
 export type Acknowledge = { message: string; user?: string };
@@ -71,7 +71,7 @@ export type BaseMovedDetail = {
 
 /** Details of one comment a person left on a document page. */
 export type PageDetail = {
-  /** The page, keyed the way its `docs_page` binding keys it. */
+  /** The page, keyed the way its `documents_page` binding keys it. */
   page_id: string;
   /** The host's id for the comment, which a reply to it is addressed to. */
   comment_id: string;

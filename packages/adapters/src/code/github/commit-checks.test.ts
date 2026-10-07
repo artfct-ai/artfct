@@ -45,7 +45,7 @@ describe("the checks GitHub holds for one commit", () => {
 
   it("passed when the newest of them finished, across runs and statuses", () => {
     const checks = githubCommitChecks({
-      runs: [run(), run({ name: "docs", conclusion: "skipped" })],
+      runs: [run(), run({ name: "documents", conclusion: "skipped" })],
       suites: [COMPLETED_SUITE],
       statuses: [status()],
     });

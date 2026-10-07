@@ -2,7 +2,7 @@ import type { BindingSource } from "@artfct-ai/contracts/sources";
 import type { WorkflowStatus } from "@artfct-ai/contracts/types";
 import { index, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-/** People known to the orchestrator, joined across the tracker, chat, code host, and docs. */
+/** People known to the orchestrator, joined across the tracker, chat, code host, and documents. */
 export const persons = sqliteTable("persons", {
   person_id: text().primaryKey(),
   email: text().unique(),

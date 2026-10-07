@@ -23,6 +23,7 @@ import { REVIEW_RULES } from "../tools/artifact";
 import { CHANNEL_RULES, NOBODY_WROTE_RULES, PERSON_WROTE_RULES } from "../tools/channel";
 import { HELD_COMMENT_RULES } from "../tools/held-comments";
 import { PLAN_RULES } from "../tools/plan";
+import { ROOT_PAGE_RULES } from "../tools/root-page";
 import { CONTEXT_RULES } from "../tools/read";
 import { TASK_RULES } from "../tools/start/start";
 import { HARNESS_RULES } from "../tools/task";
@@ -38,6 +39,7 @@ const RULES = {
   harness: HARNESS_RULES,
   review: REVIEW_RULES,
   heldComments: HELD_COMMENT_RULES,
+  rootPage: ROOT_PAGE_RULES,
   tracker: TRACKER_RULES,
   web: WEB_RULES,
   channel: CHANNEL_RULES,
@@ -380,6 +382,7 @@ describe("activeToolNames", () => {
           "acknowledge",
           "cancel_task",
           "finish_review",
+          "move_into_root_page",
           "pause_task",
           "read_artifact",
           "request_review",
@@ -456,10 +459,10 @@ describe("activeToolNames", () => {
   });
 
   describe("a workflow holding a reviewed pull request", () => {
-    it("keeps every tool but the ones that answer a person and send held page comments", () =>
+    it("keeps every tool but the ones that answer a person, send held page comments, and move pages", () =>
       planUnderReview((workflow) => {
         const tools = workflowTools(workflow);
-        const withheld = ["acknowledge", "send_held_comments"];
+        const withheld = ["acknowledge", "send_held_comments", "move_into_root_page"];
         const kept = Object.keys(tools).filter((name) => !withheld.includes(name));
         expect(activeToolNames(workflow, tools, NOBODY_WROTE)).toEqual(kept);
       }));
@@ -481,6 +484,29 @@ describe("activeToolNames", () => {
         expect(carriedRules(systemPrompt(workflow, PERSON_WROTE))).toContain("heldComments");
         expect(activeToolNames(workflow, workflowTools(workflow), PERSON_WROTE)).toContain(
           "send_held_comments",
+        );
+      }));
+  });
+
+  describe("a workflow with a root page", () => {
+    const rootPage = scenario(freshRuntime, (workflow) => {
+      workflow.patchState({
+        root_page: { page_id: "root-1", url: "https://docs.test/root-1", source: "container" },
+      });
+    });
+
+    it("carries the root page rules and keeps the tool they name", () =>
+      rootPage((workflow) => {
+        expect(carriedRules(systemPrompt(workflow, PERSON_WROTE))).toContain("rootPage");
+        expect(activeToolNames(workflow, workflowTools(workflow), PERSON_WROTE)).toContain(
+          "move_into_root_page",
+        );
+      }));
+
+    it("names the root page in the state", () =>
+      rootPage((workflow) => {
+        expect(systemPrompt(workflow, PERSON_WROTE)).toContain(
+          "Root page: https://docs.test/root-1",
         );
       }));
   });

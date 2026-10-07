@@ -88,7 +88,7 @@ export type IdentityQuery =
   | { source: "tracker"; user: ExternalUser }
   | { source: "chat"; user: ChatUser }
   | { source: "code"; user: CodeUser }
-  | { source: "docs"; user: ExternalUser };
+  | { source: "documents"; user: ExternalUser };
 
 /** What happened to a delivered event. `joined` means a start event landed on an existing workflow. */
 export type Delivery =

@@ -19,7 +19,7 @@ async function outboxOf(workflow: Workflow): Promise<Outbox> {
 const NO_CHANNELS: ChannelClients = {
   tracker: async () => null,
   chat: null,
-  docs: async () => null,
+  documents: async () => null,
 };
 
 class RecordingNotifier extends Notifier {

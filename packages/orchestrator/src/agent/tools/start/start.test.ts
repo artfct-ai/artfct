@@ -175,9 +175,9 @@ describe("complete_job on a stage with a choice ending", () => {
   const pageWithOptions = (selects: number | null) =>
     scenario(freshRuntime, async (workflow) => {
       endDesignOnChoice(workflow);
-      const docs = new FakeDocuments();
-      workflow.docsInstance = docs;
-      const page = await docs.createPage("Sessions", PAGE_TEXT, "parent-1");
+      const documents = new FakeDocuments();
+      workflow.documentsInstance = documents;
+      const page = await documents.createPage("Sessions", PAGE_TEXT, "parent-1");
       seedTask(workflow, { task_id: "wf_x.1", status: "in_review" });
       workflow.store.upsertArtifact({
         job_id: "wf_x-1",
@@ -373,7 +373,7 @@ describe("documentHostRefusal", () => {
 
     it("refuses when the workflow has no document host", () =>
       modelStage(async (workflow) => {
-        workflow.docsInstance = null;
+        workflow.documentsInstance = null;
         expect(await documentHostRefusal(workflow, "design")).toBe(
           "Stage design writes its page on the document host, and this workflow has none.",
         );
@@ -394,7 +394,7 @@ describe("documentHostRefusal", () => {
 
     it("lets the job start with a document host", () =>
       choiceEndingStage(async (workflow) => {
-        workflow.docsInstance = new FakeDocuments();
+        workflow.documentsInstance = new FakeDocuments();
         expect(await documentHostRefusal(workflow, "design")).toBeNull();
       }));
   });
@@ -408,7 +408,7 @@ describe("documentHostRefusal", () => {
 describe("start_job on a stage with model execution", () => {
   it("refuses when the workflow has no document host", () =>
     modelStage(async (workflow) => {
-      workflow.docsInstance = null;
+      workflow.documentsInstance = null;
       const { start_job } = startTools(workflow, ["Write the design."]);
       expect(await start_job.execute({ stage: "design", brief: "Write it." }, call)).toBe(
         "Stage design writes its page on the document host, and this workflow has none.",

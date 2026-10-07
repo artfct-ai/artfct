@@ -9,18 +9,15 @@ import type { Config } from "./config";
 export const GatewayProvider = z.enum(["cloudflare", "openrouter"]);
 export type GatewayProvider = z.infer<typeof GatewayProvider>;
 
-/** The settings of each gateway that are not secrets. An unknown key fails. */
-export const Gateways = z.strictObject({
-  openrouter: z
-    .strictObject({
-      /** The region every OpenRouter request stays in. Unset uses the global host. */
-      region: z.enum(OPENROUTER_REGIONS).optional(),
-    })
-    .prefault({}),
+/** The gateway every task sandbox routes through, and the orchestrator unless it names its own. */
+export const GatewayAdapter = z.strictObject({
+  provider: GatewayProvider.default("cloudflare"),
+  /** The region every OpenRouter request stays in. Unset uses the global host. */
+  region: z.enum(OPENROUTER_REGIONS).optional(),
 });
-export type Gateways = z.infer<typeof Gateways>;
+export type GatewayAdapter = z.infer<typeof GatewayAdapter>;
 
 /** The gateway the orchestrator's own model goes through: its own setting, or the provider. */
 export function orchestratorGateway(config: Config): GatewayProvider {
-  return config.orchestrator.gateway ?? config.providers.gateway;
+  return config.orchestrator.gateway ?? config.adapters.gateway.provider;
 }

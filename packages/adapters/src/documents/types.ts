@@ -6,14 +6,14 @@ import type { Actor, InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { ExternalUser } from "@artfct-ai/contracts/types";
 
 /** Resolves a document host user to a person the orchestrator trusts, or to null. */
-export type DocsActorResolver = (user: ExternalUser) => Promise<Actor | null>;
+export type DocumentsActorResolver = (user: ExternalUser) => Promise<Actor | null>;
 
 /** A normalized event ready to deliver, or the reason the webhook is ignored. */
-export type DocsInbound = { event: InboundEvent } | { ignore: string };
+export type DocumentsInbound = { event: InboundEvent } | { ignore: string };
 
 /** What a document host webhook mapper needs besides the payload. */
-export type DocsInboundContext = {
-  resolveActor: DocsActorResolver;
+export type DocumentsInboundContext = {
+  resolveActor: DocumentsActorResolver;
   /** The host itself. A webhook carries comment ids, so the body is read back through it. */
   documents: Documents;
 };
@@ -53,8 +53,20 @@ export type DocumentPage = {
 /** One comment on a page, by the page id and the comment id. */
 export type PageCommentRef = { pageId: string; commentId: string };
 
+/** What a document host whose pages hold other pages does with that tree. */
+export interface PageNesting {
+  /** Create the root page of a workflow under its page parent, a page or a database. */
+  createRootPage(title: string, text: string, pageParent: string): Promise<DocumentPage>;
+  /** Move a page under another page. It goes at the end of its new parent. */
+  movePage(pageId: string, parentPageId: string): Promise<void>;
+  /** Add markdown text at the end of a page. */
+  appendToPage(pageId: string, text: string): Promise<void>;
+}
+
 /** What the orchestrator and ingress ask of a document host. */
 export interface Documents {
+  /** The page tree of a host whose pages hold other pages. Null on a host where they do not. */
+  readonly nesting: PageNesting | null;
   /** One page by the id this host's `pageFromUrl` returned. Null when the host has no such page. */
   page(pageId: string): Promise<DocumentPage | null>;
   /**

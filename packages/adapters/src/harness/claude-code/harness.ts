@@ -105,6 +105,10 @@ function credentialEnv(credential: ClaudeCredential): Record<string, string> {
       return { CLAUDE_CODE_OAUTH_TOKEN: credential.token };
     case "api_key":
       return { ANTHROPIC_API_KEY: credential.key };
+    default: {
+      const unreachable: never = credential;
+      throw new Error(`unhandled Claude credential ${String(unreachable)}`);
+    }
   }
 }
 

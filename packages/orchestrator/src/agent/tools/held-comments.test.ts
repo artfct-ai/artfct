@@ -1,4 +1,4 @@
-import type { HeldComment } from "@artfct-ai/adapters/docs/types";
+import type { HeldComment } from "@artfct-ai/adapters/documents/types";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
@@ -22,7 +22,7 @@ const call = { toolCallId: "call-1", messages: [], context: {} };
 
 function pageScenario(held: HeldComment[]): Scenario<FakeRuntime> {
   return scenario(freshRuntime, (workflow) => {
-    workflow.docsInstance = new FakeDocuments({ held });
+    workflow.documentsInstance = new FakeDocuments({ held });
     seedTask(workflow, { stage: "design" }, { prompt_in_flight: 1 });
     workflow.store.upsertArtifact({
       job_id: JOB,

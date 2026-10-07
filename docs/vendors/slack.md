@@ -2,7 +2,7 @@
 
 Slack is the chat capability. People start work by mentioning the app, and the orchestrator reports on a board in the thread.
 
-Set `providers.chat: slack` in `orchestrator/artfct.yaml`. It is the only chat vendor today. Slack is optional. Leave its values empty to turn it off.
+Set `adapters.chat.provider: slack` in `orchestrator/artfct.yaml`. It is the only chat vendor today. Slack is optional. Leave its values empty to turn it off.
 
 ## Create the app
 

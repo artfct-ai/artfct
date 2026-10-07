@@ -33,7 +33,7 @@ Check each step in order. The first one that is not done is the next step.
 | Settings files | `orchestrator/.dev.vars` and `ingress/.dev.vars` exist | Copy each `.dev.vars.example` to `.dev.vars`. |
 | Required settings | `PUBLIC_URL` and `OPEN_ROUTER_API_KEY` in `orchestrator/.dev.vars` and `ADMIN_TOKEN` in `ingress/.dev.vars` are set | Have the user fill them in. `PUBLIC_URL` is `https://artfct-ingress.<subdomain>.workers.dev`. The user finds the subdomain in the Cloudflare dashboard under Workers & Pages. |
 | Access | `access` in `orchestrator/artfct.yaml` does not hold a `<team ...>` placeholder | Ask the user which Linear team or Slack workspace may use the deployment. Set `tracker_team`, `chat_team`, or both, and delete a line the user does not want. Delete the whole block only when the user asks for everyone to be let in. See Set who may use the deployment in the install guide. |
-| Claude Code auth | `ANTHROPIC_API_KEY` is set, or `providers.gateway` in `orchestrator/artfct.yaml` is `cloudflare` and `CF_ACCOUNT_ID`, `AI_GATEWAY_ID`, and `AI_GATEWAY_TOKEN` are set | Follow Claude Code auth in the install guide. |
+| Claude Code auth | `ANTHROPIC_API_KEY` is set, or `adapters.gateway.provider` in `orchestrator/artfct.yaml` is `cloudflare` and `CF_ACCOUNT_ID`, `AI_GATEWAY_ID`, and `AI_GATEWAY_TOKEN` are set | Follow Claude Code auth in the install guide. |
 | GitHub | `GITHUB_APP_ID`, `GITHUB_INSTALLATION_ID`, and `GITHUB_PRIVATE_KEY` are set in `orchestrator/.dev.vars`, and `GITHUB_APP_LOGIN` in `ingress/wrangler.jsonc` is not `<your GitHub App slug>` | Run `npx artfct connect code`. Add `--org <org>` when an organization should own the app. |
 | Linear app | `LINEAR_CLIENT_ID` and `LINEAR_CLIENT_SECRET` in `orchestrator/.dev.vars` and `LINEAR_WEBHOOK_SECRET` in `ingress/.dev.vars` are set | Follow the Linear page to create the OAuth application. |
 | Preflight | `npx artfct check` passes | Fix each failed check. |
@@ -44,8 +44,8 @@ Check each step in order. The first one that is not done is the next step.
 
 ## Change the configuration
 
-- `orchestrator/artfct.yaml` holds the default harness and model, one vendor per capability under `providers`, the teams that may use the deployment under `access`, the orchestrator model, and the user's MCP servers.
-- `orchestrator/workflows/development.yaml` is the workflow definition. It names the stages, and for each stage its artifact, its research step, its author, its reviewers, and its polishers. A deployment holds one workflow definition today.
+- `orchestrator/artfct.yaml` holds the default harness and model, one entry per capability under `adapters` with its vendor and settings, the teams that may use the deployment under `access`, the orchestrator model, and the user's MCP servers.
+- `orchestrator/workflows/development.yaml` is the workflow definition. It names the stages, and for each stage its artifact, its research step, its author, its reviewers, and its polishers. Under `documents` it names the default Notion page parent and the stage that makes the root page. A deployment holds one workflow definition today.
 - `orchestrator/skills/<name>/SKILL.md` holds the instructions a stage names by `skill`. Its frontmatter uses only the keys of the [Agent Skills standard](https://agentskills.io/specification), and its `name` matches its directory.
 - `orchestrator/writing-rules.md` holds the writing rules every agent reads.
 

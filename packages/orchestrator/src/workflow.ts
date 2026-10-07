@@ -2,21 +2,21 @@ import type { Chat } from "@artfct-ai/adapters/chat/types";
 import type { CodeHost } from "@artfct-ai/adapters/code/types";
 import type { Decisions, Gateway } from "@artfct-ai/adapters/gateway/types";
 import type { Harness, HarnessAdapter } from "@artfct-ai/adapters/harness/types";
-import type { Documents } from "@artfct-ai/adapters/docs/types";
+import type { Documents } from "@artfct-ai/adapters/documents/types";
 import type { Tracker } from "@artfct-ai/adapters/tracker/types";
 import type { Web } from "@artfct-ai/adapters/web/types";
 import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { ArtifactKind, RpcAck, WorkflowSummary } from "@artfct-ai/contracts/types";
 import type { Artifact } from "./artifact/types";
 import type { Config } from "./config/config";
-import { orchestratorGateway, type GatewayProvider, type Gateways } from "./config/gateway";
+import { orchestratorGateway, type GatewayAdapter, type GatewayProvider } from "./config/gateway";
 import type {
   ChatProvider,
   CodeProvider,
-  DocsProvider,
+  DocumentsProvider,
   McpCapability,
-  Providers,
-} from "./config/providers";
+  Adapters,
+} from "./config/adapters";
 import { resolveStage, type ResolvedStage, type Stage } from "./config/stage";
 import type { WorkflowDefinition } from "./config/workflow-definition";
 import type { TaskEvent } from "./workflow/task/events";
@@ -92,16 +92,20 @@ const MCP_WAIT_MS = 10_000;
  * instance, which a test replaces entries on before it drives the DO.
  */
 export type WorkflowServices = {
-  gateway: (env: Env, provider: GatewayProvider, settings: Gateways) => Gateway | null;
+  gateway: (
+    env: Env,
+    provider: GatewayProvider,
+    region: GatewayAdapter["region"],
+  ) => Gateway | null;
   harness: (env: Env, name: Harness) => HarnessAdapter;
   code: (env: Env, provider: CodeProvider) => CodeHost | null;
   tracker: (env: Env) => Promise<Tracker | null>;
-  docs: (env: Env, provider: DocsProvider) => Promise<Documents | null>;
+  documents: (env: Env, provider: DocumentsProvider) => Promise<Documents | null>;
   web: () => Web;
   mcpCredential: (options: {
     env: Env;
     capability: McpCapability;
-    providers: Providers;
+    adapters: Adapters;
   }) => Promise<string | null>;
   chat: (env: Env, provider: ChatProvider) => Chat | null;
   sandbox: (env: Env) => SandboxProvider;
@@ -119,7 +123,7 @@ export const defaultServices: WorkflowServices = {
   harness,
   code: codeHost,
   tracker,
-  docs: documents,
+  documents: documents,
   web,
   mcpCredential,
   chat,
@@ -148,7 +152,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
   /** Built once so the token caches live as long as the DO. */
   private codeMemo: CodeHost | null | undefined;
   private trackerMemo: Promise<Tracker | null> | undefined;
-  private docsMemo: Promise<Documents | null> | undefined;
+  private documentsMemo: Promise<Documents | null> | undefined;
   /** The credential the connected MCP server holds, so a rotated one is connected again. */
   connectedMcpCredential: string | null = null;
   /** The outside world. Tests swap entries for fakes. */
@@ -159,9 +163,9 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     const db = await openWorkflowDb(this.ctx.storage);
     this.store = new WorkflowStore(db);
     this.transcript = new TranscriptStore(db);
-    this.chatClient = this.services.chat(this.env, this.config().providers.chat);
+    this.chatClient = this.services.chat(this.env, this.config().adapters.chat.provider);
     this.notifier = new Notifier(
-      { tracker: () => this.tracker(), chat: this.chatClient, docs: () => this.docs() },
+      { tracker: () => this.tracker(), chat: this.chatClient, documents: () => this.documents() },
       (entry) => this.store.writeOutbox(entry),
     );
     await resumeLostTurn(this);
@@ -408,7 +412,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
   }
 
   gateway(provider: GatewayProvider): Gateway | null {
-    return this.services.gateway(this.env, provider, this.config().gateways);
+    return this.services.gateway(this.env, provider, this.config().adapters.gateway.region);
   }
 
   decisions(): Decisions | null {
@@ -421,7 +425,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
 
   code(): CodeHost | null {
     if (this.codeMemo === undefined) {
-      this.codeMemo = this.services.code(this.env, this.config().providers.code);
+      this.codeMemo = this.services.code(this.env, this.config().adapters.code.provider);
     }
     return this.codeMemo;
   }
@@ -437,14 +441,14 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     return this.trackerMemo;
   }
 
-  docs(): Promise<Documents | null> {
-    this.docsMemo ??= keepClientOnly(
-      this.services.docs(this.env, this.config().providers.docs),
+  documents(): Promise<Documents | null> {
+    this.documentsMemo ??= keepClientOnly(
+      this.services.documents(this.env, this.config().adapters.documents.provider),
       () => {
-        this.docsMemo = undefined;
+        this.documentsMemo = undefined;
       },
     );
-    return this.docsMemo;
+    return this.documentsMemo;
   }
 
   web(): Web {
@@ -455,15 +459,15 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     return this.services.mcpCredential({
       env: this.env,
       capability,
-      providers: this.config().providers,
+      adapters: this.config().adapters,
     });
   }
 
   artifact(kind: ArtifactKind): Artifact {
     return artifact(kind, {
-      providers: this.config().providers,
+      adapters: this.config().adapters,
       code: () => this.code(),
-      docs: () => this.docs(),
+      documents: () => this.documents(),
       repo: () => this.state.repo?.full ?? null,
       log: (line) => this.log(null, line),
     });

@@ -9,7 +9,7 @@ const reply: InboundEvent = {
   id: "evt-doc-reply",
   kind: "prompt",
   actor: null,
-  bindings: [{ source: "docs_page", external_id: "content2" }],
+  bindings: [{ source: "documents_page", external_id: "content2" }],
   links: [],
   text: "looks good",
 };
@@ -36,7 +36,7 @@ describe("jobForEvent", () => {
       twoTasks((workflow) => {
         const unknown: InboundEvent = {
           ...reply,
-          bindings: [{ source: "docs_page", external_id: "x" }],
+          bindings: [{ source: "documents_page", external_id: "x" }],
         };
         expect(jobForEvent(workflow, unknown)).toBeNull();
       }));

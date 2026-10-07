@@ -4,7 +4,7 @@ import { harnessAdapter } from "@artfct-ai/adapters/harness/clients";
 import { FakeCodeHost } from "@artfct-ai/adapters/test/fake-code-host";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { describe, expect, it } from "bun:test";
-import { Providers } from "../../../config/providers";
+import { Adapters } from "../../../config/adapters";
 import { freshRuntime } from "../../../../test/fresh-runtime";
 import { FakeSandboxProvider } from "../../../../test/fake-sandbox";
 import { seedTask, type FakeRuntime } from "../../../../test/fake-runtime";
@@ -215,7 +215,7 @@ describe("startSandbox", () => {
 
     it("asks for the gateway the config names", () =>
       started((workflow) => {
-        expect(workflow.gatewayRequests).toEqual([workflow.config().providers.gateway]);
+        expect(workflow.gatewayRequests).toEqual([workflow.config().adapters.gateway.provider]);
       }));
 
     it("tags both routes with the workflow, the task and the stage", () =>
@@ -251,7 +251,7 @@ describe("startSandbox", () => {
 
   describe("a reviewer run on a page stage when Notion holds the pages", () => {
     const started = scenario(freshRuntime, (workflow) => {
-      workflow.patchConfig({ providers: Providers.parse({ docs: "notion" }) });
+      workflow.patchConfig({ adapters: Adapters.parse({ documents: { provider: "notion" } }) });
       workflow.mcpCredentialValue = "ntn_secret";
       const reviewer = seedTask(workflow, { status: "queued", role: "reviewer", refiner_index: 0 });
       return startSandbox(workflow, reviewer, false);

@@ -5,7 +5,7 @@ import type {
   DocumentsUser,
   FetchedComment,
   HeldComment,
-} from "@artfct-ai/adapters/docs/types";
+} from "@artfct-ai/adapters/documents/types";
 import type { PageInstructions } from "@artfct-ai/adapters/instructions";
 import type { McpServer } from "@artfct-ai/adapters/mcp";
 import type { Binding } from "@artfct-ai/contracts/sources";
@@ -45,6 +45,8 @@ export type PageClients = {
   /** Mark a comment as read, in the host's own way. */
   acknowledgeComment: (comment: PageCommentRef) => Promise<void>;
   instructions: PageInstructions;
+  /** What the page parent names on this host. */
+  pageParentHint: string;
   mcp: (credential: string | null) => McpServer | null;
   /** What the author may do with other repositories in its checkout. */
   notes: string;
@@ -75,6 +77,7 @@ export function pageArtifact(clients: PageClients): Artifact {
       postRejection: (ref, text) => postRejection(clients, ref, text),
     },
     heldComments: { read: (pageId) => clients.heldComments(pageId) },
+    pageParentHint: clients.pageParentHint,
     change: (input) => commentChange(clients, input),
     acknowledge: (handles, ref) => acknowledge(clients, handles, ref),
     removed: (target) => removed(clients, target.url),
@@ -91,7 +94,7 @@ async function detect(clients: PageClients, text: string): Promise<ArtifactTarge
 
 function binding(ref: ArtifactRef): Binding | null {
   if (ref.kind !== "page") return null;
-  return { source: "docs_page", external_id: ref.page_id };
+  return { source: "documents_page", external_id: ref.page_id };
 }
 
 async function postRejection(clients: PageClients, ref: ArtifactRef, text: string): Promise<void> {

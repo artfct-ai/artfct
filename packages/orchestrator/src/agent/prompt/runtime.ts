@@ -10,7 +10,7 @@ export const RUNTIME_RULES = `## Harness and model per task
 
 /** The harnesses and the model names each one takes, for the system prompt. */
 export function runtimeLines(config: Config): string[] {
-  const context = { gateway: config.providers.gateway, examples: gatewayModels(config) };
+  const context = { gateway: config.adapters.gateway.provider, examples: gatewayModels(config) };
   return [
     "## Harnesses and models",
     `Harnesses: ${HARNESSES.join(", ")}.`,

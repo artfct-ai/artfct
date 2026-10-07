@@ -217,15 +217,15 @@ describe("Notifier.post to Linear", () => {
 });
 
 describe("Notifier.post to Notion", () => {
-  const pageTarget = { source: "docs", page_id: "page-1" } as const;
-  let docs: FakeDocuments;
+  const pageTarget = { source: "documents", page_id: "page-1" } as const;
+  let documents: FakeDocuments;
   let outbox: OutboxEntry[];
   let subject: Notifier;
 
   beforeEach(() => {
-    docs = new FakeDocuments();
+    documents = new FakeDocuments();
     outbox = [];
-    subject = testNotifier(outbox, { docs });
+    subject = testNotifier(outbox, { documents });
   });
 
   describe("a progress event", () => {
@@ -234,7 +234,7 @@ describe("Notifier.post to Notion", () => {
     });
 
     it("comments nothing on the page", () => {
-      expect(docs.calls).toEqual([]);
+      expect(documents.calls).toEqual([]);
     });
 
     it("writes nothing to the outbox", () => {
@@ -247,7 +247,7 @@ describe("Notifier.post to Notion", () => {
       });
 
       it("comments its plain text on the page", () => {
-        expect(docs.argsOf("comment")).toEqual([
+        expect(documents.argsOf("comment")).toEqual([
           ["page-1", `Done. merged\n\n${TAG_TO_START_AGAIN}`],
         ]);
       });
@@ -255,7 +255,7 @@ describe("Notifier.post to Notion", () => {
       it("records only the comment in the outbox", () => {
         expect(outbox).toEqual([
           {
-            channel: "docs",
+            channel: "documents",
             kind: "done",
             target: pageTarget,
             payload: { text: `Done. merged\n\n${TAG_TO_START_AGAIN}` },

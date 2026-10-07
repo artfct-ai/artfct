@@ -20,7 +20,7 @@ export const SECRETS = {
   NOTION_VERIFICATION_TOKEN: "notion-test",
 };
 
-const NO_CLIENTS: ChannelClients = { chat: null, docs: null };
+const NO_CLIENTS: ChannelClients = { chat: null, documents: null };
 
 export type Harness = {
   rpc: FakeOrchestrator;

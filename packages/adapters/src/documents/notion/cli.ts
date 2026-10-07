@@ -13,7 +13,7 @@ export function notionCliEnv(token: string): Record<string, string> {
 export const NOTION_PAGE_INSTRUCTIONS: PageInstructions = {
   create: [
     "Write the page as Markdown in a file. A leading frontmatter `title` sets the page title.",
-    "Create the page under the parent page the request names with `ntn pages create --parent page:<parent id> < page.md`.",
+    "Create the page under the page parent this prompt names with `ntn pages create --parent page:<page parent id> < page.md`.",
     "Print the page URL on its own line when it exists.",
   ].join("\n"),
   read: "Read the page as Markdown with `ntn pages get <page id>`. The page id is the last part of its URL.",
@@ -27,3 +27,7 @@ export const NOTION_PAGE_INSTRUCTIONS: PageInstructions = {
     "Post one comment only. Do not edit the page, reply to another comment, or write anywhere else.",
   ].join("\n"),
 };
+
+/** Where the orchestrator agent finds the page parent of a workflow on Notion. */
+export const NOTION_PAGE_PARENT_HINT =
+  "the link of a Notion page or database the request names as the place for the documents. Null when the request names none, and the workflow definition's default applies.";

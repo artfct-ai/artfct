@@ -58,7 +58,7 @@ type PendingPermission = { id: JsonRpcId; resolve: () => void };
 
 /**
  * A fake ACP agent for smoke tests. It streams a few updates per prompt and reports an
- * artifact on the first one. ARTFCT_STAGE picks the stage, ARTFCT_MOCK_DOCS_URL takes review
+ * artifact on the first one. ARTFCT_STAGE picks the stage, ARTFCT_MOCK_DOCUMENTS_URL takes review
  * reviews, ARTFCT_MOCK_CONTROL_URL releases a held pull request review, and ARTFCT_MOCK_SANDBOX_ROOT
  * is where a research payload goes.
  */
@@ -66,7 +66,7 @@ export class MockHarness implements HarnessTransport {
   private sessions = new Map<string, { turns: number }>();
   private prUrl: string;
   private stage: MockStage;
-  private docsUrl: string | null;
+  private documentsUrl: string | null;
   private controlUrl: string | null;
   private sandboxRoot: string | null;
   private pendingPermission: PendingPermission | null = null;
@@ -80,7 +80,7 @@ export class MockHarness implements HarnessTransport {
     const prNumber = Number(env.ARTFCT_MOCK_PR_NUMBER ?? "1");
     this.prUrl = `${repoUrl}/pull/${prNumber}`;
     this.stage = mockStage(env.ARTFCT_STAGE);
-    this.docsUrl = env.ARTFCT_MOCK_DOCS_URL ?? null;
+    this.documentsUrl = env.ARTFCT_MOCK_DOCUMENTS_URL ?? null;
     this.controlUrl = env.ARTFCT_MOCK_CONTROL_URL ?? null;
     this.sandboxRoot = env.ARTFCT_MOCK_SANDBOX_ROOT ?? null;
   }
@@ -177,11 +177,11 @@ export class MockHarness implements HarnessTransport {
 
   /** Files a review when this turn reviews a page and the run gave it a document host. */
   private async fileReview(prompt: string): Promise<string | null> {
-    const docsUrl = this.docsUrl;
-    if (!docsUrl) return null;
+    const documentsUrl = this.documentsUrl;
+    if (!documentsUrl) return null;
     const pageId = reviewedPageId(prompt);
     if (!pageId) return null;
-    const opening = await fileMockPageReview(docsUrl, pageId);
+    const opening = await fileMockPageReview(documentsUrl, pageId);
     return opening ? `Read the page and filed one comment on it. ${opening}` : null;
   }
 

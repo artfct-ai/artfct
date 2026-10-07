@@ -183,7 +183,7 @@ export async function chooseRequestedRuntime(
 
 /** Every harness's own model list and the list of the gateway sandboxes route through. */
 async function loadModelSources(workflow: WorkflowRuntime): Promise<ModelSources> {
-  const gateway = workflow.gateway(workflow.config().providers.gateway);
+  const gateway = workflow.gateway(workflow.config().adapters.gateway.provider);
   const [own, listed] = await Promise.all([
     Promise.all(
       HARNESSES.map(async (harness) => ({

@@ -307,7 +307,7 @@ describe("linear comments", () => {
     });
 
     it("binds to the document that holds the comment", () => {
-      expect(event.bindings).toEqual([{ source: "docs_page", external_id: "content1" }]);
+      expect(event.bindings).toEqual([{ source: "documents_page", external_id: "content1" }]);
     });
 
     it("names the comment author as the actor", () => {

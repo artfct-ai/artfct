@@ -271,7 +271,7 @@ describe("WorkflowStore", () => {
         const mixed = scenario(unread, (store) => {
           store.writeOutbox({ channel: "chat", kind: "acknowledge", target, payload });
           store.writeOutbox({ channel: "tracker", kind: "response", target, payload });
-          store.writeOutbox({ channel: "docs", kind: "info", target, payload });
+          store.writeOutbox({ channel: "documents", kind: "info", target, payload });
           store.writeOutbox({ channel: "tracker", kind: "error", target, payload });
         });
 
@@ -285,7 +285,7 @@ describe("WorkflowStore", () => {
     describe("a failure the notifier told a person about", () => {
       const toldFailure = scenario(freshStore, async (store) => {
         const notifier = new Notifier(
-          { tracker: async () => null, chat: null, docs: async () => null },
+          { tracker: async () => null, chat: null, documents: async () => null },
           (entry) => store.writeOutbox(entry),
         );
         await notifier.post(

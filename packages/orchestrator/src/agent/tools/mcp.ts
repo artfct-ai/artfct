@@ -1,7 +1,7 @@
 import type { ToolSet } from "ai";
 import type { Config } from "../../config/config";
 import { orchestratorMcp, type OrchestratorMcp } from "../../clients";
-import type { McpCapability } from "../../config/providers";
+import type { McpCapability } from "../../config/adapters";
 
 /** What one connection passes to the Agents SDK MCP client. */
 export type McpConnectOptions = {
@@ -28,7 +28,7 @@ export type McpHost = {
 export async function connectOrchestratorMcp(host: McpHost): Promise<OrchestratorMcp | null> {
   const credential = await host.mcpCredential("tracker");
   const connected = orchestratorMcp({
-    providers: host.config().providers,
+    adapters: host.config().adapters,
     credential,
     log: (line) => host.log(null, line),
   });

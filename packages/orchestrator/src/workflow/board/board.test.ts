@@ -40,7 +40,7 @@ const TEN_AM = Date.parse("2026-09-03T10:00:00Z");
 function useChat(workflow: FakeRuntime, tracker: FakeTracker | null = null): FakeChat {
   const chat = new FakeChat();
   workflow.notifier = new Notifier(
-    { tracker: async () => tracker, chat, docs: async () => null },
+    { tracker: async () => tracker, chat, documents: async () => null },
     (entry) => workflow.store.writeOutbox(entry),
   );
   workflow.state.reply_targets = [THREAD];

@@ -109,7 +109,7 @@ describe("resolveBinding", () => {
 
   describe("a candidate nobody bound", () => {
     it("answers null", async () => {
-      expect(await resolveBinding(db, [{ source: "docs_page", external_id: "p" }])).toBeNull();
+      expect(await resolveBinding(db, [{ source: "documents_page", external_id: "p" }])).toBeNull();
     });
   });
 });

@@ -446,12 +446,12 @@ describe("Identity.fromChat", () => {
   });
 });
 
-describe("Identity.fromDocs", () => {
+describe("Identity.fromDocuments", () => {
   let tracker: FakeTracker;
 
   describe("a person the page names without an email", () => {
     it("rejects them", async () => {
-      expect(await new Identity(open, db, null).fromDocs({ id: "N1" })).toBeNull();
+      expect(await new Identity(open, db, null).fromDocuments({ id: "N1" })).toBeNull();
     });
   });
 
@@ -460,7 +460,10 @@ describe("Identity.fromDocs", () => {
 
     beforeEach(async () => {
       tracker = new FakeTracker({ usersByEmail: { "new@acme.test": { id: "L5", name: "New" } } });
-      actor = await new Identity(open, db, tracker).fromDocs({ id: "N2", email: "new@acme.test" });
+      actor = await new Identity(open, db, tracker).fromDocuments({
+        id: "N2",
+        email: "new@acme.test",
+      });
     });
 
     it("returns them", () => {
@@ -484,7 +487,7 @@ describe("Identity.fromDocs", () => {
       let actor: Actor | null;
 
       beforeEach(async () => {
-        actor = await new Identity(bounded, db, tracker).fromDocs({
+        actor = await new Identity(bounded, db, tracker).fromDocuments({
           id: "N1",
           email: "kim@acme.test",
         });
@@ -503,7 +506,7 @@ describe("Identity.fromDocs", () => {
       let actor: Actor | null;
 
       beforeEach(async () => {
-        actor = await new Identity(bounded, db, tracker).fromDocs({
+        actor = await new Identity(bounded, db, tracker).fromDocuments({
           id: "N2",
           email: "new@acme.test",
           name: "N",
@@ -552,7 +555,7 @@ describe("resolveActor with a given client", () => {
   describe("a Notion user without an email", () => {
     it("answers null", async () => {
       expect(
-        await resolveActor(env, db, { source: "docs", user: { id: "N9" } }, { tracker }),
+        await resolveActor(env, db, { source: "documents", user: { id: "N9" } }, { tracker }),
       ).toBeNull();
     });
   });

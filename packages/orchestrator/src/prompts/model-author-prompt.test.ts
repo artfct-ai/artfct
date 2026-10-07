@@ -21,6 +21,7 @@ const context: TaskContext = {
   preceding_research_payload: "src/auth/login.ts:40 reads the redirect.",
   preceding_selection: null,
   ending: "acceptance",
+  page_parent: null,
 };
 
 const DIRECTION = "# Direction\nUse OIDC.";
