@@ -23,7 +23,7 @@ export type ModelOptions = {
 };
 
 /** The provider name. The provider reads extra request fields from `providerOptions` under it. */
-const PROVIDER_NAME = "ai-gateway";
+const PROVIDER_NAME = "aiGateway";
 
 /** A fetch that gives up on one request after `timeoutMs`, on top of the caller's signal. */
 export function timedFetch(base: typeof fetch, timeoutMs: number): typeof fetch {
