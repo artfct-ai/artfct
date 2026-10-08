@@ -83,7 +83,7 @@ describe("onBridgeHello", () => {
     it("gives the sandbox a new token, then touches the keepalive with the prompt", () =>
       reconnected(({ workflow }) => {
         expect(workflow.sandboxProvider.calls).toEqual([
-          `refreshGithubToken ${TASK} ghs_1`,
+          `refreshGithubTokens ${TASK} ghs_1`,
           `keepAlive ${TASK}`,
         ]);
       }));

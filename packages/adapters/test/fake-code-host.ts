@@ -50,8 +50,8 @@ export type CodeHostAnswers = {
   repositories?: string[];
   /** What `mintToken` returns. Default a token that expires in an hour from `now`. */
   token?: MintedToken;
-  /** What `mintReadToken` returns. Default a token that expires in an hour from `now`. */
-  readToken?: MintedToken;
+  /** What `mintAllReposReadToken` returns. Default a token that expires in an hour from `now`. */
+  allReposReadToken?: MintedToken;
   /** The login reviews are authored by. Default `acme-review[bot]`. */
   reviewer?: string;
   /** The author sandboxes commit as. Default `acme-review[bot]` at its noreply address. */
@@ -147,9 +147,9 @@ export class FakeCodeHost implements CodeHost {
     return { token: "ghs_fake", expiresAt: now + 3_600_000 };
   }
 
-  async mintReadToken(): Promise<MintedToken> {
-    this.log.record("mintReadToken");
-    if (this.answers.readToken) return this.answers.readToken;
+  async mintAllReposReadToken(): Promise<MintedToken> {
+    this.log.record("mintAllReposReadToken");
+    if (this.answers.allReposReadToken) return this.answers.allReposReadToken;
     const now = (this.answers.now ?? Date.now)();
     return { token: "ghs_read_fake", expiresAt: now + 3_600_000 };
   }

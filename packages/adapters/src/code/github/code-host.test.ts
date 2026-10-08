@@ -139,13 +139,13 @@ describe("GithubCodeHost", () => {
     expect(JSON.parse(github.mints[0]?.body ?? "")).toEqual({ repositories: ["app"] });
   });
 
-  describe("a read token", () => {
+  describe("an all-repos read token", () => {
     let github: FakeClient;
     let minted: MintedToken;
 
     beforeEach(async () => {
       github = client({});
-      minted = await github.host.mintReadToken();
+      minted = await github.host.mintAllReposReadToken();
     });
 
     it("reads the token and the moment it expires", () => {
@@ -164,7 +164,7 @@ describe("GithubCodeHost", () => {
     });
 
     it("calls the endpoint again on the next mint", async () => {
-      await github.host.mintReadToken();
+      await github.host.mintAllReposReadToken();
       expect(github.mints).toHaveLength(2);
     });
   });

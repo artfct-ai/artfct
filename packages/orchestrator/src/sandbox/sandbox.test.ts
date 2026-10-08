@@ -4,8 +4,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
-  GITHUB_READ_TOKEN_FILE,
-  GITHUB_TOKEN_FILE,
+  ALL_REPOS_READ_TOKEN_FILE,
+  WORKFLOW_REPO_TOKEN_FILE,
   bridgeCommand,
   bridgeEnv,
   githubAuthScript,
@@ -33,8 +33,8 @@ const spec: SandboxStartSpec = {
     branch: "artfct/wf_x-1-fix",
     author: { name: "acme-agent[bot]", email: "4242+acme-agent[bot]@users.noreply.github.com" },
   },
-  github_token: "ghs_1",
-  github_read: null,
+  workflow_repo_token: "ghs_1",
+  all_repos_read_token: null,
   env: {},
   files: [],
   setup_commands: ["harness-tool init"],
@@ -88,18 +88,18 @@ describe("startupScript", () => {
     });
 
     it("locks the token file down", () => {
-      expect(script).toContain(`chmod 600 ${GITHUB_TOKEN_FILE}`);
+      expect(script).toContain(`chmod 600 ${WORKFLOW_REPO_TOKEN_FILE}`);
     });
 
     it("logs gh in from the token file", () => {
       expect(script).toContain(
-        `if command -v gh >/dev/null 2>&1; then gh auth login --with-token < ${GITHUB_TOKEN_FILE}; fi`,
+        `if command -v gh >/dev/null 2>&1; then gh auth login --with-token < ${WORKFLOW_REPO_TOKEN_FILE}; fi`,
       );
     });
 
     it("gives git a credential helper that reads the token file", () => {
       const helper = script.find((line) => line.startsWith("git config --global credential."));
-      expect(helper).toContain(`cat ${GITHUB_TOKEN_FILE}`);
+      expect(helper).toContain(`cat ${WORKFLOW_REPO_TOKEN_FILE}`);
     });
 
     it("offers the token to github.com only", () => {
@@ -155,7 +155,7 @@ describe("startupScript", () => {
   });
 
   describe("a repo without a token", () => {
-    const script = lines(startupScript({ ...spec, github_token: null }));
+    const script = lines(startupScript({ ...spec, workflow_repo_token: null }));
 
     it("gives git no credential helper", () => {
       expect(script.some((line) => line.startsWith("git config --global credential."))).toBe(false);
@@ -168,7 +168,7 @@ describe("startupScript", () => {
 
   describe("a task with no repo", () => {
     it("only creates the workspace and runs the harness setup commands", () => {
-      const script = lines(startupScript({ ...spec, repo: null, github_token: null }));
+      const script = lines(startupScript({ ...spec, repo: null, workflow_repo_token: null }));
       expect(script).toEqual([
         "set -euo pipefail",
         "mkdir -p '/workspace/repo'",
@@ -193,7 +193,7 @@ describe("startupScript", () => {
       const script = startupScript({
         ...spec,
         workspace,
-        github_token: null,
+        workflow_repo_token: null,
         setup_commands: [],
         repo: { clone_url: cloneUrl, branch: null, author: null },
       });
@@ -248,10 +248,10 @@ describe("startupScript", () => {
   });
 });
 
-const READ = { token: "ghs_read", task_repo: "acme/app" };
+const READ = { token: "ghs_read", workflow_repo: "acme/app" };
 
 describe("startupScript for a task that may read every repository", () => {
-  const script = lines(startupScript({ ...spec, github_read: READ }));
+  const script = lines(startupScript({ ...spec, all_repos_read_token: READ }));
   const credentialLines = script.filter((line) =>
     line.startsWith("git config --global credential."),
   );
@@ -261,12 +261,12 @@ describe("startupScript for a task that may read every repository", () => {
   });
 
   it("locks both token files down", () => {
-    expect(script).toContain(`chmod 600 ${GITHUB_TOKEN_FILE} ${GITHUB_READ_TOKEN_FILE}`);
+    expect(script).toContain(`chmod 600 ${WORKFLOW_REPO_TOKEN_FILE} ${ALL_REPOS_READ_TOKEN_FILE}`);
   });
 
-  it("logs gh in from the task token file alone", () => {
+  it("logs gh in from the workflow repo token file alone", () => {
     expect(script.filter((line) => line.includes("gh auth login"))).toEqual([
-      `if command -v gh >/dev/null 2>&1; then gh auth login --with-token < ${GITHUB_TOKEN_FILE}; fi`,
+      `if command -v gh >/dev/null 2>&1; then gh auth login --with-token < ${WORKFLOW_REPO_TOKEN_FILE}; fi`,
     ]);
   });
 
@@ -312,7 +312,9 @@ describe("the git credential helper of a task that may read every repository", (
     const configLines = lines(githubAuthScript(READ))
       .filter((line) => line.startsWith("git config --global credential."))
       .map((line) =>
-        line.replaceAll(GITHUB_READ_TOKEN_FILE, readFile).replaceAll(GITHUB_TOKEN_FILE, taskFile),
+        line
+          .replaceAll(ALL_REPOS_READ_TOKEN_FILE, readFile)
+          .replaceAll(WORKFLOW_REPO_TOKEN_FILE, taskFile),
       );
     const setup = spawnSync("sh", ["-c", ["set -e", ...configLines].join("\n")], {
       encoding: "utf8",
@@ -329,19 +331,19 @@ describe("the git credential helper of a task that may read every repository", (
     expect(configured).toBe(true);
   });
 
-  it("answers the task token for the task's repository", () => {
+  it("answers the workflow repo token for the workflow's repository", () => {
     expect(fill("acme/app.git")).toContain("password=ghs_task\n");
   });
 
-  it("answers the task token for the task's repository without the .git suffix", () => {
+  it("answers the workflow repo token for the workflow's repository without the .git suffix", () => {
     expect(fill("acme/app")).toContain("password=ghs_task\n");
   });
 
-  it("answers the read token for another repository of the owner", () => {
+  it("answers the all-repos read token for another repository of the owner", () => {
     expect(fill("acme/infra.git")).toContain("password=ghs_read\n");
   });
 
-  it("answers the read token for a repository whose name extends the task's", () => {
+  it("answers the all-repos read token for a repository whose name extends the workflow's", () => {
     expect(fill("acme/app-docs.git")).toContain("password=ghs_read\n");
   });
 

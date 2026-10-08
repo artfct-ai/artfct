@@ -92,11 +92,11 @@ Each sandbox then gets a second token. It reads every repository the installatio
 
 | Tool | Repository | Token |
 |---|---|---|
-| git | The workflow's repository | The task token, which may push |
-| git | Any other repository on github.com | The read token |
-| gh | Any | The task token |
+| git | The workflow's repository | The workflow repo token, which may push |
+| git | Any other repository on github.com | The all-repos read token |
+| gh | Any | The workflow repo token |
 
-Git picks the token by the repository path in the URL. The agent reads another repository with git, for example `git clone https://github.com/<owner>/<repo>.git /tmp/<repo>`. The `gh` CLI stays logged in with the task token, so `gh` commands against another private repository fail. Both tokens are refreshed together, before the first of them expires.
+Git picks the token by the repository path in the URL. The agent reads another repository with git, for example `git clone https://github.com/<owner>/<repo>.git /tmp/<repo>`. The `gh` CLI stays logged in with the workflow repo token, so `gh` commands against another private repository fail. Both tokens are refreshed together, before the first of them expires.
 
 Turn this on with care. A prompt-injected agent can read every repository the installation reaches, and the agent can send what it reads out of the sandbox. Install the app on only the repositories the agents need to read. The setting does not give write access to any other repository.
 

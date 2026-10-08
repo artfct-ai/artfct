@@ -17,7 +17,7 @@ import { loadHarnessSkills } from "../../src/config/skills";
 import { resolveStage } from "../../src/config/stage";
 import type { LoadedDeploymentConfig } from "../../src/config/types";
 import type { SandboxStartSpec } from "../../src/sandbox/spec";
-import { sandboxCredential } from "../../src/workflow/task/sandbox/credential";
+import { mintSandboxGithubTokens } from "../../src/workflow/task/sandbox/credential";
 import { produceCall, type ProduceCall } from "../../src/workflow/task/model-author";
 import { firstPromptText } from "../../src/workflow/task/harness/prompt-queue";
 import { buildStartSpec } from "../../src/workflow/task/sandbox/sandbox";
@@ -117,7 +117,7 @@ export async function planLocalRun(
 
   const stage = workflow.stageForTask(task);
   workflow.mcpCredentialValue = mcpCredential(config, artifactCapability(stage.artifact), secrets);
-  const minted = await sandboxCredential(workflow, task);
+  const minted = await mintSandboxGithubTokens(workflow, task);
   const metadata = { workflow_id: "local", task_id: task.task_id, stage: stage.name };
   const routes = workflow.gatewayInstance
     ? {
@@ -128,7 +128,7 @@ export async function planLocalRun(
   const kind = stage.artifact;
   const capability = artifactCapability(kind);
   const credential = artifactNeedsTaskCredential(kind, config.adapters)
-    ? (minted?.token ?? null)
+    ? (minted?.workflowRepoToken ?? null)
     : await workflow.mcpCredential();
   const built = buildStartSpec({
     task,
@@ -143,8 +143,8 @@ export async function planLocalRun(
     publicUrl: "",
     repo: workflow.state.repo,
     commitAuthor: workflow.state.repo ? ((await workflow.code()?.commitAuthor()) ?? null) : null,
-    credential: minted?.token ?? null,
-    githubRead: minted?.read ?? null,
+    workflowRepoToken: minted?.workflowRepoToken ?? null,
+    allReposReadToken: minted?.allReposReadToken ?? null,
     hostEnv: cliEnv({ capability, adapters: config.adapters, credential, log: warn }),
     gateway: routes,
     sleepAfterMs: 0,

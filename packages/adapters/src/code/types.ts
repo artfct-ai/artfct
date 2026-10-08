@@ -133,7 +133,7 @@ export interface CodeHost {
    */
   mintToken(repo: string, permissions?: Permissions): Promise<MintedToken>;
   /** A read-only token minted now, never from a cache, for every repository these credentials reach. */
-  mintReadToken(): Promise<MintedToken>;
+  mintAllReposReadToken(): Promise<MintedToken>;
   /** Login that this credential's own reviews and comments are authored by. */
   reviewerLogin(): Promise<string>;
   /** The author a sandbox commits as, so the host links each commit to this credential's account. */

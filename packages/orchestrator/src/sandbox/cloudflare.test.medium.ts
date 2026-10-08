@@ -7,9 +7,9 @@ import {
   type SleepOptions,
 } from "./cloudflare";
 import {
-  GITHUB_READ_TOKEN_FILE,
+  ALL_REPOS_READ_TOKEN_FILE,
   GITHUB_TOKEN_DIR,
-  GITHUB_TOKEN_FILE,
+  WORKFLOW_REPO_TOKEN_FILE,
   githubAuthScript,
   startupScript,
   type SandboxRef,
@@ -30,8 +30,8 @@ const spec: SandboxStartSpec = {
   generation: 2,
   workspace: "/workspace/repo",
   repo: { clone_url: "https://github.com/acme/app.git", branch: "artfct/wf_x-1-fix", author: null },
-  github_token: "ghs_1",
-  github_read: null,
+  workflow_repo_token: "ghs_1",
+  all_repos_read_token: null,
   env: { ARTFCT_TASK_ID: "wf_x.1" },
   files: [],
   setup_commands: [],
@@ -39,7 +39,7 @@ const spec: SandboxStartSpec = {
   startup_timeout_ms: 2_700_000,
 };
 
-const READ = { token: "ghs_read", task_repo: "acme/app" };
+const READ = { token: "ghs_read", workflow_repo: "acme/app" };
 
 const STARTUP_SCRIPT = "/tmp/artfct-startup.sh";
 const AUTH_SCRIPT = "/tmp/artfct-github-auth.sh";
@@ -157,11 +157,11 @@ describe("CloudflareSandboxProvider", () => {
     });
 
     it("writes the token file", () => {
-      expect(fake.files.get(GITHUB_TOKEN_FILE)).toBe("ghs_1");
+      expect(fake.files.get(WORKFLOW_REPO_TOKEN_FILE)).toBe("ghs_1");
     });
 
-    it("writes no read token file", () => {
-      expect(fake.files.has(GITHUB_READ_TOKEN_FILE)).toBe(false);
+    it("writes no all-repos read token file", () => {
+      expect(fake.files.has(ALL_REPOS_READ_TOKEN_FILE)).toBe(false);
     });
 
     it("writes the startup script", () => {
@@ -186,14 +186,14 @@ describe("CloudflareSandboxProvider", () => {
 
   describe("start on a task that may read every repository", () => {
     beforeEach(async () => {
-      await subject.start({ ...spec, github_read: READ });
+      await subject.start({ ...spec, all_repos_read_token: READ });
     });
 
     it("writes both token files before the startup script", () => {
       expect([...fake.files.entries()]).toEqual([
-        [GITHUB_TOKEN_FILE, "ghs_1"],
-        [GITHUB_READ_TOKEN_FILE, "ghs_read"],
-        [STARTUP_SCRIPT, startupScript({ ...spec, github_read: READ })],
+        [WORKFLOW_REPO_TOKEN_FILE, "ghs_1"],
+        [ALL_REPOS_READ_TOKEN_FILE, "ghs_read"],
+        [STARTUP_SCRIPT, startupScript({ ...spec, all_repos_read_token: READ })],
       ]);
     });
   });
@@ -202,7 +202,7 @@ describe("CloudflareSandboxProvider", () => {
     const file = { path: "/home/node/.config/opencode/opencode.json", content: "{}" };
 
     beforeEach(async () => {
-      await subject.start({ ...spec, github_token: null, files: [file] });
+      await subject.start({ ...spec, workflow_repo_token: null, files: [file] });
     });
 
     it("makes the directory of the file", () => {
@@ -220,7 +220,7 @@ describe("CloudflareSandboxProvider", () => {
 
   describe("start on a task with no repo and no token", () => {
     beforeEach(async () => {
-      await subject.start({ ...spec, repo: null, github_token: null, sleep_after_ms: 0 });
+      await subject.start({ ...spec, repo: null, workflow_repo_token: null, sleep_after_ms: 0 });
     });
 
     it("keeps the sandbox alive", () => {
@@ -261,9 +261,9 @@ describe("CloudflareSandboxProvider", () => {
     });
   });
 
-  describe("refreshGithubToken", () => {
+  describe("refreshGithubTokens", () => {
     beforeEach(async () => {
-      await subject.refreshGithubToken(SANDBOX, "ghs_2", null);
+      await subject.refreshGithubTokens(SANDBOX, "ghs_2", null);
     });
 
     it("opens the sandbox without sleep options", () => {
@@ -271,7 +271,7 @@ describe("CloudflareSandboxProvider", () => {
     });
 
     it("rewrites the token file", () => {
-      expect(fake.files.get(GITHUB_TOKEN_FILE)).toBe("ghs_2");
+      expect(fake.files.get(WORKFLOW_REPO_TOKEN_FILE)).toBe("ghs_2");
     });
 
     it("writes an auth script with the strict shell options", () => {
@@ -280,7 +280,7 @@ describe("CloudflareSandboxProvider", () => {
 
     it("logs gh in from the token file", () => {
       expect(fake.files.get(AUTH_SCRIPT) ?? "").toContain(
-        `gh auth login --with-token < ${GITHUB_TOKEN_FILE}`,
+        `gh auth login --with-token < ${WORKFLOW_REPO_TOKEN_FILE}`,
       );
     });
 
@@ -289,16 +289,16 @@ describe("CloudflareSandboxProvider", () => {
     });
   });
 
-  describe("refreshGithubToken with a read token", () => {
+  describe("refreshGithubTokens with an all-repos read token", () => {
     const fresh = { ...READ, token: "ghs_read_2" };
 
     beforeEach(async () => {
-      await subject.refreshGithubToken(SANDBOX, "ghs_2", fresh);
+      await subject.refreshGithubTokens(SANDBOX, "ghs_2", fresh);
     });
 
     it("rewrites both token files", () => {
-      expect(fake.files.get(GITHUB_TOKEN_FILE)).toBe("ghs_2");
-      expect(fake.files.get(GITHUB_READ_TOKEN_FILE)).toBe("ghs_read_2");
+      expect(fake.files.get(WORKFLOW_REPO_TOKEN_FILE)).toBe("ghs_2");
+      expect(fake.files.get(ALL_REPOS_READ_TOKEN_FILE)).toBe("ghs_read_2");
     });
 
     it("writes the auth script that hands each repository its token", () => {
@@ -310,10 +310,10 @@ describe("CloudflareSandboxProvider", () => {
     });
   });
 
-  describe("refreshGithubToken when the auth script fails", () => {
+  describe("refreshGithubTokens when the auth script fails", () => {
     it("reports the stderr of the script", async () => {
       useProvider({ [`bash ${AUTH_SCRIPT}`]: "gh: bad token" });
-      expect(await failureMessage(subject.refreshGithubToken(SANDBOX, "ghs_2", null))).toBe(
+      expect(await failureMessage(subject.refreshGithubTokens(SANDBOX, "ghs_2", null))).toBe(
         "github auth failed: gh: bad token",
       );
     });
@@ -355,7 +355,7 @@ describe("CloudflareSandboxProvider", () => {
     });
 
     it("writes the token file again, which the destroyed sandbox took with it", () => {
-      expect(second.files.get(GITHUB_TOKEN_FILE)).toBe("ghs_1");
+      expect(second.files.get(WORKFLOW_REPO_TOKEN_FILE)).toBe("ghs_1");
     });
 
     it("runs the startup script again, so an empty workspace is cloned", () => {

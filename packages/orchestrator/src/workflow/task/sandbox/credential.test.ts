@@ -9,8 +9,8 @@ import {
   credentialExpiring,
   CREDENTIAL_REFRESH_MARGIN_MS,
   refreshToken,
-  sandboxCredential,
-  taskCredential,
+  mintSandboxGithubTokens,
+  mintWorkflowRepoToken,
   TOKEN_RETRY_S,
 } from "./credential";
 import { fakeConnection, seedTask, type FakeRuntime } from "../../../../test/fake-runtime";
@@ -36,7 +36,7 @@ function seedPair(workflow: FakeRuntime) {
 type Minted = {
   workflow: FakeRuntime;
   code: FakeCodeHost;
-  credential: Awaited<ReturnType<typeof taskCredential>>;
+  credential: Awaited<ReturnType<typeof mintWorkflowRepoToken>>;
 };
 
 function minting(makeHost: () => FakeCodeHost, role: "author" | "reviewer"): Scenario<Minted> {
@@ -44,7 +44,7 @@ function minting(makeHost: () => FakeCodeHost, role: "author" | "reviewer"): Sce
     freshRuntime(async (workflow) => {
       const code = makeHost();
       workflow.codeHostInstance = code;
-      const credential = await taskCredential(workflow, seedPair(workflow)[role]);
+      const credential = await mintWorkflowRepoToken(workflow, seedPair(workflow)[role]);
       await run({ workflow, code, credential });
     });
 }
@@ -53,11 +53,11 @@ const mintedWithoutRepository: Scenario<Minted> = (run) =>
   freshRuntime(async (workflow) => {
     const code = new FakeCodeHost();
     workflow.codeHostInstance = code;
-    const credential = await taskCredential(workflow, seedTask(workflow));
+    const credential = await mintWorkflowRepoToken(workflow, seedTask(workflow));
     await run({ workflow, code, credential });
   });
 
-describe("taskCredential", () => {
+describe("mintWorkflowRepoToken", () => {
   describe("a reviewer run", () => {
     const minted = minting(() => new FakeCodeHost(), "reviewer");
 
@@ -120,7 +120,7 @@ describe("taskCredential", () => {
   describe("a runtime without a code host", () => {
     it("has no credential", () =>
       freshRuntime(async (workflow) => {
-        expect(await taskCredential(workflow, seedPair(workflow).reviewer)).toBeNull();
+        expect(await mintWorkflowRepoToken(workflow, seedPair(workflow).reviewer)).toBeNull();
       }));
   });
 });
@@ -237,7 +237,7 @@ describe("refreshToken", () => {
 
     it("writes the fresh token into the sandbox", () =>
       refreshed(({ workflow }) => {
-        expect(workflow.sandboxProvider.calls).toEqual([`refreshGithubToken ${TASK} ghs_1`]);
+        expect(workflow.sandboxProvider.calls).toEqual([`refreshGithubTokens ${TASK} ghs_1`]);
       }));
 
     it("arms the next refresh well past the retry interval", () =>
@@ -358,7 +358,7 @@ function allowReadingEveryRepository(workflow: FakeRuntime): void {
 }
 
 class ReadRefusingHost extends FakeCodeHost {
-  override async mintReadToken(): Promise<MintedToken> {
+  override async mintAllReposReadToken(): Promise<MintedToken> {
     throw new Error("read refused");
   }
 }
@@ -366,7 +366,7 @@ class ReadRefusingHost extends FakeCodeHost {
 type SandboxMinted = {
   workflow: FakeRuntime;
   code: FakeCodeHost;
-  credential: Awaited<ReturnType<typeof sandboxCredential>>;
+  tokens: Awaited<ReturnType<typeof mintSandboxGithubTokens>>;
 };
 
 function mintingForSandbox(
@@ -377,30 +377,34 @@ function mintingForSandbox(
     freshRuntime(async (workflow) => {
       const code = makeHost();
       workflow.codeHostInstance = code;
-      const credential = await sandboxCredential(workflow, setUp(workflow));
-      await run({ workflow, code, credential });
+      const tokens = await mintSandboxGithubTokens(workflow, setUp(workflow));
+      await run({ workflow, code, tokens });
     });
 }
 
 function twoTokenHost(): FakeCodeHost {
   return new FakeCodeHost({
     token: { token: "ghs_1", expiresAt: CLOCK + HOUR_MS },
-    readToken: { token: "ghs_read", expiresAt: CLOCK + HOUR_MS / 2 },
+    allReposReadToken: { token: "ghs_read", expiresAt: CLOCK + HOUR_MS / 2 },
   });
 }
 
-describe("sandboxCredential", () => {
+describe("mintSandboxGithubTokens", () => {
   describe("a deployment that keeps sandboxes to the task's repository", () => {
     const minted = mintingForSandbox(twoTokenHost, (workflow) => seedPair(workflow).author);
 
-    it("gives back the task token alone", () =>
-      minted(({ credential }) => {
-        expect(credential).toEqual({ token: "ghs_1", read: null, expiresAt: CLOCK + HOUR_MS });
+    it("gives back the workflow repo token alone", () =>
+      minted(({ tokens }) => {
+        expect(tokens).toEqual({
+          workflowRepoToken: "ghs_1",
+          allReposReadToken: null,
+          expiresAt: CLOCK + HOUR_MS,
+        });
       }));
 
-    it("mints no read token", () =>
+    it("does not mint an all-repos read token", () =>
       minted(({ code }) => {
-        expect(code.argsOf("mintReadToken")).toEqual([]);
+        expect(code.argsOf("mintAllReposReadToken")).toEqual([]);
       }));
   });
 
@@ -410,20 +414,20 @@ describe("sandboxCredential", () => {
       return seedPair(workflow).reviewer;
     });
 
-    it("gives back the read token for every repository but the workflow's", () =>
-      minted(({ credential }) => {
-        expect(credential?.read).toEqual({ token: "ghs_read", task_repo: REPO });
+    it("gives back the all-repos read token, routed away from the workflow repository", () =>
+      minted(({ tokens }) => {
+        expect(tokens?.allReposReadToken).toEqual({ token: "ghs_read", workflow_repo: REPO });
       }));
 
-    it("keeps the task token on the narrowed permissions", () =>
-      minted(({ code, credential }) => {
-        expect(credential?.token).toBe("ghs_1");
+    it("keeps the workflow repo token on the narrowed permissions", () =>
+      minted(({ code, tokens }) => {
+        expect(tokens?.workflowRepoToken).toBe("ghs_1");
         expect(code.argsOf("mintToken")).toEqual([[REPO, GITHUB_CODE_REVIEW.permissions]]);
       }));
 
     it("ends when the first of the two tokens dies", () =>
-      minted(({ credential }) => {
-        expect(credential?.expiresAt).toBe(CLOCK + HOUR_MS / 2);
+      minted(({ tokens }) => {
+        expect(tokens?.expiresAt).toBe(CLOCK + HOUR_MS / 2);
       }));
   });
 
@@ -433,9 +437,9 @@ describe("sandboxCredential", () => {
       return seedTask(workflow);
     });
 
-    it("has no credential", () =>
-      minted(({ credential }) => {
-        expect(credential).toBeNull();
+    it("has no tokens", () =>
+      minted(({ tokens }) => {
+        expect(tokens).toBeNull();
       }));
 
     it("mints neither token", () =>
@@ -444,7 +448,7 @@ describe("sandboxCredential", () => {
       }));
   });
 
-  describe("a code host that will not mint the read token", () => {
+  describe("a code host that will not mint the all-repos read token", () => {
     const minted = mintingForSandbox(
       () => new ReadRefusingHost(),
       (workflow) => {
@@ -453,14 +457,16 @@ describe("sandboxCredential", () => {
       },
     );
 
-    it("still gives back the task token, without a read token", () =>
-      minted(({ credential }) => {
-        expect(credential).toMatchObject({ token: "ghs_fake", read: null });
+    it("still gives back the workflow repo token, without an all-repos read token", () =>
+      minted(({ tokens }) => {
+        expect(tokens).toMatchObject({ workflowRepoToken: "ghs_fake", allReposReadToken: null });
       }));
 
     it("logs the failure", () =>
       minted(({ workflow }) => {
-        expect(workflow.lines).toEqual([expect.stringMatching(/^read credential mint failed: /)]);
+        expect(workflow.lines).toEqual([
+          expect.stringMatching(/^all-repos read token mint failed: /),
+        ]);
       }));
   });
 });
@@ -475,13 +481,13 @@ describe("refreshToken on a deployment that lets sandboxes read every repository
 
   it("mints both tokens", () =>
     refreshed(({ code }) => {
-      expect(code.calls.map((call) => call.method)).toEqual(["mintToken", "mintReadToken"]);
+      expect(code.calls.map((call) => call.method)).toEqual(["mintToken", "mintAllReposReadToken"]);
     }));
 
   it("writes both fresh tokens into the sandbox", () =>
     refreshed(({ workflow }) => {
       expect(workflow.sandboxProvider.calls).toEqual([
-        `refreshGithubToken ${TASK} ghs_1 read ghs_read ${REPO}`,
+        `refreshGithubTokens ${TASK} ghs_1 read ghs_read ${REPO}`,
       ]);
     }));
 

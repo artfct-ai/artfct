@@ -53,7 +53,7 @@ function splitRepo(fullName: string): { owner: string; repo: string } {
 /** The base roles that may push. GitHub reports the maintain role as `write`. */
 const PUSH_PERMISSIONS = ["admin", "write"];
 
-/** What a read token may do: read the code and the repository itself. */
+/** What an all-repos read token may do: read the code and the repository itself. */
 const READ_PERMISSIONS: Permissions = { contents: "read", metadata: "read" };
 
 /** The auth-app instance behind an Octokit built with `authStrategy: createAppAuth`. */
@@ -199,7 +199,7 @@ export class GithubCodeHost implements CodeHost {
   }
 
   /** Without a repository list, the token reaches every repository of the installation. */
-  async mintReadToken(): Promise<MintedToken> {
+  async mintAllReposReadToken(): Promise<MintedToken> {
     const minted = await this.appAuth({
       type: "installation",
       permissions: READ_PERMISSIONS,

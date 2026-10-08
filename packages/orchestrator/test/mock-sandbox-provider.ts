@@ -25,7 +25,7 @@ export class MockSandboxProvider implements SandboxProvider {
   }
 
   /** The mock bridge never pushes, so the token is only logged as an env change. */
-  async refreshGithubToken(sandbox: SandboxRef, token: string): Promise<void> {
+  async refreshGithubTokens(sandbox: SandboxRef, token: string): Promise<void> {
     await this.post("/env", { sandbox_id: sandbox.id, env: { GITHUB_TOKEN: token } });
   }
 

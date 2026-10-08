@@ -1,8 +1,8 @@
 import { spawn, type ChildProcessByStdio } from "node:child_process";
 import type { Readable, Writable } from "node:stream";
 import {
-  GITHUB_READ_TOKEN_FILE,
-  GITHUB_TOKEN_FILE,
+  ALL_REPOS_READ_TOKEN_FILE,
+  WORKFLOW_REPO_TOKEN_FILE,
   startupScript,
   type SandboxStartSpec,
 } from "../../src/sandbox/spec";
@@ -43,9 +43,10 @@ export async function startLocalContainer(spec: SandboxStartSpec): Promise<Local
     },
   };
   try {
-    if (spec.github_token) await writeContainerFile(id, GITHUB_TOKEN_FILE, spec.github_token);
-    if (spec.github_read) {
-      await writeContainerFile(id, GITHUB_READ_TOKEN_FILE, spec.github_read.token);
+    if (spec.workflow_repo_token)
+      await writeContainerFile(id, WORKFLOW_REPO_TOKEN_FILE, spec.workflow_repo_token);
+    if (spec.all_repos_read_token) {
+      await writeContainerFile(id, ALL_REPOS_READ_TOKEN_FILE, spec.all_repos_read_token.token);
     }
     for (const file of spec.files) await writeContainerFile(id, file.path, file.content);
     await writeContainerFile(id, STARTUP_SCRIPT, startupScript(spec));

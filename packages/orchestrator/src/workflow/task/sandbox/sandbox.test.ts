@@ -97,8 +97,8 @@ const input: StartSpecInput = {
   publicUrl: "https://ao.example.com",
   repo: { full: "acme/app" },
   commitAuthor: AUTHOR,
-  credential: "ghs_1",
-  githubRead: null,
+  workflowRepoToken: "ghs_1",
+  allReposReadToken: null,
   hostEnv: {},
   harness: harnessAdapter("claude-code", { claudeOauthToken: "sk-ant-oat" }),
   gateway: null,
@@ -300,11 +300,11 @@ describe("buildStartSpec", () => {
     });
 
     it("hands the token over separately", () => {
-      expect(built.github_token).toBe("ghs_1");
+      expect(built.workflow_repo_token).toBe("ghs_1");
     });
 
-    it("hands over no read token", () => {
-      expect(built.github_read).toBeNull();
+    it("hands over no all-repos read token", () => {
+      expect(built.all_repos_read_token).toBeNull();
     });
 
     it("keeps the token out of GITHUB_TOKEN", () => {
@@ -317,14 +317,14 @@ describe("buildStartSpec", () => {
   });
 
   describe("a task that may read every repository", () => {
-    const read = { token: "ghs_read", task_repo: "acme/app" };
-    const built = spec({ stage: stage("implement"), githubRead: read });
+    const read = { token: "ghs_read", workflow_repo: "acme/app" };
+    const built = spec({ stage: stage("implement"), allReposReadToken: read });
 
-    it("hands the read token over beside the task token", () => {
-      expect([built.github_token, built.github_read]).toEqual(["ghs_1", read]);
+    it("hands the all-repos read token over beside the workflow repo token", () => {
+      expect([built.workflow_repo_token, built.all_repos_read_token]).toEqual(["ghs_1", read]);
     });
 
-    it("keeps the read token out of the environment", () => {
+    it("keeps the all-repos read token out of the environment", () => {
       expect(Object.values(built.env)).not.toContain("ghs_read");
     });
   });
@@ -341,7 +341,7 @@ describe("buildStartSpec", () => {
     });
 
     it("hands the token over too", () => {
-      expect(built.github_token).toBe("ghs_1");
+      expect(built.workflow_repo_token).toBe("ghs_1");
     });
 
     it("names the repository in the environment", () => {
@@ -350,14 +350,14 @@ describe("buildStartSpec", () => {
   });
 
   describe("a workflow that knows neither a repository nor a token", () => {
-    const built = spec({ repo: null, credential: null });
+    const built = spec({ repo: null, workflowRepoToken: null });
 
     it("gives the sandbox no repository", () => {
       expect(built.repo).toBeNull();
     });
 
     it("gives the sandbox no token", () => {
-      expect(built.github_token).toBeNull();
+      expect(built.workflow_repo_token).toBeNull();
     });
 
     it("names no repository in the environment", () => {
