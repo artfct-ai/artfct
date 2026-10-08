@@ -199,7 +199,7 @@ async function startRequestFromPage(): Promise<void> {
 }
 
 /** Runs step 11. */
-export async function runSlack(): Promise<void> {
+export async function runSlack(): Promise<{ workflowId: string }> {
   console.log("\n11. Slack");
   const threadTs = `17000${RUN_ID.length}.${Date.now() % 100000}`;
   const workflowId = await startWorkflowFromMention(
@@ -249,4 +249,5 @@ export async function runSlack(): Promise<void> {
   }
   await startSecondRequestInChannel(workflowId, await waitForPullRequest(workflowId));
   await startRequestFromPage();
+  return { workflowId };
 }

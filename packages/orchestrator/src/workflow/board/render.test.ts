@@ -2,14 +2,7 @@ import type { PlanEntry } from "@agentclientprotocol/sdk";
 import { TASK_STATUSES, type TaskStatus } from "@artfct-ai/contracts/types";
 import { describe, expect, it } from "bun:test";
 import { BOARD_MAX_ENTRIES, lifecycleLabel, openEntryCount, renderBoard } from "./render";
-import type {
-  BoardFormat,
-  BoardInput,
-  BoardTask,
-  RefinerPhase,
-  RefinerPhaseView,
-  TodoSnapshot,
-} from "./types";
+import type { BoardInput, BoardTask, RefinerPhase, RefinerPhaseView, TodoSnapshot } from "./types";
 
 const NOW = Date.UTC(2026, 8, 4, 0, 7);
 const STARTED_AT = "2026-09-03T23:55:00.000Z";
@@ -89,36 +82,22 @@ function pendingEntries(count: number): PlanEntry[] {
   }));
 }
 
-function textOf(input: BoardInput, format: BoardFormat): string {
-  return renderBoard(input, format).text;
+function textOf(input: BoardInput): string {
+  return renderBoard(input).text;
 }
 
-function line(input: BoardInput, format: BoardFormat, index: number): string | undefined {
-  return textOf(input, format).split("\n").at(index);
+function line(input: BoardInput, index: number): string | undefined {
+  return textOf(input).split("\n").at(index);
 }
 
 function refinerLines(refiners: BoardInput["refiners"]): string[] {
-  return textOf(boardInput({ refiners }), "markdown").split("\n").slice(-2);
+  return textOf(boardInput({ refiners })).split("\n").slice(-2);
 }
 
 describe("renderBoard", () => {
   describe("a working task with a fresh todo list", () => {
-    it("renders the board in markdown", () => {
-      expect(textOf(boardInput(), "markdown")).toBe(
-        [
-          "**Fix the login redirect · implement · ENG-7 · working**",
-          "Job 2 · started 23:55 · updated 00:07 UTC",
-          "",
-          "- [x] Read the schema",
-          "- [ ] Add the migration ← working",
-          "- [ ] Wire the query",
-          "- [ ] Write tests",
-        ].join("\n"),
-      );
-    });
-
-    it("renders the same board in chat markup", () => {
-      expect(textOf(boardInput(), "chat")).toBe(
+    it("renders the board in chat markup", () => {
+      expect(textOf(boardInput())).toBe(
         [
           "*Fix the login redirect · implement · ENG-7 · working*",
           "Job 2 · started 23:55 · updated 00:07 UTC",
@@ -132,14 +111,14 @@ describe("renderBoard", () => {
     });
 
     it("keeps the stamp out of the body", () => {
-      expect(renderBoard(boardInput(), "markdown").body).toBe(
+      expect(renderBoard(boardInput()).body).toBe(
         [
-          "**Fix the login redirect · implement · ENG-7 · working**",
+          "*Fix the login redirect · implement · ENG-7 · working*",
           "",
-          "- [x] Read the schema",
-          "- [ ] Add the migration ← working",
-          "- [ ] Wire the query",
-          "- [ ] Write tests",
+          "☑ Read the schema",
+          "☐ Add the migration ← working",
+          "☐ Wire the query",
+          "☐ Write tests",
         ].join("\n"),
       );
     });
@@ -149,9 +128,7 @@ describe("renderBoard", () => {
     const noTicket = boardInput({ task: { ...task, ticket_key: null } });
 
     it("drops the ticket field from the header", () => {
-      expect(line(noTicket, "markdown", 0)).toBe(
-        "**Fix the login redirect · implement · working**",
-      );
+      expect(line(noTicket, 0)).toBe("*Fix the login redirect · implement · working*");
     });
   });
 
@@ -159,11 +136,11 @@ describe("renderBoard", () => {
     const later = boardInput({ now: NOW + 60 * 60_000 });
 
     it("moves the updated stamp", () => {
-      expect(line(later, "markdown", 1)).toBe("Job 2 · started 23:55 · updated 01:07 UTC");
+      expect(line(later, 1)).toBe("Job 2 · started 23:55 · updated 01:07 UTC");
     });
 
     it("leaves the body alone, so nothing is written", () => {
-      expect(renderBoard(later, "markdown").body).toBe(renderBoard(boardInput(), "markdown").body);
+      expect(renderBoard(later).body).toBe(renderBoard(boardInput()).body);
     });
   });
 
@@ -171,36 +148,36 @@ describe("renderBoard", () => {
     const fallback = "no todo list reported by the harness yet";
 
     it("falls back to one line without a todo list", () => {
-      expect(line(boardInput({ todos: null }), "markdown", -1)).toBe(fallback);
+      expect(line(boardInput({ todos: null }), -1)).toBe(fallback);
     });
 
     it("falls back to the same line for an empty todo list", () => {
       const empty: TodoSnapshot = { entries: [] };
-      expect(line(boardInput({ todos: empty }), "chat", -1)).toBe(fallback);
+      expect(line(boardInput({ todos: empty }), -1)).toBe(fallback);
     });
 
     it("prints the phases instead once it holds an artifact", () => {
       const silent = boardInput({ todos: null, refiners: refinerBoard({ review: "in_progress" }) });
-      expect(textOf(silent, "markdown").split("\n").slice(2)).toEqual([
+      expect(textOf(silent).split("\n").slice(2)).toEqual([
         "",
-        "- [ ] review ← run 2 · working",
-        "- [ ] Ready for Humans",
+        "☐ review ← run 2 · working",
+        "☐ Ready for Humans",
       ]);
     });
   });
 
   describe("a todo list longer than the cap", () => {
     const long: TodoSnapshot = { entries: pendingEntries(12) };
-    const lines = textOf(boardInput({ todos: long }), "markdown").split("\n");
-    const listed = lines.filter((text) => text.startsWith("- [ ] "));
+    const lines = textOf(boardInput({ todos: long })).split("\n");
+    const listed = lines.filter((text) => text.startsWith("☐ "));
 
     it("lists BOARD_MAX_ENTRIES entries", () => {
       expect(listed).toHaveLength(BOARD_MAX_ENTRIES);
     });
 
     it("keeps the head of the list", () => {
-      expect(listed[0]).toBe("- [ ] Step 1");
-      expect(listed.at(-1)).toBe("- [ ] Step 10");
+      expect(listed[0]).toBe("☐ Step 1");
+      expect(listed.at(-1)).toBe("☐ Step 10");
     });
 
     it("counts the rest on the last line", () => {
@@ -210,21 +187,20 @@ describe("renderBoard", () => {
     it("folds the harness list only, never the phases", () => {
       const withRefiner = textOf(
         boardInput({ todos: long, refiners: refinerBoard({ review: "completed" }, "pending") }),
-        "markdown",
       );
-      expect(withRefiner.split("\n").slice(-2)).toEqual(["- [x] review", "- [ ] Ready for Humans"]);
+      expect(withRefiner.split("\n").slice(-2)).toEqual(["☑ review", "☐ Ready for Humans"]);
     });
   });
 
   describe("the phases of an artifact", () => {
     it("shows no phase and no humans line on a stage that declares no refiners", () => {
-      expect(textOf(boardInput(), "markdown")).not.toContain("Ready for Humans");
+      expect(textOf(boardInput())).not.toContain("Ready for Humans");
     });
 
     it("claims nothing before the first reviewer has read it", () => {
       expect(refinerLines(refinerBoard({ review: "pending" }))).toEqual([
-        "- [ ] review",
-        "- [ ] Ready for Humans",
+        "☐ review",
+        "☐ Ready for Humans",
       ]);
     });
 
@@ -234,15 +210,10 @@ describe("renderBoard", () => {
           todos: null,
           refiners: refinerBoard({ review: "completed", polish: "in_progress" }),
         }),
-        "markdown",
       )
         .split("\n")
         .slice(-3);
-      expect(lines).toEqual([
-        "- [x] review",
-        "- [ ] polish ← run 2 · working",
-        "- [ ] Ready for Humans",
-      ]);
+      expect(lines).toEqual(["☑ review", "☐ polish ← run 2 · working", "☐ Ready for Humans"]);
     });
 
     it("prints the open phase in chat markup", () => {
@@ -251,7 +222,6 @@ describe("renderBoard", () => {
           todos: null,
           refiners: refinerBoard({ review: "in_progress", polish: "pending" }),
         }),
-        "chat",
       )
         .split("\n")
         .slice(-3);
@@ -259,53 +229,51 @@ describe("renderBoard", () => {
     });
 
     it("never names the refiner run on the open phase", () => {
-      expect(
-        textOf(boardInput({ refiners: refinerBoard({ review: "in_progress" }) }), "chat"),
-      ).not.toMatch(/task \d+ /);
+      expect(textOf(boardInput({ refiners: refinerBoard({ review: "in_progress" }) }))).not.toMatch(
+        /task \d+ /,
+      );
     });
 
     it("says the open phase is starting the sandbox of its refiner run", () => {
       expect(refinerLines(openPhase("review", "provisioning"))[0]).toBe(
-        "- [ ] review ← run 1 · starting the sandbox",
+        "☐ review ← run 1 · starting the sandbox",
       );
     });
 
     it("says the open phase is starting while its refiner run is queued", () => {
-      expect(refinerLines(openPhase("polish", "queued"))[0]).toBe(
-        "- [ ] polish ← run 1 · starting",
-      );
+      expect(refinerLines(openPhase("polish", "queued"))[0]).toBe("☐ polish ← run 1 · starting");
     });
 
     it("says a done review left its findings with the author", () => {
       expect(refinerLines(openPhase("review", "done"))).toEqual([
-        "- [ ] review ← run 1 · left findings, now with the author",
-        "- [ ] Ready for Humans",
+        "☐ review ← run 1 · left findings, now with the author",
+        "☐ Ready for Humans",
       ]);
     });
 
     it("says a done polish is handing the artifact on, not leaving findings", () => {
       expect(refinerLines(openPhase("polish", "done"))).toEqual([
-        "- [ ] polish ← run 1 · handing the artifact on",
-        "- [ ] Ready for Humans",
+        "☐ polish ← run 1 · handing the artifact on",
+        "☐ Ready for Humans",
       ]);
     });
 
     it("says a judge review waits for a ruling", () => {
       expect(refinerLines(openPhase("review", "done", "awaited"))[0]).toBe(
-        "- [ ] review ← run 1 · waiting for your ruling",
+        "☐ review ← run 1 · waiting for your ruling",
       );
     });
 
     it("says a judge judge rejected the artifact", () => {
       expect(refinerLines(openPhase("review", "done", "rejected"))[0]).toBe(
-        "- [ ] review ← run 1 · rejected, now with the author",
+        "☐ review ← run 1 · rejected, now with the author",
       );
     });
 
     it("completes the humans line once the artifact reaches the humans", () => {
       expect(refinerLines(refinerBoard({ review: "completed" }, "completed"))).toEqual([
-        "- [x] review",
-        "- [x] Ready for Humans",
+        "☑ review",
+        "☑ Ready for Humans",
       ]);
     });
   });
@@ -313,15 +281,15 @@ describe("renderBoard", () => {
   describe("a task that ended", () => {
     it("names the open items when it failed", () => {
       const input = boardInput({ task: withStatus("failed") });
-      expect(line(input, "markdown", 0)).toBe(
-        "**Fix the login redirect · implement · ENG-7 · failed, 3 items still open**",
+      expect(line(input, 0)).toBe(
+        "*Fix the login redirect · implement · ENG-7 · failed, 3 items still open*",
       );
     });
 
     it("uses the singular for one open item", () => {
       const oneOpen: TodoSnapshot = { entries: entries.slice(0, 2) };
       const input = boardInput({ task: withStatus("cancelled"), todos: oneOpen });
-      expect(line(input, "chat", 0)).toBe(
+      expect(line(input, 0)).toBe(
         "*Fix the login redirect · implement · ENG-7 · cancelled, 1 item still open*",
       );
     });
@@ -331,9 +299,7 @@ describe("renderBoard", () => {
         entries: entries.map((entry) => ({ ...entry, status: "completed" as const })),
       };
       const input = boardInput({ task: withStatus("done"), todos: completed });
-      expect(line(input, "markdown", 0)).toBe(
-        "**Fix the login redirect · implement · ENG-7 · done**",
-      );
+      expect(line(input, 0)).toBe("*Fix the login redirect · implement · ENG-7 · done*");
     });
   });
 
@@ -341,35 +307,31 @@ describe("renderBoard", () => {
     const reviewed = boardInput({ task: withStatus("in_review"), refiners: refinerBoard() });
 
     it("reads the lifecycle word of the task row", () => {
-      expect(line(reviewed, "markdown", 0)).toBe(
-        "**Fix the login redirect · implement · ENG-7 · in review**",
-      );
+      expect(line(reviewed, 0)).toBe("*Fix the login redirect · implement · ENG-7 · in review*");
     });
 
     it("says the task is starting its sandbox while it provisions", () => {
       const provisioning = { ...reviewed, task: withStatus("provisioning") };
-      expect(line(provisioning, "markdown", 0)).toBe(
-        "**Fix the login redirect · implement · ENG-7 · starting the sandbox**",
+      expect(line(provisioning, 0)).toBe(
+        "*Fix the login redirect · implement · ENG-7 · starting the sandbox*",
       );
     });
 
     it("reads working again when a review run prompts the author", () => {
       const working = { ...reviewed, task: withStatus("working") };
-      expect(line(working, "markdown", 0)).toBe(
-        "**Fix the login redirect · implement · ENG-7 · working**",
-      );
+      expect(line(working, 0)).toBe("*Fix the login redirect · implement · ENG-7 · working*");
     });
 
     it("says the task is paused when a human pauses it", () => {
-      expect(line({ ...reviewed, task: { ...task, paused: true } }, "markdown", 0)).toBe(
-        "**Fix the login redirect · implement · ENG-7 · paused**",
+      expect(line({ ...reviewed, task: { ...task, paused: true } }, 0)).toBe(
+        "*Fix the login redirect · implement · ENG-7 · paused*",
       );
     });
 
     it("reads the finished status of a paused task that was cancelled", () => {
       const cancelled = { ...withStatus("cancelled"), paused: true };
-      expect(line({ ...reviewed, task: cancelled }, "markdown", 0)).toBe(
-        "**Fix the login redirect · implement · ENG-7 · cancelled, 3 items still open**",
+      expect(line({ ...reviewed, task: cancelled }, 0)).toBe(
+        "*Fix the login redirect · implement · ENG-7 · cancelled, 3 items still open*",
       );
     });
   });
@@ -383,9 +345,7 @@ describe("renderBoard", () => {
         refiners: delivered,
         artifact_status: "ready",
       });
-      expect(line(input, "markdown", 0)).toBe(
-        "**Fix the login redirect · implement · ENG-7 · complete**",
-      );
+      expect(line(input, 0)).toBe("*Fix the login redirect · implement · ENG-7 · complete*");
     });
 
     it("reads complete while the task is in review", () => {
@@ -394,9 +354,7 @@ describe("renderBoard", () => {
         refiners: delivered,
         artifact_status: "ready",
       });
-      expect(line(input, "chat", 0)).toBe(
-        "*Fix the login redirect · implement · ENG-7 · complete*",
-      );
+      expect(line(input, 0)).toBe("*Fix the login redirect · implement · ENG-7 · complete*");
     });
 
     it("reads complete once the host accepted the artifact", () => {
@@ -405,9 +363,7 @@ describe("renderBoard", () => {
         refiners: delivered,
         artifact_status: "accepted",
       });
-      expect(line(input, "markdown", 0)).toBe(
-        "**Fix the login redirect · implement · ENG-7 · complete**",
-      );
+      expect(line(input, 0)).toBe("*Fix the login redirect · implement · ENG-7 · complete*");
     });
 
     it("reads failed when the task failed", () => {
@@ -416,8 +372,8 @@ describe("renderBoard", () => {
         refiners: delivered,
         artifact_status: "ready",
       });
-      expect(line(input, "markdown", 0)).toBe(
-        "**Fix the login redirect · implement · ENG-7 · failed, 3 items still open**",
+      expect(line(input, 0)).toBe(
+        "*Fix the login redirect · implement · ENG-7 · failed, 3 items still open*",
       );
     });
 
@@ -427,7 +383,7 @@ describe("renderBoard", () => {
         artifact_status: "ready",
         note: "prompt failed: 500",
       });
-      expect(textOf(input, "markdown")).not.toContain("note:");
+      expect(textOf(input)).not.toContain("note:");
     });
   });
 
@@ -442,17 +398,15 @@ describe("renderBoard", () => {
     });
 
     it("reads the task's live status in the header", () => {
-      expect(line(followingUp, "chat", 0)).toBe(
-        "*Fix the login redirect · implement · ENG-7 · working*",
-      );
+      expect(line(followingUp, 0)).toBe("*Fix the login redirect · implement · ENG-7 · working*");
     });
 
     it("prints the note", () => {
-      expect(line(followingUp, "chat", 2)).toBe("note: prompt failed: 500");
+      expect(line(followingUp, 2)).toBe("note: prompt failed: 500");
     });
 
     it("lists the follow-ups after the frozen todo list and before the phases", () => {
-      expect(textOf(followingUp, "chat").split("\n").slice(-8)).toEqual([
+      expect(textOf(followingUp).split("\n").slice(-8)).toEqual([
         "☑ Read the schema",
         "☑ Add the migration",
         "☑ Wire the query",
@@ -474,17 +428,15 @@ describe("renderBoard", () => {
     });
 
     it("reads complete", () => {
-      expect(line(followedUp, "markdown", 0)).toBe(
-        "**Fix the login redirect · implement · ENG-7 · complete**",
-      );
+      expect(line(followedUp, 0)).toBe("*Fix the login redirect · implement · ENG-7 · complete*");
     });
 
     it("checks the follow-ups line", () => {
-      expect(textOf(followedUp, "markdown").split("\n").slice(-4)).toEqual([
-        "- [x] follow-ups",
-        "- [x] review",
-        "- [x] polish",
-        "- [x] Ready for Humans",
+      expect(textOf(followedUp).split("\n").slice(-4)).toEqual([
+        "☑ follow-ups",
+        "☑ review",
+        "☑ polish",
+        "☑ Ready for Humans",
       ]);
     });
   });
@@ -498,23 +450,21 @@ describe("renderBoard", () => {
     });
 
     it("reads the task's live status in the header", () => {
-      expect(line(reopened, "markdown", 0)).toBe(
-        "**Fix the login redirect · implement · ENG-7 · in review**",
-      );
+      expect(line(reopened, 0)).toBe("*Fix the login redirect · implement · ENG-7 · in review*");
     });
 
     it("prints the note", () => {
-      expect(line(reopened, "markdown", 2)).toBe("note: prompt failed: 500");
+      expect(line(reopened, 2)).toBe("note: prompt failed: 500");
     });
 
     it("leaves the humans line unchecked", () => {
-      expect(textOf(reopened, "markdown").split("\n").at(-1)).toBe("- [ ] Ready for Humans");
+      expect(textOf(reopened).split("\n").at(-1)).toBe("☐ Ready for Humans");
     });
   });
 
   describe("a note on a multi-line failure", () => {
     const note = `prompt failed:\n  harness exited 1\n${"x".repeat(300)}`;
-    const noteLine = line(boardInput({ note }), "markdown", 2);
+    const noteLine = line(boardInput({ note }), 2);
 
     it("prints it on its own line, collapsed and clipped", () => {
       expect(noteLine?.startsWith("note: prompt failed: harness exited 1 x")).toBe(true);
@@ -529,14 +479,14 @@ describe("renderBoard", () => {
         { content: "y".repeat(250), priority: "low", status: "completed" },
       ],
     };
-    const lines = textOf(boardInput({ todos: messy }), "markdown").split("\n");
+    const lines = textOf(boardInput({ todos: messy })).split("\n");
 
     it("collapses the newlines", () => {
-      expect(lines[3]).toBe("- [ ] first line second");
+      expect(lines[3]).toBe("☐ first line second");
     });
 
     it("clips the long content", () => {
-      expect(lines[4]).toBe(`- [x] ${"y".repeat(200)}`);
+      expect(lines[4]).toBe(`☑ ${"y".repeat(200)}`);
     });
   });
 
@@ -551,14 +501,11 @@ describe("renderBoard", () => {
 
     it("carries no GitHub state for any status", () => {
       for (const status of TASK_STATUSES) {
-        for (const format of ["markdown", "chat"] as const) {
-          const output = textOf(
-            boardInput({ task: withStatus(status), todos: linked, note, refiners: refinerBoard() }),
-            format,
-          ).toLowerCase();
-          for (const forbidden of ["http", "github", "merge", "check"]) {
-            expect(output, `${status} ${format} contains ${forbidden}`).not.toContain(forbidden);
-          }
+        const output = textOf(
+          boardInput({ task: withStatus(status), todos: linked, note, refiners: refinerBoard() }),
+        ).toLowerCase();
+        for (const forbidden of ["http", "github", "merge", "check"]) {
+          expect(output, `${status} contains ${forbidden}`).not.toContain(forbidden);
         }
       }
     });

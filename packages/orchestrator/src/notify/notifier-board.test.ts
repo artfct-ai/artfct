@@ -1,5 +1,4 @@
 import type { FakeChat } from "@artfct-ai/adapters/test/fake-chat";
-import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 import { beforeEach, describe, expect, it } from "bun:test";
 import { fakeSlack, testNotifier } from "../../test/notifier-fixture";
 import type { Notifier, OutboxEntry } from "./notifier";
@@ -53,30 +52,6 @@ describe("Notifier boards", () => {
     });
   });
 
-  describe("a Linear board", () => {
-    const issue = { source: "tracker", issue_id: "issue-1" } as const;
-    let tracker: FakeTracker;
-    let messageId: string;
-
-    beforeEach(async () => {
-      tracker = new FakeTracker({ commentId: "comment-7" });
-      const subject = testNotifier(outbox, { tracker });
-      messageId = await subject.createBoard(issue, "todo");
-      await subject.editBoard(issue, messageId, "todo 2");
-    });
-
-    it("answers the comment id", () => {
-      expect(messageId).toBe("comment-7");
-    });
-
-    it("comments on the issue and edits that comment by id", () => {
-      expect(tracker.calls).toEqual([
-        { method: "commentOnIssue", args: ["issue-1", "todo"] },
-        { method: "updateComment", args: ["comment-7", "todo 2"] },
-      ]);
-    });
-  });
-
   describe("a Slack board moved to the end of the thread", () => {
     let chat: FakeChat;
     let permalink: string;
@@ -98,27 +73,6 @@ describe("Notifier boards", () => {
 
     it("records the delete in the outbox", () => {
       expect(outbox.map((entry) => [entry.channel, entry.kind])).toEqual([["board", "delete"]]);
-    });
-  });
-
-  describe("a Linear board moved to the end of the issue", () => {
-    const issue = { source: "tracker", issue_id: "issue-1" } as const;
-    let tracker: FakeTracker;
-    let permalink: string;
-
-    beforeEach(async () => {
-      tracker = new FakeTracker();
-      const subject = testNotifier(outbox, { tracker });
-      permalink = await subject.boardPermalink(issue, "comment-8");
-      await subject.deleteBoard(issue, "comment-7");
-    });
-
-    it("links the new comment", () => {
-      expect(permalink).toBe("https://tracker.test/comment/comment-8");
-    });
-
-    it("deletes the previous comment by id", () => {
-      expect(tracker.argsOf("deleteComment")).toEqual([["comment-7"]]);
     });
   });
 

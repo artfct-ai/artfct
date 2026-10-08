@@ -1,5 +1,4 @@
 import type { PlanEntry } from "@agentclientprotocol/sdk";
-import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import { sequenceFromJobId } from "../../ids";
 import {
   judgeRejected,
@@ -16,7 +15,6 @@ import { publishBoard } from "./publish";
 import { boardText, renderBoard } from "./render";
 import type {
   BoardChannel,
-  BoardFormat,
   BoardInput,
   BoardTask,
   RefinerBoard,
@@ -45,18 +43,9 @@ function inFlightSets(workflow: WorkflowRuntime) {
   return created;
 }
 
-/** The board key of a channel: one board per chat thread or tracker issue. */
+/** The board key of a channel: one board per chat thread. */
 export function channelKey(channel: BoardChannel): string {
-  switch (channel.source) {
-    case "chat":
-      return `chat:${channel.channel}:${channel.thread}`;
-    case "tracker":
-      return `tracker:${channel.issue_id}`;
-    default: {
-      const unhandled: never = channel;
-      throw new Error(`unhandled board channel ${JSON.stringify(unhandled)}`);
-    }
-  }
+  return `chat:${channel.channel}:${channel.thread}`;
 }
 
 /**
@@ -116,7 +105,7 @@ export async function flushBoards(workflow: WorkflowRuntime, jobId: string): Pro
     follow_up: followUp,
     now: workflow.now(),
   };
-  for (const channel of boardChannels(workflow, job)) {
+  for (const channel of boardChannels(workflow)) {
     await flushOne(workflow, jobId, channel, input);
   }
 }
@@ -136,7 +125,7 @@ async function flushOne(
     return;
   }
   const row = workflow.store.board(jobId, key) ?? workflow.store.insertBoard(jobId, key, channel);
-  const { body, text } = renderBoard(input, formatFor(channel));
+  const { body, text } = renderBoard(input);
   writing.add(writeKey);
   try {
     await publishBoard({ workflow, row, text, hash: hashText(body) });
@@ -259,35 +248,15 @@ export async function markBoardDirty(workflow: WorkflowRuntime, jobId: string): 
   }
 }
 
-/** Every reply target that can hold a board of the job, one board per place. */
-function boardChannels(workflow: WorkflowRuntime, job: JobRow): BoardChannel[] {
+/** Every chat thread among the reply targets. A board lives only in chat, one per thread. */
+function boardChannels(workflow: WorkflowRuntime): BoardChannel[] {
   const channels = new Map<string, BoardChannel>();
   for (const target of workflow.state.reply_targets) {
-    const channel = channelFor(target, job);
-    if (channel) channels.set(channelKey(channel), channel);
+    if (target.source !== "chat") continue;
+    const channel = { source: target.source, channel: target.channel, thread: target.thread };
+    channels.set(channelKey(channel), channel);
   }
   return [...channels.values()];
-}
-
-/** A tracker board sits on the job's own issue, so several sessions share one board. */
-function channelFor(target: ReplyTarget, job: JobRow): BoardChannel | null {
-  switch (target.source) {
-    case "chat":
-      return { source: "chat", channel: target.channel, thread: target.thread };
-    case "tracker":
-      return { source: "tracker", issue_id: job.issue_id ?? target.issue_id };
-    case "documents":
-    case "code":
-      return null;
-    default: {
-      const unhandled: never = target;
-      throw new Error(`unhandled reply target ${JSON.stringify(unhandled)}`);
-    }
-  }
-}
-
-function formatFor(channel: BoardChannel): BoardFormat {
-  return channel.source === "chat" ? "chat" : "markdown";
 }
 
 /** FNV-1a over the text, as hex. Enough to tell "unchanged" from "changed". */

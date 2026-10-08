@@ -10,9 +10,6 @@ export type TokenSource = () => Promise<string>;
 /** Construction options for the Linear tracker adapter. `baseUrl` is a seam for tests. */
 export type LinearOptions = { baseUrl?: string };
 
-/** The text Linear puts in the error for an id that no longer resolves. */
-const GONE_MESSAGE = "Entity not found";
-
 /** The SDK credential for a token. A personal API key (`lin_api_`) goes bare. */
 function credential(token: string): { apiKey: string } | { accessToken: string } {
   return token.startsWith("lin_api_") ? { apiKey: token } : { accessToken: token };
@@ -41,21 +38,4 @@ export class LinearSdk {
     this.cached = { token, client };
     return client;
   }
-}
-
-/** True when Linear says the entity is gone, which is how an unknown id reads. */
-export function isGoneError(error: unknown): boolean {
-  return errorMessages(error).some((message) => message.includes(GONE_MESSAGE));
-}
-
-/** Every message an error carries, including the GraphQL errors a `LinearError` lists. */
-function errorMessages(error: unknown): string[] {
-  if (!(error instanceof Error)) return [String(error)];
-  const nested: unknown[] = "errors" in error && Array.isArray(error.errors) ? error.errors : [];
-  return [error.message, ...nested.map(messageOf)];
-}
-
-function messageOf(item: unknown): string {
-  if (typeof item === "object" && item !== null && "message" in item) return String(item.message);
-  return String(item);
 }

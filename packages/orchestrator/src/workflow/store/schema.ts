@@ -112,10 +112,10 @@ export const boards = sqliteTable(
   "boards",
   {
     job_id: text().notNull(),
-    /** `chat:<channel>:<thread>` or `tracker:<issue_id>`. One board per place. */
+    /** `chat:<channel>:<thread>`. One board per chat thread. */
     channel_key: text().notNull(),
     channel: text({ mode: "json" }).$type<BoardChannel>().notNull(),
-    /** The chat message id or the tracker comment id. Null until the create succeeds. */
+    /** The chat message id. Null until the create succeeds. */
     message_id: text(),
     /** Hash of the last text that reached the channel. Cleared when an edit fails. */
     hash: text(),

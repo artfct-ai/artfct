@@ -10,7 +10,7 @@ import type { HeldComment } from "@artfct-ai/adapters/documents/types";
 import { FakeDecisions, HangingDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
-import type { InboundEvent } from "@artfct-ai/contracts/inbound";
+import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { Binding } from "@artfct-ai/contracts/sources";
 import { OPTIONS_HEADING } from "../src/artifact/options";
 import type { RefinerEntry, ReviewerEntry } from "../src/config/refiner";
@@ -57,6 +57,15 @@ export type WorldSetup = {
   research: boolean;
   checksOnPush: ChecksOnPush;
   pageEnding: PageEnding;
+  origin: OriginSurface;
+};
+
+/** Where the request that started the workflow came from: a chat thread or a tracker session. */
+export type OriginSurface = "chat" | "tracker";
+
+const ORIGINS: Record<OriginSurface, ReplyTarget> = {
+  chat: { source: "chat", channel: "C1", thread: "1.0" },
+  tracker: { source: "tracker", session_id: "session-origin", issue_id: "ENG-100" },
 };
 
 /** How a job on the page stage ends: a person accepts the page, or selects one of its options. */
@@ -259,7 +268,8 @@ export class WorkflowWorld {
     workflow.patchState({
       repo: { full: REPO },
       request: { title: "Fix login", text: "Fix the login redirect.", links: [] },
-      reply_targets: [{ source: "chat", channel: "C1", thread: "1.0" }],
+      origin: ORIGINS[setup.origin],
+      reply_targets: [ORIGINS[setup.origin]],
       concurrency: SLOTS,
     });
     const stage = STAGE_OF[setup.artifact];

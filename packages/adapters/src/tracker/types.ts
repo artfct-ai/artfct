@@ -1,5 +1,5 @@
 /**
- * The work tracker capability: issues, comments, workflow states, users, and agent sessions.
+ * The work tracker capability: issues, workflow states, users, and agent sessions.
  * Consumers program against `Tracker`. Linear implements it today. Documents live in `../documents`.
  */
 import type { Actor, InboundEvent } from "@artfct-ai/contracts/inbound";
@@ -76,13 +76,6 @@ export interface Tracker {
   /** Workflow states of a team, ordered by position. */
   teamStates(teamId: string): Promise<WorkflowState[]>;
   updateIssue(issueId: string, input: IssueUpdate): Promise<void>;
-  /** Returns the comment id so the caller can edit it later. */
-  commentOnIssue(issueId: string, body: string): Promise<{ id: string }>;
-  updateComment(commentId: string, body: string): Promise<void>;
-  /** Delete one comment by id. */
-  deleteComment(commentId: string): Promise<void>;
-  /** A link to one comment that another system can show. */
-  commentPermalink(commentId: string): Promise<string>;
   /**
    * Show a link on an issue. A tracker that recognizes the URL renders it through its own
    * integration, so a chat thread reads as that thread and not as a bare link.
@@ -97,6 +90,4 @@ export interface Tracker {
     content: AgentActivityContent,
     options?: ActivityOptions,
   ): Promise<void>;
-  /** True when an error says the entity no longer exists. */
-  isGone(error: unknown): boolean;
 }

@@ -505,6 +505,25 @@ export function personWrites(kind: "prompt" | "start" | "status"): WorkflowActio
   );
 }
 
+/**
+ * The tracker opens an agent session on the issue of an author's job, the way a self-delegation
+ * does. The session becomes a reply target of the workflow.
+ */
+export function trackerOpensSession(index: number): WorkflowAction {
+  return action(`the tracker opens a session on the issue of author ${index}`, async (world) => {
+    const author = world.authorAt(index);
+    const issue = author ? world.jobOf(author).issue_id : null;
+    if (!author || !issue) return;
+    await world.deliver({
+      kind: "start",
+      text: "",
+      actor: null,
+      bindings: world.issueBindingsOf(author),
+      reply_to: { source: "tracker", session_id: `session-${issue}`, issue_id: issue },
+    });
+  });
+}
+
 /** Which issue a started task names: one of its own, one another author already names, or none. */
 export type StartedOn = "an_issue" | "a_taken_issue" | "no_issue";
 

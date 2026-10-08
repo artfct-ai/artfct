@@ -5,6 +5,7 @@ import {
   aFailedCheckNeverCompletesAJob,
   artifactStatusMovesAreLegal,
   authorIsIdleWhileAPolisherRuns,
+  boardsLiveOnlyInChat,
   deliveredToHumansIsNeverCleared,
   endedWorkflowHasNoUnfinishedTask,
   everyFeedbackGetsOneRoutingDecision,
@@ -58,6 +59,7 @@ import {
   timePasses,
   timerFires,
   TIMERS,
+  trackerOpensSession,
 } from "../../test/workflow-actions";
 import {
   MAX_AUTHORS,
@@ -78,6 +80,7 @@ const STATE_INVARIANTS = [
   authorIsIdleWhileAPolisherRuns,
   oneLiveJobPerInputArtifact,
   endedWorkflowHasNoUnfinishedTask,
+  boardsLiveOnlyInChat,
 ];
 
 const STEP_INVARIANTS = [
@@ -109,6 +112,7 @@ const setups: fc.Arbitrary<WorldSetup> = fc.record({
   research: fc.boolean(),
   checksOnPush: fc.constantFrom("passed" as const, "reported_later" as const),
   pageEnding: fc.constantFrom("acceptance" as const, "choice" as const),
+  origin: fc.constantFrom("chat" as const, "chat" as const, "tracker" as const),
 });
 
 const pageSetups: fc.Arbitrary<WorldSetup> = fc.record({
@@ -117,6 +121,7 @@ const pageSetups: fc.Arbitrary<WorldSetup> = fc.record({
   research: fc.boolean(),
   checksOnPush: fc.constantFrom("passed" as const, "reported_later" as const),
   pageEnding: fc.constantFrom("acceptance" as const, "choice" as const),
+  origin: fc.constantFrom("chat" as const, "chat" as const, "tracker" as const),
 });
 
 const author = fc.nat({ max: MAX_AUTHORS - 1 });
@@ -264,6 +269,7 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
     weight: 2,
     arbitrary: fc.constantFrom("prompt", "prompt", "start", "status").map(personWrites),
   },
+  { weight: 2, arbitrary: author.map(trackerOpensSession) },
   {
     weight: 3,
     arbitrary: fc
@@ -409,7 +415,7 @@ describe("the workflow invariants", () => {
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(19);
+      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(20);
     },
     TIMEOUT_MS,
   );

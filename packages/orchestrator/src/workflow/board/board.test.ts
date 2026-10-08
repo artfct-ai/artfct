@@ -76,23 +76,23 @@ function seedBoardTask(workflow: FakeRuntime, patch: Parameters<typeof seedTask>
 let chat: FakeChat;
 
 describe("flushBoards", () => {
-  describe("a task whose board goes to a Slack thread and two Linear sessions", () => {
+  describe("a task with a Slack thread and two Linear sessions", () => {
     let tracker: FakeTracker;
     const created = scenario(freshRuntime, async (workflow) => {
-      tracker = new FakeTracker({ commentId: "comment-9" });
+      tracker = new FakeTracker();
       chat = useChat(workflow, tracker);
       workflow.state.reply_targets = [THREAD, SESSION, { ...SESSION, session_id: "s2" }];
       seedBoardTask(workflow, { issue_id: "issue-1", issue_key: "ENG-1" });
       await flushBoards(workflow, JOB);
     });
 
-    it("creates one board per place and keeps its message id", () =>
+    it("creates one board, in the chat thread, and keeps its message id", () =>
       created((workflow) => {
         const boards = workflow.store.boards(JOB);
         const keyed = Object.fromEntries(
           boards.map((board) => [board.channel_key, board.message_id]),
         );
-        expect(keyed).toEqual({ [CHAT_KEY]: FIRST_TS, "tracker:issue-1": "comment-9" });
+        expect(keyed).toEqual({ [CHAT_KEY]: FIRST_TS });
       }));
 
     it("keeps a hash of the text it wrote", () =>
@@ -100,9 +100,9 @@ describe("flushBoards", () => {
         expect(workflow.store.boards(JOB)[0]?.hash).toHaveLength(8);
       }));
 
-    it("comments once on the Linear issue", () =>
+    it("leaves the tracker without a board", () =>
       created(() => {
-        expect(tracker.argsOf("commentOnIssue")).toEqual([["issue-1", expect.any(String)]]);
+        expect(tracker.calls).toEqual([]);
       }));
 
     it("posts once in the Slack thread", () =>
@@ -1027,7 +1027,7 @@ describe("the board header", () => {
   describe("a code review task", () => {
     let tracker: FakeTracker;
     const reviewing = scenario(freshRuntime, async (workflow) => {
-      tracker = new FakeTracker({ commentId: "comment-9" });
+      tracker = new FakeTracker();
       chat = useChat(workflow, tracker);
       workflow.state.reply_targets = [THREAD, SESSION];
       seedReviewerRun(workflow, { issue_id: "issue-1", issue_key: "ENG-1" });
@@ -1038,7 +1038,6 @@ describe("the board header", () => {
       reviewing((workflow) => {
         expect(workflow.store.boards(REVIEW_JOB).map((board) => board.channel_key)).toEqual([
           CHAT_KEY,
-          "tracker:issue-1",
         ]);
         expect(boardMethods(chat)).toEqual(["postThreadMessage"]);
       }));
@@ -1147,10 +1146,6 @@ describe("the workflow name on a board task", () => {
 describe("channelKey", () => {
   it("keys a chat board by channel and thread", () => {
     expect(channelKey({ source: "chat", channel: "C1", thread: "1.0" })).toBe(CHAT_KEY);
-  });
-
-  it("keys a tracker board by issue", () => {
-    expect(channelKey({ source: "tracker", issue_id: "issue-1" })).toBe("tracker:issue-1");
   });
 });
 

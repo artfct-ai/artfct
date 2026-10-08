@@ -7,7 +7,7 @@
 import { IS_EXTERNAL_INGRESS } from "./smoke/config";
 import { installProcessHandlers, startHarness, stopHarness, verifyStack } from "./smoke/harness";
 import { runArtifactFromAgentOutput } from "./smoke/steps/artifact";
-import { runBoardChecks } from "./smoke/steps/board";
+import { runBoardChecks, runNoTrackerBoard } from "./smoke/steps/board";
 import { runBridgeLoss } from "./smoke/steps/bridge-loss";
 import { runContextBudget } from "./smoke/steps/budget";
 import { runCancel } from "./smoke/steps/cancel";
@@ -37,14 +37,15 @@ async function main(): Promise<void> {
     runDocumentStages({ workflowId, taskId: first.taskId }),
   );
   await step("3. Artifact", () => runArtifactFromAgentOutput({ workflowId, taskId, branch }));
-  await step("4. Boards", () => runBoardChecks({ workflowId }));
+  await step("4. No board on Linear", () => runNoTrackerBoard({ workflowId }));
   await step("5. Context budget", () => runContextBudget({ workflowId, taskId }));
   await step("6. Review loop", () => runReviewLoop({ workflowId, taskId, branch }));
   const done = await step("7. Merge", () => runMerge({ workflowId, taskId, branch }));
   await step("8. Cancel", runCancel);
   const third = await step("9. Bridge loss", runBridgeLoss);
   await step("10. Linear issue canceled", () => runLinearCancel(third));
-  await step("11. Slack", runSlack);
+  const slack = await step("11. Slack", runSlack);
+  await step("12. Boards", () => runBoardChecks(slack));
 
   console.log("\nSMOKE PASSED");
   const workflowLog = done.log.map((entry) => entry.line).join(" | ");
