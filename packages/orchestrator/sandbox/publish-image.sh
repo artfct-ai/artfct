@@ -1,6 +1,6 @@
 #!/bin/sh
 set -eu
-image="docker.io/artfct/sandbox:$(git rev-parse --short=12 HEAD)"
+image="docker.io/artfct/sandbox:$(git rev-parse HEAD)"
 out=dist/sandbox-image
 mkdir -p "$out"
 docker buildx build \
