@@ -47,6 +47,22 @@ function decisionsAnswering(
   return { decisions, seen };
 }
 
+type HangingFetch = { fetch: typeof fetch; sent: Promise<AbortSignal> };
+
+function hangingFetch(): HangingFetch {
+  const hanging: Partial<HangingFetch> = {};
+  hanging.sent = new Promise<AbortSignal>((sent) => {
+    hanging.fetch = (input, init) => {
+      const signal = new Request(input, init).signal;
+      sent(signal);
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => reject(signal.reason));
+      });
+    };
+  });
+  return hanging as HangingFetch;
+}
+
 describe("OpenRouterDecisions", () => {
   test("sends the state and every question as a noul to the decisions endpoint", async () => {
     const { decisions, seen } = decisionsAnswering({ wants_answer: { type: "noul", noul: 0.9 } });
@@ -197,5 +213,63 @@ describe("OpenRouterDecisions with both kinds of question", () => {
 
     expect(answered.probabilities).toEqual({ wants_answer: 0.2 });
     expect(answered.choices).toEqual({ model: { option: "none", probability: 1 } });
+  });
+});
+
+describe("OpenRouterDecisions under an abort signal", () => {
+  const ASKED = { yesNo: QUESTIONS, choices: {} };
+
+  test("rejects with the reason and sends nothing when the signal already aborted", async () => {
+    const { decisions, seen } = decisionsAnswering({ wants_answer: { type: "noul", noul: 0.9 } });
+    const reason = new Error("deadline passed");
+
+    const call = decisions.decide({ message: "hi" }, ASKED, AbortSignal.abort(reason));
+
+    await expect(call).rejects.toBe(reason);
+    expect(seen).toEqual([]);
+  });
+
+  test("aborts the request in flight", async () => {
+    const controller = new AbortController();
+    const reason = new Error("deadline passed");
+    const { fetch: hanging, sent } = hangingFetch();
+    const decisions = new OpenRouterDecisions({
+      apiKey: "key",
+      serverUrl: "https://router.test",
+      fetch: hanging,
+    });
+
+    const call = decisions.decide({ message: "hi" }, ASKED, controller.signal);
+    const inFlight = await sent;
+    controller.abort(reason);
+
+    await expect(call).rejects.toBe(reason);
+    expect(inFlight.aborted).toBe(true);
+  });
+
+  test("rejects at once while the SDK waits to retry an overloaded endpoint", async () => {
+    const controller = new AbortController();
+    const reason = new Error("deadline passed");
+    let requests = 0;
+    const overloaded: typeof fetch = async () => {
+      requests += 1;
+      setTimeout(() => controller.abort(reason), 5);
+      return Response.json(
+        { error: { code: 529, message: "overloaded" } },
+        { status: 529, headers: { "retry-after": "30" } },
+      );
+    };
+    const decisions = new OpenRouterDecisions({
+      apiKey: "key",
+      serverUrl: "https://router.test",
+      fetch: overloaded,
+    });
+    const started = Date.now();
+
+    await expect(decisions.decide({ message: "hi" }, ASKED, controller.signal)).rejects.toBe(
+      reason,
+    );
+    expect(Date.now() - started).toBeLessThan(1000);
+    expect(requests).toBe(1);
   });
 });

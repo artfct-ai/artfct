@@ -57,15 +57,22 @@ export class CloudflareDecisions implements Decisions {
   async decide<YesNoName extends string, ChoiceName extends string>(
     state: DecisionState,
     questions: DecisionQuestions<YesNoName, ChoiceName>,
+    signal?: AbortSignal,
   ): Promise<DecisionAnswers<YesNoName, ChoiceName>> {
     const yesNoNames = Object.keys(questions.yesNo) as YesNoName[];
     const choiceNames = Object.keys(questions.choices) as ChoiceName[];
-    const { answers, usage } = await this.run(state, {
-      ...Object.fromEntries(yesNoNames.map((name) => [name, noulQuestion(questions.yesNo[name])])),
-      ...Object.fromEntries(
-        choiceNames.map((name) => [name, choiceQuestion(questions.choices[name])]),
-      ),
-    });
+    const { answers, usage } = await this.run(
+      state,
+      {
+        ...Object.fromEntries(
+          yesNoNames.map((name) => [name, noulQuestion(questions.yesNo[name])]),
+        ),
+        ...Object.fromEntries(
+          choiceNames.map((name) => [name, choiceQuestion(questions.choices[name])]),
+        ),
+      },
+      signal,
+    );
     const probabilities = {} as Record<YesNoName, number>;
     for (const name of yesNoNames) {
       const answer = answers[name];
@@ -96,11 +103,12 @@ export class CloudflareDecisions implements Decisions {
   private async run(
     state: DecisionState,
     questions: Record<string, ClefQuestion>,
+    signal: AbortSignal | undefined,
   ): Promise<ClefRun["result"]> {
     const cloudflare = await this.cloudflare();
     const { result } = await cloudflare.post<ClefRun>(
       `/accounts/${this.options.accountId}/ai/run/${this.model}`,
-      { body: { model: CLEF_SELECTOR, state, questions } },
+      { body: { model: CLEF_SELECTOR, state, questions }, signal },
     );
     return result;
   }

@@ -1,4 +1,4 @@
-import type { Chat } from "@artfct-ai/adapters/chat/types";
+import type { Chat, SessionStatus } from "@artfct-ai/adapters/chat/types";
 import type { CodeHost } from "@artfct-ai/adapters/code/types";
 import type { Decisions, Gateway } from "@artfct-ai/adapters/gateway/types";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
@@ -26,12 +26,17 @@ import { registeredConfig } from "../src/config/register-config";
 import type { WorkflowDefinition } from "../src/config/workflow-definition";
 import type { Env } from "../src/env";
 import { destinationFor } from "../src/notify/destination";
+import { plainText } from "../src/notify/messages";
 import { Notifier, type PostOptions } from "../src/notify/notifier";
 import type { SandboxProvider } from "../src/sandbox/provider";
 import { FakeSandboxProvider } from "./fake-sandbox";
 import type { ConnectionState } from "../src/workflow/task/harness/bridge";
 import type { WorkflowDb } from "../src/workflow/store/db";
-import { initialWorkflowState, type WorkflowState } from "../src/workflow/store/state";
+import {
+  initialWorkflowState,
+  isWorkflowFinished,
+  type WorkflowState,
+} from "../src/workflow/store/state";
 import {
   WorkflowStore,
   type JobRow,
@@ -108,6 +113,11 @@ export class FakeRuntime implements WorkflowRuntime {
   posted: TaskEvent[] = [];
   released: Array<ReplyTarget | null> = [];
   statuses: string[] = [];
+  /**
+   * The session status the notifier would leave on a chat thread after the posts, releases, and
+   * working calls so far. Null before any of them.
+   */
+  chatSession: SessionStatus | null = null;
   notes: FakeNote[] = [];
   lines: string[] = [];
   gatewayInstance: Gateway | null = null;
@@ -233,19 +243,27 @@ export class FakeRuntime implements WorkflowRuntime {
     this.store.appendLog(taskId, line);
   }
 
-  async post(event: TaskEvent, only?: ReplyTarget, options?: PostOptions): Promise<void> {
+  async post(event: TaskEvent, only?: ReplyTarget, options: PostOptions = {}): Promise<void> {
     this.posted.push(event);
     if (destinationFor(event) !== "channel") return;
     const targets = only ? [only] : this.state.reply_targets;
     for (const target of targets) await this.notifier.post(target, event, options);
+    if (!plainText(event) || options.keepSession) return;
+    this.chatSession = this.sessionAfterTurn();
   }
 
   async release(only?: ReplyTarget): Promise<void> {
     this.released.push(only ?? null);
+    this.chatSession = this.sessionAfterTurn();
   }
 
   async working(text: string): Promise<void> {
     this.statuses.push(text);
+    this.chatSession = "processing";
+  }
+
+  private sessionAfterTurn(): SessionStatus {
+    return isWorkflowFinished(this.state.status) ? "closed" : "active";
   }
 
   gateway(provider: GatewayProvider): Gateway | null {

@@ -20,20 +20,25 @@ export function acceptedAt(probability: number): boolean {
 }
 
 /**
+ * The input to `humansAccepted`. `artifact` is the URL of the artifact the humans hold, and
+ * `messages` is what they wrote in this turn. Pass the agent turn's abort signal.
+ */
+export type Acceptance = { artifact: string; messages: string[]; signal?: AbortSignal };
+
+/**
  * Ask the decisions model whether the person's messages of this turn accept the artifact. Null
  * when no answer came.
  */
 export async function humansAccepted(
   workflow: WorkflowRuntime,
-  artifact: string,
-  messages: string[],
+  { artifact, messages, signal }: Acceptance,
 ): Promise<boolean | null> {
-  const probabilities = await askYesNo(
-    workflow,
-    HUMANS_ACCEPTED_PURPOSE,
-    { artifact, messages: messages.join("\n\n") },
-    { accepts: ACCEPTS },
-  );
+  const probabilities = await askYesNo(workflow, {
+    purpose: HUMANS_ACCEPTED_PURPOSE,
+    state: { artifact, messages: messages.join("\n\n") },
+    questions: { accepts: ACCEPTS },
+    signal,
+  });
   if (!probabilities) return null;
   workflow.log(null, `humans accepted: ${probabilities.accepts.toFixed(2)}`);
   return acceptedAt(probabilities.accepts);

@@ -53,3 +53,24 @@ export class FakeDecisions implements Decisions {
     };
   }
 }
+
+/**
+ * A `Decisions` that never answers. Each call rejects with the abort reason once the caller's
+ * signal aborts.
+ */
+export class HangingDecisions implements Decisions {
+  readonly model = "hanging-decisions";
+  calls = 0;
+
+  decide<YesNoName extends string, ChoiceName extends string>(
+    _state: DecisionState,
+    _questions: DecisionQuestions<YesNoName, ChoiceName>,
+    signal?: AbortSignal,
+  ): Promise<DecisionAnswers<YesNoName, ChoiceName>> {
+    this.calls += 1;
+    return new Promise((_resolve, reject) => {
+      if (signal?.aborted) reject(signal.reason);
+      signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
+    });
+  }
+}

@@ -136,8 +136,8 @@ export function startTools(
             "on a stage with a choice ending: the selected option, exactly as the page lists it under its options heading",
           ),
       }),
-      execute: ({ job_id, result, option }) =>
-        complete(workflow, { jobId: job_id, result, option, personMessages }),
+      execute: ({ job_id, result, option }, { abortSignal }) =>
+        complete(workflow, { jobId: job_id, result, option, personMessages, signal: abortSignal }),
     }),
     cancel_job: tool({
       description:
@@ -451,11 +451,15 @@ type CompleteInput = {
   result: string;
   option: string | undefined;
   personMessages: string[];
+  signal: AbortSignal | undefined;
 };
+
+/** The messages people wrote in this turn, with the turn's abort signal. */
+type TurnMessages = Pick<CompleteInput, "personMessages" | "signal">;
 
 async function complete(
   workflow: WorkflowRuntime,
-  { jobId, result, option, personMessages }: CompleteInput,
+  { jobId, result, option, personMessages, signal }: CompleteInput,
 ): Promise<string> {
   const job = workflow.store.job(jobId);
   if (!job) return `Job ${jobId} does not exist.`;
@@ -469,11 +473,17 @@ async function complete(
   }
   const artifact = workflow.store.artifact(jobId);
   if (workflow.stageFor(job).ending === "choice") {
-    const checked = await checkSelection(workflow, { job, artifact, option, personMessages });
+    const checked = await checkSelection(workflow, {
+      job,
+      artifact,
+      option,
+      personMessages,
+      signal,
+    });
     if ("refusal" in checked) return checked.refusal;
     workflow.store.updateJobSelection(jobId, checked.selection);
   } else {
-    const pending = await acceptancePending(workflow, artifact, personMessages);
+    const pending = await acceptancePending(workflow, artifact, { personMessages, signal });
     if (pending) return pending;
   }
   return whatIsNext(workflow, job, await completeJob(workflow, author, result));
@@ -493,11 +503,11 @@ async function cancel(workflow: WorkflowRuntime, jobId: string, reason: string):
 async function acceptancePending(
   workflow: WorkflowRuntime,
   artifact: ArtifactRow | null,
-  personMessages: string[],
+  said: TurnMessages,
 ): Promise<string | null> {
   if (!artifact || artifact.status === "accepted") return null;
   const kind = workflow.artifact(artifact.kind);
-  if (!kind.accepted) return humansAcceptancePending(workflow, artifact, personMessages);
+  if (!kind.accepted) return humansAcceptancePending(workflow, artifact, said);
   const accepted = await kind.accepted(artifact.ref).catch((error: unknown) => {
     workflow.log(
       null,
@@ -518,30 +528,33 @@ async function acceptancePending(
 async function humansAcceptancePending(
   workflow: WorkflowRuntime,
   artifact: ArtifactRow,
-  personMessages: string[],
+  { personMessages, signal }: TurnMessages,
 ): Promise<string | null> {
   const name = `the ${artifact.kind} of job ${artifact.job_id}`;
   if (personMessages.length === 0) {
     return `Only the humans accept ${name}, and no person wrote in this turn. Wait for their reply.`;
   }
-  const accepted = await humansAccepted(workflow, artifact.external_url, personMessages);
+  const accepted = await humansAccepted(workflow, {
+    artifact: artifact.external_url,
+    messages: personMessages,
+    signal,
+  });
   if (!accepted) {
     return `The person's message does not clearly accept ${name}. Ask them whether it is accepted. Send a change they asked for to the author task with prompt_task.`;
   }
   return null;
 }
 
-type SelectionInput = {
+type SelectionInput = TurnMessages & {
   job: JobRow;
   artifact: ArtifactRow | null;
   option: string | undefined;
-  personMessages: string[];
 };
 
 /** The selection on a stage with a choice ending, or the refusal to complete. */
 async function checkSelection(
   workflow: WorkflowRuntime,
-  { job, artifact, option, personMessages }: SelectionInput,
+  { job, artifact, option, personMessages, signal }: SelectionInput,
 ): Promise<{ selection: string } | { refusal: string }> {
   const stage = `Stage ${job.stage} ends on a choice`;
   if (option === undefined) {
@@ -575,7 +588,12 @@ async function checkSelection(
       refusal: `The page of job ${job.job_id} lists no option "${option}" under its options heading. ${listed}`,
     };
   }
-  const selected = await humansSelected(workflow, { option, options, messages: personMessages });
+  const selected = await humansSelected(workflow, {
+    option,
+    options,
+    messages: personMessages,
+    signal,
+  });
   if (!selected) {
     return {
       refusal: `The person's message does not clearly select "${option}". Ask them which option they choose.`,

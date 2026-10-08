@@ -156,7 +156,7 @@ describe("chooseRequestedRuntime", () => {
   it("offers the decisions model the narrowed models and a none option", () =>
     freshRuntime(async (workflow) => {
       const decisions = decisionsPick(workflow, "claude-fable-5-1");
-      await chooseRequestedRuntime(workflow, "try fable", SOURCES);
+      await chooseRequestedRuntime(workflow, { message: "try fable", sources: SOURCES });
       expect(decisions.asked).toEqual([{ message: "try fable" }]);
       expect(Object.keys(decisions.offered[0]!.options)).toEqual(["claude-fable-5-1", "none"]);
     }));
@@ -164,7 +164,9 @@ describe("chooseRequestedRuntime", () => {
   it("resolves glm to the latency optimized preset", () =>
     freshRuntime(async (workflow) => {
       decisionsPick(workflow, "openrouter/z-ai/glm-5.3");
-      expect(await chooseRequestedRuntime(workflow, "do it with glm", SOURCES)).toEqual({
+      expect(
+        await chooseRequestedRuntime(workflow, { message: "do it with glm", sources: SOURCES }),
+      ).toEqual({
         kind: "resolved",
         runtime: { harness: "opencode", model: "openrouter/@preset/glm5-3" },
       });
@@ -173,7 +175,7 @@ describe("chooseRequestedRuntime", () => {
   it("records the usage under its purpose", () =>
     freshRuntime(async (workflow) => {
       decisionsPick(workflow, "claude-opus-5-5");
-      await chooseRequestedRuntime(workflow, "use opus", SOURCES);
+      await chooseRequestedRuntime(workflow, { message: "use opus", sources: SOURCES });
       expect(workflow.store.modelUsage().map((row) => row.purpose)).toEqual([
         REQUESTED_RUNTIME_PURPOSE,
       ]);
@@ -182,7 +184,9 @@ describe("chooseRequestedRuntime", () => {
   it("names the closest models when the decisions model picks none", () =>
     freshRuntime(async (workflow) => {
       decisionsPick(workflow, "none");
-      expect(await chooseRequestedRuntime(workflow, "try fable", SOURCES)).toEqual({
+      expect(
+        await chooseRequestedRuntime(workflow, { message: "try fable", sources: SOURCES }),
+      ).toEqual({
         kind: "unresolved",
         closest: ["claude-fable-5-1"],
       });
@@ -191,7 +195,9 @@ describe("chooseRequestedRuntime", () => {
   it("names the closest models when the decisions call fails", () =>
     freshRuntime(async (workflow) => {
       decisionsPick(workflow, new Error("down"));
-      expect(await chooseRequestedRuntime(workflow, "try fable", SOURCES)).toEqual({
+      expect(
+        await chooseRequestedRuntime(workflow, { message: "try fable", sources: SOURCES }),
+      ).toEqual({
         kind: "unresolved",
         closest: ["claude-fable-5-1"],
       });
@@ -200,7 +206,9 @@ describe("chooseRequestedRuntime", () => {
   it("asks nothing when no word names a model", () =>
     freshRuntime(async (workflow) => {
       const decisions = decisionsPick(workflow, "claude-opus-5-5");
-      expect(await chooseRequestedRuntime(workflow, "fix the login bug", SOURCES)).toEqual({
+      expect(
+        await chooseRequestedRuntime(workflow, { message: "fix the login bug", sources: SOURCES }),
+      ).toEqual({
         kind: "unresolved",
         closest: [],
       });

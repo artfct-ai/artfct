@@ -18,8 +18,9 @@ import { PROMPT_TASK } from "../tools/task";
 import { condensingTools } from "../tools/condensed";
 import { FOREIGN_TEXT_TOOLS, screeningTools } from "../tools/screened";
 import { workflowTools } from "../tools/toolset";
+import { abortableTools } from "../tools/abortable";
 import type { TranscriptRow } from "../transcript/transcript";
-import { cutIndex, estimatedTokens } from "../transcript/transcript-size";
+import { estimatedTokens } from "../transcript/transcript-size";
 import { TURN_PURPOSE } from "../model/usage";
 import { armTurnWatchdog, disarmTurnWatchdog, turnTimeoutText } from "./watchdog";
 
@@ -42,10 +43,15 @@ export const UNANSWERED_TEXT =
 type Outcome = "replied" | "silent" | "failed" | "timed_out";
 
 /**
- * The transcript as the turn starts, what the people who wrote since the last turn said, and
- * the text that identifies an ad hoc job started in the turn.
+ * What one agent turn works from. `firstRow` is the id of the turn's first transcript row, which
+ * compaction keeps. `requestText` identifies an ad hoc job started in the turn.
  */
-type TurnInput = { rows: TranscriptRow[]; messages: string[]; requestText: string };
+type TurnInput = {
+  rows: TranscriptRow[];
+  firstRow: number | null;
+  messages: string[];
+  requestText: string;
+};
 
 /** What the decisions model read in the message of the person who waits on the turn. Null when nobody wrote. */
 type Reply = PersonMessage | null;
@@ -77,13 +83,19 @@ type ModelPass = { text: string; steps: number; endedByTool: boolean };
 export async function runAgentTurn(workflow: WorkflowRuntime): Promise<void> {
   const inbox = workflow.transcript.inbox();
   if (inbox.length === 0) return;
-  const messages = inbox.filter((row) => row.wake === "message").map((row) => eventBody(row.text));
+  const messages = [
+    ...(workflow.state.turn_messages ?? []),
+    ...inbox.filter((row) => row.wake === "message").map((row) => eventBody(row.text)),
+  ];
   const prompts = messages.length ? messages : inbox.map((row) => row.text);
   workflow.log(null, `agent turn started${messages.length ? " on a person's message" : ""}`);
-  const startedAt = await armTurnWatchdog(workflow);
-  workflow.transcript.drainInbox();
+  const startedAt = await armTurnWatchdog(workflow, messages);
+  const drainedRow = workflow.transcript.drainInbox();
+  const firstRow = workflow.state.turn_first_row ?? drainedRow;
+  workflow.patchState({ turn_first_row: firstRow });
   const outcome = await boundedAttempt(workflow, {
     rows: workflow.transcript.all(),
+    firstRow,
     messages,
     requestText: prompts.join("\n"),
   });
@@ -129,12 +141,12 @@ async function attempt(
   signal: AbortSignal,
 ): Promise<Outcome> {
   const message = turn.messages.join("\n\n");
-  const reading = turn.messages.length ? readPersonMessage(workflow, message) : null;
+  const reading = turn.messages.length ? readPersonMessage(workflow, message, signal) : null;
   const runtimeRequest = Promise.resolve(reading).then((reply) =>
-    reply?.namesModel ? requestedRuntime(workflow, message) : null,
+    reply?.namesModel ? requestedRuntime(workflow, message, signal) : null,
   );
   const [reply, tools] = await Promise.all([reading, loadTools(workflow, turn, runtimeRequest)]);
-  await compactIfLarge(workflow, turn.rows, signal);
+  await compactIfLarge(workflow, turn, signal);
   const run = { tools, signal, reply, progress: { boardChanged: false } };
   try {
     return await generate(workflow, run);
@@ -164,7 +176,7 @@ async function loadTools(
 ): Promise<ToolSet> {
   let mcp: ToolSet = {};
   try {
-    mcp = await workflow.mcpTools();
+    mcp = abortableTools(await workflow.mcpTools());
   } catch (error) {
     workflow.log(null, `mcp tools unavailable this turn: ${String(error).slice(0, 300)}`);
   }
@@ -278,15 +290,16 @@ function shouldCompact(workflow: WorkflowRuntime, older: string): boolean {
 }
 
 /**
- * When the request passes the configured size, replace every row before this turn's own
- * messages with one recap. A recap that could not be written leaves the transcript whole.
+ * When the request passes the configured size, replace every row before this turn's own rows
+ * with one recap. A resumed turn owns the rows of the lost turn. A recap that could not be
+ * written leaves the transcript whole.
  */
 async function compactIfLarge(
   workflow: WorkflowRuntime,
-  rows: TranscriptRow[],
+  { rows, firstRow }: TurnInput,
   signal: AbortSignal,
 ): Promise<void> {
-  const cut = cutIndex(rows);
+  const cut = rows.findIndex((row) => row.id === firstRow);
   if (cut <= 0) return;
   const older = rows.slice(0, cut);
   const text = older.map((row) => JSON.stringify(row.message)).join("\n");

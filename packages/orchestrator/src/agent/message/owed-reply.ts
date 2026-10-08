@@ -97,16 +97,17 @@ export function namesModelFrom(probabilities: { names_model: number }): boolean 
 export async function readPersonMessage(
   workflow: WorkflowRuntime,
   message: string,
+  signal?: AbortSignal,
 ): Promise<PersonMessage> {
-  const answers = await askDecisions(
-    workflow,
-    OWED_REPLY_PURPOSE,
-    { message },
-    {
+  const answers = await askDecisions(workflow, {
+    purpose: OWED_REPLY_PURPOSE,
+    state: { message },
+    questions: {
       yesNo: OWED_REPLY_QUESTIONS,
       choices: { artifact: inputArtifactQuestion(workflow.workflowDefinition().stages) },
     },
-  );
+    signal,
+  });
   if (!answers) return UNREAD_MESSAGE;
   const { probabilities, choices } = answers;
   const owed = owedReplyFrom(probabilities);

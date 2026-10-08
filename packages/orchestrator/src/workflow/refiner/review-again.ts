@@ -28,12 +28,11 @@ export async function authorAskedForReview(
   workflow: WorkflowRuntime,
   author: TaskRow,
 ): Promise<boolean | null> {
-  const probabilities = await askYesNo(
-    workflow,
-    REVIEW_AGAIN_PURPOSE,
-    { closing_text: author.summary },
-    { review_again: REVIEW_AGAIN },
-  );
+  const probabilities = await askYesNo(workflow, {
+    purpose: REVIEW_AGAIN_PURPOSE,
+    state: { closing_text: author.summary },
+    questions: { review_again: REVIEW_AGAIN },
+  });
   if (!probabilities) return null;
   workflow.log(author.task_id, `review again: ${probabilities.review_again.toFixed(2)}`);
   return reviewAgainAt(probabilities.review_again);

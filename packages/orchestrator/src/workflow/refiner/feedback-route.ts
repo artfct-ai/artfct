@@ -52,12 +52,11 @@ export async function feedbackRoute(
   taskId: string,
   comment: string,
 ): Promise<FeedbackRoute> {
-  const probabilities = await askYesNo(
-    workflow,
-    FEEDBACK_ROUTE_PURPOSE,
-    { comment },
-    FEEDBACK_ROUTE_QUESTIONS,
-  );
+  const probabilities = await askYesNo(workflow, {
+    purpose: FEEDBACK_ROUTE_PURPOSE,
+    state: { comment },
+    questions: FEEDBACK_ROUTE_QUESTIONS,
+  });
   if (!probabilities) return "agent";
   const route = feedbackRouteFrom(probabilities);
   const author = probabilities.for_author.toFixed(2);

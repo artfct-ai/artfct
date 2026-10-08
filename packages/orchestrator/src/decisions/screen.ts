@@ -70,14 +70,19 @@ export function screenedFrom(parts: Array<Record<ScreenQuestion, number> | null>
 }
 
 /**
- * Ask the decisions model whether `text`, from outside the deployment, may enter a model
- * request. `source` names the text in the log, which never holds the text itself. A gateway
- * with no decisions model admits every text.
+ * Text from outside the deployment, for the screen. `source` names it in the log, which never
+ * holds the text itself. Pass the agent turn's abort signal.
+ */
+export type ForeignText = { source: string; text: string; signal?: AbortSignal };
+
+/**
+ * Ask the decisions model whether the text may enter a model request. When the gateway does not
+ * carry a decisions model, every text is admitted. Rejects with the abort reason when `signal`
+ * aborts during the screen.
  */
 export async function screenText(
   workflow: WorkflowRuntime,
-  source: string,
-  text: string,
+  { source, text, signal }: ForeignText,
 ): Promise<Screened> {
   if (!text.trim()) return "admitted";
   const decisions = workflow.decisions();
@@ -88,8 +93,9 @@ export async function screenText(
     return "too_large";
   }
   const answers = await Promise.all(
-    parts.map((part) => askPart(workflow, decisions, source, part)),
+    parts.map((part) => askPart(workflow, decisions, { source, text: part, signal })),
   );
+  signal?.throwIfAborted();
   const screened = screenedFrom(answers);
   if (screened === "quarantined") workflow.log(null, `screen quarantined ${source}`);
   return screened;
@@ -98,13 +104,13 @@ export async function screenText(
 async function askPart(
   workflow: WorkflowRuntime,
   decisions: Decisions,
-  source: string,
-  part: string,
+  { source, text, signal }: ForeignText,
 ): Promise<Record<ScreenQuestion, number> | null> {
   try {
     const { usage, probabilities } = await decisions.decide(
-      { text: part },
+      { text },
       { yesNo: SCREEN_QUESTIONS, choices: {} },
+      signal,
     );
     workflow.store.recordModelUsage({ purpose: SCREEN_PURPOSE, model: decisions.model, ...usage });
     return probabilities;

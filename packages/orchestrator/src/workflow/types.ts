@@ -29,6 +29,7 @@ import type { JobRow, TaskRow, WorkflowStore } from "./store/tasks";
 export type ScheduledMethod =
   | "runAgent"
   | "onTurnTimeout"
+  | "onTurnHeadsUp"
   | "provision"
   | "onNoProgress"
   | "onWallClock"

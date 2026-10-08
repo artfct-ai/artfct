@@ -1,6 +1,11 @@
+import type { SessionStatus } from "@artfct-ai/adapters/chat/types";
 import type { OwedReply } from "../src/agent/message/owed-reply";
 import type { TranscriptRow } from "../src/agent/transcript/transcript";
 import { RECAP_MARKER } from "../src/agent/turn/turn";
+import { HEADS_UP_TEXT, LOST_PLACE_TEXT, turnTimeoutText } from "../src/agent/turn/watchdog";
+
+/** How long past its timeout a turn may take to stop its work and post. */
+const DEADLINE_GRACE_MS = 1000;
 
 /** What one agent turn was given and what it left on the channels. */
 export type AgentTurnRecord = {
@@ -8,8 +13,8 @@ export type AgentTurnRecord = {
   owed: OwedReply | null;
   /** True when a tool of the turn started or prompted a task. */
   boardChanged: boolean;
-  /** How many events of any type the turn posted to the channels. */
-  eventsPosted: number;
+  /** The text of every event the turn posted to the channels, in order. */
+  postedTexts: string[];
   /** True when the turn told the model that the person got nothing, and ran it again. */
   askedAgain: boolean;
   /** How many times the turn posted closing text. */
@@ -26,6 +31,16 @@ export type AgentTurnRecord = {
   rowsAfter: TranscriptRow[];
   /** The text of every tool result the screen quarantined in the turn. Each one is unique. */
   quarantinedTexts: string[];
+  /** The session status the chat thread was left in after the turn. Null when it never had one. */
+  chatSessionAfter: SessionStatus | null;
+  /** How long the turn ran. */
+  durationMs: number;
+  /** The turn timeout the turn ran under. */
+  timeoutMinutes: number;
+  /** True when the turn deadline ended the turn. */
+  timedOut: boolean;
+  /** True when the turn resumed a lost turn. Its `owed` is the lost turn's. */
+  resumedLostTurn: boolean;
 };
 
 function violated(name: string, detail: string): never {
@@ -120,12 +135,19 @@ export function everyToolCallKeepsItsResult(turn: AgentTurnRecord): void {
   }
 }
 
+/** The posts that answer the humans. The heads-up and the restart notice are not answers. */
+function answersPosted(turn: AgentTurnRecord): string[] {
+  return turn.postedTexts.filter((text) => text !== HEADS_UP_TEXT && text !== LOST_PLACE_TEXT);
+}
+
 /**
- * A turn on a person's message leaves them something: a post, or a board change. It may end
- * with nothing only after the model was told so and ran once more.
+ * A turn on a person's message leaves them a reply: an answer, or a board change. A heads-up or
+ * a restart notice is not one. It may end unanswered only after the model was told so and ran
+ * once more.
  */
 export function aPersonsTurnNeverEndsUnanswered(turn: AgentTurnRecord): void {
-  if (turn.owed === null || turn.eventsPosted > 0 || turn.boardChanged || turn.askedAgain) return;
+  if (turn.owed === null || turn.boardChanged || turn.askedAgain) return;
+  if (answersPosted(turn).length > 0) return;
   violated(
     "aPersonsTurnNeverEndsUnanswered",
     "a person wrote, the turn left them nothing, and the model was not asked again",
@@ -145,6 +167,54 @@ export function quarantinedTextNeverEntersTheTranscript(turn: AgentTurnRecord): 
   }
 }
 
+/**
+ * After every turn, whatever its outcome, the chat thread is out of its working status. The
+ * heads-up and the restart notice keep it up only while the turn runs.
+ */
+export function theWorkingStatusNeverOutlivesItsTurn(turn: AgentTurnRecord): void {
+  if (turn.chatSessionAfter !== "processing") return;
+  violated("theWorkingStatusNeverOutlivesItsTurn", "the turn ended with the thread still working");
+}
+
+/**
+ * A person who wrote hears back by the turn timeout, even when a decisions call or a model
+ * request never returns on its own. A turn the deadline ended posts the timeout text.
+ */
+export function aWaitingPersonHearsBackByTheTimeout(turn: AgentTurnRecord): void {
+  if (turn.owed === null) return;
+  const timeoutMs = turn.timeoutMinutes * 60_000;
+  if (turn.durationMs > timeoutMs + DEADLINE_GRACE_MS) {
+    violated(
+      "aWaitingPersonHearsBackByTheTimeout",
+      `the turn ran ${turn.durationMs} ms under a timeout of ${timeoutMs} ms`,
+    );
+  }
+  if (!turn.timedOut || turn.postedTexts.includes(turnTimeoutText(turn.timeoutMinutes))) return;
+  violated(
+    "aWaitingPersonHearsBackByTheTimeout",
+    "the deadline ended the turn and it said nothing",
+  );
+}
+
+/**
+ * A turn lost with its Durable Object while a person waited is picked up again: their thread
+ * hears the restart notice, and the resumed turn answers them as the lost turn would have.
+ */
+export function aResumedTurnAnswersWhatItsLostTurnOwed(turn: AgentTurnRecord): void {
+  if (!turn.resumedLostTurn || turn.owed === null) return;
+  if (!turn.postedTexts.includes(LOST_PLACE_TEXT)) {
+    violated(
+      "aResumedTurnAnswersWhatItsLostTurnOwed",
+      "the person did not hear the restart notice",
+    );
+  }
+  if (answersPosted(turn).length > 0 || turn.boardChanged || turn.askedAgain) return;
+  violated(
+    "aResumedTurnAnswersWhatItsLostTurnOwed",
+    "the resumed turn left the person of the lost turn nothing",
+  );
+}
+
 /** Every agent turn invariant. */
 export const AGENT_TURN_INVARIANTS = [
   closingTextAnswersOnlyAPersonWhoWrote,
@@ -153,4 +223,7 @@ export const AGENT_TURN_INVARIANTS = [
   everyToolCallKeepsItsResult,
   aPersonsTurnNeverEndsUnanswered,
   quarantinedTextNeverEntersTheTranscript,
+  theWorkingStatusNeverOutlivesItsTurn,
+  aWaitingPersonHearsBackByTheTimeout,
+  aResumedTurnAnswersWhatItsLostTurnOwed,
 ];

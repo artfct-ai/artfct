@@ -11,7 +11,7 @@ describe("TranscriptStore", () => {
   describe("an empty inbox", () => {
     it("drains nothing", () =>
       freshRuntime((workflow) => {
-        expect(workflow.transcript.drainInbox()).toBe(0);
+        expect(workflow.transcript.drainInbox()).toBeNull();
       }));
   });
 
@@ -26,9 +26,12 @@ describe("TranscriptStore", () => {
         expect(workflow.transcript.inbox().map((row) => row.wake)).toEqual(["message", "none"]);
       }));
 
-    it("drains both", () =>
+    it("drains both into the row it returns", () =>
       queued((workflow) => {
-        expect(workflow.transcript.drainInbox()).toBe(2);
+        const id = workflow.transcript.drainInbox();
+        expect(workflow.transcript.all()).toEqual([
+          expect.objectContaining({ id, message: { role: "user", content: "first\n\nsecond" } }),
+        ]);
       }));
 
     describe("once drained", () => {
