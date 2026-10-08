@@ -229,6 +229,24 @@ describe("SlackChat messages", () => {
     });
   });
 
+  describe("removeReaction", () => {
+    let calls: Call[];
+
+    beforeEach(async () => {
+      const slack = slackChat();
+      await slack.chat.removeReaction("C1", "1.2", "eyes");
+      calls = slack.calls;
+    });
+
+    it("posts to reactions.remove", () => {
+      expect(calls[0]?.url).toBe("https://slack.com/api/reactions.remove");
+    });
+
+    it("sends the channel, the timestamp, and the name", () => {
+      expect(calls[0]?.form).toEqual({ channel: "C1", timestamp: "1.2", name: "eyes" });
+    });
+  });
+
   describe("a call Slack refuses", () => {
     it("surfaces the Slack error code", async () => {
       const { chat } = slackChat(() => ({ ok: false, error: "already_reacted" }));

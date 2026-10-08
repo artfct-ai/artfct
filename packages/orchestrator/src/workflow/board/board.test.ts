@@ -47,8 +47,12 @@ function useChat(workflow: FakeRuntime, tracker: FakeTracker | null = null): Fak
   return chat;
 }
 
-function methods(chat: FakeChat): ChatMethod[] {
-  return chat.calls.map((call) => call.method);
+const THREAD_REPLY_METHODS: ChatMethod[] = ["postThreadReply", "setSessionStatus"];
+
+function boardMethods(chat: FakeChat): ChatMethod[] {
+  return chat.calls
+    .map((call) => call.method)
+    .filter((method) => !THREAD_REPLY_METHODS.includes(method));
 }
 
 function texts(chat: FakeChat, method: ChatMethod): string[] {
@@ -103,7 +107,7 @@ describe("flushBoards", () => {
 
     it("posts once in the Slack thread", () =>
       created(() => {
-        expect(methods(chat)).toEqual(["postThreadMessage"]);
+        expect(boardMethods(chat)).toEqual(["postThreadMessage"]);
       }));
 
     it("logs the board it created", () =>
@@ -134,7 +138,7 @@ describe("flushBoards", () => {
 
     it("skips the API when nothing changed, however far the clock moved", () =>
       flushed(() => {
-        expect(methods(chat)).toEqual(["postThreadMessage"]);
+        expect(boardMethods(chat)).toEqual(["postThreadMessage"]);
       }));
 
     it("names the workflow, the stage, the ticket and the lifecycle", () =>
@@ -177,7 +181,7 @@ describe("flushBoards", () => {
 
     it("edits the message instead of posting again", () =>
       edited(() => {
-        expect(methods(chat)).toEqual(["postThreadMessage", "updateMessage"]);
+        expect(boardMethods(chat)).toEqual(["postThreadMessage", "updateMessage"]);
       }));
 
     it("edits the message it posted", () =>
@@ -232,7 +236,7 @@ describe("flushBoards", () => {
 
       it("posts the board once", () =>
         fired(() => {
-          expect(methods(chat)).toEqual(["postThreadMessage"]);
+          expect(boardMethods(chat)).toEqual(["postThreadMessage"]);
         }));
     });
   });
@@ -297,7 +301,11 @@ describe("the lifetime of a board", () => {
 
         it("edits it again instead of posting a new one", () =>
           failed(() => {
-            expect(methods(chat)).toEqual(["postThreadMessage", "updateMessage", "updateMessage"]);
+            expect(boardMethods(chat)).toEqual([
+              "postThreadMessage",
+              "updateMessage",
+              "updateMessage",
+            ]);
           }));
 
         it("names the item that stayed open", () =>
@@ -417,7 +425,7 @@ describe("the lifetime of a board", () => {
 
         it("sends nothing, because the store kept the list as it was", () =>
           flushed(() => {
-            expect(methods(chat)).toEqual(["postThreadMessage", "updateMessage"]);
+            expect(boardMethods(chat)).toEqual(["postThreadMessage", "updateMessage"]);
           }));
 
         describe("and then the task ends", () => {
@@ -859,7 +867,7 @@ describe("the phases on the checklist", () => {
 
       it("posts a new board at the end of the thread and deletes the old one at once", () =>
         followedUp(() => {
-          expect(methods(chat)).toEqual([
+          expect(boardMethods(chat)).toEqual([
             "postThreadMessage",
             "updateMessage",
             "postThreadMessage",
@@ -891,7 +899,7 @@ describe("the phases on the checklist", () => {
 
         it("moves the board no further", () =>
           promptedAgain(() => {
-            expect(methods(chat)).toHaveLength(4);
+            expect(boardMethods(chat)).toHaveLength(4);
           }));
       });
 
@@ -909,7 +917,7 @@ describe("the phases on the checklist", () => {
 
         it("edits the new board", () =>
           passing(() => {
-            expect(methods(chat).at(-1)).toBe("updateMessage");
+            expect(boardMethods(chat).at(-1)).toBe("updateMessage");
           }));
 
         it("checks the follow-ups line", () =>
@@ -982,7 +990,7 @@ describe("the board header", () => {
 
     it("posts the board once", () =>
       launched(() => {
-        expect(methods(chat)).toEqual(["postThreadMessage"]);
+        expect(boardMethods(chat)).toEqual(["postThreadMessage"]);
       }));
 
     it("names the workflow, the stage and the ticket", () =>
@@ -1032,7 +1040,7 @@ describe("the board header", () => {
           CHAT_KEY,
           "tracker:issue-1",
         ]);
-        expect(methods(chat)).toEqual(["postThreadMessage"]);
+        expect(boardMethods(chat)).toEqual(["postThreadMessage"]);
       }));
   });
 
@@ -1091,7 +1099,7 @@ describe("a job whose researcher still works", () => {
 
   it("posts the board of the researcher", () =>
     researching(() => {
-      expect(methods(chat)).toEqual(["postThreadMessage"]);
+      expect(boardMethods(chat)).toEqual(["postThreadMessage"]);
       expect(texts(chat, "postThreadMessage")[0]).toContain("step one");
     }));
 

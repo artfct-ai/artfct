@@ -25,7 +25,8 @@ import { TranscriptStore } from "../src/agent/transcript/transcript";
 import { registeredConfig } from "../src/config/register-config";
 import type { WorkflowDefinition } from "../src/config/workflow-definition";
 import type { Env } from "../src/env";
-import { Notifier } from "../src/notify/notifier";
+import { destinationFor } from "../src/notify/destination";
+import { Notifier, type PostOptions } from "../src/notify/notifier";
 import type { SandboxProvider } from "../src/sandbox/provider";
 import { FakeSandboxProvider } from "./fake-sandbox";
 import type { ConnectionState } from "../src/workflow/task/harness/bridge";
@@ -125,6 +126,7 @@ export class FakeRuntime implements WorkflowRuntime {
   modelParams: Record<string, JSONValue>[] = [];
   modelGateways: (GatewayProvider | undefined)[] = [];
   clock: number | null = null;
+  turnRunning = false;
   configOverride: Config | null = null;
   workflowDefinitionOverride: WorkflowDefinition | null = null;
   private alarmSeq = 0;
@@ -231,8 +233,11 @@ export class FakeRuntime implements WorkflowRuntime {
     this.store.appendLog(taskId, line);
   }
 
-  async post(event: TaskEvent, _only?: ReplyTarget): Promise<void> {
+  async post(event: TaskEvent, only?: ReplyTarget, options?: PostOptions): Promise<void> {
     this.posted.push(event);
+    if (destinationFor(event) !== "channel") return;
+    const targets = only ? [only] : this.state.reply_targets;
+    for (const target of targets) await this.notifier.post(target, event, options);
   }
 
   async release(only?: ReplyTarget): Promise<void> {
@@ -292,6 +297,10 @@ export class FakeRuntime implements WorkflowRuntime {
 
   sandbox(): SandboxProvider {
     return this.sandboxProvider;
+  }
+
+  agentTurnRunning(): boolean {
+    return this.turnRunning;
   }
 
   async tellAgent(text: string, wake: Wake): Promise<void> {

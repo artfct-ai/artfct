@@ -2,7 +2,7 @@ import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { RpcAck } from "@artfct-ai/contracts/types";
 import { eventMessage } from "../../agent/transcript/envelope";
 import { pullDetailOf } from "../../artifact/pull";
-import { CHAT_ACK_DELAY_S, type ChatTarget, type PostOptions } from "../../notify/notifier";
+import type { PostOptions } from "../../notify/notifier";
 import { applyEvent } from "./apply";
 import { armIdle, changeWorkflowStatus } from "../lifecycle";
 import { firstLine, isWorkflowFinished, now, workflowName } from "../store/state";
@@ -99,34 +99,11 @@ async function releaseIfSilent(
   await workflow.release(event.reply_to);
 }
 
-/**
- * Show the chat thread the message was received. The eyes reaction is armed and lands only
- * if the thread stays quiet.
- */
+/** Show the chat thread the message was received by putting it in its working status. */
 async function acknowledge(workflow: WorkflowRuntime, event: InboundEvent): Promise<void> {
   if (!event.acknowledge || event.reply_to?.source !== "chat") return;
   const title = workflowName(workflow.state);
   await workflow.notifier.acknowledge(event.reply_to, event.acknowledge, title);
-  await armChatAck(workflow, event.reply_to, event.acknowledge.message);
-}
-
-/** What the delayed chat acknowledgement needs: the thread, the message, and the quiet test. */
-export type ChatAckAlarm = { target: ChatTarget; message: string; posted: number };
-
-/** Arm the eyes reaction for one chat message, with the posted count the alarm compares to. */
-export async function armChatAck(
-  workflow: WorkflowRuntime,
-  target: ChatTarget,
-  message: string,
-): Promise<void> {
-  const alarm: ChatAckAlarm = { target, message, posted: workflow.store.postedCount() };
-  await workflow.scheduleAlarm(CHAT_ACK_DELAY_S, "onChatAck", alarm);
-}
-
-/** The wait was long enough to look like nothing happened. React, unless the thread spoke. */
-export async function onChatAck(workflow: WorkflowRuntime, alarm: ChatAckAlarm): Promise<void> {
-  if (workflow.store.postedCount() !== alarm.posted) return;
-  await workflow.notifier.ackReaction(alarm.target, alarm.message);
 }
 
 /** A message wakes a sleeping workflow and starts the idle clock over. */

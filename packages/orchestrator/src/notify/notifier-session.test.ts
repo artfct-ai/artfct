@@ -104,61 +104,6 @@ describe("Notifier.acknowledge", () => {
   });
 });
 
-describe("Notifier.ackReaction", () => {
-  let outbox: OutboxEntry[];
-
-  beforeEach(() => {
-    outbox = [];
-  });
-
-  describe("a message the thread is still waiting on", () => {
-    let chat: FakeChat;
-
-    beforeEach(async () => {
-      chat = fakeSlack();
-      await testNotifier(outbox, { chat }).ackReaction(target, "2.0");
-    });
-
-    it("reacts to that message", () => {
-      expect(chat.argsOf("addReaction")).toEqual([["C1", "2.0", "eyes"]]);
-    });
-
-    it("records the reaction in the outbox", () => {
-      expect(outbox).toEqual([
-        { channel: "chat", kind: "ack_reaction", target, payload: { message: "2.0" } },
-      ]);
-    });
-  });
-
-  describe("when the reaction fails", () => {
-    let warn: ReturnType<typeof spyOnWarn>;
-    let reacted: Promise<void>;
-
-    beforeEach(() => {
-      warn = spyOnWarn();
-      reacted = testNotifier(outbox, { chat: fakeSlack(["addReaction"]) }).ackReaction(
-        target,
-        "2.0",
-      );
-    });
-
-    afterEach(() => {
-      warn.mockRestore();
-    });
-
-    it("never throws", async () => {
-      await expect(reacted).resolves.toBeUndefined();
-    });
-
-    it("warns that the reaction failed", async () => {
-      await reacted;
-      expect(warn).toHaveBeenCalledWith(
-        expect.stringContaining("chat acknowledge reaction failed"),
-      );
-    });
-  });
-});
-
 describe("Notifier.working", () => {
   let outbox: OutboxEntry[];
 
