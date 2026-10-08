@@ -43,7 +43,11 @@ export function screeningTools(
     const screening: typeof execute = async (input, options) => {
       const result: unknown = await execute(input, options);
       const text = typeof result === "string" ? result : (JSON.stringify(result) ?? "");
-      const screened = await screenText(workflow, `the result of ${name}`, text);
+      const screened = await screenText(workflow, {
+        source: `the result of ${name}`,
+        text,
+        signal: options.abortSignal,
+      });
       return screened === "admitted" ? result : unadmittedResultText(name, screened);
     };
     return [name, { ...tool, execute: screening }] as const;

@@ -168,7 +168,10 @@ async function onFeedback(
   const said = feedbackText(who, feedback);
   workflow.log(task.task_id, `${who} reviewed`);
   if (feedback.unchecked) {
-    const screened = await screenText(workflow, `feedback on job ${task.job_id}`, said);
+    const screened = await screenText(workflow, {
+      source: `feedback on job ${task.job_id}`,
+      text: said,
+    });
     if (screened !== "admitted") {
       return { notes: [unadmittedFeedbackNote(wrote, screened)], wake: "human" };
     }

@@ -7,7 +7,7 @@ import { ScriptedFailure, type Action } from "../../../test/fake-model";
 import type { Scenario } from "../../../test/scenario";
 import { ACK_TEXT } from "../../../test/scripted-model";
 import { STUCK_TEXT, UNANSWERED_TEXT } from "./turn";
-import { LOST_TURN_TEXT } from "./watchdog";
+import { LOST_PLACE_TEXT, LOST_TURN_TEXT } from "./watchdog";
 
 const start: InboundEvent = {
   id: "evt-start",
@@ -24,6 +24,7 @@ type Debug = {
     status: string;
     turn_started_at: string | null;
     turn_watchdog: string | null;
+    turn_messages: string[];
   };
   log: Array<{ line: string }>;
   outbox: Array<{ kind: string; payload: { text?: string } | null }>;
@@ -343,6 +344,8 @@ describe("agent turn", () => {
         const { stub } = await loseTurn();
         await evictDurableObject(stub);
         await runInDurableObject(stub, async (workflow: Workflow) => {
+          const model = new ScriptedFailure(["text"]);
+          workflow.services = { ...workflow.services, model: async () => model };
           await workflow.status();
           await workflow.settle();
           await run((await workflow.debug()) as Debug);
@@ -367,6 +370,16 @@ describe("agent turn", () => {
       it("runs the turn that reads the note", () =>
         resumed((debug) => {
           expect(noteLanded(debug)).toEqual({ inbox: false, transcript: true });
+        }));
+
+      it("tells the person's thread it picks the turn up again, then answers them", () =>
+        resumed((debug) => {
+          expect(heardText(debug)).toEqual([LOST_PLACE_TEXT, "done"]);
+        }));
+
+      it("forgets the person's message once it is answered", () =>
+        resumed((debug) => {
+          expect(debug.state.turn_messages).toEqual([]);
         }));
     });
   });

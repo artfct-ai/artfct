@@ -45,12 +45,11 @@ export async function harnessGaveUp(workflow: WorkflowRuntime, task: TaskRow): P
     task.role === "author"
       ? AUTHOR_WORK[workflow.stageForTask(task).artifact]
       : ROLE_WORK[task.role];
-  const probabilities = await askYesNo(
-    workflow,
-    GAVE_UP_PURPOSE,
-    { work, turn_text: task.summary },
-    { gave_up: GAVE_UP },
-  );
+  const probabilities = await askYesNo(workflow, {
+    purpose: GAVE_UP_PURPOSE,
+    state: { work, turn_text: task.summary },
+    questions: { gave_up: GAVE_UP },
+  });
   if (!probabilities) return false;
   workflow.log(task.task_id, `gave up: ${probabilities.gave_up.toFixed(2)}`);
   return gaveUpAt(probabilities.gave_up);

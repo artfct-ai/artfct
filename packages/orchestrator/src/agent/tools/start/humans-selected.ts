@@ -20,19 +20,19 @@ const SELECTS: YesNoQuestion = {
  */
 export async function humansSelected(
   workflow: WorkflowRuntime,
-  selection: { option: string; options: string[]; messages: string[] },
+  selection: { option: string; options: string[]; messages: string[]; signal?: AbortSignal },
 ): Promise<boolean | null> {
-  const { option, options, messages } = selection;
-  const probabilities = await askYesNo(
-    workflow,
-    HUMANS_SELECTED_PURPOSE,
-    {
+  const { option, options, messages, signal } = selection;
+  const probabilities = await askYesNo(workflow, {
+    purpose: HUMANS_SELECTED_PURPOSE,
+    state: {
       option,
       options: options.map((listed, index) => `${index + 1}. ${listed}`).join("\n"),
       messages: messages.join("\n\n"),
     },
-    { selects: SELECTS },
-  );
+    questions: { selects: SELECTS },
+    signal,
+  });
   if (!probabilities) return null;
   workflow.log(null, `humans selected ${option}: ${probabilities.selects.toFixed(2)}`);
   return probabilities.selects >= SELECTED_FLOOR;

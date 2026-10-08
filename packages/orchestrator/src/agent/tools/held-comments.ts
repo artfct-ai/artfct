@@ -30,7 +30,7 @@ export function heldCommentTools(workflow: WorkflowRuntime) {
       inputSchema: z.object({
         job_id: z.string().describe("the job id, for example wf_abc-2"),
       }),
-      execute: ({ job_id }) => sendHeldComments(workflow, job_id),
+      execute: ({ job_id }, { abortSignal }) => sendHeldComments(workflow, job_id, abortSignal),
     }),
   };
 }
@@ -53,7 +53,11 @@ export function unsentHeldCommentsText(
   }
 }
 
-async function sendHeldComments(workflow: WorkflowRuntime, jobId: string): Promise<string> {
+async function sendHeldComments(
+  workflow: WorkflowRuntime,
+  jobId: string,
+  signal: AbortSignal | undefined,
+): Promise<string> {
   if (!workflow.store.job(jobId)) return `Job ${jobId} does not exist.`;
   const artifact = workflow.store.artifact(jobId);
   if (artifact?.ref.kind !== "page") {
@@ -68,7 +72,11 @@ async function sendHeldComments(workflow: WorkflowRuntime, jobId: string): Promi
   if (!comments.length) return `No comments are held on ${artifact.external_url}.`;
   const findings = heldCommentFindings(comments);
   const said = feedbackText("The people who commented on the page", { body: "", findings });
-  const screened = await screenText(workflow, `the held comments of job ${jobId}`, said);
+  const screened = await screenText(workflow, {
+    source: `the held comments of job ${jobId}`,
+    text: said,
+    signal,
+  });
   if (screened !== "admitted") return unsentHeldCommentsText(artifact.external_url, screened);
   await promptTask(workflow, author, said);
   await kind.acknowledge(heldCommentHandles(comments), artifact.ref);

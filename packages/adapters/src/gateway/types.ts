@@ -77,10 +77,14 @@ export type DecisionAnswers<YesNoName extends string, ChoiceName extends string>
 export interface Decisions {
   /** The model name, for the usage record. */
   readonly model: string;
-  /** Answer every question over the same state in one call. Throws when the call fails. */
+  /**
+   * Answer every question over the same state in one call. Throws when the call fails, and
+   * rejects with the abort reason as soon as `signal` aborts.
+   */
   decide<YesNoName extends string, ChoiceName extends string>(
     state: DecisionState,
     questions: DecisionQuestions<YesNoName, ChoiceName>,
+    signal?: AbortSignal,
   ): Promise<DecisionAnswers<YesNoName, ChoiceName>>;
 }
 

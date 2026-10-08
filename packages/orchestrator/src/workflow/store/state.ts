@@ -39,6 +39,23 @@ export type WorkflowState = {
   turn_started_at: string | null;
   /** The schedule id of the turn watchdog alarm, or null between turns. */
   turn_watchdog: string | null;
+  /**
+   * The schedule id of the heads-up alarm of a turn on a person's message, or null. Absent in a
+   * workflow stored before heads-ups.
+   */
+  turn_heads_up?: string | null;
+  /**
+   * What the people who wrote said, for the reply the running turn owes them. A turn lost to a
+   * restart leaves them for the turn that resumes it. Empty between turns. Absent in a workflow
+   * stored before lost turns carried them.
+   */
+  turn_messages?: string[];
+  /**
+   * The id of the first transcript row of the running turn, or of the lost turn a resumed turn
+   * continues. Compaction keeps it and every row after it. Null between turns. Absent in a
+   * workflow stored before resumed turns kept their rows.
+   */
+  turn_first_row?: number | null;
   /** The schedule id of the idle alarm that posts the sleep note, or null. */
   idle_alarm: string | null;
 };
@@ -62,6 +79,9 @@ export const initialWorkflowState: WorkflowState = {
   reason: "",
   turn_started_at: null,
   turn_watchdog: null,
+  turn_heads_up: null,
+  turn_messages: [],
+  turn_first_row: null,
   idle_alarm: null,
 };
 

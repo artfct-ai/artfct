@@ -27,14 +27,14 @@ describe("humansAccepted", () => {
   it("shows the decisions model the artifact and every message of the turn", () =>
     freshRuntime(async (workflow) => {
       const decisions = decisionsSay(workflow, 0.9);
-      await humansAccepted(workflow, PAGE, ["Looks good.", "Go on."]);
+      await humansAccepted(workflow, { artifact: PAGE, messages: ["Looks good.", "Go on."] });
       expect(decisions.asked).toEqual([{ artifact: PAGE, messages: "Looks good.\n\nGo on." }]);
     }));
 
   it("records the usage under its purpose", () =>
     freshRuntime(async (workflow) => {
       decisionsSay(workflow, 0.9);
-      await humansAccepted(workflow, PAGE, ["Looks good."]);
+      await humansAccepted(workflow, { artifact: PAGE, messages: ["Looks good."] });
       expect(workflow.store.modelUsage().map((row) => row.purpose)).toEqual([
         HUMANS_ACCEPTED_PURPOSE,
       ]);
@@ -43,11 +43,15 @@ describe("humansAccepted", () => {
   it("is null when the decisions model fails", () =>
     freshRuntime(async (workflow) => {
       decisionsSay(workflow, new Error("unavailable"));
-      expect(await humansAccepted(workflow, PAGE, ["Looks good."])).toBeNull();
+      expect(
+        await humansAccepted(workflow, { artifact: PAGE, messages: ["Looks good."] }),
+      ).toBeNull();
     }));
 
   it("is null when the gateway carries no decisions model", () =>
     freshRuntime(async (workflow) => {
-      expect(await humansAccepted(workflow, PAGE, ["Looks good."])).toBeNull();
+      expect(
+        await humansAccepted(workflow, { artifact: PAGE, messages: ["Looks good."] }),
+      ).toBeNull();
     }));
 });

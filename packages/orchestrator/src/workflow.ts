@@ -25,7 +25,12 @@ import { Agent, type Connection, type ConnectionContext, type WSMessage } from "
 import type { JSONValue, LanguageModel, ToolSet } from "ai";
 import { allowedMcpTools, connectOrchestratorMcp } from "./agent/tools/mcp";
 import { TranscriptStore } from "./agent/transcript/transcript";
-import { onTurnTimeout, resumeLostTurn, type TurnAlarm } from "./agent/turn/watchdog";
+import {
+  onTurnHeadsUp,
+  onTurnTimeout,
+  resumeLostTurn,
+  type TurnAlarm,
+} from "./agent/turn/watchdog";
 import {
   artifact,
   chat,
@@ -210,6 +215,10 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
 
   onTurnTimeout(alarm: TurnAlarm): Promise<void> {
     return this.inSpan("alarm onTurnTimeout", null, () => onTurnTimeout(this, alarm));
+  }
+
+  onTurnHeadsUp(alarm: TurnAlarm): Promise<void> {
+    return this.inSpan("alarm onTurnHeadsUp", null, () => onTurnHeadsUp(this, alarm));
   }
 
   provision(alarm: TaskAlarm): Promise<void> {

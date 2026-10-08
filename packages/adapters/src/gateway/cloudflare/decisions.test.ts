@@ -49,6 +49,22 @@ function decisionsAnswering(answers: unknown, status = 200) {
   return { decisions, seen };
 }
 
+type HangingFetch = { fetch: typeof fetch; sent: Promise<AbortSignal> };
+
+function hangingFetch(): HangingFetch {
+  const hanging: Partial<HangingFetch> = {};
+  hanging.sent = new Promise<AbortSignal>((sent) => {
+    hanging.fetch = (input, init) => {
+      const signal = new Request(input, init).signal;
+      sent(signal);
+      return new Promise((_resolve, reject) => {
+        signal.addEventListener("abort", () => reject(signal.reason));
+      });
+    };
+  });
+  return hanging as HangingFetch;
+}
+
 describe("CloudflareDecisions", () => {
   test("sends the state and every question as a noul to the Workers AI run endpoint", async () => {
     const { decisions, seen } = decisionsAnswering({ wants_answer: { type: "noul", noul: 0.9 } });
@@ -205,5 +221,42 @@ describe("CloudflareDecisions with both kinds of question", () => {
 
     expect(answered.probabilities).toEqual({ wants_answer: 0.2 });
     expect(answered.choices).toEqual({ model: { option: "none", probability: 1 } });
+  });
+});
+
+describe("CloudflareDecisions under an abort signal", () => {
+  test("rejects and sends nothing when the signal already aborted", async () => {
+    const { decisions, seen } = decisionsAnswering({ wants_answer: { type: "noul", noul: 0.9 } });
+
+    const call = decisions.decide(
+      { message: "hi" },
+      { yesNo: QUESTIONS, choices: {} },
+      AbortSignal.abort(new Error("deadline passed")),
+    );
+
+    await expect(call).rejects.toThrow();
+    expect(seen).toEqual([]);
+  });
+
+  test("aborts the request in flight", async () => {
+    const controller = new AbortController();
+    const { fetch: hanging, sent } = hangingFetch();
+    const decisions = new CloudflareDecisions({
+      accountId: "acct",
+      gatewayId: "gw",
+      token: "t",
+      fetch: hanging,
+    });
+
+    const call = decisions.decide(
+      { message: "hi" },
+      { yesNo: QUESTIONS, choices: {} },
+      controller.signal,
+    );
+    const inFlight = await sent;
+    controller.abort(new Error("deadline passed"));
+
+    await expect(call).rejects.toThrow();
+    expect(inFlight.aborted).toBe(true);
   });
 });

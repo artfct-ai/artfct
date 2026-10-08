@@ -60,13 +60,16 @@ export const OrchestratorConfig = z.object({
   context_tokens: z.number().int().positive().default(50_000),
   /** What every summarization runs on. An unset model takes `model`. */
   summarization: z.object({ model: z.string().optional() }).prefault({}),
-  /** Minutes one agent turn may take. Past it the humans get a retry message. */
-  turn_timeout_minutes: z.number().positive().default(10),
+  /**
+   * Minutes one agent turn may take. At it the turn's work is aborted and the humans get a retry
+   * message. A minute in, a person who wrote hears that the turn still runs.
+   */
+  turn_timeout_minutes: z.number().positive().default(2),
   /**
    * Minutes one request to the model may take, kept well under `turn_timeout_minutes`. A
    * request held open past it is dropped and the turn retries from its last finished step.
    */
-  request_timeout_minutes: z.number().positive().default(3),
+  request_timeout_minutes: z.number().positive().default(1),
   /**
    * Hours of silence, with no task working, before the agent says it is going to sleep. It
    * wakes on the next message. 0 turns the note off.

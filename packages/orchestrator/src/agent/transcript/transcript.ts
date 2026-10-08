@@ -23,13 +23,21 @@ export class TranscriptStore {
     return this.db.select().from(agentInbox).orderBy(asc(agentInbox.id)).all();
   }
 
-  /** Move inbox rows into the transcript as one user message. Returns how many rows moved. */
-  drainInbox(): number {
+  /** Move inbox rows into the transcript as one user message. Returns its row id, or null when the inbox was empty. */
+  drainInbox(): number | null {
     const rows = this.inbox();
-    if (rows.length === 0) return 0;
-    this.append([{ role: "user", content: rows.map((row) => row.text).join("\n\n") }]);
+    if (rows.length === 0) return null;
+    const message: ModelMessage = {
+      role: "user",
+      content: rows.map((row) => row.text).join("\n\n"),
+    };
+    const { id } = this.db
+      .insert(transcript)
+      .values({ at: now(), message })
+      .returning({ id: transcript.id })
+      .get();
     this.db.delete(agentInbox).run();
-    return rows.length;
+    return id;
   }
 
   append(messages: ModelMessage[]): void {

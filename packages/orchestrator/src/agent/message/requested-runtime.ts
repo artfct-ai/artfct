@@ -131,9 +131,10 @@ export function runtimeForModel(id: string, sources: ModelSources): RequestedRun
 export async function requestedRuntime(
   workflow: WorkflowRuntime,
   message: string,
+  signal?: AbortSignal,
 ): Promise<RuntimeRequest> {
   const sources = await loadModelSources(workflow);
-  const request = await chooseRequestedRuntime(workflow, message, sources);
+  const request = await chooseRequestedRuntime(workflow, { message, sources, signal });
   const outcome =
     request.kind === "resolved"
       ? `${request.runtime.model} on ${request.runtime.harness}`
@@ -142,11 +143,13 @@ export async function requestedRuntime(
   return request;
 }
 
+/** The message to read, the models it may name, and the abort signal of the turn that reads it. */
+export type RuntimeChoice = { message: string; sources: ModelSources; signal?: AbortSignal };
+
 /** Ask the decisions model which offered model the message names. */
 export async function chooseRequestedRuntime(
   workflow: WorkflowRuntime,
-  message: string,
-  sources: ModelSources,
+  { message, sources, signal }: RuntimeChoice,
 ): Promise<RuntimeRequest> {
   const offers = modelOffers(message, sources);
   const closest = offers.slice(0, MAX_CLOSEST).map((offer) => offer.id);
@@ -164,6 +167,7 @@ export async function chooseRequestedRuntime(
     const { choices, usage } = await decisions.decide(
       { message },
       { yesNo: {}, choices: { model: question } },
+      signal,
     );
     workflow.store.recordModelUsage({
       purpose: REQUESTED_RUNTIME_PURPOSE,
