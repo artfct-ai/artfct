@@ -47,6 +47,7 @@ export type StartRecord = {
     author: { name: string; email: string } | null;
   } | null;
   github_token: string | null;
+  github_read: { token: string; task_repo: string } | null;
   files: Array<{ path: string; content: string }>;
   sleep_after_ms: number;
   startup_script: string;

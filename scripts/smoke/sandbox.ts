@@ -87,6 +87,7 @@ export async function assertStartSpec(options: {
     "start spec repo",
   );
   assertEqual(start.github_token, null, "start spec github_token (no GitHub App in smoke)");
+  assertEqual(start.github_read, null, "start spec github_read (no GitHub App in smoke)");
   assertEqual(
     start.files[0]?.path,
     INSTRUCTIONS_FILE,

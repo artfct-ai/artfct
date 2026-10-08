@@ -14,8 +14,8 @@ import { loadHarnessSkills } from "../../../config/skills";
 import { newToken } from "../../../ids";
 import type { Adapters } from "../../../config/adapters";
 import type { ResolvedStage } from "../../../config/stage";
-import type { SandboxStartSpec } from "../../../sandbox/spec";
-import { armTokenRefresh, hostCredential, taskCredential } from "./credential";
+import type { GithubReadCredential, SandboxStartSpec } from "../../../sandbox/spec";
+import { armTokenRefresh, hostCredential, sandboxCredential } from "./credential";
 import { flushBoards } from "../../board/board";
 import { failTask, restartOrFailTask } from "../../lifecycle";
 import { runModelAuthorTurn } from "../model-author";
@@ -97,7 +97,7 @@ async function startGeneration(
   const job = workflow.store.requireJob(fresh.job_id);
   const stage = workflow.stageForTask(fresh);
   const settings = taskSettings(workflow, fresh);
-  const minted = await taskCredential(workflow, fresh);
+  const minted = await sandboxCredential(workflow, fresh);
   const hostEnv = cliEnv({
     capability: artifactCapability(stage.artifact),
     adapters: config.adapters,
@@ -140,6 +140,7 @@ async function startGeneration(
     repo: workflow.state.repo,
     commitAuthor,
     credential: minted?.token ?? null,
+    githubRead: minted?.read ?? null,
     hostEnv,
     gateway,
     sleepAfterMs: config.orchestrator.sandbox.sleep_after,
@@ -200,6 +201,7 @@ export type StartSpecInput = {
   repo: RepoRef | null;
   commitAuthor: CommitAuthor | null;
   credential: string | null;
+  githubRead: GithubReadCredential | null;
   /** The environment a CLI in the sandbox reads the host credential of the stage's artifact from. */
   hostEnv: Record<string, string>;
   gateway: GatewayRoutes | null;
@@ -245,6 +247,7 @@ export function buildStartSpec(
         }
       : null,
     github_token: input.credential,
+    github_read: input.githubRead,
     env: {
       ...buildSandboxEnv({
         workflowId: input.workflowId,

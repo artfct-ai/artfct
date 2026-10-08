@@ -2,6 +2,7 @@ import type { MintedToken, Permissions } from "@artfct-ai/adapters/code/types";
 import { isExpiring } from "@artfct-ai/adapters/expiry";
 import { artifactCapability, artifactNeedsTaskCredential } from "../../../clients";
 import { isTaskFinished } from "../../store/state";
+import type { GithubReadCredential } from "../../../sandbox/spec";
 import type { SandboxRow, TaskRow } from "../../store/tasks";
 import type { TaskAlarm } from "../harness/timers";
 import type { WorkflowRuntime } from "../../types";
@@ -28,6 +29,53 @@ export async function taskCredential(
     return minted.token ? minted : null;
   } catch (error) {
     workflow.log(task.task_id, `credential mint failed: ${String(error).slice(0, 200)}`);
+    return null;
+  }
+}
+
+/** The GitHub tokens of a task's sandbox, and the instant the first of them dies. */
+export type SandboxCredential = {
+  token: string;
+  read: GithubReadCredential | null;
+  expiresAt: number;
+};
+
+/**
+ * Mint the tokens a task's sandbox runs with: the task credential, and the read credential when
+ * `read_all_repos` is on. Null without a task credential. A read credential that cannot be
+ * minted is left out, and the sandbox keeps to the task's repository until the next refresh.
+ */
+export async function sandboxCredential(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+): Promise<SandboxCredential | null> {
+  const minted = await taskCredential(workflow, task);
+  if (!minted) return null;
+  const read = await readCredential(workflow, task);
+  return {
+    token: minted.token,
+    read: read ? read.credential : null,
+    expiresAt: Math.min(minted.expiresAt, read?.expiresAt ?? minted.expiresAt),
+  };
+}
+
+/**
+ * Mint a read-only token for every repository the code host credential reaches. Null unless
+ * `read_all_repos` is on and the workflow has a repository, or when none can be minted.
+ */
+async function readCredential(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+): Promise<{ credential: GithubReadCredential; expiresAt: number } | null> {
+  const code = workflow.code();
+  const repo = workflow.state.repo?.full;
+  if (!code || !repo || !workflow.config().orchestrator.sandbox.read_all_repos) return null;
+  try {
+    const minted = await code.mintReadToken();
+    if (!minted.token) return null;
+    return { credential: { token: minted.token, task_repo: repo }, expiresAt: minted.expiresAt };
+  } catch (error) {
+    workflow.log(task.task_id, `read credential mint failed: ${String(error).slice(0, 200)}`);
     return null;
   }
 }
@@ -107,10 +155,10 @@ export async function refreshSandboxToken(
   workflow: WorkflowRuntime,
   task: TaskRow,
 ): Promise<boolean> {
-  const minted = await taskCredential(workflow, task);
+  const minted = await sandboxCredential(workflow, task);
   if (minted) {
     try {
-      await workflow.sandbox().refreshGithubToken(sandboxRefOf(task), minted.token);
+      await workflow.sandbox().refreshGithubToken(sandboxRefOf(task), minted.token, minted.read);
       workflow.log(task.task_id, "credential refreshed in the sandbox");
       await armTokenRefresh(
         workflow,

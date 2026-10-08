@@ -50,3 +50,7 @@ orchestrator:
     startup_timeout: 10m
     # Tasks one workflow runs at the same time.
     max_concurrency: 100
+    # true lets every sandbox read each repository the GitHub App installation can reach, through
+    # git. A prompt-injected agent can then read them too. Pushes stay limited to the task's
+    # repository.
+    read_all_repos: false

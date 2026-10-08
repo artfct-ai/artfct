@@ -1,6 +1,11 @@
 import { spawn, type ChildProcessByStdio } from "node:child_process";
 import type { Readable, Writable } from "node:stream";
-import { GITHUB_TOKEN_FILE, startupScript, type SandboxStartSpec } from "../../src/sandbox/spec";
+import {
+  GITHUB_READ_TOKEN_FILE,
+  GITHUB_TOKEN_FILE,
+  startupScript,
+  type SandboxStartSpec,
+} from "../../src/sandbox/spec";
 
 /** The image a local run starts. Build it with `bun run sandbox:build`. */
 export const LOCAL_IMAGE = "artfct-sandbox:local";
@@ -39,6 +44,9 @@ export async function startLocalContainer(spec: SandboxStartSpec): Promise<Local
   };
   try {
     if (spec.github_token) await writeContainerFile(id, GITHUB_TOKEN_FILE, spec.github_token);
+    if (spec.github_read) {
+      await writeContainerFile(id, GITHUB_READ_TOKEN_FILE, spec.github_read.token);
+    }
     for (const file of spec.files) await writeContainerFile(id, file.path, file.content);
     await writeContainerFile(id, STARTUP_SCRIPT, startupScript(spec));
     await docker(["exec", id, "bash", STARTUP_SCRIPT]);

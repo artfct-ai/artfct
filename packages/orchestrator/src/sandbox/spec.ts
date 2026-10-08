@@ -26,6 +26,8 @@ export type SandboxStartSpec = {
   repo: { clone_url: string; branch: string | null; author: CommitAuthor | null } | null;
   /** GitHub installation token, written to `GITHUB_TOKEN_FILE`. Null without GitHub credentials. */
   github_token: string | null;
+  /** Read token for every other repository. Null unless `read_all_repos` is on. */
+  github_read: GithubReadCredential | null;
   env: Record<string, string>;
   /** Files the harness reads, written before the startup script runs. */
   files: HarnessFile[];
@@ -36,9 +38,16 @@ export type SandboxStartSpec = {
   startup_timeout_ms: number;
 };
 
-/** Where the sandbox keeps the current GitHub token. Rewritten on every refresh. */
+/**
+ * A read-only GitHub token for every repository the installation reaches, written to
+ * `GITHUB_READ_TOKEN_FILE`. Git uses it for every github.com repository except `task_repo`.
+ */
+export type GithubReadCredential = { token: string; task_repo: string };
+
+/** Where the sandbox keeps the current GitHub tokens. Rewritten on every refresh. */
 export const GITHUB_TOKEN_DIR = `${SANDBOX_HOME}/.config/artfct`;
 export const GITHUB_TOKEN_FILE = `${GITHUB_TOKEN_DIR}/github-token`;
+export const GITHUB_READ_TOKEN_FILE = `${GITHUB_TOKEN_DIR}/github-read-token`;
 
 /**
  * Shell script the sandbox runs before starting the bridge. Runs the harness setup commands,
@@ -48,24 +57,53 @@ export const GITHUB_TOKEN_FILE = `${GITHUB_TOKEN_DIR}/github-token`;
 export function startupScript(spec: SandboxStartSpec): string {
   const lines = ["set -euo pipefail", `mkdir -p ${shellQuote(spec.workspace)}`];
   lines.push(...spec.setup_commands);
-  if (spec.github_token) lines.push(...githubAuthLines());
+  if (spec.github_token) lines.push(...githubAuthLines(spec.github_read));
   if (spec.repo) lines.push(...checkoutLines(spec.workspace, spec.repo));
   return lines.join("\n");
 }
 
-/** Shell script that makes git and gh read the token file. Runs at start and on every refresh. */
-export function githubAuthScript(): string {
-  return ["set -euo pipefail", ...githubAuthLines()].join("\n");
+/** Shell script that makes git and gh read the token files. Runs at start and on every refresh. */
+export function githubAuthScript(read: GithubReadCredential | null): string {
+  return ["set -euo pipefail", ...githubAuthLines(read)].join("\n");
 }
 
-/** Point git at a credential helper that reads the token file, and log gh in with it. */
-function githubAuthLines(): string[] {
-  const helper = `!f() { echo username=x-access-token; echo "password=$(cat ${GITHUB_TOKEN_FILE})"; }; f`;
+/**
+ * Point git at a credential helper that reads the token files, and log gh in with the task
+ * token alone.
+ */
+function githubAuthLines(read: GithubReadCredential | null): string[] {
+  const ghLogin = `if command -v gh >/dev/null 2>&1; then gh auth login --with-token < ${GITHUB_TOKEN_FILE}; fi`;
+  if (!read) {
+    const helper = `!f() { echo username=x-access-token; echo "password=$(cat ${GITHUB_TOKEN_FILE})"; }; f`;
+    return [
+      `chmod 600 ${GITHUB_TOKEN_FILE}`,
+      `git config --global credential.https://github.com.helper '${helper}'`,
+      ghLogin,
+    ];
+  }
   return [
-    `chmod 600 ${GITHUB_TOKEN_FILE}`,
-    `git config --global credential.https://github.com.helper '${helper}'`,
-    `if command -v gh >/dev/null 2>&1; then gh auth login --with-token < ${GITHUB_TOKEN_FILE}; fi`,
+    `chmod 600 ${GITHUB_TOKEN_FILE} ${GITHUB_READ_TOKEN_FILE}`,
+    "git config --global credential.https://github.com.useHttpPath true",
+    `git config --global credential.https://github.com.helper ${shellQuote(routingCredentialHelper(read.task_repo))}`,
+    ghLogin,
   ];
+}
+
+/**
+ * A git credential helper that answers with the task token for the task's repository and with
+ * the read token for any other. Git passes it the repository path because of `useHttpPath`.
+ */
+function routingCredentialHelper(taskRepo: string): string {
+  const taskPaths = `${shellQuote(taskRepo)}|${shellQuote(`${taskRepo}.git`)}`;
+  return [
+    "!f() {",
+    "repo_path=;",
+    'while IFS= read -r line; do case "$line" in path=*) repo_path="${line#path=}";; esac; done;',
+    `case "$repo_path" in ${taskPaths}) token_file=${GITHUB_TOKEN_FILE};; *) token_file=${GITHUB_READ_TOKEN_FILE};; esac;`,
+    "echo username=x-access-token;",
+    'echo "password=$(cat "$token_file")";',
+    "}; f",
+  ].join(" ");
 }
 
 function checkoutLines(workspace: string, repo: NonNullable<SandboxStartSpec["repo"]>): string[] {

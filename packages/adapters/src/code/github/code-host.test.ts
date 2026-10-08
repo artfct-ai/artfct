@@ -139,6 +139,36 @@ describe("GithubCodeHost", () => {
     expect(JSON.parse(github.mints[0]?.body ?? "")).toEqual({ repositories: ["app"] });
   });
 
+  describe("a read token", () => {
+    let github: FakeClient;
+    let minted: MintedToken;
+
+    beforeEach(async () => {
+      github = client({});
+      minted = await github.host.mintReadToken();
+    });
+
+    it("reads the token and the moment it expires", () => {
+      expect(minted).toEqual({ token: "ghs_1", expiresAt: Date.parse(EXPIRES_AT) });
+    });
+
+    it("asks for read access alone, with no repository list, so it reaches the whole installation", () => {
+      expect(JSON.parse(github.mints[0]?.body ?? "")).toEqual({
+        permissions: { contents: "read", metadata: "read" },
+      });
+    });
+
+    it("posts to the installation's token endpoint with the App JWT", () => {
+      expect(github.mints[0]?.method).toBe("POST");
+      expectAppJwt(github.mints[0]?.authorization ?? null);
+    });
+
+    it("calls the endpoint again on the next mint", async () => {
+      await github.host.mintReadToken();
+      expect(github.mints).toHaveLength(2);
+    });
+  });
+
   describe("two reads of the reviewer login", () => {
     let github: FakeClient;
     let logins: string[];

@@ -3,12 +3,14 @@ import { getSandbox, type ISandbox } from "@cloudflare/sandbox";
 import type { Env } from "../env";
 import type { SandboxProvider } from "./provider";
 import {
+  GITHUB_READ_TOKEN_FILE,
   GITHUB_TOKEN_DIR,
   GITHUB_TOKEN_FILE,
   bridgeCommand,
   bridgeEnv,
   githubAuthScript,
   startupScript,
+  type GithubReadCredential,
   type SandboxRef,
   type SandboxSize,
   type SandboxStartSpec,
@@ -48,7 +50,7 @@ export class CloudflareSandboxProvider implements SandboxProvider {
     const sandbox = this.handle({ id: spec.sandbox_id, size: spec.size }, spec.sleep_after_ms);
     const env = { ...spec.env, ...(spec.repo ? { ARTFCT_CLONE_URL: spec.repo.clone_url } : {}) };
     await sandbox.setEnvVars(env);
-    if (spec.github_token) await writeToken(sandbox, spec.github_token);
+    if (spec.github_token) await writeTokens(sandbox, spec.github_token, spec.github_read);
     for (const file of spec.files) await writeHarnessFile(sandbox, file);
     await sandbox.writeFile("/tmp/artfct-startup.sh", startupScript(spec));
     const setup = await sandbox.exec("bash /tmp/artfct-startup.sh", {
@@ -62,10 +64,14 @@ export class CloudflareSandboxProvider implements SandboxProvider {
     await this.handle(sandbox).setEnvVars(env);
   }
 
-  async refreshGithubToken(sandbox: SandboxRef, token: string): Promise<void> {
+  async refreshGithubToken(
+    sandbox: SandboxRef,
+    token: string,
+    read: GithubReadCredential | null,
+  ): Promise<void> {
     const handle = this.handle(sandbox);
-    await writeToken(handle, token);
-    await handle.writeFile("/tmp/artfct-github-auth.sh", githubAuthScript());
+    await writeTokens(handle, token, read);
+    await handle.writeFile("/tmp/artfct-github-auth.sh", githubAuthScript(read));
     const result = await handle.exec("bash /tmp/artfct-github-auth.sh", {
       timeout: AUTH_TIMEOUT_MS,
     });
@@ -99,10 +105,15 @@ function sandboxNamespace(env: Env, size: SandboxSize): Env["Sandbox"] {
   return namespaces[size];
 }
 
-/** Write the GitHub token file. The startup and auth scripts restrict its mode. */
-async function writeToken(sandbox: SandboxHandle, token: string): Promise<void> {
+/** Write the GitHub token files. The startup and auth scripts restrict their mode. */
+async function writeTokens(
+  sandbox: SandboxHandle,
+  token: string,
+  read: GithubReadCredential | null,
+): Promise<void> {
   await sandbox.mkdir(GITHUB_TOKEN_DIR, { recursive: true });
   await sandbox.writeFile(GITHUB_TOKEN_FILE, token);
+  if (read) await sandbox.writeFile(GITHUB_READ_TOKEN_FILE, read.token);
 }
 
 /** Write one file the harness reads, creating its directory. */

@@ -98,6 +98,7 @@ const input: StartSpecInput = {
   repo: { full: "acme/app" },
   commitAuthor: AUTHOR,
   credential: "ghs_1",
+  githubRead: null,
   hostEnv: {},
   harness: harnessAdapter("claude-code", { claudeOauthToken: "sk-ant-oat" }),
   gateway: null,
@@ -302,12 +303,29 @@ describe("buildStartSpec", () => {
       expect(built.github_token).toBe("ghs_1");
     });
 
+    it("hands over no read token", () => {
+      expect(built.github_read).toBeNull();
+    });
+
     it("keeps the token out of GITHUB_TOKEN", () => {
       expect(built.env.GITHUB_TOKEN).toBeUndefined();
     });
 
     it("keeps the token out of GH_TOKEN", () => {
       expect(built.env.GH_TOKEN).toBeUndefined();
+    });
+  });
+
+  describe("a task that may read every repository", () => {
+    const read = { token: "ghs_read", task_repo: "acme/app" };
+    const built = spec({ stage: stage("implement"), githubRead: read });
+
+    it("hands the read token over beside the task token", () => {
+      expect([built.github_token, built.github_read]).toEqual(["ghs_1", read]);
+    });
+
+    it("keeps the read token out of the environment", () => {
+      expect(Object.values(built.env)).not.toContain("ghs_read");
     });
   });
 

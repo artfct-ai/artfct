@@ -17,7 +17,7 @@ import { loadHarnessSkills } from "../../src/config/skills";
 import { resolveStage } from "../../src/config/stage";
 import type { LoadedDeploymentConfig } from "../../src/config/types";
 import type { SandboxStartSpec } from "../../src/sandbox/spec";
-import { taskCredential } from "../../src/workflow/task/sandbox/credential";
+import { sandboxCredential } from "../../src/workflow/task/sandbox/credential";
 import { produceCall, type ProduceCall } from "../../src/workflow/task/model-author";
 import { firstPromptText } from "../../src/workflow/task/harness/prompt-queue";
 import { buildStartSpec } from "../../src/workflow/task/sandbox/sandbox";
@@ -117,7 +117,7 @@ export async function planLocalRun(
 
   const stage = workflow.stageForTask(task);
   workflow.mcpCredentialValue = mcpCredential(config, artifactCapability(stage.artifact), secrets);
-  const minted = await taskCredential(workflow, task);
+  const minted = await sandboxCredential(workflow, task);
   const metadata = { workflow_id: "local", task_id: task.task_id, stage: stage.name };
   const routes = workflow.gatewayInstance
     ? {
@@ -144,6 +144,7 @@ export async function planLocalRun(
     repo: workflow.state.repo,
     commitAuthor: workflow.state.repo ? ((await workflow.code()?.commitAuthor()) ?? null) : null,
     credential: minted?.token ?? null,
+    githubRead: minted?.read ?? null,
     hostEnv: cliEnv({ capability, adapters: config.adapters, credential, log: warn }),
     gateway: routes,
     sleepAfterMs: 0,

@@ -620,6 +620,45 @@ describe("startSandbox", () => {
       }));
   });
 
+  describe("a code stage on a deployment that lets sandboxes read every repository", () => {
+    const ttlMs = 3_600_000;
+    const started = scenario(freshRuntime, (workflow) => {
+      workflow.clock = Date.now();
+      const { orchestrator } = workflow.config();
+      workflow.patchConfig({
+        orchestrator: {
+          ...orchestrator,
+          sandbox: { ...orchestrator.sandbox, read_all_repos: true },
+        },
+      });
+      workflow.codeHostInstance = new FakeCodeHost({
+        token: { token: "ghs_1", expiresAt: workflow.clock + ttlMs },
+        readToken: { token: "ghs_read", expiresAt: workflow.clock + ttlMs / 2 },
+      });
+      workflow.patchState({ repo: { full: "acme/app" } });
+      return startSandbox(
+        workflow,
+        seedTask(workflow, { status: "queued", stage: "implement", branch: "artfct/wf_x-1-fix" }),
+        false,
+      );
+    });
+
+    it("hands the sandbox the task token and the read token", () =>
+      started((workflow) => {
+        expect(workflow.sandboxProvider.specs[0]).toMatchObject({
+          github_token: "ghs_1",
+          github_read: { token: "ghs_read", task_repo: "acme/app" },
+        });
+      }));
+
+    it("arms the refresh a margin before the first token expires", () =>
+      started((workflow) => {
+        expect(workflow.alarmsFor("refreshToken")[0]?.delay).toBe(
+          (ttlMs / 2 - CREDENTIAL_REFRESH_MARGIN_MS) / 1000,
+        );
+      }));
+  });
+
   describe("a code stage on a workflow whose App token expires in an hour", () => {
     const ttlMs = 3_600_000;
     const started = scenario(freshRuntime, (workflow) => {
@@ -639,6 +678,7 @@ describe("startSandbox", () => {
       started((workflow) => {
         expect(workflow.sandboxProvider.specs[0]).toMatchObject({
           github_token: "ghs_1",
+          github_read: null,
           repo: { clone_url: "https://github.com/acme/app.git", branch: "artfct/wf_x-1-fix" },
         });
       }));

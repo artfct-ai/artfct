@@ -4,6 +4,7 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import {
+  GITHUB_READ_TOKEN_FILE,
   GITHUB_TOKEN_FILE,
   bridgeCommand,
   bridgeEnv,
@@ -33,6 +34,7 @@ const spec: SandboxStartSpec = {
     author: { name: "acme-agent[bot]", email: "4242+acme-agent[bot]@users.noreply.github.com" },
   },
   github_token: "ghs_1",
+  github_read: null,
   env: {},
   files: [],
   setup_commands: ["harness-tool init"],
@@ -246,8 +248,110 @@ describe("startupScript", () => {
   });
 });
 
+const READ = { token: "ghs_read", task_repo: "acme/app" };
+
+describe("startupScript for a task that may read every repository", () => {
+  const script = lines(startupScript({ ...spec, github_read: READ }));
+  const credentialLines = script.filter((line) =>
+    line.startsWith("git config --global credential."),
+  );
+
+  it("never embeds either token", () => {
+    expect(script.some((line) => line.includes("ghs_1") || line.includes("ghs_read"))).toBe(false);
+  });
+
+  it("locks both token files down", () => {
+    expect(script).toContain(`chmod 600 ${GITHUB_TOKEN_FILE} ${GITHUB_READ_TOKEN_FILE}`);
+  });
+
+  it("logs gh in from the task token file alone", () => {
+    expect(script.filter((line) => line.includes("gh auth login"))).toEqual([
+      `if command -v gh >/dev/null 2>&1; then gh auth login --with-token < ${GITHUB_TOKEN_FILE}; fi`,
+    ]);
+  });
+
+  it("hands git the repository path and one helper, for github.com only", () => {
+    expect(credentialLines).toEqual([
+      "git config --global credential.https://github.com.useHttpPath true",
+      expect.stringMatching(/^git config --global credential\.https:\/\/github\.com\.helper /),
+    ]);
+  });
+});
+
+describe("the git credential helper of a task that may read every repository", () => {
+  let home: string;
+  let configured: boolean;
+
+  function fill(path: string): string {
+    const input = `protocol=https\nhost=github.com\npath=${path}\n\n`;
+    const result = spawnSync("git", ["credential", "fill"], {
+      input,
+      encoding: "utf8",
+      env: gitEnv(),
+    });
+    expect(result.stderr).toBe("");
+    return result.stdout;
+  }
+
+  function gitEnv(): Record<string, string> {
+    return {
+      PATH: process.env.PATH ?? "",
+      HOME: home,
+      GIT_CONFIG_GLOBAL: join(home, ".gitconfig"),
+      GIT_CONFIG_NOSYSTEM: "1",
+      GIT_TERMINAL_PROMPT: "0",
+    };
+  }
+
+  beforeAll(() => {
+    home = mkdtempSync(join(tmpdir(), "artfct-credential-"));
+    const taskFile = join(home, "github-token");
+    const readFile = join(home, "github-read-token");
+    writeFileSync(taskFile, "ghs_task");
+    writeFileSync(readFile, "ghs_read");
+    const configLines = lines(githubAuthScript(READ))
+      .filter((line) => line.startsWith("git config --global credential."))
+      .map((line) =>
+        line.replaceAll(GITHUB_READ_TOKEN_FILE, readFile).replaceAll(GITHUB_TOKEN_FILE, taskFile),
+      );
+    const setup = spawnSync("sh", ["-c", ["set -e", ...configLines].join("\n")], {
+      encoding: "utf8",
+      env: gitEnv(),
+    });
+    configured = setup.status === 0;
+  });
+
+  afterAll(() => {
+    rmSync(home, { recursive: true, force: true });
+  });
+
+  it("configures git", () => {
+    expect(configured).toBe(true);
+  });
+
+  it("answers the task token for the task's repository", () => {
+    expect(fill("acme/app.git")).toContain("password=ghs_task\n");
+  });
+
+  it("answers the task token for the task's repository without the .git suffix", () => {
+    expect(fill("acme/app")).toContain("password=ghs_task\n");
+  });
+
+  it("answers the read token for another repository of the owner", () => {
+    expect(fill("acme/infra.git")).toContain("password=ghs_read\n");
+  });
+
+  it("answers the read token for a repository whose name extends the task's", () => {
+    expect(fill("acme/app-docs.git")).toContain("password=ghs_read\n");
+  });
+
+  it("names the installation token user", () => {
+    expect(fill("acme/infra.git")).toContain("username=x-access-token\n");
+  });
+});
+
 describe("githubAuthScript", () => {
-  const [shebang, ...auth] = lines(githubAuthScript());
+  const [shebang, ...auth] = lines(githubAuthScript(null));
 
   it("starts with the strict shell options", () => {
     expect(shebang).toBe("set -euo pipefail");
