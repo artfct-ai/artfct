@@ -4,11 +4,13 @@ import { screenText, type Screened } from "../../decisions/screen";
 import type { WorkflowRuntime } from "../../workflow/types";
 import type { WorkflowToolName } from "./toolset";
 
-/** The workflow tools whose results hold text written outside the orchestrator. */
+/**
+ * The workflow tools whose whole result is screened as one text. `read_channel` screens each
+ * message of its result itself.
+ */
 export const FOREIGN_TEXT_TOOLS: readonly WorkflowToolName[] = [
   "fetch_url",
   "read_artifact",
-  "read_channel",
   "ready_issues",
 ];
 

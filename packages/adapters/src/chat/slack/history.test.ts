@@ -22,7 +22,7 @@ function slackChat(answer: (url: string) => unknown) {
 const HISTORY = {
   ok: true,
   messages: [
-    { ts: "1757000200.000200", user: "U2", text: "any idea?", reply_count: 3 },
+    { ts: "1757000200.000200", user: "U2", text: "<@U7> <@U8|claude> any idea?", reply_count: 3 },
     { ts: "1757000100.000100", bot_id: "B1", text: "HTTP 502" },
     { ts: "1757000050.000050", text: "" },
   ],
@@ -59,6 +59,10 @@ describe("SlackChat.channelHistory", () => {
 
     it("reads an author as a user id, a bot id, or null", () => {
       expect(page.messages.map((message) => message.user)).toEqual([null, "B1", "U2"]);
+    });
+
+    it("carries the user ids each message tags", () => {
+      expect(page.messages.map((message) => message.mentions)).toEqual([[], [], ["U7", "U8"]]);
     });
 
     it("carries the reply count of a thread root", () => {

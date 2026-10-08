@@ -14,6 +14,7 @@ export type Action =
   | "tell"
   | "prompt_task"
   | "fetch"
+  | "read"
   | "empty"
   | "throw"
   | "text";
@@ -113,6 +114,15 @@ function scriptedContent(
           toolCallId: callId,
           toolName: "fetch_url",
           input: JSON.stringify({ url: SCRIPTED_PAGE_URL }),
+        },
+      ];
+    case "read":
+      return [
+        {
+          type: "tool-call",
+          toolCallId: callId,
+          toolName: "read_channel",
+          input: JSON.stringify({ limit: 100 }),
         },
       ];
     case "empty":

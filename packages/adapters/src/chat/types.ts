@@ -29,8 +29,17 @@ export type SessionStatus = "processing" | "active" | "closed";
 /** Options for `Chat.setSessionStatus`. */
 export type SessionOptions = { title?: string; initiatorUserId?: string };
 
-/** One message as a history read returns it. `user` is a user id, a bot id, or null. */
-export type ChatMessage = { ts: string; user: string | null; text: string; replyCount: number };
+/**
+ * One message as a history read returns it. `user` is a user id, a bot id, or null. `mentions`
+ * holds the user ids the message tags, in order.
+ */
+export type ChatMessage = {
+  ts: string;
+  user: string | null;
+  text: string;
+  replyCount: number;
+  mentions: string[];
+};
 
 /**
  * One page of a conversation. `hasMore` marks a read the vendor cut short. `cursor` gets the

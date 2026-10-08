@@ -33,8 +33,8 @@ export type AgentTurnRecord = {
   /** The transcript after the turn. */
   rowsAfter: TranscriptRow[];
   /**
-   * The text of every tool result the screen quarantined or could not check in the turn. Each
-   * one is unique.
+   * The text of every tool result and chat history message the screen quarantined or could not
+   * check in the turn. Each one is unique.
    */
   quarantinedTexts: string[];
   /** The session status the chat thread was left in after the turn. Null when it never had one. */
@@ -61,7 +61,15 @@ export type AgentTurnRecord = {
   } | null;
   /** Every call the turn asked the decisions model, and how each ended, in the order it happened. */
   decisionsEvents: DecisionsEvent[];
+  /** Every `read_channel` result the turn wrote to the transcript. */
+  chatHistoryReads: ChatHistoryRead[];
 };
+
+/**
+ * One `read_channel` result, and the text of every message of its read that the decisions model
+ * answered for and did not flag.
+ */
+export type ChatHistoryRead = { result: string; admittedTexts: string[] };
 
 function violated(name: string, detail: string): never {
   throw new Error(`${name}: ${detail}`);
@@ -284,6 +292,23 @@ export function laterDecisionsCallsFallBackOnceOneFails(turn: AgentTurnRecord): 
   );
 }
 
+/**
+ * A flagged message never removes another message from a chat history read. Every message the
+ * decisions model answered for and did not flag is in its read.
+ */
+export function aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead(
+  turn: AgentTurnRecord,
+): void {
+  for (const read of turn.chatHistoryReads) {
+    const missing = read.admittedTexts.filter((text) => !read.result.includes(text));
+    if (missing.length === 0) continue;
+    violated(
+      "aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead",
+      `${missing.length} admitted messages are missing from the read: ${missing.join(" | ")}`,
+    );
+  }
+}
+
 /** Every agent turn invariant. */
 export const AGENT_TURN_INVARIANTS = [
   closingTextAnswersOnlyAPersonWhoWrote,
@@ -298,4 +323,5 @@ export const AGENT_TURN_INVARIANTS = [
   aPersonGetsTheAnswerDuringADecisionsOutage,
   aDecisionsCallFallsBackOnlyAfterEveryModelFailed,
   laterDecisionsCallsFallBackOnceOneFails,
+  aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead,
 ];

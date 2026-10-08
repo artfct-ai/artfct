@@ -6,6 +6,7 @@ import type {
   Decisions,
   DecisionState,
   DecisionsModels,
+  YesNoQuestion,
 } from "../src/gateway/types";
 import { askModelsInOrder, decisionsDeadlineMs } from "../src/gateway/models-in-order";
 
@@ -29,6 +30,7 @@ export class FakeDecisions implements Decisions {
   readonly deadlineMs = FAKE_DECISIONS_DEADLINE_MS;
   readonly asked: DecisionState[] = [];
   readonly offered: ChoiceQuestion[] = [];
+  readonly yesNoAsked: Record<string, YesNoQuestion>[] = [];
 
   constructor(
     private readonly answers: FakeAnswers,
@@ -40,6 +42,7 @@ export class FakeDecisions implements Decisions {
     questions: DecisionQuestions<YesNoName, ChoiceName>,
   ): Promise<DecisionAnswers<YesNoName, ChoiceName>> {
     this.asked.push(state);
+    this.yesNoAsked.push(questions.yesNo);
     const answers = typeof this.answers === "function" ? this.answers(state) : this.answers;
     if (answers instanceof Error) throw answers;
     const probabilities = {} as Record<YesNoName, number>;
@@ -99,7 +102,7 @@ export class ConfiguredModelsDecisions implements Decisions {
 
   constructor(
     private readonly says: readonly [ModelSays, ...ModelSays[]],
-    answers: Record<string, number>,
+    answers: Exclude<FakeAnswers, Error>,
   ) {
     const [, ...rest] = says;
     this.models = [fakeModelName(0), ...rest.map((_, index) => fakeModelName(index + 1))];

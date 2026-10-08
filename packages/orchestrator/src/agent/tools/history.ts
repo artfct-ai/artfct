@@ -1,6 +1,8 @@
 import type { Chat, ChatMessage, ChatPage } from "@artfct-ai/adapters/chat/types";
 import { tool } from "ai";
 import { z } from "zod";
+import type { TurnDecisions } from "../../decisions/ask";
+import { screenMessages, type ScreenedMessage } from "../../decisions/screen";
 import type { ChatTarget } from "../../notify/notifier";
 import type { WorkflowRuntime } from "../../workflow/types";
 
@@ -22,20 +24,28 @@ const MAX_TIME_MS = 8.64e15;
 /** What one read asks for. `threadTs` reads a thread, `beforeTs` pages a channel back in time. */
 type ReadOptions = { limit: number; threadTs?: string; beforeTs?: string; cursor?: string };
 
-/** One read: what was asked for, the cursor it came from, and what came back. */
+/**
+ * One read: what was asked for, the cursor it came from, and what came back. `lines` are the
+ * message lines kept in budget after the screen, and `dropped` counts the oldest left out.
+ */
 type RenderInput = {
   scope: string;
   page: ChatPage;
   target: ChatTarget;
   thread: boolean;
   cursor?: string;
+  lines: string[];
+  dropped: number;
 };
 
 /** What a read left out for budget, and what the reader has to pass to reach it. */
 type BudgetAdvice = { dropped: number; thread: boolean; cursor?: string; oldestKept: string };
 
-/** Tools that read back in the channel the request came from. */
-export function historyTools(workflow: WorkflowRuntime) {
+/**
+ * Tools that read back in the channel the request came from. The screen judges each message of
+ * a read on its own.
+ */
+export function historyTools(workflow: WorkflowRuntime, turn?: TurnDecisions) {
   return {
     read_channel: tool({
       description: `Read earlier messages of the chat channel this request came from, oldest first. Use it before you ask a human: a request that points at something already said ("the error two posts up", "the link above") is in here, and so is what fell out of your transcript. A channel read counts back from the newest message, lists top-level messages, and names the thread of every message that has replies, this request's own thread included. Pass one of those to thread_ts to read that thread from its first message. The chat host often returns fewer messages than the limit, and one read a minute is all some apps get, so the last lines of every read say what was left out and exactly what to pass to get it: before_ts for older channel messages, cursor for the rest of a thread.`,
@@ -63,7 +73,7 @@ export function historyTools(workflow: WorkflowRuntime) {
           .describe("continue a read that was cut short, with the cursor it printed"),
       }),
       execute: ({ limit, thread_ts, before_ts, cursor }) =>
-        readChannel(workflow, { limit, threadTs: thread_ts, beforeTs: before_ts, cursor }),
+        readChannel(workflow, turn, { limit, threadTs: thread_ts, beforeTs: before_ts, cursor }),
     }),
   };
 }
@@ -75,20 +85,49 @@ function chatTarget(workflow: WorkflowRuntime): ChatTarget | null {
   return reply_targets.find((target) => target.source === "chat") ?? null;
 }
 
+/** What the model reads in place of a message the screen did not admit. It never holds the message. */
+export function unadmittedMessageLine(screened: Exclude<ScreenedMessage, "admitted">): string {
+  switch (screened) {
+    case "quarantined":
+      return "- [quarantined message] The screen found text in this message that looks written to steer an AI agent.";
+    case "unchecked":
+      return "- [unchecked message] The screen could not check this message right now.";
+    default: {
+      const unreachable: never = screened;
+      throw new Error(`unhandled screen outcome ${String(unreachable)}`);
+    }
+  }
+}
+
 /** Every failure is a sentence the agent can act on. This tool never throws. */
-async function readChannel(workflow: WorkflowRuntime, options: ReadOptions): Promise<string> {
+async function readChannel(
+  workflow: WorkflowRuntime,
+  turn: TurnDecisions | undefined,
+  options: ReadOptions,
+): Promise<string> {
   const target = chatTarget(workflow);
   if (!target) return "This workflow has no chat channel. The request came from somewhere else.";
   const chat = workflow.chat();
   if (!chat) return "Chat is not configured.";
   const thread = Boolean(options.threadTs);
   const scope = options.threadTs ? `thread ${options.threadTs}` : `channel ${target.channel}`;
+  let page: ChatPage;
   try {
-    const page = await readPage(chat, target.channel, options);
-    return renderRead({ scope, page, target, thread, cursor: options.cursor });
+    page = await readPage(chat, target.channel, options);
   } catch (error) {
     return `Could not read ${scope}: ${chat.describeFailure(error)}`;
   }
+  const { kept, dropped } = keepNewestWithinBudget(page.messages.map(messageLine));
+  const screened = await screenMessages(workflow, {
+    source: `the read of ${scope}`,
+    messages: kept,
+    turn,
+  });
+  const lines = kept.map((line, index) => {
+    const outcome = screened[index]!;
+    return outcome === "admitted" ? line : unadmittedMessageLine(outcome);
+  });
+  return renderRead({ scope, page, target, thread, cursor: options.cursor, lines, dropped });
 }
 
 function readPage(chat: Chat, channel: string, options: ReadOptions): Promise<ChatPage> {
@@ -97,15 +136,14 @@ function readPage(chat: Chat, channel: string, options: ReadOptions): Promise<Ch
   return chat.channelHistory(channel, { limit, cursor, before: options.beforeTs });
 }
 
-function renderRead({ scope, page, target, thread, cursor }: RenderInput): string {
+function renderRead({ scope, page, target, thread, cursor, lines, dropped }: RenderInput): string {
   const note = thread ? [] : [`The thread this request came from is thread_ts=${target.thread}.`];
   const { messages } = page;
   if (!messages.length) return [`No messages in ${scope}.`, ...note].join("\n");
-  const { kept, dropped } = keepNewestWithinBudget(messages.map(messageLine));
   return [
-    `${kept.length} message(s) from ${scope}, oldest first.`,
+    `${lines.length} message(s) from ${scope}, oldest first.`,
     ...note,
-    ...kept,
+    ...lines,
     ...budgetLine({ dropped, thread, cursor, oldestKept: messages[dropped]?.ts ?? "" }),
     ...moreLine(page, thread, dropped),
   ].join("\n");
@@ -133,10 +171,12 @@ function moreLine(page: ChatPage, thread: boolean, dropped: number): string[] {
   return [`${rest}, and the chat host named no cursor for them.`];
 }
 
+/** One message, labeled with its author and, when it tags anyone, who it addresses. */
 function messageLine(message: ChatMessage): string {
   const thread = message.replyCount ? ` thread=${message.ts} replies=${message.replyCount}` : "";
   const from = message.user ?? "unknown";
-  return `- ts=${message.ts} at=${isoTime(message.ts)} from=${from}${thread}: ${shortenMessage(message.text)}`;
+  const to = message.mentions.length ? ` to=${message.mentions.join(",")}` : "";
+  return `- ts=${message.ts} at=${isoTime(message.ts)} from=${from}${to}${thread}: ${shortenMessage(message.text)}`;
 }
 
 /** A Slack timestamp is Unix seconds with microseconds after the dot. */
