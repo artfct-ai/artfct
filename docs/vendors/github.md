@@ -98,7 +98,7 @@ Each sandbox then gets a second token. It reads every repository the installatio
 
 Git picks the token by the repository path in the URL. The agent reads another repository with git, for example `git clone https://github.com/<owner>/<repo>.git /tmp/<repo>`. The `gh` CLI stays logged in with the workflow repo token, so `gh` commands against another private repository fail. Both tokens are refreshed together, before the first of them expires.
 
-Turn this on with care. A prompt-injected agent can read every repository the installation reaches, and the agent can send what it reads out of the sandbox. Install the app on only the repositories the agents need to read. The setting does not give write access to any other repository.
+It's important to understand the safeguards your system puts in place and potential risks before enabling this. While artfct implements its own safeguards intended to prevent prompt injection, in theory, with this enabled a prompt-injected agent could read every repository the gh app is installed to.
 
 ## Whose reviews count
 
