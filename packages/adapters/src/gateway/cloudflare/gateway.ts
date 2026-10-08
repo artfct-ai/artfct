@@ -4,6 +4,7 @@ import {
   type AnthropicRoute,
   type CompatRoute,
   type Decisions,
+  type DecisionsModels,
   type Gateway,
   type GatewayMetadata,
   type OpenRouterRegion,
@@ -59,9 +60,9 @@ export class CloudflareGateway implements Gateway {
     return { baseUrl: `${this.baseUrl()}/anthropic`, headers: this.gatewayHeaders(metadata) };
   }
 
-  decisions(): Decisions {
+  decisions(models: DecisionsModels): Decisions {
     const { accountId, gatewayId, token } = this.config;
-    return new CloudflareDecisions({ accountId, gatewayId, token });
+    return new CloudflareDecisions({ accountId, gatewayId, token, models });
   }
 
   async models(): Promise<null> {

@@ -140,6 +140,8 @@ export function unadmittedFeedbackNote(
   switch (screened) {
     case "quarantined":
       return `${reviewed}. The screen quarantined it, because text in it looks written to steer an AI agent. ${told}`;
+    case "unchecked":
+      return `${reviewed}. The screen could not check it right now, so it is held back. ${told}`;
     case "too_large":
       return `${reviewed}. It is too large to screen. ${told}`;
     default: {

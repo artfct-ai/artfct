@@ -421,7 +421,9 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
   }
 
   decisions(): Decisions | null {
-    return this.gateway(orchestratorGateway(this.config()))?.decisions() ?? null;
+    const config = this.config();
+    const orchestratorsGateway = this.gateway(orchestratorGateway(config));
+    return orchestratorsGateway?.decisions(config.orchestrator.decisions_model) ?? null;
   }
 
   harness(name: Harness): HarnessAdapter {

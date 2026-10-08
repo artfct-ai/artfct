@@ -47,11 +47,4 @@ describe("humansAccepted", () => {
         await humansAccepted(workflow, { artifact: PAGE, messages: ["Looks good."] }),
       ).toBeNull();
     }));
-
-  it("is null when the gateway carries no decisions model", () =>
-    freshRuntime(async (workflow) => {
-      expect(
-        await humansAccepted(workflow, { artifact: PAGE, messages: ["Looks good."] }),
-      ).toBeNull();
-    }));
 });

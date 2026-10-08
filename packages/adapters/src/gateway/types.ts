@@ -51,8 +51,19 @@ export type YesNoQuestion = { instructions: string; yes: string; no: string };
 /** The state a question reads: named text fields. */
 export type DecisionState = Record<string, string>;
 
-/** What one decisions call used. A provider that reports no cost costs zero. */
-export type DecisionsUsage = { input_tokens: number; output_tokens: number; cost_usd: number };
+/**
+ * What one decisions call used, and the decisions model that answered it. A provider that
+ * reports no cost costs zero.
+ */
+export type DecisionsUsage = {
+  model: string;
+  input_tokens: number;
+  output_tokens: number;
+  cost_usd: number;
+};
+
+/** The decisions models a deployment names on its gateway, in the order a call tries them. */
+export type DecisionsModels = readonly [string, ...string[]];
 
 /** One question answered by one option from a fixed set. `options` maps each option to what it covers. */
 export type ChoiceQuestion = { instructions: string; options: Record<string, string> };
@@ -73,13 +84,14 @@ export type DecisionAnswers<YesNoName extends string, ChoiceName extends string>
   usage: DecisionsUsage;
 };
 
-/** A classifier model on a gateway. It makes narrow judgments and generates no text. */
+/** The decisions model on a gateway. It answers narrow judgments with probabilities and generates no text. */
 export interface Decisions {
-  /** The model name, for the usage record. */
-  readonly model: string;
+  /** Milliseconds one call may take, every model and retry included. Past it the caller gives up. */
+  readonly deadlineMs: number;
   /**
-   * Answer every question over the same state in one call. Rejects when the call fails, or with
-   * the abort reason as soon as `signal` aborts.
+   * Answer every question over the same state in one call. Each decisions model gets its retries,
+   * then the next one takes the call. Rejects when every model fails, or with the abort reason as
+   * soon as `signal` aborts.
    */
   decide<YesNoName extends string, ChoiceName extends string>(
     state: DecisionState,
@@ -105,8 +117,11 @@ export interface Gateway {
   compatRoute(model: string, metadata: GatewayMetadata): CompatRoute;
   /** The route for Claude Code, or null when the gateway has no Anthropic endpoint. */
   anthropicRoute(metadata: GatewayMetadata): AnthropicRoute | null;
-  /** The gateway's decisions model, or null when it carries none. */
-  decisions(): Decisions | null;
+  /**
+   * The decisions model on the gateway. `models` names the models to try in order, each as every
+   * other model setting names one, such as `openrouter/typesafe/jev-1.13`.
+   */
+  decisions(models: DecisionsModels): Decisions;
   /** Every tool-calling model and preset the gateway carries, or null when it lists none. */
   models(): Promise<GatewayModel[] | null>;
 }

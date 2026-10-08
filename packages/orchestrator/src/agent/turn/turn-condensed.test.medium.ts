@@ -1,3 +1,5 @@
+import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
+import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { tool } from "ai";
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
@@ -12,6 +14,7 @@ const LARGE_TOKENS = 2000;
 describe("an agent turn whose tool returns a result over the limit", () => {
   const turned = scenario(freshDurableRuntime, async (workflow) => {
     workflow.modelInstance = new ScriptedFailure(["call", "text", "silent"]);
+    workflow.gatewayInstance = new FakeGateway({ decisions: new FakeDecisions({}) });
     workflow.mcpToolSet = {
       ping: tool({
         inputSchema: z.object({}),

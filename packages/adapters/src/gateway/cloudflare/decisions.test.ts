@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { fetchHeader, fetchUrl } from "../../../test/fetch";
-import { CloudflareDecisions } from "./decisions";
+import type { DecisionsModels } from "../types";
+import { CloudflareDecisions, workersAiModel } from "./decisions";
 
 await import("cloudflare/client");
 
@@ -12,22 +13,42 @@ const QUESTIONS = {
   },
 };
 
-type Seen = { url: string; authorization: string | null; gateway: string | null; body: unknown };
+type Seen = {
+  url: string;
+  authorization: string | null;
+  gateway: string | null;
+  body: { model: string; state: Record<string, unknown>; questions: Record<string, unknown> };
+};
 
-function decisionsAnswering(answers: unknown, status = 200) {
+type Reply = { status: number; answers?: unknown };
+
+const CLEF = "workers-ai/@cf/cloudflare/clef";
+
+const FLASH_MODEL = "workers-ai/@cf/cloudflare/clef-flash";
+
+function decisionsReplying(
+  reply: (seen: Seen, index: number) => Reply,
+  models: DecisionsModels = [CLEF],
+) {
   const seen: Seen[] = [];
   const fake: typeof fetch = async (input, init) => {
     const request = new Request(input, init);
-    seen.push({
+    const current: Seen = {
       url: fetchUrl(request),
       authorization: fetchHeader(request, "authorization"),
       gateway: fetchHeader(request, "cf-aig-gateway-id"),
       body: JSON.parse(await request.text()),
-    });
+    };
+    seen.push(current);
+    const { status, answers } = reply(current, seen.length - 1);
     const payload =
       status === 200
         ? {
-            result: { model: "clef", answers, usage: { input_tokens: 40, output_tokens: 2 } },
+            result: {
+              model: current.body.model,
+              answers,
+              usage: { input_tokens: 40, output_tokens: 2 },
+            },
             success: true,
             errors: [],
             messages: [],
@@ -38,15 +59,20 @@ function decisionsAnswering(answers: unknown, status = 200) {
             errors: [{ code: status, message: "no" }],
             messages: [],
           };
-    return Response.json(payload, { status });
+    return Response.json(payload, { status, headers: { "retry-after-ms": "0" } });
   };
   const decisions = new CloudflareDecisions({
     accountId: "acct",
     gatewayId: "gw",
     token: "t",
+    models,
     fetch: fake,
   });
   return { decisions, seen };
+}
+
+function decisionsAnswering(answers: unknown, status = 200) {
+  return decisionsReplying(() => ({ status, answers }));
 }
 
 type HangingFetch = { fetch: typeof fetch; sent: Promise<AbortSignal> };
@@ -106,7 +132,12 @@ describe("CloudflareDecisions", () => {
     );
 
     expect(answered.probabilities).toEqual({ wants_answer: 0.9 });
-    expect(answered.usage).toEqual({ input_tokens: 40, output_tokens: 2, cost_usd: 0 });
+    expect(answered.usage).toEqual({
+      model: "@cf/cloudflare/clef",
+      input_tokens: 40,
+      output_tokens: 2,
+      cost_usd: 0,
+    });
   });
 
   test("throws when an asked question has no answer", async () => {
@@ -118,12 +149,80 @@ describe("CloudflareDecisions", () => {
   });
 
   test("throws when the endpoint refuses the request, without a retry", async () => {
-    const { decisions, seen } = decisionsAnswering({}, 500);
+    const { decisions, seen } = decisionsAnswering({}, 400);
 
     await expect(
       decisions.decide({ message: "hi" }, { yesNo: QUESTIONS, choices: {} }),
     ).rejects.toThrow();
     expect(seen).toHaveLength(1);
+  });
+
+  test("gives up on a failing endpoint after three attempts", async () => {
+    const { decisions, seen } = decisionsAnswering({}, 500);
+
+    await expect(
+      decisions.decide({ message: "hi" }, { yesNo: QUESTIONS, choices: {} }),
+    ).rejects.toThrow();
+    expect(seen).toHaveLength(3);
+  });
+});
+
+describe("CloudflareDecisions over several decisions models", () => {
+  const ASKED = { yesNo: QUESTIONS, choices: {} };
+  const ANSWERS = { wants_answer: { type: "noul", noul: 0.9 } };
+
+  test("runs the first model it names, with its own selector", async () => {
+    const { decisions, seen } = decisionsReplying(
+      () => ({ status: 200, answers: ANSWERS }),
+      [FLASH_MODEL, CLEF],
+    );
+
+    await decisions.decide({ message: "hi" }, ASKED);
+
+    expect(seen.map((request) => [request.url, request.body.model])).toEqual([
+      [
+        "https://api.cloudflare.com/client/v4/accounts/acct/ai/run/@cf/cloudflare/clef-flash",
+        "clef-flash",
+      ],
+    ]);
+  });
+
+  test("retries an overloaded model and takes its answer", async () => {
+    const { decisions, seen } = decisionsReplying((_seen, index) =>
+      index === 0 ? { status: 529 } : { status: 200, answers: ANSWERS },
+    );
+
+    const answered = await decisions.decide({ message: "hi" }, ASKED);
+
+    expect(seen).toHaveLength(2);
+    expect(answered.probabilities).toEqual({ wants_answer: 0.9 });
+  });
+
+  test("moves to the next model once one fails every attempt", async () => {
+    const { decisions, seen } = decisionsReplying(
+      (request) =>
+        request.body.model === "clef-flash" ? { status: 200, answers: ANSWERS } : { status: 503 },
+      [CLEF, FLASH_MODEL],
+    );
+
+    const answered = await decisions.decide({ message: "hi" }, ASKED);
+
+    expect(seen.map((request) => request.body.model)).toEqual([
+      "clef",
+      "clef",
+      "clef",
+      "clef-flash",
+    ]);
+    expect(answered.usage.model).toBe("@cf/cloudflare/clef-flash");
+  });
+
+  test("throws when every model fails", async () => {
+    const { decisions, seen } = decisionsReplying(() => ({ status: 404 }), [CLEF, FLASH_MODEL]);
+
+    await expect(decisions.decide({ message: "hi" }, ASKED)).rejects.toThrow(
+      "every decisions model failed",
+    );
+    expect(seen).toHaveLength(2);
   });
 });
 
@@ -202,10 +301,7 @@ describe("CloudflareDecisions with both kinds of question", () => {
     await decisions.decide({ message: "use opus" }, { yesNo: QUESTIONS, choices: MODEL_QUESTION });
 
     expect(seen).toHaveLength(1);
-    expect(Object.keys((seen[0]!.body as { questions: object }).questions)).toEqual([
-      "wants_answer",
-      "model",
-    ]);
+    expect(Object.keys(seen[0]!.body.questions)).toEqual(["wants_answer", "model"]);
   });
 
   test("returns the probabilities and the picks together", async () => {
@@ -245,6 +341,7 @@ describe("CloudflareDecisions under an abort signal", () => {
       accountId: "acct",
       gatewayId: "gw",
       token: "t",
+      models: [CLEF],
       fetch: hanging,
     });
 
@@ -258,5 +355,17 @@ describe("CloudflareDecisions under an abort signal", () => {
 
     await expect(call).rejects.toThrow();
     expect(inFlight.aborted).toBe(true);
+  });
+});
+
+describe("workersAiModel", () => {
+  test("reads the Workers AI id of a workers-ai model", () => {
+    expect(workersAiModel("workers-ai/@cf/cloudflare/clef")).toBe("@cf/cloudflare/clef");
+  });
+
+  test("refuses a model on any other provider", () => {
+    expect(() => workersAiModel("openrouter/typesafe/jev-1.13")).toThrow(
+      "openrouter/typesafe/jev-1.13",
+    );
   });
 });

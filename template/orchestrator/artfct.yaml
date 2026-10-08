@@ -28,6 +28,11 @@ mcp_servers:
 
 orchestrator:
   model: openrouter/deepseek/deepseek-v4.1-flash
+  # The decisions models, named like `model` and tried in order when one fails.
+  decisions_model:
+    - openrouter/typesafe/jev-1.13
+    - openrouter/cloudflare/clef
+    - openrouter/cloudflare/clef-flash
   # Compaction, condensed tool results, and digest summaries all run on this model.
   summarization:
     model: openrouter/minimax/minimax-m3

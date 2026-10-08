@@ -170,12 +170,4 @@ describe("readPersonMessage", () => {
         expect(read).toEqual(UNREAD_MESSAGE);
       }));
   });
-
-  describe("a gateway with no decisions model", () => {
-    it("is owed an answer and requests work", () =>
-      freshRuntime(async (runtime) => {
-        runtime.gatewayInstance = new FakeGateway();
-        expect(await readPersonMessage(runtime, "lets move to a plan")).toEqual(UNREAD_MESSAGE);
-      }));
-  });
 });

@@ -1,13 +1,20 @@
 import type { OpenRouterCore } from "@openrouter/sdk/core.js";
+import type { RetryConfig } from "@openrouter/sdk/lib/retries.js";
 import { workerdFetch } from "../../workerd-fetch";
 import type { DecisionsRequest } from "@openrouter/sdk/models/decisionsrequest.js";
 import type { DecisionsResponse } from "@openrouter/sdk/models/decisionsresponse.js";
+import {
+  askModelsInOrder,
+  DECISIONS_MODEL_BUDGET_MS,
+  decisionsDeadlineMs,
+} from "../models-in-order";
 import type {
   Choice,
   ChoiceQuestion,
   DecisionAnswers,
   DecisionQuestions,
   Decisions,
+  DecisionsModels,
   DecisionState,
   DecisionsUsage,
   OpenRouterRegion,
@@ -15,15 +22,20 @@ import type {
 } from "../types";
 import { openRouterOrigin } from "./api-url";
 
-/** TypeSafe's Jev, the one decisions model OpenRouter carries today. */
-export const OPENROUTER_DECISIONS_MODEL = "typesafe/jev-1.13";
-
-/** Milliseconds one attempt may take. A classifier answers in well under a second. */
+/** Milliseconds one attempt may take. A decisions model answers in well under a second. */
 const TIMEOUT_MS = 3000;
 
-/** Construction options. `serverUrl` and `fetch` are seams for tests. */
+/** How long one decisions model keeps retrying a server error or a timeout before the next takes over. */
+const RETRIES: RetryConfig = {
+  strategy: "backoff",
+  backoff: { initialInterval: 500, maxInterval: 2000, exponent: 1.5, maxElapsedTime: 6000 },
+  retryConnectionErrors: true,
+};
+
+/** Construction options. `models` are named as OpenRouter knows them. `serverUrl` and `fetch` are seams for tests. */
 export type OpenRouterDecisionsOptions = {
   apiKey: string;
+  models: DecisionsModels;
   region?: OpenRouterRegion;
   serverUrl?: string;
   fetch?: typeof fetch;
@@ -31,17 +43,19 @@ export type OpenRouterDecisionsOptions = {
 
 /** `Decisions` over OpenRouter's Decisions endpoint. The SDK loads on the first call. */
 export class OpenRouterDecisions implements Decisions {
-  readonly model = OPENROUTER_DECISIONS_MODEL;
   private client: Promise<OpenRouterCore> | null = null;
 
   constructor(private readonly options: OpenRouterDecisionsOptions) {}
+
+  get deadlineMs(): number {
+    return decisionsDeadlineMs(this.options.models, DECISIONS_MODEL_BUDGET_MS);
+  }
 
   async decide<YesNoName extends string, ChoiceName extends string>(
     state: DecisionState,
     questions: DecisionQuestions<YesNoName, ChoiceName>,
     signal?: AbortSignal,
   ): Promise<DecisionAnswers<YesNoName, ChoiceName>> {
-    signal?.throwIfAborted();
     const yesNoNames = Object.keys(questions.yesNo) as YesNoName[];
     const choiceNames = Object.keys(questions.choices) as ChoiceName[];
     const asked = {
@@ -50,36 +64,26 @@ export class OpenRouterDecisions implements Decisions {
         choiceNames.map((name) => [name, choiceQuestion(questions.choices[name])]),
       ),
     };
-    const request = this.request(state, asked, signal);
-    const { answers, usage } = await (signal ? settledOrAborted(request, signal) : request);
-    const probabilities = {} as Record<YesNoName, number>;
-    for (const name of yesNoNames) {
-      const answer = answers[name];
-      if (answer?.type !== "noul") throw new Error(`decisions: no yes-or-no answer for ${name}`);
-      probabilities[name] = answer.noul;
-    }
-    const choices = {} as Record<ChoiceName, Choice>;
-    for (const name of choiceNames) {
-      const answer = answers[name];
-      if (answer?.type !== "choice") throw new Error(`decisions: no choice for ${name}`);
-      choices[name] = {
-        option: answer.choice,
-        probability: answer.probabilities?.[answer.choice] ?? 0,
-      };
-    }
-    return { probabilities, choices, usage: decisionsUsage(usage) };
+    const inOrder = { models: this.options.models, budgetMs: DECISIONS_MODEL_BUDGET_MS, signal };
+    return askModelsInOrder(inOrder, async (model, modelSignal) => {
+      const response = await this.request({ model, state, questions: asked }, modelSignal);
+      return decisionAnswers(response, yesNoNames, choiceNames);
+    });
   }
 
   private async request(
-    state: DecisionState,
-    questions: DecisionsRequest["questions"],
-    signal: AbortSignal | undefined,
+    decisionsRequest: DecisionsRequest,
+    signal: AbortSignal,
   ): Promise<DecisionsResponse> {
     const { alphaDecisionsCreate } = await import("@openrouter/sdk/funcs/alphaDecisionsCreate.js");
     const result = await alphaDecisionsCreate(
       await this.core(),
-      { decisionsRequest: { model: this.model, state, questions } },
-      { serverURL: this.options.serverUrl ?? openRouterOrigin(this.options.region), signal },
+      { decisionsRequest },
+      {
+        serverURL: this.options.serverUrl ?? openRouterOrigin(this.options.region),
+        signal,
+        retries: RETRIES,
+      },
     );
     if (!result.ok) throw result.error;
     return result.value;
@@ -111,18 +115,33 @@ function attemptTimeoutFetch(inner: typeof fetch, timeoutMs: number): typeof fet
   };
 }
 
-/** Settles as the request does, or rejects with the abort reason as soon as `signal` aborts. */
-function settledOrAborted<Result>(request: Promise<Result>, signal: AbortSignal): Promise<Result> {
-  return new Promise((resolve, reject) => {
-    const onAbort = () => reject(signal.reason);
-    if (signal.aborted) onAbort();
-    signal.addEventListener("abort", onAbort, { once: true });
-    request.then(resolve, reject).finally(() => signal.removeEventListener("abort", onAbort));
-  });
+/** The answers of one response, or a throw when an asked question has none. */
+function decisionAnswers<YesNoName extends string, ChoiceName extends string>(
+  { answers, model, usage }: DecisionsResponse,
+  yesNoNames: YesNoName[],
+  choiceNames: ChoiceName[],
+): DecisionAnswers<YesNoName, ChoiceName> {
+  const probabilities = {} as Record<YesNoName, number>;
+  for (const name of yesNoNames) {
+    const answer = answers[name];
+    if (answer?.type !== "noul") throw new Error(`decisions: no yes-or-no answer for ${name}`);
+    probabilities[name] = answer.noul;
+  }
+  const choices = {} as Record<ChoiceName, Choice>;
+  for (const name of choiceNames) {
+    const answer = answers[name];
+    if (answer?.type !== "choice") throw new Error(`decisions: no choice for ${name}`);
+    choices[name] = {
+      option: answer.choice,
+      probability: answer.probabilities?.[answer.choice] ?? 0,
+    };
+  }
+  return { probabilities, choices, usage: decisionsUsage(model, usage) };
 }
 
-function decisionsUsage(usage: DecisionsResponse["usage"]): DecisionsUsage {
+function decisionsUsage(model: string, usage: DecisionsResponse["usage"]): DecisionsUsage {
   return {
+    model,
     input_tokens: usage.inputTokens,
     output_tokens: usage.outputTokens,
     cost_usd: usage.cost ?? 0,

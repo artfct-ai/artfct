@@ -57,9 +57,4 @@ describe("humansSelected", () => {
       decisionsSay(workflow, new Error("unavailable"));
       expect(await humansSelected(workflow, SELECTION)).toBeNull();
     }));
-
-  it("is null when the gateway carries no decisions model", () =>
-    freshRuntime(async (workflow) => {
-      expect(await humansSelected(workflow, SELECTION)).toBeNull();
-    }));
 });

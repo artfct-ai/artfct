@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import fc from "fast-check";
 import {
+  aFailedCheckNeverAsksThePersonAgain,
+  aFailedCheckNeverCompletesAJob,
   artifactStatusMovesAreLegal,
   authorIsIdleWhileAPolisherRuns,
   deliveredToHumansIsNeverCleared,
@@ -17,16 +19,19 @@ import {
   refinersRunAgainOnlyOnChangedRevision,
   staleAlarmIsIgnored,
   todoListIsFixedAfterFirstArtifact,
+  unadmittedFeedbackReachesNobody,
 } from "../../test/invariants";
 import {
   agentCancels,
   agentAdvancesStage,
   agentCompletes,
+  agentCompletesWithSelection,
   agentFailsWorkflow,
   agentFinishesWorkflow,
   agentHoldsAuthor,
   agentPromptsAuthor,
   agentRoutes,
+  agentSendsHeldComments,
   agentSetsPlan,
   agentStartsTask,
   agentStartsTaskOnArtifact,
@@ -87,13 +92,31 @@ const STEP_INVARIANTS = [
   todoListIsFixedAfterFirstArtifact,
   staleAlarmIsIgnored,
   jobStartsOnlyIntoAFreeSlot,
+  unadmittedFeedbackReachesNobody,
+  aFailedCheckNeverCompletesAJob,
+  aFailedCheckNeverAsksThePersonAgain,
 ];
 
 const setups: fc.Arbitrary<WorldSetup> = fc.record({
-  artifact: fc.constantFrom("pull" as const, "pull" as const, "pull" as const, "issues" as const),
+  artifact: fc.constantFrom(
+    "pull" as const,
+    "pull" as const,
+    "pull" as const,
+    "issues" as const,
+    "page" as const,
+  ),
   refiners: fc.constantFrom(...REFINER_SETUPS),
   research: fc.boolean(),
   checksOnPush: fc.constantFrom("passed" as const, "reported_later" as const),
+  pageEnding: fc.constantFrom("acceptance" as const, "choice" as const),
+});
+
+const pageSetups: fc.Arbitrary<WorldSetup> = fc.record({
+  artifact: fc.constant("page" as const),
+  refiners: fc.constantFrom(...REFINER_SETUPS),
+  research: fc.boolean(),
+  checksOnPush: fc.constantFrom("passed" as const, "reported_later" as const),
+  pageEnding: fc.constantFrom("acceptance" as const, "choice" as const),
 });
 
 const author = fc.nat({ max: MAX_AUTHORS - 1 });
@@ -177,7 +200,7 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
     arbitrary: fc
       .tuple(
         author,
-        fc.constantFrom("review", "review", "review_comment", "comment"),
+        fc.constantFrom("review", "review", "review_comment", "comment", "app_review"),
         fc.constantFrom(
           "for_author",
           "for_author",
@@ -292,8 +315,28 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
   {
     weight: 2,
     arbitrary: fc
-      .tuple(author, fc.constantFrom("accepts", "accepts", "asks_for_a_change", "wrote_nothing"))
-      .map(([index, person]) => agentCompletes(index, person)),
+      .tuple(
+        author,
+        fc.constantFrom("accepts", "accepts", "asks_for_a_change", "wrote_nothing"),
+        fc.constantFrom("answers", "answers", "answers", "fails", "hangs"),
+      )
+      .map(([index, person, decisions]) => agentCompletes(index, person, decisions)),
+  },
+  {
+    weight: 2,
+    arbitrary: fc
+      .tuple(
+        author,
+        fc.constantFrom("accepts", "accepts", "asks_for_a_change", "wrote_nothing"),
+        fc.constantFrom("answers", "answers", "fails", "hangs"),
+      )
+      .map(([index, person, decisions]) => agentCompletesWithSelection(index, person, decisions)),
+  },
+  {
+    weight: 2,
+    arbitrary: fc
+      .tuple(author, fc.constantFrom("answers", "fails", "hangs"))
+      .map(([index, decisions]) => agentSendsHeldComments(index, decisions)),
   },
   {
     weight: 2,
@@ -366,7 +409,16 @@ describe("the workflow invariants", () => {
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(16);
+      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(19);
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    "hold after every action of any sequence, on a page stage of either ending",
+    async () => {
+      const property = fc.asyncProperty(pageSetups, sequences, holdsThroughout);
+      await fc.assert(property, { numRuns: NUM_RUNS });
     },
     TIMEOUT_MS,
   );

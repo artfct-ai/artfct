@@ -5,6 +5,7 @@ import {
   OPENROUTER_PREFIX,
   type CompatRoute,
   type Decisions,
+  type DecisionsModels,
   type Gateway,
   type GatewayModel,
   type OpenRouterRegion,
@@ -39,8 +40,12 @@ export class OpenRouterGateway implements Gateway {
     return null;
   }
 
-  decisions(): Decisions {
-    return new OpenRouterDecisions(this.config);
+  decisions(models: DecisionsModels): Decisions {
+    const [first, ...rest] = models;
+    return new OpenRouterDecisions({
+      ...this.config,
+      models: [openRouterModel(first), ...rest.map(openRouterModel)],
+    });
   }
 
   models(): Promise<GatewayModel[]> {

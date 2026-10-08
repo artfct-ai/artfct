@@ -2,7 +2,7 @@ import { EFFORTS, HARNESSES } from "@artfct-ai/adapters/harness/types";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
 import { Duration } from "./duration";
-import { GatewayProvider } from "./gateway";
+import { DecisionsModelSetting, DEFAULT_DECISIONS_MODELS, GatewayProvider } from "./gateway";
 import { McpServers } from "./mcp-servers";
 import { Adapters } from "./adapters";
 
@@ -49,6 +49,11 @@ export const OrchestratorConfig = z.object({
   model: z.string().default("dynamic/orchestrator"),
   /** The gateway `model` goes through. Unset takes `adapters.gateway.provider`. */
   gateway: GatewayProvider.optional(),
+  /**
+   * The decisions model, or an ordered list, each named as `model` names one, such as
+   * `openrouter/typesafe/jev-1.13`. A call moves to the next model when one fails.
+   */
+  decisions_model: DecisionsModelSetting.default(DEFAULT_DECISIONS_MODELS),
   /** Extra fields on every chat completion request to `model`, sent as they are. */
   model_params: z.record(z.string(), z.json()).default({}),
   /** Tool-call steps one turn may take before it is cut off. */

@@ -1,6 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, setSystemTime, test } from "bun:test";
 import { fetchHeader, fetchUrl } from "../../../test/fetch";
-import { OPENROUTER_DECISIONS_MODEL, OpenRouterDecisions } from "./decisions";
+import type { DecisionsModels } from "../types";
+import { OpenRouterDecisions } from "./decisions";
 
 await Promise.all([
   import("@openrouter/sdk/funcs/alphaDecisionsCreate.js"),
@@ -16,35 +17,55 @@ const QUESTIONS = {
   },
 };
 
-type Seen = { url: string; authorization: string | null; body: unknown };
+type Seen = {
+  url: string;
+  authorization: string | null;
+  body: { model: string; state: Record<string, unknown>; questions: Record<string, unknown> };
+};
 
 type Host = { serverUrl: string } | { region: "eu" | "us" };
 
-function decisionsAnswering(
-  answers: unknown,
-  status = 200,
-  host: Host = { serverUrl: "https://router.test" },
+type Reply = { status: number; answers?: unknown };
+
+const JEV = "typesafe/jev-1.13";
+
+const FALLBACK_MODEL = "typesafe/jev-1.12";
+
+function decisionsReplying(
+  reply: (seen: Seen, index: number) => Reply,
+  options: { models?: DecisionsModels; host?: Host } = {},
 ) {
   const seen: Seen[] = [];
   const fake: typeof fetch = async (input, init) => {
     const request = new Request(input, init);
-    seen.push({
+    const current: Seen = {
       url: fetchUrl(request),
       authorization: fetchHeader(request, "authorization"),
       body: JSON.parse(await request.text()),
-    });
+    };
+    seen.push(current);
+    const { status, answers } = reply(current, seen.length - 1);
     const payload =
       status === 200
         ? {
-            model: OPENROUTER_DECISIONS_MODEL,
+            model: current.body.model,
             answers,
             usage: { input_tokens: 40, output_tokens: 2, cost: 0.000002 },
           }
         : { error: { code: status, message: "no" } };
-    return Response.json(payload, { status });
+    return Response.json(payload, { status, headers: { "retry-after-ms": "1" } });
   };
-  const decisions = new OpenRouterDecisions({ apiKey: "key", ...host, fetch: fake });
+  const decisions = new OpenRouterDecisions({
+    apiKey: "key",
+    ...(options.host ?? { serverUrl: "https://router.test" }),
+    models: options.models ?? [JEV],
+    fetch: fake,
+  });
   return { decisions, seen };
+}
+
+function decisionsAnswering(answers: unknown, status = 200, host?: Host) {
+  return decisionsReplying(() => ({ status, answers }), { host });
 }
 
 type HangingFetch = { fetch: typeof fetch; sent: Promise<AbortSignal> };
@@ -73,7 +94,7 @@ describe("OpenRouterDecisions", () => {
     expect(seen[0]!.url).toBe("https://router.test/api/alpha/decisions");
     expect(seen[0]!.authorization).toBe("Bearer key");
     expect(seen[0]!.body).toEqual({
-      model: OPENROUTER_DECISIONS_MODEL,
+      model: JEV,
       state: { message: "done yet?" },
       questions: {
         wants_answer: {
@@ -108,7 +129,12 @@ describe("OpenRouterDecisions", () => {
     );
 
     expect(answered.probabilities).toEqual({ wants_answer: 0.9 });
-    expect(answered.usage).toEqual({ input_tokens: 40, output_tokens: 2, cost_usd: 0.000002 });
+    expect(answered.usage).toEqual({
+      model: JEV,
+      input_tokens: 40,
+      output_tokens: 2,
+      cost_usd: 0.000002,
+    });
   });
 
   test("throws when an asked question has no answer", async () => {
@@ -119,12 +145,88 @@ describe("OpenRouterDecisions", () => {
     );
   });
 
-  test("throws when the endpoint refuses the request", async () => {
-    const { decisions } = decisionsAnswering({}, 401);
+  test("throws when the endpoint refuses the request, without a retry", async () => {
+    const { decisions, seen } = decisionsAnswering({}, 401);
 
-    expect(
+    await expect(
       decisions.decide({ message: "hi" }, { yesNo: QUESTIONS, choices: {} }),
     ).rejects.toThrow();
+    expect(seen).toHaveLength(1);
+  });
+});
+
+describe("OpenRouterDecisions over several decisions models", () => {
+  const ASKED = { yesNo: QUESTIONS, choices: {} };
+  const ANSWERS = { wants_answer: { type: "noul", noul: 0.9 } };
+
+  afterEach(() => {
+    setSystemTime();
+  });
+
+  test("sends the first model it names", async () => {
+    const { decisions, seen } = decisionsReplying(() => ({ status: 200, answers: ANSWERS }), {
+      models: [FALLBACK_MODEL, JEV],
+    });
+
+    await decisions.decide({ message: "hi" }, ASKED);
+
+    expect(seen.map((request) => request.body.model)).toEqual([FALLBACK_MODEL]);
+  });
+
+  test("retries an overloaded model and takes its answer", async () => {
+    const { decisions, seen } = decisionsReplying((_seen, index) =>
+      index === 0 ? { status: 529 } : { status: 200, answers: ANSWERS },
+    );
+
+    const answered = await decisions.decide({ message: "hi" }, ASKED);
+
+    expect(seen).toHaveLength(2);
+    expect(answered.probabilities).toEqual({ wants_answer: 0.9 });
+  });
+
+  test("moves to the next model when one refuses the request", async () => {
+    const { decisions, seen } = decisionsReplying(
+      (request) =>
+        request.body.model === FALLBACK_MODEL ? { status: 200, answers: ANSWERS } : { status: 404 },
+      { models: [JEV, FALLBACK_MODEL] },
+    );
+
+    const answered = await decisions.decide({ message: "hi" }, ASKED);
+
+    expect(seen.map((request) => request.body.model)).toEqual([JEV, FALLBACK_MODEL]);
+    expect(answered.usage.model).toBe(FALLBACK_MODEL);
+  });
+
+  test("moves to the next model once one spends its retry budget", async () => {
+    let clock = Date.now();
+    const { decisions, seen } = decisionsReplying(
+      (request) => {
+        clock += 2000;
+        setSystemTime(clock);
+        return request.body.model === FALLBACK_MODEL
+          ? { status: 200, answers: ANSWERS }
+          : { status: 529 };
+      },
+      { models: [JEV, FALLBACK_MODEL] },
+    );
+
+    const answered = await decisions.decide({ message: "hi" }, ASKED);
+
+    const firstModelAttempts = seen.filter((request) => request.body.model === JEV);
+    expect(firstModelAttempts.length).toBeGreaterThan(1);
+    expect(firstModelAttempts.length).toBeLessThan(6);
+    expect(answered.usage.model).toBe(FALLBACK_MODEL);
+  });
+
+  test("throws when every model fails", async () => {
+    const { decisions, seen } = decisionsReplying(() => ({ status: 404 }), {
+      models: [JEV, FALLBACK_MODEL],
+    });
+
+    await expect(decisions.decide({ message: "hi" }, ASKED)).rejects.toThrow(
+      "every decisions model failed",
+    );
+    expect(seen).toHaveLength(2);
   });
 });
 
@@ -144,7 +246,7 @@ describe("OpenRouterDecisions choice questions", () => {
     await decisions.decide({ message: "use opus" }, { yesNo: {}, choices: MODEL_QUESTION });
 
     expect(seen[0]!.body).toEqual({
-      model: OPENROUTER_DECISIONS_MODEL,
+      model: JEV,
       state: { message: "use opus" },
       questions: {
         model: {
@@ -172,7 +274,12 @@ describe("OpenRouterDecisions choice questions", () => {
     );
 
     expect(answered.choices).toEqual({ model: { option: "claude-opus-5-5", probability: 0.8 } });
-    expect(answered.usage).toEqual({ input_tokens: 40, output_tokens: 2, cost_usd: 0.000002 });
+    expect(answered.usage).toEqual({
+      model: JEV,
+      input_tokens: 40,
+      output_tokens: 2,
+      cost_usd: 0.000002,
+    });
   });
 
   test("throws when a question gets no choice", async () => {
@@ -194,10 +301,7 @@ describe("OpenRouterDecisions with both kinds of question", () => {
     await decisions.decide({ message: "use opus" }, { yesNo: QUESTIONS, choices: MODEL_QUESTION });
 
     expect(seen).toHaveLength(1);
-    expect(Object.keys((seen[0]!.body as { questions: object }).questions)).toEqual([
-      "wants_answer",
-      "model",
-    ]);
+    expect(Object.keys(seen[0]!.body.questions)).toEqual(["wants_answer", "model"]);
   });
 
   test("returns the probabilities and the picks together", async () => {
@@ -236,6 +340,7 @@ describe("OpenRouterDecisions under an abort signal", () => {
     const decisions = new OpenRouterDecisions({
       apiKey: "key",
       serverUrl: "https://router.test",
+      models: [JEV],
       fetch: hanging,
     });
 
@@ -262,6 +367,7 @@ describe("OpenRouterDecisions under an abort signal", () => {
     const decisions = new OpenRouterDecisions({
       apiKey: "key",
       serverUrl: "https://router.test",
+      models: [JEV],
       fetch: overloaded,
     });
     const started = Date.now();

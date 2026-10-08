@@ -44,6 +44,8 @@ export function unsentHeldCommentsText(
   switch (screened) {
     case "quarantined":
       return `The held comments on ${pageUrl} were not sent. The screen found text in them that looks written to steer an AI agent. ${kept}`;
+    case "unchecked":
+      return `The held comments on ${pageUrl} were not sent. The screen could not check them right now. ${kept}`;
     case "too_large":
       return `The held comments on ${pageUrl} are too large to screen, so they were not sent. ${kept}`;
     default: {

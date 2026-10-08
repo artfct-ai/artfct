@@ -2,6 +2,7 @@ import type { CommitAuthor, MintedToken, Permissions } from "@artfct-ai/adapters
 import type { SandboxStartSpec } from "../../../sandbox/spec";
 import { harnessAdapter } from "@artfct-ai/adapters/harness/clients";
 import { FakeCodeHost } from "@artfct-ai/adapters/test/fake-code-host";
+import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { describe, expect, it } from "bun:test";
 import { Adapters } from "../../../config/adapters";
@@ -358,7 +359,7 @@ describe("startSandbox", () => {
           throw new Error("model m needs an OpenRouter key.");
         },
         anthropicRoute: () => null,
-        decisions: () => null,
+        decisions: () => new FakeDecisions(new Error("every decisions model failed")),
         models: async () => null,
       };
       const seeded = seedTask(workflow, { status: "queued", model: "m" }, { harness: "opencode" });

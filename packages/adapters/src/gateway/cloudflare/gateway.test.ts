@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it, spyOn } from "bun:test";
 import { CloudflareGateway } from "./gateway";
 
 const config = { accountId: "acct", gatewayId: "gw", token: "t", openRouterKey: "sk-or" };
@@ -83,8 +83,39 @@ describe("CloudflareGateway", () => {
   });
 
   describe("decisions", () => {
-    it("carries the Clef decisions model", () => {
-      expect(new CloudflareGateway(config).decisions().model).toBe("@cf/cloudflare/clef");
+    const ASKED = {
+      yesNo: { done: { instructions: "Is `message` done?", yes: "Done.", no: "Not done." } },
+      choices: {},
+    };
+
+    afterEach(() => {
+      fetchSpy?.mockRestore();
+    });
+
+    let fetchSpy: ReturnType<typeof spyOn<typeof globalThis, "fetch">> | undefined;
+
+    async function urlsSent(models: readonly [string, ...string[]]): Promise<string[]> {
+      const sent: string[] = [];
+      fetchSpy = spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+        sent.push(new Request(input, init).url);
+        return Response.json({
+          result: {
+            answers: { done: { type: "noul", noul: 0.5 } },
+            usage: { input_tokens: 1, output_tokens: 0 },
+          },
+          success: true,
+          errors: [],
+          messages: [],
+        });
+      });
+      await new CloudflareGateway(config).decisions(models).decide({ message: "done" }, ASKED);
+      return sent;
+    }
+
+    it("runs the Workers AI decisions model the config names", async () => {
+      expect(await urlsSent(["workers-ai/@cf/cloudflare/clef-flash"])).toEqual([
+        "https://api.cloudflare.com/client/v4/accounts/acct/ai/run/@cf/cloudflare/clef-flash",
+      ]);
     });
   });
 

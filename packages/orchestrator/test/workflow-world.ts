@@ -5,10 +5,14 @@ import type {
   PullRequestReviewComment,
 } from "@artfct-ai/adapters/code/types";
 import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
-import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
+import type { Decisions } from "@artfct-ai/adapters/gateway/types";
+import type { HeldComment } from "@artfct-ai/adapters/documents/types";
+import { FakeDecisions, HangingDecisions } from "@artfct-ai/adapters/test/fake-decisions";
+import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { Binding } from "@artfct-ai/contracts/sources";
+import { OPTIONS_HEADING } from "../src/artifact/options";
 import type { RefinerEntry, ReviewerEntry } from "../src/config/refiner";
 import { startJob } from "../src/workflow/lifecycle";
 import { handleEvent } from "../src/workflow/inbound/events";
@@ -44,14 +48,19 @@ export type RefinerSetup = (typeof REFINER_SETUPS)[number];
 
 /**
  * What one generated world is made of: the artifact kind of its first task, its refiner lists,
- * whether its stages run a researcher before the author, and what the checks say on a new push.
+ * whether its stages run a researcher before the author, what the checks say on a new push, and
+ * how the page stage ends.
  */
 export type WorldSetup = {
   artifact: ArtifactKind;
   refiners: RefinerSetup;
   research: boolean;
   checksOnPush: ChecksOnPush;
+  pageEnding: PageEnding;
 };
+
+/** How a job on the page stage ends: a person accepts the page, or selects one of its options. */
+export type PageEnding = "acceptance" | "choice";
 
 /**
  * What the checks say about a revision the moment it is pushed: they already passed, or nothing
@@ -86,13 +95,39 @@ type WorldPull = {
 };
 
 /** The artifact kinds a world runs tasks for. */
-export type ArtifactKind = "pull" | "issues";
+export type ArtifactKind = "pull" | "issues" | "page";
 
 /** The stage whose tasks produce each artifact kind. */
-export const STAGE_OF: Record<ArtifactKind, string> = { pull: "implement", issues: "breakdown" };
+export const STAGE_OF: Record<ArtifactKind, string> = {
+  pull: "implement",
+  issues: "breakdown",
+  page: "design",
+};
+
+/** An option every page of a world lists under its options heading. */
+export const PAGE_OPTION = "Split the table";
+
+/** The comment held on every page of a world until it is sent. */
+export const HELD_COMMENT: HeldComment = {
+  id: "held-1",
+  author_name: "Ann",
+  text: "Name the owner of the table.",
+};
+
+const PAGE_TEXT = [
+  "# Sessions",
+  "",
+  `## ${OPTIONS_HEADING}`,
+  "",
+  "1. Keep one table",
+  `2. ${PAGE_OPTION}`,
+].join("\n");
 
 /** The most author tasks the agent tries to hold in one world. It is more than the slots. */
 export const MAX_AUTHORS = 4;
+
+/** The most pages a world's authors can number. Each author numbers its artifact by its place. */
+const MAX_PAGES = 20;
 
 /** The task slots of the workflow of a world. */
 export const SLOTS = 2;
@@ -105,7 +140,15 @@ export const REPO = "acme/app";
 
 /** What an action tells the world about itself, for the step record. */
 export type StepFacts = Partial<
-  Pick<Step, "authorTurnEnd" | "feedback" | "refinerTurnEnd" | "staleAlarm">
+  Pick<
+    Step,
+    | "authorTurnEnd"
+    | "feedback"
+    | "refinerTurnEnd"
+    | "staleAlarm"
+    | "completion"
+    | "unadmittedFeedback"
+  >
 >;
 
 /** One thing that happens to a workflow. It picks its target from the world and may do nothing. */
@@ -114,7 +157,10 @@ export type WorkflowAction = {
   toString(): string;
 };
 
-/** The probabilities a decisions model answers with, or a model whose every call fails. */
+/**
+ * The probabilities a decisions model answers with, a model whose every call fails, or one that
+ * never answers before its caller's signal aborts.
+ */
 export type DecisionAnswers =
   | {
       for_author: number;
@@ -122,8 +168,10 @@ export type DecisionAnswers =
       rejects: number;
       gave_up?: number;
       accepts?: number;
+      selects?: number;
     }
-  | "fails";
+  | "fails"
+  | "hangs";
 
 /**
  * One author task and the number of its artifact on the host. An author that continues an open
@@ -205,6 +253,8 @@ export class WorkflowWorld {
     patchStageReviewers(workflow, lists.reviewers);
     patchStagePolishers(workflow, lists.polishers);
     if (setup.research) patchStageResearch(workflow);
+    if (setup.pageEnding === "choice") patchPageEnding(workflow, "choice");
+    workflow.documentsInstance = pageHost();
     workflow.gatewayInstance = new FakeGateway();
     workflow.patchState({
       repo: { full: REPO },
@@ -246,6 +296,8 @@ export class WorkflowWorld {
       feedback: facts.feedback ?? null,
       refinerTurnEnd: facts.refinerTurnEnd ?? null,
       staleAlarm: facts.staleAlarm ?? null,
+      completion: facts.completion ?? null,
+      unadmittedFeedback: facts.unadmittedFeedback ?? null,
       event: this.delivered,
     };
     this.steps.push(step);
@@ -332,9 +384,18 @@ export class WorkflowWorld {
 
   /** The link an author prints when it opens its artifact. */
   artifactUrlOf(author: WorldAuthor): string {
-    return author.kind === "pull"
-      ? pullUrl(author.pullNumber)
-      : `https://linear.app/acme/issue/ENG-4${author.pullNumber}/fix-login`;
+    switch (author.kind) {
+      case "pull":
+        return pullUrl(author.pullNumber);
+      case "issues":
+        return `https://linear.app/acme/issue/ENG-4${author.pullNumber}/fix-login`;
+      case "page":
+        return pageUrl(author.pullNumber);
+      default: {
+        const unreachable: never = author.kind;
+        throw new Error(`unhandled artifact kind ${String(unreachable)}`);
+      }
+    }
   }
 
   /**
@@ -426,10 +487,7 @@ export class WorkflowWorld {
 
   /** The decisions model that answers every question from now on. */
   answerDecisionsWith(answers: DecisionAnswers): void {
-    const decisions = new FakeDecisions(
-      answers === "fails" ? new Error("decisions model unavailable") : answers,
-    );
-    this.workflow.gatewayInstance = new FakeGateway({ decisions });
+    this.workflow.gatewayInstance = new FakeGateway({ decisions: decisionsAnswering(answers) });
   }
 
   /** Deliver one event from a person, the way ingress does. */
@@ -515,7 +573,7 @@ export class WorkflowWorld {
     for (const task of this.workflow.store.tasks()) {
       if (task.role !== "author" || known.has(task.task_id)) continue;
       const job = this.workflow.store.requireJob(task.job_id);
-      const kind = job.stage === STAGE_OF.pull ? "pull" : "issues";
+      const kind = kindOfStage(job.stage);
       const continued = [...this.pulls.values()].find(
         (pull) => kind === "pull" && pull.state !== "unopened" && pull.branch === job.branch,
       );
@@ -602,6 +660,35 @@ export class WorkflowWorld {
   }
 }
 
+function kindOfStage(stage: string): ArtifactKind {
+  const kinds = Object.keys(STAGE_OF) as ArtifactKind[];
+  const kind = kinds.find((candidate) => STAGE_OF[candidate] === stage);
+  if (!kind) throw new Error(`no artifact kind for stage ${stage}`);
+  return kind;
+}
+
+function pageUrl(number: number): string {
+  return `https://www.notion.so/acme/page-${number}`;
+}
+
+function pageHost(): FakeDocuments {
+  const numbers = Array.from({ length: MAX_PAGES }, (_unused, index) => index + 1);
+  const documents = new FakeDocuments({
+    pages: Object.fromEntries(numbers.map((number) => [pageUrl(number), `page-${number}`])),
+    held: [HELD_COMMENT],
+  });
+  for (const number of numbers) documents.seedPage(`page-${number}`, PAGE_TEXT);
+  return documents;
+}
+
+function patchPageEnding(workflow: FakeRuntime, ending: PageEnding): void {
+  workflow.patchWorkflowDefinition({
+    stages: workflow
+      .workflowDefinition()
+      .stages.map((stage) => (stage.name === STAGE_OF.page ? { ...stage, ending } : stage)),
+  });
+}
+
 function pullUrl(number: number): string {
   return `https://github.com/${REPO}/pull/${number}`;
 }
@@ -635,5 +722,16 @@ function commitChecksOf(report: ChecksReport, now: number): CommitChecks {
       const unreachable: never = report;
       throw new Error(`unhandled checks report ${String(unreachable)}`);
     }
+  }
+}
+
+function decisionsAnswering(answers: DecisionAnswers): Decisions {
+  switch (answers) {
+    case "fails":
+      return new FakeDecisions(new Error("decisions model unavailable"));
+    case "hangs":
+      return new HangingDecisions();
+    default:
+      return new FakeDecisions(answers);
   }
 }

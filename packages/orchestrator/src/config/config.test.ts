@@ -28,6 +28,37 @@ describe("loadConfig", () => {
     it("keeps each sandbox to the task's repository", () => {
       expect(config.orchestrator.sandbox.read_all_repos).toBe(false);
     });
+
+    it("tries Jev, then Clef, then Clef Flash, each on OpenRouter", () => {
+      expect(config.orchestrator.decisions_model).toEqual([
+        "openrouter/typesafe/jev-1.13",
+        "openrouter/cloudflare/clef",
+        "openrouter/cloudflare/clef-flash",
+      ]);
+    });
+  });
+
+  describe("a config that names the decisions model", () => {
+    it("reads one model as a list of one", () => {
+      const config = loadConfig(
+        "orchestrator: { decisions_model: workers-ai/@cf/cloudflare/clef }",
+      );
+      expect(config.orchestrator.decisions_model).toEqual(["workers-ai/@cf/cloudflare/clef"]);
+    });
+
+    it("keeps the order of a list", () => {
+      const config = loadConfig(
+        "orchestrator: { decisions_model: [openrouter/typesafe/jev-1.13, openrouter/typesafe/jev-1.12] }",
+      );
+      expect(config.orchestrator.decisions_model).toEqual([
+        "openrouter/typesafe/jev-1.13",
+        "openrouter/typesafe/jev-1.12",
+      ]);
+    });
+
+    it("rejects an empty list", () => {
+      expect(() => loadConfig("orchestrator: { decisions_model: [] }")).toThrow(/decisions_model/);
+    });
   });
 
   describe("a config that sets the sandbox startup timeout", () => {

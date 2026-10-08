@@ -1,11 +1,12 @@
-import type { Decisions, YesNoQuestion } from "@artfct-ai/adapters/gateway/types";
+import type { YesNoQuestion } from "@artfct-ai/adapters/gateway/types";
 import type { WorkflowRuntime } from "../workflow/types";
+import { askYesNo } from "./ask";
 
 /**
- * What the screen decided about one text. Only `admitted` text enters a model request. A text
- * the decisions model could not answer for is admitted.
+ * What the screen decided about one text. Only `admitted` text enters a model request. Text the
+ * decisions model did not answer for is `unchecked`, and stays out the same way.
  */
-export type Screened = "admitted" | "quarantined" | "too_large";
+export type Screened = "admitted" | "quarantined" | "unchecked" | "too_large";
 
 /** The `purpose` a screen call records its usage under. */
 export const SCREEN_PURPOSE = "screen";
@@ -60,13 +61,17 @@ export function screenParts(text: string): string[] {
   return parts;
 }
 
-/** What the answers to every part stand for. A part with no answer is null, and does not quarantine. */
+/**
+ * What the answers to every part stand for. A part with no answer is null. A flagged part
+ * quarantines the text, and otherwise a part with no answer leaves it unchecked.
+ */
 export function screenedFrom(parts: Array<Record<ScreenQuestion, number> | null>): Screened {
   const quarantined = parts.some(
     (part) =>
       part !== null && Object.values(part).some((probability) => probability >= QUARANTINE_FLOOR),
   );
-  return quarantined ? "quarantined" : "admitted";
+  if (quarantined) return "quarantined";
+  return parts.includes(null) ? "unchecked" : "admitted";
 }
 
 /**
@@ -76,46 +81,30 @@ export function screenedFrom(parts: Array<Record<ScreenQuestion, number> | null>
 export type ForeignText = { source: string; text: string; signal?: AbortSignal };
 
 /**
- * Ask the decisions model whether the text may enter a model request. When the gateway does not
- * carry a decisions model, every text is admitted. Rejects with the abort reason when `signal`
- * aborts during the screen.
+ * Ask the decisions model whether the text may enter a model request. Text it does not answer
+ * for is unchecked.
  */
 export async function screenText(
   workflow: WorkflowRuntime,
   { source, text, signal }: ForeignText,
 ): Promise<Screened> {
   if (!text.trim()) return "admitted";
-  const decisions = workflow.decisions();
-  if (!decisions) return "admitted";
   const parts = screenParts(text);
   if (parts.length > MAX_PARTS) {
     workflow.log(null, `screen too_large ${source}: ${text.length} characters`);
     return "too_large";
   }
   const answers = await Promise.all(
-    parts.map((part) => askPart(workflow, decisions, { source, text: part, signal })),
+    parts.map((part) =>
+      askYesNo(workflow, {
+        purpose: SCREEN_PURPOSE,
+        state: { text: part },
+        questions: SCREEN_QUESTIONS,
+        signal,
+      }),
+    ),
   );
-  signal?.throwIfAborted();
   const screened = screenedFrom(answers);
-  if (screened === "quarantined") workflow.log(null, `screen quarantined ${source}`);
+  if (screened !== "admitted") workflow.log(null, `screen ${screened} ${source}`);
   return screened;
-}
-
-async function askPart(
-  workflow: WorkflowRuntime,
-  decisions: Decisions,
-  { source, text, signal }: ForeignText,
-): Promise<Record<ScreenQuestion, number> | null> {
-  try {
-    const { usage, probabilities } = await decisions.decide(
-      { text },
-      { yesNo: SCREEN_QUESTIONS, choices: {} },
-      signal,
-    );
-    workflow.store.recordModelUsage({ purpose: SCREEN_PURPOSE, model: decisions.model, ...usage });
-    return probabilities;
-  } catch (error) {
-    workflow.log(null, `screen failed, admitted ${source}: ${String(error).slice(0, 200)}`);
-    return null;
-  }
 }

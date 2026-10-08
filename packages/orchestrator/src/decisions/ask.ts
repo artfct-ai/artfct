@@ -14,7 +14,7 @@ export type Decided<YesNoName extends string, ChoiceName extends string> = Omit<
 
 /**
  * One decisions call. `purpose` names its usage record. A caller inside an agent turn passes the
- * turn's abort signal.
+ * turn's signal.
  */
 export type DecisionsAsk<Questions> = {
   purpose: string;
@@ -25,7 +25,8 @@ export type DecisionsAsk<Questions> = {
 
 /**
  * Ask the orchestrator's decisions model every question over one state in one call, and record
- * the usage. Null when the gateway does not carry a decisions model, or the call fails or aborts.
+ * the usage. Null when the orchestrator's gateway is missing a secret, or every configured model
+ * failed, or the call aborts or runs past its deadline.
  */
 export async function askDecisions<YesNoName extends string, ChoiceName extends string>(
   workflow: WorkflowRuntime,
@@ -33,13 +34,21 @@ export async function askDecisions<YesNoName extends string, ChoiceName extends 
 ): Promise<Decided<YesNoName, ChoiceName> | null> {
   const decisions = workflow.decisions();
   if (!decisions) return null;
+  const deadline = new AbortController();
+  const timer = setTimeout(
+    () => deadline.abort(new Error(`decisions deadline of ${decisions.deadlineMs} ms passed`)),
+    decisions.deadlineMs,
+  );
+  const callSignal = signal ? AbortSignal.any([signal, deadline.signal]) : deadline.signal;
   try {
-    const { usage, ...answers } = await decisions.decide(state, questions, signal);
-    workflow.store.recordModelUsage({ purpose, model: decisions.model, ...usage });
+    const { usage, ...answers } = await decisions.decide(state, questions, callSignal);
+    workflow.store.recordModelUsage({ purpose, ...usage });
     return answers;
   } catch (error) {
     workflow.log(null, `${purpose} unknown, decisions failed: ${String(error).slice(0, 200)}`);
     return null;
+  } finally {
+    clearTimeout(timer);
   }
 }
 

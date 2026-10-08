@@ -56,7 +56,7 @@ describe("ScriptedDecisions", () => {
     expect(answers).toEqual({
       probabilities: { accepts: 1, owed: 0.5 },
       choices: {},
-      usage: { input_tokens: 0, output_tokens: 0, cost_usd: 0 },
+      usage: { model: "scripted", input_tokens: 0, output_tokens: 0, cost_usd: 0 },
     });
   });
 });

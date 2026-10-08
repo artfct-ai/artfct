@@ -85,9 +85,4 @@ describe("harnessGaveUp", () => {
       decisionsSay(workflow, new Error("unavailable"));
       expect(await harnessGaveUp(workflow, seedReviewer(workflow, BLOCKED))).toBe(false);
     }));
-
-  it("is false when the gateway carries no decisions model", () =>
-    freshRuntime(async (workflow) => {
-      expect(await harnessGaveUp(workflow, seedReviewer(workflow, BLOCKED))).toBe(false);
-    }));
 });
