@@ -4,68 +4,12 @@ import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { ChatTarget } from "../../notify/notifier";
 import { describe, expect, it } from "bun:test";
-import { seedPullRequestTask } from "../../../test/fake-runtime";
+import { seedPullRequestTask, type FakeRuntime } from "../../../test/fake-runtime";
 import { freshRuntime } from "../../../test/fresh-runtime";
 import { scenario } from "../../../test/scenario";
-import { armChatAck, handleEvent, onChatAck, type ChatAckAlarm } from "./events";
+import { handleEvent } from "./events";
 
 const TARGET: ChatTarget = { source: "chat", channel: "C1", thread: "1.0" };
-
-function armed(alarms: Array<{ method: string; payload: unknown }>): ChatAckAlarm {
-  const alarm = alarms.find((entry) => entry.method === "onChatAck");
-  if (!alarm) throw new Error("no onChatAck alarm was scheduled");
-  return alarm.payload as ChatAckAlarm;
-}
-
-describe("armChatAck", () => {
-  describe("a thread that already carries one acknowledgement", () => {
-    const armedAck = scenario(freshRuntime, async (workflow) => {
-      workflow.store.writeOutbox({
-        channel: "chat",
-        kind: "acknowledge",
-        target: TARGET,
-        payload: {},
-      });
-      await armChatAck(workflow, TARGET, "2.0");
-    });
-
-    it("carries the message and how quiet the thread was", () =>
-      armedAck((workflow) => {
-        expect(armed(workflow.alarms)).toEqual({ target: TARGET, message: "2.0", posted: 1 });
-      }));
-  });
-});
-
-describe("onChatAck", () => {
-  const waiting = scenario(freshRuntime, (workflow) => armChatAck(workflow, TARGET, "2.0"));
-
-  describe("a thread that heard nothing while the alarm waited", () => {
-    const silent = scenario(waiting, (workflow) => onChatAck(workflow, armed(workflow.alarms)));
-
-    it("reacts on the message", () =>
-      silent((workflow) => {
-        expect(workflow.store.outbox().map((entry) => entry.kind)).toEqual(["ack_reaction"]);
-      }));
-  });
-
-  describe("a thread the agent answered while the alarm waited", () => {
-    const answered = scenario(waiting, async (workflow) => {
-      const alarm = armed(workflow.alarms);
-      workflow.store.writeOutbox({
-        channel: "chat",
-        kind: "post",
-        target: TARGET,
-        payload: { text: "On it." },
-      });
-      await onChatAck(workflow, alarm);
-    });
-
-    it("says nothing, since the reaction would add nothing to the reply", () =>
-      answered((workflow) => {
-        expect(workflow.store.outbox().map((entry) => entry.kind)).toEqual(["post"]);
-      }));
-  });
-});
 
 describe("handleEvent", () => {
   const MARK = "evil.test";
@@ -109,6 +53,54 @@ describe("handleEvent", () => {
     it("tells the agent the text once, in the note of the feedback", () =>
       admitted((workflow) => {
         expect(workflow.notes.map((note) => note.text.split(MARK).length - 1)).toEqual([1]);
+      }));
+  });
+});
+
+function chatKinds(workflow: FakeRuntime): string[] {
+  return workflow.store
+    .outbox()
+    .filter((entry) => entry.channel === "chat")
+    .map((entry) => entry.kind);
+}
+
+describe("handleEvent on a chat message", () => {
+  const PROMPT: InboundEvent = {
+    id: "evt-prompt",
+    kind: "prompt",
+    actor: { person_id: "p1", email: "dev@acme.test", display_name: "Dev" },
+    bindings: [],
+    links: [],
+    text: "also add a test",
+    reply_to: TARGET,
+    acknowledge: { message: "2.0", user: "U1" },
+  };
+
+  describe("a message the idle agent starts a turn on", () => {
+    const idle = scenario(freshRuntime, async (workflow) => {
+      await handleEvent(workflow, PROMPT);
+    });
+
+    it("puts the thread in its working state without the eyes reaction", () =>
+      idle((workflow) => {
+        expect(chatKinds(workflow)).toEqual(["acknowledge"]);
+      }));
+  });
+
+  describe("a message that arrives while an agent turn runs", () => {
+    const busy = scenario(freshRuntime, async (workflow) => {
+      workflow.turnRunning = true;
+      await handleEvent(workflow, PROMPT);
+    });
+
+    it("gets the eyes reaction, since the turn that reads it starts later", () =>
+      busy((workflow) => {
+        expect(chatKinds(workflow)).toEqual(["ack_reaction"]);
+      }));
+
+    it("still tells the agent", () =>
+      busy((workflow) => {
+        expect(workflow.notes.map((note) => note.wake)).toEqual(["message"]);
       }));
   });
 });

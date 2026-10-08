@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 import { Notifier, type ChannelClients, type PostOptions } from "../../notify/notifier";
 import type { Workflow } from "../../workflow";
 import { failWorkflow } from "../lifecycle";
-import type { ChatAckAlarm } from "./events";
 import { type Scenario, scenario } from "../../../test/scenario";
 
 type Outbox = Array<{ kind: string; payload: Record<string, unknown> }>;
@@ -111,17 +110,6 @@ describe("acknowledge", () => {
       }));
   });
 
-  describe("a start from a Slack thread", () => {
-    it("arms one eyes reaction, so a thread that waits still learns the message arrived", () =>
-      freshWorkflow((workflow) => {
-        const armed = workflow
-          .getSchedules<ChatAckAlarm>()
-          .filter((schedule) => schedule.callback === "onChatAck");
-        expect(armed).toHaveLength(1);
-        expect(armed[0]?.payload).toMatchObject({ message: "1.0", target: chatThread });
-      }));
-  });
-
   describe("a message after the plan named the workflow", () => {
     const named = scenario(freshWorkflow, async (workflow) => {
       workflow.patchState({ name: "Flaky checkout test" });
@@ -192,9 +180,9 @@ describe("release", () => {
       kinds = (await outboxOf(workflow)).slice(before).map((entry) => entry.kind);
     });
 
-    it("acknowledges the message and releases the thread", () =>
+    it("reacts to the message and leaves the thread out of its working state", () =>
       handled(() => {
-        expect(kinds).toEqual(["acknowledge", "release"]);
+        expect(kinds).toEqual(["ack_reaction"]);
       }));
   });
 

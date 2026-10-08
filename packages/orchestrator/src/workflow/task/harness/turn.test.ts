@@ -292,6 +292,20 @@ describe("TurnCoalescer", () => {
     });
   });
 
+  describe("busy", () => {
+    it("is false before any turn", () => {
+      expect(turns.busy).toBe(false);
+    });
+
+    it("is true while a turn runs and false once it ends", async () => {
+      const first = heldTurn();
+      expect(turns.busy).toBe(true);
+      gate.release?.();
+      await first;
+      expect(turns.busy).toBe(false);
+    });
+  });
+
   describe("a turn that throws", () => {
     it("rejects every waiter the way the turn did", async () => {
       const failing = turns.run(async () => {

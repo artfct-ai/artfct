@@ -59,7 +59,6 @@ import { onIdle } from "./workflow/lifecycle";
 import type { ChecksAlarm } from "./workflow/refiner/checks-gate";
 import { recheckChecks } from "./workflow/refiner/checks-recheck";
 import { retryQueue } from "./workflow/task/harness/prompt-queue";
-import { onChatAck, type ChatAckAlarm } from "./workflow/inbound/events";
 import { provision } from "./workflow/task/sandbox/sandbox";
 import { TurnCoalescer } from "./workflow/task/harness/turn";
 import type { JobInput } from "./workflow/lifecycle";
@@ -257,10 +256,6 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
 
   recheckChecks(alarm: ChecksAlarm): Promise<void> {
     return this.inSpan("alarm recheckChecks", null, () => recheckChecks(this, alarm));
-  }
-
-  onChatAck(alarm: ChatAckAlarm): Promise<void> {
-    return onChatAck(this, alarm);
   }
 
   /** Bridge sockets carry ACP only. State sync frames would leak the request and reply targets. */
@@ -494,6 +489,10 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
           `[${this.state.workflow_id}] agent turn failed: ${String(error).slice(0, 300)}`,
         );
       });
+  }
+
+  agentTurnRunning(): boolean {
+    return this.turns.busy;
   }
 
   async working(text: string): Promise<void> {

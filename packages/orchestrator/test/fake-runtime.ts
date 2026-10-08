@@ -125,6 +125,7 @@ export class FakeRuntime implements WorkflowRuntime {
   modelParams: Record<string, JSONValue>[] = [];
   modelGateways: (GatewayProvider | undefined)[] = [];
   clock: number | null = null;
+  turnRunning = false;
   configOverride: Config | null = null;
   workflowDefinitionOverride: WorkflowDefinition | null = null;
   private alarmSeq = 0;
@@ -292,6 +293,10 @@ export class FakeRuntime implements WorkflowRuntime {
 
   sandbox(): SandboxProvider {
     return this.sandboxProvider;
+  }
+
+  agentTurnRunning(): boolean {
+    return this.turnRunning;
   }
 
   async tellAgent(text: string, wake: Wake): Promise<void> {

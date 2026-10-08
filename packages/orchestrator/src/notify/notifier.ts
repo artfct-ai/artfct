@@ -50,9 +50,6 @@ export const TRACKER_RELEASE_TEXT = "Noted. Nothing to report right now.";
 /** At most one chat progress message per thread in this window. */
 export const CHAT_PROGRESS_INTERVAL_MS = 60_000;
 
-/** Seconds of silence after a chat message before the eyes reaction says it was received. */
-export const CHAT_ACK_DELAY_S = 10;
-
 /**
  * The channels the notifier posts through. A channel without credentials is null. The tracker
  * and the document host are read on each use, so one installed later is found.
@@ -211,8 +208,8 @@ export class Notifier {
   }
 
   /**
-   * Mark a chat message as received by putting the thread in its processing state. A long wait
-   * gets the reaction later, from `ackReaction`. Never throws.
+   * Mark a chat message an agent turn starts on as received, by putting the thread in its
+   * processing state. Never throws.
    */
   async acknowledge(target: ChatTarget, ack: Acknowledge, title: string): Promise<void> {
     this.outbox({
@@ -225,7 +222,7 @@ export class Notifier {
     await this.setChatSession(target, "processing", { title, initiatorUserId: ack.user });
   }
 
-  /** React to a message the thread is still waiting on. Never throws. */
+  /** Mark a chat message no agent turn starts on now as received, with the eyes reaction. Never throws. */
   async ackReaction(target: ChatTarget, message: string): Promise<void> {
     this.outbox({ channel: "chat", kind: "ack_reaction", target, payload: { message } });
     if (!this.chat) return;

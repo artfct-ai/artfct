@@ -2,7 +2,7 @@ import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { RpcAck } from "@artfct-ai/contracts/types";
 import { eventMessage } from "../../agent/transcript/envelope";
 import { pullDetailOf } from "../../artifact/pull";
-import { CHAT_ACK_DELAY_S, type ChatTarget, type PostOptions } from "../../notify/notifier";
+import type { PostOptions } from "../../notify/notifier";
 import { applyEvent } from "./apply";
 import { armIdle, changeWorkflowStatus } from "../lifecycle";
 import { firstLine, isWorkflowFinished, now, workflowName } from "../store/state";
@@ -59,12 +59,12 @@ export async function handleEvent(workflow: WorkflowRuntime, event: InboundEvent
     return ACK;
   }
   if (isMessage(event)) await wakeWorkflow(workflow);
-  await acknowledge(workflow, event);
   const postedBefore = workflow.store.postedCount();
   const applied = await applyEvent(workflow, event);
+  const wakesAgent = applied !== "handled" && applied.wake !== "none";
+  if (wakesAgent) await acknowledge(workflow, event);
   if (applied !== "handled") await tellAgentAbout(workflow, event, applied);
-  const wake = applied === "handled" ? "none" : applied.wake;
-  if (wake === "none") await releaseIfSilent(workflow, event, postedBefore);
+  if (!wakesAgent) await answerIfSilent(workflow, event, postedBefore);
   return ACK;
 }
 
@@ -89,44 +89,36 @@ async function tellAgentAbout(
   );
 }
 
-/** No turn will run for this event. Release the thread when nothing was posted for it. */
-async function releaseIfSilent(
+/**
+ * No turn will run for this event. When nothing was posted for it, a chat message gets the eyes
+ * reaction and any other reply target is released.
+ */
+async function answerIfSilent(
   workflow: WorkflowRuntime,
   event: InboundEvent,
   postedBefore: number,
 ): Promise<void> {
   if (!event.reply_to || workflow.store.postedCount() !== postedBefore) return;
+  if (event.reply_to.source === "chat" && event.acknowledge) {
+    await workflow.notifier.ackReaction(event.reply_to, event.acknowledge.message);
+    return;
+  }
   await workflow.release(event.reply_to);
 }
 
 /**
- * Show the chat thread the message was received. The eyes reaction is armed and lands only
- * if the thread stays quiet.
+ * Show the chat thread that a message which wakes the agent was received. An idle agent starts a
+ * turn on it, so the thread enters its working state. A busy agent takes it in the next turn, so
+ * the message gets the eyes reaction.
  */
 async function acknowledge(workflow: WorkflowRuntime, event: InboundEvent): Promise<void> {
   if (!event.acknowledge || event.reply_to?.source !== "chat") return;
+  if (workflow.agentTurnRunning()) {
+    await workflow.notifier.ackReaction(event.reply_to, event.acknowledge.message);
+    return;
+  }
   const title = workflowName(workflow.state);
   await workflow.notifier.acknowledge(event.reply_to, event.acknowledge, title);
-  await armChatAck(workflow, event.reply_to, event.acknowledge.message);
-}
-
-/** What the delayed chat acknowledgement needs: the thread, the message, and the quiet test. */
-export type ChatAckAlarm = { target: ChatTarget; message: string; posted: number };
-
-/** Arm the eyes reaction for one chat message, with the posted count the alarm compares to. */
-export async function armChatAck(
-  workflow: WorkflowRuntime,
-  target: ChatTarget,
-  message: string,
-): Promise<void> {
-  const alarm: ChatAckAlarm = { target, message, posted: workflow.store.postedCount() };
-  await workflow.scheduleAlarm(CHAT_ACK_DELAY_S, "onChatAck", alarm);
-}
-
-/** The wait was long enough to look like nothing happened. React, unless the thread spoke. */
-export async function onChatAck(workflow: WorkflowRuntime, alarm: ChatAckAlarm): Promise<void> {
-  if (workflow.store.postedCount() !== alarm.posted) return;
-  await workflow.notifier.ackReaction(alarm.target, alarm.message);
 }
 
 /** A message wakes a sleeping workflow and starts the idle clock over. */
