@@ -5,6 +5,7 @@ import type {
   Decisions,
   DecisionState,
 } from "@artfct-ai/adapters/gateway/types";
+import { FAKE_DECISIONS_DEADLINE_MS } from "@artfct-ai/adapters/test/fake-decisions";
 import { approvesReply, SCRIPTED_REVIEW_REQUEST } from "./scripted-model";
 
 /** The probability the scripted decisions model gives a question it has no script for. */
@@ -15,6 +16,8 @@ const NO_CHOICE: Choice = { option: "none", probability: 1 };
 
 /** A deterministic stand-in for the decisions model, beside the scripted orchestrator model. */
 export class ScriptedDecisions implements Decisions {
+  readonly deadlineMs = FAKE_DECISIONS_DEADLINE_MS;
+
   async decide<YesNoName extends string, ChoiceName extends string>(
     state: DecisionState,
     questions: DecisionQuestions<YesNoName, ChoiceName>,

@@ -75,12 +75,10 @@ export const START_JOB = "start_job";
 /**
  * What a turn gives the start tools beyond the people's messages. `requestText` identifies an ad
  * hoc job started in the turn. `runtimeRequest` settles to the model a message named, or null.
- * `decisionsSignal` bounds the turn's decisions calls.
  */
 export type StartTurn = {
   requestText?: string;
   runtimeRequest?: Promise<RuntimeRequest | null>;
-  decisionsSignal?: AbortSignal;
 };
 
 /** Tools that start jobs and end them. `personMessages` are what the people wrote in this turn. */
@@ -138,13 +136,13 @@ export function startTools(
             "on a stage with a choice ending: the selected option, exactly as the page lists it under its options heading",
           ),
       }),
-      execute: ({ job_id, result, option }) =>
+      execute: ({ job_id, result, option }, { abortSignal }) =>
         complete(workflow, {
           jobId: job_id,
           result,
           option,
           personMessages,
-          signal: turn.decisionsSignal,
+          signal: abortSignal,
         }),
     }),
     cancel_job: tool({
@@ -462,7 +460,7 @@ type CompleteInput = {
   signal: AbortSignal | undefined;
 };
 
-/** The messages people wrote in this turn, with the turn's decisions signal. */
+/** The messages people wrote in this turn, with the turn's abort signal. */
 type TurnMessages = Pick<CompleteInput, "personMessages" | "signal">;
 
 async function complete(

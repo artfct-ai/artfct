@@ -7,6 +7,9 @@ import type {
   DecisionState,
 } from "../src/gateway/types";
 
+/** How long a fake decisions call may take before its caller gives up. Longer than any test turn. */
+export const FAKE_DECISIONS_DEADLINE_MS = 10_000;
+
 /** The option a `FakeDecisions` picks for a question it has no choice for. */
 export const FAKE_NO_CHOICE: Choice = { option: "none", probability: 1 };
 
@@ -21,6 +24,7 @@ export type FakeAnswers =
  * option picked for each choice question.
  */
 export class FakeDecisions implements Decisions {
+  readonly deadlineMs = FAKE_DECISIONS_DEADLINE_MS;
   readonly asked: DecisionState[] = [];
   readonly offered: ChoiceQuestion[] = [];
 
@@ -59,6 +63,8 @@ export class FakeDecisions implements Decisions {
  */
 export class HangingDecisions implements Decisions {
   calls = 0;
+
+  constructor(readonly deadlineMs = FAKE_DECISIONS_DEADLINE_MS) {}
 
   decide<YesNoName extends string, ChoiceName extends string>(
     _state: DecisionState,

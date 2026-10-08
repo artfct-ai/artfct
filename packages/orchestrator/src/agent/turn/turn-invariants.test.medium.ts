@@ -5,7 +5,11 @@ import type {
   Decisions,
   DecisionState,
 } from "@artfct-ai/adapters/gateway/types";
-import { FakeDecisions, HangingDecisions } from "@artfct-ai/adapters/test/fake-decisions";
+import {
+  FAKE_DECISIONS_DEADLINE_MS,
+  FakeDecisions,
+  HangingDecisions,
+} from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { FakeWeb } from "@artfct-ai/adapters/test/fake-web";
 import fc from "fast-check";
@@ -48,6 +52,8 @@ const INPUT_TOKENS = { under_the_limit: 0, over_the_limit: CONTEXT_TOKENS + 1 };
 
 const TURN_TIMEOUT_MINUTES = { answers: 10, decisions_hang: 0.008, model_hangs: 0.0005 };
 
+const HANGING_DECISIONS_DEADLINE_MS = 20;
+
 const THREAD = { source: "chat", channel: "C1", thread: "1.0" } as const;
 
 const RESET = "Durable Object reset because its code was updated.";
@@ -87,6 +93,7 @@ const scriptedTurn: fc.Arbitrary<ScriptedTurn> = fc.record({
 });
 
 class RecoveringDecisions implements Decisions {
+  readonly deadlineMs = FAKE_DECISIONS_DEADLINE_MS;
   private calls = 0;
 
   constructor(private readonly recovered: FakeDecisions) {}
@@ -112,7 +119,7 @@ function decisionsFor(turn: ScriptedTurn): Decisions | undefined {
     case "fails":
       return new FakeDecisions(new Error("decisions model unavailable"));
     case "hangs":
-      return new HangingDecisions();
+      return new HangingDecisions(HANGING_DECISIONS_DEADLINE_MS);
     case "recovers":
       return new RecoveringDecisions(
         new FakeDecisions({ ...OWED_ANSWERS.answer, ...SCREEN_ANSWERS[turn.screen] }),

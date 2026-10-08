@@ -86,6 +86,8 @@ export type DecisionAnswers<YesNoName extends string, ChoiceName extends string>
 
 /** The decisions model on a gateway. It answers narrow judgments with probabilities and generates no text. */
 export interface Decisions {
+  /** Milliseconds one call may take, every model and retry included. Past it the caller gives up. */
+  readonly deadlineMs: number;
   /**
    * Answer every question over the same state in one call. Each decisions model gets its retries,
    * then the next one takes the call. Rejects when every model fails, or with the abort reason as

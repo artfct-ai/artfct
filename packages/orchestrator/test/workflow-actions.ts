@@ -651,8 +651,8 @@ const PERSON_MESSAGES: Record<PersonAtCompletion, string[]> = {
 /** What the decisions model does when the agent completes a task. */
 export type DecisionsAtCompletion = "answers" | "fails" | "hangs" | "none";
 
-/** Milliseconds the turn's decisions deadline gives a decisions model that never answers. */
-const DECISIONS_DEADLINE_MS = 5;
+/** Milliseconds until the turn's abort signal stops a decisions model that never answers. */
+const TURN_DEADLINE_MS = 5;
 
 /** The agent completes the author task, in whatever state it is. */
 export function agentCompletes(
@@ -668,13 +668,11 @@ export function agentCompletes(
         ? { for_author: 0, beyond_author: 0, rejects: 0, accepts }
         : decisions,
     );
-    const { complete_job } = startTools(world.workflow, PERSON_MESSAGES[person], {
-      decisionsSignal: decisionsSignalFor(decisions),
-    });
+    const { complete_job } = startTools(world.workflow, PERSON_MESSAGES[person]);
     const result = toolText(
       await complete_job.execute(
         { job_id: world.jobOf(author).job_id, result: "Done." },
-        TOOL_CALL,
+        toolCallFor(decisions),
       ),
     );
     if (decisions === "hangs") world.answerDecisionsWith("fails");
@@ -701,13 +699,11 @@ export function agentCompletesWithSelection(
         ? { for_author: 0, beyond_author: 0, rejects: 0, selects }
         : decisions,
     );
-    const { complete_job } = startTools(world.workflow, PERSON_MESSAGES[person], {
-      decisionsSignal: decisionsSignalFor(decisions),
-    });
+    const { complete_job } = startTools(world.workflow, PERSON_MESSAGES[person]);
     const result = toolText(
       await complete_job.execute(
         { job_id: world.jobOf(author).job_id, result: "Done.", option: PAGE_OPTION },
-        TOOL_CALL,
+        toolCallFor(decisions),
       ),
     );
     if (decisions === "hangs") world.answerDecisionsWith("fails");
@@ -730,9 +726,12 @@ export function agentSendsHeldComments(
     world.answerDecisionsWith(
       decisions === "answers" ? { for_author: 0, beyond_author: 0, rejects: 0 } : decisions,
     );
-    const { send_held_comments } = heldCommentTools(world.workflow, decisionsSignalFor(decisions));
+    const { send_held_comments } = heldCommentTools(world.workflow);
     const result = toolText(
-      await send_held_comments.execute({ job_id: world.jobOf(author).job_id }, TOOL_CALL),
+      await send_held_comments.execute(
+        { job_id: world.jobOf(author).job_id },
+        toolCallFor(decisions),
+      ),
     );
     if (decisions === "hangs") world.answerDecisionsWith("fails");
     if (decisions === "answers") return undefined;
@@ -740,8 +739,9 @@ export function agentSendsHeldComments(
   });
 }
 
-function decisionsSignalFor(decisions: DecisionsAtCompletion): AbortSignal | undefined {
-  return decisions === "hangs" ? AbortSignal.timeout(DECISIONS_DEADLINE_MS) : undefined;
+function toolCallFor(decisions: DecisionsAtCompletion) {
+  if (decisions !== "hangs") return TOOL_CALL;
+  return { ...TOOL_CALL, abortSignal: AbortSignal.timeout(TURN_DEADLINE_MS) };
 }
 
 /**

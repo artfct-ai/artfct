@@ -30,7 +30,7 @@ function called(
   return freshRuntime(async (workflow) => {
     const decisions = new FakeDecisions(answers);
     workflow.gatewayInstance = new FakeGateway({ decisions });
-    const tools = screeningTools(workflow, toolsReturning(PAGE), { names: new Set(["fetch_url"]) });
+    const tools = screeningTools(workflow, toolsReturning(PAGE), new Set(["fetch_url"]));
     run({ workflow, decisions, result: await tools[toolName]!.execute!({}, CALL) });
   });
 }
@@ -83,7 +83,7 @@ describe("screeningTools", () => {
     it("is passed through unchanged", () =>
       freshRuntime(async (workflow) => {
         const tools = toolsReturning(PAGE);
-        const screened = screeningTools(workflow, tools, { names: new Set(["described"]) });
+        const screened = screeningTools(workflow, tools, new Set(["described"]));
         expect(screened.described).toBe(tools.described);
       }));
   });

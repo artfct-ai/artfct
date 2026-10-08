@@ -22,7 +22,7 @@ export function hasPageArtifact(workflow: WorkflowRuntime): boolean {
 }
 
 /** The tool that sends held page comments to the author when a person asks in the thread. */
-export function heldCommentTools(workflow: WorkflowRuntime, decisionsSignal?: AbortSignal) {
+export function heldCommentTools(workflow: WorkflowRuntime) {
   return {
     [SEND_HELD_COMMENTS]: tool({
       description:
@@ -30,7 +30,7 @@ export function heldCommentTools(workflow: WorkflowRuntime, decisionsSignal?: Ab
       inputSchema: z.object({
         job_id: z.string().describe("the job id, for example wf_abc-2"),
       }),
-      execute: ({ job_id }) => sendHeldComments(workflow, job_id, decisionsSignal),
+      execute: ({ job_id }, { abortSignal }) => sendHeldComments(workflow, job_id, abortSignal),
     }),
   };
 }

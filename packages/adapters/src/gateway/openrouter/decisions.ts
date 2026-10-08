@@ -3,7 +3,7 @@ import type { RetryConfig } from "@openrouter/sdk/lib/retries.js";
 import { workerdFetch } from "../../workerd-fetch";
 import type { DecisionsRequest } from "@openrouter/sdk/models/decisionsrequest.js";
 import type { DecisionsResponse } from "@openrouter/sdk/models/decisionsresponse.js";
-import { askModelsInOrder } from "../models-in-order";
+import { askModelsInOrder, decisionsDeadlineMs } from "../models-in-order";
 import type {
   Choice,
   ChoiceQuestion,
@@ -45,6 +45,10 @@ export class OpenRouterDecisions implements Decisions {
   private client: Promise<OpenRouterCore> | null = null;
 
   constructor(private readonly options: OpenRouterDecisionsOptions) {}
+
+  get deadlineMs(): number {
+    return decisionsDeadlineMs(this.options.models);
+  }
 
   async decide<YesNoName extends string, ChoiceName extends string>(
     state: DecisionState,

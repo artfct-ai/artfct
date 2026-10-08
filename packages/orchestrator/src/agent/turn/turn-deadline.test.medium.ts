@@ -12,6 +12,8 @@ import { runAgentTurn } from "./turn";
 
 const TURN_TIMEOUT_MINUTES = 0.0005;
 
+const DECISIONS_DEADLINE_MS = 5;
+
 const asked: InboundEvent = {
   id: "evt-asked",
   kind: "prompt",
@@ -37,7 +39,7 @@ function stuckDecisions(
 ): Scenario<Stuck> {
   return (run) =>
     freshDurableRuntime(async (workflow) => {
-      const decisions = new HangingDecisions();
+      const decisions = new HangingDecisions(DECISIONS_DEADLINE_MS);
       workflow.gatewayInstance = new FakeGateway({ decisions });
       workflow.modelInstance = new ScriptedFailure(["text"]);
       const { orchestrator } = workflow.config();

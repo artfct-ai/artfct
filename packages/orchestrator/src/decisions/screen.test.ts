@@ -188,4 +188,14 @@ describe("screenText", () => {
         expect(await screened).toBe("unchecked");
       }));
   });
+
+  describe("a decisions model that hangs past its own deadline", () => {
+    it("leaves the text unchecked without a caller signal", () =>
+      freshRuntime(async (runtime) => {
+        runtime.gatewayInstance = new FakeGateway({ decisions: new HangingDecisions(1) });
+        expect(await screenText(runtime, { source: "event", text: "fix the login test" })).toBe(
+          "unchecked",
+        );
+      }));
+  });
 });

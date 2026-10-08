@@ -30,9 +30,6 @@ export function unadmittedResultText(
   }
 }
 
-/** The tools whose results the screen checks, and the turn's decisions signal. */
-export type ScreenedNames = { names: ReadonlySet<string>; decisionsSignal?: AbortSignal };
-
 /**
  * The same tools, with the result of every tool `names` lists screened inside the call. A
  * result the screen does not admit never reaches the model, the transcript, or the size limit.
@@ -40,7 +37,7 @@ export type ScreenedNames = { names: ReadonlySet<string>; decisionsSignal?: Abor
 export function screeningTools(
   workflow: WorkflowRuntime,
   tools: ToolSet,
-  { names, decisionsSignal }: ScreenedNames,
+  names: ReadonlySet<string>,
 ): ToolSet {
   const wrapped = Object.entries(tools).map(([name, tool]) => {
     const { execute } = tool;
@@ -51,7 +48,7 @@ export function screeningTools(
       const screened = await screenText(workflow, {
         source: `the result of ${name}`,
         text,
-        signal: decisionsSignal,
+        signal: options.abortSignal,
       });
       return screened === "admitted" ? result : unadmittedResultText(name, screened);
     };

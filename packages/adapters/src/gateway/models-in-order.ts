@@ -6,6 +6,11 @@ import type { DecisionsModels } from "./types";
  */
 export const DECISIONS_MODEL_BUDGET_MS = 12_000;
 
+/** Milliseconds one call over `models` may take: the budget of each model in turn. */
+export function decisionsDeadlineMs(models: DecisionsModels): number {
+  return DECISIONS_MODEL_BUDGET_MS * models.length;
+}
+
 /**
  * Ask each decisions model in order until one answers. A model that fails, or runs past its
  * budget, hands the call to the next. Rejects when every model fails, or with the abort reason as

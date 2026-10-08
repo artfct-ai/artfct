@@ -121,32 +121,11 @@ async function conclude(workflow: WorkflowRuntime, outcome: Outcome): Promise<vo
   }
 }
 
-/**
- * The share of the turn deadline after which every decisions call of the turn fails at once, so
- * the model keeps the rest of the turn to answer.
- */
-const DECISIONS_SHARE_OF_TURN = 0.5;
-
-/** The signals of one attempt. `decisionsSignal` also fires at the turn's decisions deadline. */
-type AttemptSignals = { signal: AbortSignal; decisionsSignal: AbortSignal };
-
 /** The whole attempt, setup included, under the turn deadline. Throws only for a superseded isolate. */
 async function boundedAttempt(workflow: WorkflowRuntime, turn: TurnInput): Promise<Outcome> {
   const timeoutMs = workflow.config().orchestrator.turn_timeout_minutes * 60_000;
   try {
-    const bounded = await runUnderDeadline(timeoutMs, async (signal) => {
-      const decisionsDeadline = new AbortController();
-      const timer = setTimeout(
-        () => decisionsDeadline.abort(new Error("the turn's decisions deadline passed")),
-        timeoutMs * DECISIONS_SHARE_OF_TURN,
-      );
-      try {
-        const decisionsSignal = AbortSignal.any([signal, decisionsDeadline.signal]);
-        return await attempt(workflow, turn, { signal, decisionsSignal });
-      } finally {
-        clearTimeout(timer);
-      }
-    });
+    const bounded = await runUnderDeadline(timeoutMs, (signal) => attempt(workflow, turn, signal));
     return bounded.kind === "done" ? bounded.result : "timed_out";
   } catch (error) {
     if (isSupersededIsolate(error)) throw error;
@@ -159,19 +138,14 @@ async function boundedAttempt(workflow: WorkflowRuntime, turn: TurnInput): Promi
 async function attempt(
   workflow: WorkflowRuntime,
   turn: TurnInput,
-  { signal, decisionsSignal }: AttemptSignals,
+  signal: AbortSignal,
 ): Promise<Outcome> {
   const message = turn.messages.join("\n\n");
-  const reading = turn.messages.length
-    ? readPersonMessage(workflow, message, decisionsSignal)
-    : null;
+  const reading = turn.messages.length ? readPersonMessage(workflow, message, signal) : null;
   const runtimeRequest = Promise.resolve(reading).then((reply) =>
-    reply?.namesModel ? requestedRuntime(workflow, message, decisionsSignal) : null,
+    reply?.namesModel ? requestedRuntime(workflow, message, signal) : null,
   );
-  const [reply, tools] = await Promise.all([
-    reading,
-    loadTools(workflow, turn, { runtimeRequest, decisionsSignal }),
-  ]);
+  const [reply, tools] = await Promise.all([reading, loadTools(workflow, turn, runtimeRequest)]);
   await compactIfLarge(workflow, turn, signal);
   const run = { tools, signal, reply, progress: { boardChanged: false } };
   try {
@@ -198,10 +172,7 @@ async function attempt(
 async function loadTools(
   workflow: WorkflowRuntime,
   turn: TurnInput,
-  {
-    runtimeRequest,
-    decisionsSignal,
-  }: { runtimeRequest: Promise<RuntimeRequest | null>; decisionsSignal: AbortSignal },
+  runtimeRequest: Promise<RuntimeRequest | null>,
 ): Promise<ToolSet> {
   let mcp: ToolSet = {};
   try {
@@ -212,13 +183,9 @@ async function loadTools(
   const tools = workflowTools(workflow, turn.messages, {
     requestText: turn.requestText,
     runtimeRequest,
-    decisionsSignal,
   });
   const foreign = new Set<string>([...Object.keys(mcp), ...FOREIGN_TEXT_TOOLS]);
-  return condensingTools(
-    workflow,
-    screeningTools(workflow, { ...mcp, ...tools }, { names: foreign, decisionsSignal }),
-  );
+  return condensingTools(workflow, screeningTools(workflow, { ...mcp, ...tools }, foreign));
 }
 
 /**
