@@ -1,4 +1,8 @@
-import { describe, expect, it } from "bun:test";
+import { afterAll, beforeAll, describe, expect, it } from "bun:test";
+import { spawnSync } from "node:child_process";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import {
   GITHUB_TOKEN_FILE,
   bridgeCommand,
@@ -33,10 +37,11 @@ const spec: SandboxStartSpec = {
   files: [],
   setup_commands: ["harness-tool init"],
   sleep_after_ms: 1_800_000,
+  startup_timeout_ms: 600_000,
 };
 
 const CLONE_LINE =
-  "if [ ! -d '/workspace/repo'/.git ]; then git clone \"$ARTFCT_CLONE_URL\" '/workspace/repo'; fi";
+  "if [ ! -d '/workspace/repo'/.git ]; then rm -rf '/workspace/repo.clone'; git clone --filter=blob:none \"$ARTFCT_CLONE_URL\" '/workspace/repo.clone'; rmdir '/workspace/repo'; mv '/workspace/repo.clone' '/workspace/repo'; fi";
 
 describe("startupScript", () => {
   describe("a task on a branch of a repo, with a token", () => {
@@ -167,6 +172,76 @@ describe("startupScript", () => {
         "mkdir -p '/workspace/repo'",
         "harness-tool init",
       ]);
+    });
+  });
+
+  describe("the script run against a local repository", () => {
+    const root = mkdtempSync(join(tmpdir(), "artfct-startup-"));
+    const origin = join(root, "origin");
+    const workspace = join(root, "workspace", "repo");
+    const scratch = `${workspace}.clone`;
+
+    function git(args: string[], cwd: string): string {
+      const result = spawnSync("git", args, { cwd, env: { PATH: process.env.PATH, HOME: root } });
+      if (result.status !== 0) throw new Error(result.stderr.toString());
+      return result.stdout.toString().trim();
+    }
+
+    function runStartup(cloneUrl: string) {
+      const script = startupScript({
+        ...spec,
+        workspace,
+        github_token: null,
+        setup_commands: [],
+        repo: { clone_url: cloneUrl, branch: null, author: null },
+      });
+      return spawnSync("bash", ["-c", script], {
+        env: { PATH: process.env.PATH, HOME: root, ARTFCT_CLONE_URL: cloneUrl },
+      });
+    }
+
+    beforeAll(() => {
+      mkdirSync(origin);
+      git(["init", "--quiet", "--initial-branch=main"], origin);
+      git(["config", "uploadpack.allowFilter", "true"], origin);
+      writeFileSync(join(origin, "README.md"), "hello\n");
+      git(["add", "README.md"], origin);
+      git(["-c", "user.name=t", "-c", "user.email=t@example.com", "commit", "-qm", "init"], origin);
+    });
+
+    afterAll(() => {
+      rmSync(root, { recursive: true, force: true });
+    });
+
+    describe("a clone that fails", () => {
+      it("leaves the workspace without a .git", () => {
+        const result = runStartup(`file://${join(root, "missing")}`);
+        expect(result.status).not.toBe(0);
+        expect(existsSync(join(workspace, ".git"))).toBe(false);
+      });
+    });
+
+    describe("a start after a clone that was killed part way", () => {
+      beforeAll(() => {
+        mkdirSync(join(scratch, ".git"), { recursive: true });
+        writeFileSync(join(scratch, ".git", "HEAD"), "ref: refs/heads/partial\n");
+      });
+
+      it("clones again and checks out the files", () => {
+        const result = runStartup(`file://${origin}`);
+        expect(result.stderr.toString()).not.toContain("fatal");
+        expect(result.status).toBe(0);
+        expect(readFileSync(join(workspace, "README.md"), "utf8")).toBe("hello\n");
+      });
+
+      it("leaves no scratch clone behind", () => {
+        expect(existsSync(scratch)).toBe(false);
+      });
+
+      it("keeps a blobless clone that fetches contents from origin", () => {
+        expect(git(["config", "remote.origin.promisor"], workspace)).toBe("true");
+        expect(git(["config", "remote.origin.partialclonefilter"], workspace)).toBe("blob:none");
+      });
     });
   });
 });

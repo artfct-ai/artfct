@@ -32,6 +32,8 @@ export type SandboxStartSpec = {
   /** Shell commands of the harness. The startup script runs them after the files are written. */
   setup_commands: string[];
   sleep_after_ms: number;
+  /** How long the startup script may run before the start fails. */
+  startup_timeout_ms: number;
 };
 
 /** Where the sandbox keeps the current GitHub token. Rewritten on every refresh. */
@@ -40,7 +42,8 @@ export const GITHUB_TOKEN_FILE = `${GITHUB_TOKEN_DIR}/github-token`;
 
 /**
  * Shell script the sandbox runs before starting the bridge. Runs the harness setup commands,
- * clones the repository, and checks out the task branch when the task has one.
+ * clones the repository, and checks out the task branch when the task has one. The clone skips
+ * file contents. Git fetches the contents of a file version when a command first reads it.
  */
 export function startupScript(spec: SandboxStartSpec): string {
   const lines = ["set -euo pipefail", `mkdir -p ${shellQuote(spec.workspace)}`];
@@ -68,7 +71,7 @@ function githubAuthLines(): string[] {
 function checkoutLines(workspace: string, repo: NonNullable<SandboxStartSpec["repo"]>): string[] {
   const dir = shellQuote(workspace);
   const lines = [
-    `if [ ! -d ${dir}/.git ]; then git clone "$ARTFCT_CLONE_URL" ${dir}; fi`,
+    `if [ ! -d ${dir}/.git ]; then ${cloneCommands(workspace)}; fi`,
     `cd ${dir}`,
     `git remote set-url origin "$ARTFCT_CLONE_URL"`,
   ];
@@ -79,6 +82,21 @@ function checkoutLines(workspace: string, repo: NonNullable<SandboxStartSpec["re
   lines.push(`git fetch origin`);
   if (repo.branch) lines.push(branchLine(repo.branch));
   return lines;
+}
+
+/**
+ * Clone into a scratch directory and move it into the empty workspace once the checkout is done.
+ * A clone that dies part way leaves the workspace without a `.git`, so the next start clones again.
+ */
+function cloneCommands(workspace: string): string {
+  const dir = shellQuote(workspace);
+  const scratch = shellQuote(`${workspace}.clone`);
+  return [
+    `rm -rf ${scratch}`,
+    `git clone --filter=blob:none "$ARTFCT_CLONE_URL" ${scratch}`,
+    `rmdir ${dir}`,
+    `mv ${scratch} ${dir}`,
+  ].join("; ");
 }
 
 /**

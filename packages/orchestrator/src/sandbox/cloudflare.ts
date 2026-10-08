@@ -14,7 +14,6 @@ import {
   type SandboxStartSpec,
 } from "./spec";
 
-const STARTUP_TIMEOUT_MS = 600_000;
 const AUTH_TIMEOUT_MS = 60_000;
 
 /** The Sandbox SDK methods the provider calls. Tests pass a fake with the same shape. */
@@ -53,7 +52,7 @@ export class CloudflareSandboxProvider implements SandboxProvider {
     for (const file of spec.files) await writeHarnessFile(sandbox, file);
     await sandbox.writeFile("/tmp/artfct-startup.sh", startupScript(spec));
     const setup = await sandbox.exec("bash /tmp/artfct-startup.sh", {
-      timeout: STARTUP_TIMEOUT_MS,
+      timeout: spec.startup_timeout_ms,
     });
     if (!setup.success) throw new Error(`sandbox startup failed: ${setup.stderr.slice(-2000)}`);
     await sandbox.startProcess(bridgeCommand(spec), { cwd: spec.workspace, env: bridgeEnv(spec) });
