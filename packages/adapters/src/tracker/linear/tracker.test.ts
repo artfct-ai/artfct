@@ -325,27 +325,6 @@ describe("LinearTracker writes", () => {
     });
   });
 
-  describe("commentOnIssue", () => {
-    let calls: Call[];
-    let comment: { id: string };
-
-    beforeEach(async () => {
-      calls = fakeLinear({
-        createComment: { commentCreate: { success: true, lastSyncId: 1, comment: { id: "c9" } } },
-      });
-      comment = await new LinearTracker("lin_api_x").commentOnIssue("i1", "hello");
-    });
-
-    it("sends the issue id and the body in one mutation", () => {
-      expect(calls).toHaveLength(1);
-      expect(calls[0]?.variables).toEqual({ input: { issueId: "i1", body: "hello" } });
-    });
-
-    it("returns the id from the mutation payload", () => {
-      expect(comment).toEqual({ id: "c9" });
-    });
-  });
-
   describe("attachUrl", () => {
     let calls: Call[];
 
@@ -364,41 +343,6 @@ describe("LinearTracker writes", () => {
         issueId: "i1",
         url: "https://slack.test/archives/C1/p17",
       });
-    });
-  });
-
-  it("updateComment sends the new body", async () => {
-    const calls = fakeLinear({
-      updateComment: { commentUpdate: { success: true, lastSyncId: 1 } },
-    });
-    await new LinearTracker("lin_api_x").updateComment("c9", "board v2");
-    expect(calls[0]?.variables).toEqual({ id: "c9", input: { body: "board v2" } });
-  });
-
-  it("deleteComment sends the comment id", async () => {
-    const calls = fakeLinear({
-      deleteComment: { commentDelete: { success: true, lastSyncId: 1, entityId: "c9" } },
-    });
-    await new LinearTracker("lin_api_x").deleteComment("c9");
-    expect(calls[0]?.variables).toEqual({ id: "c9" });
-  });
-
-  describe("commentPermalink", () => {
-    const link = "https://linear.app/acme/issue/ENG-1/title#comment-c9";
-    let calls: Call[];
-    let permalink: string;
-
-    beforeEach(async () => {
-      calls = fakeLinear({ comment: { comment: { id: "c9", url: link, reactions: [] } } });
-      permalink = await new LinearTracker("lin_api_x").commentPermalink("c9");
-    });
-
-    it("answers the comment's url", () => {
-      expect(permalink).toBe(link);
-    });
-
-    it("asks for the comment by id", () => {
-      expect(calls[0]?.variables).toEqual({ id: "c9" });
     });
   });
 
@@ -458,41 +402,6 @@ describe("LinearTracker writes", () => {
         id: "sess",
         input: { addedExternalUrls: [{ url: "https://x.y", label: "PR" }] },
       });
-    });
-  });
-});
-
-describe("LinearTracker.isGone", () => {
-  describe("an error the SDK raised for a missing entity", () => {
-    let tracker: LinearTracker;
-    let error: unknown;
-
-    beforeEach(async () => {
-      fakeLinear({ updateComment: { errors: [{ message: "Entity not found: Comment" }] } });
-      tracker = new LinearTracker("lin_api_x");
-      error = await tracker.updateComment("gone", "body").catch((caught: unknown) => caught);
-    });
-
-    it("reaches the caller as an Error", () => {
-      expect(error).toBeInstanceOf(Error);
-    });
-
-    it("is recognised as gone", () => {
-      expect(tracker.isGone(error)).toBe(true);
-    });
-  });
-
-  describe("an error the tracker did not raise", () => {
-    const tracker = new LinearTracker("lin_api_x");
-
-    it("recognises the text in an Error or in a string", () => {
-      expect(tracker.isGone(new Error("Entity not found"))).toBe(true);
-      expect(tracker.isGone("Entity not found: Comment")).toBe(true);
-    });
-
-    it("answers false for anything else", () => {
-      expect(tracker.isGone(new Error("boom"))).toBe(false);
-      expect(tracker.isGone(undefined)).toBe(false);
     });
   });
 });

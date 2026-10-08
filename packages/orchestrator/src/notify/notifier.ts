@@ -86,17 +86,8 @@ export class Notifier {
   }
 
   /** True when a board edit failed because someone deleted the message it was editing. */
-  async boardGone(channel: BoardChannel, error: unknown): Promise<boolean> {
-    switch (channel.source) {
-      case "chat":
-        return this.chat?.isGone(error) ?? false;
-      case "tracker":
-        return (await this.tracker())?.isGone(error) ?? false;
-      default: {
-        const unhandled: never = channel;
-        throw new Error(`unhandled board channel ${JSON.stringify(unhandled)}`);
-      }
-    }
+  boardGone(error: unknown): boolean {
+    return this.chat?.isGone(error) ?? false;
   }
 
   /** Deliver one event to one target. Delivery errors go to the outbox, never to the caller. */
@@ -132,79 +123,32 @@ export class Notifier {
   }
 
   /**
-   * Post a board message and return its id. Throws on failure. Without a client the outbox is
-   * the board and the id is local.
+   * Post a board message and return its id. Throws on failure. Without a chat client the outbox
+   * is the board and the id is local.
    */
   async createBoard(channel: BoardChannel, text: string): Promise<string> {
     this.outbox({ channel: "board", kind: "create", target: channel, payload: { text } });
-    switch (channel.source) {
-      case "chat": {
-        if (!this.chat) return `local:${channel.source}`;
-        const posted = await this.chat.postThreadMessage(channel.channel, channel.thread, text);
-        return posted.ts;
-      }
-      case "tracker": {
-        const tracker = await this.tracker();
-        if (!tracker) return `local:${channel.source}`;
-        return (await tracker.commentOnIssue(channel.issue_id, text)).id;
-      }
-      default: {
-        const unhandled: never = channel;
-        throw new Error(`unhandled board channel ${JSON.stringify(unhandled)}`);
-      }
-    }
+    if (!this.chat) return `local:${channel.source}`;
+    const posted = await this.chat.postThreadMessage(channel.channel, channel.thread, text);
+    return posted.ts;
   }
 
   /** Replace the text of a board message. Throws on failure, with the API's own error text. */
   async editBoard(channel: BoardChannel, messageId: string, text: string): Promise<void> {
     this.outbox({ channel: "board", kind: "edit", target: channel, payload: { text, messageId } });
-    switch (channel.source) {
-      case "chat":
-        if (this.chat) await this.chat.updateMessage(channel.channel, messageId, text);
-        return;
-      case "tracker":
-        await (await this.tracker())?.updateComment(messageId, text);
-        return;
-      default: {
-        const unhandled: never = channel;
-        throw new Error(`unhandled board channel ${JSON.stringify(unhandled)}`);
-      }
-    }
+    await this.chat?.updateMessage(channel.channel, messageId, text);
   }
 
   /** Delete a board message. Throws on failure, with the API's own error text. */
   async deleteBoard(channel: BoardChannel, messageId: string): Promise<void> {
     this.outbox({ channel: "board", kind: "delete", target: channel, payload: { messageId } });
-    switch (channel.source) {
-      case "chat":
-        if (this.chat) await this.chat.deleteMessage(channel.channel, messageId);
-        return;
-      case "tracker":
-        await (await this.tracker())?.deleteComment(messageId);
-        return;
-      default: {
-        const unhandled: never = channel;
-        throw new Error(`unhandled board channel ${JSON.stringify(unhandled)}`);
-      }
-    }
+    await this.chat?.deleteMessage(channel.channel, messageId);
   }
 
-  /** A link to a board message. Throws on failure and without a client, which has no links. */
+  /** A link to a board message. Throws on failure and without a chat client, which has no links. */
   async boardPermalink(channel: BoardChannel, messageId: string): Promise<string> {
-    switch (channel.source) {
-      case "chat":
-        if (!this.chat) throw new Error("board permalink: no chat client");
-        return this.chat.permalink(channel.channel, messageId);
-      case "tracker": {
-        const tracker = await this.tracker();
-        if (!tracker) throw new Error("board permalink: no tracker client");
-        return tracker.commentPermalink(messageId);
-      }
-      default: {
-        const unhandled: never = channel;
-        throw new Error(`unhandled board channel ${JSON.stringify(unhandled)}`);
-      }
-    }
+    if (!this.chat) throw new Error("board permalink: no chat client");
+    return this.chat.permalink(channel.channel, messageId);
   }
 
   /** Mark a chat message as received by putting the thread in its processing state. Never throws. */

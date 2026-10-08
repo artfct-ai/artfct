@@ -1,7 +1,8 @@
 /**
- * Step 4. The job boards. One board message per job per channel, edited in place, with no link,
- * CI result or merge state in its text. A follow-up moves a board to a new message.
- * Between a job's launch and its artifact, no message reaches a channel.
+ * Steps 4 and 12. The job boards. A workflow without a chat thread has none. Otherwise one board
+ * message per job per chat thread, edited in place, with no link, CI result or merge state in its
+ * text. A follow-up moves a board to a new message. Between a job's launch and its artifact, no
+ * message reaches a channel.
  */
 import {
   artifactOf,
@@ -33,14 +34,17 @@ const LEAK = /http|\bCI\b|approved|changes requested|merged/i;
 /** The line every reviewed stage's board shows for the handover to the humans. */
 const HUMANS_LINE = "Ready for Humans";
 
+/** The stamp line of a board, which names its job by sequence. */
+const JOB_STAMP = /^Job (\d+) · /m;
+
 /** A checklist line's text with its checkbox and its open-phase suffix taken off. */
 const CHECKLIST_LINE = /^(?:☐|☑|- \[[ x]\]) (.+?)(?: ← .*)?$/;
 
 /**
- * Rows on a human channel that report nothing about the task: an issue state move, a failed
- * call, and a release. None of these read as progress.
+ * Rows on a human channel that report nothing about the task: a received mark, an issue state
+ * move, a failed call, and a release. None of these read as progress.
  */
-const SILENT_KINDS = ["issue_update", "delivery_error", "release", "working"];
+const SILENT_KINDS = ["acknowledge", "issue_update", "delivery_error", "release", "working"];
 
 /** A message a human reads in Slack, Linear, or Notion. */
 function reachesHumans(message: OutboxMessage): boolean {
@@ -50,9 +54,23 @@ function reachesHumans(message: OutboxMessage): boolean {
   );
 }
 
-/** Runs step 4 over the whole workflow so far. */
+/** The outbox kinds of a board message being written. */
+const BOARD_WRITES = ["create", "edit", "delete"];
+
+/** Runs step 4. A workflow that only a tracker session follows posts no board anywhere. */
+export async function runNoTrackerBoard(options: { workflowId: string }): Promise<void> {
+  console.log("\n4. No board on Linear");
+  const debug = await fetchWorkflowDebug(options.workflowId);
+  assertEqual(debug.boards, [], "a workflow without a chat thread has no board");
+  const written = debug.outbox.filter(
+    (message) => message.channel === "board" && BOARD_WRITES.includes(message.kind),
+  );
+  assertEqual(written, [], "no board message was created, edited, or deleted");
+}
+
+/** Runs step 12 over the whole Slack workflow. */
 export async function runBoardChecks(options: { workflowId: string }): Promise<void> {
-  console.log("\n4. Boards");
+  console.log("\n12. Boards");
   const debug = await fetchWorkflowDebug(options.workflowId);
   const creates = countOutboxMessages(
     debug,
@@ -100,7 +118,7 @@ function assertReviewOnChecklist(debug: WorkflowDebug): void {
       ...shown,
     ]);
   }
-  const named = boardEdits(debug)
+  const named = boardWrites(debug)
     .flatMap((edit) => checklistLines(edit.text))
     .filter((line) => line !== "review" && [...PR_REVIEWERS, ...PR_POLISHERS].includes(line));
   assertEqual(named, [], "no board line names a refiner entry");
@@ -112,7 +130,7 @@ function assertReviewOnChecklist(debug: WorkflowDebug): void {
  */
 function jobsShowingPhases(debug: WorkflowDebug): Set<string> {
   const shown = new Set<string>();
-  for (const edit of boardEdits(debug)) {
+  for (const edit of boardWrites(debug)) {
     const phases =
       jobById(debug, edit.jobId).stage === PR_STAGE_NAME ? ["review", "polish"] : ["review"];
     const lines = checklistLines(edit.text);
@@ -121,22 +139,16 @@ function jobsShowingPhases(debug: WorkflowDebug): Set<string> {
   return shown;
 }
 
-/**
- * Every board edit with the job it belongs to. An edit names the message it rewrote and a
- * board row holds that message id with its job.
- */
-function boardEdits(debug: WorkflowDebug): Array<{ jobId: string; text: string }> {
-  const jobOfMessage = new Map<string, string>();
-  for (const board of debug.boards) {
-    if (board.message_id) jobOfMessage.set(board.message_id, board.job_id);
-  }
-  const edits: Array<{ jobId: string; text: string }> = [];
+/** Every board message written, created or edited, with the job its stamp line names. */
+function boardWrites(debug: WorkflowDebug): Array<{ jobId: string; text: string }> {
+  const writes: Array<{ jobId: string; text: string }> = [];
   for (const message of debug.outbox) {
-    if (message.channel !== "board" || message.kind !== "edit") continue;
-    const jobId = jobOfMessage.get(String(message.payload.messageId));
-    if (jobId) edits.push({ jobId, text: outboxText(message) });
+    if (message.channel !== "board" || !["create", "edit"].includes(message.kind)) continue;
+    const text = outboxText(message);
+    const sequence = JOB_STAMP.exec(text)?.[1];
+    if (sequence) writes.push({ jobId: `${debug.state.workflow_id}-${sequence}`, text });
   }
-  return edits;
+  return writes;
 }
 
 /** What each checklist line of a board says, in order. */

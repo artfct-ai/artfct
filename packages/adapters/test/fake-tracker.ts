@@ -37,16 +37,12 @@ export type TrackerAnswers = {
   usersByEmail?: Record<string, TrackerUser>;
   issue?: TrackerIssue | null;
   issues?: TrackerIssue[];
-  /** The id `commentOnIssue` gives the new comment. Default `comment-1`. */
-  commentId?: string;
   /** Every call fails. */
   failing?: boolean;
-  /** Errors `isGone` recognizes. Default: any error whose text includes `not found`. */
-  gone?: (error: unknown) => boolean;
 };
 
 /** Methods a `FakeTracker` records. */
-export type TrackerMethod = Exclude<keyof Tracker, "appUserId" | "isGone">;
+export type TrackerMethod = Exclude<keyof Tracker, "appUserId">;
 
 /** An in-memory `Tracker` that answers from `TrackerAnswers` and records every call. */
 export class FakeTracker implements Tracker {
@@ -94,24 +90,6 @@ export class FakeTracker implements Tracker {
     this.log.record("updateIssue", issueId, input);
   }
 
-  async commentOnIssue(issueId: string, body: string): Promise<{ id: string }> {
-    this.log.record("commentOnIssue", issueId, body);
-    return { id: this.answers.commentId ?? "comment-1" };
-  }
-
-  async updateComment(commentId: string, body: string): Promise<void> {
-    this.log.record("updateComment", commentId, body);
-  }
-
-  async deleteComment(commentId: string): Promise<void> {
-    this.log.record("deleteComment", commentId);
-  }
-
-  async commentPermalink(commentId: string): Promise<string> {
-    this.log.record("commentPermalink", commentId);
-    return `https://tracker.test/comment/${commentId}`;
-  }
-
   async attachUrl(issueId: string, url: string): Promise<void> {
     this.log.record("attachUrl", issueId, url);
   }
@@ -132,9 +110,5 @@ export class FakeTracker implements Tracker {
     options: ActivityOptions = {},
   ): Promise<void> {
     this.log.record("activity", sessionId, content, options);
-  }
-
-  isGone(error: unknown): boolean {
-    return this.answers.gone ? this.answers.gone(error) : String(error).includes("not found");
   }
 }

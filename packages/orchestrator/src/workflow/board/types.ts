@@ -1,16 +1,12 @@
 import type { PlanEntry } from "@agentclientprotocol/sdk";
+import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { ArtifactStatus, TaskStatus } from "@artfct-ai/contracts/types";
 
 /** The harness's latest todo list as ACP reported it. Never merged, always replaced. */
 export type TodoSnapshot = { entries: PlanEntry[] };
 
-/** Where one board lives. A chat board is a thread reply, a tracker board an issue comment. */
-export type BoardChannel =
-  | { source: "chat"; channel: string; thread: string }
-  | { source: "tracker"; issue_id: string };
-
-/** How the board text is written: markdown, or the chat's own flavour of it. */
-export type BoardFormat = "markdown" | "chat";
+/** Where one board lives: a message in a chat thread. */
+export type BoardChannel = Extract<ReplyTarget, { source: "chat" }>;
 
 /** The two phases a stage runs over its artifact: its reviewers, then its polishers. */
 export type RefinerPhase = "review" | "polish";

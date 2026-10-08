@@ -1,6 +1,7 @@
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { ArtifactStatus, TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
 import { ASK_WHETHER_ACCEPTED, ASK_WHICH_OPTION } from "../src/agent/tools/start/start";
+import { channelKey } from "../src/workflow/board/board";
 import type { TaskRole } from "../src/workflow/task/events";
 import type { Wake, WorkflowRuntime } from "../src/workflow/types";
 
@@ -195,6 +196,22 @@ export function nothingReopensAFinishedWorkflow(_workflow: WorkflowRuntime, step
       "nothingReopensAFinishedWorkflow",
       `a ${step.event.kind} event changed ${changes.join(", ")} of a ${step.before.workflowStatus} workflow`,
     );
+  }
+}
+
+/** Every board lives in a chat thread the workflow replies to. A tracker session never holds one. */
+export function boardsLiveOnlyInChat(workflow: WorkflowRuntime): void {
+  const threads = new Set(
+    workflow.state.reply_targets
+      .filter((target) => target.source === "chat")
+      .map((target) => channelKey(target)),
+  );
+  for (const job of workflow.store.jobs()) {
+    for (const board of workflow.store.boards(job.job_id)) {
+      if (!threads.has(board.channel_key)) {
+        violated("boardsLiveOnlyInChat", `${job.job_id} has a board at ${board.channel_key}`);
+      }
+    }
   }
 }
 

@@ -2,7 +2,7 @@
  * The Linear work tracker over the official `@linear/sdk`. Consumers see only the plain types
  * from `./types`. SDK model classes stay inside this file.
  */
-import { isGoneError, LinearSdk, type LinearOptions, type TokenSource } from "./sdk";
+import { LinearSdk, type LinearOptions, type TokenSource } from "./sdk";
 import { fetchIssue, fetchProjectIssues, type RawQuery } from "./issues";
 import type {
   ActivityOptions,
@@ -102,31 +102,6 @@ export class LinearTracker implements Tracker {
     await client.updateIssue(issueId, input);
   }
 
-  async commentOnIssue(issueId: string, body: string): Promise<{ id: string }> {
-    const client = await this.client();
-    const payload = await client.createComment({ issueId, body });
-    if (!payload.commentId) throw new Error("linear: commentCreate returned no comment id");
-    return { id: payload.commentId };
-  }
-
-  async updateComment(commentId: string, body: string): Promise<void> {
-    const client = await this.client();
-    await client.updateComment(commentId, { body });
-  }
-
-  /** Delete one comment by id. */
-  async deleteComment(commentId: string): Promise<void> {
-    const client = await this.client();
-    await client.deleteComment(commentId);
-  }
-
-  /** A link to one comment by id. */
-  async commentPermalink(commentId: string): Promise<string> {
-    const client = await this.client();
-    const comment = await client.comment({ id: commentId });
-    return comment.url;
-  }
-
   /** Link a URL to an issue. Linear renders it through whichever workspace integration matches. */
   async attachUrl(issueId: string, url: string): Promise<void> {
     const client = await this.client();
@@ -157,10 +132,5 @@ export class LinearTracker implements Tracker {
     await client.updateAgentSession(sessionId, {
       addedExternalUrls: options.externalUrls.map(toExternalUrlInput),
     });
-  }
-
-  /** True when Linear says the entity is gone. */
-  isGone(error: unknown): boolean {
-    return isGoneError(error);
   }
 }

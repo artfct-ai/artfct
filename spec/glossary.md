@@ -68,7 +68,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 
 | Term | Meaning | Code name | Do not say |
 |---|---|---|---|
-| board | The status message of one job in one channel. | `boards` row | |
+| board | The status message of one job in one chat thread. | `boards` row | |
 | checklist | The checkbox lines of a board: the todo list, the follow-up line, the phase lines, and the handover line. | `checklistLines` | |
 | todo list | The latest plan entries the harness reported. Replaced whole, frozen at the first artifact. | `TodoSnapshot` | checklist |
 | board note | One line from the orchestrator on a board. | `BoardInput.note` | note |

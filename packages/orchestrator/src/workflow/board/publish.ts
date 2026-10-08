@@ -86,7 +86,7 @@ async function relocateBoard(options: PublishOptions, previousId: string): Promi
 async function onEditFailure(options: PublishOptions, error: unknown): Promise<void> {
   const { workflow, row } = options;
   const { job_id: jobId, channel_key: key } = row;
-  if (!(await workflow.notifier.boardGone(row.channel, error))) {
+  if (!workflow.notifier.boardGone(error)) {
     workflow.store.updateBoard(jobId, key, { hash: null });
     workflow.log(null, `board of ${jobId} edit failed on ${key}: ${String(error).slice(0, 200)}`);
     return;

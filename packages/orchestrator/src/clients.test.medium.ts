@@ -1,4 +1,4 @@
-import type { Tracker } from "@artfct-ai/adapters/tracker/types";
+import type { Tracker, TrackerUser } from "@artfct-ai/adapters/tracker/types";
 import type { WebPage } from "@artfct-ai/adapters/web/types";
 import { env } from "cloudflare:workers";
 import { generateKeyPairSync } from "node:crypto";
@@ -226,16 +226,22 @@ describe("SDK adapters under workerd's fetch", () => {
   });
 
   describe("a Linear tracker", () => {
-    const comment = { commentCreate: { success: true, lastSyncId: 1, comment: { id: "cm1" } } };
+    const pageInfo = {
+      hasNextPage: false,
+      hasPreviousPage: false,
+      startCursor: null,
+      endCursor: null,
+    };
+    const users = { users: { nodes: [{ id: "u1", name: "Ann", email: "ann@x.y" }], pageInfo } };
     let requests: Request[];
-    let created: { id: string } | undefined;
+    let found: TrackerUser | null = null;
     beforeEach(async () => {
-      requests = stubValidatingFetch(() => Response.json({ data: comment }));
-      created = await trackerForToken(env, "lin_api_test").commentOnIssue("i1", "hello");
+      requests = stubValidatingFetch(() => Response.json({ data: users }));
+      found = await trackerForToken(env, "lin_api_test").userByEmail("ann@x.y");
     });
 
     it("reads the reply", () => {
-      expect(created).toEqual({ id: "cm1" });
+      expect(found).toEqual({ id: "u1", name: "Ann" });
     });
 
     it("posts one request workerd accepts", () => {
