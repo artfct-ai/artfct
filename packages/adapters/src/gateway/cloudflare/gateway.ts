@@ -61,7 +61,8 @@ export class CloudflareGateway implements Gateway {
   }
 
   decisions(models: DecisionsModels): Decisions {
-    return new CloudflareDecisions({ ...this.config, models });
+    const { accountId, gatewayId, token } = this.config;
+    return new CloudflareDecisions({ accountId, gatewayId, token, models });
   }
 
   async models(): Promise<null> {
