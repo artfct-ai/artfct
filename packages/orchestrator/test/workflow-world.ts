@@ -5,7 +5,7 @@ import type {
   PullRequestReviewComment,
 } from "@artfct-ai/adapters/code/types";
 import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
-import type { Decisions } from "@artfct-ai/adapters/gateway/types";
+import type { Choice, Decisions } from "@artfct-ai/adapters/gateway/types";
 import type { HeldComment } from "@artfct-ai/adapters/documents/types";
 import { FakeDecisions, HangingDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
@@ -168,7 +168,7 @@ export type DecisionAnswers =
       rejects: number;
       gave_up?: number;
       accepts?: number;
-      selects?: number;
+      selected?: Choice;
     }
   | "fails"
   | "hangs";
@@ -731,7 +731,9 @@ function decisionsAnswering(answers: DecisionAnswers): Decisions {
       return new FakeDecisions(new Error("decisions model unavailable"));
     case "hangs":
       return new HangingDecisions();
-    default:
-      return new FakeDecisions(answers);
+    default: {
+      const { selected, ...probabilities } = answers;
+      return new FakeDecisions(probabilities, selected ? { selected } : {});
+    }
   }
 }

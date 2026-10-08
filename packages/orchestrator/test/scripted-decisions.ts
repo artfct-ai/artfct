@@ -1,5 +1,6 @@
 import type {
   Choice,
+  ChoiceQuestion,
   DecisionAnswers,
   DecisionQuestions,
   Decisions,
@@ -27,7 +28,9 @@ export class ScriptedDecisions implements Decisions {
       probabilities[name] = scriptedProbability(name, state);
     }
     const choices = {} as Record<ChoiceName, Choice>;
-    for (const name of Object.keys(questions.choices) as ChoiceName[]) choices[name] = NO_CHOICE;
+    for (const name of Object.keys(questions.choices) as ChoiceName[]) {
+      choices[name] = scriptedChoice(name, state, questions.choices[name]);
+    }
     return {
       probabilities,
       choices,
@@ -37,18 +40,31 @@ export class ScriptedDecisions implements Decisions {
 }
 
 /**
- * Yes or no for the acceptance and selection questions, by what the person wrote, and for the
- * review-again question, by the scripted closing text. The screen admits every text.
+ * The pick for the selection question: the option the person's messages name. Every other choice
+ * question gets the option that says none of the others fit.
+ */
+export function scriptedChoice(
+  name: string,
+  state: DecisionState,
+  question: ChoiceQuestion,
+): Choice {
+  if (name !== "selected") return NO_CHOICE;
+  const messages = (state.messages ?? "").toLowerCase();
+  const named = Object.keys(question.options).find((option) =>
+    messages.includes(option.toLowerCase()),
+  );
+  return named ? { option: named, probability: 1 } : NO_CHOICE;
+}
+
+/**
+ * Yes or no for the acceptance question, by what the person wrote, and for the review-again
+ * question, by the scripted closing text. The screen admits every text.
  */
 export function scriptedProbability(question: string, state: DecisionState): number {
   const messages = state.messages ?? "";
   switch (question) {
     case "accepts":
       return messages.split("\n\n").some((message) => approvesReply(message)) ? 1 : 0;
-    case "selects": {
-      const option = state.option?.toLowerCase();
-      return option && messages.toLowerCase().includes(option) ? 1 : 0;
-    }
     case "review_again":
       return state.closing_text === SCRIPTED_REVIEW_REQUEST ? 1 : 0;
     case "takes_control":

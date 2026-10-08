@@ -686,10 +686,10 @@ export function agentCompletesWithSelection(
 ): WorkflowAction {
   const label = `agent completes the task with a selection, the person ${person}, decisions ${decisions}`;
   return authorAction(index, label, async (world, author) => {
-    const selects = person === "accepts" ? 0.9 : 0.1;
+    const selected = { option: person === "accepts" ? PAGE_OPTION : "none", probability: 0.9 };
     world.answerDecisionsWith(
       decisions === "answers"
-        ? { for_author: 0, beyond_author: 0, rejects: 0, selects }
+        ? { for_author: 0, beyond_author: 0, rejects: 0, selected }
         : decisions,
     );
     const { complete_job } = startTools(world.workflow, PERSON_MESSAGES[person]);

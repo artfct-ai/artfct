@@ -172,7 +172,7 @@ describe("complete_job on a stage with a choice ending", () => {
   ].join("\n");
   const PICKED = ["Go with splitting the table."];
 
-  const pageWithOptions = (selects: number | null) =>
+  const pageWithOptions = (probability: number | null) =>
     scenario(freshRuntime, async (workflow) => {
       endDesignOnChoice(workflow);
       const documents = new FakeDocuments();
@@ -185,8 +185,11 @@ describe("complete_job on a stage with a choice ending", () => {
         external_url: page.url,
         ref: { kind: "page", page_id: page.id },
       });
-      if (selects === null) return;
-      workflow.gatewayInstance = new FakeGateway({ decisions: new FakeDecisions({ selects }) });
+      if (probability === null) return;
+      const selected = { option: "Split the table", probability };
+      workflow.gatewayInstance = new FakeGateway({
+        decisions: new FakeDecisions({}, { selected }),
+      });
     });
 
   it("refuses when the agent names no option", () =>
