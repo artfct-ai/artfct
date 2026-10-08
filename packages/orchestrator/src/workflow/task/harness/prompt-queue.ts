@@ -18,7 +18,7 @@ import { newPageParent } from "../../root-page";
 import { startFollowUp } from "../../follow-up";
 import { reviseModelAuthorPage } from "../model-author";
 import { startSandbox } from "../sandbox/sandbox";
-import { sendRequest } from "./bridge";
+import { bridgeProcessGone, sendRequest } from "./bridge";
 import type { WorkflowRuntime } from "../../types";
 import { taskSettings } from "../settings";
 import { isTaskFinished } from "../../store/state";
@@ -75,8 +75,8 @@ export async function drainQueue(workflow: WorkflowRuntime, task: TaskRow): Prom
 
 /**
  * The bridge is gone. A task that still has a harness session gets the reconnect window
- * first. One whose harness session went with its container has nothing to reconnect to, so its
- * sandbox starts again now.
+ * first, while its bridge process still runs. One whose harness session or bridge process went
+ * with its container has nothing to reconnect to, so its sandbox starts again now.
  */
 async function wakeOrWait(
   workflow: WorkflowRuntime,
@@ -85,7 +85,11 @@ async function wakeOrWait(
 ): Promise<void> {
   const closedAt = sandbox.bridge_closed_at ? Date.parse(sandbox.bridge_closed_at) : null;
   const sinceClose = closedAt === null ? Infinity : workflow.now() - closedAt;
-  if (sandbox.session_id && sinceClose < RECONNECT_CEILING_MS) {
+  if (
+    sandbox.session_id &&
+    sinceClose < RECONNECT_CEILING_MS &&
+    !(await bridgeProcessGone(workflow, task, sandbox.generation))
+  ) {
     workflow.log(task.task_id, "bridge disconnected recently. waiting for it to reconnect.");
     const seconds = Math.ceil((RECONNECT_CEILING_MS - sinceClose) / 1000) + 1;
     await workflow.scheduleAlarm(seconds, "retryQueue", {

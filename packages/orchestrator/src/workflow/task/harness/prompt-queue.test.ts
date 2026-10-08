@@ -101,9 +101,9 @@ describe("drainQueue", () => {
       ),
     );
 
-    it("leaves the sandbox alone", () =>
+    it("only asks whether the bridge process still runs", () =>
       waiting((workflow) => {
-        expect(workflow.sandboxProvider.calls).toEqual([]);
+        expect(workflow.sandboxProvider.calls).toEqual([`bridgeRunning ${TASK} 1`]);
       }));
 
     it("names the task and generation on the retry", () =>
@@ -124,6 +124,51 @@ describe("drainQueue", () => {
     it("keeps the prompt in the queue", () =>
       waiting((workflow) => {
         expect(workflow.store.queue()).toHaveLength(1);
+      }));
+  });
+
+  describe("a prompt soon after the bridge closed and its process ended", () => {
+    const woken = scenario(freshRuntime, (workflow) => {
+      workflow.sandboxProvider.bridgeAlive = false;
+      return promptTask(
+        workflow,
+        seedTask(workflow, {}, { session_id: "s1", bridge_closed_at: secondsAgo(5) }),
+        "hello",
+      );
+    });
+
+    it("starts the sandbox now", () =>
+      woken((workflow) => {
+        expect(workflow.sandboxProvider.calls).toEqual([
+          `bridgeRunning ${TASK} 1`,
+          `start ${TASK}`,
+        ]);
+      }));
+
+    it("waits for no reconnect", () =>
+      woken((workflow) => {
+        expect(workflow.alarmsFor("retryQueue")).toEqual([]);
+      }));
+  });
+
+  describe("a prompt soon after the bridge closed when the process check fails", () => {
+    const waiting = scenario(freshRuntime, (workflow) => {
+      workflow.sandboxProvider.bridgeAlive = null;
+      return promptTask(
+        workflow,
+        seedTask(workflow, {}, { session_id: "s1", bridge_closed_at: secondsAgo(5) }),
+        "hello",
+      );
+    });
+
+    it("waits out the reconnect window", () =>
+      waiting((workflow) => {
+        expect(workflow.alarmsFor("retryQueue")).toHaveLength(1);
+      }));
+
+    it("starts no sandbox", () =>
+      waiting((workflow) => {
+        expect(workflow.sandboxProvider.calls).not.toContain(`start ${TASK}`);
       }));
   });
 

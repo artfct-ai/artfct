@@ -1,3 +1,4 @@
+import type { Process, ProcessStatus } from "@cloudflare/sandbox";
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
@@ -55,7 +56,10 @@ class FakeHandle {
     command: string;
     cwd?: string;
     env?: Record<string, string | undefined>;
+    processId?: string;
   }> = [];
+  statuses = new Map<string, ProcessStatus>();
+  lookups: string[] = [];
   reads: Array<{ path: string; encoding: string }> = [];
   listed = 0;
   destroyed = 0;
@@ -90,8 +94,18 @@ class FakeHandle {
         };
       },
       startProcess: async (command, options) => {
-        this.processes.push({ command, cwd: options?.cwd, env: options?.env });
+        this.processes.push({
+          command,
+          cwd: options?.cwd,
+          env: options?.env,
+          processId: options?.processId,
+        });
         return {} as never;
+      },
+      getProcess: async (id) => {
+        this.lookups.push(id);
+        const status = this.statuses.get(id);
+        return status === undefined ? null : ({ id, status } as Process);
       },
       readFile: async (path, options) => {
         this.reads.push({ path, encoding: options.encoding });
@@ -179,6 +193,7 @@ describe("CloudflareSandboxProvider", () => {
             "artfct-bridge --harness 'claude-code' --dial 'wss://ao.example.com/bridge/wf_x/wf_x.1' --cwd '/workspace/repo' --model 'claude-sonnet-5' --generation 2",
           cwd: "/workspace/repo",
           env: { ARTFCT_TOKEN: "tok" },
+          processId: "artfct-bridge-2",
         },
       ]);
     });
@@ -411,6 +426,32 @@ describe("CloudflareSandboxProvider", () => {
       expect(await failureMessage(subject.readFile(SANDBOX, "/workspace/missing.json"))).toBe(
         "File not found: /workspace/missing.json",
       );
+    });
+  });
+
+  describe("bridgeRunning", () => {
+    it("looks up the bridge process of the generation", async () => {
+      await subject.bridgeRunning(SANDBOX, 3);
+      expect(fake.lookups).toEqual(["artfct-bridge-3"]);
+    });
+
+    it("answers true while the bridge runs", async () => {
+      fake.statuses.set("artfct-bridge-3", "running");
+      expect(await subject.bridgeRunning(SANDBOX, 3)).toBe(true);
+    });
+
+    it("answers true while the bridge starts", async () => {
+      fake.statuses.set("artfct-bridge-3", "starting");
+      expect(await subject.bridgeRunning(SANDBOX, 3)).toBe(true);
+    });
+
+    it("answers false once the bridge exited", async () => {
+      fake.statuses.set("artfct-bridge-3", "completed");
+      expect(await subject.bridgeRunning(SANDBOX, 3)).toBe(false);
+    });
+
+    it("answers false when the container has no record of the bridge", async () => {
+      expect(await subject.bridgeRunning(SANDBOX, 3)).toBe(false);
     });
   });
 

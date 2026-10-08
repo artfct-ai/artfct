@@ -5,6 +5,7 @@
  * bridge with the in-process mock harness instead, as the smoke run does. Every call that changes a
  * sandbox is recorded. Each sandbox gets a directory on this host that stands for its container
  * root. `GET /__state` returns the record, `POST /__reset` clears it, `POST /__kill` ends one bridge.
+ * `POST /bridge` tells whether the bridge of one generation still runs.
  */
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -210,6 +211,12 @@ function handleKill(body: Record<string, unknown>): Response {
   return Response.json({ ok: true });
 }
 
+/** Whether the bridge of the named sandbox and generation still runs on this host. */
+function handleBridge(body: Record<string, unknown>): Response {
+  const entry = bridges.get(String(body.sandbox_id));
+  return Response.json({ running: entry?.generation === Number(body.generation) });
+}
+
 /** Lets every held pull request review end its turn. */
 function handleRelease(): Response {
   reviewHeld = false;
@@ -255,6 +262,8 @@ async function handleRequest(request: Request): Promise<Response> {
       return handleRead(body);
     case "/destroy":
       return handleDestroy(body);
+    case "/bridge":
+      return handleBridge(body);
     default:
       return new Response("not found", { status: 404 });
   }

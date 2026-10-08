@@ -5,6 +5,8 @@ import type { AllReposReadToken, SandboxRef, SandboxStartSpec } from "../src/san
 export class FakeSandboxProvider implements SandboxProvider {
   calls: string[] = [];
   specs: SandboxStartSpec[] = [];
+  /** What `bridgeRunning` answers. Null makes it fail. */
+  bridgeAlive: boolean | null = true;
   private files = new Map<string, Map<string, string>>();
 
   /** Place a file in a sandbox so a later `readFile` returns its content. */
@@ -34,6 +36,12 @@ export class FakeSandboxProvider implements SandboxProvider {
 
   async keepAlive(sandbox: SandboxRef): Promise<void> {
     this.calls.push(`keepAlive ${sandbox.id}`);
+  }
+
+  async bridgeRunning(sandbox: SandboxRef, generation: number): Promise<boolean> {
+    this.calls.push(`bridgeRunning ${sandbox.id} ${generation}`);
+    if (this.bridgeAlive === null) throw new Error(`sandbox ${sandbox.id} did not answer`);
+    return this.bridgeAlive;
   }
 
   async readFile(sandbox: SandboxRef, path: string): Promise<string> {

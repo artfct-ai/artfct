@@ -1,7 +1,7 @@
 /**
- * Step 9. A sandbox dies mid turn: the socket closes with a prompt in flight and never comes
- * back. Past the reconnect window the orchestrator forgets the turn and starts a new
- * generation. Nothing but the socket close tells it.
+ * Step 9. A sandbox dies mid turn: the socket closes with a prompt in flight and the bridge
+ * process is gone. The orchestrator asks the sandbox host, finds no bridge, forgets the turn,
+ * and starts a new generation without waiting out the reconnect window.
  */
 import {
   countTaskLogLines,
@@ -30,7 +30,7 @@ export const THIRD_ISSUE = linearIssue(
   `Keep a changelog. Repo: https://github.com/${REPO_FULL_NAME}\nPage parent: ${PAGE_PARENT_ID}`,
 );
 
-/** The reconnect window plus the alarm's own second, with room for wrangler's alarm clock. */
+/** Room for a loaded machine. The recovery itself does not wait for the reconnect window. */
 const RECOVERY_TIMEOUT_MS = 60_000;
 
 /** Runs step 9 and returns the workflow for step 10. */
