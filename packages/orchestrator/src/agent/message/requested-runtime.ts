@@ -1,6 +1,6 @@
 import type { ChoiceQuestion, GatewayModel, ListedModel } from "@artfct-ai/adapters/gateway/types";
 import { HARNESSES, type Harness, type HarnessModels } from "@artfct-ai/adapters/harness/types";
-import { askDecisions } from "../../decisions/ask";
+import { askDecisions, type TurnDecisions } from "../../decisions/ask";
 import type { WorkflowRuntime } from "../../workflow/types";
 
 /**
@@ -132,10 +132,10 @@ export function runtimeForModel(id: string, sources: ModelSources): RequestedRun
 export async function requestedRuntime(
   workflow: WorkflowRuntime,
   message: string,
-  signal?: AbortSignal,
+  turn?: TurnDecisions,
 ): Promise<RuntimeRequest> {
   const sources = await loadModelSources(workflow);
-  const request = await chooseRequestedRuntime(workflow, { message, sources, signal });
+  const request = await chooseRequestedRuntime(workflow, { message, sources, turn });
   const outcome =
     request.kind === "resolved"
       ? `${request.runtime.model} on ${request.runtime.harness}`
@@ -144,13 +144,13 @@ export async function requestedRuntime(
   return request;
 }
 
-/** A person's message and the models it may name. Pass the agent turn's abort signal. */
-export type RuntimeChoice = { message: string; sources: ModelSources; signal?: AbortSignal };
+/** A person's message and the models it may name. Pass the agent turn's decisions. */
+export type RuntimeChoice = { message: string; sources: ModelSources; turn?: TurnDecisions };
 
 /** Ask the decisions model which offered model the message names. */
 export async function chooseRequestedRuntime(
   workflow: WorkflowRuntime,
-  { message, sources, signal }: RuntimeChoice,
+  { message, sources, turn }: RuntimeChoice,
 ): Promise<RuntimeRequest> {
   const offers = modelOffers(message, sources);
   const closest = offers.slice(0, MAX_CLOSEST).map((offer) => offer.id);
@@ -167,7 +167,7 @@ export async function chooseRequestedRuntime(
     purpose: REQUESTED_RUNTIME_PURPOSE,
     state: { message },
     questions: { yesNo: {}, choices: { model: question } },
-    signal,
+    turn,
   });
   if (!answers) return { kind: "unresolved", closest };
   const runtime = runtimeForModel(answers.choices.model.option, sources);

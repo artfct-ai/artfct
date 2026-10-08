@@ -23,7 +23,7 @@ export function workflowTools(
     ...trackerTools(workflow),
     ...taskTools(workflow),
     ...artifactTools(workflow),
-    ...heldCommentTools(workflow),
+    ...heldCommentTools(workflow, turn.decisions),
     ...rootPageTools(workflow),
     ...readTools(workflow),
     ...historyTools(workflow),

@@ -1,6 +1,6 @@
 import type { YesNoQuestion } from "@artfct-ai/adapters/gateway/types";
 import type { WorkflowRuntime } from "../workflow/types";
-import { askYesNo } from "./ask";
+import { askYesNo, type TurnDecisions } from "./ask";
 
 /**
  * What the screen decided about one text. Only `admitted` text enters a model request. Text the
@@ -76,9 +76,9 @@ export function screenedFrom(parts: Array<Record<ScreenQuestion, number> | null>
 
 /**
  * Text from outside the deployment, for the screen. `source` names it in the log, which never
- * holds the text itself. Pass the agent turn's abort signal.
+ * holds the text itself. Pass the agent turn's decisions.
  */
-export type ForeignText = { source: string; text: string; signal?: AbortSignal };
+export type ForeignText = { source: string; text: string; turn?: TurnDecisions };
 
 /**
  * Ask the decisions model whether the text may enter a model request. Text it does not answer
@@ -86,7 +86,7 @@ export type ForeignText = { source: string; text: string; signal?: AbortSignal }
  */
 export async function screenText(
   workflow: WorkflowRuntime,
-  { source, text, signal }: ForeignText,
+  { source, text, turn }: ForeignText,
 ): Promise<Screened> {
   if (!text.trim()) return "admitted";
   const parts = screenParts(text);
@@ -100,7 +100,7 @@ export async function screenText(
         purpose: SCREEN_PURPOSE,
         state: { text: part },
         questions: SCREEN_QUESTIONS,
-        signal,
+        turn,
       }),
     ),
   );

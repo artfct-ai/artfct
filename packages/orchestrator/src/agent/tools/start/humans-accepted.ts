@@ -1,5 +1,5 @@
 import type { YesNoQuestion } from "@artfct-ai/adapters/gateway/types";
-import { askYesNo } from "../../../decisions/ask";
+import { askYesNo, type TurnDecisions } from "../../../decisions/ask";
 import type { WorkflowRuntime } from "../../../workflow/types";
 
 /** The `purpose` a humans-accepted call records its usage under. */
@@ -21,9 +21,9 @@ export function acceptedAt(probability: number): boolean {
 
 /**
  * The input to `humansAccepted`. `artifact` is the URL of the artifact the humans hold, and
- * `messages` is what they wrote in this turn. Pass the agent turn's abort signal.
+ * `messages` is what they wrote in this turn. Pass the agent turn's decisions.
  */
-export type Acceptance = { artifact: string; messages: string[]; signal?: AbortSignal };
+export type Acceptance = { artifact: string; messages: string[]; turn?: TurnDecisions };
 
 /**
  * Ask the decisions model whether the person's messages of this turn accept the artifact. Null
@@ -31,13 +31,13 @@ export type Acceptance = { artifact: string; messages: string[]; signal?: AbortS
  */
 export async function humansAccepted(
   workflow: WorkflowRuntime,
-  { artifact, messages, signal }: Acceptance,
+  { artifact, messages, turn }: Acceptance,
 ): Promise<boolean | null> {
   const probabilities = await askYesNo(workflow, {
     purpose: HUMANS_ACCEPTED_PURPOSE,
     state: { artifact, messages: messages.join("\n\n") },
     questions: { accepts: ACCEPTS },
-    signal,
+    turn,
   });
   if (!probabilities) return null;
   workflow.log(null, `humans accepted: ${probabilities.accepts.toFixed(2)}`);

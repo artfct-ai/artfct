@@ -7,6 +7,7 @@ import { z } from "zod";
 import { parseDocumentOptions } from "../../../artifact/options";
 import type { ArtifactTarget } from "../../../artifact/types";
 import { resolveStage } from "../../../config/stage";
+import type { TurnDecisions } from "../../../decisions/ask";
 import { humansAccepted } from "./humans-accepted";
 import { GATEWAY_HARNESS, type RuntimeRequest } from "../../message/requested-runtime";
 import { humansSelected } from "./humans-selected";
@@ -79,6 +80,7 @@ export const START_JOB = "start_job";
 export type StartTurn = {
   requestText?: string;
   runtimeRequest?: Promise<RuntimeRequest | null>;
+  decisions?: TurnDecisions;
 };
 
 /** Tools that start jobs and end them. `personMessages` are what the people wrote in this turn. */
@@ -136,13 +138,13 @@ export function startTools(
             "on a stage with a choice ending: the selected option, exactly as the page lists it under its options heading",
           ),
       }),
-      execute: ({ job_id, result, option }, { abortSignal }) =>
+      execute: ({ job_id, result, option }) =>
         complete(workflow, {
           jobId: job_id,
           result,
           option,
           personMessages,
-          signal: abortSignal,
+          turn: turn.decisions,
         }),
     }),
     cancel_job: tool({
@@ -457,15 +459,15 @@ type CompleteInput = {
   result: string;
   option: string | undefined;
   personMessages: string[];
-  signal: AbortSignal | undefined;
+  turn: TurnDecisions | undefined;
 };
 
-/** The messages people wrote in this turn, with the turn's abort signal. */
-type TurnMessages = Pick<CompleteInput, "personMessages" | "signal">;
+/** The messages people wrote in this turn, with the turn's decisions. */
+type TurnMessages = Pick<CompleteInput, "personMessages" | "turn">;
 
 async function complete(
   workflow: WorkflowRuntime,
-  { jobId, result, option, personMessages, signal }: CompleteInput,
+  { jobId, result, option, personMessages, turn }: CompleteInput,
 ): Promise<string> {
   const job = workflow.store.job(jobId);
   if (!job) return `Job ${jobId} does not exist.`;
@@ -484,12 +486,12 @@ async function complete(
       artifact,
       option,
       personMessages,
-      signal,
+      turn,
     });
     if ("refusal" in checked) return checked.refusal;
     workflow.store.updateJobSelection(jobId, checked.selection);
   } else {
-    const pending = await acceptancePending(workflow, artifact, { personMessages, signal });
+    const pending = await acceptancePending(workflow, artifact, { personMessages, turn });
     if (pending) return pending;
   }
   return whatIsNext(workflow, job, await completeJob(workflow, author, result));
@@ -545,7 +547,7 @@ async function acceptancePending(
 async function humansAcceptancePending(
   workflow: WorkflowRuntime,
   artifact: ArtifactRow,
-  { personMessages, signal }: TurnMessages,
+  { personMessages, turn }: TurnMessages,
 ): Promise<string | null> {
   const name = `the ${artifact.kind} of job ${artifact.job_id}`;
   if (personMessages.length === 0) {
@@ -554,7 +556,7 @@ async function humansAcceptancePending(
   const accepted = await humansAccepted(workflow, {
     artifact: artifact.external_url,
     messages: personMessages,
-    signal,
+    turn,
   });
   if (accepted === null) return checkUnavailableText(`whether the person accepted ${name}`);
   if (!accepted) {
@@ -572,7 +574,7 @@ type SelectionInput = TurnMessages & {
 /** The selection on a stage with a choice ending, or the refusal to complete. */
 async function checkSelection(
   workflow: WorkflowRuntime,
-  { job, artifact, option, personMessages, signal }: SelectionInput,
+  { job, artifact, option, personMessages, turn }: SelectionInput,
 ): Promise<{ selection: string } | { refusal: string }> {
   const stage = `Stage ${job.stage} ends on a choice`;
   if (option === undefined) {
@@ -610,7 +612,7 @@ async function checkSelection(
     option,
     options,
     messages: personMessages,
-    signal,
+    turn,
   });
   if (selected === null) {
     return { refusal: checkUnavailableText(`whether the person selected "${option}"`) };

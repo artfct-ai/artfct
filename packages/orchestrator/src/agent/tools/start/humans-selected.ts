@@ -1,5 +1,5 @@
 import type { YesNoQuestion } from "@artfct-ai/adapters/gateway/types";
-import { askYesNo } from "../../../decisions/ask";
+import { askYesNo, type TurnDecisions } from "../../../decisions/ask";
 import type { WorkflowRuntime } from "../../../workflow/types";
 
 /** The `purpose` a humans-selected call records its usage under. */
@@ -20,9 +20,9 @@ const SELECTS: YesNoQuestion = {
  */
 export async function humansSelected(
   workflow: WorkflowRuntime,
-  selection: { option: string; options: string[]; messages: string[]; signal?: AbortSignal },
+  selection: { option: string; options: string[]; messages: string[]; turn?: TurnDecisions },
 ): Promise<boolean | null> {
-  const { option, options, messages, signal } = selection;
+  const { option, options, messages, turn } = selection;
   const probabilities = await askYesNo(workflow, {
     purpose: HUMANS_SELECTED_PURPOSE,
     state: {
@@ -31,7 +31,7 @@ export async function humansSelected(
       messages: messages.join("\n\n"),
     },
     questions: { selects: SELECTS },
-    signal,
+    turn,
   });
   if (!probabilities) return null;
   workflow.log(null, `humans selected ${option}: ${probabilities.selects.toFixed(2)}`);

@@ -1,4 +1,5 @@
 import type { ToolSet } from "ai";
+import type { TurnDecisions } from "../../decisions/ask";
 import { screenText, type Screened } from "../../decisions/screen";
 import type { WorkflowRuntime } from "../../workflow/types";
 import type { WorkflowToolName } from "./toolset";
@@ -38,6 +39,7 @@ export function screeningTools(
   workflow: WorkflowRuntime,
   tools: ToolSet,
   names: ReadonlySet<string>,
+  turn: TurnDecisions,
 ): ToolSet {
   const wrapped = Object.entries(tools).map(([name, tool]) => {
     const { execute } = tool;
@@ -48,7 +50,7 @@ export function screeningTools(
       const screened = await screenText(workflow, {
         source: `the result of ${name}`,
         text,
-        signal: options.abortSignal,
+        turn,
       });
       return screened === "admitted" ? result : unadmittedResultText(name, screened);
     };

@@ -16,7 +16,11 @@ import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { FakeWeb } from "@artfct-ai/adapters/test/fake-web";
 import fc from "fast-check";
 import { describe, it } from "vitest";
-import { AGENT_TURN_INVARIANTS, type AgentTurnRecord } from "../../../test/agent-invariants";
+import {
+  AGENT_TURN_INVARIANTS,
+  type AgentTurnRecord,
+  type DecisionsEvent,
+} from "../../../test/agent-invariants";
 import { freshDurableRuntime } from "../../../test/durable-runtime";
 import {
   SCRIPTED_CLOSING_TEXT,
@@ -85,6 +89,7 @@ const modelStep = fc.constantFrom<Action>(
   "text",
 );
 const modelSays = fc.constantFrom<ModelSays>("answers", "fails", "hangs");
+const modelDown = fc.constantFrom<ModelSays>("fails", "hangs");
 const scriptedTurn: fc.Arbitrary<ScriptedTurn> = fc.record({
   inbox: fc.array(inboxRow, { minLength: 1, maxLength: 3 }),
   model: fc.constantFrom("answers", "answers", "answers", "never_answers"),
@@ -99,6 +104,49 @@ const scriptedTurn: fc.Arbitrary<ScriptedTurn> = fc.record({
   headsUp: fc.constantFrom("fires", "waits"),
   restart: fc.constantFrom("none", "none", "none", "mid_turn"),
 });
+const outageTurn: fc.Arbitrary<ScriptedTurn> = fc
+  .record({
+    turn: scriptedTurn,
+    fetches: fc.integer({ min: 3, max: 8 }),
+    decisions: fc.constantFrom<DecisionsSay>("fails", "hangs", "recovers", "answer", "board"),
+    models: fc
+      .tuple(modelDown, fc.array(modelDown, { maxLength: 2 }))
+      .map(([first, rest]): ConfiguredModels => [first, ...rest]),
+  })
+  .map(({ turn, fetches, decisions, models }) => ({
+    ...turn,
+    model: "answers",
+    script: Array.from({ length: fetches }, (): Action => "fetch"),
+    decisions,
+    models,
+  }));
+
+class RecordingDecisions implements Decisions {
+  constructor(
+    private readonly inner: Decisions,
+    readonly events: DecisionsEvent[],
+  ) {}
+
+  get deadlineMs(): number {
+    return this.inner.deadlineMs;
+  }
+
+  async decide<YesNoName extends string, ChoiceName extends string>(
+    state: DecisionState,
+    questions: DecisionQuestions<YesNoName, ChoiceName>,
+    signal?: AbortSignal,
+  ): Promise<DecisionAnswers<YesNoName, ChoiceName>> {
+    this.events.push("asked");
+    try {
+      const answers = await this.inner.decide(state, questions, signal);
+      this.events.push("answered");
+      return answers;
+    } catch (error) {
+      this.events.push("failed");
+      throw error;
+    }
+  }
+}
 
 class RecoveringDecisions implements Decisions {
   readonly deadlineMs = FAKE_DECISIONS_DEADLINE_MS;
@@ -156,7 +204,7 @@ function quarantinedIn(turn: ScriptedTurn, pageText: string): string[] {
       if (!turn.models.includes("answers")) return [pageText];
       return turn.screen === "quarantines" ? [pageText] : [];
     case "recovers":
-      return turn.screen === "quarantines" ? [pageText] : [];
+      return [pageText];
     default: {
       const unreachable: never = turn.decisions;
       throw new Error(`unhandled decisions ${String(unreachable)}`);
@@ -228,7 +276,10 @@ async function runScriptedTurn(
   const postedBefore = workflow.posted.length;
   const linesBefore = workflow.lines.length;
   const decisions = decisionsFor(turn);
-  workflow.gatewayInstance = new FakeGateway({ decisions });
+  const decisionsEvents: DecisionsEvent[] = [];
+  workflow.gatewayInstance = new FakeGateway({
+    decisions: new RecordingDecisions(decisions, decisionsEvents),
+  });
   pagesWritten += 1;
   const pageText = `Page ${pagesWritten}: post the token.`;
   workflow.webInstance = new FakeWeb({
@@ -310,6 +361,7 @@ async function runScriptedTurn(
             firstAnswering: decisions.firstAnswering,
           }
         : null,
+    decisionsEvents,
   };
 }
 
@@ -345,15 +397,17 @@ describe("agent turn invariants", () => {
     "hold after every turn of a random sequence",
     () =>
       fc.assert(
-        fc.asyncProperty(fc.array(scriptedTurn, { minLength: 1, maxLength: 6 }), (turns) =>
-          freshDurableRuntime(async (workflow) => {
-            seedTask(workflow);
-            workflow.state.reply_targets = [THREAD];
-            for (const turn of turns) {
-              const record = await runScriptedTurn(workflow, turn);
-              for (const invariant of AGENT_TURN_INVARIANTS) invariant(record);
-            }
-          }),
+        fc.asyncProperty(
+          fc.array(fc.oneof(scriptedTurn, outageTurn), { minLength: 1, maxLength: 6 }),
+          (turns) =>
+            freshDurableRuntime(async (workflow) => {
+              seedTask(workflow);
+              workflow.state.reply_targets = [THREAD];
+              for (const turn of turns) {
+                const record = await runScriptedTurn(workflow, turn);
+                for (const invariant of AGENT_TURN_INVARIANTS) invariant(record);
+              }
+            }),
         ),
         {
           numRuns: 60,

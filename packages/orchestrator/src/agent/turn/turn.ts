@@ -22,6 +22,7 @@ import { abortableTools } from "../tools/abortable";
 import type { TranscriptRow } from "../transcript/transcript";
 import { estimatedTokens } from "../transcript/transcript-size";
 import { TURN_PURPOSE } from "../model/usage";
+import type { TurnDecisions } from "../../decisions/ask";
 import { armTurnWatchdog, disarmTurnWatchdog, turnTimeoutText } from "./watchdog";
 
 /** Posted when the model failed twice. */
@@ -61,6 +62,9 @@ type TurnProgress = { boardChanged: boolean };
 
 /** What every model run of one turn shares. */
 type GenerateInput = { tools: ToolSet; signal: AbortSignal; reply: Reply; progress: TurnProgress };
+
+/** What the tools of a turn share with the rest of the turn. */
+type TurnToolsInput = { runtimeRequest: Promise<RuntimeRequest | null>; decisions: TurnDecisions };
 
 /** What one run of the model works with. `stepsBefore` numbers its status lines after an earlier pass. */
 type ModelPassInput = {
@@ -141,11 +145,15 @@ async function attempt(
   signal: AbortSignal,
 ): Promise<Outcome> {
   const message = turn.messages.join("\n\n");
-  const reading = turn.messages.length ? readPersonMessage(workflow, message, signal) : null;
+  const decisions: TurnDecisions = { signal, failed: false };
+  const reading = turn.messages.length ? readPersonMessage(workflow, message, decisions) : null;
   const runtimeRequest = Promise.resolve(reading).then((reply) =>
-    reply?.namesModel ? requestedRuntime(workflow, message, signal) : null,
+    reply?.namesModel ? requestedRuntime(workflow, message, decisions) : null,
   );
-  const [reply, tools] = await Promise.all([reading, loadTools(workflow, turn, runtimeRequest)]);
+  const [reply, tools] = await Promise.all([
+    reading,
+    loadTools(workflow, turn, { runtimeRequest, decisions }),
+  ]);
   await compactIfLarge(workflow, turn, signal);
   const run = { tools, signal, reply, progress: { boardChanged: false } };
   try {
@@ -172,7 +180,7 @@ async function attempt(
 async function loadTools(
   workflow: WorkflowRuntime,
   turn: TurnInput,
-  runtimeRequest: Promise<RuntimeRequest | null>,
+  { runtimeRequest, decisions }: TurnToolsInput,
 ): Promise<ToolSet> {
   let mcp: ToolSet = {};
   try {
@@ -183,9 +191,13 @@ async function loadTools(
   const tools = workflowTools(workflow, turn.messages, {
     requestText: turn.requestText,
     runtimeRequest,
+    decisions,
   });
   const foreign = new Set<string>([...Object.keys(mcp), ...FOREIGN_TEXT_TOOLS]);
-  return condensingTools(workflow, screeningTools(workflow, { ...mcp, ...tools }, foreign));
+  return condensingTools(
+    workflow,
+    screeningTools(workflow, { ...mcp, ...tools }, foreign, decisions),
+  );
 }
 
 /**

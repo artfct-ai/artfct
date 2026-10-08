@@ -1,5 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
+import type { TurnDecisions } from "../../decisions/ask";
 import { screenText, type Screened } from "../../decisions/screen";
 import { feedbackText } from "../../prompts/review-prompt";
 import { heldCommentFindings, heldCommentHandles } from "../../workflow/refiner/held-comments";
@@ -22,7 +23,7 @@ export function hasPageArtifact(workflow: WorkflowRuntime): boolean {
 }
 
 /** The tool that sends held page comments to the author when a person asks in the thread. */
-export function heldCommentTools(workflow: WorkflowRuntime) {
+export function heldCommentTools(workflow: WorkflowRuntime, turn?: TurnDecisions) {
   return {
     [SEND_HELD_COMMENTS]: tool({
       description:
@@ -30,7 +31,7 @@ export function heldCommentTools(workflow: WorkflowRuntime) {
       inputSchema: z.object({
         job_id: z.string().describe("the job id, for example wf_abc-2"),
       }),
-      execute: ({ job_id }, { abortSignal }) => sendHeldComments(workflow, job_id, abortSignal),
+      execute: ({ job_id }) => sendHeldComments(workflow, job_id, turn),
     }),
   };
 }
@@ -58,7 +59,7 @@ export function unsentHeldCommentsText(
 async function sendHeldComments(
   workflow: WorkflowRuntime,
   jobId: string,
-  signal: AbortSignal | undefined,
+  turn: TurnDecisions | undefined,
 ): Promise<string> {
   if (!workflow.store.job(jobId)) return `Job ${jobId} does not exist.`;
   const artifact = workflow.store.artifact(jobId);
@@ -77,7 +78,7 @@ async function sendHeldComments(
   const screened = await screenText(workflow, {
     source: `the held comments of job ${jobId}`,
     text: said,
-    signal,
+    turn,
   });
   if (screened !== "admitted") return unsentHeldCommentsText(artifact.external_url, screened);
   await promptTask(workflow, author, said);

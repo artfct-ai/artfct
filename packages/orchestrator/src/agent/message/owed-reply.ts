@@ -1,6 +1,6 @@
 import type { YesNoQuestion } from "@artfct-ai/adapters/gateway/types";
 import type { ArtifactKind } from "@artfct-ai/contracts/types";
-import { askDecisions } from "../../decisions/ask";
+import { askDecisions, type TurnDecisions } from "../../decisions/ask";
 import { inputArtifactFrom, inputArtifactQuestion } from "./input-artifact";
 import type { WorkflowRuntime } from "../../workflow/types";
 
@@ -97,7 +97,7 @@ export function namesModelFrom(probabilities: { names_model: number }): boolean 
 export async function readPersonMessage(
   workflow: WorkflowRuntime,
   message: string,
-  signal?: AbortSignal,
+  turn?: TurnDecisions,
 ): Promise<PersonMessage> {
   const answers = await askDecisions(workflow, {
     purpose: OWED_REPLY_PURPOSE,
@@ -106,7 +106,7 @@ export async function readPersonMessage(
       yesNo: OWED_REPLY_QUESTIONS,
       choices: { artifact: inputArtifactQuestion(workflow.workflowDefinition().stages) },
     },
-    signal,
+    turn,
   });
   if (!answers) return UNREAD_MESSAGE;
   const { probabilities, choices } = answers;
