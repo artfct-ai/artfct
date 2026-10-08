@@ -32,6 +32,8 @@ jobs:
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
+      - name: Fail when the lockfile does not match the workspace manifests
+        run: bun install --lockfile-only && git diff --exit-code bun.lock
       - run: bun run check:affected
 
   preview:
