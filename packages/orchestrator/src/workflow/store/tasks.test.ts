@@ -260,6 +260,10 @@ describe("WorkflowStore", () => {
         store.writeOutbox({ channel: "tracker", kind: "issue_update", target, payload });
         store.writeOutbox({ channel: "tracker", kind: DELIVERY_ERROR, target, payload });
         store.writeOutbox({ channel: "chat", kind: DELIVERY_ERROR, target, payload });
+        store.writeOutbox({ channel: "chat", kind: "acknowledge", target, payload });
+        store.writeOutbox({ channel: "chat", kind: "ack_reaction", target, payload });
+        store.writeOutbox({ channel: "chat", kind: "working", target, payload });
+        store.writeOutbox({ channel: "chat", kind: "release", target, payload });
       });
 
       it("counts none of them", () =>
@@ -269,7 +273,7 @@ describe("WorkflowStore", () => {
 
       describe("mixed with entries a person reads", () => {
         const mixed = scenario(unread, (store) => {
-          store.writeOutbox({ channel: "chat", kind: "acknowledge", target, payload });
+          store.writeOutbox({ channel: "chat", kind: "answer", target, payload });
           store.writeOutbox({ channel: "tracker", kind: "response", target, payload });
           store.writeOutbox({ channel: "documents", kind: "info", target, payload });
           store.writeOutbox({ channel: "tracker", kind: "error", target, payload });

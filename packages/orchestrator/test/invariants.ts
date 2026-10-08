@@ -51,6 +51,18 @@ export type Step = {
   refinerTurnEnd: { task_id: string } | null;
   /** Set when the alarm that fired was armed for an older generation of its task. */
   staleAlarm: { task_id: string } | null;
+  /** Set when a person wrote in the chat thread and the message asked for an acknowledgement. */
+  chatMessage: ObservedChatMessage | null;
+};
+
+/** What the chat thread showed for one message a person wrote in it. */
+export type ObservedChatMessage = {
+  /** True when an agent turn was running as the message arrived. */
+  agentTurnRunning: boolean;
+  /** The outbox kind of every acknowledgement the message got. */
+  acknowledgements: string[];
+  /** How many messages the workflow posted to the thread while it handled the message. */
+  replies: number;
 };
 
 const FINISHED: TaskStatus[] = ["done", "failed", "cancelled"];
@@ -183,6 +195,31 @@ export function nothingReopensAFinishedWorkflow(_workflow: WorkflowRuntime, step
     violated(
       "nothingReopensAFinishedWorkflow",
       `a ${step.event.kind} event changed ${changes.join(", ")} of a ${step.before.workflowStatus} workflow`,
+    );
+  }
+}
+
+/**
+ * A chat message that asks for an acknowledgement gets exactly one signal. A message that woke the
+ * agent gets the working status when the agent was idle and the eyes reaction when it was
+ * mid-turn. Any other message gets the eyes reaction, or neither when the workflow posted a reply.
+ */
+export function everyChatMessageGetsOneAcknowledgement(
+  _workflow: WorkflowRuntime,
+  step: Step,
+): void {
+  const message = step.chatMessage;
+  if (!message) return;
+  const wokeAgent = step.notes.some((note) => note.wake !== "none");
+  const expected = wokeAgent
+    ? [message.agentTurnRunning ? "ack_reaction" : "acknowledge"]
+    : message.replies > 0
+      ? []
+      : ["ack_reaction"];
+  if (message.acknowledgements.join() !== expected.join()) {
+    violated(
+      "everyChatMessageGetsOneAcknowledgement",
+      `a message that ${wokeAgent ? "woke" : "did not wake"} the agent${message.agentTurnRunning ? " mid-turn" : ""} with ${message.replies} replies got [${message.acknowledgements.join(", ")}]`,
     );
   }
 }

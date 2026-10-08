@@ -11,6 +11,7 @@ import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { Binding } from "@artfct-ai/contracts/sources";
 import type { RefinerEntry, ReviewerEntry } from "../src/config/refiner";
 import { startJob } from "../src/workflow/lifecycle";
+import { destinationFor } from "../src/notify/destination";
 import { handleEvent } from "../src/workflow/inbound/events";
 import { isTaskFinished } from "../src/workflow/store/state";
 import type { ArtifactRow, JobRow, TaskRow } from "../src/workflow/store/tasks";
@@ -25,7 +26,7 @@ import {
   patchStageResearch,
   patchStageReviewers,
 } from "./fake-runtime";
-import type { Observation, Step } from "./invariants";
+import type { ObservedChatMessage, Observation, Step } from "./invariants";
 import { openMemoryDb } from "./memory-db";
 import { testEnv } from "./test-env";
 
@@ -136,6 +137,13 @@ export const UNOWNED_PULL = { repo: REPO, number: 99, branch: "someone/else" };
 
 const PERSON = { person_id: "p1", email: "dev@acme.test", display_name: "Dev" };
 
+const CHAT_THREAD = { source: "chat", channel: "C1", thread: "1.0" } as const;
+
+const ACKNOWLEDGEMENT_KINDS = ["acknowledge", "ack_reaction"];
+
+/** Whether an orchestrator agent turn runs while a chat message arrives. */
+export type AgentAtMessage = "idle" | "mid_turn";
+
 const BASE_BRANCH = "main";
 
 const FAILED_CHECK: CheckFailure = {
@@ -191,6 +199,7 @@ export class WorkflowWorld {
   private reviewNumber = 0;
   private eventNumber = 0;
   private delivered: Step["event"] = null;
+  private chatMessage: ObservedChatMessage | null = null;
   private readonly checksOnPush: ChecksOnPush;
 
   private constructor(workflow: FakeRuntime, checksOnPush: ChecksOnPush) {
@@ -209,7 +218,7 @@ export class WorkflowWorld {
     workflow.patchState({
       repo: { full: REPO },
       request: { title: "Fix login", text: "Fix the login redirect.", links: [] },
-      reply_targets: [{ source: "chat", channel: "C1", thread: "1.0" }],
+      reply_targets: [CHAT_THREAD],
       concurrency: SLOTS,
     });
     const stage = STAGE_OF[setup.artifact];
@@ -230,6 +239,7 @@ export class WorkflowWorld {
     const before = this.steps.at(-1)?.after ?? this.observe();
     const notesBefore = this.workflow.notes.length;
     this.delivered = null;
+    this.chatMessage = null;
     const facts = (await action.run(this)) ?? {};
     this.adoptNewAuthors();
     await this.dropClosedSockets();
@@ -247,6 +257,7 @@ export class WorkflowWorld {
       refinerTurnEnd: facts.refinerTurnEnd ?? null,
       staleAlarm: facts.staleAlarm ?? null,
       event: this.delivered,
+      chatMessage: this.chatMessage,
     };
     this.steps.push(step);
     return step;
@@ -443,6 +454,32 @@ export class WorkflowWorld {
       links: [],
       ...event,
     });
+  }
+
+  /** Deliver a message a person wrote in the chat thread, and record how the thread showed it. */
+  async writeInChat(
+    event: Pick<InboundEvent, "kind" | "text">,
+    agent: AgentAtMessage,
+  ): Promise<void> {
+    const message = `2.${this.eventNumber}`;
+    const outboxBefore = this.workflow.store.outbox().length;
+    const postsBefore = this.workflow.posted.length;
+    this.workflow.turnRunning = agent === "mid_turn";
+    try {
+      await this.deliver({ ...event, reply_to: CHAT_THREAD, acknowledge: { message } });
+    } finally {
+      this.workflow.turnRunning = false;
+    }
+    const acknowledgements = this.workflow.store
+      .outbox()
+      .slice(outboxBefore)
+      .filter((row) => ACKNOWLEDGEMENT_KINDS.includes(row.kind))
+      .filter((row) => (row.payload as { message?: string }).message === message)
+      .map((row) => row.kind);
+    const replies = this.workflow.posted
+      .slice(postsBefore)
+      .filter((posted) => destinationFor(posted) === "channel").length;
+    this.chatMessage = { agentTurnRunning: agent === "mid_turn", acknowledgements, replies };
   }
 
   /** The detail every event about the author's pull request carries. */
