@@ -46,8 +46,7 @@ orchestrator:
   sandbox:
     # An idle sandbox sleeps after this long.
     sleep_after: 30m
-    # A sandbox start fails when the harness setup and the repo clone take longer than this. Raise
-    # it for a repository whose history takes longer to clone.
+    # Max time for clone and harness setup.
     startup_timeout: 10m
     # Tasks one workflow runs at the same time.
     max_concurrency: 100
