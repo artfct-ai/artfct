@@ -1,6 +1,6 @@
 import type { YesNoQuestion } from "@artfct-ai/adapters/gateway/types";
 import { describe, expect, it } from "bun:test";
-import { ScriptedDecisions, scriptedProbability } from "./scripted-decisions";
+import { ScriptedDecisions, scriptedChoice, scriptedProbability } from "./scripted-decisions";
 import { SCRIPTED_NO_REVIEW, SCRIPTED_REVIEW_REQUEST } from "./scripted-model";
 
 const QUESTION: YesNoQuestion = { instructions: "Is it so?", yes: "It is.", no: "It is not." };
@@ -17,14 +17,22 @@ describe("scriptedProbability", () => {
   });
 
   describe("the selection question", () => {
-    it("says yes when the messages name the option", () => {
-      const state = { option: "Feature flag", messages: "go with feature flag" };
-      expect(scriptedProbability("selects", state)).toBe(1);
+    const question = {
+      instructions: "Which option?",
+      options: { "Feature flag": "Option 1.", "Direct fix": "Option 2.", none: "Neither." },
+    };
+
+    it("picks the option the messages name", () => {
+      expect(scriptedChoice("selected", { messages: "go with feature flag" }, question)).toEqual({
+        option: "Feature flag",
+        probability: 1,
+      });
     });
 
-    it("says no when the messages name another option", () => {
-      const state = { option: "Feature flag", messages: "go with Direct fix" };
-      expect(scriptedProbability("selects", state)).toBe(0);
+    it("picks none when the messages name no option", () => {
+      expect(scriptedChoice("selected", { messages: "not sure yet" }, question).option).toBe(
+        "none",
+      );
     });
   });
 
