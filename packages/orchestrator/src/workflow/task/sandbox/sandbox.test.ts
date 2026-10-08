@@ -102,6 +102,7 @@ const input: StartSpecInput = {
   harness: harnessAdapter("claude-code", { claudeOauthToken: "sk-ant-oat" }),
   gateway: null,
   sleepAfterMs: 1_800_000,
+  startupTimeoutMs: 900_000,
 };
 
 function spec(patch: Partial<StartSpecInput>) {
@@ -130,6 +131,10 @@ describe("buildStartSpec", () => {
 
     it("dials the bridge of that workflow and task", () => {
       expect(built.dial_url).toBe("wss://ao.example.com/bridge/wf_x/wf_x.1");
+    });
+
+    it("gives the startup script the deployment's time limit", () => {
+      expect(built.startup_timeout_ms).toBe(900_000);
     });
   });
 

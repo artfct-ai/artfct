@@ -147,6 +147,7 @@ export async function planLocalRun(
     hostEnv: cliEnv({ capability, adapters: config.adapters, credential, log: warn }),
     gateway: routes,
     sleepAfterMs: 0,
+    startupTimeoutMs: config.orchestrator.sandbox.startup_timeout,
   });
   if ("error" in built) return built;
   if (!credential) return { error: `no credential for the ${capability} host` };

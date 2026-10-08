@@ -33,6 +33,7 @@ const spec: SandboxStartSpec = {
   files: [],
   setup_commands: [],
   sleep_after_ms: 1_800_000,
+  startup_timeout_ms: 2_700_000,
 };
 
 const STARTUP_SCRIPT = "/tmp/artfct-startup.sh";
@@ -158,8 +159,8 @@ describe("CloudflareSandboxProvider", () => {
       expect(fake.files.get(STARTUP_SCRIPT)).toBe(startupScript(spec));
     });
 
-    it("runs the startup script", () => {
-      expect(fake.commands).toEqual([{ command: `bash ${STARTUP_SCRIPT}`, timeout: 600_000 }]);
+    it("runs the startup script within the spec's time limit", () => {
+      expect(fake.commands).toEqual([{ command: `bash ${STARTUP_SCRIPT}`, timeout: 2_700_000 }]);
     });
 
     it("starts the bridge in the workspace with its token in the process env", () => {
@@ -314,7 +315,7 @@ describe("CloudflareSandboxProvider", () => {
     });
 
     it("runs the startup script again, so an empty workspace is cloned", () => {
-      expect(second.commands).toEqual([{ command: `bash ${STARTUP_SCRIPT}`, timeout: 600_000 }]);
+      expect(second.commands).toEqual([{ command: `bash ${STARTUP_SCRIPT}`, timeout: 2_700_000 }]);
       expect(second.files.get(STARTUP_SCRIPT)).toContain("git clone");
     });
 

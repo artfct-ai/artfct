@@ -20,6 +20,23 @@ describe("loadConfig", () => {
     it("gives the orchestrator no extra request fields", () => {
       expect(config.orchestrator.model_params).toEqual({});
     });
+
+    it("gives a sandbox ten minutes to start", () => {
+      expect(config.orchestrator.sandbox.startup_timeout).toBe(600_000);
+    });
+  });
+
+  describe("a config that sets the sandbox startup timeout", () => {
+    it("reads the duration in milliseconds", () => {
+      const config = loadConfig("orchestrator: { sandbox: { startup_timeout: 45m } }");
+      expect(config.orchestrator.sandbox.startup_timeout).toBe(2_700_000);
+    });
+
+    it("rejects a timeout that is not above zero", () => {
+      expect(() => loadConfig("orchestrator: { sandbox: { startup_timeout: 0 } }")).toThrow(
+        /invalid duration: 0/,
+      );
+    });
   });
 
   describe("an orchestrator with request fields", () => {

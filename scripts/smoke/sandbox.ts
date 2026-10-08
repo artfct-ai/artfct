@@ -135,7 +135,9 @@ export async function assertStartSpec(options: {
     `artfct-bridge --harness '${STAGE_HARNESS}' --dial '${dialUrl}' --cwd '${WORKSPACE}' --model '${STAGE_MODEL}' --generation ${generation}`,
     "start spec bridge_command",
   );
-  const clones = start.startup_script.includes(`git clone "$ARTFCT_CLONE_URL" '${WORKSPACE}'`);
+  const clones = start.startup_script.includes(
+    `git clone --filter=blob:none "$ARTFCT_CLONE_URL" '${WORKSPACE}.clone'`,
+  );
   assert(clones, "startup script clones the repository", start.startup_script);
   const createsBranch = start.startup_script.includes("git checkout -b ");
   if (!branch) {

@@ -138,6 +138,7 @@ async function startGeneration(
     hostEnv,
     gateway,
     sleepAfterMs: config.orchestrator.sandbox.sleep_after,
+    startupTimeoutMs: config.orchestrator.sandbox.startup_timeout,
   });
   if ("error" in built) return failTask(workflow, fresh, built.error);
   try {
@@ -198,6 +199,7 @@ export type StartSpecInput = {
   hostEnv: Record<string, string>;
   gateway: GatewayRoutes | null;
   sleepAfterMs: number;
+  startupTimeoutMs: number;
 };
 
 /**
@@ -255,6 +257,7 @@ export function buildStartSpec(
     ],
     setup_commands: setup.commands,
     sleep_after_ms: input.sleepAfterMs,
+    startup_timeout_ms: input.startupTimeoutMs,
   };
   return { spec };
 }

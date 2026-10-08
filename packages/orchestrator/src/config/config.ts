@@ -29,6 +29,11 @@ export const SleepAfter = z.union([z.literal(0), Duration]);
 /** The sandboxes the tasks of a workflow run in. */
 export const SandboxConfig = z.object({
   sleep_after: SleepAfter.prefault("30m"),
+  /**
+   * Time the startup script of a sandbox may take to run the harness setup and clone the repo, in
+   * milliseconds after parsing. Past it the start fails and the task restarts.
+   */
+  startup_timeout: Duration.prefault("10m"),
   /** Tasks one workflow may run at the same time. The agent may pick a lower number per plan. */
   max_concurrency: z.number().int().positive().default(100),
 });
