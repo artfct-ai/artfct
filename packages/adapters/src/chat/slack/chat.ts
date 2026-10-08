@@ -105,6 +105,10 @@ export class SlackChat implements Chat {
     await this.web.reactions.add({ channel, timestamp: ts, name });
   }
 
+  async removeReaction(channel: string, ts: string, name: string): Promise<void> {
+    await this.web.reactions.remove({ channel, timestamp: ts, name });
+  }
+
   /** Set the agent session status on a thread. The app needs Slack's Agents feature. */
   async setSessionStatus(
     channel: string,

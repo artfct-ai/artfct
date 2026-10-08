@@ -78,6 +78,10 @@ export class FakeChat implements Chat {
     this.log.record("addReaction", channel, ts, name);
   }
 
+  async removeReaction(channel: string, ts: string, name: string): Promise<void> {
+    this.log.record("removeReaction", channel, ts, name);
+  }
+
   async setSessionStatus(
     channel: string,
     threadTs: string,

@@ -6,7 +6,6 @@ import { describe, expect, it } from "vitest";
 import { Notifier, type ChannelClients, type PostOptions } from "../../notify/notifier";
 import type { Workflow } from "../../workflow";
 import { failWorkflow } from "../lifecycle";
-import type { ChatAckAlarm } from "./events";
 import { type Scenario, scenario } from "../../../test/scenario";
 
 type Outbox = Array<{ kind: string; payload: Record<string, unknown> }>;
@@ -108,17 +107,6 @@ describe("acknowledge", () => {
           { message: "1.0", user: "U1", title: "fix the flaky test" },
           { message: "1.5", user: "U1", title: "fix the flaky test" },
         ]);
-      }));
-  });
-
-  describe("a start from a Slack thread", () => {
-    it("arms one eyes reaction, so a thread that waits still learns the message arrived", () =>
-      freshWorkflow((workflow) => {
-        const armed = workflow
-          .getSchedules<ChatAckAlarm>()
-          .filter((schedule) => schedule.callback === "onChatAck");
-        expect(armed).toHaveLength(1);
-        expect(armed[0]?.payload).toMatchObject({ message: "1.0", target: chatThread });
       }));
   });
 

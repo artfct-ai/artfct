@@ -2,70 +2,11 @@ import { FakeCodeHost } from "@artfct-ai/adapters/test/fake-code-host";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
-import type { ChatTarget } from "../../notify/notifier";
 import { describe, expect, it } from "bun:test";
 import { seedPullRequestTask } from "../../../test/fake-runtime";
 import { freshRuntime } from "../../../test/fresh-runtime";
 import { scenario } from "../../../test/scenario";
-import { armChatAck, handleEvent, onChatAck, type ChatAckAlarm } from "./events";
-
-const TARGET: ChatTarget = { source: "chat", channel: "C1", thread: "1.0" };
-
-function armed(alarms: Array<{ method: string; payload: unknown }>): ChatAckAlarm {
-  const alarm = alarms.find((entry) => entry.method === "onChatAck");
-  if (!alarm) throw new Error("no onChatAck alarm was scheduled");
-  return alarm.payload as ChatAckAlarm;
-}
-
-describe("armChatAck", () => {
-  describe("a thread that already carries one acknowledgement", () => {
-    const armedAck = scenario(freshRuntime, async (workflow) => {
-      workflow.store.writeOutbox({
-        channel: "chat",
-        kind: "acknowledge",
-        target: TARGET,
-        payload: {},
-      });
-      await armChatAck(workflow, TARGET, "2.0");
-    });
-
-    it("carries the message and how quiet the thread was", () =>
-      armedAck((workflow) => {
-        expect(armed(workflow.alarms)).toEqual({ target: TARGET, message: "2.0", posted: 1 });
-      }));
-  });
-});
-
-describe("onChatAck", () => {
-  const waiting = scenario(freshRuntime, (workflow) => armChatAck(workflow, TARGET, "2.0"));
-
-  describe("a thread that heard nothing while the alarm waited", () => {
-    const silent = scenario(waiting, (workflow) => onChatAck(workflow, armed(workflow.alarms)));
-
-    it("reacts on the message", () =>
-      silent((workflow) => {
-        expect(workflow.store.outbox().map((entry) => entry.kind)).toEqual(["ack_reaction"]);
-      }));
-  });
-
-  describe("a thread the agent answered while the alarm waited", () => {
-    const answered = scenario(waiting, async (workflow) => {
-      const alarm = armed(workflow.alarms);
-      workflow.store.writeOutbox({
-        channel: "chat",
-        kind: "post",
-        target: TARGET,
-        payload: { text: "On it." },
-      });
-      await onChatAck(workflow, alarm);
-    });
-
-    it("says nothing, since the reaction would add nothing to the reply", () =>
-      answered((workflow) => {
-        expect(workflow.store.outbox().map((entry) => entry.kind)).toEqual(["post"]);
-      }));
-  });
-});
+import { handleEvent } from "./events";
 
 describe("handleEvent", () => {
   const MARK = "evil.test";
