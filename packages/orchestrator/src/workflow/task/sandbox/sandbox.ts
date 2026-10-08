@@ -16,6 +16,7 @@ import type { Adapters } from "../../../config/adapters";
 import type { ResolvedStage } from "../../../config/stage";
 import type { SandboxStartSpec } from "../../../sandbox/spec";
 import { armTokenRefresh, hostCredential, taskCredential } from "./credential";
+import { flushBoards } from "../../board/board";
 import { failTask, restartOrFailTask } from "../../lifecycle";
 import { runModelAuthorTurn } from "../model-author";
 import type { WorkflowRuntime } from "../../types";
@@ -65,7 +66,10 @@ export async function restartSandbox(workflow: WorkflowRuntime, task: TaskRow): 
   await startSandbox(workflow, workflow.store.requireTask(task.task_id), true);
 }
 
-/** Start or restart the sandbox for a task. Each start is a new generation with a fresh token. */
+/**
+ * Start or restart the sandbox for a task. Each start is a new generation with a fresh token.
+ * The boards show the task provisioning before the start is awaited.
+ */
 export async function startSandbox(
   workflow: WorkflowRuntime,
   task: TaskRow,
@@ -88,6 +92,7 @@ async function startGeneration(
 ): Promise<void> {
   const config = workflow.config();
   const fresh = await beginGeneration(workflow, task);
+  await flushBoards(workflow, fresh.job_id);
   const sandbox = workflow.store.requireSandbox(fresh.task_id);
   const job = workflow.store.requireJob(fresh.job_id);
   const stage = workflow.stageForTask(fresh);

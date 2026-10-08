@@ -44,8 +44,9 @@ export function renderBoard(input: BoardInput, format: BoardFormat): BoardRender
 export function lifecycleLabel(status: TaskStatus): string {
   switch (status) {
     case "queued":
-    case "provisioning":
       return "starting";
+    case "provisioning":
+      return "starting the sandbox";
     case "working":
       return "working";
     case "in_review":

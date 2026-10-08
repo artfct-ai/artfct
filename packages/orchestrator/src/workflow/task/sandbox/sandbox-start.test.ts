@@ -23,6 +23,17 @@ function installedSkills(workflow: FakeRuntime): string[] {
     .filter((name) => name !== undefined);
 }
 
+function seedQueuedReviewer(workflow: FakeRuntime): TaskRow {
+  seedTask(workflow);
+  return seedTask(workflow, {
+    task_id: "wf_x.2",
+    job_id: JOB,
+    status: "queued",
+    role: "reviewer",
+    refiner_index: 0,
+  });
+}
+
 class FailingStart extends FakeSandboxProvider {
   constructor(private readonly failure = "no capacity") {
     super();
@@ -100,6 +111,26 @@ describe("provision", () => {
           });
         }));
     });
+  });
+
+  describe("a queued task with a chat thread whose sandbox start has not returned", () => {
+    const starting = scenario(freshRuntime, async (workflow) => {
+      workflow.sandboxProvider = new NeverFinishesStart();
+      workflow.state.reply_targets = [{ source: "chat", channel: "C1", thread: "1.1" }];
+      seedTask(workflow, { status: "queued" }, { generation: 0 });
+      void provision(workflow, TASK);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    it("posts a board that says the sandbox is starting", () =>
+      starting((workflow) => {
+        expect(workflow.store.outbox().map((entry) => [entry.channel, entry.kind])).toEqual([
+          ["board", "create"],
+        ]);
+        expect(JSON.stringify(workflow.store.outbox()[0]?.payload)).toContain(
+          "starting the sandbox",
+        );
+      }));
   });
 
   describe("a queued task", () => {
@@ -253,7 +284,7 @@ describe("startSandbox", () => {
     const started = scenario(freshRuntime, (workflow) => {
       workflow.patchConfig({ adapters: Adapters.parse({ documents: { provider: "notion" } }) });
       workflow.mcpCredentialValue = "ntn_secret";
-      const reviewer = seedTask(workflow, { status: "queued", role: "reviewer", refiner_index: 0 });
+      const reviewer = seedQueuedReviewer(workflow);
       return startSandbox(workflow, reviewer, false);
     });
 
@@ -269,7 +300,7 @@ describe("startSandbox", () => {
   describe("a reviewer run on a page stage when Linear holds the pages", () => {
     const started = scenario(freshRuntime, (workflow) => {
       workflow.mcpCredentialValue = "lin_oauth_a";
-      const reviewer = seedTask(workflow, { status: "queued", role: "reviewer", refiner_index: 0 });
+      const reviewer = seedQueuedReviewer(workflow);
       return startSandbox(workflow, reviewer, false);
     });
 
@@ -281,11 +312,7 @@ describe("startSandbox", () => {
 
   describe("a reviewer run on the design stage", () => {
     const started = scenario(freshRuntime, (workflow) =>
-      startSandbox(
-        workflow,
-        seedTask(workflow, { status: "queued", role: "reviewer", refiner_index: 0 }),
-        false,
-      ),
+      startSandbox(workflow, seedQueuedReviewer(workflow), false),
     );
 
     it("installs its entry's skill first, not the stage's", () =>
