@@ -66,14 +66,25 @@ Judge a change by the complexity it leaves behind. Do not judge it by its size. 
 
 ## Domain spec
 
+Every change is specified before it is built. The spec is the glossary and the invariants. Propose both with the design, before the owner has to ask. A change without its spec is not done.
+
+### Glossary
+
 - `spec/glossary.md` is the authority on domain terms. Use its terms in identifiers, JSDoc, prompts, logs, and documents. Never use a word from its `Do not say` column for that concept.
-- Only the repository owner changes the glossary. Edit it only when the owner asked for that change or approved it beforehand. Otherwise stop and ask for approval before you edit it. This holds for a new row, a changed meaning, a renamed term, and a removed row.
-- A new domain concept needs a glossary row. Propose the term and its meaning, get approval, then add the row in the same change as the code.
+- A new domain concept needs a glossary row. Propose the term and its meaning with the design, get approval, then add the row in the same change as the code.
+- Only the repository owner changes the glossary. Edit it only when the owner asked for that change or approved it beforehand. This holds for a new row, a changed meaning, a renamed term, and a removed row.
 - Never edit the glossary to match code that drifted. When the code and the glossary disagree, stop and ask.
+
+### Invariants
+
+- Every behavior a person sees or the system relies on is held by an invariant. When a change adds or alters such a behavior, name the rules the change must keep and propose each one as an invariant with the design.
+- Every invariant has a property test that checks it on random sequences. A new invariant ships with the generator actions that reach the behavior it guards, including failures, hangs, restarts, and concurrent events. An invariant that no generated sequence reaches is not tested.
+- When a change would let an existing invariant pass without testing anything, such as a new post that satisfies a reply check, propose the tightened invariant in the same change.
 - `packages/orchestrator/test/invariants.ts` holds the workflow invariants. Each one is a rule the workflow must keep after every action. `packages/orchestrator/src/workflow/invariants.test.ts` checks them on random action sequences.
 - `packages/orchestrator/test/agent-invariants.ts` holds the agent turn invariants. Each one is a rule the orchestrator agent must keep after every turn. `packages/orchestrator/src/agent/turn/turn-invariants.test.medium.ts` checks them on random turn sequences.
-- Only the repository owner adds, changes, or removes an invariant. Edit one only when the owner asked for that change or approved it beforehand.
-- When the property test fails, never weaken an invariant, an action, or a generator to make it pass. Stop and report the shrunk sequence and the seed.
+- Code outside the workflow and the agent turn, such as the router or ingress, follows the same rule. When its behavior has an invariant and no property test reaches it, add the property test in the same change.
+- Only the repository owner adds, changes, or removes an invariant. Propose it, get approval, then add it with its property test in the same change as the code.
+- When a property test fails, never weaken an invariant, an action, or a generator to make it pass. Stop and report the shrunk sequence and the seed.
 
 ## Code style
 
@@ -90,6 +101,6 @@ Judge a change by the complexity it leaves behind. Do not judge it by its size. 
 
 ## Done means
 
-CI does not run on a pull request from a fork until a maintainer approves it, so test every change fully before you push. Use `scripts/test-near` on the files you change while you work. Before you push, `bun run check` passes with zero errors and zero warnings, and `bun run smoke` prints `SMOKE PASSED`. Push the branch and open a draft PR. Then run `gh pr checks <number> --watch --fail-fast`, fix what fails, and push again until every check is green. Do not stop at a local commit, and do not ask first. Never leave a lint warning or a failing test because it was already there. Fix it in the same change and mention the fix in one line.
+A change carries its spec: the glossary rows for its concepts, and the invariants for its behavior with their property tests. CI does not run on a pull request from a fork until a maintainer approves it, so test every change fully before you push. Use `scripts/test-near` on the files you change while you work. Before you push, `bun run check` passes with zero errors and zero warnings, and `bun run smoke` prints `SMOKE PASSED`. Push the branch and open a draft PR. Then run `gh pr checks <number> --watch --fail-fast`, fix what fails, and push again until every check is green. Do not stop at a local commit, and do not ask first. Never leave a lint warning or a failing test because it was already there. Fix it in the same change and mention the fix in one line.
 
 The PR description states the reason for each part of the change. That is where rationale lives. When a stacked PR's base merges, replay the branch with `git rebase --onto origin/main <old-base-tip> <branch>`, push with `--force-with-lease`, and retarget with `gh pr edit <number> --base main`.
