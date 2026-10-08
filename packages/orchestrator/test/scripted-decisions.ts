@@ -46,9 +46,10 @@ export function scriptedProbability(question: string, state: DecisionState): num
     }
     case "review_again":
       return state.closing_text === SCRIPTED_REVIEW_REQUEST ? 1 : 0;
-    case "overrides_instructions":
-    case "poses_as_system":
-    case "asks_hidden_action":
+    case "takes_control":
+    case "impersonates_system":
+    case "exfiltrates":
+    case "conceals":
       return 0;
     default:
       return UNDECIDED;

@@ -5,8 +5,8 @@ import type { FakeRuntime } from "../../test/fake-runtime";
 import { freshRuntime } from "../../test/fresh-runtime";
 import { SCREEN_PURPOSE, screenedFrom, screenParts, screenText, type Screened } from "./screen";
 
-const CLEAN = { overrides_instructions: 0.02, poses_as_system: 0.01, asks_hidden_action: 0.03 };
-const HOSTILE = { ...CLEAN, asks_hidden_action: 0.91 };
+const CLEAN = { takes_control: 0.02, impersonates_system: 0.01, exfiltrates: 0.03, conceals: 0.01 };
+const HOSTILE = { ...CLEAN, exfiltrates: 0.91 };
 const LONG_TEXT = "a".repeat(50_000);
 const HOSTILE_PART = "b".repeat(30);
 
@@ -46,11 +46,11 @@ describe("screenedFrom", () => {
   });
 
   it("quarantines a text when one question of one part reaches the floor", () => {
-    expect(screenedFrom([CLEAN, { ...CLEAN, poses_as_system: 0.7 }])).toBe("quarantined");
+    expect(screenedFrom([CLEAN, { ...CLEAN, impersonates_system: 0.6 }])).toBe("quarantined");
   });
 
   it("admits a text just under the floor", () => {
-    expect(screenedFrom([{ ...CLEAN, poses_as_system: 0.69 }])).toBe("admitted");
+    expect(screenedFrom([{ ...CLEAN, impersonates_system: 0.59 }])).toBe("admitted");
   });
 
   it("admits a text with an unanswered part", () => {

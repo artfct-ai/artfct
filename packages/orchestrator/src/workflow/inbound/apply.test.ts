@@ -289,7 +289,7 @@ describe("applyEvent", () => {
       pageComment("cmt-3", "@artfct please revise"),
       (workflow) => {
         workflow.gatewayInstance = new FakeGateway({
-          decisions: new FakeDecisions({ overrides_instructions: 0.9 }),
+          decisions: new FakeDecisions({ takes_control: 0.9 }),
         });
         const documents = new FakeDocuments({
           self: { id: "bot-1", name: "artfct" },

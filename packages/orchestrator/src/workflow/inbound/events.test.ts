@@ -90,7 +90,7 @@ describe("handleEvent", () => {
   }
 
   describe("the review of an App that the screen quarantines", () => {
-    const quarantined = appReviewed({ asks_hidden_action: 0.9 });
+    const quarantined = appReviewed({ exfiltrates: 0.9 });
 
     it("tells the agent without the text of the review", () =>
       quarantined((workflow) => {
