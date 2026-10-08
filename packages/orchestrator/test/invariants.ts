@@ -57,8 +57,11 @@ export type Step = {
    * not check what the person wrote. `result` is what the tool answered.
    */
   completion: { task_id: string; checkFailed: boolean; result: string } | null;
-  /** Set when feedback the screen could not admit was delivered. `texts` are what it said. */
-  unadmittedFeedback: { texts: string[] } | null;
+  /**
+   * Set when feedback the screen could not admit was delivered or sent. `texts` are what it said.
+   * `agentRead` is the tool result the agent read about it, or null when no tool ran.
+   */
+  unadmittedFeedback: { texts: string[]; agentRead: string | null } | null;
 };
 
 const FINISHED: TaskStatus[] = ["done", "failed", "cancelled"];
@@ -385,13 +388,17 @@ export function oneLiveJobPerInputArtifact(workflow: WorkflowRuntime): void {
 
 /**
  * Feedback the screen did not admit, because it quarantined it or could not check it, reaches
- * neither the agent nor the author. No note holds its text, and no prompt goes out.
+ * neither the agent nor the author. No note or tool result holds its text, and no prompt goes out.
  */
 export function unadmittedFeedbackReachesNobody(_workflow: WorkflowRuntime, step: Step): void {
   if (!step.unadmittedFeedback) return;
-  for (const text of step.unadmittedFeedback.texts) {
+  const { texts, agentRead } = step.unadmittedFeedback;
+  for (const text of texts) {
     if (step.notes.some((note) => note.text.includes(text))) {
       violated("unadmittedFeedbackReachesNobody", `a note told the agent "${text}"`);
+    }
+    if (agentRead?.includes(text)) {
+      violated("unadmittedFeedbackReachesNobody", `a tool result told the agent "${text}"`);
     }
   }
   if (step.after.authorPrompts !== step.before.authorPrompts) {

@@ -1,5 +1,6 @@
 import type { StopReason } from "@agentclientprotocol/sdk";
 import { artifactTools } from "../src/agent/tools/artifact";
+import { heldCommentTools } from "../src/agent/tools/held-comments";
 import { planTools } from "../src/agent/tools/plan";
 import { startTools } from "../src/agent/tools/start/start";
 import { taskTools } from "../src/agent/tools/task";
@@ -27,7 +28,9 @@ import type { FakeBridge } from "./fake-bridge";
 import { toolText } from "./tool-result";
 import { JUDGE_CONCLUSION } from "./fake-runtime";
 import {
+  HELD_COMMENT,
   MAX_AUTHORS,
+  PAGE_OPTION,
   REPO,
   STAGE_OF,
   UNOWNED_PULL,
@@ -352,7 +355,9 @@ export function personPostsFeedback(
     const unchecked = form === "app_review" && (routing === "fails" || routing === "none");
     return {
       feedback: { task_id: author.taskId },
-      unadmittedFeedback: unchecked ? { texts: [FEEDBACK_TEXT, INLINE_COMMENT.body] } : null,
+      unadmittedFeedback: unchecked
+        ? { texts: [FEEDBACK_TEXT, INLINE_COMMENT.body], agentRead: null }
+        : null,
     };
   });
 }
@@ -663,10 +668,8 @@ export function agentCompletes(
         ? { for_author: 0, beyond_author: 0, rejects: 0, accepts }
         : decisions,
     );
-    const decisionsSignal =
-      decisions === "hangs" ? AbortSignal.timeout(DECISIONS_DEADLINE_MS) : undefined;
     const { complete_job } = startTools(world.workflow, PERSON_MESSAGES[person], {
-      decisionsSignal,
+      decisionsSignal: decisionsSignalFor(decisions),
     });
     const result = toolText(
       await complete_job.execute(
@@ -679,6 +682,66 @@ export function agentCompletes(
       completion: { task_id: author.taskId, checkFailed: decisions !== "answers", result },
     };
   });
+}
+
+/**
+ * The agent completes the author task with the option the person selected, in whatever state it
+ * is. Only a stage with a choice ending reads the option.
+ */
+export function agentCompletesWithSelection(
+  index: number,
+  person: PersonAtCompletion,
+  decisions: DecisionsAtCompletion,
+): WorkflowAction {
+  const label = `agent completes the task with a selection, the person ${person}, decisions ${decisions}`;
+  return authorAction(index, label, async (world, author) => {
+    const selects = person === "accepts" ? 0.9 : 0.1;
+    world.answerDecisionsWith(
+      decisions === "answers"
+        ? { for_author: 0, beyond_author: 0, rejects: 0, selects }
+        : decisions,
+    );
+    const { complete_job } = startTools(world.workflow, PERSON_MESSAGES[person], {
+      decisionsSignal: decisionsSignalFor(decisions),
+    });
+    const result = toolText(
+      await complete_job.execute(
+        { job_id: world.jobOf(author).job_id, result: "Done.", option: PAGE_OPTION },
+        TOOL_CALL,
+      ),
+    );
+    if (decisions === "hangs") world.answerDecisionsWith("fails");
+    return {
+      completion: { task_id: author.taskId, checkFailed: decisions !== "answers", result },
+    };
+  });
+}
+
+/**
+ * The agent sends the comments held on the author's page to the author. The screen checks them
+ * first, and a decisions model that fails, hangs, or is missing leaves them unchecked.
+ */
+export function agentSendsHeldComments(
+  index: number,
+  decisions: DecisionsAtCompletion,
+): WorkflowAction {
+  const label = `agent sends the held comments, decisions ${decisions}`;
+  return authorAction(index, label, async (world, author) => {
+    world.answerDecisionsWith(
+      decisions === "answers" ? { for_author: 0, beyond_author: 0, rejects: 0 } : decisions,
+    );
+    const { send_held_comments } = heldCommentTools(world.workflow, decisionsSignalFor(decisions));
+    const result = toolText(
+      await send_held_comments.execute({ job_id: world.jobOf(author).job_id }, TOOL_CALL),
+    );
+    if (decisions === "hangs") world.answerDecisionsWith("fails");
+    if (decisions === "answers") return undefined;
+    return { unadmittedFeedback: { texts: [HELD_COMMENT.text], agentRead: result } };
+  });
+}
+
+function decisionsSignalFor(decisions: DecisionsAtCompletion): AbortSignal | undefined {
+  return decisions === "hangs" ? AbortSignal.timeout(DECISIONS_DEADLINE_MS) : undefined;
 }
 
 /**
