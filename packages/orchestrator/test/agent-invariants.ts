@@ -7,6 +7,9 @@ import { HEADS_UP_TEXT, LOST_PLACE_TEXT, turnTimeoutText } from "../src/agent/tu
 /** How long past its timeout a turn may take to stop its work and post. */
 const DEADLINE_GRACE_MS = 1000;
 
+/** What happened to one call at the decisions model: it was asked, it answered, or it failed. */
+export type DecisionsEvent = "asked" | "answered" | "failed";
+
 /** What one agent turn was given and what it left on the channels. */
 export type AgentTurnRecord = {
   /** What the message of the person who wrote is owed. Null on an unprompted turn. */
@@ -56,6 +59,8 @@ export type AgentTurnRecord = {
     answeredBy: string[];
     firstAnswering: string | null;
   } | null;
+  /** Every call the turn asked the decisions model, and how each ended, in the order it happened. */
+  decisionsEvents: DecisionsEvent[];
 };
 
 function violated(name: string, detail: string): never {
@@ -264,6 +269,21 @@ export function aDecisionsCallFallsBackOnlyAfterEveryModelFailed(turn: AgentTurn
   );
 }
 
+/**
+ * After a decisions call fails in a turn, every later decisions call in that turn takes its
+ * fallback at once, without asking the decisions model.
+ */
+export function laterDecisionsCallsFallBackOnceOneFails(turn: AgentTurnRecord): void {
+  const failedAt = turn.decisionsEvents.indexOf("failed");
+  if (failedAt === -1) return;
+  const askedLater = turn.decisionsEvents.slice(failedAt).filter((event) => event === "asked");
+  if (askedLater.length === 0) return;
+  violated(
+    "laterDecisionsCallsFallBackOnceOneFails",
+    `${askedLater.length} decisions calls asked the model after a call of the turn failed`,
+  );
+}
+
 /** Every agent turn invariant. */
 export const AGENT_TURN_INVARIANTS = [
   closingTextAnswersOnlyAPersonWhoWrote,
@@ -277,4 +297,5 @@ export const AGENT_TURN_INVARIANTS = [
   aResumedTurnAnswersWhatItsLostTurnOwed,
   aPersonGetsTheAnswerDuringADecisionsOutage,
   aDecisionsCallFallsBackOnlyAfterEveryModelFailed,
+  laterDecisionsCallsFallBackOnceOneFails,
 ];
