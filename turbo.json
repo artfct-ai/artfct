@@ -30,6 +30,7 @@
     },
     "@artfct-ai/core#build": {
       "dependsOn": ["transit", "@artfct-ai/sandbox-bridge#build", "@artfct-ai/orchestrator#types"],
+      "env": ["SANDBOX_IMAGE_TAG", "SANDBOX_IMAGE_DIGEST"],
       "outputs": ["dist/**"]
     },
     "@artfct-ai/core#types": {

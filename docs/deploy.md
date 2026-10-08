@@ -24,7 +24,9 @@ Upload the Worker secrets once and again when they change. The header of each `.
 
 ## Use the published sandbox image
 
-Each release also publishes the sandbox image on Docker Hub if you prefer to deploy without Docker. The installed `@artfct-ai/core` names that image by tag and digest in `node_modules/@artfct-ai/core/dist/sandbox/published-image`. The reference has the form `docker.io/artfct/sandbox:<version>@sha256:<digest>`. In `orchestrator/wrangler.jsonc`, set the `image` of both containers to that reference. Copy it again each time you upgrade `@artfct-ai/core`.
+CI publishes the sandbox image on Docker Hub with each build of `@artfct-ai/core`, so you can deploy without Docker. The installed `@artfct-ai/core` names that image by tag and digest in `node_modules/@artfct-ai/core/dist/sandbox/published-image`. The reference has the form `docker.io/artfct/sandbox:<version>-<commit>@sha256:<digest>`, where `<commit>` is the short hash of the commit the build came from. In `orchestrator/wrangler.jsonc`, set the `image` of both containers to that reference. Copy it again each time you upgrade `@artfct-ai/core`.
+
+To add tools to the sandbox, write your own Dockerfile that starts `FROM` that reference, and set the `image` of both containers to its path. The image runs as the `node` user, so switch to `root` to install a package and back to `node` after.
 
 `npx artfct check` fails on any other reference to the published image. That includes the tag without the digest, because a tag can be moved to another image and a digest cannot.
 

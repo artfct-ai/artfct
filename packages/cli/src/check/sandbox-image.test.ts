@@ -6,7 +6,7 @@ import { checkSandboxImage } from "./sandbox-image";
 
 const DIGEST = `sha256:${"ab".repeat(32)}`;
 const OTHER_DIGEST = `sha256:${"cd".repeat(32)}`;
-const PUBLISHED_IMAGE = `docker.io/artfct/sandbox:0.3.0@${DIGEST}`;
+const PUBLISHED_IMAGE = `docker.io/artfct/sandbox:0.3.0-abc1234@${DIGEST}`;
 const DOCKERFILE = "../node_modules/@artfct-ai/core/dist/sandbox/Dockerfile";
 
 const repoDirs: string[] = [];
@@ -45,21 +45,21 @@ describe("checkSandboxImage", () => {
   });
 
   it("reports the published image named by its tag alone, since a tag can move", () => {
-    expect(checkImage("docker.io/artfct/sandbox:0.3.0")).toEqual({
+    expect(checkImage("docker.io/artfct/sandbox:0.3.0-abc1234")).toEqual({
       outcome: "failed",
       problems: [
-        `docker.io/artfct/sandbox:0.3.0 is not the image the installed @artfct-ai/core was published with. Use ${PUBLISHED_IMAGE}.`,
+        `docker.io/artfct/sandbox:0.3.0-abc1234 is not the image the installed @artfct-ai/core was published with. Use ${PUBLISHED_IMAGE}.`,
       ],
     });
   });
 
   it("reports the published image at another digest", () => {
-    const image = `docker.io/artfct/sandbox:0.3.0@${OTHER_DIGEST}`;
+    const image = `docker.io/artfct/sandbox:0.3.0-abc1234@${OTHER_DIGEST}`;
     expect(checkImage(image)).toMatchObject({ outcome: "failed" });
   });
 
-  it("reports the published image at another version", () => {
-    const image = `docker.io/artfct/sandbox:0.2.0@${DIGEST}`;
+  it("reports the published image of another commit", () => {
+    const image = `docker.io/artfct/sandbox:0.3.0-def5678@${DIGEST}`;
     expect(checkImage(image)).toMatchObject({ outcome: "failed" });
   });
 
