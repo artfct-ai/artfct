@@ -1,7 +1,8 @@
 import type { Tracker } from "@artfct-ai/adapters/tracker/types";
 import type { BaseMovedDetail, InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { Delivery, RpcAck, WorkflowStatus } from "@artfct-ai/contracts/types";
-import { tracker } from "../clients";
+import { chat, tracker } from "../clients";
+import { registeredConfig } from "../config/register-config";
 import {
   bindWorkflow,
   deleteBindings,
@@ -20,11 +21,13 @@ import {
   postTrackerAck,
   trackerSessionId,
 } from "./tracker-ack";
+import { deliverWithChatAck } from "./chat-ack";
 
 /**
  * Route an event to its running workflow. A `start` event that binds to nothing, or only to an
- * ended workflow, creates one. A start from a tracker agent session hears back on that session. `ackTracker` is a seam for
- * tests and defaults to the tracker over the install.
+ * ended workflow, creates one. A start from a tracker agent session hears back on that session. A
+ * chat message that waits longer than a few seconds gets the eyes reaction until its workflow takes
+ * it. `ackTracker` is a seam for tests and defaults to the tracker over the install.
  */
 export async function deliver(
   env: Env,
@@ -32,7 +35,10 @@ export async function deliver(
   ackTracker?: Tracker | null,
 ): Promise<Delivery> {
   const sessionId = trackerSessionId(event);
-  if (!sessionId) return route(env, event);
+  if (!sessionId) {
+    const chatClient = chat(env, registeredConfig().config.adapters.chat.provider);
+    return deliverWithChatAck(chatClient, event, () => route(env, event));
+  }
   const acking = ackTracker === undefined ? await tracker(env) : ackTracker;
   if (!event.actor) return adoptOrRefuse(env, event, acking, sessionId);
   await postTrackerAck(acking, sessionId, { type: "thought", body: ON_IT });

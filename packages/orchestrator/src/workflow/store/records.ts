@@ -11,14 +11,7 @@ const HUMAN_CHANNELS = ["chat", "tracker", "documents"] as const;
  * Rows on a human channel that carry no message: a session status, an acknowledgement, an issue
  * state move, a call that failed.
  */
-const SILENT_KINDS = [
-  "acknowledge",
-  "ack_reaction",
-  "working",
-  "release",
-  "issue_update",
-  DELIVERY_ERROR,
-] as const;
+const SILENT_KINDS = ["acknowledge", "working", "release", "issue_update", DELIVERY_ERROR] as const;
 
 /** Joins an artifact to the author task of its job, whose status orders and filters artifacts. */
 const authorTaskOfArtifact = and(eq(tasks.job_id, artifacts.job_id), eq(tasks.role, "author"));

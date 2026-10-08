@@ -491,10 +491,6 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
       });
   }
 
-  agentTurnRunning(): boolean {
-    return this.turns.busy;
-  }
-
   async working(text: string): Promise<void> {
     for (const target of this.state.reply_targets) await this.notifier.working(target, text);
   }

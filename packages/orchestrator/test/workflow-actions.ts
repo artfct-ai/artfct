@@ -30,7 +30,6 @@ import {
   REPO,
   STAGE_OF,
   UNOWNED_PULL,
-  type AgentAtMessage,
   type ArtifactKind,
   type ChecksReport,
   type DecisionAnswers,
@@ -476,22 +475,13 @@ export function personSendsControl(
   );
 }
 
-/** What a person writes in the chat thread: a question, or a control word as the whole text. */
-export type ChatText = "question" | "control_word";
-
 /**
- * A person writes in the chat thread: a message, a new start from a surface, or a status request.
- * An agent turn may be running as it arrives. A message wakes a sleeping workflow and restarts the
- * idle clock.
+ * A person writes to the workflow: a message, a new start from a surface, or a status request. A
+ * message wakes a sleeping workflow and restarts the idle clock.
  */
-export function personWrites(
-  kind: "prompt" | "start" | "status",
-  text: ChatText,
-  agent: AgentAtMessage,
-): WorkflowAction {
-  const words = text === "question" ? "Where does this stand?" : "pause";
-  return action(`a person sends a ${kind} "${words}" while the agent is ${agent}`, (world) =>
-    world.writeInChat({ kind, text: words }, agent),
+export function personWrites(kind: "prompt" | "start" | "status"): WorkflowAction {
+  return action(`a person sends a ${kind}`, (world) =>
+    world.deliver({ kind, text: "Where does this stand?" }),
   );
 }
 

@@ -112,8 +112,6 @@ export interface WorkflowRuntime {
   /** Everything that depends on the kind of artifact a stage produces. */
   artifact(kind: ArtifactKind): Artifact;
   sandbox(): SandboxProvider;
-  /** True while an orchestrator agent turn runs. Text told to the agent now waits for the next turn. */
-  agentTurnRunning(): boolean;
   /** Queue text for the orchestrator agent. Any wake class but `none` schedules a turn now. */
   tellAgent(text: string, wake: Wake): Promise<void>;
   /** The orchestrator's model, or a named prompt's model with its request fields and gateway. */

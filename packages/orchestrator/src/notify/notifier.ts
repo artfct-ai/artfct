@@ -207,10 +207,7 @@ export class Notifier {
     }
   }
 
-  /**
-   * Mark a chat message an agent turn starts on as received, by putting the thread in its
-   * processing state. Never throws.
-   */
+  /** Mark a chat message as received by putting the thread in its processing state. Never throws. */
   async acknowledge(target: ChatTarget, ack: Acknowledge, title: string): Promise<void> {
     this.outbox({
       channel: "chat",
@@ -220,17 +217,6 @@ export class Notifier {
     });
     if (!this.chat) return;
     await this.setChatSession(target, "processing", { title, initiatorUserId: ack.user });
-  }
-
-  /** Mark a chat message no agent turn starts on now as received, with the eyes reaction. Never throws. */
-  async ackReaction(target: ChatTarget, message: string): Promise<void> {
-    this.outbox({ channel: "chat", kind: "ack_reaction", target, payload: { message } });
-    if (!this.chat) return;
-    try {
-      await this.chat.addReaction(target.channel, message, "eyes");
-    } catch (error) {
-      console.warn(`chat acknowledge reaction failed: ${String(error)}`);
-    }
   }
 
   /**

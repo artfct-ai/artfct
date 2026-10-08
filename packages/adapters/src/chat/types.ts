@@ -56,6 +56,7 @@ export interface Chat {
   /** Delete one message in a channel or thread. */
   deleteMessage(channel: string, ts: string): Promise<void>;
   addReaction(channel: string, ts: string, name: string): Promise<void>;
+  removeReaction(channel: string, ts: string, name: string): Promise<void>;
   setSessionStatus(
     channel: string,
     threadTs: string,

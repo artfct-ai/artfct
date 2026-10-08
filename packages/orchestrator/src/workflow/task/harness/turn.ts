@@ -359,11 +359,6 @@ export class TurnCoalescer {
   private running: Promise<void> | null = null;
   private rerun = false;
 
-  /** True while a turn runs. A wake now waits for the follow-up turn. */
-  get busy(): boolean {
-    return this.running !== null;
-  }
-
   /** Resolves when no turn runs, and rejects the way a running turn did. */
   idle(): Promise<void> {
     return this.running ?? Promise.resolve();

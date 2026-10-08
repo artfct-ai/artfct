@@ -76,7 +76,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | harness session | The ACP session of one task. | `sandboxes.session_id` | session |
 | MCP server | A tool server a harness session connects to. Each provider supplies an MCP server or a CLI, and the deployment config lists the customer's own. | `McpServer`, `mcp_servers` | integration, tool server |
 | tracker session | The agent session of the tracker that a reply goes to. | `tracker_session` | session |
-| acknowledgement | How a chat thread shows a person that their message arrived. A message that starts an agent turn puts the thread in its working status. Any other message gets the eyes reaction, unless the workflow posted a reply to it. | `Acknowledge`, `Notifier.acknowledge`, `Notifier.ackReaction` | receipt |
+| acknowledgement | How a chat thread shows a person that their message arrived. The thread enters its working status when the workflow takes the message. When that takes longer than a few seconds, the message gets the eyes reaction until the working status appears. | `Acknowledge`, `Notifier.acknowledge`, `deliverWithChatAck` | receipt |
 | person | One human actor. | `Actor` | |
 | the humans | The people a workflow reports to. | | |
 | access | Who is authorized to give the deployment work. A tracker or chat user is authorized as a member of the team set for that app. A code host user is authorized when they may push to the repository. The deployment ignores what an unauthorized user writes. | `Access`, `resolveActor` | |

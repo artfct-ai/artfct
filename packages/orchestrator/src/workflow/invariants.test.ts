@@ -5,7 +5,6 @@ import {
   authorIsIdleWhileAPolisherRuns,
   deliveredToHumansIsNeverCleared,
   endedWorkflowHasNoUnfinishedTask,
-  everyChatMessageGetsOneAcknowledgement,
   everyFeedbackGetsOneRoutingDecision,
   nothingReopensAFinishedWorkflow,
   refinerRunIsDoneOnlyAfterItsTurnEnded,
@@ -88,7 +87,6 @@ const STEP_INVARIANTS = [
   todoListIsFixedAfterFirstArtifact,
   staleAlarmIsIgnored,
   jobStartsOnlyIntoAFreeSlot,
-  everyChatMessageGetsOneAcknowledgement,
 ];
 
 const setups: fc.Arbitrary<WorldSetup> = fc.record({
@@ -240,14 +238,8 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
       .map(([index, control]) => personSendsControl(index, control)),
   },
   {
-    weight: 4,
-    arbitrary: fc
-      .tuple(
-        fc.constantFrom("prompt", "prompt", "start", "status"),
-        fc.constantFrom("question", "question", "control_word"),
-        fc.constantFrom("idle", "idle", "mid_turn"),
-      )
-      .map(([kind, text, agent]) => personWrites(kind, text, agent)),
+    weight: 2,
+    arbitrary: fc.constantFrom("prompt", "prompt", "start", "status").map(personWrites),
   },
   {
     weight: 3,
@@ -374,7 +366,7 @@ describe("the workflow invariants", () => {
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(17);
+      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(16);
     },
     TIMEOUT_MS,
   );

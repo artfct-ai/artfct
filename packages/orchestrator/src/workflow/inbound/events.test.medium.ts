@@ -180,9 +180,9 @@ describe("release", () => {
       kinds = (await outboxOf(workflow)).slice(before).map((entry) => entry.kind);
     });
 
-    it("reacts to the message and leaves the thread out of its working state", () =>
+    it("acknowledges the message and releases the thread", () =>
       handled(() => {
-        expect(kinds).toEqual(["ack_reaction"]);
+        expect(kinds).toEqual(["acknowledge", "release"]);
       }));
   });
 

@@ -261,7 +261,6 @@ describe("WorkflowStore", () => {
         store.writeOutbox({ channel: "tracker", kind: DELIVERY_ERROR, target, payload });
         store.writeOutbox({ channel: "chat", kind: DELIVERY_ERROR, target, payload });
         store.writeOutbox({ channel: "chat", kind: "acknowledge", target, payload });
-        store.writeOutbox({ channel: "chat", kind: "ack_reaction", target, payload });
         store.writeOutbox({ channel: "chat", kind: "working", target, payload });
         store.writeOutbox({ channel: "chat", kind: "release", target, payload });
       });
