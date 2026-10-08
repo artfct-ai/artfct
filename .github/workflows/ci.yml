@@ -58,6 +58,8 @@ jobs:
         run: |
           bunx turbo run sandbox-image --filter=@artfct-ai/orchestrator
           echo "SANDBOX_IMAGE=$(cat packages/orchestrator/dist/sandbox-image/published-image)" >> "$GITHUB_ENV"
+      - name: Point the main tag at the sandbox image
+        run: docker buildx imagetools create --prefer-index=false --tag docker.io/artfct/sandbox:main "$SANDBOX_IMAGE"
       - run: bun run build --filter=@artfct-ai/core --filter=artfct
       - name: Confirm the core package names the published image
         run: cat packages/core/dist/sandbox/published-image
