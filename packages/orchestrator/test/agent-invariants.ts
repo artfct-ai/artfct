@@ -46,6 +46,16 @@ export type AgentTurnRecord = {
   resumedLostTurn: boolean;
   /** True when the model of the turn never returns on its own. */
   modelHangs: boolean;
+  /**
+   * The decisions calls of the turn on configured models that each answer, fail, or hang on every
+   * call: how many were asked, the model each answer came from, and the first model that answers.
+   * Null when the decisions model changes between calls.
+   */
+  configuredDecisions: {
+    asked: number;
+    answeredBy: string[];
+    firstAnswering: string | null;
+  } | null;
 };
 
 function violated(name: string, detail: string): never {
@@ -232,6 +242,28 @@ export function aPersonGetsTheAnswerDuringADecisionsOutage(turn: AgentTurnRecord
   );
 }
 
+/**
+ * A decisions call takes its site's fallback only after every configured model failed. While a
+ * configured model answers, every call of the turn gets the answer of the first one that does.
+ */
+export function aDecisionsCallFallsBackOnlyAfterEveryModelFailed(turn: AgentTurnRecord): void {
+  const calls = turn.configuredDecisions;
+  if (calls === null || calls.firstAnswering === null || turn.timedOut) return;
+  const fellBack = calls.asked - calls.answeredBy.length;
+  if (fellBack > 0) {
+    violated(
+      "aDecisionsCallFallsBackOnlyAfterEveryModelFailed",
+      `${fellBack} of ${calls.asked} decisions calls took their fallback while ${calls.firstAnswering} answers`,
+    );
+  }
+  const skipped = calls.answeredBy.find((model) => model !== calls.firstAnswering);
+  if (skipped === undefined) return;
+  violated(
+    "aDecisionsCallFallsBackOnlyAfterEveryModelFailed",
+    `${skipped} answered a call that ${calls.firstAnswering} answers first`,
+  );
+}
+
 /** Every agent turn invariant. */
 export const AGENT_TURN_INVARIANTS = [
   closingTextAnswersOnlyAPersonWhoWrote,
@@ -244,4 +276,5 @@ export const AGENT_TURN_INVARIANTS = [
   aWaitingPersonHearsBackByTheTimeout,
   aResumedTurnAnswersWhatItsLostTurnOwed,
   aPersonGetsTheAnswerDuringADecisionsOutage,
+  aDecisionsCallFallsBackOnlyAfterEveryModelFailed,
 ];

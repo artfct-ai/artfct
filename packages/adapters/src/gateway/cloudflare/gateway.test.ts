@@ -94,7 +94,7 @@ describe("CloudflareGateway", () => {
 
     let fetchSpy: ReturnType<typeof spyOn<typeof globalThis, "fetch">> | undefined;
 
-    async function urlsSent(models?: readonly [string, ...string[]]): Promise<string[]> {
+    async function urlsSent(models: readonly [string, ...string[]]): Promise<string[]> {
       const sent: string[] = [];
       fetchSpy = spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
         sent.push(new Request(input, init).url);
@@ -112,14 +112,8 @@ describe("CloudflareGateway", () => {
       return sent;
     }
 
-    it("runs the default decisions model when the config names none", async () => {
-      expect(await urlsSent()).toEqual([
-        "https://api.cloudflare.com/client/v4/accounts/acct/ai/run/@cf/cloudflare/clef",
-      ]);
-    });
-
-    it("runs the decisions model the config names", async () => {
-      expect(await urlsSent(["@cf/cloudflare/clef-flash"])).toEqual([
+    it("runs the Workers AI decisions model the config names", async () => {
+      expect(await urlsSent(["workers-ai/@cf/cloudflare/clef-flash"])).toEqual([
         "https://api.cloudflare.com/client/v4/accounts/acct/ai/run/@cf/cloudflare/clef-flash",
       ]);
     });

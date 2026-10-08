@@ -29,24 +29,30 @@ describe("loadConfig", () => {
       expect(config.orchestrator.sandbox.read_all_repos).toBe(false);
     });
 
-    it("leaves the decisions model to the gateway", () => {
-      expect(config.orchestrator.decisions_model).toBeUndefined();
+    it("tries Jev, then Clef, then Clef Flash, each on OpenRouter", () => {
+      expect(config.orchestrator.decisions_model).toEqual([
+        "openrouter/typesafe/jev-1.13",
+        "openrouter/cloudflare/clef",
+        "openrouter/cloudflare/clef-flash",
+      ]);
     });
   });
 
   describe("a config that names the decisions model", () => {
     it("reads one model as a list of one", () => {
-      const config = loadConfig("orchestrator: { decisions_model: typesafe/jev-1.13 }");
-      expect(config.orchestrator.decisions_model).toEqual(["typesafe/jev-1.13"]);
+      const config = loadConfig(
+        "orchestrator: { decisions_model: workers-ai/@cf/cloudflare/clef }",
+      );
+      expect(config.orchestrator.decisions_model).toEqual(["workers-ai/@cf/cloudflare/clef"]);
     });
 
     it("keeps the order of a list", () => {
       const config = loadConfig(
-        "orchestrator: { decisions_model: [typesafe/jev-1.13, typesafe/jev-1.12] }",
+        "orchestrator: { decisions_model: [openrouter/typesafe/jev-1.13, openrouter/typesafe/jev-1.12] }",
       );
       expect(config.orchestrator.decisions_model).toEqual([
-        "typesafe/jev-1.13",
-        "typesafe/jev-1.12",
+        "openrouter/typesafe/jev-1.13",
+        "openrouter/typesafe/jev-1.12",
       ]);
     });
 

@@ -1,5 +1,5 @@
 import { openRouterApiUrl } from "./api-url";
-import { OPENROUTER_DEFAULT_DECISIONS_MODEL, OpenRouterDecisions } from "./decisions";
+import { OpenRouterDecisions } from "./decisions";
 import { openRouterModels } from "./models";
 import {
   OPENROUTER_PREFIX,
@@ -40,8 +40,12 @@ export class OpenRouterGateway implements Gateway {
     return null;
   }
 
-  decisions(models: DecisionsModels = [OPENROUTER_DEFAULT_DECISIONS_MODEL]): Decisions {
-    return new OpenRouterDecisions({ ...this.config, models });
+  decisions(models: DecisionsModels): Decisions {
+    const [first, ...rest] = models;
+    return new OpenRouterDecisions({
+      ...this.config,
+      models: [openRouterModel(first), ...rest.map(openRouterModel)],
+    });
   }
 
   models(): Promise<GatewayModel[]> {

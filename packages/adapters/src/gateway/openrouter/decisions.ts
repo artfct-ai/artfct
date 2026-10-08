@@ -3,7 +3,11 @@ import type { RetryConfig } from "@openrouter/sdk/lib/retries.js";
 import { workerdFetch } from "../../workerd-fetch";
 import type { DecisionsRequest } from "@openrouter/sdk/models/decisionsrequest.js";
 import type { DecisionsResponse } from "@openrouter/sdk/models/decisionsresponse.js";
-import { askModelsInOrder, decisionsDeadlineMs } from "../models-in-order";
+import {
+  askModelsInOrder,
+  DECISIONS_MODEL_BUDGET_MS,
+  decisionsDeadlineMs,
+} from "../models-in-order";
 import type {
   Choice,
   ChoiceQuestion,
@@ -18,9 +22,6 @@ import type {
 } from "../types";
 import { openRouterOrigin } from "./api-url";
 
-/** The decisions model a deployment on OpenRouter gets when its config names none. */
-export const OPENROUTER_DEFAULT_DECISIONS_MODEL = "typesafe/jev-1.13";
-
 /** Milliseconds one attempt may take. A decisions model answers in well under a second. */
 const TIMEOUT_MS = 3000;
 
@@ -31,7 +32,7 @@ const RETRIES: RetryConfig = {
   retryConnectionErrors: true,
 };
 
-/** Construction options. `serverUrl` and `fetch` are seams for tests. */
+/** Construction options. `models` are named as OpenRouter knows them. `serverUrl` and `fetch` are seams for tests. */
 export type OpenRouterDecisionsOptions = {
   apiKey: string;
   models: DecisionsModels;
@@ -47,7 +48,7 @@ export class OpenRouterDecisions implements Decisions {
   constructor(private readonly options: OpenRouterDecisionsOptions) {}
 
   get deadlineMs(): number {
-    return decisionsDeadlineMs(this.options.models);
+    return decisionsDeadlineMs(this.options.models, DECISIONS_MODEL_BUDGET_MS);
   }
 
   async decide<YesNoName extends string, ChoiceName extends string>(
@@ -63,7 +64,8 @@ export class OpenRouterDecisions implements Decisions {
         choiceNames.map((name) => [name, choiceQuestion(questions.choices[name])]),
       ),
     };
-    return askModelsInOrder(this.options.models, signal, async (model, modelSignal) => {
+    const inOrder = { models: this.options.models, budgetMs: DECISIONS_MODEL_BUDGET_MS, signal };
+    return askModelsInOrder(inOrder, async (model, modelSignal) => {
       const response = await this.request({ model, state, questions: asked }, modelSignal);
       return decisionAnswers(response, yesNoNames, choiceNames);
     });

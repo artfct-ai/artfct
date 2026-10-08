@@ -96,7 +96,7 @@ export interface WorkflowRuntime {
   working(text: string): Promise<void>;
   /** The named gateway, or null while a secret it needs is unset. */
   gateway(provider: GatewayProvider): Gateway | null;
-  /** The decisions models the config names on the orchestrator's gateway. Null when it carries none. */
+  /** The decisions models the config names, on the orchestrator's gateway. Null while a secret it needs is unset. */
   decisions(): Decisions | null;
   /** The adapter for a harness, holding the deployment secrets it may take. */
   harness(name: Harness): HarnessAdapter;

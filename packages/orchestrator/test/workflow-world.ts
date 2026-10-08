@@ -158,8 +158,8 @@ export type WorkflowAction = {
 };
 
 /**
- * The probabilities a decisions model answers with, a model whose every call fails, one that
- * never answers before its caller's signal aborts, or a gateway without a decisions model.
+ * The probabilities a decisions model answers with, a model whose every call fails, or one that
+ * never answers before its caller's signal aborts.
  */
 export type DecisionAnswers =
   | {
@@ -171,8 +171,7 @@ export type DecisionAnswers =
       selects?: number;
     }
   | "fails"
-  | "hangs"
-  | "none";
+  | "hangs";
 
 /**
  * One author task and the number of its artifact on the host. An author that continues an open
@@ -726,14 +725,12 @@ function commitChecksOf(report: ChecksReport, now: number): CommitChecks {
   }
 }
 
-function decisionsAnswering(answers: DecisionAnswers): Decisions | undefined {
+function decisionsAnswering(answers: DecisionAnswers): Decisions {
   switch (answers) {
     case "fails":
       return new FakeDecisions(new Error("decisions model unavailable"));
     case "hangs":
       return new HangingDecisions();
-    case "none":
-      return undefined;
     default:
       return new FakeDecisions(answers);
   }

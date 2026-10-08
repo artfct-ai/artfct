@@ -1,7 +1,12 @@
 import { afterEach, describe, expect, jest, test } from "bun:test";
-import { askModelsInOrder, DECISIONS_MODEL_BUDGET_MS } from "./models-in-order";
+import { askModelsInOrder, DECISIONS_MODEL_BUDGET_MS, type ModelsInOrder } from "./models-in-order";
+import type { DecisionsModels } from "./types";
 
 const neverSettles = () => new Promise<string>(() => {});
+
+function inOrder(models: DecisionsModels, signal?: AbortSignal): ModelsInOrder {
+  return { models, budgetMs: DECISIONS_MODEL_BUDGET_MS, signal };
+}
 
 describe("askModelsInOrder", () => {
   afterEach(() => {
@@ -10,7 +15,7 @@ describe("askModelsInOrder", () => {
 
   test("takes the answer of the first model that answers", async () => {
     const asked: string[] = [];
-    const answer = await askModelsInOrder(["first", "second"], undefined, async (model) => {
+    const answer = await askModelsInOrder(inOrder(["first", "second"]), async (model) => {
       asked.push(model);
       if (model === "first") throw new Error("overloaded");
       return `${model} answered`;
@@ -23,7 +28,7 @@ describe("askModelsInOrder", () => {
   test("moves to the next model once one runs past its budget", async () => {
     jest.useFakeTimers();
     const asked: string[] = [];
-    const call = askModelsInOrder(["slow", "fast"], undefined, async (model) => {
+    const call = askModelsInOrder(inOrder(["slow", "fast"]), async (model) => {
       asked.push(model);
       return model === "slow" ? neverSettles() : `${model} answered`;
     });
@@ -38,7 +43,7 @@ describe("askModelsInOrder", () => {
     const controller = new AbortController();
     const reason = new Error("deadline passed");
     const asked: string[] = [];
-    const call = askModelsInOrder(["hangs", "next"], controller.signal, async (model) => {
+    const call = askModelsInOrder(inOrder(["hangs", "next"], controller.signal), async (model) => {
       asked.push(model);
       return neverSettles();
     });
@@ -50,7 +55,7 @@ describe("askModelsInOrder", () => {
   });
 
   test("names every failure when every model fails", async () => {
-    const call = askModelsInOrder(["first", "second"], undefined, async (model) => {
+    const call = askModelsInOrder(inOrder(["first", "second"]), async (model) => {
       throw new Error(`${model} is down`);
     });
 

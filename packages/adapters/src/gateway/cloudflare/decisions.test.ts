@@ -1,9 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import { fetchHeader, fetchUrl } from "../../../test/fetch";
 import type { DecisionsModels } from "../types";
-import { CLOUDFLARE_DEFAULT_DECISIONS_MODEL, CloudflareDecisions } from "./decisions";
+import { CloudflareDecisions, decisionsRoute } from "./decisions";
 
-await import("cloudflare/client");
+await Promise.all([
+  import("cloudflare/client"),
+  import("@openrouter/sdk/funcs/alphaDecisionsCreate.js"),
+  import("@openrouter/sdk/core.js"),
+  import("@openrouter/sdk/lib/http.js"),
+]);
 
 const QUESTIONS = {
   wants_answer: {
@@ -22,11 +27,13 @@ type Seen = {
 
 type Reply = { status: number; answers?: unknown };
 
-const FLASH_MODEL = "@cf/cloudflare/clef-flash";
+const CLEF = "workers-ai/@cf/cloudflare/clef";
+
+const FLASH_MODEL = "workers-ai/@cf/cloudflare/clef-flash";
 
 function decisionsReplying(
   reply: (seen: Seen, index: number) => Reply,
-  models: DecisionsModels = [CLOUDFLARE_DEFAULT_DECISIONS_MODEL],
+  models: DecisionsModels = [CLEF],
 ) {
   const seen: Seen[] = [];
   const fake: typeof fetch = async (input, init) => {
@@ -131,7 +138,7 @@ describe("CloudflareDecisions", () => {
 
     expect(answered.probabilities).toEqual({ wants_answer: 0.9 });
     expect(answered.usage).toEqual({
-      model: CLOUDFLARE_DEFAULT_DECISIONS_MODEL,
+      model: "@cf/cloudflare/clef",
       input_tokens: 40,
       output_tokens: 2,
       cost_usd: 0,
@@ -172,7 +179,7 @@ describe("CloudflareDecisions over several decisions models", () => {
   test("runs the first model it names, with its own selector", async () => {
     const { decisions, seen } = decisionsReplying(
       () => ({ status: 200, answers: ANSWERS }),
-      [FLASH_MODEL, CLOUDFLARE_DEFAULT_DECISIONS_MODEL],
+      [FLASH_MODEL, CLEF],
     );
 
     await decisions.decide({ message: "hi" }, ASKED);
@@ -200,7 +207,7 @@ describe("CloudflareDecisions over several decisions models", () => {
     const { decisions, seen } = decisionsReplying(
       (request) =>
         request.body.model === "clef-flash" ? { status: 200, answers: ANSWERS } : { status: 503 },
-      [CLOUDFLARE_DEFAULT_DECISIONS_MODEL, FLASH_MODEL],
+      [CLEF, FLASH_MODEL],
     );
 
     const answered = await decisions.decide({ message: "hi" }, ASKED);
@@ -211,14 +218,11 @@ describe("CloudflareDecisions over several decisions models", () => {
       "clef",
       "clef-flash",
     ]);
-    expect(answered.usage.model).toBe(FLASH_MODEL);
+    expect(answered.usage.model).toBe("@cf/cloudflare/clef-flash");
   });
 
   test("throws when every model fails", async () => {
-    const { decisions, seen } = decisionsReplying(
-      () => ({ status: 404 }),
-      [CLOUDFLARE_DEFAULT_DECISIONS_MODEL, FLASH_MODEL],
-    );
+    const { decisions, seen } = decisionsReplying(() => ({ status: 404 }), [CLEF, FLASH_MODEL]);
 
     await expect(decisions.decide({ message: "hi" }, ASKED)).rejects.toThrow(
       "every decisions model failed",
@@ -342,7 +346,7 @@ describe("CloudflareDecisions under an abort signal", () => {
       accountId: "acct",
       gatewayId: "gw",
       token: "t",
-      models: [CLOUDFLARE_DEFAULT_DECISIONS_MODEL],
+      models: [CLEF],
       fetch: hanging,
     });
 
@@ -356,5 +360,105 @@ describe("CloudflareDecisions under an abort signal", () => {
 
     await expect(call).rejects.toThrow();
     expect(inFlight.aborted).toBe(true);
+  });
+});
+
+function openRouterReplying(
+  status: number,
+  options: { openRouterKey?: string; openRouterRegion?: "eu" | "us" } = {},
+) {
+  const seen: Array<{ url: string; authorization: string | null; model: string }> = [];
+  const fake: typeof fetch = async (input, init) => {
+    const request = new Request(input, init);
+    const body = JSON.parse(await request.text());
+    seen.push({
+      url: fetchUrl(request),
+      authorization: fetchHeader(request, "authorization"),
+      model: body.model,
+    });
+    const payload =
+      status === 200
+        ? {
+            model: body.model,
+            answers: { wants_answer: { type: "noul", noul: 0.9 } },
+            usage: { input_tokens: 40, output_tokens: 2, cost: 0.000002 },
+          }
+        : { error: { code: status, message: "no" } };
+    return Response.json(payload, { status, headers: { "retry-after-ms": "1" } });
+  };
+  const decisions = new CloudflareDecisions({
+    accountId: "acct",
+    gatewayId: "gw",
+    token: "t",
+    models: ["openrouter/typesafe/jev-1.13", CLEF],
+    fetch: fake,
+    ...options,
+  });
+  return { decisions, seen };
+}
+
+describe("CloudflareDecisions on an OpenRouter model", () => {
+  const ASKED = { yesNo: QUESTIONS, choices: {} };
+
+  test("asks OpenRouter's decisions endpoint on the OpenRouter key, by the name OpenRouter knows", async () => {
+    const { decisions, seen } = openRouterReplying(200, { openRouterKey: "sk-or" });
+
+    const answered = await decisions.decide({ message: "hi" }, ASKED);
+
+    expect(seen).toEqual([
+      {
+        url: "https://openrouter.ai/api/alpha/decisions",
+        authorization: "Bearer sk-or",
+        model: "typesafe/jev-1.13",
+      },
+    ]);
+    expect(answered.probabilities).toEqual({ wants_answer: 0.9 });
+    expect(answered.usage).toEqual({
+      model: "typesafe/jev-1.13",
+      input_tokens: 40,
+      output_tokens: 2,
+      cost_usd: 0.000002,
+    });
+  });
+
+  test("keeps the request inside the OpenRouter region", async () => {
+    const { decisions, seen } = openRouterReplying(200, {
+      openRouterKey: "sk-or",
+      openRouterRegion: "eu",
+    });
+
+    await decisions.decide({ message: "hi" }, ASKED);
+
+    expect(seen[0]!.url).toBe("https://eu.openrouter.ai/api/alpha/decisions");
+  });
+
+  test("moves to the next model without an OpenRouter key", async () => {
+    const { decisions, seen } = openRouterReplying(200);
+
+    await decisions.decide({ message: "hi" }, ASKED).catch(() => null);
+
+    expect(seen.map((request) => request.url)).toEqual([
+      "https://api.cloudflare.com/client/v4/accounts/acct/ai/run/@cf/cloudflare/clef",
+    ]);
+  });
+});
+
+describe("decisionsRoute", () => {
+  test("runs a workers-ai model on Workers AI by its own id", () => {
+    expect(decisionsRoute("workers-ai/@cf/cloudflare/clef")).toEqual({
+      kind: "workers_ai",
+      model: "@cf/cloudflare/clef",
+    });
+  });
+
+  test("runs an openrouter model on OpenRouter by the name OpenRouter knows", () => {
+    expect(decisionsRoute("openrouter/cloudflare/clef-flash")).toEqual({
+      kind: "openrouter",
+      model: "cloudflare/clef-flash",
+    });
+  });
+
+  test("refuses a model on any other provider", () => {
+    expect(() => decisionsRoute("openai/gpt-5")).toThrow("openai/gpt-5");
   });
 });

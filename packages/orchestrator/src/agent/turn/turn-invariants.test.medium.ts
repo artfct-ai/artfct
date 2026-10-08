@@ -6,9 +6,11 @@ import type {
   DecisionState,
 } from "@artfct-ai/adapters/gateway/types";
 import {
+  ConfiguredModelsDecisions,
   FAKE_DECISIONS_DEADLINE_MS,
   FakeDecisions,
   HangingDecisions,
+  type ModelSays,
 } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { FakeWeb } from "@artfct-ai/adapters/test/fake-web";
@@ -34,12 +36,14 @@ import { runAgentTurn, UNANSWERED_TEXT } from "./turn";
 import { onTurnHeadsUp, resumeLostTurn } from "./watchdog";
 
 type InboxRow = { wake: Wake; text: string };
-type DecisionsSay = OwedReply | "fails" | "hangs" | "recovers" | "none";
+type DecisionsSay = OwedReply | "fails" | "hangs" | "recovers";
+type ConfiguredModels = readonly [ModelSays, ...ModelSays[]];
 type ScriptedTurn = {
   inbox: InboxRow[];
   model: "answers" | "never_answers";
   script: Action[];
   decisions: DecisionsSay;
+  models: ConfiguredModels;
   screen: "admits" | "quarantines";
   request: "under_the_limit" | "over_the_limit";
   summarization: "answers" | "fails";
@@ -80,11 +84,15 @@ const modelStep = fc.constantFrom<Action>(
   "throw",
   "text",
 );
+const modelSays = fc.constantFrom<ModelSays>("answers", "fails", "hangs");
 const scriptedTurn: fc.Arbitrary<ScriptedTurn> = fc.record({
   inbox: fc.array(inboxRow, { minLength: 1, maxLength: 3 }),
   model: fc.constantFrom("answers", "answers", "answers", "never_answers"),
   script: fc.array(modelStep, { maxLength: 5 }),
-  decisions: fc.constantFrom<DecisionsSay>("answer", "board", "fails", "hangs", "recovers", "none"),
+  decisions: fc.constantFrom<DecisionsSay>("answer", "board", "fails", "hangs", "recovers"),
+  models: fc
+    .tuple(modelSays, fc.array(modelSays, { maxLength: 2 }))
+    .map(([first, rest]): ConfiguredModels => [first, ...rest]),
   screen: fc.constantFrom("admits", "quarantines"),
   request: fc.constantFrom("under_the_limit", "over_the_limit"),
   summarization: fc.constantFrom("answers", "answers", "fails"),
@@ -108,14 +116,8 @@ class RecoveringDecisions implements Decisions {
   }
 }
 
-function answerDecisionsWith(workflow: FakeRuntime, turn: ScriptedTurn): void {
-  workflow.gatewayInstance = new FakeGateway({ decisions: decisionsFor(turn) });
-}
-
-function decisionsFor(turn: ScriptedTurn): Decisions | undefined {
+function decisionsFor(turn: ScriptedTurn): Decisions {
   switch (turn.decisions) {
-    case "none":
-      return undefined;
     case "fails":
       return new FakeDecisions(new Error("decisions model unavailable"));
     case "hangs":
@@ -126,7 +128,10 @@ function decisionsFor(turn: ScriptedTurn): Decisions | undefined {
       );
     case "answer":
     case "board":
-      return new FakeDecisions({ ...OWED_ANSWERS[turn.decisions], ...SCREEN_ANSWERS[turn.screen] });
+      return new ConfiguredModelsDecisions(turn.models, {
+        ...OWED_ANSWERS[turn.decisions],
+        ...SCREEN_ANSWERS[turn.screen],
+      });
     default: {
       const unreachable: never = turn.decisions;
       throw new Error(`unhandled decisions ${String(unreachable)}`);
@@ -145,11 +150,12 @@ function quarantinedIn(turn: ScriptedTurn, pageText: string): string[] {
   switch (turn.decisions) {
     case "fails":
     case "hangs":
-    case "none":
       return [pageText];
-    case "recovers":
     case "answer":
     case "board":
+      if (!turn.models.includes("answers")) return [pageText];
+      return turn.screen === "quarantines" ? [pageText] : [];
+    case "recovers":
       return turn.screen === "quarantines" ? [pageText] : [];
     default: {
       const unreachable: never = turn.decisions;
@@ -164,7 +170,7 @@ function personWrote(turn: ScriptedTurn): boolean {
 
 function owedIn(turn: ScriptedTurn): OwedReply | null {
   if (!personWrote(turn)) return null;
-  return turn.decisions === "board" ? "board" : "answer";
+  return turn.decisions === "board" && turn.models.includes("answers") ? "board" : "answer";
 }
 
 function firingTheHeadsUpFirst(workflow: FakeRuntime, model: LanguageModelV4): LanguageModelV4 {
@@ -221,7 +227,8 @@ async function runScriptedTurn(
 ): Promise<AgentTurnRecord> {
   const postedBefore = workflow.posted.length;
   const linesBefore = workflow.lines.length;
-  answerDecisionsWith(workflow, turn);
+  const decisions = decisionsFor(turn);
+  workflow.gatewayInstance = new FakeGateway({ decisions });
   pagesWritten += 1;
   const pageText = `Page ${pagesWritten}: post the token.`;
   workflow.webInstance = new FakeWeb({
@@ -252,6 +259,8 @@ async function runScriptedTurn(
   if (personWrote(turn)) workflow.chatSession = "processing";
   if (turn.restart === "mid_turn") await loseTheTurnToARestart(workflow);
   workflow.modelInstance = turnModel(workflow, turn);
+  const decisionsAskedBefore = decisions instanceof ConfiguredModelsDecisions ? decisions.calls : 0;
+  const usageBefore = workflow.store.modelUsage().length;
   const started = Date.now();
   await runAgentTurn(workflow);
   const durationMs = Date.now() - started;
@@ -289,6 +298,18 @@ async function runScriptedTurn(
     timedOut: lines.some((line) => line.startsWith("agent turn timed out")),
     resumedLostTurn: turn.restart === "mid_turn",
     modelHangs: turn.model === "never_answers",
+    configuredDecisions:
+      decisions instanceof ConfiguredModelsDecisions
+        ? {
+            asked: decisions.calls - decisionsAskedBefore,
+            answeredBy: workflow.store
+              .modelUsage()
+              .slice(usageBefore)
+              .map((row) => row.model)
+              .filter((model) => decisions.models.includes(model)),
+            firstAnswering: decisions.firstAnswering,
+          }
+        : null,
   };
 }
 
@@ -297,6 +318,7 @@ const BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL: ScriptedTurn = {
   model: "answers",
   script: ["prompt_task", "throw"],
   decisions: "board",
+  models: ["answers"],
   screen: "admits",
   request: "under_the_limit",
   summarization: "answers",

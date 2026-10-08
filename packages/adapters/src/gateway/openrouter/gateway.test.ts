@@ -55,7 +55,7 @@ describe("OpenRouterGateway", () => {
 
     let fetchSpy: ReturnType<typeof spyOn<typeof globalThis, "fetch">> | undefined;
 
-    async function modelsSent(models?: readonly [string, ...string[]]): Promise<string[]> {
+    async function modelsSent(models: readonly [string, ...string[]]): Promise<string[]> {
       const sent: string[] = [];
       fetchSpy = spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
         const { model } = JSON.parse(await new Request(input, init).text());
@@ -66,16 +66,18 @@ describe("OpenRouterGateway", () => {
           usage: { input_tokens: 1, output_tokens: 0 },
         });
       });
-      await gateway.decisions(models)?.decide({ message: "done" }, ASKED);
+      await gateway.decisions(models).decide({ message: "done" }, ASKED);
       return sent;
     }
 
-    it("asks the default decisions model when the config names none", async () => {
-      expect(await modelsSent()).toEqual(["typesafe/jev-1.13"]);
+    it("asks the decisions model the config names, as OpenRouter knows it", async () => {
+      expect(await modelsSent(["openrouter/typesafe/jev-1.13"])).toEqual(["typesafe/jev-1.13"]);
     });
 
-    it("asks the decisions model the config names", async () => {
-      expect(await modelsSent(["typesafe/jev-1.12"])).toEqual(["typesafe/jev-1.12"]);
+    it("asks each model of the list by its OpenRouter name", async () => {
+      expect(
+        await modelsSent(["openrouter/typesafe/jev-1.13", "openrouter/cloudflare/clef"]),
+      ).toEqual(["typesafe/jev-1.13"]);
     });
   });
 });

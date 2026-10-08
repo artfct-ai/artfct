@@ -5,7 +5,9 @@ import type {
   DecisionQuestions,
   Decisions,
   DecisionState,
+  DecisionsModels,
 } from "../src/gateway/types";
+import { askModelsInOrder, decisionsDeadlineMs } from "../src/gateway/models-in-order";
 
 /** How long a fake decisions call may take before its caller gives up. Longer than any test turn. */
 export const FAKE_DECISIONS_DEADLINE_MS = 10_000;
@@ -77,4 +79,65 @@ export class HangingDecisions implements Decisions {
       signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
     });
   }
+}
+
+/** What one configured decisions model does with every call. */
+export type ModelSays = "answers" | "fails" | "hangs";
+
+/** Milliseconds each model of a `ConfiguredModelsDecisions` gets before the next takes over. */
+export const FAKE_MODEL_BUDGET_MS = 10;
+
+/**
+ * `Decisions` over configured models that each answer from one table, fail, or hang, tried in
+ * order as a gateway tries them. Model `n` is named `fake-model-n`.
+ */
+export class ConfiguredModelsDecisions implements Decisions {
+  calls = 0;
+  readonly models: DecisionsModels;
+  readonly deadlineMs: number;
+  private readonly answering: FakeDecisions;
+
+  constructor(
+    private readonly says: readonly [ModelSays, ...ModelSays[]],
+    answers: Record<string, number>,
+  ) {
+    const [, ...rest] = says;
+    this.models = [fakeModelName(0), ...rest.map((_, index) => fakeModelName(index + 1))];
+    this.deadlineMs = decisionsDeadlineMs(this.models, FAKE_MODEL_BUDGET_MS);
+    this.answering = new FakeDecisions(answers);
+  }
+
+  /** The first model that answers, or null when every model fails. */
+  get firstAnswering(): string | null {
+    const index = this.says.indexOf("answers");
+    return index === -1 ? null : fakeModelName(index);
+  }
+
+  decide<YesNoName extends string, ChoiceName extends string>(
+    state: DecisionState,
+    questions: DecisionQuestions<YesNoName, ChoiceName>,
+    signal?: AbortSignal,
+  ): Promise<DecisionAnswers<YesNoName, ChoiceName>> {
+    this.calls += 1;
+    const inOrder = { models: this.models, budgetMs: FAKE_MODEL_BUDGET_MS, signal };
+    return askModelsInOrder(inOrder, async (model, modelSignal) => {
+      const says = this.says[this.models.indexOf(model)];
+      if (says === "fails") throw new Error(`${model} is down`);
+      if (says === "hangs") return hangUntilAborted<YesNoName, ChoiceName>(modelSignal);
+      const answered = await this.answering.decide(state, questions);
+      return { ...answered, usage: { ...answered.usage, model } };
+    });
+  }
+}
+
+function fakeModelName(index: number): string {
+  return `fake-model-${index}`;
+}
+
+function hangUntilAborted<YesNoName extends string, ChoiceName extends string>(
+  signal: AbortSignal,
+): Promise<DecisionAnswers<YesNoName, ChoiceName>> {
+  return new Promise((_resolve, reject) => {
+    signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+  });
 }

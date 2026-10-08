@@ -280,13 +280,7 @@ export function refinerRunFails(index: number): WorkflowAction {
 }
 
 /** Where the decisions model says a person's feedback goes, or why it cannot say. */
-export type FeedbackRouting =
-  | "for_author"
-  | "beyond_author"
-  | "asks_nothing"
-  | "unsure"
-  | "fails"
-  | "none";
+export type FeedbackRouting = "for_author" | "beyond_author" | "asks_nothing" | "unsure" | "fails";
 
 const ROUTING_ANSWERS: Record<FeedbackRouting, DecisionAnswers> = {
   for_author: { for_author: 0.95, beyond_author: 0.05, rejects: 0 },
@@ -294,7 +288,6 @@ const ROUTING_ANSWERS: Record<FeedbackRouting, DecisionAnswers> = {
   asks_nothing: { for_author: 0.05, beyond_author: 0.05, rejects: 0 },
   unsure: { for_author: 0.5, beyond_author: 0.05, rejects: 0 },
   fails: "fails",
-  none: "none",
 };
 
 const FEEDBACK_TEXT = "Why does the redirect skip the check?";
@@ -352,7 +345,7 @@ export function personPostsFeedback(
     world.answerDecisionsWith(ROUTING_ANSWERS[routing]);
     const pull = feedbackDetail(form, world.pullDetailOf(author));
     await world.deliver({ kind: "feedback", text: FEEDBACK_TEXT, pull });
-    const unchecked = form === "app_review" && (routing === "fails" || routing === "none");
+    const unchecked = form === "app_review" && routing === "fails";
     return {
       feedback: { task_id: author.taskId },
       unadmittedFeedback: unchecked
@@ -649,7 +642,7 @@ const PERSON_MESSAGES: Record<PersonAtCompletion, string[]> = {
 };
 
 /** What the decisions model does when the agent completes a task. */
-export type DecisionsAtCompletion = "answers" | "fails" | "hangs" | "none";
+export type DecisionsAtCompletion = "answers" | "fails" | "hangs";
 
 /** Milliseconds until the turn's abort signal stops a decisions model that never answers. */
 const TURN_DEADLINE_MS = 5;

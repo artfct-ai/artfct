@@ -82,7 +82,7 @@ export type ForeignText = { source: string; text: string; signal?: AbortSignal }
 
 /**
  * Ask the decisions model whether the text may enter a model request. Text it does not answer
- * for, also on a gateway without a decisions model, is unchecked.
+ * for is unchecked.
  */
 export async function screenText(
   workflow: WorkflowRuntime,

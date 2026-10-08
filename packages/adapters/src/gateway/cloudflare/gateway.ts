@@ -1,4 +1,4 @@
-import { CLOUDFLARE_DEFAULT_DECISIONS_MODEL, CloudflareDecisions } from "./decisions";
+import { CloudflareDecisions } from "./decisions";
 import {
   OPENROUTER_PREFIX,
   type AnthropicRoute,
@@ -60,9 +60,8 @@ export class CloudflareGateway implements Gateway {
     return { baseUrl: `${this.baseUrl()}/anthropic`, headers: this.gatewayHeaders(metadata) };
   }
 
-  decisions(models: DecisionsModels = [CLOUDFLARE_DEFAULT_DECISIONS_MODEL]): Decisions {
-    const { accountId, gatewayId, token } = this.config;
-    return new CloudflareDecisions({ accountId, gatewayId, token, models });
+  decisions(models: DecisionsModels): Decisions {
+    return new CloudflareDecisions({ ...this.config, models });
   }
 
   async models(): Promise<null> {

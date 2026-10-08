@@ -163,16 +163,6 @@ describe("screenText", () => {
       }));
   });
 
-  describe("a gateway with no decisions model", () => {
-    it("leaves every text unchecked", () =>
-      freshRuntime(async (runtime) => {
-        runtime.gatewayInstance = new FakeGateway();
-        expect(await screenText(runtime, { source: "event", text: "fix the login test" })).toBe(
-          "unchecked",
-        );
-      }));
-  });
-
   describe("a decisions deadline that passes while the decisions model hangs", () => {
     it("leaves the text unchecked", () =>
       freshRuntime(async (runtime) => {

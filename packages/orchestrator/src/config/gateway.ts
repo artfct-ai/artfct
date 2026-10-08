@@ -22,6 +22,13 @@ export function orchestratorGateway(config: Config): GatewayProvider {
   return config.orchestrator.gateway ?? config.adapters.gateway.provider;
 }
 
+/** The decisions models a deployment gets when its config names none, in the order a call tries them. */
+export const DEFAULT_DECISIONS_MODELS: DecisionsModels = [
+  "openrouter/typesafe/jev-1.13",
+  "openrouter/cloudflare/clef",
+  "openrouter/cloudflare/clef-flash",
+];
+
 /** One decisions model, or an ordered list of them, read as the list a call tries in order. */
 export const DecisionsModelSetting = z.union([
   z

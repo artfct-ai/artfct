@@ -118,10 +118,10 @@ export interface Gateway {
   /** The route for Claude Code, or null when the gateway has no Anthropic endpoint. */
   anthropicRoute(metadata: GatewayMetadata): AnthropicRoute | null;
   /**
-   * The decisions model on the gateway, or null when it carries none. `models` names the models
-   * to try in order. Unset takes the gateway's default.
+   * The decisions model on the gateway. `models` names the models to try in order, each as every
+   * other model setting names one, such as `openrouter/typesafe/jev-1.13`.
    */
-  decisions(models?: DecisionsModels): Decisions | null;
+  decisions(models: DecisionsModels): Decisions;
   /** Every tool-calling model and preset the gateway carries, or null when it lists none. */
   models(): Promise<GatewayModel[] | null>;
 }

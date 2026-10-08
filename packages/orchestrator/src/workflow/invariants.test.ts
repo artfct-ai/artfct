@@ -209,7 +209,6 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
           "asks_nothing",
           "unsure",
           "fails",
-          "none",
         ),
       )
       .map(([index, form, routing]) => personPostsFeedback(index, form, routing)),
@@ -319,7 +318,7 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
       .tuple(
         author,
         fc.constantFrom("accepts", "accepts", "asks_for_a_change", "wrote_nothing"),
-        fc.constantFrom("answers", "answers", "answers", "fails", "hangs", "none"),
+        fc.constantFrom("answers", "answers", "answers", "fails", "hangs"),
       )
       .map(([index, person, decisions]) => agentCompletes(index, person, decisions)),
   },
@@ -329,14 +328,14 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
       .tuple(
         author,
         fc.constantFrom("accepts", "accepts", "asks_for_a_change", "wrote_nothing"),
-        fc.constantFrom("answers", "answers", "fails", "hangs", "none"),
+        fc.constantFrom("answers", "answers", "fails", "hangs"),
       )
       .map(([index, person, decisions]) => agentCompletesWithSelection(index, person, decisions)),
   },
   {
     weight: 2,
     arbitrary: fc
-      .tuple(author, fc.constantFrom("answers", "fails", "hangs", "none"))
+      .tuple(author, fc.constantFrom("answers", "fails", "hangs"))
       .map(([index, decisions]) => agentSendsHeldComments(index, decisions)),
   },
   {

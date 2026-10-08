@@ -8,6 +8,7 @@ import type {
   JsonValue,
 } from "../src/gateway/types";
 import { CallLog, type RecordedCall } from "./calls";
+import { FakeDecisions } from "./fake-decisions";
 
 /** Fixed answers for a `FakeGateway`. */
 export type GatewayAnswers = {
@@ -19,7 +20,7 @@ export type GatewayAnswers = {
   fields?: Record<string, JsonValue>;
   /** False for a gateway with no Anthropic endpoint. */
   anthropic?: boolean;
-  /** The decisions model the gateway carries. Default none. */
+  /** The decisions model the gateway carries. Default one whose every model fails. */
   decisions?: Decisions;
   /** The models the gateway lists, or an error every listing throws. Default none listed. */
   models?: GatewayModel[] | Error;
@@ -65,8 +66,8 @@ export class FakeGateway implements Gateway {
     };
   }
 
-  decisions(): Decisions | null {
-    return this.answers.decisions ?? null;
+  decisions(): Decisions {
+    return this.answers.decisions ?? new FakeDecisions(new Error("every decisions model failed"));
   }
 
   async models(): Promise<GatewayModel[] | null> {

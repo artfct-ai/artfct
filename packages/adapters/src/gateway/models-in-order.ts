@@ -7,9 +7,16 @@ import type { DecisionsModels } from "./types";
 export const DECISIONS_MODEL_BUDGET_MS = 12_000;
 
 /** Milliseconds one call over `models` may take: the budget of each model in turn. */
-export function decisionsDeadlineMs(models: DecisionsModels): number {
-  return DECISIONS_MODEL_BUDGET_MS * models.length;
+export function decisionsDeadlineMs(models: DecisionsModels, budgetMs: number): number {
+  return budgetMs * models.length;
 }
+
+/** The decisions models a call tries in order, how long each may take, and the caller's signal. */
+export type ModelsInOrder = {
+  models: DecisionsModels;
+  budgetMs: number;
+  signal: AbortSignal | undefined;
+};
 
 /**
  * Ask each decisions model in order until one answers. A model that fails, or runs past its
@@ -17,8 +24,7 @@ export function decisionsDeadlineMs(models: DecisionsModels): number {
  * soon as `signal` aborts.
  */
 export async function askModelsInOrder<Answer>(
-  models: DecisionsModels,
-  signal: AbortSignal | undefined,
+  { models, budgetMs, signal }: ModelsInOrder,
   ask: (model: string, modelSignal: AbortSignal) => Promise<Answer>,
 ): Promise<Answer> {
   const failures: string[] = [];
@@ -26,8 +32,8 @@ export async function askModelsInOrder<Answer>(
     signal?.throwIfAborted();
     const budget = new AbortController();
     const timer = setTimeout(
-      () => budget.abort(new Error(`${model} ran past ${DECISIONS_MODEL_BUDGET_MS} ms`)),
-      DECISIONS_MODEL_BUDGET_MS,
+      () => budget.abort(new Error(`${model} ran past ${budgetMs} ms`)),
+      budgetMs,
     );
     const modelSignal = signal ? AbortSignal.any([signal, budget.signal]) : budget.signal;
     try {

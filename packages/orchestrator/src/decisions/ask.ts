@@ -25,8 +25,8 @@ export type DecisionsAsk<Questions> = {
 
 /**
  * Ask the orchestrator's decisions model every question over one state in one call, and record
- * the usage. Null when the gateway does not carry a decisions model, or the call fails, aborts,
- * or runs past the model's deadline.
+ * the usage. Null when the orchestrator's gateway is missing a secret, or every configured model
+ * failed, or the call aborts or runs past its deadline.
  */
 export async function askDecisions<YesNoName extends string, ChoiceName extends string>(
   workflow: WorkflowRuntime,

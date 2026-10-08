@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, setSystemTime, test } from "bun:test";
 import { fetchHeader, fetchUrl } from "../../../test/fetch";
 import type { DecisionsModels } from "../types";
-import { OPENROUTER_DEFAULT_DECISIONS_MODEL, OpenRouterDecisions } from "./decisions";
+import { OpenRouterDecisions } from "./decisions";
 
 await Promise.all([
   import("@openrouter/sdk/funcs/alphaDecisionsCreate.js"),
@@ -26,6 +26,8 @@ type Seen = {
 type Host = { serverUrl: string } | { region: "eu" | "us" };
 
 type Reply = { status: number; answers?: unknown };
+
+const JEV = "typesafe/jev-1.13";
 
 const FALLBACK_MODEL = "typesafe/jev-1.12";
 
@@ -56,7 +58,7 @@ function decisionsReplying(
   const decisions = new OpenRouterDecisions({
     apiKey: "key",
     ...(options.host ?? { serverUrl: "https://router.test" }),
-    models: options.models ?? [OPENROUTER_DEFAULT_DECISIONS_MODEL],
+    models: options.models ?? [JEV],
     fetch: fake,
   });
   return { decisions, seen };
@@ -92,7 +94,7 @@ describe("OpenRouterDecisions", () => {
     expect(seen[0]!.url).toBe("https://router.test/api/alpha/decisions");
     expect(seen[0]!.authorization).toBe("Bearer key");
     expect(seen[0]!.body).toEqual({
-      model: OPENROUTER_DEFAULT_DECISIONS_MODEL,
+      model: JEV,
       state: { message: "done yet?" },
       questions: {
         wants_answer: {
@@ -128,7 +130,7 @@ describe("OpenRouterDecisions", () => {
 
     expect(answered.probabilities).toEqual({ wants_answer: 0.9 });
     expect(answered.usage).toEqual({
-      model: OPENROUTER_DEFAULT_DECISIONS_MODEL,
+      model: JEV,
       input_tokens: 40,
       output_tokens: 2,
       cost_usd: 0.000002,
@@ -163,7 +165,7 @@ describe("OpenRouterDecisions over several decisions models", () => {
 
   test("sends the first model it names", async () => {
     const { decisions, seen } = decisionsReplying(() => ({ status: 200, answers: ANSWERS }), {
-      models: [FALLBACK_MODEL, OPENROUTER_DEFAULT_DECISIONS_MODEL],
+      models: [FALLBACK_MODEL, JEV],
     });
 
     await decisions.decide({ message: "hi" }, ASKED);
@@ -186,15 +188,12 @@ describe("OpenRouterDecisions over several decisions models", () => {
     const { decisions, seen } = decisionsReplying(
       (request) =>
         request.body.model === FALLBACK_MODEL ? { status: 200, answers: ANSWERS } : { status: 404 },
-      { models: [OPENROUTER_DEFAULT_DECISIONS_MODEL, FALLBACK_MODEL] },
+      { models: [JEV, FALLBACK_MODEL] },
     );
 
     const answered = await decisions.decide({ message: "hi" }, ASKED);
 
-    expect(seen.map((request) => request.body.model)).toEqual([
-      OPENROUTER_DEFAULT_DECISIONS_MODEL,
-      FALLBACK_MODEL,
-    ]);
+    expect(seen.map((request) => request.body.model)).toEqual([JEV, FALLBACK_MODEL]);
     expect(answered.usage.model).toBe(FALLBACK_MODEL);
   });
 
@@ -208,14 +207,12 @@ describe("OpenRouterDecisions over several decisions models", () => {
           ? { status: 200, answers: ANSWERS }
           : { status: 529 };
       },
-      { models: [OPENROUTER_DEFAULT_DECISIONS_MODEL, FALLBACK_MODEL] },
+      { models: [JEV, FALLBACK_MODEL] },
     );
 
     const answered = await decisions.decide({ message: "hi" }, ASKED);
 
-    const firstModelAttempts = seen.filter(
-      (request) => request.body.model === OPENROUTER_DEFAULT_DECISIONS_MODEL,
-    );
+    const firstModelAttempts = seen.filter((request) => request.body.model === JEV);
     expect(firstModelAttempts.length).toBeGreaterThan(1);
     expect(firstModelAttempts.length).toBeLessThan(6);
     expect(answered.usage.model).toBe(FALLBACK_MODEL);
@@ -223,7 +220,7 @@ describe("OpenRouterDecisions over several decisions models", () => {
 
   test("throws when every model fails", async () => {
     const { decisions, seen } = decisionsReplying(() => ({ status: 404 }), {
-      models: [OPENROUTER_DEFAULT_DECISIONS_MODEL, FALLBACK_MODEL],
+      models: [JEV, FALLBACK_MODEL],
     });
 
     await expect(decisions.decide({ message: "hi" }, ASKED)).rejects.toThrow(
@@ -249,7 +246,7 @@ describe("OpenRouterDecisions choice questions", () => {
     await decisions.decide({ message: "use opus" }, { yesNo: {}, choices: MODEL_QUESTION });
 
     expect(seen[0]!.body).toEqual({
-      model: OPENROUTER_DEFAULT_DECISIONS_MODEL,
+      model: JEV,
       state: { message: "use opus" },
       questions: {
         model: {
@@ -278,7 +275,7 @@ describe("OpenRouterDecisions choice questions", () => {
 
     expect(answered.choices).toEqual({ model: { option: "claude-opus-5-5", probability: 0.8 } });
     expect(answered.usage).toEqual({
-      model: OPENROUTER_DEFAULT_DECISIONS_MODEL,
+      model: JEV,
       input_tokens: 40,
       output_tokens: 2,
       cost_usd: 0.000002,
@@ -343,7 +340,7 @@ describe("OpenRouterDecisions under an abort signal", () => {
     const decisions = new OpenRouterDecisions({
       apiKey: "key",
       serverUrl: "https://router.test",
-      models: [OPENROUTER_DEFAULT_DECISIONS_MODEL],
+      models: [JEV],
       fetch: hanging,
     });
 
@@ -370,7 +367,7 @@ describe("OpenRouterDecisions under an abort signal", () => {
     const decisions = new OpenRouterDecisions({
       apiKey: "key",
       serverUrl: "https://router.test",
-      models: [OPENROUTER_DEFAULT_DECISIONS_MODEL],
+      models: [JEV],
       fetch: overloaded,
     });
     const started = Date.now();
