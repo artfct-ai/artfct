@@ -30,6 +30,8 @@ A code name is one type, table, column, or function. A code name that needs a co
 | run number | Which execution of the same refiner on the same artifact this is, from 1. | `runNumberOf`, `phaseRunOf` | round |
 | generation | The sandbox start count of a task. It drops alarms and connections of an older sandbox. | `sandboxes.generation` | version, revision |
 | restart | A task starting over in a fresh sandbox on its branch after a failure it may recover from. A task restarts at most twice, then fails. | `sandboxes.restarts` | retry, rehydrate |
+| workflow repo token | The code host token a task's sandbox uses for the workflow's repository. An author's token may push. A reviewer's token has only the permissions its artifact kind allows. It is refreshed before it expires. | `mintWorkflowRepoToken`, `SandboxStartSpec.workflow_repo_token` | task token, task credential |
+| all-repos read token | A read-only code host token for every repository the code host credential reaches. A sandbox gets one only when `read_all_repos` is on. Git uses it for every repository except the workflow's. | `mintAllReposReadToken`, `SandboxStartSpec.all_repos_read_token` | read token, read credential |
 | segment | Consecutive reviewers that settle together. A judge or the end of the list ends it. | `segmentStartOf`, `endsSegment` | |
 | phase | A group of refiners on the board. Agent review, then polish. | `RefinerPhase` | |
 | milestone | A delivery slice in a plan document. | plan skill text | phase |

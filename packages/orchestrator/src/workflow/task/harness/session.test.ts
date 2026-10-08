@@ -268,7 +268,7 @@ describe("onInitialized", () => {
       it("names what it is missing", () =>
         opened(({ workflow }) => {
           expect(workflow.lines).toContain(
-            "mcp github skipped: no GitHub App to mint a task token from",
+            "mcp github skipped: no GitHub App to mint a workflow repo token from",
           );
         }));
     });

@@ -273,8 +273,8 @@ export function cloneUrl(adapters: Adapters, repoFull: string): string {
   }
 }
 
-/** True when the artifact kind's MCP server runs on a credential minted for the task. */
-export function artifactNeedsTaskCredential(kind: ArtifactKind, adapters: Adapters): boolean {
+/** True when the artifact kind's MCP server runs on the workflow repo token. */
+export function artifactNeedsWorkflowRepoToken(kind: ArtifactKind, adapters: Adapters): boolean {
   return kind === "pull" && adapters.code.provider === "github";
 }
 
@@ -442,7 +442,7 @@ function codeMcpServer(
   switch (provider) {
     case "github":
       if (token) return githubMcpServer(token);
-      log("mcp github skipped: no GitHub App to mint a task token from");
+      log("mcp github skipped: no GitHub App to mint a workflow repo token from");
       return null;
     default: {
       const unreachable: never = provider;

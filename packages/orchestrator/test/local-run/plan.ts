@@ -9,7 +9,7 @@ import type { Gateway } from "@artfct-ai/adapters/gateway/types";
 import { harnessAdapter } from "@artfct-ai/adapters/harness/clients";
 import type { Effort, HarnessCommand } from "@artfct-ai/adapters/harness/types";
 import type { McpServer } from "@agentclientprotocol/sdk";
-import { artifactCapability, artifactNeedsTaskCredential, cliEnv } from "../../src/clients";
+import { artifactCapability, artifactNeedsWorkflowRepoToken, cliEnv } from "../../src/clients";
 import type { Config } from "../../src/config/config";
 import { loadDeploymentConfig } from "../../src/config/register-config";
 import type { McpCapability } from "../../src/config/adapters";
@@ -127,7 +127,7 @@ export async function planLocalRun(
     : null;
   const kind = stage.artifact;
   const capability = artifactCapability(kind);
-  const credential = artifactNeedsTaskCredential(kind, config.adapters)
+  const credential = artifactNeedsWorkflowRepoToken(kind, config.adapters)
     ? (minted?.workflowRepoToken ?? null)
     : await workflow.mcpCredential();
   const built = buildStartSpec({

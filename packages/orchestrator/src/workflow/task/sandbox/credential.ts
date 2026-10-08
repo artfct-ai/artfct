@@ -1,6 +1,6 @@
 import type { MintedToken, Permissions } from "@artfct-ai/adapters/code/types";
 import { isExpiring } from "@artfct-ai/adapters/expiry";
-import { artifactCapability, artifactNeedsTaskCredential } from "../../../clients";
+import { artifactCapability, artifactNeedsWorkflowRepoToken } from "../../../clients";
 import { isTaskFinished } from "../../store/state";
 import type { AllReposReadToken } from "../../../sandbox/spec";
 import type { SandboxRow, TaskRow } from "../../store/tasks";
@@ -96,7 +96,7 @@ export async function hostCredential(
   workflowRepoToken: () => Promise<string | null>,
 ): Promise<string | null> {
   const kind = workflow.stageForTask(task).artifact;
-  if (artifactNeedsTaskCredential(kind, workflow.config().adapters)) return workflowRepoToken();
+  if (artifactNeedsWorkflowRepoToken(kind, workflow.config().adapters)) return workflowRepoToken();
   return workflow.mcpCredential(artifactCapability(kind));
 }
 
