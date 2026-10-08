@@ -256,6 +256,7 @@ describe("applyEvent", () => {
           ],
         });
         seedPage(workflow, documents);
+        workflow.gatewayInstance = new FakeGateway({ decisions: new FakeDecisions({}) });
       },
     );
 

@@ -122,11 +122,11 @@ describe("complete_job", () => {
         expect(workflow.store.requireTask("wf_x.1").status).toBe("done");
       }));
 
-    it("refuses when no decisions model answers", () =>
+    it("says the check is unavailable when no decisions model answers", () =>
       pageInReview(null)(async (workflow) => {
         const { complete_job } = startTools(workflow, ["Looks good, ship it."]);
         expect(await complete_job.execute({ job_id: "wf_x-1", result: "Done." }, call)).toBe(
-          REFUSED_UNCLEAR,
+          "The check of whether the person accepted the page of job wf_x-1 is unavailable right now, so the job stays open. Tell the person the check is unavailable. Do not ask them again.",
         );
         expect(workflow.store.requireTask("wf_x.1").status).toBe("in_review");
       }));
@@ -239,12 +239,15 @@ describe("complete_job on a stage with a choice ending", () => {
       expect(workflow.store.requireTask("wf_x.1").status).toBe("in_review");
     }));
 
-  it("refuses when no decisions model answers", () =>
+  it("says the check is unavailable when no decisions model answers", () =>
     pageWithOptions(null)(async (workflow) => {
       const { complete_job } = startTools(workflow, PICKED);
-      await complete_job.execute(
+      const result = await complete_job.execute(
         { job_id: "wf_x-1", result: "Done.", option: "Split the table" },
         call,
+      );
+      expect(result).toBe(
+        'The check of whether the person selected "Split the table" is unavailable right now, so the job stays open. Tell the person the check is unavailable. Do not ask them again.',
       );
       expect(workflow.store.requireTask("wf_x.1").status).toBe("in_review");
       expect(workflow.store.requireJob("wf_x-1").selection).toBeNull();

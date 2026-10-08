@@ -28,6 +28,31 @@ describe("loadConfig", () => {
     it("keeps each sandbox to the task's repository", () => {
       expect(config.orchestrator.sandbox.read_all_repos).toBe(false);
     });
+
+    it("leaves the decisions model to the gateway", () => {
+      expect(config.orchestrator.decisions_model).toBeUndefined();
+    });
+  });
+
+  describe("a config that names the decisions model", () => {
+    it("reads one model as a list of one", () => {
+      const config = loadConfig("orchestrator: { decisions_model: typesafe/jev-1.13 }");
+      expect(config.orchestrator.decisions_model).toEqual(["typesafe/jev-1.13"]);
+    });
+
+    it("keeps the order of a list", () => {
+      const config = loadConfig(
+        "orchestrator: { decisions_model: [typesafe/jev-1.13, typesafe/jev-1.12] }",
+      );
+      expect(config.orchestrator.decisions_model).toEqual([
+        "typesafe/jev-1.13",
+        "typesafe/jev-1.12",
+      ]);
+    });
+
+    it("rejects an empty list", () => {
+      expect(() => loadConfig("orchestrator: { decisions_model: [] }")).toThrow(/decisions_model/);
+    });
   });
 
   describe("a config that sets the sandbox startup timeout", () => {

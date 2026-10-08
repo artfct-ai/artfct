@@ -28,6 +28,8 @@ mcp_servers:
 
 orchestrator:
   model: openrouter/deepseek/deepseek-v4.1-flash
+  # The decisions model on the gateway, or a list tried in order when one fails.
+  decisions_model: typesafe/jev-1.13
   # Compaction, condensed tool results, and digest summaries all run on this model.
   summarization:
     model: openrouter/minimax/minimax-m3

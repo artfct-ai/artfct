@@ -272,7 +272,11 @@ export class FakeRuntime implements WorkflowRuntime {
   }
 
   decisions(): Decisions | null {
-    return this.gateway(orchestratorGateway(this.config()))?.decisions() ?? null;
+    const config = this.config();
+    return (
+      this.gateway(orchestratorGateway(config))?.decisions(config.orchestrator.decisions_model) ??
+      null
+    );
   }
 
   harness(name: Harness): HarnessAdapter {

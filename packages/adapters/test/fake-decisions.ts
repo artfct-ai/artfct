@@ -21,7 +21,6 @@ export type FakeAnswers =
  * option picked for each choice question.
  */
 export class FakeDecisions implements Decisions {
-  readonly model = "fake-decisions";
   readonly asked: DecisionState[] = [];
   readonly offered: ChoiceQuestion[] = [];
 
@@ -49,7 +48,7 @@ export class FakeDecisions implements Decisions {
     return {
       probabilities,
       choices,
-      usage: { input_tokens: 500, output_tokens: 0, cost_usd: 0.00002 },
+      usage: { model: "fake-decisions", input_tokens: 500, output_tokens: 0, cost_usd: 0.00002 },
     };
   }
 }
@@ -59,7 +58,6 @@ export class FakeDecisions implements Decisions {
  * signal aborts.
  */
 export class HangingDecisions implements Decisions {
-  readonly model = "hanging-decisions";
   calls = 0;
 
   decide<YesNoName extends string, ChoiceName extends string>(

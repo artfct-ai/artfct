@@ -1,4 +1,10 @@
 import type { LanguageModelV4 } from "@ai-sdk/provider";
+import type {
+  DecisionAnswers,
+  DecisionQuestions,
+  Decisions,
+  DecisionState,
+} from "@artfct-ai/adapters/gateway/types";
 import { FakeDecisions, HangingDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { FakeWeb } from "@artfct-ai/adapters/test/fake-web";
@@ -24,7 +30,7 @@ import { runAgentTurn, UNANSWERED_TEXT } from "./turn";
 import { onTurnHeadsUp, resumeLostTurn } from "./watchdog";
 
 type InboxRow = { wake: Wake; text: string };
-type DecisionsSay = OwedReply | "fails" | "hangs";
+type DecisionsSay = OwedReply | "fails" | "hangs" | "recovers" | "none";
 type ScriptedTurn = {
   inbox: InboxRow[];
   model: "answers" | "never_answers";
@@ -40,7 +46,7 @@ type ScriptedTurn = {
 const CONTEXT_TOKENS = 40;
 const INPUT_TOKENS = { under_the_limit: 0, over_the_limit: CONTEXT_TOKENS + 1 };
 
-const TURN_TIMEOUT_MINUTES = { answers: 10, hangs: 0.0005 };
+const TURN_TIMEOUT_MINUTES = { answers: 10, decisions_hang: 0.008, model_hangs: 0.0005 };
 
 const THREAD = { source: "chat", channel: "C1", thread: "1.0" } as const;
 
@@ -72,7 +78,7 @@ const scriptedTurn: fc.Arbitrary<ScriptedTurn> = fc.record({
   inbox: fc.array(inboxRow, { minLength: 1, maxLength: 3 }),
   model: fc.constantFrom("answers", "answers", "answers", "never_answers"),
   script: fc.array(modelStep, { maxLength: 5 }),
-  decisions: fc.constantFrom<DecisionsSay>("answer", "board", "fails", "hangs"),
+  decisions: fc.constantFrom<DecisionsSay>("answer", "board", "fails", "hangs", "recovers", "none"),
   screen: fc.constantFrom("admits", "quarantines"),
   request: fc.constantFrom("under_the_limit", "over_the_limit"),
   summarization: fc.constantFrom("answers", "answers", "fails"),
@@ -80,16 +86,37 @@ const scriptedTurn: fc.Arbitrary<ScriptedTurn> = fc.record({
   restart: fc.constantFrom("none", "none", "none", "mid_turn"),
 });
 
+class RecoveringDecisions implements Decisions {
+  private calls = 0;
+
+  constructor(private readonly recovered: FakeDecisions) {}
+
+  async decide<YesNoName extends string, ChoiceName extends string>(
+    state: DecisionState,
+    questions: DecisionQuestions<YesNoName, ChoiceName>,
+  ): Promise<DecisionAnswers<YesNoName, ChoiceName>> {
+    this.calls += 1;
+    if (this.calls === 1) throw new Error("decisions model unavailable");
+    return this.recovered.decide(state, questions);
+  }
+}
+
 function answerDecisionsWith(workflow: FakeRuntime, turn: ScriptedTurn): void {
   workflow.gatewayInstance = new FakeGateway({ decisions: decisionsFor(turn) });
 }
 
-function decisionsFor(turn: ScriptedTurn): FakeDecisions | HangingDecisions {
+function decisionsFor(turn: ScriptedTurn): Decisions | undefined {
   switch (turn.decisions) {
+    case "none":
+      return undefined;
     case "fails":
       return new FakeDecisions(new Error("decisions model unavailable"));
     case "hangs":
       return new HangingDecisions();
+    case "recovers":
+      return new RecoveringDecisions(
+        new FakeDecisions({ ...OWED_ANSWERS.answer, ...SCREEN_ANSWERS[turn.screen] }),
+      );
     case "answer":
     case "board":
       return new FakeDecisions({ ...OWED_ANSWERS[turn.decisions], ...SCREEN_ANSWERS[turn.screen] });
@@ -100,13 +127,28 @@ function decisionsFor(turn: ScriptedTurn): FakeDecisions | HangingDecisions {
   }
 }
 
-function hangs(turn: ScriptedTurn): boolean {
-  return turn.model === "never_answers" || turn.decisions === "hangs";
+function turnTimeout(turn: ScriptedTurn): number {
+  if (turn.model === "never_answers") return TURN_TIMEOUT_MINUTES.model_hangs;
+  return turn.decisions === "hangs"
+    ? TURN_TIMEOUT_MINUTES.decisions_hang
+    : TURN_TIMEOUT_MINUTES.answers;
 }
 
 function quarantinedIn(turn: ScriptedTurn, pageText: string): string[] {
-  if (turn.decisions === "hangs") return [pageText];
-  return turn.decisions !== "fails" && turn.screen === "quarantines" ? [pageText] : [];
+  switch (turn.decisions) {
+    case "fails":
+    case "hangs":
+    case "none":
+      return [pageText];
+    case "recovers":
+    case "answer":
+    case "board":
+      return turn.screen === "quarantines" ? [pageText] : [];
+    default: {
+      const unreachable: never = turn.decisions;
+      throw new Error(`unhandled decisions ${String(unreachable)}`);
+    }
+  }
 }
 
 function personWrote(turn: ScriptedTurn): boolean {
@@ -115,7 +157,7 @@ function personWrote(turn: ScriptedTurn): boolean {
 
 function owedIn(turn: ScriptedTurn): OwedReply | null {
   if (!personWrote(turn)) return null;
-  return turn.decisions === "fails" || turn.decisions === "hangs" ? "answer" : turn.decisions;
+  return turn.decisions === "board" ? "board" : "answer";
 }
 
 function firingTheHeadsUpFirst(workflow: FakeRuntime, model: LanguageModelV4): LanguageModelV4 {
@@ -191,7 +233,7 @@ async function runScriptedTurn(
       model: "reasoning-model",
       summarization: { ...orchestrator.summarization, model: "compact-model" },
       context_tokens: CONTEXT_TOKENS,
-      turn_timeout_minutes: TURN_TIMEOUT_MINUTES[hangs(turn) ? "hangs" : "answers"],
+      turn_timeout_minutes: turnTimeout(turn),
     },
   });
   const rowsBefore = workflow.transcript.all();
@@ -239,6 +281,7 @@ async function runScriptedTurn(
     timeoutMinutes: workflow.config().orchestrator.turn_timeout_minutes,
     timedOut: lines.some((line) => line.startsWith("agent turn timed out")),
     resumedLostTurn: turn.restart === "mid_turn",
+    modelHangs: turn.model === "never_answers",
   };
 }
 
@@ -291,6 +334,6 @@ describe("agent turn invariants", () => {
           ],
         },
       ),
-    30_000,
+    90_000,
   );
 });

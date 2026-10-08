@@ -9,7 +9,6 @@ import type { Scenario } from "../../../test/scenario";
 import { TurnCoalescer } from "../../workflow/task/harness/turn";
 import { eventMessage } from "../transcript/envelope";
 import { runAgentTurn } from "./turn";
-import { turnTimeoutText } from "./watchdog";
 
 const TURN_TIMEOUT_MINUTES = 0.0005;
 
@@ -62,11 +61,9 @@ describe("a turn whose decisions call never returns", () => {
       expect(elapsedMs).toBeLessThan(2000);
     }));
 
-  it("tells the person it timed out", () =>
+  it("gives the person the model's answer once the decisions deadline passes", () =>
     stuck(({ workflow }) => {
-      expect(workflow.posted).toEqual([
-        { type: "info", text: turnTimeoutText(TURN_TIMEOUT_MINUTES) },
-      ]);
+      expect(workflow.posted).toEqual([{ type: "info", text: "done" }]);
     }));
 
   it("lets go of the turn", () =>
@@ -75,7 +72,7 @@ describe("a turn whose decisions call never returns", () => {
     }));
 });
 
-describe("a message queued behind a turn stuck on the decisions model", () => {
+describe("a message queued behind a turn whose decisions call never returns", () => {
   const queued = stuckDecisions(async (workflow, decisions) => {
     const turns = new TurnCoalescer();
     personWrote(workflow, "What is the status?");
@@ -86,7 +83,7 @@ describe("a message queued behind a turn stuck on the decisions model", () => {
     await first;
   });
 
-  it("runs in the next turn once the deadline ends the first", () =>
+  it("runs in the next turn once the first ends", () =>
     queued(({ decisions }) => {
       expect(decisions.calls).toBe(2);
     }));
@@ -96,8 +93,11 @@ describe("a message queued behind a turn stuck on the decisions model", () => {
       expect(workflow.transcript.inbox()).toEqual([]);
     }));
 
-  it("tells the person twice that a turn timed out", () =>
+  it("answers the person in each turn", () =>
     queued(({ workflow }) => {
-      expect(workflow.posted).toHaveLength(2);
+      expect(workflow.posted).toEqual([
+        { type: "info", text: "done" },
+        { type: "info", text: "done" },
+      ]);
     }));
 });

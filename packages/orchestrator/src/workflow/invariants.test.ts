@@ -1,6 +1,8 @@
 import { describe, expect, it } from "bun:test";
 import fc from "fast-check";
 import {
+  aFailedCheckNeverAsksThePersonAgain,
+  aFailedCheckNeverCompletesAJob,
   artifactStatusMovesAreLegal,
   authorIsIdleWhileAPolisherRuns,
   deliveredToHumansIsNeverCleared,
@@ -17,6 +19,7 @@ import {
   refinersRunAgainOnlyOnChangedRevision,
   staleAlarmIsIgnored,
   todoListIsFixedAfterFirstArtifact,
+  unadmittedFeedbackReachesNobody,
 } from "../../test/invariants";
 import {
   agentCancels,
@@ -87,6 +90,9 @@ const STEP_INVARIANTS = [
   todoListIsFixedAfterFirstArtifact,
   staleAlarmIsIgnored,
   jobStartsOnlyIntoAFreeSlot,
+  unadmittedFeedbackReachesNobody,
+  aFailedCheckNeverCompletesAJob,
+  aFailedCheckNeverAsksThePersonAgain,
 ];
 
 const setups: fc.Arbitrary<WorldSetup> = fc.record({
@@ -177,7 +183,7 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
     arbitrary: fc
       .tuple(
         author,
-        fc.constantFrom("review", "review", "review_comment", "comment"),
+        fc.constantFrom("review", "review", "review_comment", "comment", "app_review"),
         fc.constantFrom(
           "for_author",
           "for_author",
@@ -186,6 +192,7 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
           "asks_nothing",
           "unsure",
           "fails",
+          "none",
         ),
       )
       .map(([index, form, routing]) => personPostsFeedback(index, form, routing)),
@@ -292,8 +299,12 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
   {
     weight: 2,
     arbitrary: fc
-      .tuple(author, fc.constantFrom("accepts", "accepts", "asks_for_a_change", "wrote_nothing"))
-      .map(([index, person]) => agentCompletes(index, person)),
+      .tuple(
+        author,
+        fc.constantFrom("accepts", "accepts", "asks_for_a_change", "wrote_nothing"),
+        fc.constantFrom("answers", "answers", "answers", "fails", "hangs", "none"),
+      )
+      .map(([index, person, decisions]) => agentCompletes(index, person, decisions)),
   },
   {
     weight: 2,
@@ -366,7 +377,7 @@ describe("the workflow invariants", () => {
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(16);
+      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(19);
     },
     TIMEOUT_MS,
   );

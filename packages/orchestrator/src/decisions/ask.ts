@@ -14,7 +14,7 @@ export type Decided<YesNoName extends string, ChoiceName extends string> = Omit<
 
 /**
  * One decisions call. `purpose` names its usage record. A caller inside an agent turn passes the
- * turn's abort signal.
+ * turn's decisions signal.
  */
 export type DecisionsAsk<Questions> = {
   purpose: string;
@@ -35,7 +35,7 @@ export async function askDecisions<YesNoName extends string, ChoiceName extends 
   if (!decisions) return null;
   try {
     const { usage, ...answers } = await decisions.decide(state, questions, signal);
-    workflow.store.recordModelUsage({ purpose, model: decisions.model, ...usage });
+    workflow.store.recordModelUsage({ purpose, ...usage });
     return answers;
   } catch (error) {
     workflow.log(null, `${purpose} unknown, decisions failed: ${String(error).slice(0, 200)}`);

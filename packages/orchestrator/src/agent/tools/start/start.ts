@@ -75,10 +75,12 @@ export const START_JOB = "start_job";
 /**
  * What a turn gives the start tools beyond the people's messages. `requestText` identifies an ad
  * hoc job started in the turn. `runtimeRequest` settles to the model a message named, or null.
+ * `decisionsSignal` bounds the turn's decisions calls.
  */
 export type StartTurn = {
   requestText?: string;
   runtimeRequest?: Promise<RuntimeRequest | null>;
+  decisionsSignal?: AbortSignal;
 };
 
 /** Tools that start jobs and end them. `personMessages` are what the people wrote in this turn. */
@@ -136,8 +138,14 @@ export function startTools(
             "on a stage with a choice ending: the selected option, exactly as the page lists it under its options heading",
           ),
       }),
-      execute: ({ job_id, result, option }, { abortSignal }) =>
-        complete(workflow, { jobId: job_id, result, option, personMessages, signal: abortSignal }),
+      execute: ({ job_id, result, option }) =>
+        complete(workflow, {
+          jobId: job_id,
+          result,
+          option,
+          personMessages,
+          signal: turn.decisionsSignal,
+        }),
     }),
     cancel_job: tool({
       description:
@@ -454,7 +462,7 @@ type CompleteInput = {
   signal: AbortSignal | undefined;
 };
 
-/** The messages people wrote in this turn, with the turn's abort signal. */
+/** The messages people wrote in this turn, with the turn's decisions signal. */
 type TurnMessages = Pick<CompleteInput, "personMessages" | "signal">;
 
 async function complete(
@@ -499,6 +507,17 @@ async function cancel(workflow: WorkflowRuntime, jobId: string, reason: string):
   return `Cancelled job ${jobId}.`;
 }
 
+/** The refusal that asks the person again when their message does not clearly accept. */
+export const ASK_WHETHER_ACCEPTED = "Ask them whether it is accepted.";
+
+/** The refusal that asks the person again when their message does not clearly select. */
+export const ASK_WHICH_OPTION = "Ask them which option they choose.";
+
+/** What the agent reads when the decisions model could not check what the person wrote. */
+export function checkUnavailableText(checked: string): string {
+  return `The check of ${checked} is unavailable right now, so the job stays open. Tell the person the check is unavailable. Do not ask them again.`;
+}
+
 /** The refusal to complete a job whose host has not accepted its artifact, asking the host. */
 async function acceptancePending(
   workflow: WorkflowRuntime,
@@ -539,8 +558,9 @@ async function humansAcceptancePending(
     messages: personMessages,
     signal,
   });
+  if (accepted === null) return checkUnavailableText(`whether the person accepted ${name}`);
   if (!accepted) {
-    return `The person's message does not clearly accept ${name}. Ask them whether it is accepted. Send a change they asked for to the author task with prompt_task.`;
+    return `The person's message does not clearly accept ${name}. ${ASK_WHETHER_ACCEPTED} Send a change they asked for to the author task with prompt_task.`;
   }
   return null;
 }
@@ -594,9 +614,12 @@ async function checkSelection(
     messages: personMessages,
     signal,
   });
+  if (selected === null) {
+    return { refusal: checkUnavailableText(`whether the person selected "${option}"`) };
+  }
   if (!selected) {
     return {
-      refusal: `The person's message does not clearly select "${option}". Ask them which option they choose.`,
+      refusal: `The person's message does not clearly select "${option}". ${ASK_WHICH_OPTION}`,
     };
   }
   return { selection: option };

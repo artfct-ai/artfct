@@ -81,7 +81,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | the humans | The people a workflow reports to. | | |
 | access | Who is authorized to give the deployment work. A tracker or chat user is authorized as a member of the team set for that app. A code host user is authorized when they may push to the repository. The deployment ignores what an unauthorized user writes. | `Access`, `resolveActor` | |
 | team | The group whose members `access` authorizes: one tracker team, one chat workspace. An app without a team authorizes every user who reaches the bot. | `access.tracker_team`, `access.chat_team` | |
-| screen | The decision by the decisions model that text from outside the deployment may enter a model request. Text that fails is quarantined, and code writes a fixed line in its place. | `screenText`, `Screened` | |
+| screen | The decision by the decisions model that text from outside the deployment may enter a model request. Text that fails, or that the screen cannot check, is quarantined, and code writes a fixed line in its place. | `screenText`, `Screened` | |
 
 ## Orchestrator agent
 
@@ -102,6 +102,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | closing text | The text the model ends a turn with. It is posted only as the answer to a person who wrote. | `ModelPass.text` | |
 | transcript | The stored conversation of the orchestrator agent. The only part of the context that persists across agent turns. | `transcript` table, `TranscriptStore` | history, memory |
 | transcript row | One model message in the transcript, with its id. | `TranscriptRow` | |
+| decisions model | The System One model that answers yes-or-no and choice questions with probabilities. The deployment names one, or an ordered list, on its gateway. | `orchestrator.decisions_model`, `Decisions` | classifier, Jev |
 | summarization | A single model call that shortens text for its next reader. Compaction, a condensed result, and a digest summary each use one. One model setting serves all of them. | `runPrompt`, `orchestrator.summarization` | |
 | compaction | The summarization of the older transcript rows into one recap. It changes the transcript and no other part of the context. | `compactIfLarge`, `replaceThrough` | segmenting |
 | recap | The one message that compaction writes in place of the rows it removed. | `RECAP_MARKER`, `COMPACT_PROMPT` | summary |

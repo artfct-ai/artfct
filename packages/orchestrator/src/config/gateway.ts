@@ -1,4 +1,4 @@
-import { OPENROUTER_REGIONS } from "@artfct-ai/adapters/gateway/types";
+import { OPENROUTER_REGIONS, type DecisionsModels } from "@artfct-ai/adapters/gateway/types";
 import { z } from "zod";
 import type { Config } from "./config";
 
@@ -21,3 +21,12 @@ export type GatewayAdapter = z.infer<typeof GatewayAdapter>;
 export function orchestratorGateway(config: Config): GatewayProvider {
   return config.orchestrator.gateway ?? config.adapters.gateway.provider;
 }
+
+/** One decisions model, or an ordered list of them, read as the list a call tries in order. */
+export const DecisionsModelSetting = z.union([
+  z
+    .string()
+    .min(1)
+    .transform((model): DecisionsModels => [model]),
+  z.tuple([z.string().min(1)], z.string().min(1)),
+]);

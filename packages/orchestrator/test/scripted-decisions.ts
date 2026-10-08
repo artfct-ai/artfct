@@ -15,8 +15,6 @@ const NO_CHOICE: Choice = { option: "none", probability: 1 };
 
 /** A deterministic stand-in for the decisions model, beside the scripted orchestrator model. */
 export class ScriptedDecisions implements Decisions {
-  readonly model = "scripted";
-
   async decide<YesNoName extends string, ChoiceName extends string>(
     state: DecisionState,
     questions: DecisionQuestions<YesNoName, ChoiceName>,
@@ -27,7 +25,11 @@ export class ScriptedDecisions implements Decisions {
     }
     const choices = {} as Record<ChoiceName, Choice>;
     for (const name of Object.keys(questions.choices) as ChoiceName[]) choices[name] = NO_CHOICE;
-    return { probabilities, choices, usage: { input_tokens: 0, output_tokens: 0, cost_usd: 0 } };
+    return {
+      probabilities,
+      choices,
+      usage: { model: "scripted", input_tokens: 0, output_tokens: 0, cost_usd: 0 },
+    };
   }
 }
 

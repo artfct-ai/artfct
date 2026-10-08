@@ -24,6 +24,7 @@ import {
 } from "../src/workflow/task/harness/timers";
 import type { ScheduledMethod, WorkflowRuntime } from "../src/workflow/types";
 import type { FakeBridge } from "./fake-bridge";
+import { toolText } from "./tool-result";
 import { JUDGE_CONCLUSION } from "./fake-runtime";
 import {
   MAX_AUTHORS,
@@ -275,8 +276,14 @@ export function refinerRunFails(index: number): WorkflowAction {
   });
 }
 
-/** Where the decisions model says a person's feedback goes. */
-export type FeedbackRouting = "for_author" | "beyond_author" | "asks_nothing" | "unsure" | "fails";
+/** Where the decisions model says a person's feedback goes, or why it cannot say. */
+export type FeedbackRouting =
+  | "for_author"
+  | "beyond_author"
+  | "asks_nothing"
+  | "unsure"
+  | "fails"
+  | "none";
 
 const ROUTING_ANSWERS: Record<FeedbackRouting, DecisionAnswers> = {
   for_author: { for_author: 0.95, beyond_author: 0.05, rejects: 0 },
@@ -284,14 +291,18 @@ const ROUTING_ANSWERS: Record<FeedbackRouting, DecisionAnswers> = {
   asks_nothing: { for_author: 0.05, beyond_author: 0.05, rejects: 0 },
   unsure: { for_author: 0.5, beyond_author: 0.05, rejects: 0 },
   fails: "fails",
+  none: "none",
 };
 
 const FEEDBACK_TEXT = "Why does the redirect skip the check?";
 
 type PullOfEvent = { repo: string; number: number; branch?: string };
 
-/** How a person leaves feedback on a pull request: a whole review, one inline comment, or a comment. */
-export type FeedbackForm = "review" | "review_comment" | "comment";
+/**
+ * How feedback lands on a pull request: a person's whole review, one inline comment, or a
+ * comment, or a review by an app, which the screen checks first.
+ */
+export type FeedbackForm = "review" | "review_comment" | "comment" | "app_review";
 
 const INLINE_COMMENT = { id: 7, path: "src/login.ts", line: 12, body: "Rename this." };
 
@@ -299,6 +310,13 @@ function feedbackDetail(form: FeedbackForm, pull: PullOfEvent) {
   switch (form) {
     case "review":
       return { ...pull, action: "review" as const, comments: [INLINE_COMMENT] };
+    case "app_review":
+      return {
+        ...pull,
+        action: "review" as const,
+        comments: [INLINE_COMMENT],
+        reviewer_is_app: true,
+      };
     case "review_comment":
       return {
         ...pull,
@@ -331,7 +349,11 @@ export function personPostsFeedback(
     world.answerDecisionsWith(ROUTING_ANSWERS[routing]);
     const pull = feedbackDetail(form, world.pullDetailOf(author));
     await world.deliver({ kind: "feedback", text: FEEDBACK_TEXT, pull });
-    return { feedback: { task_id: author.taskId } };
+    const unchecked = form === "app_review" && (routing === "fails" || routing === "none");
+    return {
+      feedback: { task_id: author.taskId },
+      unadmittedFeedback: unchecked ? { texts: [FEEDBACK_TEXT, INLINE_COMMENT.body] } : null,
+    };
   });
 }
 
@@ -621,14 +643,41 @@ const PERSON_MESSAGES: Record<PersonAtCompletion, string[]> = {
   wrote_nothing: [],
 };
 
+/** What the decisions model does when the agent completes a task. */
+export type DecisionsAtCompletion = "answers" | "fails" | "hangs" | "none";
+
+/** Milliseconds the turn's decisions deadline gives a decisions model that never answers. */
+const DECISIONS_DEADLINE_MS = 5;
+
 /** The agent completes the author task, in whatever state it is. */
-export function agentCompletes(index: number, person: PersonAtCompletion): WorkflowAction {
-  const label = `agent completes the task, the person ${person}`;
+export function agentCompletes(
+  index: number,
+  person: PersonAtCompletion,
+  decisions: DecisionsAtCompletion,
+): WorkflowAction {
+  const label = `agent completes the task, the person ${person}, decisions ${decisions}`;
   return authorAction(index, label, async (world, author) => {
     const accepts = person === "accepts" ? 0.9 : 0.1;
-    world.answerDecisionsWith({ for_author: 0, beyond_author: 0, rejects: 0, accepts });
-    const { complete_job } = startTools(world.workflow, PERSON_MESSAGES[person]);
-    await complete_job.execute({ job_id: world.jobOf(author).job_id, result: "Done." }, TOOL_CALL);
+    world.answerDecisionsWith(
+      decisions === "answers"
+        ? { for_author: 0, beyond_author: 0, rejects: 0, accepts }
+        : decisions,
+    );
+    const decisionsSignal =
+      decisions === "hangs" ? AbortSignal.timeout(DECISIONS_DEADLINE_MS) : undefined;
+    const { complete_job } = startTools(world.workflow, PERSON_MESSAGES[person], {
+      decisionsSignal,
+    });
+    const result = toolText(
+      await complete_job.execute(
+        { job_id: world.jobOf(author).job_id, result: "Done." },
+        TOOL_CALL,
+      ),
+    );
+    if (decisions === "hangs") world.answerDecisionsWith("fails");
+    return {
+      completion: { task_id: author.taskId, checkFailed: decisions !== "answers", result },
+    };
   });
 }
 

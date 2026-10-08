@@ -30,7 +30,7 @@ function called(
   return freshRuntime(async (workflow) => {
     const decisions = new FakeDecisions(answers);
     workflow.gatewayInstance = new FakeGateway({ decisions });
-    const tools = screeningTools(workflow, toolsReturning(PAGE), new Set(["fetch_url"]));
+    const tools = screeningTools(workflow, toolsReturning(PAGE), { names: new Set(["fetch_url"]) });
     run({ workflow, decisions, result: await tools[toolName]!.execute!({}, CALL) });
   });
 }
@@ -60,10 +60,10 @@ describe("screeningTools", () => {
       }));
   });
 
-  describe("a listed tool whose result could not be screened", () => {
-    it("gives the model the result as the tool returned it", () =>
+  describe("a listed tool whose result the screen cannot check", () => {
+    it("gives the model the unchecked line in place of the result", () =>
       called("fetch_url", new Error("gateway timeout"), ({ result }) => {
-        expect(result).toBe(PAGE);
+        expect(result).toBe(unadmittedResultText("fetch_url", "unchecked"));
       }));
   });
 
@@ -83,7 +83,7 @@ describe("screeningTools", () => {
     it("is passed through unchanged", () =>
       freshRuntime(async (workflow) => {
         const tools = toolsReturning(PAGE);
-        const screened = screeningTools(workflow, tools, new Set(["described"]));
+        const screened = screeningTools(workflow, tools, { names: new Set(["described"]) });
         expect(screened.described).toBe(tools.described);
       }));
   });

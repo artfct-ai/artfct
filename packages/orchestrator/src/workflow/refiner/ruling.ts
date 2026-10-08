@@ -1,5 +1,6 @@
 import { noteMessage } from "../../agent/transcript/envelope";
 import type { JudgeEntry } from "../../config/refiner";
+import { askYesNo } from "../../decisions/ask";
 import { markBoardDirty } from "../board/board";
 import type { ArtifactRow, TaskRow } from "../store/tasks";
 import type { WorkflowRuntime } from "../types";
@@ -31,35 +32,22 @@ export async function ruleOnConclusion(
     workflow.log(reviewer.task_id, "ruling unknown: the reviewer closed with no conclusion");
     return null;
   }
-  const decisions = workflow.decisions();
-  if (!decisions) {
-    workflow.log(reviewer.task_id, "ruling unknown: the gateway carries no decisions model");
-    return null;
-  }
   const { question, yes, no } = entry.rejects_when;
-  try {
-    const { probabilities, usage } = await decisions.decide(
-      { conclusion },
-      { yesNo: { rejects: { instructions: question, yes, no } }, choices: {} },
-    );
-    workflow.store.recordModelUsage({
-      purpose: REVIEW_RULING_PURPOSE,
-      model: decisions.model,
-      ...usage,
-    });
-    const ruling = rulingForRejectProbability(probabilities.rejects);
-    workflow.log(
-      reviewer.task_id,
-      `ruling ${ruling ?? "unknown"}: rejects=${probabilities.rejects.toFixed(2)}`,
-    );
-    return ruling;
-  } catch (error) {
-    workflow.log(
-      reviewer.task_id,
-      `ruling unknown, decisions failed: ${String(error).slice(0, 200)}`,
-    );
+  const probabilities = await askYesNo(workflow, {
+    purpose: REVIEW_RULING_PURPOSE,
+    state: { conclusion },
+    questions: { rejects: { instructions: question, yes, no } },
+  });
+  if (!probabilities) {
+    workflow.log(reviewer.task_id, "ruling unknown: the decisions model did not answer");
     return null;
   }
+  const ruling = rulingForRejectProbability(probabilities.rejects);
+  workflow.log(
+    reviewer.task_id,
+    `ruling ${ruling ?? "unknown"}: rejects=${probabilities.rejects.toFixed(2)}`,
+  );
+  return ruling;
 }
 
 /** Have the agent ask the thread for the ruling the decisions model could not give. */

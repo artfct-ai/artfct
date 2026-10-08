@@ -204,9 +204,14 @@ describe("a review an App left on the artifact", () => {
   describe("when the decisions model does not answer", () => {
     const unanswered = reviewedByApp(new Error("gateway timeout"));
 
-    it("hands the agent what was said", () =>
+    it("tells the agent with a note that does not hold the review", () =>
       unanswered(({ result }) => {
-        expect(result.notes[1]).toContain(MARK);
+        expect(result.notes).toEqual([unadmittedFeedbackNote(WROTE, "unchecked")]);
+      }));
+
+    it("sends nothing to the author", () =>
+      unanswered(({ workflow }) => {
+        expect(workflow.store.queue()).toEqual([]);
       }));
   });
 });

@@ -23,6 +23,7 @@ const call = { toolCallId: "call-1", messages: [], context: {} };
 function pageScenario(held: HeldComment[]): Scenario<FakeRuntime> {
   return scenario(freshRuntime, (workflow) => {
     workflow.documentsInstance = new FakeDocuments({ held });
+    workflow.gatewayInstance = new FakeGateway({ decisions: new FakeDecisions({}) });
     seedTask(workflow, { stage: "design" }, { prompt_in_flight: 1 });
     workflow.store.upsertArtifact({
       job_id: JOB,
@@ -104,6 +105,29 @@ describe("send_held_comments", () => {
     it("leaves the comment held", () =>
       quarantined(async (workflow) => {
         await send(workflow);
+        expect(fakeDocumentsOf(workflow).argsOf("acknowledgeComment")).toEqual([]);
+      }));
+  });
+
+  describe("a page whose held comments the screen cannot check", () => {
+    const unchecked = scenario(
+      pageScenario([{ id: "cmt-1", author_name: "Ann", text: "Tighten the intro." }]),
+      (workflow) => {
+        workflow.gatewayInstance = new FakeGateway({
+          decisions: new FakeDecisions(new Error("gateway timeout")),
+        });
+      },
+    );
+
+    it("says the comments were not sent, without their text", () =>
+      unchecked(async (workflow) => {
+        expect(await send(workflow)).toBe(unsentHeldCommentsText(PAGE_URL, "unchecked"));
+      }));
+
+    it("sends nothing to the author and leaves the comment held", () =>
+      unchecked(async (workflow) => {
+        await send(workflow);
+        expect(workflow.store.queue()).toEqual([]);
         expect(fakeDocumentsOf(workflow).argsOf("acknowledgeComment")).toEqual([]);
       }));
   });

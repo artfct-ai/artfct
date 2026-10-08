@@ -1,5 +1,6 @@
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { ArtifactStatus, TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
+import { ASK_WHETHER_ACCEPTED, ASK_WHICH_OPTION } from "../src/agent/tools/start/start";
 import type { TaskRole } from "../src/workflow/task/events";
 import type { Wake, WorkflowRuntime } from "../src/workflow/types";
 
@@ -51,6 +52,13 @@ export type Step = {
   refinerTurnEnd: { task_id: string } | null;
   /** Set when the alarm that fired was armed for an older generation of its task. */
   staleAlarm: { task_id: string } | null;
+  /**
+   * Set when the agent called complete_job. `checkFailed` is true when the decisions model could
+   * not check what the person wrote. `result` is what the tool answered.
+   */
+  completion: { task_id: string; checkFailed: boolean; result: string } | null;
+  /** Set when feedback the screen could not admit was delivered. `texts` are what it said. */
+  unadmittedFeedback: { texts: string[] } | null;
 };
 
 const FINISHED: TaskStatus[] = ["done", "failed", "cancelled"];
@@ -372,6 +380,55 @@ export function oneLiveJobPerInputArtifact(workflow: WorkflowRuntime): void {
       );
     }
     owners.set(job.input_key, job.job_id);
+  }
+}
+
+/**
+ * Feedback the screen did not admit, because it quarantined it or could not check it, reaches
+ * neither the agent nor the author. No note holds its text, and no prompt goes out.
+ */
+export function unadmittedFeedbackReachesNobody(_workflow: WorkflowRuntime, step: Step): void {
+  if (!step.unadmittedFeedback) return;
+  for (const text of step.unadmittedFeedback.texts) {
+    if (step.notes.some((note) => note.text.includes(text))) {
+      violated("unadmittedFeedbackReachesNobody", `a note told the agent "${text}"`);
+    }
+  }
+  if (step.after.authorPrompts !== step.before.authorPrompts) {
+    violated("unadmittedFeedbackReachesNobody", "a prompt went out with the feedback");
+  }
+}
+
+/**
+ * A job completes only on a person's accept or select, or on its host's accept. When the
+ * decisions model could not check what the person wrote, the job stays open.
+ */
+export function aFailedCheckNeverCompletesAJob(_workflow: WorkflowRuntime, step: Step): void {
+  const completion = step.completion;
+  if (!completion?.checkFailed) return;
+  const before = step.before.tasks.find((task) => task.task_id === completion.task_id);
+  const after = step.after.tasks.find((task) => task.task_id === completion.task_id);
+  if (!after || after.status !== "done" || before?.status === "done") return;
+  const artifactBefore = artifactIn(step.before, after.job_id);
+  if (artifactBefore === null || artifactBefore.status === "accepted") return;
+  if (artifactIn(step.after, after.job_id)?.status === "accepted") return;
+  violated(
+    "aFailedCheckNeverCompletesAJob",
+    `job ${after.job_id} completed although its check failed`,
+  );
+}
+
+/** A check the decisions model could not make never has the agent ask the person again. */
+export function aFailedCheckNeverAsksThePersonAgain(_workflow: WorkflowRuntime, step: Step): void {
+  const completion = step.completion;
+  if (!completion?.checkFailed) return;
+  for (const askAgain of [ASK_WHETHER_ACCEPTED, ASK_WHICH_OPTION]) {
+    if (completion.result.includes(askAgain)) {
+      violated(
+        "aFailedCheckNeverAsksThePersonAgain",
+        `the agent was told "${askAgain}" after a failed check`,
+      );
+    }
   }
 }
 

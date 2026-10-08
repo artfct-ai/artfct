@@ -22,7 +22,7 @@ export function hasPageArtifact(workflow: WorkflowRuntime): boolean {
 }
 
 /** The tool that sends held page comments to the author when a person asks in the thread. */
-export function heldCommentTools(workflow: WorkflowRuntime) {
+export function heldCommentTools(workflow: WorkflowRuntime, decisionsSignal?: AbortSignal) {
   return {
     [SEND_HELD_COMMENTS]: tool({
       description:
@@ -30,7 +30,7 @@ export function heldCommentTools(workflow: WorkflowRuntime) {
       inputSchema: z.object({
         job_id: z.string().describe("the job id, for example wf_abc-2"),
       }),
-      execute: ({ job_id }, { abortSignal }) => sendHeldComments(workflow, job_id, abortSignal),
+      execute: ({ job_id }) => sendHeldComments(workflow, job_id, decisionsSignal),
     }),
   };
 }
@@ -44,6 +44,8 @@ export function unsentHeldCommentsText(
   switch (screened) {
     case "quarantined":
       return `The held comments on ${pageUrl} were not sent. The screen found text in them that looks written to steer an AI agent. ${kept}`;
+    case "unchecked":
+      return `The held comments on ${pageUrl} were not sent. The screen could not check them right now. ${kept}`;
     case "too_large":
       return `The held comments on ${pageUrl} are too large to screen, so they were not sent. ${kept}`;
     default: {

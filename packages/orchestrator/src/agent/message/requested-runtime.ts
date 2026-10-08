@@ -1,5 +1,6 @@
 import type { ChoiceQuestion, GatewayModel, ListedModel } from "@artfct-ai/adapters/gateway/types";
 import { HARNESSES, type Harness, type HarnessModels } from "@artfct-ai/adapters/harness/types";
+import { askDecisions } from "../../decisions/ask";
 import type { WorkflowRuntime } from "../../workflow/types";
 
 /**
@@ -153,8 +154,7 @@ export async function chooseRequestedRuntime(
 ): Promise<RuntimeRequest> {
   const offers = modelOffers(message, sources);
   const closest = offers.slice(0, MAX_CLOSEST).map((offer) => offer.id);
-  const decisions = workflow.decisions();
-  if (!decisions || offers.length === 0) return { kind: "unresolved", closest };
+  if (offers.length === 0) return { kind: "unresolved", closest };
   const question: ChoiceQuestion = {
     instructions: MODEL_INSTRUCTIONS,
     options: {
@@ -163,26 +163,15 @@ export async function chooseRequestedRuntime(
         "The message refers to no model in this list, or to none of them more than to the others.",
     },
   };
-  try {
-    const { choices, usage } = await decisions.decide(
-      { message },
-      { yesNo: {}, choices: { model: question } },
-      signal,
-    );
-    workflow.store.recordModelUsage({
-      purpose: REQUESTED_RUNTIME_PURPOSE,
-      model: decisions.model,
-      ...usage,
-    });
-    const runtime = runtimeForModel(choices.model.option, sources);
-    return runtime ? { kind: "resolved", runtime } : { kind: "unresolved", closest };
-  } catch (error) {
-    workflow.log(
-      null,
-      `requested runtime unknown, decisions failed: ${String(error).slice(0, 200)}`,
-    );
-    return { kind: "unresolved", closest };
-  }
+  const answers = await askDecisions(workflow, {
+    purpose: REQUESTED_RUNTIME_PURPOSE,
+    state: { message },
+    questions: { yesNo: {}, choices: { model: question } },
+    signal,
+  });
+  if (!answers) return { kind: "unresolved", closest };
+  const runtime = runtimeForModel(answers.choices.model.option, sources);
+  return runtime ? { kind: "resolved", runtime } : { kind: "unresolved", closest };
 }
 
 /** Every harness's own model list and the list of the gateway sandboxes route through. */

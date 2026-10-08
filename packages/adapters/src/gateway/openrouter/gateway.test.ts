@@ -1,4 +1,4 @@
-import { describe, expect, it } from "bun:test";
+import { afterEach, describe, expect, it, spyOn } from "bun:test";
 import { OpenRouterGateway, openRouterModel } from "./gateway";
 import type { Gateway } from "../types";
 
@@ -44,8 +44,38 @@ describe("OpenRouterGateway", () => {
   });
 
   describe("decisions", () => {
-    it("carries the one decisions model", () => {
-      expect(gateway.decisions()?.model).toBe("typesafe/jev-1.13");
+    const ASKED = {
+      yesNo: { done: { instructions: "Is `message` done?", yes: "Done.", no: "Not done." } },
+      choices: {},
+    };
+
+    afterEach(() => {
+      fetchSpy?.mockRestore();
+    });
+
+    let fetchSpy: ReturnType<typeof spyOn<typeof globalThis, "fetch">> | undefined;
+
+    async function modelsSent(models?: readonly [string, ...string[]]): Promise<string[]> {
+      const sent: string[] = [];
+      fetchSpy = spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+        const { model } = JSON.parse(await new Request(input, init).text());
+        sent.push(model);
+        return Response.json({
+          model,
+          answers: { done: { type: "noul", noul: 0.5 } },
+          usage: { input_tokens: 1, output_tokens: 0 },
+        });
+      });
+      await gateway.decisions(models)?.decide({ message: "done" }, ASKED);
+      return sent;
+    }
+
+    it("asks the default decisions model when the config names none", async () => {
+      expect(await modelsSent()).toEqual(["typesafe/jev-1.13"]);
+    });
+
+    it("asks the decisions model the config names", async () => {
+      expect(await modelsSent(["typesafe/jev-1.12"])).toEqual(["typesafe/jev-1.12"]);
     });
   });
 });

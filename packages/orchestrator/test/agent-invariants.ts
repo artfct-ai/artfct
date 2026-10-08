@@ -29,7 +29,10 @@ export type AgentTurnRecord = {
   rowsBefore: TranscriptRow[];
   /** The transcript after the turn. */
   rowsAfter: TranscriptRow[];
-  /** The text of every tool result the screen quarantined in the turn. Each one is unique. */
+  /**
+   * The text of every tool result the screen quarantined or could not check in the turn. Each
+   * one is unique.
+   */
   quarantinedTexts: string[];
   /** The session status the chat thread was left in after the turn. Null when it never had one. */
   chatSessionAfter: SessionStatus | null;
@@ -41,6 +44,8 @@ export type AgentTurnRecord = {
   timedOut: boolean;
   /** True when the turn resumed a lost turn. Its `owed` is the lost turn's. */
   resumedLostTurn: boolean;
+  /** True when the model of the turn never returns on its own. */
+  modelHangs: boolean;
 };
 
 function violated(name: string, detail: string): never {
@@ -155,8 +160,8 @@ export function aPersonsTurnNeverEndsUnanswered(turn: AgentTurnRecord): void {
 }
 
 /**
- * A tool result the screen quarantined does not appear in any row of the transcript. The model
- * reads a fixed text in its place.
+ * A tool result the screen quarantined, or could not check, does not appear in any row of the
+ * transcript. The model reads a fixed text in its place.
  */
 export function quarantinedTextNeverEntersTheTranscript(turn: AgentTurnRecord): void {
   const transcript = JSON.stringify(turn.rowsAfter);
@@ -215,6 +220,18 @@ export function aResumedTurnAnswersWhatItsLostTurnOwed(turn: AgentTurnRecord): v
   );
 }
 
+/**
+ * A person who wrote gets the agent's answer, not the timeout text, whenever the model answers.
+ * This holds when every decisions call fails or never returns.
+ */
+export function aPersonGetsTheAnswerDuringADecisionsOutage(turn: AgentTurnRecord): void {
+  if (turn.owed === null || turn.modelHangs || !turn.timedOut) return;
+  violated(
+    "aPersonGetsTheAnswerDuringADecisionsOutage",
+    "the model answered and the turn still timed out",
+  );
+}
+
 /** Every agent turn invariant. */
 export const AGENT_TURN_INVARIANTS = [
   closingTextAnswersOnlyAPersonWhoWrote,
@@ -226,4 +243,5 @@ export const AGENT_TURN_INVARIANTS = [
   theWorkingStatusNeverOutlivesItsTurn,
   aWaitingPersonHearsBackByTheTimeout,
   aResumedTurnAnswersWhatItsLostTurnOwed,
+  aPersonGetsTheAnswerDuringADecisionsOutage,
 ];

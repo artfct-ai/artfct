@@ -5,7 +5,8 @@ import type {
   PullRequestReviewComment,
 } from "@artfct-ai/adapters/code/types";
 import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
-import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
+import type { Decisions } from "@artfct-ai/adapters/gateway/types";
+import { FakeDecisions, HangingDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { Binding } from "@artfct-ai/contracts/sources";
@@ -105,7 +106,15 @@ export const REPO = "acme/app";
 
 /** What an action tells the world about itself, for the step record. */
 export type StepFacts = Partial<
-  Pick<Step, "authorTurnEnd" | "feedback" | "refinerTurnEnd" | "staleAlarm">
+  Pick<
+    Step,
+    | "authorTurnEnd"
+    | "feedback"
+    | "refinerTurnEnd"
+    | "staleAlarm"
+    | "completion"
+    | "unadmittedFeedback"
+  >
 >;
 
 /** One thing that happens to a workflow. It picks its target from the world and may do nothing. */
@@ -114,7 +123,10 @@ export type WorkflowAction = {
   toString(): string;
 };
 
-/** The probabilities a decisions model answers with, or a model whose every call fails. */
+/**
+ * The probabilities a decisions model answers with, a model whose every call fails, one that
+ * never answers before its caller's signal aborts, or a gateway without a decisions model.
+ */
 export type DecisionAnswers =
   | {
       for_author: number;
@@ -123,7 +135,9 @@ export type DecisionAnswers =
       gave_up?: number;
       accepts?: number;
     }
-  | "fails";
+  | "fails"
+  | "hangs"
+  | "none";
 
 /**
  * One author task and the number of its artifact on the host. An author that continues an open
@@ -246,6 +260,8 @@ export class WorkflowWorld {
       feedback: facts.feedback ?? null,
       refinerTurnEnd: facts.refinerTurnEnd ?? null,
       staleAlarm: facts.staleAlarm ?? null,
+      completion: facts.completion ?? null,
+      unadmittedFeedback: facts.unadmittedFeedback ?? null,
       event: this.delivered,
     };
     this.steps.push(step);
@@ -426,10 +442,7 @@ export class WorkflowWorld {
 
   /** The decisions model that answers every question from now on. */
   answerDecisionsWith(answers: DecisionAnswers): void {
-    const decisions = new FakeDecisions(
-      answers === "fails" ? new Error("decisions model unavailable") : answers,
-    );
-    this.workflow.gatewayInstance = new FakeGateway({ decisions });
+    this.workflow.gatewayInstance = new FakeGateway({ decisions: decisionsAnswering(answers) });
   }
 
   /** Deliver one event from a person, the way ingress does. */
@@ -635,5 +648,18 @@ function commitChecksOf(report: ChecksReport, now: number): CommitChecks {
       const unreachable: never = report;
       throw new Error(`unhandled checks report ${String(unreachable)}`);
     }
+  }
+}
+
+function decisionsAnswering(answers: DecisionAnswers): Decisions | undefined {
+  switch (answers) {
+    case "fails":
+      return new FakeDecisions(new Error("decisions model unavailable"));
+    case "hangs":
+      return new HangingDecisions();
+    case "none":
+      return undefined;
+    default:
+      return new FakeDecisions(answers);
   }
 }
