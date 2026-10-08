@@ -24,7 +24,7 @@ Upload the Worker secrets once and again when they change. The header of each `.
 
 ## Use the published sandbox image
 
-CI publishes the sandbox image on Docker Hub with each build of `@artfct-ai/core`, so you can deploy without Docker. The installed `@artfct-ai/core` names that image by tag and digest in `node_modules/@artfct-ai/core/dist/sandbox/published-image`. The reference has the form `docker.io/artfct/sandbox:<version>-<commit>@sha256:<digest>`, where `<commit>` is the short hash of the commit the build came from. In `orchestrator/wrangler.jsonc`, set the `image` of both containers to that reference. Copy it again each time you upgrade `@artfct-ai/core`.
+CI publishes the sandbox image on Docker Hub, so you can deploy without Docker. The installed `@artfct-ai/core` names that image by tag and digest in `node_modules/@artfct-ai/core/dist/sandbox/published-image`. The reference has the form `docker.io/artfct/sandbox:<inputs>@sha256:<digest>`, where `<inputs>` is a hash of the files the image is built from. A build that does not change those files reuses the image already published. In `orchestrator/wrangler.jsonc`, set the `image` of both containers to that reference. Copy it again each time you upgrade `@artfct-ai/core`.
 
 To add tools to the sandbox, write your own Dockerfile that starts `FROM` that reference, and set the `image` of both containers to its path. The image runs as the `node` user, so switch to `root` to install a package and back to `node` after.
 
