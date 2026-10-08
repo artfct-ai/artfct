@@ -264,6 +264,18 @@ describe("renderBoard", () => {
       ).not.toMatch(/task \d+ /);
     });
 
+    it("says the open phase is starting the sandbox of its refiner run", () => {
+      expect(refinerLines(openPhase("review", "provisioning"))[0]).toBe(
+        "- [ ] review ← run 1 · starting the sandbox",
+      );
+    });
+
+    it("says the open phase is starting while its refiner run is queued", () => {
+      expect(refinerLines(openPhase("polish", "queued"))[0]).toBe(
+        "- [ ] polish ← run 1 · starting",
+      );
+    });
+
     it("says a done review left its findings with the author", () => {
       expect(refinerLines(openPhase("review", "done"))).toEqual([
         "- [ ] review ← run 1 · left findings, now with the author",
@@ -331,6 +343,13 @@ describe("renderBoard", () => {
     it("reads the lifecycle word of the task row", () => {
       expect(line(reviewed, "markdown", 0)).toBe(
         "**Fix the login redirect · implement · ENG-7 · in review**",
+      );
+    });
+
+    it("says the task is starting its sandbox while it provisions", () => {
+      const provisioning = { ...reviewed, task: withStatus("provisioning") };
+      expect(line(provisioning, "markdown", 0)).toBe(
+        "**Fix the login redirect · implement · ENG-7 · starting the sandbox**",
       );
     });
 
@@ -550,7 +569,7 @@ describe("lifecycleLabel", () => {
   it("maps every status to a reader-facing word", () => {
     const expected: Record<TaskStatus, string> = {
       queued: "starting",
-      provisioning: "starting",
+      provisioning: "starting the sandbox",
       working: "working",
       in_review: "in review",
       done: "done",
