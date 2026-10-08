@@ -1,4 +1,5 @@
 import type { ChatMessage, ChatPage } from "../types";
+import { mentionedUserIds } from "./mentions";
 
 /** Messages one history read asks for when the caller names no limit. Slack's own per-call cap. */
 const SLACK_HISTORY_LIMIT = 15;
@@ -39,11 +40,13 @@ export function toChatPageOldestFirst(payload: RawPage): ChatPage {
 }
 
 function toMessage(message: RawMessage): ChatMessage {
+  const text = message.text ?? "";
   return {
     ts: message.ts ?? "",
     user: message.user ?? message.username ?? message.bot_id ?? null,
-    text: message.text ?? "",
+    text,
     replyCount: message.reply_count ?? 0,
+    mentions: mentionedUserIds(text),
   };
 }
 

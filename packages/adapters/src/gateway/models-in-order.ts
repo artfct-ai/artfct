@@ -6,6 +6,12 @@ import type { DecisionsModels } from "./types";
  */
 export const DECISIONS_MODEL_BUDGET_MS = 12_000;
 
+/**
+ * The most questions one decisions call asks, since every model in order takes the same call.
+ * Clef and Clef Flash take at most 64. Jev documents no limit.
+ */
+export const DECISIONS_MAX_QUESTIONS = 64;
+
 /** Milliseconds one call over `models` may take: the budget of each model in turn. */
 export function decisionsDeadlineMs(models: DecisionsModels, budgetMs: number): number {
   return budgetMs * models.length;

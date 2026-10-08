@@ -26,7 +26,7 @@ export function workflowTools(
     ...heldCommentTools(workflow, turn.decisions),
     ...rootPageTools(workflow),
     ...readTools(workflow),
-    ...historyTools(workflow),
+    ...historyTools(workflow, turn.decisions),
     ...channelTools(workflow),
     ...webTools(workflow),
   };
