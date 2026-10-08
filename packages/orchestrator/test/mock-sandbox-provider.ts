@@ -29,6 +29,13 @@ export class MockSandboxProvider implements SandboxProvider {
     await this.post("/env", { sandbox_id: sandbox.id, env: { GITHUB_TOKEN: token } });
   }
 
+  /** The mock host answers from the bridges it spawned and has not seen exit. */
+  async bridgeRunning(sandbox: SandboxRef, generation: number): Promise<boolean> {
+    const response = await this.post("/bridge", { sandbox_id: sandbox.id, generation });
+    const { running } = await response.json<{ running: boolean }>();
+    return running;
+  }
+
   /** The mock host has no sleep timer. */
   keepAlive(): Promise<void> {
     return Promise.resolve();

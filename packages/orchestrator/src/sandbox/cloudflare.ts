@@ -19,7 +19,7 @@ const AUTH_TIMEOUT_MS = 60_000;
 /** The Sandbox SDK methods the provider calls. Tests pass a fake with the same shape. */
 export type SandboxHandle = Pick<
   ISandbox,
-  "setEnvVars" | "writeFile" | "exec" | "startProcess" | "mkdir" | "listProcesses"
+  "setEnvVars" | "writeFile" | "exec" | "startProcess" | "mkdir" | "listProcesses" | "getProcess"
 > & {
   readFile(path: string, options: { encoding: "utf-8" }): Promise<{ content: string }>;
   destroy(): Promise<void>;
@@ -55,7 +55,16 @@ export class CloudflareSandboxProvider implements SandboxProvider {
       timeout: spec.startup_timeout_ms,
     });
     if (!setup.success) throw new Error(`sandbox startup failed: ${setup.stderr.slice(-2000)}`);
-    await sandbox.startProcess(bridgeCommand(spec), { cwd: spec.workspace, env: bridgeEnv(spec) });
+    await sandbox.startProcess(bridgeCommand(spec), {
+      cwd: spec.workspace,
+      env: bridgeEnv(spec),
+      processId: bridgeProcessId(spec.generation),
+    });
+  }
+
+  async bridgeRunning(sandbox: SandboxRef, generation: number): Promise<boolean> {
+    const bridge = await this.handle(sandbox).getProcess(bridgeProcessId(generation));
+    return bridge?.status === "running" || bridge?.status === "starting";
   }
 
   async setEnv(sandbox: SandboxRef, env: Record<string, string>): Promise<void> {
@@ -88,6 +97,11 @@ export class CloudflareSandboxProvider implements SandboxProvider {
   private handle(sandbox: SandboxRef, sleepAfterMs?: number): SandboxHandle {
     return this.getHandle(sandbox, sleepOptions(sleepAfterMs));
   }
+}
+
+/** The Sandbox SDK process id of the bridge of one generation. */
+function bridgeProcessId(generation: number): string {
+  return `artfct-bridge-${generation}`;
 }
 
 /** The Durable Object namespace whose containers run on the instance type of a size. */

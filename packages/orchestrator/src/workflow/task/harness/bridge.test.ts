@@ -91,7 +91,70 @@ describe("onBridgeClosed", () => {
         inFlight((workflow) => {
           expect(workflow.alarmsFor("onBridgeLost")[0]?.payload).toEqual(ALARM);
         }));
+
+      it("asks whether the bridge process of the generation still runs", () =>
+        inFlight((workflow) => {
+          expect(workflow.sandboxProvider.calls).toEqual([`bridgeRunning ${TASK} 1`]);
+        }));
     });
+  });
+
+  describe("a close with a prompt in flight whose bridge process ended", () => {
+    const gone = scenario(freshRuntime, async (workflow) => {
+      workflow.clock = CLOCK;
+      workflow.sandboxProvider.bridgeAlive = false;
+      seedTask(workflow, {}, { session_id: "s1", prompt_in_flight: 1 });
+      await onBridgeClosed(workflow, ALARM);
+    });
+
+    it("arms no loss alarm", () =>
+      gone((workflow) => {
+        expect(workflow.alarmsFor("onBridgeLost")).toEqual([]);
+      }));
+
+    it("forgets the lost turn", () =>
+      gone((workflow) => {
+        expect(workflow.store.requireSandbox(TASK).prompt_in_flight).toBe(0);
+      }));
+
+    it("starts the sandbox again on a new generation", () =>
+      gone((workflow) => {
+        expect(workflow.sandboxProvider.calls).toContain(`start ${TASK}`);
+        expect(workflow.store.requireSandbox(TASK).generation).toBe(2);
+      }));
+  });
+
+  describe("a close with a prompt in flight when the process check fails", () => {
+    const unknown = scenario(freshRuntime, async (workflow) => {
+      workflow.clock = CLOCK;
+      workflow.sandboxProvider.bridgeAlive = null;
+      seedTask(workflow, {}, { session_id: "s1", prompt_in_flight: 1 });
+      await onBridgeClosed(workflow, ALARM);
+    });
+
+    it("arms the loss alarm", () =>
+      unknown((workflow) => {
+        expect(workflow.alarmsFor("onBridgeLost")).toHaveLength(1);
+      }));
+
+    it("keeps the turn in flight", () =>
+      unknown((workflow) => {
+        expect(workflow.store.requireSandbox(TASK).prompt_in_flight).toBe(1);
+      }));
+  });
+
+  describe("a close with a prompt in flight while another socket of the task is open", () => {
+    const replaced = scenario(freshRuntime, async (workflow) => {
+      workflow.clock = CLOCK;
+      seedTask(workflow, {}, { session_id: "s1", prompt_in_flight: 1 });
+      workflow.sockets.push(fakeConnection(TASK, 1).connection);
+      await onBridgeClosed(workflow, ALARM);
+    });
+
+    it("does not ask the sandbox about the bridge process", () =>
+      replaced((workflow) => {
+        expect(workflow.sandboxProvider.calls).toEqual([]);
+      }));
   });
 });
 

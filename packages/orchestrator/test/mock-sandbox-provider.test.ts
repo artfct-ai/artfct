@@ -44,3 +44,39 @@ describe("MockSandboxProvider readFile", () => {
     ).rejects.toThrow("mock sandbox /read: 404 no file at /workspace/missing.json");
   });
 });
+
+describe("MockSandboxProvider bridgeRunning", () => {
+  const provider = new MockSandboxProvider("http://mock-sandbox.test");
+  let requests: Array<{ url: string; body: string }>;
+  let fetchSpy: ReturnType<typeof spyOn<typeof globalThis, "fetch">>;
+
+  beforeEach(() => {
+    requests = [];
+    fetchSpy = spyOn(globalThis, "fetch").mockImplementation(async (input, init) => {
+      const request = new Request(input, init);
+      const body = await request.text();
+      requests.push({ url: request.url, body });
+      const { generation } = JSON.parse(body) as { generation: number };
+      return Response.json({ running: generation === 2 });
+    });
+  });
+
+  afterEach(() => {
+    fetchSpy.mockRestore();
+  });
+
+  it("posts the sandbox id and the generation to the bridge route", async () => {
+    await provider.bridgeRunning({ id: "wf_x.1", size: "small" }, 2);
+    expect(requests).toEqual([
+      {
+        url: "http://mock-sandbox.test/bridge",
+        body: JSON.stringify({ sandbox_id: "wf_x.1", generation: 2 }),
+      },
+    ]);
+  });
+
+  it("answers what the host answers", async () => {
+    expect(await provider.bridgeRunning({ id: "wf_x.1", size: "small" }, 2)).toBe(true);
+    expect(await provider.bridgeRunning({ id: "wf_x.1", size: "small" }, 1)).toBe(false);
+  });
+});

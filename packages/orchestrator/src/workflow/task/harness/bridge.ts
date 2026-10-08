@@ -35,11 +35,12 @@ import { chooseAllowOption } from "@artfct-ai/acp/updates";
 import type { Connection } from "agents";
 import { parseBridgePath } from "./bridge-path";
 import { onBridgeExit, onBridgeHello, onEffortSet, onInitialized, onSessionNew } from "./session";
-import { onRpcError, onSessionUpdate, onTurnEnd } from "./turn";
+import { LOGGED_ERROR_CHARS, onRpcError, onSessionUpdate, onTurnEnd } from "./turn";
 import { drainQueue, RECONNECT_CEILING_MS } from "./prompt-queue";
 import type { GenerationAlarm } from "./timers";
 import type { WorkflowRuntime } from "../../types";
 import { isTaskFinished } from "../../store/state";
+import { sandboxRefOf } from "../sandbox/size";
 import type { RpcPurpose } from "../../store/schema";
 import type { SandboxRow, TaskRow, WorkflowStore } from "../../store/tasks";
 
@@ -229,7 +230,8 @@ export const LOST_SANDBOX_TEXT =
 
 /**
  * The bridge socket closed. Remember when, so a queued prompt knows how long to wait. A close
- * under a prompt in flight also arms the lost-turn alarm. A socket of an older generation is ignored.
+ * under a prompt in flight recovers the turn at once when the bridge process is gone, and
+ * otherwise arms the lost-turn alarm. A socket of an older generation is ignored.
  */
 export async function onBridgeClosed(
   workflow: WorkflowRuntime,
@@ -245,7 +247,31 @@ export async function onBridgeClosed(
   workflow.log(taskId, "bridge disconnected");
   if (!sandbox.prompt_in_flight || isTaskFinished(task.status)) return;
   const alarm: GenerationAlarm = { task_id: taskId, generation: sandbox.generation };
+  if (await bridgeProcessGone(workflow, task, sandbox.generation)) {
+    return onBridgeLost(workflow, alarm);
+  }
   await workflow.scheduleAlarm(bridgeLossGraceSeconds(), "onBridgeLost", alarm);
+}
+
+/**
+ * True when the task has no open socket and its sandbox reports that the bridge process of the
+ * generation ended, so a reconnect cannot come. A failed check counts as a running bridge.
+ */
+export async function bridgeProcessGone(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+  generation: number,
+): Promise<boolean> {
+  if (workflow.connections(task.task_id).length > 0) return false;
+  try {
+    if (await workflow.sandbox().bridgeRunning(sandboxRefOf(task), generation)) return false;
+  } catch (error) {
+    const reason = String(error).slice(0, LOGGED_ERROR_CHARS);
+    workflow.log(task.task_id, `bridge process check failed: ${reason}`);
+    return false;
+  }
+  workflow.log(task.task_id, "bridge process is gone. not waiting for a reconnect.");
+  return true;
 }
 
 /**
