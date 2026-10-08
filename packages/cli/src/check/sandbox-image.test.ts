@@ -6,7 +6,7 @@ import { checkSandboxImage } from "./sandbox-image";
 
 const DIGEST = `sha256:${"ab".repeat(32)}`;
 const OTHER_DIGEST = `sha256:${"cd".repeat(32)}`;
-const PUBLISHED_IMAGE = `docker.io/artfct/sandbox:3f9a2c1d8e7b6a50@${DIGEST}`;
+const PUBLISHED_IMAGE = `docker.io/artfct/sandbox:3f9a2c1d8e7b@${DIGEST}`;
 const DOCKERFILE = "../node_modules/@artfct-ai/core/dist/sandbox/Dockerfile";
 
 const repoDirs: string[] = [];
@@ -45,16 +45,16 @@ describe("checkSandboxImage", () => {
   });
 
   it("reports the published image named by its tag alone, since a tag can move", () => {
-    expect(checkImage("docker.io/artfct/sandbox:3f9a2c1d8e7b6a50")).toEqual({
+    expect(checkImage("docker.io/artfct/sandbox:3f9a2c1d8e7b")).toEqual({
       outcome: "failed",
       problems: [
-        `docker.io/artfct/sandbox:3f9a2c1d8e7b6a50 is not the image the installed @artfct-ai/core was published with. Use ${PUBLISHED_IMAGE}.`,
+        `docker.io/artfct/sandbox:3f9a2c1d8e7b is not the image the installed @artfct-ai/core was published with. Use ${PUBLISHED_IMAGE}.`,
       ],
     });
   });
 
   it("reports the published image at another digest", () => {
-    const image = `docker.io/artfct/sandbox:3f9a2c1d8e7b6a50@${OTHER_DIGEST}`;
+    const image = `docker.io/artfct/sandbox:3f9a2c1d8e7b@${OTHER_DIGEST}`;
     expect(checkImage(image)).toMatchObject({ outcome: "failed" });
   });
 

@@ -30,8 +30,13 @@
     },
     "@artfct-ai/core#build": {
       "dependsOn": ["transit", "@artfct-ai/sandbox-bridge#build", "@artfct-ai/orchestrator#types"],
-      "env": ["SANDBOX_IMAGE_TAG", "SANDBOX_IMAGE_DIGEST"],
+      "env": ["SANDBOX_IMAGE"],
       "outputs": ["dist/**"]
+    },
+    "@artfct-ai/orchestrator#sandbox-image": {
+      "dependsOn": ["@artfct-ai/sandbox-bridge#build"],
+      "inputs": ["sandbox/**", "$TURBO_ROOT$/LICENSE", "$TURBO_ROOT$/NOTICE"],
+      "outputs": ["dist/sandbox-image/**"]
     },
     "@artfct-ai/core#types": {
       "dependsOn": ["@artfct-ai/core#build"],
