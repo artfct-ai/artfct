@@ -35,4 +35,4 @@ The deploy build bundles every file under `orchestrator/skills/`. `npx artfct ch
 |---|---|
 | Every file sits inside a skill directory. | The build rejects a file directly under `skills`. |
 | Every file is UTF-8 text. | A binary file, such as an image or a PDF, fails the build. |
-| Call a bundled script through its interpreter, for example `python scripts/fill_form.py`. | A bundled script loses its executable bit. |
+| Call a bundled script through its interpreter, for example `python3 scripts/fill_form.py`. | A bundled script loses its executable bit. |

@@ -21,10 +21,13 @@ const SANDBOX_CONTEXT_FILES = [
 ];
 
 const PUBLISHED_SANDBOX_IMAGE = "docker.io/artfct/sandbox";
-/** The digest of the sandbox image published for this version. Unset in a build that publishes none. */
-const publishedImageDigest = process.env.SANDBOX_IMAGE_DIGEST;
-if (publishedImageDigest !== undefined && !/^sha256:[0-9a-f]{64}$/.test(publishedImageDigest)) {
-  console.error("SANDBOX_IMAGE_DIGEST must be sha256: followed by 64 hex digits");
+const PUBLISHED_IMAGE_REFERENCE = /^docker\.io\/artfct\/sandbox:[\w.-]+@sha256:[0-9a-f]{64}$/;
+/** The reference of the sandbox image CI published, pinned by digest. Unset in a build that publishes none. */
+const publishedImage = process.env.SANDBOX_IMAGE;
+if (publishedImage !== undefined && !PUBLISHED_IMAGE_REFERENCE.test(publishedImage)) {
+  console.error(
+    `SANDBOX_IMAGE must have the form ${PUBLISHED_SANDBOX_IMAGE}:<tag>@sha256:<digest>`,
+  );
   process.exit(1);
 }
 
@@ -82,9 +85,6 @@ cpSync(D1_MIGRATIONS, join(DIST, "migrations/d1"), {
 for (const file of ["LICENSE", "NOTICE"]) cpSync(join(REPO_DIR, file), join(DIST, file));
 cpSync(join(REPO_DIR, SANDBOX_DOCKERFILE), join(DIST, "sandbox/Dockerfile"));
 for (const path of SANDBOX_CONTEXT_FILES) cpSync(join(REPO_DIR, path), join(DIST, "sandbox", path));
-if (publishedImageDigest !== undefined) {
-  await Bun.write(
-    join(DIST, "sandbox/published-image"),
-    `${PUBLISHED_SANDBOX_IMAGE}:${manifest.version}@${publishedImageDigest}\n`,
-  );
+if (publishedImage !== undefined) {
+  await Bun.write(join(DIST, "sandbox/published-image"), `${publishedImage}\n`);
 }

@@ -39,7 +39,7 @@ jobs:
     needs: ci
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 30
     concurrency:
       # In commit order, so the `@main` tag ends on the newest commit.
       group: preview
@@ -50,7 +50,19 @@ jobs:
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Publish the sandbox image to Docker Hub unless turbo has it cached
+        run: |
+          bunx turbo run sandbox-image --filter=@artfct-ai/orchestrator
+          echo "SANDBOX_IMAGE=$(cat packages/orchestrator/dist/sandbox-image/published-image)" >> "$GITHUB_ENV"
+      - name: Point the main tag at the sandbox image
+        run: docker buildx imagetools create --prefer-index=false --tag docker.io/artfct/sandbox:main "$SANDBOX_IMAGE"
       - run: bun run build --filter=@artfct-ai/core --filter=artfct
+      - name: Confirm the core package names the published image
+        run: cat packages/core/dist/sandbox/published-image
       - name: Publish the preview packages to pkg.pr.new
         run: bunx pkg-pr-new publish --bun --no-compact --no-template --comment=off ./packages/core ./packages/cli
       - name: Start the deploy of the install that tracks main

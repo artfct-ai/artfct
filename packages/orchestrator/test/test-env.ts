@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Env } from "../src/env";
+import type { Env } from "../src/env.ts";
 
 /** Values from `.dev.vars.example`, so a developer's real `.dev.vars` never reaches tests. */
 function exampleVars(): Record<string, string> {
