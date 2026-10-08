@@ -42,7 +42,7 @@ const OWED_ANSWERS = {
   board: { wants_answer: 0.1, wants_work: 0.9 },
 };
 
-const SCREEN_ANSWERS = { admits: {}, quarantines: { asks_hidden_action: 0.9 } };
+const SCREEN_ANSWERS = { admits: {}, quarantines: { exfiltrates: 0.9 } };
 
 const inboxRow = fc.record({
   wake: fc.constantFrom<Wake>("message", "task_idle", "task_result", "external_state"),

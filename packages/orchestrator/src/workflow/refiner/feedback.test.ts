@@ -157,7 +157,7 @@ describe("a review an App left on the artifact", () => {
   }
 
   describe("that the screen quarantines", () => {
-    const quarantined = reviewedByApp({ asks_hidden_action: 0.9 });
+    const quarantined = reviewedByApp({ exfiltrates: 0.9 });
 
     it("tells the agent with a note that does not hold the review", () =>
       quarantined(({ result }) => {
@@ -218,7 +218,7 @@ describe("a review a person left that the screen would quarantine", () => {
   const reviewed = afterArtifactEvent({ kind: "feedback", pull: detail }, (workflow) => {
     workflow.codeHostInstance = new FakeCodeHost();
     workflow.gatewayInstance = new FakeGateway({
-      decisions: new FakeDecisions({ asks_hidden_action: 0.9 }),
+      decisions: new FakeDecisions({ exfiltrates: 0.9 }),
     });
     seedPullRequestTask(workflow);
     workflow.store.updateSandbox(TASK, { prompt_in_flight: 1 });
