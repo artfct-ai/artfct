@@ -33,7 +33,7 @@ ARG NTN_SHA256
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates curl git file jq lsof unzip ripgrep \
+    ca-certificates curl git file jq lsof unzip ripgrep python3 \
   && rm -rf /var/lib/apt/lists/*
 
 # The GitHub CLI.

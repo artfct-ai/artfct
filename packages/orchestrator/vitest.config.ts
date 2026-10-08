@@ -1,7 +1,7 @@
 import { builtinModules } from "node:module";
 import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-plugin";
 import { defineConfig } from "vitest/config";
-import { testVars } from "./test/test-env";
+import { testVars } from "./test/test-env.ts";
 
 /** D1 migrations are read here in Node and applied inside the Worker by `vitest.setup.ts`. */
 const migrations = await readD1Migrations("./migrations/d1");
