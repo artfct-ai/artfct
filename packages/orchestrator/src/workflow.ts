@@ -217,6 +217,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     return this.inSpan("alarm onTurnTimeout", null, () => onTurnTimeout(this, alarm));
   }
 
+  /** Alarm: post the heads-up of a turn on a person's message. */
   onTurnHeadsUp(alarm: TurnAlarm): Promise<void> {
     return this.inSpan("alarm onTurnHeadsUp", null, () => onTurnHeadsUp(this, alarm));
   }

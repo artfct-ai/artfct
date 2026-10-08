@@ -13,8 +13,8 @@ export type Decided<YesNoName extends string, ChoiceName extends string> = Omit<
 >;
 
 /**
- * One decisions call: the `purpose` its usage is recorded under, the state, the questions, and
- * the signal that abandons the call. A caller inside an agent turn passes the turn's signal.
+ * One decisions call. `purpose` names its usage record. A caller inside an agent turn passes the
+ * turn's abort signal.
  */
 export type DecisionsAsk<Questions> = {
   purpose: string;
@@ -25,7 +25,7 @@ export type DecisionsAsk<Questions> = {
 
 /**
  * Ask the orchestrator's decisions model every question over one state in one call, and record
- * the usage. Null when the gateway carries no decisions model, or the call fails or is aborted.
+ * the usage. Null when the gateway does not carry a decisions model, or the call fails or aborts.
  */
 export async function askDecisions<YesNoName extends string, ChoiceName extends string>(
   workflow: WorkflowRuntime,

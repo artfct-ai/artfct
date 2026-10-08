@@ -78,8 +78,8 @@ export interface Decisions {
   /** The model name, for the usage record. */
   readonly model: string;
   /**
-   * Answer every question over the same state in one call. Throws when the call fails, and
-   * rejects with the abort reason as soon as `signal` aborts.
+   * Answer every question over the same state in one call. Rejects when the call fails, or with
+   * the abort reason as soon as `signal` aborts.
    */
   decide<YesNoName extends string, ChoiceName extends string>(
     state: DecisionState,

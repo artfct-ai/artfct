@@ -70,15 +70,15 @@ export function screenedFrom(parts: Array<Record<ScreenQuestion, number> | null>
 }
 
 /**
- * One text from outside the deployment. `source` names it in the log, which never holds the
- * text itself. `signal` is the abort signal of the agent turn that reads it.
+ * Text from outside the deployment, for the screen. `source` names it in the log, which never
+ * holds the text itself. Pass the agent turn's abort signal.
  */
 export type ForeignText = { source: string; text: string; signal?: AbortSignal };
 
 /**
- * Ask the decisions model whether the text may enter a model request. A gateway with no
- * decisions model admits every text. An aborted signal throws its reason, so the text goes on
- * nowhere.
+ * Ask the decisions model whether the text may enter a model request. When the gateway does not
+ * carry a decisions model, every text is admitted. Rejects with the abort reason when `signal`
+ * aborts during the screen.
  */
 export async function screenText(
   workflow: WorkflowRuntime,

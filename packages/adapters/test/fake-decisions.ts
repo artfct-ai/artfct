@@ -54,7 +54,10 @@ export class FakeDecisions implements Decisions {
   }
 }
 
-/** `Decisions` whose every call waits until the caller's signal aborts, then rejects with its reason. */
+/**
+ * A `Decisions` that never answers. Each call rejects with the abort reason once the caller's
+ * signal aborts.
+ */
 export class HangingDecisions implements Decisions {
   readonly model = "hanging-decisions";
   calls = 0;

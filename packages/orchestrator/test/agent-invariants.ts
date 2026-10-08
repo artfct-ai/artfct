@@ -39,7 +39,7 @@ export type AgentTurnRecord = {
   timeoutMinutes: number;
   /** True when the turn deadline ended the turn. */
   timedOut: boolean;
-  /** True when the turn resumed a turn lost to a restart. Its `owed` is the lost turn's. */
+  /** True when the turn resumed a lost turn. Its `owed` is the lost turn's. */
   resumedLostTurn: boolean;
 };
 
@@ -142,7 +142,7 @@ function answersPosted(turn: AgentTurnRecord): string[] {
 
 /**
  * A turn on a person's message leaves them a reply: an answer, or a board change. A heads-up or
- * a restart notice is not one. It may end with nothing only after the model was told so and ran
+ * a restart notice is not one. It may end unanswered only after the model was told so and ran
  * once more.
  */
 export function aPersonsTurnNeverEndsUnanswered(turn: AgentTurnRecord): void {
@@ -197,8 +197,8 @@ export function aWaitingPersonHearsBackByTheTimeout(turn: AgentTurnRecord): void
 }
 
 /**
- * A turn lost to a restart while a person waited is picked up again: their thread hears the
- * restart notice, and the resumed turn answers them as the lost turn would have.
+ * A turn lost with its Durable Object while a person waited is picked up again: their thread
+ * hears the restart notice, and the resumed turn answers them as the lost turn would have.
  */
 export function aResumedTurnAnswersWhatItsLostTurnOwed(turn: AgentTurnRecord): void {
   if (!turn.resumedLostTurn || turn.owed === null) return;

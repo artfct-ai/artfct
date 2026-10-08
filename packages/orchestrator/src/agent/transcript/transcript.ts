@@ -23,7 +23,10 @@ export class TranscriptStore {
     return this.db.select().from(agentInbox).orderBy(asc(agentInbox.id)).all();
   }
 
-  /** Move inbox rows into the transcript as one user message. Returns its row id, or null when the inbox was empty. */
+  /**
+   * Move inbox rows into the transcript as one user message. Returns its row id, or null when the
+   * inbox was empty.
+   */
   drainInbox(): number | null {
     const rows = this.inbox();
     if (rows.length === 0) return null;

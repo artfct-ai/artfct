@@ -41,19 +41,18 @@ export type WorkflowState = {
   turn_watchdog: string | null;
   /**
    * The schedule id of the heads-up alarm of a turn on a person's message, or null. Absent in a
-   * workflow stored before heads-ups.
+   * workflow stored before this field.
    */
   turn_heads_up?: string | null;
   /**
-   * What the people who wrote said, for the reply the running turn owes them. A turn lost to a
-   * restart leaves them for the turn that resumes it. Empty between turns. Absent in a workflow
-   * stored before lost turns carried them.
+   * The messages people wrote that the running turn owes a reply. A lost turn leaves them for the
+   * turn that resumes it. Empty once a turn ends. Absent in a workflow stored before this field.
    */
   turn_messages?: string[];
   /**
-   * The id of the first transcript row of the running turn, or of the lost turn a resumed turn
-   * continues. Compaction keeps it and every row after it. Null between turns. Absent in a
-   * workflow stored before resumed turns kept their rows.
+   * The id of the running turn's first transcript row, or the lost turn's in a resumed turn.
+   * Compaction keeps it and every row after it. Null once a turn ends. Absent in a workflow
+   * stored before this field.
    */
   turn_first_row?: number | null;
   /** The schedule id of the idle alarm that posts the sleep note, or null. */

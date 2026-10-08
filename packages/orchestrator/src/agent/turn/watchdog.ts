@@ -5,13 +5,13 @@ import type { WorkflowRuntime } from "../../workflow/types";
 /** The alarm payload. The stamp tells a late alarm from the turn it was armed for. */
 export type TurnAlarm = { started_at: string };
 
-/** Seconds into a turn on a person's message before the thread hears that it still runs. */
+/** Seconds into a turn on a person's message before its chat threads hear that it still runs. */
 export const HEADS_UP_SECONDS = 60;
 
-/** Posted once a turn on a person's message has run for `HEADS_UP_SECONDS`. It is not the reply. */
+/** The heads-up posted once a turn on a person's message runs for `HEADS_UP_SECONDS`. */
 export const HEADS_UP_TEXT = "Still working on this.";
 
-/** Posted when a new instance picks up a turn its predecessor lost while a person waited. */
+/** Posted when a new Durable Object instance resumes a lost turn that a person waited on. */
 export const LOST_PLACE_TEXT = "I lost my place and am picking this up again.";
 
 /** Posted by the watchdog when a turn passes its deadline without a reply. */
@@ -20,9 +20,8 @@ export function turnTimeoutText(minutes: number): string {
 }
 
 /**
- * A turn starts on what the people who wrote said, if anyone did. Record when, and schedule the
- * alarm that reports a turn that never ends. A turn on a person's message also schedules the
- * heads-up. Returns the stamp that identifies this turn.
+ * Record a turn's start and the messages people wrote for it. Schedule the watchdog alarm, and
+ * the heads-up when someone wrote. Returns the stamp that identifies the turn.
  */
 export async function armTurnWatchdog(
   workflow: WorkflowRuntime,
@@ -60,8 +59,8 @@ export async function disarmTurnWatchdog(
 }
 
 /**
- * Alarm: the turn armed with this stamp still runs a minute in. Tell the chat threads, and keep
- * their working status up. The turn still owes its reply.
+ * Alarm: the turn armed with this stamp still runs after `HEADS_UP_SECONDS`. Tell its chat
+ * threads and keep their working status. The turn still owes its reply.
  */
 export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {
   if (workflow.state.turn_started_at !== alarm.started_at) return;
@@ -72,7 +71,7 @@ export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm)
 
 /**
  * Alarm: the turn armed with this stamp never ended. Tell the humans and let go of it. On a
- * finished workflow the thread only leaves its working status.
+ * finished workflow, only take the threads out of their working status.
  */
 export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {
   if (workflow.state.turn_started_at !== alarm.started_at) return;
@@ -96,9 +95,9 @@ export const LOST_TURN_TEXT =
   "The orchestrator restarted in the middle of your last turn, most likely for a deploy. Tool calls you made after the restart did not take effect and their results may be missing from this transcript. Read the task state before you act on it, then continue. Answer the person who wrote before the restart when they still wait on a reply.";
 
 /**
- * Forget a turn still marked as running when the Durable Object starts, and wake the agent
- * with a note. The messages the lost turn owed a reply and its transcript rows stay for the turn
- * that resumes it, and their chat threads hear that it starts again. True when a turn was resumed.
+ * Forget a turn still marked as running when the Durable Object starts, and wake the agent with
+ * an agent note. The resumed turn keeps the lost turn's messages and transcript rows, and a person
+ * who waited hears that it starts again. True when a turn was resumed.
  */
 export async function resumeLostTurn(workflow: WorkflowRuntime): Promise<boolean> {
   const startedAt = workflow.state.turn_started_at;
@@ -128,7 +127,7 @@ async function cancelTurnAlarms(workflow: WorkflowRuntime): Promise<void> {
   if (headsUp) await workflow.cancelAlarm(headsUp);
 }
 
-/** A line to every chat thread the turn replies on, that leaves the thread's working status up. */
+/** Post to every chat thread among the reply targets and keep its working status. */
 async function postKeepingWorkingStatus(workflow: WorkflowRuntime, text: string): Promise<void> {
   for (const target of workflow.state.reply_targets) {
     if (target.source !== "chat") continue;

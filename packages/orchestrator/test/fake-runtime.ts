@@ -114,8 +114,8 @@ export class FakeRuntime implements WorkflowRuntime {
   released: Array<ReplyTarget | null> = [];
   statuses: string[] = [];
   /**
-   * The session status of one chat thread among the reply targets, as the notifier would leave
-   * it after the posts, releases, and working calls so far. Null before any of them.
+   * The session status the notifier would leave on a chat thread after the posts, releases, and
+   * working calls so far. Null before any of them.
    */
   chatSession: SessionStatus | null = null;
   notes: FakeNote[] = [];

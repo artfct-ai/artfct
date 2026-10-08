@@ -143,7 +143,7 @@ export async function requestedRuntime(
   return request;
 }
 
-/** The message to read, the models it may name, and the abort signal of the turn that reads it. */
+/** A person's message and the models it may name. Pass the agent turn's abort signal. */
 export type RuntimeChoice = { message: string; sources: ModelSources; signal?: AbortSignal };
 
 /** Ask the decisions model which offered model the message names. */

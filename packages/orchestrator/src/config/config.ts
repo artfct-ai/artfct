@@ -61,8 +61,8 @@ export const OrchestratorConfig = z.object({
   /** What every summarization runs on. An unset model takes `model`. */
   summarization: z.object({ model: z.string().optional() }).prefault({}),
   /**
-   * Minutes one agent turn may take. At it the turn's work is aborted and the humans get a retry
-   * message. A minute in, a person who wrote hears that the turn still runs.
+   * Minutes one agent turn may take. Then the turn's work is aborted and the humans hear that it
+   * timed out. A person who wrote hears a heads-up a minute in.
    */
   turn_timeout_minutes: z.number().positive().default(2),
   /**

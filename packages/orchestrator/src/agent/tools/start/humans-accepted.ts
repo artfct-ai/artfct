@@ -19,7 +19,10 @@ export function acceptedAt(probability: number): boolean {
   return probability >= ACCEPTED_FLOOR;
 }
 
-/** The artifact the humans were given, what they wrote in this turn, and the turn's abort signal. */
+/**
+ * The input to `humansAccepted`. `artifact` is the URL of the artifact the humans hold, and
+ * `messages` is what they wrote in this turn. Pass the agent turn's abort signal.
+ */
 export type Acceptance = { artifact: string; messages: string[]; signal?: AbortSignal };
 
 /**

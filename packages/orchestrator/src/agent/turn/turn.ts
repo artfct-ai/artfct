@@ -43,8 +43,8 @@ export const UNANSWERED_TEXT =
 type Outcome = "replied" | "silent" | "failed" | "timed_out";
 
 /**
- * The transcript as the turn starts and the id of the turn's first row in it, what the people
- * who wrote since the last turn said, and the text that identifies an ad hoc job started in the turn.
+ * What one agent turn works from. `firstRow` is the id of the turn's first transcript row, which
+ * compaction keeps. `requestText` identifies an ad hoc job started in the turn.
  */
 type TurnInput = {
   rows: TranscriptRow[];
@@ -291,7 +291,7 @@ function shouldCompact(workflow: WorkflowRuntime, older: string): boolean {
 
 /**
  * When the request passes the configured size, replace every row before this turn's own rows
- * with one recap. A resumed turn owns the rows of the turn it resumes. A recap that could not be
+ * with one recap. A resumed turn owns the rows of the lost turn. A recap that could not be
  * written leaves the transcript whole.
  */
 async function compactIfLarge(

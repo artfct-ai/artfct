@@ -18,7 +18,7 @@ import { openRouterOrigin } from "./api-url";
 /** TypeSafe's Jev, the one decisions model OpenRouter carries today. */
 export const OPENROUTER_DECISIONS_MODEL = "typesafe/jev-1.13";
 
-/** A classifier answers in well under a second. Past this one attempt is dropped. */
+/** Milliseconds one attempt may take. A classifier answers in well under a second. */
 const TIMEOUT_MS = 3000;
 
 /** Construction options. `serverUrl` and `fetch` are seams for tests. */
@@ -102,10 +102,7 @@ export class OpenRouterDecisions implements Decisions {
   }
 }
 
-/**
- * Each attempt under its own timeout. The SDK drops its own timeout once a call passes a signal,
- * so the timeout lives here, beside the caller's signal on the request.
- */
+/** A fetch that aborts each attempt after `timeoutMs`, alongside the caller's signal. */
 function attemptTimeoutFetch(inner: typeof fetch, timeoutMs: number): typeof fetch {
   return (input, init) => {
     const request = new Request(input, init);
@@ -114,10 +111,7 @@ function attemptTimeoutFetch(inner: typeof fetch, timeoutMs: number): typeof fet
   };
 }
 
-/**
- * The request's own outcome, or the abort reason as soon as `signal` aborts. The SDK waits out
- * a retry backoff before it sees the abort.
- */
+/** Settles as the request does, or rejects with the abort reason as soon as `signal` aborts. */
 function settledOrAborted<Result>(request: Promise<Result>, signal: AbortSignal): Promise<Result> {
   return new Promise((resolve, reject) => {
     const onAbort = () => reject(signal.reason);

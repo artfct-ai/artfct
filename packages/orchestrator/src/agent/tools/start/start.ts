@@ -454,7 +454,7 @@ type CompleteInput = {
   signal: AbortSignal | undefined;
 };
 
-/** What the people wrote in this turn, and the turn's abort signal for the call that reads it. */
+/** The messages people wrote in this turn, with the turn's abort signal. */
 type TurnMessages = Pick<CompleteInput, "personMessages" | "signal">;
 
 async function complete(

@@ -1,9 +1,8 @@
 import type { ToolSet } from "ai";
 
 /**
- * The same tools, each rejecting with the abort reason as soon as the turn's signal aborts. For
- * tools whose client takes no signal, such as the Agents SDK's MCP tools, so the turn deadline
- * does not wait on them. The call itself runs on until its client's own timeout.
+ * Wrap tools whose client does not take an abort signal. Each call rejects with the abort reason
+ * as soon as the turn aborts. The call itself keeps running until its client times out.
  */
 export function abortableTools(tools: ToolSet): ToolSet {
   const wrapped = Object.entries(tools).map(([name, tool]) => {
