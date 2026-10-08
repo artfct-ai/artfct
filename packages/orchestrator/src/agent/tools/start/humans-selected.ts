@@ -11,10 +11,10 @@ const SELECTED_FLOOR = 0.7;
 const NO_OPTION = "none";
 
 const SELECTED_INSTRUCTIONS =
-  "A person was given numbered options to choose from. `messages` holds what the person wrote since. Which option do the words in `messages` choose and say to go with?";
+  "A person was given numbered options to choose from. `messages` holds what the person wrote since. Which option do the words in `messages` choose and say to go with? A person who rules out every other option chooses the one left. When the person changes their mind, their latest choice counts.";
 
 const NO_OPTION_DESCRIPTION =
-  "The person does not settle on one option. They ask a question, ask for a change to an option, stay undecided, leave the choice to someone else, choose more than one or combine options, take a choice back, say to wait, or write about something else.";
+  "The person does not settle on one option. They ask a question, ask for a change to an option, stay undecided, leave the choice to someone else, choose more than one or combine options, take their choice back without making another, put off the decision, or write about something else.";
 
 function selectedQuestion(options: string[]): ChoiceQuestion {
   return {
