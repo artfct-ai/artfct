@@ -86,7 +86,16 @@ export async function assertStartSpec(options: {
     { clone_url: `https://github.com/${REPO_FULL_NAME}.git`, branch, author: null },
     "start spec repo",
   );
-  assertEqual(start.github_token, null, "start spec github_token (no GitHub App in smoke)");
+  assertEqual(
+    start.workflow_repo_token,
+    null,
+    "start spec workflow_repo_token (no GitHub App in smoke)",
+  );
+  assertEqual(
+    start.all_repos_read_token,
+    null,
+    "start spec all_repos_read_token (no GitHub App in smoke)",
+  );
   assertEqual(
     start.files[0]?.path,
     INSTRUCTIONS_FILE,

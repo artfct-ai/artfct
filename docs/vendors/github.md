@@ -76,6 +76,30 @@ The app does not get the Workflows permission. GitHub rejects a push from the ap
 
 Webhook events: Pull request, Pull request review, Pull request review comment, Issue comment, Check suite, Check run, and Push.
 
+## What a sandbox can reach
+
+Each task's sandbox gets an installation token limited to the workflow's repository. A coding agent pushes and opens pull requests with it. By default the agent cannot read any other repository, even one the app is installed on.
+
+To let the agents read the other repositories, such as an infrastructure repo that names the owner of a DNS record, set this in `orchestrator/artfct.yaml`:
+
+```yaml
+orchestrator:
+  sandbox:
+    read_all_repos: true
+```
+
+Each sandbox then gets a second token. It reads every repository the installation can reach, with Contents Read and Metadata Read alone. GitHub gives one token one set of permissions for all its repositories, so the sandbox holds two tokens:
+
+| Tool | Repository | Token |
+|---|---|---|
+| git | The workflow's repository | The workflow repo token, which may push |
+| git | Any other repository on github.com | The all-repos read token |
+| gh | Any | The workflow repo token |
+
+Git picks the token by the repository path in the URL. The agent reads another repository with git, for example `git clone https://github.com/<owner>/<repo>.git /tmp/<repo>`. The `gh` CLI stays logged in with the workflow repo token, so `gh` commands against another private repository fail. Both tokens are refreshed together, before the first of them expires.
+
+It's important to understand the safeguards your system puts in place and potential risks before enabling this. While artfct implements its own safeguards intended to prevent prompt injection, in theory, with this enabled a prompt-injected agent could read every repository the gh app is installed to.
+
 ## Whose reviews count
 
 The deployment ignores a review or a comment on one of its pull requests unless the author may push to the repository. On each review and comment it asks GitHub for the author's permission on the repository. GitHub answers with the highest role the person holds from any grant: their own, a team's, a parent team's, the organization's, or the enterprise's. The Write, Maintain, and Admin roles may push. The Read and Triage roles may not.

@@ -19,8 +19,8 @@ import { sendRequest } from "./bridge";
 import {
   credentialExpiring,
   hostCredential,
-  refreshSandboxToken,
-  taskCredential,
+  refreshSandboxGithubTokens,
+  mintWorkflowRepoToken,
 } from "../sandbox/credential";
 import { harnessMcpServers } from "../sandbox/mcp-servers";
 import { failTask } from "../../lifecycle";
@@ -49,7 +49,8 @@ export async function onBridgeHello(
     await flushBoards(workflow, task.job_id);
   }
   if (sandbox.session_id && !hello.fresh) {
-    if (credentialExpiring(sandbox, workflow.now())) await refreshSandboxToken(workflow, task);
+    if (credentialExpiring(sandbox, workflow.now()))
+      await refreshSandboxGithubTokens(workflow, task);
     await drainQueue(workflow, workflow.store.requireTask(task.task_id));
     return;
   }
@@ -163,7 +164,7 @@ async function mcpServers(workflow: WorkflowRuntime, task: TaskRow): Promise<Mcp
   const credential = await hostCredential(
     workflow,
     task,
-    async () => (await taskCredential(workflow, task))?.token ?? null,
+    async () => (await mintWorkflowRepoToken(workflow, task))?.token ?? null,
   );
   return harnessMcpServers({
     provider: workflow.artifact(kind).mcp(credential),

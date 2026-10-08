@@ -24,6 +24,10 @@ describe("loadConfig", () => {
     it("gives a sandbox ten minutes to start", () => {
       expect(config.orchestrator.sandbox.startup_timeout).toBe(600_000);
     });
+
+    it("keeps each sandbox to the task's repository", () => {
+      expect(config.orchestrator.sandbox.read_all_repos).toBe(false);
+    });
   });
 
   describe("a config that sets the sandbox startup timeout", () => {
@@ -35,6 +39,19 @@ describe("loadConfig", () => {
     it("rejects a timeout that is not above zero", () => {
       expect(() => loadConfig("orchestrator: { sandbox: { startup_timeout: 0 } }")).toThrow(
         /invalid duration: 0/,
+      );
+    });
+  });
+
+  describe("a sandbox that may read every repository", () => {
+    it("reads the setting from YAML", () => {
+      const config = loadConfig("orchestrator: { sandbox: { read_all_repos: true } }");
+      expect(config.orchestrator.sandbox.read_all_repos).toBe(true);
+    });
+
+    it("rejects a value that is not a boolean", () => {
+      expect(() => loadConfig("orchestrator: { sandbox: { read_all_repos: everything } }")).toThrow(
+        /read_all_repos/,
       );
     });
   });

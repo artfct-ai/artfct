@@ -50,3 +50,5 @@ orchestrator:
     startup_timeout: 10m
     # Tasks one workflow runs at the same time.
     max_concurrency: 100
+    # allows read only access to every repo the github app is installed to
+    read_all_repos: false

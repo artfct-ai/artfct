@@ -36,6 +36,11 @@ export const SandboxConfig = z.object({
   startup_timeout: Duration.prefault("10m"),
   /** Tasks one workflow may run at the same time. The agent may pick a lower number per plan. */
   max_concurrency: z.number().int().positive().default(100),
+  /**
+   * Give each sandbox a second, read-only token for every repository the code host credential
+   * reaches. The task's own token still reaches the task's repository alone.
+   */
+  read_all_repos: z.boolean().default(false),
 });
 
 /** The orchestrator: its agent's model and loop limits, its task settings, and its sandboxes. */

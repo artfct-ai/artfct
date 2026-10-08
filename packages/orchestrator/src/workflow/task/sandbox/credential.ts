@@ -1,7 +1,8 @@
 import type { MintedToken, Permissions } from "@artfct-ai/adapters/code/types";
 import { isExpiring } from "@artfct-ai/adapters/expiry";
-import { artifactCapability, artifactNeedsTaskCredential } from "../../../clients";
+import { artifactCapability, artifactNeedsWorkflowRepoToken } from "../../../clients";
 import { isTaskFinished } from "../../store/state";
+import type { AllReposReadToken } from "../../../sandbox/spec";
 import type { SandboxRow, TaskRow } from "../../store/tasks";
 import type { TaskAlarm } from "../harness/timers";
 import type { WorkflowRuntime } from "../../types";
@@ -11,11 +12,11 @@ import { sandboxRefOf } from "./size";
 export const CREDENTIAL_REFRESH_MARGIN_MS = 5 * 60_000;
 
 /**
- * Mint the credential a task's sandbox runs with. It reaches the workflow's repository alone.
- * An author gets every permission the host grants there, a reviewer what its artifact kind
- * allows. Null when the workflow has no repository, or when none can be minted.
+ * Mint the token the sandbox uses for the workflow's repository. It reaches that repository
+ * alone. An author gets every permission the code host grants there, a reviewer what its
+ * artifact kind allows. Null when 1) the workflow has no repository 2) minting fails.
  */
-export async function taskCredential(
+export async function mintWorkflowRepoToken(
   workflow: WorkflowRuntime,
   task: TaskRow,
 ): Promise<MintedToken | null> {
@@ -32,17 +33,70 @@ export async function taskCredential(
   }
 }
 
+/** The GitHub tokens a task's sandbox holds, and the instant the first of them expires. */
+export type SandboxGithubTokens = {
+  /** Reaches the workflow's repository with the task's permissions. */
+  workflowRepoToken: string;
+  /** Reads every repository the code host credential reaches. Null when `read_all_repos` is off. */
+  allReposReadToken: AllReposReadToken | null;
+  expiresAt: number;
+};
+
 /**
- * The credential the host of the task's artifact takes. A host that runs on the task's own
- * credential gets the one `taskToken` gives. Any other host gets the deployment's.
+ * Mint the GitHub tokens a task's sandbox holds. Null when 1) the workflow has no repository
+ * 2) the workflow repo token cannot be minted. When only the all-repos read token fails, the
+ * sandbox reaches the workflow's repository alone until the next refresh.
+ */
+export async function mintSandboxGithubTokens(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+): Promise<SandboxGithubTokens | null> {
+  const workflowRepo = workflow.state.repo?.full;
+  const workflowRepoToken = await mintWorkflowRepoToken(workflow, task);
+  if (!workflowRepo || !workflowRepoToken) return null;
+  const allReposReadToken = await mintAllReposReadToken(workflow, task);
+  return {
+    workflowRepoToken: workflowRepoToken.token,
+    allReposReadToken: allReposReadToken
+      ? { token: allReposReadToken.token, workflow_repo: workflowRepo }
+      : null,
+    expiresAt: Math.min(
+      workflowRepoToken.expiresAt,
+      allReposReadToken?.expiresAt ?? workflowRepoToken.expiresAt,
+    ),
+  };
+}
+
+/**
+ * Mint a read-only token for every repository the code host credential reaches. Null when
+ * 1) `read_all_repos` is off 2) minting fails.
+ */
+async function mintAllReposReadToken(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+): Promise<MintedToken | null> {
+  const code = workflow.code();
+  if (!code || !workflow.config().orchestrator.sandbox.read_all_repos) return null;
+  try {
+    const minted = await code.mintAllReposReadToken();
+    return minted.token ? minted : null;
+  } catch (error) {
+    workflow.log(task.task_id, `all-repos read token mint failed: ${String(error).slice(0, 200)}`);
+    return null;
+  }
+}
+
+/**
+ * The credential the host of the task's artifact takes. A host that runs on the workflow repo
+ * token gets the one `workflowRepoToken` gives. Any other host gets the deployment's.
  */
 export async function hostCredential(
   workflow: WorkflowRuntime,
   task: TaskRow,
-  taskToken: () => Promise<string | null>,
+  workflowRepoToken: () => Promise<string | null>,
 ): Promise<string | null> {
   const kind = workflow.stageForTask(task).artifact;
-  if (artifactNeedsTaskCredential(kind, workflow.config().adapters)) return taskToken();
+  if (artifactNeedsWorkflowRepoToken(kind, workflow.config().adapters)) return workflowRepoToken();
   return workflow.mcpCredential(artifactCapability(kind));
 }
 
@@ -96,26 +150,32 @@ export async function refreshToken(workflow: WorkflowRuntime, alarm: TaskAlarm):
     workflow.store.updateSandbox(task.task_id, { token_schedule: null });
     return;
   }
-  await refreshSandboxToken(workflow, task);
+  await refreshSandboxGithubTokens(workflow, task);
 }
 
 /**
- * Mint a credential and write it into the running sandbox now, arming the next refresh or a
- * retry. True when the sandbox holds a fresh credential after this.
+ * Mint the sandbox's GitHub tokens and write them into the running sandbox now, arming the next
+ * refresh or a retry. True when the sandbox holds fresh tokens after this.
  */
-export async function refreshSandboxToken(
+export async function refreshSandboxGithubTokens(
   workflow: WorkflowRuntime,
   task: TaskRow,
 ): Promise<boolean> {
-  const minted = await taskCredential(workflow, task);
-  if (minted) {
+  const tokens = await mintSandboxGithubTokens(workflow, task);
+  if (tokens) {
     try {
-      await workflow.sandbox().refreshGithubToken(sandboxRefOf(task), minted.token);
+      await workflow
+        .sandbox()
+        .refreshGithubTokens(
+          sandboxRefOf(task),
+          tokens.workflowRepoToken,
+          tokens.allReposReadToken,
+        );
       workflow.log(task.task_id, "credential refreshed in the sandbox");
       await armTokenRefresh(
         workflow,
         workflow.store.requireSandbox(task.task_id),
-        minted.expiresAt,
+        tokens.expiresAt,
       );
       return true;
     } catch (error) {

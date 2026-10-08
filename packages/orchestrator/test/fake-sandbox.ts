@@ -1,5 +1,5 @@
 import type { SandboxProvider } from "../src/sandbox/provider";
-import type { SandboxRef, SandboxStartSpec } from "../src/sandbox/spec";
+import type { AllReposReadToken, SandboxRef, SandboxStartSpec } from "../src/sandbox/spec";
 
 /** Records every provider call. Tests assert on `calls` and place files to read with `putFile`. */
 export class FakeSandboxProvider implements SandboxProvider {
@@ -23,8 +23,13 @@ export class FakeSandboxProvider implements SandboxProvider {
     this.calls.push(`setEnv ${sandbox.id}`);
   }
 
-  async refreshGithubToken(sandbox: SandboxRef, token: string): Promise<void> {
-    this.calls.push(`refreshGithubToken ${sandbox.id} ${token}`);
+  async refreshGithubTokens(
+    sandbox: SandboxRef,
+    token: string,
+    read: AllReposReadToken | null,
+  ): Promise<void> {
+    const readLabel = read ? ` read ${read.token} ${read.workflow_repo}` : "";
+    this.calls.push(`refreshGithubTokens ${sandbox.id} ${token}${readLabel}`);
   }
 
   async keepAlive(sandbox: SandboxRef): Promise<void> {

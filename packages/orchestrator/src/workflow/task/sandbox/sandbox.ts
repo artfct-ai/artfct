@@ -14,8 +14,8 @@ import { loadHarnessSkills } from "../../../config/skills";
 import { newToken } from "../../../ids";
 import type { Adapters } from "../../../config/adapters";
 import type { ResolvedStage } from "../../../config/stage";
-import type { SandboxStartSpec } from "../../../sandbox/spec";
-import { armTokenRefresh, hostCredential, taskCredential } from "./credential";
+import type { AllReposReadToken, SandboxStartSpec } from "../../../sandbox/spec";
+import { armTokenRefresh, hostCredential, mintSandboxGithubTokens } from "./credential";
 import { flushBoards } from "../../board/board";
 import { failTask, restartOrFailTask } from "../../lifecycle";
 import { runModelAuthorTurn } from "../model-author";
@@ -97,11 +97,15 @@ async function startGeneration(
   const job = workflow.store.requireJob(fresh.job_id);
   const stage = workflow.stageForTask(fresh);
   const settings = taskSettings(workflow, fresh);
-  const minted = await taskCredential(workflow, fresh);
+  const githubTokens = await mintSandboxGithubTokens(workflow, fresh);
   const hostEnv = cliEnv({
     capability: artifactCapability(stage.artifact),
     adapters: config.adapters,
-    credential: await hostCredential(workflow, fresh, async () => minted?.token ?? null),
+    credential: await hostCredential(
+      workflow,
+      fresh,
+      async () => githubTokens?.workflowRepoToken ?? null,
+    ),
     log: (line) => workflow.log(fresh.task_id, line),
   });
   let commitAuthor: CommitAuthor | null;
@@ -139,7 +143,8 @@ async function startGeneration(
     publicUrl: workflow.env.PUBLIC_URL ?? "",
     repo: workflow.state.repo,
     commitAuthor,
-    credential: minted?.token ?? null,
+    workflowRepoToken: githubTokens?.workflowRepoToken ?? null,
+    allReposReadToken: githubTokens?.allReposReadToken ?? null,
     hostEnv,
     gateway,
     sleepAfterMs: config.orchestrator.sandbox.sleep_after,
@@ -161,8 +166,12 @@ async function startGeneration(
   }
   workflow.log(fresh.task_id, `sandbox started gen=${sandbox.generation} resume=${resume}`);
   await armHelloTimeout(workflow, workflow.store.requireSandbox(fresh.task_id));
-  if (minted)
-    await armTokenRefresh(workflow, workflow.store.requireSandbox(fresh.task_id), minted.expiresAt);
+  if (githubTokens)
+    await armTokenRefresh(
+      workflow,
+      workflow.store.requireSandbox(fresh.task_id),
+      githubTokens.expiresAt,
+    );
 }
 
 /** Bump the generation, issue a bridge token, and forget the old harness session, rpc rows, keepalive, and nudge. */
@@ -199,7 +208,8 @@ export type StartSpecInput = {
   publicUrl: string;
   repo: RepoRef | null;
   commitAuthor: CommitAuthor | null;
-  credential: string | null;
+  workflowRepoToken: string | null;
+  allReposReadToken: AllReposReadToken | null;
   /** The environment a CLI in the sandbox reads the host credential of the stage's artifact from. */
   hostEnv: Record<string, string>;
   gateway: GatewayRoutes | null;
@@ -244,7 +254,8 @@ export function buildStartSpec(
           author: input.commitAuthor,
         }
       : null,
-    github_token: input.credential,
+    workflow_repo_token: input.workflowRepoToken,
+    all_repos_read_token: input.allReposReadToken,
     env: {
       ...buildSandboxEnv({
         workflowId: input.workflowId,

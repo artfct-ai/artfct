@@ -110,14 +110,14 @@ describe("mcpServer", () => {
     });
   });
 
-  describe("the code capability with a task token", () => {
+  describe("the code capability with a workflow repo token", () => {
     it("is the GitHub server on that token", () => {
       const server = mcpServer({ capability: "code", adapters, credential: "ghs_task", log });
       expect(server?.headers).toEqual({ Authorization: "Bearer ghs_task" });
     });
   });
 
-  describe("the code capability without a task token", () => {
+  describe("the code capability without a workflow repo token", () => {
     it("is null", () => {
       expect(mcpServer({ capability: "code", adapters, credential: null, log })).toBeNull();
     });

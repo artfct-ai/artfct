@@ -163,7 +163,7 @@ describe("provision", () => {
           token: workflow.store.requireSandbox(TASK).bridge_token,
           generation: 1,
           repo: null,
-          github_token: null,
+          workflow_repo_token: null,
         });
       }));
 
@@ -614,9 +614,48 @@ describe("startSandbox", () => {
     it("hands the sandbox the repository and the token too", () =>
       started((workflow) => {
         expect(workflow.sandboxProvider.specs[0]).toMatchObject({
-          github_token: "ghs_fake",
+          workflow_repo_token: "ghs_fake",
           repo: { clone_url: "https://github.com/acme/app.git", branch: null },
         });
+      }));
+  });
+
+  describe("a code stage on a deployment that lets sandboxes read every repository", () => {
+    const ttlMs = 3_600_000;
+    const started = scenario(freshRuntime, (workflow) => {
+      workflow.clock = Date.now();
+      const { orchestrator } = workflow.config();
+      workflow.patchConfig({
+        orchestrator: {
+          ...orchestrator,
+          sandbox: { ...orchestrator.sandbox, read_all_repos: true },
+        },
+      });
+      workflow.codeHostInstance = new FakeCodeHost({
+        token: { token: "ghs_1", expiresAt: workflow.clock + ttlMs },
+        allReposReadToken: { token: "ghs_read", expiresAt: workflow.clock + ttlMs / 2 },
+      });
+      workflow.patchState({ repo: { full: "acme/app" } });
+      return startSandbox(
+        workflow,
+        seedTask(workflow, { status: "queued", stage: "implement", branch: "artfct/wf_x-1-fix" }),
+        false,
+      );
+    });
+
+    it("hands the sandbox the workflow repo token and the all-repos read token", () =>
+      started((workflow) => {
+        expect(workflow.sandboxProvider.specs[0]).toMatchObject({
+          workflow_repo_token: "ghs_1",
+          all_repos_read_token: { token: "ghs_read", workflow_repo: "acme/app" },
+        });
+      }));
+
+    it("arms the refresh a margin before the first token expires", () =>
+      started((workflow) => {
+        expect(workflow.alarmsFor("refreshToken")[0]?.delay).toBe(
+          (ttlMs / 2 - CREDENTIAL_REFRESH_MARGIN_MS) / 1000,
+        );
       }));
   });
 
@@ -638,7 +677,8 @@ describe("startSandbox", () => {
     it("hands the sandbox the fresh token and the branch", () =>
       started((workflow) => {
         expect(workflow.sandboxProvider.specs[0]).toMatchObject({
-          github_token: "ghs_1",
+          workflow_repo_token: "ghs_1",
+          all_repos_read_token: null,
           repo: { clone_url: "https://github.com/acme/app.git", branch: "artfct/wf_x-1-fix" },
         });
       }));
@@ -699,10 +739,9 @@ describe("startSandbox", () => {
 
     it("hands each generation a new token, never the cached one", () =>
       restarted((workflow) => {
-        expect(workflow.sandboxProvider.specs.map((started) => started.github_token)).toEqual([
-          "ghs_1",
-          "ghs_2",
-        ]);
+        expect(
+          workflow.sandboxProvider.specs.map((started) => started.workflow_repo_token),
+        ).toEqual(["ghs_1", "ghs_2"]);
       }));
 
     it("keeps one refresh alarm, since the old one goes with the old token", () =>

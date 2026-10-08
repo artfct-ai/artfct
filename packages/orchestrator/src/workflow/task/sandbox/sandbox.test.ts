@@ -97,7 +97,8 @@ const input: StartSpecInput = {
   publicUrl: "https://ao.example.com",
   repo: { full: "acme/app" },
   commitAuthor: AUTHOR,
-  credential: "ghs_1",
+  workflowRepoToken: "ghs_1",
+  allReposReadToken: null,
   hostEnv: {},
   harness: harnessAdapter("claude-code", { claudeOauthToken: "sk-ant-oat" }),
   gateway: null,
@@ -299,7 +300,11 @@ describe("buildStartSpec", () => {
     });
 
     it("hands the token over separately", () => {
-      expect(built.github_token).toBe("ghs_1");
+      expect(built.workflow_repo_token).toBe("ghs_1");
+    });
+
+    it("hands over no all-repos read token", () => {
+      expect(built.all_repos_read_token).toBeNull();
     });
 
     it("keeps the token out of GITHUB_TOKEN", () => {
@@ -308,6 +313,19 @@ describe("buildStartSpec", () => {
 
     it("keeps the token out of GH_TOKEN", () => {
       expect(built.env.GH_TOKEN).toBeUndefined();
+    });
+  });
+
+  describe("a task that may read every repository", () => {
+    const read = { token: "ghs_read", workflow_repo: "acme/app" };
+    const built = spec({ stage: stage("implement"), allReposReadToken: read });
+
+    it("hands the all-repos read token over beside the workflow repo token", () => {
+      expect([built.workflow_repo_token, built.all_repos_read_token]).toEqual(["ghs_1", read]);
+    });
+
+    it("keeps the all-repos read token out of the environment", () => {
+      expect(Object.values(built.env)).not.toContain("ghs_read");
     });
   });
 
@@ -323,7 +341,7 @@ describe("buildStartSpec", () => {
     });
 
     it("hands the token over too", () => {
-      expect(built.github_token).toBe("ghs_1");
+      expect(built.workflow_repo_token).toBe("ghs_1");
     });
 
     it("names the repository in the environment", () => {
@@ -332,14 +350,14 @@ describe("buildStartSpec", () => {
   });
 
   describe("a workflow that knows neither a repository nor a token", () => {
-    const built = spec({ repo: null, credential: null });
+    const built = spec({ repo: null, workflowRepoToken: null });
 
     it("gives the sandbox no repository", () => {
       expect(built.repo).toBeNull();
     });
 
     it("gives the sandbox no token", () => {
-      expect(built.github_token).toBeNull();
+      expect(built.workflow_repo_token).toBeNull();
     });
 
     it("names no repository in the environment", () => {

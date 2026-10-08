@@ -29,7 +29,8 @@ type StartSpec = {
     branch: string | null;
     author: { name: string; email: string } | null;
   } | null;
-  github_token: string | null;
+  workflow_repo_token: string | null;
+  all_repos_read_token: { token: string; workflow_repo: string } | null;
   files: Array<{ path: string; content: string }>;
   sleep_after_ms: number;
   startup_script: string;
@@ -92,7 +93,9 @@ function maskedSpec(spec: StartSpec): StartSpec & { at: string } {
     at: now(),
     ...spec,
     token: "***",
-    github_token: spec.github_token === null ? null : "***",
+    workflow_repo_token: spec.workflow_repo_token === null ? null : "***",
+    all_repos_read_token:
+      spec.all_repos_read_token === null ? null : { ...spec.all_repos_read_token, token: "***" },
     bridge_env: Object.fromEntries(Object.keys(spec.bridge_env).map((name) => [name, "***"])),
   };
 }
