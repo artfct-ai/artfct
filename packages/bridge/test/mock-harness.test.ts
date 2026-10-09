@@ -1,4 +1,5 @@
 import type {
+  CancelNotification,
   NewSessionRequest,
   NewSessionResponse,
   PromptRequest,
@@ -9,13 +10,14 @@ import {
   errorOf,
   isRequest,
   isResponse,
+  jsonRpcNotification,
   jsonRpcRequest,
   jsonRpcResponse,
   resultOf,
   type JsonRpcMessage,
   type JsonRpcResponse,
 } from "@artfct-ai/acp/jsonrpc";
-import { AgentMethods, ClientMethods } from "@artfct-ai/acp/methods";
+import { AgentMethods, BridgeMethods, ClientMethods } from "@artfct-ai/acp/methods";
 import { beforeEach, describe, expect, it } from "bun:test";
 import { MockHarness } from "./mock-harness";
 import { docUrlForStage } from "./mock-harness-turn";
@@ -97,6 +99,35 @@ describe("MockHarness", () => {
 
       it("marks the session id as a mock one", () => {
         expect(sessionId).toMatch(/^mock-/);
+      });
+
+      describe("a prompt that never finishes, then a cancel", () => {
+        beforeEach(async () => {
+          const prompt: PromptRequest = {
+            sessionId,
+            prompt: [{ type: "text", text: "Never finish this." }],
+          };
+          const turn = mock.send(jsonRpcRequest(3, AgentMethods.sessionPrompt, prompt));
+          const cancel: CancelNotification = { sessionId };
+          await mock.send(jsonRpcNotification(AgentMethods.sessionCancel, cancel));
+          await turn;
+        });
+
+        it("ends the turn as cancelled", () => {
+          expect(resultOf(responseTo(sent, 3))).toEqual({ stopReason: "cancelled" });
+        });
+
+        it("sends no reply", () => {
+          expect(updates(sent).map((update) => update.update.sessionUpdate)).not.toContain(
+            "agent_message_chunk",
+          );
+        });
+
+        it("logs the cancel", () => {
+          expect(sent).toContainEqual(
+            jsonRpcNotification(BridgeMethods.log, { text: `session/cancel ${sessionId}` }),
+          );
+        });
       });
 
       describe("after one prompt", () => {

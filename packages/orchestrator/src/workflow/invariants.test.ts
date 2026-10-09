@@ -15,9 +15,14 @@ import {
   inReviewTaskHasAnArtifact,
   jobStartsOnlyIntoAFreeSlot,
   judgeRulesAtMostOnce,
+  linearOnlyAsksReachTheStartingSession,
   oneLiveJobPerInputArtifact,
   oneUnfinishedRefinerRunPerArtifact,
+  orchestratorStaysOutOfSessionsWhenChatExists,
   refinersRunAgainOnlyOnChangedRevision,
+  sessionMessageReachesItsRunningAuthorSilently,
+  sessionMessageWithoutAnAuthorIsAnswered,
+  sessionStopReachesItsRunningAuthor,
   staleAlarmIsIgnored,
   todoListIsFixedAfterFirstArtifact,
   unadmittedFeedbackReachesNobody,
@@ -39,15 +44,18 @@ import {
   authorReportsTodos,
   authorTurnEnds,
   baseMoves,
+  chatThreadJoins,
   checksReport,
   firstArtifactAppears,
   GENERATION_TIMERS,
   hostSays,
   personPostsFeedback,
   personPostsOnUnownedPull,
+  personPressesStop,
   personRules,
   personSendsControl,
   personWrites,
+  personWritesInSession,
   refinerRunFails,
   authorPromptFails,
   refinerRunPromptFails,
@@ -98,6 +106,11 @@ const STEP_INVARIANTS = [
   unadmittedFeedbackReachesNobody,
   aFailedCheckNeverCompletesAJob,
   aFailedCheckNeverAsksThePersonAgain,
+  orchestratorStaysOutOfSessionsWhenChatExists,
+  linearOnlyAsksReachTheStartingSession,
+  sessionMessageReachesItsRunningAuthorSilently,
+  sessionMessageWithoutAnAuthorIsAnswered,
+  sessionStopReachesItsRunningAuthor,
 ];
 
 const setups: fc.Arbitrary<WorldSetup> = fc.record({
@@ -112,7 +125,7 @@ const setups: fc.Arbitrary<WorldSetup> = fc.record({
   research: fc.boolean(),
   checksOnPush: fc.constantFrom("passed" as const, "reported_later" as const),
   pageEnding: fc.constantFrom("acceptance" as const, "choice" as const),
-  origin: fc.constantFrom("chat" as const, "chat" as const, "tracker" as const),
+  origin: fc.constantFrom("chat" as const, "chat" as const, "tracker" as const, "tracker" as const),
 });
 
 const pageSetups: fc.Arbitrary<WorldSetup> = fc.record({
@@ -121,7 +134,7 @@ const pageSetups: fc.Arbitrary<WorldSetup> = fc.record({
   research: fc.boolean(),
   checksOnPush: fc.constantFrom("passed" as const, "reported_later" as const),
   pageEnding: fc.constantFrom("acceptance" as const, "choice" as const),
-  origin: fc.constantFrom("chat" as const, "chat" as const, "tracker" as const),
+  origin: fc.constantFrom("chat" as const, "chat" as const, "tracker" as const, "tracker" as const),
 });
 
 const author = fc.nat({ max: MAX_AUTHORS - 1 });
@@ -271,6 +284,17 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
   },
   { weight: 2, arbitrary: author.map(trackerOpensSession) },
   {
+    weight: 5,
+    arbitrary: fc
+      .tuple(
+        fc.nat({ max: 3 }),
+        fc.constantFrom("question", "question", "status", "pause", "cancel"),
+      )
+      .map(([index, said]) => personWritesInSession(index, said)),
+  },
+  { weight: 4, arbitrary: fc.nat({ max: 3 }).map(personPressesStop) },
+  { weight: 1, arbitrary: fc.constant(chatThreadJoins()) },
+  {
     weight: 3,
     arbitrary: fc
       .tuple(
@@ -415,7 +439,7 @@ describe("the workflow invariants", () => {
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(20);
+      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(25);
     },
     TIMEOUT_MS,
   );

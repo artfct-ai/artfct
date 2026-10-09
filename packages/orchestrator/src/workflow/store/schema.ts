@@ -1,4 +1,5 @@
 import { HARNESSES } from "@artfct-ai/adapters/harness/types";
+import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { ArtifactKind, ArtifactStatus, TaskStatus } from "@artfct-ai/contracts/types";
 import type { ArtifactRef, RefinerResult } from "../../artifact/types";
 import type { TaskRole } from "../task/events";
@@ -212,6 +213,8 @@ export const agentInbox = sqliteTable("agent_inbox", {
   at: text().notNull(),
   text: text().notNull(),
   wake: text().$type<Wake>().notNull().default("none"),
+  /** Where the person who wrote the text waits for the answer. Null for anything else. */
+  reply_to: text({ mode: "json" }).$type<ReplyTarget>(),
 });
 
 /** The orchestrator agent's conversation. One model message per row, in order. */

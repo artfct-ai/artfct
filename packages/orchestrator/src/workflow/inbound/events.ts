@@ -3,6 +3,7 @@ import type { RpcAck } from "@artfct-ai/contracts/types";
 import { eventMessage } from "../../agent/transcript/envelope";
 import { pullDetailOf } from "../../artifact/pull";
 import type { PostOptions } from "../../notify/notifier";
+import type { Recipients } from "../../notify/recipients";
 import { applyEvent } from "./apply";
 import { armIdle, changeWorkflowStatus } from "../lifecycle";
 import { firstLine, isWorkflowFinished, now, workflowName } from "../store/state";
@@ -86,10 +87,11 @@ async function tellAgentAbout(
       notes: applied.notes,
     }),
     applied.wake,
+    event.actor ? event.reply_to : undefined,
   );
 }
 
-/** No turn will run for this event. Release the thread when nothing was posted for it. */
+/** No turn will run for this event. Release a chat thread when nothing was posted for it. */
 async function releaseIfSilent(
   workflow: WorkflowRuntime,
   event: InboundEvent,
@@ -113,28 +115,30 @@ async function wakeWorkflow(workflow: WorkflowRuntime): Promise<void> {
 }
 
 /**
- * A finished workflow stays finished. It answers a status question, and any other event with a
- * reply target hears that it is finished. Everything else is logged and dropped.
+ * A finished workflow stays finished. It answers a person's status question, and a person's other
+ * event with a reply target hears that it is finished. A stop has nothing left to stop. Everything
+ * else, such as a session the tracker opened without a person, is logged and dropped.
  */
 async function replyFinished(workflow: WorkflowRuntime, event: InboundEvent): Promise<void> {
   const { status } = workflow.state;
-  if (!event.reply_to) {
+  if (!event.reply_to || !event.actor || event.kind === "stop") {
     workflow.log(null, `ignored ${event.kind}: the workflow is ${status}`);
     return;
   }
   const options: PostOptions = { keepSession: true };
-  if (event.kind === "status") return postStatus(workflow, event.reply_to, options);
+  const to = { reply_to: event.reply_to };
+  if (event.kind === "status") return postStatus(workflow, to, options);
   await workflow.post(
     { type: "info", text: `This workflow is ${status}. Start a new request for more work.` },
-    event.reply_to,
+    to,
     options,
   );
 }
 
-/** Post the workflow status summary to one reply target, or to every one. */
+/** Post the workflow status summary to its recipients, by default the workflow's audience. */
 export async function postStatus(
   workflow: WorkflowRuntime,
-  to?: ReplyTarget,
+  to?: Recipients,
   options?: PostOptions,
 ): Promise<void> {
   await workflow.post({ type: "status", text: statusText(summarize(workflow)) }, to, options);

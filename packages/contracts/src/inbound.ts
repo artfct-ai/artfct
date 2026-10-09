@@ -8,7 +8,8 @@ export type EventKind =
   | "control"
   | "pr_event"
   | "ci_event"
-  | "status";
+  | "status"
+  | "stop";
 
 /** Control verbs carried by `control` events. */
 export type Control = "cancel" | "pause" | "resume" | "instruct";

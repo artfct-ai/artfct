@@ -1,10 +1,6 @@
 import type { Chat, SessionStatus } from "@artfct-ai/adapters/chat/types";
 import type { Documents } from "@artfct-ai/adapters/documents/types";
-import type {
-  ActivityOptions,
-  AgentActivityContent,
-  Tracker,
-} from "@artfct-ai/adapters/tracker/types";
+import type { Tracker } from "@artfct-ai/adapters/tracker/types";
 import type { Acknowledge, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { TaskEvent } from "../workflow/task/events";
 import type { BoardChannel } from "../workflow/board/types";
@@ -43,9 +39,6 @@ export type PostOptions = {
   /** The title the thread keeps once it leaves its working state. The workflow's name. */
   title?: string;
 };
-
-/** The tracker response that closes a session the agent had nothing to say on. */
-export const TRACKER_RELEASE_TEXT = "Noted. Nothing to report right now.";
 
 /** At most one chat progress message per thread in this window. */
 export const CHAT_PROGRESS_INTERVAL_MS = 60_000;
@@ -164,40 +157,18 @@ export class Notifier {
   }
 
   /**
-   * Show what the agent is doing while a turn runs: a processing title on the chat, an
-   * ephemeral thought on the tracker. Neither is a message. Never throws.
+   * Show a chat thread what the agent is doing while a turn runs, as its processing title. It is
+   * not a message. Never throws.
    */
-  async working(target: ReplyTarget, text: string): Promise<void> {
-    switch (target.source) {
-      case "chat":
-        this.outbox({ channel: "chat", kind: "working", target, payload: { text } });
-        return this.setChatSession(target, "processing", { title: text });
-      case "tracker":
-        this.outbox({ channel: "tracker", kind: "working", target, payload: { text } });
-        return this.trackerActivity(target, { type: "thought", body: text }, { ephemeral: true });
-      case "documents":
-      case "code":
-        return;
-    }
+  async working(target: ChatTarget, text: string): Promise<void> {
+    this.outbox({ channel: "chat", kind: "working", target, payload: { text } });
+    await this.setChatSession(target, "processing", { title: text });
   }
 
-  /**
-   * Take the target out of its working state after a turn with nothing to say. The chat gets a
-   * status change, the tracker a short response, a finished workflow nothing.
-   */
-  async release(target: ReplyTarget, finished: boolean, title: string): Promise<void> {
-    switch (target.source) {
-      case "chat":
-        this.outbox({ channel: "chat", kind: "release", target, payload: { finished } });
-        return this.setChatSession(target, finished ? "closed" : "active", { title });
-      case "tracker":
-        if (finished) return;
-        this.outbox({ channel: "tracker", kind: "release", target, payload: { finished } });
-        return this.trackerActivity(target, { type: "response", body: TRACKER_RELEASE_TEXT });
-      case "documents":
-      case "code":
-        return;
-    }
+  /** Take a chat thread out of its working status after a turn with nothing to say. Never throws. */
+  async release(target: ChatTarget, finished: boolean, title: string): Promise<void> {
+    this.outbox({ channel: "chat", kind: "release", target, payload: { finished } });
+    await this.setChatSession(target, finished ? "closed" : "active", { title });
   }
 
   /** Move the tracker issue: "started" on planning, "completed" on done. */
@@ -286,7 +257,6 @@ export class Notifier {
       ephemeral,
       externalUrls,
     });
-    if (event.type === "done") await this.moveIssue(target, "completed");
   }
 
   /** The session status follows the workflow state. It is set even when the message fails. */
@@ -303,19 +273,6 @@ export class Notifier {
         const status = options.finished ? "closed" : "active";
         await this.setChatSession(target, status, { title: options.title });
       }
-    }
-  }
-
-  /** One activity on a tracker session, outside `post`. A failure lands in the outbox. */
-  private async trackerActivity(
-    target: TrackerTarget,
-    content: AgentActivityContent,
-    options: ActivityOptions = {},
-  ): Promise<void> {
-    try {
-      await (await this.tracker())?.activity(target.session_id, content, options);
-    } catch (error) {
-      this.outbox({ channel: "tracker", kind: DELIVERY_ERROR, target, payload: String(error) });
     }
   }
 

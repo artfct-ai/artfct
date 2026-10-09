@@ -344,6 +344,28 @@ describe("deliver a start event", () => {
   });
 });
 
+describe("deliver a stop from a session no workflow claimed", () => {
+  let tracker: FakeTracker;
+  let delivery: Delivery;
+
+  beforeEach(async () => {
+    tracker = new FakeTracker();
+    delivery = await deliver(env, { ...linearStart, id: "evt-linear-stop", kind: "stop" }, tracker);
+  });
+
+  it("drops it", () => {
+    expect(delivery).toEqual({ dropped: "no workflow bound for stop" });
+  });
+
+  it("posts nothing on the session", () => {
+    expect(tracker.calls).toEqual([]);
+  });
+
+  it("starts no workflow", async () => {
+    expect(await listBindings(db)).toEqual([]);
+  });
+});
+
 describe("deliver a Linear session start", () => {
   let tracker: FakeTracker;
   let delivery: Delivery;
@@ -367,6 +389,10 @@ describe("deliver a Linear session start", () => {
         ["sess-7", { type: "thought", body: "On it. Reading the issue." }],
       ]);
     });
+
+    it("posts it as an ephemeral thought that the next activity replaces", () => {
+      expect(tracker.argsOf("activity")[0]?.[2]).toEqual({ ephemeral: true });
+    });
   });
 
   describe("a session nobody opened, on an issue no workflow claimed", () => {
@@ -384,6 +410,7 @@ describe("deliver a Linear session start", () => {
 
     it("tells the session that no workflow is working on the issue", () => {
       expect(activities(tracker)).toEqual([
+        ["sess-7", { type: "thought", body: "On it. Reading the issue." }],
         [
           "sess-7",
           {
@@ -471,8 +498,10 @@ describe("deliver a Linear session start", () => {
       expect(delivery).toMatchObject({ workflow_id: "wf_linear_adopt", joined: true });
     });
 
-    it("says nothing on the session, which the workflow answers itself", () => {
-      expect(tracker.calls).toEqual([]);
+    it("posts only the starting thought on the session", () => {
+      expect(activities(tracker)).toEqual([
+        ["sess-7", { type: "thought", body: "On it. Reading the issue." }],
+      ]);
     });
 
     it("binds the session to that workflow", async () => {
@@ -494,13 +523,9 @@ describe("deliver a Linear session start", () => {
       expect(delivery).toMatchObject({ workflow_id: "wf_linear_join", joined: true });
     });
 
-    it("names the workflow the session joined", () => {
+    it("posts only the starting thought on the session", () => {
       expect(activities(tracker).map(([, content]) => content)).toEqual([
         { type: "thought", body: "On it. Reading the issue." },
-        {
-          type: "thought",
-          body: "Continuing the existing workflow wf_linear_join for this issue.",
-        },
       ]);
     });
   });

@@ -20,6 +20,7 @@ import type { JSONValue, LanguageModel, ToolSet } from "ai";
 import type { TranscriptStore } from "../agent/transcript/transcript";
 import type { Env } from "../env";
 import type { Notifier, PostOptions } from "../notify/notifier";
+import type { Recipients } from "../notify/recipients";
 import type { SandboxProvider } from "../sandbox/provider";
 import type { JobInput } from "./lifecycle";
 import type { WorkflowState } from "./store/state";
@@ -88,11 +89,14 @@ export interface WorkflowRuntime {
   /** Open bridge sockets. With a task id, only that task's socket. */
   connections(taskId?: string): Connection[];
   log(taskId: string | null, line: string): void;
-  /** Post to every reply target, or to one. The runtime adds whether the workflow is finished. */
-  post(event: TaskEvent, only?: ReplyTarget, options?: PostOptions): Promise<void>;
-  /** Nothing to say. Take every reply target, or one, out of its "working" state. */
+  /**
+   * Post to the recipients, by default the workflow's audience. `recipientsOf` picks the reply
+   * targets. The runtime adds whether the workflow is finished.
+   */
+  post(event: TaskEvent, to?: Recipients, options?: PostOptions): Promise<void>;
+  /** Nothing to say. Take every chat thread, or one, out of its working status. */
   release(only?: ReplyTarget): Promise<void>;
-  /** Show every reply target what the agent is doing now. A status line, never a message. */
+  /** Show every chat thread what the agent is doing now. A status line, never a message. */
   working(text: string): Promise<void>;
   /** The named gateway, or null while a secret it needs is unset. */
   gateway(provider: GatewayProvider): Gateway | null;
@@ -113,8 +117,11 @@ export interface WorkflowRuntime {
   /** Everything that depends on the kind of artifact a stage produces. */
   artifact(kind: ArtifactKind): Artifact;
   sandbox(): SandboxProvider;
-  /** Queue text for the orchestrator agent. Any wake class but `none` schedules a turn now. */
-  tellAgent(text: string, wake: Wake): Promise<void>;
+  /**
+   * Queue text for the orchestrator agent. Any wake class but `none` schedules a turn now. `from`
+   * is where the person who wrote it waits for the answer.
+   */
+  tellAgent(text: string, wake: Wake, from?: ReplyTarget): Promise<void>;
   /** The orchestrator's model, or a named prompt's model with its request fields and gateway. */
   model(
     modelName?: string,

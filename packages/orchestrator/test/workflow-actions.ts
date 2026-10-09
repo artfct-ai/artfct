@@ -75,7 +75,10 @@ const GAVE_UP_ANSWERS = { ...REPORTS_WORK_ANSWERS, gave_up: 0.9 };
 /** How the host revision stands when an author turn ends. */
 export type RevisionAtTurnEnd = "changed" | "same" | "unreadable";
 
-/** The author's running turn ends. A paused author's turn ends cancelled, as the pause asked. */
+/**
+ * The author's running turn ends. A paused author's turn, or one the workflow sent a cancel,
+ * ends cancelled, as the harness would.
+ */
 export function authorTurnEnds(
   index: number,
   revision: RevisionAtTurnEnd,
@@ -86,7 +89,8 @@ export function authorTurnEnds(
     const bridge = world.runningBridgeOf(author.taskId);
     if (!bridge) return undefined;
     if (revision === "changed") world.changeRevision(author);
-    const stopReason = world.taskOf(author).paused_at !== null ? "cancelled" : "end_turn";
+    const cancelled = world.taskOf(author).paused_at !== null || bridge.cancelRequested;
+    const stopReason = cancelled ? "cancelled" : "end_turn";
     world.answerDecisionsWith(closing === "gives_up" ? GAVE_UP_ANSWERS : REPORTS_WORK_ANSWERS);
     if (closing === "gives_up") await bridge.say(GAVE_UP_TEXT);
     if (revision === "unreadable") await world.whileHostIsDown(() => bridge.endTurn(stopReason));
@@ -502,6 +506,59 @@ export function personSendsControl(
 export function personWrites(kind: "prompt" | "start" | "status"): WorkflowAction {
   return action(`a person sends a ${kind}`, (world) =>
     world.deliver({ kind, text: "Where does this stand?" }),
+  );
+}
+
+/** What a person types in a tracker session: a question, a status request, or a control word. */
+export type SessionText = "question" | "status" | "pause" | "cancel";
+
+const SESSION_TEXTS: Record<SessionText, { kind: "prompt" | "status"; text: string }> = {
+  question: { kind: "prompt", text: "Why does the redirect skip the check?" },
+  status: { kind: "status", text: "status?" },
+  pause: { kind: "prompt", text: "pause" },
+  cancel: { kind: "prompt", text: "cancel" },
+};
+
+/**
+ * A person types in one of the workflow's tracker sessions, picked by `index`. The session's
+ * author may run, wait in review, or be finished by then.
+ */
+export function personWritesInSession(index: number, said: SessionText): WorkflowAction {
+  return action(`a person says ${said} in session ${index}`, async (world) => {
+    const session = world.trackerSessionAt(index);
+    if (!session) return;
+    await world.deliver({
+      ...SESSION_TEXTS[said],
+      reply_to: session,
+      bindings: [
+        { source: "tracker_issue", external_id: session.issue_id },
+        { source: "tracker_session", external_id: session.session_id },
+      ],
+    });
+  });
+}
+
+/** A person presses Stop in one of the workflow's tracker sessions, picked by `index`. */
+export function personPressesStop(index: number): WorkflowAction {
+  return action(`a person presses Stop in session ${index}`, async (world) => {
+    const session = world.trackerSessionAt(index);
+    if (!session) return;
+    await world.deliver({
+      kind: "stop",
+      text: "",
+      reply_to: session,
+      bindings: [
+        { source: "tracker_issue", external_id: session.issue_id },
+        { source: "tracker_session", external_id: session.session_id },
+      ],
+    });
+  });
+}
+
+/** A person mentions the agent in a new chat thread about the work. The thread joins the workflow. */
+export function chatThreadJoins(): WorkflowAction {
+  return action("a chat thread joins", (world) =>
+    world.deliver({ kind: "start", text: "Pick this up here.", reply_to: world.nextChatThread() }),
   );
 }
 

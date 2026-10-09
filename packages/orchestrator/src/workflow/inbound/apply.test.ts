@@ -7,10 +7,13 @@ import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { describe, expect, it } from "bun:test";
 import { afterAppliedEvent } from "../../../test/applied-event";
 import {
+  fakeConnection,
   fakeDocumentsOf,
   seedPullRequestTask,
   seedTask,
+  sentMethods,
   type FakeRuntime,
+  type FakeSocket,
 } from "../../../test/fake-runtime";
 import { freshRuntime } from "../../../test/fresh-runtime";
 
@@ -36,6 +39,17 @@ function pageComment(commentId: string, text: string): Partial<InboundEvent> {
     bindings: [{ source: "documents_page", external_id: PAGE_ID }],
     page: { page_id: PAGE_ID, comment_id: commentId },
   };
+}
+
+const STARTING_SESSION = {
+  source: "tracker",
+  session_id: "s-start",
+  issue_id: "ENG-1",
+} as const;
+
+function authorWorksInStartingSession(workflow: FakeRuntime): void {
+  workflow.patchState({ origin: STARTING_SESSION, reply_targets: [STARTING_SESSION] });
+  seedTask(workflow, {}, { session_id: "acp-1", prompt_in_flight: 1 });
 }
 
 function hostComment(text: string, mentions: string[] = []): FetchedComment {
@@ -95,11 +109,9 @@ describe("applyEvent", () => {
         expect(result).toBe("handled");
       }));
 
-    it("answers the session that it is tracking the issue", () =>
+    it("posts nothing", () =>
       adopted(({ workflow }) => {
-        expect(workflow.posted).toEqual([
-          { type: "info", text: expect.stringMatching(/^Tracking this issue here\. Workflow /) },
-        ]);
+        expect(workflow.posted).toEqual([]);
       }));
 
     it("notes the session without a wake", () =>
@@ -428,6 +440,156 @@ describe("applyEvent", () => {
         expect(workflow.store.queue().map((row) => row.text)).toEqual([
           expect.stringContaining("- test: failure"),
         ]);
+      }));
+  });
+
+  describe("a reply in a job session whose author works", () => {
+    const forwarded = afterAppliedEvent(
+      freshRuntime,
+      { kind: "prompt", text: "also add docs", reply_to: STARTING_SESSION },
+      authorWorksInStartingSession,
+    );
+
+    it("queues the text for the author", () =>
+      forwarded(({ workflow }) => {
+        expect(workflow.store.queue().map((row) => row.text)).toEqual(["also add docs"]);
+      }));
+
+    it("posts nothing", () =>
+      forwarded(({ workflow }) => {
+        expect(workflow.posted).toEqual([]);
+      }));
+
+    it("tells the agent without a wake", () =>
+      forwarded(({ result }) => {
+        expect(result).toEqual({
+          notes: ["The author wf_x.1 got this message as a prompt. Nothing was posted."],
+          wake: "none",
+        });
+      }));
+  });
+
+  describe("a control word in a job session whose author works", () => {
+    const forwarded = afterAppliedEvent(
+      freshRuntime,
+      { kind: "prompt", text: "cancel", reply_to: STARTING_SESSION },
+      authorWorksInStartingSession,
+    );
+
+    it("goes to the author as text", () =>
+      forwarded(({ workflow }) => {
+        expect(workflow.store.queue().map((row) => row.text)).toEqual(["cancel"]);
+      }));
+
+    it("leaves the workflow and the task running", () =>
+      forwarded(({ workflow }) => {
+        expect(workflow.store.requireTask(TASK).status).toBe("working");
+        expect(workflow.state.status).not.toBe("cancelled");
+      }));
+  });
+
+  describe("a status question in a job session whose author works", () => {
+    const forwarded = afterAppliedEvent(
+      freshRuntime,
+      { kind: "status", text: "status?", reply_to: STARTING_SESSION },
+      authorWorksInStartingSession,
+    );
+
+    it("goes to the author without a wake", () =>
+      forwarded(({ workflow, result }) => {
+        expect(workflow.store.queue().map((row) => row.text)).toEqual(["status?"]);
+        expect(result).toMatchObject({ wake: "none" });
+      }));
+  });
+
+  describe("a reply in a job session whose author is in review", () => {
+    const answered = afterAppliedEvent(
+      freshRuntime,
+      { kind: "prompt", text: "what changed?", reply_to: STARTING_SESSION },
+      (workflow) => {
+        authorWorksInStartingSession(workflow);
+        workflow.store.updateTask(TASK, { status: "in_review" });
+      },
+    );
+
+    it("goes to a turn", () =>
+      answered(({ result }) => {
+        expect(result).toMatchObject({ wake: "message" });
+      }));
+
+    it("leaves the author's queue alone", () =>
+      answered(({ workflow }) => {
+        expect(workflow.store.queue()).toEqual([]);
+      }));
+  });
+
+  describe("a stop in a job session whose author runs a prompt turn", () => {
+    let socket: FakeSocket;
+    const stopped = afterAppliedEvent(
+      freshRuntime,
+      { kind: "stop", text: "", reply_to: STARTING_SESSION },
+      (workflow) => {
+        authorWorksInStartingSession(workflow);
+        socket = fakeConnection(TASK, 1);
+        workflow.sockets.push(socket.connection);
+      },
+    );
+
+    it("cancels the prompt turn", () =>
+      stopped(() => {
+        expect(sentMethods(socket)).toEqual(["session/cancel"]);
+      }));
+
+    it("keeps the task working and unpaused", () =>
+      stopped(({ workflow }) => {
+        expect(workflow.store.requireTask(TASK)).toMatchObject({
+          status: "working",
+          paused_at: null,
+        });
+      }));
+
+    it("posts nothing", () =>
+      stopped(({ workflow }) => {
+        expect(workflow.posted).toEqual([]);
+      }));
+
+    it("tells the agent without a wake", () =>
+      stopped(({ result }) => {
+        expect(result).toMatchObject({ wake: "none" });
+      }));
+  });
+
+  describe("a stop in a job session whose author is in review", () => {
+    let socket: FakeSocket;
+    const stopped = afterAppliedEvent(
+      freshRuntime,
+      { kind: "stop", text: "", reply_to: STARTING_SESSION },
+      (workflow) => {
+        authorWorksInStartingSession(workflow);
+        workflow.store.updateTask(TASK, { status: "in_review" });
+        socket = fakeConnection(TASK, 1);
+        workflow.sockets.push(socket.connection);
+      },
+    );
+
+    it("sends nothing and posts nothing", () =>
+      stopped(({ workflow, result }) => {
+        expect(sentMethods(socket)).toEqual([]);
+        expect(workflow.posted).toEqual([]);
+        expect(result).toBe("handled");
+      }));
+  });
+
+  describe("a control word that changes nothing, from a person who waits", () => {
+    const controlled = afterAppliedEvent(freshRuntime, {
+      kind: "control",
+      control: "pause",
+      reply_to: STARTING_SESSION,
+    });
+
+    it("goes to a turn that answers them", () =>
+      controlled(({ result }) => {
+        expect(result).toMatchObject({ wake: "message" });
       }));
   });
 });

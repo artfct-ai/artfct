@@ -1,7 +1,10 @@
 import type { SessionStatus } from "@artfct-ai/adapters/chat/types";
+import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { OwedReply } from "../src/agent/message/owed-reply";
 import type { TranscriptRow } from "../src/agent/transcript/transcript";
-import { RECAP_MARKER } from "../src/agent/turn/turn";
+import { RECAP_MARKER, STUCK_TEXT } from "../src/agent/turn/turn";
+import { plainText } from "../src/notify/messages";
+import type { TaskEvent } from "../src/workflow/task/events";
 import { HEADS_UP_TEXT, LOST_PLACE_TEXT, turnTimeoutText } from "../src/agent/turn/watchdog";
 
 /** How long past its timeout a turn may take to stop its work and post. */
@@ -63,6 +66,14 @@ export type AgentTurnRecord = {
   decisionsEvents: DecisionsEvent[];
   /** Every `read_channel` result the turn wrote to the transcript. */
   chatHistoryReads: ChatHistoryRead[];
+  /** True when the workflow has a chat thread. */
+  chatThread: boolean;
+  /** The tracker session the workflow started from, or null. */
+  startingSession: string | null;
+  /** The tracker sessions the people the turn answers wrote from. */
+  answering: string[];
+  /** Every channel post of the turn, with the reply targets it went to. */
+  deliveries: Array<{ event: TaskEvent; targets: ReplyTarget[] }>;
 };
 
 /**
@@ -225,12 +236,12 @@ export function aWaitingPersonHearsBackByTheTimeout(turn: AgentTurnRecord): void
 }
 
 /**
- * A turn lost with its Durable Object while a person waited is picked up again: their thread
+ * A turn lost with its Durable Object while a person waited is picked up again: their chat thread
  * hears the restart notice, and the resumed turn answers them as the lost turn would have.
  */
 export function aResumedTurnAnswersWhatItsLostTurnOwed(turn: AgentTurnRecord): void {
   if (!turn.resumedLostTurn || turn.owed === null) return;
-  if (!turn.postedTexts.includes(LOST_PLACE_TEXT)) {
+  if (turn.chatThread && !turn.postedTexts.includes(LOST_PLACE_TEXT)) {
     violated(
       "aResumedTurnAnswersWhatItsLostTurnOwed",
       "the person did not hear the restart notice",
@@ -309,6 +320,73 @@ export function aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead(
   }
 }
 
+const ASKS_AND_FAILURES: TaskEvent["type"][] = [
+  "question",
+  "artifact_ready",
+  "failed",
+  "workflow_failed",
+];
+
+function sessionsOf(targets: ReplyTarget[]): string[] {
+  return targets.flatMap((target) => (target.source === "tracker" ? [target.session_id] : []));
+}
+
+/** True for a post that answers the people who wrote, not a notice about the turn itself. */
+function isAnswer(turn: AgentTurnRecord, event: TaskEvent): boolean {
+  const text = plainText(event);
+  const notices = [
+    HEADS_UP_TEXT,
+    LOST_PLACE_TEXT,
+    STUCK_TEXT,
+    turnTimeoutText(turn.timeoutMinutes),
+  ];
+  return !notices.includes(text);
+}
+
+/**
+ * The turn arm of the session answer rule. With a chat thread, the turn's answers reach the chat
+ * threads and no session. Without one, they reach the sessions people wrote from, and a session
+ * gets a post only when a person wrote there, or as the starting session for an ask or failure.
+ */
+export function sessionMessageWithoutAnAuthorIsAnswered(turn: AgentTurnRecord): void {
+  for (const { event, targets } of turn.deliveries) {
+    const sessions = sessionsOf(targets);
+    if (turn.chatThread) {
+      if (sessions.length > 0) {
+        violated(
+          "sessionMessageWithoutAnAuthorIsAnswered",
+          `"${plainText(event)}" reached ${sessions.join(", ")} beside the chat thread`,
+        );
+      }
+      if (isAnswer(turn, event) && !targets.some((target) => target.source === "chat")) {
+        violated(
+          "sessionMessageWithoutAnAuthorIsAnswered",
+          `"${plainText(event)}" did not reach the chat thread`,
+        );
+      }
+      continue;
+    }
+    const startingAsk = ASKS_AND_FAILURES.includes(event.type) ? turn.startingSession : null;
+    const stray = sessions.filter(
+      (session) => !turn.answering.includes(session) && session !== startingAsk,
+    );
+    if (stray.length > 0) {
+      violated(
+        "sessionMessageWithoutAnAuthorIsAnswered",
+        `"${plainText(event)}" reached ${stray.join(", ")}, where nobody wrote`,
+      );
+    }
+    if (!isAnswer(turn, event)) continue;
+    const missed = turn.answering.filter((session) => !sessions.includes(session));
+    if (missed.length > 0) {
+      violated(
+        "sessionMessageWithoutAnAuthorIsAnswered",
+        `"${plainText(event)}" did not reach ${missed.join(", ")}`,
+      );
+    }
+  }
+}
+
 /** Every agent turn invariant. */
 export const AGENT_TURN_INVARIANTS = [
   closingTextAnswersOnlyAPersonWhoWrote,
@@ -324,4 +402,5 @@ export const AGENT_TURN_INVARIANTS = [
   aDecisionsCallFallsBackOnlyAfterEveryModelFailed,
   laterDecisionsCallsFallBackOnceOneFails,
   aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead,
+  sessionMessageWithoutAnAuthorIsAnswered,
 ];

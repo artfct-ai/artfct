@@ -15,9 +15,8 @@ import type { Env } from "../env";
 import { newWorkflowId } from "../ids";
 import { isWorkflowFinished } from "../workflow/store/state";
 import {
-  joinedNote,
   NOTHING_TO_JOIN,
-  ON_IT,
+  postStartingThought,
   postTrackerAck,
   trackerSessionId,
 } from "./tracker-ack";
@@ -25,9 +24,9 @@ import { deliverWithChatAck } from "./chat-ack";
 
 /**
  * Route an event to its running workflow. A `start` event that binds to nothing, or only to an
- * ended workflow, creates one. A start from a tracker agent session hears back on that session. A
- * chat message that waits longer than a few seconds gets the eyes reaction until its workflow takes
- * it. `ackTracker` is a seam for tests and defaults to the tracker over the install.
+ * ended workflow, creates one. A tracker agent session gets the starting thought before it is
+ * routed. A chat message that waits longer than a few seconds gets the eyes reaction until its
+ * workflow takes it. `ackTracker` is a seam for tests and defaults to the tracker over the install.
  */
 export async function deliver(
   env: Env,
@@ -40,25 +39,9 @@ export async function deliver(
     return deliverWithChatAck(chatClient, event, () => route(env, event));
   }
   const acking = ackTracker === undefined ? await tracker(env) : ackTracker;
-  if (!event.actor) return adoptOrRefuse(env, event, acking, sessionId);
-  await postTrackerAck(acking, sessionId, { type: "thought", body: ON_IT });
+  await postStartingThought(acking, sessionId);
   const delivery = await route(env, event);
-  if ("joined" in delivery && delivery.joined) {
-    const body = joinedNote(delivery.workflow_id);
-    await postTrackerAck(acking, sessionId, { type: "thought", body });
-  }
-  return delivery;
-}
-
-/** A session nobody opened joins silently. When nothing is there to join, it hears why. */
-async function adoptOrRefuse(
-  env: Env,
-  event: InboundEvent,
-  acking: Tracker | null,
-  sessionId: string,
-): Promise<Delivery> {
-  const delivery = await route(env, event);
-  if ("dropped" in delivery) {
+  if (!event.actor && "dropped" in delivery) {
     await postTrackerAck(acking, sessionId, { type: "error", body: NOTHING_TO_JOIN });
   }
   return delivery;

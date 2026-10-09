@@ -2,12 +2,14 @@ import type {
   InitializeResponse,
   NewSessionResponse,
   PlanEntry,
+  PromptRequest,
   PromptResponse,
   SessionNotification,
   SessionUpdate,
   StopReason,
 } from "@agentclientprotocol/sdk";
 import {
+  isNotification,
   isRequest,
   jsonRpcErrorResponse,
   jsonRpcNotification,
@@ -80,6 +82,29 @@ export class FakeBridge {
     return this.unanswered(AgentMethods.sessionPrompt) !== null;
   }
 
+  /** The text of every prompt the workflow sent over this socket. */
+  get promptTexts(): string[] {
+    return this.socket.sent.flatMap((text) => {
+      const message = parseMessage(text);
+      if (!message || !isRequest(message) || message.method !== AgentMethods.sessionPrompt) {
+        return [];
+      }
+      const { prompt } = message.params as PromptRequest;
+      return prompt.flatMap((block) => (block.type === "text" ? [block.text] : []));
+    });
+  }
+
+  /** How many cancels the workflow sent over this socket. */
+  get cancelsSent(): number {
+    return this.cancelFrames().length;
+  }
+
+  /** True when the workflow sent a cancel after the prompt whose turn runs. The turn then ends cancelled. */
+  get cancelRequested(): boolean {
+    const running = this.unanswered(AgentMethods.sessionPrompt);
+    return running !== null && this.cancelFrames().some((frame) => frame > running.frame);
+  }
+
   /** The harness streams turn text. */
   say(text: string): Promise<void> {
     return this.update({ sessionUpdate: "agent_message_chunk", content: { type: "text", text } });
@@ -132,6 +157,15 @@ export class FakeBridge {
     return (
       this.requests(method).findLast((request) => !this.answeredFrames.has(request.frame)) ?? null
     );
+  }
+
+  private cancelFrames(): number[] {
+    return this.socket.sent.flatMap((text, frame) => {
+      const message = parseMessage(text);
+      return message && isNotification(message) && message.method === AgentMethods.sessionCancel
+        ? [frame]
+        : [];
+    });
   }
 
   private requests(method: string): SentRequest[] {

@@ -29,12 +29,14 @@ async function workingThread(workflow: FakeRuntime): Promise<void> {
 describe("turn watchdog", () => {
   describe("a turn with the watchdog armed", () => {
     const armed = scenario(freshRuntime, async (workflow) => {
-      await armTurnWatchdog(workflow, []);
+      await armTurnWatchdog(workflow, { messages: [], answering: [] });
     });
 
     it("returns the start time it wrote to the state", () =>
       freshRuntime(async (workflow) => {
-        expect(await armTurnWatchdog(workflow, [])).toBe(workflow.state.turn_started_at!);
+        expect(await armTurnWatchdog(workflow, { messages: [], answering: [] })).toBe(
+          workflow.state.turn_started_at!,
+        );
       }));
 
     it("arms one alarm at the configured timeout", () =>
@@ -150,7 +152,7 @@ describe("turn watchdog", () => {
   describe("an alarm for a turn that already ended", () => {
     let first = "";
     const staleAlarm = scenario(freshRuntime, async (workflow) => {
-      first = await armTurnWatchdog(workflow, []);
+      first = await armTurnWatchdog(workflow, { messages: [], answering: [] });
       await disarmTurnWatchdog(workflow, first);
       await onTurnTimeout(workflow, { started_at: first });
     });
@@ -164,7 +166,7 @@ describe("turn watchdog", () => {
       let second = "";
       const laterTurn = scenario(staleAlarm, async (workflow) => {
         workflow.clock = workflow.now() + 1000;
-        second = await armTurnWatchdog(workflow, []);
+        second = await armTurnWatchdog(workflow, { messages: [], answering: [] });
         await onTurnTimeout(workflow, { started_at: first });
       });
 
@@ -185,7 +187,7 @@ describe("turn heads-up", () => {
   describe("a turn on a person's message", () => {
     const armed = scenario(freshRuntime, async (workflow) => {
       await workingThread(workflow);
-      await armTurnWatchdog(workflow, MESSAGES);
+      await armTurnWatchdog(workflow, { messages: MESSAGES, answering: [] });
     });
 
     it("arms the heads-up a minute in, with the turn's start time", () =>
@@ -258,7 +260,7 @@ describe("turn heads-up", () => {
         first = workflow.state.turn_started_at!;
         await disarmTurnWatchdog(workflow, first);
         workflow.clock = workflow.now() + 1000;
-        await armTurnWatchdog(workflow, MESSAGES);
+        await armTurnWatchdog(workflow, { messages: MESSAGES, answering: [] });
         await onTurnHeadsUp(workflow, { started_at: first });
       });
 
@@ -284,7 +286,7 @@ describe("turn heads-up", () => {
 
   describe("a turn nobody wrote to", () => {
     const unprompted = scenario(freshRuntime, async (workflow) => {
-      await armTurnWatchdog(workflow, []);
+      await armTurnWatchdog(workflow, { messages: [], answering: [] });
     });
 
     it("arms no heads-up", () =>
@@ -300,7 +302,7 @@ describe("resumeLostTurn", () => {
     let alarms: string[] = [];
     const lostTurn = scenario(freshRuntime, async (workflow) => {
       await workingThread(workflow);
-      await armTurnWatchdog(workflow, MESSAGES);
+      await armTurnWatchdog(workflow, { messages: MESSAGES, answering: [] });
       workflow.patchState({ turn_first_row: FIRST_ROW });
       alarms = workflow.alarms.map((alarm) => alarm.id);
       await resumeLostTurn(workflow);
@@ -334,7 +336,7 @@ describe("resumeLostTurn", () => {
     let startedAt = "";
     let resumed: boolean | undefined;
     const lostTurn = scenario(freshRuntime, async (workflow) => {
-      startedAt = await armTurnWatchdog(workflow, []);
+      startedAt = await armTurnWatchdog(workflow, { messages: [], answering: [] });
       armedAlarm = workflow.alarmsFor("onTurnTimeout")[0]!.id;
       resumed = await resumeLostTurn(workflow);
     });
@@ -408,7 +410,7 @@ describe("resumeLostTurn", () => {
     let resumed: boolean | undefined;
     const finished = scenario(freshRuntime, async (workflow) => {
       await workingThread(workflow);
-      await armTurnWatchdog(workflow, MESSAGES);
+      await armTurnWatchdog(workflow, { messages: MESSAGES, answering: [] });
       workflow.patchState({ status: "done", turn_first_row: FIRST_ROW });
       resumed = await resumeLostTurn(workflow);
     });

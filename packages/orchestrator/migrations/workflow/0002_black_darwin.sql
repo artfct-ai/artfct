@@ -1,0 +1,1 @@
+ALTER TABLE `agent_inbox` ADD `reply_to` text;

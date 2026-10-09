@@ -1,8 +1,8 @@
-import type { InboundEvent } from "@artfct-ai/contracts/inbound";
+import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { ArtifactStatus, TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
 import { ASK_WHETHER_ACCEPTED, ASK_WHICH_OPTION } from "../src/agent/tools/start/start";
 import { channelKey } from "../src/workflow/board/board";
-import type { TaskRole } from "../src/workflow/task/events";
+import type { TaskEvent, TaskRole } from "../src/workflow/task/events";
 import type { Wake, WorkflowRuntime } from "../src/workflow/types";
 
 /** One task row as an observer saw it. `ruling` is the stored ruling as text, or null. */
@@ -15,6 +15,12 @@ export type ObservedTask = {
   ruling: string | null;
   /** True when the task's latest turn ended normally and the task took no prompt since. */
   quietSinceTurnEnd: boolean;
+  /** True while a prompt turn of the task runs in its harness over an open bridge. */
+  turnRunning: boolean;
+  /** The text of every prompt queued for the task or sent to it. */
+  promptTexts: string[];
+  /** How many cancels its harness session was sent. */
+  cancelsSent: number;
 };
 
 /** One artifact row as an observer saw it. */
@@ -28,6 +34,14 @@ export type ObservedArtifact = {
 /** What an observer saw of the workflow between two actions. */
 export type Observation = {
   workflowStatus: WorkflowStatus;
+  /** True when a chat thread is among the reply targets. */
+  chatThread: boolean;
+  /** The tracker session the workflow started from, or null. */
+  startingSession: string | null;
+  /** The job session of each job, by job id. Null for a job without one. */
+  jobSessions: Record<string, string | null>;
+  /** How many outbox rows a person can read. */
+  posted: number;
   tasks: ObservedTask[];
   artifacts: ObservedArtifact[];
   /** The todo list of each task, as text. */
@@ -47,8 +61,20 @@ export type Step = {
   authorTurnEnd: { task_id: string; hostRevision: string | null } | null;
   /** Set when a person's feedback event was delivered. */
   feedback: { task_id: string } | null;
-  /** Set when an inbound event was delivered. */
-  event: { kind: InboundEvent["kind"] } | null;
+  /**
+   * Set when an inbound event was delivered. `person` is true when a person sent it, and
+   * `reply_to` is where they wait for the answer.
+   */
+  event: {
+    kind: InboundEvent["kind"];
+    text: string;
+    person: boolean;
+    reply_to: ReplyTarget | null;
+  } | null;
+  /** Every orchestrator post the step added to a tracker session, in order. */
+  sessionPosts: Array<{ session_id: string; kind: string }>;
+  /** The type of every event the step posted, wherever it went. */
+  postedTypes: TaskEvent["type"][];
   /** Set when the turn of a refiner run ended normally. */
   refinerTurnEnd: { task_id: string } | null;
   /** Set when the alarm that fired was armed for an older generation of its task. */
@@ -72,6 +98,17 @@ const JOB_ROLES: TaskRole[] = ["author", "researcher"];
 const REFINER_ROLES: TaskRole[] = ["reviewer", "polisher"];
 
 const FINISHED_WORKFLOW: WorkflowStatus[] = ["done", "failed", "cancelled"];
+
+const RUNNING_AUTHOR: TaskStatus[] = ["queued", "provisioning", "working"];
+
+const ASKS_AND_FAILURES: TaskEvent["type"][] = [
+  "question",
+  "artifact_ready",
+  "failed",
+  "workflow_failed",
+];
+
+const SESSION_MESSAGES: InboundEvent["kind"][] = ["prompt", "status"];
 
 const ARTIFACT_MOVES: Array<[ArtifactStatus, ArtifactStatus]> = [
   ["drafted", "ready"],
@@ -466,4 +503,148 @@ export function staleAlarmIsIgnored(_workflow: WorkflowRuntime, step: Step): voi
   if (step.notes.length > 0) {
     violated("staleAlarmIsIgnored", `a stale alarm of ${task_id} told the agent something`);
   }
+}
+
+/** The tracker session a person wrote the step's event in, or null. */
+function sessionOfPerson(step: Step): string | null {
+  const event = step.event;
+  if (!event?.person || event.reply_to?.source !== "tracker") return null;
+  return event.reply_to.session_id;
+}
+
+/** The one author that ran before the step in the session a person wrote in, or null. */
+function runningAuthorBefore(step: Step): ObservedTask | null {
+  const session = sessionOfPerson(step);
+  if (!session) return null;
+  const running = step.before.tasks.filter(
+    (task) =>
+      task.role === "author" &&
+      RUNNING_AUTHOR.includes(task.status) &&
+      step.before.jobSessions[task.job_id] === session,
+  );
+  return running.length === 1 ? running[0]! : null;
+}
+
+function occurrences(texts: string[], text: string): number {
+  return texts.filter((candidate) => candidate === text).length;
+}
+
+/** While a chat thread exists, the orchestrator posts nothing in a tracker session. */
+export function orchestratorStaysOutOfSessionsWhenChatExists(
+  _workflow: WorkflowRuntime,
+  step: Step,
+): void {
+  if (!step.before.chatThread || step.sessionPosts.length === 0) return;
+  const posts = step.sessionPosts.map((post) => `${post.kind} in ${post.session_id}`);
+  violated("orchestratorStaysOutOfSessionsWhenChatExists", `posted ${posts.join(", ")}`);
+}
+
+/**
+ * In a workflow without a chat thread, the starting session gets every ask and failure notice
+ * and nothing else. A session gets an answer only when a person wrote there.
+ */
+export function linearOnlyAsksReachTheStartingSession(
+  _workflow: WorkflowRuntime,
+  step: Step,
+): void {
+  const starting = step.before.startingSession;
+  if (step.before.chatThread || step.after.chatThread || !starting) return;
+  const answered = sessionOfPerson(step);
+  const asks = step.postedTypes.filter((type) => ASKS_AND_FAILURES.includes(type)).length;
+  const toStarting = step.sessionPosts.filter((post) => post.session_id === starting).length;
+  if (toStarting < asks) {
+    violated(
+      "linearOnlyAsksReachTheStartingSession",
+      `${asks} asks or failures posted and ${toStarting} reached the starting session`,
+    );
+  }
+  if (answered !== starting && toStarting > asks) {
+    violated(
+      "linearOnlyAsksReachTheStartingSession",
+      `${toStarting} posts reached the starting session for ${asks} asks or failures`,
+    );
+  }
+  const elsewhere = step.sessionPosts.filter(
+    (post) => post.session_id !== starting && post.session_id !== answered,
+  );
+  if (elsewhere.length > 0) {
+    violated(
+      "linearOnlyAsksReachTheStartingSession",
+      `posted in ${elsewhere.map((post) => post.session_id).join(", ")}, where nobody wrote`,
+    );
+  }
+}
+
+/**
+ * A person's message in a job session whose author runs goes to that author as a prompt. Nothing
+ * is posted, and no agent turn wakes for it.
+ */
+export function sessionMessageReachesItsRunningAuthorSilently(
+  _workflow: WorkflowRuntime,
+  step: Step,
+): void {
+  const event = step.event;
+  if (!event || !SESSION_MESSAGES.includes(event.kind)) return;
+  const author = runningAuthorBefore(step);
+  if (!author) return;
+  const after = step.after.tasks.find((task) => task.task_id === author.task_id);
+  const held = occurrences(after?.promptTexts ?? [], event.text);
+  if (held <= occurrences(author.promptTexts, event.text)) {
+    violated(
+      "sessionMessageReachesItsRunningAuthorSilently",
+      `${author.task_id} did not get "${event.text}"`,
+    );
+  }
+  if (step.after.posted !== step.before.posted) {
+    violated("sessionMessageReachesItsRunningAuthorSilently", "the message got a post");
+  }
+  if (step.notes.some((note) => note.wake === "message")) {
+    violated("sessionMessageReachesItsRunningAuthorSilently", "the message woke an agent turn");
+  }
+}
+
+/**
+ * A person's message in a session whose author does not run gets an answer: an agent turn wakes
+ * for it, or code posts the reply in the chat thread, or in that session without a chat thread.
+ */
+export function sessionMessageWithoutAnAuthorIsAnswered(
+  _workflow: WorkflowRuntime,
+  step: Step,
+): void {
+  const event = step.event;
+  const session = sessionOfPerson(step);
+  if (!event || !session || !SESSION_MESSAGES.includes(event.kind)) return;
+  if (runningAuthorBefore(step)) return;
+  if (step.notes.some((note) => note.wake === "message")) return;
+  const posted = step.after.posted > step.before.posted;
+  const reachedThem = step.after.chatThread
+    ? posted
+    : step.sessionPosts.some((post) => post.session_id === session);
+  if (reachedThem) return;
+  violated(
+    "sessionMessageWithoutAnAuthorIsAnswered",
+    `a ${event.kind} in ${session} got neither a turn nor a reply`,
+  );
+}
+
+/**
+ * A stop in a job session whose author runs a prompt turn sends that author's harness session a
+ * cancel. A stop never changes the workflow status and never posts.
+ */
+export function sessionStopReachesItsRunningAuthor(_workflow: WorkflowRuntime, step: Step): void {
+  if (step.event?.kind !== "stop") return;
+  if (step.after.workflowStatus !== step.before.workflowStatus) {
+    violated(
+      "sessionStopReachesItsRunningAuthor",
+      `the workflow went from ${step.before.workflowStatus} to ${step.after.workflowStatus}`,
+    );
+  }
+  if (step.after.posted !== step.before.posted || step.sessionPosts.length > 0) {
+    violated("sessionStopReachesItsRunningAuthor", "the stop got a post");
+  }
+  const author = runningAuthorBefore(step);
+  if (!author?.turnRunning) return;
+  const after = step.after.tasks.find((task) => task.task_id === author.task_id);
+  if ((after?.cancelsSent ?? 0) > author.cancelsSent) return;
+  violated("sessionStopReachesItsRunningAuthor", `${author.task_id} was not sent a cancel`);
 }

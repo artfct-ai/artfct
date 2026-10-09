@@ -22,7 +22,11 @@ const resolveEveryoneButTheApp: TrackerActorResolver = (user) =>
 
 const WEBHOOK_ID = "w1";
 
-function session(action: "created" | "prompted", body?: string): AgentSessionPayload {
+function session(
+  action: "created" | "prompted",
+  body?: string,
+  signal?: string,
+): AgentSessionPayload {
   return {
     type: "AgentSessionEvent",
     action,
@@ -39,7 +43,7 @@ function session(action: "created" | "prompted", body?: string): AgentSessionPay
         team: { id: "t1" },
       },
     },
-    agentActivity: body === undefined ? null : { content: { type: "prompt", body } },
+    agentActivity: body === undefined ? null : { content: { type: "prompt", body }, signal },
   };
 }
 
@@ -236,6 +240,38 @@ describe("linear agent sessions", () => {
     it("becomes a status", async () => {
       const { event } = expectEvent(await linearInbound(session("prompted", "status?"), context));
       expect(event.kind).toBe("status");
+    });
+  });
+
+  describe("a prompt sent with the Stop button", () => {
+    let event: InboundEvent;
+
+    beforeEach(async () => {
+      event = expectEvent(await linearInbound(session("prompted", "Stop", "stop"), context)).event;
+    });
+
+    it("becomes a stop", () => {
+      expect(event.kind).toBe("stop");
+    });
+
+    it("replies on its session", () => {
+      expect(event.reply_to).toEqual({
+        source: "tracker",
+        session_id: "sess1",
+        issue_id: "iss1",
+        team_id: "t1",
+      });
+    });
+
+    it("names whoever pressed it as the actor", () => {
+      expect(event.actor?.person_id).toBe("p_u1");
+    });
+  });
+
+  describe("a prompt with a signal other than stop", () => {
+    it("stays a prompt", async () => {
+      const normalized = await linearInbound(session("prompted", "ship it", "continue"), context);
+      expect(expectEvent(normalized).event.kind).toBe("prompt");
     });
   });
 

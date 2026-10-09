@@ -1,11 +1,13 @@
 import { env } from "cloudflare:workers";
+import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 import { describe, expect, it } from "vitest";
 import { listBindings } from "../db/bindings";
 import { createDb } from "../db/client";
 import { type FakeRuntime, seedTask } from "../../test/fake-runtime";
+import { testNotifier } from "../../test/notifier-fixture";
 import { freshDurableRuntime } from "../../test/durable-runtime";
 import { type Scenario, scenario } from "../../test/scenario";
-import { cancelTask, completeJob, failTask, startJob } from "./lifecycle";
+import { cancelTask, completeJob, completeWorkflow, failTask, startJob } from "./lifecycle";
 import { jobInputKey } from "./store/input-key";
 
 const TASK = "wf_x.1";
@@ -441,4 +443,28 @@ describe("startJob", () => {
         );
       }));
   });
+});
+
+describe("completeWorkflow", () => {
+  const tracker = new FakeTracker();
+  const completed = scenario(freshDurableRuntime, async (workflow) => {
+    workflow.notifier = testNotifier([], { tracker });
+    workflow.patchState({
+      reply_targets: [
+        { source: "chat", channel: "C1", thread: "1.0" },
+        { source: "tracker", session_id: "sess-1", issue_id: "issue-1", team_id: "team-1" },
+      ],
+    });
+    await completeWorkflow(workflow, "Merged.");
+  });
+
+  it("moves the issue of each session to the completed state", () =>
+    completed(() => {
+      expect(tracker.argsOf("updateIssue")).toEqual([["issue-1", { stateId: "st-done" }]]);
+    }));
+
+  it("posts the result in the chat thread and not in the session", () =>
+    completed(() => {
+      expect(tracker.argsOf("activity")).toEqual([]);
+    }));
 });

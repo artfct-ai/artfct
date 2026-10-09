@@ -24,6 +24,8 @@ export type AgentSessionPayload = {
   agentActivity?: {
     id?: string;
     content?: { type?: string; body?: string };
+    /** Set when the activity asks something of the agent beyond its text. `stop` is the Stop button. */
+    signal?: string | null;
     user?: ExternalUser | null;
     userId?: string | null;
     sourceCommentId?: string;

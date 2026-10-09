@@ -1,9 +1,13 @@
+import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { ModelMessage } from "ai";
 import { asc, lte } from "drizzle-orm";
 import type { WorkflowDb } from "../../workflow/store/db";
 import type { Wake } from "../../workflow/types";
 import { agentInbox, transcript } from "../../workflow/store/schema";
 import { now } from "../../workflow/store/state";
+
+/** One inbox row. `reply_to` is where the person who wrote it waits, or null. */
+export type InboxRow = typeof agentInbox.$inferSelect;
 
 /** One persisted model message with its row id. Compaction cuts on ids. */
 export type TranscriptRow = { id: number; at: string; message: ModelMessage };
@@ -15,11 +19,15 @@ export type TranscriptRow = { id: number; at: string; message: ModelMessage };
 export class TranscriptStore {
   constructor(private db: WorkflowDb) {}
 
-  enqueue(text: string, wake: Wake): void {
-    this.db.insert(agentInbox).values({ at: now(), text, wake }).run();
+  /** Queue text for the next turn. `from` is where the person who wrote it waits for the answer. */
+  enqueue(text: string, wake: Wake, from?: ReplyTarget): void {
+    this.db
+      .insert(agentInbox)
+      .values({ at: now(), text, wake, reply_to: from ?? null })
+      .run();
   }
 
-  inbox(): Array<{ id: number; at: string; text: string; wake: Wake }> {
+  inbox(): InboxRow[] {
     return this.db.select().from(agentInbox).orderBy(asc(agentInbox.id)).all();
   }
 

@@ -50,6 +50,11 @@ export type WorkflowState = {
    */
   turn_messages?: string[];
   /**
+   * Where the people the running turn answers wrote from. A lost turn leaves them for the turn
+   * that resumes it. Empty once a turn ends. Absent in a workflow stored before this field.
+   */
+  turn_answering?: ReplyTarget[];
+  /**
    * The id of the running turn's first transcript row, or the lost turn's in a resumed turn.
    * Compaction keeps it and every row after it. Null once a turn ends. Absent in a workflow
    * stored before this field.
@@ -80,6 +85,7 @@ export const initialWorkflowState: WorkflowState = {
   turn_watchdog: null,
   turn_heads_up: null,
   turn_messages: [],
+  turn_answering: [],
   turn_first_row: null,
   idle_alarm: null,
 };

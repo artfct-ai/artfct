@@ -23,6 +23,7 @@ import type { TranscriptRow } from "../transcript/transcript";
 import { estimatedTokens } from "../transcript/transcript-size";
 import { TURN_PURPOSE } from "../model/usage";
 import type { TurnDecisions } from "../../decisions/ask";
+import { hasChatThread, turnRecipients } from "../../notify/recipients";
 import { armTurnWatchdog, disarmTurnWatchdog, turnTimeoutText } from "./watchdog";
 
 /** Posted when the model failed twice. */
@@ -34,7 +35,10 @@ const FLOOR_SHARE = 0.25;
 export const RECAP_MARKER = "[recap of the earlier conversation]";
 /** Tools whose message ends the turn. */
 const TURN_ENDING_TOOLS = [STAY_SILENT, ASK, TELL, FINISH_WORKFLOW, FAIL_WORKFLOW];
-/** Tools whose effect is the reply to a request for work. The board changes, and that is the answer. */
+/**
+ * Tools whose effect is the reply to a request for work. The board changes, and that is the
+ * answer. A workflow without a chat thread has no board, so they are no answer there.
+ */
 const REPLYING_TOOLS = [START_JOB, PROMPT_TASK];
 /** Queued for the model when a person's turn ended with nothing for them. */
 export const UNANSWERED_TEXT =
@@ -91,9 +95,13 @@ export async function runAgentTurn(workflow: WorkflowRuntime): Promise<void> {
     ...(workflow.state.turn_messages ?? []),
     ...inbox.filter((row) => row.wake === "message").map((row) => eventBody(row.text)),
   ];
+  const answering = [
+    ...(workflow.state.turn_answering ?? []),
+    ...inbox.flatMap((row) => (row.wake === "message" && row.reply_to ? [row.reply_to] : [])),
+  ];
   const prompts = messages.length ? messages : inbox.map((row) => row.text);
   workflow.log(null, `agent turn started${messages.length ? " on a person's message" : ""}`);
-  const startedAt = await armTurnWatchdog(workflow, messages);
+  const startedAt = await armTurnWatchdog(workflow, { messages, answering });
   const drainedRow = workflow.transcript.drainInbox();
   const firstRow = workflow.state.turn_first_row ?? drainedRow;
   workflow.patchState({ turn_first_row: firstRow });
@@ -225,7 +233,7 @@ async function generate(
     workflow.log(null, `closing text not posted, ${withheld}: ${pass.text.slice(0, 200)}`);
     return "silent";
   }
-  await workflow.post({ type: "info", text: pass.text });
+  await workflow.post({ type: "info", text: pass.text }, turnRecipients(workflow.state));
   return "replied";
 }
 
@@ -271,9 +279,8 @@ async function modelPass(
       for (const call of step.toolCalls) {
         workflow.log(null, `agent: ${call.toolName} ${JSON.stringify(call.input).slice(0, 300)}`);
         if (endingTools.includes(call.toolName)) pass.endedByTool = true;
-        if (REPLYING_TOOLS.includes(call.toolName) && !failed.has(call.toolName)) {
-          progress.boardChanged = true;
-        }
+        const repliedByTool = REPLYING_TOOLS.includes(call.toolName) && !failed.has(call.toolName);
+        if (repliedByTool && hasChatThread(workflow.state)) progress.boardChanged = true;
       }
       for (const error of step.toolErrors) {
         workflow.log(null, `agent: ${error.toolName} failed: ${error.error}`);
