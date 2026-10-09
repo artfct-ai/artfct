@@ -203,9 +203,9 @@ describe("Notifier.linkChatThread", () => {
       expect(chat.calls).toEqual([{ method: "permalink", args: ["C1", "1.2"] }]);
     });
 
-    it("attaches that link to the issue", () => {
+    it("syncs that thread into the issue", () => {
       expect(tracker.calls).toEqual([
-        { method: "attachUrl", args: ["issue-1", "https://acme.slack.com/archives/C1/p12"] },
+        { method: "syncChatThread", args: ["issue-1", "https://acme.slack.com/archives/C1/p12"] },
       ]);
     });
 
@@ -249,7 +249,7 @@ describe("Notifier.linkChatThread", () => {
       await testNotifier(outbox, { tracker }).linkChatThread(issue, thread);
     });
 
-    it("attaches nothing, since there is no link to read", () => {
+    it("syncs nothing, since there is no link to read", () => {
       expect(tracker.calls).toEqual([]);
     });
 

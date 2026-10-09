@@ -325,24 +325,59 @@ describe("LinearTracker writes", () => {
     });
   });
 
-  describe("attachUrl", () => {
-    let calls: Call[];
+  describe("syncChatThread", () => {
+    const threadUrl = "https://slack.test/archives/C1/p17";
+    const linked = { success: true, lastSyncId: 1, attachment: { id: "a1" } };
 
-    beforeEach(async () => {
-      calls = fakeLinear({
-        attachmentLinkURL: {
-          attachmentLinkURL: { success: true, lastSyncId: 1, attachment: { id: "a1" } },
-        },
+    describe("on a thread that syncs nowhere yet", () => {
+      let calls: Call[];
+
+      beforeEach(async () => {
+        calls = fakeLinear({ attachmentLinkSlack: { attachmentLinkSlack: linked } });
+        await new LinearTracker("lin_api_x").syncChatThread("i1", threadUrl);
       });
-      await new LinearTracker("lin_api_x").attachUrl("i1", "https://slack.test/archives/C1/p17");
+
+      it("syncs the thread into the issue comments in one mutation", () => {
+        expect(calls.map((call) => call.operation)).toEqual(["attachmentLinkSlack"]);
+        expect(calls[0]?.variables).toEqual({
+          issueId: "i1",
+          url: threadUrl,
+          syncToCommentThread: true,
+        });
+      });
     });
 
-    it("links the URL to the issue in one mutation", () => {
-      expect(calls).toHaveLength(1);
-      expect(calls[0]?.variables).toEqual({
-        issueId: "i1",
-        url: "https://slack.test/archives/C1/p17",
+    describe("on a thread that already syncs into another issue", () => {
+      let calls: Call[];
+
+      beforeEach(async () => {
+        calls = fakeLinear({
+          attachmentLinkSlack: {
+            errors: [{ message: "Message already synced", extensions: { code: "INPUT_ERROR" } }],
+          },
+          attachmentLinkURL: { attachmentLinkURL: linked },
+        });
+        await new LinearTracker("lin_api_x").syncChatThread("i2", threadUrl);
       });
+
+      it("links the thread to the issue instead", () => {
+        expect(calls.map((call) => call.operation)).toEqual([
+          "attachmentLinkSlack",
+          "attachmentLinkURL",
+        ]);
+        expect(calls[1]?.variables).toEqual({ issueId: "i2", url: threadUrl });
+      });
+    });
+
+    it("throws any other refusal without linking", async () => {
+      const calls = fakeLinear({
+        attachmentLinkSlack: { errors: [{ message: "Entity not found: Issue" }] },
+        attachmentLinkURL: { attachmentLinkURL: linked },
+      });
+      await expect(
+        new LinearTracker("lin_api_x").syncChatThread("i3", threadUrl),
+      ).rejects.toThrow();
+      expect(calls.map((call) => call.operation)).toEqual(["attachmentLinkSlack"]);
     });
   });
 

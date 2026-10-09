@@ -392,6 +392,24 @@ describe("startJob", () => {
       }));
   });
 
+  describe("a second job on an issue a chat request already linked", () => {
+    const claimedAgain = acting(async (workflow) => {
+      planned(workflow);
+      workflow.patchState({ origin: { source: "chat", channel: "C1", thread: "1.2" } });
+      const input = { kind: "issue", issue: ISSUE } as const;
+      await startJob(workflow, { stage: "implement", brief: "Fix it.", input });
+      return startJob(workflow, { stage: "implement", brief: "Fix it again.", input });
+    });
+
+    it("links the chat thread to the issue once", () =>
+      claimedAgain(({ workflow }) => {
+        const links = workflow.store
+          .outbox()
+          .filter((entry) => entry.kind === "attach_chat_thread");
+        expect(links).toHaveLength(1);
+      }));
+  });
+
   describe("a job that claims an issue for a request that came from the tracker", () => {
     const claimed = acting((workflow) => {
       planned(workflow);

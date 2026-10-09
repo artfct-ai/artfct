@@ -186,7 +186,7 @@ export class Notifier {
   }
 
   /**
-   * Attach a chat thread to the issue a task claimed, so a reader of the issue finds the work.
+   * Sync a chat thread into the issue a task claimed, so the issue's comments carry the thread.
    * Recorded in the outbox, errors included. Never throws.
    */
   async linkChatThread(issue: IssueRef, target: ChatTarget): Promise<void> {
@@ -202,7 +202,7 @@ export class Notifier {
       const tracker = await this.tracker();
       if (!tracker) return;
       const url = await chat.permalink(target.channel, target.thread);
-      await tracker.attachUrl(issue.issue_id, url);
+      await tracker.syncChatThread(issue.issue_id, url);
     } catch (error) {
       this.outbox({
         channel: "tracker",

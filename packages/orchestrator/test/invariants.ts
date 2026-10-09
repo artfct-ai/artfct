@@ -236,6 +236,35 @@ export function nothingReopensAFinishedWorkflow(_workflow: WorkflowRuntime, step
   }
 }
 
+/**
+ * In a workflow that started from a chat thread, every issue a job works on gets exactly one link
+ * request to that thread. A workflow that started in the tracker sends none.
+ */
+export function eachIssueLinksTheChatThreadOnce(workflow: WorkflowRuntime): void {
+  const linkedIssues = workflow.store
+    .outbox()
+    .filter((row) => row.kind === "attach_chat_thread")
+    .map((row) => (row.target as { issue_id: string }).issue_id);
+  if (workflow.state.origin?.source !== "chat") {
+    if (linkedIssues.length > 0) {
+      violated("eachIssueLinksTheChatThreadOnce", `linked ${linkedIssues.join(", ")} without one`);
+    }
+    return;
+  }
+  const workedIssues = new Set(workflow.store.jobs().flatMap((job) => job.issue_id ?? []));
+  for (const issue of workedIssues) {
+    const links = occurrences(linkedIssues, issue);
+    if (links !== 1) {
+      violated("eachIssueLinksTheChatThreadOnce", `${issue} got ${links} link requests`);
+    }
+  }
+  for (const issue of linkedIssues) {
+    if (!workedIssues.has(issue)) {
+      violated("eachIssueLinksTheChatThreadOnce", `${issue} was linked without a job on it`);
+    }
+  }
+}
+
 /** Every board lives in a chat thread the workflow replies to. A tracker session never holds one. */
 export function boardsLiveOnlyInChat(workflow: WorkflowRuntime): void {
   const threads = new Set(
