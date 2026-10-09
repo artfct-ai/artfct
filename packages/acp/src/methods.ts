@@ -26,6 +26,12 @@ export const BridgeMethods = {
   log: "bridge/log",
 } as const;
 
+/**
+ * Text frames that keep an idle bridge socket open. The bridge sends the request on an interval.
+ * The orchestrator answers with the response without waking its Durable Object.
+ */
+export const BridgeHeartbeat = { request: "bridge/ping", response: "bridge/pong" } as const;
+
 /** What the bridge reports about itself on every connect. */
 export type BridgeHelloParams = { fresh: boolean; harness: string; generation: number };
 

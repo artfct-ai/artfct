@@ -1,14 +1,19 @@
-import { isNotification, jsonRpcNotification, type JsonRpcMessage } from "@artfct-ai/acp/jsonrpc";
-import { BridgeMethods } from "@artfct-ai/acp/methods";
+import {
+  isNotification,
+  jsonRpcNotification,
+  parseMessage,
+  type JsonRpcMessage,
+} from "@artfct-ai/acp/jsonrpc";
+import { BridgeHeartbeat, BridgeMethods } from "@artfct-ai/acp/methods";
 import { afterEach, beforeEach, describe, expect, it, jest } from "bun:test";
 import { advanceTimersAsync } from "../test/advance-timers";
 import { backoffDelay } from "./backoff";
-import { ServerConnection } from "./server-connection";
+import { HEARTBEAT_INTERVAL_MS, ServerConnection } from "./server-connection";
 import { SOCKET_OPEN, type SocketHandlers, type SocketLike } from "./socket";
 
 class FakeSocket implements SocketLike {
   readyState = 0;
-  sent: JsonRpcMessage[] = [];
+  frames: string[] = [];
   closed = false;
 
   constructor(
@@ -18,7 +23,15 @@ class FakeSocket implements SocketLike {
   ) {}
 
   send(data: string): void {
-    this.sent.push(JSON.parse(data) as JsonRpcMessage);
+    this.frames.push(data);
+  }
+
+  get sent(): JsonRpcMessage[] {
+    return this.frames.flatMap((frame) => parseMessage(frame) ?? []);
+  }
+
+  get heartbeats(): number {
+    return this.frames.filter((frame) => frame === BridgeHeartbeat.request).length;
   }
 
   close(): void {
@@ -242,6 +255,65 @@ describe("ServerConnection", () => {
 
       it("leaves the delivered message on the socket that carried it", () => {
         expect(methodsOf(sockets[0]!)).toEqual([BridgeMethods.hello, "a"]);
+      });
+    });
+  });
+
+  describe("an open socket", () => {
+    beforeEach(() => {
+      sockets[0]!.open();
+    });
+
+    it("sends no heartbeat before the interval", async () => {
+      await advanceTimersAsync(HEARTBEAT_INTERVAL_MS - 1);
+      expect(sockets[0]!.heartbeats).toBe(0);
+    });
+
+    it("sends a heartbeat on each interval", async () => {
+      await advanceTimersAsync(HEARTBEAT_INTERVAL_MS * 3);
+      expect(sockets[0]!.heartbeats).toBe(3);
+    });
+
+    it("drops the heartbeat response", () => {
+      sockets[0]!.serverMessage(BridgeHeartbeat.response);
+      expect(received).toEqual([]);
+    });
+
+    describe("after the server closes it", () => {
+      beforeEach(async () => {
+        await advanceTimersAsync(HEARTBEAT_INTERVAL_MS);
+        sockets[0]!.serverClose(1006);
+        await advanceTimersAsync(HEARTBEAT_INTERVAL_MS * 3);
+      });
+
+      it("sends no more heartbeats on it", () => {
+        expect(sockets[0]!.heartbeats).toBe(1);
+      });
+
+      describe("and the redialed socket opens", () => {
+        beforeEach(async () => {
+          sockets[1]!.open();
+          await advanceTimersAsync(HEARTBEAT_INTERVAL_MS * 2);
+        });
+
+        it("sends heartbeats on the new socket", () => {
+          expect(sockets[1]!.heartbeats).toBe(2);
+        });
+
+        it("sends none on the old socket", () => {
+          expect(sockets[0]!.heartbeats).toBe(1);
+        });
+      });
+    });
+
+    describe("after the bridge stops the connection", () => {
+      beforeEach(async () => {
+        connection.stop();
+        await advanceTimersAsync(HEARTBEAT_INTERVAL_MS * 3);
+      });
+
+      it("sends no heartbeat", () => {
+        expect(sockets[0]!.heartbeats).toBe(0);
       });
     });
   });

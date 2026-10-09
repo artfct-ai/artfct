@@ -6,6 +6,7 @@ import type { Documents } from "@artfct-ai/adapters/documents/types";
 import type { Tracker } from "@artfct-ai/adapters/tracker/types";
 import type { Web } from "@artfct-ai/adapters/web/types";
 import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
+import { BridgeHeartbeat } from "@artfct-ai/acp/methods";
 import type { ArtifactKind, RpcAck, WorkflowSummary } from "@artfct-ai/contracts/types";
 import type { Artifact } from "./artifact/types";
 import type { Config } from "./config/config";
@@ -164,6 +165,14 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
   connectedMcpCredential: string | null = null;
   /** The outside world. Tests swap entries for fakes. */
   services: WorkflowServices = { ...defaultServices };
+
+  /** Answer the bridge heartbeat from the runtime, so an idle socket stays open without waking the DO. */
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    ctx.setWebSocketAutoResponse(
+      new WebSocketRequestResponsePair(BridgeHeartbeat.request, BridgeHeartbeat.response),
+    );
+  }
 
   /** Migrate storage, build the stores and the notifier, then pick up any turn this DO lost. */
   async onStart(): Promise<void> {

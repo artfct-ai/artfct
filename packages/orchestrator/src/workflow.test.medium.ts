@@ -1,6 +1,6 @@
 import { bridgeTokenHeaders } from "@artfct-ai/acp/bridge-token";
 import { jsonRpcNotification } from "@artfct-ai/acp/jsonrpc";
-import { BridgeMethods, type BridgeHelloParams } from "@artfct-ai/acp/methods";
+import { BridgeHeartbeat, BridgeMethods, type BridgeHelloParams } from "@artfct-ai/acp/methods";
 import type { ConnectionContext } from "agents";
 import { runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
@@ -16,37 +16,62 @@ const FIXED_NOW = Date.UTC(2026, 8, 3, 12, 0, 0);
 type TaskFixture = { workflow: Workflow; name: string; taskId: string; socket: FakeSocket };
 
 let opened = 0;
+
+async function seedProvisioningTask(workflow: Workflow, name: string): Promise<string> {
+  await workflow.status();
+  workflow.patchState({ workflow_id: name, status: "running" });
+  const taskId = `${name}.1`;
+  const jobId = `${name}-1`;
+  workflow.store.insertJob({
+    job_id: jobId,
+    stage: "design",
+    issue_id: null,
+    issue_key: null,
+    input_key: null,
+    preceding_job_id: null,
+    branch: null,
+    brief: "",
+  });
+  workflow.store.insertTask({
+    task_id: taskId,
+    job_id: jobId,
+    role: "author",
+    sandbox: { harness: "opencode", bridge_token: "secret" },
+    model: "mock",
+  });
+  workflow.store.updateTask(taskId, { status: "provisioning" });
+  workflow.store.updateSandbox(taskId, { generation: 1 });
+  return taskId;
+}
+
 const provisioningTask: Scenario<TaskFixture> = async (run) => {
   opened += 1;
   const name = `wf_medium_${opened}`;
   const stub = env.Workflow.getByName(name);
   await runInDurableObject(stub, async (workflow) => {
-    await workflow.status();
-    workflow.patchState({ workflow_id: name, status: "running" });
-    const taskId = `${name}.1`;
-    const jobId = `${name}-1`;
-    workflow.store.insertJob({
-      job_id: jobId,
-      stage: "design",
-      issue_id: null,
-      issue_key: null,
-      input_key: null,
-      preceding_job_id: null,
-      branch: null,
-      brief: "",
-    });
-    workflow.store.insertTask({
-      task_id: taskId,
-      job_id: jobId,
-      role: "author",
-      sandbox: { harness: "opencode", bridge_token: "secret" },
-      model: "mock",
-    });
-    workflow.store.updateTask(taskId, { status: "provisioning" });
-    workflow.store.updateSandbox(taskId, { generation: 1 });
+    const taskId = await seedProvisioningTask(workflow, name);
     await run({ workflow, name, taskId, socket: fakeConnection(taskId, 1) });
   });
 };
+
+async function openBridgeSocket(): Promise<WebSocket> {
+  opened += 1;
+  const name = `wf_medium_${opened}`;
+  const stub = env.Workflow.getByName(name);
+  const taskId = await runInDurableObject(stub, (workflow) => seedProvisioningTask(workflow, name));
+  const response = await stub.fetch(`https://do/bridge/${name}/${taskId}`, {
+    headers: { upgrade: "websocket", ...bridgeTokenHeaders("secret") },
+  });
+  if (!response.webSocket) throw new Error(`the bridge dial answered ${response.status}`);
+  response.webSocket.accept();
+  return response.webSocket;
+}
+
+function nextFrame(socket: WebSocket): Promise<unknown> {
+  return new Promise((resolve) => {
+    socket.addEventListener("message", (event) => resolve(event.data), { once: true });
+  });
+}
 type McpFixture = { workflow: Workflow; requests: Request[]; tools: string[] };
 
 const connectedMcp: Scenario<McpFixture> = async (run) => {
@@ -194,6 +219,16 @@ describe("Workflow", () => {
         provisioningTask(({ workflow }) => {
           expect(() => workflow.validateStateChange(workflow.state, "server")).not.toThrow();
         }));
+    });
+
+    describe("a heartbeat on an open socket", () => {
+      it("is answered by the Durable Object", async () => {
+        const socket = await openBridgeSocket();
+        const answer = nextFrame(socket);
+        socket.send(BridgeHeartbeat.request);
+        expect(await answer).toBe(BridgeHeartbeat.response);
+        socket.close();
+      });
     });
 
     describe("a dial with the wrong token", () => {
