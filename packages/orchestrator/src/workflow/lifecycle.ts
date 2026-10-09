@@ -222,11 +222,14 @@ export async function completeJob(
   return { running, slots: Math.max(0, workflow.state.concurrency - running) };
 }
 
-/** The agent says the work is complete. The channels hear the result. */
+/** The agent says the work is complete. The channels hear the result. Each session's issue completes. */
 export async function completeWorkflow(workflow: WorkflowRuntime, result: string): Promise<void> {
   await changeWorkflowStatus(workflow, "done");
   workflow.log(null, `finished: ${result}`);
   await workflow.post({ type: "done", result });
+  for (const target of workflow.state.reply_targets) {
+    if (target.source === "tracker") await workflow.notifier.moveIssue(target, "completed");
+  }
   await unbindCodeHost(workflow);
 }
 

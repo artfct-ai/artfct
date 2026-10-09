@@ -1,6 +1,6 @@
 /**
  * Step 10. The workflow's own issue moves to Canceled in Linear. The workflow ends, its task
- * is cancelled, and the sandbox is destroyed.
+ * is cancelled, the sandbox is destroyed, and the Linear session does not hear about it.
  */
 import { fetchWorkflowDebug, hasOutboxMessage, outboxText, taskById, waitUntil } from "../admin";
 import { assert } from "../assert";
@@ -40,14 +40,11 @@ export async function runLinearCancel(options: CreatedWorkflow): Promise<void> {
     return done ? debug : null;
   });
   assert(
-    hasOutboxMessage(
+    !hasOutboxMessage(
       cancelled,
-      (message) =>
-        message.channel === "tracker" &&
-        message.kind === "response" &&
-        outboxText(message).startsWith("Cancelled."),
+      (message) => message.channel === "tracker" && outboxText(message).startsWith("Cancelled."),
     ),
-    "cancellation posted to the Linear session",
+    "the cancellation stays out of the Linear session",
     cancelled.outbox,
   );
   const exit = await waitForSandboxDestroyed(taskId, "/destroy reached the mock sandbox");

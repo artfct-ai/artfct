@@ -478,6 +478,7 @@ export function agentSessionPrompted(options: {
   creator: LinearUserFixture;
   issue: LinearIssueFixture;
   body: string;
+  signal?: "stop";
 }): Record<string, unknown> {
   const activityId = `act-${crypto.randomUUID()}`;
   return {
@@ -492,7 +493,7 @@ export function agentSessionPrompted(options: {
       agentSessionId: options.sessionId,
       sourceCommentId: `cmt-${activityId}`,
       content: { type: "prompt", body: options.body },
-      signal: null,
+      signal: options.signal ?? null,
     },
     guidance: null,
     promptContext: null,

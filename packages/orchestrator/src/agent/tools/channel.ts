@@ -1,5 +1,6 @@
 import { tool } from "ai";
 import { z } from "zod";
+import { turnRecipients } from "../../notify/recipients";
 import { changeWorkflowStatus } from "../../workflow/lifecycle";
 import type { WorkflowRuntime } from "../../workflow/types";
 
@@ -69,7 +70,7 @@ export function channelTools(workflow: WorkflowRuntime) {
           );
         }
         acknowledged = true;
-        await workflow.post({ type: "info", text });
+        await workflow.post({ type: "info", text }, turnRecipients(workflow.state));
         return "Acknowledged.";
       },
     }),
@@ -80,7 +81,7 @@ export function channelTools(workflow: WorkflowRuntime) {
       execute: async ({ text }) => {
         if (!workflow.store.activeAuthorAndResearcherTasks().length)
           await changeWorkflowStatus(workflow, "waiting_input");
-        await workflow.post({ type: "question", text });
+        await workflow.post({ type: "question", text }, turnRecipients(workflow.state));
         return "Asked. The answer arrives as a new message.";
       },
     }),
@@ -89,7 +90,7 @@ export function channelTools(workflow: WorkflowRuntime) {
         "Tell the humans something they need to know when nobody wrote to you: a problem a harness raised, or work that went wrong. Not for progress, and not for an artifact that is ready. It is the last message of this turn.",
       inputSchema: z.object({ text: z.string().min(1) }),
       execute: async ({ text }) => {
-        await workflow.post({ type: "info", text });
+        await workflow.post({ type: "info", text }, turnRecipients(workflow.state));
         return "Told.";
       },
     }),

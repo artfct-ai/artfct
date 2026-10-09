@@ -248,6 +248,7 @@ export class WorkflowWorld {
   private reviewNumber = 0;
   private eventNumber = 0;
   private delivered: Step["event"] = null;
+  private chatThreadsJoined = 0;
   private readonly checksOnPush: ChecksOnPush;
 
   private constructor(workflow: FakeRuntime, checksOnPush: ChecksOnPush) {
@@ -289,6 +290,8 @@ export class WorkflowWorld {
   async apply(action: WorkflowAction): Promise<Step> {
     const before = this.steps.at(-1)?.after ?? this.observe();
     const notesBefore = this.workflow.notes.length;
+    const outboxBefore = this.workflow.store.outbox().length;
+    const postedBefore = this.workflow.posted.length;
     this.delivered = null;
     const facts = (await action.run(this)) ?? {};
     this.adoptNewAuthors();
@@ -309,6 +312,8 @@ export class WorkflowWorld {
       completion: facts.completion ?? null,
       unadmittedFeedback: facts.unadmittedFeedback ?? null,
       event: this.delivered,
+      sessionPosts: sessionPostsOf(this.workflow.store.outbox().slice(outboxBefore)),
+      postedTypes: this.workflow.posted.slice(postedBefore).map((event) => event.type),
     };
     this.steps.push(step);
     return step;
@@ -503,14 +508,37 @@ export class WorkflowWorld {
   /** Deliver one event from a person, the way ingress does. */
   async deliver(event: Pick<InboundEvent, "kind" | "text"> & Partial<InboundEvent>): Promise<void> {
     this.eventNumber += 1;
-    this.delivered = { kind: event.kind };
-    await handleEvent(this.workflow, {
+    const delivered: InboundEvent = {
       id: `evt-${this.eventNumber}`,
       actor: PERSON,
       bindings: [],
       links: [],
       ...event,
-    });
+    };
+    this.delivered = {
+      kind: delivered.kind,
+      text: delivered.text,
+      person: delivered.actor !== null,
+      reply_to: delivered.reply_to ?? null,
+    };
+    await handleEvent(this.workflow, delivered);
+  }
+
+  /**
+   * A tracker session of the workflow, picked by `index` round the starting session and the
+   * sessions on the issues of its jobs. Null when the workflow has none.
+   */
+  trackerSessionAt(index: number): TrackerSession | null {
+    const sessions = this.workflow.state.reply_targets.filter(
+      (target): target is TrackerSession => target.source === "tracker",
+    );
+    return sessions[index % sessions.length] ?? null;
+  }
+
+  /** A new chat thread the workflow will reply to from now on. */
+  nextChatThread(): ReplyTarget {
+    this.chatThreadsJoined += 1;
+    return { source: "chat", channel: "C2", thread: `${this.chatThreadsJoined}.0` };
   }
 
   /** The detail every event about the author's pull request carries. */
@@ -644,8 +672,22 @@ export class WorkflowWorld {
     const sent = this.bridges
       .filter((bridge) => authors.has(bridge.taskId))
       .reduce((total, bridge) => total + bridge.promptsSent, 0);
+    const { reply_targets: replyTargets, origin } = this.workflow.state;
+    const sessions = replyTargets.filter(
+      (target): target is TrackerSession => target.source === "tracker",
+    );
+    const startingSession = origin?.source === "tracker" ? origin.session_id : null;
     return {
       workflowStatus: this.workflow.state.status,
+      chatThread: replyTargets.some((target) => target.source === "chat"),
+      startingSession,
+      jobSessions: Object.fromEntries(
+        store.jobs().map((job) => {
+          const onIssue = sessions.find((session) => session.issue_id === job.issue_id);
+          return [job.job_id, job.issue_id && onIssue ? onIssue.session_id : startingSession];
+        }),
+      ),
+      posted: store.postedCount(),
       tasks: store.tasks().map((task) => ({
         task_id: task.task_id,
         role: task.role,
@@ -655,6 +697,21 @@ export class WorkflowWorld {
         ruling: task.result?.kind === "ruling" ? JSON.stringify(task.result) : null,
         quietSinceTurnEnd:
           this.promptsAtNormalTurnEnd.get(task.task_id) === this.promptsSentTo(task.task_id),
+        turnRunning:
+          store.sandbox(task.task_id)?.prompt_in_flight === 1 &&
+          this.runningBridgeOf(task.task_id) !== null,
+        promptTexts: [
+          ...store
+            .queue()
+            .filter((row) => row.task_id === task.task_id)
+            .map((row) => row.text),
+          ...this.bridges
+            .filter((bridge) => bridge.taskId === task.task_id)
+            .flatMap((bridge) => bridge.promptTexts),
+        ],
+        cancelsSent: this.bridges
+          .filter((bridge) => bridge.taskId === task.task_id)
+          .reduce((total, bridge) => total + bridge.cancelsSent, 0),
       })),
       artifacts: store.artifacts().map((artifact) => ({
         job_id: artifact.job_id,
@@ -668,6 +725,18 @@ export class WorkflowWorld {
       authorPrompts: queued + sent,
     };
   }
+}
+
+type TrackerSession = Extract<ReplyTarget, { source: "tracker" }>;
+
+const NOT_SESSION_POSTS = ["issue_update", "attach_chat_thread", "delivery_error"];
+
+function sessionPostsOf(rows: Array<{ channel: string; kind: string; target: unknown }>) {
+  return rows.flatMap((row) => {
+    if (row.channel !== "tracker" || NOT_SESSION_POSTS.includes(row.kind)) return [];
+    const target = row.target as { session_id?: string };
+    return target.session_id ? [{ session_id: target.session_id, kind: row.kind }] : [];
+  });
 }
 
 function kindOfStage(stage: string): ArtifactKind {

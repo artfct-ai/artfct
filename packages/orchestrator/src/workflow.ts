@@ -46,6 +46,7 @@ import { registeredConfig } from "./config/register-config";
 import type { Env } from "./env";
 import { destinationFor } from "./notify/destination";
 import { Notifier, type PostOptions } from "./notify/notifier";
+import { recipientsOf, type Recipients } from "./notify/recipients";
 import { CloudflareSandboxProvider } from "./sandbox/cloudflare";
 import type { SandboxProvider } from "./sandbox/provider";
 import {
@@ -395,8 +396,12 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     });
   }
 
-  async post(event: TaskEvent, only?: ReplyTarget, options: PostOptions = {}): Promise<void> {
-    const targets = only ? [only] : this.state.reply_targets;
+  async post(
+    event: TaskEvent,
+    to: Recipients = { answering: [] },
+    options: PostOptions = {},
+  ): Promise<void> {
+    const targets = recipientsOf(this.state, event, to);
     const finished = isWorkflowFinished(this.state.status);
     const title = workflowName(this.state);
     const destination = destinationFor(event);
@@ -413,7 +418,9 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     const targets = only ? [only] : this.state.reply_targets;
     const finished = isWorkflowFinished(this.state.status);
     const title = workflowName(this.state);
-    for (const target of targets) await this.notifier.release(target, finished, title);
+    for (const target of targets) {
+      if (target.source === "chat") await this.notifier.release(target, finished, title);
+    }
   }
 
   gateway(provider: GatewayProvider): Gateway | null {
@@ -488,8 +495,8 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
    * Queue text for the agent and run its turn here, in the invocation that queued it. The
    * zero delay schedule is the durable backup, cancelled once the turn has run.
    */
-  async tellAgent(text: string, wake: Wake): Promise<void> {
-    this.transcript.enqueue(text, wake);
+  async tellAgent(text: string, wake: Wake, from?: ReplyTarget): Promise<void> {
+    this.transcript.enqueue(text, wake, from);
     if (wake === "none") return;
     this.log(null, `agent wake: ${wake}`);
     const backup = await this.schedule(0, "runAgent", {}, { idempotent: false });
@@ -504,7 +511,9 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
   }
 
   async working(text: string): Promise<void> {
-    for (const target of this.state.reply_targets) await this.notifier.working(target, text);
+    for (const target of this.state.reply_targets) {
+      if (target.source === "chat") await this.notifier.working(target, text);
+    }
   }
 
   model(

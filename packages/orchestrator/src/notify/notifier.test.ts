@@ -182,11 +182,8 @@ describe("Notifier.post to Linear", () => {
       await subject.post(linearTarget, { type: "done", result: "merged" });
     });
 
-    it("moves the issue to the completed state by type", () => {
-      expect(tracker.calls.at(-1)).toEqual({
-        method: "updateIssue",
-        args: ["issue-1", { stateId: "st-done" }],
-      });
+    it("leaves the issue where it is", () => {
+      expect(tracker.argsOf("updateIssue")).toEqual([]);
     });
   });
 

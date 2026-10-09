@@ -6,6 +6,7 @@ import type {
   DecisionState,
 } from "@artfct-ai/adapters/gateway/types";
 import type { ChatMessage } from "@artfct-ai/adapters/chat/types";
+import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import { FakeChat } from "@artfct-ai/adapters/test/fake-chat";
 import {
   ConfiguredModelsDecisions,
@@ -44,7 +45,9 @@ import { PROMPT_TASK } from "../tools/task";
 import { runAgentTurn, UNANSWERED_TEXT } from "./turn";
 import { onTurnHeadsUp, resumeLostTurn } from "./watchdog";
 
-type InboxRow = { wake: Wake; text: string };
+type From = "chat_thread" | "starting_session" | "job_session" | "nowhere";
+type InboxRow = { wake: Wake; text: string; from: From };
+type Surface = "chat" | "linear_only" | "chat_and_session";
 type DecisionsSay = OwedReply | "fails" | "hangs" | "recovers";
 type ConfiguredModels = readonly [ModelSays, ...ModelSays[]];
 type MessageKind = "harmless" | "bot_request" | "malicious";
@@ -71,7 +74,35 @@ const TURN_TIMEOUT_MINUTES = { answers: 10, decisions_hang: 0.008, model_hangs: 
 
 const HANGING_DECISIONS_DEADLINE_MS = 20;
 
-const THREAD = { source: "chat", channel: "C1", thread: "1.0" } as const;
+const THREAD: ReplyTarget = { source: "chat", channel: "C1", thread: "1.0" };
+const STARTING_SESSION: ReplyTarget = {
+  source: "tracker",
+  session_id: "s-start",
+  issue_id: "ENG-1",
+};
+const JOB_SESSION: ReplyTarget = { source: "tracker", session_id: "s-job", issue_id: "ENG-2" };
+
+const SURFACES: Record<Surface, { origin: ReplyTarget; reply_targets: ReplyTarget[] }> = {
+  chat: { origin: THREAD, reply_targets: [THREAD] },
+  linear_only: { origin: STARTING_SESSION, reply_targets: [STARTING_SESSION, JOB_SESSION] },
+  chat_and_session: {
+    origin: STARTING_SESSION,
+    reply_targets: [STARTING_SESSION, THREAD, JOB_SESSION],
+  },
+};
+
+const FROM_TARGETS: Record<From, ReplyTarget | null> = {
+  chat_thread: THREAD,
+  starting_session: STARTING_SESSION,
+  job_session: JOB_SESSION,
+  nowhere: null,
+};
+
+function wroteFrom(surface: Surface, row: InboxRow): ReplyTarget | null {
+  const target = FROM_TARGETS[row.from];
+  if (row.wake !== "message" || !target) return null;
+  return SURFACES[surface].reply_targets.includes(target) ? target : null;
+}
 
 const RESET = "Durable Object reset because its code was updated.";
 
@@ -85,7 +116,9 @@ const SCREEN_ANSWERS = { admits: {}, quarantines: { exfiltrates: 0.9 } };
 const inboxRow = fc.record({
   wake: fc.constantFrom<Wake>("message", "task_idle", "task_result", "external_state"),
   text: fc.constantFrom("Fix the flaky test.", "What is the status?", "Thanks."),
+  from: fc.constantFrom<From>("chat_thread", "starting_session", "job_session", "nowhere"),
 });
+const surfaces = fc.constantFrom<Surface>("chat", "chat", "linear_only", "chat_and_session");
 const modelStep = fc.constantFrom<Action>(
   "call",
   "silent",
@@ -368,8 +401,10 @@ function chatHistoryResults(rows: TranscriptRow[]): string[] {
 async function runScriptedTurn(
   workflow: FakeRuntime,
   turn: ScriptedTurn,
+  surface: Surface,
 ): Promise<AgentTurnRecord> {
   const postedBefore = workflow.posted.length;
+  const deliveriesBefore = workflow.deliveries.length;
   const linesBefore = workflow.lines.length;
   const decisions = decisionsFor(turn);
   const decisionsEvents: DecisionsEvent[] = [];
@@ -405,7 +440,13 @@ async function runScriptedTurn(
     rowsWritten += 1;
     return noteMessage(`${row.text} (row ${rowsWritten})`);
   });
-  turn.inbox.forEach((row, index) => workflow.transcript.enqueue(inboxTexts[index]!, row.wake));
+  turn.inbox.forEach((row, index) =>
+    workflow.transcript.enqueue(inboxTexts[index]!, row.wake, wroteFrom(surface, row) ?? undefined),
+  );
+  const answering = turn.inbox.flatMap((row) => {
+    const target = wroteFrom(surface, row);
+    return target?.source === "tracker" ? [target.session_id] : [];
+  });
   if (personWrote(turn)) workflow.chatSession = "processing";
   if (turn.restart === "mid_turn") await loseTheTurnToARestart(workflow);
   workflow.modelInstance = turnModel(workflow, turn);
@@ -427,9 +468,10 @@ async function runScriptedTurn(
   const unadmittedTexts = history
     .map((message) => message.text)
     .filter((text) => !admittedTexts.includes(text));
+  const chatThread = SURFACES[surface].reply_targets.some((target) => target.source === "chat");
   return {
     owed: owedIn(turn),
-    boardChanged: prompted && !promptFailed,
+    boardChanged: prompted && !promptFailed && chatThread,
     closingTextsPosted: posted.filter(
       (event) => event.type === "info" && event.text === SCRIPTED_CLOSING_TEXT,
     ).length,
@@ -469,11 +511,15 @@ async function runScriptedTurn(
         : null,
     decisionsEvents,
     chatHistoryReads,
+    chatThread,
+    startingSession: "s-start",
+    answering: [...new Set(answering)],
+    deliveries: workflow.deliveries.slice(deliveriesBefore),
   };
 }
 
 const BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL: ScriptedTurn = {
-  inbox: [{ wake: "message", text: "Fix the flaky test." }],
+  inbox: [{ wake: "message", text: "Fix the flaky test.", from: "chat_thread" }],
   model: "answers",
   script: ["prompt_task", "throw"],
   decisions: "board",
@@ -501,19 +547,27 @@ const A_TURN_LOST_AFTER_A_LARGE_TURN: ScriptedTurn = {
   restart: "mid_turn",
 };
 
+const A_SESSION_MESSAGE: ScriptedTurn = {
+  ...BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL,
+  inbox: [{ wake: "message", text: "What is the status?", from: "job_session" }],
+  script: ["acknowledge", "prompt_task", "text"],
+  decisions: "answer",
+};
+
 describe("agent turn invariants", () => {
   it(
     "hold after every turn of a random sequence",
     () =>
       fc.assert(
         fc.asyncProperty(
+          surfaces,
           fc.array(fc.oneof(scriptedTurn, outageTurn, historyTurn), { minLength: 1, maxLength: 6 }),
-          (turns) =>
+          (surfaceOfRun, turns) =>
             freshDurableRuntime(async (workflow) => {
               seedTask(workflow);
-              workflow.state.reply_targets = [THREAD];
+              workflow.patchState(SURFACES[surfaceOfRun]);
               for (const turn of turns) {
-                const record = await runScriptedTurn(workflow, turn);
+                const record = await runScriptedTurn(workflow, turn, surfaceOfRun);
                 for (const invariant of AGENT_TURN_INVARIANTS) invariant(record);
               }
             }),
@@ -521,8 +575,9 @@ describe("agent turn invariants", () => {
         {
           numRuns: 60,
           examples: [
-            [[BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL]],
-            [[A_LARGE_TURN, A_TURN_LOST_AFTER_A_LARGE_TURN]],
+            ["chat", [BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL]],
+            ["chat", [A_LARGE_TURN, A_TURN_LOST_AFTER_A_LARGE_TURN]],
+            ["linear_only", [A_SESSION_MESSAGE]],
           ],
         },
       ),

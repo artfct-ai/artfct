@@ -28,6 +28,7 @@ import type { Env } from "../src/env";
 import { destinationFor } from "../src/notify/destination";
 import { plainText } from "../src/notify/messages";
 import { Notifier, type PostOptions } from "../src/notify/notifier";
+import { recipientsOf, type Recipients } from "../src/notify/recipients";
 import type { SandboxProvider } from "../src/sandbox/provider";
 import { FakeSandboxProvider } from "./fake-sandbox";
 import type { ConnectionState } from "../src/workflow/task/harness/bridge";
@@ -46,7 +47,7 @@ import {
 } from "../src/workflow/store/tasks";
 import type { ScheduledMethod, Wake, WorkflowRuntime } from "../src/workflow/types";
 
-export type FakeNote = { text: string; wake: Wake };
+export type FakeNote = { text: string; wake: Wake; from?: ReplyTarget };
 
 /** One armed alarm. A repeating alarm stays armed after it fires, until code stops it. */
 export type FakeAlarm = {
@@ -111,6 +112,8 @@ export class FakeRuntime implements WorkflowRuntime {
   cancelled: string[] = [];
   sockets: Connection[] = [];
   posted: TaskEvent[] = [];
+  /** Every channel post with the reply targets it went to, in order. */
+  deliveries: Array<{ event: TaskEvent; targets: ReplyTarget[] }> = [];
   released: Array<ReplyTarget | null> = [];
   statuses: string[] = [];
   /**
@@ -243,10 +246,15 @@ export class FakeRuntime implements WorkflowRuntime {
     this.store.appendLog(taskId, line);
   }
 
-  async post(event: TaskEvent, only?: ReplyTarget, options: PostOptions = {}): Promise<void> {
+  async post(
+    event: TaskEvent,
+    to: Recipients = { answering: [] },
+    options: PostOptions = {},
+  ): Promise<void> {
     this.posted.push(event);
     if (destinationFor(event) !== "channel") return;
-    const targets = only ? [only] : this.state.reply_targets;
+    const targets = recipientsOf(this.state, event, to);
+    this.deliveries.push({ event, targets });
     for (const target of targets) await this.notifier.post(target, event, options);
     if (!plainText(event) || options.keepSession) return;
     this.chatSession = this.sessionAfterTurn();
@@ -323,8 +331,8 @@ export class FakeRuntime implements WorkflowRuntime {
     return this.turnRunning;
   }
 
-  async tellAgent(text: string, wake: Wake): Promise<void> {
-    this.notes.push({ text, wake });
+  async tellAgent(text: string, wake: Wake, from?: ReplyTarget): Promise<void> {
+    this.notes.push(from ? { text, wake, from } : { text, wake });
   }
 
   async model(

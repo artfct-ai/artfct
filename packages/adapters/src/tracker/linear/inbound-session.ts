@@ -7,6 +7,9 @@ import { linearEventId } from "./inbound-event-id";
 import type { AgentSessionPayload } from "./inbound-payloads";
 import type { TrackerInbound, TrackerInboundContext } from "../types";
 
+/** The signal Linear puts on the prompt a person sends with the Stop button. */
+const LINEAR_STOP_SIGNAL = "stop";
+
 type SessionBase = Pick<InboundEvent, "id" | "actor" | "bindings" | "reply_to">;
 
 /**
@@ -84,8 +87,12 @@ function sessionCreated(payload: AgentSessionPayload, base: SessionBase): Tracke
   };
 }
 
+/** A reply on the session. The Stop button sends a prompt that carries the stop signal. */
 function sessionPrompted(payload: AgentSessionPayload, base: SessionBase): TrackerInbound {
   const body = payload.agentActivity?.content?.body ?? "";
+  if (payload.agentActivity?.signal === LINEAR_STOP_SIGNAL) {
+    return { event: { ...base, kind: "stop", links: [], text: body } };
+  }
   return {
     event: { ...base, kind: classifyPrompt(body), links: extractLinks(body), text: body },
   };

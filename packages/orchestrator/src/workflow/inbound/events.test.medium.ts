@@ -433,6 +433,57 @@ describe("finished workflows", () => {
       }));
   });
 
+  describe("a stop from a person in a session", () => {
+    let before: number;
+    const stopped = scenario(failed, async (workflow) => {
+      before = (await outboxOf(workflow)).length;
+      await workflow.handle({
+        ...start,
+        id: "evt-late-stop",
+        kind: "stop",
+        text: "",
+        reply_to: { source: "tracker", session_id: "s-1", issue_id: "ENG-1" },
+        acknowledge: undefined,
+      });
+    });
+
+    it("posts nothing", () =>
+      stopped(async (workflow) => {
+        expect(await outboxOf(workflow)).toHaveLength(before);
+      }));
+
+    it("logs that it ignored the stop", () =>
+      stopped(async (workflow) => {
+        expect(await logOf(workflow)).toContain("ignored stop: the workflow is failed");
+      }));
+  });
+
+  describe("a session the tracker opens without a person", () => {
+    let before: number;
+    const lateSession = scenario(failed, async (workflow) => {
+      before = (await outboxOf(workflow)).length;
+      await workflow.handle({
+        ...start,
+        id: "evt-late-session",
+        kind: "start",
+        text: "",
+        actor: null,
+        reply_to: { source: "tracker", session_id: "s-2", issue_id: "ENG-2" },
+        acknowledge: undefined,
+      });
+    });
+
+    it("posts nothing", () =>
+      lateSession(async (workflow) => {
+        expect(await outboxOf(workflow)).toHaveLength(before);
+      }));
+
+    it("logs that it ignored the session", () =>
+      lateSession(async (workflow) => {
+        expect(await logOf(workflow)).toContain("ignored start: the workflow is failed");
+      }));
+  });
+
   describe("a pull request event from GitHub", () => {
     let before: number;
     const ignored = scenario(failed, async (workflow) => {

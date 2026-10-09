@@ -283,6 +283,16 @@ export function countOutboxMessages(
   return debug.outbox.filter(predicate).length;
 }
 
+const NOT_SESSION_POSTS = ["issue_update", "attach_chat_thread", "delivery_error"];
+
+/** Number of orchestrator posts on a tracker session. */
+export function countSessionPosts(debug: WorkflowDebug): number {
+  return countOutboxMessages(
+    debug,
+    (message) => message.channel === "tracker" && !NOT_SESSION_POSTS.includes(message.kind),
+  );
+}
+
 /** True when the outbox holds a message matching `predicate`. */
 export function hasOutboxMessage(
   debug: WorkflowDebug,

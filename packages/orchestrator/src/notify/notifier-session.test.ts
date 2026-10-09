@@ -1,17 +1,9 @@
 import type { FakeChat } from "@artfct-ai/adapters/test/fake-chat";
-import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 import { afterEach, beforeEach, describe, expect, it, vi } from "bun:test";
 import { fakeSlack, testNotifier } from "../../test/notifier-fixture";
-import { TRACKER_RELEASE_TEXT, Notifier, type OutboxEntry } from "./notifier";
+import type { OutboxEntry } from "./notifier";
 
 const target = { source: "chat", channel: "C1", thread: "1.0" } as const;
-
-const linearTarget = {
-  source: "tracker",
-  session_id: "sess-1",
-  issue_id: "issue-1",
-  team_id: "team-1",
-} as const;
 
 function spyOnWarn() {
   return vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -135,25 +127,6 @@ describe("Notifier.working", () => {
     });
   });
 
-  describe("the same line on a Linear session", () => {
-    let tracker: FakeTracker;
-
-    beforeEach(async () => {
-      tracker = new FakeTracker();
-      await testNotifier(outbox, { tracker }).working(linearTarget, "Step 2: get issue");
-    });
-
-    it("posts an ephemeral thought", () => {
-      expect(tracker.argsOf("activity")).toEqual([
-        ["sess-1", { type: "thought", body: "Step 2: get issue" }, { ephemeral: true }],
-      ]);
-    });
-
-    it("records the line in the outbox", () => {
-      expect(outbox.map((entry) => entry.kind)).toEqual(["working"]);
-    });
-  });
-
   describe("when the Slack status call fails", () => {
     let warn: ReturnType<typeof spyOnWarn>;
     let working: Promise<void>;
@@ -229,37 +202,6 @@ describe("Notifier.release", () => {
         { title: "Step 3: start task" },
         { title: "Flaky checkout test" },
       ]);
-    });
-  });
-
-  describe("a Linear session on a finished workflow", () => {
-    let tracker: FakeTracker;
-    let subject: Notifier;
-
-    beforeEach(async () => {
-      tracker = new FakeTracker();
-      subject = testNotifier(outbox, { tracker });
-      await subject.release(linearTarget, true, "Flaky checkout test");
-    });
-
-    it("says nothing, since the workflow said its last word", () => {
-      expect(tracker.calls).toHaveLength(0);
-    });
-
-    describe("and then released while the workflow runs", () => {
-      beforeEach(async () => {
-        await subject.release(linearTarget, false, "Flaky checkout test");
-      });
-
-      it("closes the session with a short response", () => {
-        expect(tracker.argsOf("activity")).toEqual([
-          ["sess-1", { type: "response", body: TRACKER_RELEASE_TEXT }, {}],
-        ]);
-      });
-
-      it("records one release in the outbox", () => {
-        expect(outbox.map((entry) => entry.kind)).toEqual(["release"]);
-      });
     });
   });
 });
