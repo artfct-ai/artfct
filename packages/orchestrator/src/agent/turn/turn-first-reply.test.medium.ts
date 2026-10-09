@@ -8,8 +8,11 @@ import type { Scenario } from "../../../test/scenario";
 import { THUMBS_UP } from "../tools/channel";
 import { eventMessage } from "../transcript/envelope";
 import { runAgentTurn } from "./turn";
+import { resumeLostTurn } from "./watchdog";
 
 const THREAD = { source: "chat", channel: "C1", thread: "1.0" } as const;
+
+const RESTART = "Durable Object reset because its code was updated.";
 
 const asked: InboundEvent = {
   id: "evt-asked",
@@ -72,6 +75,43 @@ describe("a person's message, and a model that replies with a line first", () =>
     replied(({ workflow }) => {
       expect(refusedTools(workflow)).toEqual([]);
       expect(workflow.posted[0]).toEqual({ type: "info", text: "Got it." });
+    }));
+});
+
+const lostAfterItsThumbsUp: Scenario<Ran> = (run) =>
+  freshDurableRuntime(async (workflow) => {
+    const chat = new FakeChat();
+    workflow.chatInstance = chat;
+    workflow.patchState({ status: "running", origin: THREAD, reply_targets: [THREAD] });
+    const message = eventMessage(asked, { first: false, job: null, artifact: null, notes: [] });
+    workflow.transcript.enqueue(message, "message", {
+      reply_to: THREAD,
+      chat_message: { channel: "C1", message: "1757000001.000100" },
+    });
+    workflow.modelInstance = new ScriptedFailure(["react", "throw", "throw"], RESTART);
+    await runAgentTurn(workflow).catch((error: unknown) => {
+      if (!String(error).includes(RESTART)) throw error;
+    });
+    const notesBefore = workflow.notes.length;
+    await resumeLostTurn(workflow);
+    for (const note of workflow.notes.slice(notesBefore)) {
+      workflow.transcript.enqueue(note.text, note.wake);
+    }
+    workflow.modelInstance = new ScriptedFailure(["react", "prompt_task", "acknowledge", "text"]);
+    await runAgentTurn(workflow);
+    await run({ workflow, chat });
+  });
+
+describe("a turn lost to a restart after its thumbs-up landed", () => {
+  it("does not put the thumbs-up on the message twice", () =>
+    lostAfterItsThumbsUp(({ chat }) => {
+      expect(chat.argsOf("addReaction")).toEqual([["C1", "1757000001.000100", THUMBS_UP]]);
+    }));
+
+  it("replies first again in the resumed turn, with a line", () =>
+    lostAfterItsThumbsUp(({ workflow }) => {
+      expect(refusedTools(workflow)).toEqual(["prompt_task"]);
+      expect(workflow.posted).toContainEqual({ type: "info", text: "Got it." });
     }));
 });
 

@@ -85,7 +85,8 @@ describe("channel tools", () => {
       const reacted = scenario(freshRuntime, async (workflow) => {
         chat = new FakeChat();
         workflow.chatInstance = chat;
-        const tools = channelTools(workflow, [MESSAGE, LATER_MESSAGE]);
+        workflow.patchState({ turn_chat_messages: [MESSAGE, LATER_MESSAGE] });
+        const tools = channelTools(workflow);
         result = toolText(await tools.acknowledge.execute({ reply: { kind: "reaction" } }, call));
       });
 
@@ -106,6 +107,14 @@ describe("channel tools", () => {
         reacted((workflow) => {
           expect(workflow.posted).toEqual([]);
         }));
+
+      it("leaves the turn no message to react to again", () =>
+        reacted((workflow) => {
+          expect(workflow.state.turn_chat_messages).toEqual([]);
+          expect(
+            firstReplySchema(workflow).safeParse({ reply: { kind: "reaction" } }).success,
+          ).toBe(false);
+        }));
     });
 
     describe("with a reaction the chat refuses", () => {
@@ -113,7 +122,8 @@ describe("channel tools", () => {
       let line = "";
       const refused = scenario(freshRuntime, async (workflow) => {
         workflow.chatInstance = new FakeChat({ failing: true });
-        const tools = channelTools(workflow, [MESSAGE]);
+        workflow.patchState({ turn_chat_messages: [MESSAGE] });
+        const tools = channelTools(workflow);
         try {
           await tools.acknowledge.execute({ reply: { kind: "reaction" } }, call);
         } catch (error) {
@@ -127,6 +137,11 @@ describe("channel tools", () => {
       it("fails the call", () =>
         refused(() => {
           expect(refusal).not.toBe("");
+        }));
+
+      it("keeps the message for a later reaction", () =>
+        refused((workflow) => {
+          expect(workflow.state.turn_chat_messages).toEqual([MESSAGE]);
         }));
 
       it("still takes a line", () =>

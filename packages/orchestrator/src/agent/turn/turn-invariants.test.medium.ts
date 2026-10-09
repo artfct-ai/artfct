@@ -65,7 +65,7 @@ type ScriptedTurn = {
   request: "under_the_limit" | "over_the_limit";
   summarization: "answers" | "fails";
   headsUp: "fires" | "waits";
-  restart: "none" | "mid_turn";
+  restart: "none" | "before_first_reply" | "after_first_reply";
   history: MessageKind[];
   contextTokens: number;
 };
@@ -179,7 +179,14 @@ const scriptedTurn: fc.Arbitrary<ScriptedTurn> = fc.record({
   request: fc.constantFrom("under_the_limit", "over_the_limit"),
   summarization: fc.constantFrom("answers", "answers", "fails"),
   headsUp: fc.constantFrom("fires", "waits"),
-  restart: fc.constantFrom("none", "none", "none", "mid_turn"),
+  restart: fc.constantFrom<ScriptedTurn["restart"]>(
+    "none",
+    "none",
+    "none",
+    "none",
+    "before_first_reply",
+    "after_first_reply",
+  ),
   history: fc.constant([]),
   contextTokens: fc.constant(CONTEXT_TOKENS),
 });
@@ -435,10 +442,19 @@ function stepMark(workflow: FakeRuntime, chat: FakeChat): StepMark {
   };
 }
 
-async function loseTheTurnToARestart(workflow: FakeRuntime): Promise<void> {
+const LOST_BEFORE_THE_FIRST_REPLY: Action[] = ["throw", "throw"];
+const LOST_AFTER_THE_FIRST_REPLY: Action[] = ["react", "acknowledge", "throw", "throw"];
+
+async function loseTheTurnToARestart(
+  workflow: FakeRuntime,
+  restart: "before_first_reply" | "after_first_reply",
+  markStep: () => void,
+): Promise<void> {
   const decisions = workflow.gatewayInstance;
   workflow.gatewayInstance = new FakeGateway({ decisions: new FakeDecisions(OWED_ANSWERS.answer) });
-  workflow.modelInstance = new ScriptedFailure(["throw", "throw"], RESET);
+  const script =
+    restart === "before_first_reply" ? LOST_BEFORE_THE_FIRST_REPLY : LOST_AFTER_THE_FIRST_REPLY;
+  workflow.modelInstance = markingSteps(new ScriptedFailure(script, RESET), markStep);
   await runAgentTurn(workflow).then(
     () => {
       throw new Error("the turn was meant to be lost to the restart");
@@ -570,11 +586,10 @@ async function runScriptedTurn(
     return target?.source === "tracker" ? [target.session_id] : [];
   });
   if (personWrote(turn)) workflow.chatSession = "processing";
-  if (turn.restart === "mid_turn") await loseTheTurnToARestart(workflow);
   const marks: StepMark[] = [];
-  workflow.modelInstance = markingSteps(turnModel(workflow, turn), () =>
-    marks.push(stepMark(workflow, chat)),
-  );
+  const markStep = () => marks.push(stepMark(workflow, chat));
+  if (turn.restart !== "none") await loseTheTurnToARestart(workflow, turn.restart, markStep);
+  workflow.modelInstance = markingSteps(turnModel(workflow, turn), markStep);
   const decisionsAskedBefore = decisions instanceof ConfiguredModelsDecisions ? decisions.calls : 0;
   const usageBefore = workflow.store.modelUsage().length;
   const started = Date.now();
@@ -626,7 +641,7 @@ async function runScriptedTurn(
     durationMs,
     timeoutMinutes: workflow.config().orchestrator.turn_timeout_minutes,
     timedOut: lines.some((line) => line.startsWith("agent turn timed out")),
-    resumedLostTurn: turn.restart === "mid_turn",
+    resumedLostTurn: turn.restart !== "none",
     modelHangs: turn.model === "never_answers",
     configuredDecisions:
       decisions instanceof ConfiguredModelsDecisions
@@ -676,7 +691,7 @@ const A_TURN_LOST_AFTER_A_LARGE_TURN: ScriptedTurn = {
   ...A_LARGE_TURN,
   request: "under_the_limit",
   headsUp: "fires",
-  restart: "mid_turn",
+  restart: "before_first_reply",
 };
 
 const A_DISPATCH_BEFORE_ANY_REPLY: ScriptedTurn = {
@@ -688,6 +703,12 @@ const A_REACTION_THE_CHAT_REFUSES: ScriptedTurn = {
   ...BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL,
   script: ["react", "prompt_task", "acknowledge", "prompt_task"],
   reactions: "fail",
+};
+
+const A_TURN_LOST_AFTER_ITS_THUMBS_UP: ScriptedTurn = {
+  ...BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL,
+  script: ["react", "prompt_task", "text"],
+  restart: "after_first_reply",
 };
 
 const A_SESSION_MESSAGE: ScriptedTurn = {
@@ -724,7 +745,14 @@ describe("agent turn invariants", () => {
             ["chat", [BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL]],
             ["chat", [A_LARGE_TURN, A_TURN_LOST_AFTER_A_LARGE_TURN]],
             ["linear_only", [A_SESSION_MESSAGE]],
-            ["chat", [A_DISPATCH_BEFORE_ANY_REPLY, A_REACTION_THE_CHAT_REFUSES]],
+            [
+              "chat",
+              [
+                A_DISPATCH_BEFORE_ANY_REPLY,
+                A_REACTION_THE_CHAT_REFUSES,
+                A_TURN_LOST_AFTER_ITS_THUMBS_UP,
+              ],
+            ],
           ],
         },
       ),

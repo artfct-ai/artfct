@@ -58,9 +58,9 @@ export type WorkflowState = {
    */
   turn_answering?: ReplyTarget[];
   /**
-   * The chat messages people wrote that the running turn owes a reply, which its first reply may
-   * react to. A lost turn leaves them for the turn that resumes it. Empty once a turn ends. Absent
-   * in a workflow stored before this field.
+   * The chat messages people wrote that the running turn owes a reply and that do not have the
+   * thumbs-up yet. Its first reply may react to them. A lost turn leaves them for the turn that
+   * resumes it. Empty once a turn ends. Absent in a workflow stored before this field.
    */
   turn_chat_messages?: ChatMessageRef[];
   /**

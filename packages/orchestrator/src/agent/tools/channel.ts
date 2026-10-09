@@ -2,7 +2,6 @@ import { tool } from "ai";
 import { z } from "zod";
 import { turnRecipients } from "../../notify/recipients";
 import { changeWorkflowStatus } from "../../workflow/lifecycle";
-import type { ChatMessageRef } from "../../workflow/store/state";
 import type { WorkflowRuntime } from "../../workflow/types";
 
 /** The tool that ends a turn with nothing for the humans. The turn loop stops on it. */
@@ -76,12 +75,12 @@ When execution occurs without an inbound user message, standard closing text is 
 * **Call** \`stay_silent\` on artifact review turns unless an escalation via \`ask\` is required.`;
 
 /**
- * Tools that talk to the humans in every channel bound to the workflow, or decide not to.
- * `chatMessages` are the chat messages people wrote for this turn. The first reply may react to them.
+ * Tools that talk to the humans in every channel bound to the workflow, or decide not to. The
+ * first reply may react only while the turn has chat messages without the thumbs-up.
  */
-export function channelTools(workflow: WorkflowRuntime, chatMessages: ChatMessageRef[] = []) {
+export function channelTools(workflow: WorkflowRuntime) {
   let acknowledged = false;
-  const reactable = chatMessages.length > 0;
+  const reactable = (workflow.state.turn_chat_messages ?? []).length > 0;
   const inputSchema: z.ZodType<FirstReplyInput> = reactable ? firstReplyInput : textOnlyInput;
   return {
     [ACKNOWLEDGE]: tool({
@@ -97,7 +96,7 @@ export function channelTools(workflow: WorkflowRuntime, chatMessages: ChatMessag
         }
         switch (reply.kind) {
           case "reaction":
-            await reactWithThumbsUp(workflow, chatMessages);
+            await reactWithThumbsUp(workflow);
             acknowledged = true;
             return "Reacted with a thumbs-up.";
           case "text":
@@ -141,14 +140,19 @@ export function channelTools(workflow: WorkflowRuntime, chatMessages: ChatMessag
   };
 }
 
-/** Put the thumbs-up on every chat message. Throws when the chat refuses one. */
-async function reactWithThumbsUp(
-  workflow: WorkflowRuntime,
-  chatMessages: ChatMessageRef[],
-): Promise<void> {
+/**
+ * Put the thumbs-up on every chat message of the turn that does not have it yet, and forget each
+ * one as it lands. Throws when the chat refuses one.
+ */
+async function reactWithThumbsUp(workflow: WorkflowRuntime): Promise<void> {
   const chat = workflow.chat();
   if (!chat) throw new Error("The chat cannot take a reaction now. Send a line instead.");
-  for (const { channel, message } of chatMessages) {
-    await chat.addReaction(channel, message, THUMBS_UP);
+  for (const written of workflow.state.turn_chat_messages ?? []) {
+    await chat.addReaction(written.channel, written.message, THUMBS_UP);
+    workflow.patchState({
+      turn_chat_messages: (workflow.state.turn_chat_messages ?? []).filter(
+        (waiting) => waiting.channel !== written.channel || waiting.message !== written.message,
+      ),
+    });
   }
 }

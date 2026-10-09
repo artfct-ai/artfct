@@ -20,7 +20,6 @@ import { FOREIGN_TEXT_TOOLS, screeningTools } from "../tools/screened";
 import { workflowTools } from "../tools/toolset";
 import { abortableTools } from "../tools/abortable";
 import type { TranscriptRow } from "../transcript/transcript";
-import type { ChatMessageRef } from "../../workflow/store/state";
 import { estimatedTokens } from "../transcript/transcript-size";
 import { TURN_PURPOSE } from "../model/usage";
 import type { TurnDecisions } from "../../decisions/ask";
@@ -50,14 +49,12 @@ type Outcome = "replied" | "silent" | "failed" | "timed_out";
 
 /**
  * What one agent turn works from. `firstRow` is the id of the turn's first transcript row, which
- * compaction keeps. `requestText` identifies an ad hoc job started in the turn. `chatMessages`
- * are the chat messages people wrote, which the first reply may react to.
+ * compaction keeps. `requestText` identifies an ad hoc job started in the turn.
  */
 type TurnInput = {
   rows: TranscriptRow[];
   firstRow: number | null;
   messages: string[];
-  chatMessages: ChatMessageRef[];
   requestText: string;
 };
 
@@ -121,7 +118,6 @@ export async function runAgentTurn(workflow: WorkflowRuntime): Promise<void> {
     rows: workflow.transcript.all(),
     firstRow,
     messages,
-    chatMessages,
     requestText: prompts.join("\n"),
   });
   const turnOwnsTheReply = await disarmTurnWatchdog(workflow, startedAt);
@@ -213,7 +209,6 @@ async function loadTools(
     requestText: turn.requestText,
     runtimeRequest,
     decisions,
-    chatMessages: turn.chatMessages,
   });
   const foreign = new Set<string>([...Object.keys(mcp), ...FOREIGN_TEXT_TOOLS]);
   return condensingTools(
