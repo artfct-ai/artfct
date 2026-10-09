@@ -191,10 +191,8 @@ export function authorReportsTodos(index: number, completed: number): WorkflowAc
   });
 }
 
-/** What an author's harness streams mid-turn: a message, or a tool call that completes or fails. */
 export type Streamed = "message" | "tool" | "failed_tool";
 
-/** The author's harness streams one new text, as a message or as a tool call's title. */
 export function authorStreams(index: number, streamed: Streamed): WorkflowAction {
   return authorAction(index, `streams a ${streamed}`, async (world, author) => {
     const bridge = world.runningBridgeOf(author.taskId);
@@ -217,17 +215,12 @@ export function authorStreams(index: number, streamed: Streamed): WorkflowAction
   });
 }
 
-/**
- * The Durable Object restarts. What it held in memory is gone. The store and the alarms stay, and
- * the bridge dials back in to the same turn.
- */
 export function workflowRestarts(): WorkflowAction {
   return action("the workflow restarts", async (world) => {
     world.workflow.sessionFeeds.clear();
   });
 }
 
-/** The tracker comes back up, or starts to fail before or after it stores an activity. */
 export function trackerTurns(health: TrackerHealth): WorkflowAction {
   return action(`the tracker turns ${health}`, async (world) => {
     world.setTrackerHealth(health);

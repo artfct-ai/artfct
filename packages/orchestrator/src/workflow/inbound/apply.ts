@@ -119,10 +119,7 @@ const STOP_NOTES: Record<StopOutcome, string> = {
   idle: "No prompt turn ran.",
 };
 
-/**
- * A stop in a job session ends the turn of the job's author and drops its queued prompts. Its
- * session feed ends with the stopped reply. The task, the job, and the workflow keep running.
- */
+/** Stop the author of the job session a person pressed Stop in. */
 export async function stopSessionAuthor(
   workflow: WorkflowRuntime,
   event: InboundEvent,

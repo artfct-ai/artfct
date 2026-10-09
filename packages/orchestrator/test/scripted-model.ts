@@ -241,11 +241,7 @@ function selectedOption(reply: string): string | null {
   return /^go with (.+?)\.?$/im.exec(reply)?.[1]?.trim() ?? null;
 }
 
-/**
- * Every configured stage, in order, in the linked repository, under the page parent the request
- * names, named after the request. A request that names a stage plans only that stage. A request
- * that links a doc holds the artifact of the first stage, so the plan runs the stages after it.
- */
+/** The plan for a request, in the repository it links. */
 function plan(body: string, stages: string[]): ScriptedDecision {
   const repo = repoOf(body);
   if (!repo) return { tool: "ask", input: { text: "Which repository should this change go in?" } };
@@ -269,20 +265,14 @@ function plannedStages(body: string, stages: string[]): { stages: string[]; reas
   return { stages, reason: "default: every configured stage in order" };
 }
 
-/** The stage a request names, as in `Stage: implement`. Null when it names none. */
 function namedStageOf(body: string): string | null {
   return /^Stage: (\S+)$/m.exec(body)?.[1] ?? null;
 }
 
-/** The tracker issue a request links, as in `https://linear.app/acme/issue/ENG-43`. */
 function linkedIssueOf(body: string): string | null {
   return /https:\/\/linear\.app\/[\w-]+\/issue\/([A-Z]+-\d+)/.exec(body)?.[1] ?? null;
 }
 
-/**
- * What the first job works from: the doc the request links, else the issue that a request
- * naming its stage links.
- */
 function firstJobInput(body: string): JobInputFields {
   const artifact = inputPageOf(body);
   if (artifact) return { artifact };
@@ -331,10 +321,8 @@ function afterTool(
   return { text: "" };
 }
 
-/** The input fields of a start_job call: the artifact link or the issue a job works from. */
 type JobInputFields = { artifact?: string; issue?: string };
 
-/** A start_job call for the stage, with a brief that names it, from the given input. */
 function startStage(stage: string | undefined, input: JobInputFields = {}): ScriptedDecision {
   const name = stage ?? "implement";
   return {

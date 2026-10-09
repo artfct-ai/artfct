@@ -120,17 +120,12 @@ export async function pauseTask(
   );
 }
 
-/** What a stop did: cancelled a running turn, ended a turn the sandbox was resuming, or found the author idle. */
+/** What a stop found the author doing. */
 export type StopOutcome = "cancelled" | "ended" | "idle";
 
-/** The statuses of an author whose sandbox is starting or restarting. */
 const STARTING_STATUSES: TaskStatus[] = ["queued", "provisioning"];
 
-/**
- * A person stopped the author. Its queued prompts are dropped. A turn that runs over a connected
- * bridge is cancelled, and its turn end closes the session feed. A turn the sandbox would resume
- * ends here, with the sandbox. Otherwise the session feed closes now. The task keeps running.
- */
+/** End the author's current turn and drop its queued prompts, so it waits for the person. */
 export async function stopAuthor(workflow: WorkflowRuntime, author: TaskRow): Promise<StopOutcome> {
   workflow.store.clearPromptQueue(author.task_id);
   const sandbox = workflow.store.sandbox(author.task_id);
@@ -147,7 +142,6 @@ export async function stopAuthor(workflow: WorkflowRuntime, author: TaskRow): Pr
   return resuming ? "ended" : "idle";
 }
 
-/** Close the sandbox that would resume the author's turn, so the author waits for its next prompt. */
 async function endResumingTurn(
   workflow: WorkflowRuntime,
   author: TaskRow,

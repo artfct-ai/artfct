@@ -1,9 +1,6 @@
 /**
- * Step 8. A fresh workflow is provisioned on the PR stage, with the delegated issue as its job's
- * input, and its author's first turn never finishes. A message in the session on that issue, its
- * job session, goes straight to the running author, and the Stop button ends that turn and
- * drops the message while the workflow runs on. A second Stop on the idle author ends its session
- * feed again. Moving the issue to Canceled then cancels the workflow: one start, one destroy.
+ * Step 8. Stop and cancel on a job whose input is the delegated issue. A message and Stop in its
+ * job session reach the running author, and moving the issue to Canceled cancels the workflow.
  */
 import {
   countLogLines,
@@ -77,7 +74,7 @@ async function forwardToAuthor(workflowId: string, taskId: string): Promise<Work
 /** How long the harness gets to show it did not start the dropped prompt. */
 const DROPPED_PROMPT_GRACE_MS = 1_000;
 
-/** Waits until the job session holds `count` stopped replies and the last activity is one. */
+/** Waits until the job session shows `count` stopped replies, the last one at the end. */
 async function waitForStoppedReplies(count: number, label: string): Promise<void> {
   await waitUntil({ label }, async () => {
     const bodies = activityBodies(await fetchMockLinearState(), THIRD_SESSION);
@@ -86,10 +83,7 @@ async function waitForStoppedReplies(count: number, label: string): Promise<void
   });
 }
 
-/**
- * The Stop button cancels the author's prompt turn, drops the message queued behind it, and ends
- * the session feed with the stopped reply. The task and the workflow keep running.
- */
+/** Presses Stop while the author's turn runs. */
 async function pressStop(workflowId: string, taskId: string): Promise<void> {
   const before = await forwardToAuthor(workflowId, taskId);
   const status = taskById(before, taskId).status;
@@ -116,7 +110,7 @@ async function pressStop(workflowId: string, taskId: string): Promise<void> {
   assertEqual(countSessionPosts(settled), countSessionPosts(before), "nothing posted after Stop");
 }
 
-/** The Stop button on an idle author ends its session feed with the stopped reply again. */
+/** Presses Stop while the author is idle. */
 async function pressStopWhileIdle(workflowId: string, taskId: string): Promise<void> {
   const before = await fetchWorkflowDebug(workflowId);
   await writeInSession("Stop", "stop");

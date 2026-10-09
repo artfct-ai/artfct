@@ -111,12 +111,10 @@ export class FakeBridge {
     return this.update({ sessionUpdate: "agent_message_chunk", content: { type: "text", text } });
   }
 
-  /** The harness starts a tool call. */
   callTool(toolCallId: string, title: string, kind: ToolKind): Promise<void> {
     return this.update({ sessionUpdate: "tool_call", toolCallId, title, kind });
   }
 
-  /** A tool call of the harness completes or fails. */
   endTool(toolCallId: string, status: "completed" | "failed"): Promise<void> {
     return this.update({ sessionUpdate: "tool_call_update", toolCallId, status });
   }

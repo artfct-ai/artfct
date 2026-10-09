@@ -22,11 +22,8 @@ export type ObservedTask = {
   promptTexts: string[];
   /** How many cancels its harness session was sent. */
   cancelsSent: number;
-  /** True while a prompt sent to its harness has no turn end yet. */
   promptInFlight: boolean;
-  /** How many prompts wait in its queue. */
   queuedPrompts: number;
-  /** True while its harness session handshake waits for an answer. */
   handshaking: boolean;
 };
 
@@ -82,13 +79,9 @@ export type Step = {
   sessionPosts: Array<{ session_id: string; kind: string }>;
   /** The type of every event the step posted, wherever it went. */
   postedTypes: TaskEvent["type"][];
-  /** Every session feed post the step tried, in order. `kind` is the activity type. */
   feedPosts: Array<{ task_id: string; kind: string; text: string }>;
-  /** The session of every session plan the step set, in order. */
   planPosts: string[];
-  /** The text of every activity the tracker holds after the step. */
   storedActivities: string[];
-  /** Every text an author streamed so far. No two are alike, and none holds another. */
   streamedTexts: string[];
   /** Set when the turn of a refiner run ended normally. */
   refinerTurnEnd: { task_id: string } | null;
@@ -560,10 +553,6 @@ function sessionOfPerson(step: Step): string | null {
   return event.reply_to.session_id;
 }
 
-/**
- * The author, before the step, of the job whose job session a person wrote in: the unfinished
- * one, else the newest. Null when no job with an author has that job session.
- */
 function sessionAuthorBefore(step: Step): ObservedTask | null {
   const session = sessionOfPerson(step);
   if (!session) return null;
@@ -576,7 +565,6 @@ function sessionAuthorBefore(step: Step): ObservedTask | null {
   return authors.find((task) => !FINISHED.includes(task.status)) ?? authors.at(-1) ?? null;
 }
 
-/** The author that ran before the step in the session a person wrote in, or null. */
 function runningAuthorBefore(step: Step): ObservedTask | null {
   const author = sessionAuthorBefore(step);
   return author && RUNNING_AUTHOR.includes(author.status) ? author : null;
@@ -690,11 +678,8 @@ function endsOnTheStoppedReply(step: Step, taskId: string): boolean {
 }
 
 /**
- * A stop in a job session ends the turn of the job's author and drops its queued prompts. An
- * author that runs a turn over its bridge is sent a cancel, and the cancelled turn ends its
- * session feed with the stopped reply. Any other author is left with no prompt in flight and no
- * sandbox start that would resume one, and its session feed ends with the stopped reply at once.
- * A stop never changes the workflow status, and the orchestrator does not post for it.
+ * A stop ends the author's turn and drops its queued prompts. Its session feed ends with the
+ * stopped reply. The workflow status does not change, and the orchestrator does not post.
  */
 export function stopEndsTheAuthorsTurn(_workflow: WorkflowRuntime, step: Step): void {
   const ended = step.authorTurnEnd;
@@ -742,10 +727,7 @@ export function chatWorkflowNeverSetsASessionPlan(_workflow: WorkflowRuntime, st
   violated("chatWorkflowNeverSetsASessionPlan", `set a plan in ${step.planPosts.join(", ")}`);
 }
 
-/**
- * A turn that leaves its author idle, with nothing in flight or queued, ends the author's session
- * feed with a reply or an error. A failed post counts.
- */
+/** A turn that leaves its author idle ends the author's session feed with a reply or an error. */
 export function sessionFeedEndsWhenItsAuthorIdles(_workflow: WorkflowRuntime, step: Step): void {
   const ended = step.authorTurnEnd;
   if (!ended) return;
@@ -761,7 +743,7 @@ export function sessionFeedEndsWhenItsAuthorIdles(_workflow: WorkflowRuntime, st
   );
 }
 
-/** Each text an author streamed is held by at most one activity in the tracker. */
+/** The tracker holds at most one activity for each text an author streamed. */
 export function feedActivityPostsOnce(_workflow: WorkflowRuntime, step: Step): void {
   for (const text of step.streamedTexts) {
     const holders = step.storedActivities.filter((stored) => stored.includes(text)).length;

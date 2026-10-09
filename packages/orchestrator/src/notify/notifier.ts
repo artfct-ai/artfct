@@ -12,7 +12,7 @@ import { DELIVERY_ERROR } from "../workflow/store/schema";
 import type { Destination } from "./destination";
 import { plainText, trackerContent } from "./messages";
 
-/** How many times a session feed activity is tried before it is dropped. */
+/** How many times the notifier tries one session feed activity. */
 export const FEED_POST_ATTEMPTS = 3;
 
 type TrackerTarget = Extract<ReplyTarget, { source: "tracker" }>;
@@ -178,11 +178,7 @@ export class Notifier {
     await this.setChatSession(target, finished ? "closed" : "active", { title });
   }
 
-  /**
-   * Post one activity of an author's session feed under one id, so a retry cannot post it twice.
-   * A post that still fails after `FEED_POST_ATTEMPTS` is dropped. Recorded in the outbox under
-   * the `feed` channel, apart from orchestrator posts. Never throws.
-   */
+  /** Post one activity of an author's session feed. */
   async feed(session: TrackerTarget, taskId: string, content: AgentActivityContent): Promise<void> {
     const id = crypto.randomUUID();
     this.outbox({
@@ -208,7 +204,7 @@ export class Notifier {
     }
   }
 
-  /** Replace the plan a tracker session shows. Recorded in the outbox, errors included. Never throws. */
+  /** Show a todo list as the plan of a tracker session. */
   async sessionPlan(session: TrackerTarget, plan: SessionPlanItem[]): Promise<void> {
     this.outbox({ channel: "feed", kind: "plan", target: session, payload: { plan } });
     try {

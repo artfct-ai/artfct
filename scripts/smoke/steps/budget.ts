@@ -1,10 +1,6 @@
 /**
- * Step 5. The context budget. Two prompts in the starting session run as two harness turns. The
- * PR job's input is a page, so the session is not its job session, and each prompt wakes an
- * orchestrator turn that prompts the author. The second arrives while the author runs, so it
- * waits in the queue and reaches the harness without a model call between the two turns. The
- * prompts re-open the released artifact, so the refiners hold it again and the orchestrator is
- * not woken.
+ * Step 5. The context budget. Two prompts in the starting session run as two harness turns. Each
+ * prompt wakes an orchestrator turn, and the second waits in the author's queue.
  */
 import {
   countLogLines,

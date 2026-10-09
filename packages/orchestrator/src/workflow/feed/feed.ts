@@ -5,31 +5,25 @@ import { jobSessionOf, type TrackerSession } from "../inbound/job-session";
 import type { TaskRow } from "../store/tasks";
 import type { WorkflowRuntime } from "../types";
 
-/** The closing reply after a stop or a cancel. */
+/** The closing reply of a stopped turn. */
 export const STOPPED_TEXT = "Stopped.";
 
-/** The closing reply after a finished turn when the author's last message is gone. */
+/** The closing reply of a finished turn whose last message was lost. */
 export const DONE_TEXT = "Done.";
 
-/** The most characters of the author's message the feed keeps for the closing reply. */
+/** The longest author message the feed keeps for the closing reply. */
 export const FEED_BODY_CHARS = 10_000;
 
-/**
- * What the session feed holds in memory for one author's turn: the message since its last tool
- * call, and the title and kind of each tool call that did not complete yet.
- */
+/** What the session feed keeps in memory during one author turn. */
 export type AuthorFeed = {
   message: string;
   tools: Map<string, { title: string; kind: ToolKind | null }>;
 };
 
-/**
- * How a turn ends the session feed: the author's last message as the reply, `STOPPED_TEXT` after a
- * stop, or an error that says why the turn did not finish.
- */
+/** How the session feed ends a turn. */
 export type FeedClosing = { kind: "reply" } | { kind: "stopped" } | { kind: "error"; text: string };
 
-/** The closing of a turn a person stopped, or of a task that was cancelled. */
+/** The closing of a stopped turn or a cancelled task. */
 export const STOPPED_CLOSING: FeedClosing = { kind: "stopped" };
 
 const TOOL_VERBS: Record<ToolKind, string> = {
@@ -45,7 +39,6 @@ const TOOL_VERBS: Record<ToolKind, string> = {
   other: "Used",
 };
 
-/** The job session the author of a task streams to. Null for another role and without a session. */
 function feedSessionOf(workflow: WorkflowRuntime, task: TaskRow): TrackerSession | null {
   if (task.role !== "author") return null;
   return jobSessionOf(workflow, workflow.store.requireJob(task.job_id));
@@ -59,10 +52,7 @@ function authorFeedOf(workflow: WorkflowRuntime, taskId: string): AuthorFeed {
   return created;
 }
 
-/**
- * Feed one harness update of an author to its job session. A completed or failed tool call posts
- * one action. A message is kept for the closing reply until the next tool call. Thoughts are skipped.
- */
+/** Post the author's finished tool calls to its job session, and keep its last message. */
 export async function streamToSessionFeed(
   workflow: WorkflowRuntime,
   task: TaskRow,
@@ -107,7 +97,7 @@ async function postEndedTool(
   await workflow.notifier.feed(session, task.task_id, content);
 }
 
-/** How a turn that leaves the author idle ends its session feed. */
+/** The closing for a turn that ended with this stop reason. */
 export function feedClosingOf(stopReason: StopReason): FeedClosing {
   switch (stopReason) {
     case "end_turn":
@@ -143,10 +133,7 @@ function closingContent(closing: FeedClosing, message: string): AgentActivityCon
   }
 }
 
-/**
- * The author's turn is over. Forget what the feed held for it, and post the closing when one is
- * given. A reply falls back to `DONE_TEXT` when the author's last message is gone.
- */
+/** End the author's session feed for this turn, and post the closing when one is given. */
 export async function closeSessionFeed(
   workflow: WorkflowRuntime,
   task: TaskRow,
@@ -159,10 +146,7 @@ export async function closeSessionFeed(
   await workflow.notifier.feed(session, task.task_id, closingContent(closing, message));
 }
 
-/**
- * The author's task ends for good while a prompt is in flight or queued, so no turn end will
- * close its session feed. Close it now.
- */
+/** Close the session feed of an author task that ends for good in the middle of a turn. */
 export async function closeAbandonedTurnFeed(
   workflow: WorkflowRuntime,
   task: TaskRow,
@@ -179,15 +163,12 @@ const PLAN_STATUSES: Record<PlanEntry["status"], SessionPlanItem["status"]> = {
   completed: "completed",
 };
 
-/** A todo list as a session plan. */
+/** Map a todo list to a session plan. */
 export function sessionPlanOf(entries: PlanEntry[]): SessionPlanItem[] {
   return entries.map((entry) => ({ content: entry.content, status: PLAN_STATUSES[entry.status] }));
 }
 
-/**
- * Show the author's todo list as the plan of its job session. A workflow with a chat thread keeps
- * the list on its chat board only.
- */
+/** Show the author's todo list as the plan of its job session when there is no chat thread. */
 export async function publishSessionPlan(workflow: WorkflowRuntime, task: TaskRow): Promise<void> {
   if (hasChatThread(workflow.state)) return;
   const session = feedSessionOf(workflow, task);

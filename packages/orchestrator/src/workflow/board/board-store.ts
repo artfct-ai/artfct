@@ -76,8 +76,8 @@ export class BoardStore extends RecordStore {
   }
 
   /**
-   * Replace the todo snapshot. An author's list stays as it is once its job records an artifact.
-   * True when the snapshot was stored.
+   * Replace a task's todo list. An author's list is fixed once its job has an artifact.
+   * Returns true when the list was stored.
    */
   setTodos(taskId: string, todos: TodoSnapshot): boolean {
     const author = this.db

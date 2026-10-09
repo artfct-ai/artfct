@@ -115,10 +115,8 @@ async function wakeWorkflow(workflow: WorkflowRuntime): Promise<void> {
 }
 
 /**
- * A finished workflow stays finished. It answers a person's status question, and a person's other
- * event with a reply target hears that it is finished. A stop ends the session feed of its
- * finished author. Everything else, such as a session the tracker opened without a person, is
- * logged and dropped.
+ * Answer a person who writes to a finished workflow, which stays finished. A stop still ends the
+ * author's session feed.
  */
 async function replyFinished(workflow: WorkflowRuntime, event: InboundEvent): Promise<void> {
   const { status } = workflow.state;

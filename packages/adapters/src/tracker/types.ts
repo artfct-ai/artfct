@@ -62,13 +62,10 @@ export type AgentActivityContent =
 /** A link shown on an agent session. */
 export type ExternalUrl = { url: string; label?: string };
 
-/**
- * Options for `Tracker.activity`. An activity posted twice with one `id` appears once, and the
- * second post does not throw.
- */
+/** Options for posting an activity. A post with an `id` already used does not add a second one. */
 export type ActivityOptions = { ephemeral?: boolean; externalUrls?: ExternalUrl[]; id?: string };
 
-/** One step of the plan an agent session shows. */
+/** One step of an agent session plan. */
 export type SessionPlanItem = {
   content: string;
   status: "pending" | "inProgress" | "completed" | "canceled";
@@ -99,6 +96,6 @@ export interface Tracker {
     content: AgentActivityContent,
     options?: ActivityOptions,
   ): Promise<void>;
-  /** Replace the whole plan an agent session shows. */
+  /** Replace the plan of an agent session. */
   setSessionPlan(sessionId: string, plan: SessionPlanItem[]): Promise<void>;
 }

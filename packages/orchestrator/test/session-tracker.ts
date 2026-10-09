@@ -5,17 +5,14 @@ import type {
 } from "@artfct-ai/adapters/tracker/types";
 import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 
-/** How the tracker answers an activity: it stores it, or fails before or after storing it. */
 export type TrackerHealth = "up" | "fails_before_storing" | "fails_after_storing";
 
-/** One activity a session holds. */
 export type StoredActivity = {
   session_id: string;
   id: string | null;
   content: AgentActivityContent;
 };
 
-/** A tracker that holds each session's activities and keeps one activity per id, as Linear does. */
 export class SessionTracker extends FakeTracker {
   health: TrackerHealth = "up";
   readonly stored: StoredActivity[] = [];
@@ -39,7 +36,6 @@ export class SessionTracker extends FakeTracker {
   }
 }
 
-/** The text a person reads in an activity. */
 export function activityText(content: AgentActivityContent): string {
   if (content.type !== "action") return content.body;
   return [content.action, content.parameter, content.result ?? ""].join(" ");

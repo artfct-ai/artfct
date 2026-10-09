@@ -67,7 +67,7 @@ export interface WorkflowRuntime {
   readonly store: WorkflowStore;
   readonly notifier: Notifier;
   readonly transcript: TranscriptStore;
-  /** What each author's session feed holds for its running turn. Memory only, lost on a restart. */
+  /** The in-memory session feed of each author's running turn, by task id. */
   readonly sessionFeeds: Map<string, AuthorFeed>;
   patchState(patch: Partial<WorkflowState>): void;
   config(): Config;

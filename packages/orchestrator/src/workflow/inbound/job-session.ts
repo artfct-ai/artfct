@@ -10,10 +10,7 @@ export type TrackerSession = Extract<ReplyTarget, { source: "tracker" }>;
 /** The statuses of an author that runs. An author in review is idle and does not run. */
 const RUNNING_AUTHOR_STATUSES: TaskStatus[] = ["queued", "provisioning", "working"];
 
-/**
- * The tracker session on the job's input issue. Null when the job's input is not an issue, or
- * when that issue has no session.
- */
+/** The tracker session on the job's input issue, if the job has one. */
 export function jobSessionOf(workflow: WorkflowRuntime, job: JobRow): TrackerSession | null {
   if (!job.issue_id) return null;
   return (
@@ -24,10 +21,7 @@ export function jobSessionOf(workflow: WorkflowRuntime, job: JobRow): TrackerSes
   );
 }
 
-/**
- * The author of the job whose job session this is: the unfinished one, else the newest. Null
- * when no job with an author has this job session.
- */
+/** The author that a message or a stop in this job session is for. */
 export function authorInSession(
   workflow: WorkflowRuntime,
   session: TrackerSession,
@@ -39,7 +33,7 @@ export function authorInSession(
   return authors.find((author) => !isTaskFinished(author.status)) ?? authors.at(-1) ?? null;
 }
 
-/** The author of the job whose job session this is, while it runs. Null otherwise. */
+/** The author of this job session, only while it runs. */
 export function runningAuthorInSession(
   workflow: WorkflowRuntime,
   session: TrackerSession,

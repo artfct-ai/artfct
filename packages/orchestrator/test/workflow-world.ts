@@ -64,7 +64,6 @@ export type WorldSetup = {
   firstInput: FirstInput;
 };
 
-/** What the first job works from: the request, or the issue the tracker origin sits on. */
 export type FirstInput = "request" | "origin_issue";
 
 const ORIGIN_ISSUE: JobIssue = {
@@ -488,14 +487,12 @@ export class WorkflowWorld {
     this.installHost();
   }
 
-  /** A text no author streamed before, for the harness to stream. */
   nextStreamedText(): string {
     const text = `[[${this.streamedTexts.length + 1}]]`;
     this.streamedTexts.push(text);
     return text;
   }
 
-  /** How the tracker answers activities and session plans from now on. */
   setTrackerHealth(health: TrackerHealth): void {
     this.tracker.health = health;
   }

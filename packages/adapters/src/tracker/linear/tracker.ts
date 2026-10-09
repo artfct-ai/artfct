@@ -29,10 +29,10 @@ function isAlreadySyncedError(error: unknown): boolean {
   return errorMessages(error).some((message) => message.includes(ALREADY_SYNCED_MESSAGE));
 }
 
-/** How Linear words the refusal of an activity whose id another activity has already. */
+/** The error text Linear returns for a repeated activity id. */
 const REPEATED_ACTIVITY = "conflict on insert of AgentActivity";
 
-/** True when Linear refused an activity because one with its id exists already. */
+/** True when Linear refused an activity because its id was already used. */
 function isRepeatedActivity(error: unknown): boolean {
   return errorMessages(error).some((message) => message.includes(REPEATED_ACTIVITY));
 }
@@ -153,10 +153,7 @@ export class LinearTracker implements Tracker {
     return fetchProjectIssues(this.raw, projectId);
   }
 
-  /**
-   * Emit an agent activity. Linear refuses a second activity with the same id, and that refusal
-   * means the first post landed. `externalUrls` belong to the session, so they go in a second call.
-   */
+  /** Post an agent activity to a session. */
   async activity(
     sessionId: string,
     content: AgentActivityContent,

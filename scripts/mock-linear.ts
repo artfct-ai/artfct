@@ -26,7 +26,7 @@ type GqlRecord = {
   variables: Record<string, unknown>;
 };
 
-/** An issue a smoke step registered, as its webhooks carry it. */
+/** An issue a smoke step registered. */
 type RegisteredIssue = { id: string; identifier: string; title: string; url: string };
 
 /** An issued access token and when it stops being accepted. */
@@ -153,7 +153,7 @@ function documentAnswer(id: string): Record<string, unknown> {
   };
 }
 
-/** A registered issue as the issue query reads it: unstarted, on the team, without relations. */
+/** The answer to the issue query for a registered issue. */
 function issueAnswer(idOrKey: string): unknown {
   const issue = state.issues.find(
     (candidate) => candidate.id === idOrKey || candidate.identifier === idOrKey,
@@ -235,7 +235,7 @@ async function handleGraphql(request: Request): Promise<Response> {
   return Response.json({ data });
 }
 
-/** `POST /__issues`. Registers one issue for the `issue` query. */
+/** `POST /__issues`. Registers one issue. */
 async function handleIssue(request: Request): Promise<Response> {
   const { id, identifier, title, url } = (await request.json()) as RegisteredIssue;
   state.issues.push({ id, identifier, title, url });
