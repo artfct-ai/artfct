@@ -1,6 +1,6 @@
 import { jsonRpcNotification, parseMessage, type JsonRpcMessage } from "@artfct-ai/acp/jsonrpc";
 import { bridgeTokenHeaders } from "@artfct-ai/acp/bridge-token";
-import { BridgeMethods, type BridgeHelloParams } from "@artfct-ai/acp/methods";
+import { BridgeHeartbeat, BridgeMethods, type BridgeHelloParams } from "@artfct-ai/acp/methods";
 import { backoffDelay } from "./backoff";
 import { closeAction, type TerminalCloseAction } from "./close-policy";
 import { SOCKET_OPEN, dialWebSocket, type SocketDialer, type SocketLike } from "./socket";
@@ -18,10 +18,13 @@ export type ServerConnectionOptions = {
   openSocket?: SocketDialer;
 };
 
+/** How often the bridge sends a heartbeat on an open socket. The network drops a socket that stays idle. */
+export const HEARTBEAT_INTERVAL_MS = 30_000;
+
 type PendingFlush = { timer: ReturnType<typeof setTimeout>; settle: (sent: boolean) => void };
 
 /**
- * Outbound WebSocket to the orchestrator. Sends bridge/hello on open,
+ * Outbound WebSocket to the orchestrator. Sends bridge/hello on open, a heartbeat while open,
  * queues messages while disconnected, and reconnects with backoff.
  */
 export class ServerConnection {
@@ -30,6 +33,7 @@ export class ServerConnection {
   private attempt = 0;
   private stopped = false;
   private pendingFlush: PendingFlush | null = null;
+  private heartbeat: ReturnType<typeof setInterval> | null = null;
   private openSocket: SocketDialer;
 
   constructor(private options: ServerConnectionOptions) {
@@ -56,6 +60,7 @@ export class ServerConnection {
   /** Stop reconnecting. Later close events are ignored. */
   stop(): void {
     this.stopped = true;
+    this.stopHeartbeat();
   }
 
   close(): void {
@@ -89,15 +94,28 @@ export class ServerConnection {
     this.attempt = 0;
     socket.send(JSON.stringify(jsonRpcNotification(BridgeMethods.hello, this.options.hello())));
     for (const text of this.outbox.splice(0)) socket.send(text);
+    this.startHeartbeat(socket);
     this.settleFlush(true);
   }
 
+  private startHeartbeat(socket: SocketLike): void {
+    this.stopHeartbeat();
+    this.heartbeat = setInterval(() => socket.send(BridgeHeartbeat.request), HEARTBEAT_INTERVAL_MS);
+  }
+
+  private stopHeartbeat(): void {
+    if (this.heartbeat) clearInterval(this.heartbeat);
+    this.heartbeat = null;
+  }
+
   private handleMessage(data: string): void {
+    if (data === BridgeHeartbeat.response) return;
     const message = parseMessage(data);
     if (message) this.options.onMessage(message);
   }
 
   private handleClose(code: number, reason: string): void {
+    this.stopHeartbeat();
     if (this.stopped) {
       this.settleFlush(false);
       return;
