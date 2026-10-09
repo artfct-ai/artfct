@@ -6,6 +6,7 @@ import type { Workflow } from "../../workflow";
 import { ScriptedFailure, type Action } from "../../../test/fake-model";
 import type { Scenario } from "../../../test/scenario";
 import { ACK_TEXT } from "../../../test/scripted-model";
+import { testServices } from "../../../test/worker";
 import { STUCK_TEXT, UNANSWERED_TEXT } from "./turn";
 import { LOST_PLACE_TEXT, LOST_TURN_TEXT } from "./watchdog";
 
@@ -96,6 +97,16 @@ async function loseTurn() {
     debug = (await workflow.debug()) as Debug;
   });
   return { stub, debug };
+}
+
+async function withNewInstanceModel(model: ScriptedFailure, act: () => Promise<void>) {
+  const previous = testServices.model;
+  testServices.model = async () => model;
+  try {
+    await act();
+  } finally {
+    testServices.model = previous;
+  }
 }
 
 const lost: Scenario<Debug> = async (run) => {
@@ -342,13 +353,14 @@ describe("agent turn", () => {
     describe("once the next instance starts and its turn settles", () => {
       const resumed: Scenario<Debug> = async (run) => {
         const { stub } = await loseTurn();
-        await evictDurableObject(stub);
-        await runInDurableObject(stub, async (workflow: Workflow) => {
-          const model = new ScriptedFailure(["text"]);
-          workflow.services = { ...workflow.services, model: async () => model };
-          await workflow.status();
-          await workflow.settle();
-          await run((await workflow.debug()) as Debug);
+        const model = new ScriptedFailure(["text"]);
+        await withNewInstanceModel(model, async () => {
+          await evictDurableObject(stub);
+          await runInDurableObject(stub, async (workflow: Workflow) => {
+            await workflow.status();
+            await workflow.settle();
+            await run((await workflow.debug()) as Debug);
+          });
         });
       };
 
