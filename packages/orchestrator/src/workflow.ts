@@ -25,6 +25,7 @@ import { Agent, type Connection, type ConnectionContext, type WSMessage } from "
 import type { JSONValue, LanguageModel, ToolSet } from "ai";
 import { allowedMcpTools, connectOrchestratorMcp } from "./agent/tools/mcp";
 import { TranscriptStore } from "./agent/transcript/transcript";
+import type { AuthorFeed } from "./workflow/feed/feed";
 import {
   onTurnHeadsUp,
   onTurnTimeout,
@@ -151,6 +152,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
   store!: WorkflowStore;
   notifier!: Notifier;
   transcript!: TranscriptStore;
+  readonly sessionFeeds = new Map<string, AuthorFeed>();
   /** The chat the notifier posts through, kept so the agent can read back through it. */
   private chatClient: Chat | null = null;
   private turns = new TurnCoalescer();

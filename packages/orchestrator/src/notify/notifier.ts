@@ -1,13 +1,19 @@
 import type { Chat, SessionStatus } from "@artfct-ai/adapters/chat/types";
 import type { Documents } from "@artfct-ai/adapters/documents/types";
-import type { SessionPlanItem, Tracker } from "@artfct-ai/adapters/tracker/types";
+import type {
+  AgentActivityContent,
+  SessionPlanItem,
+  Tracker,
+} from "@artfct-ai/adapters/tracker/types";
 import type { Acknowledge, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { TaskEvent } from "../workflow/task/events";
 import type { BoardChannel } from "../workflow/board/types";
-import type { FeedPost } from "../workflow/feed/types";
 import { DELIVERY_ERROR } from "../workflow/store/schema";
 import type { Destination } from "./destination";
 import { plainText, trackerContent } from "./messages";
+
+/** How many times a session feed activity is tried before it is dropped. */
+export const FEED_POST_ATTEMPTS = 3;
 
 type TrackerTarget = Extract<ReplyTarget, { source: "tracker" }>;
 type DocumentsTarget = Extract<ReplyTarget, { source: "documents" }>;
@@ -173,27 +179,32 @@ export class Notifier {
   }
 
   /**
-   * Post one activity of an author's session feed. True once the tracker holds it, and without a
-   * tracker. The outbox records the attempt under the `feed` channel, apart from orchestrator posts.
+   * Post one activity of an author's session feed under one id, so a retry cannot post it twice.
+   * A post that still fails after `FEED_POST_ATTEMPTS` is dropped. Recorded in the outbox under
+   * the `feed` channel, apart from orchestrator posts. Never throws.
    */
-  async feed(session: TrackerTarget, taskId: string, post: FeedPost): Promise<boolean> {
+  async feed(session: TrackerTarget, taskId: string, content: AgentActivityContent): Promise<void> {
+    const id = crypto.randomUUID();
     this.outbox({
       channel: "feed",
-      kind: post.content.type,
+      kind: content.type,
       target: session,
-      payload: { task_id: taskId, id: post.id, content: post.content },
+      payload: { task_id: taskId, id, content },
     });
-    try {
-      await (await this.tracker())?.activity(session.session_id, post.content, { id: post.id });
-      return true;
-    } catch (error) {
-      this.outbox({
-        channel: "feed",
-        kind: DELIVERY_ERROR,
-        target: session,
-        payload: String(error),
-      });
-      return false;
+    const tracker = await this.tracker();
+    if (!tracker) return;
+    for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {
+      try {
+        await tracker.activity(session.session_id, content, { id });
+        return;
+      } catch (error) {
+        this.outbox({
+          channel: "feed",
+          kind: DELIVERY_ERROR,
+          target: session,
+          payload: String(error),
+        });
+      }
     }
   }
 

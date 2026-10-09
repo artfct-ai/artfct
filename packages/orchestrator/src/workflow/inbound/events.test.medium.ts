@@ -452,9 +452,9 @@ describe("finished workflows", () => {
         expect(await outboxOf(workflow)).toHaveLength(before);
       }));
 
-    it("logs that it ignored the stop", () =>
+    it("logs that no author works in its session", () =>
       stopped(async (workflow) => {
-        expect(await logOf(workflow)).toContain("ignored stop: the workflow is failed");
+        expect(await logOf(workflow)).toContain("stop ignored: no author works in its job session");
       }));
   });
 

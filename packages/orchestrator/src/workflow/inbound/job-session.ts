@@ -30,12 +30,30 @@ export function runningAuthorInSession(
   workflow: WorkflowRuntime,
   session: TrackerSession,
 ): TaskRow | null {
-  const running = workflow.store
+  const running = authorsInSession(workflow, session).filter(isRunningAuthor);
+  return running.length === 1 ? running[0]! : null;
+}
+
+/**
+ * The authors a stop in the job session is for: every author that runs there, else the author of
+ * the newest job whose job session this is.
+ */
+export function authorsToStopInSession(
+  workflow: WorkflowRuntime,
+  session: TrackerSession,
+): TaskRow[] {
+  const authors = authorsInSession(workflow, session);
+  const running = authors.filter(isRunningAuthor);
+  return running.length > 0 ? running : authors.slice(-1);
+}
+
+function authorsInSession(workflow: WorkflowRuntime, session: TrackerSession): TaskRow[] {
+  return workflow.store
     .jobs()
     .filter((job) => jobSessionOf(workflow, job)?.session_id === session.session_id)
-    .flatMap((job) => {
-      const author = workflow.store.authorTask(job.job_id);
-      return author && RUNNING_AUTHOR_STATUSES.includes(author.status) ? [author] : [];
-    });
-  return running.length === 1 ? running[0]! : null;
+    .flatMap((job) => workflow.store.authorTask(job.job_id) ?? []);
+}
+
+function isRunningAuthor(author: TaskRow): boolean {
+  return RUNNING_AUTHOR_STATUSES.includes(author.status);
 }

@@ -1,7 +1,7 @@
 import { and, desc, eq, inArray, notInArray } from "drizzle-orm";
 import type { TaskRole } from "../task/events";
 import { TURN_PURPOSE } from "../../agent/model/usage";
-import { FeedStore } from "../feed/feed-store";
+import { BoardStore } from "../board/board-store";
 import { jobs, modelUsage, promptQueue, rpc, sandboxes, tasks } from "./schema";
 import type { RpcPurpose } from "./schema";
 import { FINISHED_TASK_STATUSES, now } from "./state";
@@ -51,7 +51,7 @@ const REFINER_ROLES: TaskRole[] = ["reviewer", "polisher"];
 const HANDSHAKE_PURPOSES: RpcPurpose[] = ["initialize", "session_new", "set_effort"];
 
 /** Typed access to the workflow's task, model usage, rpc, and prompt queue tables. */
-export class WorkflowStore extends FeedStore {
+export class WorkflowStore extends BoardStore {
   task(taskId: string): TaskRow | null {
     return this.db.select().from(tasks).where(eq(tasks.task_id, taskId)).get() ?? null;
   }

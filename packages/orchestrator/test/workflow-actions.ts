@@ -98,7 +98,8 @@ export function authorTurnEnds(
     else await bridge.endTurn(stopReason);
     if (closing === "gives_up" && stopReason === "end_turn") return undefined;
     const hostRevision = revision === "unreadable" ? null : world.hostRevisionOf(author);
-    return { authorTurnEnd: { task_id: author.taskId, hostRevision } };
+    const cancelledTurn = stopReason === "cancelled";
+    return { authorTurnEnd: { task_id: author.taskId, hostRevision, cancelled: cancelledTurn } };
   });
 }
 
@@ -115,7 +116,11 @@ export function authorPromptFails(index: number, revision: "changed" | "same"): 
     if (revision === "changed") world.changeRevision(author);
     await bridge.failPrompt(PROMPT_ERROR);
     return {
-      authorTurnEnd: { task_id: author.taskId, hostRevision: world.hostRevisionOf(author) },
+      authorTurnEnd: {
+        task_id: author.taskId,
+        hostRevision: world.hostRevisionOf(author),
+        cancelled: false,
+      },
     };
   });
 }
@@ -186,34 +191,39 @@ export function authorReportsTodos(index: number, completed: number): WorkflowAc
   });
 }
 
-/** What an author's harness streams mid-turn: a thought, a message, or a tool call. */
-export type Streamed = "thought" | "message" | "tool" | "failed_tool";
+/** What an author's harness streams mid-turn: a message, or a tool call that completes or fails. */
+export type Streamed = "message" | "tool" | "failed_tool";
 
-/**
- * The author's harness streams one new text, as a thought, a message, or a tool call's title,
- * `seconds` after the step before.
- */
-export function authorStreams(index: number, streamed: Streamed, seconds: number): WorkflowAction {
-  return authorAction(index, `streams a ${streamed} after ${seconds}s`, async (world, author) => {
+/** The author's harness streams one new text, as a message or as a tool call's title. */
+export function authorStreams(index: number, streamed: Streamed): WorkflowAction {
+  return authorAction(index, `streams a ${streamed}`, async (world, author) => {
     const bridge = world.runningBridgeOf(author.taskId);
     if (!bridge) return;
-    world.advanceClock(seconds * 1000);
     const text = world.nextStreamedText();
     switch (streamed) {
-      case "thought":
-        return bridge.think(`Thinking ${text}.`);
       case "message":
         return bridge.say(`Noted ${text}.`);
       case "tool":
-        return bridge.callTool(`call-${text}`, `file-${text}.ts`, "read");
+        await bridge.callTool(`call-${text}`, `file-${text}.ts`, "edit");
+        return bridge.endTool(`call-${text}`, "completed");
       case "failed_tool":
         await bridge.callTool(`call-${text}`, `bun test ${text}`, "execute");
-        return bridge.failTool(`call-${text}`);
+        return bridge.endTool(`call-${text}`, "failed");
       default: {
         const unreachable: never = streamed;
         throw new Error(`unhandled stream ${String(unreachable)}`);
       }
     }
+  });
+}
+
+/**
+ * The Durable Object restarts. What it held in memory is gone. The store and the alarms stay, and
+ * the bridge dials back in to the same turn.
+ */
+export function workflowRestarts(): WorkflowAction {
+  return action("the workflow restarts", async (world) => {
+    world.workflow.sessionFeeds.clear();
   });
 }
 
@@ -521,13 +531,6 @@ export function baseMoves(
 export function timePasses(minutes: number): WorkflowAction {
   return action(`${minutes} minutes pass`, async (world) => {
     world.advanceClock(minutes * 60_000);
-  });
-}
-
-/** A few seconds pass, short of most timers. The session feed's interval notices them. */
-export function secondsPass(seconds: number): WorkflowAction {
-  return action(`${seconds} seconds pass`, async (world) => {
-    world.advanceClock(seconds * 1000);
   });
 }
 

@@ -1,8 +1,8 @@
 /**
  * Step 8. A fresh workflow is provisioned and its author's first turn never finishes. A message
- * in its job session goes straight to the running author, and the Stop button ends that turn
- * while the workflow runs on. Moving the issue to Canceled then cancels the workflow: one start,
- * one destroy.
+ * in its job session goes straight to the running author, and the Stop button ends that turn and
+ * drops the message while the workflow runs on. A second Stop on the idle author ends its session
+ * feed again. Moving the issue to Canceled then cancels the workflow: one start, one destroy.
  */
 import {
   countLogLines,
@@ -26,10 +26,12 @@ import {
   linearIssue,
   linearSessionId,
 } from "../fixtures";
+import { activityBodies, fetchMockLinearState } from "../linear-api";
 import { assertStartsSince, waitForSandboxDestroyed } from "../sandbox";
 import { postLinearWebhook } from "../webhooks";
 
 const THIRD_SESSION = linearSessionId(3);
+const STOPPED_REPLY = "Stopped.";
 const SECOND_ISSUE = linearIssue(
   2,
   "ENG-43",
@@ -70,7 +72,22 @@ async function forwardToAuthor(workflowId: string, taskId: string): Promise<Work
   return forwarded;
 }
 
-/** The Stop button cancels the author's prompt turn and leaves the task and workflow running. */
+/** How long the harness gets to show it did not start the dropped prompt. */
+const DROPPED_PROMPT_GRACE_MS = 1_000;
+
+/** Waits until the job session holds `count` stopped replies and the last activity is one. */
+async function waitForStoppedReplies(count: number, label: string): Promise<void> {
+  await waitUntil({ label }, async () => {
+    const bodies = activityBodies(await fetchMockLinearState(), THIRD_SESSION);
+    const stoppedReplies = bodies.filter((body) => body === STOPPED_REPLY).length;
+    return stoppedReplies === count && bodies.at(-1) === STOPPED_REPLY;
+  });
+}
+
+/**
+ * The Stop button cancels the author's prompt turn, drops the message queued behind it, and ends
+ * the session feed with the stopped reply. The task and the workflow keep running.
+ */
 async function pressStop(workflowId: string, taskId: string): Promise<void> {
   const before = await forwardToAuthor(workflowId, taskId);
   const status = taskById(before, taskId).status;
@@ -79,14 +96,37 @@ async function pressStop(workflowId: string, taskId: string): Promise<void> {
     const debug = await fetchWorkflowDebug(workflowId);
     return countTaskLogLines(debug, taskId, "turn ended: cancelled") > 0 ? debug : null;
   });
-  assert(hasLogLine(stopped, "stop cancelled the prompt turn"), "the stop sent a cancel");
+  assert(hasLogLine(stopped, "stop: cancelled"), "the stop sent a cancel");
   assert(
     countTaskLogLines(stopped, taskId, "bridge: session/cancel") > 0,
     "session/cancel reached the harness",
   );
+  await waitForStoppedReplies(1, "the session feed ended with the stopped reply");
+  await Bun.sleep(DROPPED_PROMPT_GRACE_MS);
+  const settled = await fetchWorkflowDebug(workflowId);
+  assertEqual(
+    countTaskLogLines(settled, taskId, "permission:"),
+    countTaskLogLines(stopped, taskId, "permission:"),
+    "the harness did not get the queued prompt",
+  );
+  assertEqual(settled.state.status, "running", "the workflow keeps running");
+  assertEqual(taskById(settled, taskId).status, status, "the author keeps its status");
+  assertEqual(countSessionPosts(settled), countSessionPosts(before), "nothing posted after Stop");
+}
+
+/** The Stop button on an idle author ends its session feed with the stopped reply again. */
+async function pressStopWhileIdle(workflowId: string, taskId: string): Promise<void> {
+  const before = await fetchWorkflowDebug(workflowId);
+  await writeInSession("Stop", "stop");
+  await waitForStoppedReplies(2, "the idle author's session feed ended with the stopped reply");
+  const stopped = await fetchWorkflowDebug(workflowId);
+  assert(hasLogLine(stopped, "stop: idle"), "the stop found the author idle");
   assertEqual(stopped.state.status, "running", "the workflow keeps running");
-  assertEqual(taskById(stopped, taskId).status, status, "the author keeps its status");
-  assertEqual(countSessionPosts(stopped), countSessionPosts(before), "nothing posted after Stop");
+  assertEqual(
+    countTaskLogLines(stopped, taskId, "bridge: session/cancel"),
+    countTaskLogLines(before, taskId, "bridge: session/cancel"),
+    "the idle author got no cancel",
+  );
 }
 
 /** Moves the issue to Canceled and waits for the workflow and task to be cancelled. */
@@ -126,6 +166,7 @@ export async function runCancel(): Promise<void> {
   await assertStartsSince(0, 1, "mock sandbox saw one start for the second workflow", taskId);
 
   await pressStop(workflowId, taskId);
+  await pressStopWhileIdle(workflowId, taskId);
   await cancelFromIssue(workflowId, taskId);
   const exit = await waitForSandboxDestroyed(taskId, "/destroy reached the mock sandbox");
   if (exit) assert(exit.code === 0 || exit.killed, "bridge exited cleanly", exit);

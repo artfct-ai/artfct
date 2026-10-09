@@ -1,29 +1,27 @@
 import type { SessionUpdate } from "@agentclientprotocol/sdk";
 import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { ActivityOptions, AgentActivityContent } from "@artfct-ai/adapters/tracker/types";
-import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 import { describe, expect, it } from "bun:test";
 import { seedTask, type FakeRuntime } from "../../../test/fake-runtime";
 import { freshRuntime } from "../../../test/fresh-runtime";
 import { testNotifier } from "../../../test/notifier-fixture";
-import { scenario } from "../../../test/scenario";
-import { activityText, SessionTracker } from "../../../test/session-tracker";
-import type { OutboxEntry } from "../../notify/notifier";
+import { SessionTracker } from "../../../test/session-tracker";
+import { FEED_POST_ATTEMPTS, type OutboxEntry } from "../../notify/notifier";
 import type { TaskRow } from "../store/tasks";
 import {
   DONE_TEXT,
-  FEED_INTERVAL_MS,
+  STOPPED_CLOSING,
   STOPPED_TEXT,
+  closeAbandonedTurnFeed,
+  closeSessionFeed,
   feedClosingOf,
-  flushFeed,
   publishSessionPlan,
-  recordFeedUpdate,
   sessionPlanOf,
+  streamToSessionFeed,
 } from "./feed";
 
 const STARTING: ReplyTarget = { source: "tracker", session_id: "s-start", issue_id: "ENG-1" };
 const THREAD: ReplyTarget = { source: "chat", channel: "C1", thread: "1.0" };
-const START = 1_000_000;
 
 const say = (text: string): SessionUpdate => ({
   sessionUpdate: "agent_message_chunk",
@@ -33,265 +31,241 @@ const think = (text: string): SessionUpdate => ({
   sessionUpdate: "agent_thought_chunk",
   content: { type: "text", text },
 });
-const read = (id: string, title: string): SessionUpdate => ({
+const edit = (id: string, title: string): SessionUpdate => ({
   sessionUpdate: "tool_call",
   toolCallId: id,
   title,
-  kind: "read",
+  kind: "edit",
+});
+const ended = (id: string, status: "completed" | "failed"): SessionUpdate => ({
+  sessionUpdate: "tool_call_update",
+  toolCallId: id,
+  status,
 });
 
 class FailingFirstTracker extends SessionTracker {
-  private activities = 0;
+  private attempts = 0;
 
   override async activity(
     sessionId: string,
     content: AgentActivityContent,
     options: ActivityOptions = {},
   ): Promise<void> {
-    this.activities += 1;
-    if (this.activities === 1) throw new Error("tracker unavailable");
+    this.attempts += 1;
+    if (this.attempts === 1) throw new Error("tracker unavailable");
     await super.activity(sessionId, content, options);
   }
 }
 
 type Fixture = {
   workflow: FakeRuntime;
-  tracker: FakeTracker;
+  tracker: SessionTracker;
   outbox: OutboxEntry[];
   author: TaskRow;
 };
 
-function withTracker(workflow: FakeRuntime, tracker: FakeTracker, outbox: OutboxEntry[]): void {
-  workflow.notifier = testNotifier(outbox, { tracker });
-}
-
-const linearOnly = (run: (fixture: Fixture) => Promise<void>) =>
+const linearOnly = (
+  run: (fixture: Fixture) => Promise<void>,
+  tracker: SessionTracker = new SessionTracker(),
+) =>
   freshRuntime(async (workflow) => {
     workflow.patchState({ origin: STARTING, reply_targets: [STARTING] });
-    workflow.clock = START;
-    const tracker = new FakeTracker();
     const outbox: OutboxEntry[] = [];
-    withTracker(workflow, tracker, outbox);
-    await run({ workflow, tracker, outbox, author: seedTask(workflow) });
+    workflow.notifier = testNotifier(outbox, { tracker });
+    const author = seedTask(workflow, {}, { prompt_in_flight: 1 });
+    await run({ workflow, tracker, outbox, author });
   });
 
-function posted(tracker: FakeTracker): unknown[] {
-  return tracker.argsOf("activity").map((args) => args[1]);
+function stored(fixture: Fixture): AgentActivityContent[] {
+  return fixture.tracker.stored.map((activity) => activity.content);
 }
 
 async function stream(fixture: Fixture, updates: SessionUpdate[]): Promise<void> {
   for (const update of updates) {
-    recordFeedUpdate(fixture.workflow, fixture.author, update);
-    await flushFeed(fixture.workflow, fixture.author);
+    await streamToSessionFeed(fixture.workflow, fixture.author, update);
   }
 }
 
+function triedIds(fixture: Fixture): string[] {
+  return fixture.outbox.flatMap((entry) =>
+    entry.channel === "feed" && entry.kind !== "delivery_error"
+      ? [(entry.payload as { id: string }).id]
+      : [],
+  );
+}
+
 describe("the session feed", () => {
-  describe("text the author streams", () => {
-    it("joins chunks of one message into one item, held until something follows it", () =>
+  describe("a tool call", () => {
+    it("posts one action under its title when it completes", () =>
       linearOnly(async (fixture) => {
-        await stream(fixture, [say("Opened "), say("PR #12.")]);
-        expect(posted(fixture.tracker)).toEqual([]);
-        expect(fixture.workflow.store.feedItems(fixture.author.task_id)).toMatchObject([
-          { kind: "message", text: "Opened PR #12." },
+        await stream(fixture, [edit("c1", "login.ts")]);
+        expect(stored(fixture)).toEqual([]);
+        await stream(fixture, [ended("c1", "completed")]);
+        expect(stored(fixture)).toEqual([
+          { type: "action", action: "Edited", parameter: "login.ts" },
         ]);
       }));
 
-    it("posts a thought once a tool call follows it", () =>
+    it("posts as failed when it fails", () =>
       linearOnly(async (fixture) => {
-        await stream(fixture, [think("Look at login."), read("c1", "src/login.ts")]);
-        expect(posted(fixture.tracker)).toEqual([
-          {
-            type: "thought",
-            body: "Look at login.\n\n- Read: src/login.ts",
-          },
+        await stream(fixture, [edit("c1", "login.ts"), ended("c1", "failed")]);
+        expect(stored(fixture)).toEqual([
+          { type: "action", action: "Edited", parameter: "login.ts", result: "failed" },
         ]);
       }));
-  });
 
-  describe("posts inside one interval", () => {
-    it("hold the items for the next flush after the interval", () =>
+    it("posts nothing when it completes after a restart lost its title", () =>
       linearOnly(async (fixture) => {
-        await stream(fixture, [read("c1", "a.ts")]);
-        await stream(fixture, [read("c2", "b.ts"), read("c3", "c.ts")]);
-        expect(posted(fixture.tracker)).toHaveLength(1);
-        fixture.workflow.clock = START + FEED_INTERVAL_MS;
-        await flushFeed(fixture.workflow, fixture.author);
-        expect(posted(fixture.tracker)).toEqual([
-          { type: "action", action: "Read", parameter: "a.ts" },
-          { type: "thought", body: "- Read: b.ts\n\n- Read: c.ts" },
-        ]);
+        await stream(fixture, [edit("c1", "login.ts")]);
+        fixture.workflow.sessionFeeds.clear();
+        await stream(fixture, [ended("c1", "completed")]);
+        expect(stored(fixture)).toEqual([]);
       }));
   });
 
-  describe("a tool call that fails before its item posts", () => {
-    it("posts as failed", () =>
+  describe("thoughts and messages mid-turn", () => {
+    it("post nothing", () =>
       linearOnly(async (fixture) => {
-        recordFeedUpdate(fixture.workflow, fixture.author, read("c1", "a.ts"));
-        recordFeedUpdate(fixture.workflow, fixture.author, {
-          sessionUpdate: "tool_call_update",
-          toolCallId: "c1",
-          status: "failed",
-        });
-        await flushFeed(fixture.workflow, fixture.author);
-        expect(posted(fixture.tracker)).toEqual([
-          { type: "action", action: "Read", parameter: "a.ts", result: "failed" },
-        ]);
+        await stream(fixture, [think("Look at login."), say("Opened PR #12.")]);
+        expect(stored(fixture)).toEqual([]);
       }));
   });
 
   describe("a turn that leaves the author idle", () => {
     it("closes with the author's last message as the reply", () =>
       linearOnly(async (fixture) => {
-        await stream(fixture, [read("c1", "a.ts"), say("Opened PR #12.")]);
-        await flushFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
-        expect(posted(fixture.tracker).at(-1)).toEqual({
-          type: "response",
-          body: "Opened PR #12.",
-        });
-        expect(fixture.workflow.store.feedItems(fixture.author.task_id)).toEqual([]);
+        await stream(fixture, [say("Looking. "), edit("c1", "a.ts"), say("Opened "), say("#12.")]);
+        await closeSessionFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
+        expect(stored(fixture)).toEqual([{ type: "response", body: "Opened #12." }]);
+        expect(fixture.workflow.sessionFeeds.size).toBe(0);
       }));
 
-    it("closes a stop without a last message with the stopped reply", () =>
+    it("closes with the done reply when a tool call came after the last message", () =>
       linearOnly(async (fixture) => {
-        await stream(fixture, [read("c1", "a.ts")]);
-        await flushFeed(fixture.workflow, fixture.author, feedClosingOf("cancelled"));
-        expect(posted(fixture.tracker).at(-1)).toEqual({ type: "response", body: STOPPED_TEXT });
+        await stream(fixture, [say("Opened #12."), edit("c1", "a.ts")]);
+        await closeSessionFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
+        expect(stored(fixture)).toEqual([{ type: "response", body: DONE_TEXT }]);
       }));
 
-    it("closes a finished turn without anything said with the done reply", () =>
+    it("closes a stopped turn with the stopped reply, after a message too", () =>
       linearOnly(async (fixture) => {
-        await flushFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
-        expect(posted(fixture.tracker)).toEqual([{ type: "response", body: DONE_TEXT }]);
+        await stream(fixture, [say("Half done.")]);
+        await closeSessionFeed(fixture.workflow, fixture.author, feedClosingOf("cancelled"));
+        expect(stored(fixture)).toEqual([{ type: "response", body: STOPPED_TEXT }]);
       }));
 
-    it("closes a turn cut off by a limit with an error, inside the interval too", () =>
+    it("closes a turn cut off by a limit with an error", () =>
       linearOnly(async (fixture) => {
-        await stream(fixture, [read("c1", "a.ts"), read("c2", "b.ts"), say("Half done.")]);
-        await flushFeed(fixture.workflow, fixture.author, feedClosingOf("max_tokens"));
-        expect(posted(fixture.tracker).slice(1)).toEqual([
-          { type: "thought", body: "- Read: b.ts\n\nHalf done." },
+        await stream(fixture, [say("Half done.")]);
+        await closeSessionFeed(fixture.workflow, fixture.author, feedClosingOf("max_tokens"));
+        expect(stored(fixture)).toEqual([
           { type: "error", body: "The turn ended on max_tokens before the work was complete." },
         ]);
       }));
-  });
 
-  describe("a post the tracker refuses", () => {
-    it("is sent again later under the same id", () =>
+    it("falls back to the done reply after a restart lost the last message", () =>
       linearOnly(async (fixture) => {
-        const linear = new SessionTracker();
-        withTracker(fixture.workflow, linear, fixture.outbox);
-        linear.health = "fails_before_storing";
-        await stream(fixture, [read("c1", "a.ts")]);
-        linear.health = "up";
-        fixture.workflow.clock = START + FEED_INTERVAL_MS;
-        await flushFeed(fixture.workflow, fixture.author);
-        const tried = fixture.outbox.flatMap((entry) =>
-          entry.kind === "action" ? [(entry.payload as { id: string }).id] : [],
-        );
-        expect(tried).toHaveLength(2);
-        expect(new Set(tried).size).toBe(1);
-        expect(linear.stored.map((activity) => activity.id)).toEqual([tried[0]!]);
-        expect(fixture.workflow.store.feedPosts(fixture.author.task_id)).toEqual([]);
+        await stream(fixture, [say("Opened #12.")]);
+        fixture.workflow.sessionFeeds.clear();
+        await closeSessionFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
+        expect(stored(fixture)).toEqual([{ type: "response", body: DONE_TEXT }]);
       }));
   });
 
-  describe("a post the tracker stored before it failed", () => {
-    it("is sent again as it was, and items streamed after it post apart", () =>
+  describe("a turn that ends with a prompt queued", () => {
+    it("posts no closing and forgets the last message", () =>
       linearOnly(async (fixture) => {
-        const linear = new SessionTracker();
-        withTracker(fixture.workflow, linear, fixture.outbox);
-        linear.health = "fails_after_storing";
-        await stream(fixture, [read("c1", "a.ts")]);
-        linear.health = "up";
-        await stream(fixture, [read("c2", "b.ts")]);
-        fixture.workflow.clock = START + FEED_INTERVAL_MS;
-        await flushFeed(fixture.workflow, fixture.author);
-        fixture.workflow.clock = START + 2 * FEED_INTERVAL_MS;
-        await flushFeed(fixture.workflow, fixture.author);
-        expect(linear.stored.map((activity) => activityText(activity.content))).toEqual([
-          "Read a.ts ",
-          "Read b.ts ",
-        ]);
+        await stream(fixture, [say("Opened #12.")]);
+        await closeSessionFeed(fixture.workflow, fixture.author, null);
+        await closeSessionFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
+        expect(stored(fixture)).toEqual([{ type: "response", body: DONE_TEXT }]);
       }));
   });
 
-  describe("a closing after a post that failed", () => {
-    it("replaces the failed post and stays within two posts", () =>
+  describe("an author task that ends for good mid-turn", () => {
+    it("closes the feed with the closing it is given", () =>
       linearOnly(async (fixture) => {
-        const linear = new SessionTracker();
-        withTracker(fixture.workflow, linear, fixture.outbox);
-        linear.health = "fails_before_storing";
-        await stream(fixture, [read("c1", "a.ts")]);
-        linear.health = "up";
-        await stream(fixture, [read("c2", "b.ts"), say("Opened PR #12.")]);
-        await flushFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
-        expect(linear.stored.map((activity) => activity.content)).toEqual([
-          { type: "action", action: "Read", parameter: "b.ts" },
-          { type: "response", body: "Opened PR #12." },
-        ]);
+        await closeAbandonedTurnFeed(fixture.workflow, fixture.author, {
+          kind: "error",
+          text: "The task failed: no progress.",
+        });
+        expect(stored(fixture)).toEqual([{ type: "error", body: "The task failed: no progress." }]);
+      }));
+
+    it("posts nothing when its author is idle", () =>
+      linearOnly(async (fixture) => {
+        fixture.workflow.store.updateSandbox(fixture.author.task_id, { prompt_in_flight: 0 });
+        await closeAbandonedTurnFeed(fixture.workflow, fixture.author, STOPPED_CLOSING);
+        expect(stored(fixture)).toEqual([]);
+      }));
+
+    it("closes the feed when a resumed prompt waits for the sandbox", () =>
+      linearOnly(async (fixture) => {
+        fixture.workflow.store.updateSandbox(fixture.author.task_id, { prompt_in_flight: 0 });
+        fixture.workflow.store.enqueuePrompt(fixture.author.task_id, "Continue.");
+        await closeAbandonedTurnFeed(fixture.workflow, fixture.author, STOPPED_CLOSING);
+        expect(stored(fixture)).toEqual([{ type: "response", body: STOPPED_TEXT }]);
       }));
   });
 
-  describe("a closing whose earlier activity fails", () => {
-    it("drops that activity and still posts the closing reply", () =>
+  describe("a post the tracker refuses once", () => {
+    it("is tried again under the same id and posts once", () =>
       linearOnly(async (fixture) => {
-        const linear = new FailingFirstTracker();
-        withTracker(fixture.workflow, linear, fixture.outbox);
-        await stream(fixture, [think("Look at login."), read("c1", "a.ts")]);
-        await flushFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
-        expect(linear.stored.map((activity) => activity.content)).toEqual([
-          { type: "response", body: DONE_TEXT },
-        ]);
-        expect(fixture.workflow.store.feedPosts(fixture.author.task_id)).toEqual([]);
+        await closeSessionFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
+        expect(fixture.tracker.stored).toHaveLength(1);
+        expect(triedIds(fixture)).toEqual([fixture.tracker.stored[0]!.id!]);
+      }, new FailingFirstTracker()));
+  });
+
+  describe("a post the tracker stores before it fails", () => {
+    it("is held once", () =>
+      linearOnly(async (fixture) => {
+        fixture.tracker.health = "fails_after_storing";
+        await stream(fixture, [edit("c1", "a.ts"), ended("c1", "completed")]);
+        expect(stored(fixture)).toEqual([{ type: "action", action: "Edited", parameter: "a.ts" }]);
       }));
   });
 
-  describe("a closing reply that fails", () => {
-    it("is kept and sent again by the next flush", () =>
+  describe("a post that fails every attempt", () => {
+    it("is dropped, and the closing is still tried", () =>
       linearOnly(async (fixture) => {
-        const linear = new SessionTracker();
-        withTracker(fixture.workflow, linear, fixture.outbox);
-        linear.health = "fails_before_storing";
-        await flushFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
-        linear.health = "up";
-        fixture.workflow.clock = START + FEED_INTERVAL_MS;
-        await flushFeed(fixture.workflow, fixture.author);
-        expect(linear.stored.map((activity) => activity.content)).toEqual([
-          { type: "response", body: DONE_TEXT },
-        ]);
+        fixture.tracker.health = "fails_before_storing";
+        await stream(fixture, [edit("c1", "a.ts"), ended("c1", "completed")]);
+        const errors = fixture.outbox.filter((entry) => entry.kind === "delivery_error");
+        expect(errors).toHaveLength(FEED_POST_ATTEMPTS);
+        fixture.tracker.health = "up";
+        await closeSessionFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
+        expect(stored(fixture)).toEqual([{ type: "response", body: DONE_TEXT }]);
       }));
   });
 
   describe("every post", () => {
     it("is recorded on the feed channel, apart from orchestrator posts", () =>
       linearOnly(async (fixture) => {
-        await stream(fixture, [read("c1", "a.ts")]);
+        await stream(fixture, [edit("c1", "a.ts"), ended("c1", "completed")]);
         expect(fixture.outbox.map((entry) => entry.channel)).toEqual(["feed"]);
         expect(fixture.workflow.store.postedCount()).toBe(0);
       }));
   });
 
   describe("a role other than the author", () => {
-    it("keeps nothing", () =>
+    it("posts nothing", () =>
       linearOnly(async (fixture) => {
         const reviewer = { ...fixture.author, role: "reviewer" as const };
-        recordFeedUpdate(fixture.workflow, reviewer, read("c1", "a.ts"));
-        expect(fixture.workflow.store.feedItems(reviewer.task_id)).toEqual([]);
+        await streamToSessionFeed(fixture.workflow, reviewer, edit("c1", "a.ts"));
+        await streamToSessionFeed(fixture.workflow, reviewer, ended("c1", "completed"));
+        await closeSessionFeed(fixture.workflow, reviewer, feedClosingOf("end_turn"));
+        expect(stored(fixture)).toEqual([]);
       }));
   });
 
   describe("an author without a job session", () => {
-    const chatOnly = scenario(freshRuntime, (workflow) => {
-      workflow.patchState({ origin: THREAD, reply_targets: [THREAD] });
-      seedTask(workflow);
-    });
-
-    it("keeps nothing", () =>
-      chatOnly(async (workflow) => {
-        const author = workflow.store.tasks()[0]!;
-        recordFeedUpdate(workflow, author, read("c1", "a.ts"));
-        expect(workflow.store.feedItems(author.task_id)).toEqual([]);
+    it("posts nothing", () =>
+      linearOnly(async (fixture) => {
+        fixture.workflow.patchState({ origin: THREAD, reply_targets: [THREAD] });
+        await stream(fixture, [edit("c1", "a.ts"), ended("c1", "completed")]);
+        await closeSessionFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
+        expect(stored(fixture)).toEqual([]);
       }));
   });
 });

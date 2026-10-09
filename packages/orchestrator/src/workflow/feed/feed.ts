@@ -1,40 +1,49 @@
-import type { PlanEntry, SessionUpdate, StopReason } from "@agentclientprotocol/sdk";
-import type { SessionPlanItem } from "@artfct-ai/adapters/tracker/types";
+import type { PlanEntry, SessionUpdate, StopReason, ToolKind } from "@agentclientprotocol/sdk";
+import type { AgentActivityContent, SessionPlanItem } from "@artfct-ai/adapters/tracker/types";
 import { hasChatThread } from "../../notify/recipients";
 import { jobSessionOf, type TrackerSession } from "../inbound/job-session";
 import type { TaskRow } from "../store/tasks";
 import type { WorkflowRuntime } from "../types";
-import { renderFeed } from "./render";
-import type { FeedClosing, FeedItem } from "./types";
 
-/** A session feed posts at most once in this window, besides the activities that close a turn. */
-export const FEED_INTERVAL_MS = 15_000;
-
-/** The closing reply after a stop when the author said nothing after its last tool call. */
+/** The closing reply after a stop or a cancel. */
 export const STOPPED_TEXT = "Stopped.";
 
-/** The closing reply after a finished turn when the author said nothing after its last tool call. */
+/** The closing reply after a finished turn when the author's last message is gone. */
 export const DONE_TEXT = "Done.";
 
-/**
- * When each job session last got a feed post, and the flush of each task that runs now. Neither
- * outlives the isolate, so neither is stored. A lost time only lets one flush come early.
- */
-const feedTimes = new WeakMap<
-  WorkflowRuntime,
-  { postedAt: Map<string, number>; flushing: Map<string, Promise<void>> }
->();
+/** The most characters of the author's message the feed keeps for the closing reply. */
+export const FEED_BODY_CHARS = 10_000;
 
-function feedTimesOf(workflow: WorkflowRuntime) {
-  const existing = feedTimes.get(workflow);
-  if (existing) return existing;
-  const created = {
-    postedAt: new Map<string, number>(),
-    flushing: new Map<string, Promise<void>>(),
-  };
-  feedTimes.set(workflow, created);
-  return created;
-}
+/**
+ * What the session feed holds in memory for one author's turn: the message since its last tool
+ * call, and the title and kind of each tool call that did not complete yet.
+ */
+export type AuthorFeed = {
+  message: string;
+  tools: Map<string, { title: string; kind: ToolKind | null }>;
+};
+
+/**
+ * How a turn ends the session feed: the author's last message as the reply, `STOPPED_TEXT` after a
+ * stop, or an error that says why the turn did not finish.
+ */
+export type FeedClosing = { kind: "reply" } | { kind: "stopped" } | { kind: "error"; text: string };
+
+/** The closing of a turn a person stopped, or of a task that was cancelled. */
+export const STOPPED_CLOSING: FeedClosing = { kind: "stopped" };
+
+const TOOL_VERBS: Record<ToolKind, string> = {
+  read: "Read",
+  edit: "Edited",
+  delete: "Deleted",
+  move: "Moved",
+  search: "Searched",
+  execute: "Ran",
+  think: "Thought",
+  fetch: "Fetched",
+  switch_mode: "Switched mode",
+  other: "Used",
+};
 
 /** The job session the author of a task streams to. Null for another role and without a session. */
 function feedSessionOf(workflow: WorkflowRuntime, task: TaskRow): TrackerSession | null {
@@ -42,47 +51,69 @@ function feedSessionOf(workflow: WorkflowRuntime, task: TaskRow): TrackerSession
   return jobSessionOf(workflow, workflow.store.requireJob(task.job_id));
 }
 
-/** Keep one harness update of an author for its session feed. Updates the feed does not show are dropped. */
-export function recordFeedUpdate(
+function authorFeedOf(workflow: WorkflowRuntime, taskId: string): AuthorFeed {
+  const existing = workflow.sessionFeeds.get(taskId);
+  if (existing) return existing;
+  const created: AuthorFeed = { message: "", tools: new Map() };
+  workflow.sessionFeeds.set(taskId, created);
+  return created;
+}
+
+/**
+ * Feed one harness update of an author to its job session. A completed or failed tool call posts
+ * one action. A message is kept for the closing reply until the next tool call. Thoughts are skipped.
+ */
+export async function streamToSessionFeed(
   workflow: WorkflowRuntime,
   task: TaskRow,
   update: SessionUpdate,
-): void {
-  if (!feedSessionOf(workflow, task)) return;
-  const { store } = workflow;
+): Promise<void> {
+  const session = feedSessionOf(workflow, task);
+  if (!session) return;
+  const feed = authorFeedOf(workflow, task.task_id);
   switch (update.sessionUpdate) {
     case "agent_message_chunk":
-    case "agent_thought_chunk": {
       if (update.content.type !== "text") return;
-      const kind = update.sessionUpdate === "agent_message_chunk" ? "message" : "thought";
-      store.appendFeedText(task.task_id, kind, update.content.text);
+      feed.message = `${feed.message}${update.content.text}`.slice(0, FEED_BODY_CHARS);
       return;
-    }
     case "tool_call":
-      store.addFeedTool(task.task_id, {
-        tool_call_id: update.toolCallId,
-        title: update.title,
-        tool_kind: update.kind ?? null,
-      });
-      return;
+      feed.message = "";
+      feed.tools.set(update.toolCallId, { title: update.title, kind: update.kind ?? null });
+      return postEndedTool(workflow, { session, task, feed }, update);
     case "tool_call_update":
-      store.updateFeedTool(task.task_id, update.toolCallId, {
-        ...(update.title ? { title: update.title } : {}),
-        failed: update.status === "failed",
-      });
-      return;
+      return postEndedTool(workflow, { session, task, feed }, update);
     default:
       return;
   }
 }
 
-/** How a turn that leaves the author idle closes its feed. */
+async function postEndedTool(
+  workflow: WorkflowRuntime,
+  target: { session: TrackerSession; task: TaskRow; feed: AuthorFeed },
+  update: { toolCallId: string; title?: string | null; status?: string | null },
+): Promise<void> {
+  if (update.status !== "completed" && update.status !== "failed") return;
+  const { session, task, feed } = target;
+  const tool = feed.tools.get(update.toolCallId);
+  feed.tools.delete(update.toolCallId);
+  const title = update.title || tool?.title;
+  if (!title) return;
+  const content: AgentActivityContent = {
+    type: "action",
+    action: TOOL_VERBS[tool?.kind ?? "other"],
+    parameter: title,
+    ...(update.status === "failed" ? { result: "failed" } : {}),
+  };
+  await workflow.notifier.feed(session, task.task_id, content);
+}
+
+/** How a turn that leaves the author idle ends its session feed. */
 export function feedClosingOf(stopReason: StopReason): FeedClosing {
   switch (stopReason) {
     case "end_turn":
-      return { kind: "reply", fallback: DONE_TEXT };
+      return { kind: "reply" };
     case "cancelled":
-      return { kind: "reply", fallback: STOPPED_TEXT };
+      return STOPPED_CLOSING;
     case "max_tokens":
     case "max_turn_requests":
     case "refusal":
@@ -97,77 +128,49 @@ export function feedClosingOf(stopReason: StopReason): FeedClosing {
   }
 }
 
-/** The items a flush posts. Text the harness may still stream into stays until it is followed. */
-function settledItems(items: FeedItem[]): FeedItem[] {
-  const last = items.at(-1);
-  return last && last.kind !== "tool" ? items.slice(0, -1) : items;
-}
-
-/** Add the closing item when the last item cannot close the turn itself. */
-function addClosingItem(workflow: WorkflowRuntime, taskId: string, closing: FeedClosing): void {
-  const { store } = workflow;
-  if (closing.kind === "error") return store.appendFeedText(taskId, "error", closing.text);
-  if (store.feedItems(taskId).at(-1)?.kind === "message") return;
-  store.appendFeedText(taskId, "message", closing.fallback);
-}
-
-/** Render the items a flush posts into pending posts. A closing replaces posts that failed before it. */
-function queueFlush(workflow: WorkflowRuntime, taskId: string, closing: FeedClosing | null): void {
-  const { store } = workflow;
-  if (closing) {
-    store.deleteFeedPosts(taskId);
-    addClosingItem(workflow, taskId, closing);
-    store.queueFeedPosts(taskId, renderFeed(store.feedItems(taskId), true));
-    return;
-  }
-  if (store.feedPosts(taskId).length > 0) return;
-  store.queueFeedPosts(taskId, renderFeed(settledItems(store.feedItems(taskId)), false));
-}
-
-async function postFeed(
-  workflow: WorkflowRuntime,
-  task: TaskRow,
-  closing: FeedClosing | null,
-): Promise<void> {
-  const session = feedSessionOf(workflow, task);
-  if (!session) return;
-  const { postedAt } = feedTimesOf(workflow);
-  const now = workflow.now();
-  const last = postedAt.get(session.session_id);
-  if (!closing && last !== undefined && now - last < FEED_INTERVAL_MS) return;
-  queueFlush(workflow, task.task_id, closing);
-  const pending = workflow.store.feedPosts(task.task_id);
-  const posts = closing ? pending : pending.slice(0, 1);
-  for (const [index, post] of posts.entries()) {
-    postedAt.set(session.session_id, now);
-    const posted = await workflow.notifier.feed(session, task.task_id, post);
-    const beforeClosing = closing !== null && index < posts.length - 1;
-    if (!posted && !beforeClosing) return;
-    workflow.store.deleteFeedPost(post.seq);
+function closingContent(closing: FeedClosing, message: string): AgentActivityContent {
+  switch (closing.kind) {
+    case "reply":
+      return { type: "response", body: message || DONE_TEXT };
+    case "stopped":
+      return { type: "response", body: STOPPED_TEXT };
+    case "error":
+      return { type: "error", body: closing.text };
+    default: {
+      const unhandled: never = closing;
+      throw new Error(`unhandled feed closing ${JSON.stringify(unhandled)}`);
+    }
   }
 }
 
 /**
- * Post the author's settled feed items to its job session, at most once in `FEED_INTERVAL_MS` per
- * session. A closing posts everything at once and ends with the closing reply or error, after any
- * flush that runs now. A failed post is retried later with the same id and content, except one
- * that fails before a closing: it is dropped, so the closing still ends the turn.
+ * The author's turn is over. Forget what the feed held for it, and post the closing when one is
+ * given. A reply falls back to `DONE_TEXT` when the author's last message is gone.
  */
-export async function flushFeed(
+export async function closeSessionFeed(
   workflow: WorkflowRuntime,
   task: TaskRow,
-  closing: FeedClosing | null = null,
+  closing: FeedClosing | null,
 ): Promise<void> {
-  const { flushing } = feedTimesOf(workflow);
-  const running = flushing.get(task.task_id);
-  if (running && !closing) return;
-  const flush = (running ?? Promise.resolve()).then(() => postFeed(workflow, task, closing));
-  flushing.set(task.task_id, flush);
-  try {
-    await flush;
-  } finally {
-    if (flushing.get(task.task_id) === flush) flushing.delete(task.task_id);
-  }
+  const message = workflow.sessionFeeds.get(task.task_id)?.message ?? "";
+  workflow.sessionFeeds.delete(task.task_id);
+  const session = feedSessionOf(workflow, task);
+  if (!session || !closing) return;
+  await workflow.notifier.feed(session, task.task_id, closingContent(closing, message));
+}
+
+/**
+ * The author's task ends for good while a prompt is in flight or queued, so no turn end will
+ * close its session feed. Close it now.
+ */
+export async function closeAbandonedTurnFeed(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+  closing: FeedClosing,
+): Promise<void> {
+  const inFlight = workflow.store.sandbox(task.task_id)?.prompt_in_flight === 1;
+  if (!inFlight && !workflow.store.peekPrompt(task.task_id)) return;
+  await closeSessionFeed(workflow, task, closing);
 }
 
 const PLAN_STATUSES: Record<PlanEntry["status"], SessionPlanItem["status"]> = {

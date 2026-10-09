@@ -9,6 +9,7 @@ import { bindWorkflow as bindInDb, deleteBindings } from "../db/bindings";
 import { createDb } from "../db/client";
 import { setWorkflowStatus } from "../db/workflows";
 import { dropBoardFlush, flushBoards } from "./board/board";
+import { closeAbandonedTurnFeed, STOPPED_CLOSING } from "./feed/feed";
 import { onReviewerFailed } from "./refiner/loop";
 import { endPolisherRun } from "./refiner/polish";
 import { refinerRunOf } from "./refiner/stage-refiner";
@@ -247,6 +248,7 @@ export async function cancelTask(
 ): Promise<void> {
   if (isTaskFinished(task.status)) return;
   workflow.log(task.task_id, `cancelled: ${reason}`);
+  await closeAbandonedTurnFeed(workflow, task, STOPPED_CLOSING);
   await finishTask(workflow, task, "cancelled");
   switch (task.role) {
     case "polisher":
@@ -293,6 +295,10 @@ export async function failTask(
 ): Promise<void> {
   if (isTaskFinished(task.status)) return;
   workflow.log(task.task_id, `failed: ${reason}`);
+  await closeAbandonedTurnFeed(workflow, task, {
+    kind: "error",
+    text: `The task failed: ${reason}`,
+  });
   await finishTask(workflow, task, "failed");
   switch (task.role) {
     case "polisher":

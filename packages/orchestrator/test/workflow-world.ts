@@ -7,6 +7,7 @@ import type {
 import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
 import type { Choice, Decisions } from "@artfct-ai/adapters/gateway/types";
 import type { HeldComment } from "@artfct-ai/adapters/documents/types";
+import type { AgentActivityContent } from "@artfct-ai/adapters/tracker/types";
 import { FakeDecisions, HangingDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
@@ -254,7 +255,6 @@ export class WorkflowWorld {
   private readonly checksOnPush: ChecksOnPush;
   private readonly tracker: SessionTracker;
   private readonly streamedTexts: string[] = [];
-  private readonly feedPostedAt: Record<string, number> = {};
 
   private constructor(workflow: FakeRuntime, checksOnPush: ChecksOnPush, tracker: SessionTracker) {
     this.workflow = workflow;
@@ -312,9 +312,6 @@ export class WorkflowWorld {
       this.promptsAtNormalTurnEnd.set(ended, this.promptsSentTo(ended));
     }
     const rows = this.workflow.store.outbox().slice(outboxBefore);
-    const feedPosts = feedPostsOf(rows);
-    const at = this.workflow.now();
-    for (const post of feedPosts) this.feedPostedAt[post.session_id] = at;
     const step: Step = {
       action: String(action),
       before,
@@ -329,8 +326,7 @@ export class WorkflowWorld {
       event: this.delivered,
       sessionPosts: sessionPostsOf(rows),
       postedTypes: this.workflow.posted.slice(postedBefore).map((event) => event.type),
-      at,
-      feedPosts,
+      feedPosts: feedPostsOf(rows),
       planPosts: planPostsOf(rows),
       storedActivities: this.tracker.stored.map((activity) => activityText(activity.content)),
       streamedTexts: [...this.streamedTexts],
@@ -744,6 +740,7 @@ export class WorkflowWorld {
           .reduce((total, bridge) => total + bridge.cancelsSent, 0),
         promptInFlight: store.sandbox(task.task_id)?.prompt_in_flight === 1,
         queuedPrompts: queue.filter((row) => row.task_id === task.task_id).length,
+        handshaking: store.handshakePending(task.task_id),
       })),
       artifacts: store.artifacts().map((artifact) => ({
         job_id: artifact.job_id,
@@ -755,7 +752,6 @@ export class WorkflowWorld {
         store.allTodoRows().map((row) => [row.task_id, JSON.stringify(row.todos)]),
       ),
       authorPrompts: queued + sent,
-      feedPostedAt: { ...this.feedPostedAt },
     };
   }
 }
@@ -779,9 +775,8 @@ const NOT_FEED_POSTS = ["plan", "delivery_error"];
 function feedPostsOf(rows: OutboxRow[]): Step["feedPosts"] {
   return rows.flatMap((row) => {
     if (row.channel !== "feed" || NOT_FEED_POSTS.includes(row.kind)) return [];
-    const { session_id: sessionId } = row.target as TrackerSession;
-    const { task_id: taskId } = row.payload as { task_id: string };
-    return [{ session_id: sessionId, task_id: taskId, kind: row.kind }];
+    const post = row.payload as { task_id: string; content: AgentActivityContent };
+    return [{ task_id: post.task_id, kind: row.kind, text: activityText(post.content) }];
   });
 }
 
