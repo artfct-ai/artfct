@@ -4,8 +4,6 @@ on:
   pull_request:
   push:
     branches: [main]
-  schedule:
-    - cron: "17 6 * * 1"
 
 permissions:
   contents: read
@@ -13,6 +11,7 @@ permissions:
 jobs:
   analyze:
     name: analyze (${{ matrix.language }})
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name != github.repository
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
