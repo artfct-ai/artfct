@@ -4,6 +4,7 @@ import { ASK_WHETHER_ACCEPTED, ASK_WHICH_OPTION } from "../src/agent/tools/start
 import { channelKey } from "../src/workflow/board/board";
 import type { TaskEvent, TaskRole } from "../src/workflow/task/events";
 import type { Wake, WorkflowRuntime } from "../src/workflow/types";
+import { STOPPED_TEXT } from "../src/workflow/feed/feed";
 
 /** One task row as an observer saw it. `ruling` is the stored ruling as text, or null. */
 export type ObservedTask = {
@@ -21,6 +22,9 @@ export type ObservedTask = {
   promptTexts: string[];
   /** How many cancels its harness session was sent. */
   cancelsSent: number;
+  promptInFlight: boolean;
+  queuedPrompts: number;
+  handshaking: boolean;
 };
 
 /** One artifact row as an observer saw it. */
@@ -58,7 +62,7 @@ export type Step = {
   /** What the agent was told during the action. */
   notes: Array<{ text: string; wake: Wake }>;
   /** Set when an author turn ended. `hostRevision` is null when the host could not say one. */
-  authorTurnEnd: { task_id: string; hostRevision: string | null } | null;
+  authorTurnEnd: { task_id: string; hostRevision: string | null; cancelled: boolean } | null;
   /** Set when a person's feedback event was delivered. */
   feedback: { task_id: string } | null;
   /**
@@ -75,6 +79,10 @@ export type Step = {
   sessionPosts: Array<{ session_id: string; kind: string }>;
   /** The type of every event the step posted, wherever it went. */
   postedTypes: TaskEvent["type"][];
+  feedPosts: Array<{ task_id: string; kind: string; text: string }>;
+  planPosts: string[];
+  storedActivities: string[];
+  streamedTexts: string[];
   /** Set when the turn of a refiner run ended normally. */
   refinerTurnEnd: { task_id: string } | null;
   /** Set when the alarm that fired was armed for an older generation of its task. */
@@ -101,6 +109,8 @@ const FINISHED_WORKFLOW: WorkflowStatus[] = ["done", "failed", "cancelled"];
 
 const RUNNING_AUTHOR: TaskStatus[] = ["queued", "provisioning", "working"];
 
+const STARTING_AUTHOR: TaskStatus[] = ["queued", "provisioning"];
+
 const ASKS_AND_FAILURES: TaskEvent["type"][] = [
   "question",
   "artifact_ready",
@@ -109,6 +119,8 @@ const ASKS_AND_FAILURES: TaskEvent["type"][] = [
 ];
 
 const SESSION_MESSAGES: InboundEvent["kind"][] = ["prompt", "status"];
+
+const FEED_CLOSINGS = ["response", "error"];
 
 const ARTIFACT_MOVES: Array<[ArtifactStatus, ArtifactStatus]> = [
   ["drafted", "ready"],
@@ -541,17 +553,21 @@ function sessionOfPerson(step: Step): string | null {
   return event.reply_to.session_id;
 }
 
-/** The one author that ran before the step in the session a person wrote in, or null. */
-function runningAuthorBefore(step: Step): ObservedTask | null {
+function sessionAuthorBefore(step: Step): ObservedTask | null {
   const session = sessionOfPerson(step);
   if (!session) return null;
-  const running = step.before.tasks.filter(
-    (task) =>
-      task.role === "author" &&
-      RUNNING_AUTHOR.includes(task.status) &&
-      step.before.jobSessions[task.job_id] === session,
-  );
-  return running.length === 1 ? running[0]! : null;
+  const authors = Object.entries(step.before.jobSessions)
+    .filter(([, jobSession]) => jobSession === session)
+    .flatMap(
+      ([jobId]) =>
+        step.before.tasks.find((task) => task.role === "author" && task.job_id === jobId) ?? [],
+    );
+  return authors.find((task) => !FINISHED.includes(task.status)) ?? authors.at(-1) ?? null;
+}
+
+function runningAuthorBefore(step: Step): ObservedTask | null {
+  const author = sessionAuthorBefore(step);
+  return author && RUNNING_AUTHOR.includes(author.status) ? author : null;
 }
 
 function occurrences(texts: string[], text: string): number {
@@ -656,24 +672,81 @@ export function sessionMessageWithoutAnAuthorIsAnswered(
   );
 }
 
+function endsOnTheStoppedReply(step: Step, taskId: string): boolean {
+  const last = step.feedPosts.findLast((post) => post.task_id === taskId);
+  return last?.kind === "response" && last.text === STOPPED_TEXT;
+}
+
 /**
- * A stop in a job session whose author runs a prompt turn sends that author's harness session a
- * cancel. A stop never changes the workflow status and never posts.
+ * A stop ends the author's turn and drops its queued prompts. Its session feed ends with the
+ * stopped reply. The workflow status does not change, and the orchestrator does not post.
  */
-export function sessionStopReachesItsRunningAuthor(_workflow: WorkflowRuntime, step: Step): void {
+export function stopEndsTheAuthorsTurn(_workflow: WorkflowRuntime, step: Step): void {
+  const ended = step.authorTurnEnd;
+  if (ended?.cancelled) {
+    const author = step.after.tasks.find((task) => task.task_id === ended.task_id);
+    const idle = author && !author.promptInFlight && author.queuedPrompts === 0;
+    const inSession = author && step.after.jobSessions[author.job_id];
+    if (idle && inSession && !endsOnTheStoppedReply(step, ended.task_id)) {
+      violated("stopEndsTheAuthorsTurn", `the cancelled turn of ${ended.task_id} did not say so`);
+    }
+  }
   if (step.event?.kind !== "stop") return;
   if (step.after.workflowStatus !== step.before.workflowStatus) {
     violated(
-      "sessionStopReachesItsRunningAuthor",
+      "stopEndsTheAuthorsTurn",
       `the workflow went from ${step.before.workflowStatus} to ${step.after.workflowStatus}`,
     );
   }
   if (step.after.posted !== step.before.posted || step.sessionPosts.length > 0) {
-    violated("sessionStopReachesItsRunningAuthor", "the stop got a post");
+    violated("stopEndsTheAuthorsTurn", "the orchestrator posted for the stop");
   }
-  const author = runningAuthorBefore(step);
-  if (!author?.turnRunning) return;
-  const after = step.after.tasks.find((task) => task.task_id === author.task_id);
-  if ((after?.cancelsSent ?? 0) > author.cancelsSent) return;
-  violated("sessionStopReachesItsRunningAuthor", `${author.task_id} was not sent a cancel`);
+  const author = sessionAuthorBefore(step);
+  const after = author && step.after.tasks.find((task) => task.task_id === author.task_id);
+  if (!author || !after) return;
+  if (after.queuedPrompts > 0) {
+    violated("stopEndsTheAuthorsTurn", `${author.task_id} kept ${after.queuedPrompts} prompts`);
+  }
+  if (author.turnRunning) {
+    if (after.cancelsSent > author.cancelsSent) return;
+    violated("stopEndsTheAuthorsTurn", `${author.task_id} was not sent a cancel`);
+  }
+  const resumes =
+    after.promptInFlight || after.handshaking || STARTING_AUTHOR.includes(after.status);
+  if (resumes && !FINISHED.includes(after.status)) {
+    violated("stopEndsTheAuthorsTurn", `${author.task_id} would resume as ${after.status}`);
+  }
+  if (!endsOnTheStoppedReply(step, author.task_id)) {
+    violated("stopEndsTheAuthorsTurn", `the session feed of ${author.task_id} did not say so`);
+  }
+}
+
+/** While a chat thread exists, no tracker session gets a session plan. */
+export function chatWorkflowNeverSetsASessionPlan(_workflow: WorkflowRuntime, step: Step): void {
+  if (!step.after.chatThread || step.planPosts.length === 0) return;
+  violated("chatWorkflowNeverSetsASessionPlan", `set a plan in ${step.planPosts.join(", ")}`);
+}
+
+/** A turn that leaves its author idle ends the author's session feed with a reply or an error. */
+export function sessionFeedEndsWhenItsAuthorIdles(_workflow: WorkflowRuntime, step: Step): void {
+  const ended = step.authorTurnEnd;
+  if (!ended) return;
+  const author = step.after.tasks.find((task) => task.task_id === ended.task_id);
+  if (!author || FINISHED.includes(author.status)) return;
+  if (author.promptInFlight || author.queuedPrompts > 0) return;
+  if (!step.after.jobSessions[author.job_id]) return;
+  const last = step.feedPosts.findLast((post) => post.task_id === author.task_id);
+  if (last && FEED_CLOSINGS.includes(last.kind)) return;
+  violated(
+    "sessionFeedEndsWhenItsAuthorIdles",
+    `${author.task_id} went idle and its feed ended on ${last?.kind ?? "nothing"}`,
+  );
+}
+
+/** The tracker holds at most one activity for each text an author streamed. */
+export function feedActivityPostsOnce(_workflow: WorkflowRuntime, step: Step): void {
+  for (const text of step.streamedTexts) {
+    const holders = step.storedActivities.filter((stored) => stored.includes(text)).length;
+    if (holders > 1) violated("feedActivityPostsOnce", `${holders} activities hold ${text}`);
+  }
 }

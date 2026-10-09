@@ -7,6 +7,7 @@ import type {
   SessionNotification,
   SessionUpdate,
   StopReason,
+  ToolKind,
 } from "@agentclientprotocol/sdk";
 import {
   isNotification,
@@ -108,6 +109,14 @@ export class FakeBridge {
   /** The harness streams turn text. */
   say(text: string): Promise<void> {
     return this.update({ sessionUpdate: "agent_message_chunk", content: { type: "text", text } });
+  }
+
+  callTool(toolCallId: string, title: string, kind: ToolKind): Promise<void> {
+    return this.update({ sessionUpdate: "tool_call", toolCallId, title, kind });
+  }
+
+  endTool(toolCallId: string, status: "completed" | "failed"): Promise<void> {
+    return this.update({ sessionUpdate: "tool_call_update", toolCallId, status });
   }
 
   /** The harness reports its todo list. */

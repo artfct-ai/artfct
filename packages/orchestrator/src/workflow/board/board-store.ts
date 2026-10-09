@@ -75,15 +75,19 @@ export class BoardStore extends RecordStore {
     return this.todoRow(taskId)!;
   }
 
-  /** Replace the todo snapshot. An author's list stays as it is once its job records an artifact. */
-  setTodos(taskId: string, todos: TodoSnapshot): void {
+  /**
+   * Replace a task's todo list. An author's list is fixed once its job has an artifact.
+   * Returns true when the list was stored.
+   */
+  setTodos(taskId: string, todos: TodoSnapshot): boolean {
     const author = this.db
       .select({ job_id: tasks.job_id })
       .from(tasks)
       .where(and(eq(tasks.task_id, taskId), eq(tasks.role, "author")))
       .get();
-    if (author && this.artifact(author.job_id)) return;
+    if (author && this.artifact(author.job_id)) return false;
     this.patchTodoRow(taskId, { todos });
+    return true;
   }
 
   /** Complete every todo entry. The job's artifact keeps the list from changing afterwards. */

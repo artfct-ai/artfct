@@ -1,8 +1,6 @@
 /**
- * Step 5. The context budget. Two prompts in the job session run as two harness turns. The
- * first wakes an orchestrator turn. The second arrives while the author runs and goes straight
- * to it. The prompts re-open the released artifact, so the refiners hold it again and the
- * orchestrator is not woken.
+ * Step 5. The context budget. Two prompts in the starting session run as two harness turns. Each
+ * prompt wakes an orchestrator turn, and the second waits in the author's queue.
  */
 import {
   countLogLines,
@@ -88,12 +86,12 @@ export async function runContextBudget(options: {
   assertEqual(countTurns(settled), turns + 2, "no further harness turn");
   assertEqual(
     countLogLines(settled, "agent turn started"),
-    agentTurns + 1,
-    "one orchestrator turn: the second prompt went straight to the running author",
+    agentTurns + 2,
+    "one orchestrator turn per prompt",
   );
   assertEqual(
     countTaskLogLines(settled, taskId, "a reply in its job session reached the author"),
-    countTaskLogLines(before, taskId, "a reply in its job session reached the author") + 1,
-    "the second prompt reached the author without a turn",
+    countTaskLogLines(before, taskId, "a reply in its job session reached the author"),
+    "neither prompt reached the author as a job session reply",
   );
 }

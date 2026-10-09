@@ -7,6 +7,7 @@ import type {
 import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
 import type { Choice, Decisions } from "@artfct-ai/adapters/gateway/types";
 import type { HeldComment } from "@artfct-ai/adapters/documents/types";
+import type { AgentActivityContent } from "@artfct-ai/adapters/tracker/types";
 import { FakeDecisions, HangingDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
@@ -14,7 +15,8 @@ import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { Binding } from "@artfct-ai/contracts/sources";
 import { OPTIONS_HEADING } from "../src/artifact/options";
 import type { RefinerEntry, ReviewerEntry } from "../src/config/refiner";
-import { startJob } from "../src/workflow/lifecycle";
+import { Notifier } from "../src/notify/notifier";
+import { startJob, type JobIssue } from "../src/workflow/lifecycle";
 import { handleEvent } from "../src/workflow/inbound/events";
 import { isTaskFinished } from "../src/workflow/store/state";
 import type { ArtifactRow, JobRow, TaskRow } from "../src/workflow/store/tasks";
@@ -31,6 +33,7 @@ import {
 } from "./fake-runtime";
 import type { Observation, Step } from "./invariants";
 import { openMemoryDb } from "./memory-db";
+import { activityText, SessionTracker, type TrackerHealth } from "./session-tracker";
 import { testEnv } from "./test-env";
 
 /** The refiner lists a world can declare on its stages. */
@@ -58,6 +61,17 @@ export type WorldSetup = {
   checksOnPush: ChecksOnPush;
   pageEnding: PageEnding;
   origin: OriginSurface;
+  firstInput: FirstInput;
+};
+
+export type FirstInput = "request" | "origin_issue";
+
+const ORIGIN_ISSUE: JobIssue = {
+  id: "ENG-100",
+  key: "ENG-100",
+  title: "Fix login",
+  team_id: null,
+  started: false,
 };
 
 /** Where the request that started the workflow came from: a chat thread or a tracker session. */
@@ -250,10 +264,13 @@ export class WorkflowWorld {
   private delivered: Step["event"] = null;
   private chatThreadsJoined = 0;
   private readonly checksOnPush: ChecksOnPush;
+  private readonly tracker: SessionTracker;
+  private readonly streamedTexts: string[] = [];
 
-  private constructor(workflow: FakeRuntime, checksOnPush: ChecksOnPush) {
+  private constructor(workflow: FakeRuntime, checksOnPush: ChecksOnPush, tracker: SessionTracker) {
     this.workflow = workflow;
     this.checksOnPush = checksOnPush;
+    this.tracker = tracker;
   }
 
   /** A running workflow whose first author or researcher task works on its first prompt. */
@@ -266,6 +283,11 @@ export class WorkflowWorld {
     if (setup.pageEnding === "choice") patchPageEnding(workflow, "choice");
     workflow.documentsInstance = pageHost();
     workflow.gatewayInstance = new FakeGateway();
+    const tracker = new SessionTracker();
+    workflow.notifier = new Notifier(
+      { tracker: async () => tracker, chat: null, documents: async () => null },
+      (entry) => workflow.store.writeOutbox(entry),
+    );
     workflow.patchState({
       repo: { full: REPO },
       request: { title: "Fix login", text: "Fix the login redirect.", links: [] },
@@ -277,10 +299,13 @@ export class WorkflowWorld {
     const first = await startJob(workflow, {
       stage,
       brief: "Fix the login redirect.",
-      input: { kind: "request", text: REQUEST_TEXTS[0] },
+      input:
+        setup.firstInput === "origin_issue"
+          ? { kind: "issue", issue: ORIGIN_ISSUE }
+          : { kind: "request", text: REQUEST_TEXTS[0] },
     });
     if (!first) throw new Error(`the test config declares no stage ${stage}`);
-    const world = new WorkflowWorld(workflow, setup.checksOnPush);
+    const world = new WorkflowWorld(workflow, setup.checksOnPush, tracker);
     world.adoptNewAuthors();
     await world.startSandboxOf(workflow.store.authorOrResearcherTaskOf(first.job_id).task_id);
     return world;
@@ -300,6 +325,7 @@ export class WorkflowWorld {
     if (ended && !this.runningBridgeOf(ended)) {
       this.promptsAtNormalTurnEnd.set(ended, this.promptsSentTo(ended));
     }
+    const rows = this.workflow.store.outbox().slice(outboxBefore);
     const step: Step = {
       action: String(action),
       before,
@@ -312,8 +338,12 @@ export class WorkflowWorld {
       completion: facts.completion ?? null,
       unadmittedFeedback: facts.unadmittedFeedback ?? null,
       event: this.delivered,
-      sessionPosts: sessionPostsOf(this.workflow.store.outbox().slice(outboxBefore)),
+      sessionPosts: sessionPostsOf(rows),
       postedTypes: this.workflow.posted.slice(postedBefore).map((event) => event.type),
+      feedPosts: feedPostsOf(rows),
+      planPosts: planPostsOf(rows),
+      storedActivities: this.tracker.stored.map((activity) => activityText(activity.content)),
+      streamedTexts: [...this.streamedTexts],
     };
     this.steps.push(step);
     return step;
@@ -455,6 +485,16 @@ export class WorkflowWorld {
   setMergeability(author: WorldAuthor, mergeability: Mergeability): void {
     this.pullOf(author).mergeability = mergeability;
     this.installHost();
+  }
+
+  nextStreamedText(): string {
+    const text = `[[${this.streamedTexts.length + 1}]]`;
+    this.streamedTexts.push(text);
+    return text;
+  }
+
+  setTrackerHealth(health: TrackerHealth): void {
+    this.tracker.health = health;
   }
 
   /** Time passes, for every reader of the workflow clock and the host. */
@@ -668,7 +708,8 @@ export class WorkflowWorld {
   private observe(): Observation {
     const { store } = this.workflow;
     const authors = new Set(this.authors.map((author) => author.taskId));
-    const queued = store.queue().filter((row) => authors.has(row.task_id)).length;
+    const queue = store.queue();
+    const queued = queue.filter((row) => authors.has(row.task_id)).length;
     const sent = this.bridges
       .filter((bridge) => authors.has(bridge.taskId))
       .reduce((total, bridge) => total + bridge.promptsSent, 0);
@@ -684,7 +725,7 @@ export class WorkflowWorld {
       jobSessions: Object.fromEntries(
         store.jobs().map((job) => {
           const onIssue = sessions.find((session) => session.issue_id === job.issue_id);
-          return [job.job_id, job.issue_id && onIssue ? onIssue.session_id : startingSession];
+          return [job.job_id, job.issue_id && onIssue ? onIssue.session_id : null];
         }),
       ),
       posted: store.postedCount(),
@@ -701,10 +742,7 @@ export class WorkflowWorld {
           store.sandbox(task.task_id)?.prompt_in_flight === 1 &&
           this.runningBridgeOf(task.task_id) !== null,
         promptTexts: [
-          ...store
-            .queue()
-            .filter((row) => row.task_id === task.task_id)
-            .map((row) => row.text),
+          ...queue.filter((row) => row.task_id === task.task_id).map((row) => row.text),
           ...this.bridges
             .filter((bridge) => bridge.taskId === task.task_id)
             .flatMap((bridge) => bridge.promptTexts),
@@ -712,6 +750,9 @@ export class WorkflowWorld {
         cancelsSent: this.bridges
           .filter((bridge) => bridge.taskId === task.task_id)
           .reduce((total, bridge) => total + bridge.cancelsSent, 0),
+        promptInFlight: store.sandbox(task.task_id)?.prompt_in_flight === 1,
+        queuedPrompts: queue.filter((row) => row.task_id === task.task_id).length,
+        handshaking: store.handshakePending(task.task_id),
       })),
       artifacts: store.artifacts().map((artifact) => ({
         job_id: artifact.job_id,
@@ -737,6 +778,26 @@ function sessionPostsOf(rows: Array<{ channel: string; kind: string; target: unk
     const target = row.target as { session_id?: string };
     return target.session_id ? [{ session_id: target.session_id, kind: row.kind }] : [];
   });
+}
+
+type OutboxRow = { channel: string; kind: string; target: unknown; payload: unknown };
+
+const NOT_FEED_POSTS = ["plan", "delivery_error"];
+
+function feedPostsOf(rows: OutboxRow[]): Step["feedPosts"] {
+  return rows.flatMap((row) => {
+    if (row.channel !== "feed" || NOT_FEED_POSTS.includes(row.kind)) return [];
+    const post = row.payload as { task_id: string; content: AgentActivityContent };
+    return [{ task_id: post.task_id, kind: row.kind, text: activityText(post.content) }];
+  });
+}
+
+function planPostsOf(rows: OutboxRow[]): string[] {
+  return rows.flatMap((row) =>
+    row.channel === "feed" && row.kind === "plan"
+      ? [(row.target as TrackerSession).session_id]
+      : [],
+  );
 }
 
 function kindOfStage(stage: string): ArtifactKind {

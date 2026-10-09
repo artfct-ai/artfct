@@ -25,6 +25,7 @@ import {
 } from "../src/workflow/task/harness/timers";
 import type { ScheduledMethod, WorkflowRuntime } from "../src/workflow/types";
 import type { FakeBridge } from "./fake-bridge";
+import type { TrackerHealth } from "./session-tracker";
 import { toolText } from "./tool-result";
 import { JUDGE_CONCLUSION } from "./fake-runtime";
 import {
@@ -97,7 +98,8 @@ export function authorTurnEnds(
     else await bridge.endTurn(stopReason);
     if (closing === "gives_up" && stopReason === "end_turn") return undefined;
     const hostRevision = revision === "unreadable" ? null : world.hostRevisionOf(author);
-    return { authorTurnEnd: { task_id: author.taskId, hostRevision } };
+    const cancelledTurn = stopReason === "cancelled";
+    return { authorTurnEnd: { task_id: author.taskId, hostRevision, cancelled: cancelledTurn } };
   });
 }
 
@@ -114,7 +116,11 @@ export function authorPromptFails(index: number, revision: "changed" | "same"): 
     if (revision === "changed") world.changeRevision(author);
     await bridge.failPrompt(PROMPT_ERROR);
     return {
-      authorTurnEnd: { task_id: author.taskId, hostRevision: world.hostRevisionOf(author) },
+      authorTurnEnd: {
+        task_id: author.taskId,
+        hostRevision: world.hostRevisionOf(author),
+        cancelled: false,
+      },
     };
   });
 }
@@ -182,6 +188,42 @@ export function authorReportsTodos(index: number, completed: number): WorkflowAc
         status: entry < completed ? "completed" : "pending",
       })),
     );
+  });
+}
+
+export type Streamed = "message" | "tool" | "failed_tool";
+
+export function authorStreams(index: number, streamed: Streamed): WorkflowAction {
+  return authorAction(index, `streams a ${streamed}`, async (world, author) => {
+    const bridge = world.runningBridgeOf(author.taskId);
+    if (!bridge) return;
+    const text = world.nextStreamedText();
+    switch (streamed) {
+      case "message":
+        return bridge.say(`Noted ${text}.`);
+      case "tool":
+        await bridge.callTool(`call-${text}`, `file-${text}.ts`, "edit");
+        return bridge.endTool(`call-${text}`, "completed");
+      case "failed_tool":
+        await bridge.callTool(`call-${text}`, `bun test ${text}`, "execute");
+        return bridge.endTool(`call-${text}`, "failed");
+      default: {
+        const unreachable: never = streamed;
+        throw new Error(`unhandled stream ${String(unreachable)}`);
+      }
+    }
+  });
+}
+
+export function workflowRestarts(): WorkflowAction {
+  return action("the workflow restarts", async (world) => {
+    world.workflow.sessionFeeds.clear();
+  });
+}
+
+export function trackerTurns(health: TrackerHealth): WorkflowAction {
+  return action(`the tracker turns ${health}`, async (world) => {
+    world.setTrackerHealth(health);
   });
 }
 

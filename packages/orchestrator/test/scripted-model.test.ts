@@ -144,6 +144,46 @@ describe("ScriptedModel contract", () => {
       });
     });
 
+    describe("with a request that names a stage and links its issue", () => {
+      const onIssue = `${REQUEST}\nStage: implement\nLinks: https://linear.app/acme/issue/ENG-43`;
+
+      it("plans only that stage", () => {
+        expect(scriptedDecision(afterAck(onIssue))).toMatchObject({
+          tool: "set_plan",
+          input: { stages: ["implement"], reason: "the request names the stage" },
+        });
+      });
+
+      it("starts it on the issue", () => {
+        const planned =
+          "Plan set: implement, up to 3 jobs at once. Call start_job with stage implement and a brief for it.";
+        expect(scriptedDecision([...userPrompt(onIssue), toolResult("set_plan", planned)])).toEqual(
+          {
+            tool: "start_job",
+            input: {
+              stage: "implement",
+              brief: "Work the implement stage of the request.",
+              issue: "ENG-43",
+            },
+          },
+        );
+      });
+    });
+
+    describe("with a request that links an issue and names no stage", () => {
+      it("starts the first stage without the issue", () => {
+        const withIssue = `${REQUEST}\nLinks: https://linear.app/acme/issue/ENG-43`;
+        const planned =
+          "Plan set: design -> implement, up to 3 jobs at once. Call start_job with stage design and a brief for it.";
+        expect(
+          scriptedDecision([...userPrompt(withIssue), toolResult("set_plan", planned)]),
+        ).toEqual({
+          tool: "start_job",
+          input: { stage: "design", brief: "Work the design stage of the request." },
+        });
+      });
+    });
+
     describe("with a system prompt that lists no stage", () => {
       it("plans one implement stage", () => {
         expect(scriptedDecision(afterAck(REQUEST, "orchestrator"))).toMatchObject({

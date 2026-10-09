@@ -1,8 +1,8 @@
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { noteMessage } from "../../agent/transcript/envelope";
 import { parseControl } from "./control-words";
-import { applyControlWord, cancelPromptTurn } from "./controls";
-import { runningAuthorInSession } from "./job-session";
+import { applyControlWord, stopAuthor, type StopOutcome } from "./controls";
+import { authorInSession, runningAuthorInSession } from "./job-session";
 import { promptTask } from "../task/harness/prompt-queue";
 import { applyArtifactEvent } from "../refiner/feedback";
 import type { Applied, WorkflowRuntime } from "../types";
@@ -19,7 +19,7 @@ export async function applyEvent(
     case "status":
       return (await forwardToRunningAuthor(workflow, event)) ?? { notes: [], wake: "message" };
     case "stop":
-      return stopRunningAuthor(workflow, event);
+      return stopSessionAuthor(workflow, event);
     case "control":
       return executeControl(workflow, event);
     case "start":
@@ -113,28 +113,28 @@ async function forwardToRunningAuthor(
   return { notes: [note], wake: "none" };
 }
 
-/**
- * A stop in a job session ends the prompt turn of the author that runs there. The task, the job,
- * and the workflow keep running, and nothing is posted.
- */
-async function stopRunningAuthor(
+const STOP_NOTES: Record<StopOutcome, string> = {
+  cancelled: "Its prompt turn was cancelled.",
+  ended: "The turn its sandbox was resuming was ended.",
+  idle: "No prompt turn ran.",
+};
+
+/** Stop the author of the job session a person pressed Stop in. */
+export async function stopSessionAuthor(
   workflow: WorkflowRuntime,
   event: InboundEvent,
 ): Promise<Applied | "handled"> {
   const author =
     event.actor && event.reply_to?.source === "tracker"
-      ? runningAuthorInSession(workflow, event.reply_to)
+      ? authorInSession(workflow, event.reply_to)
       : null;
   if (!author) {
-    workflow.log(null, "stop ignored: no author runs in its job session");
+    workflow.log(null, "stop ignored: no author works in its job session");
     return "handled";
   }
-  const cancelled = cancelPromptTurn(workflow, author);
-  workflow.log(
-    author.task_id,
-    cancelled ? "stop cancelled the prompt turn" : "stop: no prompt turn runs",
-  );
-  const note = `${personName(event)} pressed Stop in the job session of ${author.task_id}. Its prompt turn ${cancelled ? "was cancelled" : "had not started"}. Do not prompt it again until a person asks.`;
+  const outcome = await stopAuthor(workflow, author);
+  workflow.log(author.task_id, `stop: ${outcome}`);
+  const note = `${personName(event)} pressed Stop in the job session of ${author.task_id}. ${STOP_NOTES[outcome]} Its queued prompts were dropped. Do not prompt it again until a person asks.`;
   return { notes: [note], wake: "none" };
 }
 

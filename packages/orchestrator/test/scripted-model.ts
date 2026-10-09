@@ -241,27 +241,43 @@ function selectedOption(reply: string): string | null {
   return /^go with (.+?)\.?$/im.exec(reply)?.[1]?.trim() ?? null;
 }
 
-/**
- * Every configured stage, in order, in the linked repository, under the page parent the request
- * names, named after the request. A request that links a doc holds the artifact of the first
- * stage, so the plan runs the stages after it.
- */
+/** The plan for a request, in the repository it links. */
 function plan(body: string, stages: string[]): ScriptedDecision {
   const repo = repoOf(body);
   if (!repo) return { tool: "ask", input: { text: "Which repository should this change go in?" } };
-  const fromPage = inputPageOf(body) !== null;
   return {
     tool: "set_plan",
     input: {
       name: planName(body),
-      stages: fromPage ? stages.slice(1) : stages,
+      ...plannedStages(body, stages),
       repo,
       page_parent: /^Page parent: (\S+)$/m.exec(body)?.[1] ?? null,
-      reason: fromPage
-        ? "the request links the artifact of the first stage"
-        : "default: every configured stage in order",
     },
   };
+}
+
+function plannedStages(body: string, stages: string[]): { stages: string[]; reason: string } {
+  const named = namedStageOf(body);
+  if (named) return { stages: [named], reason: "the request names the stage" };
+  if (inputPageOf(body) !== null) {
+    return { stages: stages.slice(1), reason: "the request links the artifact of the first stage" };
+  }
+  return { stages, reason: "default: every configured stage in order" };
+}
+
+function namedStageOf(body: string): string | null {
+  return /^Stage: (\S+)$/m.exec(body)?.[1] ?? null;
+}
+
+function linkedIssueOf(body: string): string | null {
+  return /https:\/\/linear\.app\/[\w-]+\/issue\/([A-Z]+-\d+)/.exec(body)?.[1] ?? null;
+}
+
+function firstJobInput(body: string): JobInputFields {
+  const artifact = inputPageOf(body);
+  if (artifact) return { artifact };
+  const issue = namedStageOf(body) ? linkedIssueOf(body) : null;
+  return issue ? { issue } : {};
 }
 
 /** The repository the request links on the code host. */
@@ -291,7 +307,7 @@ function afterTool(
   if (result.toolName === "acknowledge") return event ? plan(event.body, stages) : { text: "" };
   if (result.toolName === "set_plan") {
     const stage = /with stage ([^\s.]+)/.exec(text)?.[1];
-    return startStage(stage, event ? inputPageOf(event.body) : null);
+    return startStage(stage, event ? firstJobInput(event.body) : {});
   }
   if (result.toolName === "complete_job") {
     const next = /Next stage: ([^\s.]+)/.exec(text)?.[1];
@@ -305,13 +321,13 @@ function afterTool(
   return { text: "" };
 }
 
-/** A start_job call for the stage, with a brief that names it, from the doc when the request links one. */
-function startStage(stage: string | undefined, artifact: string | null = null): ScriptedDecision {
+type JobInputFields = { artifact?: string; issue?: string };
+
+function startStage(stage: string | undefined, input: JobInputFields = {}): ScriptedDecision {
   const name = stage ?? "implement";
-  const brief = `Work the ${name} stage of the request.`;
   return {
     tool: "start_job",
-    input: artifact ? { stage: name, brief, artifact } : { stage: name, brief },
+    input: { stage: name, brief: `Work the ${name} stage of the request.`, ...input },
   };
 }
 

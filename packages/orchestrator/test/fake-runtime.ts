@@ -22,6 +22,7 @@ import type { TaskEvent, TaskRole } from "../src/workflow/task/events";
 import type { Connection } from "agents";
 import type { JSONValue, LanguageModel, ToolSet } from "ai";
 import { TranscriptStore } from "../src/agent/transcript/transcript";
+import type { AuthorFeed } from "../src/workflow/feed/feed";
 import { registeredConfig } from "../src/config/register-config";
 import type { WorkflowDefinition } from "../src/config/workflow-definition";
 import type { Env } from "../src/env";
@@ -107,6 +108,7 @@ export class FakeRuntime implements WorkflowRuntime {
   readonly store: WorkflowStore;
   notifier: Notifier;
   readonly transcript: TranscriptStore;
+  readonly sessionFeeds = new Map<string, AuthorFeed>();
   sandboxProvider: FakeSandboxProvider = new FakeSandboxProvider();
   alarms: FakeAlarm[] = [];
   cancelled: string[] = [];

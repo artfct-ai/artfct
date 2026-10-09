@@ -1,12 +1,19 @@
 import type { Chat, SessionStatus } from "@artfct-ai/adapters/chat/types";
 import type { Documents } from "@artfct-ai/adapters/documents/types";
-import type { Tracker } from "@artfct-ai/adapters/tracker/types";
+import type {
+  AgentActivityContent,
+  SessionPlanItem,
+  Tracker,
+} from "@artfct-ai/adapters/tracker/types";
 import type { Acknowledge, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { TaskEvent } from "../workflow/task/events";
 import type { BoardChannel } from "../workflow/board/types";
 import { DELIVERY_ERROR } from "../workflow/store/schema";
 import type { Destination } from "./destination";
 import { plainText, trackerContent } from "./messages";
+
+/** How many times the notifier tries one session feed activity. */
+export const FEED_POST_ATTEMPTS = 3;
 
 type TrackerTarget = Extract<ReplyTarget, { source: "tracker" }>;
 type DocumentsTarget = Extract<ReplyTarget, { source: "documents" }>;
@@ -169,6 +176,47 @@ export class Notifier {
   async release(target: ChatTarget, finished: boolean, title: string): Promise<void> {
     this.outbox({ channel: "chat", kind: "release", target, payload: { finished } });
     await this.setChatSession(target, finished ? "closed" : "active", { title });
+  }
+
+  /** Post one activity of an author's session feed. */
+  async feed(session: TrackerTarget, taskId: string, content: AgentActivityContent): Promise<void> {
+    const id = crypto.randomUUID();
+    this.outbox({
+      channel: "feed",
+      kind: content.type,
+      target: session,
+      payload: { task_id: taskId, id, content },
+    });
+    const tracker = await this.tracker();
+    if (!tracker) return;
+    for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {
+      try {
+        await tracker.activity(session.session_id, content, { id });
+        return;
+      } catch (error) {
+        this.outbox({
+          channel: "feed",
+          kind: DELIVERY_ERROR,
+          target: session,
+          payload: String(error),
+        });
+      }
+    }
+  }
+
+  /** Show a todo list as the plan of a tracker session. */
+  async sessionPlan(session: TrackerTarget, plan: SessionPlanItem[]): Promise<void> {
+    this.outbox({ channel: "feed", kind: "plan", target: session, payload: { plan } });
+    try {
+      await (await this.tracker())?.setSessionPlan(session.session_id, plan);
+    } catch (error) {
+      this.outbox({
+        channel: "feed",
+        kind: DELIVERY_ERROR,
+        target: session,
+        payload: String(error),
+      });
+    }
   }
 
   /** Move the tracker issue: "started" on planning, "completed" on done. */

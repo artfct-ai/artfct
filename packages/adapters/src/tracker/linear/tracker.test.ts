@@ -439,4 +439,78 @@ describe("LinearTracker writes", () => {
       });
     });
   });
+
+  describe("an activity posted with an id", () => {
+    let calls: Call[];
+
+    beforeEach(async () => {
+      calls = fakeLinear({
+        createAgentActivity: { agentActivityCreate: { success: true, lastSyncId: 1 } },
+      });
+      await new LinearTracker("lin_api_x").activity(
+        "sess",
+        { type: "thought", body: "hi" },
+        { id: "a1" },
+      );
+    });
+
+    it("sends the id with the activity", () => {
+      expect(calls[0]?.variables).toMatchObject({ input: { id: "a1" } });
+    });
+  });
+
+  describe("an activity whose id Linear already holds", () => {
+    const repeated = { errors: [{ message: "conflict on insert of AgentActivity" }] };
+
+    it("counts as posted when the post named the id", async () => {
+      fakeLinear({ createAgentActivity: repeated });
+      const tracker = new LinearTracker("lin_api_x");
+      await expect(
+        tracker.activity("sess", { type: "thought", body: "hi" }, { id: "a1" }),
+      ).resolves.toBeUndefined();
+    });
+
+    it("still throws for a post without an id", async () => {
+      fakeLinear({ createAgentActivity: repeated });
+      const tracker = new LinearTracker("lin_api_x");
+      await expect(tracker.activity("sess", { type: "thought", body: "hi" })).rejects.toThrow();
+    });
+  });
+
+  describe("an activity Linear refuses for another reason", () => {
+    it("throws even with an id", async () => {
+      fakeLinear({ createAgentActivity: { errors: [{ message: "rate limited" }] } });
+      const tracker = new LinearTracker("lin_api_x");
+      await expect(
+        tracker.activity("sess", { type: "thought", body: "hi" }, { id: "a1" }),
+      ).rejects.toThrow();
+    });
+  });
+
+  describe("a session plan", () => {
+    let calls: Call[];
+
+    beforeEach(async () => {
+      calls = fakeLinear({
+        updateAgentSession: { agentSessionUpdate: { success: true, lastSyncId: 1 } },
+      });
+      await new LinearTracker("lin_api_x").setSessionPlan("sess", [
+        { content: "Read the code", status: "completed" },
+        { content: "Fix the bug", status: "inProgress" },
+      ]);
+    });
+
+    it("replaces the plan of the session in one call", () => {
+      expect(calls).toHaveLength(1);
+      expect(calls[0]?.variables).toEqual({
+        id: "sess",
+        input: {
+          plan: [
+            { content: "Read the code", status: "completed" },
+            { content: "Fix the bug", status: "inProgress" },
+          ],
+        },
+      });
+    });
+  });
 });

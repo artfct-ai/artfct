@@ -18,6 +18,7 @@ import type { TaskEvent } from "./task/events";
 import type { Connection } from "agents";
 import type { JSONValue, LanguageModel, ToolSet } from "ai";
 import type { TranscriptStore } from "../agent/transcript/transcript";
+import type { AuthorFeed } from "./feed/feed";
 import type { Env } from "../env";
 import type { Notifier, PostOptions } from "../notify/notifier";
 import type { Recipients } from "../notify/recipients";
@@ -66,6 +67,8 @@ export interface WorkflowRuntime {
   readonly store: WorkflowStore;
   readonly notifier: Notifier;
   readonly transcript: TranscriptStore;
+  /** The in-memory session feed of each author's running turn, by task id. */
+  readonly sessionFeeds: Map<string, AuthorFeed>;
   patchState(patch: Partial<WorkflowState>): void;
   config(): Config;
   /** The workflow definition this workflow runs. */
