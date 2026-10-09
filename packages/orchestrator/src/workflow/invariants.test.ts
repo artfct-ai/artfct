@@ -6,10 +6,12 @@ import {
   artifactStatusMovesAreLegal,
   authorIsIdleWhileAPolisherRuns,
   boardsLiveOnlyInChat,
+  chatWorkflowNeverSetsASessionPlan,
   deliveredToHumansIsNeverCleared,
   eachIssueLinksTheChatThreadOnce,
   endedWorkflowHasNoUnfinishedTask,
   everyFeedbackGetsOneRoutingDecision,
+  feedActivityPostsOnce,
   nothingReopensAFinishedWorkflow,
   refinerRunIsDoneOnlyAfterItsTurnEnded,
   finishedTaskKeepsItsStatus,
@@ -23,6 +25,8 @@ import {
   refinersRunAgainOnlyOnChangedRevision,
   sessionMessageReachesItsRunningAuthorSilently,
   sessionMessageWithoutAnAuthorIsAnswered,
+  sessionFeedEndsWhenItsAuthorIdles,
+  sessionFeedStaysInBudget,
   sessionStopReachesItsRunningAuthor,
   staleAlarmIsIgnored,
   todoListIsFixedAfterFirstArtifact,
@@ -43,6 +47,7 @@ import {
   agentStartsTask,
   agentStartsTaskOnArtifact,
   authorReportsTodos,
+  authorStreams,
   authorTurnEnds,
   baseMoves,
   chatThreadJoins,
@@ -64,11 +69,13 @@ import {
   researcherTurnEnds,
   sandboxComesUp,
   sandboxGoesAway,
+  secondsPass,
   staleAlarmFires,
   timePasses,
   timerFires,
   TIMERS,
   trackerOpensSession,
+  trackerTurns,
 } from "../../test/workflow-actions";
 import {
   MAX_AUTHORS,
@@ -80,6 +87,7 @@ import {
 } from "../../test/workflow-world";
 
 const NUM_RUNS = 200;
+const FEED_RUNS = 100;
 const MAX_ACTIONS = 50;
 const TIMEOUT_MS = 120_000;
 
@@ -113,6 +121,10 @@ const STEP_INVARIANTS = [
   sessionMessageReachesItsRunningAuthorSilently,
   sessionMessageWithoutAnAuthorIsAnswered,
   sessionStopReachesItsRunningAuthor,
+  chatWorkflowNeverSetsASessionPlan,
+  sessionFeedEndsWhenItsAuthorIdles,
+  sessionFeedStaysInBudget,
+  feedActivityPostsOnce,
 ];
 
 const setups: fc.Arbitrary<WorldSetup> = fc.record({
@@ -128,6 +140,15 @@ const setups: fc.Arbitrary<WorldSetup> = fc.record({
   checksOnPush: fc.constantFrom("passed" as const, "reported_later" as const),
   pageEnding: fc.constantFrom("acceptance" as const, "choice" as const),
   origin: fc.constantFrom("chat" as const, "chat" as const, "tracker" as const, "tracker" as const),
+});
+
+const sessionSetups: fc.Arbitrary<WorldSetup> = fc.record({
+  artifact: fc.constantFrom("pull" as const, "pull" as const, "issues" as const, "page" as const),
+  refiners: fc.constantFrom(...REFINER_SETUPS),
+  research: fc.constant(false),
+  checksOnPush: fc.constantFrom("passed" as const, "reported_later" as const),
+  pageEnding: fc.constantFrom("acceptance" as const, "choice" as const),
+  origin: fc.constant("tracker" as const),
 });
 
 const pageSetups: fc.Arbitrary<WorldSetup> = fc.record({
@@ -274,6 +295,23 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
       .map(([index, mergeability, webhook]) => baseMoves(index, mergeability, webhook)),
   },
   { weight: 2, arbitrary: fc.constantFrom(2, 10, 180).map(timePasses) },
+  { weight: 3, arbitrary: fc.constantFrom(5, 10, 20).map(secondsPass) },
+  {
+    weight: 10,
+    arbitrary: fc
+      .tuple(
+        author,
+        fc.constantFrom("thought", "message", "tool", "tool", "failed_tool"),
+        fc.constantFrom(0, 5, 20),
+      )
+      .map(([index, streamed, seconds]) => authorStreams(index, streamed, seconds)),
+  },
+  {
+    weight: 2,
+    arbitrary: fc
+      .constantFrom("up", "up", "fails_before_storing", "fails_after_storing")
+      .map(trackerTurns),
+  },
   {
     weight: 3,
     arbitrary: fc
@@ -433,6 +471,50 @@ const sequences: fc.Arbitrary<WorkflowAction[]> = fc
   .tuple(openings, fc.array(actions, { maxLength: MAX_ACTIONS, size: "max" }))
   .map(([opening, rest]) => [...opening, ...rest]);
 
+const feedActions: fc.Arbitrary<WorkflowAction> = fc.oneof(
+  {
+    weight: 10,
+    arbitrary: fc
+      .tuple(
+        author,
+        fc.constantFrom("thought", "message", "tool", "tool", "failed_tool"),
+        fc.constantFrom(0, 5, 20),
+      )
+      .map(([index, streamed, seconds]) => authorStreams(index, streamed, seconds)),
+  },
+  {
+    weight: 3,
+    arbitrary: fc
+      .tuple(author, fc.constantFrom("changed", "same"))
+      .map(([index, revision]) => authorTurnEnds(index, revision)),
+  },
+  { weight: 3, arbitrary: author.map(agentPromptsAuthor) },
+  {
+    weight: 2,
+    arbitrary: fc
+      .constantFrom("up", "up", "fails_before_storing", "fails_after_storing")
+      .map(trackerTurns),
+  },
+  {
+    weight: 1,
+    arbitrary: fc
+      .tuple(author, fc.constantFrom("changed", "same"))
+      .map(([index, revision]) => authorPromptFails(index, revision)),
+  },
+  { weight: 1, arbitrary: fc.nat({ max: 3 }).map(personPressesStop) },
+  {
+    weight: 1,
+    arbitrary: fc
+      .tuple(author, fc.integer({ min: 0, max: 3 }))
+      .map(([index, completed]) => authorReportsTodos(index, completed)),
+  },
+);
+
+const feedSequences: fc.Arbitrary<WorkflowAction[]> = fc.array(
+  fc.oneof({ weight: 1, arbitrary: actions }, { weight: 2, arbitrary: feedActions }),
+  { maxLength: MAX_ACTIONS, size: "max" },
+);
+
 async function holdsThroughout(setup: WorldSetup, sequence: WorkflowAction[]): Promise<void> {
   const world = await WorkflowWorld.open(setup);
   for (const action of sequence) {
@@ -448,7 +530,16 @@ describe("the workflow invariants", () => {
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(26);
+      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(30);
+    },
+    TIMEOUT_MS,
+  );
+
+  it(
+    "hold after every action of any sequence, while authors stream into a job session",
+    async () => {
+      const property = fc.asyncProperty(sessionSetups, feedSequences, holdsThroughout);
+      await fc.assert(property, { numRuns: FEED_RUNS });
     },
     TIMEOUT_MS,
   );

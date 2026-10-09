@@ -4,6 +4,7 @@ import { ASK_WHETHER_ACCEPTED, ASK_WHICH_OPTION } from "../src/agent/tools/start
 import { channelKey } from "../src/workflow/board/board";
 import type { TaskEvent, TaskRole } from "../src/workflow/task/events";
 import type { Wake, WorkflowRuntime } from "../src/workflow/types";
+import { FEED_INTERVAL_MS } from "../src/workflow/feed/feed";
 
 /** One task row as an observer saw it. `ruling` is the stored ruling as text, or null. */
 export type ObservedTask = {
@@ -21,6 +22,10 @@ export type ObservedTask = {
   promptTexts: string[];
   /** How many cancels its harness session was sent. */
   cancelsSent: number;
+  /** True while a prompt sent to its harness has no turn end yet. */
+  promptInFlight: boolean;
+  /** How many prompts wait in its queue. */
+  queuedPrompts: number;
 };
 
 /** One artifact row as an observer saw it. */
@@ -48,6 +53,8 @@ export type Observation = {
   todos: Record<string, string>;
   /** Prompts queued for authors plus prompts sent to authors, since the workflow began. */
   authorPrompts: number;
+  /** When each job session last got a session feed post, by session id. */
+  feedPostedAt: Record<string, number>;
 };
 
 /** One action and what an observer saw around it. */
@@ -75,6 +82,16 @@ export type Step = {
   sessionPosts: Array<{ session_id: string; kind: string }>;
   /** The type of every event the step posted, wherever it went. */
   postedTypes: TaskEvent["type"][];
+  /** The workflow clock when the step ended. */
+  at: number;
+  /** Every session feed post the step tried, in order. `kind` is the activity type. */
+  feedPosts: Array<{ session_id: string; task_id: string; kind: string }>;
+  /** The session of every session plan the step set, in order. */
+  planPosts: string[];
+  /** The text of every activity the tracker holds after the step. */
+  storedActivities: string[];
+  /** Every text an author streamed so far. No two are alike, and none holds another. */
+  streamedTexts: string[];
   /** Set when the turn of a refiner run ended normally. */
   refinerTurnEnd: { task_id: string } | null;
   /** Set when the alarm that fired was armed for an older generation of its task. */
@@ -109,6 +126,8 @@ const ASKS_AND_FAILURES: TaskEvent["type"][] = [
 ];
 
 const SESSION_MESSAGES: InboundEvent["kind"][] = ["prompt", "status"];
+
+const FEED_CLOSINGS = ["response", "error"];
 
 const ARTIFACT_MOVES: Array<[ArtifactStatus, ArtifactStatus]> = [
   ["drafted", "ready"],
@@ -676,4 +695,63 @@ export function sessionStopReachesItsRunningAuthor(_workflow: WorkflowRuntime, s
   const after = step.after.tasks.find((task) => task.task_id === author.task_id);
   if ((after?.cancelsSent ?? 0) > author.cancelsSent) return;
   violated("sessionStopReachesItsRunningAuthor", `${author.task_id} was not sent a cancel`);
+}
+
+/** While a chat thread exists, no tracker session gets a session plan. */
+export function chatWorkflowNeverSetsASessionPlan(_workflow: WorkflowRuntime, step: Step): void {
+  if (!step.after.chatThread || step.planPosts.length === 0) return;
+  violated("chatWorkflowNeverSetsASessionPlan", `set a plan in ${step.planPosts.join(", ")}`);
+}
+
+/**
+ * A turn that leaves its author idle, with nothing in flight or queued, ends the author's session
+ * feed with a reply or an error. A failed post counts.
+ */
+export function sessionFeedEndsWhenItsAuthorIdles(_workflow: WorkflowRuntime, step: Step): void {
+  const ended = step.authorTurnEnd;
+  if (!ended) return;
+  const author = step.after.tasks.find((task) => task.task_id === ended.task_id);
+  if (!author || FINISHED.includes(author.status)) return;
+  if (author.promptInFlight || author.queuedPrompts > 0) return;
+  if (!step.after.jobSessions[author.job_id]) return;
+  const last = step.feedPosts.findLast((post) => post.task_id === author.task_id);
+  if (last && FEED_CLOSINGS.includes(last.kind)) return;
+  violated(
+    "sessionFeedEndsWhenItsAuthorIdles",
+    `${author.task_id} went idle and its feed ended on ${last?.kind ?? "nothing"}`,
+  );
+}
+
+/**
+ * A job session gets at most one session feed post per step, and none sooner than
+ * `FEED_INTERVAL_MS` after the one before. A step that closes a turn posts at most two, closing last.
+ */
+export function sessionFeedStaysInBudget(_workflow: WorkflowRuntime, step: Step): void {
+  const sessions = new Set(step.feedPosts.map((post) => post.session_id));
+  for (const session of sessions) {
+    const kinds = step.feedPosts
+      .filter((post) => post.session_id === session)
+      .map((post) => post.kind);
+    if (kinds.some((kind) => FEED_CLOSINGS.includes(kind))) {
+      if (kinds.length <= 2 && FEED_CLOSINGS.includes(kinds.at(-1) ?? "")) continue;
+      violated("sessionFeedStaysInBudget", `closed ${session} with ${kinds.join(", ")}`);
+    }
+    if (kinds.length > 1) {
+      violated("sessionFeedStaysInBudget", `posted ${kinds.join(", ")} in ${session} at once`);
+    }
+    const previous = step.before.feedPostedAt[session];
+    if (previous === undefined || step.at - previous >= FEED_INTERVAL_MS) continue;
+    violated(
+      "sessionFeedStaysInBudget",
+      `posted in ${session} ${step.at - previous}ms after the last`,
+    );
+  }
+}
+
+/** Each text an author streamed is held by at most one activity in the tracker. */
+export function feedActivityPostsOnce(_workflow: WorkflowRuntime, step: Step): void {
+  for (const text of step.streamedTexts) {
+    const holders = step.storedActivities.filter((stored) => stored.includes(text)).length;
+    if (holders > 1) violated("feedActivityPostsOnce", `${holders} activities hold ${text}`);
+  }
 }

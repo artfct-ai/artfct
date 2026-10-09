@@ -25,6 +25,7 @@ import {
 import { markArtifactReady, reopenChangedArtifact } from "../../refiner/outcome";
 import { sandboxRefOf } from "../sandbox/size";
 import { touchProgress } from "./timers";
+import { feedClosingOf, flushFeed, publishSessionPlan, recordFeedUpdate } from "../../feed/feed";
 
 /** How much closing text `tasks.summary` keeps. */
 export const SUMMARY_CHARS = 2000;
@@ -60,6 +61,8 @@ export async function onSessionUpdate(
   const sandbox = workflow.store.requireSandbox(task.task_id);
   await touchProgress(workflow, sandbox);
   const update = notice.update;
+  recordFeedUpdate(workflow, task, update);
+  await flushFeed(workflow, task);
   const text = updateText(update);
   if (text) {
     workflow.store.appendTurnText(task.task_id, text);
@@ -68,12 +71,13 @@ export async function onSessionUpdate(
   }
   const entries = workflow.harness(sandbox.harness).plan(update);
   if (entries) {
-    workflow.store.setTodos(task.task_id, { entries });
+    const stored = workflow.store.setTodos(task.task_id, { entries });
     workflow.log(
       task.task_id,
       `todo list reported: ${openEntryCount({ entries })} of ${entries.length} open`,
     );
     await markBoardDirty(workflow, task.job_id);
+    if (stored) await publishSessionPlan(workflow, task);
   }
   countToolActivity(workflow, task, update);
   const summary = summarizeUpdate(update);
@@ -185,6 +189,7 @@ export async function onTurnEnd(
   if (stopReason === "end_turn" && (await authorGaveUp(workflow, task.task_id))) return;
   workflow.store.patchTodoRow(task.task_id, { note: null });
   const busy = await settleAndResumeAuthor(workflow, task.task_id);
+  await flushFeed(workflow, task, busy ? null : feedClosingOf(stopReason));
   if (!busy) await announceReopenedDraft(workflow, task.job_id);
   const wake = wakeAfterTurn(workflow, task.job_id, recordedNow, busy);
   if (wake === "none") return;
@@ -343,6 +348,7 @@ export async function onRpcError(
   workflow.store.patchTodoRow(task.task_id, { note });
   if (task.role !== "author") return endBrokenRun(workflow, task, note);
   if (await settleAndResumeAuthor(workflow, task.task_id)) return;
+  await flushFeed(workflow, task, { kind: "error", text: note });
   await workflow.tellAgent(
     noteMessage(
       `Task ${task.task_id}: ${note} The harness is idle. Send the prompt again with prompt_task, or fail the task.`,

@@ -1,10 +1,13 @@
+import type { ToolKind } from "@agentclientprotocol/sdk";
 import { HARNESSES } from "@artfct-ai/adapters/harness/types";
+import type { AgentActivityContent } from "@artfct-ai/adapters/tracker/types";
 import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { ArtifactKind, ArtifactStatus, TaskStatus } from "@artfct-ai/contracts/types";
 import type { ArtifactRef, RefinerResult } from "../../artifact/types";
 import type { TaskRole } from "../task/events";
 import { integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import type { BoardChannel, TodoSnapshot } from "../board/types";
+import type { FeedItemKind } from "../feed/types";
 import type { Wake } from "../types";
 
 /** Why a JSON-RPC request was sent to the harness. Decides how its response is handled. */
@@ -168,6 +171,36 @@ export const artifacts = sqliteTable("artifacts", {
    */
   delivered_revision: text(),
   updated_at: text().notNull(),
+});
+
+/**
+ * The session feed of each author not yet posted to its job session, in order. A text chunk joins
+ * the item before it when that item holds text of the same kind.
+ */
+export const feedItems = sqliteTable("feed_items", {
+  seq: integer().primaryKey({ autoIncrement: true }),
+  task_id: text().notNull(),
+  kind: text().$type<FeedItemKind>().notNull(),
+  /** The text of a thought, a message or an error, or the title of a tool call. */
+  text: text().notNull(),
+  /** The harness's id of a tool call. Null for text. */
+  tool_call_id: text(),
+  /** The ACP kind of a tool call, such as `read` or `execute`. Null for text. */
+  tool_kind: text().$type<ToolKind>(),
+  /** 1 once a tool call failed. */
+  failed: integer().notNull().default(0),
+});
+
+/**
+ * Session feed activities rendered from feed items whose post has not succeeded yet. A retry
+ * sends the same id and content, so the job session holds each activity once.
+ */
+export const feedPosts = sqliteTable("feed_posts", {
+  seq: integer().primaryKey({ autoIncrement: true }),
+  task_id: text().notNull(),
+  /** The activity id, in UUID v4 format, set once when the post is rendered. */
+  activity_id: text().notNull(),
+  content: text({ mode: "json" }).$type<AgentActivityContent>().notNull(),
 });
 
 /** JSON-RPC requests sent to the harness that have no response yet. */

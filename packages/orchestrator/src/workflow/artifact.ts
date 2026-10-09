@@ -7,6 +7,7 @@ import { refinerCount } from "./refiner/stage-refiner";
 import { isTaskFinished } from "./store/state";
 import type { TaskRow } from "./store/tasks";
 import type { WorkflowRuntime } from "./types";
+import { publishSessionPlan } from "./feed/feed";
 
 /**
  * Record the artifact a link in the author's output names. True when the job has an artifact
@@ -104,6 +105,7 @@ export async function recordArtifact(
   workflow.log(task.task_id, `artifact ${kind} ${target.url}`);
   workflow.store.completeTodos(task.task_id);
   await flushBoards(workflow, task.job_id);
+  await publishSessionPlan(workflow, task);
   if (stageHasRefiners(workflow.stageForTask(task))) {
     workflow.log(task.task_id, "holding the announcement until the review settles");
     return;

@@ -62,8 +62,17 @@ export type AgentActivityContent =
 /** A link shown on an agent session. */
 export type ExternalUrl = { url: string; label?: string };
 
-/** Options for `Tracker.activity`. */
-export type ActivityOptions = { ephemeral?: boolean; externalUrls?: ExternalUrl[] };
+/**
+ * Options for `Tracker.activity`. An activity posted twice with one `id` appears once, and the
+ * second post does not throw.
+ */
+export type ActivityOptions = { ephemeral?: boolean; externalUrls?: ExternalUrl[]; id?: string };
+
+/** One step of the plan an agent session shows. */
+export type SessionPlanItem = {
+  content: string;
+  status: "pending" | "inProgress" | "completed" | "canceled";
+};
 
 /** What the orchestrator asks of a work tracker. */
 export interface Tracker {
@@ -90,4 +99,6 @@ export interface Tracker {
     content: AgentActivityContent,
     options?: ActivityOptions,
   ): Promise<void>;
+  /** Replace the whole plan an agent session shows. */
+  setSessionPlan(sessionId: string, plan: SessionPlanItem[]): Promise<void>;
 }

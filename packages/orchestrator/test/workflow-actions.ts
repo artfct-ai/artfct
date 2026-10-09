@@ -25,6 +25,7 @@ import {
 } from "../src/workflow/task/harness/timers";
 import type { ScheduledMethod, WorkflowRuntime } from "../src/workflow/types";
 import type { FakeBridge } from "./fake-bridge";
+import type { TrackerHealth } from "./session-tracker";
 import { toolText } from "./tool-result";
 import { JUDGE_CONCLUSION } from "./fake-runtime";
 import {
@@ -182,6 +183,44 @@ export function authorReportsTodos(index: number, completed: number): WorkflowAc
         status: entry < completed ? "completed" : "pending",
       })),
     );
+  });
+}
+
+/** What an author's harness streams mid-turn: a thought, a message, or a tool call. */
+export type Streamed = "thought" | "message" | "tool" | "failed_tool";
+
+/**
+ * The author's harness streams one new text, as a thought, a message, or a tool call's title,
+ * `seconds` after the step before.
+ */
+export function authorStreams(index: number, streamed: Streamed, seconds: number): WorkflowAction {
+  return authorAction(index, `streams a ${streamed} after ${seconds}s`, async (world, author) => {
+    const bridge = world.runningBridgeOf(author.taskId);
+    if (!bridge) return;
+    world.advanceClock(seconds * 1000);
+    const text = world.nextStreamedText();
+    switch (streamed) {
+      case "thought":
+        return bridge.think(`Thinking ${text}.`);
+      case "message":
+        return bridge.say(`Noted ${text}.`);
+      case "tool":
+        return bridge.callTool(`call-${text}`, `file-${text}.ts`, "read");
+      case "failed_tool":
+        await bridge.callTool(`call-${text}`, `bun test ${text}`, "execute");
+        return bridge.failTool(`call-${text}`);
+      default: {
+        const unreachable: never = streamed;
+        throw new Error(`unhandled stream ${String(unreachable)}`);
+      }
+    }
+  });
+}
+
+/** The tracker comes back up, or starts to fail before or after it stores an activity. */
+export function trackerTurns(health: TrackerHealth): WorkflowAction {
+  return action(`the tracker turns ${health}`, async (world) => {
+    world.setTrackerHealth(health);
   });
 }
 
@@ -482,6 +521,13 @@ export function baseMoves(
 export function timePasses(minutes: number): WorkflowAction {
   return action(`${minutes} minutes pass`, async (world) => {
     world.advanceClock(minutes * 60_000);
+  });
+}
+
+/** A few seconds pass, short of most timers. The session feed's interval notices them. */
+export function secondsPass(seconds: number): WorkflowAction {
+  return action(`${seconds} seconds pass`, async (world) => {
+    world.advanceClock(seconds * 1000);
   });
 }
 

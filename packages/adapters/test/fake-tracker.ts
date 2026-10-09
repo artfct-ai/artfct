@@ -3,6 +3,7 @@ import type {
   AgentActivityContent,
   AppUser,
   IssueUpdate,
+  SessionPlanItem,
   TeamMembership,
   Tracker,
   TrackerIssue,
@@ -110,5 +111,9 @@ export class FakeTracker implements Tracker {
     options: ActivityOptions = {},
   ): Promise<void> {
     this.log.record("activity", sessionId, content, options);
+  }
+
+  async setSessionPlan(sessionId: string, plan: SessionPlanItem[]): Promise<void> {
+    this.log.record("setSessionPlan", sessionId, plan);
   }
 }

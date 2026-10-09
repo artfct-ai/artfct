@@ -10,6 +10,7 @@ import type {
   AppUser,
   ExternalUrl,
   IssueUpdate,
+  SessionPlanItem,
   TeamMembership,
   Tracker,
   TrackerIssue,
@@ -26,6 +27,14 @@ const ALREADY_SYNCED_MESSAGE = "already synced";
 /** True when Linear refused a sync because the thread already syncs into another issue. */
 function isAlreadySyncedError(error: unknown): boolean {
   return errorMessages(error).some((message) => message.includes(ALREADY_SYNCED_MESSAGE));
+}
+
+/** How Linear words the refusal of an activity whose id another activity has already. */
+const REPEATED_ACTIVITY = "conflict on insert of AgentActivity";
+
+/** True when Linear refused an activity because one with its id exists already. */
+function isRepeatedActivity(error: unknown): boolean {
+  return errorMessages(error).some((message) => message.includes(REPEATED_ACTIVITY));
 }
 
 /** Every message an error carries, including the GraphQL errors a `LinearError` lists. */
@@ -144,21 +153,34 @@ export class LinearTracker implements Tracker {
     return fetchProjectIssues(this.raw, projectId);
   }
 
-  /** Emit an agent activity. `externalUrls` belong to the session, so they go in a second call. */
+  /**
+   * Emit an agent activity. Linear refuses a second activity with the same id, and that refusal
+   * means the first post landed. `externalUrls` belong to the session, so they go in a second call.
+   */
   async activity(
     sessionId: string,
     content: AgentActivityContent,
     options: ActivityOptions = {},
   ): Promise<void> {
     const client = await this.client();
-    await client.createAgentActivity({
-      agentSessionId: sessionId,
-      content,
-      ephemeral: options.ephemeral ?? false,
-    });
+    try {
+      await client.createAgentActivity({
+        agentSessionId: sessionId,
+        content,
+        ephemeral: options.ephemeral ?? false,
+        ...(options.id ? { id: options.id } : {}),
+      });
+    } catch (error) {
+      if (!options.id || !isRepeatedActivity(error)) throw error;
+    }
     if (!options.externalUrls?.length) return;
     await client.updateAgentSession(sessionId, {
       addedExternalUrls: options.externalUrls.map(toExternalUrlInput),
     });
+  }
+
+  async setSessionPlan(sessionId: string, plan: SessionPlanItem[]): Promise<void> {
+    const client = await this.client();
+    await client.updateAgentSession(sessionId, { plan });
   }
 }
