@@ -77,10 +77,10 @@ export interface Tracker {
   teamStates(teamId: string): Promise<WorkflowState[]>;
   updateIssue(issueId: string, input: IssueUpdate): Promise<void>;
   /**
-   * Show a link on an issue. A tracker that recognizes the URL renders it through its own
-   * integration, so a chat thread reads as that thread and not as a bare link.
+   * Make a chat thread the issue's comment thread, so each side shows the other's replies. A
+   * thread already synced to another issue gets a plain link on this one instead.
    */
-  attachUrl(issueId: string, url: string): Promise<void>;
+  syncChatThread(issueId: string, threadUrl: string): Promise<void>;
   /** One issue by id or identifier (`ENG-42`), with its blockers. Null when there is none. */
   issue(idOrKey: string): Promise<TrackerIssue | null>;
   /** Every issue of a project, with blockers. */

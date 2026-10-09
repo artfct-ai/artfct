@@ -90,8 +90,8 @@ export class FakeTracker implements Tracker {
     this.log.record("updateIssue", issueId, input);
   }
 
-  async attachUrl(issueId: string, url: string): Promise<void> {
-    this.log.record("attachUrl", issueId, url);
+  async syncChatThread(issueId: string, threadUrl: string): Promise<void> {
+    this.log.record("syncChatThread", issueId, threadUrl);
   }
 
   async issue(idOrKey: string): Promise<TrackerIssue | null> {

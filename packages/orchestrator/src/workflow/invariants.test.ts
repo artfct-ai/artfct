@@ -7,6 +7,7 @@ import {
   authorIsIdleWhileAPolisherRuns,
   boardsLiveOnlyInChat,
   deliveredToHumansIsNeverCleared,
+  eachIssueLinksTheChatThreadOnce,
   endedWorkflowHasNoUnfinishedTask,
   everyFeedbackGetsOneRoutingDecision,
   nothingReopensAFinishedWorkflow,
@@ -89,6 +90,7 @@ const STATE_INVARIANTS = [
   oneLiveJobPerInputArtifact,
   endedWorkflowHasNoUnfinishedTask,
   boardsLiveOnlyInChat,
+  eachIssueLinksTheChatThreadOnce,
 ];
 
 const STEP_INVARIANTS = [
@@ -413,11 +415,18 @@ const approvingEnd = refinerRunEnds(0, {
 
 const abandonedArtifact = [firstArtifactAppears(0, "author_text"), agentCancels(0, "author")];
 
+const issueStartedAgain = [
+  agentStartsTask("pull", "an_issue", REQUEST_TEXTS[0]),
+  agentCancels(1, "author"),
+  agentStartsTask("pull", "a_taken_issue", REQUEST_TEXTS[0]),
+];
+
 const openings: fc.Arbitrary<WorkflowAction[]> = fc.constantFrom(
   [],
   draftedArtifact,
   [...draftedArtifact, approvingEnd, approvingEnd, approvingEnd],
   abandonedArtifact,
+  issueStartedAgain,
 );
 
 const sequences: fc.Arbitrary<WorkflowAction[]> = fc
@@ -439,7 +448,7 @@ describe("the workflow invariants", () => {
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(25);
+      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(26);
     },
     TIMEOUT_MS,
   );

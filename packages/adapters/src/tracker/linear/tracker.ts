@@ -20,6 +20,26 @@ import type {
 /** Construction options. `appUserId` is the agent's own user id, known for an app-actor install. */
 export type LinearTrackerOptions = LinearOptions & { appUserId?: string };
 
+/** How Linear words the refusal to sync a Slack thread that already syncs into another issue. */
+const ALREADY_SYNCED_MESSAGE = "already synced";
+
+/** True when Linear refused a sync because the thread already syncs into another issue. */
+function isAlreadySyncedError(error: unknown): boolean {
+  return errorMessages(error).some((message) => message.includes(ALREADY_SYNCED_MESSAGE));
+}
+
+/** Every message an error carries, including the GraphQL errors a `LinearError` lists. */
+function errorMessages(error: unknown): string[] {
+  if (!(error instanceof Error)) return [String(error)];
+  const nested: unknown[] = "errors" in error && Array.isArray(error.errors) ? error.errors : [];
+  return [error.message, ...nested.map(messageOf)];
+}
+
+function messageOf(item: unknown): string {
+  if (typeof item === "object" && item !== null && "message" in item) return String(item.message);
+  return String(item);
+}
+
 /** Linear requires a label on every session link. The URL stands in when the caller has none. */
 function toExternalUrlInput(url: ExternalUrl): { url: string; label: string } {
   return { url: url.url, label: url.label ?? url.url };
@@ -102,10 +122,18 @@ export class LinearTracker implements Tracker {
     await client.updateIssue(issueId, input);
   }
 
-  /** Link a URL to an issue. Linear renders it through whichever workspace integration matches. */
-  async attachUrl(issueId: string, url: string): Promise<void> {
+  /**
+   * Sync a Slack thread into the issue's comments. Linear syncs one thread into one issue, so a
+   * thread synced elsewhere gets a plain link, which Linear renders through its Slack integration.
+   */
+  async syncChatThread(issueId: string, threadUrl: string): Promise<void> {
     const client = await this.client();
-    await client.attachmentLinkURL(issueId, url);
+    try {
+      await client.attachmentLinkSlack(issueId, threadUrl, { syncToCommentThread: true });
+    } catch (error) {
+      if (!isAlreadySyncedError(error)) throw error;
+      await client.attachmentLinkURL(issueId, threadUrl);
+    }
   }
 
   issue(idOrKey: string): Promise<TrackerIssue | null> {
