@@ -1,5 +1,0 @@
-name: artfct
-
-paths-ignore:
-  - scripts
-  - "**/test"
