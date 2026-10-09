@@ -123,4 +123,4 @@ A code name is one type, table, column, or function. A code name that needs a co
 | artifact `ready` | The humans have the artifact. |
 | artifact `accepted` | The host accepted the artifact, for example a merge. |
 | artifact `removed` | The host no longer holds the artifact as work. A pull request closed without a merge, or a deleted page. |
-| workflow `planning` | The agent has the request and no task has started. It has no tie to the `plan` stage. |
+| workflow `planning` | The workflow has no plan yet. The agent answers and does small tasks. Only a person's cancel ends it. |

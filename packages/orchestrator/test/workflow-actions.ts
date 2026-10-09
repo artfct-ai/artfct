@@ -1,9 +1,11 @@
 import type { StopReason } from "@agentclientprotocol/sdk";
 import { artifactTools } from "../src/agent/tools/artifact";
 import { heldCommentTools } from "../src/agent/tools/held-comments";
-import { planTools } from "../src/agent/tools/plan";
+import { activeToolNames, type TurnFacts } from "../src/agent/prompt/system-prompt";
+import { FAIL_WORKFLOW, FINISH_WORKFLOW, planTools } from "../src/agent/tools/plan";
 import { startTools } from "../src/agent/tools/start/start";
 import { taskTools } from "../src/agent/tools/task";
+import { workflowTools } from "../src/agent/tools/toolset";
 import { onFlushBoard, type BoardAlarm } from "../src/workflow/board/board";
 import type { ChecksAlarm } from "../src/workflow/refiner/checks-gate";
 import { recheckChecks } from "../src/workflow/refiner/checks-recheck";
@@ -551,6 +553,16 @@ export function personWrites(kind: "prompt" | "start" | "status"): WorkflowActio
   );
 }
 
+/** A person cancels the workflow where it started. */
+export function personCancels(via: "control" | "word"): WorkflowAction {
+  return action(`a person cancels with the ${via}`, (world) => {
+    const reply_to = world.workflow.state.origin ?? undefined;
+    if (via === "control")
+      return world.deliver({ kind: "control", control: "cancel", text: "", reply_to });
+    return world.deliver({ kind: "prompt", text: "cancel", reply_to });
+  });
+}
+
 /** What a person types in a tracker session: a question, a status request, or a control word. */
 export type SessionText = "question" | "status" | "pause" | "cancel";
 
@@ -698,20 +710,29 @@ export function agentSetsPlan(stages: string[], concurrency: number): WorkflowAc
   });
 }
 
-/** The agent tries to finish the workflow. It is refused while a job runs. */
+/** The agent's turn calls finish_workflow when the turn offers it. */
 export function agentFinishesWorkflow(): WorkflowAction {
   return action("agent finishes the workflow", async (world) => {
+    if (!offeredToTheAgent(world, FINISH_WORKFLOW)) return;
     const { finish_workflow } = planTools(world.workflow);
     await finish_workflow.execute({ result: "The login redirect is fixed." }, TOOL_CALL);
   });
 }
 
-/** The agent stops the workflow as failed. */
+/** The agent's turn calls fail_workflow when the turn offers it. */
 export function agentFailsWorkflow(): WorkflowAction {
   return action("agent fails the workflow", async (world) => {
+    if (!offeredToTheAgent(world, FAIL_WORKFLOW)) return;
     const { fail_workflow } = planTools(world.workflow);
     await fail_workflow.execute({ reason: "The repository cannot be built." }, TOOL_CALL);
   });
+}
+
+const UNPROMPTED_TURN: TurnFacts = { personWrote: false, requestsWork: true, inputArtifact: null };
+
+function offeredToTheAgent(world: WorkflowWorld, toolName: string): boolean {
+  const tools = workflowTools(world.workflow);
+  return activeToolNames(world.workflow, tools, UNPROMPTED_TURN).includes(toolName);
 }
 
 /** The agent pauses the author after its current turn, or resumes it. */

@@ -178,9 +178,13 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     await resumeLostTurn(this);
   }
 
-  async create(workflowId: string, event: InboundEvent): Promise<RpcAck> {
+  async create(
+    workflowId: string,
+    event: InboundEvent,
+    endedWorkflowId: string | null,
+  ): Promise<RpcAck> {
     await this.lifecycle.start();
-    return createWorkflow(this, workflowId, event);
+    return createWorkflow(this, { workflowId, event, endedWorkflowId });
   }
 
   async handle(event: InboundEvent): Promise<RpcAck> {

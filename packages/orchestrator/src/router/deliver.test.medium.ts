@@ -58,6 +58,31 @@ function spyOnWarn() {
   return vi.spyOn(console, "warn").mockImplementation(() => {});
 }
 
+function failCreates(onStub: (name: string) => void = () => {}) {
+  const getByName = env.Workflow.getByName.bind(env.Workflow);
+  return vi.spyOn(env.Workflow, "getByName").mockImplementation((name) => {
+    onStub(name);
+    return new Proxy(getByName(name), {
+      get: (stub, key) =>
+        key === "create"
+          ? async () => {
+              throw new Error("Durable Object reset");
+            }
+          : Reflect.get(stub, key),
+    });
+  });
+}
+
+async function firstTranscriptMessage(workflowId: string): Promise<string> {
+  const stub = env.Workflow.getByName(workflowId);
+  return runInDurableObject(stub, async (workflow) => {
+    await workflow.settle();
+    const dump = (await workflow.debug()) as { transcript: Array<{ message: unknown }> };
+    await workflow.cancelAllAlarms();
+    return JSON.stringify(dump.transcript[0]?.message);
+  });
+}
+
 function workflowIdOf(delivery: Delivery): string {
   return (delivery as { workflow_id: string }).workflow_id;
 }
@@ -120,7 +145,9 @@ describe("deliver to a finished workflow", () => {
   });
 
   describe("a prompt from a person", () => {
+    let workflowId: string;
     let lines: string[];
+    let firstMessage: string;
 
     beforeEach(async () => {
       await createWorkflow(db, "wf_bound_late");
@@ -133,15 +160,75 @@ describe("deliver to a finished workflow", () => {
         bindings: [{ source: "chat_thread", external_id: "C2:2.0" }],
         reply_to: { source: "chat", channel: "C2", thread: "2.0" },
       });
+      workflowId = workflowIdOf(delivery);
       lines = await stopTurnAndReadLog("wf_bound_late");
+      firstMessage = await firstTranscriptMessage(workflowId);
+    });
+
+    it("starts the next workflow", () => {
+      expect(delivery).toMatchObject({ created: true, result: { ok: true } });
+      expect(workflowId).not.toBe("wf_bound_late");
+    });
+
+    it("binds the thread to the next workflow", async () => {
+      expect(await findBinding(db, { source: "chat_thread", external_id: "C2:2.0" })).toBe(
+        workflowId,
+      );
+    });
+
+    it("tells the next workflow to read the thread of the one that ended", () => {
+      expect(firstMessage).toContain("workflow wf_bound_late ended here");
+    });
+
+    it("never reaches the finished Durable Object", () => {
+      expect(lines).toEqual([]);
+    });
+  });
+
+  describe("a prompt from nobody", () => {
+    beforeEach(async () => {
+      await createWorkflow(db, "wf_bound_quiet");
+      await bindWorkflow(db, { source: "chat_thread", external_id: "C4:4.0" }, "wf_bound_quiet");
+      await setWorkflowStatus(db, "wf_bound_quiet", "failed");
+      delivery = await deliver(env, {
+        ...slackStart,
+        id: "evt-late-anon",
+        kind: "prompt",
+        actor: null,
+        bindings: [{ source: "chat_thread", external_id: "C4:4.0" }],
+      });
     });
 
     it("drops it", () => {
-      expect(delivery).toEqual({ dropped: "workflow wf_bound_late is done" });
+      expect(delivery).toEqual({ dropped: "workflow wf_bound_quiet is failed" });
+    });
+  });
+
+  describe("a prompt whose next workflow fails to create", () => {
+    let failure: unknown;
+
+    beforeEach(async () => {
+      await createWorkflow(db, "wf_bound_retry");
+      await bindWorkflow(db, { source: "chat_thread", external_id: "C5:5.0" }, "wf_bound_retry");
+      await setWorkflowStatus(db, "wf_bound_retry", "done");
+      const spy = failCreates();
+      failure = await deliver(env, {
+        ...slackStart,
+        id: "evt-late-fails",
+        kind: "prompt",
+        bindings: [{ source: "chat_thread", external_id: "C5:5.0" }],
+      }).catch((error: unknown) => error);
+      spy.mockRestore();
     });
 
-    it("never reaches the Durable Object", () => {
-      expect(lines).toEqual([]);
+    it("passes the failure on", () => {
+      expect(String(failure)).toContain("Durable Object reset");
+    });
+
+    it("points the thread back at the workflow that ended, so a retry starts again", async () => {
+      expect(await findBinding(db, { source: "chat_thread", external_id: "C5:5.0" })).toBe(
+        "wf_bound_retry",
+      );
     });
   });
 
@@ -228,17 +315,8 @@ describe("deliver a start event", () => {
     let workflowId: string | undefined;
 
     beforeEach(async () => {
-      const getByName = env.Workflow.getByName.bind(env.Workflow);
-      const spy = vi.spyOn(env.Workflow, "getByName").mockImplementation((name) => {
+      const spy = failCreates((name) => {
         workflowId = name;
-        return new Proxy(getByName(name), {
-          get: (stub, key) =>
-            key === "create"
-              ? async () => {
-                  throw new Error("Durable Object reset");
-                }
-              : Reflect.get(stub, key),
-        });
       });
       failure = await deliver(env, { ...slackStart, id: "evt-create-fails" }).catch(
         (error: unknown) => error,
@@ -479,6 +557,131 @@ describe("deliver a Linear session start", () => {
       expect(await findBinding(db, { source: "tracker_issue", external_id: "ISS-7" })).toBe(
         "wf_linear_idle",
       );
+    });
+  });
+
+  describe("a prompt in a session whose workflow ended", () => {
+    let workflowId: string;
+    let firstMessage: string;
+
+    beforeEach(async () => {
+      await createWorkflow(db, "wf_session_done");
+      await bindWorkflow(db, { source: "tracker_issue", external_id: "ISS-7" }, "wf_session_done");
+      await bindWorkflow(
+        db,
+        { source: "tracker_session", external_id: "sess-7" },
+        "wf_session_done",
+      );
+      await setWorkflowStatus(db, "wf_session_done", "done");
+      delivery = await deliver(
+        env,
+        {
+          ...linearStart,
+          id: "evt-linear-again",
+          kind: "prompt",
+          bindings: [
+            { source: "tracker_session", external_id: "sess-7" },
+            { source: "tracker_issue", external_id: "ISS-7" },
+          ],
+        },
+        tracker,
+      );
+      workflowId = workflowIdOf(delivery);
+      firstMessage = await firstTranscriptMessage(workflowId);
+    });
+
+    it("starts the next workflow", () => {
+      expect(delivery).toMatchObject({ created: true, result: { ok: true } });
+      expect(workflowId).not.toBe("wf_session_done");
+    });
+
+    it("tells the session it is on it", () => {
+      expect(activities(tracker)).toEqual([
+        ["sess-7", { type: "thought", body: "On it. Reading the issue." }],
+      ]);
+    });
+
+    it("binds the session and the issue to the next workflow", async () => {
+      expect(await findBinding(db, { source: "tracker_session", external_id: "sess-7" })).toBe(
+        workflowId,
+      );
+      expect(await findBinding(db, { source: "tracker_issue", external_id: "ISS-7" })).toBe(
+        workflowId,
+      );
+    });
+
+    it("tells the next workflow to read the comments of the issue", () => {
+      expect(firstMessage).toContain("Read the comments of tracker issue ISS-7");
+    });
+  });
+
+  describe("a stop in a session whose workflow ended", () => {
+    beforeEach(async () => {
+      await createWorkflow(db, "wf_session_stopped");
+      await bindWorkflow(
+        db,
+        { source: "tracker_session", external_id: "sess-7" },
+        "wf_session_stopped",
+      );
+      await setWorkflowStatus(db, "wf_session_stopped", "done");
+      delivery = await deliver(
+        env,
+        {
+          ...linearStart,
+          id: "evt-linear-stop-late",
+          kind: "stop",
+          bindings: [
+            { source: "tracker_session", external_id: "sess-7" },
+            { source: "tracker_issue", external_id: "ISS-7" },
+          ],
+        },
+        tracker,
+      );
+    });
+
+    it("drops it without starting a workflow", () => {
+      expect(delivery).toEqual({ dropped: "workflow wf_session_stopped is done" });
+    });
+
+    it("posts nothing on the session", () => {
+      expect(activities(tracker)).toEqual([]);
+    });
+  });
+
+  describe("a prompt in a session whose workflow ended, while another session runs on the issue", () => {
+    beforeEach(async () => {
+      await createWorkflow(db, "wf_session_old");
+      await createWorkflow(db, "wf_issue_running");
+      await bindWorkflow(
+        db,
+        { source: "tracker_session", external_id: "sess-7" },
+        "wf_session_old",
+      );
+      await bindWorkflow(db, { source: "tracker_issue", external_id: "ISS-7" }, "wf_issue_running");
+      await setWorkflowStatus(db, "wf_session_old", "done");
+      await setWorkflowStatus(db, "wf_issue_running", "running");
+      delivery = await deliver(
+        env,
+        {
+          ...linearStart,
+          id: "evt-linear-shared",
+          kind: "prompt",
+          bindings: [
+            { source: "tracker_session", external_id: "sess-7" },
+            { source: "tracker_issue", external_id: "ISS-7" },
+          ],
+        },
+        tracker,
+      );
+      await stopTurnAndReadLog("wf_issue_running");
+    });
+
+    it("reaches the workflow that runs instead of starting another", () => {
+      expect(delivery).toMatchObject({ workflow_id: "wf_issue_running", created: false });
+    });
+
+    it("posts nothing on the session", () => {
+      expect(activities(tracker)).toEqual([]);
     });
   });
 

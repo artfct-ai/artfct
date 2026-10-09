@@ -1,7 +1,8 @@
-import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
+import type { Control, InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { ArtifactStatus, TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
 import { ASK_WHETHER_ACCEPTED, ASK_WHICH_OPTION } from "../src/agent/tools/start/start";
 import { channelKey } from "../src/workflow/board/board";
+import { SLEEP_TEXT } from "../src/workflow/lifecycle";
 import type { TaskEvent, TaskRole } from "../src/workflow/task/events";
 import type { Wake, WorkflowRuntime } from "../src/workflow/types";
 import { STOPPED_TEXT } from "../src/workflow/feed/feed";
@@ -38,6 +39,7 @@ export type ObservedArtifact = {
 /** What an observer saw of the workflow between two actions. */
 export type Observation = {
   workflowStatus: WorkflowStatus;
+  unplanned: boolean;
   /** True when a chat thread is among the reply targets. */
   chatThread: boolean;
   /** The tracker session the workflow started from, or null. */
@@ -74,6 +76,7 @@ export type Step = {
     text: string;
     person: boolean;
     reply_to: ReplyTarget | null;
+    control: Control | null;
   } | null;
   /** Every orchestrator post the step added to a tracker session, in order. */
   sessionPosts: Array<{ session_id: string; kind: string }>;
@@ -83,6 +86,7 @@ export type Step = {
   planPosts: string[];
   storedActivities: string[];
   streamedTexts: string[];
+  postedTexts: string[];
   /** Set when the turn of a refiner run ended normally. */
   refinerTurnEnd: { task_id: string } | null;
   /** Set when the alarm that fired was armed for an older generation of its task. */
@@ -244,6 +248,26 @@ export function nothingReopensAFinishedWorkflow(_workflow: WorkflowRuntime, step
     violated(
       "nothingReopensAFinishedWorkflow",
       `a ${step.event.kind} event changed ${changes.join(", ")} of a ${step.before.workflowStatus} workflow`,
+    );
+  }
+}
+
+/**
+ * A workflow without a plan does not post the sleep message, and only a person's cancel ends it.
+ */
+export function unplannedWorkflowDoesNotEnd(_workflow: WorkflowRuntime, step: Step): void {
+  if (!step.before.unplanned) return;
+  if (step.postedTexts.includes(SLEEP_TEXT)) {
+    violated("unplannedWorkflowDoesNotEnd", `${step.action} posted the sleep message`);
+  }
+  const ended =
+    !FINISHED_WORKFLOW.includes(step.before.workflowStatus) &&
+    FINISHED_WORKFLOW.includes(step.after.workflowStatus);
+  const personCancelled = step.event?.person === true && step.event.control === "cancel";
+  if (ended && !personCancelled) {
+    violated(
+      "unplannedWorkflowDoesNotEnd",
+      `${step.action} left the workflow ${step.after.workflowStatus}`,
     );
   }
 }
