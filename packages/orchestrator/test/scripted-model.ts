@@ -32,7 +32,8 @@ export class ScriptedModel implements LanguageModelV4 {
 
   async doGenerate(options: LanguageModelV4CallOptions): Promise<LanguageModelV4GenerateResult> {
     this.calls += 1;
-    const decision = scriptedDecision(options.prompt);
+    const offered = (options.tools ?? []).map((offeredTool) => offeredTool.name);
+    const decision = replyingFirst(scriptedDecision(options.prompt), offered);
     const content = toContent(decision, `mock-${this.calls}`);
     return {
       content,
@@ -61,6 +62,16 @@ type ToolMessage = Extract<LanguageModelV4Message, { role: "tool" }>;
 
 /** The event a user message carries: its parsed header and the text it came in. */
 type ScriptedEvent = { header: Record<string, string>; body: string };
+
+/**
+ * The acknowledge line in place of a tool the step does not offer yet. A person's turn offers only
+ * the first reply tools until the person heard back.
+ */
+function replyingFirst(decision: ScriptedDecision, offered: string[]): ScriptedDecision {
+  if (!("tool" in decision) || offered.includes(decision.tool)) return decision;
+  if (!offered.includes("acknowledge")) return decision;
+  return { tool: "acknowledge", input: { reply: { kind: "text", text: ACK_TEXT } } };
+}
 
 /** The scripted policy. Exported so tests can check it without the provider plumbing. */
 export function scriptedDecision(prompt: LanguageModelV4Prompt): ScriptedDecision {
@@ -184,7 +195,7 @@ function onEvent(header: Record<string, string>, body: string, stages: string[])
   const job = header.job === "none" ? null : (header.job ?? null);
   switch (header.kind) {
     case "request":
-      return { tool: "acknowledge", input: { text: ACK_TEXT } };
+      return { tool: "acknowledge", input: { reply: { kind: "text", text: ACK_TEXT } } };
     case "start":
     case "prompt":
       if (!task || !job) return plan(body, stages);
@@ -295,6 +306,12 @@ function planName(body: string): string {
   return /^Title: (.+)$/m.exec(body)?.[1]?.trim() || "Mock workflow";
 }
 
+/** What follows the first reply: the plan for a request, else what the event asks for. */
+function afterAcknowledge(event: ScriptedEvent, stages: string[]): ScriptedDecision {
+  if (event.header.kind === "request") return plan(event.body, stages);
+  return onEvent(event.header, event.body, stages);
+}
+
 /** The scripted answer to a tool result: the next step of the default route. */
 function afterTool(
   message: ToolMessage,
@@ -304,7 +321,8 @@ function afterTool(
   const result = message.content.at(-1);
   if (!result || result.type !== "tool-result") return { text: "" };
   const text = outputText(result.output);
-  if (result.toolName === "acknowledge") return event ? plan(event.body, stages) : { text: "" };
+  if (result.toolName === "acknowledge")
+    return event ? afterAcknowledge(event, stages) : { text: "" };
   if (result.toolName === "set_plan") {
     const stage = /with stage ([^\s.]+)/.exec(text)?.[1];
     return startStage(stage, event ? firstJobInput(event.body) : {});

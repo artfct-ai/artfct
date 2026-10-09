@@ -1,5 +1,5 @@
 import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
-import { isWorkflowFinished } from "../../workflow/store/state";
+import { isWorkflowFinished, type ChatMessageRef } from "../../workflow/store/state";
 import { noteMessage } from "../transcript/envelope";
 import type { WorkflowRuntime } from "../../workflow/types";
 
@@ -20,8 +20,15 @@ export function turnTimeoutText(minutes: number): string {
   return `I have been working on this for over ${minutes} minutes without a reply. Send your message again to retry.`;
 }
 
-/** What a turn owes people: the messages they wrote, and where they wrote them from. */
-export type TurnOwes = { messages: string[]; answering: ReplyTarget[] };
+/**
+ * What a turn owes people: the messages they wrote, where they wrote them from, and the chat
+ * messages among them.
+ */
+export type TurnOwes = {
+  messages: string[];
+  answering: ReplyTarget[];
+  chatMessages: ChatMessageRef[];
+};
 
 /**
  * Record a turn's start, the messages people wrote for it, and where they wrote from. Schedule
@@ -30,7 +37,7 @@ export type TurnOwes = { messages: string[]; answering: ReplyTarget[] };
  */
 export async function armTurnWatchdog(
   workflow: WorkflowRuntime,
-  { messages, answering }: TurnOwes,
+  { messages, answering, chatMessages }: TurnOwes,
 ): Promise<string> {
   const startedAt = new Date(workflow.now()).toISOString();
   await cancelTurnAlarms(workflow);
@@ -46,6 +53,7 @@ export async function armTurnWatchdog(
     turn_heads_up: headsUp,
     turn_messages: messages,
     turn_answering: answering,
+    turn_chat_messages: chatMessages,
   });
   return startedAt;
 }
@@ -64,6 +72,7 @@ export async function disarmTurnWatchdog(
     turn_started_at: null,
     turn_messages: [],
     turn_answering: [],
+    turn_chat_messages: [],
     turn_first_row: null,
   });
   return true;
@@ -93,6 +102,7 @@ export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm)
     turn_heads_up: null,
     turn_messages: [],
     turn_answering: [],
+    turn_chat_messages: [],
     turn_first_row: null,
   });
   if (headsUp) await workflow.cancelAlarm(headsUp);
@@ -117,7 +127,12 @@ export async function resumeLostTurn(workflow: WorkflowRuntime): Promise<boolean
   await cancelTurnAlarms(workflow);
   workflow.patchState({ turn_started_at: null });
   if (isWorkflowFinished(workflow.state.status)) {
-    workflow.patchState({ turn_messages: [], turn_answering: [], turn_first_row: null });
+    workflow.patchState({
+      turn_messages: [],
+      turn_answering: [],
+      turn_chat_messages: [],
+      turn_first_row: null,
+    });
     await workflow.release();
     return false;
   }

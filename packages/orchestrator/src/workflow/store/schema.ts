@@ -6,6 +6,7 @@ import type { TaskRole } from "../task/events";
 import { integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import type { BoardChannel, TodoSnapshot } from "../board/types";
 import type { Wake } from "../types";
+import type { ChatMessageRef } from "./state";
 
 /** Why a JSON-RPC request was sent to the harness. Decides how its response is handled. */
 export type RpcPurpose = "initialize" | "session_new" | "set_effort" | "prompt" | "cancel";
@@ -215,6 +216,8 @@ export const agentInbox = sqliteTable("agent_inbox", {
   wake: text().$type<Wake>().notNull().default("none"),
   /** Where the person who wrote the text waits for the answer. Null for anything else. */
   reply_to: text({ mode: "json" }).$type<ReplyTarget>(),
+  /** The chat message the person wrote, which the first reply may react to. Null for anything else. */
+  chat_message: text({ mode: "json" }).$type<ChatMessageRef>(),
 });
 
 /** The orchestrator agent's conversation. One model message per row, in order. */

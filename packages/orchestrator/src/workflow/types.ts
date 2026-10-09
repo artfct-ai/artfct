@@ -17,7 +17,7 @@ import type { ResolvedStage } from "../config/stage";
 import type { TaskEvent } from "./task/events";
 import type { Connection } from "agents";
 import type { JSONValue, LanguageModel, ToolSet } from "ai";
-import type { TranscriptStore } from "../agent/transcript/transcript";
+import type { TranscriptStore, WroteFrom } from "../agent/transcript/transcript";
 import type { AuthorFeed } from "./feed/feed";
 import type { Env } from "../env";
 import type { Notifier, PostOptions } from "../notify/notifier";
@@ -122,9 +122,9 @@ export interface WorkflowRuntime {
   sandbox(): SandboxProvider;
   /**
    * Queue text for the orchestrator agent. Any wake class but `none` schedules a turn now. `from`
-   * is where the person who wrote it waits for the answer.
+   * says where the person who wrote it wrote from.
    */
-  tellAgent(text: string, wake: Wake, from?: ReplyTarget): Promise<void>;
+  tellAgent(text: string, wake: Wake, from?: WroteFrom): Promise<void>;
   /** The orchestrator's model, or a named prompt's model with its request fields and gateway. */
   model(
     modelName?: string,

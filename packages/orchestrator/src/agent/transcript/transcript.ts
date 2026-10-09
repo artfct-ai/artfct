@@ -4,10 +4,16 @@ import { asc, lte } from "drizzle-orm";
 import type { WorkflowDb } from "../../workflow/store/db";
 import type { Wake } from "../../workflow/types";
 import { agentInbox, transcript } from "../../workflow/store/schema";
-import { now } from "../../workflow/store/state";
+import { now, type ChatMessageRef } from "../../workflow/store/state";
 
-/** One inbox row. `reply_to` is where the person who wrote it waits, or null. */
+/**
+ * One inbox row. `reply_to` is where the person who wrote it waits, or null. `chat_message` is
+ * the chat message they wrote, or null.
+ */
 export type InboxRow = typeof agentInbox.$inferSelect;
+
+/** Where a person wrote an inbox row from: where they wait for the answer, and their chat message. */
+export type WroteFrom = { reply_to?: ReplyTarget; chat_message?: ChatMessageRef };
 
 /** One persisted model message with its row id. Compaction cuts on ids. */
 export type TranscriptRow = { id: number; at: string; message: ModelMessage };
@@ -19,11 +25,17 @@ export type TranscriptRow = { id: number; at: string; message: ModelMessage };
 export class TranscriptStore {
   constructor(private db: WorkflowDb) {}
 
-  /** Queue text for the next turn. `from` is where the person who wrote it waits for the answer. */
-  enqueue(text: string, wake: Wake, from?: ReplyTarget): void {
+  /** Queue text for the next turn. `from` says where the person who wrote it wrote from. */
+  enqueue(text: string, wake: Wake, from: WroteFrom = {}): void {
     this.db
       .insert(agentInbox)
-      .values({ at: now(), text, wake, reply_to: from ?? null })
+      .values({
+        at: now(),
+        text,
+        wake,
+        reply_to: from.reply_to ?? null,
+        chat_message: from.chat_message ?? null,
+      })
       .run();
   }
 

@@ -13,6 +13,22 @@ const DEADLINE_GRACE_MS = 1000;
 /** What happened to one call at the decisions model: it was asked, it answered, or it failed. */
 export type DecisionsEvent = "asked" | "answered" | "failed";
 
+/** The tools that give the first reply. Every other tool is work. */
+const FIRST_REPLY_TOOLS = ["acknowledge", "ask"];
+
+/**
+ * One model step of a turn and what happened while it ran. A post after the last step, such as
+ * closing text, counts in the last step.
+ */
+export type TurnStep = {
+  /** The tools the step ran. A call to a tool the step did not offer never runs. */
+  ran: string[];
+  /** The text of every event the step posted to the channels, in order. */
+  postedTexts: string[];
+  /** True when the step put the thumbs-up on a chat message a person wrote for the turn. */
+  reacted: boolean;
+};
+
 /** What one agent turn was given and what it left on the channels. */
 export type AgentTurnRecord = {
   /** What the message of the person who wrote is owed. Null on an unprompted turn. */
@@ -21,6 +37,8 @@ export type AgentTurnRecord = {
   boardChanged: boolean;
   /** The text of every event the turn posted to the channels, in order. */
   postedTexts: string[];
+  /** The model steps of the turn, in order, across every pass and attempt. */
+  steps: TurnStep[];
   /** True when the turn told the model that the person got nothing, and ran it again. */
   askedAgain: boolean;
   /** How many times the turn posted closing text. */
@@ -174,22 +192,50 @@ export function everyToolCallKeepsItsResult(turn: AgentTurnRecord): void {
   }
 }
 
-/** The posts that answer the humans. The heads-up and the restart notice are not answers. */
+/** True for a post that answers the humans. The heads-up and the restart notice are not answers. */
+function isAnswerText(text: string): boolean {
+  return text !== HEADS_UP_TEXT && text !== LOST_PLACE_TEXT;
+}
+
+/** The posts that answer the humans. */
 function answersPosted(turn: AgentTurnRecord): string[] {
-  return turn.postedTexts.filter((text) => text !== HEADS_UP_TEXT && text !== LOST_PLACE_TEXT);
+  return turn.postedTexts.filter(isAnswerText);
+}
+
+/** True when the step left the person who wrote a reply: an answer post, or the thumbs-up. */
+function repliedIn(step: TurnStep): boolean {
+  return step.reacted || step.postedTexts.some(isAnswerText);
 }
 
 /**
- * A turn on a person's message leaves them a reply: an answer, or a board change. A heads-up or
- * a restart notice is not one. It may end unanswered only after the model was told so and ran
- * once more.
+ * A turn on a person's message leaves them a reply: a post that reaches them, or the thumbs-up
+ * reaction on their message. A heads-up or a restart notice is not one. It may end unanswered
+ * only after the model was told so and ran once more.
  */
 export function aPersonsTurnNeverEndsUnanswered(turn: AgentTurnRecord): void {
-  if (turn.owed === null || turn.boardChanged || turn.askedAgain) return;
-  if (answersPosted(turn).length > 0) return;
+  if (turn.owed === null || turn.askedAgain) return;
+  if (answersPosted(turn).length > 0 || turn.steps.some((step) => step.reacted)) return;
   violated(
     "aPersonsTurnNeverEndsUnanswered",
     "a person wrote, the turn left them nothing, and the model was not asked again",
+  );
+}
+
+/**
+ * In a turn where a person wrote, the first reply comes before any other tool call of the turn.
+ * A step that runs any other tool follows a step that left them a post or the thumbs-up.
+ */
+export function aPersonHearsBackBeforeAnyWork(turn: AgentTurnRecord): void {
+  if (turn.owed === null) return;
+  const firstWork = turn.steps.findIndex((step) =>
+    step.ran.some((tool) => !FIRST_REPLY_TOOLS.includes(tool)),
+  );
+  if (firstWork === -1) return;
+  if (turn.steps.slice(0, firstWork).some(repliedIn)) return;
+  const tools = turn.steps[firstWork]!.ran.join(", ");
+  violated(
+    "aPersonHearsBackBeforeAnyWork",
+    `step ${firstWork + 1} ran ${tools} before the person who wrote heard back`,
   );
 }
 
@@ -394,6 +440,7 @@ export const AGENT_TURN_INVARIANTS = [
   compactionReplacesOnlyEarlierRows,
   everyToolCallKeepsItsResult,
   aPersonsTurnNeverEndsUnanswered,
+  aPersonHearsBackBeforeAnyWork,
   quarantinedTextNeverEntersTheTranscript,
   theWorkingStatusNeverOutlivesItsTurn,
   aWaitingPersonHearsBackByTheTimeout,

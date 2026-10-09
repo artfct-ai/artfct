@@ -53,6 +53,24 @@ describe("TranscriptStore", () => {
     });
   });
 
+  describe("a message a person wrote in a chat thread", () => {
+    const queued = scenario(freshRuntime, (workflow) => {
+      workflow.transcript.enqueue("fix it", "message", {
+        reply_to: { source: "chat", channel: "C1", thread: "1.0" },
+        chat_message: { channel: "C1", message: "1.5" },
+      });
+      workflow.transcript.enqueue("note", "none");
+    });
+
+    it("keeps the chat message for the first reply", () =>
+      queued((workflow) => {
+        expect(workflow.transcript.inbox().map((row) => row.chat_message)).toEqual([
+          { channel: "C1", message: "1.5" },
+          null,
+        ]);
+      }));
+  });
+
   describe("a very large row", () => {
     const appended = scenario(freshRuntime, (workflow) => {
       workflow.transcript.append([bulky("user", 500_000)]);

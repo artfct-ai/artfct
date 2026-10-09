@@ -1,3 +1,4 @@
+import type { ChatMessageRef } from "../../workflow/store/state";
 import type { WorkflowRuntime } from "../../workflow/types";
 import { artifactTools } from "./artifact";
 import { channelTools } from "./channel";
@@ -11,11 +12,14 @@ import { startTools, type StartTurn } from "./start/start";
 import { taskTools } from "./task";
 import { webTools } from "./web";
 
+/** What a turn gives the tools: what the start tools take, and the chat messages people wrote. */
+export type ToolTurn = StartTurn & { chatMessages?: ChatMessageRef[] };
+
 /** Every deterministic tool the orchestrator agent gets, bound to one workflow and one turn. */
 export function workflowTools(
   workflow: WorkflowRuntime,
   personMessages: string[] = [],
-  turn: StartTurn = {},
+  turn: ToolTurn = {},
 ) {
   return {
     ...planTools(workflow),
@@ -27,7 +31,7 @@ export function workflowTools(
     ...rootPageTools(workflow),
     ...readTools(workflow),
     ...historyTools(workflow, turn.decisions),
-    ...channelTools(workflow),
+    ...channelTools(workflow, turn.chatMessages),
     ...webTools(workflow),
   };
 }

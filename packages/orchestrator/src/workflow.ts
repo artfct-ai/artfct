@@ -25,7 +25,7 @@ import { tracing } from "cloudflare:workers";
 import { Agent, type Connection, type ConnectionContext, type WSMessage } from "agents";
 import type { JSONValue, LanguageModel, ToolSet } from "ai";
 import { allowedMcpTools, connectOrchestratorMcp } from "./agent/tools/mcp";
-import { TranscriptStore } from "./agent/transcript/transcript";
+import { TranscriptStore, type WroteFrom } from "./agent/transcript/transcript";
 import type { AuthorFeed } from "./workflow/feed/feed";
 import {
   onTurnHeadsUp,
@@ -510,7 +510,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
    * Queue text for the agent and run its turn here, in the invocation that queued it. The
    * zero delay schedule is the durable backup, cancelled once the turn has run.
    */
-  async tellAgent(text: string, wake: Wake, from?: ReplyTarget): Promise<void> {
+  async tellAgent(text: string, wake: Wake, from?: WroteFrom): Promise<void> {
     this.transcript.enqueue(text, wake, from);
     if (wake === "none") return;
     this.log(null, `agent wake: ${wake}`);

@@ -1,5 +1,4 @@
 import {
-  hasToolCall,
   stepCountIs,
   type LanguageModel,
   type ModelMessage,
@@ -37,14 +36,14 @@ export type GenerateOptions = {
   onStep: (step: StepReport) => void | Promise<void>;
   /** Ends the model call when it fires. The turn deadline. */
   abortSignal?: AbortSignal;
-  /** Tools that end the loop. The step that calls one of them is the last. */
+  /** Tools that end the loop. The step that calls one of them and succeeds is the last. */
   stopTools?: string[];
-  /** The tools the request offers the model. Unset offers every tool. */
-  activeTools?: string[];
+  /** Read before each step: the tools that step offers the model. Unset offers every tool. */
+  activeTools?: () => string[];
 };
 
 /**
- * Run the model until it stops calling tools, calls one of `stopTools`, or hits `maxSteps`,
+ * Run the model until it stops calling tools, one of `stopTools` succeeds, or it hits `maxSteps`,
  * and return its final text. A superseded isolate ends the loop and throws.
  */
 export async function generateSteps(options: GenerateOptions): Promise<string> {
@@ -54,16 +53,17 @@ export async function generateSteps(options: GenerateOptions): Promise<string> {
     system: options.system,
     messages: options.messages,
     tools: options.tools,
-    activeTools: options.activeTools,
     stopWhen: [
       stepCountIs(options.maxSteps),
-      hasToolCall(...(options.stopTools ?? [])),
+      ({ steps }) => stopToolSucceeded(steps.at(-1), options.stopTools ?? []),
       () => superseded !== null,
     ],
     maxRetries: MODEL_RETRIES,
     abortSignal: options.abortSignal,
-    prepareStep: ({ stepNumber }) =>
-      stepNumber === options.maxSteps - 1 ? { toolChoice: "none" } : undefined,
+    prepareStep: ({ stepNumber }) => ({
+      activeTools: options.activeTools?.(),
+      toolChoice: stepNumber === options.maxSteps - 1 ? "none" : undefined,
+    }),
     onStepEnd: async (step) => {
       superseded ??= supersededToolError(step.content);
       try {
@@ -82,6 +82,15 @@ export async function generateSteps(options: GenerateOptions): Promise<string> {
   });
   if (superseded !== null) throw new SupersededIsolateError(superseded);
   return result.text.trim();
+}
+
+/** True when a stop tool of the step ran without failing. A refused or failed call keeps the loop going. */
+function stopToolSucceeded(step: StepResult<ToolSet> | undefined, stopTools: string[]): boolean {
+  if (!step) return false;
+  const failed = new Set(failedTools(step.content).map((error) => error.toolName));
+  return step.toolCalls.some(
+    (call) => stopTools.includes(call.toolName) && !failed.has(call.toolName),
+  );
 }
 
 /** The failed tool calls of a step: a thrown error, an unknown tool, or input the schema refused. */

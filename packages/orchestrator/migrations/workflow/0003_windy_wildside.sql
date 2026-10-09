@@ -1,0 +1,1 @@
+ALTER TABLE `agent_inbox` ADD `chat_message` text;

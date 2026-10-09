@@ -21,7 +21,7 @@ import { resolveStage, type ResolvedStage } from "../src/config/stage";
 import type { TaskEvent, TaskRole } from "../src/workflow/task/events";
 import type { Connection } from "agents";
 import type { JSONValue, LanguageModel, ToolSet } from "ai";
-import { TranscriptStore } from "../src/agent/transcript/transcript";
+import { TranscriptStore, type WroteFrom } from "../src/agent/transcript/transcript";
 import type { AuthorFeed } from "../src/workflow/feed/feed";
 import { registeredConfig } from "../src/config/register-config";
 import type { WorkflowDefinition } from "../src/config/workflow-definition";
@@ -48,7 +48,7 @@ import {
 } from "../src/workflow/store/tasks";
 import type { ScheduledMethod, Wake, WorkflowRuntime } from "../src/workflow/types";
 
-export type FakeNote = { text: string; wake: Wake; from?: ReplyTarget };
+export type FakeNote = { text: string; wake: Wake; from?: WroteFrom };
 
 /** One armed alarm. A repeating alarm stays armed after it fires, until code stops it. */
 export type FakeAlarm = {
@@ -333,7 +333,7 @@ export class FakeRuntime implements WorkflowRuntime {
     return this.turnRunning;
   }
 
-  async tellAgent(text: string, wake: Wake, from?: ReplyTarget): Promise<void> {
+  async tellAgent(text: string, wake: Wake, from?: WroteFrom): Promise<void> {
     this.notes.push(from ? { text, wake, from } : { text, wake });
   }
 
