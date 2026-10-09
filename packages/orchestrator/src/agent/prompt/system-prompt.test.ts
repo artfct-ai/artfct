@@ -22,7 +22,7 @@ import { RUNTIME_RULES } from "./runtime";
 import { REVIEW_RULES } from "../tools/artifact";
 import { CHANNEL_RULES, NOBODY_WROTE_RULES, PERSON_WROTE_RULES } from "../tools/channel";
 import { HELD_COMMENT_RULES } from "../tools/held-comments";
-import { PLAN_RULES } from "../tools/plan";
+import { END_RULES, PLAN_RULES } from "../tools/plan";
 import { ROOT_PAGE_RULES } from "../tools/root-page";
 import { CONTEXT_RULES } from "../tools/read";
 import { TASK_RULES } from "../tools/start/start";
@@ -34,6 +34,7 @@ import { registeredConfig } from "../../config/register-config";
 
 const RULES = {
   plan: PLAN_RULES,
+  end: END_RULES,
   task: TASK_RULES,
   runtime: RUNTIME_RULES,
   harness: HARNESS_RULES,
@@ -142,6 +143,33 @@ describe("needsReview", () => {
   });
 
   describe("a pull request of a failed task that the review holds", () => {
+    describe("a workflow in planning", () => {
+      const planning = scenario(freshRuntime, (workflow) => {
+        workflow.patchState({ status: "planning" });
+      });
+
+      it("withholds the tools that end the workflow", () =>
+        planning((workflow) => {
+          const active = activeToolNames(workflow, workflowTools(workflow), PERSON_WROTE);
+          expect(active).not.toContain("finish_workflow");
+          expect(active).not.toContain("fail_workflow");
+        }));
+
+      it("leaves out the rules that end the workflow", () =>
+        planning((workflow) => {
+          expect(carriedRules(systemPrompt(workflow, PERSON_WROTE))).not.toContain("end");
+        }));
+    });
+
+    describe("a running workflow", () => {
+      it("keeps the tools that end the workflow", () =>
+        freshRuntime((workflow) => {
+          const active = activeToolNames(workflow, workflowTools(workflow), NOBODY_WROTE);
+          expect(active).toContain("finish_workflow");
+          expect(active).toContain("fail_workflow");
+        }));
+    });
+
     const failedUnderReview = scenario(freshRuntime, (workflow) => {
       seedPullRequestTask(workflow, { status: "failed" });
     });
@@ -197,6 +225,7 @@ describe("systemPrompt", () => {
       freshRuntime((workflow) => {
         expect(carriedRules(systemPrompt(workflow, NOBODY_WROTE))).toEqual([
           "plan",
+          "end",
           "task",
           "runtime",
           "tracker",
@@ -239,6 +268,7 @@ describe("systemPrompt", () => {
       planUnderReview((workflow) => {
         expect(carriedRules(systemPrompt(workflow, NOBODY_WROTE))).toEqual([
           "plan",
+          "end",
           "task",
           "harness",
           "review",
@@ -406,6 +436,33 @@ describe("activeToolNames", () => {
       }));
   });
 
+  describe("a workflow in planning", () => {
+    const planning = scenario(freshRuntime, (workflow) => {
+      workflow.patchState({ status: "planning" });
+    });
+
+    it("withholds the tools that end the workflow", () =>
+      planning((workflow) => {
+        const active = activeToolNames(workflow, workflowTools(workflow), PERSON_WROTE);
+        expect(active).not.toContain("finish_workflow");
+        expect(active).not.toContain("fail_workflow");
+      }));
+
+    it("leaves out the rules that end the workflow", () =>
+      planning((workflow) => {
+        expect(carriedRules(systemPrompt(workflow, PERSON_WROTE))).not.toContain("end");
+      }));
+  });
+
+  describe("a running workflow", () => {
+    it("keeps the tools that end the workflow", () =>
+      freshRuntime((workflow) => {
+        const active = activeToolNames(workflow, workflowTools(workflow), NOBODY_WROTE);
+        expect(active).toContain("finish_workflow");
+        expect(active).toContain("fail_workflow");
+      }));
+  });
+
   const failedUnderReview = scenario(freshRuntime, (workflow) => {
     seedPullRequestTask(workflow, { status: "failed" });
   });
@@ -539,6 +596,7 @@ describe("a turn where a person wrote and requests no work", () => {
   it("leaves the plan, runtime, and context rules out", () =>
     freshRuntime((workflow) => {
       expect(carriedRules(systemPrompt(workflow, PERSON_WROTE_NO_WORK))).toEqual([
+        "end",
         "task",
         "tracker",
         "web",

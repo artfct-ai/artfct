@@ -29,14 +29,17 @@ export const PLAN_RULES = `## Workflow Planning Protocol
 * **Bind** the resolved repository to \`set_plan\` for all stages, including stages that do not write code.
 * **Call** \`ask\` and halt execution if a required repository cannot be identified unambiguously.
 
-### Workflow Termination & Failure Handling
+### Invariants & Exclusions
+* **Prohibit Step-Based Plan Names**: Never name plans after transient stages or current operational steps.
+* **Prohibit Repository Guessing**: Never guess repository identifiers; halt execution and prompt via \`ask\`.`;
+
+/** How the agent ends a workflow once it has started. */
+export const END_RULES = `## Workflow Termination & Failure Handling
 * **SUCCESSFUL_COMPLETION**: Call \`finish_workflow("<result>")\` when deliverables are satisfied and zero jobs are active.
 * **RECOVERABLE_FAILURE**: Call \`start_job\` to re-dispatch a failed job.
 * **FATAL_FAILURE**: Call \`fail_workflow("<reason>")\` when a job cannot succeed.
 
 ### Invariants & Exclusions
-* **Prohibit Step-Based Plan Names**: Never name plans after transient stages or current operational steps.
-* **Prohibit Repository Guessing**: Never guess repository identifiers; halt execution and prompt via \`ask\`.
 * **Prohibit Premature Workflow Completion**: Never call \`finish_workflow\` while active jobs remain running.`;
 
 /** Tools that shape the workflow: the plan and its concurrency, or the end of the workflow. */

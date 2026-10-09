@@ -15,6 +15,8 @@ export type Action =
   | "prompt_task"
   | "fetch"
   | "read"
+  | "finish"
+  | "fail"
   | "empty"
   | "throw"
   | "text";
@@ -123,6 +125,24 @@ function scriptedContent(
           toolCallId: callId,
           toolName: "read_channel",
           input: JSON.stringify({ limit: 100 }),
+        },
+      ];
+    case "finish":
+      return [
+        {
+          type: "tool-call",
+          toolCallId: callId,
+          toolName: "finish_workflow",
+          input: JSON.stringify({ result: "The login redirect is fixed." }),
+        },
+      ];
+    case "fail":
+      return [
+        {
+          type: "tool-call",
+          toolCallId: callId,
+          toolName: "fail_workflow",
+          input: JSON.stringify({ reason: "The repository cannot be built." }),
         },
       ];
     case "empty":

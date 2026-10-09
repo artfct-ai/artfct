@@ -14,7 +14,7 @@ import { CHANNEL_RULES, NOBODY_WROTE_RULES, PERSON_WROTE_RULES } from "../tools/
 import { hasPageArtifact, HELD_COMMENT_RULES, SEND_HELD_COMMENTS } from "../tools/held-comments";
 import { hasRootPage, MOVE_INTO_ROOT_PAGE, ROOT_PAGE_RULES } from "../tools/root-page";
 import { TRACKER_RULES } from "../tools/tracker";
-import { PLAN_RULES } from "../tools/plan";
+import { END_RULES, FAIL_WORKFLOW, FINISH_WORKFLOW, PLAN_RULES } from "../tools/plan";
 import { CONTEXT_RULES } from "../tools/read";
 import { TASK_RULES } from "../tools/start/start";
 import { HARNESS_RULES } from "../tools/task";
@@ -73,6 +73,11 @@ function mayStartWork(workflow: WorkflowRuntime, turn: TurnFacts): boolean {
 /** The rule blocks, one per concern, each exported by the tool module it governs, in workflow order. */
 const BLOCKS: RuleBlock[] = [
   { rules: PLAN_RULES, tools: [], needed: (_workflow, turn) => turn.requestsWork },
+  {
+    rules: END_RULES,
+    tools: [FINISH_WORKFLOW, FAIL_WORKFLOW],
+    needed: (workflow) => workflow.state.status !== "planning",
+  },
   { rules: TASK_RULES, tools: [], needed: always },
   { rules: RUNTIME_RULES, tools: [], needed: mayStartWork },
   {

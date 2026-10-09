@@ -64,13 +64,16 @@ const prClosed: InboundEvent = {
 
 let opened = 0;
 
-function createdFrom(event: InboundEvent): Scenario<Workflow> {
+function createdFrom(
+  event: InboundEvent,
+  endedWorkflowId: string | null = null,
+): Scenario<Workflow> {
   return async (run) => {
     opened += 1;
     const name = `wf_events_${opened}`;
     const stub = env.Workflow.getByName(name);
     await runInDurableObject(stub, async (workflow) => {
-      await workflow.create(name, event);
+      await workflow.create(name, event, endedWorkflowId);
       await workflow.settle();
       await run(workflow);
     });
@@ -637,6 +640,25 @@ describe("idle", () => {
       }));
   });
 
+  describe("the idle alarm firing before the first plan", () => {
+    let posted: Outbox;
+    const unplanned = scenario(freshWorkflow, async (workflow) => {
+      const before = (await outboxOf(workflow)).length;
+      await workflow.onIdle();
+      posted = (await outboxOf(workflow)).slice(before);
+    });
+
+    it("stays in planning", () =>
+      unplanned((workflow) => {
+        expect(workflow.state.status).toBe("planning");
+      }));
+
+    it("posts nothing", () =>
+      unplanned(() => {
+        expect(posted).toEqual([]);
+      }));
+  });
+
   describe("the idle alarm firing with nothing at work", () => {
     let posted: Outbox;
     const slept = scenario(freshWorkflow, async (workflow) => {
@@ -672,4 +694,24 @@ describe("idle", () => {
         }));
     });
   });
+});
+
+describe("a workflow that follows an ended one", () => {
+  const followed = createdFrom(start, "wf_ended");
+
+  it("tells its first turn to read the thread of the ended workflow", () =>
+    followed(async (workflow) => {
+      const debug = (await workflow.debug()) as { transcript: Array<{ message: unknown }> };
+      const first = JSON.stringify(debug.transcript[0]?.message);
+      expect(first).toContain("workflow wf_ended ended here");
+      expect(first).toContain("read_channel and thread_ts=1.0");
+    }));
+});
+
+describe("a workflow that follows nothing", () => {
+  it("does not mention an earlier workflow", () =>
+    freshWorkflow(async (workflow) => {
+      const debug = (await workflow.debug()) as { transcript: Array<{ message: unknown }> };
+      expect(JSON.stringify(debug.transcript[0]?.message)).not.toContain("ended here");
+    }));
 });

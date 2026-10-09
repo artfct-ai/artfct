@@ -46,7 +46,7 @@ export function freshWorkflow(clients: () => WorkflowClients = () => ({})): Scen
       if (outside.documents !== undefined)
         workflow.services.documents = async () => outside.documents ?? null;
       workflow.services.model = async () => new ScriptedFailure(["text"]);
-      await workflow.create(name, START_EVENT);
+      await workflow.create(name, START_EVENT, null);
       await workflow.settle();
       await workflow.cancelAllAlarms();
       try {

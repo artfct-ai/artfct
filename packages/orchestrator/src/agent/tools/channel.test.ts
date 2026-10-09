@@ -104,6 +104,18 @@ describe("channel tools", () => {
         }));
     });
 
+    describe("while the workflow has no plan", () => {
+      const asked = scenario(routedRuntime, async (workflow) => {
+        workflow.patchState({ status: "planning" });
+        await channelTools(workflow).ask.execute({ text: "Which repo?" }, call);
+      });
+
+      it("keeps the workflow in planning", () =>
+        asked((workflow) => {
+          expect(workflow.state.status).toBe("planning");
+        }));
+    });
+
     describe("while a task is active", () => {
       const asked = scenario(freshRuntime, async (workflow) => {
         seedTask(workflow);

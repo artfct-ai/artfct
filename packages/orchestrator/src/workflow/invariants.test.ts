@@ -30,6 +30,7 @@ import {
   staleAlarmIsIgnored,
   todoListIsFixedAfterFirstArtifact,
   unadmittedFeedbackReachesNobody,
+  unplannedWorkflowDoesNotEnd,
 } from "../../test/invariants";
 import {
   agentCancels,
@@ -55,6 +56,7 @@ import {
   GENERATION_TIMERS,
   hostSays,
   personPostsFeedback,
+  personCancels,
   personPostsOnUnownedPull,
   personPressesStop,
   personRules,
@@ -122,9 +124,11 @@ const STEP_INVARIANTS = [
   chatWorkflowNeverSetsASessionPlan,
   sessionFeedEndsWhenItsAuthorIdles,
   feedActivityPostsOnce,
+  unplannedWorkflowDoesNotEnd,
 ];
 
 const setups: fc.Arbitrary<WorldSetup> = fc.record({
+  opening: fc.constantFrom("job" as const, "job" as const, "request" as const),
   artifact: fc.constantFrom(
     "pull" as const,
     "pull" as const,
@@ -141,6 +145,7 @@ const setups: fc.Arbitrary<WorldSetup> = fc.record({
 });
 
 const pageSetups: fc.Arbitrary<WorldSetup> = fc.record({
+  opening: fc.constant("job" as const),
   artifact: fc.constant("page" as const),
   refiners: fc.constantFrom(...REFINER_SETUPS),
   research: fc.boolean(),
@@ -309,6 +314,7 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
     arbitrary: fc.constantFrom("prompt", "prompt", "start", "status").map(personWrites),
   },
   { weight: 2, arbitrary: author.map(trackerOpensSession) },
+  { weight: 1, arbitrary: fc.constantFrom("control", "word").map(personCancels) },
   {
     weight: 5,
     arbitrary: fc
@@ -472,7 +478,7 @@ describe("the workflow invariants", () => {
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(29);
+      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(30);
     },
     TIMEOUT_MS,
   );

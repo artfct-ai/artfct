@@ -69,7 +69,7 @@ function settledWorkflow(
         const model = new ScriptedFailure(script);
         workflow.services = { ...workflow.services, model: async () => model };
       }
-      await workflow.create(name, start);
+      await workflow.create(name, start, null);
       await workflow.settle();
       if (act) {
         await act(workflow);
@@ -90,7 +90,7 @@ async function loseTurn() {
       ...workflow.services,
       model: async () => new ScriptedFailure(["throw", "throw"], RESET),
     };
-    await workflow.create(name, start);
+    await workflow.create(name, start, null);
     await workflow.settle().catch(() => undefined);
     workflow.transcript.enqueue("[note]\nA task result arrived.", "task_result");
     await expect(workflow.runAgent()).rejects.toThrow(RESET);
@@ -284,9 +284,9 @@ describe("agent turn", () => {
   describe("a request that names no repository", () => {
     const asked = settledWorkflow(null);
 
-    it("waits for the humans to answer", () =>
+    it("stays in planning while it waits for the answer", () =>
       asked((debug) => {
-        expect(debug.state.status).toBe("waiting_input");
+        expect(debug.state.status).toBe("planning");
       }));
 
     it("acknowledges the request first, then asks its question", () =>

@@ -5,7 +5,7 @@ import {
   deleteBindings,
   findBinding,
   listBindings,
-  resolveBinding,
+  claimBinding,
   workflowsWithPullsInRepo,
 } from "./bindings";
 import { createDb } from "./client";
@@ -90,26 +90,56 @@ describe("bindWorkflow", () => {
   });
 });
 
-describe("resolveBinding", () => {
-  describe("candidates of which the later two are bound", () => {
+describe("claimBinding", () => {
+  const thread = { source: "chat_thread", external_id: "C1:1.0" } as const;
+
+  describe("a binding nobody bound", () => {
+    let won: boolean;
+
     beforeEach(async () => {
-      await bindWorkflow(db, { source: "chat_thread", external_id: "C1:1.0" }, "wf_slack");
-      await bindWorkflow(db, { source: "code_pull", repo: "o/r", number: 9 }, "wf_pr");
+      won = await claimBinding(db, thread, { previous: null, workflowId: "wf_first" });
     });
 
-    it("answers the first candidate that is bound", async () => {
-      const workflowId = await resolveBinding(db, [
-        { source: "tracker_issue", external_id: "missing" },
-        { source: "code_pull", repo: "o/r", number: 9 },
-        { source: "chat_thread", external_id: "C1:1.0" },
-      ]);
-      expect(workflowId).toBe("wf_pr");
+    it("is claimed", () => {
+      expect(won).toBe(true);
+    });
+
+    it("points at the claiming workflow", async () => {
+      expect(await findBinding(db, thread)).toBe("wf_first");
+    });
+
+    describe("and a second claim that also found it unbound", () => {
+      beforeEach(async () => {
+        won = await claimBinding(db, thread, { previous: null, workflowId: "wf_second" });
+      });
+
+      it("loses", () => {
+        expect(won).toBe(false);
+      });
+
+      it("leaves it with the first", async () => {
+        expect(await findBinding(db, thread)).toBe("wf_first");
+      });
     });
   });
 
-  describe("a candidate nobody bound", () => {
-    it("answers null", async () => {
-      expect(await resolveBinding(db, [{ source: "documents_page", external_id: "p" }])).toBeNull();
+  describe("a binding of an ended workflow", () => {
+    beforeEach(async () => {
+      await bindWorkflow(db, thread, "wf_ended");
+    });
+
+    it("moves to a claim that found it there", async () => {
+      expect(await claimBinding(db, thread, { previous: "wf_ended", workflowId: "wf_next" })).toBe(
+        true,
+      );
+      expect(await findBinding(db, thread)).toBe("wf_next");
+    });
+
+    it("stays with a claim that found it somewhere else", async () => {
+      expect(await claimBinding(db, thread, { previous: "wf_other", workflowId: "wf_next" })).toBe(
+        false,
+      );
+      expect(await findBinding(db, thread)).toBe("wf_ended");
     });
   });
 });

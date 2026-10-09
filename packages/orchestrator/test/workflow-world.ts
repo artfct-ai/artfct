@@ -17,7 +17,9 @@ import { OPTIONS_HEADING } from "../src/artifact/options";
 import type { RefinerEntry, ReviewerEntry } from "../src/config/refiner";
 import { Notifier } from "../src/notify/notifier";
 import { startJob, type JobIssue } from "../src/workflow/lifecycle";
-import { handleEvent } from "../src/workflow/inbound/events";
+import { createWorkflow, handleEvent } from "../src/workflow/inbound/events";
+import { parseControl } from "../src/workflow/inbound/control-words";
+import { plainText } from "../src/notify/messages";
 import { isTaskFinished } from "../src/workflow/store/state";
 import type { ArtifactRow, JobRow, TaskRow } from "../src/workflow/store/tasks";
 import { onBridgeClosed, type ConnectionState } from "../src/workflow/task/harness/bridge";
@@ -55,6 +57,7 @@ export type RefinerSetup = (typeof REFINER_SETUPS)[number];
  * how the page stage ends.
  */
 export type WorldSetup = {
+  opening: WorldOpening;
   artifact: ArtifactKind;
   refiners: RefinerSetup;
   research: boolean;
@@ -73,6 +76,9 @@ const ORIGIN_ISSUE: JobIssue = {
   team_id: null,
   started: false,
 };
+
+/** How a world opens: on its first job, or on a request the agent has not planned. */
+export type WorldOpening = "job" | "request";
 
 /** Where the request that started the workflow came from: a chat thread or a tracker session. */
 export type OriginSurface = "chat" | "tracker";
@@ -207,6 +213,18 @@ export const UNOWNED_PULL = { repo: REPO, number: 99, branch: "someone/else" };
 
 const PERSON = { person_id: "p1", email: "dev@acme.test", display_name: "Dev" };
 
+function requestEvent(origin: ReplyTarget): InboundEvent {
+  return {
+    id: "evt-request",
+    kind: "start",
+    actor: PERSON,
+    bindings: [],
+    links: [],
+    text: REQUEST_TEXTS[0],
+    reply_to: origin,
+  };
+}
+
 const BASE_BRANCH = "main";
 
 const FAILED_CHECK: CheckFailure = {
@@ -273,7 +291,7 @@ export class WorkflowWorld {
     this.tracker = tracker;
   }
 
-  /** A running workflow whose first author or researcher task works on its first prompt. */
+  /** Open a world on its first job, or in planning on a person's request. */
   static async open(setup: WorldSetup): Promise<WorkflowWorld> {
     const workflow = new FakeRuntime(openMemoryDb(), { ...testEnv(), DB: acceptingD1() });
     const lists = REFINER_LISTS[setup.refiners];
@@ -288,6 +306,15 @@ export class WorkflowWorld {
       { tracker: async () => tracker, chat: null, documents: async () => null },
       (entry) => workflow.store.writeOutbox(entry),
     );
+    if (setup.opening === "request") {
+      workflow.patchState({ status: "new", repo: { full: REPO }, concurrency: SLOTS });
+      await createWorkflow(workflow, {
+        workflowId: workflow.state.workflow_id,
+        event: requestEvent(ORIGINS[setup.origin]),
+        endedWorkflowId: null,
+      });
+      return new WorkflowWorld(workflow, setup.checksOnPush, tracker);
+    }
     workflow.patchState({
       repo: { full: REPO },
       request: { title: "Fix login", text: "Fix the login redirect.", links: [] },
@@ -344,6 +371,7 @@ export class WorkflowWorld {
       planPosts: planPostsOf(rows),
       storedActivities: this.tracker.stored.map((activity) => activityText(activity.content)),
       streamedTexts: [...this.streamedTexts],
+      postedTexts: this.workflow.posted.slice(postedBefore).map(plainText),
     };
     this.steps.push(step);
     return step;
@@ -560,6 +588,7 @@ export class WorkflowWorld {
       text: delivered.text,
       person: delivered.actor !== null,
       reply_to: delivered.reply_to ?? null,
+      control: delivered.control ?? parseControl(delivered.text)?.control ?? null,
     };
     await handleEvent(this.workflow, delivered);
   }
@@ -720,6 +749,7 @@ export class WorkflowWorld {
     const startingSession = origin?.source === "tracker" ? origin.session_id : null;
     return {
       workflowStatus: this.workflow.state.status,
+      unplanned: this.workflow.state.stages.length === 0 && store.jobs().length === 0,
       chatThread: replyTargets.some((target) => target.source === "chat"),
       startingSession,
       jobSessions: Object.fromEntries(

@@ -39,13 +39,40 @@ export async function findBinding(db: Database, binding: Binding): Promise<strin
   return row?.workflow_id ?? null;
 }
 
-/** First workflow that any of the bindings resolves to, in the order given. */
-export async function resolveBinding(db: Database, candidates: Binding[]): Promise<string | null> {
-  for (const candidate of candidates) {
-    const workflowId = await findBinding(db, candidate);
-    if (workflowId) return workflowId;
+/**
+ * Point a binding at a workflow if it still points at `previous`. False when another delivery
+ * moved it first.
+ */
+export async function claimBinding(
+  db: Database,
+  binding: Binding,
+  claim: { previous: string | null; workflowId: string },
+): Promise<boolean> {
+  const key = and(
+    eq(bindings.source, binding.source),
+    eq(bindings.external_id, externalId(binding)),
+  );
+  const created_at = nowIso();
+  if (claim.previous === null) {
+    const inserted = await db
+      .insert(bindings)
+      .values({
+        source: binding.source,
+        external_id: externalId(binding),
+        repo: repoOf(binding),
+        workflow_id: claim.workflowId,
+        created_at,
+      })
+      .onConflictDoNothing()
+      .returning({ workflow_id: bindings.workflow_id });
+    return inserted.length > 0;
   }
-  return null;
+  const moved = await db
+    .update(bindings)
+    .set({ workflow_id: claim.workflowId, created_at })
+    .where(and(key, eq(bindings.workflow_id, claim.previous)))
+    .returning({ workflow_id: bindings.workflow_id });
+  return moved.length > 0;
 }
 
 /** Point an external object at a workflow. Replaces an existing binding for it. */

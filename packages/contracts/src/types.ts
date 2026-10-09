@@ -117,7 +117,7 @@ export type BindingRecord = {
 
 /** The RPC surface of the orchestrator Worker. Ingress calls it through a service binding. */
 export interface OrchestratorRpc {
-  /** Route an event to its workflow. Unbound start events create one. */
+  /** Route an event to its workflow, or start one. */
   deliver(event: InboundEvent): Promise<Delivery>;
   /** Resolve an external user to an authorized actor, or null. */
   resolveActor(query: IdentityQuery): Promise<Actor | null>;

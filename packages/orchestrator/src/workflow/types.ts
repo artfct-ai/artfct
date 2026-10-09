@@ -139,7 +139,8 @@ export interface WorkflowRuntime {
 
 /** The RPC surface of the Workflow Durable Object. The orchestrator entrypoint calls it. */
 export interface WorkflowRpc {
-  create(workflowId: string, event: InboundEvent): Promise<RpcAck>;
+  /** Start the workflow from its first event and the ended workflow it follows. */
+  create(workflowId: string, event: InboundEvent, endedWorkflowId: string | null): Promise<RpcAck>;
   handle(event: InboundEvent): Promise<RpcAck>;
   status(): Promise<WorkflowSummary>;
   debug(): Promise<unknown>;

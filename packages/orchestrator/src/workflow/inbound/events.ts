@@ -18,11 +18,17 @@ export function isMessage(event: InboundEvent): boolean {
   return event.actor !== null && (event.kind === "prompt" || event.kind === "start");
 }
 
-/** First event of a workflow. Records the request and hands it to the agent. */
+/** The first event of a workflow and the ended workflow it follows, if any. */
+export type WorkflowStart = {
+  workflowId: string;
+  event: InboundEvent;
+  endedWorkflowId: string | null;
+};
+
+/** Record a workflow's first event and hand it to the agent. */
 export async function createWorkflow(
   workflow: WorkflowRuntime,
-  workflowId: string,
-  event: InboundEvent,
+  { workflowId, event, endedWorkflowId }: WorkflowStart,
 ): Promise<RpcAck> {
   if (workflow.state.status !== "new") return handleEvent(workflow, event);
   if (!workflow.store.markEventSeen(event)) return { ok: true, duplicate: true };
@@ -39,11 +45,25 @@ export async function createWorkflow(
   workflow.log(null, `created from ${event.kind}`);
   await acknowledge(workflow, event);
   await armIdle(workflow);
+  const notes = endedWorkflowId ? [earlierMessagesNote(endedWorkflowId, origin)] : [];
   await workflow.tellAgent(
-    eventMessage(event, { first: true, job: null, artifact: null, notes: [] }),
+    eventMessage(event, { first: true, job: null, artifact: null, notes }),
     "message",
   );
   return { ok: true, workflow_id: workflowId };
+}
+
+/** Tell the first turn where the ended workflow's messages are. */
+export function earlierMessagesNote(endedWorkflowId: string, origin: ReplyTarget | null): string {
+  const ended = `This workflow started because workflow ${endedWorkflowId} ended here. Its messages are not in your transcript.`;
+  switch (origin?.source) {
+    case "chat":
+      return `${ended} Read this thread with read_channel and thread_ts=${origin.thread} before you answer.`;
+    case "tracker":
+      return `${ended} Read the comments of tracker issue ${origin.issue_id} before you answer.`;
+    default:
+      return `${ended} Read the earlier messages of this conversation before you answer.`;
+  }
 }
 
 /** Every later event: dedupe, record what code must record, then tell the agent. */

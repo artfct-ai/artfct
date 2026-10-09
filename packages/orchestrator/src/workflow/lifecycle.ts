@@ -350,7 +350,7 @@ export async function restartOrFailTask(
 
 /**
  * Fail the workflow: cancel every active task and post the reason. The chat and issue
- * bindings stay, so a later start on them begins a new workflow.
+ * bindings stay, so a person's next message on them starts a new workflow.
  */
 export async function failWorkflow(workflow: WorkflowRuntime, reason: string): Promise<void> {
   for (const task of workflow.store.activeAuthorAndResearcherTasks()) {
@@ -387,7 +387,7 @@ const CODE_SOURCES: BindingSource[] = ["code_branch", "code_pull"];
 
 /**
  * The workflow ended, whichever way, so its code host bindings go. The chat, tracker session, and
- * issue bindings stay, so a later start on them begins a new workflow.
+ * issue bindings stay, so a person's next message on them starts a new workflow.
  */
 export async function unbindCodeHost(workflow: WorkflowRuntime): Promise<void> {
   const db = createDb(workflow.env.DB);
@@ -395,7 +395,7 @@ export async function unbindCodeHost(workflow: WorkflowRuntime): Promise<void> {
 }
 
 /** What the agent says when the humans have been silent for `orchestrator.idle_hours`. */
-const SLEEP_TEXT =
+export const SLEEP_TEXT =
   "I have not heard back, so I am going to sleep for now. Tag me here to continue.";
 
 /** Task statuses in which a harness is at work, so the workflow is not waiting on a human. */
@@ -410,11 +410,11 @@ export async function armIdle(workflow: WorkflowRuntime): Promise<void> {
   workflow.patchState({ idle_alarm: id });
 }
 
-/** The idle clock ran out. With no harness at work, tell the channels the workflow sleeps. */
+/** Put a running workflow to sleep when no harness is at work. */
 export async function onIdle(workflow: WorkflowRuntime): Promise<void> {
   workflow.patchState({ idle_alarm: null });
   if (workflow.store.activeAuthorAndResearcherTasks().some((task) => BUSY.has(task.status))) return;
-  if (workflow.state.status !== "running" && workflow.state.status !== "planning") return;
+  if (workflow.state.status !== "running") return;
   workflow.log(null, "idle. going to sleep.");
   await changeWorkflowStatus(workflow, "waiting_input");
   await workflow.post({ type: "info", text: SLEEP_TEXT });
