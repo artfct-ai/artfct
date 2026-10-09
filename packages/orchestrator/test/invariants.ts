@@ -26,6 +26,11 @@ export type ObservedTask = {
   promptInFlight: boolean;
   queuedPrompts: number;
   handshaking: boolean;
+  /**
+   * True when the latest turn of the author ended on its own with the work unfinished, and no
+   * person stopped the author since.
+   */
+  stoppedEarly: boolean;
 };
 
 /** One artifact row as an observer saw it. */
@@ -772,5 +777,24 @@ export function feedActivityPostsOnce(_workflow: WorkflowRuntime, step: Step): v
   for (const text of step.streamedTexts) {
     const holders = step.storedActivities.filter((stored) => stored.includes(text)).length;
     if (holders > 1) violated("feedActivityPostsOnce", `${holders} activities hold ${text}`);
+  }
+}
+
+/**
+ * An idle author whose last turn stopped early is never left alone. It has a prompt queued or in
+ * flight, such as its nudge, or it is restarting in a fresh sandbox, or its task finished.
+ */
+export function anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone(
+  _workflow: WorkflowRuntime,
+  step: Step,
+): void {
+  for (const author of step.after.tasks) {
+    if (!author.stoppedEarly || author.promptInFlight || FINISHED.includes(author.status)) continue;
+    if (author.queuedPrompts > 0 || author.status === "provisioning" || author.handshaking)
+      continue;
+    violated(
+      "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone",
+      `${author.task_id} stopped early and is idle with nothing queued, and it is not restarting`,
+    );
   }
 }

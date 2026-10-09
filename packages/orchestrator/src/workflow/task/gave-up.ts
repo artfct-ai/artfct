@@ -23,6 +23,13 @@ export const AUTHOR_WORK: Record<ArtifactKind, string> = {
   issues: "Create a set of issues, or change the issues as asked.",
 };
 
+/** The work a task was given, in the words the decisions model reads. */
+export function taskWork(workflow: WorkflowRuntime, task: TaskRow): string {
+  return task.role === "author"
+    ? AUTHOR_WORK[workflow.stageForTask(task).artifact]
+    : ROLE_WORK[task.role];
+}
+
 const GAVE_UP: YesNoQuestion = {
   instructions:
     "An agent was given the work in `work`. It ended its turn with `turn_text`. Does `turn_text` say that the agent could not do the work, or stopped before it finished the work?",
@@ -36,18 +43,14 @@ export function gaveUpAt(probability: number): boolean {
 }
 
 /**
- * Ask the decisions model whether the turn text of a task or a refiner run says its harness
+ * Ask the decisions model whether the turn text of a researcher or a refiner run says its harness
  * gave up. False when the turn closed with no text, or when no answer came.
  */
 export async function harnessGaveUp(workflow: WorkflowRuntime, task: TaskRow): Promise<boolean> {
   if (!task.summary.trim()) return false;
-  const work =
-    task.role === "author"
-      ? AUTHOR_WORK[workflow.stageForTask(task).artifact]
-      : ROLE_WORK[task.role];
   const probabilities = await askYesNo(workflow, {
     purpose: GAVE_UP_PURPOSE,
-    state: { work, turn_text: task.summary },
+    state: { work: taskWork(workflow, task), turn_text: task.summary },
     questions: { gave_up: GAVE_UP },
   });
   if (!probabilities) return false;

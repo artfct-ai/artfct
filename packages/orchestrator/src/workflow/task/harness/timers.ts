@@ -6,13 +6,16 @@ import { sandboxRefOf } from "../sandbox/size";
 import { recoverLostTurn, sendNotification } from "./bridge";
 import type { WorkflowRuntime } from "../../types";
 import { isTaskFinished } from "../../store/state";
-import type { SandboxRow } from "../../store/tasks";
+import type { SandboxRow, TaskRow } from "../../store/tasks";
 
 /** Session updates arrive in bursts. One no-progress reschedule per window is enough. */
 export const PROGRESS_WINDOW_MS = 30_000;
-/** Sent to a silent harness once before the task fails. */
+/** Sent once in the same session to a stalled task before it restarts. */
 export const NUDGE_TEXT =
-  "You have made no visible progress for a while. Summarize where you are and continue, or explain what blocks you.";
+  "Your work is not finished, and it has shown no progress. Summarize where you are and continue the work. When a run you started in the background is still going, wait for it to finish and report its result before you end your turn. When something blocks you, explain what blocks you.";
+
+/** What a stalled task got: a nudge in the same session, or a restart that fails once used up. */
+export type StallResponse = "nudged" | "restarted";
 
 /** An alarm that is about a task, whatever its sandbox generation. */
 export type TaskAlarm = { task_id: string };
@@ -49,8 +52,8 @@ export async function armNoProgress(
 }
 
 /**
- * Alarm: nudge once, then fail if the harness stays silent. A harness with no bridge is gone,
- * not silent, so its turn is recovered instead.
+ * Alarm: a running turn showed no progress, so its task stalled. A harness with no bridge is
+ * gone, not silent, so its turn is recovered instead.
  */
 export async function onNoProgress(
   workflow: WorkflowRuntime,
@@ -61,19 +64,39 @@ export async function onNoProgress(
   if (!task || !sandbox || sandbox.generation !== alarm.generation) return;
   if (!sandbox.prompt_in_flight || isTaskFinished(task.status) || task.paused_at !== null) return;
   if (workflow.connections(task.task_id).length === 0) return recoverLostTurn(workflow, task);
-  if (sandbox.nudged) return restartOrFailTask(workflow, task, "No progress after a nudge.");
-  workflow.log(task.task_id, "no progress. nudging.");
+  await nudgeOrRestartStalledTask(workflow, task);
+}
+
+/**
+ * A stalled task gets a nudge in the same session, and a running turn is cancelled for it. A task
+ * that stalls again while still nudged restarts in a fresh sandbox, and fails once its restarts
+ * are used up. An idle task gets the nudge when its queue drains.
+ */
+export async function nudgeOrRestartStalledTask(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+): Promise<StallResponse> {
+  const sandbox = workflow.store.requireSandbox(task.task_id);
+  if (sandbox.nudged) {
+    await restartOrFailTask(workflow, task, "No progress after a nudge.");
+    return "restarted";
+  }
+  workflow.log(task.task_id, "stalled. nudging.");
   workflow.store.enqueuePrompt(task.task_id, NUDGE_TEXT);
+  if (!sandbox.prompt_in_flight) {
+    workflow.store.updateSandbox(task.task_id, { nudged: 1 });
+    return "nudged";
+  }
   if (sandbox.session_id) {
     const params: CancelNotification = { sessionId: sandbox.session_id };
     sendNotification(workflow, task, AgentMethods.sessionCancel, params);
   }
-  const scheduleId = await workflow.scheduleAlarm(
-    noProgressSeconds(workflow),
-    "onNoProgress",
-    alarm,
-  );
+  const scheduleId = await workflow.scheduleAlarm(noProgressSeconds(workflow), "onNoProgress", {
+    task_id: task.task_id,
+    generation: sandbox.generation,
+  });
   workflow.store.updateSandbox(task.task_id, { nudged: 1, no_progress_schedule: scheduleId });
+  return "nudged";
 }
 
 /** A prompt went out. Its turn must end within `time_elapsed_minutes`. */

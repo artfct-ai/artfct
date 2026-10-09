@@ -11,6 +11,8 @@ import type { ChecksAlarm } from "../src/workflow/refiner/checks-gate";
 import { recheckChecks } from "../src/workflow/refiner/checks-recheck";
 import { failTask, onIdle } from "../src/workflow/lifecycle";
 import { isTaskFinished } from "../src/workflow/store/state";
+import { openEntryCount } from "../src/workflow/board/render";
+import type { AuthorTurnOutcome } from "../src/workflow/task/author-turn";
 import { onBridgeLost } from "../src/workflow/task/harness/bridge";
 import { retryQueue } from "../src/workflow/task/harness/prompt-queue";
 import {
@@ -68,7 +70,7 @@ function authorAction(
   });
 }
 
-/** What the turn text of a harness turn says. */
+/** What the turn text of a refiner run says. */
 export type Closing = "reports_work" | "gives_up";
 
 const GAVE_UP_TEXT = "I could not check out the branch, so I did not do the work.";
@@ -79,26 +81,87 @@ const GAVE_UP_ANSWERS = { ...REPORTS_WORK_ANSWERS, gave_up: 0.9 };
 export type RevisionAtTurnEnd = "changed" | "same" | "unreadable";
 
 /**
- * The author's running turn ends. A paused author's turn, or one the workflow sent a cancel,
- * ends cancelled, as the harness would.
+ * How the decisions model says an author left its work, how the model is down, or that the
+ * author ended its turn without a word, so the model is not asked.
+ */
+export type AuthorClosing = AuthorTurnOutcome | "decisions_fail" | "decisions_hang" | "silent";
+
+const AUTHOR_CLOSING_TEXTS: Record<AuthorClosing, string> = {
+  finished: "I changed the redirect and pushed the branch.",
+  waits_on_person: "Which page should the redirect go to? I will wait for your answer.",
+  blocked: GAVE_UP_TEXT,
+  stopped_early:
+    "The test suite runs in the background. I will report the result when it finishes.",
+  decisions_fail: "The test suite runs in the background.",
+  decisions_hang: "The build runs in the background.",
+  silent: "",
+};
+
+/** What lands while the decisions model judges how the author left its work. */
+export type WhileJudged = "nothing" | "agent_prompts" | "agent_cancels";
+
+function whileJudged(index: number, meanwhile: WhileJudged): WorkflowAction | null {
+  switch (meanwhile) {
+    case "nothing":
+      return null;
+    case "agent_prompts":
+      return agentPromptsAuthor(index);
+    case "agent_cancels":
+      return agentCancels(index, "author");
+    default: {
+      const unreachable: never = meanwhile;
+      throw new Error(`unhandled meanwhile ${String(unreachable)}`);
+    }
+  }
+}
+
+function authorClosingAnswers(closing: AuthorClosing): DecisionAnswers {
+  if (closing === "decisions_fail") return "fails";
+  if (closing === "decisions_hang") return "hangs";
+  if (closing === "silent") return REPORTS_WORK_ANSWERS;
+  return { ...REPORTS_WORK_ANSWERS, outcome: { option: closing, probability: 0.9 } };
+}
+
+/** True when the author's turn ended stopped early, by the decisions model or by its fallback. */
+function endedStoppedEarly(world: WorkflowWorld, author: WorldAuthor, closing: AuthorClosing) {
+  if (closing !== "decisions_fail" && closing !== "decisions_hang" && closing !== "silent") {
+    return closing === "stopped_early";
+  }
+  const todos = world.workflow.store.todoRow(author.taskId)?.todos ?? null;
+  return openEntryCount(todos) > 0 && world.artifactOf(author) === null;
+}
+
+/**
+ * The author's running turn ends with its closing text. A paused author's turn, or one the
+ * workflow sent a cancel, ends cancelled, as the harness would. `meanwhile` lands while the
+ * decisions model judges the turn.
  */
 export function authorTurnEnds(
   index: number,
   revision: RevisionAtTurnEnd,
-  closing: Closing = "reports_work",
+  closing: AuthorClosing = "finished",
+  meanwhile: WhileJudged = "nothing",
 ): WorkflowAction {
-  const label = `turn ends, revision ${revision}, ${closing}`;
+  const label = `turn ends, revision ${revision}, ${closing}, meanwhile ${meanwhile}`;
   return authorAction(index, label, async (world, author) => {
     const bridge = world.runningBridgeOf(author.taskId);
     if (!bridge) return undefined;
     if (revision === "changed") world.changeRevision(author);
     const cancelled = world.taskOf(author).paused_at !== null || bridge.cancelRequested;
     const stopReason = cancelled ? "cancelled" : "end_turn";
-    world.answerDecisionsWith(closing === "gives_up" ? GAVE_UP_ANSWERS : REPORTS_WORK_ANSWERS);
-    if (closing === "gives_up") await bridge.say(GAVE_UP_TEXT);
+    const landing = whileJudged(index, meanwhile);
+    world.answerDecisionsWith(
+      authorClosingAnswers(closing),
+      landing ? () => landing.run(world).then(() => undefined) : undefined,
+    );
+    const closingText = AUTHOR_CLOSING_TEXTS[closing];
+    if (closingText) await bridge.say(closingText);
     if (revision === "unreadable") await world.whileHostIsDown(() => bridge.endTurn(stopReason));
     else await bridge.endTurn(stopReason);
-    if (closing === "gives_up" && stopReason === "end_turn") return undefined;
+    const ownEnd = stopReason === "end_turn";
+    const stoppedEarly = ownEnd && endedStoppedEarly(world, author, closing);
+    world.recordAuthorTurnEnd(author.taskId, stoppedEarly);
+    if (closing === "blocked" && ownEnd) return undefined;
     const hostRevision = revision === "unreadable" ? null : world.hostRevisionOf(author);
     const cancelledTurn = stopReason === "cancelled";
     return { authorTurnEnd: { task_id: author.taskId, hostRevision, cancelled: cancelledTurn } };
@@ -117,6 +180,7 @@ export function authorPromptFails(index: number, revision: "changed" | "same"): 
     if (!bridge) return undefined;
     if (revision === "changed") world.changeRevision(author);
     await bridge.failPrompt(PROMPT_ERROR);
+    world.recordAuthorTurnEnd(author.taskId, false);
     return {
       authorTurnEnd: {
         task_id: author.taskId,
@@ -606,6 +670,7 @@ export function personPressesStop(index: number): WorkflowAction {
         { source: "tracker_session", external_id: session.session_id },
       ],
     });
+    world.forgetStoppedEarlyIn(session);
   });
 }
 

@@ -3,6 +3,7 @@ import fc from "fast-check";
 import {
   aFailedCheckNeverAsksThePersonAgain,
   aFailedCheckNeverCompletesAJob,
+  anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone,
   artifactStatusMovesAreLegal,
   authorIsIdleWhileAPolisherRuns,
   boardsLiveOnlyInChat,
@@ -125,6 +126,7 @@ const STEP_INVARIANTS = [
   sessionFeedEndsWhenItsAuthorIdles,
   feedActivityPostsOnce,
   unplannedWorkflowDoesNotEnd,
+  anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone,
 ];
 
 const setups: fc.Arbitrary<WorldSetup> = fc.record({
@@ -166,9 +168,30 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
       .tuple(
         author,
         fc.constantFrom("changed", "same", "unreadable"),
-        fc.constantFrom("reports_work", "reports_work", "reports_work", "gives_up"),
+        fc.constantFrom(
+          "finished",
+          "finished",
+          "finished",
+          "waits_on_person",
+          "blocked",
+          "stopped_early",
+          "stopped_early",
+          "decisions_fail",
+          "decisions_hang",
+          "silent",
+        ),
+        fc.constantFrom(
+          "nothing",
+          "nothing",
+          "nothing",
+          "nothing",
+          "agent_prompts",
+          "agent_cancels",
+        ),
       )
-      .map(([index, revision, closing]) => authorTurnEnds(index, revision, closing)),
+      .map(([index, revision, closing, meanwhile]) =>
+        authorTurnEnds(index, revision, closing, meanwhile),
+      ),
   },
   {
     weight: 6,
@@ -443,6 +466,23 @@ const approvingEnd = refinerRunEnds(0, {
   closing: "reports_work",
 });
 
+const stoppedEarly = authorTurnEnds(0, "same", "stopped_early");
+const stoppedEarlySilently = authorTurnEnds(0, "same", "silent");
+const freshSandboxDialsIn = sandboxComesUp("dials_in");
+
+const authorKeepsStoppingEarly = [
+  authorReportsTodos(0, 1),
+  stoppedEarly,
+  stoppedEarly,
+  stoppedEarlySilently,
+  freshSandboxDialsIn,
+  authorTurnEnds(0, "same", "decisions_hang"),
+  stoppedEarlySilently,
+  freshSandboxDialsIn,
+  authorTurnEnds(0, "same", "decisions_fail"),
+  stoppedEarlySilently,
+];
+
 const abandonedArtifact = [firstArtifactAppears(0, "author_text"), agentCancels(0, "author")];
 
 const issueStartedAgain = [
@@ -457,6 +497,7 @@ const openings: fc.Arbitrary<WorkflowAction[]> = fc.constantFrom(
   [...draftedArtifact, approvingEnd, approvingEnd, approvingEnd],
   abandonedArtifact,
   issueStartedAgain,
+  authorKeepsStoppingEarly,
 );
 
 const sequences: fc.Arbitrary<WorkflowAction[]> = fc
@@ -478,7 +519,7 @@ describe("the workflow invariants", () => {
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(30);
+      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(31);
     },
     TIMEOUT_MS,
   );
