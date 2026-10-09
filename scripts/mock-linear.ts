@@ -2,7 +2,8 @@
 /**
  * Mock Linear API for local smoke tests, behind `LINEAR_API_URL`. It serves the OAuth token
  * endpoint and the GraphQL operations the Linear SDK sends, and records every call.
- * `GET /__state` returns the record. `POST /__reset` clears it and forgets every token.
+ * `GET /__state` returns the record. `POST /__reset` clears it and forgets every token and issue.
+ * `POST /__issues` adds an issue that the `issue` query then finds by id or identifier.
  */
 import { LINEAR_APP_USER, LINEAR_ORG, LINEAR_TEAM, LINEAR_TEAM_STATES } from "./smoke/fixtures";
 
@@ -25,6 +26,9 @@ type GqlRecord = {
   variables: Record<string, unknown>;
 };
 
+/** An issue a smoke step registered, as its webhooks carry it. */
+type RegisteredIssue = { id: string; identifier: string; title: string; url: string };
+
 /** An issued access token and when it stops being accepted. */
 type IssuedToken = { access: string; refresh: string; expires_at_ms: number };
 
@@ -42,6 +46,7 @@ const state = {
   grants: [] as GrantRecord[],
   calls: [] as GqlRecord[],
   tokens: [] as IssuedToken[],
+  issues: [] as RegisteredIssue[],
 };
 
 function log(line: string): void {
@@ -148,6 +153,24 @@ function documentAnswer(id: string): Record<string, unknown> {
   };
 }
 
+/** A registered issue as the issue query reads it: unstarted, on the team, without relations. */
+function issueAnswer(idOrKey: string): unknown {
+  const issue = state.issues.find(
+    (candidate) => candidate.id === idOrKey || candidate.identifier === idOrKey,
+  );
+  if (!issue) return { issue: null };
+  const todo = LINEAR_TEAM_STATES.find((teamState) => teamState.type === "unstarted")!;
+  return {
+    issue: {
+      ...issue,
+      state: { type: todo.type, name: todo.name },
+      team: { id: LINEAR_TEAM.id },
+      labels: connection([]),
+      inverseRelations: connection([]),
+    },
+  };
+}
+
 /** The data for one operation, or null when the mock does not know it. */
 function answer(operation: string, variables: Record<string, unknown>): unknown {
   switch (operation) {
@@ -162,7 +185,7 @@ function answer(operation: string, variables: Record<string, unknown>): unknown 
     case "document":
       return { document: documentAnswer(String(variables.id)) };
     case "issue":
-      return { issue: null };
+      return issueAnswer(String(variables.id));
     case "project":
       return { project: null };
     case "commentCreate":
@@ -212,10 +235,19 @@ async function handleGraphql(request: Request): Promise<Response> {
   return Response.json({ data });
 }
 
+/** `POST /__issues`. Registers one issue for the `issue` query. */
+async function handleIssue(request: Request): Promise<Response> {
+  const { id, identifier, title, url } = (await request.json()) as RegisteredIssue;
+  state.issues.push({ id, identifier, title, url });
+  log(`issue ${identifier} registered`);
+  return Response.json({ ok: true });
+}
+
 function handleReset(): Response {
   state.grants.length = 0;
   state.calls.length = 0;
   state.tokens.length = 0;
+  state.issues.length = 0;
   log("reset");
   return Response.json({ ok: true });
 }
@@ -227,6 +259,8 @@ async function handleRequest(request: Request): Promise<Response> {
   switch (url.pathname) {
     case "/__reset":
       return handleReset();
+    case "/__issues":
+      return handleIssue(request);
     case "/oauth/token":
       return handleToken(request);
     case "/graphql":

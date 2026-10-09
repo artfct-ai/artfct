@@ -3,6 +3,7 @@
  * the grants the orchestrator asked for and the GraphQL calls it made.
  */
 import { MOCK_LINEAR_URL } from "./config";
+import type { LinearIssueFixture } from "./fixtures";
 
 /** A token grant as the mock Linear API recorded it. */
 export type GrantRecord = {
@@ -28,6 +29,7 @@ export type MockLinearState = {
   grants: GrantRecord[];
   calls: GqlRecord[];
   tokens: Array<{ access: string; refresh: string; expires_at_ms: number }>;
+  issues: Array<Pick<LinearIssueFixture, "id" | "identifier" | "title" | "url">>;
 };
 
 /** Returns everything the mock Linear API recorded. */
@@ -41,6 +43,16 @@ export async function fetchMockLinearState(): Promise<MockLinearState> {
 export async function resetMockLinear(): Promise<void> {
   const response = await fetch(`${MOCK_LINEAR_URL}/__reset`, { method: "POST" });
   if (!response.ok) throw new Error(`mock linear /__reset ${response.status}`);
+}
+
+/** Lets the mock Linear API find `issue` by id or identifier, as `start_job` looks it up. */
+export async function registerMockIssue(issue: LinearIssueFixture): Promise<void> {
+  const { id, identifier, title, url } = issue;
+  const response = await fetch(`${MOCK_LINEAR_URL}/__issues`, {
+    method: "POST",
+    body: JSON.stringify({ id, identifier, title, url }),
+  });
+  if (!response.ok) throw new Error(`mock linear /__issues ${response.status}`);
 }
 
 /** The bodies of the activities posted on one agent session, in order. */

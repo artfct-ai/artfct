@@ -137,6 +137,7 @@ const setups: fc.Arbitrary<WorldSetup> = fc.record({
   checksOnPush: fc.constantFrom("passed" as const, "reported_later" as const),
   pageEnding: fc.constantFrom("acceptance" as const, "choice" as const),
   origin: fc.constantFrom("chat" as const, "chat" as const, "tracker" as const, "tracker" as const),
+  firstInput: fc.constantFrom("request" as const, "origin_issue" as const, "origin_issue" as const),
 });
 
 const pageSetups: fc.Arbitrary<WorldSetup> = fc.record({
@@ -146,6 +147,7 @@ const pageSetups: fc.Arbitrary<WorldSetup> = fc.record({
   checksOnPush: fc.constantFrom("passed" as const, "reported_later" as const),
   pageEnding: fc.constantFrom("acceptance" as const, "choice" as const),
   origin: fc.constantFrom("chat" as const, "chat" as const, "tracker" as const, "tracker" as const),
+  firstInput: fc.constantFrom("request" as const, "origin_issue" as const, "origin_issue" as const),
 });
 
 const author = fc.nat({ max: MAX_AUTHORS - 1 });

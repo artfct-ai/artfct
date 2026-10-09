@@ -4,7 +4,7 @@ import { eventMessage } from "../../agent/transcript/envelope";
 import { pullDetailOf } from "../../artifact/pull";
 import type { PostOptions } from "../../notify/notifier";
 import type { Recipients } from "../../notify/recipients";
-import { applyEvent, stopSessionAuthors } from "./apply";
+import { applyEvent, stopSessionAuthor } from "./apply";
 import { armIdle, changeWorkflowStatus } from "../lifecycle";
 import { firstLine, isWorkflowFinished, now, workflowName } from "../store/state";
 import { statusText, summarize } from "../status";
@@ -123,7 +123,7 @@ async function wakeWorkflow(workflow: WorkflowRuntime): Promise<void> {
 async function replyFinished(workflow: WorkflowRuntime, event: InboundEvent): Promise<void> {
   const { status } = workflow.state;
   if (event.kind === "stop") {
-    await stopSessionAuthors(workflow, event);
+    await stopSessionAuthor(workflow, event);
     return;
   }
   if (!event.reply_to || !event.actor) {

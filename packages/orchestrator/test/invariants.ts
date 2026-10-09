@@ -560,17 +560,26 @@ function sessionOfPerson(step: Step): string | null {
   return event.reply_to.session_id;
 }
 
-/** The one author that ran before the step in the session a person wrote in, or null. */
-function runningAuthorBefore(step: Step): ObservedTask | null {
+/**
+ * The author, before the step, of the job whose job session a person wrote in: the unfinished
+ * one, else the newest. Null when no job with an author has that job session.
+ */
+function sessionAuthorBefore(step: Step): ObservedTask | null {
   const session = sessionOfPerson(step);
   if (!session) return null;
-  const running = step.before.tasks.filter(
-    (task) =>
-      task.role === "author" &&
-      RUNNING_AUTHOR.includes(task.status) &&
-      step.before.jobSessions[task.job_id] === session,
-  );
-  return running.length === 1 ? running[0]! : null;
+  const authors = Object.entries(step.before.jobSessions)
+    .filter(([, jobSession]) => jobSession === session)
+    .flatMap(
+      ([jobId]) =>
+        step.before.tasks.find((task) => task.role === "author" && task.job_id === jobId) ?? [],
+    );
+  return authors.find((task) => !FINISHED.includes(task.status)) ?? authors.at(-1) ?? null;
+}
+
+/** The author that ran before the step in the session a person wrote in, or null. */
+function runningAuthorBefore(step: Step): ObservedTask | null {
+  const author = sessionAuthorBefore(step);
+  return author && RUNNING_AUTHOR.includes(author.status) ? author : null;
 }
 
 function occurrences(texts: string[], text: string): number {
@@ -675,32 +684,17 @@ export function sessionMessageWithoutAnAuthorIsAnswered(
   );
 }
 
-/** The authors a stop is for: every author that ran in its session, else the newest job's author. */
-function stoppedAuthorsBefore(step: Step): ObservedTask[] {
-  const session = sessionOfPerson(step);
-  if (!session) return [];
-  const authors = Object.entries(step.before.jobSessions)
-    .filter(([, jobSession]) => jobSession === session)
-    .flatMap(
-      ([jobId]) =>
-        step.before.tasks.find((task) => task.role === "author" && task.job_id === jobId) ?? [],
-    );
-  const running = authors.filter((task) => RUNNING_AUTHOR.includes(task.status));
-  return running.length > 0 ? running : authors.slice(-1);
-}
-
 function endsOnTheStoppedReply(step: Step, taskId: string): boolean {
   const last = step.feedPosts.findLast((post) => post.task_id === taskId);
   return last?.kind === "response" && last.text === STOPPED_TEXT;
 }
 
 /**
- * A stop in a job session ends the turn of each author that runs there, else of the newest job's
- * author, and drops their queued prompts. An author that runs a turn over its bridge is sent a
- * cancel, and the cancelled turn ends its session feed with the stopped reply. Any other author is
- * left with no prompt in flight and no sandbox start that would resume one, and its session feed
- * ends with the stopped reply at once. A stop never changes the workflow status, and the
- * orchestrator does not post for it.
+ * A stop in a job session ends the turn of the job's author and drops its queued prompts. An
+ * author that runs a turn over its bridge is sent a cancel, and the cancelled turn ends its
+ * session feed with the stopped reply. Any other author is left with no prompt in flight and no
+ * sandbox start that would resume one, and its session feed ends with the stopped reply at once.
+ * A stop never changes the workflow status, and the orchestrator does not post for it.
  */
 export function stopEndsTheAuthorsTurn(_workflow: WorkflowRuntime, step: Step): void {
   const ended = step.authorTurnEnd;
@@ -722,13 +716,9 @@ export function stopEndsTheAuthorsTurn(_workflow: WorkflowRuntime, step: Step): 
   if (step.after.posted !== step.before.posted || step.sessionPosts.length > 0) {
     violated("stopEndsTheAuthorsTurn", "the orchestrator posted for the stop");
   }
-  for (const author of stoppedAuthorsBefore(step)) {
-    const after = step.after.tasks.find((task) => task.task_id === author.task_id);
-    if (after) checkStoppedAuthor(step, author, after);
-  }
-}
-
-function checkStoppedAuthor(step: Step, author: ObservedTask, after: ObservedTask): void {
+  const author = sessionAuthorBefore(step);
+  const after = author && step.after.tasks.find((task) => task.task_id === author.task_id);
+  if (!author || !after) return;
   if (after.queuedPrompts > 0) {
     violated("stopEndsTheAuthorsTurn", `${author.task_id} kept ${after.queuedPrompts} prompts`);
   }

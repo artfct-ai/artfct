@@ -16,7 +16,7 @@ import type { Binding } from "@artfct-ai/contracts/sources";
 import { OPTIONS_HEADING } from "../src/artifact/options";
 import type { RefinerEntry, ReviewerEntry } from "../src/config/refiner";
 import { Notifier } from "../src/notify/notifier";
-import { startJob } from "../src/workflow/lifecycle";
+import { startJob, type JobIssue } from "../src/workflow/lifecycle";
 import { handleEvent } from "../src/workflow/inbound/events";
 import { isTaskFinished } from "../src/workflow/store/state";
 import type { ArtifactRow, JobRow, TaskRow } from "../src/workflow/store/tasks";
@@ -61,6 +61,18 @@ export type WorldSetup = {
   checksOnPush: ChecksOnPush;
   pageEnding: PageEnding;
   origin: OriginSurface;
+  firstInput: FirstInput;
+};
+
+/** What the first job works from: the request, or the issue the tracker origin sits on. */
+export type FirstInput = "request" | "origin_issue";
+
+const ORIGIN_ISSUE: JobIssue = {
+  id: "ENG-100",
+  key: "ENG-100",
+  title: "Fix login",
+  team_id: null,
+  started: false,
 };
 
 /** Where the request that started the workflow came from: a chat thread or a tracker session. */
@@ -288,7 +300,10 @@ export class WorkflowWorld {
     const first = await startJob(workflow, {
       stage,
       brief: "Fix the login redirect.",
-      input: { kind: "request", text: REQUEST_TEXTS[0] },
+      input:
+        setup.firstInput === "origin_issue"
+          ? { kind: "issue", issue: ORIGIN_ISSUE }
+          : { kind: "request", text: REQUEST_TEXTS[0] },
     });
     if (!first) throw new Error(`the test config declares no stage ${stage}`);
     const world = new WorkflowWorld(workflow, setup.checksOnPush, tracker);
@@ -713,7 +728,7 @@ export class WorkflowWorld {
       jobSessions: Object.fromEntries(
         store.jobs().map((job) => {
           const onIssue = sessions.find((session) => session.issue_id === job.issue_id);
-          return [job.job_id, job.issue_id && onIssue ? onIssue.session_id : startingSession];
+          return [job.job_id, job.issue_id && onIssue ? onIssue.session_id : null];
         }),
       ),
       posted: store.postedCount(),

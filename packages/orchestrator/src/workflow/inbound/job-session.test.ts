@@ -3,7 +3,12 @@ import { describe, expect, it } from "bun:test";
 import { seedTask, type FakeRuntime } from "../../../test/fake-runtime";
 import { freshRuntime } from "../../../test/fresh-runtime";
 import { scenario } from "../../../test/scenario";
-import { jobSessionOf, runningAuthorInSession, type TrackerSession } from "./job-session";
+import {
+  authorInSession,
+  jobSessionOf,
+  runningAuthorInSession,
+  type TrackerSession,
+} from "./job-session";
 
 const STARTING: TrackerSession = { source: "tracker", session_id: "s-start", issue_id: "ENG-1" };
 const ON_ISSUE: TrackerSession = { source: "tracker", session_id: "s-issue", issue_id: "iss-2" };
@@ -26,15 +31,39 @@ describe("jobSessionOf", () => {
       }));
   });
 
-  describe("a job without an issue", () => {
+  describe("a job on the issue the workflow started from", () => {
     const seeded = scenario(freshRuntime, (workflow) => {
       fromSession(workflow);
-      seedTask(workflow);
+      seedTask(workflow, { issue_id: "ENG-1" });
     });
 
     it("is the starting session", () =>
       seeded((workflow) => {
         expect(jobSessionOf(workflow, workflow.store.jobs()[0]!)).toEqual(STARTING);
+      }));
+  });
+
+  describe("a job without an input issue", () => {
+    const seeded = scenario(freshRuntime, (workflow) => {
+      fromSession(workflow);
+      seedTask(workflow);
+    });
+
+    it("has none, not even the starting session", () =>
+      seeded((workflow) => {
+        expect(jobSessionOf(workflow, workflow.store.jobs()[0]!)).toBeNull();
+      }));
+  });
+
+  describe("a job on an issue without a session", () => {
+    const seeded = scenario(freshRuntime, (workflow) => {
+      fromSession(workflow);
+      seedTask(workflow, { issue_id: "iss-3" });
+    });
+
+    it("has none", () =>
+      seeded((workflow) => {
+        expect(jobSessionOf(workflow, workflow.store.jobs()[0]!)).toBeNull();
       }));
   });
 
@@ -81,29 +110,42 @@ describe("runningAuthorInSession", () => {
       }));
   });
 
-  describe("a starting session shared by two jobs whose authors work", () => {
+  describe("the starting session of jobs without an input issue", () => {
     const seeded = scenario(freshRuntime, (workflow) => {
       fromSession(workflow);
       seedTask(workflow);
-      seedTask(workflow, { task_id: "wf_x.2" });
     });
 
-    it("is none, since the message names neither", () =>
+    it("is none", () =>
       seeded((workflow) => {
         expect(runningAuthorInSession(workflow, STARTING)).toBeNull();
       }));
   });
+});
 
-  describe("a starting session where one of two jobs still works", () => {
+describe("authorInSession", () => {
+  describe("an issue whose first job finished and whose second job works", () => {
     const seeded = scenario(freshRuntime, (workflow) => {
       fromSession(workflow);
-      seedTask(workflow, { status: "done" });
-      seedTask(workflow, { task_id: "wf_x.2" });
+      seedTask(workflow, { issue_id: "iss-2", status: "done" });
+      seedTask(workflow, { issue_id: "iss-2", task_id: "wf_x.2" });
     });
 
     it("is the author that works", () =>
       seeded((workflow) => {
-        expect(runningAuthorInSession(workflow, STARTING)?.task_id).toBe("wf_x.2");
+        expect(authorInSession(workflow, ON_ISSUE)?.task_id).toBe("wf_x.2");
+      }));
+  });
+
+  describe("an issue whose only job finished", () => {
+    const seeded = scenario(freshRuntime, (workflow) => {
+      fromSession(workflow);
+      seedTask(workflow, { issue_id: "iss-2", status: "done" });
+    });
+
+    it("is that finished author", () =>
+      seeded((workflow) => {
+        expect(authorInSession(workflow, ON_ISSUE)?.task_id).toBe("wf_x.1");
       }));
   });
 });

@@ -2,7 +2,7 @@ import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { noteMessage } from "../../agent/transcript/envelope";
 import { parseControl } from "./control-words";
 import { applyControlWord, stopAuthor, type StopOutcome } from "./controls";
-import { authorsToStopInSession, runningAuthorInSession } from "./job-session";
+import { authorInSession, runningAuthorInSession } from "./job-session";
 import { promptTask } from "../task/harness/prompt-queue";
 import { applyArtifactEvent } from "../refiner/feedback";
 import type { Applied, WorkflowRuntime } from "../types";
@@ -19,7 +19,7 @@ export async function applyEvent(
     case "status":
       return (await forwardToRunningAuthor(workflow, event)) ?? { notes: [], wake: "message" };
     case "stop":
-      return stopSessionAuthors(workflow, event);
+      return stopSessionAuthor(workflow, event);
     case "control":
       return executeControl(workflow, event);
     case "start":
@@ -120,31 +120,25 @@ const STOP_NOTES: Record<StopOutcome, string> = {
 };
 
 /**
- * A stop in a job session ends the turn of each author there and drops their queued prompts.
- * Their session feed ends with the stopped reply. The tasks, the jobs, and the workflow keep
- * running.
+ * A stop in a job session ends the turn of the job's author and drops its queued prompts. Its
+ * session feed ends with the stopped reply. The task, the job, and the workflow keep running.
  */
-export async function stopSessionAuthors(
+export async function stopSessionAuthor(
   workflow: WorkflowRuntime,
   event: InboundEvent,
 ): Promise<Applied | "handled"> {
-  const authors =
+  const author =
     event.actor && event.reply_to?.source === "tracker"
-      ? authorsToStopInSession(workflow, event.reply_to)
-      : [];
-  if (authors.length === 0) {
+      ? authorInSession(workflow, event.reply_to)
+      : null;
+  if (!author) {
     workflow.log(null, "stop ignored: no author works in its job session");
     return "handled";
   }
-  const notes: string[] = [];
-  for (const author of authors) {
-    const outcome = await stopAuthor(workflow, author);
-    workflow.log(author.task_id, `stop: ${outcome}`);
-    notes.push(
-      `${personName(event)} pressed Stop in the job session of ${author.task_id}. ${STOP_NOTES[outcome]} Its queued prompts were dropped. Do not prompt it again until a person asks.`,
-    );
-  }
-  return { notes, wake: "none" };
+  const outcome = await stopAuthor(workflow, author);
+  workflow.log(author.task_id, `stop: ${outcome}`);
+  const note = `${personName(event)} pressed Stop in the job session of ${author.task_id}. ${STOP_NOTES[outcome]} Its queued prompts were dropped. Do not prompt it again until a person asks.`;
+  return { notes: [note], wake: "none" };
 }
 
 function personName(event: InboundEvent): string {

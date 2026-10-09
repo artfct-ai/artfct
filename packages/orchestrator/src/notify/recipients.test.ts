@@ -66,6 +66,10 @@ describe("recipientsOf", () => {
       expect(recipientsOf(linearOnly, INFO, { answering: [JOB_SESSION] })).toEqual([JOB_SESSION]);
     });
 
+    it("sends an answer to a message in the starting session to that session", () => {
+      expect(recipientsOf(linearOnly, INFO, { answering: [STARTING] })).toEqual([STARTING]);
+    });
+
     it("sends an ask that answers the starting session there once", () => {
       expect(recipientsOf(linearOnly, QUESTION, { answering: [STARTING] })).toEqual([STARTING]);
     });

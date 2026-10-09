@@ -72,7 +72,7 @@ const linearOnly = (
     workflow.patchState({ origin: STARTING, reply_targets: [STARTING] });
     const outbox: OutboxEntry[] = [];
     workflow.notifier = testNotifier(outbox, { tracker });
-    const author = seedTask(workflow, {}, { prompt_in_flight: 1 });
+    const author = seedTask(workflow, { issue_id: "ENG-1" }, { prompt_in_flight: 1 });
     await run({ workflow, tracker, outbox, author });
   });
 
@@ -268,6 +268,16 @@ describe("the session feed", () => {
         expect(stored(fixture)).toEqual([]);
       }));
   });
+
+  describe("an author whose job's input is not an issue, in a workflow started from a session", () => {
+    it("posts nothing to the starting session", () =>
+      linearOnly(async (fixture) => {
+        const author = seedTask(fixture.workflow, { task_id: "wf_x.2" }, { prompt_in_flight: 1 });
+        await stream({ ...fixture, author }, [edit("c1", "a.ts"), ended("c1", "completed")]);
+        await closeSessionFeed(fixture.workflow, author, feedClosingOf("end_turn"));
+        expect(stored(fixture)).toEqual([]);
+      }));
+  });
 });
 
 describe("publishSessionPlan", () => {
@@ -296,6 +306,14 @@ describe("publishSessionPlan", () => {
       fixture.workflow.patchState({ reply_targets: [STARTING, THREAD] });
       fixture.workflow.store.setTodos(fixture.author.task_id, { entries: [...entries] });
       await publishSessionPlan(fixture.workflow, fixture.author);
+      expect(fixture.tracker.argsOf("setSessionPlan")).toEqual([]);
+    }));
+
+  it("leaves the starting session without a plan when the job's input is not an issue", () =>
+    linearOnly(async (fixture) => {
+      const author = seedTask(fixture.workflow, { task_id: "wf_x.2" });
+      fixture.workflow.store.setTodos(author.task_id, { entries: [...entries] });
+      await publishSessionPlan(fixture.workflow, author);
       expect(fixture.tracker.argsOf("setSessionPlan")).toEqual([]);
     }));
 });

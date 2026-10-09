@@ -1,5 +1,6 @@
 import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { TaskStatus } from "@artfct-ai/contracts/types";
+import { isTaskFinished } from "../store/state";
 import type { JobRow, TaskRow } from "../store/tasks";
 import type { WorkflowRuntime } from "../types";
 
@@ -9,51 +10,40 @@ export type TrackerSession = Extract<ReplyTarget, { source: "tracker" }>;
 /** The statuses of an author that runs. An author in review is idle and does not run. */
 const RUNNING_AUTHOR_STATUSES: TaskStatus[] = ["queued", "provisioning", "working"];
 
-/** The tracker session on the job's issue, else the workflow's starting session. Null without either. */
+/**
+ * The tracker session on the job's input issue. Null when the job's input is not an issue, or
+ * when that issue has no session.
+ */
 export function jobSessionOf(workflow: WorkflowRuntime, job: JobRow): TrackerSession | null {
-  const sessions = workflow.state.reply_targets.filter(
-    (target): target is TrackerSession => target.source === "tracker",
+  if (!job.issue_id) return null;
+  return (
+    workflow.state.reply_targets.find(
+      (target): target is TrackerSession =>
+        target.source === "tracker" && target.issue_id === job.issue_id,
+    ) ?? null
   );
-  const onIssue = job.issue_id
-    ? sessions.find((session) => session.issue_id === job.issue_id)
-    : undefined;
-  if (onIssue) return onIssue;
-  const { origin } = workflow.state;
-  return origin?.source === "tracker" ? origin : null;
 }
 
 /**
- * The author that runs in the job whose job session this is. Null when no author runs there, and
- * when the session is the job session of more than one job whose author runs.
+ * The author of the job whose job session this is: the unfinished one, else the newest. Null
+ * when no job with an author has this job session.
  */
+export function authorInSession(
+  workflow: WorkflowRuntime,
+  session: TrackerSession,
+): TaskRow | null {
+  const authors = workflow.store
+    .jobs()
+    .filter((job) => jobSessionOf(workflow, job)?.session_id === session.session_id)
+    .flatMap((job) => workflow.store.authorTask(job.job_id) ?? []);
+  return authors.find((author) => !isTaskFinished(author.status)) ?? authors.at(-1) ?? null;
+}
+
+/** The author of the job whose job session this is, while it runs. Null otherwise. */
 export function runningAuthorInSession(
   workflow: WorkflowRuntime,
   session: TrackerSession,
 ): TaskRow | null {
-  const running = authorsInSession(workflow, session).filter(isRunningAuthor);
-  return running.length === 1 ? running[0]! : null;
-}
-
-/**
- * The authors a stop in the job session is for: every author that runs there, else the author of
- * the newest job whose job session this is.
- */
-export function authorsToStopInSession(
-  workflow: WorkflowRuntime,
-  session: TrackerSession,
-): TaskRow[] {
-  const authors = authorsInSession(workflow, session);
-  const running = authors.filter(isRunningAuthor);
-  return running.length > 0 ? running : authors.slice(-1);
-}
-
-function authorsInSession(workflow: WorkflowRuntime, session: TrackerSession): TaskRow[] {
-  return workflow.store
-    .jobs()
-    .filter((job) => jobSessionOf(workflow, job)?.session_id === session.session_id)
-    .flatMap((job) => workflow.store.authorTask(job.job_id) ?? []);
-}
-
-function isRunningAuthor(author: TaskRow): boolean {
-  return RUNNING_AUTHOR_STATUSES.includes(author.status);
+  const author = authorInSession(workflow, session);
+  return author && RUNNING_AUTHOR_STATUSES.includes(author.status) ? author : null;
 }

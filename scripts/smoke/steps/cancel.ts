@@ -1,6 +1,7 @@
 /**
- * Step 8. A fresh workflow is provisioned and its author's first turn never finishes. A message
- * in its job session goes straight to the running author, and the Stop button ends that turn and
+ * Step 8. A fresh workflow is provisioned on the PR stage, with the delegated issue as its job's
+ * input, and its author's first turn never finishes. A message in the session on that issue, its
+ * job session, goes straight to the running author, and the Stop button ends that turn and
  * drops the message while the workflow runs on. A second Stop on the idle author ends its session
  * feed again. Moving the issue to Canceled then cancels the workflow: one start, one destroy.
  */
@@ -15,6 +16,7 @@ import {
   type WorkflowDebug,
 } from "../admin";
 import { assert, assertEqual } from "../assert";
+import { PR_STAGE_NAME } from "../../../packages/orchestrator/test/smoke-config";
 import { PAGE_PARENT_ID, REPO_FULL_NAME } from "../config";
 import { createWorkflowFromIssue } from "../create";
 import {
@@ -26,7 +28,7 @@ import {
   linearIssue,
   linearSessionId,
 } from "../fixtures";
-import { activityBodies, fetchMockLinearState } from "../linear-api";
+import { activityBodies, fetchMockLinearState, registerMockIssue } from "../linear-api";
 import { assertStartsSince, waitForSandboxDestroyed } from "../sandbox";
 import { postLinearWebhook } from "../webhooks";
 
@@ -36,7 +38,7 @@ const SECOND_ISSUE = linearIssue(
   2,
   "ENG-43",
   "Add dark mode",
-  `Make it dark. Never finish this. Repo: https://github.com/${REPO_FULL_NAME}\nPage parent: ${PAGE_PARENT_ID}`,
+  `Make it dark. Never finish this. Repo: https://github.com/${REPO_FULL_NAME}\nPage parent: ${PAGE_PARENT_ID}\nStage: ${PR_STAGE_NAME}`,
 );
 /** Writes `body` on the job session, as a plain message or with the Stop button. */
 function writeInSession(body: string, signal?: "stop") {
@@ -158,6 +160,7 @@ async function cancelFromIssue(workflowId: string, taskId: string): Promise<void
 /** Runs step 8. */
 export async function runCancel(): Promise<void> {
   console.log("\n8. Stop and cancel");
+  await registerMockIssue(SECOND_ISSUE);
   const { workflowId, taskId } = await createWorkflowFromIssue({
     sessionId: THIRD_SESSION,
     issue: SECOND_ISSUE,

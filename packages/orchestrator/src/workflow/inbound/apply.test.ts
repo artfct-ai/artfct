@@ -50,7 +50,7 @@ const STARTING_SESSION = {
 
 function authorWorksInStartingSession(workflow: FakeRuntime): void {
   workflow.patchState({ origin: STARTING_SESSION, reply_targets: [STARTING_SESSION] });
-  seedTask(workflow, {}, { session_id: "acp-1", prompt_in_flight: 1 });
+  seedTask(workflow, { issue_id: "ENG-1" }, { session_id: "acp-1", prompt_in_flight: 1 });
 }
 
 function feedPostsOf(workflow: FakeRuntime): unknown[] {
@@ -528,6 +528,48 @@ describe("applyEvent", () => {
     it("leaves the author's queue alone", () =>
       answered(({ workflow }) => {
         expect(workflow.store.queue()).toEqual([]);
+      }));
+  });
+
+  describe("a reply in the starting session while the job's input is not an issue", () => {
+    const answered = afterAppliedEvent(
+      freshRuntime,
+      { kind: "prompt", text: "what changed?", reply_to: STARTING_SESSION },
+      (workflow) => {
+        workflow.patchState({ origin: STARTING_SESSION, reply_targets: [STARTING_SESSION] });
+        seedTask(workflow, {}, { session_id: "acp-1", prompt_in_flight: 1 });
+      },
+    );
+
+    it("goes to a turn", () =>
+      answered(({ result }) => {
+        expect(result).toMatchObject({ wake: "message" });
+      }));
+
+    it("does not reach the author", () =>
+      answered(({ workflow }) => {
+        expect(workflow.store.queue()).toEqual([]);
+      }));
+  });
+
+  describe("a stop in the starting session while the job's input is not an issue", () => {
+    let socket: FakeSocket;
+    const stopped = afterAppliedEvent(
+      freshRuntime,
+      { kind: "stop", text: "", reply_to: STARTING_SESSION },
+      (workflow) => {
+        workflow.patchState({ origin: STARTING_SESSION, reply_targets: [STARTING_SESSION] });
+        seedTask(workflow, {}, { session_id: "acp-1", prompt_in_flight: 1 });
+        socket = fakeConnection(TASK, 1);
+        workflow.sockets.push(socket.connection);
+      },
+    );
+
+    it("does not reach the author", () =>
+      stopped(({ workflow, result }) => {
+        expect(sentMethods(socket)).toEqual([]);
+        expect(feedPostsOf(workflow)).toEqual([]);
+        expect(result).toBe("handled");
       }));
   });
 

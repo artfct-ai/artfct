@@ -76,7 +76,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | harness session | The ACP session of one task. | `sandboxes.session_id` | session |
 | MCP server | A tool server a harness session connects to. Each provider supplies an MCP server or a CLI, and the deployment config lists the customer's own. | `McpServer`, `mcp_servers` | integration, tool server |
 | tracker session | The agent session of the tracker that a reply goes to. | `tracker_session` | session |
-| job session | The tracker session on the job's issue, else the workflow's starting session. | `jobSessionOf` | home |
+| job session | The tracker session on the job's input issue. A job whose input artifact is not an issue does not have one. | `jobSessionOf` | home |
 | session feed | The author's tool calls and its closing reply, posted to its job session as tracker activities. Thoughts are not posted. Only the author streams, and the orchestrator posts none of it. | `streamToSessionFeed` | transcript, mirror, log |
 | session plan | The author's todo list as the plan of its job session. Set only when the workflow has no chat thread. | `publishSessionPlan` | board, checklist |
 | stop | A person's request in a job session to end the current prompt turn of the job's author. The orchestrator sends the author's harness session a cancel. The task, the job, and the workflow keep running, and its session feed ends with "Stopped." | `EventKind "stop"` | cancel, interrupt, pause |
