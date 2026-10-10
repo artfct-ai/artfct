@@ -12,6 +12,6 @@
     "lint": "oxlint"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20260929.1"
+    "@cloudflare/workers-types": "^5.20261007.1"
   }
 }
