@@ -13,6 +13,71 @@ function notice(update: SessionNotification["update"]): SessionNotification {
   return { sessionId: "s1", update };
 }
 
+const PROGRESS: Record<string, SessionNotification["update"]> = {
+  "a tool call": { sessionUpdate: "tool_call", toolCallId: "c1", title: "Run the tests" },
+  "a tool call update": {
+    sessionUpdate: "tool_call_update",
+    toolCallId: "c1",
+    status: "completed",
+  },
+  "a todo list": {
+    sessionUpdate: "plan",
+    entries: [{ content: "Run the tests", priority: "high", status: "in_progress" }],
+  },
+};
+
+const NOT_PROGRESS: Record<string, SessionNotification["update"]> = {
+  "agent text": {
+    sessionUpdate: "agent_message_chunk",
+    content: { type: "text", text: "I will report the result later." },
+  },
+  "thought text": {
+    sessionUpdate: "agent_thought_chunk",
+    content: { type: "text", text: "The tests still run." },
+  },
+  "a usage update": { sessionUpdate: "usage_update", used: 10, size: 100 },
+};
+
+function nudgedAuthorGets(update: SessionNotification["update"]) {
+  return scenario(freshRuntime, (workflow) => {
+    workflow.clock = Date.parse("2026-09-03T10:00:00Z");
+    const author = seedTask(
+      workflow,
+      {},
+      { nudged: 1, prompt_in_flight: 1, last_progress_at: "2026-09-03T09:00:00.000Z" },
+    );
+    return onSessionUpdate(workflow, author, notice(update));
+  });
+}
+
+describe("progress of a nudged author", () => {
+  for (const [kind, update] of Object.entries(PROGRESS)) {
+    describe(kind, () => {
+      it("clears the nudge and restarts the no-progress timer", () =>
+        nudgedAuthorGets(update)((workflow) => {
+          expect(workflow.store.requireSandbox(TASK)).toMatchObject({
+            nudged: 0,
+            last_progress_at: "2026-09-03T10:00:00.000Z",
+          });
+          expect(workflow.alarmsFor("onNoProgress")).toHaveLength(1);
+        }));
+    });
+  }
+
+  for (const [kind, update] of Object.entries(NOT_PROGRESS)) {
+    describe(kind, () => {
+      it("keeps the nudge and the no-progress timer", () =>
+        nudgedAuthorGets(update)((workflow) => {
+          expect(workflow.store.requireSandbox(TASK)).toMatchObject({
+            nudged: 1,
+            last_progress_at: "2026-09-03T09:00:00.000Z",
+          });
+          expect(workflow.alarmsFor("onNoProgress")).toEqual([]);
+        }));
+    });
+  }
+});
+
 describe("onSessionUpdate", () => {
   describe("a tool call", () => {
     const called = scenario(freshRuntime, (workflow) =>

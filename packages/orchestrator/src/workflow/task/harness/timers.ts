@@ -23,7 +23,10 @@ export type TaskAlarm = { task_id: string };
 /** An alarm that is about one sandbox generation, and is dropped when a newer one starts. */
 export type GenerationAlarm = { task_id: string; generation: number };
 
-/** A harness session update arrived. Restart the no-progress timer at most once per window. */
+/**
+ * The harness showed progress: a tool call or a todo list change. Restart the no-progress timer
+ * at most once per window, and clear the nudge.
+ */
 export async function touchProgress(workflow: WorkflowRuntime, sandbox: SandboxRow): Promise<void> {
   const at = workflow.now();
   const recent =
