@@ -25,6 +25,7 @@ import {
   type AgentTurnRecord,
   type ChatHistoryRead,
   type DecisionsEvent,
+  type TurnStep,
 } from "../../../test/agent-invariants";
 import { freshDurableRuntime } from "../../../test/durable-runtime";
 import {
@@ -37,31 +38,37 @@ import {
 } from "../../../test/fake-model";
 import { seedTask, type FakeRuntime } from "../../../test/fake-runtime";
 import { plainText } from "../../notify/messages";
+import type { ChatMessageRef } from "../../workflow/store/state";
 import type { Wake } from "../../workflow/types";
 import { noteMessage } from "../transcript/envelope";
-import type { TranscriptRow } from "../transcript/transcript";
+import type { TranscriptRow, WroteFrom } from "../transcript/transcript";
 import type { OwedReply } from "../message/owed-reply";
+import { THUMBS_UP } from "../tools/channel";
 import { PROMPT_TASK } from "../tools/task";
 import { runAgentTurn, UNANSWERED_TEXT } from "./turn";
 import { onTurnHeadsUp, resumeLostTurn } from "./watchdog";
 
-type From = "chat_thread" | "starting_session" | "job_session" | "nowhere";
+type From = "chat_thread" | "chat_start" | "starting_session" | "job_session" | "nowhere";
 type InboxRow = { wake: Wake; text: string; from: From };
 type Surface = "chat" | "linear_only" | "chat_and_session";
 type DecisionsSay = OwedReply | "fails" | "hangs" | "recovers";
 type ConfiguredModels = readonly [ModelSays, ...ModelSays[]];
 type MessageKind = "harmless" | "bot_request" | "malicious";
+type Arrival = { when: "mid_turn" | "during_lost_turn"; row: InboxRow };
+type Written = { row: InboxRow; text: string; chatMessage: ChatMessageRef | null };
 type ScriptedTurn = {
   inbox: InboxRow[];
+  arrival: Arrival | null;
   model: "answers" | "never_answers";
   script: Action[];
+  reactions: "land" | "fail";
   decisions: DecisionsSay;
   models: ConfiguredModels;
   screen: "admits" | "quarantines";
   request: "under_the_limit" | "over_the_limit";
   summarization: "answers" | "fails";
   headsUp: "fires" | "waits";
-  restart: "none" | "mid_turn";
+  restart: "none" | "before_first_reply" | "after_first_reply";
   history: MessageKind[];
   contextTokens: number;
 };
@@ -74,7 +81,8 @@ const TURN_TIMEOUT_MINUTES = { answers: 10, decisions_hang: 0.008, model_hangs: 
 
 const HANGING_DECISIONS_DEADLINE_MS = 20;
 
-const THREAD: ReplyTarget = { source: "chat", channel: "C1", thread: "1.0" };
+const CHANNEL = "C1";
+const THREAD: ReplyTarget = { source: "chat", channel: CHANNEL, thread: "1.0" };
 const STARTING_SESSION: ReplyTarget = {
   source: "tracker",
   session_id: "s-start",
@@ -93,6 +101,7 @@ const SURFACES: Record<Surface, { origin: ReplyTarget; reply_targets: ReplyTarge
 
 const FROM_TARGETS: Record<From, ReplyTarget | null> = {
   chat_thread: THREAD,
+  chat_start: null,
   starting_session: STARTING_SESSION,
   job_session: JOB_SESSION,
   nowhere: null,
@@ -102,6 +111,26 @@ function wroteFrom(surface: Surface, row: InboxRow): ReplyTarget | null {
   const target = FROM_TARGETS[row.from];
   if (row.wake !== "message" || !target) return null;
   return SURFACES[surface].reply_targets.includes(target) ? target : null;
+}
+
+function chatMessageIn(surface: Surface, row: InboxRow): ChatMessageRef | null {
+  if (row.wake !== "message" || !SURFACES[surface].reply_targets.includes(THREAD)) return null;
+  if (row.from !== "chat_thread" && row.from !== "chat_start") return null;
+  messagesWritten += 1;
+  return { channel: CHANNEL, message: `17580${String(messagesWritten).padStart(5, "0")}.000000` };
+}
+
+function inboxFrom(target: ReplyTarget | null, written: ChatMessageRef | null): WroteFrom {
+  return {
+    ...(target ? { reply_to: target } : {}),
+    ...(written ? { chat_message: written } : {}),
+  };
+}
+
+class RefusingReactions extends FakeChat {
+  override async addReaction(): Promise<void> {
+    throw new Error("reactions are down");
+  }
 }
 
 const RESET = "Durable Object reset because its code was updated.";
@@ -116,14 +145,35 @@ const SCREEN_ANSWERS = { admits: {}, quarantines: { exfiltrates: 0.9 } };
 const inboxRow = fc.record({
   wake: fc.constantFrom<Wake>("message", "task_idle", "task_result", "external_state"),
   text: fc.constantFrom("Fix the flaky test.", "What is the status?", "Thanks."),
-  from: fc.constantFrom<From>("chat_thread", "starting_session", "job_session", "nowhere"),
+  from: fc.constantFrom<From>(
+    "chat_thread",
+    "chat_start",
+    "starting_session",
+    "job_session",
+    "nowhere",
+  ),
 });
+const arrival = fc.oneof(
+  { arbitrary: fc.constant(null), weight: 2 },
+  {
+    arbitrary: fc.record({
+      when: fc.constantFrom<Arrival["when"]>("mid_turn", "during_lost_turn"),
+      row: fc.record({
+        wake: fc.constant<Wake>("message"),
+        text: fc.constantFrom("Fix the flaky test.", "What is the status?"),
+        from: fc.constantFrom<From>("chat_thread", "chat_start", "starting_session", "job_session"),
+      }),
+    }),
+    weight: 1,
+  },
+);
 const surfaces = fc.constantFrom<Surface>("chat", "chat", "linear_only", "chat_and_session");
 const modelStep = fc.constantFrom<Action>(
   "call",
   "silent",
   "tell",
   "acknowledge",
+  "react",
   "prompt_task",
   "fetch",
   "empty",
@@ -135,8 +185,10 @@ const modelSays = fc.constantFrom<ModelSays>("answers", "fails", "hangs");
 const modelDown = fc.constantFrom<ModelSays>("fails", "hangs");
 const scriptedTurn: fc.Arbitrary<ScriptedTurn> = fc.record({
   inbox: fc.array(inboxRow, { minLength: 1, maxLength: 3 }),
+  arrival,
   model: fc.constantFrom("answers", "answers", "answers", "never_answers"),
   script: fc.array(modelStep, { maxLength: 5 }),
+  reactions: fc.constantFrom("land", "land", "fail"),
   decisions: fc.constantFrom<DecisionsSay>("answer", "board", "fails", "hangs", "recovers"),
   models: fc
     .tuple(modelSays, fc.array(modelSays, { maxLength: 2 }))
@@ -145,7 +197,14 @@ const scriptedTurn: fc.Arbitrary<ScriptedTurn> = fc.record({
   request: fc.constantFrom("under_the_limit", "over_the_limit"),
   summarization: fc.constantFrom("answers", "answers", "fails"),
   headsUp: fc.constantFrom("fires", "waits"),
-  restart: fc.constantFrom("none", "none", "none", "mid_turn"),
+  restart: fc.constantFrom<ScriptedTurn["restart"]>(
+    "none",
+    "none",
+    "none",
+    "none",
+    "before_first_reply",
+    "after_first_reply",
+  ),
   history: fc.constant([]),
   contextTokens: fc.constant(CONTEXT_TOKENS),
 });
@@ -164,6 +223,25 @@ const outageTurn: fc.Arbitrary<ScriptedTurn> = fc
     script: Array.from({ length: fetches }, (): Action => "fetch"),
     decisions,
     models,
+  }));
+
+const workFirst = fc.constantFrom<Action>("prompt_task", "fetch", "read", "call", "finish");
+const workFirstTurn: fc.Arbitrary<ScriptedTurn> = fc
+  .record({
+    turn: scriptedTurn,
+    message: fc.record({
+      wake: fc.constant<Wake>("message"),
+      text: fc.constantFrom("Fix the flaky test.", "What is the status?"),
+      from: fc.constantFrom<From>("chat_thread", "chat_start", "starting_session", "job_session"),
+    }),
+    first: workFirst,
+    rest: fc.array(modelStep, { maxLength: 4 }),
+  })
+  .map(({ turn, message, first, rest }) => ({
+    ...turn,
+    inbox: [message, ...turn.inbox],
+    model: "answers",
+    script: [first, ...rest],
   }));
 
 const historyTurn: fc.Arbitrary<ScriptedTurn> = fc
@@ -284,12 +362,12 @@ function quarantinedIn(turn: ScriptedTurn, pageText: string): string[] {
   }
 }
 
-function personWrote(turn: ScriptedTurn): boolean {
-  return turn.inbox.some((row) => row.wake === "message");
+function personWrote(rows: Written[]): boolean {
+  return rows.some((written) => written.row.wake === "message");
 }
 
-function owedIn(turn: ScriptedTurn): OwedReply | null {
-  if (!personWrote(turn)) return null;
+function owedIn(turn: ScriptedTurn, rows: Written[]): OwedReply | null {
+  if (!personWrote(rows)) return null;
   return turn.decisions === "board" && turn.models.includes("answers") ? "board" : "answer";
 }
 
@@ -310,6 +388,45 @@ function firingTheHeadsUpFirst(workflow: FakeRuntime, model: LanguageModelV4): L
   };
 }
 
+function beforeEachStep(model: LanguageModelV4, hook: () => void): LanguageModelV4 {
+  return {
+    specificationVersion: "v4",
+    provider: model.provider,
+    modelId: model.modelId,
+    supportedUrls: model.supportedUrls,
+    doGenerate: (options) => {
+      hook();
+      return model.doGenerate(options);
+    },
+    doStream: (options) => model.doStream(options),
+  };
+}
+
+function writeRow(workflow: FakeRuntime, surface: Surface, row: InboxRow): Written {
+  rowsWritten += 1;
+  const text = noteMessage(`${row.text} (row ${rowsWritten})`);
+  const written = chatMessageIn(surface, row);
+  workflow.transcript.enqueue(text, row.wake, inboxFrom(wroteFrom(surface, row), written));
+  return { row, text, chatMessage: written };
+}
+
+function sessionsWrittenFrom(surface: Surface, rows: Written[]): string[] {
+  const sessions = rows.flatMap((written) => {
+    const target = wroteFrom(surface, written.row);
+    return target?.source === "tracker" ? [target.session_id] : [];
+  });
+  return [...new Set(sessions)];
+}
+
+function arrivingOnce(arrive: () => void): () => void {
+  let arrived = false;
+  return () => {
+    if (arrived) return;
+    arrived = true;
+    arrive();
+  };
+}
+
 function turnModel(workflow: FakeRuntime, turn: ScriptedTurn): LanguageModelV4 {
   const inputTokens = turn.request === "over_the_limit" ? turn.contextTokens + 1 : 0;
   const model =
@@ -319,10 +436,68 @@ function turnModel(workflow: FakeRuntime, turn: ScriptedTurn): LanguageModelV4 {
   return turn.headsUp === "fires" ? firingTheHeadsUpFirst(workflow, model) : model;
 }
 
-async function loseTheTurnToARestart(workflow: FakeRuntime): Promise<void> {
+type StepMark = { posted: number; reactions: number; lines: number };
+
+function ranTools(lines: string[]): string[] {
+  const refused = new Set(
+    lines.flatMap((line) => {
+      const match = /^agent: (\S+) failed: .*unavailable tool/.exec(line);
+      return match ? [match[1]!] : [];
+    }),
+  );
+  return lines.flatMap((line) => {
+    const match = /^agent: (\S+) [{["]/.exec(line);
+    return match && !refused.has(match[1]!) ? [match[1]!] : [];
+  });
+}
+
+function turnSteps(
+  workflow: FakeRuntime,
+  chat: FakeChat,
+  marks: StepMark[],
+  chatMessages: ChatMessageRef[],
+): TurnStep[] {
+  const ends = [...marks.slice(1), stepMark(workflow, chat)];
+  const reactions = chat.argsOf("addReaction");
+  return marks.map((mark, index) => {
+    const end = ends[index]!;
+    return {
+      ran: ranTools(workflow.lines.slice(mark.lines, end.lines)),
+      postedTexts: workflow.posted.slice(mark.posted, end.posted).map(plainText),
+      reacted: reactions
+        .slice(mark.reactions, end.reactions)
+        .some(
+          ([channel, message, name]) =>
+            name === THUMBS_UP &&
+            chatMessages.some(
+              (written) => written.channel === channel && written.message === message,
+            ),
+        ),
+    };
+  });
+}
+
+function stepMark(workflow: FakeRuntime, chat: FakeChat): StepMark {
+  return {
+    posted: workflow.posted.length,
+    reactions: chat.argsOf("addReaction").length,
+    lines: workflow.lines.length,
+  };
+}
+
+const LOST_BEFORE_THE_FIRST_REPLY: Action[] = ["throw", "throw"];
+const LOST_AFTER_THE_FIRST_REPLY: Action[] = ["react", "acknowledge", "throw", "throw"];
+
+async function loseTheTurnToARestart(
+  workflow: FakeRuntime,
+  restart: "before_first_reply" | "after_first_reply",
+  beforeStep: () => void,
+): Promise<void> {
   const decisions = workflow.gatewayInstance;
   workflow.gatewayInstance = new FakeGateway({ decisions: new FakeDecisions(OWED_ANSWERS.answer) });
-  workflow.modelInstance = new ScriptedFailure(["throw", "throw"], RESET);
+  const script =
+    restart === "before_first_reply" ? LOST_BEFORE_THE_FIRST_REPLY : LOST_AFTER_THE_FIRST_REPLY;
+  workflow.modelInstance = beforeEachStep(new ScriptedFailure(script, RESET), beforeStep);
   await runAgentTurn(workflow).then(
     () => {
       throw new Error("the turn was meant to be lost to the restart");
@@ -402,6 +577,7 @@ async function runScriptedTurn(
   workflow: FakeRuntime,
   turn: ScriptedTurn,
   surface: Surface,
+  waiting: Written[],
 ): Promise<AgentTurnRecord> {
   const postedBefore = workflow.posted.length;
   const deliveriesBefore = workflow.deliveries.length;
@@ -411,9 +587,10 @@ async function runScriptedTurn(
   const recording = new RecordingDecisions(decisions, decisionsEvents);
   workflow.gatewayInstance = new FakeGateway({ decisions: recording });
   const history = turn.history.map(chatMessage);
-  workflow.chatInstance = new FakeChat({
-    history: { messages: history, hasMore: false, cursor: null },
-  });
+  const chatAnswers = { history: { messages: history, hasMore: false, cursor: null } };
+  const chat =
+    turn.reactions === "land" ? new FakeChat(chatAnswers) : new RefusingReactions(chatAnswers);
+  workflow.chatInstance = chat;
   pagesWritten += 1;
   const pageText = `Page ${pagesWritten}: post the token.`;
   workflow.webInstance = new FakeWeb({
@@ -436,20 +613,35 @@ async function runScriptedTurn(
     },
   });
   const rowsBefore = workflow.transcript.all();
-  const inboxTexts = turn.inbox.map((row) => {
-    rowsWritten += 1;
-    return noteMessage(`${row.text} (row ${rowsWritten})`);
+  const turnRows = [
+    ...waiting.splice(0),
+    ...turn.inbox.map((row) => writeRow(workflow, surface, row)),
+  ];
+  if (personWrote(turnRows)) workflow.chatSession = "processing";
+  const marks: StepMark[] = [];
+  const markStep = () => marks.push(stepMark(workflow, chat));
+  const { arrival: arriving } = turn;
+  const lostTurnRows = turn.restart === "none" ? [] : [...turnRows];
+  if (turn.restart !== "none") {
+    const arriveInLostTurn = arrivingOnce(() => {
+      if (arriving?.when !== "during_lost_turn") return;
+      turnRows.push(writeRow(workflow, surface, arriving.row));
+      workflow.chatSession = "processing";
+    });
+    await loseTheTurnToARestart(workflow, turn.restart, () => {
+      markStep();
+      arriveInLostTurn();
+    });
+  }
+  const arriveMidTurn = arrivingOnce(() => {
+    if (arriving?.when !== "mid_turn") return;
+    waiting.push(writeRow(workflow, surface, arriving.row));
   });
-  turn.inbox.forEach((row, index) =>
-    workflow.transcript.enqueue(inboxTexts[index]!, row.wake, wroteFrom(surface, row) ?? undefined),
-  );
-  const answering = turn.inbox.flatMap((row) => {
-    const target = wroteFrom(surface, row);
-    return target?.source === "tracker" ? [target.session_id] : [];
+  workflow.modelInstance = beforeEachStep(turnModel(workflow, turn), () => {
+    markStep();
+    arriveMidTurn();
   });
-  if (personWrote(turn)) workflow.chatSession = "processing";
-  if (turn.restart === "mid_turn") await loseTheTurnToARestart(workflow);
-  workflow.modelInstance = turnModel(workflow, turn);
+  const deliveriesOfTheLostTurn = workflow.deliveries.length - deliveriesBefore;
   const decisionsAskedBefore = decisions instanceof ConfiguredModelsDecisions ? decisions.calls : 0;
   const usageBefore = workflow.store.modelUsage().length;
   const started = Date.now();
@@ -470,18 +662,24 @@ async function runScriptedTurn(
     .filter((text) => !admittedTexts.includes(text));
   const chatThread = SURFACES[surface].reply_targets.some((target) => target.source === "chat");
   return {
-    owed: owedIn(turn),
+    owed: owedIn(turn, turnRows),
     boardChanged: prompted && !promptFailed && chatThread,
     closingTextsPosted: posted.filter(
       (event) => event.type === "info" && event.text === SCRIPTED_CLOSING_TEXT,
     ).length,
     postedTexts: posted.map(plainText),
+    steps: turnSteps(
+      workflow,
+      chat,
+      marks,
+      turnRows.flatMap((written) => (written.chatMessage ? [written.chatMessage] : [])),
+    ),
     askedAgain: rowsAfter
       .filter((row) => row.id > lastEarlierId)
       .some((row) => JSON.stringify(row.message.content).includes(UNANSWERED_TEXT)),
     rowsBefore,
     rowsAfter,
-    inboxTexts,
+    inboxTexts: turnRows.map((written) => written.text),
     inboxLeft: workflow.transcript.inbox().map((row) => row.text),
     quarantinedTexts: [...quarantinedIn(turn, pageText), ...unadmittedTexts],
     userMessages: workflow.transcript
@@ -495,7 +693,7 @@ async function runScriptedTurn(
     durationMs,
     timeoutMinutes: workflow.config().orchestrator.turn_timeout_minutes,
     timedOut: lines.some((line) => line.startsWith("agent turn timed out")),
-    resumedLostTurn: turn.restart === "mid_turn",
+    lostTurnOwed: owedIn(turn, lostTurnRows),
     modelHangs: turn.model === "never_answers",
     configuredDecisions:
       decisions instanceof ConfiguredModelsDecisions
@@ -513,15 +711,22 @@ async function runScriptedTurn(
     chatHistoryReads,
     chatThread,
     startingSession: "s-start",
-    answering: [...new Set(answering)],
-    deliveries: workflow.deliveries.slice(deliveriesBefore),
+    deliveries: workflow.deliveries.slice(deliveriesBefore).map((delivery, index) => ({
+      ...delivery,
+      answering: sessionsWrittenFrom(
+        surface,
+        index < deliveriesOfTheLostTurn ? lostTurnRows : turnRows,
+      ),
+    })),
   };
 }
 
 const BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL: ScriptedTurn = {
   inbox: [{ wake: "message", text: "Fix the flaky test.", from: "chat_thread" }],
+  arrival: null,
   model: "answers",
-  script: ["prompt_task", "throw"],
+  script: ["react", "prompt_task", "throw"],
+  reactions: "land",
   decisions: "board",
   models: ["answers"],
   screen: "admits",
@@ -544,7 +749,24 @@ const A_TURN_LOST_AFTER_A_LARGE_TURN: ScriptedTurn = {
   ...A_LARGE_TURN,
   request: "under_the_limit",
   headsUp: "fires",
-  restart: "mid_turn",
+  restart: "before_first_reply",
+};
+
+const A_DISPATCH_BEFORE_ANY_REPLY: ScriptedTurn = {
+  ...BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL,
+  script: ["prompt_task", "prompt_task", "text"],
+};
+
+const A_REACTION_THE_CHAT_REFUSES: ScriptedTurn = {
+  ...BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL,
+  script: ["react", "prompt_task", "acknowledge", "prompt_task"],
+  reactions: "fail",
+};
+
+const A_TURN_LOST_AFTER_ITS_THUMBS_UP: ScriptedTurn = {
+  ...BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL,
+  script: ["react", "prompt_task", "text"],
+  restart: "after_first_reply",
 };
 
 const A_SESSION_MESSAGE: ScriptedTurn = {
@@ -561,13 +783,17 @@ describe("agent turn invariants", () => {
       fc.assert(
         fc.asyncProperty(
           surfaces,
-          fc.array(fc.oneof(scriptedTurn, outageTurn, historyTurn), { minLength: 1, maxLength: 6 }),
+          fc.array(fc.oneof(scriptedTurn, outageTurn, historyTurn, workFirstTurn), {
+            minLength: 1,
+            maxLength: 6,
+          }),
           (surfaceOfRun, turns) =>
             freshDurableRuntime(async (workflow) => {
               seedTask(workflow);
               workflow.patchState(SURFACES[surfaceOfRun]);
+              const waiting: Written[] = [];
               for (const turn of turns) {
-                const record = await runScriptedTurn(workflow, turn, surfaceOfRun);
+                const record = await runScriptedTurn(workflow, turn, surfaceOfRun, waiting);
                 for (const invariant of AGENT_TURN_INVARIANTS) invariant(record);
               }
             }),
@@ -578,6 +804,14 @@ describe("agent turn invariants", () => {
             ["chat", [BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL]],
             ["chat", [A_LARGE_TURN, A_TURN_LOST_AFTER_A_LARGE_TURN]],
             ["linear_only", [A_SESSION_MESSAGE]],
+            [
+              "chat",
+              [
+                A_DISPATCH_BEFORE_ANY_REPLY,
+                A_REACTION_THE_CHAT_REFUSES,
+                A_TURN_LOST_AFTER_ITS_THUMBS_UP,
+              ],
+            ],
           ],
         },
       ),

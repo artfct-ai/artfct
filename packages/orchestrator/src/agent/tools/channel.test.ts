@@ -1,4 +1,7 @@
 import { describe, expect, it } from "bun:test";
+import { FakeChat } from "@artfct-ai/adapters/test/fake-chat";
+import type { z } from "zod";
+import type { ChatMessageRef } from "../../workflow/store/state";
 import { acceptingD1 } from "../../../test/accepting-d1";
 import { freshRuntime } from "../../../test/fresh-runtime";
 import { FakeRuntime, seedTask } from "../../../test/fake-runtime";
@@ -6,9 +9,23 @@ import { openMemoryDb } from "../../../test/memory-db";
 import { scenario, type Scenario } from "../../../test/scenario";
 import { testEnv } from "../../../test/test-env";
 import { toolText } from "../../../test/tool-result";
-import { channelTools } from "./channel";
+import { channelTools, THUMBS_UP } from "./channel";
 
 const call = { toolCallId: "call-1", messages: [], context: {} };
+
+const MESSAGE: ChatMessageRef = { channel: "C1", message: "1757000001.000100" };
+const LATER_MESSAGE: ChatMessageRef = { channel: "C1", message: "1757000002.000200" };
+
+function takeChatMessages(workflow: FakeRuntime, written: ChatMessageRef[]): void {
+  for (const chatMessage of written) {
+    workflow.transcript.enqueue("fix it", "message", { chat_message: chatMessage });
+  }
+  workflow.transcript.takeInbox();
+}
+
+function firstReplySchema(workflow: FakeRuntime): z.ZodType {
+  return channelTools(workflow).acknowledge.inputSchema as z.ZodType;
+}
 
 const routedRuntime: Scenario<FakeRuntime> = async (run) => {
   await run(new FakeRuntime(openMemoryDb(), { ...testEnv(), DB: acceptingD1() }));
@@ -16,35 +33,43 @@ const routedRuntime: Scenario<FakeRuntime> = async (run) => {
 
 describe("channel tools", () => {
   describe("acknowledge", () => {
-    let result: string;
-    const acknowledged = scenario(freshRuntime, async (workflow) => {
-      result = toolText(
-        await channelTools(workflow).acknowledge.execute({ text: "Working on it." }, call),
-      );
+    describe("with a line", () => {
+      let result: string;
+      const acknowledged = scenario(freshRuntime, async (workflow) => {
+        result = toolText(
+          await channelTools(workflow).acknowledge.execute(
+            { reply: { kind: "text", text: "Working on it." } },
+            call,
+          ),
+        );
+      });
+
+      it("answers that the line went out", () =>
+        acknowledged(() => {
+          expect(result).toBe("Acknowledged.");
+        }));
+
+      it("sends an info event to the channels", () =>
+        acknowledged((workflow) => {
+          expect(workflow.posted).toEqual([{ type: "info", text: "Working on it." }]);
+        }));
+
+      it("keeps the workflow running", () =>
+        acknowledged((workflow) => {
+          expect(workflow.state.status).toBe("running");
+        }));
     });
-
-    it("answers that the line went out", () =>
-      acknowledged(() => {
-        expect(result).toBe("Acknowledged.");
-      }));
-
-    it("sends an info event to the channels", () =>
-      acknowledged((workflow) => {
-        expect(workflow.posted).toEqual([{ type: "info", text: "Working on it." }]);
-      }));
-
-    it("keeps the workflow running", () =>
-      acknowledged((workflow) => {
-        expect(workflow.state.status).toBe("running");
-      }));
 
     describe("called twice in one turn", () => {
       let refusal = "";
       const twice = scenario(freshRuntime, async (workflow) => {
         const tools = channelTools(workflow);
-        await tools.acknowledge.execute({ text: "Got it." }, call);
+        await tools.acknowledge.execute({ reply: { kind: "text", text: "Got it." } }, call);
         try {
-          await tools.acknowledge.execute({ text: "Still working." }, call);
+          await tools.acknowledge.execute(
+            { reply: { kind: "text", text: "Still working." } },
+            call,
+          );
         } catch (error) {
           refusal = error instanceof Error ? error.message : String(error);
         }
@@ -58,6 +83,95 @@ describe("channel tools", () => {
       it("posts only the first", () =>
         twice((workflow) => {
           expect(workflow.posted).toEqual([{ type: "info", text: "Got it." }]);
+        }));
+    });
+
+    describe("with a reaction on the chat messages people wrote", () => {
+      let chat: FakeChat;
+      let result: string;
+      const reacted = scenario(freshRuntime, async (workflow) => {
+        chat = new FakeChat();
+        workflow.chatInstance = chat;
+        takeChatMessages(workflow, [MESSAGE, LATER_MESSAGE]);
+        const tools = channelTools(workflow);
+        result = toolText(await tools.acknowledge.execute({ reply: { kind: "reaction" } }, call));
+      });
+
+      it("answers that the reaction went out", () =>
+        reacted(() => {
+          expect(result).toBe("Reacted with a thumbs-up.");
+        }));
+
+      it("puts the thumbs-up on every message", () =>
+        reacted(() => {
+          expect(chat.argsOf("addReaction")).toEqual([
+            ["C1", "1757000001.000100", THUMBS_UP],
+            ["C1", "1757000002.000200", THUMBS_UP],
+          ]);
+        }));
+
+      it("posts nothing", () =>
+        reacted((workflow) => {
+          expect(workflow.posted).toEqual([]);
+        }));
+
+      it("leaves the turn no message to react to again", () =>
+        reacted((workflow) => {
+          expect(workflow.transcript.awaitingThumbsUp()).toEqual([]);
+          expect(
+            firstReplySchema(workflow).safeParse({ reply: { kind: "reaction" } }).success,
+          ).toBe(false);
+        }));
+    });
+
+    describe("with a reaction the chat refuses", () => {
+      let refusal = "";
+      let line = "";
+      const refused = scenario(freshRuntime, async (workflow) => {
+        workflow.chatInstance = new FakeChat({ failing: true });
+        takeChatMessages(workflow, [MESSAGE]);
+        const tools = channelTools(workflow);
+        try {
+          await tools.acknowledge.execute({ reply: { kind: "reaction" } }, call);
+        } catch (error) {
+          refusal = error instanceof Error ? error.message : String(error);
+        }
+        line = toolText(
+          await tools.acknowledge.execute({ reply: { kind: "text", text: "On it." } }, call),
+        );
+      });
+
+      it("fails the call", () =>
+        refused(() => {
+          expect(refusal).not.toBe("");
+        }));
+
+      it("keeps the message for a later reaction", () =>
+        refused((workflow) => {
+          expect(workflow.transcript.awaitingThumbsUp().map((row) => row.chat_message)).toEqual([
+            MESSAGE,
+          ]);
+        }));
+
+      it("still takes a line", () =>
+        refused((workflow) => {
+          expect(line).toBe("Acknowledged.");
+          expect(workflow.posted).toEqual([{ type: "info", text: "On it." }]);
+        }));
+    });
+
+    describe("in a turn without a chat message", () => {
+      it("does not offer the reaction", () =>
+        freshRuntime(async (workflow) => {
+          expect(
+            firstReplySchema(workflow).safeParse({ reply: { kind: "reaction" } }).success,
+          ).toBe(false);
+        }));
+
+      it("offers the line", () =>
+        freshRuntime(async (workflow) => {
+          const line = { reply: { kind: "text", text: "On it." } };
+          expect(firstReplySchema(workflow).safeParse(line).success).toBe(true);
         }));
     });
   });

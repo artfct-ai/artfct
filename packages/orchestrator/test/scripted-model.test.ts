@@ -79,7 +79,7 @@ describe("ScriptedModel contract", () => {
     it("sends one line back", () => {
       expect(scriptedDecision(userPrompt(REQUEST))).toEqual({
         tool: "acknowledge",
-        input: { text: ACK_TEXT },
+        input: { reply: { kind: "text", text: ACK_TEXT } },
       });
     });
   });

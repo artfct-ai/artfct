@@ -11,7 +11,7 @@ import { runPrompt } from "../model/run-prompt";
 import { stepStatus } from "./step-status";
 import { isSupersededIsolate } from "./superseded";
 import { activeToolNames, systemPrompt, type TurnFacts } from "../prompt/system-prompt";
-import { ASK, STAY_SILENT, TELL } from "../tools/channel";
+import { ASK, FIRST_REPLY_TOOLS, STAY_SILENT, TELL } from "../tools/channel";
 import { FAIL_WORKFLOW, FINISH_WORKFLOW } from "../tools/plan";
 import { START_JOB } from "../tools/start/start";
 import { PROMPT_TASK } from "../tools/task";
@@ -61,8 +61,11 @@ type TurnInput = {
 /** What the decisions model read in the message of the person who waits on the turn. Null when nobody wrote. */
 type Reply = PersonMessage | null;
 
-/** What the turn did so far that a retry or a second pass must not forget. */
-type TurnProgress = { boardChanged: boolean };
+/**
+ * What the turn did so far that a retry or a second pass must not forget. `firstReplied` turns
+ * true once a first reply tool worked. Closing text that answers ends the model pass instead.
+ */
+type TurnProgress = { boardChanged: boolean; firstReplied: boolean };
 
 /** What every model run of one turn shares. */
 type GenerateInput = { tools: ToolSet; signal: AbortSignal; reply: Reply; progress: TurnProgress };
@@ -84,26 +87,19 @@ type ModelPassInput = {
 type ModelPass = { text: string; steps: number; endedByTool: boolean };
 
 /**
- * One turn of the orchestrator agent: move the inbox into the transcript, let the model call
+ * One turn of the orchestrator agent: take the inbox into the transcript, let the model call
  * tools until it stops, persist what it said, and post its final text. An empty inbox does
  * nothing. A superseded isolate throws out of here for the new instance to resume.
  */
 export async function runAgentTurn(workflow: WorkflowRuntime): Promise<void> {
-  const inbox = workflow.transcript.inbox();
-  if (inbox.length === 0) return;
-  const messages = [
-    ...(workflow.state.turn_messages ?? []),
-    ...inbox.filter((row) => row.wake === "message").map((row) => eventBody(row.text)),
-  ];
-  const answering = [
-    ...(workflow.state.turn_answering ?? []),
-    ...inbox.flatMap((row) => (row.wake === "message" && row.reply_to ? [row.reply_to] : [])),
-  ];
-  const prompts = messages.length ? messages : inbox.map((row) => row.text);
+  const takenRow = workflow.transcript.takeInbox();
+  if (takenRow === null) return;
+  const taken = workflow.transcript.taken();
+  const messages = workflow.transcript.takenMessages().map((row) => eventBody(row.text));
+  const prompts = messages.length ? messages : taken.map((row) => row.text);
   workflow.log(null, `agent turn started${messages.length ? " on a person's message" : ""}`);
-  const startedAt = await armTurnWatchdog(workflow, { messages, answering });
-  const drainedRow = workflow.transcript.drainInbox();
-  const firstRow = workflow.state.turn_first_row ?? drainedRow;
+  const startedAt = await armTurnWatchdog(workflow);
+  const firstRow = workflow.state.turn_first_row ?? takenRow;
   workflow.patchState({ turn_first_row: firstRow });
   const outcome = await boundedAttempt(workflow, {
     rows: workflow.transcript.all(),
@@ -163,7 +159,7 @@ async function attempt(
     loadTools(workflow, turn, { runtimeRequest, decisions }),
   ]);
   await compactIfLarge(workflow, turn, signal);
-  const run = { tools, signal, reply, progress: { boardChanged: false } };
+  const run = { tools, signal, reply, progress: { boardChanged: false, firstReplied: false } };
   try {
     return await generate(workflow, run);
   } catch (firstError) {
@@ -233,7 +229,7 @@ async function generate(
     workflow.log(null, `closing text not posted, ${withheld}: ${pass.text.slice(0, 200)}`);
     return "silent";
   }
-  await workflow.post({ type: "info", text: pass.text }, turnRecipients(workflow.state));
+  await workflow.post({ type: "info", text: pass.text }, turnRecipients(workflow.transcript));
   return "replied";
 }
 
@@ -253,7 +249,8 @@ function replied(pass: ModelPass, progress: TurnProgress): boolean {
 
 /**
  * One run of the model over the transcript as it stands now. Every step lands in the
- * transcript and on the channels as a status line numbered from `stepsBefore`.
+ * transcript and on the channels as a status line numbered from `stepsBefore`. In a turn where a
+ * person wrote, a step offers only the first reply tools until one of them worked.
  */
 async function modelPass(
   workflow: WorkflowRuntime,
@@ -262,13 +259,15 @@ async function modelPass(
   const config = workflow.config().orchestrator;
   const activeTools = activeToolNames(workflow, tools, turn);
   const endingTools = TURN_ENDING_TOOLS.filter((name) => activeTools.includes(name));
+  const firstReplyTools = activeTools.filter((name) => FIRST_REPLY_TOOLS.includes(name));
+  const awaitingFirstReply = () => turn.personWrote && !progress.firstReplied;
   const pass: ModelPass = { text: "", steps: stepsBefore, endedByTool: false };
   pass.text = await generateSteps({
     model,
     system: systemPrompt(workflow, turn),
     messages: workflow.transcript.all().map((row) => row.message),
     tools,
-    activeTools,
+    activeTools: () => (awaitingFirstReply() ? firstReplyTools : activeTools),
     maxSteps: config.max_steps,
     identity: orchestratorIdentity(workflow.state.workflow_id),
     abortSignal: signal,
@@ -278,9 +277,12 @@ async function modelPass(
       const failed = new Set(step.toolErrors.map((error) => error.toolName));
       for (const call of step.toolCalls) {
         workflow.log(null, `agent: ${call.toolName} ${JSON.stringify(call.input).slice(0, 300)}`);
+        if (failed.has(call.toolName)) continue;
         if (endingTools.includes(call.toolName)) pass.endedByTool = true;
-        const repliedByTool = REPLYING_TOOLS.includes(call.toolName) && !failed.has(call.toolName);
-        if (repliedByTool && hasChatThread(workflow.state)) progress.boardChanged = true;
+        if (REPLYING_TOOLS.includes(call.toolName) && hasChatThread(workflow.state)) {
+          progress.boardChanged = true;
+        }
+        if (FIRST_REPLY_TOOLS.includes(call.toolName)) progress.firstReplied = true;
       }
       for (const error of step.toolErrors) {
         workflow.log(null, `agent: ${error.toolName} failed: ${error.error}`);

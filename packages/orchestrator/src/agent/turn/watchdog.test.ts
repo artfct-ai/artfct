@@ -21,6 +21,11 @@ const ISSUE: ReplyTarget = { source: "tracker", session_id: "s1", issue_id: "i1"
 const MESSAGES = ["What is the status?"];
 const FIRST_ROW = 7;
 
+function takeMessage(workflow: FakeRuntime): void {
+  workflow.transcript.enqueue(MESSAGES[0]!, "message", { reply_to: THREAD });
+  workflow.transcript.takeInbox();
+}
+
 async function workingThread(workflow: FakeRuntime): Promise<void> {
   workflow.patchState({ reply_targets: [THREAD, ISSUE] });
   await workflow.working("reading the board");
@@ -29,14 +34,12 @@ async function workingThread(workflow: FakeRuntime): Promise<void> {
 describe("turn watchdog", () => {
   describe("a turn with the watchdog armed", () => {
     const armed = scenario(freshRuntime, async (workflow) => {
-      await armTurnWatchdog(workflow, { messages: [], answering: [] });
+      await armTurnWatchdog(workflow);
     });
 
     it("returns the start time it wrote to the state", () =>
       freshRuntime(async (workflow) => {
-        expect(await armTurnWatchdog(workflow, { messages: [], answering: [] })).toBe(
-          workflow.state.turn_started_at!,
-        );
+        expect(await armTurnWatchdog(workflow)).toBe(workflow.state.turn_started_at!);
       }));
 
     it("arms one alarm at the configured timeout", () =>
@@ -152,7 +155,7 @@ describe("turn watchdog", () => {
   describe("an alarm for a turn that already ended", () => {
     let first = "";
     const staleAlarm = scenario(freshRuntime, async (workflow) => {
-      first = await armTurnWatchdog(workflow, { messages: [], answering: [] });
+      first = await armTurnWatchdog(workflow);
       await disarmTurnWatchdog(workflow, first);
       await onTurnTimeout(workflow, { started_at: first });
     });
@@ -166,7 +169,7 @@ describe("turn watchdog", () => {
       let second = "";
       const laterTurn = scenario(staleAlarm, async (workflow) => {
         workflow.clock = workflow.now() + 1000;
-        second = await armTurnWatchdog(workflow, { messages: [], answering: [] });
+        second = await armTurnWatchdog(workflow);
         await onTurnTimeout(workflow, { started_at: first });
       });
 
@@ -187,7 +190,8 @@ describe("turn heads-up", () => {
   describe("a turn on a person's message", () => {
     const armed = scenario(freshRuntime, async (workflow) => {
       await workingThread(workflow);
-      await armTurnWatchdog(workflow, { messages: MESSAGES, answering: [] });
+      takeMessage(workflow);
+      await armTurnWatchdog(workflow);
     });
 
     it("arms the heads-up a minute in, with the turn's start time", () =>
@@ -198,9 +202,9 @@ describe("turn heads-up", () => {
         expect(workflow.state.turn_heads_up).toBe(alarm!.id);
       }));
 
-    it("keeps what the person wrote with the turn", () =>
+    it("keeps what the person wrote in the rows the turn took", () =>
       armed((workflow) => {
-        expect(workflow.state.turn_messages).toEqual(MESSAGES);
+        expect(workflow.transcript.taken().map((row) => row.text)).toEqual(MESSAGES);
       }));
 
     describe("when the heads-up fires while the turn runs", () => {
@@ -242,9 +246,9 @@ describe("turn heads-up", () => {
           expect(workflow.state.turn_heads_up).toBeNull();
         }));
 
-      it("forgets what the person wrote and where the turn's rows begin", () =>
+      it("deletes the rows the turn took and forgets where its transcript rows begin", () =>
         ended((workflow) => {
-          expect(workflow.state.turn_messages).toEqual([]);
+          expect(workflow.transcript.taken()).toEqual([]);
           expect(workflow.state.turn_first_row).toBeNull();
         }));
 
@@ -260,7 +264,8 @@ describe("turn heads-up", () => {
         first = workflow.state.turn_started_at!;
         await disarmTurnWatchdog(workflow, first);
         workflow.clock = workflow.now() + 1000;
-        await armTurnWatchdog(workflow, { messages: MESSAGES, answering: [] });
+        takeMessage(workflow);
+        await armTurnWatchdog(workflow);
         await onTurnHeadsUp(workflow, { started_at: first });
       });
 
@@ -281,12 +286,17 @@ describe("turn heads-up", () => {
         timedOut((workflow) => {
           expect(workflow.cancelled).toEqual([headsUpAlarm]);
         }));
+
+      it("deletes the rows the turn took", () =>
+        timedOut((workflow) => {
+          expect(workflow.transcript.taken()).toEqual([]);
+        }));
     });
   });
 
   describe("a turn nobody wrote to", () => {
     const unprompted = scenario(freshRuntime, async (workflow) => {
-      await armTurnWatchdog(workflow, { messages: [], answering: [] });
+      await armTurnWatchdog(workflow);
     });
 
     it("arms no heads-up", () =>
@@ -302,7 +312,8 @@ describe("resumeLostTurn", () => {
     let alarms: string[] = [];
     const lostTurn = scenario(freshRuntime, async (workflow) => {
       await workingThread(workflow);
-      await armTurnWatchdog(workflow, { messages: MESSAGES, answering: [] });
+      takeMessage(workflow);
+      await armTurnWatchdog(workflow);
       workflow.patchState({ turn_first_row: FIRST_ROW });
       alarms = workflow.alarms.map((alarm) => alarm.id);
       await resumeLostTurn(workflow);
@@ -320,7 +331,7 @@ describe("resumeLostTurn", () => {
 
     it("leaves what the person wrote and the lost turn's rows for the resumed turn", () =>
       lostTurn((workflow) => {
-        expect(workflow.state.turn_messages).toEqual(MESSAGES);
+        expect(workflow.transcript.taken().map((row) => row.text)).toEqual(MESSAGES);
         expect(workflow.state.turn_first_row).toBe(FIRST_ROW);
       }));
 
@@ -336,7 +347,7 @@ describe("resumeLostTurn", () => {
     let startedAt = "";
     let resumed: boolean | undefined;
     const lostTurn = scenario(freshRuntime, async (workflow) => {
-      startedAt = await armTurnWatchdog(workflow, { messages: [], answering: [] });
+      startedAt = await armTurnWatchdog(workflow);
       armedAlarm = workflow.alarmsFor("onTurnTimeout")[0]!.id;
       resumed = await resumeLostTurn(workflow);
     });
@@ -410,7 +421,8 @@ describe("resumeLostTurn", () => {
     let resumed: boolean | undefined;
     const finished = scenario(freshRuntime, async (workflow) => {
       await workingThread(workflow);
-      await armTurnWatchdog(workflow, { messages: MESSAGES, answering: [] });
+      takeMessage(workflow);
+      await armTurnWatchdog(workflow);
       workflow.patchState({ status: "done", turn_first_row: FIRST_ROW });
       resumed = await resumeLostTurn(workflow);
     });
@@ -421,9 +433,9 @@ describe("resumeLostTurn", () => {
         expect(workflow.posted).toEqual([]);
       }));
 
-    it("forgets what the person wrote and where the turn's rows begin", () =>
+    it("deletes the rows the turn took and forgets where its transcript rows begin", () =>
       finished((workflow) => {
-        expect(workflow.state.turn_messages).toEqual([]);
+        expect(workflow.transcript.taken()).toEqual([]);
         expect(workflow.state.turn_first_row).toBeNull();
       }));
 

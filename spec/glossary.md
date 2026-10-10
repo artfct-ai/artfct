@@ -104,6 +104,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | withheld tool | A tool in the tool set that is not active in this model pass. | | |
 | unprompted turn | An agent turn where nobody wrote since the last turn. The agent speaks through a tool or not at all. | `TurnFacts.personWrote` false | |
 | owed reply | What the message of a person is owed at the end of the turn: an answer in words, or the board alone. | `OwedReply` | reply need |
+| first reply | The orchestrator's first response to a person's message in a turn, before any other work: a thumbs-up reaction on the message when the request is clear and the only words would be 'on it', one line that says what it is about to do, or the answer. | `FIRST_REPLY_TOOLS`, `acknowledge` | |
 | requests work | Whether the message of a person requests work. The decisions model says. A message that does not request work leaves the plan, runtime, and context rule blocks out of the system prompt. | `TurnFacts.requestsWork` | intent, classification, asks work |
 | requested runtime | The harness and model a person's message names for the work, resolved to a model the harness runs. It replaces the stage's pair for the author of the job it starts. | `RequestedRuntime` | |
 | closing text | The text the model ends a turn with. It is posted only as the answer to a person who wrote. | `ModelPass.text` | |

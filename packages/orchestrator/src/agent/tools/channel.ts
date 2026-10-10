@@ -10,8 +10,25 @@ export const STAY_SILENT = "stay_silent";
 export const ASK = "ask";
 /** The tool that tells the humans something when nobody wrote. The turn loop stops on it. */
 export const TELL = "tell";
-/** The tool that sends the one line back to the person who wrote. It works once per turn. */
+/**
+ * The tool that sends the first reply to the person who wrote: a thumbs-up on their chat message,
+ * or one line. It works once per turn.
+ */
 export const ACKNOWLEDGE = "acknowledge";
+/** The tools a first reply may call. A person's turn does not offer other tools until one of them works. */
+export const FIRST_REPLY_TOOLS = [ACKNOWLEDGE, ASK];
+/** The reaction a clear instruction gets in place of words. */
+export const THUMBS_UP = "thumbsup";
+
+const reactionReply = z.object({ kind: z.literal("reaction") });
+const textReply = z.object({ kind: z.literal("text"), text: z.string().min(1) });
+const firstReplyInput = z.object({
+  reply: z.discriminatedUnion("kind", [reactionReply, textReply]),
+});
+const textOnlyInput = z.object({ reply: textReply });
+
+/** The input of an `acknowledge` call: a reaction on the chat messages, or one line. */
+type FirstReplyInput = z.infer<typeof firstReplyInput>;
 
 /** How the agent speaks in every turn. Kept next to the tools that speak, so the two cannot drift apart. */
 export const CHANNEL_RULES = `## Communication & Response Protocol
@@ -30,15 +47,17 @@ export const CHANNEL_RULES = `## Communication & Response Protocol
 
 /** How the agent answers in a turn where a person wrote. */
 export const PERSON_WROTE_RULES = `### Inbound Message Handling
-* **Answer** in your closing text. A question or a status check gets the direct answer in a few concise sentences. No other message of the turn repeats it.
-* **Call** \`acknowledge("<next_action>")\` at most once per turn, and only before a lookup or a dispatch the person must wait on. It is one short line that says what you do next, such as "Checking the review chain now." It never holds the answer or the status.
-* **Skip** \`acknowledge\` when you can answer without a lookup. Your closing text is then the only message of the turn.
-* **Filter** chat messages by recipient context; ignore messages directed to others.
-* **Call** \`ask\` immediately if message recipient or intent is ambiguous.
+* **Reply first.** Your first step replies to the person who wrote, before any lookup, dispatch, or other tool call. The system does not offer other tools until you reply. Choose the reply that fits the message:
+  * **Clear instruction**: when your only words would be "on it", call \`acknowledge\` with a reaction. It puts a thumbs-up on their message. Do not write anything else. The reaction is offered only for a message written in chat. Without it, send a short line.
+  * **Request that is not clear-cut**: call \`acknowledge\` with one line that says what you are about to do, with the context the person needs, such as "I'll have the author check whether lighthouse fails on main too, and skip it if so."
+  * **Question**: answer it in your closing text, in a few concise sentences. When the answer needs a lookup, first call \`acknowledge\` with one line that says what you check, such as "Checking the review chain now."
+* **Call** \`acknowledge\` at most once per turn. It never holds the answer or the status. Do not repeat the answer in another message of the turn.
+* **Filter** chat messages by recipient context. When the message is for someone else, end the turn without text.
+* **Call** \`ask\` as your first reply if the message recipient or intent is ambiguous.
 
 ### Task Dispatch & Board Management
-* **Dispatch** work requests via \`start_job\` (or \`prompt_task\` if active).
-* **Terminate** work request turns with zero response text; the auto-generated board represents the sole turn reply.
+* **Dispatch** work requests via \`start_job\` (or \`prompt_task\` if active) after your first reply.
+* **Stay quiet** after the first reply on a work request. Do not narrate. The board shows progress. Leave the closing text empty unless a dispatch failed. Then say what failed.
 * **Query** task status directly and output current harness reports if a user reports a missing or empty board.`;
 
 /** How the agent ends a turn where nobody wrote. */
@@ -55,23 +74,43 @@ When execution occurs without an inbound user message, standard closing text is 
 ### Artifact Review Turns
 * **Call** \`stay_silent\` on artifact review turns unless an escalation via \`ask\` is required.`;
 
-/** Tools that talk to the humans in every channel bound to the workflow, or decide not to. */
+/**
+ * Tools that talk to the humans in every channel bound to the workflow, or decide not to. The
+ * first reply may react only while the turn has chat messages without the thumbs-up.
+ */
 export function channelTools(workflow: WorkflowRuntime) {
   let acknowledged = false;
+  const reactable = workflow.transcript.awaitingThumbsUp().length > 0;
+  const inputSchema: z.ZodType<FirstReplyInput> = reactable ? firstReplyInput : textOnlyInput;
   return {
     [ACKNOWLEDGE]: tool({
-      description:
-        "One short line to the person who wrote to you, before a lookup or a dispatch they must wait on: what you do next, never the answer. Skip it when you can answer at once. It works once per turn.",
-      inputSchema: z.object({ text: z.string().min(1) }),
-      execute: async ({ text }) => {
+      description: reactable
+        ? 'Your first reply to the person who wrote, before any other tool. A reaction puts a thumbs-up on their chat message, for a clear instruction where your only words would be "on it". A text is one short line that says what you are about to do, never the answer. It works once per turn.'
+        : "Your first reply to the person who wrote, before any other tool: one short line that says what you are about to do, never the answer. It works once per turn.",
+      inputSchema,
+      execute: async ({ reply }) => {
         if (acknowledged) {
           throw new Error(
             "Already acknowledged this turn. An answer goes in your closing text. A question goes through ask.",
           );
         }
-        acknowledged = true;
-        await workflow.post({ type: "info", text }, turnRecipients(workflow.state));
-        return "Acknowledged.";
+        switch (reply.kind) {
+          case "reaction":
+            await reactWithThumbsUp(workflow);
+            acknowledged = true;
+            return "Reacted with a thumbs-up.";
+          case "text":
+            acknowledged = true;
+            await workflow.post(
+              { type: "info", text: reply.text },
+              turnRecipients(workflow.transcript),
+            );
+            return "Acknowledged.";
+          default: {
+            const unreachable: never = reply;
+            throw new Error(`unhandled first reply ${JSON.stringify(unreachable)}`);
+          }
+        }
       },
     }),
     [ASK]: tool({
@@ -82,7 +121,7 @@ export function channelTools(workflow: WorkflowRuntime) {
         const running = workflow.state.status === "running";
         if (running && !workflow.store.activeAuthorAndResearcherTasks().length)
           await changeWorkflowStatus(workflow, "waiting_input");
-        await workflow.post({ type: "question", text }, turnRecipients(workflow.state));
+        await workflow.post({ type: "question", text }, turnRecipients(workflow.transcript));
         return "Asked. The answer arrives as a new message.";
       },
     }),
@@ -91,7 +130,7 @@ export function channelTools(workflow: WorkflowRuntime) {
         "Tell the humans something they need to know when nobody wrote to you: a problem a harness raised, or work that went wrong. Not for progress, and not for an artifact that is ready. It is the last message of this turn.",
       inputSchema: z.object({ text: z.string().min(1) }),
       execute: async ({ text }) => {
-        await workflow.post({ type: "info", text }, turnRecipients(workflow.state));
+        await workflow.post({ type: "info", text }, turnRecipients(workflow.transcript));
         return "Told.";
       },
     }),
@@ -102,4 +141,18 @@ export function channelTools(workflow: WorkflowRuntime) {
       execute: async () => "Silent.",
     }),
   };
+}
+
+/**
+ * Put the thumbs-up on every chat message of the turn that does not have it yet, and record each
+ * one as it lands. Throws when the chat refuses one.
+ */
+async function reactWithThumbsUp(workflow: WorkflowRuntime): Promise<void> {
+  const chat = workflow.chat();
+  if (!chat) throw new Error("The chat cannot take a reaction now. Send a line instead.");
+  for (const row of workflow.transcript.awaitingThumbsUp()) {
+    const { channel, message } = row.chat_message!;
+    await chat.addReaction(channel, message, THUMBS_UP);
+    workflow.transcript.markReacted(row.id);
+  }
 }

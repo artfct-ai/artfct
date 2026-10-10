@@ -6,7 +6,13 @@ import type { PostOptions } from "../../notify/notifier";
 import type { Recipients } from "../../notify/recipients";
 import { applyEvent, stopSessionAuthor } from "./apply";
 import { armIdle, changeWorkflowStatus } from "../lifecycle";
-import { firstLine, isWorkflowFinished, now, workflowName } from "../store/state";
+import {
+  firstLine,
+  isWorkflowFinished,
+  now,
+  workflowName,
+  type ChatMessageRef,
+} from "../store/state";
 import { statusText, summarize } from "../status";
 import { jobForEvent } from "./lookup";
 import type { Applied, WorkflowRuntime } from "../types";
@@ -49,6 +55,7 @@ export async function createWorkflow(
   await workflow.tellAgent(
     eventMessage(event, { first: true, job: null, artifact: null, notes }),
     "message",
+    { chat_message: chatMessageOf(event) },
   );
   return { ok: true, workflow_id: workflowId };
 }
@@ -107,8 +114,14 @@ async function tellAgentAbout(
       notes: applied.notes,
     }),
     applied.wake,
-    event.actor ? event.reply_to : undefined,
+    event.actor ? { reply_to: event.reply_to, chat_message: chatMessageOf(event) } : undefined,
   );
+}
+
+/** The chat message a person wrote, when the event is one the chat thread acknowledges. */
+function chatMessageOf(event: InboundEvent): ChatMessageRef | undefined {
+  if (!event.actor || !event.acknowledge || event.reply_to?.source !== "chat") return undefined;
+  return { channel: event.reply_to.channel, message: event.acknowledge.message };
 }
 
 /** No turn will run for this event. Release a chat thread when nothing was posted for it. */

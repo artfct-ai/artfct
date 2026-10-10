@@ -226,12 +226,57 @@ describe("generateSteps", () => {
     beforeEach(async () => {
       model = new EchoModel("done");
       await generateSteps(
-        request({ model, tools: { ...tools, pong: tools.ping }, activeTools: ["pong"] }),
+        request({ model, tools: { ...tools, pong: tools.ping }, activeTools: () => ["pong"] }),
       );
     });
 
     it("offers the model only those tools", () => {
       expect(model.toolNames).toEqual([["pong"]]);
+    });
+  });
+
+  describe("a request whose tools change between steps", () => {
+    let steps: StepReport[];
+    beforeEach(async () => {
+      steps = [];
+      await generateSteps(
+        request({
+          model: new ScriptedFailure(["call", "call", "text"]),
+          activeTools: () => (steps.length === 0 ? [] : ["ping"]),
+          onStep: (step) => {
+            steps.push(step);
+          },
+        }),
+      );
+    });
+
+    it("refuses the call the first step did not offer", () => {
+      expect(steps[0]!.toolErrors[0]!.error).toContain("unavailable tool 'ping'");
+    });
+
+    it("runs the call once the step offers it", () => {
+      expect(steps[1]!.toolErrors).toEqual([]);
+    });
+  });
+
+  describe("a stop tool the step did not offer", () => {
+    let steps: StepReport[];
+    beforeEach(async () => {
+      steps = [];
+      await generateSteps(
+        request({
+          model: new ScriptedFailure(["call", "call", "text"]),
+          stopTools: ["ping"],
+          activeTools: () => (steps.length === 0 ? [] : ["ping"]),
+          onStep: (step) => {
+            steps.push(step);
+          },
+        }),
+      );
+    });
+
+    it("keeps the loop going after the refused call, and stops at the call that ran", () => {
+      expect(steps.map((step) => step.toolErrors.length)).toEqual([1, 0]);
     });
   });
 
@@ -267,7 +312,7 @@ describe("generateSteps", () => {
       await generateSteps(
         request({
           model: new ScriptedFailure(["call", "text"]),
-          activeTools: [],
+          activeTools: () => [],
           onStep: (step) => {
             steps.push(step);
           },

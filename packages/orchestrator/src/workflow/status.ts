@@ -79,7 +79,7 @@ export function debugDump(workflow: WorkflowRuntime) {
     outbox: store.outbox(),
     queue: store.queue(),
     log: store.logLines(),
-    inbox: workflow.transcript.inbox(),
+    inbox: [...workflow.transcript.taken(), ...workflow.transcript.inbox()],
     transcript: workflow.transcript.all(),
     connections: workflow.connections().length,
   };

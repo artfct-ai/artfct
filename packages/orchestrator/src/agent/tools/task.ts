@@ -51,7 +51,7 @@ export function taskTools(workflow: WorkflowRuntime) {
       inputSchema: z.object({ task_id: taskIdField }),
       execute: ({ task_id }) =>
         withActiveTask(workflow, task_id, async (task) => {
-          await pauseTask(workflow, task, workflow.state.turn_answering ?? []);
+          await pauseTask(workflow, task, workflow.transcript.answering());
           return `Paused ${task.task_id}.`;
         }),
     }),
@@ -62,7 +62,7 @@ export function taskTools(workflow: WorkflowRuntime) {
         withActiveTask(workflow, task_id, async (task) => {
           await resumeTask(workflow, task, {
             text: text ?? "",
-            answering: workflow.state.turn_answering ?? [],
+            answering: workflow.transcript.answering(),
           });
           return `Resumed ${task.task_id}.`;
         }),

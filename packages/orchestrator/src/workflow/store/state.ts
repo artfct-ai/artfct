@@ -5,6 +5,9 @@ import type { WorkflowStatus } from "@artfct-ai/contracts/types";
 export type RequestText = { title: string; text: string; links: string[] };
 export type RepoRef = { full: string };
 
+/** One message a person wrote in a chat thread, which a reaction is addressed to. */
+export type ChatMessageRef = { channel: string; message: string };
+
 /**
  * The root page of a workflow. A `container` is the page the workflow created for the root page
  * stage to fill. A `named` page is an existing page a person named as the root page.
@@ -45,16 +48,6 @@ export type WorkflowState = {
    */
   turn_heads_up?: string | null;
   /**
-   * The messages people wrote that the running turn owes a reply. A lost turn leaves them for the
-   * turn that resumes it. Empty once a turn ends. Absent in a workflow stored before this field.
-   */
-  turn_messages?: string[];
-  /**
-   * Where the people the running turn answers wrote from. A lost turn leaves them for the turn
-   * that resumes it. Empty once a turn ends. Absent in a workflow stored before this field.
-   */
-  turn_answering?: ReplyTarget[];
-  /**
    * The id of the running turn's first transcript row, or the lost turn's in a resumed turn.
    * Compaction keeps it and every row after it. Null once a turn ends. Absent in a workflow
    * stored before this field.
@@ -84,8 +77,6 @@ export const initialWorkflowState: WorkflowState = {
   turn_started_at: null,
   turn_watchdog: null,
   turn_heads_up: null,
-  turn_messages: [],
-  turn_answering: [],
   turn_first_row: null,
   idle_alarm: null,
 };

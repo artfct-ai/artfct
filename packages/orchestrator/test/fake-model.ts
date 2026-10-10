@@ -11,6 +11,7 @@ export type Action =
   | "call"
   | "silent"
   | "acknowledge"
+  | "react"
   | "tell"
   | "prompt_task"
   | "fetch"
@@ -88,7 +89,16 @@ function scriptedContent(
           type: "tool-call",
           toolCallId: callId,
           toolName: "acknowledge",
-          input: JSON.stringify({ text: "Got it." }),
+          input: JSON.stringify({ reply: { kind: "text", text: "Got it." } }),
+        },
+      ];
+    case "react":
+      return [
+        {
+          type: "tool-call",
+          toolCallId: callId,
+          toolName: "acknowledge",
+          input: JSON.stringify({ reply: { kind: "reaction" } }),
         },
       ];
     case "tell":
