@@ -410,6 +410,14 @@ function writeRow(workflow: FakeRuntime, surface: Surface, row: InboxRow): Writt
   return { row, text, chatMessage: written };
 }
 
+function sessionsWrittenFrom(surface: Surface, rows: Written[]): string[] {
+  const sessions = rows.flatMap((written) => {
+    const target = wroteFrom(surface, written.row);
+    return target?.source === "tracker" ? [target.session_id] : [];
+  });
+  return [...new Set(sessions)];
+}
+
 function arrivingOnce(arrive: () => void): () => void {
   let arrived = false;
   return () => {
@@ -613,11 +621,11 @@ async function runScriptedTurn(
   const marks: StepMark[] = [];
   const markStep = () => marks.push(stepMark(workflow, chat));
   const { arrival: arriving } = turn;
+  const lostTurnRows = turn.restart === "none" ? [] : [...turnRows];
   if (turn.restart !== "none") {
     const arriveInLostTurn = arrivingOnce(() => {
-      const waitingPerson = turnRows.find((written) => written.row.wake === "message");
-      if (arriving?.when !== "during_lost_turn" || !waitingPerson) return;
-      turnRows.push(writeRow(workflow, surface, { ...arriving.row, from: waitingPerson.row.from }));
+      if (arriving?.when !== "during_lost_turn") return;
+      turnRows.push(writeRow(workflow, surface, arriving.row));
       workflow.chatSession = "processing";
     });
     await loseTheTurnToARestart(workflow, turn.restart, () => {
@@ -633,6 +641,7 @@ async function runScriptedTurn(
     markStep();
     arriveMidTurn();
   });
+  const deliveriesOfTheLostTurn = workflow.deliveries.length - deliveriesBefore;
   const decisionsAskedBefore = decisions instanceof ConfiguredModelsDecisions ? decisions.calls : 0;
   const usageBefore = workflow.store.modelUsage().length;
   const started = Date.now();
@@ -684,7 +693,7 @@ async function runScriptedTurn(
     durationMs,
     timeoutMinutes: workflow.config().orchestrator.turn_timeout_minutes,
     timedOut: lines.some((line) => line.startsWith("agent turn timed out")),
-    resumedLostTurn: turn.restart !== "none",
+    lostTurnOwed: owedIn(turn, lostTurnRows),
     modelHangs: turn.model === "never_answers",
     configuredDecisions:
       decisions instanceof ConfiguredModelsDecisions
@@ -702,15 +711,13 @@ async function runScriptedTurn(
     chatHistoryReads,
     chatThread,
     startingSession: "s-start",
-    answering: [
-      ...new Set(
-        turnRows.flatMap((written) => {
-          const target = wroteFrom(surface, written.row);
-          return target?.source === "tracker" ? [target.session_id] : [];
-        }),
+    deliveries: workflow.deliveries.slice(deliveriesBefore).map((delivery, index) => ({
+      ...delivery,
+      answering: sessionsWrittenFrom(
+        surface,
+        index < deliveriesOfTheLostTurn ? lostTurnRows : turnRows,
       ),
-    ],
-    deliveries: workflow.deliveries.slice(deliveriesBefore),
+    })),
   };
 }
 

@@ -31,7 +31,10 @@ export type TurnStep = {
 
 /** What one agent turn was given and what it left on the channels. */
 export type AgentTurnRecord = {
-  /** What the message of the person who wrote is owed. Null on an unprompted turn. */
+  /**
+   * What the message of the person who wrote is owed. A resumed turn owes the people of the lost
+   * turn and anyone who wrote while it was lost. Null on an unprompted turn.
+   */
   owed: OwedReply | null;
   /** True when a tool of the turn started or prompted a task. */
   boardChanged: boolean;
@@ -66,8 +69,8 @@ export type AgentTurnRecord = {
   timeoutMinutes: number;
   /** True when the turn deadline ended the turn. */
   timedOut: boolean;
-  /** True when the turn resumed a lost turn. Its `owed` is the lost turn's. */
-  resumedLostTurn: boolean;
+  /** What the lost turn this turn resumed owed. Null without a lost turn, or for an unprompted one. */
+  lostTurnOwed: OwedReply | null;
   /** True when the model of the turn never returns on its own. */
   modelHangs: boolean;
   /**
@@ -88,10 +91,11 @@ export type AgentTurnRecord = {
   chatThread: boolean;
   /** The tracker session the workflow started from, or null. */
   startingSession: string | null;
-  /** The tracker sessions the people the turn answers wrote from. */
-  answering: string[];
-  /** Every channel post of the turn, with the reply targets it went to. */
-  deliveries: Array<{ event: TaskEvent; targets: ReplyTarget[] }>;
+  /**
+   * Every channel post of the turn, with the reply targets it went to and the tracker sessions the
+   * people its turn answered wrote from when it posted.
+   */
+  deliveries: Array<{ event: TaskEvent; targets: ReplyTarget[]; answering: string[] }>;
 };
 
 /**
@@ -286,7 +290,7 @@ export function aWaitingPersonHearsBackByTheTimeout(turn: AgentTurnRecord): void
  * hears the restart notice, and the resumed turn answers them as the lost turn would have.
  */
 export function aResumedTurnAnswersWhatItsLostTurnOwed(turn: AgentTurnRecord): void {
-  if (!turn.resumedLostTurn || turn.owed === null) return;
+  if (turn.lostTurnOwed === null) return;
   if (turn.chatThread && !turn.postedTexts.includes(LOST_PLACE_TEXT)) {
     violated(
       "aResumedTurnAnswersWhatItsLostTurnOwed",
@@ -395,7 +399,7 @@ function isAnswer(turn: AgentTurnRecord, event: TaskEvent): boolean {
  * gets a post only when a person wrote there, or as the starting session for an ask or failure.
  */
 export function sessionMessageWithoutAnAuthorIsAnswered(turn: AgentTurnRecord): void {
-  for (const { event, targets } of turn.deliveries) {
+  for (const { event, targets, answering } of turn.deliveries) {
     const sessions = sessionsOf(targets);
     if (turn.chatThread) {
       if (sessions.length > 0) {
@@ -414,7 +418,7 @@ export function sessionMessageWithoutAnAuthorIsAnswered(turn: AgentTurnRecord): 
     }
     const startingAsk = ASKS_AND_FAILURES.includes(event.type) ? turn.startingSession : null;
     const stray = sessions.filter(
-      (session) => !turn.answering.includes(session) && session !== startingAsk,
+      (session) => !answering.includes(session) && session !== startingAsk,
     );
     if (stray.length > 0) {
       violated(
@@ -423,7 +427,7 @@ export function sessionMessageWithoutAnAuthorIsAnswered(turn: AgentTurnRecord): 
       );
     }
     if (!isAnswer(turn, event)) continue;
-    const missed = turn.answering.filter((session) => !sessions.includes(session));
+    const missed = answering.filter((session) => !sessions.includes(session));
     if (missed.length > 0) {
       violated(
         "sessionMessageWithoutAnAuthorIsAnswered",
