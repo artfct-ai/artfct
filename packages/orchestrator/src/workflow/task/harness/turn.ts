@@ -55,9 +55,12 @@ export function loggedFailureReason(taskId: string, failed: string): string {
 /** The stop reasons of a turn that the harness did not finish. */
 const UNFINISHED_STOPS: StopReason[] = ["max_tokens", "max_turn_requests", "refusal"];
 
+/** The session updates of a tool call. With a todo list change, they are the progress a harness shows. */
+const TOOL_UPDATES: SessionUpdate["sessionUpdate"][] = ["tool_call", "tool_call_update"];
+
 /**
  * Stream text into the turn buffer, watch for artifacts, and keep the board's todo list and
- * the digest counters up to date.
+ * the digest counters up to date. Only a tool call or a todo list change counts as progress.
  */
 export async function onSessionUpdate(
   workflow: WorkflowRuntime,
@@ -65,8 +68,11 @@ export async function onSessionUpdate(
   notice: SessionNotification,
 ): Promise<void> {
   const sandbox = workflow.store.requireSandbox(task.task_id);
-  await touchProgress(workflow, sandbox);
   const update = notice.update;
+  const entries = workflow.harness(sandbox.harness).plan(update);
+  if (entries || TOOL_UPDATES.includes(update.sessionUpdate)) {
+    await touchProgress(workflow, sandbox);
+  }
   await streamToSessionFeed(workflow, task, update);
   const text = updateText(update);
   if (text) {
@@ -74,7 +80,6 @@ export async function onSessionUpdate(
     await detectArtifact(workflow, task, text);
     return;
   }
-  const entries = workflow.harness(sandbox.harness).plan(update);
   if (entries) {
     const stored = workflow.store.setTodos(task.task_id, { entries });
     workflow.log(
