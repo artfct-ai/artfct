@@ -12,6 +12,7 @@ import { clipHead, collapse, lastBudget, taskDigest } from "./digest";
 import { restartOrFailTask, startAuthorAfterResearch } from "../../lifecycle";
 import { RESEARCH_PAYLOAD_PATH, readResearchPayload } from "../sandbox/research-payload";
 import { harnessGaveUp } from "../gave-up";
+import { authorTurnOutcome } from "../author-turn";
 import { drainQueue, sendFirstPrompt } from "./prompt-queue";
 import type { WorkflowRuntime, Wake } from "../../types";
 import type { TaskRow } from "../../store/tasks";
@@ -24,7 +25,7 @@ import {
 } from "../../artifact";
 import { markArtifactReady, reopenChangedArtifact } from "../../refiner/outcome";
 import { sandboxRefOf } from "../sandbox/size";
-import { touchProgress } from "./timers";
+import { nudgeOrRestartStalledTask, touchProgress, type StallResponse } from "./timers";
 import {
   closeSessionFeed,
   feedClosingOf,
@@ -174,8 +175,8 @@ async function endResearcherTurn(
 
 /**
  * A turn finished. Keep a summary, find the artifact, flush the board, and send the next
- * queued prompt. The model wakes with a digest for a result or an idle harness. Closing text
- * that says the author gave up restarts the author.
+ * queued prompt. The model wakes with a digest for a result or an idle harness. An author turn
+ * that ended on its own restarts a blocked author, and an author that stopped early stalled.
  */
 export async function onTurnEnd(
   workflow: WorkflowRuntime,
@@ -190,8 +191,17 @@ export async function onTurnEnd(
   if (task.role !== "author") return endRefinerTurn(workflow, task, stopReason);
   const text = turnText.trim();
   const recordedNow = await findArtifact(workflow, task, text);
-  if (stopReason === "end_turn" && (await authorGaveUp(workflow, task.task_id))) {
+  const outcome =
+    stopReason === "end_turn"
+      ? await authorTurnOutcome(workflow, workflow.store.requireTask(task.task_id))
+      : null;
+  if (outcome === "blocked") {
+    await restartBlockedAuthor(workflow, task.task_id);
     return closeSessionFeed(workflow, task, null);
+  }
+  if (outcome === "stopped_early" && (await stalledAtTurnEnd(workflow, task)) === "restarted") {
+    const failed = isTaskFinished(workflow.store.requireTask(task.task_id).status);
+    return closeSessionFeed(workflow, task, failed ? null : feedClosingOf(stopReason));
   }
   workflow.store.patchTodoRow(task.task_id, { note: null });
   const busy = await settleAndResumeAuthor(workflow, task.task_id);
@@ -205,16 +215,30 @@ export async function onTurnEnd(
 }
 
 /**
- * The author whose turn text says it gave up restarts and resumes with the gave-up wake text. It
- * fails once its restarts are used up. True when it gave up.
+ * A blocked author restarts and resumes with the gave-up wake text. It fails once its restarts
+ * are used up.
  */
-async function authorGaveUp(workflow: WorkflowRuntime, taskId: string): Promise<boolean> {
+async function restartBlockedAuthor(workflow: WorkflowRuntime, taskId: string): Promise<void> {
   const author = workflow.store.requireTask(taskId);
-  if (!(await harnessGaveUp(workflow, author))) return false;
   workflow.store.enqueuePrompt(taskId, GAVE_UP_RESTART_TEXT);
   const reason = `The author gave up: ${clipHead(author.summary, GAVE_UP_CHARS)}`;
   await restartOrFailTask(workflow, author, reason);
-  return true;
+}
+
+/**
+ * An author that stopped early stalled. One that already has a prompt, or whose task finished
+ * while the decisions model answered, has its next step and is left alone.
+ */
+async function stalledAtTurnEnd(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+): Promise<StallResponse | "has_next_step"> {
+  const author = workflow.store.requireTask(task.task_id);
+  const sandbox = workflow.store.requireSandbox(task.task_id);
+  const prompted =
+    sandbox.prompt_in_flight === 1 || workflow.store.peekPrompt(task.task_id) !== null;
+  if (isTaskFinished(author.status) || prompted) return "has_next_step";
+  return nudgeOrRestartStalledTask(workflow, author);
 }
 
 /** A reopened artifact on a stage with no refiner goes back to the humans when the harness is idle. */

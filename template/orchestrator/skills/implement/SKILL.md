@@ -16,6 +16,7 @@ Implement a specified issue or plan, provide comprehensive test coverage, submit
 - **Test**: Add or update automated tests covering all modified paths. Verify tests fail without the implementation.
 - **Open Pull Request**: Submit a focused pull request referencing the target issue or plan, documenting the changes and testing evidence.
 - **Remediate Checks**: Run the local build, lint, and test checks before you push. After a push, end your turn without waiting on CI. The system reads the CI checks of your commit and sends you each failure to fix.
+- **Wait for Background Runs**: Wait for a run you started in the background to finish, and read its result before you end your turn. A background run does not wake you when it ends.
 - **Address Review Feedback**: Weigh each automated and human review finding with the `working-with-findings` skill. Update code directly on the branch for a finding you act on, and reply on the thread for one you do not.
 
 ## Out of Scope

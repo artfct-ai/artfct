@@ -5,7 +5,13 @@ import type {
   PullRequestReviewComment,
 } from "@artfct-ai/adapters/code/types";
 import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
-import type { Choice, Decisions } from "@artfct-ai/adapters/gateway/types";
+import type {
+  Choice,
+  DecisionAnswers as AnsweredDecisions,
+  DecisionQuestions,
+  Decisions,
+  DecisionState,
+} from "@artfct-ai/adapters/gateway/types";
 import type { HeldComment } from "@artfct-ai/adapters/documents/types";
 import type { AgentActivityContent } from "@artfct-ai/adapters/tracker/types";
 import { FakeDecisions, HangingDecisions } from "@artfct-ai/adapters/test/fake-decisions";
@@ -198,6 +204,7 @@ export type DecisionAnswers =
       gave_up?: number;
       accepts?: number;
       selected?: Choice;
+      outcome?: Choice;
     }
   | "fails"
   | "hangs";
@@ -284,6 +291,7 @@ export class WorkflowWorld {
   private readonly checksOnPush: ChecksOnPush;
   private readonly tracker: SessionTracker;
   private readonly streamedTexts: string[] = [];
+  private readonly stoppedEarly = new Set<string>();
 
   private constructor(workflow: FakeRuntime, checksOnPush: ChecksOnPush, tracker: SessionTracker) {
     this.workflow = workflow;
@@ -568,9 +576,32 @@ export class WorkflowWorld {
     this.installHost();
   }
 
-  /** The decisions model that answers every question from now on. */
-  answerDecisionsWith(answers: DecisionAnswers): void {
-    this.workflow.gatewayInstance = new FakeGateway({ decisions: decisionsAnswering(answers) });
+  /**
+   * The decisions model that answers every question from now on. `meanwhile` runs while its
+   * first call is out, the way another event lands while the model is asked.
+   */
+  answerDecisionsWith(answers: DecisionAnswers, meanwhile?: () => Promise<void>): void {
+    const answering = decisionsAnswering(answers);
+    const decisions = meanwhile ? new InterleavedDecisions(answering, meanwhile) : answering;
+    this.workflow.gatewayInstance = new FakeGateway({ decisions });
+  }
+
+  /** An author turn ended. `stoppedEarly` says whether it ended on its own with the work unfinished. */
+  recordAuthorTurnEnd(taskId: string, stoppedEarly: boolean): void {
+    if (stoppedEarly) this.stoppedEarly.add(taskId);
+    else this.stoppedEarly.delete(taskId);
+  }
+
+  /**
+   * A person pressed Stop in a session. The authors of its job wait for that person now, so they
+   * no longer count as stopped early.
+   */
+  forgetStoppedEarlyIn(session: TrackerSession): void {
+    for (const author of this.authors) {
+      if (this.jobOf(author).issue_id === session.issue_id) {
+        this.stoppedEarly.delete(author.taskId);
+      }
+    }
   }
 
   /** Deliver one event from a person, the way ingress does. */
@@ -783,6 +814,7 @@ export class WorkflowWorld {
         promptInFlight: store.sandbox(task.task_id)?.prompt_in_flight === 1,
         queuedPrompts: queue.filter((row) => row.task_id === task.task_id).length,
         handshaking: store.handshakePending(task.task_id),
+        stoppedEarly: this.stoppedEarly.has(task.task_id),
       })),
       artifacts: store.artifacts().map((artifact) => ({
         job_id: artifact.job_id,
@@ -895,15 +927,46 @@ function commitChecksOf(report: ChecksReport, now: number): CommitChecks {
   }
 }
 
+/** Milliseconds a hanging decisions model gets before its call is abandoned, so a hang stays fast. */
+const HANGING_DECISIONS_DEADLINE_MS = 5;
+
 function decisionsAnswering(answers: DecisionAnswers): Decisions {
   switch (answers) {
     case "fails":
       return new FakeDecisions(new Error("decisions model unavailable"));
     case "hangs":
-      return new HangingDecisions();
+      return new HangingDecisions(HANGING_DECISIONS_DEADLINE_MS);
     default: {
-      const { selected, ...probabilities } = answers;
-      return new FakeDecisions(probabilities, selected ? { selected } : {});
+      const { selected, outcome, ...probabilities } = answers;
+      return new FakeDecisions(probabilities, {
+        ...(selected ? { selected } : {}),
+        ...(outcome ? { outcome } : {}),
+      });
     }
+  }
+}
+
+/** A decisions model that lets one event land while its first call is out, then answers. */
+class InterleavedDecisions implements Decisions {
+  readonly deadlineMs: number;
+  private meanwhile: (() => Promise<void>) | null;
+
+  constructor(
+    private readonly answering: Decisions,
+    meanwhile: () => Promise<void>,
+  ) {
+    this.deadlineMs = answering.deadlineMs;
+    this.meanwhile = meanwhile;
+  }
+
+  async decide<YesNoName extends string, ChoiceName extends string>(
+    state: DecisionState,
+    questions: DecisionQuestions<YesNoName, ChoiceName>,
+    signal?: AbortSignal,
+  ): Promise<AnsweredDecisions<YesNoName, ChoiceName>> {
+    const meanwhile = this.meanwhile;
+    this.meanwhile = null;
+    if (meanwhile) await meanwhile();
+    return this.answering.decide(state, questions, signal);
   }
 }

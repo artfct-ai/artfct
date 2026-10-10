@@ -1,8 +1,13 @@
-import type { StopReason } from "@agentclientprotocol/sdk";
+import type { PromptRequest, StopReason } from "@agentclientprotocol/sdk";
 import { describe, expect, it } from "bun:test";
 import { freshRuntime } from "../../../../test/fresh-runtime";
 import { RESEARCH_PAYLOAD_MAX_BYTES, RESEARCH_PAYLOAD_PATH } from "../sandbox/research-payload";
 import { GAVE_UP_RESTART_TEXT, onRpcError, onTurnEnd } from "./turn";
+import { NUDGE_TEXT } from "./timers";
+import type { AuthorTurnOutcome } from "../author-turn";
+import { AUTHOR_WORK } from "../gave-up";
+import type { TodoSnapshot } from "../../board/types";
+import type { TaskRow } from "../../store/tasks";
 import {
   type FakeRuntime,
   type FakeSocket,
@@ -30,6 +35,43 @@ function hostAt(sha: string): FakeCodeHost {
   });
 }
 const REVIEW_TASK = "wf_x.2";
+
+function decisionsPick(workflow: FakeRuntime, outcome: AuthorTurnOutcome): FakeDecisions {
+  const decisions = new FakeDecisions({}, { outcome: { option: outcome, probability: 0.9 } });
+  workflow.gatewayInstance = new FakeGateway({ decisions });
+  return decisions;
+}
+
+function endsInOutage(seed: (workflow: FakeRuntime) => TaskRow) {
+  return scenario(freshRuntime, (workflow) => {
+    workflow.gatewayInstance = new FakeGateway({
+      decisions: new FakeDecisions(new Error("unavailable")),
+    });
+    const author = seed(workflow);
+    workflow.store.updateSandbox(TASK, { prompt_in_flight: 1, turn_text: "Tests run." });
+    return onTurnEnd(workflow, author, "end_turn");
+  });
+}
+
+function stalledAgain(restarts: number) {
+  return scenario(freshRuntime, (workflow) => {
+    decisionsPick(workflow, "stopped_early");
+    const author = seedTask(
+      workflow,
+      {},
+      { prompt_in_flight: 1, generation: 1, turn_text: "Tests run.", nudged: 1, restarts },
+    );
+    return onTurnEnd(workflow, author, "end_turn");
+  });
+}
+
+function promptTextsSent(socket: FakeSocket): string[] {
+  return socket.sent.flatMap((frame) => {
+    const sent = JSON.parse(frame) as { method?: string; params?: PromptRequest };
+    if (sent.method !== "session/prompt" || !sent.params) return [];
+    return sent.params.prompt.flatMap((block) => (block.type === "text" ? [block.text] : []));
+  });
+}
 
 const unfinished = (role: "reviewer" | "polisher", stopReason: StopReason, restarts = 2) =>
   scenario(freshRuntime, (workflow) => {
@@ -165,13 +207,15 @@ describe("onTurnEnd", () => {
       }));
   });
 
-  describe("an author whose turn text says it gave up", () => {
+  describe("an author whose turn text says it is blocked", () => {
     const BLOCKED = "I have no access to the repository, so I stopped.";
-    const authorEnds = (gaveUp: number, stopReason: "end_turn" | "cancelled", restarts = 0) =>
+    const authorEnds = (
+      outcome: AuthorTurnOutcome,
+      stopReason: "end_turn" | "cancelled",
+      restarts = 0,
+    ) =>
       scenario(freshRuntime, (workflow) => {
-        workflow.gatewayInstance = new FakeGateway({
-          decisions: new FakeDecisions({ gave_up: gaveUp }),
-        });
+        decisionsPick(workflow, outcome);
         const author = seedTask(
           workflow,
           {},
@@ -182,7 +226,7 @@ describe("onTurnEnd", () => {
 
     it("starts the author over in a fresh sandbox", () =>
       authorEnds(
-        0.9,
+        "blocked",
         "end_turn",
       )((workflow) => {
         expect(workflow.sandboxProvider.calls).toEqual([`destroy ${TASK}`, `start ${TASK}`]);
@@ -190,7 +234,7 @@ describe("onTurnEnd", () => {
 
     it("counts the restart on a new generation", () =>
       authorEnds(
-        0.9,
+        "blocked",
         "end_turn",
       )((workflow) => {
         expect(workflow.store.requireTask(TASK).status).toBe("provisioning");
@@ -199,7 +243,7 @@ describe("onTurnEnd", () => {
 
     it("queues the wake text the fresh harness resumes with", () =>
       authorEnds(
-        0.9,
+        "blocked",
         "end_turn",
       )((workflow) => {
         expect(workflow.store.peekPrompt(TASK)?.text).toBe(GAVE_UP_RESTART_TEXT);
@@ -207,7 +251,7 @@ describe("onTurnEnd", () => {
 
     it("shows the restart on the board", () =>
       authorEnds(
-        0.9,
+        "blocked",
         "end_turn",
       )((workflow) => {
         expect(workflow.store.todoRow(TASK)?.note).toBe(
@@ -217,16 +261,16 @@ describe("onTurnEnd", () => {
 
     it("tells the agent without waking it", () =>
       authorEnds(
-        0.9,
+        "blocked",
         "end_turn",
       )((workflow) => {
         expect(workflow.notes.map((note) => note.wake)).toEqual(["none"]);
         expect(workflow.noteTexts()[0]).toContain(`The author gave up: ${BLOCKED}`);
       }));
 
-    it("fails the task when it gives up with no restarts left", () =>
+    it("fails the task when it is blocked with no restarts left", () =>
       authorEnds(
-        0.9,
+        "blocked",
         "end_turn",
         2,
       )((workflow) => {
@@ -236,16 +280,16 @@ describe("onTurnEnd", () => {
 
     it("tells the agent once, as a failed task, with no restarts left", () =>
       authorEnds(
-        0.9,
+        "blocked",
         "end_turn",
         2,
       )((workflow) => {
         expect(workflow.notes.map((note) => note.wake)).toEqual(["task_result"]);
       }));
 
-    it("leaves the task alone when the decisions model says the work was done", () =>
+    it("leaves the task alone when the decisions model says the work is finished", () =>
       authorEnds(
-        0.1,
+        "finished",
         "end_turn",
       )((workflow) => {
         expect(workflow.store.requireTask(TASK).status).not.toBe("failed");
@@ -254,11 +298,174 @@ describe("onTurnEnd", () => {
 
     it("does not ask about a cancelled turn", () =>
       authorEnds(
-        0.9,
+        "blocked",
         "cancelled",
       )((workflow) => {
         expect(workflow.store.requireTask(TASK).status).not.toBe("failed");
         expect(workflow.store.requireSandbox(TASK).restarts).toBe(0);
+      }));
+  });
+
+  describe("an author turn that ends on its own", () => {
+    const STOPPED =
+      "The test suite runs in the background. I will report the result when it finishes.";
+    let decisions: FakeDecisions;
+    const asked = scenario(freshRuntime, (workflow) => {
+      decisions = decisionsPick(workflow, "finished");
+      const author = seedTask(workflow, {}, { prompt_in_flight: 1, turn_text: STOPPED });
+      return onTurnEnd(workflow, author, "end_turn");
+    });
+
+    it("asks the decisions model one choice question over the closing text and the work", () =>
+      asked((workflow) => {
+        const author = workflow.store.requireTask(TASK);
+        const work = AUTHOR_WORK[workflow.stageForTask(author).artifact];
+        expect(decisions.asked).toEqual([{ work, turn_text: STOPPED }]);
+        expect(decisions.yesNoAsked).toEqual([{}]);
+        expect(Object.keys(decisions.offered[0]?.options ?? {})).toEqual([
+          "finished",
+          "waits_on_person",
+          "blocked",
+          "stopped_early",
+        ]);
+      }));
+  });
+
+  describe("an author that stopped early", () => {
+    let socket: FakeSocket;
+    const stoppedEarly = scenario(freshRuntime, (workflow) => {
+      decisionsPick(workflow, "stopped_early");
+      const author = seedTask(
+        workflow,
+        {},
+        { session_id: "s1", prompt_in_flight: 1, generation: 1, turn_text: "Tests run." },
+      );
+      socket = fakeConnection(TASK, 1);
+      workflow.sockets.push(socket.connection);
+      return onTurnEnd(workflow, author, "end_turn");
+    });
+
+    it("gets the nudge in the same harness session", () =>
+      stoppedEarly((workflow) => {
+        expect(promptTextsSent(socket)).toEqual([NUDGE_TEXT]);
+        expect(workflow.store.requireSandbox(TASK)).toMatchObject({
+          session_id: "s1",
+          generation: 1,
+          prompt_in_flight: 1,
+        });
+      }));
+
+    it("keeps its sandbox", () =>
+      stoppedEarly((workflow) => {
+        expect(workflow.sandboxProvider.calls).toEqual([`keepAlive ${TASK}`]);
+      }));
+
+    it("is nudged", () =>
+      stoppedEarly((workflow) => {
+        expect(workflow.store.requireSandbox(TASK).nudged).toBe(1);
+      }));
+
+    it("wakes nobody", () =>
+      stoppedEarly((workflow) => {
+        expect(workflow.notes).toEqual([]);
+      }));
+  });
+
+  describe("an author that stopped early while still nudged", () => {
+    it("starts over in a fresh sandbox", () =>
+      stalledAgain(0)((workflow) => {
+        expect(workflow.sandboxProvider.calls).toEqual([`destroy ${TASK}`, `start ${TASK}`]);
+        expect(workflow.store.requireSandbox(TASK)).toMatchObject({
+          generation: 2,
+          restarts: 1,
+          nudged: 0,
+        });
+      }));
+
+    it("tells the agent without waking it", () =>
+      stalledAgain(0)((workflow) => {
+        expect(workflow.notes.map((note) => note.wake)).toEqual(["none"]);
+        expect(workflow.noteTexts()[0]).toContain("No progress after a nudge.");
+      }));
+
+    it("fails the task with no restarts left", () =>
+      stalledAgain(2)((workflow) => {
+        expect(workflow.store.requireTask(TASK).status).toBe("failed");
+        expect(workflow.notes.map((note) => note.wake)).toEqual(["task_result"]);
+      }));
+  });
+
+  describe("an author that stopped early with a prompt queued behind its turn", () => {
+    let socket: FakeSocket;
+    const prompted = scenario(freshRuntime, (workflow) => {
+      decisionsPick(workflow, "stopped_early");
+      const author = seedTask(
+        workflow,
+        {},
+        { session_id: "s1", prompt_in_flight: 1, turn_text: "Tests run." },
+      );
+      workflow.store.enqueuePrompt(TASK, "next");
+      socket = fakeConnection(TASK, 1);
+      workflow.sockets.push(socket.connection);
+      return onTurnEnd(workflow, author, "end_turn");
+    });
+
+    it("gets the queued prompt and no nudge", () =>
+      prompted((workflow) => {
+        expect(promptTextsSent(socket)).toEqual(["next"]);
+        expect(workflow.store.queue()).toEqual([]);
+        expect(workflow.store.requireSandbox(TASK).nudged).toBe(0);
+      }));
+  });
+
+  for (const outcome of ["finished", "waits_on_person"] as const) {
+    describe(`an author whose turn is ${outcome}`, () => {
+      const settled = scenario(freshRuntime, (workflow) => {
+        decisionsPick(workflow, outcome);
+        const author = seedTask(workflow, {}, { prompt_in_flight: 1, turn_text: "Done." });
+        return onTurnEnd(workflow, author, "end_turn");
+      });
+
+      it("wakes the agent with the idle harness and queues nothing", () =>
+        settled((workflow) => {
+          expect(workflow.notes.map((note) => note.wake)).toEqual(["task_idle"]);
+          expect(workflow.store.queue()).toEqual([]);
+          expect(workflow.store.requireSandbox(TASK).nudged).toBe(0);
+        }));
+    });
+  }
+
+  describe("an author turn the decisions model cannot judge", () => {
+    const OPEN_TODOS: TodoSnapshot = {
+      entries: [
+        { content: "Change the redirect", priority: "medium", status: "completed" },
+        { content: "Run the tests", priority: "medium", status: "pending" },
+      ],
+    };
+
+    it("takes it as stopped early with open todos and no artifact", () =>
+      endsInOutage((workflow) => {
+        const author = seedTask(workflow);
+        workflow.store.setTodos(TASK, OPEN_TODOS);
+        return author;
+      })((workflow) => {
+        expect(workflow.store.peekPrompt(TASK)?.text).toBe(NUDGE_TEXT);
+      }));
+
+    it("takes it as finished with open todos and an artifact", () =>
+      endsInOutage((workflow) => {
+        const author = seedPullRequestTask(workflow);
+        workflow.store.setTodos(TASK, OPEN_TODOS);
+        return author;
+      })((workflow) => {
+        expect(workflow.store.queue()).toEqual([]);
+        expect(workflow.store.requireSandbox(TASK).nudged).toBe(0);
+      }));
+
+    it("takes it as finished without a todo list", () =>
+      endsInOutage((workflow) => seedTask(workflow))((workflow) => {
+        expect(workflow.store.queue()).toEqual([]);
+        expect(workflow.notes.map((note) => note.wake)).toEqual(["task_idle"]);
       }));
   });
 
