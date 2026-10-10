@@ -9,9 +9,9 @@ function bulky(role: "user" | "assistant", chars: number): ModelMessage {
 
 describe("TranscriptStore", () => {
   describe("an empty inbox", () => {
-    it("drains nothing", () =>
+    it("takes nothing", () =>
       freshRuntime((workflow) => {
-        expect(workflow.transcript.drainInbox()).toBeNull();
+        expect(workflow.transcript.takeInbox()).toBeNull();
       }));
   });
 
@@ -26,30 +26,86 @@ describe("TranscriptStore", () => {
         expect(workflow.transcript.inbox().map((row) => row.wake)).toEqual(["message", "none"]);
       }));
 
-    it("drains both into the row it returns", () =>
+    it("takes both into the row it returns", () =>
       queued((workflow) => {
-        const id = workflow.transcript.drainInbox();
+        const id = workflow.transcript.takeInbox();
         expect(workflow.transcript.all()).toEqual([
           expect.objectContaining({ id, message: { role: "user", content: "first\n\nsecond" } }),
         ]);
       }));
 
-    describe("once drained", () => {
-      const drained = scenario(queued, (workflow) => {
-        workflow.transcript.drainInbox();
+    describe("once taken", () => {
+      const taken = scenario(queued, (workflow) => {
+        workflow.transcript.takeInbox();
       });
 
-      it("leaves the inbox empty", () =>
-        drained((workflow) => {
+      it("leaves nothing waiting", () =>
+        taken((workflow) => {
           expect(workflow.transcript.inbox()).toEqual([]);
         }));
 
+      it("keeps them as the running turn's rows", () =>
+        taken((workflow) => {
+          expect(workflow.transcript.taken().map((row) => row.text)).toEqual(["first", "second"]);
+        }));
+
+      it("owes a reply only to the message a person wrote", () =>
+        taken((workflow) => {
+          expect(workflow.transcript.takenMessages().map((row) => row.text)).toEqual(["first"]);
+        }));
+
       it("moves them into one user message in order", () =>
-        drained((workflow) => {
+        taken((workflow) => {
           expect(workflow.transcript.all().map((row) => row.message)).toEqual([
             { role: "user", content: "first\n\nsecond" },
           ]);
         }));
+
+      describe("with a row that arrives during the turn", () => {
+        const arrived = scenario(taken, (workflow) => {
+          workflow.transcript.enqueue("third", "message");
+        });
+
+        it("leaves it waiting for the next turn", () =>
+          arrived((workflow) => {
+            expect(workflow.transcript.inbox().map((row) => row.text)).toEqual(["third"]);
+            expect(workflow.transcript.taken().map((row) => row.text)).toEqual(["first", "second"]);
+          }));
+
+        describe("taken again by a resumed turn", () => {
+          const resumed = scenario(arrived, (workflow) => {
+            workflow.transcript.takeInbox();
+          });
+
+          it("adds only the new row to the transcript", () =>
+            resumed((workflow) => {
+              expect(workflow.transcript.all().map((row) => row.message.content)).toEqual([
+                "first\n\nsecond",
+                "third",
+              ]);
+            }));
+
+          it("owes a reply to every message the turns took", () =>
+            resumed((workflow) => {
+              expect(workflow.transcript.takenMessages().map((row) => row.text)).toEqual([
+                "first",
+                "third",
+              ]);
+            }));
+        });
+
+        describe("when the turn ends", () => {
+          const ended = scenario(arrived, (workflow) => {
+            workflow.transcript.deleteTaken();
+          });
+
+          it("deletes the taken rows and keeps the waiting one", () =>
+            ended((workflow) => {
+              expect(workflow.transcript.taken()).toEqual([]);
+              expect(workflow.transcript.inbox().map((row) => row.text)).toEqual(["third"]);
+            }));
+        });
+      });
     });
   });
 
@@ -69,6 +125,35 @@ describe("TranscriptStore", () => {
           null,
         ]);
       }));
+
+    describe("once taken", () => {
+      const taken = scenario(queued, (workflow) => {
+        workflow.transcript.takeInbox();
+      });
+
+      it("answers where the person wrote from", () =>
+        taken((workflow) => {
+          expect(workflow.transcript.answering()).toEqual([
+            { source: "chat", channel: "C1", thread: "1.0" },
+          ]);
+        }));
+
+      it("awaits the thumbs-up on it", () =>
+        taken((workflow) => {
+          expect(workflow.transcript.awaitingThumbsUp().map((row) => row.text)).toEqual(["fix it"]);
+        }));
+
+      describe("once the thumbs-up landed", () => {
+        const reacted = scenario(taken, (workflow) => {
+          workflow.transcript.markReacted(workflow.transcript.awaitingThumbsUp()[0]!.id);
+        });
+
+        it("awaits it no more", () =>
+          reacted((workflow) => {
+            expect(workflow.transcript.awaitingThumbsUp()).toEqual([]);
+          }));
+      });
+    });
   });
 
   describe("a very large row", () => {

@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "09627033-74fd-4fc3-bab7-fea5e3d7d8d9",
+  "id": "8ff86a72-8db2-4365-8731-3d41d7fda03b",
   "prevId": "d18b66fc-9e24-42f5-b124-d94556d92394",
   "tables": {
     "agent_inbox": {
@@ -49,6 +49,22 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "taken": {
+          "name": "taken",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
+        },
+        "reacted": {
+          "name": "reacted",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": false
         }
       },
       "indexes": {},

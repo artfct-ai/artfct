@@ -25,7 +25,6 @@ type Debug = {
     status: string;
     turn_started_at: string | null;
     turn_watchdog: string | null;
-    turn_messages: string[];
   };
   log: Array<{ line: string }>;
   outbox: Array<{ kind: string; payload: { text?: string } | null }>;
@@ -391,7 +390,7 @@ describe("agent turn", () => {
 
       it("forgets the person's message once it is answered", () =>
         resumed((debug) => {
-          expect(debug.state.turn_messages).toEqual([]);
+          expect(debug.inbox).toEqual([]);
         }));
     });
   });

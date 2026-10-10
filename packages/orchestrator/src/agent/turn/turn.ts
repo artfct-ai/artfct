@@ -87,32 +87,19 @@ type ModelPassInput = {
 type ModelPass = { text: string; steps: number; endedByTool: boolean };
 
 /**
- * One turn of the orchestrator agent: move the inbox into the transcript, let the model call
+ * One turn of the orchestrator agent: take the inbox into the transcript, let the model call
  * tools until it stops, persist what it said, and post its final text. An empty inbox does
  * nothing. A superseded isolate throws out of here for the new instance to resume.
  */
 export async function runAgentTurn(workflow: WorkflowRuntime): Promise<void> {
-  const inbox = workflow.transcript.inbox();
-  if (inbox.length === 0) return;
-  const messages = [
-    ...(workflow.state.turn_messages ?? []),
-    ...inbox.filter((row) => row.wake === "message").map((row) => eventBody(row.text)),
-  ];
-  const answering = [
-    ...(workflow.state.turn_answering ?? []),
-    ...inbox.flatMap((row) => (row.wake === "message" && row.reply_to ? [row.reply_to] : [])),
-  ];
-  const chatMessages = [
-    ...(workflow.state.turn_chat_messages ?? []),
-    ...inbox.flatMap((row) =>
-      row.wake === "message" && row.chat_message ? [row.chat_message] : [],
-    ),
-  ];
-  const prompts = messages.length ? messages : inbox.map((row) => row.text);
+  const takenRow = workflow.transcript.takeInbox();
+  if (takenRow === null) return;
+  const taken = workflow.transcript.taken();
+  const messages = workflow.transcript.takenMessages().map((row) => eventBody(row.text));
+  const prompts = messages.length ? messages : taken.map((row) => row.text);
   workflow.log(null, `agent turn started${messages.length ? " on a person's message" : ""}`);
-  const startedAt = await armTurnWatchdog(workflow, { messages, answering, chatMessages });
-  const drainedRow = workflow.transcript.drainInbox();
-  const firstRow = workflow.state.turn_first_row ?? drainedRow;
+  const startedAt = await armTurnWatchdog(workflow);
+  const firstRow = workflow.state.turn_first_row ?? takenRow;
   workflow.patchState({ turn_first_row: firstRow });
   const outcome = await boundedAttempt(workflow, {
     rows: workflow.transcript.all(),
@@ -242,7 +229,7 @@ async function generate(
     workflow.log(null, `closing text not posted, ${withheld}: ${pass.text.slice(0, 200)}`);
     return "silent";
   }
-  await workflow.post({ type: "info", text: pass.text }, turnRecipients(workflow.state));
+  await workflow.post({ type: "info", text: pass.text }, turnRecipients(workflow.transcript));
   return "replied";
 }
 

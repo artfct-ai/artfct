@@ -80,7 +80,7 @@ When execution occurs without an inbound user message, standard closing text is 
  */
 export function channelTools(workflow: WorkflowRuntime) {
   let acknowledged = false;
-  const reactable = (workflow.state.turn_chat_messages ?? []).length > 0;
+  const reactable = workflow.transcript.awaitingThumbsUp().length > 0;
   const inputSchema: z.ZodType<FirstReplyInput> = reactable ? firstReplyInput : textOnlyInput;
   return {
     [ACKNOWLEDGE]: tool({
@@ -101,7 +101,10 @@ export function channelTools(workflow: WorkflowRuntime) {
             return "Reacted with a thumbs-up.";
           case "text":
             acknowledged = true;
-            await workflow.post({ type: "info", text: reply.text }, turnRecipients(workflow.state));
+            await workflow.post(
+              { type: "info", text: reply.text },
+              turnRecipients(workflow.transcript),
+            );
             return "Acknowledged.";
           default: {
             const unreachable: never = reply;
@@ -118,7 +121,7 @@ export function channelTools(workflow: WorkflowRuntime) {
         const running = workflow.state.status === "running";
         if (running && !workflow.store.activeAuthorAndResearcherTasks().length)
           await changeWorkflowStatus(workflow, "waiting_input");
-        await workflow.post({ type: "question", text }, turnRecipients(workflow.state));
+        await workflow.post({ type: "question", text }, turnRecipients(workflow.transcript));
         return "Asked. The answer arrives as a new message.";
       },
     }),
@@ -127,7 +130,7 @@ export function channelTools(workflow: WorkflowRuntime) {
         "Tell the humans something they need to know when nobody wrote to you: a problem a harness raised, or work that went wrong. Not for progress, and not for an artifact that is ready. It is the last message of this turn.",
       inputSchema: z.object({ text: z.string().min(1) }),
       execute: async ({ text }) => {
-        await workflow.post({ type: "info", text }, turnRecipients(workflow.state));
+        await workflow.post({ type: "info", text }, turnRecipients(workflow.transcript));
         return "Told.";
       },
     }),
@@ -141,18 +144,15 @@ export function channelTools(workflow: WorkflowRuntime) {
 }
 
 /**
- * Put the thumbs-up on every chat message of the turn that does not have it yet, and forget each
+ * Put the thumbs-up on every chat message of the turn that does not have it yet, and record each
  * one as it lands. Throws when the chat refuses one.
  */
 async function reactWithThumbsUp(workflow: WorkflowRuntime): Promise<void> {
   const chat = workflow.chat();
   if (!chat) throw new Error("The chat cannot take a reaction now. Send a line instead.");
-  for (const written of workflow.state.turn_chat_messages ?? []) {
-    await chat.addReaction(written.channel, written.message, THUMBS_UP);
-    workflow.patchState({
-      turn_chat_messages: (workflow.state.turn_chat_messages ?? []).filter(
-        (waiting) => waiting.channel !== written.channel || waiting.message !== written.message,
-      ),
-    });
+  for (const row of workflow.transcript.awaitingThumbsUp()) {
+    const { channel, message } = row.chat_message!;
+    await chat.addReaction(channel, message, THUMBS_UP);
+    workflow.transcript.markReacted(row.id);
   }
 }

@@ -16,6 +16,13 @@ const call = { toolCallId: "call-1", messages: [], context: {} };
 const MESSAGE: ChatMessageRef = { channel: "C1", message: "1757000001.000100" };
 const LATER_MESSAGE: ChatMessageRef = { channel: "C1", message: "1757000002.000200" };
 
+function takeChatMessages(workflow: FakeRuntime, written: ChatMessageRef[]): void {
+  for (const chatMessage of written) {
+    workflow.transcript.enqueue("fix it", "message", { chat_message: chatMessage });
+  }
+  workflow.transcript.takeInbox();
+}
+
 function firstReplySchema(workflow: FakeRuntime): z.ZodType {
   return channelTools(workflow).acknowledge.inputSchema as z.ZodType;
 }
@@ -85,7 +92,7 @@ describe("channel tools", () => {
       const reacted = scenario(freshRuntime, async (workflow) => {
         chat = new FakeChat();
         workflow.chatInstance = chat;
-        workflow.patchState({ turn_chat_messages: [MESSAGE, LATER_MESSAGE] });
+        takeChatMessages(workflow, [MESSAGE, LATER_MESSAGE]);
         const tools = channelTools(workflow);
         result = toolText(await tools.acknowledge.execute({ reply: { kind: "reaction" } }, call));
       });
@@ -110,7 +117,7 @@ describe("channel tools", () => {
 
       it("leaves the turn no message to react to again", () =>
         reacted((workflow) => {
-          expect(workflow.state.turn_chat_messages).toEqual([]);
+          expect(workflow.transcript.awaitingThumbsUp()).toEqual([]);
           expect(
             firstReplySchema(workflow).safeParse({ reply: { kind: "reaction" } }).success,
           ).toBe(false);
@@ -122,7 +129,7 @@ describe("channel tools", () => {
       let line = "";
       const refused = scenario(freshRuntime, async (workflow) => {
         workflow.chatInstance = new FakeChat({ failing: true });
-        workflow.patchState({ turn_chat_messages: [MESSAGE] });
+        takeChatMessages(workflow, [MESSAGE]);
         const tools = channelTools(workflow);
         try {
           await tools.acknowledge.execute({ reply: { kind: "reaction" } }, call);
@@ -141,7 +148,9 @@ describe("channel tools", () => {
 
       it("keeps the message for a later reaction", () =>
         refused((workflow) => {
-          expect(workflow.state.turn_chat_messages).toEqual([MESSAGE]);
+          expect(workflow.transcript.awaitingThumbsUp().map((row) => row.chat_message)).toEqual([
+            MESSAGE,
+          ]);
         }));
 
       it("still takes a line", () =>

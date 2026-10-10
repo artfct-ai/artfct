@@ -218,6 +218,10 @@ export const agentInbox = sqliteTable("agent_inbox", {
   reply_to: text({ mode: "json" }).$type<ReplyTarget>(),
   /** The chat message the person wrote, which the first reply may react to. Null for anything else. */
   chat_message: text({ mode: "json" }).$type<ChatMessageRef>(),
+  /** True once the running turn took the row. The turn deletes it when it ends. */
+  taken: integer({ mode: "boolean" }).notNull().default(false),
+  /** True once the thumbs-up landed on the row's chat message. */
+  reacted: integer({ mode: "boolean" }).notNull().default(false),
 });
 
 /** The orchestrator agent's conversation. One model message per row, in order. */

@@ -1,5 +1,4 @@
-import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
-import { isWorkflowFinished, type ChatMessageRef } from "../../workflow/store/state";
+import { isWorkflowFinished } from "../../workflow/store/state";
 import { noteMessage } from "../transcript/envelope";
 import type { WorkflowRuntime } from "../../workflow/types";
 
@@ -21,39 +20,22 @@ export function turnTimeoutText(minutes: number): string {
 }
 
 /**
- * What a turn owes people: the messages they wrote, where they wrote them from, and the chat
- * messages among them.
+ * Record a turn's start. Schedule the watchdog alarm, and the heads-up when the turn took a
+ * message a person wrote. Returns the stamp that identifies the turn.
  */
-export type TurnOwes = {
-  messages: string[];
-  answering: ReplyTarget[];
-  chatMessages: ChatMessageRef[];
-};
-
-/**
- * Record a turn's start, the messages people wrote for it, and where they wrote from. Schedule
- * the watchdog alarm, and the heads-up when someone wrote. Returns the stamp that identifies the
- * turn.
- */
-export async function armTurnWatchdog(
-  workflow: WorkflowRuntime,
-  { messages, answering, chatMessages }: TurnOwes,
-): Promise<string> {
+export async function armTurnWatchdog(workflow: WorkflowRuntime): Promise<string> {
   const startedAt = new Date(workflow.now()).toISOString();
   await cancelTurnAlarms(workflow);
   const seconds = Math.ceil(workflow.config().orchestrator.turn_timeout_minutes * 60);
   const alarm: TurnAlarm = { started_at: startedAt };
   const watchdog = await workflow.scheduleAlarm(seconds, "onTurnTimeout", alarm);
-  const headsUp = messages.length
+  const headsUp = workflow.transcript.takenMessages().length
     ? await workflow.scheduleAlarm(HEADS_UP_SECONDS, "onTurnHeadsUp", alarm)
     : null;
   workflow.patchState({
     turn_started_at: startedAt,
     turn_watchdog: watchdog,
     turn_heads_up: headsUp,
-    turn_messages: messages,
-    turn_answering: answering,
-    turn_chat_messages: chatMessages,
   });
   return startedAt;
 }
@@ -70,11 +52,9 @@ export async function disarmTurnWatchdog(
   await cancelTurnAlarms(workflow);
   workflow.patchState({
     turn_started_at: null,
-    turn_messages: [],
-    turn_answering: [],
-    turn_chat_messages: [],
     turn_first_row: null,
   });
+  workflow.transcript.deleteTaken();
   return true;
 }
 
@@ -100,11 +80,9 @@ export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm)
     turn_started_at: null,
     turn_watchdog: null,
     turn_heads_up: null,
-    turn_messages: [],
-    turn_answering: [],
-    turn_chat_messages: [],
     turn_first_row: null,
   });
+  workflow.transcript.deleteTaken();
   if (headsUp) await workflow.cancelAlarm(headsUp);
   if (isWorkflowFinished(workflow.state.status)) return workflow.release();
   const minutes = workflow.config().orchestrator.turn_timeout_minutes;
@@ -128,11 +106,9 @@ export async function resumeLostTurn(workflow: WorkflowRuntime): Promise<boolean
   workflow.patchState({ turn_started_at: null });
   if (isWorkflowFinished(workflow.state.status)) {
     workflow.patchState({
-      turn_messages: [],
-      turn_answering: [],
-      turn_chat_messages: [],
       turn_first_row: null,
     });
+    workflow.transcript.deleteTaken();
     await workflow.release();
     return false;
   }
@@ -140,7 +116,7 @@ export async function resumeLostTurn(workflow: WorkflowRuntime): Promise<boolean
     null,
     `the turn started at ${startedAt} was lost with its Durable Object. resuming.`,
   );
-  if (workflow.state.turn_messages?.length) {
+  if (workflow.transcript.takenMessages().length) {
     await postKeepingWorkingStatus(workflow, LOST_PLACE_TEXT);
   }
   await workflow.tellAgent(noteMessage(LOST_TURN_TEXT), "blocked");
