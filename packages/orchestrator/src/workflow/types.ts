@@ -16,7 +16,8 @@ import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { ResolvedStage } from "../config/stage";
 import type { TaskEvent } from "./task/events";
 import type { Connection } from "agents";
-import type { JSONValue, LanguageModel, ToolSet } from "ai";
+import type { LanguageModelV4 } from "@ai-sdk/provider";
+import type { JSONValue, ToolSet } from "ai";
 import type { TranscriptStore, WroteFrom } from "../agent/transcript/transcript";
 import type { AuthorFeed } from "./feed/feed";
 import type { Env } from "../env";
@@ -130,7 +131,7 @@ export interface WorkflowRuntime {
     modelName?: string,
     params?: Record<string, JSONValue>,
     gateway?: GatewayProvider,
-  ): Promise<LanguageModel>;
+  ): Promise<LanguageModelV4>;
   /** Tools from the MCP servers the orchestrator is connected to. */
   mcpTools(): Promise<ToolSet>;
   /** The current time in ms. The one clock the logic modules read, so tests can set it. */
