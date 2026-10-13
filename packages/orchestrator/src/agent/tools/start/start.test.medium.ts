@@ -12,7 +12,7 @@ import type { Workflow } from "../../../workflow";
 import type { JobInput } from "../../../workflow/lifecycle";
 import { planTools } from "../plan";
 import { jobInputKey } from "../../../workflow/store/input-key";
-import { startTools, unfinishedJobRefusal } from "./start";
+import { startTools, validateInputNotInWork } from "./start";
 
 const call = { toolCallId: "call-1", messages: [], context: {} };
 
@@ -47,7 +47,7 @@ const ENG_1_INPUT: JobInput = {
   issue: { ...ENG_1, title: "Fix login", team_id: null, started: false },
 };
 
-describe("unfinishedJobRefusal", () => {
+describe("validateInputNotInWork", () => {
   describe("an issue whose only job failed", () => {
     const failed = scenario(freshWorkflow(), (workflow) => {
       seedJob(workflow, "j1", "t1", { issue: ENG_1 });
@@ -56,7 +56,7 @@ describe("unfinishedJobRefusal", () => {
 
     it("frees the issue again", () =>
       failed((workflow) => {
-        expect(unfinishedJobRefusal(workflow, ENG_1_INPUT)).toBeNull();
+        expect(validateInputNotInWork(workflow, ENG_1_INPUT)).toBeNull();
       }));
 
     describe("with a newer job on the same issue", () => {
@@ -66,7 +66,7 @@ describe("unfinishedJobRefusal", () => {
 
       it("names the newer job, not the failed one", () =>
         owned((workflow) => {
-          expect(unfinishedJobRefusal(workflow, ENG_1_INPUT)).toMatch(
+          expect(validateInputNotInWork(workflow, ENG_1_INPUT)).toMatch(
             /^Job j2 already works on ENG-1/,
           );
         }));
@@ -78,7 +78,7 @@ describe("unfinishedJobRefusal", () => {
 
         it("leaves the issue to the output artifact check", () =>
           done((workflow) => {
-            expect(unfinishedJobRefusal(workflow, ENG_1_INPUT)).toBeNull();
+            expect(validateInputNotInWork(workflow, ENG_1_INPUT)).toBeNull();
           }));
       });
     });
@@ -249,7 +249,7 @@ describe("start_job on the open pull request of an earlier job", () => {
     it("refuses, because a closed pull request cannot be continued", () =>
       refused(({ result }) => {
         expect(result).toBe(
-          `${PULL_URL} is closed or comes from a fork, so no job can continue it.`,
+          `${PULL_URL} is closed or comes from a fork, so a job cannot continue it.`,
         );
       }));
   });
@@ -267,7 +267,7 @@ describe("start_job on the open pull request of an earlier job", () => {
     it("refuses, because its branch is not in the repository", () =>
       refused(({ result }) => {
         expect(result).toBe(
-          `${PULL_URL} is closed or comes from a fork, so no job can continue it.`,
+          `${PULL_URL} is closed or comes from a fork, so a job cannot continue it.`,
         );
       }));
   });

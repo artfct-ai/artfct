@@ -179,7 +179,7 @@ describe("runModelAuthorTurn", () => {
 
     const written = scenario(freshDurableRuntime, async (workflow) => {
       const documents = patchNestingHost(workflow);
-      await documents.nesting?.createRootPage("SSO sign-in (design)", "## Resources", PAGE_PARENT);
+      await documents.nesting?.createRootPage("SSO sign-in", "## Resources", PAGE_PARENT);
       workflow.patchState({ name: "SSO sign-in", root_page: ROOT });
       answerWithDocument(workflow);
       await runModelAuthorTurn(workflow, seedModelAuthor(workflow));
@@ -188,6 +188,11 @@ describe("runModelAuthorTurn", () => {
     it("fills the root page above its resources section", () =>
       written((workflow) => {
         expect(fakeDocumentsOf(workflow).pageText("page-1")).toBe(`${DOCUMENT}\n\n## Resources`);
+      }));
+
+    it("gives the root page the title of the stage's page", () =>
+      written((workflow) => {
+        expect(fakeDocumentsOf(workflow).pageTitle("page-1")).toBe("SSO sign-in (design)");
       }));
 
     it("creates no other page", () =>

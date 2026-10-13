@@ -12,7 +12,7 @@ import type { WorkflowRuntime } from "./types";
 /** A page on the document host, by the id `pageFromUrl` gives and its link. */
 export type HostPage = { page_id: string; url: string };
 
-/** The stage `documents.root_page` names, whose page is the root page. Undefined when it names none. */
+/** The stage `documents.root_page` names, which fills the root page. Undefined when it does not name one. */
 export function rootPageStage(workflow: WorkflowRuntime): Stage | undefined {
   const { documents, stages } = workflow.workflowDefinition();
   return stages.find((stage) => stage.name === documents.root_page);
@@ -23,7 +23,10 @@ export function newPageParent(state: WorkflowState): string | null {
   return state.root_page?.page_id ?? state.page_parent ?? null;
 }
 
-/** Create the root page as an empty container under the page parent, for the root page stage to fill. */
+/**
+ * Create the root page as an empty container under the page parent. The root page stage fills
+ * it when it runs.
+ */
 export async function createRootContainer(
   nesting: PageNesting,
   { title, pageParent }: { title: string; pageParent: string },

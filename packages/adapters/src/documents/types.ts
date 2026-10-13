@@ -61,6 +61,8 @@ export interface PageNesting {
   movePage(pageId: string, parentPageId: string): Promise<void>;
   /** Add markdown text at the end of a page. */
   appendToPage(pageId: string, text: string): Promise<void>;
+  /** Set the title of a page, a child page or a row of a database. */
+  renamePage(pageId: string, title: string): Promise<void>;
 }
 
 /** What the orchestrator and ingress ask of a document host. */

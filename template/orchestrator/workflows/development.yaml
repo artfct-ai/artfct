@@ -3,7 +3,7 @@ description: Take a request from design through pull requests.
 
 # Settings for the pages this workflow writes, across its stages.
 documents:
-  # On Notion, the page of this stage holds every other page of the workflow.
+  # On Notion, every page of the workflow goes under a root page, and this stage fills it.
   root_page: design
   # Where Notion puts the pages of this workflow when the request names no place. A link to a
   # page, or to a database with one table. Without it the agent asks.

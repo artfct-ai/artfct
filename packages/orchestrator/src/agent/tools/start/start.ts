@@ -6,7 +6,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { parseDocumentOptions } from "../../../artifact/options";
 import type { ArtifactTarget } from "../../../artifact/types";
-import { resolveStage } from "../../../config/stage";
+import { resolveStage, type ResolvedStage } from "../../../config/stage";
 import type { TurnDecisions } from "../../../decisions/ask";
 import { humansAccepted } from "./humans-accepted";
 import { GATEWAY_HARNESS, type RuntimeRequest } from "../../message/requested-runtime";
@@ -22,11 +22,12 @@ import {
   type JobIssue,
 } from "../../../workflow/lifecycle";
 import { stageContinuesArtifact } from "../../../workflow/artifact";
+import { newPageParent } from "../../../workflow/root-page";
 import { artifactRefKey, jobInputFor, jobInputKey } from "../../../workflow/store/input-key";
 import { isTaskFinished } from "../../../workflow/store/state";
 import type { ArtifactRow, JobRow } from "../../../workflow/store/tasks";
 import type { WorkflowRuntime } from "../../../workflow/types";
-import { endedWorkflowRefusal } from "../plan";
+import { validateWorkflowRunning } from "../plan";
 import { linkInputPage } from "../root-page";
 
 const jobIdField = z.string().describe("the job id, for example wf_abc-2");
@@ -94,7 +95,7 @@ export function startTools(
   return {
     [START_JOB]: tool({
       description:
-        "Start a job for a stage. Its author task runs in a sandbox, or as one model call on a stage with model execution. The brief is what the harness reads first: goal, acceptance criteria, links, context. The stage instructions are added by the system. Name the tracker issue when the job works on one. Name the artifact when the request points at one that no job of this workflow produced, such as a design doc written elsewhere or an open pull request. Name it too for an open pull request whose job was cancelled or failed. A job that is given a pull request in a stage that produces one continues it: it works on the branch of that pull request and opens no other. Refused when the workflow has ended, every slot is busy, the issue is blocked by an unfinished issue, the artifact link is not on a configured host, the pull request to continue is closed or its author task is unfinished, a job already works on the same input, an earlier job on the same input left an artifact the host still holds, or a stage with model execution or a choice ending has no document host. The input is the issue, else the artifact. With neither it is the artifact of the latest completed job, or else the message that asked for the job.",
+        "Start a job for a stage. Its author task runs in a sandbox, or as one model call on a stage with model execution. The brief is what the harness reads first: goal, acceptance criteria, links, context. The stage instructions are added by the system. Name the tracker issue when the job works on one. Name the artifact when the request points at one that a job of this workflow did not produce, such as a design doc written elsewhere or an open pull request. Name it too for an open pull request whose job was cancelled or failed. A job that is given a pull request in a stage that produces one continues it: it works on the branch of that pull request and does not open another. Refused when the workflow has ended, every slot is busy, the issue is blocked by an unfinished issue, the artifact link is not on a configured host, the pull request to continue is closed or its author task is unfinished, a job already works on the same input, an earlier job on the same input left an artifact the host still holds, a stage with model execution or a choice ending does not have a document host, a stage that writes a page does not have a saved plan, or the plan does not set a root page or a page parent for a model-call author. The input is the issue, else the artifact. Without either, it is the artifact of the latest completed job, or else the message that asked for the job.",
       inputSchema: z.object({
         stage: z.string().describe("a stage name from the config"),
         brief: z.string().min(1),
@@ -208,8 +209,8 @@ export function withRequestedRuntime(
   };
 }
 
-/** The slot guard. Null when a job may start. */
-export function slotRefusal(workflow: WorkflowRuntime): string | null {
+/** Validate that a slot is free. Null when a job may start. */
+export function validateFreeSlot(workflow: WorkflowRuntime): string | null {
   const { state } = workflow;
   const active = workflow.store
     .activeAuthorAndResearcherTasks()
@@ -219,7 +220,7 @@ export function slotRefusal(workflow: WorkflowRuntime): string | null {
   return `All ${state.concurrency} slots are busy (${ids}). Wait for a job to complete.`;
 }
 
-/** How a refusal names the input artifact of a job. */
+/** How an error names the input artifact of a job. */
 function inputName(input: JobInput): string {
   if (input.kind === "issue") return input.issue.key;
   if (input.kind === "target") return `the ${input.target.ref.kind} ${input.target.url}`;
@@ -227,8 +228,8 @@ function inputName(input: JobInput): string {
   return "the same request";
 }
 
-/** Refuse when a job whose author or researcher task is unfinished works from the input artifact. */
-export function unfinishedJobRefusal(workflow: WorkflowRuntime, input: JobInput): string | null {
+/** Validate that an unfinished author or researcher task does not work from the input artifact. */
+export function validateInputNotInWork(workflow: WorkflowRuntime, input: JobInput): string | null {
   const inputKey = jobInputKey(input);
   for (const job of workflow.store.jobs()) {
     if (job.input_key !== inputKey) continue;
@@ -240,11 +241,11 @@ export function unfinishedJobRefusal(workflow: WorkflowRuntime, input: JobInput)
 }
 
 /**
- * Refuse when a finished job on the same input artifact left an output artifact the host still
- * holds. A removal the host never reported is recorded here. A job that left its own input
- * artifact behind continued it, so the next job may continue it too.
+ * Validate that a finished job on the same input artifact did not leave an output artifact the
+ * host still holds. A removal the host did not report is recorded here. A job that left its own
+ * input artifact behind continued it, so the next job may continue it too.
  */
-async function existingOutputRefusal(
+async function validateEarlierOutputRemoved(
   workflow: WorkflowRuntime,
   input: JobInput,
 ): Promise<string | null> {
@@ -267,15 +268,15 @@ async function existingOutputRefusal(
 }
 
 /** Why this workflow still holds an input artifact: a job works from it, or an output artifact for it exists. */
-export async function heldInputRefusal(
+export async function validateInputNotHeld(
   workflow: WorkflowRuntime,
   input: JobInput,
 ): Promise<string | null> {
-  return unfinishedJobRefusal(workflow, input) ?? existingOutputRefusal(workflow, input);
+  return validateInputNotInWork(workflow, input) ?? validateEarlierOutputRemoved(workflow, input);
 }
 
-/** Refuse when the issue routes to another workflow that still holds it. That workflow decides. */
-async function heldElsewhereRefusal(
+/** Validate that another workflow does not still hold the issue. That workflow decides. */
+async function validateIssueNotHeldElsewhere(
   workflow: WorkflowRuntime,
   issue: JobIssue,
 ): Promise<string | null> {
@@ -303,7 +304,7 @@ async function continuedBranch(
   workflow: WorkflowRuntime,
   stageName: string,
   target: ArtifactTarget | null,
-): Promise<{ branch: string | null } | { refusal: string }> {
+): Promise<{ branch: string | null } | { error: string }> {
   const definition = workflow
     .workflowDefinition()
     .stages.find((candidate) => candidate.name === stageName);
@@ -318,7 +319,7 @@ async function continuedBranch(
     .find((author) => !isTaskFinished(author.status));
   if (holder) {
     return {
-      refusal: `Job ${holder.job_id} still works on ${target.url} (${holder.status}). Send its author what is needed with prompt_task.`,
+      error: `Job ${holder.job_id} still works on ${target.url} (${holder.status}). Send its author what is needed with prompt_task.`,
     };
   }
   const branch = await workflow
@@ -330,39 +331,55 @@ async function continuedBranch(
     });
   if (!branch) {
     return {
-      refusal: `${target.url} is closed or comes from a fork, so no job can continue it.`,
+      error: `${target.url} is closed or comes from a fork, so a job cannot continue it.`,
     };
   }
   return { branch };
 }
 
-/** Every guard that needs no external call. Null when a job may start. */
-function startRefusal(workflow: WorkflowRuntime, input: StartInput): string | null {
-  const ended = endedWorkflowRefusal(workflow);
+/** Every validation that does not need an external call. Null when a job may start. */
+function validateStart(workflow: WorkflowRuntime, input: StartInput): string | null {
+  const ended = validateWorkflowRunning(workflow);
   if (ended) return ended;
   const definition = workflow
     .workflowDefinition()
     .stages.find((candidate) => candidate.name === input.stage);
   if (!definition) return `Unknown stage ${input.stage}. Use a name from the config.`;
-  const { produce } = resolveStage(workflow.config(), definition).author;
-  const executionRefusal =
+  const stage = resolveStage(workflow.config(), definition);
+  const { produce } = stage.author;
+  const executionError =
     produce.execution === "model"
-      ? modelExecutionRefusal(definition.name, input.harness)
+      ? validateModelExecution(definition.name, input.harness)
       : harnessAdapter(input.harness ?? produce.harness).modelRefusal(input.model ?? produce.model);
-  if (executionRefusal) return executionRefusal;
-  return slotRefusal(workflow);
+  if (executionError) return executionError;
+  return (
+    validatePlanSaved(workflow, stage) ??
+    validatePagePlace(workflow, stage) ??
+    validateFreeSlot(workflow)
+  );
 }
 
-/** Refuse a harness for a stage whose author runs as a model call. */
-function modelExecutionRefusal(stage: string, harness: Harness | undefined): string | null {
+/** Validate that the workflow has a saved plan before a stage that writes a page starts. */
+function validatePlanSaved(workflow: WorkflowRuntime, stage: ResolvedStage): string | null {
+  if (stage.artifact !== "page" || workflow.state.stages.length > 0) return null;
+  return `Stage ${stage.name} writes a page, and the workflow does not have a plan yet. Call set_plan first.`;
+}
+
+/** Validate that the plan says where the page of a model-call author goes. */
+function validatePagePlace(workflow: WorkflowRuntime, stage: ResolvedStage): string | null {
+  if (stage.artifact !== "page" || stage.author.produce.execution !== "model") return null;
+  if (newPageParent(workflow.state)) return null;
+  return `Stage ${stage.name} writes a page, and the plan does not set a root page or a page parent. Call set_plan with stage ${stage.name}.`;
+}
+
+/** Validate that a stage whose author runs as a model call is not given a harness. */
+function validateModelExecution(stage: string, harness: Harness | undefined): string | null {
   if (!harness) return null;
-  return `Stage ${stage} runs its author as one model call, with no harness. Start it without a harness.`;
+  return `Stage ${stage} runs its author as one model call, without a harness. Start it without a harness.`;
 }
 
-/**
- * Refuse a stage with model execution or a choice ending when the workflow has no document host.
- */
-export async function documentHostRefusal(
+/** Validate that a stage with model execution or a choice ending has a document host. */
+export async function validateDocumentHost(
   workflow: WorkflowRuntime,
   stageName: string,
 ): Promise<string | null> {
@@ -370,10 +387,10 @@ export async function documentHostRefusal(
     .workflowDefinition()
     .stages.find((candidate) => candidate.name === stageName);
   if (definition?.ending === "choice" && !(await workflow.documents())) {
-    return `Stage ${stageName} ends on a choice read from its page on the document host, and this workflow has none.`;
+    return `Stage ${stageName} ends on a choice read from its page on the document host, and this workflow does not have one.`;
   }
   if (definition?.author.produce.execution !== "model" || (await workflow.documents())) return null;
-  return `Stage ${stageName} writes its page on the document host, and this workflow has none.`;
+  return `Stage ${stageName} writes its page on the document host, and this workflow does not have one.`;
 }
 
 /** Resolve the issue in the tracker and refuse when it is finished or blocked. */
@@ -414,7 +431,8 @@ async function start(
   input: StartInput,
   requestText: string,
 ): Promise<string> {
-  const early = startRefusal(workflow, input) ?? (await documentHostRefusal(workflow, input.stage));
+  const early =
+    validateStart(workflow, input) ?? (await validateDocumentHost(workflow, input.stage));
   if (early) return early;
   if (input.issue && input.artifact) return "Name the issue or the artifact, not both.";
   const issue = input.issue ? await resolveIssue(workflow, input.issue) : null;
@@ -422,16 +440,16 @@ async function start(
   const target = input.artifact ? await resolveTarget(workflow, input.artifact) : null;
   if (typeof target === "string") return target;
   const jobInput = jobInputFor(workflow, { issue, target }, requestText);
-  const elsewhere = issue ? await heldElsewhereRefusal(workflow, issue) : null;
+  const elsewhere = issue ? await validateIssueNotHeldElsewhere(workflow, issue) : null;
   if (elsewhere) return elsewhere;
-  const held = await heldInputRefusal(workflow, jobInput);
+  const held = await validateInputNotHeld(workflow, jobInput);
   if (held) return held;
   const continued = await continuedBranch(workflow, input.stage, target);
-  if ("refusal" in continued) return continued.refusal;
-  const hostRefusal = await documentHostRefusal(workflow, input.stage);
-  if (hostRefusal) return hostRefusal;
+  if ("error" in continued) return continued.error;
+  const hostError = await validateDocumentHost(workflow, input.stage);
+  if (hostError) return hostError;
   // Other start_job calls of the same step can run during the awaits above.
-  const late = startRefusal(workflow, input) ?? unfinishedJobRefusal(workflow, jobInput);
+  const late = validateStart(workflow, input) ?? validateInputNotInWork(workflow, jobInput);
   if (late) return late;
   const { stage, brief, title, harness, model } = input;
   const job = await startJob(workflow, {
@@ -488,7 +506,7 @@ async function complete(
       personMessages,
       turn,
     });
-    if ("refusal" in checked) return checked.refusal;
+    if ("error" in checked) return checked.error;
     workflow.store.updateJobSelection(jobId, checked.selection);
   } else {
     const pending = await acceptancePending(workflow, artifact, { personMessages, turn });
@@ -507,10 +525,10 @@ async function cancel(workflow: WorkflowRuntime, jobId: string, reason: string):
   return `Cancelled job ${jobId}.`;
 }
 
-/** The refusal that asks the person again when their message does not clearly accept. */
+/** The instruction that asks the person again when their message does not clearly accept. */
 export const ASK_WHETHER_ACCEPTED = "Ask them whether it is accepted.";
 
-/** The refusal that asks the person again when their message does not clearly select. */
+/** The instruction that asks the person again when their message does not clearly select. */
 export const ASK_WHICH_OPTION = "Ask them which option they choose.";
 
 /** What the agent reads when the decisions model could not check what the person wrote. */
@@ -518,7 +536,7 @@ export function checkUnavailableText(checked: string): string {
   return `The check of ${checked} is unavailable right now, so the job stays open. Tell the person the check is unavailable. Do not ask them again.`;
 }
 
-/** The refusal to complete a job whose host has not accepted its artifact, asking the host. */
+/** Why a job cannot complete yet: its host has not accepted its artifact. Asks the host. */
 async function acceptancePending(
   workflow: WorkflowRuntime,
   artifact: ArtifactRow | null,
@@ -543,7 +561,7 @@ async function acceptancePending(
   return null;
 }
 
-/** The refusal to complete a job whose artifact only the humans accept, and they have not. */
+/** Why a job cannot complete yet: only the humans accept its artifact, and they have not. */
 async function humansAcceptancePending(
   workflow: WorkflowRuntime,
   artifact: ArtifactRow,
@@ -571,41 +589,42 @@ type SelectionInput = TurnMessages & {
   option: string | undefined;
 };
 
-/** The selection on a stage with a choice ending, or the refusal to complete. */
+/** The selection on a stage with a choice ending, or the error that stops the completion. */
 async function checkSelection(
   workflow: WorkflowRuntime,
   { job, artifact, option, personMessages, turn }: SelectionInput,
-): Promise<{ selection: string } | { refusal: string }> {
+): Promise<{ selection: string } | { error: string }> {
   const stage = `Stage ${job.stage} ends on a choice`;
   if (option === undefined) {
     return {
-      refusal: `${stage}. Pass the option a person selected, as the page of job ${job.job_id} lists it.`,
+      error: `${stage}. Pass the option a person selected, as the page of job ${job.job_id} lists it.`,
     };
   }
   if (personMessages.length === 0) {
     return {
-      refusal: `${stage}, and no person wrote in this turn. Wait for a person to select an option.`,
+      error: `${stage}, and a person did not write in this turn. Wait for a person to select an option.`,
     };
   }
   if (artifact?.ref.kind !== "page") {
-    return { refusal: `Job ${job.job_id} has no page yet. Wait for its author task.` };
+    return { error: `Job ${job.job_id} does not have a page yet. Wait for its author task.` };
   }
   const documents = await workflow.documents();
-  if (!documents) return { refusal: `${stage}, and this workflow has no document host to read.` };
+  if (!documents)
+    return { error: `${stage}, and this workflow does not have a document host to read.` };
   const pageText = await documents.readPageContent(artifact.ref.page_id).catch((error: unknown) => {
     workflow.log(null, `page read of job ${job.job_id} failed: ${String(error).slice(0, 200)}`);
     return null;
   });
   if (pageText === null) {
-    return { refusal: `The page of job ${job.job_id} could not be read. Try again later.` };
+    return { error: `The page of job ${job.job_id} could not be read. Try again later.` };
   }
   const options = parseDocumentOptions(pageText);
   if (!options.includes(option)) {
     const listed = options.length
       ? `It lists: ${options.map((listedOption) => `"${listedOption}"`).join(", ")}.`
-      : "It lists none. Ask the author task with prompt_task to list them.";
+      : "It does not list any. Ask the author task with prompt_task to list them.";
     return {
-      refusal: `The page of job ${job.job_id} lists no option "${option}" under its options heading. ${listed}`,
+      error: `The page of job ${job.job_id} does not list the option "${option}" under its options heading. ${listed}`,
     };
   }
   const selected = await humansSelected(workflow, {
@@ -615,11 +634,11 @@ async function checkSelection(
     turn,
   });
   if (selected === null) {
-    return { refusal: checkUnavailableText(`whether the person selected "${option}"`) };
+    return { error: checkUnavailableText(`whether the person selected "${option}"`) };
   }
   if (!selected) {
     return {
-      refusal: `The person's message does not clearly select "${option}". ${ASK_WHICH_OPTION}`,
+      error: `The person's message does not clearly select "${option}". ${ASK_WHICH_OPTION}`,
     };
   }
   return { selection: option };

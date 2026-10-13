@@ -4,11 +4,16 @@ import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { OPTIONS_HEADING } from "../../../artifact/options";
 import { freshRuntime } from "../../../../test/fresh-runtime";
-import { patchModelExecution, seedTask, type FakeRuntime } from "../../../../test/fake-runtime";
+import {
+  patchModelExecution,
+  patchStageResearch,
+  seedTask,
+  type FakeRuntime,
+} from "../../../../test/fake-runtime";
 import { scenario } from "../../../../test/scenario";
 import { toolText } from "../../../../test/tool-result";
 import type { RuntimeRequest } from "../../message/requested-runtime";
-import { documentHostRefusal, slotRefusal, startTools, withRequestedRuntime } from "./start";
+import { validateDocumentHost, validateFreeSlot, startTools, withRequestedRuntime } from "./start";
 
 const call = { toolCallId: "call-1", messages: [], context: {} };
 
@@ -210,7 +215,7 @@ describe("complete_job on a stage with a choice ending", () => {
           call,
         ),
       ).toBe(
-        "Stage design ends on a choice, and no person wrote in this turn. Wait for a person to select an option.",
+        "Stage design ends on a choice, and a person did not write in this turn. Wait for a person to select an option.",
       );
     }));
 
@@ -223,7 +228,7 @@ describe("complete_job on a stage with a choice ending", () => {
           call,
         ),
       ).toBe(
-        'The page of job wf_x-1 lists no option "Drop the table" under its options heading. It lists: "Keep one table", "Split the table".',
+        'The page of job wf_x-1 does not list the option "Drop the table" under its options heading. It lists: "Keep one table", "Split the table".',
       );
       expect(workflow.store.requireJob("wf_x-1").selection).toBeNull();
     }));
@@ -350,11 +355,11 @@ describe("cancel_job", () => {
     }));
 });
 
-describe("slotRefusal", () => {
+describe("validateFreeSlot", () => {
   it("counts a job whose researcher holds its slot", () =>
     researching((workflow) => {
       workflow.patchState({ concurrency: 1 });
-      expect(slotRefusal(workflow)).toBe(
+      expect(validateFreeSlot(workflow)).toBe(
         "All 1 slots are busy (wf_x-1). Wait for a job to complete.",
       );
     }));
@@ -362,26 +367,31 @@ describe("slotRefusal", () => {
   it("lets a job start into a free slot", () =>
     researching((workflow) => {
       workflow.patchState({ concurrency: 2 });
-      expect(slotRefusal(workflow)).toBeNull();
+      expect(validateFreeSlot(workflow)).toBeNull();
     }));
 });
 
 const modelStage = scenario(freshRuntime, (workflow) => {
   patchModelExecution(workflow);
+  workflow.patchState({ stages: ["design"] });
 });
 
-describe("documentHostRefusal", () => {
+const designPlanned = scenario(freshRuntime, (workflow) => {
+  workflow.patchState({ stages: ["design"] });
+});
+
+describe("validateDocumentHost", () => {
   describe("a stage with model execution", () => {
     it("lets the job start with a document host", () =>
       modelStage(async (workflow) => {
-        expect(await documentHostRefusal(workflow, "design")).toBeNull();
+        expect(await validateDocumentHost(workflow, "design")).toBeNull();
       }));
 
     it("refuses when the workflow has no document host", () =>
       modelStage(async (workflow) => {
         workflow.documentsInstance = null;
-        expect(await documentHostRefusal(workflow, "design")).toBe(
-          "Stage design writes its page on the document host, and this workflow has none.",
+        expect(await validateDocumentHost(workflow, "design")).toBe(
+          "Stage design writes its page on the document host, and this workflow does not have one.",
         );
       }));
   });
@@ -393,21 +403,21 @@ describe("documentHostRefusal", () => {
 
     it("refuses when the workflow has no document host", () =>
       choiceEndingStage(async (workflow) => {
-        expect(await documentHostRefusal(workflow, "design")).toBe(
-          "Stage design ends on a choice read from its page on the document host, and this workflow has none.",
+        expect(await validateDocumentHost(workflow, "design")).toBe(
+          "Stage design ends on a choice read from its page on the document host, and this workflow does not have one.",
         );
       }));
 
     it("lets the job start with a document host", () =>
       choiceEndingStage(async (workflow) => {
         workflow.documentsInstance = new FakeDocuments();
-        expect(await documentHostRefusal(workflow, "design")).toBeNull();
+        expect(await validateDocumentHost(workflow, "design")).toBeNull();
       }));
   });
 
   it("lets a stage with harness execution start with no document host", () =>
     freshRuntime(async (workflow) => {
-      expect(await documentHostRefusal(workflow, "design")).toBeNull();
+      expect(await validateDocumentHost(workflow, "design")).toBeNull();
     }));
 });
 
@@ -417,7 +427,7 @@ describe("start_job on a stage with model execution", () => {
       workflow.documentsInstance = null;
       const { start_job } = startTools(workflow, ["Write the design."]);
       expect(await start_job.execute({ stage: "design", brief: "Write it." }, call)).toBe(
-        "Stage design writes its page on the document host, and this workflow has none.",
+        "Stage design writes its page on the document host, and this workflow does not have one.",
       );
       expect(workflow.store.jobs()).toEqual([]);
     }));
@@ -428,7 +438,7 @@ describe("start_job on a stage with model execution", () => {
       expect(
         await start_job.execute({ stage: "design", brief: "Write it.", harness: "opencode" }, call),
       ).toBe(
-        "Stage design runs its author as one model call, with no harness. Start it without a harness.",
+        "Stage design runs its author as one model call, without a harness. Start it without a harness.",
       );
     }));
 
@@ -439,6 +449,87 @@ describe("start_job on a stage with model execution", () => {
         "Started job wf_x-1 for stage design. Its author task is wf_x.1.",
       );
     }));
+});
+
+async function startDesign(workflow: FakeRuntime): Promise<string> {
+  const { start_job } = startTools(workflow, ["Write the design."]);
+  return toolText(await start_job.execute({ stage: "design", brief: "Write it." }, call));
+}
+
+describe("start_job on a page stage whose researcher runs first", () => {
+  const researchedModelStage = scenario(freshRuntime, (workflow) => {
+    patchModelExecution(workflow);
+    patchStageResearch(workflow);
+  });
+
+  describe("without a plan", () => {
+    let result: string;
+    const refused = scenario(researchedModelStage, async (workflow) => {
+      result = await startDesign(workflow);
+    });
+
+    it("names the missing plan", () =>
+      refused(() => {
+        expect(result).toBe(
+          "Stage design writes a page, and the workflow does not have a plan yet. Call set_plan first.",
+        );
+      }));
+
+    it("does not run the researcher", () =>
+      refused((workflow) => {
+        expect(workflow.store.tasks()).toEqual([]);
+        expect(workflow.sandboxProvider.calls).toEqual([]);
+      }));
+  });
+
+  describe("with a plan that does not set a root page or a page parent", () => {
+    let result: string;
+    const refused = scenario(researchedModelStage, async (workflow) => {
+      workflow.patchState({ stages: ["implement"], page_parent: null, root_page: null });
+      result = await startDesign(workflow);
+    });
+
+    it("names the missing root page or page parent", () =>
+      refused(() => {
+        expect(result).toBe(
+          "Stage design writes a page, and the plan does not set a root page or a page parent. Call set_plan with stage design.",
+        );
+      }));
+
+    it("does not run the researcher", () =>
+      refused((workflow) => {
+        expect(workflow.store.tasks()).toEqual([]);
+        expect(workflow.sandboxProvider.calls).toEqual([]);
+      }));
+  });
+
+  describe("with a plan that has a root page", () => {
+    const started = scenario(researchedModelStage, async (workflow) => {
+      workflow.patchState({
+        stages: ["design"],
+        page_parent: null,
+        root_page: { page_id: "root-1", url: "https://docs.test/root-1", source: "container" },
+      });
+      await startDesign(workflow);
+    });
+
+    it("starts the researcher", () =>
+      started((workflow) => {
+        expect(workflow.store.tasks().map((task) => task.role)).toEqual(["researcher"]);
+      }));
+  });
+
+  describe("with a plan that has a page parent", () => {
+    const started = scenario(researchedModelStage, async (workflow) => {
+      workflow.patchState({ stages: ["design"] });
+      await startDesign(workflow);
+    });
+
+    it("starts the researcher", () =>
+      started((workflow) => {
+        expect(workflow.store.tasks().map((task) => task.role)).toEqual(["researcher"]);
+      }));
+  });
 });
 
 const GLM_PRESET: RuntimeRequest = {
@@ -457,7 +548,7 @@ function startRequesting(workflow: FakeRuntime, request: RuntimeRequest | null) 
 
 describe("start_job with a requested runtime", () => {
   it("runs the author on the requested runtime over the label args", () =>
-    freshRuntime(async (workflow) => {
+    designPlanned(async (workflow) => {
       const { start_job } = startRequesting(workflow, GLM_PRESET);
       const input = {
         stage: "design",
@@ -476,7 +567,7 @@ describe("start_job with a requested runtime", () => {
     }));
 
   it("says the job runs without the model when it matched none clearly", () =>
-    freshRuntime(async (workflow) => {
+    designPlanned(async (workflow) => {
       const { start_job } = startRequesting(workflow, {
         kind: "unresolved",
         closest: ["claude-fable-5-1"],
@@ -488,7 +579,7 @@ describe("start_job with a requested runtime", () => {
     }));
 
   it("starts on the stage's pair when no message named a model", () =>
-    freshRuntime(async (workflow) => {
+    designPlanned(async (workflow) => {
       const { start_job } = startRequesting(workflow, null);
       expect(await start_job.execute({ stage: "design", brief: "Write it." }, call)).toBe(
         "Started job wf_x-1 for stage design. Its author task is wf_x.1.",

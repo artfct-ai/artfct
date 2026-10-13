@@ -79,7 +79,7 @@ import {
   type WorkflowState,
 } from "./workflow/store/state";
 import { debugDump, summarize } from "./workflow/status";
-import { heldInputRefusal } from "./agent/tools/start/start";
+import { validateInputNotHeld } from "./agent/tools/start/start";
 import { WorkflowStore, type JobRow, type TaskRow } from "./workflow/store/tasks";
 import {
   keepSandboxAlive,
@@ -214,7 +214,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
 
   async heldInput(input: JobInput): Promise<string | null> {
     await this.lifecycle.start();
-    return heldInputRefusal(this, input);
+    return validateInputNotHeld(this, input);
   }
 
   /**

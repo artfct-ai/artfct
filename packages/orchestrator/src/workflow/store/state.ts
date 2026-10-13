@@ -9,8 +9,8 @@ export type RepoRef = { full: string };
 export type ChatMessageRef = { channel: string; message: string };
 
 /**
- * The root page of a workflow. A `container` is the page the workflow created for the root page
- * stage to fill. A `named` page is an existing page a person named as the root page.
+ * The root page of a workflow. A `container` is the page the plan created under the page parent,
+ * which the root page stage fills when it runs. A `named` page is an existing page a person named.
  */
 export type RootPage = { page_id: string; url: string; source: "container" | "named" };
 
