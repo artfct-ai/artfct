@@ -33,7 +33,7 @@
     "lint": "oxlint"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^1.5.1",
+    "@agentclientprotocol/sdk": "^1.8.0",
     "@ai-sdk/openai-compatible": "^3.0.65",
     "@ai-sdk/provider": "^4.0.24",
     "@ai-sdk/provider-utils": "^5.0.56",
@@ -58,7 +58,7 @@
     "@artfct-ai/ingress": "workspace:*",
     "@artfct-ai/orchestrator": "workspace:*",
     "@cloudflare/vitest-plugin": "^1.3.3",
-    "@types/bun": "^1.4.2",
+    "@types/bun": "^1.4.3",
     "rolldown": "^1.2.13",
     "rolldown-plugin-dts": "^0.28.6",
     "wrangler": "^4.148.0"

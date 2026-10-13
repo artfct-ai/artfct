@@ -29,9 +29,9 @@
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261007.1",
-    "@types/bun": "^1.4.2",
+    "@types/bun": "^1.4.3",
     "@types/node": "^24.19.1",
-    "bun-types": "^1.4.2",
+    "bun-types": "^1.4.3",
     "oxfmt": "^0.71.0",
     "oxlint": "^1.87.0",
     "oxlint-tsgolint": "^7.0.2003",
@@ -41,5 +41,5 @@
     "vitest": "^4.1.11",
     "wrangler": "^4.148.0"
   },
-  "packageManager": "bun@1.4.2"
+  "packageManager": "bun@1.4.3"
 }

@@ -3,7 +3,7 @@
   "private": true,
   "description": "The coding agent harnesses the sandbox image installs with npm ci.",
   "dependencies": {
-    "@agentclientprotocol/claude-agent-acp": "0.86.0",
-    "@opencode/cli": "2.0.24"
+    "@agentclientprotocol/claude-agent-acp": "0.90.0",
+    "@opencode/cli": "2.0.28"
   }
 }

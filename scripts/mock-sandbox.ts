@@ -45,7 +45,7 @@ type BridgeExit = {
   sandbox_id: string;
   generation: number;
   code: number | null;
-  signal: string | null;
+  signal: string | number | null;
   killed: boolean;
 };
 
