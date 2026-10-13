@@ -8,6 +8,7 @@ import { closingTextWithheld, readPersonMessage, type PersonMessage } from "../m
 import { requestedRuntime, type RuntimeRequest } from "../message/requested-runtime";
 import { COMPACT_PROMPT } from "../../prompts/summarization-prompt";
 import { runPrompt } from "../model/run-prompt";
+import { withRequestTimeout } from "../model/request-timeout";
 import { stepStatus } from "./step-status";
 import { isSupersededIsolate } from "./superseded";
 import { activeToolNames, systemPrompt, type TurnFacts } from "../prompt/system-prompt";
@@ -212,7 +213,8 @@ async function generate(
   workflow: WorkflowRuntime,
   { tools, signal, reply, progress }: GenerateInput,
 ): Promise<Outcome> {
-  const model = await workflow.model();
+  const requestTimeoutMs = workflow.config().orchestrator.request_timeout_minutes * 60_000;
+  const model = withRequestTimeout(await workflow.model(), requestTimeoutMs);
   const turn = turnFacts(reply);
   const input = { model, tools, signal, turn, progress };
   let pass = await modelPass(workflow, { ...input, stepsBefore: 0 });

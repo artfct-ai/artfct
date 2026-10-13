@@ -1,12 +1,8 @@
 import type { GatewayProvider } from "../../config/gateway";
 import { orchestratorGateway } from "../../config/gateway";
 import { createOpenAICompatible } from "@ai-sdk/openai-compatible";
-import {
-  wrapLanguageModel,
-  type JSONValue,
-  type LanguageModel,
-  type LanguageModelMiddleware,
-} from "ai";
+import type { LanguageModelV4 } from "@ai-sdk/provider";
+import { wrapLanguageModel, type JSONValue, type LanguageModelMiddleware } from "ai";
 import type { WorkflowRuntime } from "../../workflow/types";
 
 /** The secrets each gateway needs, named in the error a model without them raises. */
@@ -25,24 +21,16 @@ export type ModelOptions = {
 /** The provider name. The provider reads extra request fields from `providerOptions` under it. */
 const PROVIDER_NAME = "aiGateway";
 
-/** A fetch that gives up on one request after `timeoutMs`, on top of the caller's signal. */
-export function timedFetch(base: typeof fetch, timeoutMs: number): typeof fetch {
-  return (input, init) => {
-    const timeout = AbortSignal.timeout(timeoutMs);
-    const signal = init?.signal ? AbortSignal.any([init.signal, timeout]) : timeout;
-    return base(input, { ...init, signal });
-  };
-}
-
 /**
  * A model on a gateway's OpenAI-compatible endpoint, for example `openrouter/x-ai/grok-4.6`.
- * Without a name this is `orchestrator.model`. A name without its gateway's secrets throws.
+ * Without a name this is `orchestrator.model`. A name without its gateway's secrets throws. Each
+ * caller bounds how long its own calls may take.
  */
 export function orchestratorModel(
   workflow: WorkflowRuntime,
   model?: string,
   options: ModelOptions = {},
-): LanguageModel {
+): LanguageModelV4 {
   const config = workflow.config();
   const modelName = model ?? config.orchestrator.model;
   const provider = options.gateway ?? orchestratorGateway(config);
@@ -52,12 +40,11 @@ export function orchestratorModel(
   }
   const metadata = { workflow_id: workflow.state.workflow_id, stage: "orchestrator" };
   const route = gateway.compatRoute(modelName, metadata);
-  const timeoutMs = config.orchestrator.request_timeout_minutes * 60_000;
   const sdk = createOpenAICompatible({
     name: PROVIDER_NAME,
     baseURL: route.baseUrl,
     headers: route.headers,
-    fetch: timedFetch(options.fetch ?? globalThis.fetch.bind(globalThis), timeoutMs),
+    fetch: options.fetch ?? globalThis.fetch.bind(globalThis),
   });
   const built = sdk(route.model);
   const { model: own, model_params: ownParams } = config.orchestrator;
@@ -75,9 +62,9 @@ const OWN_OPTIONS: Record<string, string> = {
 
 /** The model with `fields` on every request body, through the provider's `providerOptions`. */
 function withRequestFields(
-  model: Exclude<LanguageModel, string>,
+  model: LanguageModelV4,
   fields: Record<string, JSONValue>,
-): LanguageModel {
+): LanguageModelV4 {
   const options = Object.fromEntries(
     Object.entries(fields).map(([key, value]) => [OWN_OPTIONS[key] ?? key, value]),
   );

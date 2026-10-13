@@ -71,8 +71,9 @@ export const OrchestratorConfig = z.object({
    */
   turn_timeout_minutes: z.number().positive().default(2),
   /**
-   * Minutes one request to the model may take, kept well under `turn_timeout_minutes`. A
-   * request held open past it is dropped and the turn retries from its last finished step.
+   * Minutes one request of an agent turn to `model` may take, kept well under
+   * `turn_timeout_minutes`. A request held open past it is dropped and the turn retries from its
+   * last finished step.
    */
   request_timeout_minutes: z.number().positive().default(1),
   /**

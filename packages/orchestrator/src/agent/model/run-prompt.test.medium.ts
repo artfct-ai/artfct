@@ -1,4 +1,4 @@
-import type { LanguageModel } from "ai";
+import type { LanguageModelV4 } from "@ai-sdk/provider";
 import { describe, expect, it, vi } from "vitest";
 import { type FakeRuntime } from "../../../test/fake-runtime";
 import { EchoModel, ScriptedFailure, SilentModel } from "../../../test/fake-model";
@@ -19,7 +19,7 @@ type Summarization = { model?: string };
 const OWN_MODEL: Summarization = { model: "summary-model" };
 const ON_ORCHESTRATOR: Summarization = {};
 
-type Models = () => Record<string, LanguageModel>;
+type Models = () => Record<string, LanguageModelV4>;
 
 function withSummarization(workflow: FakeRuntime, summarization: Summarization): void {
   const config = workflow.config();

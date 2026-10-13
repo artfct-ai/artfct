@@ -5,6 +5,7 @@ import { aboveResources, splitAtResources } from "../../artifact/resources-secti
 import type { ArtifactTarget } from "../../artifact/types";
 import { noteMessage } from "../../agent/transcript/envelope";
 import { stepsUsage } from "../../agent/model/usage";
+import { runUnderDeadline } from "../../agent/turn/deadline";
 import { registeredConfig } from "../../config/register-config";
 import { skillPromptText } from "../../config/skills";
 import type { TaskSettings } from "../../config/stage";
@@ -25,6 +26,12 @@ import type { JobRow, TaskRow } from "../store/tasks";
 import type { Wake, WorkflowRuntime } from "../types";
 import { drainQueue, taskContext } from "./harness/prompt-queue";
 import { digestFor, LOGGED_ERROR_CHARS, loggedFailureReason, SUMMARY_CHARS } from "./harness/turn";
+
+/**
+ * Milliseconds one model call of a model-call author may take. The platform stops an alarm at
+ * 15 minutes, so the call ends in time to fail its task and post the failure.
+ */
+const MODEL_AUTHOR_CALL_TIMEOUT_MS = 13 * 60_000;
 
 /** The title of the page a model-call author creates. */
 export function modelAuthorPageTitle(name: string, stage: string): string {
@@ -192,14 +199,23 @@ async function revisePage(
   return { closingText: revision.closingText };
 }
 
-/** One gateway call, counted on the task. Null when the task finished first. */
+/**
+ * One gateway call, counted on the task. Null when the task finished first. Throws past
+ * `MODEL_AUTHOR_CALL_TIMEOUT_MS`.
+ */
 async function callAuthorModel(
   workflow: WorkflowRuntime,
   task: TaskRow,
   request: { model: LanguageModel; system: string; prompt: string },
 ): Promise<string | null> {
   const { generateText } = await import("ai");
-  const result = await generateText(request);
+  const bounded = await runUnderDeadline(MODEL_AUTHOR_CALL_TIMEOUT_MS, (abortSignal) =>
+    generateText({ ...request, abortSignal }),
+  );
+  if (bounded.kind === "timed_out") {
+    throw new Error(`the model call ran past ${MODEL_AUTHOR_CALL_TIMEOUT_MS} ms`);
+  }
+  const result = bounded.result;
   const { cost_usd } = stepsUsage(result.steps);
   const counted = workflow.store.requireTask(task.task_id);
   workflow.store.updateTask(task.task_id, { cost_usd: counted.cost_usd + cost_usd });

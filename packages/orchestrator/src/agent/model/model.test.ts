@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it } from "bun:test";
 import { testEnv } from "../../../test/test-env";
 import { initialWorkflowState } from "../../workflow/store/state";
 import type { WorkflowRuntime } from "../../workflow/types";
-import { orchestratorModel, timedFetch } from "./model";
+import { orchestratorModel } from "./model";
 
 const env = testEnv();
 
@@ -63,98 +63,38 @@ function fakeFetch(requests: Recorded[]): typeof fetch {
   };
 }
 
-function signalFetch(signals: (AbortSignal | undefined)[]): typeof fetch {
-  return async (_input, init) => {
+function slowFetch(delayMs: number, signals: (AbortSignal | undefined)[]): typeof fetch {
+  return async (input, init) => {
     signals.push(init?.signal ?? undefined);
-    return new Response("ok");
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+    return fakeFetch([])(input, init);
   };
 }
 
-describe("timedFetch", () => {
-  describe("a request under a short timeout", () => {
-    let signals: (AbortSignal | undefined)[];
-
-    beforeEach(async () => {
-      signals = [];
-      await timedFetch(signalFetch(signals), 10)("https://gateway.test");
-    });
-
-    it("leaves the signal open while the request runs", () => {
-      expect(signals[0]?.aborted).toBe(false);
-    });
-
-    describe("once the timeout passes", () => {
-      beforeEach(async () => {
-        await new Promise((resolve) => setTimeout(resolve, 30));
-      });
-
-      it("aborts the request", () => {
-        expect(signals[0]?.aborted).toBe(true);
-      });
-
-      it("names the timeout as the reason", () => {
-        const reason = signals[0]?.reason as { name?: string } | undefined;
-        expect(reason?.name).toBe("TimeoutError");
-      });
-    });
-  });
-
-  describe("a caller that brought its own signal", () => {
-    let signals: (AbortSignal | undefined)[];
-    let controller: AbortController;
-
-    beforeEach(async () => {
-      signals = [];
-      controller = new AbortController();
-      await timedFetch(signalFetch(signals), 10_000)("https://gateway.test", {
-        signal: controller.signal,
-      });
-    });
-
-    it("leaves the signal open while the request runs", () => {
-      expect(signals[0]?.aborted).toBe(false);
-    });
-
-    describe("once the caller aborts", () => {
-      beforeEach(() => {
-        controller.abort(new Error("turn over"));
-      });
-
-      it("aborts the request too", () => {
-        expect(signals[0]?.aborted).toBe(true);
-      });
-    });
-  });
-
-  describe("a gateway request the orchestrator model made", () => {
+describe("orchestratorModel", () => {
+  describe("a named model whose request outlasts request_timeout_minutes", () => {
+    let text: string;
     let signals: (AbortSignal | undefined)[];
 
     beforeEach(async () => {
       signals = [];
       const model = orchestratorModel(
-        runtime("{ model: dynamic/orchestrator }", gateway),
-        undefined,
-        {
-          fetch: async (input, init) => {
-            signals.push(init?.signal ?? undefined);
-            return fakeFetch([])(input, init);
-          },
-        },
+        runtime("{ model: dynamic/orchestrator, request_timeout_minutes: 0.0001 }", gateway),
+        "openrouter/google/gemini-flash",
+        { fetch: slowFetch(30, signals) },
       );
-      await generateText({ model, prompt: "hello" });
+      text = (await generateText({ model, prompt: "hello" })).text;
     });
 
-    it("carries the configured deadline as a signal", () => {
-      expect(signals[0]).toBeInstanceOf(AbortSignal);
+    it("answers", () => {
+      expect(text).toBe("hi");
     });
 
-    it("leaves that signal open while the request runs", () => {
-      expect(signals[0]?.aborted).toBe(false);
+    it("leaves the request without a deadline of its own", () => {
+      expect(signals[0]?.aborted ?? false).toBe(false);
     });
   });
-});
 
-describe("orchestratorModel", () => {
   describe("a model whose gateway has no secrets", () => {
     it("refuses the Cloudflare gateway and names its secrets", () => {
       expect(() => orchestratorModel(runtime("{ model: dynamic/orchestrator }", null))).toThrow(

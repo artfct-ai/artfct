@@ -1,4 +1,6 @@
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
+import type { LanguageModelV4 } from "@ai-sdk/provider";
+import { wrapLanguageModel } from "ai";
 import { describe, expect, it } from "vitest";
 import { ScriptedDecisions } from "../../../test/scripted-decisions";
 import { SCRIPTED_NO_REVIEW, SCRIPTED_REVIEW_REQUEST } from "../../../test/scripted-model";
@@ -68,7 +70,47 @@ function answerWithDocument(workflow: FakeRuntime): EchoModel {
   return model;
 }
 
+const SHORT_LIMIT_MINUTES = 0.0001;
+
+function slowModel(answer: string, delayMs: number): LanguageModelV4 {
+  return wrapLanguageModel({
+    model: new EchoModel(answer),
+    middleware: {
+      wrapGenerate: async ({ doGenerate }) => {
+        await new Promise((resolve) => setTimeout(resolve, delayMs));
+        return doGenerate();
+      },
+    },
+  });
+}
+
 describe("runModelAuthorTurn", () => {
+  describe("a model call that outlasts the agent turn and request timeouts", () => {
+    const longWrite = scenario(freshDurableRuntime, async (workflow) => {
+      patchModelExecution(workflow);
+      const { orchestrator } = workflow.config();
+      workflow.patchConfig({
+        orchestrator: {
+          ...orchestrator,
+          turn_timeout_minutes: SHORT_LIMIT_MINUTES,
+          request_timeout_minutes: SHORT_LIMIT_MINUTES,
+        },
+      });
+      workflow.modelInstance = slowModel(DOCUMENT, 30);
+      await runModelAuthorTurn(workflow, seedModelAuthor(workflow));
+    });
+
+    it("creates the page", () =>
+      longWrite((workflow) => {
+        expect(fakeDocumentsOf(workflow).argsOf("createPage")).toHaveLength(1);
+      }));
+
+    it("puts the author in review", () =>
+      longWrite((workflow) => {
+        expect(workflow.store.requireTask("wf_x.1").status).toBe("in_review");
+      }));
+  });
+
   describe("a design job that works from the request", () => {
     const written = scenario(freshDurableRuntime, async (workflow) => {
       patchModelExecution(workflow);

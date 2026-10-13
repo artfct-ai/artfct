@@ -20,7 +20,8 @@ import type { RefinerEntry, ReviewerEntry } from "../src/config/refiner";
 import { resolveStage, type ResolvedStage } from "../src/config/stage";
 import type { TaskEvent, TaskRole } from "../src/workflow/task/events";
 import type { Connection } from "agents";
-import type { JSONValue, LanguageModel, ToolSet } from "ai";
+import type { LanguageModelV4 } from "@ai-sdk/provider";
+import type { JSONValue, ToolSet } from "ai";
 import { TranscriptStore, type WroteFrom } from "../src/agent/transcript/transcript";
 import type { AuthorFeed } from "../src/workflow/feed/feed";
 import { registeredConfig } from "../src/config/register-config";
@@ -135,8 +136,8 @@ export class FakeRuntime implements WorkflowRuntime {
   webInstance: Web = new FakeWeb();
   mcpCredentialValue: string | null = null;
   mcpToolSet: ToolSet = {};
-  modelInstance: LanguageModel | null = null;
-  modelsByName: Record<string, LanguageModel> = {};
+  modelInstance: LanguageModelV4 | null = null;
+  modelsByName: Record<string, LanguageModelV4> = {};
   modelRequests: (string | undefined)[] = [];
   modelParams: Record<string, JSONValue>[] = [];
   modelGateways: (GatewayProvider | undefined)[] = [];
@@ -341,7 +342,7 @@ export class FakeRuntime implements WorkflowRuntime {
     modelName?: string,
     params?: Record<string, JSONValue>,
     gateway?: GatewayProvider,
-  ): Promise<LanguageModel> {
+  ): Promise<LanguageModelV4> {
     this.modelRequests.push(modelName);
     this.modelParams.push(params ?? {});
     this.modelGateways.push(gateway);

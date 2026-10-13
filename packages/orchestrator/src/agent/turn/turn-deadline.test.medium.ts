@@ -4,11 +4,11 @@ import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { describe, expect, it } from "vitest";
 import { freshDurableRuntime } from "../../../test/durable-runtime";
 import type { FakeRuntime } from "../../../test/fake-runtime";
-import { ScriptedFailure } from "../../../test/fake-model";
-import type { Scenario } from "../../../test/scenario";
+import { ScriptedFailure, SilentModel } from "../../../test/fake-model";
+import { scenario, type Scenario } from "../../../test/scenario";
 import { TurnCoalescer } from "../../workflow/task/harness/turn";
-import { eventMessage } from "../transcript/envelope";
-import { runAgentTurn } from "./turn";
+import { eventMessage, noteMessage } from "../transcript/envelope";
+import { runAgentTurn, STUCK_TEXT } from "./turn";
 
 const TURN_TIMEOUT_MINUTES = 0.0005;
 
@@ -101,5 +101,30 @@ describe("a message queued behind a turn whose decisions call never returns", ()
         { type: "info", text: "done" },
         { type: "info", text: "done" },
       ]);
+    }));
+});
+
+const LONG_TURN_TIMEOUT_MINUTES = 1;
+
+const REQUEST_TIMEOUT_MINUTES = 0.0001;
+
+describe("a turn whose model request outlasts request_timeout_minutes", () => {
+  const silent = scenario(freshDurableRuntime, async (workflow) => {
+    workflow.modelInstance = new SilentModel();
+    const { orchestrator } = workflow.config();
+    workflow.patchConfig({
+      orchestrator: {
+        ...orchestrator,
+        turn_timeout_minutes: LONG_TURN_TIMEOUT_MINUTES,
+        request_timeout_minutes: REQUEST_TIMEOUT_MINUTES,
+      },
+    });
+    workflow.transcript.enqueue(noteMessage("Job wf_x-1 finished its turn."), "task_result");
+    await runAgentTurn(workflow);
+  });
+
+  it("drops each request and says the model did not answer", () =>
+    silent((workflow) => {
+      expect(workflow.posted).toEqual([{ type: "info", text: STUCK_TEXT }]);
     }));
 });

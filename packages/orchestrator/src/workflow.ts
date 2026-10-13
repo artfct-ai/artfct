@@ -23,7 +23,8 @@ import type { WorkflowDefinition } from "./config/workflow-definition";
 import type { TaskEvent } from "./workflow/task/events";
 import { tracing } from "cloudflare:workers";
 import { Agent, type Connection, type ConnectionContext, type WSMessage } from "agents";
-import type { JSONValue, LanguageModel, ToolSet } from "ai";
+import type { LanguageModelV4 } from "@ai-sdk/provider";
+import type { JSONValue, ToolSet } from "ai";
 import { allowedMcpTools, connectOrchestratorMcp } from "./agent/tools/mcp";
 import { TranscriptStore, type WroteFrom } from "./agent/transcript/transcript";
 import type { AuthorFeed } from "./workflow/feed/feed";
@@ -121,7 +122,7 @@ export type WorkflowServices = {
     modelName?: string,
     params?: Record<string, JSONValue>,
     gateway?: GatewayProvider,
-  ) => Promise<LanguageModel>;
+  ) => Promise<LanguageModelV4>;
   now: () => number;
 };
 
@@ -535,7 +536,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     modelName?: string,
     params?: Record<string, JSONValue>,
     provider?: GatewayProvider,
-  ): Promise<LanguageModel> {
+  ): Promise<LanguageModelV4> {
     return this.services.model(this, modelName, params, provider);
   }
 
