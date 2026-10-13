@@ -97,8 +97,8 @@ export function planTools(workflow: WorkflowRuntime) {
         "End the workflow as done, once the humans have what they asked for and no job is running. The result goes to every channel as the last message of the turn. Refused while a job runs.",
       inputSchema: z.object({ result: z.string() }),
       execute: async ({ result }) => {
-        const refusal = endedWorkflowRefusal(workflow) ?? unfinishedJobsRefusal(workflow);
-        if (refusal) return refusal;
+        const error = validateWorkflowRunning(workflow) ?? validateJobsFinished(workflow);
+        if (error) return error;
         await completeWorkflow(workflow, result);
         return "Workflow finished.";
       },
@@ -108,7 +108,7 @@ export function planTools(workflow: WorkflowRuntime) {
         "Stop the workflow as failed. Cancels every task, tears down the sandboxes, and tells every channel the reason as the last message of the turn.",
       inputSchema: z.object({ reason: z.string() }),
       execute: async ({ reason }) => {
-        const ended = endedWorkflowRefusal(workflow);
+        const ended = validateWorkflowRunning(workflow);
         if (ended) return ended;
         await failWorkflow(workflow, reason);
         return "Workflow failed.";
@@ -117,15 +117,15 @@ export function planTools(workflow: WorkflowRuntime) {
   };
 }
 
-/** The refusal of every tool that would change a finished workflow. Null while it runs. */
-export function endedWorkflowRefusal(workflow: WorkflowRuntime): string | null {
+/** Validate that the workflow still runs, for every tool that would change it. Null while it runs. */
+export function validateWorkflowRunning(workflow: WorkflowRuntime): string | null {
   const { status } = workflow.state;
   if (!isWorkflowFinished(status)) return null;
   return `The workflow is ${status}. A finished workflow stays finished.`;
 }
 
-/** The refusal to finish the workflow while a job has an unfinished author or researcher task. */
-function unfinishedJobsRefusal(workflow: WorkflowRuntime): string | null {
+/** Validate that every author and researcher task is finished, before the workflow finishes. */
+function validateJobsFinished(workflow: WorkflowRuntime): string | null {
   const unfinished = workflow.store.activeAuthorAndResearcherTasks();
   if (unfinished.length === 0) return null;
   const jobs = unfinished.map((task) => `Job ${task.job_id} is ${task.status}.`).join(" ");
@@ -151,9 +151,9 @@ async function setPlan(workflow: WorkflowRuntime, input: PlanInput): Promise<str
   if (needsRepo && !input.repo) {
     return "A planned stage needs a repository and none was given. Find it in the request, the tracker issue and its project, or list_repositories, then call set_plan again. Ask only when nothing points to one.";
   }
-  const unreachable = input.repo ? await unreachableRepo(workflow, input.repo) : null;
-  if (unreachable) return unreachable;
-  const ended = endedWorkflowRefusal(workflow);
+  const repoError = input.repo ? await validateRepoReachable(workflow, input.repo) : null;
+  if (repoError) return repoError;
+  const ended = validateWorkflowRunning(workflow);
   if (ended) return ended;
   const pages = await planPages(workflow, {
     name: input.name,
@@ -161,7 +161,7 @@ async function setPlan(workflow: WorkflowRuntime, input: PlanInput): Promise<str
     page_parent: input.page_parent,
     root_page: input.root_page ?? null,
   });
-  if ("refusal" in pages) return pages.refusal;
+  if ("error" in pages) return pages.error;
   const cap = workflow.config().orchestrator.sandbox.max_concurrency;
   const concurrency = Math.min(input.concurrency ?? cap, cap);
   const first = workflow.state.stages.length === 0;
@@ -185,10 +185,13 @@ async function setPlan(workflow: WorkflowRuntime, input: PlanInput): Promise<str
 }
 
 /**
- * The refusal for a repository the code host does not grant access to. Null when it is
- * reachable, or when no code host is configured and nothing can be checked.
+ * Validate that the code host grants access to the repository. Null when it is
+ * reachable, or when a code host is not configured and the check cannot run.
  */
-async function unreachableRepo(workflow: WorkflowRuntime, repo: string): Promise<string | null> {
+async function validateRepoReachable(
+  workflow: WorkflowRuntime,
+  repo: string,
+): Promise<string | null> {
   const host = workflow.code();
   if (!host) return null;
   try {

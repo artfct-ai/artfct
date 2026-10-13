@@ -50,7 +50,7 @@ export class NotionPageNesting implements PageNesting {
     const titleProperty = Object.entries(page.properties).find(
       ([, property]) => property.type === "title",
     );
-    if (!titleProperty) throw new Error(`notion: page ${pageId} has no title property`);
+    if (!titleProperty) throw new Error(`notion: page ${pageId} does not have a title property`);
     await this.client.pages.update({
       page_id: pageId,
       properties: { [titleProperty[0]]: { title: [{ text: { content: title } }] } },

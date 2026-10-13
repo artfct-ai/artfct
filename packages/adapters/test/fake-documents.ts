@@ -128,7 +128,8 @@ export class FakeDocuments implements Documents {
       },
       renamePage: async (pageId, title) => {
         this.log.record("renamePage", pageId, title);
-        if (!this.pageTexts.has(pageId)) throw new Error(`renamePage: no page ${pageId}`);
+        if (!this.pageTexts.has(pageId))
+          throw new Error(`renamePage: the host does not hold page ${pageId}`);
         this.pageTitles.set(pageId, title);
       },
     };

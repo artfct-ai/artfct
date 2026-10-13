@@ -186,9 +186,11 @@ describe("NotionPageNesting", () => {
     });
   });
 
-  it("refuses to rename a page without a title property, without an update", async () => {
+  it("refuses to rename a page without a title property, before any update", async () => {
     const { nesting, calls } = notionNesting(() => Response.json(createdPage));
-    await expect(nesting.renamePage(PAGE_ID, "x")).rejects.toThrow("has no title property");
+    await expect(nesting.renamePage(PAGE_ID, "x")).rejects.toThrow(
+      "does not have a title property",
+    );
     expect(calls).toHaveLength(1);
   });
 

@@ -596,7 +596,7 @@ describe("set_plan on a document host that nests pages", () => {
         });
       });
 
-      it("keeps the root page and creates no other", () =>
+      it("keeps the root page and does not create another", () =>
         replanned((workflow) => {
           expect(fakeDocumentsOf(workflow).argsOf("createRootPage")).toHaveLength(1);
           expect(workflow.state.root_page?.page_id).toBe("page-1");
@@ -604,7 +604,7 @@ describe("set_plan on a document host that nests pages", () => {
     });
   });
 
-  describe("a plan with the root page stage and no page parent", () => {
+  describe("a plan with the root page stage, without a page parent", () => {
     let result: string;
     const refused = scenario(freshRuntime, async (workflow) => {
       patchNestingHost(workflow);
@@ -613,10 +613,12 @@ describe("set_plan on a document host that nests pages", () => {
 
     it("asks where the documents go", () =>
       refused(() => {
-        expect(result).toMatch(/^Stage design fills the root page, and no page parent/);
+        expect(result).toMatch(
+          /^Stage design fills the root page, and the plan and the workflow definition do not set a page parent/,
+        );
       }));
 
-    it("plans no stages", () =>
+    it("does not plan the stages", () =>
       refused((workflow) => {
         expect(workflow.state.stages).toEqual([]);
       }));
@@ -713,7 +715,7 @@ describe("set_plan on a document host that nests pages", () => {
       }));
   });
 
-  describe("a plan with a page stage but not the root page stage, and no page parent", () => {
+  describe("a plan with a page stage but not the root page stage, without a page parent", () => {
     let result: string;
     const refused = scenario(freshRuntime, async (workflow) => {
       patchNestingHost(workflow, { pages: { [EXISTING_URL]: "existing-1" } });
@@ -725,11 +727,11 @@ describe("set_plan on a document host that nests pages", () => {
     it("asks where the documents go or which page is the root page", () =>
       refused(() => {
         expect(result).toMatch(
-          /^The plan writes pages, and no page parent was given or set in the workflow definition/,
+          /^The plan writes pages, and the plan and the workflow definition do not set a page parent/,
         );
       }));
 
-    it("plans no stages and creates no page", () =>
+    it("does not plan the stages or create a page", () =>
       refused((workflow) => {
         expect(workflow.state.stages).toEqual([]);
         expect(fakeDocumentsOf(workflow).argsOf("createRootPage")).toEqual([]);
@@ -764,7 +766,7 @@ describe("set_plan on a document host that nests pages", () => {
       await planWithPages(workflow, { stages: ["implement"] });
     });
 
-    it("sets no root page", () =>
+    it("does not set a root page", () =>
       planned((workflow) => {
         expect(workflow.state.stages).toEqual(["implement"]);
         expect(workflow.state.root_page).toBeNull();

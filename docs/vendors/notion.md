@@ -13,9 +13,9 @@ The stage that `documents.root_page` names in the workflow definition fills the 
 - When the plan writes pages, the orchestrator creates the root page under the page parent as an empty container, titled with the workflow name. Every other page of the workflow is created as its subpage. This holds whether or not the plan includes the stage that fills it.
 - When the plan includes that stage, the stage fills the root page in and gives it the title of that stage's page, such as `Audit Trail (design)`. A revision keeps the title. Otherwise the root page keeps only its resources section and the workflow name.
 - A request that starts from an existing page, such as architectural directions, keeps that page where it is. The root page links to it, and the agent asks once whether to move it in instead.
-- When the plan writes pages and there is no page parent, the agent asks where the documents go, or which existing page is the root page.
+- When the plan writes pages and the workflow does not have a page parent, the agent asks where the documents go, or which existing page is the root page.
 
-The orchestrator refuses to start a stage that writes a page before a plan is set. It also refuses a stage whose author writes its page as a model call while the plan has neither a root page nor a page parent.
+The orchestrator refuses to start a stage that writes a page before a plan is set. It also refuses a stage whose author writes its page as a model call while the plan does not set a root page or a page parent.
 
 The root page ends with a `## Resources` section that lists its subpages and links. A revision of the root page replaces only the text above it.
 

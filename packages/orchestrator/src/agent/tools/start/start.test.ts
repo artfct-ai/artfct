@@ -13,7 +13,7 @@ import {
 import { scenario } from "../../../../test/scenario";
 import { toolText } from "../../../../test/tool-result";
 import type { RuntimeRequest } from "../../message/requested-runtime";
-import { documentHostRefusal, slotRefusal, startTools, withRequestedRuntime } from "./start";
+import { validateDocumentHost, validateFreeSlot, startTools, withRequestedRuntime } from "./start";
 
 const call = { toolCallId: "call-1", messages: [], context: {} };
 
@@ -215,7 +215,7 @@ describe("complete_job on a stage with a choice ending", () => {
           call,
         ),
       ).toBe(
-        "Stage design ends on a choice, and no person wrote in this turn. Wait for a person to select an option.",
+        "Stage design ends on a choice, and a person did not write in this turn. Wait for a person to select an option.",
       );
     }));
 
@@ -228,7 +228,7 @@ describe("complete_job on a stage with a choice ending", () => {
           call,
         ),
       ).toBe(
-        'The page of job wf_x-1 lists no option "Drop the table" under its options heading. It lists: "Keep one table", "Split the table".',
+        'The page of job wf_x-1 does not list the option "Drop the table" under its options heading. It lists: "Keep one table", "Split the table".',
       );
       expect(workflow.store.requireJob("wf_x-1").selection).toBeNull();
     }));
@@ -355,11 +355,11 @@ describe("cancel_job", () => {
     }));
 });
 
-describe("slotRefusal", () => {
+describe("validateFreeSlot", () => {
   it("counts a job whose researcher holds its slot", () =>
     researching((workflow) => {
       workflow.patchState({ concurrency: 1 });
-      expect(slotRefusal(workflow)).toBe(
+      expect(validateFreeSlot(workflow)).toBe(
         "All 1 slots are busy (wf_x-1). Wait for a job to complete.",
       );
     }));
@@ -367,7 +367,7 @@ describe("slotRefusal", () => {
   it("lets a job start into a free slot", () =>
     researching((workflow) => {
       workflow.patchState({ concurrency: 2 });
-      expect(slotRefusal(workflow)).toBeNull();
+      expect(validateFreeSlot(workflow)).toBeNull();
     }));
 });
 
@@ -380,18 +380,18 @@ const designPlanned = scenario(freshRuntime, (workflow) => {
   workflow.patchState({ stages: ["design"] });
 });
 
-describe("documentHostRefusal", () => {
+describe("validateDocumentHost", () => {
   describe("a stage with model execution", () => {
     it("lets the job start with a document host", () =>
       modelStage(async (workflow) => {
-        expect(await documentHostRefusal(workflow, "design")).toBeNull();
+        expect(await validateDocumentHost(workflow, "design")).toBeNull();
       }));
 
     it("refuses when the workflow has no document host", () =>
       modelStage(async (workflow) => {
         workflow.documentsInstance = null;
-        expect(await documentHostRefusal(workflow, "design")).toBe(
-          "Stage design writes its page on the document host, and this workflow has none.",
+        expect(await validateDocumentHost(workflow, "design")).toBe(
+          "Stage design writes its page on the document host, and this workflow does not have one.",
         );
       }));
   });
@@ -403,21 +403,21 @@ describe("documentHostRefusal", () => {
 
     it("refuses when the workflow has no document host", () =>
       choiceEndingStage(async (workflow) => {
-        expect(await documentHostRefusal(workflow, "design")).toBe(
-          "Stage design ends on a choice read from its page on the document host, and this workflow has none.",
+        expect(await validateDocumentHost(workflow, "design")).toBe(
+          "Stage design ends on a choice read from its page on the document host, and this workflow does not have one.",
         );
       }));
 
     it("lets the job start with a document host", () =>
       choiceEndingStage(async (workflow) => {
         workflow.documentsInstance = new FakeDocuments();
-        expect(await documentHostRefusal(workflow, "design")).toBeNull();
+        expect(await validateDocumentHost(workflow, "design")).toBeNull();
       }));
   });
 
   it("lets a stage with harness execution start with no document host", () =>
     freshRuntime(async (workflow) => {
-      expect(await documentHostRefusal(workflow, "design")).toBeNull();
+      expect(await validateDocumentHost(workflow, "design")).toBeNull();
     }));
 });
 
@@ -427,7 +427,7 @@ describe("start_job on a stage with model execution", () => {
       workflow.documentsInstance = null;
       const { start_job } = startTools(workflow, ["Write the design."]);
       expect(await start_job.execute({ stage: "design", brief: "Write it." }, call)).toBe(
-        "Stage design writes its page on the document host, and this workflow has none.",
+        "Stage design writes its page on the document host, and this workflow does not have one.",
       );
       expect(workflow.store.jobs()).toEqual([]);
     }));
@@ -438,7 +438,7 @@ describe("start_job on a stage with model execution", () => {
       expect(
         await start_job.execute({ stage: "design", brief: "Write it.", harness: "opencode" }, call),
       ).toBe(
-        "Stage design runs its author as one model call, with no harness. Start it without a harness.",
+        "Stage design runs its author as one model call, without a harness. Start it without a harness.",
       );
     }));
 
@@ -462,7 +462,7 @@ describe("start_job on a page stage whose researcher runs first", () => {
     patchStageResearch(workflow);
   });
 
-  describe("with no plan", () => {
+  describe("without a plan", () => {
     let result: string;
     const refused = scenario(researchedModelStage, async (workflow) => {
       result = await startDesign(workflow);
@@ -471,18 +471,18 @@ describe("start_job on a page stage whose researcher runs first", () => {
     it("names the missing plan", () =>
       refused(() => {
         expect(result).toBe(
-          "Stage design writes a page, and the workflow has no plan. Call set_plan first.",
+          "Stage design writes a page, and the workflow does not have a plan yet. Call set_plan first.",
         );
       }));
 
-    it("runs no researcher", () =>
+    it("does not run the researcher", () =>
       refused((workflow) => {
         expect(workflow.store.tasks()).toEqual([]);
         expect(workflow.sandboxProvider.calls).toEqual([]);
       }));
   });
 
-  describe("with a plan that has no root page or page parent", () => {
+  describe("with a plan that does not set a root page or a page parent", () => {
     let result: string;
     const refused = scenario(researchedModelStage, async (workflow) => {
       workflow.patchState({ stages: ["implement"], page_parent: null, root_page: null });
@@ -492,11 +492,11 @@ describe("start_job on a page stage whose researcher runs first", () => {
     it("names the missing root page or page parent", () =>
       refused(() => {
         expect(result).toBe(
-          "Stage design writes a page, and the plan has no root page or page parent. Call set_plan with stage design.",
+          "Stage design writes a page, and the plan does not set a root page or a page parent. Call set_plan with stage design.",
         );
       }));
 
-    it("runs no researcher", () =>
+    it("does not run the researcher", () =>
       refused((workflow) => {
         expect(workflow.store.tasks()).toEqual([]);
         expect(workflow.sandboxProvider.calls).toEqual([]);
