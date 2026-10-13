@@ -11,7 +11,7 @@ The page parent is the page or database that holds a workflow's documents. A dat
 The stage that `documents.root_page` names in the workflow definition fills the root page. In the template that is `design`. The root page is the page people read first, and it holds every other page of the workflow:
 
 - When the plan writes pages, the orchestrator creates the root page under the page parent as an empty container, titled with the workflow name. Every other page of the workflow is created as its subpage. This holds whether or not the plan includes the stage that fills it.
-- When the plan includes that stage, the stage fills the root page in. Otherwise the root page keeps only its resources section.
+- When the plan includes that stage, the stage fills the root page in and gives it the title of that stage's page, such as `Audit Trail (design)`. A revision keeps the title. Otherwise the root page keeps only its resources section and the workflow name.
 - A request that starts from an existing page, such as architectural directions, keeps that page where it is. The root page links to it, and the agent asks once whether to move it in instead.
 - When the plan writes pages and there is no page parent, the agent asks where the documents go, or which existing page is the root page.
 

@@ -45,6 +45,7 @@ export class FakeDocuments implements Documents {
   readonly nesting: PageNesting | null;
   private readonly log: CallLog<DocumentsMethod>;
   private readonly pageTexts = new Map<string, string>();
+  private readonly pageTitles = new Map<string, string>();
   private readonly acknowledged = new Set<string>();
 
   constructor(private readonly answers: DocumentsAnswers = {}) {
@@ -55,6 +56,11 @@ export class FakeDocuments implements Documents {
   /** The text of a page as the host holds it now. Undefined for a page it does not hold. */
   pageText(pageId: string): string | undefined {
     return this.pageTexts.get(pageId);
+  }
+
+  /** The title of a page the host created, as it holds it now. Undefined for any other page. */
+  pageTitle(pageId: string): string | undefined {
+    return this.pageTitles.get(pageId);
   }
 
   /** Put a page on the host with this text, as a person would have made it. */
@@ -89,6 +95,7 @@ export class FakeDocuments implements Documents {
   private addPage(title: string, text: string, parent: string): DocumentPage {
     const id = `page-${this.pageTexts.size + 1}`;
     this.pageTexts.set(id, text);
+    this.pageTitles.set(id, title);
     this.showChild(parent, id, title);
     return { id, contentId: null, url: fakePageUrl(id), revision: "1" };
   }
@@ -118,6 +125,11 @@ export class FakeDocuments implements Documents {
         const current = this.pageTexts.get(pageId);
         if (current === undefined) throw new Error(`appendToPage: no page ${pageId}`);
         this.pageTexts.set(pageId, current ? `${current}\n${text}` : text);
+      },
+      renamePage: async (pageId, title) => {
+        this.log.record("renamePage", pageId, title);
+        if (!this.pageTexts.has(pageId)) throw new Error(`renamePage: no page ${pageId}`);
+        this.pageTitles.set(pageId, title);
       },
     };
   }

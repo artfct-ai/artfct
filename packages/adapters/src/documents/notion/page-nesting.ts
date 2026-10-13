@@ -44,6 +44,19 @@ export class NotionPageNesting implements PageNesting {
     });
   }
 
+  async renamePage(pageId: string, title: string): Promise<void> {
+    const page = await this.client.pages.retrieve({ page_id: pageId });
+    if (!isFullPage(page)) throw new Error(`notion: page ${pageId} is unreadable`);
+    const titleProperty = Object.entries(page.properties).find(
+      ([, property]) => property.type === "title",
+    );
+    if (!titleProperty) throw new Error(`notion: page ${pageId} has no title property`);
+    await this.client.pages.update({
+      page_id: pageId,
+      properties: { [titleProperty[0]]: { title: [{ text: { content: title } }] } },
+    });
+  }
+
   /** A page parent is the page itself. A database parent is its one table, under its title column. */
   private async newPageParent(parentId: string): Promise<NotionNewPageParent> {
     const database = await this.databaseOrNull(parentId);

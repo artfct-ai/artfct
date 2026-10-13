@@ -36,3 +36,23 @@ describe("FakeDocuments pages", () => {
     await expect(new FakeDocuments().updatePageContent("missing", "x")).rejects.toThrow("missing");
   });
 });
+
+describe("FakeDocuments nesting", () => {
+  it("holds the title a root page was created with", async () => {
+    const documents = new FakeDocuments({ nests: true });
+    const page = await documents.nesting?.createRootPage("Ship it", "## Resources", "db-1");
+    expect(documents.pageTitle(page?.id ?? "")).toBe("Ship it");
+  });
+
+  it("holds the new title after a rename", async () => {
+    const documents = new FakeDocuments({ nests: true });
+    const page = await documents.nesting?.createRootPage("Ship it", "## Resources", "db-1");
+    await documents.nesting?.renamePage(page?.id ?? "", "Ship it (design)");
+    expect(documents.pageTitle(page?.id ?? "")).toBe("Ship it (design)");
+  });
+
+  it("throws on renaming a page it never created", async () => {
+    const documents = new FakeDocuments({ nests: true });
+    await expect(documents.nesting?.renamePage("missing", "x")).rejects.toThrow("missing");
+  });
+});

@@ -225,6 +225,39 @@ describe("SDK adapters under workerd's fetch", () => {
     });
   });
 
+  describe("a Notion page rename", () => {
+    const pageId = "1111aaaa2222bbbb3333cccc4444dddd";
+    const row = {
+      object: "page",
+      id: "1111aaaa-2222-bbbb-3333-cccc4444dddd",
+      created_time: "2026-09-01T00:00:00.000Z",
+      last_edited_time: "2026-09-01T00:00:00.000Z",
+      parent: { type: "data_source_id", data_source_id: "7d1c2e3f-4a5b-6c7d-8e9f-0a1b2c3d4e5f" },
+      archived: false,
+      properties: { Name: { id: "title", type: "title", title: [] } },
+      url: `https://www.notion.so/Ship-it-${pageId}`,
+    };
+    let requests: Request[];
+    beforeEach(async () => {
+      requests = stubValidatingFetch(() => Response.json(row));
+      const host = await documents({ ...env, NOTION_TOKEN: "secret_test" }, "notion");
+      await host?.nesting?.renamePage(pageId, "Ship it (design)");
+    });
+
+    it("reads the page, then updates its title column, in requests workerd accepts", () => {
+      expect(requests.map((request) => `${request.method} ${request.url}`)).toEqual([
+        `GET https://api.notion.com/v1/pages/${pageId}`,
+        `PATCH https://api.notion.com/v1/pages/${pageId}`,
+      ]);
+    });
+
+    it("sends the new title under the title column", async () => {
+      expect(await requests[1]?.json()).toEqual({
+        properties: { Name: { title: [{ text: { content: "Ship it (design)" } }] } },
+      });
+    });
+  });
+
   describe("a Linear tracker", () => {
     const pageInfo = {
       hasNextPage: false,

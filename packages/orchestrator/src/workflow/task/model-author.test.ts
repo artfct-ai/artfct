@@ -336,5 +336,10 @@ describe("reviseModelAuthorPage", () => {
           `${REVISED_PAGE}\n\n## Resources\n${CHILD}`,
         );
       }));
+
+    it("leaves the title of the root page alone", () =>
+      revised((workflow) => {
+        expect(fakeDocumentsOf(workflow).argsOf("renamePage")).toEqual([]);
+      }));
   });
 });

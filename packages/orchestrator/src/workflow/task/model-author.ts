@@ -114,8 +114,9 @@ async function resumeModelAuthor(
 type PageHost = { documents: Documents; parent: string };
 
 /**
- * Produce the page and create it on the host. The root page stage fills the root page the
- * workflow created for it instead. A null target means the task finished first.
+ * Produce the page and create it on the host. The root page stage instead fills the root page
+ * the plan created, and gives it the title its page would have. A null target means the task
+ * finished first.
  */
 async function producePage(
   workflow: WorkflowRuntime,
@@ -136,14 +137,15 @@ async function producePage(
   if (text === null) return { target: null };
   if (!text) return { failure: "The model answered with no document text." };
   const stage = workflow.stageForTask(task);
+  const title = modelAuthorPageTitle(workflowName(workflow.state), stage.name);
   const root = workflow.state.root_page;
   if (rootPageStage(workflow)?.name === stage.name && root?.source === "container") {
     const filled = aboveResources(text, await host.documents.readPageContent(root.page_id));
     await host.documents.updatePageContent(root.page_id, filled);
+    await host.documents.nesting?.renamePage(root.page_id, title);
     workflow.log(task.task_id, `root page filled: ${root.url}`);
     return { target: { url: root.url, ref: { kind: "page", page_id: root.page_id } } };
   }
-  const title = modelAuthorPageTitle(workflowName(workflow.state), stage.name);
   const page = await host.documents.createPage(title, text, host.parent);
   workflow.log(task.task_id, `page created: ${page.url}`);
   return { target: { url: page.url, ref: { kind: "page", page_id: page.contentId ?? page.id } } };

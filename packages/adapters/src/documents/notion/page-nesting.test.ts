@@ -6,6 +6,7 @@ type Call = { url: string; method: string; body: string };
 
 const PARENT_ID = "3eb92fd781108088b848ebb16c8f4838";
 const TABLE_ID = "7d1c2e3f-4a5b-6c7d-8e9f-0a1b2c3d4e5f";
+const PAGE_ID = "1111aaaa2222bbbb3333cccc4444dddd";
 
 const createdPage = {
   object: "page",
@@ -147,6 +148,48 @@ describe("NotionPageNesting", () => {
       "https://api.notion.com/v1/pages/5555eeee6666ffff7777aaaa8888bbbb/move",
     );
     expect(JSON.parse(calls[0]?.body ?? "")).toEqual({ parent: { page_id: PARENT_ID } });
+  });
+
+  describe("renamePage on a child page", () => {
+    it("sets its title property", async () => {
+      const childPage = {
+        ...createdPage,
+        properties: { title: { id: "title", type: "title", title: [] } },
+      };
+      const { nesting, calls } = notionNesting(() => Response.json(childPage));
+      await nesting.renamePage(PAGE_ID, "Ship it (design)");
+      expect(calls.map((call) => `${call.method} ${call.url}`)).toEqual([
+        `GET https://api.notion.com/v1/pages/${PAGE_ID}`,
+        `PATCH https://api.notion.com/v1/pages/${PAGE_ID}`,
+      ]);
+      expect(JSON.parse(calls[1]?.body ?? "")).toEqual({
+        properties: { title: { title: [{ text: { content: "Ship it (design)" } }] } },
+      });
+    });
+  });
+
+  describe("renamePage on a row of a database", () => {
+    it("sets the table's title column", async () => {
+      const row = {
+        ...createdPage,
+        parent: { type: "data_source_id", data_source_id: TABLE_ID },
+        properties: {
+          Status: { id: "s", type: "status", status: null },
+          Name: { id: "title", type: "title", title: [] },
+        },
+      };
+      const { nesting, calls } = notionNesting(() => Response.json(row));
+      await nesting.renamePage(PAGE_ID, "Ship it (design)");
+      expect(JSON.parse(calls[1]?.body ?? "")).toEqual({
+        properties: { Name: { title: [{ text: { content: "Ship it (design)" } }] } },
+      });
+    });
+  });
+
+  it("refuses to rename a page without a title property, without an update", async () => {
+    const { nesting, calls } = notionNesting(() => Response.json(createdPage));
+    await expect(nesting.renamePage(PAGE_ID, "x")).rejects.toThrow("has no title property");
+    expect(calls).toHaveLength(1);
   });
 
   it("adds text at the end of a page", async () => {
