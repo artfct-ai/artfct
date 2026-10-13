@@ -1,7 +1,6 @@
 import type { Stage } from "../../config/stage";
 import { createRootContainer, nameRootPage, rootPageStage } from "../../workflow/root-page";
 import type { RootPage } from "../../workflow/store/state";
-import { modelAuthorPageTitle } from "../../workflow/task/model-author";
 import type { WorkflowRuntime } from "../../workflow/types";
 
 /** What `set_plan` asks about the pages of the workflow. */
@@ -19,8 +18,8 @@ export type PagePlan = { page_parent: string | null; root_page: RootPage | null;
  * Settle where the pages of the workflow go. The page parent falls back to the workflow
  * definition's default.
  * On a host that nests pages, in a workflow definition with a root page stage, a plan that
- * writes pages gets its root page here: a container when a planned stage makes the root page,
- * else the existing page `root_page` names.
+ * writes pages gets its root page here: the existing page `root_page` names, else a container
+ * under the page parent. The root page stage fills the container when it runs.
  */
 export async function planPages(
   workflow: WorkflowRuntime,
@@ -48,36 +47,37 @@ export async function planPages(
   }
   const rootStage = input.stages.find((stage) => stage.name === rootPageStageName);
   try {
-    if (rootStage) {
-      if (input.root_page) {
-        return { refusal: `Stage ${rootStage.name} makes the root page. Pass root_page null.` };
+    if (input.root_page) {
+      if (rootStage) {
+        return { refusal: `Stage ${rootStage.name} fills the root page. Pass root_page null.` };
       }
-      if (!pageParent) {
-        return {
-          refusal: `Stage ${rootStage.name} makes the root page, and no page parent was given or set in the workflow definition. Ask the requester where the documents go, then call set_plan again with page_parent.`,
-        };
-      }
-      const title = modelAuthorPageTitle(input.name, rootStage.name);
-      const root = await createRootContainer(nesting, { title, pageParent });
-      const note = ` Created the root page ${root.url} for stage ${rootStage.name} to fill.`;
-      return { page_parent: pageParent, root_page: root, note };
+      const named = await documents.pageFromUrl(input.root_page);
+      if (!named) return { refusal: `${input.root_page} is not a page on the document host.` };
+      const root = await nameRootPage(documents, nesting, {
+        page_id: named.page_id,
+        url: input.root_page,
+      });
+      return { page_parent: pageParent, root_page: root, note: ` The root page is ${root.url}.` };
     }
-    if (!input.root_page) {
-      return {
-        refusal:
-          "The plan writes pages, and no planned stage makes the root page. Ask the requester which existing page is the root page, the one people read first. When they have none, use the page the workflow starts from. Then call set_plan again with root_page.",
-      };
-    }
-    const named = await documents.pageFromUrl(input.root_page);
-    if (!named) return { refusal: `${input.root_page} is not a page on the document host.` };
-    const root = await nameRootPage(documents, nesting, {
-      page_id: named.page_id,
-      url: input.root_page,
-    });
-    return { page_parent: pageParent, root_page: root, note: ` The root page is ${root.url}.` };
+    if (!pageParent) return { refusal: missingPageParentRefusal(rootStage) };
+    const root = await createRootContainer(nesting, { title: input.name, pageParent });
+    const filledBy = rootStage ? ` for stage ${rootStage.name} to fill` : "";
+    return {
+      page_parent: pageParent,
+      root_page: root,
+      note: ` Created the root page ${root.url}${filledBy}.`,
+    };
   } catch (error) {
     return { refusal: `The root page could not be set up: ${String(error).slice(0, 300)}` };
   }
+}
+
+/** What set_plan asks for when the plan writes pages and nothing says where they go. */
+function missingPageParentRefusal(rootStage: Stage | undefined): string {
+  if (rootStage) {
+    return `Stage ${rootStage.name} fills the root page, and no page parent was given or set in the workflow definition. Ask the requester where the documents go, then call set_plan again with page_parent.`;
+  }
+  return "The plan writes pages, and no page parent was given or set in the workflow definition. Ask the requester where the documents go, or which existing page is the root page, the one people read first. Then call set_plan again with page_parent or root_page.";
 }
 
 /** A workflow without a root page puts every page under the page parent. */

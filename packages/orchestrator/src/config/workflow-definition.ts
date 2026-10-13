@@ -10,7 +10,10 @@ const WorkflowDocuments = z.strictObject({
    * or to a database, on a document host that nests pages.
    */
   page_parent: z.string().trim().min(1).optional(),
-  /** The stage whose page is the root page, on a document host that nests pages. */
+  /**
+   * The stage that fills the root page, on a document host that nests pages. Setting it puts
+   * every page of the workflow under a root page.
+   */
   root_page: z.string().trim().min(1).optional(),
 });
 

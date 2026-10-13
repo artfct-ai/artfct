@@ -8,11 +8,14 @@ Set `adapters.documents.provider: notion` in `orchestrator/artfct.yaml`. The tem
 
 The page parent is the page or database that holds a workflow's documents. A database must have exactly one table. Each document becomes a row of that table, with its title in the table's title column.
 
-The stage that `documents.root_page` names in the workflow definition makes the root page. In the template that is `design`. The root page is the page people read first, and it holds every other page of the workflow:
+The stage that `documents.root_page` names in the workflow definition fills the root page. In the template that is `design`. The root page is the page people read first, and it holds every other page of the workflow:
 
-- When the plan includes that stage, the orchestrator creates the root page under the page parent as an empty container. The stage fills it in. Every other page of the workflow is created as its subpage.
+- When the plan writes pages, the orchestrator creates the root page under the page parent as an empty container, titled with the workflow name. Every other page of the workflow is created as its subpage. This holds whether or not the plan includes the stage that fills it.
+- When the plan includes that stage, the stage fills the root page in. Otherwise the root page keeps only its resources section.
 - A request that starts from an existing page, such as architectural directions, keeps that page where it is. The root page links to it, and the agent asks once whether to move it in instead.
-- When the plan skips that stage but still writes pages, the agent asks which existing page is the root page. With none, the page the request starts from becomes the root page.
+- When the plan writes pages and there is no page parent, the agent asks where the documents go, or which existing page is the root page.
+
+The orchestrator refuses to start a stage that writes a page before a plan is set. It also refuses a stage whose author writes its page as a model call while the plan has neither a root page nor a page parent.
 
 The root page ends with a `## Resources` section that lists its subpages and links. A revision of the root page replaces only the text above it.
 

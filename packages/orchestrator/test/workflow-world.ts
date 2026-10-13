@@ -323,14 +323,15 @@ export class WorkflowWorld {
       });
       return new WorkflowWorld(workflow, setup.checksOnPush, tracker);
     }
+    const stage = STAGE_OF[setup.artifact];
     workflow.patchState({
+      stages: [stage],
       repo: { full: REPO },
       request: { title: "Fix login", text: "Fix the login redirect.", links: [] },
       origin: ORIGINS[setup.origin],
       reply_targets: [ORIGINS[setup.origin]],
       concurrency: SLOTS,
     });
-    const stage = STAGE_OF[setup.artifact];
     const first = await startJob(workflow, {
       stage,
       brief: "Fix the login redirect.",

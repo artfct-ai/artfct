@@ -4,7 +4,12 @@ import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { OPTIONS_HEADING } from "../../../artifact/options";
 import { freshRuntime } from "../../../../test/fresh-runtime";
-import { patchModelExecution, seedTask, type FakeRuntime } from "../../../../test/fake-runtime";
+import {
+  patchModelExecution,
+  patchStageResearch,
+  seedTask,
+  type FakeRuntime,
+} from "../../../../test/fake-runtime";
 import { scenario } from "../../../../test/scenario";
 import { toolText } from "../../../../test/tool-result";
 import type { RuntimeRequest } from "../../message/requested-runtime";
@@ -368,6 +373,11 @@ describe("slotRefusal", () => {
 
 const modelStage = scenario(freshRuntime, (workflow) => {
   patchModelExecution(workflow);
+  workflow.patchState({ stages: ["design"] });
+});
+
+const designPlanned = scenario(freshRuntime, (workflow) => {
+  workflow.patchState({ stages: ["design"] });
 });
 
 describe("documentHostRefusal", () => {
@@ -441,6 +451,87 @@ describe("start_job on a stage with model execution", () => {
     }));
 });
 
+async function startDesign(workflow: FakeRuntime): Promise<string> {
+  const { start_job } = startTools(workflow, ["Write the design."]);
+  return toolText(await start_job.execute({ stage: "design", brief: "Write it." }, call));
+}
+
+describe("start_job on a page stage whose researcher runs first", () => {
+  const researchedModelStage = scenario(freshRuntime, (workflow) => {
+    patchModelExecution(workflow);
+    patchStageResearch(workflow);
+  });
+
+  describe("with no plan", () => {
+    let result: string;
+    const refused = scenario(researchedModelStage, async (workflow) => {
+      result = await startDesign(workflow);
+    });
+
+    it("names the missing plan", () =>
+      refused(() => {
+        expect(result).toBe(
+          "Stage design writes a page, and the workflow has no plan. Call set_plan first.",
+        );
+      }));
+
+    it("runs no researcher", () =>
+      refused((workflow) => {
+        expect(workflow.store.tasks()).toEqual([]);
+        expect(workflow.sandboxProvider.calls).toEqual([]);
+      }));
+  });
+
+  describe("with a plan that has no root page or page parent", () => {
+    let result: string;
+    const refused = scenario(researchedModelStage, async (workflow) => {
+      workflow.patchState({ stages: ["implement"], page_parent: null, root_page: null });
+      result = await startDesign(workflow);
+    });
+
+    it("names the missing root page or page parent", () =>
+      refused(() => {
+        expect(result).toBe(
+          "Stage design writes a page, and the plan has no root page or page parent. Call set_plan with stage design.",
+        );
+      }));
+
+    it("runs no researcher", () =>
+      refused((workflow) => {
+        expect(workflow.store.tasks()).toEqual([]);
+        expect(workflow.sandboxProvider.calls).toEqual([]);
+      }));
+  });
+
+  describe("with a plan that has a root page", () => {
+    const started = scenario(researchedModelStage, async (workflow) => {
+      workflow.patchState({
+        stages: ["design"],
+        page_parent: null,
+        root_page: { page_id: "root-1", url: "https://docs.test/root-1", source: "container" },
+      });
+      await startDesign(workflow);
+    });
+
+    it("starts the researcher", () =>
+      started((workflow) => {
+        expect(workflow.store.tasks().map((task) => task.role)).toEqual(["researcher"]);
+      }));
+  });
+
+  describe("with a plan that has a page parent", () => {
+    const started = scenario(researchedModelStage, async (workflow) => {
+      workflow.patchState({ stages: ["design"] });
+      await startDesign(workflow);
+    });
+
+    it("starts the researcher", () =>
+      started((workflow) => {
+        expect(workflow.store.tasks().map((task) => task.role)).toEqual(["researcher"]);
+      }));
+  });
+});
+
 const GLM_PRESET: RuntimeRequest = {
   kind: "resolved",
   runtime: { harness: "opencode", model: "openrouter/@preset/glm5-3" },
@@ -457,7 +548,7 @@ function startRequesting(workflow: FakeRuntime, request: RuntimeRequest | null) 
 
 describe("start_job with a requested runtime", () => {
   it("runs the author on the requested runtime over the label args", () =>
-    freshRuntime(async (workflow) => {
+    designPlanned(async (workflow) => {
       const { start_job } = startRequesting(workflow, GLM_PRESET);
       const input = {
         stage: "design",
@@ -476,7 +567,7 @@ describe("start_job with a requested runtime", () => {
     }));
 
   it("says the job runs without the model when it matched none clearly", () =>
-    freshRuntime(async (workflow) => {
+    designPlanned(async (workflow) => {
       const { start_job } = startRequesting(workflow, {
         kind: "unresolved",
         closest: ["claude-fable-5-1"],
@@ -488,7 +579,7 @@ describe("start_job with a requested runtime", () => {
     }));
 
   it("starts on the stage's pair when no message named a model", () =>
-    freshRuntime(async (workflow) => {
+    designPlanned(async (workflow) => {
       const { start_job } = startRequesting(workflow, null);
       expect(await start_job.execute({ stage: "design", brief: "Write it." }, call)).toBe(
         "Started job wf_x-1 for stage design. Its author task is wf_x.1.",

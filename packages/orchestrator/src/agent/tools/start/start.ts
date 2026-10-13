@@ -6,7 +6,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { parseDocumentOptions } from "../../../artifact/options";
 import type { ArtifactTarget } from "../../../artifact/types";
-import { resolveStage } from "../../../config/stage";
+import { resolveStage, type ResolvedStage } from "../../../config/stage";
 import type { TurnDecisions } from "../../../decisions/ask";
 import { humansAccepted } from "./humans-accepted";
 import { GATEWAY_HARNESS, type RuntimeRequest } from "../../message/requested-runtime";
@@ -22,6 +22,7 @@ import {
   type JobIssue,
 } from "../../../workflow/lifecycle";
 import { stageContinuesArtifact } from "../../../workflow/artifact";
+import { newPageParent } from "../../../workflow/root-page";
 import { artifactRefKey, jobInputFor, jobInputKey } from "../../../workflow/store/input-key";
 import { isTaskFinished } from "../../../workflow/store/state";
 import type { ArtifactRow, JobRow } from "../../../workflow/store/tasks";
@@ -94,7 +95,7 @@ export function startTools(
   return {
     [START_JOB]: tool({
       description:
-        "Start a job for a stage. Its author task runs in a sandbox, or as one model call on a stage with model execution. The brief is what the harness reads first: goal, acceptance criteria, links, context. The stage instructions are added by the system. Name the tracker issue when the job works on one. Name the artifact when the request points at one that no job of this workflow produced, such as a design doc written elsewhere or an open pull request. Name it too for an open pull request whose job was cancelled or failed. A job that is given a pull request in a stage that produces one continues it: it works on the branch of that pull request and opens no other. Refused when the workflow has ended, every slot is busy, the issue is blocked by an unfinished issue, the artifact link is not on a configured host, the pull request to continue is closed or its author task is unfinished, a job already works on the same input, an earlier job on the same input left an artifact the host still holds, or a stage with model execution or a choice ending has no document host. The input is the issue, else the artifact. With neither it is the artifact of the latest completed job, or else the message that asked for the job.",
+        "Start a job for a stage. Its author task runs in a sandbox, or as one model call on a stage with model execution. The brief is what the harness reads first: goal, acceptance criteria, links, context. The stage instructions are added by the system. Name the tracker issue when the job works on one. Name the artifact when the request points at one that no job of this workflow produced, such as a design doc written elsewhere or an open pull request. Name it too for an open pull request whose job was cancelled or failed. A job that is given a pull request in a stage that produces one continues it: it works on the branch of that pull request and opens no other. Refused when the workflow has ended, every slot is busy, the issue is blocked by an unfinished issue, the artifact link is not on a configured host, the pull request to continue is closed or its author task is unfinished, a job already works on the same input, an earlier job on the same input left an artifact the host still holds, a stage with model execution or a choice ending has no document host, or a stage that writes a page has no plan, or no root page or page parent for its model-call author. The input is the issue, else the artifact. With neither it is the artifact of the latest completed job, or else the message that asked for the job.",
       inputSchema: z.object({
         stage: z.string().describe("a stage name from the config"),
         brief: z.string().min(1),
@@ -344,13 +345,24 @@ function startRefusal(workflow: WorkflowRuntime, input: StartInput): string | nu
     .workflowDefinition()
     .stages.find((candidate) => candidate.name === input.stage);
   if (!definition) return `Unknown stage ${input.stage}. Use a name from the config.`;
-  const { produce } = resolveStage(workflow.config(), definition).author;
+  const stage = resolveStage(workflow.config(), definition);
+  const { produce } = stage.author;
   const executionRefusal =
     produce.execution === "model"
       ? modelExecutionRefusal(definition.name, input.harness)
       : harnessAdapter(input.harness ?? produce.harness).modelRefusal(input.model ?? produce.model);
   if (executionRefusal) return executionRefusal;
-  return slotRefusal(workflow);
+  return pagePlaceRefusal(workflow, stage) ?? slotRefusal(workflow);
+}
+
+/** Refuse a stage that writes a page before the plan says where its page goes. */
+function pagePlaceRefusal(workflow: WorkflowRuntime, stage: ResolvedStage): string | null {
+  if (stage.artifact !== "page") return null;
+  if (workflow.state.stages.length === 0) {
+    return `Stage ${stage.name} writes a page, and the workflow has no plan. Call set_plan first.`;
+  }
+  if (stage.author.produce.execution !== "model" || newPageParent(workflow.state)) return null;
+  return `Stage ${stage.name} writes a page, and the plan has no root page or page parent. Call set_plan with stage ${stage.name}.`;
 }
 
 /** Refuse a harness for a stage whose author runs as a model call. */
