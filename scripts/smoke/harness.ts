@@ -61,7 +61,7 @@ export type BridgeExitRecord = {
   sandbox_id: string;
   generation: number;
   code: number | null;
-  signal: string | null;
+  signal: string | number | null;
   /** True when the host killed the bridge itself on a destroy or a replace. */
   killed: boolean;
 };

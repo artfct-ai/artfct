@@ -31,7 +31,7 @@
   },
   "devDependencies": {
     "@artfct-ai/core": "^0.1.0",
-    "@types/bun": "^1.4.2"
+    "@types/bun": "^1.4.3"
   },
   "peerDependencies": {
     "@artfct-ai/core": "^0.1.0"

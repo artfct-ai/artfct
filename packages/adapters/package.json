@@ -14,7 +14,7 @@
     "lint": "oxlint"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^1.5.1",
+    "@agentclientprotocol/sdk": "^1.8.0",
     "@artfct-ai/acp": "workspace:*",
     "@artfct-ai/contracts": "workspace:*",
     "@linear/sdk": "^97.0.0",
