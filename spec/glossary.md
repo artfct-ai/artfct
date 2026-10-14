@@ -15,7 +15,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | stage | One step of a workflow. It produces one artifact. Config declares it. | `Stage` | |
 | job | The execution of one stage. Its tasks belong to it, and it holds what they produce. | `jobs` row | |
 | task | One execution of a role in a job. | `tasks` row | |
-| model-call task | A task that runs as model calls through the gateway, with no sandbox and no harness session. | `AuthorActivity.execution "model"`, no sandboxes row | |
+| model-call task | A task that runs as model calls through the gateway, with no sandbox and no harness session. Its task status is `working` from the start of a turn until its page waits in review. A model call is not always in flight while it is `working`, for example after a stop ended its first turn before the page existed. | `AuthorActivity.execution "model"`, no sandboxes row | |
 | author | The task that produces and revises the artifact of its job. | `TaskRole "author"` | |
 | author activity | What the author does in one turn: it produces the artifact or it revises it. Config sets the execution, harness, model, effort, and skill of each activity. | `AuthorActivity`, `Stage.author` | mode, phase, step |
 | produce | The author activity that writes the first artifact of a job. | `Stage.author.produce` | write, draft, compose |
@@ -82,7 +82,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | job session | The tracker session on the job's input issue. A job whose input artifact is not an issue does not have one. | `jobSessionOf` | home |
 | session feed | The author's tool calls and its closing reply, posted to its job session as tracker activities. Thoughts are not posted. Only the author streams, and the orchestrator posts none of it. | `streamToSessionFeed` | transcript, mirror, log |
 | session plan | The author's todo list as the plan of its job session. Set only when the workflow has no chat thread. | `publishSessionPlan` | board, checklist |
-| stop | A person's request in a job session to end the current prompt turn of the job's author. The orchestrator sends the author's harness session a cancel. The task, the job, and the workflow keep running, and its session feed ends with "Stopped." | `EventKind "stop"` | cancel, interrupt, pause |
+| stop | A person's request in a job session to end the current prompt turn of the job's author. The orchestrator sends the author's harness session a cancel. For a model-call author, the stop ends the turn that is starting or in flight, and the answer of its model call does not change the page. The task, the job, and the workflow keep running, and its session feed ends with "Stopped." | `EventKind "stop"`, `stopAuthor` | cancel, interrupt, pause |
 | synced thread | The chat thread that the tracker mirrors as the comment thread of one issue, both ways. It is the first issue a job of the workflow works on. Every later issue gets a link to the thread. | `Tracker.syncChatThread` | mirror, bridge |
 | acknowledgement | How a chat thread shows a person that their message arrived. The thread enters its working status when the workflow takes the message. When that takes longer than a few seconds, the message gets the eyes reaction until the working status appears. | `Acknowledge`, `Notifier.acknowledge`, `deliverWithChatAck` | receipt |
 | person | One human actor. | `Actor` | |

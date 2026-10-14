@@ -44,6 +44,7 @@ import {
   type DecisionAnswers,
   type Mergeability,
   type PageModelAnswer,
+  stopEvent,
   type StepFacts,
   type WorkflowAction,
   type WorkflowWorld,
@@ -685,17 +686,31 @@ export function personPressesStop(index: number): WorkflowAction {
   return action(`a person presses Stop in session ${index}`, async (world) => {
     const session = world.trackerSessionAt(index);
     if (!session) return;
-    await world.deliver({
-      kind: "stop",
-      text: "",
-      reply_to: session,
-      bindings: [
-        { source: "tracker_issue", external_id: session.issue_id },
-        { source: "tracker_session", external_id: session.session_id },
-      ],
-    });
+    await world.deliver(stopEvent(session));
     world.forgetStoppedEarlyIn(session);
   });
+}
+
+/** How a model call of a model-call author starts. */
+export type ModelCallStart = "provision_fires" | "agent_prompts";
+
+/**
+ * A model call of a model-call author starts, and a person presses Stop in the session of its job
+ * while the page model answers. The call starts when its provision alarm fires or the agent
+ * prompts it.
+ */
+export function personStopsModelCall(index: number, start: ModelCallStart): WorkflowAction {
+  const label = `a person presses Stop while the page model answers, after ${start}`;
+  return authorAction(index, label, (world, author) =>
+    world.stopWhilePageModelAnswers(author, async () => {
+      if (start === "provision_fires") {
+        await world.provisionSandboxOf(author.taskId);
+        return;
+      }
+      const { prompt_task } = taskTools(world.workflow);
+      await prompt_task.execute({ task_id: author.taskId, text: "Add a test for it." }, TOOL_CALL);
+    }),
+  );
 }
 
 /** A person mentions the agent in a new chat thread about the work. The thread joins the workflow. */

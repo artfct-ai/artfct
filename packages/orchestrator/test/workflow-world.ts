@@ -43,6 +43,7 @@ import { CLOSING_TEXT_MARKER } from "../src/prompts/model-author-prompt";
 import { EchoModel, ScriptedFailure } from "./fake-model";
 import {
   FakeRuntime,
+  fakeDocumentsOf,
   JUDGE_ENTRY,
   MODEL_AUTHOR_MODEL,
   PAGE_PARENT,
@@ -201,8 +202,11 @@ export type StepFacts = Partial<
     | "staleAlarm"
     | "completion"
     | "unadmittedFeedback"
+    | "modelCallStopped"
   >
 >;
+
+const PAGE_WRITES: readonly string[] = ["createPage", "updatePageContent", "renamePage"];
 
 /** One thing that happens to a workflow. It picks its target from the world and may do nothing. */
 export type WorkflowAction = {
@@ -312,6 +316,7 @@ export class WorkflowWorld {
   private readonly stoppedEarly = new Set<string>();
   private readonly modelTurnEnds: string[] = [];
   private readonly modelPromptTexts = new Map<string, string[]>();
+  private whilePageModelAnswers: ((taskId: string) => Promise<void>) | null = null;
 
   private constructor(workflow: FakeRuntime, setup: WorldSetup, tracker: SessionTracker) {
     this.workflow = workflow;
@@ -413,6 +418,7 @@ export class WorkflowWorld {
       staleAlarm: facts.staleAlarm ?? null,
       completion: facts.completion ?? null,
       unadmittedFeedback: facts.unadmittedFeedback ?? null,
+      modelCallStopped: facts.modelCallStopped ?? null,
       event: this.delivered,
       sessionPosts: sessionPostsOf(rows),
       postedTypes: this.workflow.posted.slice(postedBefore).map((event) => event.type),
@@ -631,12 +637,61 @@ export class WorkflowWorld {
   answerPageModelWith(answer: PageModelAnswer): void {
     this.workflow.modelsByName[MODEL_AUTHOR_MODEL] = new TurnEndingModel(
       pageModelAnswering(answer),
-      () => this.recordModelTurnEnd(),
+      () => this.beforePageModelAnswers(),
     );
   }
 
-  /** A model call ends the turn of the model-call author whose turn is in flight. */
-  private recordModelTurnEnd(): void {
+  /**
+   * Run `start`, and let a person press Stop in the session of `author`'s job while the first
+   * page model call of that author is out. The step records the stopped call and every page write
+   * from the stop on.
+   */
+  async stopWhilePageModelAnswers(
+    author: WorldAuthor,
+    start: () => Promise<void>,
+  ): Promise<StepFacts> {
+    const session = this.jobSessionOf(author);
+    if (!session) return {};
+    const host = fakeDocumentsOf(this.workflow);
+    const stops: number[] = [];
+    this.whilePageModelAnswers = async (taskId) => {
+      if (taskId !== author.taskId) return;
+      this.whilePageModelAnswers = null;
+      stops.push(host.calls.length);
+      await this.deliver(stopEvent(session));
+      this.forgetStoppedEarlyIn(session);
+    };
+    try {
+      await start();
+    } finally {
+      this.whilePageModelAnswers = null;
+    }
+    const [callsAtStop] = stops;
+    if (callsAtStop === undefined) return {};
+    const pageWrites = host.calls
+      .slice(callsAtStop)
+      .map((call) => call.method)
+      .filter((method) => PAGE_WRITES.includes(method));
+    return {
+      authorTurnEnd: { task_id: author.taskId, hostRevision: null, cancelled: true },
+      modelCallStopped: { task_id: author.taskId, pageWrites },
+    };
+  }
+
+  /** The tracker session of the author's job, or null when its job has none. */
+  private jobSessionOf(author: WorldAuthor): TrackerSession | null {
+    const issue = this.jobOf(author).issue_id;
+    const sessions = this.workflow.state.reply_targets.filter(
+      (target): target is TrackerSession => target.source === "tracker",
+    );
+    return sessions.find((session) => issue && session.issue_id === issue) ?? null;
+  }
+
+  /**
+   * A page model call ends the turn of the model-call author whose turn is in flight. A stop
+   * armed for that author lands before the model answers.
+   */
+  private async beforePageModelAnswers(): Promise<void> {
     const { store } = this.workflow;
     const author = store
       .tasks()
@@ -647,7 +702,9 @@ export class WorkflowWorld {
           !store.sandbox(task.task_id) &&
           taskAtWork(this.workflow, task),
       );
-    if (author) this.modelTurnEnds.push(author.task_id);
+    if (!author) return;
+    this.modelTurnEnds.push(author.task_id);
+    await this.whilePageModelAnswers?.(author.task_id);
   }
 
   /** The last model-call author turn that ended since `index`, as the step records it. */
@@ -905,6 +962,21 @@ type TrackerSession = Extract<ReplyTarget, { source: "tracker" }>;
 
 const NOT_SESSION_POSTS = ["issue_update", "attach_chat_thread", "delivery_error"];
 
+/** A person presses Stop in a tracker session. */
+export function stopEvent(
+  session: TrackerSession,
+): Pick<InboundEvent, "kind" | "text"> & Partial<InboundEvent> {
+  return {
+    kind: "stop",
+    text: "",
+    reply_to: session,
+    bindings: [
+      { source: "tracker_issue", external_id: session.issue_id },
+      { source: "tracker_session", external_id: session.session_id },
+    ],
+  };
+}
+
 function sessionPostsOf(rows: Array<{ channel: string; kind: string; target: unknown }>) {
   return rows.flatMap((row) => {
     if (row.channel !== "tracker" || NOT_SESSION_POSTS.includes(row.kind)) return [];
@@ -977,7 +1049,7 @@ function pageModelAnswering(answer: PageModelAnswer): LanguageModelV4 {
   }
 }
 
-/** A page model that tells the world each time a call ends a model-call author's turn. */
+/** A page model that tells the world each time a call ends a model-call author's turn, before it answers. */
 class TurnEndingModel implements LanguageModelV4 {
   readonly specificationVersion = "v4" as const;
   readonly provider = "test";
@@ -986,11 +1058,11 @@ class TurnEndingModel implements LanguageModelV4 {
 
   constructor(
     private readonly answering: LanguageModelV4,
-    private readonly onCall: () => void,
+    private readonly beforeAnswer: () => Promise<void>,
   ) {}
 
   async doGenerate(options: LanguageModelV4CallOptions): Promise<LanguageModelV4GenerateResult> {
-    this.onCall();
+    await this.beforeAnswer();
     return await this.answering.doGenerate(options);
   }
 

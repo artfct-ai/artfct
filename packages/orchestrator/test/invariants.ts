@@ -113,6 +113,11 @@ export type Step = {
    * `agentRead` is the tool result the agent read about it, or null when no tool ran.
    */
   unadmittedFeedback: { texts: string[]; agentRead: string | null } | null;
+  /**
+   * Set when a person pressed Stop while a model call of the author was in flight. `pageWrites`
+   * names each page write the host took from the stop to the end of the step.
+   */
+  modelCallStopped: { task_id: string; pageWrites: string[] } | null;
 };
 
 const FINISHED: TaskStatus[] = ["done", "failed", "cancelled"];
@@ -815,6 +820,16 @@ export function stopEndsTheAuthorsTurn(_workflow: WorkflowRuntime, step: Step): 
   if (!endsOnTheStoppedReply(step, author.task_id)) {
     violated("stopEndsTheAuthorsTurn", `the session feed of ${author.task_id} did not say so`);
   }
+}
+
+/** A model call in flight when a person presses Stop does not change the page. */
+export function stoppedModelCallLeavesThePage(_workflow: WorkflowRuntime, step: Step): void {
+  const stopped = step.modelCallStopped;
+  if (!stopped || stopped.pageWrites.length === 0) return;
+  violated(
+    "stoppedModelCallLeavesThePage",
+    `${stopped.task_id} made ${stopped.pageWrites.join(", ")} after the stop`,
+  );
 }
 
 /** While a chat thread exists, no tracker session gets a session plan. */

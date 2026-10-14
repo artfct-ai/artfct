@@ -30,6 +30,7 @@ import {
   sessionMessageWithoutAnAuthorIsAnswered,
   sessionFeedEndsWhenItsAuthorIdles,
   stopEndsTheAuthorsTurn,
+  stoppedModelCallLeavesThePage,
   staleAlarmIsIgnored,
   todoListIsFixedAfterFirstArtifact,
   unadmittedFeedbackReachesNobody,
@@ -63,6 +64,7 @@ import {
   personCancels,
   personPostsOnUnownedPull,
   personPressesStop,
+  personStopsModelCall,
   personRules,
   personSendsControl,
   personWrites,
@@ -128,6 +130,7 @@ const STEP_INVARIANTS = [
   sessionMessageReachesItsRunningAuthorSilently,
   sessionMessageWithoutAnAuthorIsAnswered,
   stopEndsTheAuthorsTurn,
+  stoppedModelCallLeavesThePage,
   chatWorkflowNeverSetsASessionPlan,
   sessionFeedEndsWhenItsAuthorIdles,
   feedActivityPostsOnce,
@@ -222,6 +225,12 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
   {
     weight: 2,
     arbitrary: fc.constantFrom("page", "page", "blank", "throws").map(pageModelAnswers),
+  },
+  {
+    weight: 6,
+    arbitrary: fc
+      .tuple(author, fc.constantFrom("provision_fires", "agent_prompts"))
+      .map(([index, start]) => personStopsModelCall(index, start)),
   },
   { weight: 3, arbitrary: author.map(refinerRunPromptFails) },
   {
@@ -545,7 +554,7 @@ describe("the workflow invariants", () => {
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(33);
+      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(34);
     },
     TIMEOUT_MS,
   );

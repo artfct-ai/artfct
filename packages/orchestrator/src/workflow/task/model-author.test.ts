@@ -232,10 +232,12 @@ describe("reviseModelAuthorPage", () => {
   describe("a prompt while the first model call runs", () => {
     let queuedDuringCall: string[] = [];
     let callsDuringCall = 0;
+    let answering = new EchoModel(REVISE_ANSWER);
     const waiting = scenario(runtimeWithD1, async (workflow) => {
       patchModelExecution(workflow);
       const author = seedModelAuthor(workflow);
-      const model = new GatedModel(REVISE_ANSWER);
+      answering = new EchoModel(REVISE_ANSWER);
+      const model = new GatedModel(answering);
       workflow.modelInstance = model;
       const turn = runModelAuthorTurn(workflow, author);
       await model.waiting;
@@ -254,10 +256,8 @@ describe("reviseModelAuthorPage", () => {
 
     it("revises the page with the prompt once the page is out", () =>
       waiting((workflow) => {
-        const model = workflow.modelInstance;
-        const userTexts = model instanceof EchoModel ? model.userTexts : [];
-        expect(userTexts).toHaveLength(2);
-        expect(userTexts[1]).toContain(FEEDBACK);
+        expect(answering.userTexts).toHaveLength(2);
+        expect(answering.userTexts[1]).toContain(FEEDBACK);
         expect(workflow.store.queue()).toEqual([]);
       }));
   });
@@ -430,7 +430,7 @@ describe("stopAuthor on a model-call author", () => {
     const stopped = scenario(freshRuntime, async (workflow) => {
       patchModelExecution(workflow);
       const author = seedModelAuthor(workflow);
-      const model = new GatedModel(FIRST_PAGE);
+      const model = new GatedModel(new EchoModel(FIRST_PAGE));
       workflow.modelInstance = model;
       const turn = runModelAuthorTurn(workflow, author);
       await model.waiting;
@@ -444,7 +444,7 @@ describe("stopAuthor on a model-call author", () => {
         expect(outcome).toBe("ended");
       }));
 
-    it("creates no page from the answer", () =>
+    it("does not create a page from the answer", () =>
       stopped((workflow) => {
         expect(fakeDocumentsOf(workflow).argsOf("createPage")).toEqual([]);
         expect(workflow.store.artifact("wf_x-1")).toBeNull();
@@ -462,7 +462,7 @@ describe("stopAuthor on a model-call author", () => {
   describe("while the model call of a revise runs", () => {
     const stopped = scenario(freshRuntime, async (workflow) => {
       const author = await seedPageWithHumans(workflow);
-      const model = new GatedModel(REVISE_ANSWER);
+      const model = new GatedModel(new EchoModel(REVISE_ANSWER));
       workflow.modelInstance = model;
       const revise = promptTask(workflow, author, FEEDBACK);
       await model.waiting;
@@ -480,6 +480,34 @@ describe("stopAuthor on a model-call author", () => {
     it("puts the author back in review", () =>
       stopped((workflow) => {
         expect(workflow.store.requireTask("wf_x.1").status).toBe("in_review");
+      }));
+  });
+
+  describe("while the model call of a revise runs, and the call then fails", () => {
+    let postedBeforeStop = 0;
+    const stopped = scenario(freshRuntime, async (workflow) => {
+      const author = await seedPageWithHumans(workflow);
+      const model = new GatedModel(new ScriptedFailure(["throw"]));
+      workflow.modelInstance = model;
+      const revise = promptTask(workflow, author, FEEDBACK);
+      await model.waiting;
+      postedBeforeStop = workflow.posted.length;
+      await stopAuthor(workflow, workflow.store.requireTask(author.task_id));
+      model.release();
+      await revise;
+    });
+
+    it("leaves the author in review, without failing it", () =>
+      stopped((workflow) => {
+        expect(workflow.store.requireTask("wf_x.1").status).toBe("in_review");
+        expect(workflow.lines).toContain(
+          "model call failed after a stop ended its turn. no change.",
+        );
+      }));
+
+    it("does not post for the failure", () =>
+      stopped((workflow) => {
+        expect(workflow.posted).toHaveLength(postedBeforeStop);
       }));
   });
 });

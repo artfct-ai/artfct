@@ -235,7 +235,7 @@ async function revisePage(
 
 /**
  * One gateway call, counted on the task. Null when the task finished or a stop ended the turn
- * first. Throws past `MODEL_AUTHOR_CALL_TIMEOUT_MS`.
+ * first, even when the call failed. Throws past `MODEL_AUTHOR_CALL_TIMEOUT_MS`.
  */
 async function callAuthorModel(
   workflow: WorkflowRuntime,
@@ -246,7 +246,12 @@ async function callAuthorModel(
   const { turnEnded, ...call } = request;
   const bounded = await runUnderDeadline(MODEL_AUTHOR_CALL_TIMEOUT_MS, (abortSignal) =>
     generateText({ ...call, abortSignal }),
-  );
+  ).catch((error: unknown) => ({ kind: "failed" as const, error }));
+  if (bounded.kind !== "done" && turnEnded()) {
+    workflow.log(task.task_id, "model call failed after a stop ended its turn. no change.");
+    return null;
+  }
+  if (bounded.kind === "failed") throw bounded.error;
   if (bounded.kind === "timed_out") {
     throw new Error(`the model call ran past ${MODEL_AUTHOR_CALL_TIMEOUT_MS} ms`);
   }
