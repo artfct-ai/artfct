@@ -1,6 +1,5 @@
 import type { StopReason } from "@agentclientprotocol/sdk";
 import { artifactTools } from "../src/agent/tools/artifact";
-import { heldCommentTools } from "../src/agent/tools/held-comments";
 import { activeToolNames, type TurnFacts } from "../src/agent/prompt/system-prompt";
 import { FAIL_WORKFLOW, FINISH_WORKFLOW, planTools } from "../src/agent/tools/plan";
 import { startTools } from "../src/agent/tools/start/start";
@@ -14,6 +13,7 @@ import { isTaskFinished } from "../src/workflow/store/state";
 import { openEntryCount } from "../src/workflow/board/render";
 import type { AuthorTurnOutcome } from "../src/workflow/task/author-turn";
 import { onBridgeLost } from "../src/workflow/task/harness/bridge";
+import { sendHeldCommentsOnRevisionRequest } from "../src/workflow/refiner/held-comments";
 import { retryQueue } from "../src/workflow/task/harness/prompt-queue";
 import {
   RESEARCH_PAYLOAD_MAX_BYTES,
@@ -31,9 +31,8 @@ import type { ScheduledMethod, WorkflowRuntime } from "../src/workflow/types";
 import type { FakeBridge } from "./fake-bridge";
 import type { TrackerHealth } from "./session-tracker";
 import { toolText } from "./tool-result";
-import { JUDGE_CONCLUSION } from "./fake-runtime";
+import { fakeDocumentsOf, JUDGE_CONCLUSION } from "./fake-runtime";
 import {
-  HELD_COMMENT,
   MAX_AUTHORS,
   PAGE_OPTION,
   REPO,
@@ -832,7 +831,12 @@ export function agentFailsWorkflow(): WorkflowAction {
   });
 }
 
-const UNPROMPTED_TURN: TurnFacts = { personWrote: false, requestsWork: true, inputArtifact: null };
+const UNPROMPTED_TURN: TurnFacts = {
+  personWrote: false,
+  requestsWork: true,
+  inputArtifact: null,
+  heldComments: new Map(),
+};
 
 function offeredToTheAgent(world: WorkflowWorld, toolName: string): boolean {
   const tools = workflowTools(world.workflow);
@@ -849,11 +853,125 @@ export function agentHoldsAuthor(
   });
 }
 
-/** The agent sends the author a prompt of its own. */
-export function agentPromptsAuthor(index: number): WorkflowAction {
-  return authorAction(index, "agent prompts the author", async (world, author) => {
+/** Whether the page host answers while held comments are read. */
+export type PageHost = "readable" | "down";
+
+/** What lands while the screen reads the held comments. */
+export type WhileScreened = "nothing" | "agent_cancels";
+
+/** How held comments are read and screened in one action. */
+export type HeldCommentsRead = {
+  decisions: DecisionsAtCompletion;
+  host: PageHost;
+  meanwhile: WhileScreened;
+};
+
+function heldCommentsLabel(read: HeldCommentsRead): string {
+  return `decisions ${read.decisions}, page host ${read.host}, meanwhile ${read.meanwhile}`;
+}
+
+function answerScreenWith(world: WorkflowWorld, index: number, read: HeldCommentsRead): void {
+  const landing = read.meanwhile === "agent_cancels" ? agentCancels(index, "author") : null;
+  world.answerDecisionsWith(
+    read.decisions === "answers" ? REPORTS_WORK_ANSWERS : read.decisions,
+    landing ? () => landing.run(world).then(() => undefined) : undefined,
+  );
+}
+
+async function readingHeldComments<Result>(
+  world: WorkflowWorld,
+  read: HeldCommentsRead,
+  body: () => Promise<Result>,
+): Promise<Result> {
+  const result = await (read.host === "down" ? world.whilePageHostIsDown(body) : body());
+  if (read.decisions === "hangs") world.answerDecisionsWith("fails");
+  return result;
+}
+
+function heldCommentsExpected(read: HeldCommentsRead): "sent" | "kept" {
+  return read.host === "readable" && read.decisions === "answers" ? "sent" : "kept";
+}
+
+function runningPageAuthors(world: WorkflowWorld): string[] {
+  const { store } = world.workflow;
+  return store
+    .activeAuthorAndResearcherTasks()
+    .filter((task) => task.role === "author" && store.artifact(task.job_id)?.ref.kind === "page")
+    .map((task) => task.task_id);
+}
+
+/**
+ * The agent sends the author a prompt of its own. A prompt to the author of a page carries the
+ * comments held on it. Without `read`, the action lands inside another one and keeps its
+ * decisions model.
+ */
+export function agentPromptsAuthor(index: number, read?: HeldCommentsRead): WorkflowAction {
+  const label = read
+    ? `agent prompts the author, ${heldCommentsLabel(read)}`
+    : "agent prompts the author";
+  return authorAction(index, label, async (world, author) => {
     const { prompt_task } = taskTools(world.workflow);
-    await prompt_task.execute({ task_id: author.taskId, text: "Add a test for it." }, TOOL_CALL);
+    const prompt = async () =>
+      toolText(
+        await prompt_task.execute(
+          { task_id: author.taskId, text: "Add a test for it." },
+          TOOL_CALL,
+        ),
+      );
+    if (!read) {
+      await prompt();
+      return undefined;
+    }
+    const onPage = runningPageAuthors(world).includes(author.taskId);
+    answerScreenWith(world, index, read);
+    const agentRead = await readingHeldComments(world, read, prompt);
+    if (!onPage) return undefined;
+    return {
+      heldCommentsAsked: {
+        authors: [author.taskId],
+        expected: heldCommentsExpected(read),
+        agentRead,
+      },
+    };
+  });
+}
+
+/**
+ * A person comments on every page of the world without mentioning the bot, so the host holds the
+ * comment. `number` makes its id and text its own.
+ */
+export function personCommentsOnPage(number: number): WorkflowAction {
+  return action(`a person leaves held comment ${number}`, async (world) => {
+    fakeDocumentsOf(world.workflow).holdComment({
+      id: `held-comment-${number}`,
+      author_name: "Bea",
+      text: `Comment ${number}: cite the source of the numbers.`,
+    });
+  });
+}
+
+/**
+ * A person tells the agent they finished reviewing, and the turn sends the comments held on the
+ * page of every running author. Comments the screen does not admit reach nobody. A cancel that
+ * lands meanwhile drops queued prompts, so the step claims that only without one.
+ */
+export function personAsksForRevision(index: number, read: HeldCommentsRead): WorkflowAction {
+  return action(`a person asks for a revision, ${heldCommentsLabel(read)}`, async (world) => {
+    const authors = runningPageAuthors(world);
+    const held = fakeDocumentsOf(world.workflow)
+      .heldNow()
+      .map((comment) => comment.text);
+    answerScreenWith(world, index, read);
+    const sent = await readingHeldComments(world, read, () =>
+      sendHeldCommentsOnRevisionRequest(world.workflow),
+    );
+    const agentRead = sent.notes.join(" ");
+    const expected = heldCommentsExpected(read);
+    const keptWithoutCancel = authors.length && expected === "kept" && read.meanwhile === "nothing";
+    return {
+      heldCommentsAsked: authors.length ? { authors, expected, agentRead } : null,
+      unadmittedFeedback: keptWithoutCancel ? { texts: held, agentRead } : null,
+    };
   });
 }
 
@@ -946,32 +1064,6 @@ export function agentCompletesWithSelection(
     return {
       completion: { task_id: author.taskId, checkFailed: decisions !== "answers", result },
     };
-  });
-}
-
-/**
- * The agent sends the comments held on the author's page to the author. The screen checks them
- * first, and a decisions model that fails, hangs, or is missing leaves them unchecked.
- */
-export function agentSendsHeldComments(
-  index: number,
-  decisions: DecisionsAtCompletion,
-): WorkflowAction {
-  const label = `agent sends the held comments, decisions ${decisions}`;
-  return authorAction(index, label, async (world, author) => {
-    world.answerDecisionsWith(
-      decisions === "answers" ? { for_author: 0, beyond_author: 0, rejects: 0 } : decisions,
-    );
-    const { send_held_comments } = heldCommentTools(world.workflow);
-    const result = toolText(
-      await send_held_comments.execute(
-        { job_id: world.jobOf(author).job_id },
-        toolCallFor(decisions),
-      ),
-    );
-    if (decisions === "hangs") world.answerDecisionsWith("fails");
-    if (decisions === "answers") return undefined;
-    return { unadmittedFeedback: { texts: [HELD_COMMENT.text], agentRead: result } };
   });
 }
 

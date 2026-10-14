@@ -17,7 +17,7 @@ export type DocumentsAnswers = {
    * empty comment without an author.
    */
   comments?: Record<string, FetchedComment | null>;
-  /** The comments every `heldComments` call answers with, until they are acknowledged. */
+  /** The comments `heldComments` answers with at first, until they are acknowledged. */
   held?: HeldComment[];
   /** The comments every `comments` call answers with, before the `since` filter. */
   pageComments?: DocumentComment[];
@@ -47,9 +47,11 @@ export class FakeDocuments implements Documents {
   private readonly pageTexts = new Map<string, string>();
   private readonly pageTitles = new Map<string, string>();
   private readonly acknowledged = new Set<string>();
+  private readonly held: HeldComment[];
 
   constructor(private readonly answers: DocumentsAnswers = {}) {
     this.log = new CallLog(answers.failing ?? false);
+    this.held = [...(answers.held ?? [])];
     this.nesting = answers.nests ? this.fakeNesting() : null;
   }
 
@@ -179,7 +181,17 @@ export class FakeDocuments implements Documents {
 
   async heldComments(pageId: string): Promise<HeldComment[]> {
     this.log.record("heldComments", pageId);
-    return (this.answers.held ?? []).filter((comment) => !this.acknowledged.has(comment.id));
+    return this.heldNow();
+  }
+
+  /** The comments held now, without recording a call. */
+  heldNow(): HeldComment[] {
+    return this.held.filter((comment) => !this.acknowledged.has(comment.id));
+  }
+
+  /** A person leaves a comment the host holds, as one that does not mention the bot. */
+  holdComment(comment: HeldComment): void {
+    this.held.push(comment);
   }
 
   async self(): Promise<DocumentsUser> {
