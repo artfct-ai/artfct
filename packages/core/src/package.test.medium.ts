@@ -58,8 +58,8 @@ describe("the template Workers on the built artfct package", () => {
       const stub = env.Workflow.getByName("wf_config");
       await stub.status();
       await runInDurableObject(stub, (instance: Workflow) => {
-        expect(instance.workflowDefinition()).toEqual(
-          loadDeploymentConfig(env.TEST_DEPLOYMENT_CONFIG).workflowDefinition,
+        expect(instance.workflowDefinitions()).toEqual(
+          loadDeploymentConfig(env.TEST_DEPLOYMENT_CONFIG).workflowDefinitions,
         );
       });
     });

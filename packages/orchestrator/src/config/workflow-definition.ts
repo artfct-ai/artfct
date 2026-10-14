@@ -58,7 +58,7 @@ const WorkflowDefinitionFile = z
     }
   });
 
-/** A named set of stages in config. A workflow runs one. */
+/** A named set of stages in config. A workflow runs the one its plan names. */
 export type WorkflowDefinition = z.infer<typeof WorkflowDefinitionFile> & { name: string };
 
 /**
@@ -67,4 +67,20 @@ export type WorkflowDefinition = z.infer<typeof WorkflowDefinitionFile> & { name
  */
 export function loadWorkflowDefinition(name: string, yamlText: string): WorkflowDefinition {
   return { name: SkillRef.parse(name), ...WorkflowDefinitionFile.parse(parseYaml(yamlText)) };
+}
+
+/**
+ * The workflow definition a workflow runs, by the name its plan stored. Throws before the plan
+ * and for a name the deployment does not hold.
+ */
+export function storedWorkflowDefinition(
+  definitions: readonly WorkflowDefinition[],
+  name: string | null,
+): WorkflowDefinition {
+  if (name === null) {
+    throw new Error("the workflow has not started, so it does not run a workflow definition");
+  }
+  const definition = definitions.find((declared) => declared.name === name);
+  if (!definition) throw new Error(`the deployment does not hold workflow definition ${name}`);
+  return definition;
 }

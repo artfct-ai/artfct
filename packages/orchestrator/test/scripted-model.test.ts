@@ -90,6 +90,7 @@ describe("ScriptedModel contract", () => {
         tool: "set_plan",
         input: {
           name: "Mock workflow",
+          definition: "development",
           stages: ["design", "implement"],
           repo: "acme/app",
           page_parent: null,
@@ -190,6 +191,51 @@ describe("ScriptedModel contract", () => {
           tool: "set_plan",
           input: { stages: ["implement"] },
         });
+      });
+    });
+  });
+
+  describe("a request before the workflow started, once the line is posted", () => {
+    const UNSTARTED = [
+      "You are the orchestrator.",
+      "",
+      "## Workflow definitions",
+      "- incident: Fix an incident.",
+      "- development: Take a request from design through pull requests.",
+      "",
+      "## How to act",
+      "- Rules.",
+    ].join("\n");
+
+    it("starts the workflow from the first workflow definition, without stages", () => {
+      expect(scriptedDecision(afterAck(REQUEST, UNSTARTED))).toEqual({
+        tool: "set_plan",
+        input: { name: "Mock workflow", definition: "incident", reason: "start the workflow" },
+      });
+    });
+
+    it("plans the stages the start answer lists", () => {
+      const started = [
+        "Workflow started from workflow definition incident.",
+        "",
+        "## Stages (in order)",
+        "- triage: produces page. Harness mock, model mock-model.",
+        "- fix: produces pull, needs a repository. Harness mock, model mock-model.",
+        "",
+        "Call set_plan again with definition incident and the stages to run.",
+      ].join("\n");
+      expect(
+        scriptedDecision([...userPrompt(REQUEST, UNSTARTED), toolResult("set_plan", started)]),
+      ).toEqual({
+        tool: "set_plan",
+        input: {
+          name: "Mock workflow",
+          definition: "incident",
+          stages: ["triage", "fix"],
+          repo: "acme/app",
+          page_parent: null,
+          reason: "default: every configured stage in order",
+        },
       });
     });
   });

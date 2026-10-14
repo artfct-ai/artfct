@@ -4,7 +4,7 @@ This repository configures and deploys one artfct install on your Cloudflare acc
 
 - `orchestrator/` holds the orchestrator Worker and the configuration it runs on.
   - `artfct.yaml` holds the deployment-wide settings: the default models, one provider per capability, the teams that may use the deployment, and your own MCP servers.
-  - `workflows/development.yaml` is the workflow definition. It names the stages, their models, and their reviewers. A deployment holds one workflow definition today.
+  - `workflows/development.yaml` is the workflow definition. It names the stages, their models, and their reviewers. Add another file there for another kind of work. The agent picks the one whose description fits each request.
   - `skills/` holds the instructions each stage follows.
   - `writing-rules.md` holds the writing rules every agent reads.
   - `wrangler.jsonc` and `.dev.vars.example` hold the Worker's settings and secrets.
