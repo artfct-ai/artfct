@@ -19,7 +19,7 @@ export type DocumentsAnswers = {
    * empty comment without an author.
    */
   comments?: Record<string, FetchedComment | null>;
-  /** The comments every `heldComments` call answers with, until they are acknowledged. */
+  /** The comments `heldComments` answers with at first, until they are acknowledged. */
   held?: HeldComment[];
   /** The comments every `comments` call answers with, before the `since` filter. */
   pageComments?: DocumentComment[];
@@ -74,6 +74,7 @@ export class FakeDocuments implements Documents {
   private readonly pageLines = new Map<string, FakeLine[]>();
   private readonly pageTitles = new Map<string, string>();
   private readonly acknowledged = new Set<string>();
+  private readonly held: HeldComment[];
   private readonly personComments: FakePersonComment[] = [];
   private readonly failNextCalls = new Set<DocumentsMethod>();
   private lineSeq = 0;
@@ -81,6 +82,7 @@ export class FakeDocuments implements Documents {
 
   constructor(private readonly answers: DocumentsAnswers = {}) {
     this.log = new CallLog(answers.failing ?? false);
+    this.held = [...(answers.held ?? [])];
     this.nesting = answers.nests ? this.fakeNesting() : null;
   }
 
@@ -291,15 +293,25 @@ export class FakeDocuments implements Documents {
     return { text: "", author: null, mentions: [] };
   }
 
-  /** The fixed held comments, then each open person comment, until acknowledged. */
   async heldComments(pageId: string): Promise<HeldComment[]> {
     this.record("heldComments", pageId);
+    return this.heldNow();
+  }
+
+  /**
+   * The comments held now, without recording a call: the fixed and added held comments, then
+   * each open person comment, minus the acknowledged ones.
+   */
+  heldNow(): HeldComment[] {
     const open = this.personComments
-      .filter((comment) => comment.pageId === pageId && this.isOpen(comment))
+      .filter((comment) => this.isOpen(comment))
       .map((comment) => ({ id: comment.id, author_name: comment.authorName, text: comment.text }));
-    return [...(this.answers.held ?? []), ...open].filter(
-      (comment) => !this.acknowledged.has(comment.id),
-    );
+    return [...this.held, ...open].filter((comment) => !this.acknowledged.has(comment.id));
+  }
+
+  /** A person leaves a comment the host holds, as one that does not mention the bot. */
+  holdComment(comment: HeldComment): void {
+    this.held.push(comment);
   }
 
   async self(): Promise<DocumentsUser> {

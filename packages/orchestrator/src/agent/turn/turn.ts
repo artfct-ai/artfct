@@ -25,6 +25,10 @@ import { estimatedTokens } from "../transcript/transcript-size";
 import { TURN_PURPOSE } from "../model/usage";
 import type { TurnDecisions } from "../../decisions/ask";
 import { hasChatThread, turnRecipients } from "../../notify/recipients";
+import {
+  heldCommentCounts,
+  sendHeldCommentsOnRevisionRequest,
+} from "../../workflow/refiner/held-comments";
 import { armTurnWatchdog, disarmTurnWatchdog, turnTimeoutText } from "./watchdog";
 
 /** Posted when the model failed twice. */
@@ -159,8 +163,10 @@ async function attempt(
     reading,
     loadTools(workflow, turn, { runtimeRequest, decisions }),
   ]);
+  const progress: TurnProgress = { boardChanged: false, firstReplied: false };
+  if (reply?.asksForRevision) await sendHeldCommentsForRevision(workflow, decisions, progress);
   await compactIfLarge(workflow, turn, signal);
-  const run = { tools, signal, reply, progress: { boardChanged: false, firstReplied: false } };
+  const run = { tools, signal, reply, progress };
   try {
     return await generate(workflow, run);
   } catch (firstError) {
@@ -215,7 +221,7 @@ async function generate(
 ): Promise<Outcome> {
   const requestTimeoutMs = workflow.config().orchestrator.request_timeout_minutes * 60_000;
   const model = withRequestTimeout(await workflow.model(), requestTimeoutMs);
-  const turn = turnFacts(reply);
+  const turn = turnFacts(reply, await heldCommentCounts(workflow));
   const input = { model, tools, signal, turn, progress };
   let pass = await modelPass(workflow, { ...input, stepsBefore: 0 });
   if (signal.aborted) return "timed_out";
@@ -236,12 +242,30 @@ async function generate(
 }
 
 /** What the rule blocks read about the turn. An unprompted turn carries the planning rules. */
-function turnFacts(reply: Reply): TurnFacts {
+function turnFacts(reply: Reply, heldComments: TurnFacts["heldComments"]): TurnFacts {
   return {
     personWrote: reply !== null,
     requestsWork: reply === null || reply.requestsWork,
     inputArtifact: reply?.inputArtifact ?? null,
+    heldComments,
   };
+}
+
+/**
+ * A person asked for a revision. Send the held comments of every running page author before the
+ * model runs, and tell the model what was sent. A prompt that went out changes the board.
+ */
+async function sendHeldCommentsForRevision(
+  workflow: WorkflowRuntime,
+  decisions: TurnDecisions,
+  progress: TurnProgress,
+): Promise<void> {
+  const sent = await sendHeldCommentsOnRevisionRequest(workflow, decisions);
+  if (!sent.notes.length) return;
+  workflow.transcript.append(
+    sent.notes.map((note) => ({ role: "user" as const, content: noteMessage(note) })),
+  );
+  if (sent.prompted.length && hasChatThread(workflow.state)) progress.boardChanged = true;
 }
 
 /** True when the pass left the person something: text, a turn-ending message, or a board change. */
