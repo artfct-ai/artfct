@@ -156,7 +156,7 @@ describe("runChecks", () => {
     expect(report).toContain("stages");
   });
 
-  it("reports a second workflow definition as not supported yet", async () => {
+  it("names each workflow definition of a deployment with several", async () => {
     const repoDir = templateCopy();
     copyFileSync(
       join(repoDir, "orchestrator/workflows/development.yaml"),
@@ -166,9 +166,12 @@ describe("runChecks", () => {
       repoDir,
       runWrangler: loggedIn,
     });
-    expect(formatChecksReport(reports)).toContain(
-      "Multiple workflow definitions are not supported yet",
-    );
+    expect(reports.find((report) => report.check === "config")).toEqual({
+      check: "config",
+      outcome: "passed",
+      detail:
+        "workflow definition development with 5 stages, workflow definition incident with 5 stages",
+    });
   });
 
   it("reports each skill that breaks the frontmatter rules", async () => {

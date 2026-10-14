@@ -189,6 +189,9 @@ export const SLOTS = 2;
 /** The texts a person asks for ad hoc work with. The first one started the world's first job. */
 export const REQUEST_TEXTS = ["Fix the login redirect.", "Add a logout link."] as const;
 
+/** The workflow definition the deployment of a world holds besides the test one. */
+export const SECOND_DEFINITION = "incident";
+
 /** The repository of the workflow of a world. */
 export const REPO = "acme/app";
 
@@ -203,6 +206,7 @@ export type StepFacts = Partial<
     | "completion"
     | "unadmittedFeedback"
     | "modelCallStopped"
+    | "plan"
     | "heldCommentsAsked"
   >
 >;
@@ -343,7 +347,10 @@ export class WorkflowWorld {
     };
   }
 
-  /** Open a world on its first job, or in planning on a person's request. */
+  /**
+   * Open a world on its first job, or on a person's request before the plan that starts the
+   * workflow. The deployment holds a second workflow definition a plan may name.
+   */
   static async open(setup: WorldSetup): Promise<WorkflowWorld> {
     const workflow = new FakeRuntime(openMemoryDb(), { ...testEnv(), DB: acceptingD1() });
     const lists = REFINER_LISTS[setup.refiners];
@@ -352,6 +359,7 @@ export class WorkflowWorld {
     if (setup.research) patchStageResearch(workflow);
     if (setup.pageEnding === "choice") patchPageEnding(workflow, "choice");
     if (setup.pageAuthor === "model") patchModelPageAuthor(workflow);
+    workflow.addWorkflowDefinition({ ...workflow.workflowDefinition(), name: SECOND_DEFINITION });
     workflow.documentsInstance = pageHost();
     workflow.gatewayInstance = new FakeGateway();
     const tracker = new SessionTracker();
@@ -360,7 +368,12 @@ export class WorkflowWorld {
       (entry) => workflow.store.writeOutbox(entry),
     );
     if (setup.opening === "request") {
-      workflow.patchState({ status: "new", repo: { full: REPO }, concurrency: SLOTS });
+      workflow.patchState({
+        status: "new",
+        definition: null,
+        repo: { full: REPO },
+        concurrency: SLOTS,
+      });
       await createWorkflow(workflow, {
         workflowId: workflow.state.workflow_id,
         event: requestEvent(ORIGINS[setup.origin]),
@@ -420,6 +433,8 @@ export class WorkflowWorld {
       completion: facts.completion ?? null,
       unadmittedFeedback: facts.unadmittedFeedback ?? null,
       modelCallStopped: facts.modelCallStopped ?? null,
+      plan: facts.plan ?? null,
+      issueUpdates: rows.filter((row) => row.kind === "issue_update").length,
       heldCommentsAsked: facts.heldCommentsAsked ?? null,
       event: this.delivered,
       sessionPosts: sessionPostsOf(rows),
@@ -920,7 +935,7 @@ export class WorkflowWorld {
     const startingSession = origin?.source === "tracker" ? origin.session_id : null;
     return {
       workflowStatus: this.workflow.state.status,
-      unplanned: this.workflow.state.stages.length === 0 && store.jobs().length === 0,
+      definition: this.workflow.state.definition,
       chatThread: replyTargets.some((target) => target.source === "chat"),
       startingSession,
       jobSessions: Object.fromEntries(

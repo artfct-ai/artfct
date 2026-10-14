@@ -14,31 +14,26 @@ function parseFile<Parsed>(file: string, parse: () => Parsed): Parsed {
 
 /**
  * Parse `artfct.yaml` and the workflow definitions of a deployment. Throws on a file the schema
- * refuses, and unless there is exactly one workflow definition.
+ * rejects, and when the deployment does not hold a workflow definition.
  */
 export function loadDeploymentConfig(
   files: Pick<ConfigFiles, "config" | "workflowDefinitions">,
 ): LoadedDeploymentConfig {
   const config = parseFile("artfct.yaml", () => loadConfig(files.config));
-  const definitions = files.workflowDefinitions.map(({ name, text }) =>
+  const workflowDefinitions = files.workflowDefinitions.map(({ name, text }) =>
     parseFile(`workflows/${name}.yaml`, () => loadWorkflowDefinition(name, text)),
   );
-  const [workflowDefinition, ...others] = definitions;
-  if (!workflowDefinition) {
+  if (workflowDefinitions.length === 0) {
     throw new Error("the deployment has no workflow definition. Add one as workflows/<name>.yaml");
   }
-  if (others.length > 0) {
-    const names = definitions.map((definition) => definition.name).join(", ");
-    throw new Error(
-      `the deployment has ${definitions.length} workflow definitions (${names}). Multiple workflow definitions are not supported yet. Keep one`,
-    );
+  for (const definition of workflowDefinitions) {
+    if (definition.documents.page_parent && config.adapters.documents.provider === "linear") {
+      throw new Error(
+        `workflows/${definition.name}.yaml sets documents.page_parent, which is for a document host that nests pages. Linear puts the documents of a workflow in the project of its issue, or the agent asks`,
+      );
+    }
   }
-  if (workflowDefinition.documents.page_parent && config.adapters.documents.provider === "linear") {
-    throw new Error(
-      `workflows/${workflowDefinition.name}.yaml sets documents.page_parent, which is for a document host that nests pages. Linear puts the documents of a workflow in the project of its issue, or the agent asks`,
-    );
-  }
-  return { config, workflowDefinition };
+  return { config, workflowDefinitions };
 }
 
 /** Registers the config files the build inlined into the Worker entrypoint. Call it before any request. */

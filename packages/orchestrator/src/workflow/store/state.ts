@@ -22,6 +22,11 @@ export type WorkflowState = {
   origin: ReplyTarget | null;
   reply_targets: ReplyTarget[];
   request: RequestText;
+  /**
+   * The name of the workflow definition the workflow runs. The plan that starts the workflow sets
+   * it, and a later plan cannot change it. Null before that plan.
+   */
+  definition: string | null;
   /** The display name the plan gave the workflow. Empty until the first plan. */
   name: string;
   repo: RepoRef | null;
@@ -64,6 +69,7 @@ export const initialWorkflowState: WorkflowState = {
   origin: null,
   reply_targets: [],
   request: { title: "", text: "", links: [] },
+  definition: null,
   name: "",
   repo: null,
   page_parent: null,

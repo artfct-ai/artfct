@@ -19,7 +19,7 @@ import type {
   Adapters,
 } from "./config/adapters";
 import { resolveStage, type ResolvedStage, type Stage } from "./config/stage";
-import type { WorkflowDefinition } from "./config/workflow-definition";
+import { storedWorkflowDefinition, type WorkflowDefinition } from "./config/workflow-definition";
 import type { TaskEvent } from "./workflow/task/events";
 import { tracing } from "cloudflare:workers";
 import { Agent, type Connection, type ConnectionContext, type WSMessage } from "agents";
@@ -338,8 +338,12 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     return registeredConfig().config;
   }
 
+  workflowDefinitions(): readonly WorkflowDefinition[] {
+    return registeredConfig().workflowDefinitions;
+  }
+
   workflowDefinition(): WorkflowDefinition {
-    return registeredConfig().workflowDefinition;
+    return storedWorkflowDefinition(this.workflowDefinitions(), this.state.definition);
   }
 
   stageFor(job: JobRow): ResolvedStage {

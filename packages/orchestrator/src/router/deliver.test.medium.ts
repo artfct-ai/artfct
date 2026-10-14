@@ -303,10 +303,10 @@ describe("deliver a start event", () => {
       expect(lines[0]).toBe("created from start");
     });
 
-    it("answers a status summary for the workflow, past new", async () => {
+    it("answers a status summary for the workflow, new until a plan starts it", async () => {
       const summary = await env.Workflow.getByName(workflowId).status();
       expect(summary.workflow_id).toBe(workflowId);
-      expect(summary.status).not.toBe("new");
+      expect(summary.status).toBe("new");
     });
   });
 

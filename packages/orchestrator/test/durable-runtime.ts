@@ -17,3 +17,10 @@ export const freshDurableRuntime: Scenario<FakeRuntime> = async (run) => {
     await run(new FakeRuntime(await openWorkflowDb(state.storage), env));
   });
 };
+
+/** `freshDurableRuntime` before the plan that starts its workflow: status `new`, without a workflow definition. */
+export const unstartedDurableRuntime: Scenario<FakeRuntime> = (run) =>
+  freshDurableRuntime(async (workflow) => {
+    workflow.patchState({ status: "new", definition: null });
+    await run(workflow);
+  });
