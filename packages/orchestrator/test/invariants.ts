@@ -1,7 +1,10 @@
+import type { PostedComment } from "@artfct-ai/adapters/test/fake-documents";
 import type { Control, InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { ArtifactStatus, TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
 import { ASK_WHETHER_ACCEPTED, ASK_WHICH_OPTION } from "../src/agent/tools/start/start";
 import type { PlanEntry } from "@agentclientprotocol/sdk";
+import { findingText, reviewLine } from "../src/artifact/review-text";
+import type { Review } from "../src/artifact/types";
 import { boardInputOf, channelKey } from "../src/workflow/board/board";
 import {
   BOARD_MAX_ENTRIES,
@@ -101,6 +104,16 @@ export type Step = {
   postedTexts: string[];
   /** Set when the turn of a refiner run ended normally. */
   refinerTurnEnd: { task_id: string } | null;
+  /**
+   * Set when the turn of a findings reviewer of a page ended. `review` is what the run filed,
+   * `comments` what the document host took during the step, and `hostUp` false when it took none.
+   */
+  pageReview: {
+    task_id: string;
+    review: Review | null;
+    comments: PostedComment[];
+    hostUp: boolean;
+  } | null;
   /** Set when the alarm that fired was armed for an older generation of its task. */
   staleAlarm: { task_id: string } | null;
   /**
@@ -863,5 +876,64 @@ export function anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone(
       "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone",
       `${author.task_id} stopped early and is idle with nothing queued, and it is not restarting`,
     );
+  }
+}
+
+/**
+ * PROPOSED, pending owner approval. When a page review reaches the document host, each finding
+ * lands once, on its passage or in the outcome comment, and the outcome comment opens with the
+ * review line. A turn that did not file a review does not post a comment.
+ */
+export function pageReviewPostsEachFindingOnce(_workflow: WorkflowRuntime, step: Step): void {
+  const pageReview = step.pageReview;
+  if (!pageReview) return;
+  const { review, comments, hostUp } = pageReview;
+  if (!review) {
+    if (comments.length) {
+      violated("pageReviewPostsEachFindingOnce", `${comments.length} comments without a review`);
+    }
+    return;
+  }
+  const outcomes = comments.filter((comment) => comment.passage === null);
+  if (hostUp && outcomes.length !== 1) {
+    violated("pageReviewPostsEachFindingOnce", `${outcomes.length} outcome comments`);
+  }
+  if (outcomes.some((comment) => !comment.text.startsWith(reviewLine(review)))) {
+    violated(
+      "pageReviewPostsEachFindingOnce",
+      "an outcome comment does not open with the review line",
+    );
+  }
+  for (const finding of review.findings) {
+    const landed = comments.filter((comment) => comment.text.includes(findingText(finding))).length;
+    if (landed > 1 || (hostUp && landed === 0)) {
+      violated(
+        "pageReviewPostsEachFindingOnce",
+        `"${findingText(finding)}" landed ${landed} times`,
+      );
+    }
+  }
+}
+
+/**
+ * PROPOSED, pending owner approval. A review prompt the author of a page gets in the step its
+ * reviewer ended carries every finding of that review with its passage, whatever the host took.
+ */
+export function authorGetsEveryPageFinding(_workflow: WorkflowRuntime, step: Step): void {
+  const review = step.pageReview?.review;
+  if (!review) return;
+  const reviewer = step.after.tasks.find((task) => task.task_id === step.pageReview?.task_id);
+  const author = step.after.tasks.find(
+    (task) => task.role === "author" && task.job_id === reviewer?.job_id,
+  );
+  const before = step.before.tasks.find((task) => task.task_id === author?.task_id);
+  const newPrompts = (author?.promptTexts ?? []).slice(before?.promptTexts.length ?? 0);
+  for (const prompt of newPrompts.filter((text) => text.includes("\nComments:\n"))) {
+    const missing = review.findings.find(
+      (finding) => !prompt.includes(`- ${findingText(finding)}`),
+    );
+    if (missing) {
+      violated("authorGetsEveryPageFinding", `the author was not told "${findingText(missing)}"`);
+    }
   }
 }

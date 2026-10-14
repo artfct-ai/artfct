@@ -43,8 +43,10 @@ Post the review in the form your review instructions give. Its first line follow
 The summary paragraph gives the count of findings by severity, and the prior findings held, regressed, and not resolved. Then write each finding as one line, in exactly this form:
 
 ```
-- <section or sections>: Severity: <blocking | minor | nitpick>. Claim: "<exact quote from the page>". Criterion: 5, misstated fact. Ground: <the quote from the research payload or the source that shows the problem, with file and line>. Resolve: <the exact change to make, in one to three sentences>.
+- "<a few words of the passage the finding is about>": <section or sections>: Severity: <blocking | minor | nitpick>. Claim: "<exact quote from the page>". Criterion: 5, misstated fact. Ground: <the quote from the research payload or the source that shows the problem, with file and line>. Resolve: <the exact change to make, in one to three sentences>.
 ```
+
+Open the line with the passage only when the finding is about one passage of the page. Quote it word for word from one paragraph, list item, heading, or table row.
 
 The editor who resolves the findings cannot see the code. Put every fact about the code that the change needs in Ground or Resolve.
 

@@ -4,6 +4,8 @@ import {
   aFailedCheckNeverAsksThePersonAgain,
   aFailedCheckNeverCompletesAJob,
   anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone,
+  authorGetsEveryPageFinding,
+  pageReviewPostsEachFindingOnce,
   artifactStatusMovesAreLegal,
   authorIsIdleWhileAPolisherRuns,
   boardsLiveOnlyInChat,
@@ -72,6 +74,7 @@ import {
   refinerRunPromptFails,
   refinerRunEnds,
   researcherReportsTodos,
+  type RefinerRunEnd,
   researcherTurnEnds,
   sandboxComesUp,
   sandboxGoesAway,
@@ -135,6 +138,8 @@ const STEP_INVARIANTS = [
   feedActivityPostsOnce,
   unplannedWorkflowDoesNotEnd,
   anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone,
+  pageReviewPostsEachFindingOnce,
+  authorGetsEveryPageFinding,
 ];
 
 const setups: fc.Arbitrary<WorldSetup> = fc.record({
@@ -257,6 +262,13 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
         author,
         fc.record({
           reviewer: fc.constantFrom("no_review", "approved", "findings", "blocking"),
+          pageCommenting: fc.constantFrom(
+            "takes" as const,
+            "takes" as const,
+            "drops_inline" as const,
+            "inline_throws" as const,
+            "down" as const,
+          ),
           judge: fc.constantFrom(
             "approves",
             "rejects",
@@ -486,11 +498,30 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
 const draftedArtifact = [firstArtifactAppears(0, "author_text"), authorTurnEnds(0, "same")];
 const approvingEnd = refinerRunEnds(0, {
   reviewer: "approved",
+  pageCommenting: "takes",
   judge: "approves",
   polisher: "nothing_pushed",
   stopReason: "end_turn",
   closing: "reports_work",
 });
+
+const findingsEnd = (pageCommenting: RefinerRunEnd["pageCommenting"]) =>
+  refinerRunEnds(0, {
+    reviewer: "findings",
+    pageCommenting,
+    judge: "rejects",
+    polisher: "pushed",
+    stopReason: "end_turn",
+    closing: "reports_work",
+  });
+
+const reviewedOnAFlakyHost = [
+  ...draftedArtifact,
+  findingsEnd("drops_inline"),
+  findingsEnd("takes"),
+  findingsEnd("inline_throws"),
+  findingsEnd("down"),
+];
 
 const stoppedEarly = authorTurnEnds(0, "same", "stopped_early");
 const stoppedEarlySilently = authorTurnEnds(0, "same", "silent");
@@ -523,6 +554,7 @@ const openings: fc.Arbitrary<WorkflowAction[]> = fc.constantFrom(
   [],
   draftedArtifact,
   [...draftedArtifact, approvingEnd, approvingEnd, approvingEnd],
+  reviewedOnAFlakyHost,
   abandonedArtifact,
   issueStartedAgain,
   authorKeepsStoppingEarly,

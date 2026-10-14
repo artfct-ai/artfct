@@ -29,7 +29,7 @@ import { harnessAdapter } from "@artfct-ai/adapters/harness/clients";
 import type { Harness, HarnessAdapter } from "@artfct-ai/adapters/harness/types";
 import type { TokenSource } from "@artfct-ai/adapters/tracker/linear/sdk";
 import { linearIssueKeyFromUrl } from "@artfct-ai/adapters/tracker/linear/url";
-import type { HostInstructions, PageInstructions } from "@artfct-ai/adapters/instructions";
+import type { HostInstructions } from "@artfct-ai/adapters/instructions";
 import type { McpServer } from "@artfct-ai/adapters/mcp";
 import { LinearTracker } from "@artfct-ai/adapters/tracker/linear/tracker";
 import {
@@ -232,13 +232,13 @@ export function artifact(kind: ArtifactKind, clients: ArtifactClients): Artifact
         readUrl: (url) => pageFromUrl(adapters.documents.provider, url, clients.documents),
         page: async (pageId) => (await clients.documents())?.page(pageId) ?? null,
         removed: async (url) => (await (await clients.documents())?.pageRemoved(url)) ?? false,
-        comments: async (pageId, since) =>
-          (await clients.documents())?.comments(pageId, since) ?? [],
         fetchComment: async (commentId) =>
           (await clients.documents())?.fetchComment(commentId) ?? null,
         heldComments: async (pageId) => (await clients.documents())?.heldComments(pageId) ?? [],
         self: async () => (await clients.documents())?.self() ?? null,
         comment: async (pageId, text) => (await clients.documents())?.comment(pageId, text),
+        commentOnPassages: async (pageId, comments) =>
+          (await clients.documents())?.commentOnPassages(pageId, comments) ?? comments,
         acknowledgeComment: async (comment) =>
           (await clients.documents())?.acknowledgeComment(comment),
         instructions: pageInstructions(adapters.documents.provider),
@@ -576,7 +576,7 @@ function pullInstructions(provider: CodeProvider): HostInstructions {
   }
 }
 
-function pageInstructions(provider: DocumentsProvider): PageInstructions {
+function pageInstructions(provider: DocumentsProvider): HostInstructions {
   switch (provider) {
     case "notion":
       return NOTION_PAGE_INSTRUCTIONS;

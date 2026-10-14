@@ -192,6 +192,7 @@ export type StepFacts = Partial<
     | "authorTurnEnd"
     | "feedback"
     | "refinerTurnEnd"
+    | "pageReview"
     | "staleAlarm"
     | "completion"
     | "unadmittedFeedback"
@@ -305,10 +306,19 @@ export class WorkflowWorld {
   private readonly streamedTexts: string[] = [];
   private readonly stoppedEarly = new Set<string>();
 
-  private constructor(workflow: FakeRuntime, checksOnPush: ChecksOnPush, tracker: SessionTracker) {
-    this.workflow = workflow;
-    this.checksOnPush = checksOnPush;
-    this.tracker = tracker;
+  /** The document host every page of the world lives on. */
+  readonly pageHost: FakeDocuments;
+
+  private constructor(options: {
+    workflow: FakeRuntime;
+    checksOnPush: ChecksOnPush;
+    tracker: SessionTracker;
+    pageHost: FakeDocuments;
+  }) {
+    this.workflow = options.workflow;
+    this.checksOnPush = options.checksOnPush;
+    this.tracker = options.tracker;
+    this.pageHost = options.pageHost;
   }
 
   /** Open a world on its first job, or in planning on a person's request. */
@@ -320,7 +330,8 @@ export class WorkflowWorld {
     if (setup.research) patchStageResearch(workflow);
     if (setup.pageEnding === "choice") patchPageEnding(workflow, "choice");
     if (setup.pageAuthor === "model") patchModelPageAuthor(workflow);
-    workflow.documentsInstance = pageHost();
+    const documents = pageHost();
+    workflow.documentsInstance = documents;
     workflow.gatewayInstance = new FakeGateway();
     const tracker = new SessionTracker();
     workflow.notifier = new Notifier(
@@ -334,7 +345,12 @@ export class WorkflowWorld {
         event: requestEvent(ORIGINS[setup.origin]),
         endedWorkflowId: null,
       });
-      return new WorkflowWorld(workflow, setup.checksOnPush, tracker);
+      return new WorkflowWorld({
+        workflow,
+        checksOnPush: setup.checksOnPush,
+        tracker,
+        pageHost: documents,
+      });
     }
     const stage = STAGE_OF[setup.artifact];
     workflow.patchState({
@@ -354,7 +370,12 @@ export class WorkflowWorld {
           : { kind: "request", text: REQUEST_TEXTS[0] },
     });
     if (!first) throw new Error(`the test config declares no stage ${stage}`);
-    const world = new WorkflowWorld(workflow, setup.checksOnPush, tracker);
+    const world = new WorkflowWorld({
+      workflow,
+      checksOnPush: setup.checksOnPush,
+      tracker,
+      pageHost: documents,
+    });
     world.adoptNewAuthors();
     await world.startSandboxOf(workflow.store.authorOrResearcherTaskOf(first.job_id).task_id);
     return world;
@@ -383,6 +404,7 @@ export class WorkflowWorld {
       authorTurnEnd: facts.authorTurnEnd ?? null,
       feedback: facts.feedback ?? null,
       refinerTurnEnd: facts.refinerTurnEnd ?? null,
+      pageReview: facts.pageReview ?? null,
       staleAlarm: facts.staleAlarm ?? null,
       completion: facts.completion ?? null,
       unadmittedFeedback: facts.unadmittedFeedback ?? null,

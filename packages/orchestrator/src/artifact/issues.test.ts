@@ -46,7 +46,9 @@ describe("agent review", () => {
 
   it("reads the review out of the reviewer's turn text", async () => {
     const turnText = ["Read them all.", "", "Review: findings", "- ENG-1: no outcome."].join("\n");
-    expect(await review.postedReview({ kind: "issues" }, { since: "", turnText })).toEqual({
+    expect(
+      await review.postedReview({ kind: "issues" }, { since: "", turnText, signature: "" }),
+    ).toEqual({
       kind: "review",
       revision: null,
       blocking: false,
@@ -57,7 +59,10 @@ describe("agent review", () => {
 
   it("files nothing when the turn text carries no review", async () => {
     expect(
-      await review.postedReview({ kind: "issues" }, { since: "", turnText: "Read them all." }),
+      await review.postedReview(
+        { kind: "issues" },
+        { since: "", turnText: "Read them all.", signature: "" },
+      ),
     ).toBeNull();
   });
 

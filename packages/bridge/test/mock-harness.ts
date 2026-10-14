@@ -34,7 +34,7 @@ import {
   researchPayloadPath,
   writeMockResearchPayload,
 } from "./mock-harness-research";
-import { fileMockPageReview, isReviewPrompt, reviewedPageId } from "./mock-harness-review";
+import { isReviewPrompt, mockPageReview, reviewedPageId } from "./mock-harness-review";
 import type { HarnessTransport } from "../src/harness/types";
 import {
   mockStage,
@@ -209,14 +209,14 @@ export class MockHarness implements HarnessTransport {
     }
   }
 
-  /** Files a review when this turn reviews a page and the run gave it a document host. */
+  /** Ends the turn with a review when this turn reviews a page and the run gave it a document host. */
   private async fileReview(prompt: string): Promise<string | null> {
     const documentsUrl = this.documentsUrl;
     if (!documentsUrl) return null;
     const pageId = reviewedPageId(prompt);
     if (!pageId) return null;
-    const opening = await fileMockPageReview(documentsUrl, pageId);
-    return opening ? `Read the page and filed one comment on it. ${opening}` : null;
+    const review = await mockPageReview(documentsUrl, pageId);
+    return review ? `Read the page.\n\n${review}` : null;
   }
 
   /** Writes the research payload on a researcher's turn. */

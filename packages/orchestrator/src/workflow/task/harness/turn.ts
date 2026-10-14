@@ -114,6 +114,7 @@ async function endRefinerTurn(
   workflow: WorkflowRuntime,
   task: TaskRow,
   stopReason: StopReason,
+  turnText: string,
 ): Promise<void> {
   const run = workflow.store.requireTask(task.task_id);
   if (stopReason === "cancelled" && workflow.store.peekPrompt(run.task_id)) {
@@ -123,7 +124,7 @@ async function endRefinerTurn(
   if (isTaskFinished(run.status)) return;
   if (await restartIfTurnUnfinished(workflow, run, stopReason)) return;
   if (run.role === "polisher") return settlePolisherTurn(workflow, run);
-  await onReviewerFinished(workflow, run);
+  await onReviewerFinished(workflow, run, turnText);
 }
 
 /**
@@ -193,7 +194,7 @@ export async function onTurnEnd(
   workflow.store.updateSandbox(task.task_id, { prompt_in_flight: 0, turn_text: "" });
   workflow.store.updateTask(task.task_id, { summary: turnText.slice(-SUMMARY_CHARS) });
   if (task.role === "researcher") return endResearcherTurn(workflow, task, stopReason);
-  if (task.role !== "author") return endRefinerTurn(workflow, task, stopReason);
+  if (task.role !== "author") return endRefinerTurn(workflow, task, stopReason, turnText);
   const text = turnText.trim();
   const recordedNow = await findArtifact(workflow, task, text);
   const outcome =

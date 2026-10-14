@@ -22,8 +22,11 @@ export type PullRef = Extract<ArtifactRef, { kind: "pull" }>;
 /** Where an artifact lives: what it points at, and the link a human opens. */
 export type ArtifactTarget = { ref: ArtifactRef; url: string };
 
-/** One thing said about an artifact, with where it applies when it applies somewhere. */
-export type Finding = { location?: string; body: string };
+/**
+ * One thing said about an artifact, with where it applies when it applies somewhere. `passage`
+ * is the words of a page the finding quotes, which the page host anchors its comment to.
+ */
+export type Finding = { location?: string; passage?: string; body: string };
 
 /**
  * What a reviewer said about one revision. Read back from the host. The revision is null when
@@ -88,15 +91,26 @@ export type ChangeInput = {
   claim: (id: string) => boolean;
 };
 
-/** Where a kind looks for a review: the time the reviewer started, and the turn text it ended with. */
-export type ReviewInput = { since: string; turnText: string };
+/**
+ * Where a kind looks for a review: the time the reviewer started, and the turn text it ended
+ * with. `signature` names the reviewer run on what code posts for it.
+ */
+export type ReviewInput = { since: string; turnText: string; signature: string };
 
 /** How a kind's artifacts are reviewed. Absent on a kind with no reviewer. */
 export interface ReviewSupport {
   /** What the artifact says it is right now. Null when the host cannot say. A review about another revision is stale. */
   revision(ref: ArtifactRef): Promise<string | null>;
-  /** The newest review this reviewer filed for this turn. Null when it filed none. */
+  /**
+   * The newest review this reviewer filed for this turn. Null when it filed none. A kind whose
+   * reviewer ends its turn with the review posts it on the host first, when it has a place for it.
+   */
   postedReview(ref: ArtifactRef, input: ReviewInput): Promise<Review | null>;
+  /**
+   * True when the reviewer posts its review on the host itself, so it signs what it posts.
+   * False when it ends its turn with the review.
+   */
+  reviewerPosts: boolean;
   /** What a reviewer sandbox may do. Null when the credential cannot be narrowed. */
   reviewerCredential: Permissions | null;
   /** Where the author answers a finding it does not act on, in this host's own terms. */

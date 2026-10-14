@@ -11,17 +11,18 @@ import {
   type LinearDocumentComment,
   type LinearDocumentCommentsData,
 } from "./held-comments";
+import { textHoldsPassage } from "../passage";
 import { linearMentionedUserIds } from "./mentions";
 import { isGoneError, LinearSdk, type LinearOptions, type TokenSource } from "./sdk";
 import { linearDocumentSlugFromUrl } from "./url";
 import type {
   PageCommentRef,
-  DocumentComment,
   DocumentPage,
   Documents,
   DocumentsUser,
   FetchedComment,
   HeldComment,
+  PassageComment,
 } from "../types";
 
 /** A document by the content id its comments hang on, reached through one of those comments. */
@@ -168,6 +169,35 @@ export class LinearDocuments implements Documents {
     await client.createComment({ documentContentId: pageId, body: text });
   }
 
+  /**
+   * An inline comment quotes the text it is about. Each comment whose passage the document
+   * holds goes in as an inline comment that quotes it. A comment Linear does not take stays
+   * unposted.
+   */
+  async commentOnPassages(pageId: string, comments: PassageComment[]): Promise<PassageComment[]> {
+    const content = (await this.documentByContentId(pageId)).content ?? "";
+    const client = await this.sdk.client();
+    const { LinearError } = await import("@linear/sdk");
+    const unposted: PassageComment[] = [];
+    for (const comment of comments) {
+      if (!textHoldsPassage(content, comment.passage)) {
+        unposted.push(comment);
+        continue;
+      }
+      try {
+        await client.createComment({
+          documentContentId: pageId,
+          body: comment.text,
+          quotedText: comment.passage,
+        });
+      } catch (error) {
+        if (!(error instanceof LinearError)) throw error;
+        unposted.push(comment);
+      }
+    }
+    return unposted;
+  }
+
   /** An eyes reaction on the comment. Linear finds the comment by its id alone. */
   async acknowledgeComment(comment: PageCommentRef): Promise<void> {
     const client = await this.sdk.client();
@@ -175,25 +205,6 @@ export class LinearDocuments implements Documents {
       commentId: comment.commentId,
       emoji: LINEAR_ACKNOWLEDGEMENT_EMOJI,
     });
-  }
-
-  /** Comments inside a document, oldest first. The author carries no email: only its id is read. */
-  async comments(pageId: string, since: string): Promise<DocumentComment[]> {
-    const client = await this.sdk.client();
-    const connection = await client.comments({
-      filter: {
-        documentContent: { id: { eq: pageId } },
-        createdAt: { gte: new Date(since) },
-      },
-    });
-    return connection.nodes
-      .map((comment) => ({
-        id: comment.id,
-        created_at: comment.createdAt.toISOString(),
-        text: comment.body,
-        author: comment.userId ? { id: comment.userId, email: null } : null,
-      }))
-      .toSorted((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at));
   }
 
   /** One comment by id. A deleted comment and a resolved thread read as null. */

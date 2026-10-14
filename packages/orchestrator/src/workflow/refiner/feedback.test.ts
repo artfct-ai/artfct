@@ -85,7 +85,7 @@ describe("feedback a person left on the artifact", () => {
   it("hands the agent what was said, so it can split it", () =>
     reviewed(({ result }) => {
       expect(result.notes[1]).toContain("Sam said:");
-      expect(result.notes[1]).toContain("src/login.ts:12 Drops the error.");
+      expect(result.notes[1]).toContain("src/login.ts:12: Drops the error.");
     }));
 
   it("says in the log who reviewed", () =>
@@ -560,7 +560,7 @@ describe("feedback the decisions model reads", () => {
     it("queues what was said for the author", () =>
       routed(({ workflow }) => {
         expect(workflow.store.queue().map((row) => row.text)).toEqual([
-          expect.stringContaining("src/login.ts:12 Drops the error."),
+          expect.stringContaining("src/login.ts:12: Drops the error."),
         ]);
       }));
 

@@ -1,5 +1,5 @@
 /** The Linear MCP server and the agent text that names its tools. */
-import type { HostInstructions, PageInstructions } from "../../instructions";
+import type { HostInstructions } from "../../instructions";
 import type { McpServer } from "../../mcp";
 
 /** The Linear MCP server. Whoever the token acts as is the author of what the agent writes. */
@@ -37,15 +37,11 @@ export const LINEAR_MCP_TOOLS = [
 ];
 
 /** How an agent works with a document on Linear. */
-export const LINEAR_PAGE_INSTRUCTIONS: PageInstructions = {
+export const LINEAR_PAGE_INSTRUCTIONS: HostInstructions = {
   create:
     "Create the document in the Linear project this prompt names as the page parent, with the Linear tools. Print the document URL on its own line when it exists.",
   read: "Read the document with the Linear `get_document` tool. The document slug is the last part of its URL.",
   change: "Change the document in place with the Linear tools. Do not create another document.",
-  report: [
-    "Post your review as one comment on the document with the Linear `save_comment` tool.",
-    "Post one comment only. Do not edit the document, reply to another comment, or write anywhere else.",
-  ].join("\n"),
 };
 
 /** Where the orchestrator agent finds the page parent of a workflow on Linear. */
