@@ -37,6 +37,8 @@ import type { ArtifactRow, JobRow, TaskRow } from "../src/workflow/store/tasks";
 import { onBridgeClosed, type ConnectionState } from "../src/workflow/task/harness/bridge";
 import { provision } from "../src/workflow/task/sandbox/sandbox";
 import { taskAtWork } from "../src/workflow/task/at-work";
+import { onModelTurnDeadline, type ModelTurnAlarm } from "../src/workflow/task/model-turn";
+import { runStartStep } from "./restart";
 import { acceptingD1 } from "./accepting-d1";
 import { FakeBridge } from "./fake-bridge";
 import { CLOSING_TEXT_MARKER } from "../src/prompts/model-author-prompt";
@@ -102,8 +104,11 @@ const ORIGIN_ISSUE: JobIssue = {
   started: false,
 };
 
-/** How a world opens: on its first job, or on a request the agent has not planned. */
-export type WorldOpening = "job" | "request";
+/**
+ * How a world opens: on its first job, on its first job before its author started, or on a
+ * request the agent has not planned.
+ */
+export type WorldOpening = "job" | "job_unstarted" | "request";
 
 /** Where the request that started the workflow came from: a chat thread or a tracker session. */
 export type OriginSurface = "chat" | "tracker";
@@ -209,6 +214,7 @@ export type StepFacts = Partial<
     | "modelCallStopped"
     | "plan"
     | "heldCommentsAsked"
+    | "modelTurnCut"
   >
 >;
 
@@ -304,7 +310,7 @@ const REFINER_LISTS: Record<
  * it through the entry points production uses, and every step is recorded for the invariants.
  */
 export class WorkflowWorld {
-  readonly workflow: FakeRuntime;
+  workflow: FakeRuntime;
   readonly steps: Step[] = [];
   readonly authors: WorldAuthor[] = [];
   private readonly pulls = new Map<number, WorldPull>();
@@ -323,6 +329,7 @@ export class WorkflowWorld {
   private readonly modelTurnEnds: string[] = [];
   private readonly modelPromptTexts = new Map<string, string[]>();
   private whilePageModelAnswers: ((taskId: string) => Promise<void>) | null = null;
+  private readonly hungModelTurns = new Map<string, string | null>();
 
   /** The document host every page of the world lives on. */
   readonly pageHost: FakeDocuments;
@@ -412,6 +419,7 @@ export class WorkflowWorld {
     if (!first) throw new Error(`the test config declares no stage ${stage}`);
     const world = new WorkflowWorld({ workflow, setup, tracker, pageHost: documents });
     world.adoptNewAuthors();
+    if (setup.opening === "job_unstarted") return world;
     await world.startSandboxOf(workflow.store.authorOrResearcherTaskOf(first.job_id).task_id);
     return world;
   }
@@ -445,6 +453,7 @@ export class WorkflowWorld {
       completion: facts.completion ?? null,
       unadmittedFeedback: facts.unadmittedFeedback ?? null,
       modelCallStopped: facts.modelCallStopped ?? null,
+      modelTurnCut: facts.modelTurnCut ?? null,
       plan: facts.plan ?? null,
       issueUpdates: rows.filter((row) => row.kind === "issue_update").length,
       heldCommentsAsked: facts.heldCommentsAsked ?? null,
@@ -718,6 +727,126 @@ export class WorkflowWorld {
     };
   }
 
+  /**
+   * The Durable Object restarts. A new instance over the same store runs the start step, and the
+   * alarms it arms for now fire. A call the old instance awaited never answers.
+   */
+  async restart(): Promise<void> {
+    this.workflow = this.workflow.restarted();
+    this.hungModelTurns.clear();
+    for (const bridge of this.bridges) bridge.reachRestarted(this.workflow);
+    await runStartStep(this.workflow);
+  }
+
+  /**
+   * Run `start`, and restart the workflow while the first page model call of `author` is out.
+   * The step records the cut turn.
+   */
+  async restartWhilePageModelAnswers(
+    author: WorldAuthor,
+    start: () => Promise<void>,
+  ): Promise<StepFacts> {
+    const cut = await this.hangPageModelCall(author, start);
+    if (!cut) return {};
+    await this.restart();
+    return { modelTurnCut: cut };
+  }
+
+  /**
+   * Run `start`, and restart the workflow while the host writes the page of `author`'s first
+   * model turn, before or after the host applies the write.
+   */
+  async restartWhileHostWritesPage(
+    author: WorldAuthor,
+    start: () => Promise<void>,
+    applied: "before" | "after",
+  ): Promise<StepFacts> {
+    const host = fakeDocumentsOf(this.workflow);
+    const createPage = host.createPage.bind(host);
+    const updatePageContent = host.updatePageContent.bind(host);
+    const turnPrompt = this.turnPromptOf(author);
+    let cutTurn: (() => void) | null = null;
+    const cut = new Promise<"cut">((resolve) => {
+      cutTurn = () => resolve("cut");
+    });
+    const hang = async <Result>(write: () => Promise<Result>): Promise<Result> => {
+      host.createPage = createPage;
+      host.updatePageContent = updatePageContent;
+      if (applied === "after") await write();
+      cutTurn?.();
+      return new Promise<never>(() => {});
+    };
+    host.createPage = (title, text, parent) => hang(() => createPage(title, text, parent));
+    host.updatePageContent = (pageId, change) => hang(() => updatePageContent(pageId, change));
+    try {
+      const outcome = await Promise.race([cut, start().then(() => "ended" as const)]);
+      if (outcome !== "cut") return {};
+    } finally {
+      host.createPage = createPage;
+      host.updatePageContent = updatePageContent;
+    }
+    if (this.modelTurnEnds.at(-1) === author.taskId) this.modelTurnEnds.pop();
+    await this.restart();
+    return { modelTurnCut: { task_id: author.taskId, prompt_id: turnPrompt } };
+  }
+
+  /**
+   * Run `start`, hang the first page model call of `author` in this instance, and let the deadline
+   * alarm of its turn fire.
+   */
+  async modelCallOutlivesItsDeadline(
+    author: WorldAuthor,
+    start: () => Promise<void>,
+  ): Promise<StepFacts> {
+    const cut = await this.hangPageModelCall(author, start);
+    if (!cut) return {};
+    const turnId = this.taskOf(author).model_turn_id;
+    const deadline = this.workflow
+      .alarmsFor("onModelTurnDeadline")
+      .find((alarm) => (alarm.payload as ModelTurnAlarm).turn_id === turnId);
+    if (!deadline) return {};
+    await this.workflow.cancelAlarm(deadline.id);
+    await onModelTurnDeadline(this.workflow, deadline.payload as ModelTurnAlarm);
+    return { modelTurnCut: cut };
+  }
+
+  /**
+   * Run `start` until the first page model call of `author` goes out, and hang that call in this
+   * instance. Null when no call went out.
+   */
+  private async hangPageModelCall(
+    author: WorldAuthor,
+    start: () => Promise<void>,
+  ): Promise<{ task_id: string; prompt_id: number | null } | null> {
+    let cutTurn: (() => void) | null = null;
+    const cut = new Promise<"cut">((resolve) => {
+      cutTurn = () => resolve("cut");
+    });
+    let turnPrompt: number | null = null;
+    this.whilePageModelAnswers = async (taskId) => {
+      if (taskId !== author.taskId) return;
+      this.whilePageModelAnswers = null;
+      this.modelTurnEnds.pop();
+      turnPrompt = this.turnPromptOf(author);
+      this.hungModelTurns.set(taskId, this.taskOf(author).model_turn_id);
+      cutTurn?.();
+      await new Promise<never>(() => {});
+    };
+    try {
+      const outcome = await Promise.race([cut, start().then(() => "ended" as const)]);
+      if (outcome !== "cut") return null;
+    } finally {
+      this.whilePageModelAnswers = null;
+    }
+    return { task_id: author.taskId, prompt_id: turnPrompt };
+  }
+
+  /** The queued prompt a revise turn of `author` runs on now. Null before its page is out. */
+  private turnPromptOf(author: WorldAuthor): number | null {
+    if (!this.artifactOf(author)) return null;
+    return this.workflow.store.peekPrompt(author.taskId)?.id ?? null;
+  }
+
   /** The tracker session of the author's job, or null when its job has none. */
   private jobSessionOf(author: WorldAuthor): TrackerSession | null {
     const issue = this.jobOf(author).issue_id;
@@ -982,6 +1111,10 @@ export class WorkflowWorld {
         promptInFlight: store.sandbox(task.task_id)?.prompt_in_flight === 1,
         queuedPrompts: queue.filter((row) => row.task_id === task.task_id).length,
         handshaking: store.handshakePending(task.task_id),
+        atWork: !isTaskFinished(task.status) && taskAtWork(this.workflow, task),
+        modelCallOut:
+          task.model_turn_id !== null &&
+          this.hungModelTurns.get(task.task_id) === task.model_turn_id,
         stoppedEarly: this.stoppedEarly.has(task.task_id),
       })),
       artifacts: store.artifacts().map((artifact) => ({
