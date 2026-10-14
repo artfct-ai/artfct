@@ -66,25 +66,25 @@ Judge a change by the complexity it leaves behind. Do not judge it by its size. 
 
 ## Domain spec
 
-Every change is specified before it is built. The spec is the glossary and the invariants. A pull request carries its spec in its diff, next to the code it describes. The owner reviews the spec with the code and approves both by merging. A change without its spec is not done.
+Every change is specified before it is built. The spec is the glossary and the invariants. Propose both with the design, before the owner has to ask and before you write code. Then wait for the owner's answer. A spec that changes in review can force a rewrite of most of the code. A subagent returns its proposal and stops. Once the owner approves, the pull request carries the spec in its diff, next to the code it describes. A change without its spec is not done.
 
 ### Glossary
 
 - `spec/glossary.md` is the authority on domain terms. Use its terms in identifiers, JSDoc, prompts, logs, and documents. Never use a word from its `Do not say` column for that concept.
-- A new domain concept needs a glossary row. Add the row in the same change as the code that introduces it.
-- When a change alters what a term means, update its row in the same change. This holds for a new row, a changed meaning, a renamed term, and a removed row. List each glossary change in the PR description.
-- Only the repository owner approves a glossary change, by merging the PR that carries it. When a term choice is unclear, ask before you open the PR.
+- A new domain concept needs a glossary row. Propose the term and its meaning with the design. Once the owner approves, add the row in the same change as the code.
+- When a change alters what a term means, propose the changed row the same way. This holds for a new row, a changed meaning, a renamed term, and a removed row.
+- Only the repository owner changes the glossary. The PR carries each approved glossary change in its diff and lists it in its description.
 - Never edit the glossary to match code that drifted. When the code and the glossary disagree, stop and ask.
 
 ### Invariants
 
-- Every behavior a person sees or the system relies on is held by an invariant. When a change adds or alters such a behavior, name the rules the change must keep and add each one as an invariant in the same change.
+- Every behavior a person sees or the system relies on is held by an invariant. When a change adds or alters such a behavior, name the rules the change must keep and propose each one as an invariant with the design. Once the owner approves, add each one with its property test in the same change as the code.
 - Every invariant has a property test that checks it on random sequences. A new invariant ships with the generator actions that reach the behavior it guards, including failures, hangs, restarts, and concurrent events. An invariant that no generated sequence reaches is not tested.
-- When a change would let an existing invariant pass without testing anything, such as a new post that satisfies a reply check, tighten the invariant in the same change.
+- When a change would let an existing invariant pass without testing anything, such as a new post that satisfies a reply check, propose the tightened invariant with the design.
 - `packages/orchestrator/test/invariants.ts` holds the workflow invariants. Each one is a rule the workflow must keep after every action. `packages/orchestrator/src/workflow/invariants.test.ts` checks them on random action sequences.
 - `packages/orchestrator/test/agent-invariants.ts` holds the agent turn invariants. Each one is a rule the orchestrator agent must keep after every turn. `packages/orchestrator/src/agent/turn/turn-invariants.test.medium.ts` checks them on random turn sequences.
 - Code outside the workflow and the agent turn, such as the router or ingress, follows the same rule. When its behavior has an invariant and no property test reaches it, add the property test in the same change.
-- Only the repository owner approves an invariant, by merging the PR that adds, changes, or removes it. The PR carries the invariant and its property test in its diff and lists each one in its description.
+- Only the repository owner adds, changes, or removes an invariant. The PR carries each approved invariant and its property test in its diff and lists each one in its description.
 - When a property test fails, never weaken an invariant, an action, or a generator to make it pass. Stop and report the shrunk sequence and the seed.
 
 ## Code style
