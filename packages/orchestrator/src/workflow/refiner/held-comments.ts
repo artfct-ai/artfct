@@ -1,9 +1,11 @@
 import type { HeldComment } from "@artfct-ai/adapters/documents/types";
+import { pageCommentLabel } from "../../artifact/page-comment-label";
 import type { FeedbackHandle, Finding } from "../../artifact/types";
 
-/** Each held comment as a finding that says who wrote it. */
+/** Each held comment as a finding that labels the comment and says who wrote it. */
 export function heldCommentFindings(comments: HeldComment[]): Finding[] {
   return comments.map((comment) => ({
+    location: pageCommentLabel(comment.id),
     body: `${comment.author_name ?? "Someone"}: ${comment.text.trim()}`,
   }));
 }

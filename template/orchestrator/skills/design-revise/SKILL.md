@@ -36,3 +36,9 @@ After the revised document, write the closing text line that the task message na
 
 - After a review that asked for changes, ask for another review.
 - After a review that found nothing blocking, or after a person's feedback, say whether the changes were straightforward. Ask for another review when a change needs the reviewers to check it. Say that no review is needed when every change was straightforward.
+
+## Comment Replies
+
+A finding that starts with a label such as `[comment <id>]` is a comment a person left on the page. Reply to each one after the closing text, in the form the task message names. A reply is one or two sentences addressed to the person. It says what you changed for the comment, or why the document does not change. Do not reply to a finding without a label.
+
+Keep the lines people commented on whenever a finding does not require a change to them. A rewritten line loses its comments.

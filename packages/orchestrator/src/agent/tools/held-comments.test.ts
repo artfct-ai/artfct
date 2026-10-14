@@ -52,7 +52,7 @@ describe("send_held_comments", () => {
         expect(workflow.store.queue().map((row) => [row.task_id, row.text])).toEqual([
           [
             TASK,
-            "The people who commented on the page said:\n\nComments:\n- Ann: Tighten the intro.\n- Someone: Name the owner.",
+            "The people who commented on the page said:\n\nComments:\n- [comment cmt-1] Ann: Tighten the intro.\n- [comment cmt-3] Someone: Name the owner.",
           ],
         ]);
       }));

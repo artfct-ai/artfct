@@ -1,3 +1,4 @@
+import { planPageTextUpdate, type PageTextEdit } from "../src/documents/page-text-update";
 import type {
   PageCommentRef,
   DocumentComment,
@@ -7,6 +8,7 @@ import type {
   FetchedComment,
   HeldComment,
   PageNesting,
+  PageTextChange,
 } from "../src/documents/types";
 import { CallLog, type RecordedCall } from "./calls";
 
@@ -40,13 +42,42 @@ export type DocumentsAnswers = {
 /** Methods a `FakeDocuments` records. */
 export type DocumentsMethod = Exclude<keyof Documents, "nesting"> | keyof PageNesting;
 
-/** An in-memory `Documents` that answers from `DocumentsAnswers` and records every call. */
+/** The most edits the fake takes in one update, the way Notion limits them. */
+const FAKE_EDITS_MAX = 100;
+
+/** One line of a page. A line keeps its id until an edit covers it, like a Notion block. */
+type FakeLine = { id: number; text: string };
+
+/** A person's comment on a page, on one line or on the page as a whole when `lineId` is null. */
+export type FakePersonComment = {
+  id: string;
+  pageId: string;
+  lineId: number | null;
+  authorName: string;
+  text: string;
+};
+
+/** What happened to comments and lines on the host, in order. */
+export type FakeHostEvent =
+  | { kind: "reply"; commentId: string; text: string }
+  | { kind: "lines_removed"; pageId: string; lineIds: number[] };
+
+/**
+ * An in-memory `Documents` that answers from `DocumentsAnswers` and records every call. It holds
+ * each page as lines with ids, and an update replaces only the lines its edits cover.
+ */
 export class FakeDocuments implements Documents {
   readonly nesting: PageNesting | null;
+  /** Every reply and every line removal, in order. */
+  readonly events: FakeHostEvent[] = [];
   private readonly log: CallLog<DocumentsMethod>;
-  private readonly pageTexts = new Map<string, string>();
+  private readonly pageLines = new Map<string, FakeLine[]>();
   private readonly pageTitles = new Map<string, string>();
   private readonly acknowledged = new Set<string>();
+  private readonly personComments: FakePersonComment[] = [];
+  private readonly failNextCalls = new Set<DocumentsMethod>();
+  private lineSeq = 0;
+  private pageSeq = 0;
 
   constructor(private readonly answers: DocumentsAnswers = {}) {
     this.log = new CallLog(answers.failing ?? false);
@@ -55,7 +86,15 @@ export class FakeDocuments implements Documents {
 
   /** The text of a page as the host holds it now. Undefined for a page it does not hold. */
   pageText(pageId: string): string | undefined {
-    return this.pageTexts.get(pageId);
+    return this.pageLines
+      .get(pageId)
+      ?.map((line) => line.text)
+      .join("\n");
+  }
+
+  /** The ids of the lines of a page, in order. Empty for a page the host does not hold. */
+  lineIds(pageId: string): number[] {
+    return (this.pageLines.get(pageId) ?? []).map((line) => line.id);
   }
 
   /** The title of a page the host created, as it holds it now. Undefined for any other page. */
@@ -65,7 +104,27 @@ export class FakeDocuments implements Documents {
 
   /** Put a page on the host with this text, as a person would have made it. */
   seedPage(pageId: string, text: string): void {
-    this.pageTexts.set(pageId, text);
+    this.pageLines.set(pageId, this.newLines(text));
+  }
+
+  /** A person comments on a line of a page, or on the whole page when `lineId` is null. */
+  addPersonComment(comment: FakePersonComment): void {
+    this.personComments.push(comment);
+  }
+
+  /** The person comments on the host, open or not. */
+  get allPersonComments(): readonly FakePersonComment[] {
+    return this.personComments;
+  }
+
+  /** True when the comment was acknowledged. */
+  isAcknowledged(commentId: string): boolean {
+    return this.acknowledged.has(commentId);
+  }
+
+  /** The next call of `method` fails before it changes anything. */
+  failNext(method: DocumentsMethod): void {
+    this.failNextCalls.add(method);
   }
 
   get calls(): RecordedCall<DocumentsMethod>[] {
@@ -77,24 +136,25 @@ export class FakeDocuments implements Documents {
   }
 
   async page(pageId: string): Promise<DocumentPage | null> {
-    this.log.record("page", pageId);
+    this.record("page", pageId);
     return this.answers.document ?? null;
   }
 
   async pageFromUrl(url: string): Promise<{ page_id: string } | null> {
-    this.log.record("pageFromUrl", url);
+    this.record("pageFromUrl", url);
     const pageId = this.answers.pages?.[url];
     return pageId ? { page_id: pageId } : null;
   }
 
   async createPage(title: string, text: string, parent: string): Promise<DocumentPage> {
-    this.log.record("createPage", title, text, parent);
+    this.record("createPage", title, text, parent);
     return this.addPage(title, text, parent);
   }
 
   private addPage(title: string, text: string, parent: string): DocumentPage {
-    const id = `page-${this.pageTexts.size + 1}`;
-    this.pageTexts.set(id, text);
+    this.pageSeq += 1;
+    const id = `page-${this.pageSeq}`;
+    this.pageLines.set(id, this.newLines(text));
     this.pageTitles.set(id, title);
     this.showChild(parent, id, title);
     return { id, contentId: null, url: fakePageUrl(id), revision: "1" };
@@ -102,33 +162,30 @@ export class FakeDocuments implements Documents {
 
   /** A nesting host lists a child page at the end of its parent, the way Notion does. */
   private showChild(parentId: string, childId: string, title: string): void {
-    const parentText = this.pageTexts.get(parentId);
-    if (!this.answers.nests || parentText === undefined) return;
-    this.pageTexts.set(
-      parentId,
-      `${parentText}\n<page url="${fakePageUrl(childId)}">${title}</page>`,
-    );
+    const parentLines = this.pageLines.get(parentId);
+    if (!this.answers.nests || !parentLines) return;
+    const childLine = this.newLine(`<page url="${fakePageUrl(childId)}">${title}</page>`);
+    this.pageLines.set(parentId, [...parentLines, childLine]);
   }
 
   private fakeNesting(): PageNesting {
     return {
       createRootPage: async (title, text, pageParent) => {
-        this.log.record("createRootPage", title, text, pageParent);
+        this.record("createRootPage", title, text, pageParent);
         return this.addPage(title, text, pageParent);
       },
       movePage: async (pageId, parentPageId) => {
-        this.log.record("movePage", pageId, parentPageId);
+        this.record("movePage", pageId, parentPageId);
         this.showChild(parentPageId, pageId, pageId);
       },
       appendToPage: async (pageId, text) => {
-        this.log.record("appendToPage", pageId, text);
-        const current = this.pageTexts.get(pageId);
-        if (current === undefined) throw new Error(`appendToPage: no page ${pageId}`);
-        this.pageTexts.set(pageId, current ? `${current}\n${text}` : text);
+        this.record("appendToPage", pageId, text);
+        if (!this.pageLines.has(pageId)) throw new Error(`appendToPage: no page ${pageId}`);
+        this.appendLines(pageId, text);
       },
       renamePage: async (pageId, title) => {
-        this.log.record("renamePage", pageId, title);
-        if (!this.pageTexts.has(pageId))
+        this.record("renamePage", pageId, title);
+        if (!this.pageLines.has(pageId))
           throw new Error(`renamePage: the host does not hold page ${pageId}`);
         this.pageTitles.set(pageId, title);
       },
@@ -136,34 +193,91 @@ export class FakeDocuments implements Documents {
   }
 
   async readPageContent(pageId: string): Promise<string> {
-    this.log.record("readPageContent", pageId);
-    const text = this.pageTexts.get(pageId);
+    this.record("readPageContent", pageId);
+    const text = this.pageText(pageId);
     if (text === undefined) throw new Error(`readPageContent: no page ${pageId}`);
     return text;
   }
 
-  async updatePageContent(pageId: string, text: string): Promise<void> {
-    this.log.record("updatePageContent", pageId, text);
-    if (!this.pageTexts.has(pageId)) throw new Error(`updatePageContent: no page ${pageId}`);
-    this.pageTexts.set(pageId, text);
+  /** Applies the edits the change plans, all of them or not one, the way Notion takes one update. */
+  async updatePageContent(pageId: string, change: PageTextChange): Promise<void> {
+    this.record("updatePageContent", pageId, change);
+    const lines = this.pageLines.get(pageId);
+    if (!lines) throw new Error(`updatePageContent: no page ${pageId}`);
+    const update = planPageTextUpdate(change, FAKE_EDITS_MAX);
+    const updated =
+      "whole" in update ? this.newLines(update.whole) : this.editedLines(lines, update.edits);
+    const kept = new Set(updated.map((line) => line.id));
+    const removed = lines.filter((line) => !kept.has(line.id)).map((line) => line.id);
+    this.pageLines.set(pageId, updated);
+    if (removed.length) this.events.push({ kind: "lines_removed", pageId, lineIds: removed });
+  }
+
+  private editedLines(lines: FakeLine[], edits: PageTextEdit[]): FakeLine[] {
+    return edits.reduce((current, edit) => this.editLines(current, edit), lines);
+  }
+
+  /** Replace the lines one edit covers with new lines. Lines outside it keep their ids. */
+  private editLines(lines: FakeLine[], edit: PageTextEdit): FakeLine[] {
+    const text = lines.map((line) => line.text).join("\n");
+    const start = text.indexOf(edit.find);
+    if (!edit.find || start === -1 || text.indexOf(edit.find, start + 1) !== -1) {
+      throw new Error(`updatePageContent: an edit does not match the page once: ${edit.find}`);
+    }
+    const end = start + edit.find.length;
+    const spans = lineSpans(lines);
+    const nextTexts = (text.slice(0, start) + edit.replace + text.slice(end)).split("\n");
+    const keepable = Math.min(lines.length, nextTexts.length);
+    let keptBefore = 0;
+    while (
+      keptBefore < keepable &&
+      spans[keptBefore]!.end <= start &&
+      nextTexts[keptBefore] === lines[keptBefore]!.text
+    ) {
+      keptBefore += 1;
+    }
+    let keptAfter = 0;
+    while (
+      keptBefore + keptAfter < keepable &&
+      spans[lines.length - 1 - keptAfter]!.start >= end &&
+      nextTexts[nextTexts.length - 1 - keptAfter] === lines[lines.length - 1 - keptAfter]!.text
+    ) {
+      keptAfter += 1;
+    }
+    const middle = nextTexts.slice(keptBefore, nextTexts.length - keptAfter);
+    return [
+      ...lines.slice(0, keptBefore),
+      ...middle.map((lineText) => this.newLine(lineText)),
+      ...lines.slice(lines.length - keptAfter),
+    ];
   }
 
   async pageRemoved(url: string): Promise<boolean> {
-    this.log.record("pageRemoved", url);
+    this.record("pageRemoved", url);
     return this.answers.removedPages?.includes(url) ?? false;
   }
 
   async comment(pageId: string, text: string): Promise<void> {
-    this.log.record("comment", pageId, text);
+    this.record("comment", pageId, text);
   }
 
   async acknowledgeComment(comment: PageCommentRef): Promise<void> {
-    this.log.record("acknowledgeComment", comment);
+    this.record("acknowledgeComment", comment);
     this.acknowledged.add(comment.commentId);
   }
 
+  /** A reply to a person comment whose line is gone fails, the way a deleted block's would. */
+  async replyToComment(comment: PageCommentRef, text: string): Promise<void> {
+    this.record("replyToComment", comment, text);
+    const person = this.personComments.find((listed) => listed.id === comment.commentId);
+    if (person && !this.isOpen(person)) {
+      throw new Error(`replyToComment: comment ${comment.commentId} is gone`);
+    }
+    this.events.push({ kind: "reply", commentId: comment.commentId, text });
+  }
+
   async comments(pageId: string, since: string): Promise<DocumentComment[]> {
-    this.log.record("comments", pageId, since);
+    this.record("comments", pageId, since);
     const sinceMs = Date.parse(since);
     return (this.answers.pageComments ?? []).filter(
       (comment) => Date.parse(comment.created_at) >= sinceMs,
@@ -171,26 +285,69 @@ export class FakeDocuments implements Documents {
   }
 
   async fetchComment(commentId: string): Promise<FetchedComment | null> {
-    this.log.record("fetchComment", commentId);
+    this.record("fetchComment", commentId);
     const listed = this.answers.comments;
     if (listed && commentId in listed) return listed[commentId] ?? null;
     return { text: "", author: null, mentions: [] };
   }
 
+  /** The fixed held comments, then each open person comment, until acknowledged. */
   async heldComments(pageId: string): Promise<HeldComment[]> {
-    this.log.record("heldComments", pageId);
-    return (this.answers.held ?? []).filter((comment) => !this.acknowledged.has(comment.id));
+    this.record("heldComments", pageId);
+    const open = this.personComments
+      .filter((comment) => comment.pageId === pageId && this.isOpen(comment))
+      .map((comment) => ({ id: comment.id, author_name: comment.authorName, text: comment.text }));
+    return [...(this.answers.held ?? []), ...open].filter(
+      (comment) => !this.acknowledged.has(comment.id),
+    );
   }
 
   async self(): Promise<DocumentsUser> {
-    this.log.record("self");
+    this.record("self");
     return this.answers.self ?? { id: "self", name: "artfct" };
   }
 
   async userEmail(userId: string): Promise<string | null> {
-    this.log.record("userEmail", userId);
+    this.record("userEmail", userId);
     return this.answers.emails?.[userId] ?? null;
   }
+
+  /** A comment is open while the line it is on is on its page. */
+  private isOpen(comment: FakePersonComment): boolean {
+    if (comment.lineId === null) return true;
+    return this.lineIds(comment.pageId).includes(comment.lineId);
+  }
+
+  private record(method: DocumentsMethod, ...args: unknown[]): void {
+    this.log.record(method, ...args);
+    if (this.failNextCalls.delete(method)) throw new Error(`${method}: host outage`);
+  }
+
+  /** Text added at the end of a page. An empty page takes it as its whole text. */
+  private appendLines(pageId: string, text: string): void {
+    const lines = this.pageLines.get(pageId) ?? [];
+    const isEmpty = lines.length === 1 && lines[0]?.text === "";
+    this.pageLines.set(pageId, [...(isEmpty ? [] : lines), ...this.newLines(text)]);
+  }
+
+  private newLines(text: string): FakeLine[] {
+    return text.split("\n").map((lineText) => this.newLine(lineText));
+  }
+
+  private newLine(text: string): FakeLine {
+    this.lineSeq += 1;
+    return { id: this.lineSeq, text };
+  }
+}
+
+/** Where each line starts and ends in the page text, its line break left out. */
+function lineSpans(lines: FakeLine[]): Array<{ start: number; end: number }> {
+  let offset = 0;
+  return lines.map((line) => {
+    const span = { start: offset, end: offset + line.text.length };
+    offset = span.end + 1;
+    return span;
+  });
 }
 
 function fakePageUrl(pageId: string): string {

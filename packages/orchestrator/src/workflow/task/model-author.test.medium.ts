@@ -309,7 +309,9 @@ describe("runModelAuthorTurn", () => {
       followed((workflow) => {
         const documents = fakeDocumentsOf(workflow);
         expect(documents.argsOf("createPage")).toHaveLength(1);
-        expect(documents.argsOf("updatePageContent")).toEqual([["page-1", DOCUMENT]]);
+        expect(documents.argsOf("updatePageContent")).toEqual([
+          ["page-1", { before: reviseAnswer(SCRIPTED_NO_REVIEW), after: DOCUMENT }],
+        ]);
         expect(workflow.store.queue()).toEqual([]);
       }));
 
@@ -345,7 +347,7 @@ describe("runModelAuthorTurn", () => {
     it("updates the page with the document part of the answer", () =>
       reviewAgain((workflow) => {
         expect(fakeDocumentsOf(workflow).argsOf("updatePageContent")).toEqual([
-          ["page-1", DOCUMENT],
+          ["page-1", { before: "## Goal\nSign in.", after: DOCUMENT }],
         ]);
       }));
 

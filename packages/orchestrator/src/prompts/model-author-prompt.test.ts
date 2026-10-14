@@ -3,8 +3,10 @@ import { OPTIONS_HEADING } from "../artifact/options";
 import {
   CLOSING_TEXT_MARKER,
   producePagePrompt,
+  replyMarker,
   revisePrompt,
   splitReviseAnswer,
+  validateCommentReplies,
 } from "./model-author-prompt";
 import type { TaskContext } from "./task-prompt";
 
@@ -121,6 +123,74 @@ describe("revisePrompt", () => {
   });
 });
 
+describe("revisePrompt with comment findings", () => {
+  const prompt = revisePrompt({
+    context,
+    inputPageText: null,
+    findings: "- [comment c-1] Ann: Rename the provider.",
+    pageText: "## Goal\nUse SAML.",
+  });
+
+  it("asks for a reply to each labeled comment after the closing text", () => {
+    expect(prompt).toContain(`write the line ${replyMarker("<id>")} on its own`);
+  });
+
+  it("asks to leave the lines a finding does not need", () => {
+    expect(prompt).toContain("Change only the lines a finding needs.");
+  });
+});
+
+describe("revisePrompt without comment findings", () => {
+  it("asks for no reply", () => {
+    const prompt = revisePrompt({
+      context,
+      inputPageText: null,
+      findings: "- Design: Use OIDC.",
+      pageText: "## Goal\nUse SAML.",
+    });
+    expect(prompt).not.toContain("%%% reply");
+  });
+});
+
+describe("validateCommentReplies", () => {
+  const findings = "- [comment c-1] Ann: Rename it.\n- [comment c-2] Bo: Why?";
+
+  it("passes a reply with text to each labeled comment", () => {
+    const replies = [
+      { comment_id: "c-2", text: "Because of the session store." },
+      { comment_id: "c-1", text: "Renamed it." },
+    ];
+    expect(validateCommentReplies(findings, replies)).toBeNull();
+  });
+
+  it("names a labeled comment without a reply", () => {
+    expect(validateCommentReplies(findings, [{ comment_id: "c-1", text: "Renamed it." }])).toBe(
+      "The model did not reply to comment c-2.",
+    );
+  });
+
+  it("names a labeled comment whose reply is empty", () => {
+    const replies = [
+      { comment_id: "c-1", text: "Renamed it." },
+      { comment_id: "c-2", text: "" },
+    ];
+    expect(validateCommentReplies(findings, replies)).toBe(
+      "The model did not reply to comment c-2.",
+    );
+  });
+
+  it("names a reply to a comment the findings do not label", () => {
+    const replies = [{ comment_id: "c-9", text: "Done." }];
+    expect(validateCommentReplies(findings, replies)).toBe(
+      "The model replied to comment c-9, which the findings do not name.",
+    );
+  });
+
+  it("passes findings without comments and an answer without replies", () => {
+    expect(validateCommentReplies("- Design: Use OIDC.", [])).toBeNull();
+  });
+});
+
 describe("splitReviseAnswer", () => {
   describe("an answer with a closing text", () => {
     const split = splitReviseAnswer(
@@ -141,7 +211,35 @@ describe("splitReviseAnswer", () => {
     expect(splitReviseAnswer(answer)).toEqual({
       pageText: `A ${CLOSING_TEXT_MARKER} B`,
       closingText: "Done.",
+      replies: [],
     });
+  });
+
+  it("keeps each reply after the closing text by its comment id", () => {
+    const answer = [
+      "## Goal",
+      "Use OIDC.",
+      CLOSING_TEXT_MARKER,
+      "Renamed the provider.",
+      replyMarker("c-1"),
+      "Renamed it to OIDC.",
+      replyMarker("c-2"),
+      "The page keeps SAML out.",
+      "It was never in scope.",
+    ].join("\n");
+    expect(splitReviseAnswer(answer)).toEqual({
+      pageText: "## Goal\nUse OIDC.",
+      closingText: "Renamed the provider.",
+      replies: [
+        { comment_id: "c-1", text: "Renamed it to OIDC." },
+        { comment_id: "c-2", text: "The page keeps SAML out.\nIt was never in scope." },
+      ],
+    });
+  });
+
+  it("is null for an answer with replies and no closing text", () => {
+    const answer = `## Goal\n${CLOSING_TEXT_MARKER}\n${replyMarker("c-1")}\nRenamed it.`;
+    expect(splitReviseAnswer(answer)).toBeNull();
   });
 
   it("is null for an answer with no marker", () => {

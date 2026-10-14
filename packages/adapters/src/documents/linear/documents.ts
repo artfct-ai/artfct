@@ -4,6 +4,7 @@
  * Both take the same token.
  */
 import type { Document } from "@linear/sdk";
+import { applyPageTextEdits, planPageTextUpdate } from "../page-text-update";
 import {
   LINEAR_ACKNOWLEDGEMENT_EMOJI,
   LINEAR_DOCUMENT_COMMENTS_QUERY,
@@ -22,6 +23,7 @@ import type {
   DocumentsUser,
   FetchedComment,
   HeldComment,
+  PageTextChange,
 } from "../types";
 
 /** A document by the content id its comments hang on, reached through one of those comments. */
@@ -128,11 +130,17 @@ export class LinearDocuments implements Documents {
     return document.content ?? "";
   }
 
-  /** Replace the content of the document with this content id. */
-  async updatePageContent(pageId: string, text: string): Promise<void> {
+  /**
+   * Linear takes only whole content, so the edits from `before` to `after` apply here to the
+   * content Linear holds now. An edit that does not match it any more throws before the write.
+   */
+  async updatePageContent(pageId: string, change: PageTextChange): Promise<void> {
     const document = await this.documentByContentId(pageId);
+    const content = linearRevisedContent(document.content ?? "", change);
+    if ("error" in content) throw new Error(`linear: document ${document.id}: ${content.error}`);
+    if (content.text === document.content) return;
     const client = await this.sdk.client();
-    await client.updateDocument(document.id, { content: text });
+    await client.updateDocument(document.id, { content: content.text });
   }
 
   /** The document whose content has this id. */
@@ -175,6 +183,13 @@ export class LinearDocuments implements Documents {
       commentId: comment.commentId,
       emoji: LINEAR_ACKNOWLEDGEMENT_EMOJI,
     });
+  }
+
+  /** A reply joins the thread of the comment. Linear threads one level deep, under the first comment. */
+  async replyToComment(comment: PageCommentRef, text: string): Promise<void> {
+    const client = await this.sdk.client();
+    const found = await client.comment({ id: comment.commentId });
+    await client.createComment({ parentId: found.parentId ?? found.id, body: text });
   }
 
   /** Comments inside a document, oldest first. The author carries no email: only its id is read. */
@@ -256,6 +271,16 @@ export class LinearDocuments implements Documents {
     const user = await client.user(userId);
     return user.email ?? null;
   }
+}
+
+/** The content after the change, applied to the content Linear holds now. */
+function linearRevisedContent(
+  current: string,
+  change: PageTextChange,
+): { text: string } | { error: string } {
+  const update = planPageTextUpdate(change, Number.POSITIVE_INFINITY);
+  if ("whole" in update) return { text: update.whole };
+  return applyPageTextEdits(current, update.edits);
 }
 
 function linearDocumentPage(document: Document): DocumentPage {

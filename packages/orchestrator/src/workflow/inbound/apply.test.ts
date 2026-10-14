@@ -285,7 +285,7 @@ describe("applyEvent", () => {
         expect(result).toMatchObject({
           notes: [
             expect.stringContaining("Dev reviewed the artifact"),
-            "Dev said:\nplease revise\n\nComments:\n- Ann: Tighten the intro.",
+            "Dev said:\n\nComments:\n- [comment cmt-3] Dev: please revise\n- [comment cmt-1] Ann: Tighten the intro.",
           ],
         });
       }));

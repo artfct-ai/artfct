@@ -571,23 +571,88 @@ describe("NotionDocuments", () => {
   });
 
   describe("updatePageContent", () => {
+    const before = "# Design\nFirst draft.\n## Risks\nNone yet.";
+
+    describe("a change to some lines", () => {
+      let calls: Call[];
+
+      beforeEach(async () => {
+        const notion = notionDocuments(() => Response.json(pageMarkdown("", false)));
+        calls = notion.calls;
+        await notion.documents.updatePageContent("p1", {
+          before,
+          after: "# Design\nSecond draft.\n## Risks\nNone yet.\nOne found.",
+        });
+      });
+
+      it("patches the page markdown once", () => {
+        expect(calls).toHaveLength(1);
+        expect(calls[0]?.url).toBe("https://api.notion.com/v1/pages/p1/markdown");
+        expect(calls[0]?.method).toBe("PATCH");
+      });
+
+      it("sends search-and-replace edits on the changed lines only", () => {
+        expect(JSON.parse(calls[0]?.body ?? "")).toEqual({
+          type: "update_content",
+          update_content: {
+            content_updates: [
+              { old_str: "First draft.", new_str: "Second draft." },
+              { old_str: "None yet.", new_str: "None yet.\nOne found." },
+            ],
+          },
+        });
+      });
+    });
+
+    it("does not send a request when the text did not change", async () => {
+      const notion = notionDocuments(() => Response.json(pageMarkdown("", false)));
+      await notion.documents.updatePageContent("p1", { before, after: before });
+      expect(notion.calls).toEqual([]);
+    });
+
+    it("replaces the whole body of a page without text", async () => {
+      const notion = notionDocuments(() => Response.json(pageMarkdown("# Revised", false)));
+      await notion.documents.updatePageContent("p1", { before: "", after: "# Revised" });
+      expect(JSON.parse(notion.calls[0]?.body ?? "")).toEqual({
+        type: "replace_content",
+        replace_content: { new_str: "# Revised" },
+      });
+    });
+
+    it("throws when Notion finds an edit does not match the page", async () => {
+      const notion = notionDocuments(() =>
+        Response.json(
+          { object: "error", status: 400, code: "validation_error", message: "no match" },
+          { status: 400 },
+        ),
+      );
+      const change = { before, after: "# Design\nSecond draft.\n## Risks\nNone yet." };
+      await expect(notion.documents.updatePageContent("p1", change)).rejects.toThrow("no match");
+    });
+  });
+
+  describe("replyToComment", () => {
     let calls: Call[];
 
     beforeEach(async () => {
-      const notion = notionDocuments(() => Response.json(pageMarkdown("# Revised", false)));
+      const notion = notionDocuments(() => Response.json(fullComment));
       calls = notion.calls;
-      await notion.documents.updatePageContent("p1", "# Revised");
+      await notion.documents.replyToComment(
+        { pageId: "p1", commentId: "c1" },
+        "Renamed the goal as you asked.",
+      );
     });
 
-    it("patches the page markdown", () => {
-      expect(calls[0]?.url).toBe("https://api.notion.com/v1/pages/p1/markdown");
-      expect(calls[0]?.method).toBe("PATCH");
+    it("reads the comment to learn its discussion", () => {
+      expect(calls[0]?.url).toBe("https://api.notion.com/v1/comments/c1");
+      expect(calls[0]?.method).toBe("GET");
     });
 
-    it("replaces the whole body with the text", () => {
-      expect(JSON.parse(calls[0]?.body ?? "")).toEqual({
-        type: "replace_content",
-        replace_content: { new_str: "# Revised" },
+    it("posts the reply text in that discussion", () => {
+      expect(calls[1]?.url).toBe("https://api.notion.com/v1/comments");
+      expect(JSON.parse(calls[1]?.body ?? "")).toEqual({
+        discussion_id: "d1",
+        rich_text: [{ type: "text", text: { content: "Renamed the goal as you asked." } }],
       });
     });
   });

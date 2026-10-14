@@ -67,6 +67,8 @@ export async function moveIntoRootPage(
 ): Promise<void> {
   const text = await documents.readPageContent(root.page_id);
   const unlinked = withoutResourceLink(text, pageId);
-  if (unlinked !== text) await documents.updatePageContent(root.page_id, unlinked);
+  if (unlinked !== text) {
+    await documents.updatePageContent(root.page_id, { before: text, after: unlinked });
+  }
   await nesting.movePage(pageId, root.page_id);
 }

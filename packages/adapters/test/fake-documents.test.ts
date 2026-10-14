@@ -18,7 +18,7 @@ describe("FakeDocuments pages", () => {
   it("reads the replaced text after an update", async () => {
     const documents = new FakeDocuments();
     const page = await documents.createPage("Design", "old", "parent-1");
-    await documents.updatePageContent(page.id, "new");
+    await documents.updatePageContent(page.id, { before: "old", after: "new" });
     expect(await documents.readPageContent(page.id)).toBe("new");
   });
 
@@ -33,7 +33,10 @@ describe("FakeDocuments pages", () => {
   });
 
   it("throws on updating a page it never created", async () => {
-    await expect(new FakeDocuments().updatePageContent("missing", "x")).rejects.toThrow("missing");
+    const change = { before: "x", after: "y" };
+    await expect(new FakeDocuments().updatePageContent("missing", change)).rejects.toThrow(
+      "missing",
+    );
   });
 });
 
@@ -54,5 +57,84 @@ describe("FakeDocuments nesting", () => {
   it("throws on renaming a page it never created", async () => {
     const documents = new FakeDocuments({ nests: true });
     await expect(documents.nesting?.renamePage("missing", "x")).rejects.toThrow("missing");
+  });
+});
+
+describe("FakeDocuments lines and comments", () => {
+  const before = "# Goal\nShip it.\n## Risks\nNone yet.";
+
+  function secondLineId(documents: FakeDocuments, pageId: string): number {
+    const lineId = documents.lineIds(pageId)[1];
+    if (lineId === undefined) throw new Error("the page has one line");
+    return lineId;
+  }
+
+  async function seeded() {
+    const documents = new FakeDocuments();
+    const page = await documents.createPage("Design", before, "parent-1");
+    return { documents, pageId: page.id };
+  }
+
+  it("keeps the ids of the lines an update does not cover", async () => {
+    const { documents, pageId } = await seeded();
+    const [goal, ship, risks, none] = documents.lineIds(pageId);
+    const after = "# Goal\nShip it today.\n## Risks\nNone yet.";
+    await documents.updatePageContent(pageId, { before, after });
+    const now = documents.lineIds(pageId);
+    expect([now[0], now[2], now[3]]).toEqual([goal, risks, none]);
+    expect(now[1]).not.toBe(ship);
+  });
+
+  it("records the lines an update removed", async () => {
+    const { documents, pageId } = await seeded();
+    const ship = secondLineId(documents, pageId);
+    await documents.updatePageContent(pageId, {
+      before,
+      after: "# Goal\n## Risks\nNone yet.",
+    });
+    expect(documents.events).toEqual([{ kind: "lines_removed", pageId, lineIds: [ship] }]);
+  });
+
+  it("holds a person comment until its line is gone", async () => {
+    const { documents, pageId } = await seeded();
+    const ship = secondLineId(documents, pageId);
+    documents.addPersonComment({ id: "c1", pageId, lineId: ship, authorName: "Ann", text: "Why?" });
+    expect((await documents.heldComments(pageId)).map((comment) => comment.id)).toEqual(["c1"]);
+    await documents.updatePageContent(pageId, { before, after: "# Goal\n## Risks\nNone yet." });
+    expect(await documents.heldComments(pageId)).toEqual([]);
+  });
+
+  it("records a reply to an open comment", async () => {
+    const { documents, pageId } = await seeded();
+    documents.addPersonComment({ id: "c1", pageId, lineId: null, authorName: "Ann", text: "Why?" });
+    await documents.replyToComment({ pageId, commentId: "c1" }, "Because.");
+    expect(documents.events).toEqual([{ kind: "reply", commentId: "c1", text: "Because." }]);
+  });
+
+  it("fails a reply to a comment whose line is gone", async () => {
+    const { documents, pageId } = await seeded();
+    const ship = secondLineId(documents, pageId);
+    documents.addPersonComment({ id: "c1", pageId, lineId: ship, authorName: "Ann", text: "Why?" });
+    await documents.updatePageContent(pageId, { before, after: "# Goal\n## Risks\nNone yet." });
+    await expect(documents.replyToComment({ pageId, commentId: "c1" }, "Because.")).rejects.toThrow(
+      "gone",
+    );
+  });
+
+  it("fails the next call of a method once, and changes nothing", async () => {
+    const { documents, pageId } = await seeded();
+    documents.failNext("updatePageContent");
+    const change = { before, after: "# Goal" };
+    await expect(documents.updatePageContent(pageId, change)).rejects.toThrow("host outage");
+    expect(documents.pageText(pageId)).toBe(before);
+    await documents.updatePageContent(pageId, change);
+    expect(documents.pageText(pageId)).toBe("# Goal");
+  });
+
+  it("keeps the page when an edit does not match the page", async () => {
+    const { documents, pageId } = await seeded();
+    const change = { before: "# Goal\nShip it later.", after: "# Goal\nShip it now." };
+    await expect(documents.updatePageContent(pageId, change)).rejects.toThrow("once");
+    expect(documents.pageText(pageId)).toBe(before);
   });
 });

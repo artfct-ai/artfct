@@ -11,7 +11,7 @@ import {
 } from "../../../test/fake-runtime";
 import { scenario } from "../../../test/scenario";
 import type { TaskRow } from "../store/tasks";
-import { CLOSING_TEXT_MARKER } from "../../prompts/model-author-prompt";
+import { CLOSING_TEXT_MARKER, replyMarker } from "../../prompts/model-author-prompt";
 import { registeredConfig } from "../../config/register-config";
 import { modelAuthorPageTitle, runModelAuthorTurn } from "./model-author";
 import { promptTask } from "./harness/prompt-queue";
@@ -172,7 +172,9 @@ describe("reviseModelAuthorPage", () => {
     it("updates the same page with the document part of the answer", () =>
       revised((workflow) => {
         const documents = fakeDocumentsOf(workflow);
-        expect(documents.argsOf("updatePageContent")).toEqual([["page-1", REVISED_PAGE]]);
+        expect(documents.argsOf("updatePageContent")).toEqual([
+          ["page-1", { before: FIRST_PAGE, after: REVISED_PAGE }],
+        ]);
         expect(documents.argsOf("createPage")).toHaveLength(1);
       }));
 
@@ -199,6 +201,81 @@ describe("reviseModelAuthorPage", () => {
     it("runs the reviewer of the stage and no researcher", () =>
       revised((workflow) => {
         expect(workflow.store.tasks().map((task) => task.role)).toEqual(["author", "reviewer"]);
+      }));
+  });
+
+  describe("feedback from comments on the page", () => {
+    const COMMENTS = "Comments:\n- [comment c-1] Ann: Name the identity provider.";
+    const REPLY = "Named Okta in the goal.";
+    const answer = `${REVISE_ANSWER}\n${replyMarker("c-1")}\n${REPLY}`;
+
+    const replied = scenario(freshRuntime, async (workflow) => {
+      const author = await seedPageWithHumans(workflow);
+      workflow.modelInstance = new EchoModel(answer);
+      await promptTask(workflow, author, COMMENTS);
+    });
+
+    it("asks the model for a reply to the comment", () =>
+      replied((workflow) => {
+        const model = workflow.modelInstance;
+        const userText = model instanceof EchoModel ? model.userTexts[0] : "";
+        expect(userText).toContain(replyMarker("<id>"));
+      }));
+
+    it("replies to the comment before it changes the page", () =>
+      replied((workflow) => {
+        const methods = fakeDocumentsOf(workflow).calls.map((call) => call.method);
+        expect(methods.indexOf("replyToComment")).toBeLessThan(
+          methods.indexOf("updatePageContent"),
+        );
+        expect(fakeDocumentsOf(workflow).argsOf("replyToComment")).toEqual([
+          [{ pageId: "page-1", commentId: "c-1" }, REPLY],
+        ]);
+      }));
+
+    it("keeps the replies out of the page", () =>
+      replied((workflow) => {
+        expect(fakeDocumentsOf(workflow).pageText("page-1")).toBe(REVISED_PAGE);
+      }));
+  });
+
+  describe("an answer that leaves a comment without a reply", () => {
+    const unanswered = scenario(freshRuntime, async (workflow) => {
+      const author = await seedPageWithHumans(workflow);
+      workflow.modelInstance = new EchoModel(REVISE_ANSWER);
+      await promptTask(workflow, author, "Comments:\n- [comment c-1] Ann: Name it.");
+    });
+
+    it("fails the task with the comment it did not answer", () =>
+      unanswered((workflow) => {
+        expect(workflow.store.requireTask("wf_x.1").status).toBe("failed");
+        expect(workflow.posted).toContainEqual(
+          expect.objectContaining({ reason: "The model did not reply to comment c-1." }),
+        );
+      }));
+
+    it("leaves the page alone", () =>
+      unanswered((workflow) => {
+        expect(fakeDocumentsOf(workflow).argsOf("updatePageContent")).toEqual([]);
+      }));
+  });
+
+  describe("a reply the host does not take", () => {
+    const outage = scenario(freshRuntime, async (workflow) => {
+      const author = await seedPageWithHumans(workflow);
+      fakeDocumentsOf(workflow).failNext("replyToComment");
+      workflow.modelInstance = new EchoModel(`${REVISE_ANSWER}\n${replyMarker("c-1")}\nDone.`);
+      await promptTask(workflow, author, "Comments:\n- [comment c-1] Ann: Name it.");
+    });
+
+    it("fails the task", () =>
+      outage((workflow) => {
+        expect(workflow.store.requireTask("wf_x.1").status).toBe("failed");
+      }));
+
+    it("leaves the page alone", () =>
+      outage((workflow) => {
+        expect(fakeDocumentsOf(workflow).pageText("page-1")).toBe(FIRST_PAGE);
       }));
   });
 
