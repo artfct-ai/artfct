@@ -1,10 +1,10 @@
 import { linearCommentEvent } from "./inbound-comment";
 import { linearIssueEvent } from "./inbound-issue";
-import type {
-  AgentSessionPayload,
-  CommentPayload,
-  IssuePayload,
-  LinearPayload,
+import {
+  agentSessionPayloadSchema,
+  commentPayloadSchema,
+  issuePayloadSchema,
+  linearWebhookSchema,
 } from "./inbound-payloads";
 import { linearAgentSessionEvent } from "./inbound-session";
 import type { TrackerInbound, TrackerInboundContext } from "../types";
@@ -12,21 +12,28 @@ import type { TrackerInbound, TrackerInboundContext } from "../types";
 /**
  * Map a Linear webhook to an inbound event. A webhook of another workspace is ignored, since
  * Linear signs for every workspace that authorized the app. Unhandled type and action pairs are
- * ignored by name.
+ * ignored by name, and so is a handled pair whose payload lacks a field the mapper reads.
  */
 export async function linearInbound(
-  payload: LinearPayload,
+  payload: unknown,
   context: TrackerInboundContext,
 ): Promise<TrackerInbound> {
-  if (payload.organizationId !== context.workspaceId) return { ignore: "another workspace" };
-  if (payload.type === "AgentSessionEvent") {
-    return linearAgentSessionEvent(payload as AgentSessionPayload, context);
+  const webhook = linearWebhookSchema.safeParse(payload);
+  if (!webhook.success) return { ignore: "malformed linear webhook" };
+  const { type, action, organizationId } = webhook.data;
+  if (organizationId !== context.workspaceId) return { ignore: "another workspace" };
+  const malformed: TrackerInbound = { ignore: `malformed ${type}/${action}` };
+  if (type === "AgentSessionEvent") {
+    const session = agentSessionPayloadSchema.safeParse(payload);
+    return session.success ? linearAgentSessionEvent(session.data, context) : malformed;
   }
-  if (payload.type === "Comment" && payload.action === "create") {
-    return linearCommentEvent(payload as CommentPayload, context);
+  if (type === "Comment" && action === "create") {
+    const comment = commentPayloadSchema.safeParse(payload);
+    return comment.success ? linearCommentEvent(comment.data, context) : malformed;
   }
-  if (payload.type === "Issue" && payload.action === "update") {
-    return linearIssueEvent(payload as IssuePayload, context);
+  if (type === "Issue" && action === "update") {
+    const issue = issuePayloadSchema.safeParse(payload);
+    return issue.success ? linearIssueEvent(issue.data, context) : malformed;
   }
-  return { ignore: `${payload.type}/${payload.action}` };
+  return { ignore: `${type}/${action}` };
 }

@@ -1,32 +1,48 @@
+import { z } from "zod";
 import {
   githubCodeUser,
+  githubPullRequestSchema,
+  githubUserSchema,
   isGithubApp,
+  malformedWebhook,
   pullRequestBindings,
   pullRequestDetail,
   pullRequestRejection,
-  payloadString,
   type GithubContext,
   type GithubPullRequest,
-  type GithubUser,
 } from "./inbound-shared";
 import type { CodeInbound } from "../types";
 
-type Authored = { user: GithubUser };
+const reviewWebhookSchema = z.object({
+  action: z.string(),
+  pull_request: githubPullRequestSchema,
+  review: z.object({
+    id: z.number(),
+    state: z.string(),
+    body: z.string().nullish(),
+    user: githubUserSchema,
+  }),
+});
 
-type Review = Authored & { id: number; state: string; body: string | null };
+const reviewCommentWebhookSchema = z.object({
+  action: z.string(),
+  pull_request: githubPullRequestSchema,
+  comment: z.object({
+    id: z.number(),
+    body: z.string(),
+    path: z.string().optional(),
+    line: z.number().nullish(),
+    original_line: z.number().nullish(),
+    pull_request_review_id: z.number().nullish(),
+    user: githubUserSchema,
+  }),
+});
 
-type ReviewComment = Authored & {
-  id: number;
-  body: string;
-  path?: string;
-  line?: number | null;
-  original_line?: number | null;
-  pull_request_review_id?: number;
-};
-
-type IssueComment = Authored & { id: number; body: string };
-
-type Issue = { number: number; pull_request?: unknown; html_url: string };
+const issueCommentWebhookSchema = z.object({
+  action: z.string(),
+  issue: z.object({ number: z.number(), pull_request: z.unknown().optional() }),
+  comment: z.object({ id: z.number(), body: z.string(), user: githubUserSchema }),
+});
 
 const REVIEW_STATES = ["approved", "changes_requested", "commented"];
 
@@ -37,11 +53,11 @@ const AUTHOR_UNAUTHORIZED: CodeInbound = { ignore: "author is not authorized" };
  * comments the review carries are not in this payload.
  */
 export async function githubReviewEvent(context: GithubContext): Promise<CodeInbound> {
-  const pr = context.payload.pull_request as GithubPullRequest;
-  const review = context.payload.review as Review;
+  const parsed = reviewWebhookSchema.safeParse(context.payload);
+  if (!parsed.success) return malformedWebhook("pull_request_review");
+  const { action, pull_request: pr, review } = parsed.data;
   const rejected = pullRequestRejection(context.repo, pr);
   if (rejected) return rejected;
-  const action = payloadString(context.payload, "action");
   if (action !== "submitted") {
     return { ignore: `review ${action}` };
   }
@@ -70,11 +86,11 @@ export async function githubReviewEvent(context: GithubContext): Promise<CodeInb
 
 /** An inline review comment is feedback on that line. Same reviewers as a review. */
 export async function githubReviewCommentEvent(context: GithubContext): Promise<CodeInbound> {
-  const pr = context.payload.pull_request as GithubPullRequest;
-  const comment = context.payload.comment as ReviewComment;
+  const parsed = reviewCommentWebhookSchema.safeParse(context.payload);
+  if (!parsed.success) return malformedWebhook("pull_request_review_comment");
+  const { action, pull_request: pr, comment } = parsed.data;
   const rejected = pullRequestRejection(context.repo, pr);
   if (rejected) return rejected;
-  const action = payloadString(context.payload, "action");
   if (action !== "created") {
     return { ignore: `review comment ${action}` };
   }
@@ -93,7 +109,7 @@ export async function githubReviewCommentEvent(context: GithubContext): Promise<
       pull: pullRequestDetail(context.repo, pr, "review_comment", {
         reviewer: comment.user.login,
         reviewer_is_app: isGithubApp(comment.user),
-        review_id: comment.pull_request_review_id,
+        review_id: comment.pull_request_review_id ?? undefined,
         comments: [
           {
             id: comment.id,
@@ -109,10 +125,10 @@ export async function githubReviewCommentEvent(context: GithubContext): Promise<
 
 /** A conversation comment on a PR from a human is feedback too. Machines are out. */
 export async function githubIssueCommentEvent(context: GithubContext): Promise<CodeInbound> {
-  const issue = context.payload.issue as Issue;
-  const comment = context.payload.comment as IssueComment;
+  const parsed = issueCommentWebhookSchema.safeParse(context.payload);
+  if (!parsed.success) return malformedWebhook("issue_comment");
+  const { action, issue, comment } = parsed.data;
   if (!issue.pull_request) return { ignore: "issue comment, not a PR" };
-  const action = payloadString(context.payload, "action");
   if (action !== "created") {
     return { ignore: `issue comment ${action}` };
   }

@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { githubCheckRunEvent, githubCheckSuiteEvent } from "./inbound-checks";
 import { githubPullRequestEvent } from "./inbound-pull-request";
 import { githubPushEvent } from "./inbound-push";
@@ -6,17 +7,23 @@ import {
   githubReviewCommentEvent,
   githubReviewEvent,
 } from "./inbound-review";
-import type { GithubContext, GithubRepo } from "./inbound-shared";
+import { githubRepoSchema, type GithubContext } from "./inbound-shared";
 import type { CodeInbound, CodeInboundContext } from "../types";
 
-/** Map a GitHub App webhook to an inbound event. The bindings on the event resolve the workflow. */
+const repositoryWebhookSchema = z.object({ repository: githubRepoSchema });
+
+/**
+ * Map a GitHub App webhook to an inbound event. The bindings on the event resolve the workflow.
+ * A payload without the fields its event needs is ignored.
+ */
 export async function githubInbound(
   eventName: string,
-  payload: Record<string, unknown>,
+  payload: unknown,
   context: CodeInboundContext,
 ): Promise<CodeInbound> {
-  const repo = payload.repository as GithubRepo | undefined;
-  if (!repo) return { ignore: "no repository" };
+  const parsed = repositoryWebhookSchema.safeParse(payload);
+  if (!parsed.success) return { ignore: "no repository" };
+  const repo = parsed.data.repository;
 
   const eventContext: GithubContext = {
     ...context,
@@ -40,6 +47,6 @@ export async function githubInbound(
     case "push":
       return githubPushEvent(eventContext);
     default:
-      return { ignore: eventName };
+      return { ignore: `unhandled github event "${eventName}"` };
   }
 }
