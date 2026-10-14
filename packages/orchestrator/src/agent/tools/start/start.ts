@@ -95,7 +95,7 @@ export function startTools(
   return {
     [START_JOB]: tool({
       description:
-        "Start a job for a stage. Its author task runs in a sandbox, or as one model call on a stage with model execution. The brief is what the harness reads first: goal, acceptance criteria, links, context. The stage instructions are added by the system. Name the tracker issue when the job works on one. Name the artifact when the request points at one that a job of this workflow did not produce, such as a design doc written elsewhere or an open pull request. Name it too for an open pull request whose job was cancelled or failed. A job that is given a pull request in a stage that produces one continues it: it works on the branch of that pull request and does not open another. Refused when the workflow has ended, every slot is busy, the issue is blocked by an unfinished issue, the artifact link is not on a configured host, the pull request to continue is closed or its author task is unfinished, a job already works on the same input, an earlier job on the same input left an artifact the host still holds, a stage with model execution or a choice ending does not have a document host, a stage that writes a page does not have a saved plan, or the plan does not set a root page or a page parent for a model-call author. The input is the issue, else the artifact. Without either, it is the artifact of the latest completed job, or else the message that asked for the job.",
+        "Start a job for a stage. Its author task runs in a sandbox, or as one model call on a stage with model execution. The brief is what the harness reads first: goal, acceptance criteria, links, context. The stage instructions are added by the system. Name the tracker issue when the job works on one. Name the artifact when the request points at one that a job of this workflow did not produce, such as a design doc written elsewhere or an open pull request. Name it too for an open pull request whose job was cancelled or failed. A job that is given a pull request in a stage that produces one continues it: it works on the branch of that pull request and does not open another. Refused when the workflow has not started or has ended, every slot is busy, the issue is blocked by an unfinished issue, the artifact link is not on a configured host, the pull request to continue is closed or its author task is unfinished, a job already works on the same input, an earlier job on the same input left an artifact the host still holds, a stage with model execution or a choice ending does not have a document host, a stage that writes a page does not have a saved plan, or the plan does not set a root page or a page parent for a model-call author. The input is the issue, else the artifact. Without either, it is the artifact of the latest completed job, or else the message that asked for the job.",
       inputSchema: z.object({
         stage: z.string().describe("a stage name from the config"),
         brief: z.string().min(1),
@@ -121,6 +121,8 @@ export function startTools(
           ),
       }),
       execute: async (input) => {
+        const notStarted = validateWorkflowStarted(workflow);
+        if (notStarted) return notStarted;
         const requested = withRequestedRuntime(workflow, input, await runtimeRequest);
         const started = await start(workflow, requested.input, requestText);
         return requested.note ? `${started} ${requested.note}` : started;
@@ -357,6 +359,12 @@ function validateStart(workflow: WorkflowRuntime, input: StartInput): string | n
     validatePagePlace(workflow, stage) ??
     validateFreeSlot(workflow)
   );
+}
+
+/** Validate that a plan started the workflow from a workflow definition, before any job starts. */
+function validateWorkflowStarted(workflow: WorkflowRuntime): string | null {
+  if (workflow.state.definition !== null) return null;
+  return "The workflow has not started. Call set_plan with a workflow definition first.";
 }
 
 /** Validate that the workflow has a saved plan before a stage that writes a page starts. */

@@ -95,14 +95,16 @@ test("a harness plan adds the configured MCP servers after the provider's", asyn
 
 const MODEL_STAGE_CONFIG = {
   config: loadConfig(""),
-  workflowDefinition: loadWorkflowDefinition(
-    "development",
-    [
-      "description: Write one priced page.",
-      "stages:",
-      "  - { name: priced, artifact: page, author: { produce: { execution: model, model: openrouter/acme/writer, skill: directions } } }",
-    ].join("\n"),
-  ),
+  workflowDefinitions: [
+    loadWorkflowDefinition(
+      "development",
+      [
+        "description: Write one priced page.",
+        "stages:",
+        "  - { name: priced, artifact: page, author: { produce: { execution: model, model: openrouter/acme/writer, skill: directions } } }",
+      ].join("\n"),
+    ),
+  ],
 };
 
 test("a model stage's author plans one model call with the production prompt", async () => {

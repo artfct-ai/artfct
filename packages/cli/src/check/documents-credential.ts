@@ -20,7 +20,7 @@ const DOCUMENTS_SECRET: Record<DocumentsProvider, string | null> = {
  * orchestrator has no document host and refuses every stage that writes a page.
  */
 export function checkDocumentsCredential(configDir: string): CheckOutcome {
-  const { config, workflowDefinition } = loadDeploymentConfig(readDeploymentConfig(configDir));
+  const { config, workflowDefinitions } = loadDeploymentConfig(readDeploymentConfig(configDir));
   const secret = DOCUMENTS_SECRET[config.adapters.documents.provider];
   if (!secret) {
     return { outcome: "skipped", detail: "Linear documents use the Linear install" };
@@ -32,9 +32,14 @@ export function checkDocumentsCredential(configDir: string): CheckOutcome {
   if (readDevVar(readFileSync(devVarsPath, "utf8"), secret)) {
     return { outcome: "passed", detail: `${secret} is set` };
   }
-  const pageStages = workflowDefinition.stages
-    .filter((stage) => stage.artifact === "page")
-    .map((stage) => stage.name);
+  const pageStages = [
+    ...new Set(
+      workflowDefinitions
+        .flatMap((definition) => definition.stages)
+        .filter((stage) => stage.artifact === "page")
+        .map((stage) => stage.name),
+    ),
+  ];
   if (pageStages.length === 0) {
     return { outcome: "passed", detail: `${secret} is empty, and no stage writes a page` };
   }

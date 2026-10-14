@@ -59,9 +59,10 @@ describe("skillPromptText", () => {
   });
 });
 
-describe("the skills the template workflow definition names", () => {
-  const { workflowDefinition } = loadDeploymentConfig(templateConfig);
-  const named = workflowDefinition.stages.flatMap((stage) => [
+describe("the skills the template workflow definitions name", () => {
+  const { workflowDefinitions } = loadDeploymentConfig(templateConfig);
+  const stages = workflowDefinitions.flatMap((definition) => definition.stages);
+  const named = stages.flatMap((stage) => [
     ...[stage.author.produce, ...(stage.author.revise ? [stage.author.revise] : [])].flatMap(
       (activity) => [
         activity.skill,

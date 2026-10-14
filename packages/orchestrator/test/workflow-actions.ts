@@ -756,22 +756,25 @@ export function agentStartsTaskOnArtifact(
   });
 }
 
-/** The agent sets the plan: its stages and how many jobs may run at once. */
-export function agentSetsPlan(stages: string[], concurrency: number): WorkflowAction {
-  const label = `agent sets the plan ${stages.join(" -> ")} with ${concurrency} slots`;
+/**
+ * The agent sets the plan: the workflow definition it names, its stages, and how many jobs may
+ * run at once. Without stages, the call only starts the workflow.
+ */
+export function agentSetsPlan(
+  definition: string,
+  stages: string[] | null,
+  concurrency: number,
+): WorkflowAction {
+  const route = stages ? stages.join(" -> ") : "without stages";
+  const label = `agent sets the plan ${route} of ${definition} with ${concurrency} slots`;
   return action(label, async (world) => {
     const { set_plan } = planTools(world.workflow);
+    const planned = stages ? { stages, repo: REPO, page_parent: null, concurrency } : {};
     await set_plan.execute(
-      {
-        name: "Fix login",
-        stages,
-        repo: REPO,
-        page_parent: null,
-        reason: "the request changed",
-        concurrency,
-      },
+      { name: "Fix login", definition, reason: "the request changed", ...planned },
       TOOL_CALL,
     );
+    return { plan: { definition } };
   });
 }
 

@@ -1,6 +1,8 @@
 import type { ArtifactKind } from "@artfct-ai/contracts/types";
 import { registeredConfig } from "../../config/register-config";
-import { resolveStage, type ResolvedStage, type Stage } from "../../config/stage";
+import type { Config } from "../../config/config";
+import type { Stage } from "../../config/stage";
+import type { WorkflowDefinition } from "../../config/workflow-definition";
 import type { ToolSet } from "ai";
 import { taskQuiet, heldForReview, refinerInFlight } from "../../workflow/refiner/loop";
 import { runningPolisherOf } from "../../workflow/refiner/stage-refiner";
@@ -9,6 +11,7 @@ import { workflowName } from "../../workflow/store/state";
 import type { WorkflowRuntime } from "../../workflow/types";
 import { stageAfterInput } from "../message/input-artifact";
 import { RUNTIME_RULES, runtimeLines } from "./runtime";
+import { stageLines } from "./stage-lines";
 import { REVIEW_RULES } from "../tools/artifact";
 import { CHANNEL_RULES, NOBODY_WROTE_RULES, PERSON_WROTE_RULES } from "../tools/channel";
 import { hasPageArtifact, HELD_COMMENT_RULES, SEND_HELD_COMMENTS } from "../tools/held-comments";
@@ -76,7 +79,7 @@ const BLOCKS: RuleBlock[] = [
   {
     rules: END_RULES,
     tools: [FINISH_WORKFLOW, FAIL_WORKFLOW],
-    needed: (workflow) => workflow.state.status !== "planning",
+    needed: (workflow) => workflow.state.definition !== null,
   },
   { rules: TASK_RULES, tools: [], needed: always },
   { rules: RUNTIME_RULES, tools: [], needed: mayStartWork },
@@ -120,42 +123,70 @@ function startLines(stages: readonly Stage[], inputArtifact: ArtifactKind | null
   ];
 }
 
-/** Where the author of a stage runs, and on which model it produces and revises. */
-function authorLine({ produce, revise }: ResolvedStage["author"]): string {
-  if (produce.execution === "harness") return `Harness ${produce.harness}, model ${produce.model}.`;
-  const revises = revise.model === produce.model ? "" : ` It revises on model ${revise.model}.`;
-  return `The author runs as model calls on model ${produce.model}.${revises}`;
+/** The start stage in each workflow definition, before the workflow starts, for a message with an input artifact. */
+function definitionStartLines(
+  definitions: readonly WorkflowDefinition[],
+  inputArtifact: ArtifactKind | null,
+): string[] {
+  if (!inputArtifact) return [];
+  const starts = definitions.flatMap((definition) => {
+    const start = stageAfterInput(definition.stages, inputArtifact);
+    return start ? [`- ${definition.name}: stage ${start}`] : [];
+  });
+  if (starts.length === 0) return [];
+  return [
+    "## Where the plan starts",
+    `The message links or names an existing ${inputArtifact} artifact. Start the plan at this stage of the workflow definition you pick, unless the message names an earlier stage.`,
+    ...starts,
+    "",
+  ];
 }
 
-/** The system prompt: role, stages, the rule blocks this turn needs, and the live state. */
-export function systemPrompt(workflow: WorkflowRuntime, turn: TurnFacts): string {
-  const config = workflow.config();
+/** The workflow definitions a plan may name, by name and description, without their stages. */
+function definitionLines(definitions: readonly WorkflowDefinition[]): string[] {
+  return [
+    "## Workflow definitions",
+    ...definitions.map((definition) => `- ${definition.name}: ${definition.description}`),
+    "",
+  ];
+}
+
+/**
+ * What the prompt says about the work before the stage rules. A started workflow shows its
+ * workflow definition and stages. Before the start, a turn that requests work lists the
+ * workflow definitions.
+ */
+function workLines(workflow: WorkflowRuntime, config: Config, turn: TurnFacts): string[] {
+  const mayStart = mayStartWork(workflow, turn);
+  const runtime = mayStart ? [...runtimeLines(config), ""] : [];
+  if (workflow.state.definition === null) {
+    if (!turn.requestsWork) return [];
+    const definitions = workflow.workflowDefinitions();
+    return [
+      ...definitionLines(definitions),
+      ...runtime,
+      ...(mayStart ? definitionStartLines(definitions, turn.inputArtifact) : []),
+    ];
+  }
   const definition = workflow.workflowDefinition();
-  const stages = definition.stages.map((stage) => {
-    const resolved = resolveStage(config, stage);
-    const needsRepo = stage.branch ? ", needs a repository" : "";
-    const when = stage.when ? ` Only when ${stage.when}.` : "";
-    const research = resolved.research
-      ? ` A researcher runs first on harness ${resolved.research.harness}, model ${resolved.research.model}.`
-      : "";
-    const choice =
-      stage.ending === "choice"
-        ? " Ends on a choice: its job completes only when a person's message selects one option listed on its page. Pass that option to complete_job."
-        : "";
-    return `- ${stage.name}: produces ${stage.artifact}${needsRepo}. ${authorLine(resolved.author)}${research}${choice}${when}`;
-  });
+  return [
+    `## Workflow definition ${definition.name}`,
+    definition.description,
+    "",
+    ...stageLines(config, definition),
+    "",
+    ...runtime,
+    ...(mayStart ? startLines(definition.stages, turn.inputArtifact) : []),
+  ];
+}
+
+/** The system prompt: role, the work, the rule blocks this turn needs, and the live state. */
+export function systemPrompt(workflow: WorkflowRuntime, turn: TurnFacts): string {
   const rules = BLOCKS.filter((block) => block.needed(workflow, turn)).map((block) => block.rules);
   return [
     ROLE,
     "",
-    `## Workflow definition ${definition.name}`,
-    definition.description,
-    "",
-    "## Stages (in order)",
-    ...stages,
-    "",
-    ...(mayStartWork(workflow, turn) ? [...runtimeLines(config), ""] : []),
-    ...(mayStartWork(workflow, turn) ? startLines(definition.stages, turn.inputArtifact) : []),
+    ...workLines(workflow, workflow.config(), turn),
     ...rules.flatMap((block) => [block, ""]),
     registeredConfig().writingRules,
     "",
@@ -194,6 +225,9 @@ function stateLines(workflow: WorkflowRuntime): string[] {
   return [
     "## Current state",
     `Workflow: ${state.workflow_id} status=${state.status}`,
+    state.definition === null
+      ? "Workflow definition: not set. The workflow starts when set_plan names one."
+      : `Workflow definition: ${state.definition}`,
     `Name: ${workflowName(state)}`,
     `Plan: ${state.stages.length ? state.stages.join(" -> ") : "not set"}`,
     `Repository: ${state.repo?.full ?? "none"}`,

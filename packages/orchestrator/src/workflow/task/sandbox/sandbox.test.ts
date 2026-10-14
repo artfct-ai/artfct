@@ -61,10 +61,11 @@ const sandbox: SandboxRow = {
 };
 
 function stage(name: string): ResolvedStage {
-  const { config, workflowDefinition } = registeredConfig();
+  const { config, workflowDefinitions } = registeredConfig();
+  const stages = workflowDefinitions.flatMap((definition) => definition.stages);
   return resolveStage(
     config,
-    workflowDefinition.stages.find((candidate) => candidate.name === name)!,
+    stages.find((candidate) => candidate.name === name)!,
   );
 }
 

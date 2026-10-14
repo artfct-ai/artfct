@@ -1,6 +1,6 @@
 import { FakeCodeHost } from "@artfct-ai/adapters/test/fake-code-host";
 import { describe, expect, it } from "bun:test";
-import { freshRuntime } from "../../../test/fresh-runtime";
+import { freshRuntime, unstartedRuntime } from "../../../test/fresh-runtime";
 import {
   patchModelExecution,
   fakeDocumentsOf,
@@ -33,6 +33,7 @@ async function planWithPages(
     await set_plan.execute(
       {
         name: "Ship it",
+        definition: "development",
         repo: "acme/app",
         reason: "test",
         page_parent: null,
@@ -59,7 +60,14 @@ describe("set_plan", () => {
       const { set_plan } = planTools(workflow);
       result = toolText(
         await set_plan.execute(
-          { name: "Ship it", stages: ["design"], repo: null, page_parent: null, reason: "more" },
+          {
+            name: "Ship it",
+            definition: "development",
+            stages: ["design"],
+            repo: null,
+            page_parent: null,
+            reason: "more",
+          },
           call,
         ),
       );
@@ -77,6 +85,106 @@ describe("set_plan", () => {
       }));
   });
 
+  describe("a workflow definition the deployment does not hold", () => {
+    let result: string;
+    const named = scenario(unstartedRuntime, async (workflow) => {
+      const { set_plan } = planTools(workflow);
+      result = toolText(
+        await set_plan.execute({ name: "Ship it", definition: "incident", reason: "x" }, call),
+      );
+    });
+
+    it("lists the workflow definitions the deployment holds", () =>
+      named(() => {
+        expect(result).toBe(
+          "Unknown workflow definition incident. The deployment holds: development.",
+        );
+      }));
+
+    it("does not start the workflow", () =>
+      named((workflow) => {
+        expect(workflow.state).toMatchObject({ status: "new", definition: null });
+      }));
+  });
+
+  describe("a first plan that names a second workflow definition", () => {
+    const incident = scenario(unstartedRuntime, (workflow) => {
+      const [, , implement] = workflow.workflowDefinitions()[0]?.stages ?? [];
+      if (!implement) throw new Error("the test definition has no implement stage");
+      workflow.addWorkflowDefinition({
+        name: "incident",
+        description: "Fix an incident.",
+        documents: {},
+        stages: [implement],
+      });
+    });
+
+    it("names a stage the workflow definition does not hold", () =>
+      incident(async (workflow) => {
+        const { set_plan } = planTools(workflow);
+        expect(
+          await set_plan.execute(
+            {
+              name: "Fix it",
+              definition: "incident",
+              stages: ["design"],
+              repo: null,
+              page_parent: null,
+              reason: "x",
+            },
+            call,
+          ),
+        ).toBe("Unknown stages: design. Use names from workflow definition incident.");
+        expect(workflow.state.definition).toBeNull();
+      }));
+  });
+
+  describe("a later plan that names another workflow definition", () => {
+    let result: string;
+    const renamed = scenario(freshRuntime, async (workflow) => {
+      workflow.addWorkflowDefinition({ ...workflow.workflowDefinition(), name: "incident" });
+      const { set_plan } = planTools(workflow);
+      result = toolText(
+        await set_plan.execute(
+          {
+            name: "Ship it",
+            definition: "incident",
+            stages: ["design"],
+            repo: null,
+            page_parent: null,
+            reason: "x",
+          },
+          call,
+        ),
+      );
+    });
+
+    it("names the workflow definition the workflow keeps", () =>
+      renamed(() => {
+        expect(result).toBe(
+          "The workflow runs workflow definition development, and a plan cannot change it. Call set_plan with definition development.",
+        );
+      }));
+
+    it("keeps the workflow definition and does not plan the stages", () =>
+      renamed((workflow) => {
+        expect(workflow.state.definition).toBe("development");
+        expect(workflow.state.stages).toEqual([]);
+      }));
+  });
+
+  describe("a later plan without stages", () => {
+    it("asks for the stages", () =>
+      freshRuntime(async (workflow) => {
+        const { set_plan } = planTools(workflow);
+        expect(
+          await set_plan.execute({ name: "Ship it", definition: "development", reason: "x" }, call),
+        ).toBe(
+          "The workflow already started from workflow definition development. Call set_plan again with the stages.",
+        );
+      }));
+  });
+
   describe("stages the config does not name", () => {
     let result: string;
     const planned = scenario(freshRuntime, async (workflow) => {
@@ -85,6 +193,7 @@ describe("set_plan", () => {
         await set_plan.execute(
           {
             name: "Ship it",
+            definition: "development",
             stages: ["design", "deploy", "ship"],
             repo: null,
             page_parent: null,
@@ -97,7 +206,9 @@ describe("set_plan", () => {
 
     it("names every stage it does not know", () =>
       planned(() => {
-        expect(result).toBe("Unknown stages: deploy, ship. Use names from the config.");
+        expect(result).toBe(
+          "Unknown stages: deploy, ship. Use names from workflow definition development.",
+        );
       }));
 
     it("plans no stages", () =>
@@ -114,6 +225,7 @@ describe("set_plan", () => {
         await set_plan.execute(
           {
             name: "Ship it",
+            definition: "development",
             stages: ["design", "implement"],
             repo: null,
             page_parent: null,
@@ -141,6 +253,7 @@ describe("set_plan", () => {
           await set_plan.execute(
             {
               name: "Write the design",
+              definition: "development",
               stages: ["design"],
               repo: null,
               page_parent: null,
@@ -178,7 +291,14 @@ describe("set_plan", () => {
       const { set_plan } = planTools(workflow);
       result = toolText(
         await set_plan.execute(
-          { name: "Ship it", stages: ["design"], repo: null, page_parent: null, reason: "test" },
+          {
+            name: "Ship it",
+            definition: "development",
+            stages: ["design"],
+            repo: null,
+            page_parent: null,
+            reason: "test",
+          },
           call,
         ),
       );
@@ -201,6 +321,7 @@ describe("set_plan", () => {
           await set_plan.execute(
             {
               name: "Ship it",
+              definition: "development",
               stages: ["design"],
               repo: null,
               page_parent: "page-1",
@@ -223,7 +344,7 @@ describe("set_plan", () => {
     });
   });
 
-  describe("a concurrency over the config limit, on a workflow a tracker issue started", () => {
+  describe("a concurrency over the config limit, on a workflow of a tracker issue", () => {
     let result: string;
     let cap: number;
     const planned = scenario(freshRuntime, async (workflow) => {
@@ -234,6 +355,7 @@ describe("set_plan", () => {
         await set_plan.execute(
           {
             name: "Fix the login redirect",
+            definition: "development",
             stages: ["implement"],
             repo: "acme/app",
             page_parent: null,
@@ -263,15 +385,13 @@ describe("set_plan", () => {
     it("logs the plan it took", () =>
       planned((workflow) => {
         expect(workflow.lines).toContain(
-          `plan: name=Fix the login redirect stages=implement repo=acme/app concurrency=${cap} (test)`,
+          `plan: definition=development name=Fix the login redirect stages=implement repo=acme/app concurrency=${cap} (test)`,
         );
       }));
 
-    it("moves the tracker issue to started", () =>
+    it("does not move the tracker issue, since the workflow started before the plan", () =>
       planned((workflow) => {
-        expect(workflow.store.outbox().map((entry) => [entry.kind, entry.payload])).toEqual([
-          ["issue_update", { to: "started", delegate: null }],
-        ]);
+        expect(workflow.store.outbox()).toEqual([]);
       }));
   });
 
@@ -281,6 +401,7 @@ describe("set_plan", () => {
       await set_plan.execute(
         {
           name: "Fix the login redirect",
+          definition: "development",
           stages: ["implement"],
           repo: "acme/app",
           page_parent: null,
@@ -306,6 +427,7 @@ describe("set_plan", () => {
     let result: string;
     const input = {
       name: "Fix it",
+      definition: "development",
       stages: ["implement"],
       repo: "acme/other",
       page_parent: null,
@@ -350,6 +472,7 @@ describe("set_plan", () => {
   describe("a repository check GitHub cannot answer", () => {
     const input = {
       name: "Fix it",
+      definition: "development",
       stages: ["implement"],
       repo: "acme/app",
       page_parent: null,
@@ -389,6 +512,7 @@ describe("set_plan", () => {
       await set_plan.execute(
         {
           name: "Write the design",
+          definition: "development",
           stages: ["design"],
           repo: null,
           page_parent: null,
@@ -406,6 +530,7 @@ describe("set_plan", () => {
           await set_plan.execute(
             {
               name: "Build it",
+              definition: "development",
               stages: ["implement"],
               repo: "acme/other",
               page_parent: null,
@@ -423,6 +548,7 @@ describe("set_plan", () => {
           await set_plan.execute(
             {
               name: "Build it",
+              definition: "development",
               stages: ["implement"],
               repo: "acme/app",
               page_parent: null,
@@ -448,9 +574,9 @@ describe("set_plan", () => {
           });
         }));
 
-      it("moves the tracker issue only the first time", () =>
+      it("does not move the tracker issue", () =>
         replanned((workflow) => {
-          expect(workflow.store.outbox().map((entry) => entry.kind)).toEqual(["issue_update"]);
+          expect(workflow.store.outbox()).toEqual([]);
         }));
     });
   });
@@ -464,6 +590,7 @@ describe("the name a plan gives the workflow", () => {
       await set_plan.execute(
         {
           name: "Flaky checkout test",
+          definition: "development",
           stages: ["design"],
           repo: null,
           page_parent: null,
@@ -481,7 +608,7 @@ describe("the name a plan gives the workflow", () => {
     it("logs the name it took", () =>
       named((workflow) => {
         expect(workflow.lines).toContain(
-          "plan: name=Flaky checkout test stages=design repo=- concurrency=100 (docs)",
+          "plan: definition=development name=Flaky checkout test stages=design repo=- concurrency=100 (docs)",
         );
       }));
 
@@ -496,6 +623,7 @@ describe("the name a plan gives the workflow", () => {
         await set_plan.execute(
           {
             name: "Rewrite the checkout flow",
+            definition: "development",
             stages: ["design"],
             repo: null,
             page_parent: null,

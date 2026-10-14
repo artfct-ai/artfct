@@ -1,6 +1,6 @@
 import type { ToolSet } from "ai";
 import { describe, expect, it } from "bun:test";
-import { freshRuntime } from "../../../test/fresh-runtime";
+import { freshRuntime, unstartedRuntime } from "../../../test/fresh-runtime";
 import {
   patchModelExecution,
   seedModelAuthor,
@@ -143,20 +143,16 @@ describe("needsReview", () => {
   });
 
   describe("a pull request of a failed task that the review holds", () => {
-    describe("a workflow in planning", () => {
-      const planning = scenario(freshRuntime, (workflow) => {
-        workflow.patchState({ status: "planning" });
-      });
-
+    describe("a workflow that has not started", () => {
       it("withholds the tools that end the workflow", () =>
-        planning((workflow) => {
+        unstartedRuntime((workflow) => {
           const active = activeToolNames(workflow, workflowTools(workflow), PERSON_WROTE);
           expect(active).not.toContain("finish_workflow");
           expect(active).not.toContain("fail_workflow");
         }));
 
       it("leaves out the rules that end the workflow", () =>
-        planning((workflow) => {
+        unstartedRuntime((workflow) => {
           expect(carriedRules(systemPrompt(workflow, PERSON_WROTE))).not.toContain("end");
         }));
     });
@@ -242,6 +238,60 @@ describe("systemPrompt", () => {
         expect(systemPrompt(workflow, NOBODY_WROTE)).toContain(
           "\n## Harnesses and models\nHarnesses: claude-code, opencode.\n",
         );
+      }));
+  });
+
+  describe("a workflow that has not started", () => {
+    it("lists each workflow definition by name and description, without stages, on a message that requests work", () =>
+      unstartedRuntime((workflow) => {
+        const prompt = systemPrompt(workflow, PERSON_WROTE);
+        expect(prompt).toContain(
+          "\n## Workflow definitions\n- development: Take a request from design through pull requests.\n",
+        );
+        expect(prompt).not.toContain("## Stages (in order)");
+        expect(prompt).not.toContain("## Workflow definition development");
+      }));
+
+    it("leaves the workflow definitions out on a message that does not request work", () =>
+      unstartedRuntime((workflow) => {
+        expect(systemPrompt(workflow, PERSON_WROTE_NO_WORK)).not.toContain(
+          "## Workflow definitions",
+        );
+      }));
+
+    it("names the start stage in each workflow definition for a message with an input artifact", () =>
+      unstartedRuntime((workflow) => {
+        const [design, breakdown] = workflow.workflowDefinitions()[0]?.stages ?? [];
+        if (!design || !breakdown) throw new Error("the test definition does not have two stages");
+        workflow.addWorkflowDefinition({
+          name: "incident",
+          description: "Fix an incident.",
+          documents: {},
+          stages: [design, breakdown],
+        });
+        const prompt = systemPrompt(workflow, { ...PERSON_WROTE, inputArtifact: "page" });
+        expect(prompt).toContain(
+          "- development: Take a request from design through pull requests.\n- incident: Fix an incident.\n",
+        );
+        expect(prompt).toContain("\n- development: stage breakdown\n- incident: stage breakdown\n");
+      }));
+
+    it("says the workflow starts when a plan names a workflow definition", () =>
+      unstartedRuntime((workflow) => {
+        expect(systemPrompt(workflow, NOBODY_WROTE)).toContain(
+          "\nWorkflow definition: not set. The workflow starts when set_plan names one.\n",
+        );
+      }));
+  });
+
+  describe("a started workflow", () => {
+    it("shows its workflow definition and stages", () =>
+      freshRuntime((workflow) => {
+        const prompt = systemPrompt(workflow, PERSON_WROTE_NO_WORK);
+        expect(prompt).toContain("\n## Workflow definition development\n");
+        expect(prompt).toContain("\n## Stages (in order)\n- design: produces page.");
+        expect(prompt).toContain("\nWorkflow definition: development\n");
+        expect(prompt).not.toContain("## Workflow definitions");
       }));
   });
 
@@ -436,20 +486,16 @@ describe("activeToolNames", () => {
       }));
   });
 
-  describe("a workflow in planning", () => {
-    const planning = scenario(freshRuntime, (workflow) => {
-      workflow.patchState({ status: "planning" });
-    });
-
+  describe("a workflow that has not started", () => {
     it("withholds the tools that end the workflow", () =>
-      planning((workflow) => {
+      unstartedRuntime((workflow) => {
         const active = activeToolNames(workflow, workflowTools(workflow), PERSON_WROTE);
         expect(active).not.toContain("finish_workflow");
         expect(active).not.toContain("fail_workflow");
       }));
 
     it("leaves out the rules that end the workflow", () =>
-      planning((workflow) => {
+      unstartedRuntime((workflow) => {
         expect(carriedRules(systemPrompt(workflow, PERSON_WROTE))).not.toContain("end");
       }));
   });

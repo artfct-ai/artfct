@@ -57,11 +57,12 @@ describe("compileConfig", () => {
     );
   });
 
-  it("refuses a second workflow definition", () => {
+  it("carries every workflow definition of a deployment with several, in name order", () => {
     write("workflows/incident.yaml", WORKFLOW_DEFINITION_YAML);
-    expect(() => compileConfig(repo)).toThrow(
-      /Multiple workflow definitions are not supported yet/,
-    );
+    expect(compileConfig(repo).workflowDefinitions.map((definition) => definition.name)).toEqual([
+      "development",
+      "incident",
+    ]);
   });
 
   it("refuses a workflow definition whose file name is not a valid name", () => {

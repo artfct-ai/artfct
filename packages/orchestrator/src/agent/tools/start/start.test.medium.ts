@@ -4,6 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   freshWorkflow,
   plannedWorkflow,
+  startWorkflow,
   type WorkflowClients,
 } from "../../../../test/fresh-workflow";
 import { scenario, type Scenario } from "../../../../test/scenario";
@@ -645,9 +646,10 @@ describe("start_job", () => {
       }));
   });
 
-  describe("a stage the config does not have, with no plan set", () => {
+  describe("a stage the config does not have, on a workflow started without stages", () => {
     let result: string;
     const refused = scenario(freshWorkflow(), async (workflow) => {
+      await startWorkflow(workflow);
       const { start_job } = startTools(workflow);
       result = toolText(await start_job.execute({ stage: "deploy", brief: "ship" }, call));
     });
@@ -759,6 +761,7 @@ describe("complete_job", () => {
       await set_plan.execute(
         {
           name: "Fix it",
+          definition: "development",
           stages: ["design", "implement"],
           repo: "acme/app",
           page_parent: null,

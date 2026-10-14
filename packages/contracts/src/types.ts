@@ -5,15 +5,8 @@ import type { BindingSource } from "./sources";
 /** Acknowledgement returned by every Workflow RPC that takes an event. */
 export type RpcAck = { ok: true; workflow_id?: string; duplicate?: boolean };
 
-/** Lifecycle of one workflow. */
-export type WorkflowStatus =
-  | "new"
-  | "planning"
-  | "running"
-  | "waiting_input"
-  | "done"
-  | "cancelled"
-  | "failed";
+/** Lifecycle of one workflow. It is `new` until the plan that names its workflow definition. */
+export type WorkflowStatus = "new" | "running" | "waiting_input" | "done" | "cancelled" | "failed";
 
 /** Lifecycle of one coding task. The board renders one column per status. */
 export const TASK_STATUSES = [
