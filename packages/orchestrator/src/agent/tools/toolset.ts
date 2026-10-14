@@ -1,7 +1,6 @@
 import type { WorkflowRuntime } from "../../workflow/types";
 import { artifactTools } from "./artifact";
 import { channelTools } from "./channel";
-import { heldCommentTools } from "./held-comments";
 import { historyTools } from "./history";
 import { trackerTools } from "./tracker";
 import { planTools } from "./plan";
@@ -21,9 +20,8 @@ export function workflowTools(
     ...planTools(workflow),
     ...startTools(workflow, personMessages, turn),
     ...trackerTools(workflow),
-    ...taskTools(workflow),
+    ...taskTools(workflow, turn.decisions),
     ...artifactTools(workflow),
-    ...heldCommentTools(workflow, turn.decisions),
     ...rootPageTools(workflow),
     ...readTools(workflow),
     ...historyTools(workflow, turn.decisions),

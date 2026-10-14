@@ -53,7 +53,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | review | What a person or an agent posts on an artifact as a whole: a summary, findings, and whether it blocks. | `Review`, the review arm of `tasks.result` | verdict |
 | ruling | What a judge files on an artifact: approved, or rejected with a reason. Code reads it from a conclusion, or a person gives it. | `Ruling`, the ruling arm of `tasks.result` | verdict |
 | comment | Feedback that is not a review. | part of `Feedback` | |
-| held comment | A person's comment on a page artifact that the system has not acknowledged. A comment there that mentions the bot, or a request in the chat thread, sends every held comment to the author as one feedback. | `HeldComment`, `Documents.heldComments` | |
+| held comment | A person's comment on a page artifact that the system has not acknowledged. Three things send every held comment to the author and acknowledge it: a comment there that mentions the bot, a person's message that asks for a revision, and any prompt the orchestrator sends to that author. A held comment the screen does not admit stays held. | `HeldComment`, `Documents.heldComments` | |
 | finding | One item in a review or a comment. It may name a location and a passage. | `Finding` | |
 | passage | The few words of a page that a finding quotes. The page host anchors the finding's comment to the block that holds them. | `Finding.passage` | anchor, quote |
 | inline finding | A finding of a page review that code posts as a comment on the block that holds its passage. | `Documents.commentOnPassages` | inline comment |
@@ -74,8 +74,9 @@ A code name is one type, table, column, or function. A code name that needs a co
 | Term | Meaning | Code name | Do not say |
 |---|---|---|---|
 | board | The status message of one job in one chat thread. | `boards` row | |
-| checklist | The checkbox lines of a board: the todo list, the follow-up line, the phase lines, and the handover line. | `checklistLines` | |
-| todo list | The latest plan entries the harness reported. Replaced whole, frozen at the first artifact. | `TodoSnapshot` | checklist |
+| checklist | The checkbox lines of a board: each researcher and author of the job with its todo list or its work line, the follow-up line, the phase lines, and the handover line. | `checklistLines` | |
+| todo list | The latest plan entries the harness reported. Replaced whole. Every entry reads complete once the task hands on its result: the researcher to the author, the author at its first artifact. | `TodoSnapshot`, `completeTodos` | checklist |
+| work line | The one checklist line of a researcher or author without a todo list. It names the task's work and shows its status until the task is idle or done. An author's line reads complete once the job has an artifact. | `WorkLine` | |
 | board note | One line from the orchestrator on a board. | `BoardInput.note` | note |
 | agent note | A system message to the orchestrator agent. | `noteMessage`, `Applied.notes` | note |
 | harness session | The ACP session of one task. | `sandboxes.session_id` | session |
@@ -109,6 +110,8 @@ A code name is one type, table, column, or function. A code name that needs a co
 | owed reply | What the message of a person is owed at the end of the turn: an answer in words, or the board alone. | `OwedReply` | reply need |
 | first reply | The orchestrator's first response to a person's message in a turn, before any other work: a thumbs-up reaction on the message when the request is clear and the only words would be 'on it', one line that says what it is about to do, or the answer. | `FIRST_REPLY_TOOLS`, `acknowledge` | |
 | requests work | Whether the message of a person requests work. The decisions model says. A message that does not request work leaves the plan, runtime, and context rule blocks out of the system prompt. | `TurnFacts.requestsWork` | intent, classification, asks work |
+| asks for a revision | Whether the message of a person says they finished reviewing a document or left comments on it, or asks for it to be revised. The decisions model says. When it does, the system sends the held comments of every running page author before the model runs. | `PersonMessage.asksForRevision` | review done, release |
+| task activity | What a task does now, read from the store for each agent turn: starting, running a turn, holding a queued prompt, paused, or idle. The agent states whether a task runs only from it. | `taskActivity`, `activity` on the job line | status |
 | requested runtime | The harness and model a person's message names for the work, resolved to a model the harness runs. It replaces the stage's pair for the author of the job it starts. | `RequestedRuntime` | |
 | closing text | The text the model ends a turn with. It is posted only as the answer to a person who wrote. | `ModelPass.text` | |
 | transcript | The stored conversation of the orchestrator agent. The only part of the context that persists across agent turns. | `transcript` table, `TranscriptStore` | history, memory |

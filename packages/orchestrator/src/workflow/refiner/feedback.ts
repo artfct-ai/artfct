@@ -220,7 +220,7 @@ async function onMentioned(
   if (!held) {
     return {
       notes: [
-        `${who} asked on the page for the held comments of job ${task.job_id} to go to the author, but the host could not be read. They stay held, with that comment. Call send_held_comments to try again.`,
+        `${who} asked on the page for the held comments of job ${task.job_id} to go to the author, but the host could not be read. They stay held, with that comment. Call prompt_task on the author to try again. The held comments go with it.`,
       ],
       wake: "human",
     };

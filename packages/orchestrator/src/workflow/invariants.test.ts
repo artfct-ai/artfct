@@ -36,6 +36,7 @@ import {
   todoListIsFixedAfterFirstArtifact,
   unadmittedFeedbackReachesNobody,
   unplannedWorkflowDoesNotEnd,
+  aPromptToAPageAuthorCarriesItsHeldComments,
 } from "../../test/invariants";
 import {
   agentCancels,
@@ -47,7 +48,6 @@ import {
   agentHoldsAuthor,
   agentPromptsAuthor,
   agentRoutes,
-  agentSendsHeldComments,
   agentSetsPlan,
   agentStartsTask,
   agentStartsTaskOnArtifact,
@@ -61,6 +61,8 @@ import {
   GENERATION_TIMERS,
   pageModelAnswers,
   hostSays,
+  personAsksForRevision,
+  personCommentsOnPage,
   personPostsFeedback,
   personCancels,
   personPostsOnUnownedPull,
@@ -85,6 +87,7 @@ import {
   trackerOpensSession,
   trackerTurns,
   workflowRestarts,
+  type HeldCommentsRead,
 } from "../../test/workflow-actions";
 import {
   MAX_AUTHORS,
@@ -138,6 +141,7 @@ const STEP_INVARIANTS = [
   feedActivityPostsOnce,
   unplannedWorkflowDoesNotEnd,
   anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone,
+  aPromptToAPageAuthorCarriesItsHeldComments,
   pageReviewPostsEachFindingOnce,
   authorGetsEveryPageFinding,
 ];
@@ -178,6 +182,17 @@ const modelPageSetups: fc.Arbitrary<WorldSetup> = pageSetups.map((setup) => ({
 }));
 
 const author = fc.nat({ max: MAX_AUTHORS - 1 });
+
+const heldCommentsRead: fc.Arbitrary<HeldCommentsRead> = fc.record({
+  decisions: fc.constantFrom(
+    "answers" as const,
+    "answers" as const,
+    "fails" as const,
+    "hangs" as const,
+  ),
+  host: fc.constantFrom("readable" as const, "readable" as const, "down" as const),
+  meanwhile: fc.constantFrom("nothing" as const, "nothing" as const, "agent_cancels" as const),
+});
 
 const PLANNED_STAGES = [["implement"], ["breakdown", "implement"], ["design", "plan", "breakdown"]];
 
@@ -428,7 +443,19 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
       .tuple(author, fc.constantFrom("pause_task", "resume_task"))
       .map(([index, call]) => agentHoldsAuthor(index, call)),
   },
-  { weight: 4, arbitrary: author.map(agentPromptsAuthor) },
+  {
+    weight: 4,
+    arbitrary: fc
+      .tuple(author, heldCommentsRead)
+      .map(([index, read]) => agentPromptsAuthor(index, read)),
+  },
+  {
+    weight: 2,
+    arbitrary: fc
+      .tuple(author, heldCommentsRead)
+      .map(([index, read]) => personAsksForRevision(index, read)),
+  },
+  { weight: 2, arbitrary: fc.nat({ max: 999 }).map(personCommentsOnPage) },
   {
     weight: 1,
     arbitrary: fc
@@ -454,12 +481,6 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
         fc.constantFrom("answers", "answers", "fails", "hangs"),
       )
       .map(([index, person, decisions]) => agentCompletesWithSelection(index, person, decisions)),
-  },
-  {
-    weight: 2,
-    arbitrary: fc
-      .tuple(author, fc.constantFrom("answers", "fails", "hangs"))
-      .map(([index, decisions]) => agentSendsHeldComments(index, decisions)),
   },
   {
     weight: 2,
@@ -587,7 +608,7 @@ describe("the workflow invariants", () => {
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(35);
+      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(36);
     },
     TIMEOUT_MS,
   );

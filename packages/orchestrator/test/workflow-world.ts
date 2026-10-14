@@ -36,6 +36,7 @@ import { FakeBridge } from "./fake-bridge";
 import { CLOSING_TEXT_MARKER } from "../src/prompts/model-author-prompt";
 import { EchoModel, ScriptedFailure } from "./fake-model";
 import {
+  fakeDocumentsOf,
   FakeRuntime,
   JUDGE_ENTRY,
   MODEL_AUTHOR_MODEL,
@@ -196,6 +197,7 @@ export type StepFacts = Partial<
     | "staleAlarm"
     | "completion"
     | "unadmittedFeedback"
+    | "heldCommentsAsked"
   >
 >;
 
@@ -408,6 +410,7 @@ export class WorkflowWorld {
       staleAlarm: facts.staleAlarm ?? null,
       completion: facts.completion ?? null,
       unadmittedFeedback: facts.unadmittedFeedback ?? null,
+      heldCommentsAsked: facts.heldCommentsAsked ?? null,
       event: this.delivered,
       sessionPosts: sessionPostsOf(rows),
       postedTypes: this.workflow.posted.slice(postedBefore).map((event) => event.type),
@@ -572,6 +575,17 @@ export class WorkflowWorld {
   /** Time passes, for every reader of the workflow clock and the host. */
   advanceClock(ms: number): void {
     this.workflow.clock = Math.max(this.workflow.clock ?? 0, Date.now()) + ms;
+  }
+
+  /** Run `body` while every call to the page host fails. */
+  async whilePageHostIsDown<Result>(body: () => Promise<Result>): Promise<Result> {
+    const host = this.workflow.documentsInstance;
+    this.workflow.documentsInstance = new FakeDocuments({ failing: true });
+    try {
+      return await body();
+    } finally {
+      this.workflow.documentsInstance = host;
+    }
   }
 
   /** Run `body` while every call to the host fails. */
@@ -867,6 +881,9 @@ export class WorkflowWorld {
         store.allTodoRows().map((row) => [row.task_id, JSON.stringify(row.todos)]),
       ),
       authorPrompts: queued + sent,
+      heldComments: fakeDocumentsOf(this.workflow)
+        .heldNow()
+        .map((comment) => comment.text),
     };
   }
 }
