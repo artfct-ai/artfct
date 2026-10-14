@@ -12,11 +12,11 @@ import { findBinding } from "../db/bindings";
 import { createDb } from "../db/client";
 import { findWorkflow, setWorkflowStatus } from "../db/workflows";
 import { isWorkflowFinished } from "../workflow/store/state";
+import { propertyBudget } from "../../test/property-budget";
 import { deliver } from "./deliver";
 
-const NUM_RUNS = 60;
+const BUDGET = propertyBudget({ runs: 200, timeoutMs: 120_000 });
 const MAX_ACTIONS = 14;
-const TIMEOUT_MS = 120_000;
 
 const db = createDb(env.DB);
 
@@ -229,9 +229,9 @@ describe("the router invariants", () => {
         fc.array(routeActions, { maxLength: MAX_ACTIONS }),
         holdsThroughout,
       );
-      await fc.assert(property, { numRuns: NUM_RUNS });
+      await fc.assert(property, BUDGET.parameters);
       expect(ROUTE_INVARIANTS.length).toBe(1);
     },
-    TIMEOUT_MS,
+    BUDGET.timeoutMs,
   );
 });

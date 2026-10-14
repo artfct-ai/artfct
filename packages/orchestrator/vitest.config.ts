@@ -1,6 +1,7 @@
 import { builtinModules } from "node:module";
 import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-plugin";
 import { defineConfig } from "vitest/config";
+import { propertyVars } from "./test/property-budget.ts";
 import { testVars } from "./test/test-env.ts";
 
 /** D1 migrations are read here in Node and applied inside the Worker by `vitest.setup.ts`. */
@@ -56,7 +57,7 @@ export default defineConfig({
       wrangler: { configPath: "./wrangler.test.jsonc" },
       miniflare: {
         outboundService: offline,
-        bindings: { ...testVars(), TEST_MIGRATIONS: migrations },
+        bindings: { ...testVars(), ...propertyVars(), TEST_MIGRATIONS: migrations },
       },
     }),
   ],

@@ -16,7 +16,8 @@
     "db:generate": "drizzle-kit generate --config drizzle.d1.config.ts && drizzle-kit generate --config drizzle.workflow.config.ts",
     "db:migrate:local": "wrangler d1 migrations apply artfct --local -c wrangler.test.jsonc --persist-to ../../.wrangler/state",
     "typecheck": "tsc --noEmit",
-    "test": "bun test && vitest run",
+    "test": "bun test",
+    "test:medium": "vitest run",
     "lint": "oxlint"
   },
   "dependencies": {

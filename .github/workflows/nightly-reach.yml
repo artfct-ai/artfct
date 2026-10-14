@@ -1,0 +1,57 @@
+name: Nightly reach
+
+on:
+  schedule:
+    - cron: "17 6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  reach:
+    name: reach
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - name: Check the code against the glossary
+        id: glossary
+        continue-on-error: true
+        run: bun test ./scripts/glossary/ 2>&1 | tee "$RUNNER_TEMP/glossary.log"
+      - run: bun run template-config
+        working-directory: packages/orchestrator
+      - name: Run the property files against each mutant
+        working-directory: packages/orchestrator
+        run: PROPERTY_SEED=$(( GITHUB_RUN_ID % 2147483648 )) bun scripts/properties/mutants.ts "$RUNNER_TEMP/surviving-mutants.md"
+      - name: Open or update the nightly reach issue
+        if: ${{ !cancelled() }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GLOSSARY_OUTCOME: ${{ steps.glossary.outcome }}
+          TITLE: Nightly reach findings
+        run: |
+          body="$RUNNER_TEMP/reach-issue.md"
+          : > "$body"
+          if [ -f "$RUNNER_TEMP/surviving-mutants.md" ]; then cat "$RUNNER_TEMP/surviving-mutants.md" >> "$body"; fi
+          if [ "$GLOSSARY_OUTCOME" = failure ]; then
+            {
+              printf '## Glossary checks\n\nThe glossary checks failed.\n\n```\n'
+              tail -n 80 "$RUNNER_TEMP/glossary.log"
+              printf '```\n'
+            } >> "$body"
+          fi
+          if [ ! -s "$body" ]; then exit 0; fi
+          number=$(gh issue list --state open --search "in:title \"$TITLE\"" --json number --jq '.[0].number')
+          if [ -n "$number" ]; then
+            gh issue edit "$number" --body-file "$body"
+          else
+            gh issue create --title "$TITLE" --body-file "$body"
+          fi

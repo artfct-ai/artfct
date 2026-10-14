@@ -28,6 +28,7 @@ import {
   type TurnStep,
 } from "../../../test/agent-invariants";
 import { freshDurableRuntime } from "../../../test/durable-runtime";
+import { propertyBudget } from "../../../test/property-budget";
 import {
   SCRIPTED_CLOSING_TEXT,
   SCRIPTED_PAGE_URL,
@@ -72,6 +73,8 @@ type ScriptedTurn = {
   history: MessageKind[];
   contextTokens: number;
 };
+
+const BUDGET = propertyBudget({ runs: 60, timeoutMs: 90_000 });
 
 const CONTEXT_TOKENS = 40;
 const HISTORY_CONTEXT_TOKENS = 100_000;
@@ -799,7 +802,7 @@ describe("agent turn invariants", () => {
             }),
         ),
         {
-          numRuns: 60,
+          ...BUDGET.parameters,
           examples: [
             ["chat", [BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL]],
             ["chat", [A_LARGE_TURN, A_TURN_LOST_AFTER_A_LARGE_TURN]],
@@ -815,6 +818,6 @@ describe("agent turn invariants", () => {
           ],
         },
       ),
-    90_000,
+    BUDGET.timeoutMs,
   );
 });

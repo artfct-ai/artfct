@@ -36,9 +36,47 @@ jobs:
         run: bun install --lockfile-only && git diff --exit-code bun.lock
       - run: bun run check:affected
 
+  exhaustive:
+    name: exhaustive (shard ${{ matrix.shard }})
+    needs: ci
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
+    defaults:
+      run:
+        working-directory: packages/orchestrator
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun run template-config
+      - name: Seed this shard from the run id and the shard index
+        id: seed
+        run: echo "PROPERTY_SEED=$(( (GITHUB_RUN_ID + SHARD) % 2147483648 ))" >> "$GITHUB_ENV"
+        env:
+          SHARD: ${{ matrix.shard }}
+      - name: Run the workflow properties
+        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
+        timeout-minutes: 25
+        run: bun scripts/properties/gate.ts workflow
+      - name: Run the agent turn property
+        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
+        timeout-minutes: 25
+        run: bun scripts/properties/gate.ts agent_turn
+      - name: Run the router property
+        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
+        timeout-minutes: 25
+        run: bun scripts/properties/gate.ts router
+
   preview:
     name: preview
-    needs: ci
+    needs: [ci, exhaustive]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 30

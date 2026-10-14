@@ -29,7 +29,8 @@
     "build": "bun scripts/build.ts",
     "types": "wrangler types -c ../../template/orchestrator/wrangler.jsonc --strict-vars=false",
     "typecheck": "tsc --noEmit",
-    "test": "bun test && vitest run",
+    "test": "bun test",
+    "test:medium": "vitest run",
     "lint": "oxlint"
   },
   "dependencies": {
