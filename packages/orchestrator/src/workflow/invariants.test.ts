@@ -587,7 +587,7 @@ describe("the workflow invariants", () => {
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(33);
+      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(35);
     },
     TIMEOUT_MS,
   );
