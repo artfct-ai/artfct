@@ -5,21 +5,26 @@ import {
   isFullPage,
   isNotionClientError,
 } from "@notionhq/client";
+import pLimit from "p-limit";
 import { workerdFetch } from "../../workerd-fetch";
+import { textHoldsPassage } from "../passage";
+import { notionBlockText } from "./block-text";
 import { notionDocumentPage } from "./document-page";
 import { NOTION_ACKNOWLEDGEMENT, notionCommentText, notionHeldComments } from "./held-comments";
 import { notionMentionedUserIds } from "./mentions";
 import { notionPageComments } from "./page-comments";
 import { notionPageFromUrl, notionPageId } from "./page-id";
+import { NOTION_REQUESTS_IN_FLIGHT, notionPageBlocks } from "./page-blocks";
 import { NotionPageNesting } from "./page-nesting";
+import { notionRichText } from "./rich-text";
 import type {
   PageCommentRef,
-  DocumentComment,
   DocumentPage,
   Documents,
   DocumentsUser,
   FetchedComment,
   HeldComment,
+  PassageComment,
 } from "../types";
 
 /** Construction options. `baseUrl` and `fetch` are seams for tests. */
@@ -105,8 +110,39 @@ export class NotionDocuments implements Documents {
   async comment(pageId: string, text: string): Promise<void> {
     await this.client.comments.create({
       parent: { page_id: pageId },
-      rich_text: [{ type: "text", text: { content: text } }],
+      rich_text: notionRichText(text),
     });
+  }
+
+  /**
+   * Notion anchors a comment to a whole block, never to a range of text in it. Each comment goes
+   * on the first block in page order whose text holds its passage. A block Notion will not
+   * comment on leaves its comment unposted.
+   */
+  async commentOnPassages(pageId: string, comments: PassageComment[]): Promise<PassageComment[]> {
+    const blocks = await notionPageBlocks(this.client, pLimit(NOTION_REQUESTS_IN_FLIGHT), pageId);
+    const unposted: PassageComment[] = [];
+    for (const comment of comments) {
+      const block = blocks.find((candidate) =>
+        textHoldsPassage(notionBlockText(candidate), comment.passage),
+      );
+      if (!block || !(await this.commentOnBlock(block.id, comment.text))) unposted.push(comment);
+    }
+    return unposted;
+  }
+
+  /** True when Notion took the comment on the block. */
+  private async commentOnBlock(blockId: string, text: string): Promise<boolean> {
+    try {
+      await this.client.comments.create({
+        parent: { block_id: blockId },
+        rich_text: notionRichText(text),
+      });
+      return true;
+    } catch (error) {
+      if (isNotionClientError(error)) return false;
+      throw error;
+    }
   }
 
   /**
@@ -121,21 +157,6 @@ export class NotionDocuments implements Documents {
       discussion_id: found.discussion_id,
       rich_text: [{ type: "text", text: { content: NOTION_ACKNOWLEDGEMENT } }],
     });
-  }
-
-  /** Comments on a page, oldest first. The author carries no email: Notion sends a partial user. */
-  async comments(pageId: string, since: string): Promise<DocumentComment[]> {
-    const listed = await this.client.comments.list({ block_id: pageId });
-    const sinceMs = Date.parse(since);
-    return listed.results
-      .filter((comment) => Date.parse(comment.created_time) >= sinceMs)
-      .map((comment) => ({
-        id: comment.id,
-        created_at: comment.created_time,
-        text: notionCommentText(comment),
-        author: { id: comment.created_by.id, email: null },
-      }))
-      .toSorted((left, right) => Date.parse(left.created_at) - Date.parse(right.created_at));
   }
 
   /**

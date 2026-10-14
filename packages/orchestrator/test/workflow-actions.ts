@@ -1,5 +1,7 @@
 import type { StopReason } from "@agentclientprotocol/sdk";
+import type { DocumentsCommenting } from "@artfct-ai/adapters/test/fake-documents";
 import { artifactTools } from "../src/agent/tools/artifact";
+import type { Review } from "../src/artifact/types";
 import { activeToolNames, type TurnFacts } from "../src/agent/prompt/system-prompt";
 import { FAIL_WORKFLOW, FINISH_WORKFLOW, planTools } from "../src/agent/tools/plan";
 import { startTools } from "../src/agent/tools/start/start";
@@ -339,6 +341,28 @@ const CLOSING_REVIEWS: Record<Exclude<ReviewOutcome, "no_review">, string> = {
   blocking: "Review: blocking\nThe issues miss the request.\n\n- Nothing covers the redirect.",
 };
 
+/** Page reviews whose findings quote a passage the page holds, one it does not, and none. */
+const PAGE_CLOSING_REVIEWS: Record<Exclude<ReviewOutcome, "no_review">, string> = {
+  approved: "Review: approved\nReady as it stands.",
+  findings: [
+    "Read the page.",
+    "",
+    "Review: findings",
+    "Two things to weigh.",
+    "",
+    '- "Keep one table": Options: one table mixes two lifetimes.',
+    '- "Merge the session rows": Options: the page never says this.',
+    "- Scope: the page names no metric.",
+  ].join("\n"),
+  blocking: [
+    "Review: blocking",
+    "The options miss the request.",
+    "",
+    `- "${PAGE_OPTION}": Options: the split loses the join.`,
+    "- Nothing covers the redirect.",
+  ].join("\n"),
+};
+
 /** What code can tell from the conclusion of a judge run. */
 export type JudgeOutcome = "approves" | "rejects" | "unclear" | "no_conclusion" | "decisions_fail";
 
@@ -353,6 +377,8 @@ const RULING_ANSWERS: Record<JudgeOutcome, DecisionAnswers> = {
 /** How the unfinished refiner run ends, whichever kind of run it is. */
 export type RefinerRunEnd = {
   reviewer: ReviewOutcome;
+  /** How the document host takes the comments of a page review. */
+  pageCommenting: DocumentsCommenting;
   judge: JudgeOutcome;
   polisher: PolishOutcome;
   stopReason: Exclude<StopReason, "cancelled">;
@@ -368,12 +394,15 @@ export type PolishOutcome = "pushed" | "nothing_pushed";
  * have pushed.
  */
 export function refinerRunEnds(index: number, end: RefinerRunEnd): WorkflowAction {
-  const label = `refiner run ends on ${end.stopReason}, ${end.closing} [reviewer ${end.reviewer} | judge ${end.judge} | polisher ${end.polisher}]`;
+  const label = `refiner run ends on ${end.stopReason}, ${end.closing} [reviewer ${end.reviewer} on a host that ${end.pageCommenting} | judge ${end.judge} | polisher ${end.polisher}]`;
   return authorAction(index, label, async (world, author) => {
     const run = world.refinerRunOf(author);
     const bridge = run ? await world.bridgeWithRunningTurn(run.task_id) : null;
     if (!run || !bridge) return undefined;
     const mode = world.reviewerEntryOf(run)?.mode ?? "polisher";
+    const reviewsPage = mode === "findings" && author.kind === "page";
+    const commentsBefore = world.pageHost.postedComments.length;
+    if (reviewsPage) world.pageHost.commenting = end.pageCommenting;
     if (mode === "findings") await fileFindingsReview(world, author, bridge, end.reviewer);
     if (mode === "judge") await closeJudgeTurn(world, bridge, end.judge);
     if (mode === "polisher" && end.polisher === "pushed") world.changeRevision(author);
@@ -382,9 +411,23 @@ export function refinerRunEnds(index: number, end: RefinerRunEnd): WorkflowActio
       await bridge.say(GAVE_UP_TEXT);
     }
     await bridge.endTurn(end.stopReason);
+    world.pageHost.commenting = "takes";
     const finished = end.stopReason === "end_turn" && end.closing === "reports_work";
-    return finished ? { refinerTurnEnd: { task_id: run.task_id } } : undefined;
+    const pageReview = reviewsPage
+      ? {
+          task_id: run.task_id,
+          review: reviewFiledBy(world, run.task_id),
+          comments: world.pageHost.postedComments.slice(commentsBefore),
+          hostUp: end.pageCommenting !== "down",
+        }
+      : null;
+    return { refinerTurnEnd: finished ? { task_id: run.task_id } : null, pageReview };
   });
+}
+
+function reviewFiledBy(world: WorkflowWorld, taskId: string): Review | null {
+  const result = world.workflow.store.requireTask(taskId).result;
+  return result?.kind === "review" ? result : null;
 }
 
 async function fileFindingsReview(
@@ -395,6 +438,7 @@ async function fileFindingsReview(
 ): Promise<void> {
   if (outcome === "no_review") return;
   if (author.kind === "pull") world.fileReview(author, HOST_REVIEWS[outcome]);
+  else if (author.kind === "page") await bridge.say(PAGE_CLOSING_REVIEWS[outcome]);
   else await bridge.say(CLOSING_REVIEWS[outcome]);
 }
 

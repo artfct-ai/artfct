@@ -553,7 +553,7 @@ describe("rule_on_review", () => {
     stubRulingModel(workflow, 0.5);
     const judge = workflow.store.refinerRunsOf(JOB)[0]!;
     workflow.store.updateTask(judge.task_id, { summary: JUDGE_CONCLUSION });
-    await onReviewerFinished(workflow, judge);
+    await onReviewerFinished(workflow, judge, "");
   });
 
   describe("a judge entry that waits for a person's ruling", () => {

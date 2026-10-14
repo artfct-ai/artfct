@@ -1,7 +1,7 @@
 import type {
   PageCommentRef,
-  DocumentComment,
   FetchedComment,
+  PassageComment,
 } from "@artfct-ai/adapters/documents/types";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { describe, expect, it } from "bun:test";
@@ -11,16 +11,23 @@ import type { Artifact, ArtifactTarget } from "./types";
 const PAGE_URL = "https://www.notion.so/acme/Design-0123456789abcdef0123456789abcdef";
 const PAGE_ID = "0123456789abcdef0123456789abcdef";
 const SELF_ID = "bot-1";
-const SINCE = "2026-09-01T00:00:00.000Z";
-const REVIEW_INPUT = { since: SINCE, turnText: "" };
+const SIGNATURE = "Reviewer: facts · run 1 · task t9";
 const ACTOR = { person_id: "p1", email: "dev@acme.test", display_name: "Dev" };
 
 const REVIEW_TEXT = [
+  "Read the page.",
+  "",
   "Review: findings",
   "The scope is wider than the request.",
   "",
-  "- No owner.",
+  '- "Each team owns its rollout": Rollout: No owner.',
+  "- The page names no metric.",
 ].join("\n");
+const REVIEW_INPUT = {
+  since: "2026-09-01T00:00:00.000Z",
+  turnText: REVIEW_TEXT,
+  signature: SIGNATURE,
+};
 
 function fetched(
   text: string,
@@ -49,26 +56,12 @@ async function hostDown(): Promise<FetchedComment | null> {
   throw new Error("docs host down");
 }
 
-function comment(options: {
-  id: string;
-  created_at: string;
-  text: string;
-  authorId: string | null;
-}): DocumentComment {
-  return {
-    id: options.id,
-    created_at: options.created_at,
-    text: options.text,
-    author: options.authorId ? { id: options.authorId, email: null } : null,
-  };
-}
-
 type Overrides = Partial<
   Pick<
     PageClients,
     | "page"
     | "removed"
-    | "comments"
+    | "commentOnPassages"
     | "fetchComment"
     | "heldComments"
     | "self"
@@ -84,7 +77,7 @@ function build(overrides: Overrides = {}): Artifact {
       url.startsWith("https://www.notion.so/") ? { page_id: PAGE_ID } : null,
     page: async () => ({ id: PAGE_ID, contentId: null, url: PAGE_URL, revision: "rev-2" }),
     removed: async () => false,
-    comments: async () => [],
+    commentOnPassages: async () => [],
     fetchComment: async () => fetched("Tighten the intro."),
     heldComments: async () => [],
     self: async () => ({ id: SELF_ID, name: "artfct" }),
@@ -94,7 +87,6 @@ function build(overrides: Overrides = {}): Artifact {
       create: "Write the design.",
       read: "Read it with the page tool.",
       change: "Change it with the page tool.",
-      report: "Post it with the page tool.",
     },
     pageParentHint: "the parent page.",
     mcp: () => null,
@@ -145,10 +137,15 @@ describe("agent review", () => {
     expect(build().review!.reviewerCredential).toBeNull();
   });
 
-  it("tells the reviewer the format and where to file it", () => {
+  it("tells the reviewer to end its turn with the review and to quote a passage", () => {
     const { report } = build().instructions;
+    expect(report).toContain("End the text of your turn with this block:");
     expect(report).toContain("Review: findings");
-    expect(report).toContain("Post it with the page tool.");
+    expect(report).toContain("quoted word for word from the page");
+  });
+
+  it("posts the review itself, so the reviewer does not sign anything", () => {
+    expect(build().review!.reviewerPosts).toBe(false);
   });
 
   it("has no acceptance the host can report", () => {
@@ -191,130 +188,65 @@ describe("readyMessage", () => {
 describe("review", () => {
   const ref = { kind: "page" as const, page_id: PAGE_ID };
 
-  it("takes the newest review this reviewer wrote", async () => {
-    const artifact = build({
-      comments: async () => [
-        comment({
-          id: "c1",
-          created_at: "2026-09-01T01:00:00.000Z",
-          text: "Review: blocking\nOld.",
-          authorId: SELF_ID,
-        }),
-        comment({
-          id: "c2",
-          created_at: "2026-09-01T02:00:00.000Z",
-          text: REVIEW_TEXT,
-          authorId: SELF_ID,
-        }),
-      ],
-    });
-    expect(await artifact.review!.postedReview(ref, REVIEW_INPUT)).toEqual({
+  function recording() {
+    const sent: string[] = [];
+    const overrides: Overrides = {
+      commentOnPassages: async (pageId: string, comments: PassageComment[]) => {
+        sent.push(...comments.map((comment) => `inline ${pageId} ${comment.passage}`));
+        return [];
+      },
+      comment: async (pageId, commentText) => void sent.push(`page ${pageId} ${commentText}`),
+      page: async () => {
+        sent.push("read revision");
+        return { id: PAGE_ID, contentId: null, url: PAGE_URL, revision: "rev-3" };
+      },
+    };
+    return { sent, overrides };
+  }
+
+  it("reads the review the reviewer ended its turn with", async () => {
+    expect(await build().review!.postedReview(ref, REVIEW_INPUT)).toEqual({
       kind: "review",
       revision: "rev-2",
       blocking: false,
       summary: "The scope is wider than the request.",
-      findings: [{ body: "No owner." }],
-    });
-  });
-
-  it("asks for the comments of the page since the reviewer started", async () => {
-    const asked: Array<[string, string]> = [];
-    const artifact = build({
-      comments: async (pageId, since) => {
-        asked.push([pageId, since]);
-        return [];
-      },
-    });
-    await artifact.review!.postedReview(ref, REVIEW_INPUT);
-    expect(asked).toEqual([[PAGE_ID, SINCE]]);
-  });
-
-  it("ignores a human's comment", async () => {
-    const artifact = build({
-      comments: async () => [
-        comment({
-          id: "c1",
-          created_at: "2026-09-01T03:00:00.000Z",
-          text: REVIEW_TEXT,
-          authorId: "human-1",
-        }),
+      findings: [
+        { passage: "Each team owns its rollout", location: "Rollout", body: "No owner." },
+        { body: "The page names no metric." },
       ],
     });
-    expect(await artifact.review!.postedReview(ref, REVIEW_INPUT)).toBeNull();
   });
 
-  it("ignores a comment of its own that is not a review", async () => {
-    const artifact = build({
-      comments: async () => [
-        comment({
-          id: "c1",
-          created_at: "2026-09-01T03:00:00.000Z",
-          text: "Reading the page now.",
-          authorId: SELF_ID,
-        }),
-      ],
-    });
-    expect(await artifact.review!.postedReview(ref, REVIEW_INPUT)).toBeNull();
+  it("posts the quoted finding inline and the outcome on the page, then reads the revision", async () => {
+    const { sent, overrides } = recording();
+    const review = await build(overrides).review!.postedReview(ref, REVIEW_INPUT);
+    expect(sent).toEqual([
+      `inline ${PAGE_ID} Each team owns its rollout`,
+      expect.stringMatching(new RegExp(`^page ${PAGE_ID} Review: findings`)),
+      "read revision",
+    ]);
+    expect(review?.revision).toBe("rev-3");
   });
 
-  it("takes the newest review past a later comment that is not one", async () => {
-    const artifact = build({
-      comments: async () => [
-        comment({
-          id: "c1",
-          created_at: "2026-09-01T01:00:00.000Z",
-          text: REVIEW_TEXT,
-          authorId: SELF_ID,
-        }),
-        comment({
-          id: "c2",
-          created_at: "2026-09-01T02:00:00.000Z",
-          text: "One more thought.",
-          authorId: SELF_ID,
-        }),
-      ],
-    });
-    expect((await artifact.review!.postedReview(ref, REVIEW_INPUT))?.summary).toBe(
-      "The scope is wider than the request.",
-    );
+  it("is null and posts nothing when the turn text carries no review", async () => {
+    const { sent, overrides } = recording();
+    const input = { ...REVIEW_INPUT, turnText: "Read the page." };
+    expect(await build(overrides).review!.postedReview(ref, input)).toBeNull();
+    expect(sent).toEqual([]);
   });
 
-  it("is null when the host will not say which user is ours", async () => {
-    const artifact = build({
-      self: async () => null,
-      comments: async () => [
-        comment({
-          id: "c1",
-          created_at: "2026-09-01T03:00:00.000Z",
-          text: REVIEW_TEXT,
-          authorId: SELF_ID,
-        }),
-      ],
-    });
-    expect(await artifact.review!.postedReview(ref, REVIEW_INPUT)).toBeNull();
-  });
-
-  it("is null when the host cannot be reached", async () => {
+  it("returns the review when the host cannot be reached", async () => {
     const lines: string[] = [];
-    const artifact = pageArtifact({
-      readUrl: async () => null,
-      page: async () => null,
-      removed: async () => false,
-      comments: async () => {
+    const artifact = build({
+      commentOnPassages: async () => {
         throw new Error("docs host down");
       },
-      fetchComment: async () => null,
-      heldComments: async () => [],
-      self: async () => ({ id: SELF_ID, name: "artfct" }),
-      comment: async () => {},
-      acknowledgeComment: async () => {},
-      instructions: { create: "", read: "", change: "", report: "" },
-      pageParentHint: "",
-      mcp: () => null,
-      notes: "",
+      comment: async () => {
+        throw new Error("docs host down");
+      },
       log: (line) => lines.push(line),
     });
-    expect(await artifact.review!.postedReview(ref, REVIEW_INPUT)).toBeNull();
+    expect((await artifact.review!.postedReview(ref, REVIEW_INPUT))?.findings).toHaveLength(2);
     expect(lines.join(" ")).toContain("docs host down");
   });
 

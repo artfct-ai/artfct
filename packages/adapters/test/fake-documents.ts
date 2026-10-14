@@ -1,12 +1,13 @@
+import { textHoldsPassage } from "../src/documents/passage";
 import type {
   PageCommentRef,
-  DocumentComment,
   DocumentPage,
   Documents,
   DocumentsUser,
   FetchedComment,
   HeldComment,
   PageNesting,
+  PassageComment,
 } from "../src/documents/types";
 import { CallLog, type RecordedCall } from "./calls";
 
@@ -19,8 +20,6 @@ export type DocumentsAnswers = {
   comments?: Record<string, FetchedComment | null>;
   /** The comments `heldComments` answers with at first, until they are acknowledged. */
   held?: HeldComment[];
-  /** The comments every `comments` call answers with, before the `since` filter. */
-  pageComments?: DocumentComment[];
   /** The page every `document` call answers with. */
   document?: DocumentPage | null;
   /** Page id by page URL. A URL not listed resolves to null. */
@@ -40,6 +39,16 @@ export type DocumentsAnswers = {
 /** Methods a `FakeDocuments` records. */
 export type DocumentsMethod = Exclude<keyof Documents, "nesting"> | keyof PageNesting;
 
+/**
+ * How the host takes comments at the moment. `takes` posts what it can. `drops_inline` leaves
+ * every passage comment unposted, the way a block the host will not comment on does.
+ * `inline_throws` fails each passage call, and `down` fails every comment call.
+ */
+export type DocumentsCommenting = "takes" | "drops_inline" | "inline_throws" | "down";
+
+/** A comment the fake host took. */
+export type PostedComment = { pageId: string; passage: string | null; text: string };
+
 /** An in-memory `Documents` that answers from `DocumentsAnswers` and records every call. */
 export class FakeDocuments implements Documents {
   readonly nesting: PageNesting | null;
@@ -48,6 +57,10 @@ export class FakeDocuments implements Documents {
   private readonly pageTitles = new Map<string, string>();
   private readonly acknowledged = new Set<string>();
   private readonly held: HeldComment[];
+  /** How the host takes comments now. A test changes it between calls. */
+  commenting: DocumentsCommenting = "takes";
+  /** Every comment the host took, oldest first. `passage` is set on a comment on a block. */
+  readonly postedComments: PostedComment[] = [];
 
   constructor(private readonly answers: DocumentsAnswers = {}) {
     this.log = new CallLog(answers.failing ?? false);
@@ -157,19 +170,28 @@ export class FakeDocuments implements Documents {
 
   async comment(pageId: string, text: string): Promise<void> {
     this.log.record("comment", pageId, text);
+    if (this.commenting === "down") throw new Error("comment: the host is down");
+    this.postedComments.push({ pageId, passage: null, text });
+  }
+
+  /** A passage comment posts when the page text holds its passage and the host takes it. */
+  async commentOnPassages(pageId: string, comments: PassageComment[]): Promise<PassageComment[]> {
+    this.log.record("commentOnPassages", pageId, comments);
+    if (this.commenting === "inline_throws" || this.commenting === "down") {
+      throw new Error("commentOnPassages: the host is down");
+    }
+    if (this.commenting === "drops_inline") return comments;
+    const pageText = this.pageTexts.get(pageId) ?? "";
+    const unposted = comments.filter((comment) => !textHoldsPassage(pageText, comment.passage));
+    for (const comment of comments) {
+      if (!unposted.includes(comment)) this.postedComments.push({ pageId, ...comment });
+    }
+    return unposted;
   }
 
   async acknowledgeComment(comment: PageCommentRef): Promise<void> {
     this.log.record("acknowledgeComment", comment);
     this.acknowledged.add(comment.commentId);
-  }
-
-  async comments(pageId: string, since: string): Promise<DocumentComment[]> {
-    this.log.record("comments", pageId, since);
-    const sinceMs = Date.parse(since);
-    return (this.answers.pageComments ?? []).filter(
-      (comment) => Date.parse(comment.created_at) >= sinceMs,
-    );
   }
 
   async fetchComment(commentId: string): Promise<FetchedComment | null> {

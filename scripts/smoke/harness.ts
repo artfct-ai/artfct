@@ -246,6 +246,7 @@ export async function resetMockNotion(): Promise<void> {
 export type MockNotionComment = {
   id: string;
   page_id: string;
+  block_id: string | null;
   created_time: string;
   text: string;
 };

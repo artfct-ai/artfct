@@ -33,6 +33,7 @@ export function issuesArtifact(clients: IssuesClients): Artifact {
     review: {
       revision: async () => null,
       postedReview: async (_ref, input) => turnTextReview(input.turnText),
+      reviewerPosts: false,
       reviewerCredential: null,
       replyInstructions: "Say so in the text of your turn.",
       postRejection: null,

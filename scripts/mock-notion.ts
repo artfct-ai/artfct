@@ -1,9 +1,9 @@
 #!/usr/bin/env bun
 /**
  * Mock Notion API for the smoke run: create a page, retrieve it, read and replace its markdown,
- * list and create comments on it, list its blocks, and read the bot user of the token. Every page
- * id is answered, a page this host did not create reads as empty markdown, and no page has blocks.
- * `GET /__state` returns what it holds and `POST /__reset` clears it.
+ * list and create comments on it and on its blocks, list its blocks, and read the bot user of the
+ * token. Every page id is answered. A page this host did not create reads as empty markdown and
+ * holds one paragraph block. `GET /__state` returns what it holds and `POST /__reset` clears it.
  */
 
 /** The bot user every request acts as, which is what the reviewer's comments are written by. */
@@ -12,9 +12,14 @@ const BOT_USER_ID = "00000000-0000-4000-8000-000000000bot";
 /** When a page was last edited. Fixed, so a review of it is never stale in the smoke. */
 const PAGE_EDITED_AT = "2026-01-01T00:00:00.000Z";
 
+/** The one paragraph a page this host did not create holds, which a mock reviewer can quote. */
+const UNWRITTEN_PAGE_TEXT = "Each team runs the migration step once.";
+
+/** A comment on a page, or on one block of it when `block_id` is set. */
 type StoredComment = {
   id: string;
   page_id: string;
+  block_id: string | null;
   created_time: string;
   text: string;
 };
@@ -74,9 +79,45 @@ function commentText(body: Record<string, unknown>): string {
     .join("");
 }
 
+function blockId(pageId: string, index: number): string {
+  return `${pageId}-${index}`;
+}
+
+function pageOfBlock(id: string): string {
+  return id.split("-")[0]!;
+}
+
+/** The text of each block of a page: each line of its markdown, or the unwritten page's one paragraph. */
+function blockTexts(pageId: string): string[] {
+  const page = state.pages.find((stored) => stored.id === pageId);
+  if (!page) return [UNWRITTEN_PAGE_TEXT];
+  return (page.markdown_versions.at(-1) ?? "")
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+}
+
+function listBlocks(pageId: string): Response {
+  const results = blockTexts(pageId).map((text, index) => ({
+    object: "block",
+    id: blockId(pageId, index),
+    type: "paragraph",
+    has_children: false,
+    paragraph: { rich_text: [{ type: "text", plain_text: text, text: { content: text } }] },
+  }));
+  return Response.json({
+    object: "list",
+    type: "block",
+    block: {},
+    next_cursor: null,
+    has_more: false,
+    results,
+  });
+}
+
 function createComment(body: Record<string, unknown>): Response {
   const parent = body.parent as { page_id?: string; block_id?: string } | undefined;
-  const pageId = parent?.page_id ?? parent?.block_id;
+  const pageId = parent?.page_id ?? (parent?.block_id ? pageOfBlock(parent.block_id) : undefined);
   if (!pageId) {
     return Response.json(
       { object: "error", status: 400, message: "no page parent" },
@@ -86,17 +127,18 @@ function createComment(body: Record<string, unknown>): Response {
   const comment: StoredComment = {
     id: `comment-${state.comments.length + 1}`,
     page_id: pageId,
+    block_id: parent?.block_id ?? null,
     created_time: new Date().toISOString(),
     text: commentText(body),
   };
   state.comments.push(comment);
-  log(`comment on ${pageId}: ${comment.text.split("\n")[0]}`);
+  log(`comment on ${comment.block_id ?? pageId}: ${comment.text.split("\n")[0]}`);
   return Response.json(commentObject(comment));
 }
 
-function listComments(blockId: string | null): Response {
+function listComments(parentId: string | null): Response {
   const results = state.comments
-    .filter((comment) => comment.page_id === blockId)
+    .filter((comment) => (comment.block_id ?? comment.page_id) === parentId)
     .map(commentObject);
   return Response.json({
     object: "list",
@@ -178,16 +220,8 @@ async function handle(request: Request): Promise<Response> {
     return createComment((await request.json()) as Record<string, unknown>);
   }
   if (pathname === "/v1/comments") return listComments(url.searchParams.get("block_id"));
-  if (/^\/v1\/blocks\/[^/]+\/children$/.test(pathname)) {
-    return Response.json({
-      object: "list",
-      type: "block",
-      block: {},
-      next_cursor: null,
-      has_more: false,
-      results: [],
-    });
-  }
+  const children = /^\/v1\/blocks\/([^/]+)\/children$/.exec(pathname);
+  if (children) return listBlocks(children[1]!);
   if (pathname === "/v1/pages" && request.method === "POST") {
     return createPage((await request.json()) as Record<string, unknown>);
   }

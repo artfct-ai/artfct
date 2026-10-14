@@ -56,3 +56,44 @@ describe("FakeDocuments nesting", () => {
     await expect(documents.nesting?.renamePage("missing", "x")).rejects.toThrow("missing");
   });
 });
+
+describe("FakeDocuments comments", () => {
+  const onPage = { passage: "first  **draft**", text: "Name the owner." };
+  const elsewhere = { passage: "a passage the page lacks", text: "Elsewhere." };
+
+  async function commented(commenting: FakeDocuments["commenting"]) {
+    const documents = new FakeDocuments();
+    documents.seedPage("p1", "# Design\n\nFirst draft.");
+    documents.commenting = commenting;
+    const unposted = await documents
+      .commentOnPassages("p1", [onPage, elsewhere])
+      .catch((error: Error) => error.message);
+    return { documents, unposted };
+  }
+
+  it("posts a comment whose passage the page holds and returns the rest", async () => {
+    const { documents, unposted } = await commented("takes");
+    expect(unposted).toEqual([elsewhere]);
+    expect(documents.postedComments).toEqual([{ pageId: "p1", ...onPage }]);
+  });
+
+  it("returns every passage comment when it drops them", async () => {
+    const { documents, unposted } = await commented("drops_inline");
+    expect(unposted).toEqual([onPage, elsewhere]);
+    expect(documents.postedComments).toEqual([]);
+  });
+
+  it("throws on passage comments when they fail", async () => {
+    expect((await commented("inline_throws")).unposted).toContain("the host is down");
+  });
+
+  it("takes a page comment unless the host is down", async () => {
+    const documents = new FakeDocuments();
+    await documents.comment("p1", "Review: approved");
+    documents.commenting = "down";
+    await expect(documents.comment("p1", "Review: approved")).rejects.toThrow("down");
+    expect(documents.postedComments).toEqual([
+      { pageId: "p1", passage: null, text: "Review: approved" },
+    ]);
+  });
+});

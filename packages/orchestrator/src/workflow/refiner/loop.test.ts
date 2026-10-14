@@ -357,7 +357,7 @@ describe("the board through a review", () => {
       submittedReview({ state: "CHANGES_REQUESTED", body: "BLOCKING: fix the redirect." }),
       [{ path: "src/login.ts", line: 12, body: "This drops the error." }],
     );
-    await onReviewerFinished(workflow, reviewerOf(workflow));
+    await onReviewerFinished(workflow, reviewerOf(workflow), "");
   });
 
   const routed = afterStart(async (workflow) => {
@@ -367,7 +367,7 @@ describe("the board through a review", () => {
 
   const handedOver = afterStart(async (workflow) => {
     workflow.codeHostInstance = reviewHost(submittedReview());
-    await onReviewerFinished(workflow, reviewerOf(workflow));
+    await onReviewerFinished(workflow, reviewerOf(workflow), "");
   });
 
   const broken = afterStart(async (workflow) => {
@@ -519,7 +519,7 @@ describe("onReviewerFinished", () => {
         [{ path: "src/login.ts", line: 12, body: "This drops the error." }],
       );
       workflow.store.updateSandbox(TASK, { prompt_in_flight: 1 });
-      await onReviewerFinished(workflow, reviewerOf(workflow));
+      await onReviewerFinished(workflow, reviewerOf(workflow), "");
     });
 
     it("sends it to the author", () =>
@@ -564,7 +564,7 @@ describe("onReviewerFinished", () => {
   describe("a review with nothing in it", () => {
     const clean = scenario(started, async (workflow) => {
       workflow.codeHostInstance = reviewHost(submittedReview());
-      await onReviewerFinished(workflow, reviewerOf(workflow));
+      await onReviewerFinished(workflow, reviewerOf(workflow), "");
     });
 
     it("gives the artifact to the humans", () =>
@@ -581,7 +581,7 @@ describe("onReviewerFinished", () => {
   describe("a prompt that reaches the author while the segment's review is being read", () => {
     const caught = scenario(started, async (workflow) => {
       workflow.codeHostInstance = new PromptArrivesDuringRevision(workflow, submittedReview());
-      await onReviewerFinished(workflow, reviewerOf(workflow));
+      await onReviewerFinished(workflow, reviewerOf(workflow), "");
     });
 
     it("hands the artifact to nobody, since the author is about to rewrite it", () =>
@@ -607,7 +607,7 @@ describe("onReviewerFinished", () => {
         reviews: { 1: [review] },
         reviewComments: { [review.id]: commentsOf([]) },
       });
-      await onReviewerFinished(workflow, reviewerOf(workflow));
+      await onReviewerFinished(workflow, reviewerOf(workflow), "");
     });
 
     it("still settles the artifact", () =>
@@ -618,7 +618,7 @@ describe("onReviewerFinished", () => {
 
   describe("a reviewer that filed no review at all", () => {
     const silent = scenario(started, async (workflow) => {
-      await onReviewerFinished(workflow, reviewerOf(workflow));
+      await onReviewerFinished(workflow, reviewerOf(workflow), "");
     });
 
     it("gives the artifact to the humans, since nothing holds it", () =>
@@ -641,7 +641,7 @@ describe("onReviewerFinished", () => {
           501: commentsOf([{ path: "src/login.ts", line: 12, body: "This drops the error." }]),
         },
       });
-      await onReviewerFinished(workflow, reviewerOf(workflow));
+      await onReviewerFinished(workflow, reviewerOf(workflow), "");
     });
 
     it("sends nothing to the author", () =>
@@ -675,7 +675,7 @@ describe("onReviewerFinished", () => {
             501: commentsOf([{ path: "src/login.ts", line: 12, body: "This drops the error." }]),
           },
         });
-        await onReviewerFinished(workflow, reviewerOf(workflow));
+        await onReviewerFinished(workflow, reviewerOf(workflow), "");
       });
 
       it("starts nothing and lets the settle path route the artifact", () =>
@@ -690,7 +690,7 @@ describe("onReviewerFinished", () => {
     const dropped = scenario(started, async (workflow) => {
       const reviewer = reviewerOf(workflow);
       workflow.store.setArtifactRefinerRun(JOB, "wf_x.9");
-      await onReviewerFinished(workflow, reviewer);
+      await onReviewerFinished(workflow, reviewer, "");
     });
 
     it("leaves the artifact alone", () =>
@@ -715,7 +715,7 @@ describe("onReviewerFinished", () => {
     const late = scenario(started, async (workflow) => {
       const reviewer = reviewerOf(workflow);
       workflow.store.advanceArtifact(JOB, ["drafted"], "ready");
-      await onReviewerFinished(workflow, reviewer);
+      await onReviewerFinished(workflow, reviewer, "");
     });
 
     it("announces nothing a second time", () =>
@@ -733,9 +733,9 @@ describe("onReviewerFinished", () => {
     it("does nothing the second time", () =>
       started(async (workflow) => {
         const reviewer = reviewerOf(workflow);
-        await onReviewerFinished(workflow, reviewer);
+        await onReviewerFinished(workflow, reviewer, "");
         const before = workflow.store.refinerRunsOf(JOB).length;
-        await onReviewerFinished(workflow, reviewer);
+        await onReviewerFinished(workflow, reviewer, "");
         expect(workflow.store.refinerRunsOf(JOB)).toHaveLength(before);
       }));
   });
@@ -751,7 +751,7 @@ function reviewerFor(workflow: FakeRuntime, index: number) {
 async function judgeFinished(workflow: FakeRuntime) {
   const judge = reviewerFor(workflow, 0);
   workflow.store.updateTask(judge.task_id, { summary: JUDGE_CONCLUSION });
-  await onReviewerFinished(workflow, judge);
+  await onReviewerFinished(workflow, judge, "");
 }
 
 describe("a reviewer list with several entries", () => {
@@ -792,7 +792,7 @@ describe("a reviewer list with several entries", () => {
   describe("a mid-segment entry hands its review on", () => {
     const mid = scenario(opened, async (workflow) => {
       await judgeFinished(workflow);
-      await onReviewerFinished(workflow, reviewerFor(workflow, 1));
+      await onReviewerFinished(workflow, reviewerFor(workflow, 1), "");
     });
 
     it("starts the last entry of the list", () =>
@@ -809,8 +809,8 @@ describe("a reviewer list with several entries", () => {
   describe("the last entry settles the segment", () => {
     const settled = scenario(opened, async (workflow) => {
       await judgeFinished(workflow);
-      await onReviewerFinished(workflow, reviewerFor(workflow, 1));
-      await onReviewerFinished(workflow, reviewerFor(workflow, 2));
+      await onReviewerFinished(workflow, reviewerFor(workflow, 1), "");
+      await onReviewerFinished(workflow, reviewerFor(workflow, 2), "");
     });
 
     it("releases the artifact when nobody filed anything", () =>
@@ -835,7 +835,7 @@ describe("a reviewer list with several entries", () => {
       await settleRefinersForAuthor(workflow, seedPullRequestTask(workflow));
       const first = reviewerOf(workflow);
       workflow.store.enqueuePrompt(TASK, "a human asked for more work");
-      await onReviewerFinished(workflow, first);
+      await onReviewerFinished(workflow, first, "");
     });
 
     it("starts no next entry on an artifact the author is about to rewrite", () =>
@@ -882,7 +882,7 @@ describe("a reviewer list with several entries", () => {
           findings: [],
         },
       });
-      await onReviewerFinished(workflow, first);
+      await onReviewerFinished(workflow, first, "");
       const second = reviewerOf(workflow);
       workflow.store.updateTask(second.task_id, {
         result: {
@@ -896,7 +896,7 @@ describe("a reviewer list with several entries", () => {
       workflow.codeHostInstance = new FakeCodeHost({
         pulls: [pullRequest({ number: 1, head: { ref: "artfct/wf_x-1-fix", sha: "def456" } })],
       });
-      await onReviewerFinished(workflow, second);
+      await onReviewerFinished(workflow, second, "");
     });
 
     it("runs the segment again from its first entry", () =>
@@ -944,12 +944,12 @@ describe("a reviewer list with several entries", () => {
       workflow.store.updateTask(first.task_id, {
         result: storedReview("Two loose ends.", "One", false),
       });
-      await onReviewerFinished(workflow, first);
+      await onReviewerFinished(workflow, first, "");
       const second = reviewerFor(workflow, 1);
       workflow.store.updateTask(second.task_id, {
         result: storedReview("One more.", "Two", true),
       });
-      await onReviewerFinished(workflow, second);
+      await onReviewerFinished(workflow, second, "");
     });
 
     it("sends the merged review to the author", () =>
@@ -992,13 +992,13 @@ describe("a reviewer list with several entries", () => {
         started_at: "2026-09-03T10:00:00.000Z",
         result: storedReview("Run one review.", "stale finding", true),
       });
-      await onReviewerFinished(workflow, firstRoundReview);
+      await onReviewerFinished(workflow, firstRoundReview, "");
       const firstRoundFinal = reviewerOf(workflow);
       workflow.store.updateTask(firstRoundFinal.task_id, {
         started_at: "2026-09-03T10:00:00.000Z",
         result: storedReview("Run one final.", "stale too", true),
       });
-      await onReviewerFinished(workflow, firstRoundFinal);
+      await onReviewerFinished(workflow, firstRoundFinal, "");
       for (const row of workflow.store.queue()) workflow.store.dequeuePrompt(row.id);
       workflow.store.updateTask(TASK, { status: "in_review" });
       await startRefiner(workflow, workflow.store.requireTask(TASK), 0);
@@ -1006,12 +1006,12 @@ describe("a reviewer list with several entries", () => {
       workflow.store.updateTask(secondRoundReview.task_id, {
         result: storedReview("Run two review.", "fresh finding", true),
       });
-      await onReviewerFinished(workflow, secondRoundReview);
+      await onReviewerFinished(workflow, secondRoundReview, "");
       const secondRoundFinal = reviewerOf(workflow);
       workflow.store.updateTask(secondRoundFinal.task_id, {
         result: storedReview("Run two final.", "fresh too", true),
       });
-      await onReviewerFinished(workflow, secondRoundFinal);
+      await onReviewerFinished(workflow, secondRoundFinal, "");
     });
 
     it("sends only the reviews of the run that just ran", () =>
@@ -1068,7 +1068,7 @@ describe("a judge entry", () => {
       stubRulingModel(workflow, rejects);
       await settleRefinersForAuthor(workflow, seedPullRequestTask(workflow));
       workflow.store.updateTask(judgeOf(workflow).task_id, { summary: turnText });
-      await onReviewerFinished(workflow, judgeOf(workflow));
+      await onReviewerFinished(workflow, judgeOf(workflow), "");
     });
   }
 
@@ -1188,7 +1188,7 @@ describe("a judge entry", () => {
           .refinerRunsOf(JOB)
           .findLast((run) => run.refiner_index === 1)!;
         workflow.store.enqueuePrompt(TASK, "a human asked for more work");
-        await onReviewerFinished(workflow, second);
+        await onReviewerFinished(workflow, second, "");
       },
     );
 
@@ -1239,7 +1239,7 @@ describe("a judge entry", () => {
       stubRulingModel(workflow, 0.97);
       await settleRefinersForAuthor(workflow, seedIssuesTask(workflow));
       workflow.store.updateTask(judgeOf(workflow).task_id, { summary: REJECTION });
-      await onReviewerFinished(workflow, judgeOf(workflow));
+      await onReviewerFinished(workflow, judgeOf(workflow), "");
     });
 
     it("posts the signed conclusion in the thread", () =>
@@ -1307,8 +1307,7 @@ describe("onReviewerFinished for a reviewer of issues", () => {
   function closedWith(turnText: string) {
     return scenario(reviewed, async (workflow) => {
       const reviewer = reviewerOf(workflow);
-      workflow.store.updateTask(reviewer.task_id, { summary: turnText });
-      await onReviewerFinished(workflow, workflow.store.requireTask(reviewer.task_id));
+      await onReviewerFinished(workflow, workflow.store.requireTask(reviewer.task_id), turnText);
     });
   }
 

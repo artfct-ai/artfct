@@ -1,4 +1,5 @@
 import type { ArtifactInstructions, Feedback, Finding, Review } from "../artifact/types";
+import { findingText } from "../artifact/review-text";
 import { artifactActionSections } from "./artifact-sections";
 import type { TaskContext } from "./task-prompt";
 
@@ -18,14 +19,23 @@ type ReviewSubject = {
   researchPayload: string | null;
 };
 
-/** The first prompt of a findings reviewer. It gets the request, never the author's story. */
-export function reviewPrompt(options: ReviewSubject & { signatureLine: string }): string {
+/**
+ * The first prompt of a findings reviewer. It gets the request, never the author's story. A
+ * reviewer that posts its review itself signs it with `signatureLine`. Null when code posts it.
+ */
+export function reviewPrompt(options: ReviewSubject & { signatureLine: string | null }): string {
+  const signLines =
+    options.signatureLine === null
+      ? []
+      : [
+          "",
+          "## Sign what you post",
+          "End the text you post with this line, exactly as written, as its own last line:",
+          options.signatureLine,
+        ];
   return [
     ...subjectLines(options),
-    "",
-    "## Sign what you post",
-    "End the text you post with this line, exactly as written, as its own last line:",
-    options.signatureLine,
+    ...signLines,
     ...artifactActionSections(options.artifact, ["read", "report"]),
   ].join("\n");
 }
@@ -151,11 +161,5 @@ function answerLines(replyInstructions: string): string[] {
 
 function findingLines(findings: Finding[]): string[] {
   if (!findings.length) return [];
-  return [
-    "",
-    "Comments:",
-    ...findings.map(
-      (finding) => `- ${[finding.location, finding.body.trim()].filter(Boolean).join(" ")}`,
-    ),
-  ];
+  return ["", "Comments:", ...findings.map((finding) => `- ${findingText(finding)}`)];
 }

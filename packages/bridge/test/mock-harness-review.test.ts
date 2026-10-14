@@ -26,14 +26,22 @@ describe("reviewedPageId", () => {
 
 describe("nextReview", () => {
   it("files findings when nothing has been filed", () => {
-    expect(nextReview([])).toStartWith("Review: findings");
+    expect(nextReview([], null)).toStartWith("Review: findings");
   });
 
   it("files findings when the page only holds other comments", () => {
-    expect(nextReview(["Please add the owner."])).toStartWith("Review: findings");
+    expect(nextReview(["Please add the owner."], null)).toStartWith("Review: findings");
   });
 
   it("approves once a review already stands", () => {
-    expect(nextReview(["Review: findings\n- Rollout"])).toStartWith("Review: approved");
+    expect(nextReview(["Review: findings\n- Rollout"], null)).toStartWith("Review: approved");
+  });
+
+  it("quotes the passage in its first finding", () => {
+    expect(nextReview([], "Each team runs it.")).toContain('- "Each team runs it.": Rollout:');
+  });
+
+  it("quotes nothing when the page has no passage", () => {
+    expect(nextReview([], null)).toContain("- Rollout:");
   });
 });

@@ -174,10 +174,23 @@ async function assertPageReviewRound(
     `${stage}: the artifact holds no open reviewer`,
   );
 
-  const comments = (await fetchMockNotionComments()).filter(
+  const onPage = (await fetchMockNotionComments()).filter(
     (comment) => comment.page_id === notionPageId(stage),
   );
-  assertEqual(comments.length, 2, `${stage}: one comment per review`);
+  const comments = onPage.filter((comment) => comment.block_id === null);
+  const inline = onPage.filter((comment) => comment.block_id !== null);
+  assertEqual(comments.length, 2, `${stage}: one outcome comment per review`);
+  assertEqual(inline.length, 1, `${stage}: the finding that quotes a passage sits on its block`);
+  assert(
+    inline[0]!.text.includes("Reviewer: "),
+    `${stage}: the inline finding carries the reviewer's signature`,
+    inline[0],
+  );
+  assert(
+    comments[0]!.text.includes("1 finding is on the block it quotes."),
+    `${stage}: the outcome comment counts the inline finding`,
+    comments[0],
+  );
   assert(
     comments[0]!.text.startsWith("Review: findings"),
     `${stage}: the first review filed findings`,
