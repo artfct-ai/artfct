@@ -3,6 +3,8 @@ import { z } from "zod";
 import { changeWorkflowStatus, completeWorkflow, failWorkflow } from "../../workflow/lifecycle";
 import { isWorkflowFinished } from "../../workflow/store/state";
 import type { WorkflowRuntime } from "../../workflow/types";
+import type { WorkflowDefinition } from "../../config/workflow-definition";
+import { stageLines } from "../prompt/stage-lines";
 import { planPages } from "./page-plan";
 
 /** The tool that ends the workflow as done. */
@@ -13,11 +15,16 @@ export const FAIL_WORKFLOW = "fail_workflow";
 /** How the agent plans the route and ends the workflow. Kept next to the tools that do it. */
 export const PLAN_RULES = `## Workflow Planning Protocol
 
+### Workflow Definition Selection
+* **Pick** the one workflow definition from the Workflow definitions list whose description fits the request.
+* **Call** \`set_plan(name, definition)\` without stages to start the workflow. Its answer lists the stages of that workflow definition.
+* **Keep** the workflow definition the workflow started with. A later \`set_plan\` call names the same one.
+
 ### Stage Formulation & Planning
 * **Map** the fewest stages from the Stages list, in its order, that take the request from its input artifacts to the deliverable it asks for.
 * **Start** the plan at the stage after the last stage that produces the request's artifact. A request that links a page or a pull request, or names a tracker issue, already has that artifact. Pass the link to \`start_job\` as \`artifact\`, or the issue identifier as \`issue\`, on the first job. Plan an earlier stage only if the request asks for it by name.
 * **Default** to the single stage that produces the deliverable unless the request asks for more stages.
-* **Call** \`set_plan(name, stages, repo)\` when a message asks for work, and again whenever scope or requirements change.
+* **Call** \`set_plan(name, definition, stages, repo)\` once the workflow started, and again whenever scope or requirements change.
 
 ### Plan Naming Standards
 * **Assign** a concise, deliverable-focused title describing the end-state product.
@@ -48,7 +55,7 @@ export function planTools(workflow: WorkflowRuntime) {
   return {
     set_plan: tool({
       description:
-        "Set the stages you intend to run, in order, the repository, the page parent, the root page, and how many jobs may run at once. Stage names must come from the config. The plan is a guide you can change at any time: call it again when the request changes or a human asks for a different route.",
+        "Start the workflow from a workflow definition, then set the stages you intend to run, in order, the repository, the page parent, the root page, and how many jobs may run at once. The first call names the workflow definition and may leave out the stages. Its answer lists the stages of that workflow definition. Stage names must come from that list. The plan is a guide you can change at any time: call it again when the request changes or a human asks for a different route.",
       inputSchema: z.object({
         name: z
           .string()
@@ -56,18 +63,32 @@ export function planTools(workflow: WorkflowRuntime) {
           .describe(
             "a short display name for the whole workflow, a few words on what it delivers. Every reader shows it.",
           ),
-        stages: z.array(z.string()).min(1),
+        definition: z
+          .string()
+          .min(1)
+          .describe(
+            "the name of the workflow definition the workflow runs. The call that starts the workflow picks it, and every later call names the same one.",
+          ),
+        stages: z
+          .array(z.string())
+          .min(1)
+          .optional()
+          .describe(
+            "the stages to run, in order. Leave them out only on the call that starts the workflow.",
+          ),
         repo: z
           .string()
           .nullable()
+          .optional()
           .describe(
-            "owner/name. Set it whenever the context names one, in every stage, so the harness can read the source. Null only when nothing names one and no stage needs one.",
+            "owner/name. Set it whenever the context names one, in every stage, so the harness can read the source. Null only when nothing names one and no stage needs one. Used only with stages.",
           ),
         page_parent: z
           .string()
           .nullable()
+          .optional()
           .describe(
-            `where the document host puts this workflow's pages: ${pageParentHint} Set it whenever the context names one.`,
+            `where the document host puts this workflow's pages: ${pageParentHint} Set it whenever the context names one. Used only with stages.`,
           ),
         root_page: z
           .string()
@@ -134,42 +155,107 @@ function validateJobsFinished(workflow: WorkflowRuntime): string | null {
 
 type PlanInput = {
   name: string;
-  stages: string[];
-  repo: string | null;
-  page_parent: string | null;
+  definition: string;
+  stages?: string[];
+  repo?: string | null;
+  page_parent?: string | null;
   root_page?: string | null;
   reason: string;
   concurrency?: number;
 };
 
+/**
+ * Validate that a plan names the workflow definition the workflow started with. Null before the
+ * start and when the names match.
+ */
+function validateDefinitionKept(stored: string | null, named: string): string | null {
+  if (stored === null || stored === named) return null;
+  return `The workflow runs workflow definition ${stored}, and a plan cannot change it. Call set_plan with definition ${stored}.`;
+}
+
+/** Validate that every planned stage is a stage of the workflow definition. */
+function validateStagesKnown(definition: WorkflowDefinition, planned: string[]): string | null {
+  const known = new Set(definition.stages.map((stage) => stage.name));
+  const unknown = planned.filter((name) => !known.has(name));
+  if (unknown.length === 0) return null;
+  return `Unknown stages: ${unknown.join(", ")}. Use names from workflow definition ${definition.name}.`;
+}
+
 async function setPlan(workflow: WorkflowRuntime, input: PlanInput): Promise<string> {
-  const { stages } = workflow.workflowDefinition();
-  const known = new Set(stages.map((stage) => stage.name));
-  const unknown = input.stages.filter((name) => !known.has(name));
-  if (unknown.length) return `Unknown stages: ${unknown.join(", ")}. Use names from the config.`;
-  const needsRepo = stages.some((stage) => input.stages.includes(stage.name) && stage.branch);
-  if (needsRepo && !input.repo) {
-    return "A planned stage needs a repository and none was given. Find it in the request, the tracker issue and its project, or list_repositories, then call set_plan again. Ask only when nothing points to one.";
-  }
-  const repoError = input.repo ? await validateRepoReachable(workflow, input.repo) : null;
-  if (repoError) return repoError;
   const ended = validateWorkflowRunning(workflow);
   if (ended) return ended;
+  const definitions = workflow.workflowDefinitions();
+  const definition = definitions.find((declared) => declared.name === input.definition);
+  if (!definition) {
+    const names = definitions.map((declared) => declared.name).join(", ");
+    return `Unknown workflow definition ${input.definition}. The deployment holds: ${names}.`;
+  }
+  const kept = validateDefinitionKept(workflow.state.definition, definition.name);
+  if (kept) return kept;
+  if (!input.stages) {
+    if (workflow.state.definition !== null) {
+      return `The workflow already started from workflow definition ${definition.name}. Call set_plan again with the stages.`;
+    }
+    await startWorkflow(workflow, definition, input);
+    return startedAnswer(workflow, definition);
+  }
+  return planStages(workflow, definition, { ...input, stages: input.stages });
+}
+
+/** Store the workflow definition and the name, and start the workflow. The tracker issue moves to started. */
+async function startWorkflow(
+  workflow: WorkflowRuntime,
+  definition: WorkflowDefinition,
+  input: PlanInput,
+): Promise<void> {
+  workflow.patchState({ definition: definition.name, name: input.name, reason: input.reason });
+  await changeWorkflowStatus(workflow, "running");
+  workflow.log(null, `workflow started: definition=${definition.name} (${input.reason})`);
+  const origin = workflow.state.origin;
+  if (origin?.source === "tracker") await workflow.notifier.moveIssue(origin, "started");
+}
+
+/** What the call that starts the workflow without stages answers: the stages to plan from. */
+function startedAnswer(workflow: WorkflowRuntime, definition: WorkflowDefinition): string {
+  return [
+    `Workflow started from workflow definition ${definition.name}.`,
+    "",
+    ...stageLines(workflow.config(), definition),
+    "",
+    `Call set_plan again with definition ${definition.name} and the stages to run.`,
+  ].join("\n");
+}
+
+async function planStages(
+  workflow: WorkflowRuntime,
+  definition: WorkflowDefinition,
+  input: PlanInput & { stages: string[] },
+): Promise<string> {
+  const unknown = validateStagesKnown(definition, input.stages);
+  if (unknown) return unknown;
+  const repo = input.repo ?? null;
+  const planned = definition.stages.filter((stage) => input.stages.includes(stage.name));
+  if (planned.some((stage) => stage.branch) && !repo) {
+    return "A planned stage needs a repository and none was given. Find it in the request, the tracker issue and its project, or list_repositories, then call set_plan again. Ask only when nothing points to one.";
+  }
+  const repoError = repo ? await validateRepoReachable(workflow, repo) : null;
+  if (repoError) return repoError;
   const pages = await planPages(workflow, {
     name: input.name,
-    stages: stages.filter((stage) => input.stages.includes(stage.name)),
-    page_parent: input.page_parent,
+    definition,
+    stages: planned,
+    page_parent: input.page_parent ?? null,
     root_page: input.root_page ?? null,
   });
   if ("error" in pages) return pages.error;
+  if (workflow.state.definition === null) await startWorkflow(workflow, definition, input);
   const cap = workflow.config().orchestrator.sandbox.max_concurrency;
   const concurrency = Math.min(input.concurrency ?? cap, cap);
-  const first = workflow.state.stages.length === 0;
   workflow.patchState({
     name: input.name,
     stages: input.stages,
     concurrency,
-    repo: input.repo ? { full: input.repo } : null,
+    repo: repo ? { full: repo } : null,
     page_parent: pages.page_parent,
     root_page: pages.root_page,
     reason: input.reason,
@@ -177,10 +263,8 @@ async function setPlan(workflow: WorkflowRuntime, input: PlanInput): Promise<str
   await changeWorkflowStatus(workflow, "running");
   workflow.log(
     null,
-    `plan: name=${input.name} stages=${input.stages.join(",")} repo=${input.repo ?? "-"} concurrency=${concurrency} (${input.reason})`,
+    `plan: definition=${definition.name} name=${input.name} stages=${input.stages.join(",")} repo=${repo ?? "-"} concurrency=${concurrency} (${input.reason})`,
   );
-  const origin = workflow.state.origin;
-  if (first && origin?.source === "tracker") await workflow.notifier.moveIssue(origin, "started");
   return `Plan set: ${input.stages.join(" -> ")}, up to ${concurrency} jobs at once.${pages.note} Call start_job with stage ${input.stages[0]} and a brief for it.`;
 }
 

@@ -218,15 +218,15 @@ describe("channel tools", () => {
         }));
     });
 
-    describe("while the workflow has no plan", () => {
+    describe("while the workflow has not started", () => {
       const asked = scenario(routedRuntime, async (workflow) => {
-        workflow.patchState({ status: "planning" });
+        workflow.patchState({ status: "new", definition: null });
         await channelTools(workflow).ask.execute({ text: "Which repo?" }, call);
       });
 
-      it("keeps the workflow in planning", () =>
+      it("keeps the workflow new", () =>
         asked((workflow) => {
-          expect(workflow.state.status).toBe("planning");
+          expect(workflow.state.status).toBe("new");
         }));
     });
 

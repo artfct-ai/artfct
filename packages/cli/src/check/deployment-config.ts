@@ -6,7 +6,9 @@ import type { CheckOutcome } from "./types";
  * schema of the installed artfct.
  */
 export function checkDeploymentConfig(configDir: string): CheckOutcome {
-  const { workflowDefinition } = loadDeploymentConfig(readDeploymentConfig(configDir));
-  const { name, stages } = workflowDefinition;
-  return { outcome: "passed", detail: `workflow definition ${name} with ${stages.length} stages` };
+  const { workflowDefinitions } = loadDeploymentConfig(readDeploymentConfig(configDir));
+  const detail = workflowDefinitions
+    .map(({ name, stages }) => `workflow definition ${name} with ${stages.length} stages`)
+    .join(", ");
+  return { outcome: "passed", detail };
 }

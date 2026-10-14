@@ -10,6 +10,9 @@ const TEST_WORKFLOW_DEFINITION = [
   "  - { name: implement, artifact: pull, branch: true, author: { produce: { execution: harness, skill: implement } }, reviewers: [ { name: Code review, skill: implement-review } ] }",
 ].join("\n");
 
+/** The name of the test workflow definition, which a fake runtime runs unless a test says otherwise. */
+export const TEST_DEFINITION_NAME = "development";
+
 /**
  * The config tests run on: the template's writing rules and skills, every config default, and
  * the test workflow definition.
@@ -17,5 +20,5 @@ const TEST_WORKFLOW_DEFINITION = [
 export const TEST_CONFIG: ConfigFiles = {
   ...templateConfig,
   config: "",
-  workflowDefinitions: [{ name: "development", text: TEST_WORKFLOW_DEFINITION }],
+  workflowDefinitions: [{ name: TEST_DEFINITION_NAME, text: TEST_WORKFLOW_DEFINITION }],
 };

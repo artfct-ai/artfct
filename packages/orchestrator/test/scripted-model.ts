@@ -54,6 +54,12 @@ export class ScriptedModel implements LanguageModelV4 {
 /** Stage the mock plans when the system prompt lists none. */
 const FALLBACK_STAGES = ["implement"];
 
+/** Workflow definition the mock names when the system prompt does not name one. */
+const FALLBACK_DEFINITION = "development";
+
+/** The opening of the set_plan answer that starts a workflow and lists its stages. */
+const STARTED_OPENING = /^Workflow started from workflow definition (\S+)\./;
+
 /** The one line the mock sends back on a request before it plans, as the speaking rules ask. */
 export const ACK_TEXT = "Got it. Launching an agent now.";
 
@@ -78,16 +84,16 @@ export function scriptedDecision(prompt: LanguageModelV4Prompt): ScriptedDecisio
   const system = prompt.find((message) => message.role === "system");
   if (system?.content.startsWith("Summarize"))
     return { text: "Summary of the earlier conversation." };
-  const stages = stagesFromSystemPrompt(system?.content ?? "");
+  const work = workFromSystemPrompt(system?.content ?? "");
   const last = prompt.at(-1);
   if (!last) return { text: "" };
-  if (last.role === "tool") return afterTool(last, lastEvent(prompt), stages);
+  if (last.role === "tool") return afterTool(last, lastEvent(prompt), work);
   if (last.role !== "user") return { text: "" };
   const text = messageText(last);
   if (text.startsWith(PRODUCE_PAGE_OPENING)) return { text: scriptedDocument(text) };
   if (text.startsWith(REVISE_OPENING)) return { text: scriptedRevision(text) };
   const event = eventOf(last);
-  if (event) return onEvent(event.header, event.body, stages);
+  if (event) return onEvent(event.header, event.body, work);
   return routeReviewedArtifact(text);
 }
 
@@ -180,6 +186,25 @@ function lastEvent(prompt: LanguageModelV4Prompt): ScriptedEvent | null {
   return user ? eventOf(user) : null;
 }
 
+/**
+ * The work the system prompt shows. A started workflow names its workflow definition and lists
+ * its stages. Before the start, the prompt lists the workflow definitions, and the mock picks
+ * the first.
+ */
+export type ScriptedWork = { definition: string; started: boolean; stages: string[] };
+
+/** The workflow definition and the stages the system prompt shows. */
+export function workFromSystemPrompt(system: string): ScriptedWork {
+  const stages = stagesFromSystemPrompt(system);
+  const listed = system.split("## Workflow definitions\n")[1];
+  if (listed !== undefined) {
+    const first = /^- ([^\s:]+):/.exec(listed)?.[1] ?? FALLBACK_DEFINITION;
+    return { definition: first, started: false, stages };
+  }
+  const running = /^## Workflow definition (\S+)$/m.exec(system)?.[1] ?? FALLBACK_DEFINITION;
+  return { definition: running, started: true, stages };
+}
+
 /** The stage names under "## Stages" in the system prompt, in order. */
 export function stagesFromSystemPrompt(system: string): string[] {
   const section = system.split("## Stages")[1]?.split("\n## ")[0] ?? "";
@@ -190,7 +215,11 @@ export function stagesFromSystemPrompt(system: string): string[] {
   return names.length ? names : FALLBACK_STAGES;
 }
 
-function onEvent(header: Record<string, string>, body: string, stages: string[]): ScriptedDecision {
+function onEvent(
+  header: Record<string, string>,
+  body: string,
+  work: ScriptedWork,
+): ScriptedDecision {
   const task = header.task === "none" ? null : (header.task ?? null);
   const job = header.job === "none" ? null : (header.job ?? null);
   switch (header.kind) {
@@ -198,7 +227,7 @@ function onEvent(header: Record<string, string>, body: string, stages: string[])
       return { tool: "acknowledge", input: { reply: { kind: "text", text: ACK_TEXT } } };
     case "start":
     case "prompt":
-      if (!task || !job) return plan(body, stages);
+      if (!task || !job) return plan(body, work);
       return answerReply(task, job, body);
     case "status":
       return { tool: "status", input: {} };
@@ -252,15 +281,22 @@ function selectedOption(reply: string): string | null {
   return /^go with (.+?)\.?$/im.exec(reply)?.[1]?.trim() ?? null;
 }
 
-/** The plan for a request, in the repository it links. */
-function plan(body: string, stages: string[]): ScriptedDecision {
+/**
+ * The plan for a request, in the repository it links. Before the start, the call names the
+ * workflow definition alone, and its answer lists the stages.
+ */
+function plan(body: string, work: ScriptedWork): ScriptedDecision {
   const repo = repoOf(body);
   if (!repo) return { tool: "ask", input: { text: "Which repository should this change go in?" } };
+  const named = { name: planName(body), definition: work.definition };
+  if (!work.started) {
+    return { tool: "set_plan", input: { ...named, reason: "start the workflow" } };
+  }
   return {
     tool: "set_plan",
     input: {
-      name: planName(body),
-      ...plannedStages(body, stages),
+      ...named,
+      ...plannedStages(body, work.stages),
       repo,
       page_parent: /^Page parent: (\S+)$/m.exec(body)?.[1] ?? null,
     },
@@ -307,23 +343,29 @@ function planName(body: string): string {
 }
 
 /** What follows the first reply: the plan for a request, else what the event asks for. */
-function afterAcknowledge(event: ScriptedEvent, stages: string[]): ScriptedDecision {
-  if (event.header.kind === "request") return plan(event.body, stages);
-  return onEvent(event.header, event.body, stages);
+function afterAcknowledge(event: ScriptedEvent, work: ScriptedWork): ScriptedDecision {
+  if (event.header.kind === "request") return plan(event.body, work);
+  return onEvent(event.header, event.body, work);
 }
 
 /** The scripted answer to a tool result: the next step of the default route. */
 function afterTool(
   message: ToolMessage,
   event: ScriptedEvent | null,
-  stages: string[],
+  work: ScriptedWork,
 ): ScriptedDecision {
   const result = message.content.at(-1);
   if (!result || result.type !== "tool-result") return { text: "" };
   const text = outputText(result.output);
   if (result.toolName === "acknowledge")
-    return event ? afterAcknowledge(event, stages) : { text: "" };
+    return event ? afterAcknowledge(event, work) : { text: "" };
   if (result.toolName === "set_plan") {
+    const started = STARTED_OPENING.exec(text)?.[1];
+    if (started) {
+      if (!event) return { text: "" };
+      const stages = stagesFromSystemPrompt(text);
+      return plan(event.body, { definition: started, started: true, stages });
+    }
     const stage = /with stage ([^\s.]+)/.exec(text)?.[1];
     return startStage(stage, event ? firstJobInput(event.body) : {});
   }

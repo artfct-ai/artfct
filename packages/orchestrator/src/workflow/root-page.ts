@@ -6,15 +6,14 @@ import {
   withoutResourceLink,
 } from "../artifact/resources-section";
 import type { Stage } from "../config/stage";
+import type { WorkflowDefinition } from "../config/workflow-definition";
 import type { RootPage, WorkflowState } from "./store/state";
-import type { WorkflowRuntime } from "./types";
 
 /** A page on the document host, by the id `pageFromUrl` gives and its link. */
 export type HostPage = { page_id: string; url: string };
 
 /** The stage `documents.root_page` names, which fills the root page. Undefined when it does not name one. */
-export function rootPageStage(workflow: WorkflowRuntime): Stage | undefined {
-  const { documents, stages } = workflow.workflowDefinition();
+export function rootPageStage({ documents, stages }: WorkflowDefinition): Stage | undefined {
   return stages.find((stage) => stage.name === documents.root_page);
 }
 

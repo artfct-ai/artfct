@@ -32,8 +32,10 @@ import {
   stopEndsTheAuthorsTurn,
   staleAlarmIsIgnored,
   todoListIsFixedAfterFirstArtifact,
+  sleepMessageOnlyDuringAWorkflow,
   unadmittedFeedbackReachesNobody,
-  unplannedWorkflowDoesNotEnd,
+  workflowKeepsItsDefinition,
+  workflowStartsOnlyFromAPlan,
   aPromptToAPageAuthorCarriesItsHeldComments,
 } from "../../test/invariants";
 import {
@@ -90,10 +92,12 @@ import {
   MAX_AUTHORS,
   REFINER_SETUPS,
   REQUEST_TEXTS,
+  SECOND_DEFINITION,
   WorkflowWorld,
   type WorkflowAction,
   type WorldSetup,
 } from "../../test/workflow-world";
+import { TEST_DEFINITION_NAME } from "../../test/test-config";
 
 const NUM_RUNS = 200;
 const MAX_ACTIONS = 50;
@@ -136,7 +140,9 @@ const STEP_INVARIANTS = [
   chatWorkflowNeverSetsASessionPlan,
   sessionFeedEndsWhenItsAuthorIdles,
   feedActivityPostsOnce,
-  unplannedWorkflowDoesNotEnd,
+  sleepMessageOnlyDuringAWorkflow,
+  workflowStartsOnlyFromAPlan,
+  workflowKeepsItsDefinition,
   anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone,
   aPromptToAPageAuthorCarriesItsHeldComments,
 ];
@@ -190,6 +196,14 @@ const heldCommentsRead: fc.Arbitrary<HeldCommentsRead> = fc.record({
 });
 
 const PLANNED_STAGES = [["implement"], ["breakdown", "implement"], ["design", "plan", "breakdown"]];
+
+const PLANNED_DEFINITIONS = [
+  TEST_DEFINITION_NAME,
+  TEST_DEFINITION_NAME,
+  TEST_DEFINITION_NAME,
+  SECOND_DEFINITION,
+  "triage",
+];
 
 const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
   {
@@ -403,8 +417,12 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
   {
     weight: 2,
     arbitrary: fc
-      .tuple(fc.constantFrom(...PLANNED_STAGES), fc.integer({ min: 1, max: 3 }))
-      .map(([stages, concurrency]) => agentSetsPlan(stages, concurrency)),
+      .tuple(
+        fc.constantFrom(...PLANNED_DEFINITIONS),
+        fc.option(fc.constantFrom(...PLANNED_STAGES), { freq: 3 }),
+        fc.integer({ min: 1, max: 3 }),
+      )
+      .map(([definition, stages, concurrency]) => agentSetsPlan(definition, stages, concurrency)),
   },
   {
     weight: 3,
@@ -576,7 +594,7 @@ describe("the workflow invariants", () => {
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(34);
+      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(36);
     },
     TIMEOUT_MS,
   );

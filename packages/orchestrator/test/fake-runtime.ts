@@ -25,7 +25,11 @@ import type { JSONValue, ToolSet } from "ai";
 import { TranscriptStore, type WroteFrom } from "../src/agent/transcript/transcript";
 import type { AuthorFeed } from "../src/workflow/feed/feed";
 import { registeredConfig } from "../src/config/register-config";
-import type { WorkflowDefinition } from "../src/config/workflow-definition";
+import {
+  storedWorkflowDefinition,
+  type WorkflowDefinition,
+} from "../src/config/workflow-definition";
+import { TEST_DEFINITION_NAME } from "./test-config";
 import type { Env } from "../src/env";
 import { destinationFor } from "../src/notify/destination";
 import { plainText } from "../src/notify/messages";
@@ -105,7 +109,12 @@ export function sentMethods(socket: FakeSocket): (string | undefined)[] {
 
 export class FakeRuntime implements WorkflowRuntime {
   env: Env;
-  state: WorkflowState = { ...initialWorkflowState, workflow_id: "wf_x", status: "running" };
+  state: WorkflowState = {
+    ...initialWorkflowState,
+    workflow_id: "wf_x",
+    status: "running",
+    definition: TEST_DEFINITION_NAME,
+  };
   readonly store: WorkflowStore;
   notifier: Notifier;
   readonly transcript: TranscriptStore;
@@ -144,7 +153,7 @@ export class FakeRuntime implements WorkflowRuntime {
   clock: number | null = null;
   turnRunning = false;
   configOverride: Config | null = null;
-  workflowDefinitionOverride: WorkflowDefinition | null = null;
+  workflowDefinitionsOverride: WorkflowDefinition[] | null = null;
   private alarmSeq = 0;
 
   constructor(db: WorkflowDb, env: Env) {
@@ -170,12 +179,25 @@ export class FakeRuntime implements WorkflowRuntime {
     return this.configOverride;
   }
 
-  workflowDefinition(): WorkflowDefinition {
-    return this.workflowDefinitionOverride ?? registeredConfig().workflowDefinition;
+  workflowDefinitions(): readonly WorkflowDefinition[] {
+    return this.workflowDefinitionsOverride ?? registeredConfig().workflowDefinitions;
   }
 
+  workflowDefinition(): WorkflowDefinition {
+    return storedWorkflowDefinition(this.workflowDefinitions(), this.state.definition);
+  }
+
+  /** Change the workflow definition the workflow runs, and keep the others. */
   patchWorkflowDefinition(patch: Partial<WorkflowDefinition>): void {
-    this.workflowDefinitionOverride = { ...this.workflowDefinition(), ...patch };
+    const patched = { ...this.workflowDefinition(), ...patch };
+    this.workflowDefinitionsOverride = this.workflowDefinitions().map((definition) =>
+      definition.name === this.state.definition ? patched : definition,
+    );
+  }
+
+  /** Add a workflow definition to the deployment, after the ones it holds. */
+  addWorkflowDefinition(definition: WorkflowDefinition): void {
+    this.workflowDefinitionsOverride = [...this.workflowDefinitions(), definition];
   }
 
   stageFor(job: JobRow): ResolvedStage {

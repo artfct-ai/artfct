@@ -147,7 +147,10 @@ async function producePage(
   const stage = workflow.stageForTask(task);
   const title = modelAuthorPageTitle(workflowName(workflow.state), stage.name);
   const root = workflow.state.root_page;
-  if (rootPageStage(workflow)?.name === stage.name && root?.source === "container") {
+  if (
+    rootPageStage(workflow.workflowDefinition())?.name === stage.name &&
+    root?.source === "container"
+  ) {
     const before = await host.documents.readPageContent(root.page_id);
     const after = aboveResources(text, before);
     await host.documents.updatePageContent(root.page_id, { before, after });

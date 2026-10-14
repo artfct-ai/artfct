@@ -6,8 +6,10 @@ import { runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { planTools } from "../src/agent/tools/plan";
 import type { Workflow } from "../src/workflow";
+import type { WorkflowRuntime } from "../src/workflow/types";
 import { ScriptedFailure } from "./fake-model";
 import type { Scenario } from "./scenario";
+import { TEST_DEFINITION_NAME } from "./test-config";
 
 /** The outside clients a workflow scenario hands the Durable Object before it starts. */
 export type WorkflowClients = {
@@ -58,6 +60,15 @@ export function freshWorkflow(clients: () => WorkflowClients = () => ({})): Scen
   };
 }
 
+/** Start the workflow from the test workflow definition, without stages, as the agent's first set_plan call does. */
+export async function startWorkflow(workflow: WorkflowRuntime): Promise<void> {
+  const { set_plan } = planTools(workflow);
+  await set_plan.execute(
+    { name: "Fix it", definition: TEST_DEFINITION_NAME, reason: "test" },
+    TOOL_CALL,
+  );
+}
+
 /** A fresh workflow planned for stage implement on acme/app, with `concurrency` slots. */
 export function plannedWorkflow(
   concurrency: number,
@@ -69,6 +80,7 @@ export function plannedWorkflow(
       await set_plan.execute(
         {
           name: "Fix it",
+          definition: TEST_DEFINITION_NAME,
           stages: ["implement"],
           repo: "acme/app",
           page_parent: null,
