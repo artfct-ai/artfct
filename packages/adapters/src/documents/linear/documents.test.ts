@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { fakeLinear, PAGE, type Call } from "../../../test/linear-graphql";
 import { LinearDocuments } from "./documents";
-import type { DocumentComment, DocumentPage, FetchedComment } from "../types";
+import type { DocumentPage, FetchedComment } from "../types";
 
 afterEach(() => mock.restore());
 
@@ -205,71 +205,6 @@ it("fetchComment is null for a deleted comment", async () => {
   expect(await new LinearDocuments("lin_api_x").fetchComment("c1")).toBeNull();
 });
 
-const node = (id: string, createdAt: string, userId: string) => ({
-  id,
-  body: `said in ${id}`,
-  createdAt,
-  reactions: [],
-  user: { id: userId },
-});
-
-describe("LinearDocuments comments", () => {
-  let calls: Call[];
-  let comments: DocumentComment[];
-
-  beforeEach(async () => {
-    calls = fakeLinear({
-      comments: {
-        comments: {
-          pageInfo: PAGE,
-          nodes: [
-            node("c2", "2026-09-02T00:00:00.000Z", "u2"),
-            node("c1", "2026-09-01T00:00:00.000Z", "u1"),
-          ],
-        },
-      },
-    });
-    comments = await new LinearDocuments("lin_api_x").comments("dc1", "2026-09-01T00:00:00.000Z");
-  });
-
-  it("filters by the document content id and the time", () => {
-    expect(calls[0]?.variables.filter).toEqual({
-      documentContent: { id: { eq: "dc1" } },
-      createdAt: { gte: "2026-09-01T00:00:00.000Z" },
-    });
-  });
-
-  it("maps each comment oldest first", () => {
-    expect(comments).toEqual([
-      {
-        id: "c1",
-        created_at: "2026-09-01T00:00:00.000Z",
-        text: "said in c1",
-        author: { id: "u1", email: null },
-      },
-      {
-        id: "c2",
-        created_at: "2026-09-02T00:00:00.000Z",
-        text: "said in c2",
-        author: { id: "u2", email: null },
-      },
-    ]);
-  });
-});
-
-it("reads a comment without a user as having no author", async () => {
-  fakeLinear({
-    comments: {
-      comments: {
-        pageInfo: PAGE,
-        nodes: [{ id: "c1", body: "hi", createdAt: "2026-09-01T00:00:00.000Z", reactions: [] }],
-      },
-    },
-  });
-  const comments = await new LinearDocuments("lin_api_x").comments("dc1", "2026-09-01T00:00:00Z");
-  expect(comments[0]?.author).toBeNull();
-});
-
 const commentNode = (id: string, userId: string | null, reactions: unknown[] = []) => ({
   id,
   body: `said ${id}`,
@@ -407,6 +342,55 @@ describe("LinearDocuments createPage", () => {
       revision: "2026-09-04T00:00:00.000Z",
     });
   });
+});
+
+describe("LinearDocuments commentOnPassages", () => {
+  const onOwner = { passage: "owns **its** rollout", text: "Name the owner." };
+  const elsewhere = { passage: "a passage the document does not hold", text: "Elsewhere." };
+  const documentWithText = {
+    ...documentNode("d1", "dc1"),
+    content: "## Rollout\n\nEach team owns its rollout.",
+  };
+  let calls: Call[];
+  let unposted: Awaited<ReturnType<LinearDocuments["commentOnPassages"]>>;
+
+  beforeEach(async () => {
+    calls = fakeLinear({
+      documents: { documents: { pageInfo: PAGE, nodes: [documentWithText] } },
+      createComment: { commentCreate: { success: true, comment: { id: "c1" } } },
+    });
+    unposted = await new LinearDocuments("lin_api_x").commentOnPassages("dc1", [
+      elsewhere,
+      onOwner,
+    ]);
+  });
+
+  it("posts an inline comment that quotes the passage the document holds", () => {
+    const created = calls.filter((call) => call.operation === "createComment");
+    expect(created.map((call) => call.variables.input)).toEqual([
+      { documentContentId: "dc1", body: "Name the owner.", quotedText: "owns **its** rollout" },
+    ]);
+  });
+
+  it("returns the comment whose passage the document does not hold", () => {
+    expect(unposted).toEqual([elsewhere]);
+  });
+});
+
+it("commentOnPassages returns a comment Linear does not take", async () => {
+  fakeLinear({
+    documents: {
+      documents: {
+        pageInfo: PAGE,
+        nodes: [{ ...documentNode("d1", "dc1"), content: "Each team owns its rollout." }],
+      },
+    },
+    createComment: { errors: [{ message: "Argument Validation Error" }] },
+  });
+  const comment = { passage: "owns its rollout", text: "Name the owner." };
+  expect(await new LinearDocuments("lin_api_x").commentOnPassages("dc1", [comment])).toEqual([
+    comment,
+  ]);
 });
 
 describe("LinearDocuments readPageContent", () => {

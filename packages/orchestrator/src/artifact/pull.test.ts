@@ -232,7 +232,7 @@ describe("revision", () => {
 
 describe("review", () => {
   const SINCE = "2026-01-01T00:00:00.000Z";
-  const REVIEW_INPUT = { since: SINCE, turnText: "" };
+  const REVIEW_INPUT = { since: SINCE, turnText: "", signature: "" };
 
   it("reads the summary, the review, and every finding of its own review", async () => {
     const { artifact } = build(reviewHost([submittedReview({ state: "CHANGES_REQUESTED" })]));
@@ -279,6 +279,7 @@ describe("review", () => {
       await artifact.review!.postedReview(TARGET.ref, {
         since: "2026-01-01T00:02:00.000Z",
         turnText: "",
+        signature: "",
       }),
     ).toBeNull();
   });

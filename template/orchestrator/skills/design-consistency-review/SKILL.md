@@ -95,7 +95,9 @@ Post the review in the form your review instructions give. Its first line follow
 The summary paragraph gives the count of findings by severity, and the prior findings held, regressed, and not resolved. Then write each finding as one line, in exactly this form:
 
 ```
-- <section or sections>: Severity: <blocking | minor | nitpick>. Claim: "<exact quote from the page>". Criterion: <which of the checks>. Ground: <the quote from the page, the direction, the request, or the glossary that shows the problem>. Resolve: <the exact change to make, in one to three sentences>.
+- "<a few words of the passage the finding is about>": <section or sections>: Severity: <blocking | minor | nitpick>. Claim: "<exact quote from the page>". Criterion: <which of the checks>. Ground: <the quote from the page, the direction, the request, or the glossary that shows the problem>. Resolve: <the exact change to make, in one to three sentences>.
 ```
+
+Open the line with the passage only when the finding is about one passage of the page. Quote it word for word from one paragraph, list item, heading, or table row.
 
 Do not report taste. Do not propose design changes beyond what the direction requires.

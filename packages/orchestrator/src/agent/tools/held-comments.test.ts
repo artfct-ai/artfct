@@ -25,7 +25,7 @@ const HELD: HeldComment[] = [
   { id: "cmt-3", author_name: null, text: "Name the owner." },
 ];
 const HELD_TEXT =
-  "The people who commented on the page said:\n\nComments:\n- [comment cmt-1] Ann: Tighten the intro.\n- [comment cmt-3] Someone: Name the owner.";
+  "The people who commented on the page said:\n\nComments:\n- [comment cmt-1]: Ann: Tighten the intro.\n- [comment cmt-3]: Someone: Name the owner.";
 
 function pageScenario(held: HeldComment[]): Scenario<FakeRuntime> {
   return scenario(freshRuntime, (workflow) => {

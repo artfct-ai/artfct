@@ -1,5 +1,5 @@
 /** The Notion CLI in the sandbox image and the agent text that names its commands. */
-import type { PageInstructions } from "../../instructions";
+import type { HostInstructions } from "../../instructions";
 
 /**
  * The environment the Notion CLI reads a connection token from. It keeps the token off the OS
@@ -10,7 +10,7 @@ export function notionCliEnv(token: string): Record<string, string> {
 }
 
 /** How an agent works with a page on Notion, through the Notion CLI. */
-export const NOTION_PAGE_INSTRUCTIONS: PageInstructions = {
+export const NOTION_PAGE_INSTRUCTIONS: HostInstructions = {
   create: [
     "Write the page as Markdown in a file. A leading frontmatter `title` sets the page title.",
     "Create the page under the page parent this prompt names with `ntn pages create --parent page:<page parent id> < page.md`.",
@@ -22,11 +22,6 @@ export const NOTION_PAGE_INSTRUCTIONS: PageInstructions = {
     'Write the request body to a file as `{"type":"update_content","update_content":{"content_updates":[{"old_str":"<exact current text>","new_str":"<new text>"}]}}` and run `ntn api v1/pages/<page id>/markdown -X PATCH --data @edit.json`. Each `old_str` must match the page exactly once. Send at most 100 edits in one request.',
     "Do not replace the whole page, and do not create another page.",
     'A finding that starts with a label such as [comment <id>] came from a comment on the page. Reply to each one in its discussion: read the comment with `ntn api v1/comments/<id>`, write `{"discussion_id":"<its discussion_id>","rich_text":[{"text":{"content":"<reply>"}}]}` to a file, and run `ntn api v1/comments --data @reply.json`. Say in one or two sentences what you changed for it, or why the page does not change.',
-  ].join("\n"),
-  report: [
-    'Post your review as one comment on the page. Write the request body to a file as `{"parent":{"page_id":"<page id>"},"rich_text":[{"text":{"content":"<review>"}}]}` and run `ntn api v1/comments --data @comment.json`.',
-    "Notion takes at most 2000 characters in one rich text item. Split a longer review across several items in order.",
-    "Post one comment only. Do not edit the page, reply to another comment, or write anywhere else.",
   ].join("\n"),
 };
 

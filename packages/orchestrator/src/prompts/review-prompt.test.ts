@@ -89,6 +89,18 @@ describe("reviewPrompt", () => {
     });
   });
 
+  describe("a reviewer whose review code posts", () => {
+    const prompt = reviewerPrompted({ signatureLine: null });
+
+    it("does not ask the reviewer to sign anything", () => {
+      expect(prompt).not.toContain("## Sign what you post");
+    });
+
+    it("still ends with the kind's report steps", () => {
+      expect(prompt.endsWith(REPORT)).toBe(true);
+    });
+  });
+
   describe("an author who was given no brief", () => {
     const prompt = reviewerPrompted({ brief: "" });
 
@@ -159,7 +171,7 @@ describe("reviewForAuthorPrompt", () => {
 
     it("carries the summary and the findings", () => {
       expect(prompt).toContain("Two things.");
-      expect(prompt).toContain("- src/login.ts:12 This drops the error.");
+      expect(prompt).toContain("- src/login.ts:12: This drops the error.");
     });
 
     it("sends the author to its skill for how a finding is weighed", () => {
@@ -233,7 +245,7 @@ describe("feedbackText", () => {
 
     it("carries the body and every finding with its location", () => {
       expect(text).toContain("Two things.");
-      expect(text).toContain("- src/login.ts:12 This drops the error.");
+      expect(text).toContain("- src/login.ts:12: This drops the error.");
     });
   });
 
@@ -249,7 +261,7 @@ describe("feedbackText", () => {
     const text = feedbackText("alice", { ...feedback, body: "" });
 
     it("still carries the findings", () => {
-      expect(text).toContain("- src/login.ts:12 This drops the error.");
+      expect(text).toContain("- src/login.ts:12: This drops the error.");
     });
   });
 });

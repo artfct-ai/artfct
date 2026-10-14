@@ -20,6 +20,9 @@ const FINDING_LINE = /^\s*[-*]\s+(\S.*)$/;
 /** A section name in front of a finding. Sentence punctuation keeps prose out of it. */
 const FINDING_LOCATION = /^([^:.!?]{1,60}):\s+(\S.*)$/;
 
+/** A passage in double quotes and a colon in front of a finding. */
+const FINDING_PASSAGE = /^["\u201C]([^"\u201C\u201D\n]+)["\u201D]:\s+(\S.*)$/;
+
 /** What a reviewer is told to write, and where to stop. `where` says where the block goes. */
 export function reviewInstructions(where: string): string {
   return [
@@ -79,10 +82,30 @@ function reviewWord(line: string): ReviewWord | null {
   return REVIEW_WORDS.find((known) => known === word) ?? null;
 }
 
+/** The line that opens a review, with the word its blocking flag and its findings earn. */
+export function reviewLine(review: ParsedReview): string {
+  if (review.blocking) return "Review: blocking";
+  return review.findings.length ? "Review: findings" : "Review: approved";
+}
+
+/** A finding as one line of text, in the order a reviewer writes it: passage, section, body. */
+export function findingText(finding: Finding): string {
+  const passage = finding.passage === undefined ? [] : [`"${finding.passage}":`];
+  const location = finding.location === undefined ? [] : [`${finding.location}:`];
+  return [...passage, ...location, finding.body.trim()].join(" ");
+}
+
 function findingOf(line: string): Finding[] {
-  const body = FINDING_LINE.exec(line)?.[1];
-  if (body === undefined) return [];
-  const located = FINDING_LOCATION.exec(body);
-  if (!located) return [{ body: body.trim() }];
-  return [{ location: located[1]!.trim(), body: located[2]!.trim() }];
+  const text = FINDING_LINE.exec(line)?.[1];
+  if (text === undefined) return [];
+  const quoted = FINDING_PASSAGE.exec(text);
+  const passage = quoted?.[1]?.trim();
+  const finding = locatedFinding(quoted ? quoted[2]! : text);
+  return [passage ? { passage, ...finding } : finding];
+}
+
+function locatedFinding(text: string): Finding {
+  const located = FINDING_LOCATION.exec(text);
+  if (!located) return { body: text.trim() };
+  return { location: located[1]!.trim(), body: located[2]!.trim() };
 }

@@ -24,9 +24,6 @@ export type CommentBody = {
   author: { id: string; email: string | null } | null;
 };
 
-/** One comment on a page as the host lists it, with when it was made. */
-export type DocumentComment = CommentBody & { id: string; created_at: string };
-
 /** One comment read by its id. `mentions` holds the host ids of the users it mentions. */
 export type FetchedComment = CommentBody & { mentions: string[] };
 
@@ -55,6 +52,9 @@ export type PageCommentRef = { pageId: string; commentId: string };
 
 /** A change to the text of a page: the text the writer read, and the text it wrote from it. */
 export type PageTextChange = { before: string; after: string };
+
+/** A comment for the block of a page that holds `passage`, words quoted from the page. */
+export type PassageComment = { passage: string; text: string };
 
 /** What a document host whose pages hold other pages does with that tree. */
 export interface PageNesting {
@@ -96,8 +96,12 @@ export interface Documents {
   acknowledgeComment(comment: PageCommentRef): Promise<void>;
   /** Reply to a comment in its discussion, with plain text. */
   replyToComment(comment: PageCommentRef, text: string): Promise<void>;
-  /** Comments on a page made at or after `since`, an ISO time, oldest first. */
-  comments(pageId: string, since: string): Promise<DocumentComment[]>;
+  /**
+   * Add each comment on the block of the page that holds its passage. Returns the comments it
+   * did not post, a subset of `comments`: the page does not hold the passage, or the host did not
+   * take the comment on that block. Throws when the page cannot be read.
+   */
+  commentOnPassages(pageId: string, comments: PassageComment[]): Promise<PassageComment[]>;
   /**
    * One comment by id. Webhooks carry only the comment id. Null when the host no longer holds
    * the comment open, because it was deleted or resolved.

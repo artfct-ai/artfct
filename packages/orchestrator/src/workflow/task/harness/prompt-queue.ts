@@ -184,7 +184,8 @@ function reviewerFirstPrompt(
     researchPayload: job.research_payload,
   };
   if (entry.mode === "judge") return judgePrompt(subject);
-  return reviewPrompt({ ...subject, signatureLine: reviewerSignature(workflow, entry, task) });
+  const signatureLine = kind.review.reviewerPosts ? reviewerSignature(workflow, entry, task) : null;
+  return reviewPrompt({ ...subject, signatureLine });
 }
 
 /** The prompt of a polisher run: the instructions of its entry, and how its artifact is read and changed. */

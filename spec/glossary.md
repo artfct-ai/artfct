@@ -54,11 +54,14 @@ A code name is one type, table, column, or function. A code name that needs a co
 | ruling | What a judge files on an artifact: approved, or rejected with a reason. Code reads it from a conclusion, or a person gives it. | `Ruling`, the ruling arm of `tasks.result` | verdict |
 | comment | Feedback that is not a review. | part of `Feedback` | |
 | held comment | A person's comment on a page artifact that the system has not acknowledged. Three things send every held comment to the author and acknowledge it: a comment there that mentions the bot, a person's message that asks for a revision, and any prompt the orchestrator sends to that author. A held comment the screen does not admit stays held. | `HeldComment`, `Documents.heldComments` | |
-| finding | One item in a review or a comment. It may name a location. | `Finding` | |
+| finding | One item in a review or a comment. It may name a location and a passage. | `Finding` | |
+| passage | The few words of a page that a finding quotes. The page host anchors the finding's comment to the block that holds them. | `Finding.passage` | anchor, quote |
+| inline finding | A finding of a page review that code posts as a comment on the block that holds its passage. | `Documents.commentOnPassages` | inline comment |
+| outcome comment | The one page comment of a page review. It holds the review line, the summary, how many findings are inline, and every finding without a block. | `pageReviewOutcome` | summary comment |
 | page text change | The text an author read from a page and the text it wants the page to hold. The host writes only the parts that differ, so the blocks outside them keep their comments. | `PageTextChange`, `Documents.updatePageContent`, `planPageTextUpdate` | page overwrite |
 | comment reply | What the author says in the discussion of one page comment it was sent: what it changed for the comment, or why the page does not change. The author posts it before it changes the page. It does not resolve the discussion. | `CommentReply`, `Documents.replyToComment`, `validateCommentReplies` | resolution |
 | agent review | The phase in which the reviewers run. | `RefinerPhase "review"` | review loop |
-| findings reviewer | A reviewer that posts a review for the author to weigh. | `mode: "findings"` | feedback entry |
+| findings reviewer | A reviewer that files a review for the author to weigh. | `mode: "findings"` | feedback entry |
 | judge | A reviewer that approves or rejects and posts nothing. It runs once on an artifact. | `JudgeEntry` | |
 | conclusion | The closing text of a judge run. | judge prompt | |
 | polisher | A refiner that changes the artifact in place. | `TaskRole "polisher"` | |

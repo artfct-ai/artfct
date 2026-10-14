@@ -62,6 +62,7 @@ export function pullArtifact(clients: PullClients): Artifact {
     review: {
       revision: (ref) => headRevision(clients, ref),
       postedReview: (ref, input) => readReview(clients, ref, input.since),
+      reviewerPosts: true,
       reviewerCredential: clients.review.permissions,
       replyInstructions: REPLY_NOTE,
       postRejection: (ref, text) => postRejection(clients, ref, text),

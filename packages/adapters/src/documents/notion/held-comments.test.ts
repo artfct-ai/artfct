@@ -1,6 +1,7 @@
 import type { CommentObjectResponse } from "@notionhq/client";
 import { describe, expect, it } from "bun:test";
-import { notionHeldComments } from "./held-comments";
+import fc from "fast-check";
+import { NOTION_ACKNOWLEDGEMENT, notionHeldComments } from "./held-comments";
 
 const BOT = "bot1";
 
@@ -106,5 +107,32 @@ describe("notionHeldComments", () => {
         comment({ id: "c2", discussion: "d1", author: BOT, text: "Revised." }),
       ]),
     ).toEqual(["c1"]);
+  });
+});
+
+describe("notionHeldComments on any thread of comments", () => {
+  const anyComment = fc.record({
+    discussion: fc.constantFrom("d1", "d2", "d3"),
+    author: fc.constantFrom(BOT, "ann", "bob"),
+    text: fc.constantFrom(
+      NOTION_ACKNOWLEDGEMENT,
+      "Tighten the intro.",
+      "Review: findings\n\n- Rollout: no owner.",
+      '"Each team owns its rollout": Rollout: no owner.',
+    ),
+  });
+  const anyThread = fc
+    .array(anyComment, { maxLength: 12 })
+    .map((comments) => comments.map((options, index) => comment({ id: `c${index}`, ...options })));
+
+  it("never holds a comment the bot wrote", () => {
+    fc.assert(
+      fc.property(anyThread, (comments) => {
+        const botIds = new Set(
+          comments.filter((listed) => listed.created_by.id === BOT).map((listed) => listed.id),
+        );
+        expect(heldIds(comments).filter((id) => botIds.has(id))).toEqual([]);
+      }),
+    );
   });
 });

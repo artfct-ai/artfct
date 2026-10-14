@@ -1,5 +1,11 @@
 import { describe, expect, it } from "bun:test";
-import { parseTurnTextReview, parseReview, reviewInstructions } from "./review-text";
+import {
+  findingText,
+  parseTurnTextReview,
+  parseReview,
+  reviewInstructions,
+  reviewLine,
+} from "./review-text";
 
 function reviewComment(word: string): string {
   return [
@@ -135,6 +141,46 @@ describe("a finding without a location", () => {
     expect(parseReview("Review: findings\n\n* No owner.")?.findings).toEqual([
       { body: "No owner." },
     ]);
+  });
+});
+
+const read = (line: string) => parseReview(`Review: findings\n\n${line}`)?.findings;
+
+describe("a finding that quotes a passage", () => {
+  it("reads the passage, the location, and the body", () => {
+    expect(read('- "Each team owns its rollout": Rollout: no owner.')).toEqual([
+      { passage: "Each team owns its rollout", location: "Rollout", body: "no owner." },
+    ]);
+  });
+
+  it("reads a passage in curly quotes without a location", () => {
+    expect(read("- \u201CEach team owns it.\u201D: no owner.")).toEqual([
+      { passage: "Each team owns it.", body: "no owner." },
+    ]);
+  });
+
+  it("keeps a quote that a colon does not follow in the body", () => {
+    expect(read('- "Each team" is vague.')).toEqual([{ body: '"Each team" is vague.' }]);
+  });
+
+  it("writes back the line it read", () => {
+    const line = '"Each team owns its rollout": Rollout: no owner.';
+    expect(findingText(read(`- ${line}`)![0]!)).toBe(line);
+  });
+});
+
+describe("reviewLine", () => {
+  it("names a blocking review", () => {
+    expect(reviewLine({ blocking: true, summary: "", findings: [] })).toBe("Review: blocking");
+  });
+
+  it("names a review with findings", () => {
+    const findings = [{ body: "No owner." }];
+    expect(reviewLine({ blocking: false, summary: "", findings })).toBe("Review: findings");
+  });
+
+  it("names an approval", () => {
+    expect(reviewLine({ blocking: false, summary: "", findings: [] })).toBe("Review: approved");
   });
 });
 

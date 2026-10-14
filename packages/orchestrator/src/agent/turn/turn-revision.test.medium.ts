@@ -60,7 +60,7 @@ describe("a person's turn", () => {
     it("sends the held comments to the author before the model runs", () =>
       reviewed(({ workflow }) => {
         expect(queuedTexts(workflow)).toEqual([
-          `${REVISION_REQUEST_PROMPT}\n\nThe people who commented on the page said:\n\nComments:\n- [comment cmt-1] Ann: Name the owner of the table.`,
+          `${REVISION_REQUEST_PROMPT}\n\nThe people who commented on the page said:\n\nComments:\n- [comment cmt-1]: Ann: Name the owner of the table.`,
         ]);
       }));
 

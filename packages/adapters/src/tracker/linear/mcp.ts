@@ -1,5 +1,5 @@
 /** The Linear MCP server and the agent text that names its tools. */
-import type { HostInstructions, PageInstructions } from "../../instructions";
+import type { HostInstructions } from "../../instructions";
 import type { McpServer } from "../../mcp";
 
 /** The Linear MCP server. Whoever the token acts as is the author of what the agent writes. */
@@ -37,7 +37,7 @@ export const LINEAR_MCP_TOOLS = [
 ];
 
 /** How an agent works with a document on Linear. */
-export const LINEAR_PAGE_INSTRUCTIONS: PageInstructions = {
+export const LINEAR_PAGE_INSTRUCTIONS: HostInstructions = {
   create:
     "Create the document in the Linear project this prompt names as the page parent, with the Linear tools. Print the document URL on its own line when it exists.",
   read: "Read the document with the Linear `get_document` tool. The document slug is the last part of its URL.",
@@ -45,10 +45,6 @@ export const LINEAR_PAGE_INSTRUCTIONS: PageInstructions = {
     "Change the document in place with targeted edits. Pass `patch` to the Linear `save_document` tool, not the whole `content`, and change only the text a finding needs, so the comments people left keep their place.",
     "Do not create another document.",
     "A finding that starts with a label such as [comment <id>] came from a comment on the document. Reply to each one with the Linear `save_comment` tool, with that id as `parentId`. Say in one or two sentences what you changed for it, or why the document does not change.",
-  ].join("\n"),
-  report: [
-    "Post your review as one comment on the document with the Linear `save_comment` tool.",
-    "Post one comment only. Do not edit the document, reply to another comment, or write anywhere else.",
   ].join("\n"),
 };
 

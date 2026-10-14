@@ -13,7 +13,7 @@ type Call = {
   body: string;
 };
 
-function notionDocuments(respond: (url: string) => Response, baseUrl?: string) {
+function notionDocuments(respond: (url: string, body: string) => Response, baseUrl?: string) {
   const calls: Call[] = [];
   const fetch = async (input: string | URL | Request, init?: RequestInit) => {
     calls.push({
@@ -24,7 +24,7 @@ function notionDocuments(respond: (url: string) => Response, baseUrl?: string) {
       version: fetchHeader(init, "notion-version"),
       body: fetchBody(init),
     });
-    return respond(fetchUrl(input));
+    return respond(fetchUrl(input), fetchBody(init));
   };
   return { documents: new NotionDocuments("secret_x", { fetch, baseUrl }), calls };
 }
@@ -57,13 +57,6 @@ const fullComment = {
   display_name: { type: "user", resolved_name: "Ann" },
 };
 
-const listed = (created: string, id: string) => ({
-  ...fullComment,
-  id,
-  created_time: created,
-  rich_text: [{ plain_text: `said at ${created}` }],
-});
-
 const emptyList = { object: "list", next_cursor: null, has_more: false, results: [] };
 const listOf = (results: unknown[], nextCursor: string | null = null) => ({
   ...emptyList,
@@ -78,6 +71,20 @@ const block = (id: string, type: string, hasChildren: boolean) => ({
   has_children: hasChildren,
   [type]: { rich_text: [] },
 });
+const textBlock = (id: string, type: string, text: string, hasChildren = false) => ({
+  object: "block",
+  id,
+  type,
+  has_children: hasChildren,
+  [type]: { rich_text: [{ type: "text", plain_text: text }] },
+});
+const posted = (calls: Call[]) =>
+  calls
+    .filter((call) => call.method === "POST")
+    .map((call) => {
+      expect(call.url).toBe("https://api.notion.com/v1/comments");
+      return JSON.parse(call.body);
+    });
 const pageComment = (id: string, discussion: string, author: string, text: string) => ({
   ...fullComment,
   id,
@@ -243,44 +250,94 @@ describe("NotionDocuments", () => {
     });
   });
 
-  describe("comments", () => {
-    const page = {
-      object: "list",
-      type: "comment",
-      comment: {},
-      next_cursor: null,
-      has_more: false,
-      results: [
-        listed("2026-09-03T00:00:00.000Z", "c3"),
-        listed("2026-09-01T00:00:00.000Z", "c1"),
-        listed("2026-09-02T00:00:00.000Z", "c2"),
-      ],
+  describe("commentOnPassages", () => {
+    const pageBlocks: Record<string, unknown> = {
+      "/v1/blocks/p1/children": listOf([
+        textBlock("h1", "heading_2", "Rollout"),
+        textBlock("b1", "paragraph", "Each team owns its rollout.", true),
+        block("b2", "child_page", true),
+        textBlock("b3", "bulleted_list_item", "The second table holds sessions."),
+      ]),
+      "/v1/blocks/b1/children": listOf([
+        textBlock("b4", "paragraph", "Store the id in jobs.issue_id."),
+      ]),
+    };
+    const notRollout = { passage: "a passage the page does not hold", text: "Elsewhere." };
+    const onRollout = { passage: "owns its **rollout**", text: "Name the owner." };
+    const onNested = { passage: "Store the id in `jobs.issue_id`", text: "Say why." };
+    const respond = (url: string) => {
+      const { pathname, search } = new URL(url);
+      if (pathname === "/v1/comments") return Response.json(fullComment);
+      return Response.json(pageBlocks[`${pathname}${search}`] ?? emptyList);
     };
 
-    it("lists the page's comments under its block id", async () => {
-      const notion = notionDocuments(() => Response.json(page));
-      await notion.documents.comments("p1", "2026-09-01T00:00:00.000Z");
-      expect(notion.calls[0]?.url).toBe("https://api.notion.com/v1/comments?block_id=p1");
-      expect(notion.calls[0]?.method).toBe("GET");
-    });
-
-    it("keeps the comments at or after since, oldest first", async () => {
-      const { documents } = notionDocuments(() => Response.json(page));
-      const comments = await documents.comments("p1", "2026-09-02T00:00:00.000Z");
-      expect(comments.map((comment) => comment.id)).toEqual(["c2", "c3"]);
-    });
-
-    it("maps the id, time, text, and author", async () => {
-      const { documents } = notionDocuments(() => Response.json(page));
-      const comments = await documents.comments("p1", "2026-09-03T00:00:00.000Z");
-      expect(comments).toEqual([
+    it("posts each comment on the first block whose text holds its passage", async () => {
+      const notion = notionDocuments(respond);
+      await notion.documents.commentOnPassages("p1", [onRollout, onNested]);
+      expect(posted(notion.calls)).toEqual([
         {
-          id: "c3",
-          created_at: "2026-09-03T00:00:00.000Z",
-          text: "said at 2026-09-03T00:00:00.000Z",
-          author: { id: "u1", email: null },
+          parent: { block_id: "b1" },
+          rich_text: [{ type: "text", text: { content: "Name the owner." } }],
+        },
+        {
+          parent: { block_id: "b4" },
+          rich_text: [{ type: "text", text: { content: "Say why." } }],
         },
       ]);
+    });
+
+    it("returns the comments whose passage no block holds, and posts nothing for them", async () => {
+      const notion = notionDocuments(respond);
+      const unposted = await notion.documents.commentOnPassages("p1", [notRollout, onRollout]);
+      expect(unposted).toEqual([notRollout]);
+      expect(posted(notion.calls)).toHaveLength(1);
+    });
+
+    it("does not read the blocks of a child page", async () => {
+      const notion = notionDocuments(respond);
+      await notion.documents.commentOnPassages("p1", [onRollout]);
+      expect(paths(notion.calls).filter((path) => path.startsWith("/v1/blocks"))).toEqual([
+        "/v1/blocks/p1/children",
+        "/v1/blocks/b1/children",
+      ]);
+    });
+
+    it("returns a comment Notion does not take on its block, and posts the rest", async () => {
+      const notion = notionDocuments((url, body) => {
+        if (body.includes('"b1"')) {
+          return Response.json(
+            { object: "error", status: 400, code: "validation_error", message: "no comments here" },
+            { status: 400 },
+          );
+        }
+        return respond(url);
+      });
+      const unposted = await notion.documents.commentOnPassages("p1", [onRollout, onNested]);
+      expect(unposted).toEqual([onRollout]);
+      expect(posted(notion.calls).map((body) => body.parent)).toEqual([
+        { block_id: "b1" },
+        { block_id: "b4" },
+      ]);
+    });
+
+    it("splits a long comment into rich text items Notion takes", async () => {
+      const notion = notionDocuments(respond);
+      await notion.documents.commentOnPassages("p1", [{ ...onRollout, text: "x".repeat(2001) }]);
+      expect(posted(notion.calls)[0].rich_text).toEqual([
+        { type: "text", text: { content: "x".repeat(2000) } },
+        { type: "text", text: { content: "x" } },
+      ]);
+    });
+
+    it("throws and posts nothing when the page cannot be read", async () => {
+      const notion = notionDocuments(() =>
+        Response.json(
+          { object: "error", status: 404, code: "object_not_found", message: "gone" },
+          { status: 404 },
+        ),
+      );
+      await expect(notion.documents.commentOnPassages("p1", [onRollout])).rejects.toThrow("gone");
+      expect(posted(notion.calls)).toEqual([]);
     });
   });
 
@@ -400,7 +457,7 @@ describe("NotionDocuments", () => {
         expect(calls[0]?.version).toBe(Client.defaultNotionVersion);
       });
 
-      it("carries the text as a rich text block under the page", () => {
+      it("carries the text as rich text under the page", () => {
         expect(JSON.parse(calls[0]?.body ?? "")).toEqual({
           parent: { page_id: "p1" },
           rich_text: [{ type: "text", text: { content: "ship it" } }],

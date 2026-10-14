@@ -1,16 +1,17 @@
 import type {
   PageCommentRef,
-  DocumentComment,
   DocumentPage,
   DocumentsUser,
   FetchedComment,
   HeldComment,
+  PassageComment,
 } from "@artfct-ai/adapters/documents/types";
-import type { PageInstructions } from "@artfct-ai/adapters/instructions";
+import type { HostInstructions } from "@artfct-ai/adapters/instructions";
 import type { McpServer } from "@artfct-ai/adapters/mcp";
 import type { Binding } from "@artfct-ai/contracts/sources";
 import { firstClaimedLink } from "./detect";
-import { parseReview, reviewInstructions } from "./review-text";
+import { PASSAGE_INSTRUCTIONS, postPageReview } from "./page-review";
+import { parseTurnTextReview, reviewInstructions } from "./review-text";
 import type {
   Artifact,
   ArtifactChange,
@@ -19,10 +20,14 @@ import type {
   ChangeInput,
   FeedbackHandle,
   Review,
+  ReviewInput,
 } from "./types";
 
 /** Where the author answers a finding on a page it does not act on. */
 const REPLY_NOTE = "Reply on the comment on the page.";
+
+/** Where the reviewer of a page writes its review. Code posts it on the page. */
+const REVIEW_PLACE = "End the text of your turn with this block:";
 
 /** What the page kind needs from the configured document provider. */
 export type PageClients = {
@@ -32,8 +37,6 @@ export type PageClients = {
   page: (pageId: string) => Promise<DocumentPage | null>;
   /** True when the host says the page a link names is deleted or in the trash. */
   removed: (url: string) => Promise<boolean>;
-  /** Comments on a page made at or after an ISO time, oldest first. */
-  comments: (pageId: string, since: string) => Promise<DocumentComment[]>;
   /** One comment by id. Null when the host no longer holds it open. */
   fetchComment: (commentId: string) => Promise<FetchedComment | null>;
   /** The held comments of a page, read from the host. */
@@ -42,9 +45,11 @@ export type PageClients = {
   self: () => Promise<DocumentsUser | null>;
   /** Add a plain text comment to a page. */
   comment: (pageId: string, text: string) => Promise<void>;
+  /** Comment on the block that holds each passage. Returns the comments it did not post. */
+  commentOnPassages: (pageId: string, comments: PassageComment[]) => Promise<PassageComment[]>;
   /** Mark a comment as read, in the host's own way. */
   acknowledgeComment: (comment: PageCommentRef) => Promise<void>;
-  instructions: PageInstructions;
+  instructions: HostInstructions;
   /** What the page parent names on this host. */
   pageParentHint: string;
   mcp: (credential: string | null) => McpServer | null;
@@ -60,10 +65,7 @@ export function pageArtifact(clients: PageClients): Artifact {
     binding: (ref) => binding(ref),
     instructions: {
       ...clients.instructions,
-      report: [
-        clients.instructions.report,
-        reviewInstructions("Post one comment on the page in this shape:"),
-      ].join("\n\n"),
+      report: [reviewInstructions(REVIEW_PLACE), PASSAGE_INSTRUCTIONS].join("\n\n"),
     },
     repositoryInstructions: () => clients.notes,
     mcp: (credential) => clients.mcp(credential),
@@ -71,7 +73,8 @@ export function pageArtifact(clients: PageClients): Artifact {
     readyInstructions: () => "",
     review: {
       revision: (ref) => pageRevision(clients, ref),
-      postedReview: (ref, input) => readReview(clients, ref, input.since),
+      postedReview: (ref, input) => fileReview(clients, ref, input),
+      reviewerPosts: false,
       reviewerCredential: null,
       replyInstructions: REPLY_NOTE,
       postRejection: (ref, text) => postRejection(clients, ref, text),
@@ -118,37 +121,23 @@ async function pageRevision(clients: PageClients, ref: ArtifactRef): Promise<str
 }
 
 /**
- * The newest review this reviewer filed on the page after `since`. Null when it filed none,
- * when the host cannot be reached, and when the host will not say which user is ours.
+ * The review the reviewer ended its turn with, posted on the page first. Null when the turn
+ * text does not carry one. The revision is read after the post.
  */
-async function readReview(
+async function fileReview(
   clients: PageClients,
   ref: ArtifactRef,
-  since: string,
+  input: ReviewInput,
 ): Promise<Review | null> {
   if (ref.kind !== "page") return null;
-  try {
-    const self = await clients.self();
-    if (!self) return null;
-    const comments = await clients.comments(ref.page_id, since);
-    const parsed = newestOwnReview(comments, self.id);
-    if (!parsed) return null;
-    return { kind: "review", revision: await pageRevision(clients, ref), ...parsed };
-  } catch (error) {
-    clients.log(`page review lookup failed: ${String(error).slice(0, 200)}`);
-    return null;
-  }
-}
-
-/** The newest comment this client wrote that reads as a review. Comments arrive oldest first. */
-function newestOwnReview(comments: DocumentComment[], selfId: string) {
-  for (let index = comments.length - 1; index >= 0; index -= 1) {
-    const comment = comments[index]!;
-    if (comment.author?.id !== selfId) continue;
-    const parsed = parseReview(comment.text);
-    if (parsed) return parsed;
-  }
-  return null;
+  const parsed = parseTurnTextReview(input.turnText);
+  if (!parsed) return null;
+  await postPageReview(clients, {
+    pageId: ref.page_id,
+    review: parsed,
+    signature: input.signature,
+  });
+  return { kind: "review", revision: await pageRevision(clients, ref), ...parsed };
 }
 
 /**
