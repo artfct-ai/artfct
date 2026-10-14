@@ -937,7 +937,8 @@ export function personCommentsOnPage(number: number): WorkflowAction {
 
 /**
  * A person tells the agent they finished reviewing, and the turn sends the comments held on the
- * page of every running author. Comments the screen does not admit reach nobody.
+ * page of every running author. Comments the screen does not admit reach nobody. A cancel that
+ * lands meanwhile drops queued prompts, so the step claims that only without one.
  */
 export function personAsksForRevision(index: number, read: HeldCommentsRead): WorkflowAction {
   return action(`a person asks for a revision, ${heldCommentsLabel(read)}`, async (world) => {
@@ -951,9 +952,10 @@ export function personAsksForRevision(index: number, read: HeldCommentsRead): Wo
     );
     const agentRead = sent.notes.join(" ");
     const expected = heldCommentsExpected(read);
+    const keptWithoutCancel = authors.length && expected === "kept" && read.meanwhile === "nothing";
     return {
       heldCommentsAsked: authors.length ? { authors, expected, agentRead } : null,
-      unadmittedFeedback: authors.length && expected === "kept" ? { texts: held, agentRead } : null,
+      unadmittedFeedback: keptWithoutCancel ? { texts: held, agentRead } : null,
     };
   });
 }
