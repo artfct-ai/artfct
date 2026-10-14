@@ -71,8 +71,9 @@ A code name is one type, table, column, or function. A code name that needs a co
 | Term | Meaning | Code name | Do not say |
 |---|---|---|---|
 | board | The status message of one job in one chat thread. | `boards` row | |
-| checklist | The checkbox lines of a board: the todo list, the follow-up line, the phase lines, and the handover line. | `checklistLines` | |
-| todo list | The latest plan entries the harness reported. Replaced whole, frozen at the first artifact. | `TodoSnapshot` | checklist |
+| checklist | The checkbox lines of a board: each researcher and author of the job with its todo list or its work line, the follow-up line, the phase lines, and the handover line. | `checklistLines` | |
+| todo list | The latest plan entries the harness reported. Replaced whole. Every entry reads complete once the task hands on its result: the researcher to the author, the author at its first artifact. | `TodoSnapshot`, `completeTodos` | checklist |
+| work line | The one checklist line of a researcher or author without a todo list. It names the task's work and shows its status until the task is idle or done. An author's line reads complete once the job has an artifact. | `WorkLine` | |
 | board note | One line from the orchestrator on a board. | `BoardInput.note` | note |
 | agent note | A system message to the orchestrator agent. | `noteMessage`, `Applied.notes` | note |
 | harness session | The ACP session of one task. | `sandboxes.session_id` | session |
