@@ -726,10 +726,10 @@ describe("onTurnEnd", () => {
           expect(boards.map((entry) => entry.kind)).toEqual(["create"]);
         }));
 
-      it("says no todo list came in yet", () =>
+      it("shows the author's work line in place of a todo list", () =>
         ended((workflow) => {
           const boards = workflow.store.outbox().filter((entry) => entry.channel === "board");
-          expect(JSON.stringify(boards[0]?.payload)).toContain("no todo list reported");
+          expect(JSON.stringify(boards[0]?.payload)).toContain("☐ produce ← working");
         }));
     });
   });

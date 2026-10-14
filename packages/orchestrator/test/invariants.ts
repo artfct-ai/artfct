@@ -1,7 +1,14 @@
 import type { Control, InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { ArtifactStatus, TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
 import { ASK_WHETHER_ACCEPTED, ASK_WHICH_OPTION } from "../src/agent/tools/start/start";
-import { channelKey } from "../src/workflow/board/board";
+import type { PlanEntry } from "@agentclientprotocol/sdk";
+import { boardInputOf, channelKey } from "../src/workflow/board/board";
+import {
+  BOARD_MAX_ENTRIES,
+  boardText,
+  lifecycleLabel,
+  renderBoard,
+} from "../src/workflow/board/render";
 import { SLEEP_TEXT } from "../src/workflow/lifecycle";
 import type { TaskEvent, TaskRole } from "../src/workflow/task/events";
 import type { Wake, WorkflowRuntime } from "../src/workflow/types";
@@ -322,6 +329,64 @@ export function boardsLiveOnlyInChat(workflow: WorkflowRuntime): void {
   }
 }
 
+/**
+ * Each researcher and author of a job is on the job's board, as its todo list or its work line.
+ * The work line is checked once the task is idle or done, or once an author's artifact exists.
+ */
+export function everyJobTaskIsOnItsBoard(workflow: WorkflowRuntime): void {
+  for (const job of workflow.store.jobs()) {
+    const lines = renderBoard(boardInputOf(workflow, job.job_id)).body.split("\n");
+    const produced = workflow.store.artifact(job.job_id) !== null;
+    for (const task of workflow.store.tasks()) {
+      if (task.job_id !== job.job_id || !JOB_ROLES.includes(task.role)) continue;
+      const entries = workflow.store.todoRow(task.task_id)?.todos?.entries ?? [];
+      const missing = entries.length
+        ? missingEntry(lines, entries)
+        : missingLine(lines, expectedWorkLine(task.role, task.status, produced));
+      if (missing !== null) {
+        violated("everyJobTaskIsOnItsBoard", `${task.task_id} lacks "${missing}" on its board`);
+      }
+    }
+  }
+}
+
+function missingEntry(lines: string[], entries: PlanEntry[]): string | null {
+  const shown = entries.slice(0, BOARD_MAX_ENTRIES);
+  return shown.find((entry) => !lines.some((line) => showsEntry(line, entry)))?.content ?? null;
+}
+
+function missingLine(lines: string[], expected: string): string | null {
+  return lines.includes(expected) ? null : expected;
+}
+
+function showsEntry(line: string, entry: PlanEntry): boolean {
+  const box = entry.status === "completed" ? "☑" : "☐";
+  return line.startsWith(`${box} ${boardText(entry.content)}`);
+}
+
+function expectedWorkLine(role: TaskRole, status: TaskStatus, produced: boolean): string {
+  const work = role === "researcher" ? "research" : "produce";
+  const idle = status === "in_review" || status === "done";
+  if (idle || (role === "author" && produced)) return `☑ ${work}`;
+  return `☐ ${work} ← ${lifecycleLabel(status)}`;
+}
+
+/** Once a job's author exists, every entry of the todo list its researcher reported reads complete. */
+export function researchReadsCompleteOnceTheAuthorStarts(workflow: WorkflowRuntime): void {
+  for (const job of workflow.store.jobs()) {
+    const researcher = workflow.store.researcherTask(job.job_id);
+    if (!researcher || !workflow.store.authorTask(job.job_id)) continue;
+    const entries = workflow.store.todoRow(researcher.task_id)?.todos?.entries ?? [];
+    const open = entries.find((entry) => entry.status !== "completed");
+    if (open) {
+      violated(
+        "researchReadsCompleteOnceTheAuthorStarts",
+        `${researcher.task_id} still reads "${open.content}" ${open.status}`,
+      );
+    }
+  }
+}
+
 /** A task cannot be `in_review` without an artifact on its job. */
 export function inReviewTaskHasAnArtifact(workflow: WorkflowRuntime): void {
   for (const task of workflow.store.tasks()) {
@@ -439,14 +504,16 @@ export function oneUnfinishedRefinerRunPerArtifact(workflow: WorkflowRuntime): v
 }
 
 /**
- * The author and a polisher never work at once: while a polisher run is unfinished, its author
- * has no prompt in flight. A reviewer run only reads, so it does not stop the author.
+ * The author and a polisher never work at once. While a polisher run is unfinished, its author
+ * does not have a prompt or a model call in flight.
  */
 export function authorIsIdleWhileAPolisherRuns(workflow: WorkflowRuntime): void {
   for (const run of workflow.store.tasks()) {
     if (run.role !== "polisher" || FINISHED.includes(run.status)) continue;
     const author = workflow.store.authorTaskOf(run.job_id);
-    if (workflow.store.requireSandbox(author.task_id).prompt_in_flight) {
+    const sandbox = workflow.store.sandbox(author.task_id);
+    const busy = sandbox ? sandbox.prompt_in_flight === 1 : author.status === "working";
+    if (busy) {
       violated(
         "authorIsIdleWhileAPolisherRuns",
         `${author.task_id} has a prompt in flight while polisher ${run.task_id} is ${run.status}`,

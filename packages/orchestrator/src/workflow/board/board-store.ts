@@ -90,7 +90,7 @@ export class BoardStore extends RecordStore {
     return true;
   }
 
-  /** Complete every todo entry. The job's artifact keeps the list from changing afterwards. */
+  /** Mark every todo entry of the task completed. */
   completeTodos(taskId: string): void {
     const todos = this.todoRow(taskId)?.todos ?? null;
     this.patchTodoRow(taskId, { todos: todos && completeEntries(todos) });

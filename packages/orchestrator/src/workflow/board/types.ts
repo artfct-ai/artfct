@@ -47,10 +47,23 @@ export type BoardTask = {
   started_at: string;
 };
 
+/** What a work line names: the research, or the author's first artifact. */
+export type TaskWork = "research" | "produce";
+
+/** The line for a task without a todo list: checked, or open with the task's status. */
+export type WorkLine =
+  | { work: TaskWork; completed: true }
+  | { work: TaskWork; completed: false; status: TaskStatus };
+
+/** What the board lists for a researcher or an author: its todo list, or its work line. */
+export type TaskChecklist = { todos: TodoSnapshot } | WorkLine;
+
 /** Everything one board render reads. Pure data, no I/O. */
 export type BoardInput = {
+  /** The task that holds the job. The header shows it. */
   task: BoardTask;
-  todos: TodoSnapshot | null;
+  /** The researcher and the author of the job, in the order they started. */
+  tasks: TaskChecklist[];
   /** A one-line note from the orchestrator, for example the last prompt error. Omitted while the humans hold the artifact. */
   note: string | null;
   /** Where the stage's refiners stand, or null when the task shows no phases. */

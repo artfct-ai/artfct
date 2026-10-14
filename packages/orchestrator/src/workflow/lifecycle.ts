@@ -170,6 +170,7 @@ export async function startAuthorAfterResearch(
   workflow.store.updateJobResearchPayload(researcher.job_id, payload);
   workflow.log(researcher.task_id, `research payload stored (${payload.length} chars)`);
   await finishTask(workflow, researcher, "done");
+  workflow.store.completeTodos(researcher.task_id);
   await dropBoardFlush(workflow, researcher.task_id);
   const job = workflow.store.requireJob(researcher.job_id);
   const authorId = insertJobTask(workflow, authorTaskOf(workflow.stageFor(job), job));

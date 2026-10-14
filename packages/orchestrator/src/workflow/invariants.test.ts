@@ -12,6 +12,7 @@ import {
   eachIssueLinksTheChatThreadOnce,
   endedWorkflowHasNoUnfinishedTask,
   everyFeedbackGetsOneRoutingDecision,
+  everyJobTaskIsOnItsBoard,
   feedActivityPostsOnce,
   nothingReopensAFinishedWorkflow,
   refinerRunIsDoneOnlyAfterItsTurnEnded,
@@ -24,6 +25,7 @@ import {
   oneUnfinishedRefinerRunPerArtifact,
   orchestratorStaysOutOfSessionsWhenChatExists,
   refinersRunAgainOnlyOnChangedRevision,
+  researchReadsCompleteOnceTheAuthorStarts,
   sessionMessageReachesItsRunningAuthorSilently,
   sessionMessageWithoutAnAuthorIsAnswered,
   sessionFeedEndsWhenItsAuthorIdles,
@@ -55,6 +57,7 @@ import {
   checksReport,
   firstArtifactAppears,
   GENERATION_TIMERS,
+  pageModelAnswers,
   hostSays,
   personPostsFeedback,
   personCancels,
@@ -68,6 +71,7 @@ import {
   authorPromptFails,
   refinerRunPromptFails,
   refinerRunEnds,
+  researcherReportsTodos,
   researcherTurnEnds,
   sandboxComesUp,
   sandboxGoesAway,
@@ -100,7 +104,11 @@ const STATE_INVARIANTS = [
   endedWorkflowHasNoUnfinishedTask,
   boardsLiveOnlyInChat,
   eachIssueLinksTheChatThreadOnce,
+  everyJobTaskIsOnItsBoard,
+  researchReadsCompleteOnceTheAuthorStarts,
 ];
+
+const BOARD_INVARIANTS = [everyJobTaskIsOnItsBoard, researchReadsCompleteOnceTheAuthorStarts];
 
 const STEP_INVARIANTS = [
   deliveredToHumansIsNeverCleared,
@@ -140,6 +148,7 @@ const setups: fc.Arbitrary<WorldSetup> = fc.record({
   ),
   refiners: fc.constantFrom(...REFINER_SETUPS),
   research: fc.boolean(),
+  pageAuthor: fc.constant("harness" as const),
   checksOnPush: fc.constantFrom("passed" as const, "reported_later" as const),
   pageEnding: fc.constantFrom("acceptance" as const, "choice" as const),
   origin: fc.constantFrom("chat" as const, "chat" as const, "tracker" as const, "tracker" as const),
@@ -151,11 +160,17 @@ const pageSetups: fc.Arbitrary<WorldSetup> = fc.record({
   artifact: fc.constant("page" as const),
   refiners: fc.constantFrom(...REFINER_SETUPS),
   research: fc.boolean(),
+  pageAuthor: fc.constant("harness" as const),
   checksOnPush: fc.constantFrom("passed" as const, "reported_later" as const),
   pageEnding: fc.constantFrom("acceptance" as const, "choice" as const),
   origin: fc.constantFrom("chat" as const, "chat" as const, "tracker" as const, "tracker" as const),
   firstInput: fc.constantFrom("request" as const, "origin_issue" as const, "origin_issue" as const),
 });
+
+const modelPageSetups: fc.Arbitrary<WorldSetup> = pageSetups.map((setup) => ({
+  ...setup,
+  pageAuthor: "model" as const,
+}));
 
 const author = fc.nat({ max: MAX_AUTHORS - 1 });
 
@@ -199,6 +214,16 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
     arbitrary: fc
       .tuple(author, fc.constantFrom("written", "written", "written", "missing", "oversized"))
       .map(([index, payload]) => researcherTurnEnds(index, payload)),
+  },
+  {
+    weight: 2,
+    arbitrary: fc
+      .tuple(author, fc.integer({ min: 0, max: 3 }))
+      .map(([index, completed]) => researcherReportsTodos(index, completed)),
+  },
+  {
+    weight: 2,
+    arbitrary: fc.constantFrom("page", "page", "blank", "throws").map(pageModelAnswers),
   },
   { weight: 3, arbitrary: author.map(refinerRunPromptFails) },
   {
@@ -516,13 +541,21 @@ async function holdsThroughout(setup: WorldSetup, sequence: WorkflowAction[]): P
   }
 }
 
+async function boardHoldsThroughout(setup: WorldSetup, sequence: WorkflowAction[]): Promise<void> {
+  const world = await WorkflowWorld.open(setup);
+  for (const action of sequence) {
+    await world.apply(action);
+    for (const invariant of BOARD_INVARIANTS) invariant(world.workflow);
+  }
+}
+
 describe("the workflow invariants", () => {
   it(
     "hold after every action of any sequence, on any refiner list",
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(31);
+      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(33);
     },
     TIMEOUT_MS,
   );
@@ -531,6 +564,17 @@ describe("the workflow invariants", () => {
     "hold after every action of any sequence, on a page stage of either ending",
     async () => {
       const property = fc.asyncProperty(pageSetups, sequences, holdsThroughout);
+      await fc.assert(property, { numRuns: NUM_RUNS });
+    },
+    TIMEOUT_MS,
+  );
+});
+
+describe("the board invariants", () => {
+  it(
+    "hold after every action of any sequence, on a page stage whose author is a model call",
+    async () => {
+      const property = fc.asyncProperty(modelPageSetups, sequences, boardHoldsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
     },
     TIMEOUT_MS,
