@@ -2,7 +2,15 @@ import type { PlanEntry } from "@agentclientprotocol/sdk";
 import { TASK_STATUSES, type TaskStatus } from "@artfct-ai/contracts/types";
 import { describe, expect, it } from "bun:test";
 import { BOARD_MAX_ENTRIES, lifecycleLabel, openEntryCount, renderBoard } from "./render";
-import type { BoardInput, BoardTask, RefinerPhase, RefinerPhaseView, TodoSnapshot } from "./types";
+import type {
+  BoardInput,
+  BoardTask,
+  RefinerPhase,
+  RefinerPhaseView,
+  TaskChecklist,
+  TodoSnapshot,
+  WorkLine,
+} from "./types";
 
 const NOW = Date.UTC(2026, 8, 4, 0, 7);
 const STARTED_AT = "2026-09-03T23:55:00.000Z";
@@ -32,7 +40,7 @@ const REFINER_PHASES: RefinerPhase[] = ["review", "polish"];
 function boardInput(overrides: Partial<BoardInput> = {}): BoardInput {
   return {
     task,
-    todos,
+    tasks: [{ todos }],
     note: null,
     refiners: null,
     artifact_status: null,
@@ -74,6 +82,10 @@ function withStatus(status: TaskStatus): BoardTask {
   return { ...task, status };
 }
 
+function completedEntry(entry: PlanEntry): PlanEntry {
+  return { ...entry, status: "completed" };
+}
+
 function pendingEntries(count: number): PlanEntry[] {
   return Array.from({ length: count }, (_unused, index) => ({
     content: `Step ${index + 1}`,
@@ -88,6 +100,10 @@ function textOf(input: BoardInput): string {
 
 function line(input: BoardInput, index: number): string | undefined {
   return textOf(input).split("\n").at(index);
+}
+
+function workLineOf(workLine: WorkLine): string | undefined {
+  return line(boardInput({ tasks: [workLine] }), -1);
 }
 
 function refinerLines(refiners: BoardInput["refiners"]): string[] {
@@ -144,31 +160,72 @@ describe("renderBoard", () => {
     });
   });
 
-  describe("a task the harness said nothing about", () => {
-    const fallback = "no todo list reported by the harness yet";
-
-    it("falls back to one line without a todo list", () => {
-      expect(line(boardInput({ todos: null }), -1)).toBe(fallback);
+  describe("a model-call author after research", () => {
+    const research: TaskChecklist = { todos: { entries: entries.map(completedEntry) } };
+    const producing = boardInput({
+      task: { ...task, work: { stage: "directions" } },
+      tasks: [research, { work: "produce", completed: false, status: "working" }],
     });
 
-    it("falls back to the same line for an empty todo list", () => {
-      const empty: TodoSnapshot = { entries: [] };
-      expect(line(boardInput({ todos: empty }), -1)).toBe(fallback);
+    it("keeps the research todo list and adds the author's work line", () => {
+      expect(textOf(producing).split("\n").slice(2)).toEqual([
+        "",
+        "☑ Read the schema",
+        "☑ Add the migration",
+        "☑ Wire the query",
+        "☑ Write tests",
+        "☐ produce ← working",
+      ]);
+    });
+  });
+
+  describe("the work line of a task without a todo list", () => {
+    it("says the task is starting", () => {
+      expect(workLineOf({ work: "research", completed: false, status: "provisioning" })).toBe(
+        "☐ research ← starting the sandbox",
+      );
     });
 
-    it("prints the phases instead once it holds an artifact", () => {
-      const silent = boardInput({ todos: null, refiners: refinerBoard({ review: "in_progress" }) });
+    it("checks the work once it is completed", () => {
+      expect(workLineOf({ work: "produce", completed: true })).toBe("☑ produce");
+    });
+
+    it("says the task failed", () => {
+      expect(workLineOf({ work: "produce", completed: false, status: "failed" })).toBe(
+        "☐ produce ← failed",
+      );
+    });
+
+    it("puts the phases after it once the job holds an artifact", () => {
+      const silent = boardInput({
+        tasks: [{ work: "produce", completed: true }],
+        refiners: refinerBoard({ review: "in_progress" }),
+      });
       expect(textOf(silent).split("\n").slice(2)).toEqual([
         "",
+        "☑ produce",
         "☐ review ← run 2 · working",
         "☐ Ready for Humans",
       ]);
     });
   });
 
+  describe("open items across the tasks of a closed job", () => {
+    const failed = boardInput({
+      task: withStatus("failed"),
+      tasks: [{ todos }, { todos: { entries: entries.slice(1, 2) } }],
+    });
+
+    it("counts the open items of every task", () => {
+      expect(line(failed, 0)).toBe(
+        "*Fix the login redirect · implement · ENG-7 · failed, 4 items still open*",
+      );
+    });
+  });
+
   describe("a todo list longer than the cap", () => {
     const long: TodoSnapshot = { entries: pendingEntries(12) };
-    const lines = textOf(boardInput({ todos: long })).split("\n");
+    const lines = textOf(boardInput({ tasks: [{ todos: long }] })).split("\n");
     const listed = lines.filter((text) => text.startsWith("☐ "));
 
     it("lists BOARD_MAX_ENTRIES entries", () => {
@@ -186,7 +243,10 @@ describe("renderBoard", () => {
 
     it("folds the harness list only, never the phases", () => {
       const withRefiner = textOf(
-        boardInput({ todos: long, refiners: refinerBoard({ review: "completed" }, "pending") }),
+        boardInput({
+          tasks: [{ todos: long }],
+          refiners: refinerBoard({ review: "completed" }, "pending"),
+        }),
       );
       expect(withRefiner.split("\n").slice(-2)).toEqual(["☑ review", "☐ Ready for Humans"]);
     });
@@ -207,7 +267,7 @@ describe("renderBoard", () => {
     it("shows review, then polish, with the humans line last", () => {
       const lines = textOf(
         boardInput({
-          todos: null,
+          tasks: [{ work: "produce", completed: true }],
           refiners: refinerBoard({ review: "completed", polish: "in_progress" }),
         }),
       )
@@ -219,7 +279,7 @@ describe("renderBoard", () => {
     it("prints the open phase in chat markup", () => {
       const lines = textOf(
         boardInput({
-          todos: null,
+          tasks: [{ work: "produce", completed: true }],
           refiners: refinerBoard({ review: "in_progress", polish: "pending" }),
         }),
       )
@@ -288,7 +348,7 @@ describe("renderBoard", () => {
 
     it("uses the singular for one open item", () => {
       const oneOpen: TodoSnapshot = { entries: entries.slice(0, 2) };
-      const input = boardInput({ task: withStatus("cancelled"), todos: oneOpen });
+      const input = boardInput({ task: withStatus("cancelled"), tasks: [{ todos: oneOpen }] });
       expect(line(input, 0)).toBe(
         "*Fix the login redirect · implement · ENG-7 · cancelled, 1 item still open*",
       );
@@ -298,7 +358,7 @@ describe("renderBoard", () => {
       const completed: TodoSnapshot = {
         entries: entries.map((entry) => ({ ...entry, status: "completed" as const })),
       };
-      const input = boardInput({ task: withStatus("done"), todos: completed });
+      const input = boardInput({ task: withStatus("done"), tasks: [{ todos: completed }] });
       expect(line(input, 0)).toBe("*Fix the login redirect · implement · ENG-7 · done*");
     });
   });
@@ -390,7 +450,7 @@ describe("renderBoard", () => {
   describe("a board with a follow-up in progress", () => {
     const followingUp = boardInput({
       task: withStatus("working"),
-      todos: { entries: entries.map((entry) => ({ ...entry, status: "completed" })) },
+      tasks: [{ todos: { entries: entries.map(completedEntry) } }],
       refiners: refinerBoard({ review: "pending", polish: "pending" }, "pending"),
       artifact_status: "ready",
       follow_up: "in_progress",
@@ -479,7 +539,7 @@ describe("renderBoard", () => {
         { content: "y".repeat(250), priority: "low", status: "completed" },
       ],
     };
-    const lines = textOf(boardInput({ todos: messy })).split("\n");
+    const lines = textOf(boardInput({ tasks: [{ todos: messy }] })).split("\n");
 
     it("collapses the newlines", () => {
       expect(lines[3]).toBe("☐ first line second");
@@ -502,7 +562,12 @@ describe("renderBoard", () => {
     it("carries no GitHub state for any status", () => {
       for (const status of TASK_STATUSES) {
         const output = textOf(
-          boardInput({ task: withStatus(status), todos: linked, note, refiners: refinerBoard() }),
+          boardInput({
+            task: withStatus(status),
+            tasks: [{ todos: linked }],
+            note,
+            refiners: refinerBoard(),
+          }),
         ).toLowerCase();
         for (const forbidden of ["http", "github", "merge", "check"]) {
           expect(output, `${status} contains ${forbidden}`).not.toContain(forbidden);

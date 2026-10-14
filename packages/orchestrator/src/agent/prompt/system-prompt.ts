@@ -14,7 +14,7 @@ import { RUNTIME_RULES, runtimeLines } from "./runtime";
 import { stageLines } from "./stage-lines";
 import { REVIEW_RULES } from "../tools/artifact";
 import { CHANNEL_RULES, NOBODY_WROTE_RULES, PERSON_WROTE_RULES } from "../tools/channel";
-import { hasPageArtifact, HELD_COMMENT_RULES, SEND_HELD_COMMENTS } from "../tools/held-comments";
+import { hasPageArtifact, HELD_COMMENT_RULES } from "../tools/held-comments";
 import { hasRootPage, MOVE_INTO_ROOT_PAGE, ROOT_PAGE_RULES } from "../tools/root-page";
 import { TRACKER_RULES } from "../tools/tracker";
 import { END_RULES, FAIL_WORKFLOW, FINISH_WORKFLOW, PLAN_RULES } from "../tools/plan";
@@ -39,12 +39,15 @@ type RuleBlock = {
 /**
  * What a rule block reads about the turn itself: whether a person wrote since the last turn,
  * whether their message requests work, and the kind of input artifact it links or names. An
- * unprompted turn requests work.
+ * unprompted turn requests work. `heldComments` counts the comments held on the page of each
+ * running author by job id, read from the host as the turn starts. Null when the host could not
+ * be read.
  */
 export type TurnFacts = {
   personWrote: boolean;
   requestsWork: boolean;
   inputArtifact: ArtifactKind | null;
+  heldComments: ReadonlyMap<string, number | null>;
 };
 
 const always = (): boolean => true;
@@ -93,7 +96,7 @@ const BLOCKS: RuleBlock[] = [
     tools: ["request_review", "finish_review", "read_artifact"],
     needed: needsReview,
   },
-  { rules: HELD_COMMENT_RULES, tools: [SEND_HELD_COMMENTS], needed: hasPageArtifact },
+  { rules: HELD_COMMENT_RULES, tools: [], needed: hasPageArtifact },
   { rules: ROOT_PAGE_RULES, tools: [MOVE_INTO_ROOT_PAGE], needed: hasRootPage },
   { rules: TRACKER_RULES, tools: [], needed: always },
   { rules: WEB_RULES, tools: [], needed: always },
@@ -190,7 +193,7 @@ export function systemPrompt(workflow: WorkflowRuntime, turn: TurnFacts): string
     ...rules.flatMap((block) => [block, ""]),
     registeredConfig().writingRules,
     "",
-    ...stateLines(workflow),
+    ...stateLines(workflow, turn),
   ].join("\n");
 }
 
@@ -219,11 +222,12 @@ export function activeToolNames(
   return Object.keys(tools).filter((name) => !withheld.has(name));
 }
 
-function stateLines(workflow: WorkflowRuntime): string[] {
+function stateLines(workflow: WorkflowRuntime, turn: TurnFacts): string[] {
   const { state } = workflow;
   const active = workflow.store.activeAuthorAndResearcherTasks();
   return [
     "## Current state",
+    "Read from the store and the hosts for this request. Say whether a task runs, and where page comments are, only from these lines, never from earlier messages. `activity=running` means a turn of the task runs now. `activity=idle` means it runs nothing and nothing is queued for it. `held_comments` counts the comments on the page that its author has not received.",
     `Workflow: ${state.workflow_id} status=${state.status}`,
     state.definition === null
       ? "Workflow definition: not set. The workflow starts when set_plan names one."
@@ -234,7 +238,7 @@ function stateLines(workflow: WorkflowRuntime): string[] {
     `Page parent: ${state.page_parent ?? "none"}`,
     `Root page: ${state.root_page?.url ?? "none"}`,
     `Active jobs: ${active.length} of ${state.concurrency} slots`,
-    ...active.map((task) => jobLine(workflow, task)),
+    ...active.map((task) => jobLine(workflow, task, turn.heldComments)),
     `Cost so far: $${workflow.store.workflowCost().toFixed(2)}`,
     `Reply channels: ${state.reply_targets.map((target) => target.source).join(", ") || "none"}`,
   ];
@@ -247,14 +251,38 @@ function reviewLine(workflow: WorkflowRuntime, author: TaskRow, artifact: Artifa
   return taskQuiet(workflow, author) ? " review=yours to route" : " review=with the author";
 }
 
-function jobLine(workflow: WorkflowRuntime, task: TaskRow): string {
+/** Whether a task runs a turn right now, as the store holds it. */
+type TaskActivity = "starting" | "running" | "prompt_queued" | "paused" | "idle";
+
+function taskActivity(workflow: WorkflowRuntime, task: TaskRow): TaskActivity {
+  if (task.paused_at !== null) return "paused";
+  if (task.status === "queued" || task.status === "provisioning") return "starting";
+  const sandbox = workflow.store.sandbox(task.task_id);
+  const inTurn = sandbox
+    ? sandbox.prompt_in_flight === 1 || workflow.store.handshakePending(task.task_id)
+    : task.status === "working";
+  if (inTurn) return "running";
+  const queued = workflow.store.queue().some((row) => row.task_id === task.task_id);
+  return queued ? "prompt_queued" : "idle";
+}
+
+function heldCommentsPart(heldComments: ReadonlyMap<string, number | null>, jobId: string) {
+  if (!heldComments.has(jobId)) return "";
+  return ` held_comments=${heldComments.get(jobId) ?? "unreadable"}`;
+}
+
+function jobLine(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+  heldComments: ReadonlyMap<string, number | null>,
+): string {
   const job = workflow.store.requireJob(task.job_id);
   const artifact = workflow.store.artifact(job.job_id);
   const item = job.issue_key ? ` issue=${job.issue_key}` : "";
   const target = artifact
-    ? ` artifact=${artifact.kind} ${artifact.external_url} status=${artifact.status}${reviewLine(workflow, task, artifact)}`
+    ? ` artifact=${artifact.kind} ${artifact.external_url} status=${artifact.status}${reviewLine(workflow, task, artifact)}${heldCommentsPart(heldComments, job.job_id)}`
     : " artifact=none";
   const sandbox = workflow.store.sandbox(task.task_id);
   const runsOn = sandbox ? `harness=${sandbox.harness}` : "execution=model";
-  return `- job ${job.job_id} stage=${job.stage}${item} ${task.role}=${task.task_id} status=${task.status} ${runsOn} model=${task.model}${target}`;
+  return `- job ${job.job_id} stage=${job.stage}${item} ${task.role}=${task.task_id} status=${task.status} activity=${taskActivity(workflow, task)} ${runsOn} model=${task.model}${target}`;
 }

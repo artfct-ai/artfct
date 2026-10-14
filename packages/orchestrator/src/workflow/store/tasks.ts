@@ -125,15 +125,20 @@ export class WorkflowStore extends BoardStore {
    * Every job starts with one of them, so a missing one throws.
    */
   authorOrResearcherTaskOf(jobId: string): TaskRow {
-    const task =
-      this.authorTask(jobId) ??
+    const task = this.authorTask(jobId) ?? this.researcherTask(jobId);
+    if (!task) throw new Error(`job ${jobId} has no author or researcher task`);
+    return task;
+  }
+
+  /** The researcher task of a job. Null on a stage without research. */
+  researcherTask(jobId: string): TaskRow | null {
+    return (
       this.db
         .select()
         .from(tasks)
         .where(and(eq(tasks.job_id, jobId), eq(tasks.role, "researcher")))
-        .get();
-    if (!task) throw new Error(`job ${jobId} has no author or researcher task`);
-    return task;
+        .get() ?? null
+    );
   }
 
   job(jobId: string): JobRow | null {

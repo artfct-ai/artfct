@@ -1,3 +1,4 @@
+import type { LanguageModelV4 } from "@ai-sdk/provider";
 import type {
   CheckFailure,
   CommitChecks,
@@ -32,9 +33,14 @@ import { onBridgeClosed, type ConnectionState } from "../src/workflow/task/harne
 import { provision } from "../src/workflow/task/sandbox/sandbox";
 import { acceptingD1 } from "./accepting-d1";
 import { FakeBridge } from "./fake-bridge";
+import { CLOSING_TEXT_MARKER } from "../src/prompts/model-author-prompt";
+import { EchoModel, ScriptedFailure } from "./fake-model";
 import {
+  fakeDocumentsOf,
   FakeRuntime,
   JUDGE_ENTRY,
+  MODEL_AUTHOR_MODEL,
+  PAGE_PARENT,
   patchStagePolishers,
   patchStageResearch,
   patchStageReviewers,
@@ -59,14 +65,15 @@ export type RefinerSetup = (typeof REFINER_SETUPS)[number];
 
 /**
  * What one generated world is made of: the artifact kind of its first task, its refiner lists,
- * whether its stages run a researcher before the author, what the checks say on a new push, and
- * how the page stage ends.
+ * whether its stages run a researcher before the author, how the page author runs, what the
+ * checks say on a new push, and how the page stage ends.
  */
 export type WorldSetup = {
   opening: WorldOpening;
   artifact: ArtifactKind;
   refiners: RefinerSetup;
   research: boolean;
+  pageAuthor: PageAuthor;
   checksOnPush: ChecksOnPush;
   pageEnding: PageEnding;
   origin: OriginSurface;
@@ -74,6 +81,12 @@ export type WorldSetup = {
 };
 
 export type FirstInput = "request" | "origin_issue";
+
+/** How the author of the page stage runs: in a harness session, or as model calls. */
+export type PageAuthor = "harness" | "model";
+
+/** What the model of a model-call page author does on each call until an action changes it. */
+export type PageModelAnswer = "page" | "blank" | "throws";
 
 const ORIGIN_ISSUE: JobIssue = {
   id: "ENG-100",
@@ -187,6 +200,7 @@ export type StepFacts = Partial<
     | "completion"
     | "unadmittedFeedback"
     | "plan"
+    | "heldCommentsAsked"
   >
 >;
 
@@ -314,6 +328,7 @@ export class WorkflowWorld {
     patchStagePolishers(workflow, lists.polishers);
     if (setup.research) patchStageResearch(workflow);
     if (setup.pageEnding === "choice") patchPageEnding(workflow, "choice");
+    if (setup.pageAuthor === "model") patchModelPageAuthor(workflow);
     workflow.addWorkflowDefinition({ ...workflow.workflowDefinition(), name: SECOND_DEFINITION });
     workflow.documentsInstance = pageHost();
     workflow.gatewayInstance = new FakeGateway();
@@ -388,6 +403,7 @@ export class WorkflowWorld {
       unadmittedFeedback: facts.unadmittedFeedback ?? null,
       plan: facts.plan ?? null,
       issueUpdates: rows.filter((row) => row.kind === "issue_update").length,
+      heldCommentsAsked: facts.heldCommentsAsked ?? null,
       event: this.delivered,
       sessionPosts: sessionPostsOf(rows),
       postedTypes: this.workflow.posted.slice(postedBefore).map((event) => event.type),
@@ -554,6 +570,17 @@ export class WorkflowWorld {
     this.workflow.clock = Math.max(this.workflow.clock ?? 0, Date.now()) + ms;
   }
 
+  /** Run `body` while every call to the page host fails. */
+  async whilePageHostIsDown<Result>(body: () => Promise<Result>): Promise<Result> {
+    const host = this.workflow.documentsInstance;
+    this.workflow.documentsInstance = new FakeDocuments({ failing: true });
+    try {
+      return await body();
+    } finally {
+      this.workflow.documentsInstance = host;
+    }
+  }
+
   /** Run `body` while every call to the host fails. */
   async whileHostIsDown<Result>(body: () => Promise<Result>): Promise<Result> {
     this.hostReadable = false;
@@ -600,6 +627,11 @@ export class WorkflowWorld {
     const answering = decisionsAnswering(answers);
     const decisions = meanwhile ? new InterleavedDecisions(answering, meanwhile) : answering;
     this.workflow.gatewayInstance = new FakeGateway({ decisions });
+  }
+
+  /** The model of a model-call page author answers every call this way from now on. */
+  answerPageModelWith(answer: PageModelAnswer): void {
+    this.workflow.modelsByName[MODEL_AUTHOR_MODEL] = pageModelAnswering(answer);
   }
 
   /** An author turn ended. `stoppedEarly` says whether it ended on its own with the work unfinished. */
@@ -842,6 +874,9 @@ export class WorkflowWorld {
         store.allTodoRows().map((row) => [row.task_id, JSON.stringify(row.todos)]),
       ),
       authorPrompts: queued + sent,
+      heldComments: fakeDocumentsOf(this.workflow)
+        .heldNow()
+        .map((comment) => comment.text),
     };
   }
 }
@@ -897,6 +932,53 @@ function pageHost(): FakeDocuments {
   });
   for (const number of numbers) documents.seedPage(`page-${number}`, PAGE_TEXT);
   return documents;
+}
+
+/** The page answer of a model-call author: page text, then the closing text a revise needs. */
+const PAGE_MODEL_ANSWER = `${PAGE_TEXT}\n\n${CLOSING_TEXT_MARKER}\nRevised the page.`;
+
+/** The most calls a throwing page model fails. More than any sequence makes. */
+const PAGE_MODEL_FAILURES = 100;
+
+function pageModelAnswering(answer: PageModelAnswer): LanguageModelV4 {
+  switch (answer) {
+    case "page":
+      return new EchoModel(PAGE_MODEL_ANSWER);
+    case "blank":
+      return new EchoModel("  ");
+    case "throws":
+      return new ScriptedFailure(
+        Array.from({ length: PAGE_MODEL_FAILURES }, () => "throw" as const),
+      );
+    default: {
+      const unreachable: never = answer;
+      throw new Error(`unhandled page model answer ${String(unreachable)}`);
+    }
+  }
+}
+
+/** Run the author of the page stage as model calls that answer with a page. */
+function patchModelPageAuthor(workflow: FakeRuntime): void {
+  workflow.patchState({ page_parent: PAGE_PARENT });
+  workflow.patchWorkflowDefinition({
+    stages: workflow.workflowDefinition().stages.map((stage) =>
+      stage.name === STAGE_OF.page
+        ? {
+            ...stage,
+            author: {
+              produce: {
+                execution: "model" as const,
+                model: MODEL_AUTHOR_MODEL,
+                effort: stage.author.produce.effort,
+                skill: stage.author.produce.skill,
+                preload_skills: [],
+              },
+            },
+          }
+        : stage,
+    ),
+  });
+  workflow.modelsByName[MODEL_AUTHOR_MODEL] = pageModelAnswering("page");
 }
 
 function patchPageEnding(workflow: FakeRuntime, ending: PageEnding): void {

@@ -1,7 +1,14 @@
 import type { Control, InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { ArtifactStatus, TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
 import { ASK_WHETHER_ACCEPTED, ASK_WHICH_OPTION } from "../src/agent/tools/start/start";
-import { channelKey } from "../src/workflow/board/board";
+import type { PlanEntry } from "@agentclientprotocol/sdk";
+import { boardInputOf, channelKey } from "../src/workflow/board/board";
+import {
+  BOARD_MAX_ENTRIES,
+  boardText,
+  lifecycleLabel,
+  renderBoard,
+} from "../src/workflow/board/render";
 import { SLEEP_TEXT } from "../src/workflow/lifecycle";
 import type { TaskEvent, TaskRole } from "../src/workflow/task/events";
 import type { Wake, WorkflowRuntime } from "../src/workflow/types";
@@ -60,6 +67,8 @@ export type Observation = {
   todos: Record<string, string>;
   /** Prompts queued for authors plus prompts sent to authors, since the workflow began. */
   authorPrompts: number;
+  /** The text of every comment the page host holds. */
+  heldComments: string[];
 };
 
 /** One action and what an observer saw around it. */
@@ -111,6 +120,13 @@ export type Step = {
    * `agentRead` is the tool result the agent read about it, or null when no tool ran.
    */
   unadmittedFeedback: { texts: string[]; agentRead: string | null } | null;
+  /**
+   * Set when the agent prompted the author of a page, or a person asked for a revision while an
+   * author held a page. `authors` are those page authors. `expected` is `sent` when the host and
+   * the screen let the held comments through, and `kept` when either held them back. `agentRead`
+   * is what the agent read about it.
+   */
+  heldCommentsAsked: { authors: string[]; expected: "sent" | "kept"; agentRead: string } | null;
 };
 
 const FINISHED: TaskStatus[] = ["done", "failed", "cancelled"];
@@ -362,6 +378,64 @@ export function boardsLiveOnlyInChat(workflow: WorkflowRuntime): void {
   }
 }
 
+/**
+ * Each researcher and author of a job is on the job's board, as its todo list or its work line.
+ * The work line is checked once the task is idle or done, or once an author's artifact exists.
+ */
+export function everyJobTaskIsOnItsBoard(workflow: WorkflowRuntime): void {
+  for (const job of workflow.store.jobs()) {
+    const lines = renderBoard(boardInputOf(workflow, job.job_id)).body.split("\n");
+    const produced = workflow.store.artifact(job.job_id) !== null;
+    for (const task of workflow.store.tasks()) {
+      if (task.job_id !== job.job_id || !JOB_ROLES.includes(task.role)) continue;
+      const entries = workflow.store.todoRow(task.task_id)?.todos?.entries ?? [];
+      const missing = entries.length
+        ? missingEntry(lines, entries)
+        : missingLine(lines, expectedWorkLine(task.role, task.status, produced));
+      if (missing !== null) {
+        violated("everyJobTaskIsOnItsBoard", `${task.task_id} lacks "${missing}" on its board`);
+      }
+    }
+  }
+}
+
+function missingEntry(lines: string[], entries: PlanEntry[]): string | null {
+  const shown = entries.slice(0, BOARD_MAX_ENTRIES);
+  return shown.find((entry) => !lines.some((line) => showsEntry(line, entry)))?.content ?? null;
+}
+
+function missingLine(lines: string[], expected: string): string | null {
+  return lines.includes(expected) ? null : expected;
+}
+
+function showsEntry(line: string, entry: PlanEntry): boolean {
+  const box = entry.status === "completed" ? "☑" : "☐";
+  return line.startsWith(`${box} ${boardText(entry.content)}`);
+}
+
+function expectedWorkLine(role: TaskRole, status: TaskStatus, produced: boolean): string {
+  const work = role === "researcher" ? "research" : "produce";
+  const idle = status === "in_review" || status === "done";
+  if (idle || (role === "author" && produced)) return `☑ ${work}`;
+  return `☐ ${work} ← ${lifecycleLabel(status)}`;
+}
+
+/** Once a job's author exists, every entry of the todo list its researcher reported reads complete. */
+export function researchReadsCompleteOnceTheAuthorStarts(workflow: WorkflowRuntime): void {
+  for (const job of workflow.store.jobs()) {
+    const researcher = workflow.store.researcherTask(job.job_id);
+    if (!researcher || !workflow.store.authorTask(job.job_id)) continue;
+    const entries = workflow.store.todoRow(researcher.task_id)?.todos?.entries ?? [];
+    const open = entries.find((entry) => entry.status !== "completed");
+    if (open) {
+      violated(
+        "researchReadsCompleteOnceTheAuthorStarts",
+        `${researcher.task_id} still reads "${open.content}" ${open.status}`,
+      );
+    }
+  }
+}
+
 /** A task cannot be `in_review` without an artifact on its job. */
 export function inReviewTaskHasAnArtifact(workflow: WorkflowRuntime): void {
   for (const task of workflow.store.tasks()) {
@@ -479,14 +553,16 @@ export function oneUnfinishedRefinerRunPerArtifact(workflow: WorkflowRuntime): v
 }
 
 /**
- * The author and a polisher never work at once: while a polisher run is unfinished, its author
- * has no prompt in flight. A reviewer run only reads, so it does not stop the author.
+ * The author and a polisher never work at once. While a polisher run is unfinished, its author
+ * does not have a prompt or a model call in flight.
  */
 export function authorIsIdleWhileAPolisherRuns(workflow: WorkflowRuntime): void {
   for (const run of workflow.store.tasks()) {
     if (run.role !== "polisher" || FINISHED.includes(run.status)) continue;
     const author = workflow.store.authorTaskOf(run.job_id);
-    if (workflow.store.requireSandbox(author.task_id).prompt_in_flight) {
+    const sandbox = workflow.store.sandbox(author.task_id);
+    const busy = sandbox ? sandbox.prompt_in_flight === 1 : author.status === "working";
+    if (busy) {
       violated(
         "authorIsIdleWhileAPolisherRuns",
         `${author.task_id} has a prompt in flight while polisher ${run.task_id} is ${run.status}`,
@@ -641,6 +717,54 @@ function runningAuthorBefore(step: Step): ObservedTask | null {
 
 function occurrences(texts: string[], text: string): number {
   return texts.filter((candidate) => candidate === text).length;
+}
+
+function promptsAddedTo(step: Step, taskId: string): string[] {
+  const before = step.before.tasks.find((task) => task.task_id === taskId)?.promptTexts ?? [];
+  const after = step.after.tasks.find((task) => task.task_id === taskId)?.promptTexts ?? [];
+  return [...new Set(after)].filter((text) => occurrences(after, text) > occurrences(before, text));
+}
+
+/**
+ * A prompt the agent sends to the author of a page, and a person's request for a revision, carry
+ * every comment held on the page and mark it read. When the host cannot be read or the screen
+ * does not admit them, no prompt carries them, they stay held, and the agent is told so. An
+ * author that finished during the step is not owed them.
+ */
+export function aPromptToAPageAuthorCarriesItsHeldComments(
+  _workflow: WorkflowRuntime,
+  step: Step,
+): void {
+  const asked = step.heldCommentsAsked;
+  if (!asked || !step.before.heldComments.length) return;
+  const running = asked.authors.filter((taskId) => {
+    const task = step.after.tasks.find((candidate) => candidate.task_id === taskId);
+    return task !== undefined && !FINISHED.includes(task.status);
+  });
+  if (!running.length) return;
+  const added = running.flatMap((taskId) => promptsAddedTo(step, taskId));
+  for (const text of step.before.heldComments) {
+    const reached = added.some((prompt) => prompt.includes(text));
+    const stillHeld = step.after.heldComments.includes(text);
+    if (asked.expected === "sent" && !reached) {
+      violated("aPromptToAPageAuthorCarriesItsHeldComments", `"${text}" did not reach the author`);
+    }
+    if (asked.expected === "sent" && stillHeld) {
+      violated("aPromptToAPageAuthorCarriesItsHeldComments", `"${text}" is still held`);
+    }
+    if (asked.expected === "kept" && reached) {
+      violated("aPromptToAPageAuthorCarriesItsHeldComments", `"${text}" reached the author`);
+    }
+    if (asked.expected === "kept" && !stillHeld) {
+      violated("aPromptToAPageAuthorCarriesItsHeldComments", `"${text}" was marked read`);
+    }
+    if (asked.expected === "kept" && asked.agentRead.includes(text)) {
+      violated("aPromptToAPageAuthorCarriesItsHeldComments", `the agent read "${text}"`);
+    }
+    if (asked.expected === "kept" && !asked.agentRead.includes("They stay held.")) {
+      violated("aPromptToAPageAuthorCarriesItsHeldComments", "the agent was not told");
+    }
+  }
 }
 
 /** While a chat thread exists, the orchestrator posts nothing in a tracker session. */

@@ -474,13 +474,15 @@ describe("the phases on the checklist", () => {
         job_id: JOB,
         refiner_index: 0,
       });
+      workflow.store.updateTask(TASK, { status: "in_review" });
       await flushBoards(workflow, JOB);
     });
 
-    it("prints the review phase, the humans line, and no fallback line", () =>
+    it("prints the author's work line, the review phase, and the humans line", () =>
       held(() => {
         expect(texts(chat, "postThreadMessage")[0]?.split("\n").slice(2)).toEqual([
           "",
+          "☑ produce",
           "☐ review ← run 1 · working",
           "☐ Ready for Humans",
         ]);
@@ -498,6 +500,7 @@ describe("the phases on the checklist", () => {
         job_id: JOB,
         refiner_index: 1,
       });
+      workflow.store.updateTask(TASK, { status: "in_review" });
       await flushBoards(workflow, JOB);
     });
 
@@ -505,6 +508,7 @@ describe("the phases on the checklist", () => {
       polishing(() => {
         expect(texts(chat, "postThreadMessage")[0]?.split("\n").slice(2)).toEqual([
           "",
+          "☑ produce",
           "☑ review",
           "☐ polish ← run 1 · working",
           "☐ Ready for Humans",
@@ -1000,11 +1004,9 @@ describe("the board header", () => {
         );
       }));
 
-    it("says the harness reported no list yet", () =>
+    it("says the author produces", () =>
       launched(() => {
-        expect(texts(chat, "postThreadMessage")[0]).toContain(
-          "no todo list reported by the harness yet",
-        );
+        expect(texts(chat, "postThreadMessage")[0]?.split("\n").at(-1)).toBe("☐ produce ← working");
       }));
   });
 

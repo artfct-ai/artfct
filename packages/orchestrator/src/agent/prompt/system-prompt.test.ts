@@ -61,13 +61,20 @@ function toolsWithMcp(workflow: FakeRuntime): ToolSet {
   return { ...tools, tool_linear_get_issue: tools.status };
 }
 
-const NOBODY_WROTE: TurnFacts = { personWrote: false, requestsWork: true, inputArtifact: null };
-const PERSON_WROTE: TurnFacts = { personWrote: true, requestsWork: true, inputArtifact: null };
-const PERSON_WROTE_NO_WORK: TurnFacts = {
-  personWrote: true,
-  requestsWork: false,
+const NOBODY_WROTE: TurnFacts = {
+  personWrote: false,
+  requestsWork: true,
   inputArtifact: null,
+  heldComments: new Map(),
 };
+const PERSON_WROTE: TurnFacts = { ...NOBODY_WROTE, personWrote: true };
+const PERSON_WROTE_NO_WORK: TurnFacts = { ...PERSON_WROTE, requestsWork: false };
+
+function jobLineOf(workflow: FakeRuntime, turn: TurnFacts): string | undefined {
+  return systemPrompt(workflow, turn)
+    .split("\n")
+    .find((line) => line.startsWith("- job "));
+}
 
 function stageLine(workflow: FakeRuntime, name: string): string | undefined {
   return systemPrompt(workflow, NOBODY_WROTE)
@@ -467,7 +474,6 @@ describe("activeToolNames", () => {
           "read_artifact",
           "request_review",
           "resume_task",
-          "send_held_comments",
         ]);
       }));
 
@@ -562,10 +568,10 @@ describe("activeToolNames", () => {
   });
 
   describe("a workflow holding a reviewed pull request", () => {
-    it("keeps every tool but the ones that answer a person, send held page comments, and move pages", () =>
+    it("keeps every tool but the ones that answer a person and move pages", () =>
       planUnderReview((workflow) => {
         const tools = workflowTools(workflow);
-        const withheld = ["acknowledge", "send_held_comments", "move_into_root_page"];
+        const withheld = ["acknowledge", "move_into_root_page"];
         const kept = Object.keys(tools).filter((name) => !withheld.includes(name));
         expect(activeToolNames(workflow, tools, NOBODY_WROTE)).toEqual(kept);
       }));
@@ -586,8 +592,25 @@ describe("activeToolNames", () => {
       pageArtifact((workflow) => {
         expect(carriedRules(systemPrompt(workflow, PERSON_WROTE))).toContain("heldComments");
         expect(activeToolNames(workflow, workflowTools(workflow), PERSON_WROTE)).toContain(
-          "send_held_comments",
+          "prompt_task",
         );
+      }));
+
+    it("counts the comments held on the page on its job line", () =>
+      pageArtifact((workflow) => {
+        const turn = { ...PERSON_WROTE, heldComments: new Map([["wf_x-1", 4]]) };
+        expect(jobLineOf(workflow, turn)).toContain(" held_comments=4");
+      }));
+
+    it("says when the held comments could not be read", () =>
+      pageArtifact((workflow) => {
+        const turn = { ...PERSON_WROTE, heldComments: new Map([["wf_x-1", null]]) };
+        expect(jobLineOf(workflow, turn)).toContain(" held_comments=unreadable");
+      }));
+
+    it("leaves the count out when the turn did not read it", () =>
+      pageArtifact((workflow) => {
+        expect(jobLineOf(workflow, PERSON_WROTE)).not.toContain("held_comments");
       }));
   });
 
@@ -687,5 +710,46 @@ describe("systemPrompt with a model-call author", () => {
       patchModelExecution(workflow);
       seedModelAuthor(workflow);
       expect(systemPrompt(workflow, NOBODY_WROTE)).toContain(" execution=model model=");
+    }));
+});
+
+describe("the activity on a job line", () => {
+  it("is running while a prompt is in flight", () =>
+    freshRuntime((workflow) => {
+      seedTask(workflow, {}, { prompt_in_flight: 1 });
+      expect(jobLineOf(workflow, NOBODY_WROTE)).toContain(" activity=running ");
+    }));
+
+  it("is idle when nothing runs or waits", () =>
+    freshRuntime((workflow) => {
+      seedTask(workflow, { status: "in_review" });
+      expect(jobLineOf(workflow, NOBODY_WROTE)).toContain(" status=in_review activity=idle ");
+    }));
+
+  it("is prompt_queued when a prompt waits for the harness", () =>
+    freshRuntime((workflow) => {
+      seedTask(workflow, { status: "in_review" });
+      workflow.store.enqueuePrompt("wf_x.1", "Fix the title.");
+      expect(jobLineOf(workflow, NOBODY_WROTE)).toContain(" activity=prompt_queued ");
+    }));
+
+  it("is paused for a paused task", () =>
+    freshRuntime((workflow) => {
+      seedTask(workflow, { paused_at: "2026-10-13T20:00:00.000Z" }, { prompt_in_flight: 1 });
+      expect(jobLineOf(workflow, NOBODY_WROTE)).toContain(" activity=paused ");
+    }));
+
+  it("is starting while the sandbox is provisioned", () =>
+    freshRuntime((workflow) => {
+      seedTask(workflow, { status: "provisioning" });
+      expect(jobLineOf(workflow, NOBODY_WROTE)).toContain(" activity=starting ");
+    }));
+
+  it("is running for a model author at work", () =>
+    freshRuntime((workflow) => {
+      patchModelExecution(workflow);
+      seedModelAuthor(workflow);
+      workflow.store.updateTask("wf_x.1", { status: "working" });
+      expect(jobLineOf(workflow, NOBODY_WROTE)).toContain(" activity=running execution=model ");
     }));
 });

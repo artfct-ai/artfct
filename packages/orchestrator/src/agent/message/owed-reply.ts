@@ -16,14 +16,16 @@ export const OWED_REPLY_PURPOSE = "owed_reply";
 
 /**
  * What the decisions model reads in a person's message: the owed reply, whether the message
- * requests work, whether it names a model for the work, and the kind of input artifact it links
- * or names. A message that does not request work leaves the planning rules and the workflow
- * definitions out of the prompt.
+ * requests work, whether it names a model for the work, whether it asks for a revision, and the
+ * kind of input artifact it links or names. A message that does not request work leaves the
+ * planning rules and the workflow definitions out of the prompt. One that asks for a revision
+ * sends the held comments.
  */
 export type PersonMessage = {
   owed: OwedReply;
   requestsWork: boolean;
   namesModel: boolean;
+  asksForRevision: boolean;
   inputArtifact: ArtifactKind | null;
 };
 
@@ -32,6 +34,7 @@ export const UNREAD_MESSAGE: PersonMessage = {
   owed: "answer",
   requestsWork: true,
   namesModel: false,
+  asksForRevision: false,
   inputArtifact: null,
 };
 
@@ -60,6 +63,12 @@ export const OWED_REPLY_QUESTIONS = {
     yes: "The person names a model or a model family the work should use.",
     no: "The person names no model.",
   },
+  asks_revision: {
+    instructions:
+      "Does `message` tell the assistant that the person finished reviewing a document or left comments or a review on it, or ask the assistant to have a document revised from feedback?",
+    yes: "The person says they left a review, left comments, or are done reviewing, or asks for the document to be revised, updated, or reworked from the comments.",
+    no: "The person asks a question, approves without asking for changes, starts other work, makes small talk, or writes to someone else.",
+  },
 } satisfies Record<string, YesNoQuestion>;
 
 /** The owed reply two probabilities stand for. Anything short of clear work with no question is `answer`. */
@@ -87,6 +96,11 @@ export function closingTextWithheld(owed: OwedReply | null, boardChanged: boolea
   return null;
 }
 
+/** True when the probability says the message clearly asks for a revision. */
+export function asksForRevisionFrom(probabilities: { asks_revision: number }): boolean {
+  return probabilities.asks_revision >= CLEARLY_YES;
+}
+
 /** True when the probability says the message clearly names a model. */
 export function namesModelFrom(probabilities: { names_model: number }): boolean {
   return probabilities.names_model >= CLEARLY_YES;
@@ -100,7 +114,7 @@ function stagesToPlanFrom(workflow: WorkflowRuntime): readonly Stage[] {
 
 /**
  * Ask the decisions model what the person's message is owed, whether it requests work, whether it
- * names a model, and which kind of input artifact it links or names.
+ * names a model, whether it asks for a revision, and which kind of input artifact it links or names.
  */
 export async function readPersonMessage(
   workflow: WorkflowRuntime,
@@ -121,14 +135,16 @@ export async function readPersonMessage(
   const owed = owedReplyFrom(probabilities);
   const requestsWork = requestsWorkFrom(probabilities);
   const namesModel = namesModelFrom(probabilities);
+  const asksForRevision = asksForRevisionFrom(probabilities);
   const inputArtifact = inputArtifactFrom(choices.artifact);
   const answer = probabilities.wants_answer.toFixed(2);
   const work = probabilities.wants_work.toFixed(2);
   const model = probabilities.names_model.toFixed(2);
+  const revision = probabilities.asks_revision.toFixed(2);
   const artifact = `${choices.artifact.option} ${choices.artifact.probability.toFixed(2)}`;
   workflow.log(
     null,
-    `owed reply ${owed}, requests work ${requestsWork ? "yes" : "no"}, names a model ${namesModel ? "yes" : "no"}, input artifact ${inputArtifact ?? "none"}: answer=${answer} work=${work} model=${model} artifact=${artifact}`,
+    `owed reply ${owed}, requests work ${requestsWork ? "yes" : "no"}, names a model ${namesModel ? "yes" : "no"}, asks for a revision ${asksForRevision ? "yes" : "no"}, input artifact ${inputArtifact ?? "none"}: answer=${answer} work=${work} model=${model} revision=${revision} artifact=${artifact}`,
   );
-  return { owed, requestsWork, namesModel, inputArtifact };
+  return { owed, requestsWork, namesModel, asksForRevision, inputArtifact };
 }
