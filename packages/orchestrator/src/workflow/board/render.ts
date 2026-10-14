@@ -1,6 +1,14 @@
 import type { PlanEntry } from "@agentclientprotocol/sdk";
 import type { TaskStatus } from "@artfct-ai/contracts/types";
-import type { BoardInput, BoardRender, BoardWork, RefinerPhaseView, TodoSnapshot } from "./types";
+import type {
+  BoardInput,
+  BoardRender,
+  BoardWork,
+  RefinerPhaseView,
+  TaskChecklist,
+  TaskWork,
+  TodoSnapshot,
+} from "./types";
 
 /** How many harness todo entries a board lists before it folds the rest into `+N more`. */
 export const BOARD_MAX_ENTRIES = 10;
@@ -8,7 +16,6 @@ export const BOARD_MAX_ENTRIES = 10;
 /** The longest note or entry text the board prints. */
 const MAX_TEXT_LENGTH = 200;
 
-const EMPTY_TODO_LINE = "no todo list reported by the harness yet";
 const WORKING_SUFFIX = " ← working";
 const SEPARATOR = " · ";
 const READY_FOR_HUMANS = "Ready for Humans";
@@ -17,8 +24,8 @@ const CLOSED_LABEL = "complete";
 const PAUSED_LABEL = "paused";
 
 /**
- * Render one task board: the harness todo list, the phases of its artifact, and the task
- * lifecycle. Pure. The stamp sits off the body, so an unchanged board hashes the same.
+ * Render one job board: each researcher and author of the job, the phases of its artifact, and
+ * the lifecycle of the task that holds the job. Pure. The stamp sits off the body, so an unchanged board hashes the same.
  */
 export function renderBoard(input: BoardInput): BoardRender {
   const header = bold(headerText(input));
@@ -95,7 +102,10 @@ function lifecycleText(input: BoardInput): string {
   }
   if (input.task.paused && !isClosed(input.task.status)) return PAUSED_LABEL;
   const label = lifecycleLabel(input.task.status);
-  const open = openEntryCount(input.todos);
+  const open = input.tasks.reduce(
+    (count, task) => count + ("todos" in task ? openEntryCount(task.todos) : 0),
+    0,
+  );
   if (!isClosed(input.task.status) || open === 0) {
     return label;
   }
@@ -111,28 +121,34 @@ function stampLine(input: BoardInput): string {
   ].join(SEPARATOR);
 }
 
-/**
- * The harness list, the follow-up line, then the phases and the humans line. The fallback line
- * only when the task has none of them.
- */
+/** Each researcher and author, the follow-up line, then the phases and the humans line. */
 function checklistLines(input: BoardInput): string[] {
-  const harness = harnessLines(input.todos);
-  const followUp = followUpLine(input.follow_up);
-  const phases = refinerBoardLines(input.refiners);
-  const humans = humansLine(input.refiners);
-  if (harness.length === 0 && followUp.length === 0 && phases.length === 0) {
-    return [EMPTY_TODO_LINE];
-  }
-  return [...harness, ...followUp, ...phases, ...humans];
+  return [
+    ...input.tasks.flatMap((task) => taskLines(task)),
+    ...followUpLine(input.follow_up),
+    ...refinerBoardLines(input.refiners),
+    ...humansLine(input.refiners),
+  ];
+}
+
+/** The todo list a task reported, or its work line. */
+function taskLines(task: TaskChecklist): string[] {
+  if ("todos" in task) return todoLines(task.todos);
+  return [workLine(task.work, task.status)];
 }
 
 /** What the harness reported, folded past the cap. */
-function harnessLines(todos: TodoSnapshot | null): string[] {
-  const entries = todos?.entries ?? [];
-  if (entries.length === 0) return [];
+function todoLines(todos: TodoSnapshot): string[] {
+  const { entries } = todos;
   const shown = entries.slice(0, BOARD_MAX_ENTRIES).map((entry) => entryLine(entry));
   const hidden = entries.length - shown.length;
   return hidden > 0 ? [...shown, `+${hidden} more`] : shown;
+}
+
+/** One line for the work of a task without a todo list: checked once the task is idle or done. */
+function workLine(work: TaskWork, status: TaskStatus): string {
+  if (status === "in_review" || status === "done") return `${checkbox(true)} ${work}`;
+  return `${checkbox(false)} ${work} ← ${lifecycleLabel(status)}`;
 }
 
 /** The one line for the follow-ups of the artifact the humans hold. None before the first. */

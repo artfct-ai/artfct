@@ -7,7 +7,6 @@ import {
   reviewerEntryOf,
 } from "../refiner/stage-refiner";
 import { workflowName } from "../store/state";
-import type { TodoRow } from "./board-store";
 import type { ArtifactRow, JobRow, TaskRow } from "../store/tasks";
 import { authorBusy } from "../follow-up";
 import type { WorkflowRuntime } from "../types";
@@ -20,6 +19,8 @@ import type {
   RefinerBoard,
   RefinerPhase,
   RefinerPhaseView,
+  TaskChecklist,
+  TaskWork,
 } from "./types";
 
 /** Changes within this window after the first one go out in one edit. */
@@ -87,26 +88,73 @@ export async function onFlushBoard(workflow: WorkflowRuntime, alarm: BoardAlarm)
 
 /**
  * Bring every board of the job up to date now, creating one that does not exist yet. The board
- * shows the todo list of the author, or of the researcher before the author starts, and where
- * the refiner runs of the job stand.
+ * shows each researcher and author of the job and where the refiner runs of the job stand.
  */
 export async function flushBoards(workflow: WorkflowRuntime, jobId: string): Promise<void> {
+  await dropBoardFlush(workflow, workflow.store.authorOrResearcherTaskOf(jobId).task_id);
+  const input = boardInputOf(workflow, jobId);
+  for (const channel of boardChannels(workflow)) {
+    await flushOne(workflow, jobId, channel, input);
+  }
+}
+
+/** What every board of the job shows now. */
+export function boardInputOf(workflow: WorkflowRuntime, jobId: string): BoardInput {
   const job = workflow.store.requireJob(jobId);
   const task = workflow.store.authorOrResearcherTaskOf(jobId);
-  const row = await dropBoardFlush(workflow, task.task_id);
   const artifact = workflow.store.artifact(jobId);
   const followUp = followUpStatus(workflow, task, artifact);
-  const input: BoardInput = {
+  return {
     task: boardTask(workflow, task),
-    todos: row.todos,
-    note: row.note,
+    tasks: taskChecklists(workflow, jobId, artifact),
+    note: workflow.store.todoRow(task.task_id)?.note ?? null,
     refiners: refinerBoard(workflow, job, followUp),
     artifact_status: artifact?.status ?? null,
     follow_up: followUp,
     now: workflow.now(),
   };
-  for (const channel of boardChannels(workflow)) {
-    await flushOne(workflow, jobId, channel, input);
+}
+
+/** The researcher of the job, then its author, each with its todo list or its work line. */
+function taskChecklists(
+  workflow: WorkflowRuntime,
+  jobId: string,
+  artifact: ArtifactRow | null,
+): TaskChecklist[] {
+  const researcher = workflow.store.researcherTask(jobId);
+  const author = workflow.store.authorTask(jobId);
+  return [
+    ...(researcher ? [taskChecklist(workflow, researcher, "research")] : []),
+    ...(author ? [taskChecklist(workflow, author, authorWork(author, artifact))] : []),
+  ];
+}
+
+function taskChecklist(workflow: WorkflowRuntime, task: TaskRow, work: TaskWork): TaskChecklist {
+  const todos = workflow.store.todoRow(task.task_id)?.todos;
+  if (todos?.entries.length) return { todos };
+  return { work, status: task.status };
+}
+
+/**
+ * The author activity an author is on. It revises once the job has an artifact and the author
+ * runs again or failed doing so. Otherwise its line stands for the produce activity.
+ */
+function authorWork(author: TaskRow, artifact: ArtifactRow | null): TaskWork {
+  if (!artifact) return "produce";
+  switch (author.status) {
+    case "queued":
+    case "provisioning":
+    case "working":
+    case "failed":
+      return "revise";
+    case "in_review":
+    case "done":
+    case "cancelled":
+      return "produce";
+    default: {
+      const unhandled: never = author.status;
+      throw new Error(`unhandled task status ${JSON.stringify(unhandled)}`);
+    }
   }
 }
 
@@ -136,12 +184,12 @@ async function flushOne(
 
 /**
  * Cancel the flush alarm pending on the task's todo row and clear it. For a flush that covers it,
- * and for a researcher whose board the author takes over. Returns the row.
+ * and for a researcher whose board the author takes over.
  */
-export async function dropBoardFlush(workflow: WorkflowRuntime, taskId: string): Promise<TodoRow> {
+export async function dropBoardFlush(workflow: WorkflowRuntime, taskId: string): Promise<void> {
   const pending = workflow.store.todoRow(taskId)?.flush_schedule;
   if (pending) await cancelFlush(workflow, taskId, pending);
-  return workflow.store.patchTodoRow(taskId, { flush_schedule: null });
+  workflow.store.patchTodoRow(taskId, { flush_schedule: null });
 }
 
 /** Drop the pending alarm because this flush covers it. Logs and never throws. */

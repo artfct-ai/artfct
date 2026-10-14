@@ -43,6 +43,7 @@ import {
   type ChecksReport,
   type DecisionAnswers,
   type Mergeability,
+  type PageModelAnswer,
   type StepFacts,
   type WorkflowAction,
   type WorkflowWorld,
@@ -193,6 +194,29 @@ export function authorPromptFails(index: number, revision: "changed" | "same"): 
 
 /** What a researcher left at the research payload path when its turn ends. */
 export type PayloadAtTurnEnd = "written" | "missing" | "oversized";
+
+/** A running researcher reports its todo list, with the first `completed` entries done. */
+export function researcherReportsTodos(index: number, completed: number): WorkflowAction {
+  return action(`researcher ${index}: reports todos, ${completed} done`, async (world) => {
+    const researcher = world.researcherAt(index);
+    const bridge = researcher ? world.runningBridgeOf(researcher.task_id) : null;
+    if (!bridge) return;
+    await bridge.reportTodos(
+      ["Read the request", "Map the login module", "Write the payload"].map((content, entry) => ({
+        content,
+        priority: "medium",
+        status: entry < completed ? "completed" : "pending",
+      })),
+    );
+  });
+}
+
+/** The model of a model-call page author answers every call this way from now on. */
+export function pageModelAnswers(answer: PageModelAnswer): WorkflowAction {
+  return action(`the page model answers ${answer}`, async (world) => {
+    world.answerPageModelWith(answer);
+  });
+}
 
 /** A researcher's running turn ends. A paused researcher's turn ends cancelled, as the pause asked. */
 export function researcherTurnEnds(index: number, payload: PayloadAtTurnEnd): WorkflowAction {
@@ -1100,7 +1124,7 @@ export function staleAlarmFires(
     const { store } = world.workflow;
     const sandboxes = store
       .tasks()
-      .map((task) => store.requireSandbox(task.task_id))
+      .flatMap((task) => store.sandbox(task.task_id) ?? [])
       .filter((sandbox) => sandbox.generation > 0);
     const sandbox = sandboxes[pick % sandboxes.length];
     if (!sandbox) return undefined;
