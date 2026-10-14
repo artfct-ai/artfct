@@ -105,6 +105,18 @@ describe("readPersonMessage", () => {
       }));
   });
 
+  describe("a message that says the person left a review", () => {
+    const asked = askedWith(
+      { wants_answer: 0.2, wants_work: 0.1, asks_revision: 0.9 },
+      "@artfct left a review",
+    );
+
+    it("asks for a revision", () =>
+      asked(({ read }) => {
+        expect(read.asksForRevision).toBe(true);
+      }));
+  });
+
   describe("a message that asks for work", () => {
     const asked = askedWith({ wants_answer: 0.1, wants_work: 0.9 }, "lets move to a plan");
 
@@ -114,6 +126,7 @@ describe("readPersonMessage", () => {
           owed: "board",
           requestsWork: true,
           namesModel: false,
+          asksForRevision: false,
           inputArtifact: null,
         });
       }));
@@ -157,6 +170,7 @@ describe("readPersonMessage", () => {
           owed: "answer",
           requestsWork: false,
           namesModel: false,
+          asksForRevision: false,
           inputArtifact: null,
         });
       }));

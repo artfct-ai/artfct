@@ -2,7 +2,12 @@ import { tool } from "ai";
 import { z } from "zod";
 import { pauseTask, resumeTask } from "../../workflow/inbound/controls";
 import { cancelTask } from "../../workflow/lifecycle";
-import { promptTask } from "../../workflow/task/harness/prompt-queue";
+import type { TurnDecisions } from "../../decisions/ask";
+import {
+  heldCommentsNote,
+  promptWithHeldComments,
+  readHeldComments,
+} from "../../workflow/refiner/held-comments";
 import { isTaskFinished } from "../../workflow/store/state";
 import type { TaskRow } from "../../workflow/store/tasks";
 import { reviewerEntryOf } from "../../workflow/refiner/stage-refiner";
@@ -33,17 +38,23 @@ export const HARNESS_RULES = `## Harness Interaction Protocol
 /** The tool that sends a person's words to a running task. The board is the reply. */
 export const PROMPT_TASK = "prompt_task";
 
-/** Tools that drive one running task's harness. Every one names the task. */
-export function taskTools(workflow: WorkflowRuntime) {
+/**
+ * Tools that drive one running task's harness. Every one names the task. A prompt to the author
+ * of a page carries the comments held on it, screened with the turn's decisions.
+ */
+export function taskTools(workflow: WorkflowRuntime, turn?: TurnDecisions) {
   return {
     [PROMPT_TASK]: tool({
       description:
-        "Send a message to the harness working on a task. It is queued until the harness finishes its current turn. Wakes a sleeping sandbox.",
+        "Send a message to the harness working on a task. It is queued until the harness finishes its current turn. Wakes a sleeping sandbox. A message to the author of a page carries every comment held on that page and marks them read.",
       inputSchema: z.object({ task_id: taskIdField, text: z.string().min(1) }),
       execute: ({ task_id, text }) =>
         withActiveTask(workflow, task_id, async (task) => {
-          await promptTask(workflow, task, text);
-          return `Queued for ${task.task_id}.`;
+          const held = await readHeldComments(workflow, task, turn);
+          if (!(await promptWithHeldComments(workflow, task.task_id, text, held))) {
+            return `Task ${task.task_id} is ${workflow.store.requireTask(task.task_id).status}.`;
+          }
+          return [`Queued for ${task.task_id}.`, heldCommentsNote(held)].filter(Boolean).join(" ");
         }),
     }),
     pause_task: tool({

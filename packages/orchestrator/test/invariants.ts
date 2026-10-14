@@ -66,6 +66,8 @@ export type Observation = {
   todos: Record<string, string>;
   /** Prompts queued for authors plus prompts sent to authors, since the workflow began. */
   authorPrompts: number;
+  /** The text of every comment the page host holds. */
+  heldComments: string[];
 };
 
 /** One action and what an observer saw around it. */
@@ -113,6 +115,13 @@ export type Step = {
    * `agentRead` is the tool result the agent read about it, or null when no tool ran.
    */
   unadmittedFeedback: { texts: string[]; agentRead: string | null } | null;
+  /**
+   * Set when the agent prompted the author of a page, or a person asked for a revision while an
+   * author held a page. `authors` are those page authors. `expected` is `sent` when the host and
+   * the screen let the held comments through, and `kept` when either held them back. `agentRead`
+   * is what the agent read about it.
+   */
+  heldCommentsAsked: { authors: string[]; expected: "sent" | "kept"; agentRead: string } | null;
 };
 
 const FINISHED: TaskStatus[] = ["done", "failed", "cancelled"];
@@ -668,6 +677,54 @@ function runningAuthorBefore(step: Step): ObservedTask | null {
 
 function occurrences(texts: string[], text: string): number {
   return texts.filter((candidate) => candidate === text).length;
+}
+
+function promptsAddedTo(step: Step, taskId: string): string[] {
+  const before = step.before.tasks.find((task) => task.task_id === taskId)?.promptTexts ?? [];
+  const after = step.after.tasks.find((task) => task.task_id === taskId)?.promptTexts ?? [];
+  return [...new Set(after)].filter((text) => occurrences(after, text) > occurrences(before, text));
+}
+
+/**
+ * A prompt the agent sends to the author of a page, and a person's request for a revision, carry
+ * every comment held on the page and mark it read. When the host cannot be read or the screen
+ * does not admit them, no prompt carries them, they stay held, and the agent is told so. An
+ * author that finished during the step is not owed them.
+ */
+export function aPromptToAPageAuthorCarriesItsHeldComments(
+  _workflow: WorkflowRuntime,
+  step: Step,
+): void {
+  const asked = step.heldCommentsAsked;
+  if (!asked || !step.before.heldComments.length) return;
+  const running = asked.authors.filter((taskId) => {
+    const task = step.after.tasks.find((candidate) => candidate.task_id === taskId);
+    return task !== undefined && !FINISHED.includes(task.status);
+  });
+  if (!running.length) return;
+  const added = running.flatMap((taskId) => promptsAddedTo(step, taskId));
+  for (const text of step.before.heldComments) {
+    const reached = added.some((prompt) => prompt.includes(text));
+    const stillHeld = step.after.heldComments.includes(text);
+    if (asked.expected === "sent" && !reached) {
+      violated("aPromptToAPageAuthorCarriesItsHeldComments", `"${text}" did not reach the author`);
+    }
+    if (asked.expected === "sent" && stillHeld) {
+      violated("aPromptToAPageAuthorCarriesItsHeldComments", `"${text}" is still held`);
+    }
+    if (asked.expected === "kept" && reached) {
+      violated("aPromptToAPageAuthorCarriesItsHeldComments", `"${text}" reached the author`);
+    }
+    if (asked.expected === "kept" && !stillHeld) {
+      violated("aPromptToAPageAuthorCarriesItsHeldComments", `"${text}" was marked read`);
+    }
+    if (asked.expected === "kept" && asked.agentRead.includes(text)) {
+      violated("aPromptToAPageAuthorCarriesItsHeldComments", `the agent read "${text}"`);
+    }
+    if (asked.expected === "kept" && !asked.agentRead.includes("They stay held.")) {
+      violated("aPromptToAPageAuthorCarriesItsHeldComments", "the agent was not told");
+    }
+  }
 }
 
 /** While a chat thread exists, the orchestrator posts nothing in a tracker session. */
