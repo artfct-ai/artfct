@@ -36,12 +36,11 @@ export async function createWorkflow(
   workflow: WorkflowRuntime,
   { workflowId, event, endedWorkflowId }: WorkflowStart,
 ): Promise<RpcAck> {
-  if (workflow.state.status !== "new") return handleEvent(workflow, event);
+  if (workflow.state.created_at) return handleEvent(workflow, event);
   if (!workflow.store.markEventSeen(event)) return { ok: true, duplicate: true };
   const origin = event.reply_to ?? null;
   workflow.patchState({
     workflow_id: workflowId,
-    status: "planning",
     starter: event.actor,
     origin,
     reply_targets: origin ? [origin] : [],

@@ -77,7 +77,7 @@ export type ModelRunPlan = {
 /** What one local run does: a harness session in a container, or one model call. */
 export type LocalRunPlan = HarnessRunPlan | ModelRunPlan;
 
-/** The settings and the workflow definition of the template. */
+/** The settings and the workflow definitions of the template. */
 export function productionConfig(): LoadedDeploymentConfig {
   return loadDeploymentConfig(templateConfig);
 }
@@ -91,10 +91,10 @@ export async function planLocalRun(
   secrets: LocalSecrets,
   loaded: LoadedDeploymentConfig = productionConfig(),
 ): Promise<LocalRunPlan | { error: string }> {
-  const { config, workflowDefinition } = loaded;
+  const { config, workflowDefinitions } = loaded;
   const workflow = new FakeRuntime(openMemoryDb(), testEnv());
   workflow.configOverride = config;
-  workflow.workflowDefinitionOverride = workflowDefinition;
+  workflow.workflowDefinitionsOverride = workflowDefinitions;
   workflow.codeHostInstance = codeHost(secrets);
   workflow.documentsInstance = documents(config, secrets);
   workflow.gatewayInstance = gateway(config, secrets);
@@ -186,15 +186,19 @@ async function modelRunPlan(
 /** Seed the author task, and for a refiner the artifact and the refiner run over it. */
 async function seedRun(
   workflow: FakeRuntime,
-  { config, workflowDefinition }: LoadedDeploymentConfig,
+  { config, workflowDefinitions }: LoadedDeploymentConfig,
   request: LocalRunRequest,
 ): Promise<TaskRow | { error: string }> {
-  const { stages } = workflowDefinition;
-  const stage = stages.find((candidate) => candidate.name === request.stage);
-  if (!stage) {
-    const names = stages.map((candidate) => candidate.name).join(", ");
+  const definition = workflowDefinitions.find((candidate) =>
+    candidate.stages.some((declared) => declared.name === request.stage),
+  );
+  const stage = definition?.stages.find((candidate) => candidate.name === request.stage);
+  if (!definition || !stage) {
+    const stages = workflowDefinitions.flatMap((candidate) => candidate.stages);
+    const names = [...new Set(stages.map((candidate) => candidate.name))].join(", ");
     return { error: `no stage named ${request.stage}. The stages are: ${names}` };
   }
+  workflow.patchState({ definition: definition.name });
   const branch = stage.branch ? request.branch : null;
   if (stage.branch && (!request.repoFull || !branch)) {
     return { error: `stage ${stage.name} works on a branch. Give --repo and --branch.` };

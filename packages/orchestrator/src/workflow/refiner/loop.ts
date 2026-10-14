@@ -8,6 +8,7 @@ import { stageHasRefiners } from "../artifact";
 import { markBoardDirty } from "../board/board";
 import { isTaskFinished } from "../store/state";
 import type { ArtifactRow, TaskRow } from "../store/tasks";
+import { taskAtWork } from "../task/at-work";
 import { clearTaskTimers, closeContainer, destroySandbox } from "../task/sandbox/sandbox";
 import { taskSettings } from "../task/settings";
 import type { WorkflowRuntime } from "../types";
@@ -135,12 +136,7 @@ export function heldForReview(workflow: WorkflowRuntime, artifact: ArtifactRow):
  * started, or whose harness session is still opening, sends its first prompt on its own.
  */
 export function taskQuiet(workflow: WorkflowRuntime, task: TaskRow): boolean {
-  if (task.status === "queued" || task.status === "provisioning") return false;
-  const sandbox = workflow.store.sandbox(task.task_id);
-  const atWork = sandbox
-    ? sandbox.prompt_in_flight === 1 || workflow.store.handshakePending(task.task_id)
-    : task.status === "working";
-  if (atWork) return false;
+  if (taskAtWork(workflow, task)) return false;
   return !workflow.store.queue().some((row) => row.task_id === task.task_id);
 }
 

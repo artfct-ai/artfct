@@ -54,7 +54,8 @@ export type ObservedArtifact = {
 /** What an observer saw of the workflow between two actions. */
 export type Observation = {
   workflowStatus: WorkflowStatus;
-  unplanned: boolean;
+  /** The workflow definition the workflow runs, or null before the plan that starts it. */
+  definition: string | null;
   /** True when a chat thread is among the reply targets. */
   chatThread: boolean;
   /** The tracker session the workflow started from, or null. */
@@ -104,6 +105,10 @@ export type Step = {
   storedActivities: string[];
   streamedTexts: string[];
   postedTexts: string[];
+  /** Set when the agent called set_plan. `definition` is the workflow definition the call named. */
+  plan: { definition: string } | null;
+  /** How many tracker issue updates the step wrote, a move to started among them. */
+  issueUpdates: number;
   /** Set when the turn of a refiner run ended normally. */
   refinerTurnEnd: { task_id: string } | null;
   /**
@@ -129,6 +134,11 @@ export type Step = {
    */
   unadmittedFeedback: { texts: string[]; agentRead: string | null } | null;
   /**
+   * Set when a person pressed Stop while a model call of the author was in flight. `pageWrites`
+   * names each page write the host took from the stop to the end of the step.
+   */
+  modelCallStopped: { task_id: string; pageWrites: string[] } | null;
+  /**
    * Set when the agent prompted the author of a page, or a person asked for a revision while an
    * author held a page. `authors` are those page authors. `expected` is `sent` when the host and
    * the screen let the held comments through, and `kept` when either held them back. `agentRead`
@@ -144,6 +154,8 @@ const JOB_ROLES: TaskRole[] = ["author", "researcher"];
 const REFINER_ROLES: TaskRole[] = ["reviewer", "polisher"];
 
 const FINISHED_WORKFLOW: WorkflowStatus[] = ["done", "failed", "cancelled"];
+
+const ACTIVE_WORKFLOW: WorkflowStatus[] = ["running", "waiting_input"];
 
 const RUNNING_AUTHOR: TaskStatus[] = ["queued", "provisioning", "working"];
 
@@ -286,24 +298,57 @@ export function nothingReopensAFinishedWorkflow(_workflow: WorkflowRuntime, step
   }
 }
 
+/** The sleep message posts only while a workflow is running. */
+export function sleepMessageOnlyDuringAWorkflow(_workflow: WorkflowRuntime, step: Step): void {
+  if (!step.postedTexts.includes(SLEEP_TEXT)) return;
+  const { definition, workflowStatus } = step.before;
+  if (definition !== null && workflowStatus === "running") return;
+  violated(
+    "sleepMessageOnlyDuringAWorkflow",
+    `${step.action} posted the sleep message on a ${workflowStatus} workflow with workflow definition ${definition ?? "null"}`,
+  );
+}
+
 /**
- * A workflow without a plan does not post the sleep message, and only a person's cancel ends it.
+ * A workflow starts only when the agent sets a plan that names a workflow definition of the
+ * deployment. Before that, a job does not start and the tracker issue does not move.
  */
-export function unplannedWorkflowDoesNotEnd(_workflow: WorkflowRuntime, step: Step): void {
-  if (!step.before.unplanned) return;
-  if (step.postedTexts.includes(SLEEP_TEXT)) {
-    violated("unplannedWorkflowDoesNotEnd", `${step.action} posted the sleep message`);
+export function workflowStartsOnlyFromAPlan(workflow: WorkflowRuntime, step: Step): void {
+  const { definition } = step.after;
+  if (step.before.definition === null && definition !== null) {
+    const held = workflow.workflowDefinitions().some((declared) => declared.name === definition);
+    if (step.plan?.definition !== definition || !held) {
+      violated(
+        "workflowStartsOnlyFromAPlan",
+        `${step.action} started the workflow on workflow definition ${definition}`,
+      );
+    }
+    return;
   }
-  const ended =
-    !FINISHED_WORKFLOW.includes(step.before.workflowStatus) &&
-    FINISHED_WORKFLOW.includes(step.after.workflowStatus);
-  const personCancelled = step.event?.person === true && step.event.control === "cancel";
-  if (ended && !personCancelled) {
+  if (definition !== null) return;
+  const changes = [
+    step.after.tasks.length > 0 ? "a task exists" : null,
+    step.issueUpdates > 0 ? "the tracker issue moved" : null,
+    ACTIVE_WORKFLOW.includes(step.after.workflowStatus)
+      ? `it is ${step.after.workflowStatus}`
+      : null,
+  ].filter((change) => change !== null);
+  if (changes.length > 0) {
     violated(
-      "unplannedWorkflowDoesNotEnd",
-      `${step.action} left the workflow ${step.after.workflowStatus}`,
+      "workflowStartsOnlyFromAPlan",
+      `after ${step.action}, ${changes.join(", ")} before the workflow started`,
     );
   }
+}
+
+/** A later plan cannot change the workflow definition a workflow started with. */
+export function workflowKeepsItsDefinition(_workflow: WorkflowRuntime, step: Step): void {
+  const { definition } = step.before;
+  if (definition === null || step.after.definition === definition) return;
+  violated(
+    "workflowKeepsItsDefinition",
+    `${step.action} moved the workflow from ${definition} to ${step.after.definition ?? "null"}`,
+  );
 }
 
 /**
@@ -885,6 +930,16 @@ export function stopEndsTheAuthorsTurn(_workflow: WorkflowRuntime, step: Step): 
   if (!endsOnTheStoppedReply(step, author.task_id)) {
     violated("stopEndsTheAuthorsTurn", `the session feed of ${author.task_id} did not say so`);
   }
+}
+
+/** A model call in flight when a person presses Stop does not change the page. */
+export function stoppedModelCallLeavesThePage(_workflow: WorkflowRuntime, step: Step): void {
+  const stopped = step.modelCallStopped;
+  if (!stopped || stopped.pageWrites.length === 0) return;
+  violated(
+    "stoppedModelCallLeavesThePage",
+    `${stopped.task_id} made ${stopped.pageWrites.join(", ")} after the stop`,
+  );
 }
 
 /** While a chat thread exists, no tracker session gets a session plan. */

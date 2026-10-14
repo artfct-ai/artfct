@@ -13,8 +13,8 @@ export type ConfigFiles = {
   skills: Skill[];
 };
 
-/** The parsed `artfct.yaml` of a deployment and its one workflow definition. */
-export type LoadedDeploymentConfig = { config: Config; workflowDefinition: WorkflowDefinition };
+/** The parsed `artfct.yaml` of a deployment and its workflow definitions. */
+export type LoadedDeploymentConfig = { config: Config; workflowDefinitions: WorkflowDefinition[] };
 
-/** The config the Worker runs on: the parsed settings and workflow definition, the writing rules, and the skills. */
+/** The config the Worker runs on: the parsed settings and workflow definitions, the writing rules, and the skills. */
 export type RegisteredConfig = LoadedDeploymentConfig & { writingRules: string; skills: Skill[] };

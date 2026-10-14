@@ -219,7 +219,7 @@ export class Notifier {
     }
   }
 
-  /** Move the tracker issue: "started" on planning, "completed" on done. */
+  /** Move the tracker issue: "started" when the plan starts the workflow, "completed" on done. */
   async moveIssue(issue: IssueRef, transition: IssueTransition): Promise<void> {
     await this.updateIssue(issue, { transition, delegate: false });
   }

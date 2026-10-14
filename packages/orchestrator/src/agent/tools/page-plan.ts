@@ -1,11 +1,13 @@
 import type { Stage } from "../../config/stage";
+import type { WorkflowDefinition } from "../../config/workflow-definition";
 import { createRootContainer, nameRootPage, rootPageStage } from "../../workflow/root-page";
 import type { RootPage } from "../../workflow/store/state";
 import type { WorkflowRuntime } from "../../workflow/types";
 
-/** What `set_plan` asks about the pages of the workflow. */
+/** What `set_plan` asks about the pages of the workflow, in the workflow definition it names. */
 export type PagePlanInput = {
   name: string;
+  definition: WorkflowDefinition;
   stages: Stage[];
   page_parent: string | null;
   root_page: string | null;
@@ -25,11 +27,10 @@ export async function planPages(
   workflow: WorkflowRuntime,
   input: PagePlanInput,
 ): Promise<PagePlan | { error: string }> {
-  const pageParent =
-    input.page_parent ?? workflow.workflowDefinition().documents.page_parent ?? null;
+  const pageParent = input.page_parent ?? input.definition.documents.page_parent ?? null;
   const documents = await workflow.documents();
   const nesting = documents?.nesting;
-  const rootPageStageName = rootPageStage(workflow)?.name;
+  const rootPageStageName = rootPageStage(input.definition)?.name;
   if (!documents || !nesting || !rootPageStageName) return flatPagePlan(input, pageParent);
   const current = workflow.state.root_page ?? null;
   if (current) {

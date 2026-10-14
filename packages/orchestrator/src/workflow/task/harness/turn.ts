@@ -222,10 +222,11 @@ export async function onTurnEnd(
 
 /**
  * A blocked author restarts and resumes with the gave-up wake text. It fails once its restarts
- * are used up.
+ * are used up. One whose task finished while the decisions model answered is left alone.
  */
 async function restartBlockedAuthor(workflow: WorkflowRuntime, taskId: string): Promise<void> {
   const author = workflow.store.requireTask(taskId);
+  if (isTaskFinished(author.status)) return;
   workflow.store.enqueuePrompt(taskId, GAVE_UP_RESTART_TEXT);
   const reason = `The author gave up: ${clipHead(author.summary, GAVE_UP_CHARS)}`;
   await restartOrFailTask(workflow, author, reason);

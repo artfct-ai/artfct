@@ -19,7 +19,9 @@ describe("loadDeploymentConfig", () => {
     });
 
     it("parses the workflow definition under its name", () => {
-      expect(loaded.workflowDefinition.name).toBe("development");
+      expect(loaded.workflowDefinitions.map((definition) => definition.name)).toEqual([
+        "development",
+      ]);
     });
   });
 
@@ -32,7 +34,7 @@ describe("loadDeploymentConfig", () => {
         config: "adapters: { documents: { provider: notion } }",
         workflowDefinitions: [{ name: "development", text: withPageParent }],
       });
-      expect(loaded.workflowDefinition.documents.page_parent).toBe(LINK);
+      expect(loaded.workflowDefinitions[0]?.documents.page_parent).toBe(LINK);
     });
 
     it("is unset when the workflow definition names none", () => {
@@ -40,7 +42,7 @@ describe("loadDeploymentConfig", () => {
         config: "",
         workflowDefinitions: [{ name: "development", text: DEFINITION }],
       });
-      expect(loaded.workflowDefinition.documents.page_parent).toBeUndefined();
+      expect(loaded.workflowDefinitions[0]?.documents.page_parent).toBeUndefined();
     });
 
     it("refuses it on Linear, where the issue's project holds the documents", () => {
@@ -59,18 +61,34 @@ describe("loadDeploymentConfig", () => {
     );
   });
 
-  it("refuses a second workflow definition", () => {
-    expect(() =>
-      loadDeploymentConfig({
-        config: "",
-        workflowDefinitions: [
-          { name: "development", text: DEFINITION },
-          { name: "incident", text: DEFINITION },
-        ],
-      }),
-    ).toThrow(
-      /2 workflow definitions \(development, incident\)\. Multiple workflow definitions are not supported yet/,
-    );
+  describe("a deployment with several workflow definitions", () => {
+    const loaded = loadDeploymentConfig({
+      config: "",
+      workflowDefinitions: [
+        { name: "development", text: DEFINITION },
+        { name: "incident", text: DEFINITION },
+      ],
+    });
+
+    it("parses each under its name", () => {
+      expect(loaded.workflowDefinitions.map((definition) => definition.name)).toEqual([
+        "development",
+        "incident",
+      ]);
+    });
+
+    it("checks each one against the document host", () => {
+      const withPageParent = `documents: { page_parent: "https://www.notion.so/acme/Docs" }\n${DEFINITION}`;
+      expect(() =>
+        loadDeploymentConfig({
+          config: "",
+          workflowDefinitions: [
+            { name: "development", text: DEFINITION },
+            { name: "incident", text: withPageParent },
+          ],
+        }),
+      ).toThrow(/workflows\/incident\.yaml sets documents\.page_parent/);
+    });
   });
 
   it("names artfct.yaml when the settings break the schema, and keeps the schema error", () => {

@@ -32,10 +32,13 @@ import {
   sessionMessageWithoutAnAuthorIsAnswered,
   sessionFeedEndsWhenItsAuthorIdles,
   stopEndsTheAuthorsTurn,
+  stoppedModelCallLeavesThePage,
   staleAlarmIsIgnored,
   todoListIsFixedAfterFirstArtifact,
+  sleepMessageOnlyDuringAWorkflow,
   unadmittedFeedbackReachesNobody,
-  unplannedWorkflowDoesNotEnd,
+  workflowKeepsItsDefinition,
+  workflowStartsOnlyFromAPlan,
   aPromptToAPageAuthorCarriesItsHeldComments,
 } from "../../test/invariants";
 import {
@@ -67,6 +70,7 @@ import {
   personCancels,
   personPostsOnUnownedPull,
   personPressesStop,
+  personStopsModelCall,
   personRules,
   personSendsControl,
   personWrites,
@@ -93,10 +97,12 @@ import {
   MAX_AUTHORS,
   REFINER_SETUPS,
   REQUEST_TEXTS,
+  SECOND_DEFINITION,
   WorkflowWorld,
   type WorkflowAction,
   type WorldSetup,
 } from "../../test/workflow-world";
+import { TEST_DEFINITION_NAME } from "../../test/test-config";
 
 const NUM_RUNS = 200;
 const MAX_ACTIONS = 50;
@@ -113,8 +119,6 @@ const STATE_INVARIANTS = [
   everyJobTaskIsOnItsBoard,
   researchReadsCompleteOnceTheAuthorStarts,
 ];
-
-const BOARD_INVARIANTS = [everyJobTaskIsOnItsBoard, researchReadsCompleteOnceTheAuthorStarts];
 
 const STEP_INVARIANTS = [
   deliveredToHumansIsNeverCleared,
@@ -136,10 +140,13 @@ const STEP_INVARIANTS = [
   sessionMessageReachesItsRunningAuthorSilently,
   sessionMessageWithoutAnAuthorIsAnswered,
   stopEndsTheAuthorsTurn,
+  stoppedModelCallLeavesThePage,
   chatWorkflowNeverSetsASessionPlan,
   sessionFeedEndsWhenItsAuthorIdles,
   feedActivityPostsOnce,
-  unplannedWorkflowDoesNotEnd,
+  sleepMessageOnlyDuringAWorkflow,
+  workflowStartsOnlyFromAPlan,
+  workflowKeepsItsDefinition,
   anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone,
   aPromptToAPageAuthorCarriesItsHeldComments,
   pageReviewPostsEachFindingOnce,
@@ -196,6 +203,14 @@ const heldCommentsRead: fc.Arbitrary<HeldCommentsRead> = fc.record({
 
 const PLANNED_STAGES = [["implement"], ["breakdown", "implement"], ["design", "plan", "breakdown"]];
 
+const PLANNED_DEFINITIONS = [
+  TEST_DEFINITION_NAME,
+  TEST_DEFINITION_NAME,
+  TEST_DEFINITION_NAME,
+  SECOND_DEFINITION,
+  "triage",
+];
+
 const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
   {
     weight: 10,
@@ -244,6 +259,12 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
   {
     weight: 2,
     arbitrary: fc.constantFrom("page", "page", "blank", "throws").map(pageModelAnswers),
+  },
+  {
+    weight: 6,
+    arbitrary: fc
+      .tuple(author, fc.constantFrom("provision_fires", "agent_prompts"))
+      .map(([index, start]) => personStopsModelCall(index, start)),
   },
   { weight: 3, arbitrary: author.map(refinerRunPromptFails) },
   {
@@ -415,8 +436,12 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
   {
     weight: 2,
     arbitrary: fc
-      .tuple(fc.constantFrom(...PLANNED_STAGES), fc.integer({ min: 1, max: 3 }))
-      .map(([stages, concurrency]) => agentSetsPlan(stages, concurrency)),
+      .tuple(
+        fc.constantFrom(...PLANNED_DEFINITIONS),
+        fc.option(fc.constantFrom(...PLANNED_STAGES), { freq: 3 }),
+        fc.integer({ min: 1, max: 3 }),
+      )
+      .map(([definition, stages, concurrency]) => agentSetsPlan(definition, stages, concurrency)),
   },
   {
     weight: 3,
@@ -594,21 +619,13 @@ async function holdsThroughout(setup: WorldSetup, sequence: WorkflowAction[]): P
   }
 }
 
-async function boardHoldsThroughout(setup: WorldSetup, sequence: WorkflowAction[]): Promise<void> {
-  const world = await WorkflowWorld.open(setup);
-  for (const action of sequence) {
-    await world.apply(action);
-    for (const invariant of BOARD_INVARIANTS) invariant(world.workflow);
-  }
-}
-
 describe("the workflow invariants", () => {
   it(
     "hold after every action of any sequence, on any refiner list",
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(36);
+      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(39);
     },
     TIMEOUT_MS,
   );
@@ -621,13 +638,11 @@ describe("the workflow invariants", () => {
     },
     TIMEOUT_MS,
   );
-});
 
-describe("the board invariants", () => {
   it(
     "hold after every action of any sequence, on a page stage whose author is a model call",
     async () => {
-      const property = fc.asyncProperty(modelPageSetups, sequences, boardHoldsThroughout);
+      const property = fc.asyncProperty(modelPageSetups, sequences, holdsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
     },
     TIMEOUT_MS,

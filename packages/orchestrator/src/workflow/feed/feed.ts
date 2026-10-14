@@ -8,7 +8,7 @@ import type { WorkflowRuntime } from "../types";
 /** The closing reply of a stopped turn. */
 export const STOPPED_TEXT = "Stopped.";
 
-/** The closing reply of a finished turn whose last message was lost. */
+/** The closing reply of a finished turn without a last message, such as a lost one or a model call. */
 export const DONE_TEXT = "Done.";
 
 /** The longest author message the feed keeps for the closing reply. */

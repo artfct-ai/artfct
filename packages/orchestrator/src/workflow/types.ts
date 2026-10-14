@@ -72,7 +72,9 @@ export interface WorkflowRuntime {
   readonly sessionFeeds: Map<string, AuthorFeed>;
   patchState(patch: Partial<WorkflowState>): void;
   config(): Config;
-  /** The workflow definition this workflow runs. */
+  /** The workflow definitions of the deployment. A plan names one of them. */
+  workflowDefinitions(): readonly WorkflowDefinition[];
+  /** The workflow definition this workflow runs, which its plan named. Throws before the plan. */
   workflowDefinition(): WorkflowDefinition;
   /** The settings of a job's stage. */ stageFor(job: JobRow): ResolvedStage;
   /** The settings of the stage a task's job runs. */ stageForTask(task: TaskRow): ResolvedStage;

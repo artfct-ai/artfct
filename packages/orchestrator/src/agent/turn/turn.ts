@@ -241,7 +241,7 @@ async function generate(
   return "replied";
 }
 
-/** What the rule blocks read about the turn. An unprompted turn carries the planning rules. */
+/** What the rule blocks read about the turn. An unprompted turn carries the plan rules. */
 function turnFacts(reply: Reply, heldComments: TurnFacts["heldComments"]): TurnFacts {
   return {
     personWrote: reply !== null,

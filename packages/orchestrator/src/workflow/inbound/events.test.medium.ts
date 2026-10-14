@@ -7,6 +7,7 @@ import { Notifier, type ChannelClients, type PostOptions } from "../../notify/no
 import type { Workflow } from "../../workflow";
 import { failWorkflow } from "../lifecycle";
 import { type Scenario, scenario } from "../../../test/scenario";
+import { startWorkflow } from "../../../test/fresh-workflow";
 
 type Outbox = Array<{ kind: string; payload: Record<string, unknown> }>;
 
@@ -258,7 +259,8 @@ async function inboxOf(workflow: Workflow): Promise<string[]> {
   return [...read, ...debug.inbox.map((row) => row.text)];
 }
 
-const reviewedTask = scenario(freshWorkflow, (workflow) => {
+const reviewedTask = scenario(freshWorkflow, async (workflow) => {
+  await startWorkflow(workflow);
   const taskId = firstTaskId(workflow);
   const jobId = firstJobId(workflow);
   workflow.store.insertJob({
@@ -600,7 +602,7 @@ describe("the thread title between turns", () => {
       expect(recorder.options.map((option) => option.title)).toEqual(["Flaky checkout test"]);
     }));
 
-  describe("a workflow before its first plan", () => {
+  describe("a workflow before the plan that starts it", () => {
     const unplanned = scenario(freshWorkflow, async (workflow) => {
       recorder = new RecordingNotifier(NO_CHANNELS, () => {});
       workflow.notifier = recorder;
@@ -640,7 +642,7 @@ describe("idle", () => {
       }));
   });
 
-  describe("the idle alarm firing before the first plan", () => {
+  describe("the idle alarm firing before the plan that starts the workflow", () => {
     let posted: Outbox;
     const unplanned = scenario(freshWorkflow, async (workflow) => {
       const before = (await outboxOf(workflow)).length;
@@ -648,9 +650,9 @@ describe("idle", () => {
       posted = (await outboxOf(workflow)).slice(before);
     });
 
-    it("stays in planning", () =>
+    it("stays new", () =>
       unplanned((workflow) => {
-        expect(workflow.state.status).toBe("planning");
+        expect(workflow.state.status).toBe("new");
       }));
 
     it("posts nothing", () =>
@@ -662,7 +664,7 @@ describe("idle", () => {
   describe("the idle alarm firing with nothing at work", () => {
     let posted: Outbox;
     const slept = scenario(freshWorkflow, async (workflow) => {
-      workflow.patchState({ status: "running" });
+      await startWorkflow(workflow);
       const before = (await outboxOf(workflow)).length;
       await workflow.onIdle();
       posted = (await outboxOf(workflow)).slice(before);

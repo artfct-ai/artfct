@@ -1,5 +1,6 @@
 import type { YesNoQuestion } from "@artfct-ai/adapters/gateway/types";
 import type { ArtifactKind } from "@artfct-ai/contracts/types";
+import type { Stage } from "../../config/stage";
 import { askDecisions, type TurnDecisions } from "../../decisions/ask";
 import { inputArtifactFrom, inputArtifactQuestion } from "./input-artifact";
 import type { WorkflowRuntime } from "../../workflow/types";
@@ -17,7 +18,8 @@ export const OWED_REPLY_PURPOSE = "owed_reply";
  * What the decisions model reads in a person's message: the owed reply, whether the message
  * requests work, whether it names a model for the work, whether it asks for a revision, and the
  * kind of input artifact it links or names. A message that does not request work leaves the
- * planning rules out of the prompt. One that asks for a revision sends the held comments.
+ * planning rules and the workflow definitions out of the prompt. One that asks for a revision
+ * sends the held comments.
  */
 export type PersonMessage = {
   owed: OwedReply;
@@ -104,6 +106,12 @@ export function namesModelFrom(probabilities: { names_model: number }): boolean 
   return probabilities.names_model >= CLEARLY_YES;
 }
 
+/** The stages a plan may name: those of the running workflow definition, or of every one before the start. */
+function stagesToPlanFrom(workflow: WorkflowRuntime): readonly Stage[] {
+  if (workflow.state.definition !== null) return workflow.workflowDefinition().stages;
+  return workflow.workflowDefinitions().flatMap((definition) => definition.stages);
+}
+
 /**
  * Ask the decisions model what the person's message is owed, whether it requests work, whether it
  * names a model, whether it asks for a revision, and which kind of input artifact it links or names.
@@ -118,7 +126,7 @@ export async function readPersonMessage(
     state: { message },
     questions: {
       yesNo: OWED_REPLY_QUESTIONS,
-      choices: { artifact: inputArtifactQuestion(workflow.workflowDefinition().stages) },
+      choices: { artifact: inputArtifactQuestion(stagesToPlanFrom(workflow)) },
     },
     turn,
   });

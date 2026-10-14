@@ -10,12 +10,12 @@ A code name is one type, table, column, or function. A code name that needs a co
 
 | Term | Meaning | Code name | Do not say |
 |---|---|---|---|
-| workflow | One request, from its first event to done, cancelled, or failed. | `WorkflowState` | |
-| workflow definition | A named set of stages in config. A workflow runs one. | `WorkflowDefinition`, `workflows/<name>.yaml` | |
+| workflow | A workstream that a person requests in a conversation or a tracker session. It runs one workflow definition and works on many issues and pull requests. It starts when the agent sets a plan that names a definition, and it runs until done, cancelled, or failed. | `WorkflowState`, `WorkflowState.definition` | |
+| workflow definition | A named set of stages in config. A deployment may hold several. A workflow runs the one its plan names. | `WorkflowDefinition`, `workflows/<name>.yaml`, `set_plan` `definition` | |
 | stage | One step of a workflow. It produces one artifact. Config declares it. | `Stage` | |
 | job | The execution of one stage. Its tasks belong to it, and it holds what they produce. | `jobs` row | |
 | task | One execution of a role in a job. | `tasks` row | |
-| model-call task | A task that runs as model calls through the gateway, with no sandbox and no harness session. | `AuthorActivity.execution "model"`, no sandboxes row | |
+| model-call task | A task that runs as model calls through the gateway, with no sandbox and no harness session. Its task status is `working` from the start of a turn until its page waits in review. A model call is not always in flight while it is `working`, for example after a stop ended its first turn before the page existed. | `AuthorActivity.execution "model"`, no sandboxes row | |
 | author | The task that produces and revises the artifact of its job. | `TaskRole "author"` | |
 | author activity | What the author does in one turn: it produces the artifact or it revises it. Config sets the execution, harness, model, effort, and skill of each activity. | `AuthorActivity`, `Stage.author` | mode, phase, step |
 | produce | The author activity that writes the first artifact of a job. | `Stage.author.produce` | write, draft, compose |
@@ -85,7 +85,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | job session | The tracker session on the job's input issue. A job whose input artifact is not an issue does not have one. | `jobSessionOf` | home |
 | session feed | The author's tool calls and its closing reply, posted to its job session as tracker activities. Thoughts are not posted. Only the author streams, and the orchestrator posts none of it. | `streamToSessionFeed` | transcript, mirror, log |
 | session plan | The author's todo list as the plan of its job session. Set only when the workflow has no chat thread. | `publishSessionPlan` | board, checklist |
-| stop | A person's request in a job session to end the current prompt turn of the job's author. The orchestrator sends the author's harness session a cancel. The task, the job, and the workflow keep running, and its session feed ends with "Stopped." | `EventKind "stop"` | cancel, interrupt, pause |
+| stop | A person's request in a job session to end the current prompt turn of the job's author. The orchestrator sends the author's harness session a cancel. For a model-call author, the stop ends the turn that is starting or in flight, and the answer of its model call does not change the page. The task, the job, and the workflow keep running, and its session feed ends with "Stopped." | `EventKind "stop"`, `stopAuthor` | cancel, interrupt, pause |
 | synced thread | The chat thread that the tracker mirrors as the comment thread of one issue, both ways. It is the first issue a job of the workflow works on. Every later issue gets a link to the thread. | `Tracker.syncChatThread` | mirror, bridge |
 | acknowledgement | How a chat thread shows a person that their message arrived. The thread enters its working status when the workflow takes the message. When that takes longer than a few seconds, the message gets the eyes reaction until the working status appears. | `Acknowledge`, `Notifier.acknowledge`, `deliverWithChatAck` | receipt |
 | person | One human actor. | `Actor` | |
@@ -109,7 +109,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | unprompted turn | An agent turn where nobody wrote since the last turn. The agent speaks through a tool or not at all. | `TurnFacts.personWrote` false | |
 | owed reply | What the message of a person is owed at the end of the turn: an answer in words, or the board alone. | `OwedReply` | reply need |
 | first reply | The orchestrator's first response to a person's message in a turn, before any other work: a thumbs-up reaction on the message when the request is clear and the only words would be 'on it', one line that says what it is about to do, or the answer. | `FIRST_REPLY_TOOLS`, `acknowledge` | |
-| requests work | Whether the message of a person requests work. The decisions model says. A message that does not request work leaves the plan, runtime, and context rule blocks out of the system prompt. | `TurnFacts.requestsWork` | intent, classification, asks work |
+| requests work | Whether the message of a person requests work. The decisions model says. A message that does not request work leaves the plan, runtime, and context rule blocks out of the system prompt. A message that does not request work also leaves the workflow definitions out of the system prompt. | `TurnFacts.requestsWork` | intent, classification, asks work |
 | asks for a revision | Whether the message of a person says they finished reviewing a document or left comments on it, or asks for it to be revised. The decisions model says. When it does, the system sends the held comments of every running page author before the model runs. | `PersonMessage.asksForRevision` | review done, release |
 | task activity | What a task does now, read from the store for each agent turn: starting, running a turn, holding a queued prompt, paused, or idle. The agent states whether a task runs only from it. | `taskActivity`, `activity` on the job line | status |
 | requested runtime | The harness and model a person's message names for the work, resolved to a model the harness runs. It replaces the stage's pair for the author of the job it starts. | `RequestedRuntime` | |
@@ -132,4 +132,3 @@ A code name is one type, table, column, or function. A code name that needs a co
 | artifact `ready` | The humans have the artifact. |
 | artifact `accepted` | The host accepted the artifact, for example a merge. |
 | artifact `removed` | The host no longer holds the artifact as work. A pull request closed without a merge, or a deleted page. |
-| workflow `planning` | The workflow has no plan yet. The agent answers and does small tasks. Only a person's cancel ends it. |

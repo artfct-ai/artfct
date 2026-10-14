@@ -45,6 +45,7 @@ import {
   type DecisionAnswers,
   type Mergeability,
   type PageModelAnswer,
+  stopEvent,
   type StepFacts,
   type WorkflowAction,
   type WorkflowWorld,
@@ -728,17 +729,31 @@ export function personPressesStop(index: number): WorkflowAction {
   return action(`a person presses Stop in session ${index}`, async (world) => {
     const session = world.trackerSessionAt(index);
     if (!session) return;
-    await world.deliver({
-      kind: "stop",
-      text: "",
-      reply_to: session,
-      bindings: [
-        { source: "tracker_issue", external_id: session.issue_id },
-        { source: "tracker_session", external_id: session.session_id },
-      ],
-    });
+    await world.deliver(stopEvent(session));
     world.forgetStoppedEarlyIn(session);
   });
+}
+
+/** How a model call of a model-call author starts. */
+export type ModelCallStart = "provision_fires" | "agent_prompts";
+
+/**
+ * A model call of a model-call author starts, and a person presses Stop in the session of its job
+ * while the page model answers. The call starts when its provision alarm fires or the agent
+ * prompts it.
+ */
+export function personStopsModelCall(index: number, start: ModelCallStart): WorkflowAction {
+  const label = `a person presses Stop while the page model answers, after ${start}`;
+  return authorAction(index, label, (world, author) =>
+    world.stopWhilePageModelAnswers(author, async () => {
+      if (start === "provision_fires") {
+        await world.provisionSandboxOf(author.taskId);
+        return;
+      }
+      const { prompt_task } = taskTools(world.workflow);
+      await prompt_task.execute({ task_id: author.taskId, text: "Add a test for it." }, TOOL_CALL);
+    }),
+  );
 }
 
 /** A person mentions the agent in a new chat thread about the work. The thread joins the workflow. */
@@ -823,22 +838,25 @@ export function agentStartsTaskOnArtifact(
   });
 }
 
-/** The agent sets the plan: its stages and how many jobs may run at once. */
-export function agentSetsPlan(stages: string[], concurrency: number): WorkflowAction {
-  const label = `agent sets the plan ${stages.join(" -> ")} with ${concurrency} slots`;
+/**
+ * The agent sets the plan: the workflow definition it names, its stages, and how many jobs may
+ * run at once. Without stages, the call only starts the workflow.
+ */
+export function agentSetsPlan(
+  definition: string,
+  stages: string[] | null,
+  concurrency: number,
+): WorkflowAction {
+  const route = stages ? stages.join(" -> ") : "without stages";
+  const label = `agent sets the plan ${route} of ${definition} with ${concurrency} slots`;
   return action(label, async (world) => {
     const { set_plan } = planTools(world.workflow);
+    const planned = stages ? { stages, repo: REPO, page_parent: null, concurrency } : {};
     await set_plan.execute(
-      {
-        name: "Fix login",
-        stages,
-        repo: REPO,
-        page_parent: null,
-        reason: "the request changed",
-        concurrency,
-      },
+      { name: "Fix login", definition, reason: "the request changed", ...planned },
       TOOL_CALL,
     );
+    return { plan: { definition } };
   });
 }
 

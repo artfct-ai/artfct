@@ -243,3 +243,37 @@ export class EchoModel implements LanguageModelV4 {
     return Promise.reject(new Error("no streaming"));
   }
 }
+
+/** A model whose calls wait at a gate until `release` is called, then answer as `answering` does. */
+export class GatedModel implements LanguageModelV4 {
+  readonly specificationVersion = "v4" as const;
+  readonly provider = "test";
+  readonly modelId = "gated";
+  readonly supportedUrls = {};
+  private openGate: () => void = () => {};
+  private markCalled: () => void = () => {};
+  private readonly gate = new Promise<void>((resolve) => {
+    this.openGate = resolve;
+  });
+  /** Resolves once a call waits at the gate. */
+  readonly waiting = new Promise<void>((resolve) => {
+    this.markCalled = resolve;
+  });
+
+  constructor(private readonly answering: LanguageModelV4) {}
+
+  /** Let every waiting and later call answer. */
+  release(): void {
+    this.openGate();
+  }
+
+  async doGenerate(options: LanguageModelV4CallOptions): Promise<LanguageModelV4GenerateResult> {
+    this.markCalled();
+    await this.gate;
+    return await this.answering.doGenerate(options);
+  }
+
+  doStream(): Promise<LanguageModelV4StreamResult> {
+    return Promise.reject(new Error("no streaming"));
+  }
+}
