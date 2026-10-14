@@ -47,14 +47,16 @@ export type BoardTask = {
   started_at: string;
 };
 
-/** The work a researcher or an author line names: research, or the author activity it is on. */
-export type TaskWork = "research" | "produce" | "revise";
+/** What a work line names: the research, or the author's first artifact. */
+export type TaskWork = "research" | "produce";
 
-/**
- * One researcher or author of the job on the checklist: the todo list it reported, or one work
- * line with its status when it reported none.
- */
-export type TaskChecklist = { todos: TodoSnapshot } | { work: TaskWork; status: TaskStatus };
+/** The line for a task without a todo list: checked, or open with the task's status. */
+export type WorkLine =
+  | { work: TaskWork; completed: true }
+  | { work: TaskWork; completed: false; status: TaskStatus };
+
+/** What the board lists for a researcher or an author: its todo list, or its work line. */
+export type TaskChecklist = { todos: TodoSnapshot } | WorkLine;
 
 /** Everything one board render reads. Pure data, no I/O. */
 export type BoardInput = {

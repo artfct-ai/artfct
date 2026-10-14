@@ -109,14 +109,25 @@ describe("the board of a job whose research hands over to a model-call author", 
         ]);
       }));
 
-    describe("and the author revises it", () => {
+    describe("and the author runs again", () => {
       const revising = scenario(produced, (workflow) => {
         workflow.store.updateTask(authorOf(workflow).task_id, { status: "working" });
       });
 
-      it("says the author revises", () =>
+      it("keeps the produce line checked", () =>
         revising((workflow) => {
-          expect(checklistOf(workflow)).toContain("☐ revise ← working");
+          expect(checklistOf(workflow).at(3)).toBe("☑ produce");
+        }));
+    });
+
+    describe("and the author fails after it", () => {
+      const failedLater = scenario(produced, (workflow) => {
+        workflow.store.updateTask(authorOf(workflow).task_id, { status: "failed" });
+      });
+
+      it("keeps the produce line checked", () =>
+        failedLater((workflow) => {
+          expect(checklistOf(workflow).at(3)).toBe("☑ produce");
         }));
     });
   });

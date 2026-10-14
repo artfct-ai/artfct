@@ -21,6 +21,7 @@ import type {
   RefinerPhaseView,
   TaskChecklist,
   TaskWork,
+  WorkLine,
 } from "./types";
 
 /** Changes within this window after the first one go out in one edit. */
@@ -86,10 +87,7 @@ export async function onFlushBoard(workflow: WorkflowRuntime, alarm: BoardAlarm)
   await flushBoards(workflow, alarm.job_id);
 }
 
-/**
- * Bring every board of the job up to date now, creating one that does not exist yet. The board
- * shows each researcher and author of the job and where the refiner runs of the job stand.
- */
+/** Bring every board of the job up to date now, and create one that does not exist yet. */
 export async function flushBoards(workflow: WorkflowRuntime, jobId: string): Promise<void> {
   await dropBoardFlush(workflow, workflow.store.authorOrResearcherTaskOf(jobId).task_id);
   const input = boardInputOf(workflow, jobId);
@@ -124,38 +122,26 @@ function taskChecklists(
   const researcher = workflow.store.researcherTask(jobId);
   const author = workflow.store.authorTask(jobId);
   return [
-    ...(researcher ? [taskChecklist(workflow, researcher, "research")] : []),
-    ...(author ? [taskChecklist(workflow, author, authorWork(author, artifact))] : []),
+    ...(researcher
+      ? [taskChecklist(workflow, researcher, statusLine("research", researcher))]
+      : []),
+    ...(author
+      ? [taskChecklist(workflow, author, artifact ? PRODUCED : statusLine("produce", author))]
+      : []),
   ];
 }
 
-function taskChecklist(workflow: WorkflowRuntime, task: TaskRow, work: TaskWork): TaskChecklist {
+const PRODUCED: WorkLine = { work: "produce", completed: true };
+
+function taskChecklist(workflow: WorkflowRuntime, task: TaskRow, line: WorkLine): TaskChecklist {
   const todos = workflow.store.todoRow(task.task_id)?.todos;
-  if (todos?.entries.length) return { todos };
-  return { work, status: task.status };
+  return todos?.entries.length ? { todos } : line;
 }
 
-/**
- * The author activity an author is on. It revises once the job has an artifact and the author
- * runs again or failed doing so. Otherwise its line stands for the produce activity.
- */
-function authorWork(author: TaskRow, artifact: ArtifactRow | null): TaskWork {
-  if (!artifact) return "produce";
-  switch (author.status) {
-    case "queued":
-    case "provisioning":
-    case "working":
-    case "failed":
-      return "revise";
-    case "in_review":
-    case "done":
-    case "cancelled":
-      return "produce";
-    default: {
-      const unhandled: never = author.status;
-      throw new Error(`unhandled task status ${JSON.stringify(unhandled)}`);
-    }
-  }
+/** The work line of a task: checked once it is idle or done, else with its status. */
+function statusLine(work: TaskWork, task: TaskRow): WorkLine {
+  if (task.status === "in_review" || task.status === "done") return { work, completed: true };
+  return { work, completed: false, status: task.status };
 }
 
 /** One board of the job. A board being written now is flushed again after that write ends. */
@@ -182,10 +168,7 @@ async function flushOne(
   }
 }
 
-/**
- * Cancel the flush alarm pending on the task's todo row and clear it. For a flush that covers it,
- * and for a researcher whose board the author takes over.
- */
+/** Cancel and clear the flush alarm pending on the task's todo row. */
 export async function dropBoardFlush(workflow: WorkflowRuntime, taskId: string): Promise<void> {
   const pending = workflow.store.todoRow(taskId)?.flush_schedule;
   if (pending) await cancelFlush(workflow, taskId, pending);

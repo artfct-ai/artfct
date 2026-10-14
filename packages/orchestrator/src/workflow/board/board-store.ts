@@ -90,10 +90,7 @@ export class BoardStore extends RecordStore {
     return true;
   }
 
-  /**
-   * Complete every todo entry, once the task handed on its result: the author its first artifact,
-   * the researcher its research payload.
-   */
+  /** Mark every todo entry of the task completed. */
   completeTodos(taskId: string): void {
     const todos = this.todoRow(taskId)?.todos ?? null;
     this.patchTodoRow(taskId, { todos: todos && completeEntries(todos) });

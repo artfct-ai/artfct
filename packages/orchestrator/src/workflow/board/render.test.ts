@@ -8,8 +8,8 @@ import type {
   RefinerPhase,
   RefinerPhaseView,
   TaskChecklist,
-  TaskWork,
   TodoSnapshot,
+  WorkLine,
 } from "./types";
 
 const NOW = Date.UTC(2026, 8, 4, 0, 7);
@@ -102,8 +102,8 @@ function line(input: BoardInput, index: number): string | undefined {
   return textOf(input).split("\n").at(index);
 }
 
-function workLineOf(work: TaskWork, status: TaskStatus): string | undefined {
-  return line(boardInput({ tasks: [{ work, status }] }), -1);
+function workLineOf(workLine: WorkLine): string | undefined {
+  return line(boardInput({ tasks: [workLine] }), -1);
 }
 
 function refinerLines(refiners: BoardInput["refiners"]): string[] {
@@ -164,7 +164,7 @@ describe("renderBoard", () => {
     const research: TaskChecklist = { todos: { entries: entries.map(completedEntry) } };
     const producing = boardInput({
       task: { ...task, work: { stage: "directions" } },
-      tasks: [research, { work: "produce", status: "working" }],
+      tasks: [research, { work: "produce", completed: false, status: "working" }],
     });
 
     it("keeps the research todo list and adds the author's work line", () => {
@@ -181,33 +181,29 @@ describe("renderBoard", () => {
 
   describe("the work line of a task without a todo list", () => {
     it("says the task is starting", () => {
-      expect(workLineOf("research", "provisioning")).toBe("☐ research ← starting the sandbox");
+      expect(workLineOf({ work: "research", completed: false, status: "provisioning" })).toBe(
+        "☐ research ← starting the sandbox",
+      );
     });
 
-    it("says the author revises", () => {
-      expect(workLineOf("revise", "working")).toBe("☐ revise ← working");
-    });
-
-    it("checks the work once the author is idle", () => {
-      expect(workLineOf("produce", "in_review")).toBe("☑ produce");
-    });
-
-    it("checks the work once the task is done", () => {
-      expect(workLineOf("research", "done")).toBe("☑ research");
+    it("checks the work once it is completed", () => {
+      expect(workLineOf({ work: "produce", completed: true })).toBe("☑ produce");
     });
 
     it("says the task failed", () => {
-      expect(workLineOf("revise", "failed")).toBe("☐ revise ← failed");
+      expect(workLineOf({ work: "produce", completed: false, status: "failed" })).toBe(
+        "☐ produce ← failed",
+      );
     });
 
     it("puts the phases after it once the job holds an artifact", () => {
       const silent = boardInput({
-        tasks: [{ work: "revise", status: "working" }],
+        tasks: [{ work: "produce", completed: true }],
         refiners: refinerBoard({ review: "in_progress" }),
       });
       expect(textOf(silent).split("\n").slice(2)).toEqual([
         "",
-        "☐ revise ← working",
+        "☑ produce",
         "☐ review ← run 2 · working",
         "☐ Ready for Humans",
       ]);
@@ -271,7 +267,7 @@ describe("renderBoard", () => {
     it("shows review, then polish, with the humans line last", () => {
       const lines = textOf(
         boardInput({
-          tasks: [{ work: "produce", status: "in_review" }],
+          tasks: [{ work: "produce", completed: true }],
           refiners: refinerBoard({ review: "completed", polish: "in_progress" }),
         }),
       )
@@ -283,7 +279,7 @@ describe("renderBoard", () => {
     it("prints the open phase in chat markup", () => {
       const lines = textOf(
         boardInput({
-          tasks: [{ work: "produce", status: "in_review" }],
+          tasks: [{ work: "produce", completed: true }],
           refiners: refinerBoard({ review: "in_progress", polish: "pending" }),
         }),
       )

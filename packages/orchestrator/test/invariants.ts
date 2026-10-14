@@ -330,17 +330,19 @@ export function boardsLiveOnlyInChat(workflow: WorkflowRuntime): void {
 }
 
 /**
- * The board of every job lists each researcher and author of the job with its state. A task that
- * reported a todo list shows its entries with their checkboxes. A task that did not shows one work
- * line: checked while it is idle or done, else unchecked with its lifecycle word.
+ * Each researcher and author of a job is on the job's board, as its todo list or its work line.
+ * The work line is checked once the task is idle or done, or once an author's artifact exists.
  */
 export function everyJobTaskIsOnItsBoard(workflow: WorkflowRuntime): void {
   for (const job of workflow.store.jobs()) {
     const lines = renderBoard(boardInputOf(workflow, job.job_id)).body.split("\n");
+    const produced = workflow.store.artifact(job.job_id) !== null;
     for (const task of workflow.store.tasks()) {
       if (task.job_id !== job.job_id || !JOB_ROLES.includes(task.role)) continue;
       const entries = workflow.store.todoRow(task.task_id)?.todos?.entries ?? [];
-      const missing = missingFromBoard(lines, task.role, task.status, entries);
+      const missing = entries.length
+        ? missingEntry(lines, entries)
+        : missingLine(lines, expectedWorkLine(task.role, task.status, produced));
       if (missing !== null) {
         violated("everyJobTaskIsOnItsBoard", `${task.task_id} lacks "${missing}" on its board`);
       }
@@ -348,17 +350,13 @@ export function everyJobTaskIsOnItsBoard(workflow: WorkflowRuntime): void {
   }
 }
 
-function missingFromBoard(
-  lines: string[],
-  role: TaskRole,
-  status: TaskStatus,
-  entries: PlanEntry[],
-): string | null {
-  if (!entries.length) {
-    return lines.some((line) => showsWork(line, role, status)) ? null : `${status} work line`;
-  }
+function missingEntry(lines: string[], entries: PlanEntry[]): string | null {
   const shown = entries.slice(0, BOARD_MAX_ENTRIES);
   return shown.find((entry) => !lines.some((line) => showsEntry(line, entry)))?.content ?? null;
+}
+
+function missingLine(lines: string[], expected: string): string | null {
+  return lines.includes(expected) ? null : expected;
 }
 
 function showsEntry(line: string, entry: PlanEntry): boolean {
@@ -366,17 +364,11 @@ function showsEntry(line: string, entry: PlanEntry): boolean {
   return line.startsWith(`${box} ${boardText(entry.content)}`);
 }
 
-const WORK_OF_ROLE: Partial<Record<TaskRole, string[]>> = {
-  researcher: ["research"],
-  author: ["produce", "revise"],
-};
-
-function showsWork(line: string, role: TaskRole, status: TaskStatus): boolean {
-  const works = WORK_OF_ROLE[role] ?? [];
-  if (status === "in_review" || status === "done") {
-    return works.some((work) => line === `☑ ${work}`);
-  }
-  return works.some((work) => line === `☐ ${work} ← ${lifecycleLabel(status)}`);
+function expectedWorkLine(role: TaskRole, status: TaskStatus, produced: boolean): string {
+  const work = role === "researcher" ? "research" : "produce";
+  const idle = status === "in_review" || status === "done";
+  if (idle || (role === "author" && produced)) return `☑ ${work}`;
+  return `☐ ${work} ← ${lifecycleLabel(status)}`;
 }
 
 /** Once a job's author exists, every entry of the todo list its researcher reported reads complete. */
@@ -512,9 +504,8 @@ export function oneUnfinishedRefinerRunPerArtifact(workflow: WorkflowRuntime): v
 }
 
 /**
- * The author and a polisher never work at once: while a polisher run is unfinished, its author
- * has no prompt in flight, or no model call running for a model-call author. A reviewer run only
- * reads, so it does not stop the author.
+ * The author and a polisher never work at once. While a polisher run is unfinished, its author
+ * does not have a prompt or a model call in flight.
  */
 export function authorIsIdleWhileAPolisherRuns(workflow: WorkflowRuntime): void {
   for (const run of workflow.store.tasks()) {

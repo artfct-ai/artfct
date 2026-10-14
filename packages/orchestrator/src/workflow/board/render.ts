@@ -6,8 +6,8 @@ import type {
   BoardWork,
   RefinerPhaseView,
   TaskChecklist,
-  TaskWork,
   TodoSnapshot,
+  WorkLine,
 } from "./types";
 
 /** How many harness todo entries a board lists before it folds the rest into `+N more`. */
@@ -24,8 +24,8 @@ const CLOSED_LABEL = "complete";
 const PAUSED_LABEL = "paused";
 
 /**
- * Render one job board: each researcher and author of the job, the phases of its artifact, and
- * the lifecycle of the task that holds the job. Pure. The stamp sits off the body, so an unchanged board hashes the same.
+ * Render one job board: its researcher and author, the phases of its artifact, and its header.
+ * Pure. The stamp sits off the body, so an unchanged board hashes the same.
  */
 export function renderBoard(input: BoardInput): BoardRender {
   const header = bold(headerText(input));
@@ -134,7 +134,7 @@ function checklistLines(input: BoardInput): string[] {
 /** The todo list a task reported, or its work line. */
 function taskLines(task: TaskChecklist): string[] {
   if ("todos" in task) return todoLines(task.todos);
-  return [workLine(task.work, task.status)];
+  return [workLineText(task)];
 }
 
 /** What the harness reported, folded past the cap. */
@@ -145,10 +145,10 @@ function todoLines(todos: TodoSnapshot): string[] {
   return hidden > 0 ? [...shown, `+${hidden} more`] : shown;
 }
 
-/** One line for the work of a task without a todo list: checked once the task is idle or done. */
-function workLine(work: TaskWork, status: TaskStatus): string {
-  if (status === "in_review" || status === "done") return `${checkbox(true)} ${work}`;
-  return `${checkbox(false)} ${work} ← ${lifecycleLabel(status)}`;
+/** The one line of a task without a todo list. */
+function workLineText(line: WorkLine): string {
+  if (line.completed) return `${checkbox(true)} ${line.work}`;
+  return `${checkbox(false)} ${line.work} ← ${lifecycleLabel(line.status)}`;
 }
 
 /** The one line for the follow-ups of the artifact the humans hold. None before the first. */
