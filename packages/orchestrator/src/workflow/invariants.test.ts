@@ -40,7 +40,13 @@ import {
   workflowKeepsItsDefinition,
   workflowStartsOnlyFromAPlan,
   aPromptToAPageAuthorCarriesItsHeldComments,
+  anAcceptedArtifactNeverMovesBack,
+  everyActionSettlesWithinItsWorkBudget,
+  type Step,
 } from "../../test/invariants";
+import { propertyRuns, propertySeed } from "../../test/property-runs";
+import { declaredReachPoints, takeReachedPoints } from "../../test/reach";
+import { WORKFLOW_CORPUS } from "../../test/workflow-corpus";
 import {
   agentCancels,
   agentAdvancesStage,
@@ -85,6 +91,7 @@ import {
   sandboxComesUp,
   sandboxGoesAway,
   staleAlarmFires,
+  taskSandboxComesUp,
   timePasses,
   timerFires,
   TIMERS,
@@ -104,9 +111,15 @@ import {
 } from "../../test/workflow-world";
 import { TEST_DEFINITION_NAME } from "../../test/test-config";
 
-const NUM_RUNS = 200;
+const RUNS = propertyRuns(200);
+const REQUEST_RUNS = propertyRuns(50);
 const MAX_ACTIONS = 50;
-const TIMEOUT_MS = 120_000;
+const TIMEOUT_MS = Math.max(120_000, RUNS * 600);
+const FLOOR_RUNS = 1_000;
+const FLOOR_SEED = 20_261_014;
+const FLOOR_MIN_RUNS = 20;
+const FLOOR_SHARE = 0.02;
+const FLOOR_TIMEOUT_MS = 3_600_000;
 
 const STATE_INVARIANTS = [
   inReviewTaskHasAnArtifact,
@@ -151,10 +164,21 @@ const STEP_INVARIANTS = [
   aPromptToAPageAuthorCarriesItsHeldComments,
   pageReviewPostsEachFindingOnce,
   authorGetsEveryPageFinding,
+  everyActionSettlesWithinItsWorkBudget,
+  anAcceptedArtifactNeverMovesBack,
 ];
 
-const setups: fc.Arbitrary<WorldSetup> = fc.record({
-  opening: fc.constantFrom("job" as const, "job" as const, "request" as const),
+const research = fc.constantFrom(false, false, false, true);
+
+const sandboxStart = fc.constantFrom(
+  "at_task_start" as const,
+  "at_task_start" as const,
+  "at_task_start" as const,
+  "on_an_action" as const,
+);
+
+const jobSetups: fc.Arbitrary<WorldSetup> = fc.record({
+  opening: fc.constant("job" as const),
   artifact: fc.constantFrom(
     "pull" as const,
     "pull" as const,
@@ -163,24 +187,31 @@ const setups: fc.Arbitrary<WorldSetup> = fc.record({
     "page" as const,
   ),
   refiners: fc.constantFrom(...REFINER_SETUPS),
-  research: fc.boolean(),
+  research,
   pageAuthor: fc.constant("harness" as const),
   checksOnPush: fc.constantFrom("passed" as const, "reported_later" as const),
   pageEnding: fc.constantFrom("acceptance" as const, "choice" as const),
   origin: fc.constantFrom("chat" as const, "chat" as const, "tracker" as const, "tracker" as const),
   firstInput: fc.constantFrom("request" as const, "origin_issue" as const, "origin_issue" as const),
+  sandboxStart,
 });
+
+const requestSetups: fc.Arbitrary<WorldSetup> = jobSetups.map((setup) => ({
+  ...setup,
+  opening: "request" as const,
+}));
 
 const pageSetups: fc.Arbitrary<WorldSetup> = fc.record({
   opening: fc.constant("job" as const),
   artifact: fc.constant("page" as const),
   refiners: fc.constantFrom(...REFINER_SETUPS),
-  research: fc.boolean(),
+  research,
   pageAuthor: fc.constant("harness" as const),
   checksOnPush: fc.constantFrom("passed" as const, "reported_later" as const),
   pageEnding: fc.constantFrom("acceptance" as const, "choice" as const),
   origin: fc.constantFrom("chat" as const, "chat" as const, "tracker" as const, "tracker" as const),
   firstInput: fc.constantFrom("request" as const, "origin_issue" as const, "origin_issue" as const),
+  sandboxStart,
 });
 
 const modelPageSetups: fc.Arbitrary<WorldSetup> = pageSetups.map((setup) => ({
@@ -210,6 +241,14 @@ const PLANNED_DEFINITIONS = [
   SECOND_DEFINITION,
   "triage",
 ];
+
+const plans: fc.Arbitrary<WorkflowAction> = fc
+  .tuple(
+    fc.constantFrom(...PLANNED_DEFINITIONS),
+    fc.option(fc.constantFrom(...PLANNED_STAGES), { freq: 3 }),
+    fc.integer({ min: 1, max: 3 }),
+  )
+  .map(([definition, stages, concurrency]) => agentSetsPlan(definition, stages, concurrency));
 
 const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
   {
@@ -433,16 +472,7 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
       )
       .map(([kind, on, request]) => agentStartsTask(kind, on, request)),
   },
-  {
-    weight: 2,
-    arbitrary: fc
-      .tuple(
-        fc.constantFrom(...PLANNED_DEFINITIONS),
-        fc.option(fc.constantFrom(...PLANNED_STAGES), { freq: 3 }),
-        fc.integer({ min: 1, max: 3 }),
-      )
-      .map(([definition, stages, concurrency]) => agentSetsPlan(definition, stages, concurrency)),
-  },
+  { weight: 2, arbitrary: plans },
   {
     weight: 3,
     arbitrary: fc
@@ -596,6 +626,71 @@ const issueStartedAgain = [
   agentStartsTask("pull", "a_taken_issue", REQUEST_TEXTS[0]),
 ];
 
+const deliveredThenUnchangedTurn = [
+  ...draftedArtifact,
+  approvingEnd,
+  approvingEnd,
+  approvingEnd,
+  agentPromptsAuthor(0),
+  authorTurnEnds(0, "same"),
+];
+
+const judgeApprovedThenAuthorPrompted = [
+  ...draftedArtifact,
+  approvingEnd,
+  agentPromptsAuthor(0),
+  authorTurnEnds(0, "changed"),
+  approvingEnd,
+  approvingEnd,
+];
+
+const polisherRunning = [
+  ...draftedArtifact,
+  approvingEnd,
+  personPostsFeedback(0, "comment", "for_author"),
+  agentPromptsAuthor(0),
+];
+
+const stopDuringRunningTurn = [trackerOpensSession(0), personPressesStop(0)];
+
+const runningAuthorGetsSessionMessage = [
+  trackerOpensSession(0),
+  personWritesInSession(0, "question"),
+];
+
+const admittedHeldComments: HeldCommentsRead = {
+  decisions: "answers",
+  host: "readable",
+  meanwhile: "nothing",
+};
+
+const heldCommentsOnDeliveredPage = [
+  ...draftedArtifact,
+  approvingEnd,
+  approvingEnd,
+  approvingEnd,
+  personCommentsOnPage(1),
+  agentPromptsAuthor(0, admittedHeldComments),
+];
+
+const modelCallStoppedMidWrite = [
+  trackerOpensSession(0),
+  personStopsModelCall(0, "agent_prompts"),
+];
+
+const twoIssuesInChat = [agentStartsTask("pull", "an_issue", REQUEST_TEXTS[1])];
+
+const chatThreadWithTrackerSession = [chatThreadJoins(), trackerOpensSession(0)];
+
+const acceptedArtifact = [
+  ...draftedArtifact,
+  approvingEnd,
+  approvingEnd,
+  approvingEnd,
+  hostSays(0, "merged"),
+  agentCompletes(0, "accepts", "answers"),
+];
+
 const openings: fc.Arbitrary<WorkflowAction[]> = fc.constantFrom(
   [],
   draftedArtifact,
@@ -604,47 +699,131 @@ const openings: fc.Arbitrary<WorkflowAction[]> = fc.constantFrom(
   abandonedArtifact,
   issueStartedAgain,
   authorKeepsStoppingEarly,
+  deliveredThenUnchangedTurn,
+  judgeApprovedThenAuthorPrompted,
+  polisherRunning,
+  stopDuringRunningTurn,
+  runningAuthorGetsSessionMessage,
+  heldCommentsOnDeliveredPage,
+  modelCallStoppedMidWrite,
+  twoIssuesInChat,
+  chatThreadWithTrackerSession,
+  acceptedArtifact,
 );
 
-const sequences: fc.Arbitrary<WorkflowAction[]> = fc
-  .tuple(openings, fc.array(actions, { maxLength: MAX_ACTIONS, size: "max" }))
-  .map(([opening, rest]) => [...opening, ...rest]);
+const researchHandedOn = [researcherReportsTodos(0, 1), researcherTurnEnds(0, "written")];
+
+const researchPrefaces: fc.Arbitrary<WorkflowAction[]> = fc.constantFrom(
+  [],
+  researchHandedOn,
+  researchHandedOn,
+);
+
+const jobSequences: fc.Arbitrary<WorkflowAction[]> = fc
+  .tuple(researchPrefaces, openings, fc.array(actions, { maxLength: MAX_ACTIONS, size: "max" }))
+  .map(([preface, opening, rest]) => [...preface, ...opening, ...rest]);
+
+const requestSequences: fc.Arbitrary<WorkflowAction[]> = fc.array(
+  fc.oneof({ weight: 10, arbitrary: actions }, { weight: 1, arbitrary: plans }),
+  { maxLength: MAX_ACTIONS, size: "max" },
+);
+
+async function checkedStep(world: WorkflowWorld, action: WorkflowAction): Promise<Step> {
+  const step = await world.apply(action);
+  for (const invariant of STATE_INVARIANTS) invariant(world.workflow);
+  for (const invariant of STEP_INVARIANTS) invariant(world.workflow, step);
+  return step;
+}
+
+function tasksStartedIn(world: WorkflowWorld, step: Step): string[] {
+  const known = new Set(step.before.tasks.map((task) => task.task_id));
+  return world
+    .tasksAwaitingSandbox()
+    .filter((task) => !known.has(task.task_id))
+    .map((task) => task.task_id);
+}
 
 async function holdsThroughout(setup: WorldSetup, sequence: WorkflowAction[]): Promise<void> {
   const world = await WorkflowWorld.open(setup);
   for (const action of sequence) {
-    const step = await world.apply(action);
-    for (const invariant of STATE_INVARIANTS) invariant(world.workflow);
-    for (const invariant of STEP_INVARIANTS) invariant(world.workflow, step);
+    const step = await checkedStep(world, action);
+    if (setup.sandboxStart !== "at_task_start") continue;
+    for (const taskId of tasksStartedIn(world, step)) {
+      await checkedStep(world, taskSandboxComesUp(taskId));
+    }
   }
 }
 
+const PROPERTIES = [
+  { name: "on any refiner list", setups: jobSetups, sequences: jobSequences, runs: RUNS },
+  {
+    name: "on a page stage of either ending",
+    setups: pageSetups,
+    sequences: jobSequences,
+    runs: RUNS,
+  },
+  {
+    name: "on a page stage whose author is a model call",
+    setups: modelPageSetups,
+    sequences: jobSequences,
+    runs: RUNS,
+  },
+  {
+    name: "on a request before the plan",
+    setups: requestSetups,
+    sequences: requestSequences,
+    runs: REQUEST_RUNS,
+  },
+];
+
 describe("the workflow invariants", () => {
-  it(
-    "hold after every action of any sequence, on any refiner list",
-    async () => {
-      const property = fc.asyncProperty(setups, sequences, holdsThroughout);
-      await fc.assert(property, { numRuns: NUM_RUNS });
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(39);
-    },
-    TIMEOUT_MS,
-  );
+  it("are every state and step invariant", () => {
+    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(41);
+  });
 
-  it(
-    "hold after every action of any sequence, on a page stage of either ending",
-    async () => {
-      const property = fc.asyncProperty(pageSetups, sequences, holdsThroughout);
-      await fc.assert(property, { numRuns: NUM_RUNS });
-    },
-    TIMEOUT_MS,
-  );
+  for (const property of PROPERTIES) {
+    it(
+      `hold after every action of any sequence, ${property.name}`,
+      async () => {
+        await fc.assert(fc.asyncProperty(property.setups, property.sequences, holdsThroughout), {
+          numRuns: property.runs,
+          seed: propertySeed(property.name),
+          examples: WORKFLOW_CORPUS,
+        });
+      },
+      TIMEOUT_MS,
+    );
+  }
+});
 
+async function reachedRunsOf(property: (typeof PROPERTIES)[number]): Promise<Map<string, number>> {
+  const reachedRuns = new Map<string, number>();
+  takeReachedPoints();
+  const counted = fc.asyncProperty(property.setups, property.sequences, async (setup, sequence) => {
+    await holdsThroughout(setup, sequence);
+    for (const label of takeReachedPoints()) {
+      reachedRuns.set(label, (reachedRuns.get(label) ?? 0) + 1);
+    }
+  });
+  await fc.assert(counted, { numRuns: FLOOR_RUNS, seed: FLOOR_SEED });
+  return reachedRuns;
+}
+
+describe.if(process.env.REACH_FLOOR === "1")("the reach floor", () => {
   it(
-    "hold after every action of any sequence, on a page stage whose author is a model call",
+    "is met by some workflow property at every reach point",
     async () => {
-      const property = fc.asyncProperty(modelPageSetups, sequences, holdsThroughout);
-      await fc.assert(property, { numRuns: NUM_RUNS });
+      const floor = Math.max(FLOOR_MIN_RUNS, Math.ceil(FLOOR_RUNS * FLOOR_SHARE));
+      const byProperty = [];
+      for (const property of PROPERTIES) byProperty.push(await reachedRunsOf(property));
+      const rows = declaredReachPoints().map((label) => {
+        const runs = byProperty.map((reachedRuns) => reachedRuns.get(label) ?? 0);
+        return { label, runs, best: Math.max(...runs) };
+      });
+      for (const row of rows) console.log(`${row.runs.join("\t")}\t${row.label}`);
+      const below = rows.filter((row) => row.best < floor).map((row) => row.label);
+      expect(below).toEqual([]);
     },
-    TIMEOUT_MS,
+    FLOOR_TIMEOUT_MS,
   );
 });
