@@ -41,7 +41,11 @@ export const LINEAR_PAGE_INSTRUCTIONS: HostInstructions = {
   create:
     "Create the document in the Linear project this prompt names as the page parent, with the Linear tools. Print the document URL on its own line when it exists.",
   read: "Read the document with the Linear `get_document` tool. The document slug is the last part of its URL.",
-  change: "Change the document in place with the Linear tools. Do not create another document.",
+  change: [
+    "Change the document in place with targeted edits. Pass `patch` to the Linear `save_document` tool, not the whole `content`, and change only the text a finding needs, so the comments people left keep their place.",
+    "Do not create another document.",
+    "A finding that starts with a label such as [comment <id>] came from a comment on the document. Reply to each one with the Linear `save_comment` tool, with that id as `parentId`. Say in one or two sentences what you changed for it, or why the document does not change.",
+  ].join("\n"),
 };
 
 /** Where the orchestrator agent finds the page parent of a workflow on Linear. */

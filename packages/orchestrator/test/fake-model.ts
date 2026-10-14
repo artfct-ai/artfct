@@ -187,9 +187,9 @@ export class SilentModel implements LanguageModelV4 {
 }
 
 /**
- * A model that answers every call with fixed text and keeps the system prompts it was given.
- * `inputTokens` is what it reports having read, for a test that measures a request. `costUsd` is
- * the cost it reports for each call.
+ * A model that answers every call with fixed text, or with the text a function makes of the user
+ * message, and keeps the prompts it was given. `inputTokens` is what it reports having read, for
+ * a test that measures a request. `costUsd` is the cost it reports for each call.
  */
 export class EchoModel implements LanguageModelV4 {
   readonly specificationVersion = "v4" as const;
@@ -206,7 +206,7 @@ export class EchoModel implements LanguageModelV4 {
   toolNames: string[][] = [];
 
   constructor(
-    private answer: string,
+    private answer: string | ((userText: string) => string),
     private inputTokens = 0,
     private costUsd = 0,
   ) {}
@@ -214,16 +214,16 @@ export class EchoModel implements LanguageModelV4 {
   async doGenerate(options: LanguageModelV4CallOptions): Promise<LanguageModelV4GenerateResult> {
     const system = options.prompt.find((message) => message.role === "system");
     this.systems.push(typeof system?.content === "string" ? system.content : "");
-    this.userTexts.push(
-      options.prompt
-        .flatMap((message) => (message.role === "user" ? message.content : []))
-        .map((part) => (part.type === "text" ? part.text : ""))
-        .join(""),
-    );
+    const userText = options.prompt
+      .flatMap((message) => (message.role === "user" ? message.content : []))
+      .map((part) => (part.type === "text" ? part.text : ""))
+      .join("");
+    this.userTexts.push(userText);
     this.signals.push(options.abortSignal);
     this.toolNames.push((options.tools ?? []).map((offered) => offered.name));
+    const text = typeof this.answer === "string" ? this.answer : this.answer(userText);
     return {
-      content: [{ type: "text", text: this.answer }],
+      content: [{ type: "text", text }],
       finishReason: { unified: "stop", raw: undefined },
       usage: {
         inputTokens: {

@@ -18,7 +18,7 @@ const PAGE_ID = "0123456789abcdef0123456789abcdef";
 const PAGE_URL = `https://www.notion.so/acme/${PAGE_ID}`;
 const HELD: HeldComment[] = [{ id: "cmt-1", author_name: "Ann", text: "Tighten the intro." }];
 const HELD_TEXT =
-  "The people who commented on the page said:\n\nComments:\n- Ann: Tighten the intro.";
+  "The people who commented on the page said:\n\nComments:\n- [comment cmt-1]: Ann: Tighten the intro.";
 
 function pageScenario(held: HeldComment[], status: "in_review" | "done"): Scenario<FakeRuntime> {
   return scenario(freshRuntime, (workflow) => {

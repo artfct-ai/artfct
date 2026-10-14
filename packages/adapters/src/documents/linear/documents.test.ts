@@ -427,18 +427,99 @@ it("readPageContent throws when no document has the content id", async () => {
 });
 
 describe("LinearDocuments updatePageContent", () => {
-  let calls: Call[];
+  describe("a document whose content still holds the text read", () => {
+    let calls: Call[];
 
-  beforeEach(async () => {
-    calls = fakeLinear({
-      documents: { documents: { pageInfo: PAGE, nodes: [documentNode("d1", "dc1")] } },
-      updateDocument: { documentUpdate: { success: true, lastSyncId: 2, document: { id: "d1" } } },
+    beforeEach(async () => {
+      calls = fakeLinear({
+        documents: { documents: { pageInfo: PAGE, nodes: [documentNode("d1", "dc1")] } },
+        updateDocument: {
+          documentUpdate: { success: true, lastSyncId: 2, document: { id: "d1" } },
+        },
+      });
+      await new LinearDocuments("lin_api_x").updatePageContent("dc1", {
+        before: "text of d1",
+        after: "# Revised",
+      });
     });
-    await new LinearDocuments("lin_api_x").updatePageContent("dc1", "# Revised");
+
+    it("writes the content with the change applied", () => {
+      expect(calls[1]?.operation).toBe("updateDocument");
+      expect(calls[1]?.variables).toEqual({ id: "d1", input: { content: "# Revised" } });
+    });
   });
 
-  it("updates the document the content id resolves to", () => {
-    expect(calls[1]?.operation).toBe("updateDocument");
-    expect(calls[1]?.variables).toEqual({ id: "d1", input: { content: "# Revised" } });
+  describe("a document a person changed since it was read", () => {
+    let calls: Call[];
+
+    beforeEach(async () => {
+      const edited = {
+        ...documentNode("d1", "dc1"),
+        content: "# Goal\nShip it.\nA person's line.",
+      };
+      calls = fakeLinear({
+        documents: { documents: { pageInfo: PAGE, nodes: [edited] } },
+        updateDocument: {
+          documentUpdate: { success: true, lastSyncId: 2, document: { id: "d1" } },
+        },
+      });
+      await new LinearDocuments("lin_api_x").updatePageContent("dc1", {
+        before: "# Goal\nShip it.",
+        after: "# Goal\nShip it today.",
+      });
+    });
+
+    it("keeps the person's change and applies the author's", () => {
+      expect(calls[1]?.variables).toEqual({
+        id: "d1",
+        input: { content: "# Goal\nShip it today.\nA person's line." },
+      });
+    });
+  });
+
+  it("throws before the write when the changed text is gone from the document", async () => {
+    const calls = fakeLinear({
+      documents: { documents: { pageInfo: PAGE, nodes: [documentNode("d1", "dc1")] } },
+    });
+    const change = { before: "# Goal\nShip it.", after: "# Goal\nShip it today." };
+    await expect(new LinearDocuments("lin_api_x").updatePageContent("dc1", change)).rejects.toThrow(
+      "matches the page 0 times",
+    );
+    expect(calls.map((call) => call.operation)).toEqual(["documents"]);
+  });
+});
+
+const threadComment = (id: string, parentId: string | null) => ({
+  id,
+  body: "Rename this.",
+  parentId,
+  reactions: [],
+  createdAt: "2026-09-04T00:00:00.000Z",
+  updatedAt: "2026-09-04T00:00:00.000Z",
+});
+
+describe("LinearDocuments replyToComment", () => {
+  it("replies under the comment when it starts its thread", async () => {
+    const calls = fakeLinear({
+      comment: { comment: threadComment("c1", null) },
+      createComment: { commentCreate: { success: true, comment: { id: "c2" } } },
+    });
+    await new LinearDocuments("lin_api_x").replyToComment(
+      { pageId: "dc1", commentId: "c1" },
+      "Renamed it.",
+    );
+    expect(calls[1]?.variables).toEqual({ input: { parentId: "c1", body: "Renamed it." } });
+  });
+
+  it("replies under the first comment of the thread when the comment is a reply", async () => {
+    const calls = fakeLinear({
+      comment: { comment: threadComment("c3", "c1") },
+      createComment: { commentCreate: { success: true, comment: { id: "c4" } } },
+    });
+    await new LinearDocuments("lin_api_x").replyToComment(
+      { pageId: "dc1", commentId: "c3" },
+      "Renamed it.",
+    );
+    expect(calls[1]?.variables).toEqual({ input: { parentId: "c1", body: "Renamed it." } });
   });
 });

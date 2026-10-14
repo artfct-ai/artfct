@@ -1,6 +1,7 @@
 import type { HeldComment } from "@artfct-ai/adapters/documents/types";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
-import type { ArtifactChange, ArtifactTarget, Feedback } from "../../artifact/types";
+import { pageCommentLabel } from "../../artifact/page-comment-label";
+import type { ArtifactChange, ArtifactTarget, Feedback, Finding } from "../../artifact/types";
 import { screenText, type Screened } from "../../decisions/screen";
 import { feedbackText } from "../../prompts/review-prompt";
 import { recordArtifact } from "../artifact";
@@ -206,7 +207,8 @@ async function onFeedback(
 
 /**
  * A person mentioned the document user in a comment on the page. The held comments the host
- * shows and this one go out as one feedback. When the host cannot be read, they all stay held.
+ * shows and this one go out as one feedback, each labeled with its comment so the author can
+ * reply to it. When the host cannot be read, they all stay held.
  */
 async function onMentioned(
   workflow: WorkflowRuntime,
@@ -225,14 +227,17 @@ async function onMentioned(
       wake: "human",
     };
   }
+  const mention: Finding[] = change.body
+    ? [{ location: pageCommentLabel(change.comment_id), body: `${who}: ${change.body}` }]
+    : [];
   const feedback: Feedback = {
     from: change.from,
     unchecked: held.length > 0,
-    body: change.body,
-    findings: heldCommentFindings(held),
+    body: "",
+    findings: [...mention, ...heldCommentFindings(held)],
     handles: [...heldCommentHandles(held), { kind: "page", comment_id: change.comment_id }],
   };
-  if (!feedback.body && !feedback.findings.length) {
+  if (!feedback.findings.length) {
     if (artifact) await workflow.artifact(kind).acknowledge(feedback.handles, artifact.ref);
     return {
       notes: [

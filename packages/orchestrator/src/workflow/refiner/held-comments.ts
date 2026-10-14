@@ -1,4 +1,5 @@
 import type { HeldComment } from "@artfct-ai/adapters/documents/types";
+import { pageCommentLabel } from "../../artifact/page-comment-label";
 import type { FeedbackHandle, Finding } from "../../artifact/types";
 import type { TurnDecisions } from "../../decisions/ask";
 import { screenText, type Screened } from "../../decisions/screen";
@@ -8,9 +9,10 @@ import type { ArtifactRow, TaskRow } from "../store/tasks";
 import { promptTask } from "../task/harness/prompt-queue";
 import type { WorkflowRuntime } from "../types";
 
-/** Each held comment as a finding that says who wrote it. */
+/** Each held comment as a finding that labels the comment and says who wrote it. */
 export function heldCommentFindings(comments: HeldComment[]): Finding[] {
   return comments.map((comment) => ({
+    location: pageCommentLabel(comment.id),
     body: `${comment.author_name ?? "Someone"}: ${comment.text.trim()}`,
   }));
 }

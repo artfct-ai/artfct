@@ -1,6 +1,6 @@
 #!/usr/bin/env bun
 /**
- * Mock Notion API for the smoke run: create a page, retrieve it, read and replace its markdown,
+ * Mock Notion API for the smoke run: create a page, retrieve it, read, replace, and edit its markdown,
  * list and create comments on it and on its blocks, list its blocks, and read the bot user of the
  * token. Every page id is answered. A page this host did not create reads as empty markdown and
  * holds one paragraph block. `GET /__state` returns what it holds and `POST /__reset` clears it.
@@ -24,7 +24,7 @@ type StoredComment = {
   text: string;
 };
 
-/** A page created here, with its markdown after the create and after each replace, oldest first. */
+/** A page created here, with its markdown after the create and after each write, oldest first. */
 type StoredPage = {
   id: string;
   parent_id: string;
@@ -190,19 +190,46 @@ function readMarkdown(pageId: string): Response {
   return Response.json(markdownObject(pageId, page?.markdown_versions.at(-1) ?? ""));
 }
 
-function replaceMarkdown(pageId: string, body: Record<string, unknown>): Response {
+function updateMarkdown(pageId: string, body: Record<string, unknown>): Response {
   const page = state.pages.find((stored) => stored.id === pageId);
   if (!page) return notFound(`no page ${pageId}`);
-  const replace = body.replace_content as { new_str?: string } | undefined;
-  if (body.type !== "replace_content" || replace?.new_str === undefined) {
+  const revised = revisedMarkdown(page.markdown_versions.at(-1) ?? "", body);
+  if ("error" in revised) {
     return Response.json(
-      { object: "error", status: 400, message: "only replace_content is served" },
+      { object: "error", status: 400, code: "validation_error", message: revised.error },
       { status: 400 },
     );
   }
-  page.markdown_versions.push(replace.new_str);
-  log(`page ${pageId} markdown replaced`);
-  return Response.json(markdownObject(pageId, replace.new_str));
+  page.markdown_versions.push(revised.markdown);
+  log(`page ${pageId} markdown ${body.type === "replace_content" ? "replaced" : "updated"}`);
+  return Response.json(markdownObject(pageId, revised.markdown));
+}
+
+/** The markdown after a `replace_content` or an `update_content` request. */
+function revisedMarkdown(
+  markdown: string,
+  body: Record<string, unknown>,
+): { markdown: string } | { error: string } {
+  if (body.type === "replace_content") {
+    const replace = body.replace_content as { new_str?: string } | undefined;
+    if (replace?.new_str === undefined) return { error: "replace_content needs new_str" };
+    return { markdown: replace.new_str };
+  }
+  if (body.type !== "update_content") {
+    return { error: "only replace_content and update_content are served" };
+  }
+  const update = body.update_content as
+    | { content_updates?: { old_str: string; new_str: string }[] }
+    | undefined;
+  let current = markdown;
+  for (const edit of update?.content_updates ?? []) {
+    const first = current.indexOf(edit.old_str);
+    if (!edit.old_str || first === -1 || current.indexOf(edit.old_str, first + 1) !== -1) {
+      return { error: `old_str does not match the page once: ${edit.old_str.slice(0, 80)}` };
+    }
+    current = current.replace(edit.old_str, () => edit.new_str);
+  }
+  return { markdown: current };
 }
 
 async function handle(request: Request): Promise<Response> {
@@ -227,7 +254,7 @@ async function handle(request: Request): Promise<Response> {
   }
   const markdown = /^\/v1\/pages\/([^/]+)\/markdown$/.exec(pathname);
   if (markdown && request.method === "PATCH") {
-    return replaceMarkdown(markdown[1]!, (await request.json()) as Record<string, unknown>);
+    return updateMarkdown(markdown[1]!, (await request.json()) as Record<string, unknown>);
   }
   if (markdown) return readMarkdown(markdown[1]!);
   const page = /^\/v1\/pages\/([^/]+)$/.exec(pathname);

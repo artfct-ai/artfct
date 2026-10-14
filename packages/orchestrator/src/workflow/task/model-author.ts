@@ -13,6 +13,7 @@ import {
   producePagePrompt,
   revisePrompt,
   splitReviseAnswer,
+  validateCommentReplies,
   type ModelAuthorSubject,
 } from "../../prompts/model-author-prompt";
 import { markAuthorInReview, recordArtifact, stageHasRefiners } from "../artifact";
@@ -179,8 +180,9 @@ async function producePage(
     rootPageStage(workflow.workflowDefinition())?.name === stage.name &&
     root?.source === "container"
   ) {
-    const filled = aboveResources(text, await host.documents.readPageContent(root.page_id));
-    await host.documents.updatePageContent(root.page_id, filled);
+    const before = await host.documents.readPageContent(root.page_id);
+    const after = aboveResources(text, before);
+    await host.documents.updatePageContent(root.page_id, { before, after });
     await host.documents.nesting?.renamePage(root.page_id, title);
     workflow.log(task.task_id, `root page filled: ${root.url}`);
     return { target: { url: root.url, ref: { kind: "page", page_id: root.page_id } } };
@@ -192,9 +194,11 @@ async function producePage(
 
 /**
  * Revise the page in place with the revise activity, on its current text and the findings, and
- * keep the closing text as the task summary. On the root page the author sees and replaces only
- * the text above the resources section. A null closing text means the task finished or a stop
- * ended the turn first.
+ * keep the closing text as the task summary. The author replies to each page comment the
+ * findings label before the page changes, so a comment on a line the revision rewrites already
+ * holds the answer. Only the lines that changed are written. On the root page the author sees
+ * and changes only the text above the resources section. A null closing text means the task
+ * finished or a stop ended the turn first.
  */
 async function revisePage(
   workflow: WorkflowRuntime,
@@ -227,12 +231,21 @@ async function revisePage(
   const revision = splitReviseAnswer(text);
   if (!revision) return { failure: "The model answered with no closing text." };
   if (!revision.pageText) return { failure: "The model answered with no document text." };
-  const revised = isRootPage
-    ? aboveResources(revision.pageText, await documents.readPageContent(ref.page_id))
-    : revision.pageText;
-  await documents.updatePageContent(ref.page_id, revised);
+  const unanswered = validateCommentReplies(findings, revision.replies);
+  if (unanswered) return { failure: unanswered };
+  for (const reply of revision.replies) {
+    await documents.replyToComment(
+      { pageId: ref.page_id, commentId: reply.comment_id },
+      reply.text,
+    );
+  }
+  const after = isRootPage ? aboveResources(revision.pageText, pageText) : revision.pageText;
+  await documents.updatePageContent(ref.page_id, { before: pageText, after });
   workflow.store.updateTask(task.task_id, { summary: revision.closingText.slice(-SUMMARY_CHARS) });
-  workflow.log(task.task_id, `page updated: ${ref.page_id}`);
+  workflow.log(
+    task.task_id,
+    `page updated: ${ref.page_id}, replied to ${revision.replies.length} comment(s)`,
+  );
   return { closingText: revision.closingText };
 }
 

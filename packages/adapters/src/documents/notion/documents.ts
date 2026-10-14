@@ -7,6 +7,7 @@ import {
 } from "@notionhq/client";
 import pLimit from "p-limit";
 import { workerdFetch } from "../../workerd-fetch";
+import { planPageTextUpdate } from "../page-text-update";
 import { textHoldsPassage } from "../passage";
 import { notionBlockText } from "./block-text";
 import { notionDocumentPage } from "./document-page";
@@ -24,8 +25,12 @@ import type {
   DocumentsUser,
   FetchedComment,
   HeldComment,
+  PageTextChange,
   PassageComment,
 } from "../types";
+
+/** The most search-and-replace edits Notion takes in one page markdown update. */
+const NOTION_CONTENT_UPDATES_MAX = 100;
 
 /** Construction options. `baseUrl` and `fetch` are seams for tests. */
 export type NotionOptions = { baseUrl?: string; fetch?: typeof fetch };
@@ -85,12 +90,30 @@ export class NotionDocuments implements Documents {
     return page.markdown;
   }
 
-  /** Replace the page body with markdown text. */
-  async updatePageContent(pageId: string, text: string): Promise<void> {
+  /**
+   * Search-and-replace edits on the lines that changed, in one request, so Notion keeps every
+   * other block and the comments on it. A page without text gets the whole new text.
+   */
+  async updatePageContent(pageId: string, change: PageTextChange): Promise<void> {
+    const update = planPageTextUpdate(change, NOTION_CONTENT_UPDATES_MAX);
+    if ("whole" in update) {
+      await this.client.pages.updateMarkdown({
+        page_id: pageId,
+        type: "replace_content",
+        replace_content: { new_str: update.whole },
+      });
+      return;
+    }
+    if (!update.edits.length) return;
     await this.client.pages.updateMarkdown({
       page_id: pageId,
-      type: "replace_content",
-      replace_content: { new_str: text },
+      type: "update_content",
+      update_content: {
+        content_updates: update.edits.map((edit) => ({
+          old_str: edit.find,
+          new_str: edit.replace,
+        })),
+      },
     });
   }
 
@@ -145,17 +168,19 @@ export class NotionDocuments implements Documents {
     }
   }
 
-  /**
-   * Notion has no reactions, so an eyes reply joins the discussion of the comment. Notion keys
-   * the discussion apart from the comment.
-   */
+  /** Notion does not have reactions, so an eyes reply joins the discussion of the comment. */
   async acknowledgeComment(comment: PageCommentRef): Promise<void> {
+    await this.replyToComment(comment, NOTION_ACKNOWLEDGEMENT);
+  }
+
+  /** A reply joins the discussion of the comment. Notion keys the discussion apart from the comment. */
+  async replyToComment(comment: PageCommentRef, text: string): Promise<void> {
     const found = await this.client.comments.retrieve({ comment_id: comment.commentId });
     if (!isFullComment(found))
       throw new Error(`notion: comment ${comment.commentId} is unreadable`);
     await this.client.comments.create({
       discussion_id: found.discussion_id,
-      rich_text: [{ type: "text", text: { content: NOTION_ACKNOWLEDGEMENT } }],
+      rich_text: notionRichText(text),
     });
   }
 

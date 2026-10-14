@@ -25,6 +25,7 @@
     "@openrouter/sdk": "^1.4.7",
     "@slack/web-api": "^8.1.1",
     "cloudflare": "^7.2.0",
+    "diff": "^9.0.0",
     "p-limit": "^7.3.3"
   },
   "devDependencies": {

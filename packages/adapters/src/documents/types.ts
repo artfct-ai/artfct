@@ -50,6 +50,9 @@ export type DocumentPage = {
 /** One comment on a page, by the page id and the comment id. */
 export type PageCommentRef = { pageId: string; commentId: string };
 
+/** A change to the text of a page: the text the writer read, and the text it wrote from it. */
+export type PageTextChange = { before: string; after: string };
+
 /** A comment for the block of a page that holds `passage`, words quoted from the page. */
 export type PassageComment = { passage: string; text: string };
 
@@ -80,14 +83,19 @@ export interface Documents {
   createPage(title: string, text: string, parent: string): Promise<DocumentPage>;
   /** The markdown text of a page, by the id this host's `pageFromUrl` returns. */
   readPageContent(pageId: string): Promise<string>;
-  /** Replace the text of a page with markdown text, by the id `pageFromUrl` returns. */
-  updatePageContent(pageId: string, text: string): Promise<void>;
+  /**
+   * Change the text of a page from `before` to `after`, by the id `pageFromUrl` returns. Only
+   * the parts that differ are written, so the rest of the page and its comments stay in place.
+   */
+  updatePageContent(pageId: string, change: PageTextChange): Promise<void>;
   /** True when the host says the page a URL names is deleted or in the trash. */
   pageRemoved(url: string): Promise<boolean>;
   /** Add a plain text comment to a page. */
   comment(pageId: string, text: string): Promise<void>;
   /** Mark a comment as read, in the host's own way. */
   acknowledgeComment(comment: PageCommentRef): Promise<void>;
+  /** Reply to a comment in its discussion, with plain text. */
+  replyToComment(comment: PageCommentRef, text: string): Promise<void>;
   /**
    * Add each comment on the block of the page that holds its passage. Returns the comments it
    * did not post, a subset of `comments`: the page does not hold the passage, or the host did not
