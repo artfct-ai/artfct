@@ -55,6 +55,8 @@ A code name is one type, table, column, or function. A code name that needs a co
 | comment | Feedback that is not a review. | part of `Feedback` | |
 | held comment | A person's comment on a page artifact that the system has not acknowledged. A comment there that mentions the bot, or a request in the chat thread, sends every held comment to the author as one feedback. | `HeldComment`, `Documents.heldComments` | |
 | finding | One item in a review or a comment. It may name a location. | `Finding` | |
+| page text change | The text an author read from a page and the text it wants the page to hold. The host writes only the parts that differ, so the blocks outside them keep their comments. | `PageTextChange`, `Documents.updatePageContent`, `planPageTextUpdate` | page overwrite |
+| comment reply | What the author says in the discussion of one page comment it was sent: what it changed for the comment, or why the page does not change. The author posts it before it changes the page. It does not resolve the discussion. | `CommentReply`, `Documents.replyToComment`, `validateCommentReplies` | resolution |
 | agent review | The phase in which the reviewers run. | `RefinerPhase "review"` | review loop |
 | findings reviewer | A reviewer that posts a review for the author to weigh. | `mode: "findings"` | feedback entry |
 | judge | A reviewer that approves or rejects and posts nothing. It runs once on an artifact. | `JudgeEntry` | |
