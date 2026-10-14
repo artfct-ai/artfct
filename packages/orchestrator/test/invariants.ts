@@ -121,6 +121,11 @@ export type Step = {
    */
   unadmittedFeedback: { texts: string[]; agentRead: string | null } | null;
   /**
+   * Set when a person pressed Stop while a model call of the author was in flight. `pageWrites`
+   * names each page write the host took from the stop to the end of the step.
+   */
+  modelCallStopped: { task_id: string; pageWrites: string[] } | null;
+  /**
    * Set when the agent prompted the author of a page, or a person asked for a revision while an
    * author held a page. `authors` are those page authors. `expected` is `sent` when the host and
    * the screen let the held comments through, and `kept` when either held them back. `agentRead`
@@ -912,6 +917,16 @@ export function stopEndsTheAuthorsTurn(_workflow: WorkflowRuntime, step: Step): 
   if (!endsOnTheStoppedReply(step, author.task_id)) {
     violated("stopEndsTheAuthorsTurn", `the session feed of ${author.task_id} did not say so`);
   }
+}
+
+/** A model call in flight when a person presses Stop does not change the page. */
+export function stoppedModelCallLeavesThePage(_workflow: WorkflowRuntime, step: Step): void {
+  const stopped = step.modelCallStopped;
+  if (!stopped || stopped.pageWrites.length === 0) return;
+  violated(
+    "stoppedModelCallLeavesThePage",
+    `${stopped.task_id} made ${stopped.pageWrites.join(", ")} after the stop`,
+  );
 }
 
 /** While a chat thread exists, no tracker session gets a session plan. */
