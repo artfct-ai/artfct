@@ -1,20 +1,29 @@
 import { describe, expect, it } from "bun:test";
+import { acceptingD1 } from "../../../test/accepting-d1";
 import { freshRuntime } from "../../../test/fresh-runtime";
-import { EchoModel, ScriptedFailure } from "../../../test/fake-model";
+import { EchoModel, GatedModel, ScriptedFailure } from "../../../test/fake-model";
 import {
   PAGE_PARENT,
   fakeDocumentsOf,
   patchModelExecution,
   patchNestingHost,
   seedModelAuthor,
-  type FakeRuntime,
+  FakeRuntime,
 } from "../../../test/fake-runtime";
-import { scenario } from "../../../test/scenario";
+import { openMemoryDb } from "../../../test/memory-db";
+import { scenario, type Scenario } from "../../../test/scenario";
+import { testEnv } from "../../../test/test-env";
 import type { TaskRow } from "../store/tasks";
 import { CLOSING_TEXT_MARKER } from "../../prompts/model-author-prompt";
 import { registeredConfig } from "../../config/register-config";
 import { modelAuthorPageTitle, runModelAuthorTurn } from "./model-author";
 import { promptTask } from "./harness/prompt-queue";
+import { provision } from "./sandbox/sandbox";
+import { stopAuthor, type StopOutcome } from "../inbound/controls";
+
+const runtimeWithD1: Scenario<FakeRuntime> = async (run) => {
+  await run(new FakeRuntime(openMemoryDb(), { ...testEnv(), DB: acceptingD1() }));
+};
 
 describe("modelAuthorPageTitle", () => {
   it("names the workflow and the stage", () => {
@@ -221,22 +230,35 @@ describe("reviseModelAuthorPage", () => {
   });
 
   describe("a prompt while the first model call runs", () => {
-    const waiting = scenario(freshRuntime, async (workflow) => {
+    let queuedDuringCall: string[] = [];
+    let callsDuringCall = 0;
+    const waiting = scenario(runtimeWithD1, async (workflow) => {
       patchModelExecution(workflow);
       const author = seedModelAuthor(workflow);
-      workflow.store.updateTask(author.task_id, { status: "working" });
-      workflow.modelInstance = new EchoModel(REVISED_PAGE);
+      const model = new GatedModel(REVISE_ANSWER);
+      workflow.modelInstance = model;
+      const turn = runModelAuthorTurn(workflow, author);
+      await model.waiting;
       await promptTask(workflow, workflow.store.requireTask(author.task_id), FEEDBACK);
+      queuedDuringCall = workflow.store.queue().map((row) => row.text);
+      callsDuringCall = workflow.modelRequests.length;
+      model.release();
+      await turn;
     });
 
-    it("keeps the prompt in the queue", () =>
-      waiting((workflow) => {
-        expect(workflow.store.queue().map((row) => row.text)).toEqual([FEEDBACK]);
+    it("keeps the prompt in the queue while the call runs", () =>
+      waiting(() => {
+        expect(queuedDuringCall).toEqual([FEEDBACK]);
+        expect(callsDuringCall).toBe(1);
       }));
 
-    it("makes no model call", () =>
+    it("revises the page with the prompt once the page is out", () =>
       waiting((workflow) => {
-        expect(workflow.modelRequests).toEqual([]);
+        const model = workflow.modelInstance;
+        const userTexts = model instanceof EchoModel ? model.userTexts : [];
+        expect(userTexts).toHaveLength(2);
+        expect(userTexts[1]).toContain(FEEDBACK);
+        expect(workflow.store.queue()).toEqual([]);
       }));
   });
 
@@ -340,6 +362,124 @@ describe("reviseModelAuthorPage", () => {
     it("leaves the title of the root page alone", () =>
       revised((workflow) => {
         expect(fakeDocumentsOf(workflow).argsOf("renamePage")).toEqual([]);
+      }));
+  });
+});
+
+describe("stopAuthor on a model-call author", () => {
+  describe("before its first turn", () => {
+    let outcome: StopOutcome | null = null;
+    const stopped = scenario(freshRuntime, async (workflow) => {
+      patchModelExecution(workflow);
+      const author = seedModelAuthor(workflow);
+      workflow.modelInstance = new EchoModel(FIRST_PAGE);
+      outcome = await stopAuthor(workflow, author);
+      await provision(workflow, author.task_id);
+    });
+
+    it("ends the turn it was starting", () =>
+      stopped(() => {
+        expect(outcome).toBe("ended");
+      }));
+
+    it("leaves the author working without a page", () =>
+      stopped((workflow) => {
+        expect(workflow.store.requireTask("wf_x.1").status).toBe("working");
+        expect(workflow.store.artifact("wf_x-1")).toBeNull();
+      }));
+
+    it("makes no model call once its provision alarm fires", () =>
+      stopped((workflow) => {
+        expect(workflow.modelRequests).toEqual([]);
+        expect(fakeDocumentsOf(workflow).argsOf("createPage")).toEqual([]);
+      }));
+  });
+
+  describe("before its first turn, then a prompt", () => {
+    let queuedBeforeProvision: string[] = [];
+    const prompted = scenario(runtimeWithD1, async (workflow) => {
+      patchModelExecution(workflow);
+      const author = seedModelAuthor(workflow);
+      workflow.modelInstance = new EchoModel(REVISE_ANSWER);
+      await stopAuthor(workflow, author);
+      await promptTask(workflow, workflow.store.requireTask(author.task_id), FEEDBACK);
+      queuedBeforeProvision = workflow.store.queue().map((row) => row.text);
+      await provision(workflow, author.task_id);
+    });
+
+    it("queues the author to produce its page and keeps the prompt", () =>
+      prompted((workflow) => {
+        expect(queuedBeforeProvision).toEqual([FEEDBACK]);
+        expect(
+          workflow.alarmsFor("provision").map((alarm) => alarm.payload as { task_id: string }),
+        ).toContainEqual({ task_id: "wf_x.1" });
+      }));
+
+    it("produces the page, then revises it with the prompt", () =>
+      prompted((workflow) => {
+        const model = workflow.modelInstance;
+        const userTexts = model instanceof EchoModel ? model.userTexts : [];
+        expect(fakeDocumentsOf(workflow).argsOf("createPage")).toHaveLength(1);
+        expect(userTexts[1]).toContain(FEEDBACK);
+        expect(workflow.store.queue()).toEqual([]);
+      }));
+  });
+
+  describe("while the model call of its first turn runs", () => {
+    let outcome: StopOutcome | null = null;
+    const stopped = scenario(freshRuntime, async (workflow) => {
+      patchModelExecution(workflow);
+      const author = seedModelAuthor(workflow);
+      const model = new GatedModel(FIRST_PAGE);
+      workflow.modelInstance = model;
+      const turn = runModelAuthorTurn(workflow, author);
+      await model.waiting;
+      outcome = await stopAuthor(workflow, workflow.store.requireTask(author.task_id));
+      model.release();
+      await turn;
+    });
+
+    it("ends the turn", () =>
+      stopped(() => {
+        expect(outcome).toBe("ended");
+      }));
+
+    it("creates no page from the answer", () =>
+      stopped((workflow) => {
+        expect(fakeDocumentsOf(workflow).argsOf("createPage")).toEqual([]);
+        expect(workflow.store.artifact("wf_x-1")).toBeNull();
+      }));
+
+    it("leaves the author working, and logs the dropped answer", () =>
+      stopped((workflow) => {
+        expect(workflow.store.requireTask("wf_x.1").status).toBe("working");
+        expect(workflow.lines).toContain(
+          "model call ended after a stop ended its turn. no change.",
+        );
+      }));
+  });
+
+  describe("while the model call of a revise runs", () => {
+    const stopped = scenario(freshRuntime, async (workflow) => {
+      const author = await seedPageWithHumans(workflow);
+      const model = new GatedModel(REVISE_ANSWER);
+      workflow.modelInstance = model;
+      const revise = promptTask(workflow, author, FEEDBACK);
+      await model.waiting;
+      await stopAuthor(workflow, workflow.store.requireTask(author.task_id));
+      model.release();
+      await revise;
+    });
+
+    it("leaves the page alone", () =>
+      stopped((workflow) => {
+        expect(fakeDocumentsOf(workflow).argsOf("updatePageContent")).toEqual([]);
+        expect(workflow.store.artifact("wf_x-1")?.status).toBe("ready");
+      }));
+
+    it("puts the author back in review", () =>
+      stopped((workflow) => {
+        expect(workflow.store.requireTask("wf_x.1").status).toBe("in_review");
       }));
   });
 });

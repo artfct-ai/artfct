@@ -1,4 +1,9 @@
-import type { LanguageModelV4 } from "@ai-sdk/provider";
+import type {
+  LanguageModelV4,
+  LanguageModelV4CallOptions,
+  LanguageModelV4GenerateResult,
+  LanguageModelV4StreamResult,
+} from "@ai-sdk/provider";
 import type {
   CheckFailure,
   CommitChecks,
@@ -31,6 +36,7 @@ import { isTaskFinished } from "../src/workflow/store/state";
 import type { ArtifactRow, JobRow, TaskRow } from "../src/workflow/store/tasks";
 import { onBridgeClosed, type ConnectionState } from "../src/workflow/task/harness/bridge";
 import { provision } from "../src/workflow/task/sandbox/sandbox";
+import { taskAtWork } from "../src/workflow/task/at-work";
 import { acceptingD1 } from "./accepting-d1";
 import { FakeBridge } from "./fake-bridge";
 import { CLOSING_TEXT_MARKER } from "../src/prompts/model-author-prompt";
@@ -304,11 +310,31 @@ export class WorkflowWorld {
   private readonly tracker: SessionTracker;
   private readonly streamedTexts: string[] = [];
   private readonly stoppedEarly = new Set<string>();
+  private readonly modelTurnEnds: string[] = [];
+  private readonly modelPromptTexts = new Map<string, string[]>();
 
-  private constructor(workflow: FakeRuntime, checksOnPush: ChecksOnPush, tracker: SessionTracker) {
+  private constructor(workflow: FakeRuntime, setup: WorldSetup, tracker: SessionTracker) {
     this.workflow = workflow;
-    this.checksOnPush = checksOnPush;
+    this.checksOnPush = setup.checksOnPush;
     this.tracker = tracker;
+    if (setup.pageAuthor === "model") {
+      this.answerPageModelWith("page");
+      this.recordPromptsModelTurnsTake();
+    }
+  }
+
+  /** Keep the text of every prompt a model-call task takes off its queue, as a bridge keeps those it sends. */
+  private recordPromptsModelTurnsTake(): void {
+    const { store } = this.workflow;
+    const dequeuePrompt = store.dequeuePrompt.bind(store);
+    store.dequeuePrompt = (id) => {
+      const taken = store.queue().find((row) => row.id === id);
+      if (taken && !store.sandbox(taken.task_id)) {
+        const texts = this.modelPromptTexts.get(taken.task_id) ?? [];
+        this.modelPromptTexts.set(taken.task_id, [...texts, taken.text]);
+      }
+      dequeuePrompt(id);
+    };
   }
 
   /** Open a world on its first job, or in planning on a person's request. */
@@ -334,7 +360,7 @@ export class WorkflowWorld {
         event: requestEvent(ORIGINS[setup.origin]),
         endedWorkflowId: null,
       });
-      return new WorkflowWorld(workflow, setup.checksOnPush, tracker);
+      return new WorkflowWorld(workflow, setup, tracker);
     }
     const stage = STAGE_OF[setup.artifact];
     workflow.patchState({
@@ -354,7 +380,7 @@ export class WorkflowWorld {
           : { kind: "request", text: REQUEST_TEXTS[0] },
     });
     if (!first) throw new Error(`the test config declares no stage ${stage}`);
-    const world = new WorkflowWorld(workflow, setup.checksOnPush, tracker);
+    const world = new WorkflowWorld(workflow, setup, tracker);
     world.adoptNewAuthors();
     await world.startSandboxOf(workflow.store.authorOrResearcherTaskOf(first.job_id).task_id);
     return world;
@@ -364,6 +390,7 @@ export class WorkflowWorld {
   async apply(action: WorkflowAction): Promise<Step> {
     const before = this.steps.at(-1)?.after ?? this.observe();
     const notesBefore = this.workflow.notes.length;
+    const modelTurnEndsBefore = this.modelTurnEnds.length;
     const outboxBefore = this.workflow.store.outbox().length;
     const postedBefore = this.workflow.posted.length;
     this.delivered = null;
@@ -380,7 +407,7 @@ export class WorkflowWorld {
       before,
       after: this.observe(),
       notes: this.workflow.notes.slice(notesBefore),
-      authorTurnEnd: facts.authorTurnEnd ?? null,
+      authorTurnEnd: facts.authorTurnEnd ?? this.modelTurnEndSince(modelTurnEndsBefore),
       feedback: facts.feedback ?? null,
       refinerTurnEnd: facts.refinerTurnEnd ?? null,
       staleAlarm: facts.staleAlarm ?? null,
@@ -602,7 +629,31 @@ export class WorkflowWorld {
 
   /** The model of a model-call page author answers every call this way from now on. */
   answerPageModelWith(answer: PageModelAnswer): void {
-    this.workflow.modelsByName[MODEL_AUTHOR_MODEL] = pageModelAnswering(answer);
+    this.workflow.modelsByName[MODEL_AUTHOR_MODEL] = new TurnEndingModel(
+      pageModelAnswering(answer),
+      () => this.recordModelTurnEnd(),
+    );
+  }
+
+  /** A model call ends the turn of the model-call author whose turn is in flight. */
+  private recordModelTurnEnd(): void {
+    const { store } = this.workflow;
+    const author = store
+      .tasks()
+      .find(
+        (task) =>
+          task.role === "author" &&
+          task.status === "working" &&
+          !store.sandbox(task.task_id) &&
+          taskAtWork(this.workflow, task),
+      );
+    if (author) this.modelTurnEnds.push(author.task_id);
+  }
+
+  /** The last model-call author turn that ended since `index`, as the step records it. */
+  private modelTurnEndSince(index: number): Step["authorTurnEnd"] {
+    const taskId = this.modelTurnEnds.slice(index).at(-1);
+    return taskId ? { task_id: taskId, hostRevision: null, cancelled: false } : null;
   }
 
   /** An author turn ended. `stoppedEarly` says whether it ended on its own with the work unfinished. */
@@ -826,6 +877,7 @@ export class WorkflowWorld {
           ...this.bridges
             .filter((bridge) => bridge.taskId === task.task_id)
             .flatMap((bridge) => bridge.promptTexts),
+          ...(this.modelPromptTexts.get(task.task_id) ?? []),
         ],
         cancelsSent: this.bridges
           .filter((bridge) => bridge.taskId === task.task_id)
@@ -925,7 +977,29 @@ function pageModelAnswering(answer: PageModelAnswer): LanguageModelV4 {
   }
 }
 
-/** Run the author of the page stage as model calls that answer with a page. */
+/** A page model that tells the world each time a call ends a model-call author's turn. */
+class TurnEndingModel implements LanguageModelV4 {
+  readonly specificationVersion = "v4" as const;
+  readonly provider = "test";
+  readonly modelId = "turn-ending";
+  readonly supportedUrls = {};
+
+  constructor(
+    private readonly answering: LanguageModelV4,
+    private readonly onCall: () => void,
+  ) {}
+
+  async doGenerate(options: LanguageModelV4CallOptions): Promise<LanguageModelV4GenerateResult> {
+    this.onCall();
+    return await this.answering.doGenerate(options);
+  }
+
+  async doStream(options: LanguageModelV4CallOptions): Promise<LanguageModelV4StreamResult> {
+    return await this.answering.doStream(options);
+  }
+}
+
+/** Run the author of the page stage as model calls. The world installs the page model. */
 function patchModelPageAuthor(workflow: FakeRuntime): void {
   workflow.patchState({ page_parent: PAGE_PARENT });
   workflow.patchWorkflowDefinition({
@@ -946,7 +1020,6 @@ function patchModelPageAuthor(workflow: FakeRuntime): void {
         : stage,
     ),
   });
-  workflow.modelsByName[MODEL_AUTHOR_MODEL] = pageModelAnswering("page");
 }
 
 function patchPageEnding(workflow: FakeRuntime, ending: PageEnding): void {

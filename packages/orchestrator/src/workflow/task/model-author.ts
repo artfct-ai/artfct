@@ -17,6 +17,7 @@ import {
 } from "../../prompts/model-author-prompt";
 import { markAuthorInReview, recordArtifact, stageHasRefiners } from "../artifact";
 import { flushBoards } from "../board/board";
+import { closeSessionFeed } from "../feed/feed";
 import { failTask } from "../lifecycle";
 import { heldForReview, settleRefinersForAuthor } from "../refiner/loop";
 import { newPageParent, rootPageStage } from "../root-page";
@@ -24,6 +25,7 @@ import { markArtifactReady, reopenChangedArtifact } from "../refiner/outcome";
 import { isTaskFinished, workflowName } from "../store/state";
 import type { JobRow, TaskRow } from "../store/tasks";
 import type { Wake, WorkflowRuntime } from "../types";
+import { runModelTurn, taskAtWork } from "./at-work";
 import { drainQueue, taskContext } from "./harness/prompt-queue";
 import { digestFor, LOGGED_ERROR_CHARS, loggedFailureReason, SUMMARY_CHARS } from "./harness/turn";
 
@@ -50,22 +52,38 @@ export async function runModelAuthorTurn(workflow: WorkflowRuntime, task: TaskRo
     );
   }
   workflow.store.updateTask(task.task_id, { status: "working" });
-  await flushBoards(workflow, task.job_id);
-  const outcome = await producePage(workflow, task, { documents, parent }).catch(
-    (error: unknown) => {
+  const outcome = await runModelTurn(workflow, task.task_id, async (turnEnded) => {
+    await flushBoards(workflow, task.job_id);
+    return producePage(workflow, task, { documents, parent, turnEnded }).catch((error: unknown) => {
       workflow.log(
         task.task_id,
         `model call or page create failed: ${String(error).slice(0, LOGGED_ERROR_CHARS)}`,
       );
-      return { failure: loggedFailureReason(task.task_id, "The model call or the page create") };
-    },
-  );
+      return {
+        failure: loggedFailureReason(task.task_id, "The model call or the page create"),
+      };
+    });
+  });
   if ("failure" in outcome) {
     return failTask(workflow, workflow.store.requireTask(task.task_id), outcome.failure);
   }
   if (outcome.target === null) return;
   await recordArtifact(workflow, workflow.store.requireTask(task.task_id), outcome.target);
   await resumeModelAuthor(workflow, task.task_id, "task_result", "");
+}
+
+/**
+ * Start the next turn of a model-call author that is not at work. True when it took a prompt.
+ * An author whose page is not out yet, such as one a stop ended before its first turn, queues
+ * to produce it, and takes the prompt once the page is out.
+ */
+export async function drainModelAuthor(workflow: WorkflowRuntime, task: TaskRow): Promise<boolean> {
+  if (taskAtWork(workflow, task)) return false;
+  if (workflow.store.artifact(task.job_id)) return reviseModelAuthorPage(workflow, task);
+  workflow.store.updateTask(task.task_id, { status: "queued" });
+  await flushBoards(workflow, task.job_id);
+  await workflow.scheduleAlarm(0, "provision", { task_id: task.task_id });
+  return false;
 }
 
 /** A revise turn of a model-call author. True when it took a prompt. */
@@ -78,13 +96,19 @@ export async function reviseModelAuthorPage(
   if (!next) return false;
   workflow.store.dequeuePrompt(next.id);
   workflow.store.updateTask(task.task_id, { status: "working" });
-  await flushBoards(workflow, task.job_id);
-  const outcome = await revisePage(workflow, task, next.text).catch((error: unknown) => {
-    workflow.log(
-      task.task_id,
-      `model call or page update failed: ${String(error).slice(0, LOGGED_ERROR_CHARS)}`,
+  const outcome = await runModelTurn(workflow, task.task_id, async (turnEnded) => {
+    await flushBoards(workflow, task.job_id);
+    return revisePage(workflow, task, { findings: next.text, turnEnded }).catch(
+      (error: unknown) => {
+        workflow.log(
+          task.task_id,
+          `model call or page update failed: ${String(error).slice(0, LOGGED_ERROR_CHARS)}`,
+        );
+        return {
+          failure: loggedFailureReason(task.task_id, "The model call or the page update"),
+        };
+      },
     );
-    return { failure: loggedFailureReason(task.task_id, "The model call or the page update") };
   });
   if ("failure" in outcome) {
     await failTask(workflow, workflow.store.requireTask(task.task_id), outcome.failure);
@@ -97,7 +121,10 @@ export async function reviseModelAuthorPage(
   return true;
 }
 
-/** Handle a model-call author back in review after a turn that ended with `closingText`. */
+/**
+ * Handle a model-call author back in review after a turn that ended with `closingText`. An author
+ * left idle ends its session feed with the reply.
+ */
 async function resumeModelAuthor(
   workflow: WorkflowRuntime,
   taskId: string,
@@ -107,6 +134,7 @@ async function resumeModelAuthor(
   const { job_id: jobId } = workflow.store.requireTask(taskId);
   await settleRefinersForAuthor(workflow, workflow.store.requireTask(taskId));
   if (await drainQueue(workflow, workflow.store.requireTask(taskId))) return;
+  await closeSessionFeed(workflow, workflow.store.requireTask(taskId), { kind: "reply" });
   if (!stageHasRefiners(workflow.stageFor(workflow.store.requireJob(jobId)))) {
     await markArtifactReady(workflow, jobId, { close: "ready" });
   }
@@ -117,8 +145,8 @@ async function resumeModelAuthor(
   await workflow.tellAgent(noteMessage(`Model call ended.\n${digest}`), wake);
 }
 
-/** Where the page goes. */
-type PageHost = { documents: Documents; parent: string };
+/** Where the page goes, and whether a stop ended the turn. */
+type PageHost = { documents: Documents; parent: string; turnEnded: () => boolean };
 
 /**
  * Produce the page and create it on the host. The root page stage instead fills the root page
@@ -140,6 +168,7 @@ async function producePage(
     model: call.model,
     system: call.system,
     prompt: producePagePrompt(call.subject),
+    turnEnded: host.turnEnded,
   });
   if (text === null) return { target: null };
   if (!text) return { failure: "The model answered with no document text." };
@@ -161,13 +190,15 @@ async function producePage(
 /**
  * Revise the page in place with the revise activity, on its current text and the findings, and
  * keep the closing text as the task summary. On the root page the author sees and replaces only
- * the text above the resources section. A null closing text means the task finished first.
+ * the text above the resources section. A null closing text means the task finished or a stop
+ * ended the turn first.
  */
 async function revisePage(
   workflow: WorkflowRuntime,
   task: TaskRow,
-  findings: string,
+  turn: { findings: string; turnEnded: () => boolean },
 ): Promise<{ closingText: string | null } | { failure: string }> {
+  const { findings, turnEnded } = turn;
   const documents = await workflow.documents();
   const ref = workflow.store.artifact(task.job_id)?.ref;
   if (!documents || ref?.kind !== "page") {
@@ -187,6 +218,7 @@ async function revisePage(
     model: await activityModel(workflow, revise.model, revise.effort),
     system: modelSystemPrompt(revise),
     prompt,
+    turnEnded,
   });
   if (text === null) return { closingText: null };
   const revision = splitReviseAnswer(text);
@@ -202,17 +234,18 @@ async function revisePage(
 }
 
 /**
- * One gateway call, counted on the task. Null when the task finished first. Throws past
- * `MODEL_AUTHOR_CALL_TIMEOUT_MS`.
+ * One gateway call, counted on the task. Null when the task finished or a stop ended the turn
+ * first. Throws past `MODEL_AUTHOR_CALL_TIMEOUT_MS`.
  */
 async function callAuthorModel(
   workflow: WorkflowRuntime,
   task: TaskRow,
-  request: { model: LanguageModel; system: string; prompt: string },
+  request: { model: LanguageModel; system: string; prompt: string; turnEnded: () => boolean },
 ): Promise<string | null> {
   const { generateText } = await import("ai");
+  const { turnEnded, ...call } = request;
   const bounded = await runUnderDeadline(MODEL_AUTHOR_CALL_TIMEOUT_MS, (abortSignal) =>
-    generateText({ ...request, abortSignal }),
+    generateText({ ...call, abortSignal }),
   );
   if (bounded.kind === "timed_out") {
     throw new Error(`the model call ran past ${MODEL_AUTHOR_CALL_TIMEOUT_MS} ms`);
@@ -223,6 +256,10 @@ async function callAuthorModel(
   workflow.store.updateTask(task.task_id, { cost_usd: counted.cost_usd + cost_usd });
   if (isTaskFinished(counted.status)) {
     workflow.log(task.task_id, `model call ended after the task was ${counted.status}. no change.`);
+    return null;
+  }
+  if (turnEnded()) {
+    workflow.log(task.task_id, "model call ended after a stop ended its turn. no change.");
     return null;
   }
   return result.text.trim();

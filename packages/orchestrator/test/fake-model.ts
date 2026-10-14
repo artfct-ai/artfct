@@ -243,3 +243,29 @@ export class EchoModel implements LanguageModelV4 {
     return Promise.reject(new Error("no streaming"));
   }
 }
+
+/** An `EchoModel` whose calls wait to answer until `release` is called. */
+export class GatedModel extends EchoModel {
+  private openGate: () => void = () => {};
+  private markCalled: () => void = () => {};
+  private readonly gate = new Promise<void>((resolve) => {
+    this.openGate = resolve;
+  });
+  /** Resolves once a call waits at the gate. */
+  readonly waiting = new Promise<void>((resolve) => {
+    this.markCalled = resolve;
+  });
+
+  /** Let every waiting and later call answer. */
+  release(): void {
+    this.openGate();
+  }
+
+  override async doGenerate(
+    options: LanguageModelV4CallOptions,
+  ): Promise<LanguageModelV4GenerateResult> {
+    this.markCalled();
+    await this.gate;
+    return super.doGenerate(options);
+  }
+}

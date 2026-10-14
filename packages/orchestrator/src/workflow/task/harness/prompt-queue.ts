@@ -16,7 +16,7 @@ import {
 import { flushBoards } from "../../board/board";
 import { newPageParent } from "../../root-page";
 import { startFollowUp } from "../../follow-up";
-import { reviseModelAuthorPage } from "../model-author";
+import { drainModelAuthor } from "../model-author";
 import { startSandbox } from "../sandbox/sandbox";
 import { bridgeProcessGone, sendRequest } from "./bridge";
 import type { WorkflowRuntime } from "../../types";
@@ -53,7 +53,7 @@ export async function drainQueue(workflow: WorkflowRuntime, task: TaskRow): Prom
   if (isTaskFinished(task.status) || task.paused_at !== null) return false;
   if (task.role === "author" && runningPolisherOf(workflow, task.job_id)) return false;
   if (taskSettings(workflow, task).execution === "model") {
-    return reviseModelAuthorPage(workflow, task);
+    return drainModelAuthor(workflow, task);
   }
   const sandbox = workflow.store.requireSandbox(task.task_id);
   if (sandbox.prompt_in_flight) return false;

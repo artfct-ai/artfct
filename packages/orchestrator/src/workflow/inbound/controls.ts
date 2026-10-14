@@ -1,17 +1,17 @@
 import type { CancelNotification } from "@agentclientprotocol/sdk";
 import { AgentMethods } from "@artfct-ai/acp/methods";
 import type { Actor, InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
-import type { TaskStatus } from "@artfct-ai/contracts/types";
 import { TAG_TO_START_AGAIN } from "../../notify/messages";
 import { flushBoards } from "../board/board";
 import { closeSessionFeed, STOPPED_CLOSING } from "../feed/feed";
 import { cancelTask, changeWorkflowStatus, unbindCodeHost } from "../lifecycle";
 import { promptTask } from "../task/harness/prompt-queue";
+import { endModelTurn, taskAtWork } from "../task/at-work";
 import { sendNotification } from "../task/harness/bridge";
 import { clearTaskTimers, closeContainer } from "../task/sandbox/sandbox";
 import type { WorkflowRuntime } from "../types";
 import { isTaskFinished } from "../store/state";
-import type { SandboxRow, TaskRow } from "../store/tasks";
+import type { TaskRow } from "../store/tasks";
 import { jobByIssueBinding, jobForEvent } from "./lookup";
 
 /**
@@ -123,35 +123,34 @@ export async function pauseTask(
 /** What a stop found the author doing. */
 export type StopOutcome = "cancelled" | "ended" | "idle";
 
-const STARTING_STATUSES: TaskStatus[] = ["queued", "provisioning"];
-
 /** End the author's current turn and drop its queued prompts, so it waits for the person. */
 export async function stopAuthor(workflow: WorkflowRuntime, author: TaskRow): Promise<StopOutcome> {
   workflow.store.clearPromptQueue(author.task_id);
-  const sandbox = workflow.store.sandbox(author.task_id);
   const connected = workflow.connections(author.task_id).length > 0;
   if (connected && cancelPromptTurn(workflow, author)) return "cancelled";
-  const resuming =
-    sandbox !== null &&
-    !isTaskFinished(author.status) &&
-    (sandbox.prompt_in_flight === 1 ||
-      STARTING_STATUSES.includes(author.status) ||
-      workflow.store.handshakePending(author.task_id));
-  if (resuming) await endResumingTurn(workflow, author, sandbox);
+  const resuming = !isTaskFinished(author.status) && taskAtWork(workflow, author);
+  if (resuming) await endResumingTurn(workflow, author);
   await closeSessionFeed(workflow, author, STOPPED_CLOSING);
   return resuming ? "ended" : "idle";
 }
 
-async function endResumingTurn(
-  workflow: WorkflowRuntime,
-  author: TaskRow,
-  sandbox: SandboxRow,
-): Promise<void> {
-  await clearTaskTimers(workflow, sandbox);
-  await closeContainer(workflow, author, "a person pressed Stop");
-  workflow.store.clearRpc(author.task_id);
-  workflow.store.updateSandbox(author.task_id, { prompt_in_flight: 0, turn_text: "" });
-  workflow.store.updateTask(author.task_id, { status: "working" });
+/**
+ * End a turn the author is starting or resuming. A model-call author goes back in review when
+ * its page is out, since it takes a prompt only there.
+ */
+async function endResumingTurn(workflow: WorkflowRuntime, author: TaskRow): Promise<void> {
+  const sandbox = workflow.store.sandbox(author.task_id);
+  if (sandbox) {
+    await clearTaskTimers(workflow, sandbox);
+    await closeContainer(workflow, author, "a person pressed Stop");
+    workflow.store.clearRpc(author.task_id);
+    workflow.store.updateSandbox(author.task_id, { prompt_in_flight: 0, turn_text: "" });
+    workflow.store.updateTask(author.task_id, { status: "working" });
+  } else {
+    endModelTurn(workflow, author.task_id);
+    const pageOut = workflow.store.artifact(author.job_id) !== null;
+    workflow.store.updateTask(author.task_id, { status: pageOut ? "in_review" : "working" });
+  }
   await flushBoards(workflow, author.job_id);
 }
 

@@ -108,8 +108,6 @@ const STATE_INVARIANTS = [
   researchReadsCompleteOnceTheAuthorStarts,
 ];
 
-const BOARD_INVARIANTS = [everyJobTaskIsOnItsBoard, researchReadsCompleteOnceTheAuthorStarts];
-
 const STEP_INVARIANTS = [
   deliveredToHumansIsNeverCleared,
   refinersRunAgainOnlyOnChangedRevision,
@@ -541,14 +539,6 @@ async function holdsThroughout(setup: WorldSetup, sequence: WorkflowAction[]): P
   }
 }
 
-async function boardHoldsThroughout(setup: WorldSetup, sequence: WorkflowAction[]): Promise<void> {
-  const world = await WorkflowWorld.open(setup);
-  for (const action of sequence) {
-    await world.apply(action);
-    for (const invariant of BOARD_INVARIANTS) invariant(world.workflow);
-  }
-}
-
 describe("the workflow invariants", () => {
   it(
     "hold after every action of any sequence, on any refiner list",
@@ -568,13 +558,11 @@ describe("the workflow invariants", () => {
     },
     TIMEOUT_MS,
   );
-});
 
-describe("the board invariants", () => {
   it(
     "hold after every action of any sequence, on a page stage whose author is a model call",
     async () => {
-      const property = fc.asyncProperty(modelPageSetups, sequences, boardHoldsThroughout);
+      const property = fc.asyncProperty(modelPageSetups, sequences, holdsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
     },
     TIMEOUT_MS,
