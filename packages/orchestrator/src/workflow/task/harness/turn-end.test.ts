@@ -22,6 +22,7 @@ import {
 } from "../../../../test/fake-runtime";
 import { scenario } from "../../../../test/scenario";
 import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
+import type { Decisions } from "@artfct-ai/adapters/gateway/types";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { markArtifactReady } from "../../refiner/outcome";
@@ -303,6 +304,33 @@ describe("onTurnEnd", () => {
       )((workflow) => {
         expect(workflow.store.requireTask(TASK).status).not.toBe("failed");
         expect(workflow.store.requireSandbox(TASK).restarts).toBe(0);
+      }));
+  });
+
+  describe("an author cancelled while the decisions model judges its blocked turn", () => {
+    const cancelledMeanwhile = scenario(freshRuntime, (workflow) => {
+      const picks = new FakeDecisions({}, { outcome: { option: "blocked", probability: 0.9 } });
+      const decisions: Decisions = {
+        deadlineMs: picks.deadlineMs,
+        decide: async (state, questions) => {
+          workflow.store.updateTask(TASK, { status: "cancelled" });
+          return picks.decide(state, questions);
+        },
+      };
+      workflow.gatewayInstance = new FakeGateway({ decisions });
+      const author = seedTask(
+        workflow,
+        {},
+        { prompt_in_flight: 1, turn_text: "I have no access to the repository.", generation: 1 },
+      );
+      return onTurnEnd(workflow, author, "end_turn");
+    });
+
+    it("queues no wake text and starts no sandbox", () =>
+      cancelledMeanwhile((workflow) => {
+        expect(workflow.store.queue()).toEqual([]);
+        expect(workflow.sandboxProvider.calls).toEqual([]);
+        expect(workflow.store.requireTask(TASK).status).toBe("cancelled");
       }));
   });
 
