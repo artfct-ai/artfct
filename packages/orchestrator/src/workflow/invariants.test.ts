@@ -51,7 +51,7 @@ import {
   aModelCallAuthorWorksOnlyWhileItsCallIsOut,
   aRestartDoesNotLoseAModelTurn,
 } from "../../test/invariants";
-import { declaredReachPoints, takeReachedPoints } from "../../test/reach";
+import { declaredCoverageCases, takeCoveredCases } from "../../test/coverage";
 import { WORKFLOW_CORPUS, type ReplayedSequence } from "../../test/workflow-corpus";
 import {
   agentCancels,
@@ -124,11 +124,11 @@ const RUNS = 200;
 const REQUEST_RUNS = 50;
 const MAX_ACTIONS = 50;
 const TIMEOUT_MS = propertyTimeoutMs(120_000, RUNS);
-const FLOOR_RUNS = 1_000;
-const FLOOR_SEED = 20_261_014;
-const FLOOR_MIN_RUNS = 20;
-const FLOOR_SHARE = 0.02;
-const FLOOR_TIMEOUT_MS = 3_600_000;
+const COVERAGE_RUNS = 1_000;
+const COVERAGE_SEED = 20_261_014;
+const COVERAGE_MIN_RUNS = 20;
+const COVERAGE_MIN_SHARE = 0.02;
+const COVERAGE_TIMEOUT_MS = 3_600_000;
 
 const STATE_INVARIANTS = [
   aQueuedPromptReachesItsModelCallAuthor,
@@ -776,47 +776,47 @@ const acceptedArtifact = [
   agentCompletes(0, "accepts", "answers"),
 ];
 
-type OpeningSetup = Partial<Pick<WorldSetup, "refiners" | "checksOnPush" | "subject">>;
+type StartingSetup = Partial<Pick<WorldSetup, "refiners" | "checksOnPush" | "subject">>;
 
-/** The actions a sequence starts with, and the refiners, checks, and subject they need to reach anything. */
-type Opening = { setup: OpeningSetup; actions: WorkflowAction[] };
+/** The actions a sequence starts with, and the refiners, checks, and subject they need. */
+type StartingSequence = { setup: StartingSetup; actions: WorkflowAction[] };
 
-function opening(sequence: WorkflowAction[], setup: OpeningSetup = {}): Opening {
+function startingSequence(sequence: WorkflowAction[], setup: StartingSetup = {}): StartingSequence {
   return { setup, actions: sequence };
 }
 
-const openings: fc.Arbitrary<Opening> = fc.constantFrom(
-  opening([]),
-  opening(draftedArtifact),
-  opening([...draftedArtifact, approvingEnd, approvingEnd, approvingEnd]),
-  opening(reviewedOnAFlakyHost, { refiners: "reviewer" }),
-  opening([...draftedArtifact, findingsOnHost("down")], { refiners: "reviewer" }),
-  opening(abandonedArtifact),
-  opening(issueStartedAgain),
-  opening(authorKeepsStoppingEarly),
-  opening(deliveredThenUnchangedTurn, { refiners: "reviewer", checksOnPush: "passed" }),
-  opening(deliveredThenUnchangedTurn, {
+const startingSequences: fc.Arbitrary<StartingSequence> = fc.constantFrom(
+  startingSequence([]),
+  startingSequence(draftedArtifact),
+  startingSequence([...draftedArtifact, approvingEnd, approvingEnd, approvingEnd]),
+  startingSequence(reviewedOnAFlakyHost, { refiners: "reviewer" }),
+  startingSequence([...draftedArtifact, findingsOnHost("down")], { refiners: "reviewer" }),
+  startingSequence(abandonedArtifact),
+  startingSequence(issueStartedAgain),
+  startingSequence(authorKeepsStoppingEarly),
+  startingSequence(deliveredThenUnchangedTurn, { refiners: "reviewer", checksOnPush: "passed" }),
+  startingSequence(deliveredThenUnchangedTurn, {
     refiners: "judge_then_polisher",
     checksOnPush: "passed",
   }),
-  opening(judgeApprovedThenAuthorPrompted, {
+  startingSequence(judgeApprovedThenAuthorPrompted, {
     refiners: "judge_between_reviewers",
     checksOnPush: "passed",
   }),
-  opening(polisherRunning),
-  opening(polisherWaitsOnChecks, { refiners: "polisher", checksOnPush: "reported_later" }),
-  opening(polisherWaitsOnChecks, {
+  startingSequence(polisherRunning),
+  startingSequence(polisherWaitsOnChecks, { refiners: "polisher", checksOnPush: "reported_later" }),
+  startingSequence(polisherWaitsOnChecks, {
     refiners: "reviewer_then_polisher",
     checksOnPush: "reported_later",
   }),
-  opening(stopDuringRunningTurn),
-  opening(runningAuthorGetsSessionMessage),
-  opening(heldCommentsOnDeliveredPage),
-  opening(modelCallStoppedMidWrite),
-  opening(twoIssuesInChat, { subject: "project" }),
-  opening(chatThreadWithTrackerSession),
-  opening(acceptedArtifact, { checksOnPush: "passed" }),
-  opening(acceptedArtifact, { refiners: "polisher", checksOnPush: "passed" }),
+  startingSequence(stopDuringRunningTurn),
+  startingSequence(runningAuthorGetsSessionMessage),
+  startingSequence(heldCommentsOnDeliveredPage),
+  startingSequence(modelCallStoppedMidWrite),
+  startingSequence(twoIssuesInChat, { subject: "project" }),
+  startingSequence(chatThreadWithTrackerSession),
+  startingSequence(acceptedArtifact, { checksOnPush: "passed" }),
+  startingSequence(acceptedArtifact, { refiners: "polisher", checksOnPush: "passed" }),
 );
 
 const researchHandedOn = [researcherReportsTodos(0, 1), researcherTurnEnds(0, "written")];
@@ -827,16 +827,22 @@ const researchPrefaces: fc.Arbitrary<WorkflowAction[]> = fc.constantFrom(
   researchHandedOn,
 );
 
-const jobSequences: fc.Arbitrary<Opening> = fc
-  .tuple(researchPrefaces, openings, fc.array(actions, { maxLength: MAX_ACTIONS, size: "max" }))
-  .map(([preface, start, rest]) => opening([...preface, ...start.actions, ...rest], start.setup));
+const jobSequences: fc.Arbitrary<StartingSequence> = fc
+  .tuple(
+    researchPrefaces,
+    startingSequences,
+    fc.array(actions, { maxLength: MAX_ACTIONS, size: "max" }),
+  )
+  .map(([preface, start, rest]) =>
+    startingSequence([...preface, ...start.actions, ...rest], start.setup),
+  );
 
-const requestSequences: fc.Arbitrary<Opening> = fc
+const requestSequences: fc.Arbitrary<StartingSequence> = fc
   .array(fc.oneof({ weight: 10, arbitrary: actions }, { weight: 1, arbitrary: plans }), {
     maxLength: MAX_ACTIONS,
     size: "max",
   })
-  .map((sequence) => opening(sequence));
+  .map((sequence) => startingSequence(sequence));
 
 async function checkedStep(world: WorkflowWorld, action: WorkflowAction): Promise<Step> {
   const step = await world.apply(action);
@@ -870,7 +876,7 @@ async function holdsThroughout([setup, sequence]: ReplayedSequence): Promise<voi
 
 function worldRuns(
   setups: fc.Arbitrary<WorldSetup>,
-  sequences: fc.Arbitrary<Opening>,
+  sequences: fc.Arbitrary<StartingSequence>,
 ): fc.Arbitrary<ReplayedSequence> {
   return fc
     .tuple(setups, sequences)
@@ -920,35 +926,35 @@ describe("the workflow invariants", () => {
   }
 });
 
-async function reachedRunsOf(property: (typeof PROPERTIES)[number]): Promise<Map<string, number>> {
-  const reachedRuns = new Map<string, number>();
-  takeReachedPoints();
+async function coveredRunsOf(property: (typeof PROPERTIES)[number]): Promise<Map<string, number>> {
+  const coveredRuns = new Map<string, number>();
+  takeCoveredCases();
   const counted = fc.asyncProperty(property.runs, async (run) => {
     await holdsThroughout(run);
-    for (const label of takeReachedPoints()) {
-      reachedRuns.set(label, (reachedRuns.get(label) ?? 0) + 1);
+    for (const label of takeCoveredCases()) {
+      coveredRuns.set(label, (coveredRuns.get(label) ?? 0) + 1);
     }
   });
-  await fc.assert(counted, { numRuns: FLOOR_RUNS, seed: FLOOR_SEED });
-  return reachedRuns;
+  await fc.assert(counted, { numRuns: COVERAGE_RUNS, seed: COVERAGE_SEED });
+  return coveredRuns;
 }
 
-describe.if(process.env.REACH_FLOOR === "1")("the reach floor", () => {
+describe.if(process.env.COVERAGE_CHECK === "1")("the coverage check", () => {
   it(
-    "is met by some workflow property at every reach point",
+    "covers every case in enough runs of some workflow property",
     async () => {
-      const floor = Math.max(FLOOR_MIN_RUNS, Math.ceil(FLOOR_RUNS * FLOOR_SHARE));
+      const minRuns = Math.max(COVERAGE_MIN_RUNS, Math.ceil(COVERAGE_RUNS * COVERAGE_MIN_SHARE));
       const byProperty: Map<string, number>[] = [];
-      for (const property of PROPERTIES) byProperty.push(await reachedRunsOf(property));
-      const rows = declaredReachPoints().map((label) => {
-        const runs = byProperty.map((reachedRuns) => reachedRuns.get(label) ?? 0);
+      for (const property of PROPERTIES) byProperty.push(await coveredRunsOf(property));
+      const rows = declaredCoverageCases().map((label) => {
+        const runs = byProperty.map((coveredRuns) => coveredRuns.get(label) ?? 0);
         return { label, runs, best: Math.max(...runs) };
       });
       for (const row of rows) console.log(`${row.runs.join("\t")}\t${row.label}`);
-      const below = rows.filter((row) => row.best < floor).map((row) => row.label);
+      const below = rows.filter((row) => row.best < minRuns).map((row) => row.label);
       expect(below).toEqual([]);
     },
-    FLOOR_TIMEOUT_MS,
+    COVERAGE_TIMEOUT_MS,
   );
 });
 

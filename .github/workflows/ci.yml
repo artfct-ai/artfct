@@ -74,8 +74,8 @@ jobs:
         timeout-minutes: 25
         run: bun scripts/properties/e2e-property-test.ts router
 
-  reach_floor:
-    name: reach floor
+  coverage_check:
+    name: coverage check
     needs: ci
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -90,12 +90,12 @@ jobs:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
       - run: bun run template-config
-      - name: Check that the workflow properties reach every reach point
-        run: REACH_FLOOR=1 bun test ./src/workflow/invariants.test.ts -t "reach floor"
+      - name: Check that the workflow properties cover every coverage case
+        run: COVERAGE_CHECK=1 bun test ./src/workflow/invariants.test.ts -t "coverage check"
 
   preview:
     name: preview
-    needs: [ci, e2e_property_test, reach_floor]
+    needs: [ci, e2e_property_test, coverage_check]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 30
