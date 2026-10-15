@@ -77,44 +77,31 @@ function entryReviewedRevision(runs: TaskRow[], index: number, revision: string 
 }
 
 /**
- * The first entry from `from` to the end of its segment that still has to read `revision`. A
- * findings entry that already reviewed it is passed over. Null when every entry left reviewed it.
+ * The entry the list runs next, from `from` on. An entry that already reviewed or ruled on
+ * `revision` is passed over, and so is a judge entry that ruled on any revision.
  */
-export function firstUnreviewedEntry(input: {
+export function nextEntryToRun(input: {
   entries: ReviewerEntry[];
   runs: TaskRow[];
   from: number;
   revision: string | null;
-}): number | null {
+}): number {
   const { entries, runs, from, revision } = input;
-  for (let index = from; index < entries.length; index += 1) {
-    const judge = entries[index]?.mode === "judge";
-    if (judge || !entryReviewedRevision(runs, index, revision)) return index;
-    if (endsSegment(index, entries)) return null;
-  }
-  return null;
+  let index = from;
+  while (index < entries.length && entryHadItsSay(entries, runs, index, revision)) index += 1;
+  return index;
 }
 
-/**
- * The first entry a re-run of the list starts at. An entry that already reviewed or ruled on
- * `revision` is passed over, and so is a judge entry that ruled on any revision.
- */
-export function firstEntryToRerun(input: {
-  entries: ReviewerEntry[];
-  runs: TaskRow[];
-  revision: string | null;
-}): number {
-  const { entries, runs, revision } = input;
-  let index = 0;
-  while (
-    index < entries.length &&
-    (entryReviewedRevision(runs, index, revision) ||
-      (entries[index]?.mode === "judge" &&
-        runs.some((run) => run.refiner_index === index && run.result?.kind === "ruling")))
-  ) {
-    index += 1;
-  }
-  return index;
+/** True when the entry at `index` reviewed or ruled on `revision`, or is a judge that ruled. */
+function entryHadItsSay(
+  entries: ReviewerEntry[],
+  runs: TaskRow[],
+  index: number,
+  revision: string | null,
+): boolean {
+  if (entryReviewedRevision(runs, index, revision)) return true;
+  if (entries[index]?.mode !== "judge") return false;
+  return runs.some((run) => run.refiner_index === index && run.result?.kind === "ruling");
 }
 
 /** The reviewer entry of a refiner run, or null when its stage no longer declares it. */

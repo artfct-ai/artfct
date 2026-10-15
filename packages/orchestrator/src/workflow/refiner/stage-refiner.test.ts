@@ -6,7 +6,7 @@ import { freshRuntime } from "../../../test/fresh-runtime";
 import type { TaskRow } from "../store/tasks";
 import {
   endsSegment,
-  firstUnreviewedEntry,
+  nextEntryToRun,
   refinerAt,
   refinerCount,
   segmentEndOf,
@@ -150,37 +150,35 @@ describe("segmentReviews", () => {
     }));
 });
 
-describe("firstUnreviewedEntry", () => {
-  const entries = [review, final];
+describe("nextEntryToRun", () => {
+  const entries = [review, alignment, final];
 
-  it("passes over an entry that reviewed the revision", () =>
+  it("starts at the first entry that did not review the revision", () =>
     withRuns((runAt) => {
-      const runs = [runAt(0, "a"), runAt(1, "b")];
-      expect(firstUnreviewedEntry({ entries, runs, from: 0, revision: "b" })).toBe(0);
-      expect(firstUnreviewedEntry({ entries, runs, from: 1, revision: "a" })).toBe(1);
+      const runs = [runAt(0, "a"), runAt(2, "b")];
+      expect(nextEntryToRun({ entries, runs, from: 0, revision: "b" })).toBe(0);
+      expect(nextEntryToRun({ entries, runs, from: 0, revision: "a" })).toBe(1);
     }));
 
-  it("is null when every entry left in the segment reviewed the revision", () =>
+  it("passes over a judge that ruled on any revision", () =>
     withRuns((runAt) => {
-      const runs = [runAt(0, "b"), runAt(1, "b")];
-      expect(firstUnreviewedEntry({ entries, runs, from: 0, revision: "b" })).toBeNull();
-      expect(firstUnreviewedEntry({ entries, runs, from: 1, revision: "b" })).toBeNull();
+      const ruled = {
+        ...runAt(1, null),
+        result: { kind: "ruling" as const, revision: "a", ruling: "approved" as const },
+      };
+      const runs = [runAt(0, "b"), ruled];
+      expect(nextEntryToRun({ entries, runs, from: 0, revision: "b" })).toBe(2);
     }));
 
-  it("stops at the segment end", () =>
+  it("runs past the reviewers when every one had its say", () =>
     withRuns((runAt) => {
-      const runs = [runAt(0, "b")];
-      expect(
-        firstUnreviewedEntry({ entries: [review, alignment], runs, from: 0, revision: "b" }),
-      ).toBe(1);
-      expect(firstUnreviewedEntry({ entries: [final, review], runs, from: 0, revision: "b" })).toBe(
-        1,
-      );
+      const runs = [runAt(0, "b"), runAt(1, "b"), runAt(2, "b")];
+      expect(nextEntryToRun({ entries: [review, final], runs, from: 1, revision: "b" })).toBe(2);
     }));
 
   it("runs every entry on a revision the host cannot say", () =>
     withRuns((runAt) => {
-      const runs = [runAt(0, "b"), runAt(1, "b")];
-      expect(firstUnreviewedEntry({ entries, runs, from: 0, revision: null })).toBe(0);
+      const runs = [runAt(0, "b"), runAt(2, "b")];
+      expect(nextEntryToRun({ entries, runs, from: 0, revision: null })).toBe(0);
     }));
 });

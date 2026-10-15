@@ -7,16 +7,17 @@ import {
   taskQuiet,
   heldForReview,
   refinerInFlight,
-  startRefiner,
+  runRefinersFrom,
 } from "../../workflow/refiner/loop";
 import { polisherRefusal } from "../../workflow/refiner/polish";
 import { reviewLimitReached } from "../../workflow/refiner/review-limit";
 import {
-  firstUnreviewedEntry,
+  nextEntryToRun,
   refinerIndexOf,
   refinerRunOf,
   refinerAt,
   reviewerEntryOf,
+  segmentEndOf,
   segmentStartOf,
 } from "../../workflow/refiner/stage-refiner";
 import { isTaskFinished } from "../../workflow/store/state";
@@ -138,14 +139,13 @@ async function requestReview(workflow: WorkflowRuntime, jobId: string): Promise<
   }
   const reviewed = validateRevisionUnreviewed(workflow, pointer, revision);
   if (reviewed) return reviewed;
-  const runs = workflow.store.refinerRunsOf(jobId);
-  const from = segmentStartOf(index, stage.reviewers);
-  const rerun = firstUnreviewedEntry({ entries: stage.reviewers, runs, from, revision }) ?? from;
-  await startRefiner(workflow, author, rerun);
+  await runRefinersFrom(workflow, author, segmentStartOf(index, stage.reviewers), revision);
   return `A review started on job ${jobId}.`;
 }
 
 async function finishReview(workflow: WorkflowRuntime, jobId: string): Promise<string> {
+  const read = workflow.store.artifact(jobId);
+  const revision = read ? await artifactRevision(workflow, read) : null;
   const held = heldJob(workflow, jobId);
   if (typeof held === "string") return held;
   const { author, artifact } = held;
@@ -160,7 +160,7 @@ async function finishReview(workflow: WorkflowRuntime, jobId: string): Promise<s
   if (!taskQuiet(workflow, author)) {
     return `The author ${author.task_id} is still working. You are told when its turn ends.`;
   }
-  return advanceArtifactPastEntry(workflow, author, refinerIndexOf(pointer));
+  return advanceArtifactPastEntry(workflow, author, refinerIndexOf(pointer), revision);
 }
 
 /**
@@ -173,9 +173,10 @@ function validateRevisionUnreviewed(
   revision: string | null,
 ): string | null {
   const entries = workflow.stageForTask(pointer).reviewers;
-  const from = segmentStartOf(refinerIndexOf(pointer), entries);
+  const index = refinerIndexOf(pointer);
   const runs = workflow.store.refinerRunsOf(pointer.job_id);
-  if (firstUnreviewedEntry({ entries, runs, from, revision }) !== null) return null;
+  const next = nextEntryToRun({ entries, runs, from: segmentStartOf(index, entries), revision });
+  if (next <= segmentEndOf(index, entries)) return null;
   return `The artifact of job ${pointer.job_id} is still at revision ${revision}, which every reviewer of the open segment already reviewed. Prompt the author to change the artifact, or call finish_review to hand it on.`;
 }
 

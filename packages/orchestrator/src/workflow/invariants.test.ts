@@ -663,6 +663,30 @@ const reviewedWhileTheAuthorWorks = [
   authorTurnEnds(0, "same"),
 ];
 
+const handedOnAfterAStaleRestartIsCancelled = [
+  ...draftedArtifact,
+  findingsEnd("takes"),
+  agentPromptsAuthor(0),
+  authorTurnEnds(0, "changed"),
+  findingsEnd("takes"),
+  agentCancels(0, "refiner_run"),
+  agentRoutes(0, "finish_review"),
+];
+
+const reviewedPastARuledJudge = [
+  ...draftedArtifact,
+  findingsEnd("takes"),
+  agentCancels(0, "refiner_run"),
+  agentPromptsAuthor(0),
+  authorTurnEnds(0, "changed"),
+  personRules(0, "reject"),
+  authorTurnEnds(0, "changed"),
+  agentPromptsAuthor(0),
+  approvingEnd,
+  authorTurnEnds(0, "same"),
+  approvingEnd,
+];
+
 const reviewedOnAFlakyHost = [
   ...draftedArtifact,
   findingsEnd("drops_inline"),
@@ -706,6 +730,8 @@ const openings: fc.Arbitrary<WorkflowAction[]> = fc.constantFrom(
   reviewAskedOnAnUnchangedRevision,
   revisionMovesBetweenTwoReviewers,
   reviewedWhileTheAuthorWorks,
+  handedOnAfterAStaleRestartIsCancelled,
+  reviewedPastARuledJudge,
   reviewedOnAFlakyHost,
   abandonedArtifact,
   issueStartedAgain,
@@ -860,6 +886,19 @@ describe("reviewers on a revision they reviewed", () => {
       reviewedWhileTheAuthorWorks,
     );
     expect(entriesRun(world)).toEqual([0, 1]);
+  });
+
+  it("hands on past a reviewer that read the revision when a restart is cancelled", async () => {
+    const world = await worldAfter(
+      pullSetup("two_reviewers"),
+      handedOnAfterAStaleRestartIsCancelled,
+    );
+    expect(entriesRun(world)).toEqual([0, 1, 0]);
+  });
+
+  it("passes over a ruled judge and a reviewer that read the revision", async () => {
+    const world = await worldAfter(pullSetup("judge_between_reviewers"), reviewedPastARuledJudge);
+    expect(entriesRun(world)).toEqual([0, 1, 2, 0]);
   });
 
   it("has the judge's ruling and drops a later one", async () => {
