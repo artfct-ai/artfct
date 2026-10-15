@@ -29,13 +29,17 @@ export function codeSources(): SourceFile[] {
   return [...bannedWordSources(), ...filesMatching(["packages/*/migrations/**/*.sql"])];
 }
 
+/** Where code paths live. Build output and installed packages stay out of the scan. */
+const CODE_ROOTS = ["packages/*/src", "packages/*/migrations", "template"];
+
 /** Whether a file under the repository matches a path pattern of a code name. */
 export function codePathExists(pattern: string): boolean {
-  const glob = new Bun.Glob(`{packages,template}/**/${pattern}`);
-  for (const path of glob.scanSync({ cwd: REPO_ROOT })) {
-    if (!IGNORED.test(path)) return true;
-  }
-  return false;
+  return CODE_ROOTS.some((root) => {
+    for (const path of new Bun.Glob(`${root}/**/${pattern}`).scanSync({ cwd: REPO_ROOT })) {
+      if (!IGNORED.test(path)) return true;
+    }
+    return false;
+  });
 }
 
 /** The glossary text. */

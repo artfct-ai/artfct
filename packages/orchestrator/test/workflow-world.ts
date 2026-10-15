@@ -21,6 +21,7 @@ import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { Binding } from "@artfct-ai/contracts/sources";
 import { OPTIONS_HEADING } from "../src/artifact/options";
+import type { ArtifactRef } from "../src/artifact/types";
 import type { RefinerEntry, ReviewerEntry } from "../src/config/refiner";
 import { Notifier } from "../src/notify/notifier";
 import { startJob, type JobIssue } from "../src/workflow/lifecycle";
@@ -37,7 +38,7 @@ import { onModelTurnDeadline, type ModelTurnAlarm } from "../src/workflow/task/m
 import { runStartStep } from "./restart";
 import { acceptingD1 } from "./accepting-d1";
 import { FakeBridge } from "./fake-bridge";
-import { InterleavedDecisions, onFirstCall } from "./interleaved-decisions";
+import { InterleavedDecisions, onFirstCall, onFirstCallAsking } from "./interleaved-decisions";
 import { CLOSING_TEXT_MARKER } from "../src/prompts/model-author-prompt";
 import { EchoModel, ScriptedFailure } from "./fake-model";
 import {
@@ -70,6 +71,7 @@ export const REFINER_SETUPS = [
   "reviewer",
   "judge",
   "judge_between_reviewers",
+  "two_reviewers",
   "reviewer_then_polisher",
   "polisher",
   "judge_then_polisher",
@@ -331,6 +333,7 @@ const REFINER_LISTS: Record<
     reviewers: [FINDINGS_REVIEWER, JUDGE_ENTRY, SECOND_REVIEWER],
     polishers: [],
   },
+  two_reviewers: { reviewers: [FINDINGS_REVIEWER, SECOND_REVIEWER], polishers: [] },
   reviewer_then_polisher: { reviewers: [FINDINGS_REVIEWER], polishers: [POLISHER] },
   polisher: { reviewers: [], polishers: [POLISHER] },
   judge_then_polisher: { reviewers: [JUDGE_ENTRY], polishers: [POLISHER] },
@@ -498,12 +501,13 @@ export class WorkflowWorld {
     const outboxBefore = this.workflow.store.outbox().length;
     const postedBefore = this.workflow.posted.length;
     this.delivered = null;
-    this.runningAction = { label: String(action), statementsAtStart: this.statements };
+    const running = { label: String(action), statementsAtStart: this.statements };
+    this.runningAction = running;
     const facts = (await action.run(this)) ?? {};
     this.adoptNewAuthors();
     await this.dropClosedSockets();
-    const work = this.statements - this.runningAction.statementsAtStart;
-    this.runningAction = null;
+    const work = this.statements - running.statementsAtStart;
+    if (this.runningAction === running) this.runningAction = null;
     const ended = facts.refinerTurnEnd?.task_id;
     if (ended && !this.runningBridgeOf(ended)) {
       this.promptsAtNormalTurnEnd.set(ended, this.promptsSentTo(ended));
@@ -619,6 +623,15 @@ export class WorkflowWorld {
     const pull = this.pullOf(author);
     if (author.kind !== "pull" || pull.state === "unopened" || !this.hostReadable) return null;
     return revisionOf(pull);
+  }
+
+  /** What the host says an artifact is now, without a recorded call. Null when it cannot say. */
+  private revisionOnHost(ref: ArtifactRef): string | null {
+    if (!this.hostReadable) return null;
+    if (ref.kind === "page") return this.pageHost.pageRevision(ref.page_id);
+    if (ref.kind !== "pull") return null;
+    const pull = this.pulls.get(ref.number);
+    return pull && pull.state !== "unopened" ? revisionOf(pull) : null;
   }
 
   /** True when an earlier author opened the pull request this author works on. */
@@ -768,12 +781,20 @@ export class WorkflowWorld {
 
   /**
    * The decisions model that answers every question from now on. `meanwhile` runs while its
-   * first call is out, the way another event lands while the model is asked.
+   * first call is out, or its first call that asks the yes-or-no `question`, the way another
+   * event lands while the model is asked.
    */
-  answerDecisionsWith(answers: DecisionAnswers, meanwhile?: () => Promise<void>): void {
+  answerDecisionsWith(
+    answers: DecisionAnswers,
+    meanwhile?: () => Promise<void>,
+    question?: string,
+  ): void {
     const answering = decisionsAnswering(answers);
     const decisions = meanwhile
-      ? new InterleavedDecisions(answering, onFirstCall(meanwhile))
+      ? new InterleavedDecisions(
+          answering,
+          question ? onFirstCallAsking(question, meanwhile) : onFirstCall(meanwhile),
+        )
       : answering;
     this.workflow.gatewayInstance = new FakeGateway({ decisions });
   }
@@ -1231,6 +1252,7 @@ export class WorkflowWorld {
         status: artifact.status,
         delivered_to_humans_at: artifact.delivered_to_humans_at,
         delivered_revision: artifact.delivered_revision,
+        revision: this.revisionOnHost(artifact.ref),
       })),
       todos: Object.fromEntries(
         store.allTodoRows().map((row) => [row.task_id, JSON.stringify(row.todos)]),

@@ -44,3 +44,17 @@ export function onFirstCall(meanwhile: () => Promise<void>): WhileCallIsOut {
     return landing ? landing().then(() => null) : null;
   };
 }
+
+/** Let `meanwhile` land while the first call that asks the yes-or-no `question` is out. */
+export function onFirstCallAsking(
+  question: string,
+  meanwhile: () => Promise<void>,
+): WhileCallIsOut {
+  let pending: (() => Promise<void>) | null = meanwhile;
+  return (questions) => {
+    if (!Object.hasOwn(questions.yesNo, question)) return null;
+    const landing = pending;
+    pending = null;
+    return landing ? landing().then(() => null) : null;
+  };
+}

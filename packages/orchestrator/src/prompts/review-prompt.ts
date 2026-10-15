@@ -94,10 +94,15 @@ function subjectLines(subject: ReviewSubject): string[] {
 const REVIEW_RESEARCH_INTRO =
   "A researcher read the code for this job before the author started. This is what it found, with file and line references:";
 
+/** The first line of the prompt that sends a judge entry's rejection to the author. */
+export function rejectionHeadline(entry: string): string {
+  return `The ${entry} judge rejected your artifact.`;
+}
+
 /** The prompt sent to the author when a judge entry rejected its artifact. */
 export function rejectionPrompt(options: { url: string; entry: string; reason: string }): string {
   return [
-    `The ${options.entry} judge rejected your artifact.`,
+    rejectionHeadline(options.entry),
     options.url,
     "",
     options.reason,

@@ -38,6 +38,7 @@ import { isReviewPrompt, mockPageReview, reviewedPageId } from "./mock-harness-r
 import type { HarnessTransport } from "../src/harness/types";
 import {
   mockStage,
+  notionPageId,
   planForTurn,
   promptText,
   replyForTurn,
@@ -62,8 +63,8 @@ type MockSession = { turns: number; cancelTurn: (() => void) | null };
 
 /**
  * A fake ACP agent for smoke tests. It streams a few updates per prompt and reports an
- * artifact on the first one. ARTFCT_STAGE picks the stage, ARTFCT_MOCK_DOCUMENTS_URL takes review
- * reviews, ARTFCT_MOCK_CONTROL_URL releases a held pull request review, and ARTFCT_MOCK_SANDBOX_ROOT
+ * artifact on the first one. ARTFCT_STAGE picks the stage, ARTFCT_MOCK_DOCUMENTS_URL takes page
+ * reviews and the page writes of a document stage, ARTFCT_MOCK_CONTROL_URL releases a held pull request review, and ARTFCT_MOCK_SANDBOX_ROOT
  * is where a research payload goes.
  */
 export class MockHarness implements HarnessTransport {
@@ -189,6 +190,7 @@ export class MockHarness implements HarnessTransport {
     this.update(sessionId, toolCallDoneForTurn(turn));
     this.update(sessionId, planForTurn(turn, true, this.stage));
     const done = (await this.fileReview(prompt)) ?? (await this.writeResearch(prompt));
+    if (!done) await this.writePage();
     const reply = done ?? replyForTurn({ turn, prompt, prUrl: this.prUrl, stage: this.stage });
     this.update(sessionId, textUpdate("agent_message_chunk", reply));
     if (this.stage.kind === "pr" && isReviewPrompt(prompt)) await this.awaitRelease();
@@ -217,6 +219,16 @@ export class MockHarness implements HarnessTransport {
     if (!pageId) return null;
     const review = await mockPageReview(documentsUrl, pageId);
     return review ? `Read the page.\n\n${review}` : null;
+  }
+
+  /** Writes the stage's page on an author turn of a document stage, as the reported tool call says. */
+  private async writePage(): Promise<void> {
+    const documentsUrl = this.documentsUrl;
+    if (!documentsUrl || this.stage.kind !== "doc") return;
+    const pageId = notionPageId(this.stage.name);
+    await fetch(`${documentsUrl}/v1/pages/${pageId}`, { method: "PATCH", body: "{}" }).catch(
+      () => null,
+    );
   }
 
   /** Writes the research payload on a researcher's turn. */

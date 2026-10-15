@@ -1,16 +1,16 @@
 #!/usr/bin/env bun
 /**
- * Mock Notion API for the smoke run: create a page, retrieve it, read, replace, and edit its markdown,
- * list and create comments on it and on its blocks, list its blocks, and read the bot user of the
- * token. Every page id is answered. A page this host did not create reads as empty markdown and
+ * Mock Notion API for the smoke run: create a page, retrieve and update it, read, replace, and edit
+ * its markdown, list and create comments on it and on its blocks, list its blocks, and read the bot
+ * user of the token. Every page id is answered. A page this host did not create reads as empty markdown and
  * holds one paragraph block. `GET /__state` returns what it holds and `POST /__reset` clears it.
  */
 
 /** The bot user every request acts as, which is what the reviewer's comments are written by. */
 const BOT_USER_ID = "00000000-0000-4000-8000-000000000bot";
 
-/** When a page was last edited. Fixed, so a review of it is never stale in the smoke. */
-const PAGE_EDITED_AT = "2026-01-01T00:00:00.000Z";
+/** When every page was created. Each write moves its last edit one second later. */
+const PAGE_CREATED_AT = Date.parse("2026-01-01T00:00:00.000Z");
 
 /** The one paragraph a page this host did not create holds, which a mock reviewer can quote. */
 const UNWRITTEN_PAGE_TEXT = "Each team runs the migration step once.";
@@ -34,18 +34,23 @@ type StoredPage = {
 
 const port = Number(process.env.MOCK_NOTION_PORT ?? "9999");
 
-const state = { comments: [] as StoredComment[], pages: [] as StoredPage[] };
+const state = {
+  comments: [] as StoredComment[],
+  pages: [] as StoredPage[],
+  page_writes: {} as Record<string, number>,
+};
 
 function log(line: string): void {
   console.log(`[mock-notion] ${line}`);
 }
 
 function pageObject(pageId: string) {
+  const writes = state.page_writes[pageId] ?? 0;
   return {
     object: "page",
     id: pageId,
-    created_time: PAGE_EDITED_AT,
-    last_edited_time: PAGE_EDITED_AT,
+    created_time: new Date(PAGE_CREATED_AT).toISOString(),
+    last_edited_time: new Date(PAGE_CREATED_AT + writes * 1000).toISOString(),
     created_by: { object: "user", id: BOT_USER_ID },
     last_edited_by: { object: "user", id: BOT_USER_ID },
     parent: { type: "workspace", workspace: true },
@@ -201,8 +206,21 @@ function updateMarkdown(pageId: string, body: Record<string, unknown>): Response
     );
   }
   page.markdown_versions.push(revised.markdown);
+  recordPageWrite(pageId);
   log(`page ${pageId} markdown ${body.type === "replace_content" ? "replaced" : "updated"}`);
   return Response.json(markdownObject(pageId, revised.markdown));
+}
+
+/** Moves the last edit of a page, as Notion does on each write. */
+function recordPageWrite(pageId: string): void {
+  state.page_writes[pageId] = (state.page_writes[pageId] ?? 0) + 1;
+}
+
+/** Updates the properties of any page id. The mock keeps only the write. */
+function updatePage(pageId: string): Response {
+  recordPageWrite(pageId);
+  log(`page ${pageId} updated`);
+  return Response.json(pageObject(pageId));
 }
 
 /** The markdown after a `replace_content` or an `update_content` request. */
@@ -239,6 +257,7 @@ async function handle(request: Request): Promise<Response> {
   if (pathname === "/__reset" && request.method === "POST") {
     state.comments.length = 0;
     state.pages.length = 0;
+    state.page_writes = {};
     return Response.json({ ok: true });
   }
   if (pathname === "/v1/users/me")
@@ -258,6 +277,7 @@ async function handle(request: Request): Promise<Response> {
   }
   if (markdown) return readMarkdown(markdown[1]!);
   const page = /^\/v1\/pages\/([^/]+)$/.exec(pathname);
+  if (page && request.method === "PATCH") return updatePage(page[1]!);
   if (page) return Response.json(pageObject(page[1]!));
   return notFound(`no route ${pathname}`);
 }

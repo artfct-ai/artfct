@@ -47,18 +47,61 @@ export function endsSegment(index: number, entries: ReviewerEntry[]): boolean {
 /** A review filed by one entry of a segment, with the entry's position. */
 export type FiledReview = { refiner_index: number; review: Review };
 
-/** The reviews filed in the segment that ends at `index`, from its latest run only. */
+/** The index of the entry that ends the segment `index` sits in. */
+export function segmentEndOf(index: number, entries: ReviewerEntry[]): number {
+  let end = index;
+  while (end < entries.length - 1 && !endsSegment(end, entries)) end += 1;
+  return end;
+}
+
+/** The reviews filed in the segment from `start` to `index`, by the latest run of each entry. */
 export function segmentReviews(runs: TaskRow[], start: number, index: number): FiledReview[] {
-  const latestRunStart = runs.filter((run) => run.refiner_index === start).at(-1)?.started_at ?? "";
-  return runs.flatMap((run) =>
-    run.refiner_index !== null &&
-    run.refiner_index >= start &&
-    run.refiner_index <= index &&
-    run.started_at >= latestRunStart &&
-    run.result?.kind === "review"
-      ? [{ refiner_index: run.refiner_index, review: run.result }]
-      : [],
+  return runs.flatMap((run) => {
+    const entryIndex = run.refiner_index;
+    if (entryIndex === null || entryIndex < start || entryIndex > index) return [];
+    const latest = runs.findLast((later) => later.refiner_index === entryIndex);
+    if (latest !== run || run.result?.kind !== "review") return [];
+    return [{ refiner_index: entryIndex, review: run.result }];
+  });
+}
+
+/** True when a run of the entry at `index` filed a review or a ruling of `revision`. */
+function entryReviewedRevision(runs: TaskRow[], index: number, revision: string | null): boolean {
+  if (revision === null) return false;
+  return runs.some(
+    (run) =>
+      run.refiner_index === index &&
+      (run.result?.kind === "review" || run.result?.kind === "ruling") &&
+      run.result.revision === revision,
   );
+}
+
+/**
+ * The entry the list runs next, from `from` on. An entry that already reviewed or ruled on
+ * `revision` is passed over, and so is a judge entry that ruled on any revision.
+ */
+export function nextEntryToRun(input: {
+  entries: ReviewerEntry[];
+  runs: TaskRow[];
+  from: number;
+  revision: string | null;
+}): number {
+  const { entries, runs, from, revision } = input;
+  let index = from;
+  while (index < entries.length && entryHadItsSay(entries, runs, index, revision)) index += 1;
+  return index;
+}
+
+/** True when the entry at `index` reviewed or ruled on `revision`, or is a judge that ruled. */
+function entryHadItsSay(
+  entries: ReviewerEntry[],
+  runs: TaskRow[],
+  index: number,
+  revision: string | null,
+): boolean {
+  if (entryReviewedRevision(runs, index, revision)) return true;
+  if (entries[index]?.mode !== "judge") return false;
+  return runs.some((run) => run.refiner_index === index && run.result?.kind === "ruling");
 }
 
 /** The reviewer entry of a refiner run, or null when its stage no longer declares it. */

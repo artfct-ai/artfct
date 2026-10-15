@@ -79,6 +79,7 @@ const polishedAfter = (reviewer: RefinerRunEnd["reviewer"]) =>
     reviewer,
     pageCommenting: "takes",
     judge: "approves",
+    whileRuled: "nothing",
     polisher: "pushed",
     stopReason: "end_turn",
     closing: "reports_work",

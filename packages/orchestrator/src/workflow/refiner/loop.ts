@@ -15,13 +15,14 @@ import type { WorkflowRuntime } from "../types";
 import { checksGate } from "./checks-gate";
 import { markArtifactReady, sendRejectionToAuthor, sendReviewToAuthor } from "./outcome";
 import {
-  endsSegment,
   judgeRejected,
   refinerIndexOf,
   refinerRunOf,
   refinerAt,
   reviewerEntryOf,
   reviewerSignature,
+  nextEntryToRun,
+  segmentEndOf,
   segmentReviews,
   segmentStartOf,
   type FiledReview,
@@ -63,47 +64,65 @@ export async function settleRefinersForAuthor(
   const author = workflow.store.requireTask(task.task_id);
   if (refinerInFlight(workflow, task.job_id) || !taskQuiet(workflow, author)) return;
   const pointer = refinerRunOf(workflow, artifact);
-  if (!pointer) {
-    await runRefinersFrom(workflow, task, 0);
-    return;
-  }
+  if (!pointer) return runRefinersOnRevision(workflow, author, artifact, 0);
   if (pointer.role === "polisher") {
     workflow.store.setArtifactRefinerRun(task.job_id, null);
     workflow.log(
       task.task_id,
       "a finished polisher still holds the artifact. the refiners re-run.",
     );
-    await runRefinersFrom(workflow, task, 0);
-    return;
+    return runRefinersOnRevision(workflow, author, artifact, 0);
   }
   if (reviewerEntryOf(workflow, pointer)?.mode !== "judge") {
     if (reviewLimitReached(workflow, pointer)) {
       workflow.log(task.task_id, "the review limit is reached. no reviewer reads this revision.");
-      await advanceArtifactPastEntry(workflow, author, refinerIndexOf(pointer));
-      return;
+      return runRefinersOnRevision(workflow, author, artifact, refinerIndexOf(pointer) + 1);
     }
     if (taskSettings(workflow, task).execution === "model") {
       return routeByClosingText(workflow, task, artifact, pointer);
     }
     return askAgentToRoute(workflow, task, artifact, pointer);
   }
-  if (judgeRejected(pointer)) await runRefinersFrom(workflow, task, refinerIndexOf(pointer) + 1);
+  if (judgeRejected(pointer)) {
+    await runRefinersOnRevision(workflow, author, artifact, refinerIndexOf(pointer) + 1);
+  }
 }
 
 /**
- * Run the first entry at or after `index` that still has a say. A judge entry that ruled on
- * this artifact is passed over, and the humans have the artifact once the list is exhausted.
+ * Run the list from `from` on the revision the host gives the artifact now. The author row is
+ * read again after the host, because a prompt can reach the author meanwhile.
  */
-async function runRefinersFrom(
+async function runRefinersOnRevision(
+  workflow: WorkflowRuntime,
+  author: TaskRow,
+  artifact: ArtifactRow,
+  from: number,
+): Promise<void> {
+  const revision = await artifactRevision(workflow, artifact);
+  const current = workflow.store.requireTask(author.task_id);
+  if (refinerInFlight(workflow, author.job_id) || !taskQuiet(workflow, current)) return;
+  await runRefinersFrom(workflow, current, from, revision);
+}
+
+/**
+ * Run the next entry from `index` on that still has to read `revision`, and give the humans
+ * the artifact once the list is exhausted. Every path that starts a refiner of the list goes
+ * through here.
+ */
+export async function runRefinersFrom(
   workflow: WorkflowRuntime,
   author: TaskRow,
   index: number,
+  revision: string | null,
 ): Promise<string> {
   const stage = workflow.stageForTask(author);
-  let nextIndex = index;
-  while (judgeRuledOn(workflow, author, nextIndex)) {
-    workflow.log(author.task_id, `entry ${nextIndex} passed over: its judge already ruled`);
-    nextIndex += 1;
+  const runs = workflow.store.refinerRunsOf(author.job_id);
+  const nextIndex = nextEntryToRun({ entries: stage.reviewers, runs, from: index, revision });
+  if (nextIndex > index) {
+    workflow.log(
+      author.task_id,
+      `entries ${index} to ${nextIndex - 1} passed over: they had their say on this revision`,
+    );
   }
   const next = refinerAt(stage, nextIndex);
   if (!next) {
@@ -112,17 +131,6 @@ async function runRefinersFrom(
   }
   await startRefiner(workflow, author, nextIndex);
   return `The next entry ${next.entry.name} started on job ${author.job_id}.`;
-}
-
-/** True when the entry at `index` is a judge entry whose ruling this artifact already has. */
-function judgeRuledOn(workflow: WorkflowRuntime, author: TaskRow, index: number): boolean {
-  if (workflow.stageForTask(author).reviewers[index]?.mode !== "judge") return false;
-  return workflow.store
-    .refinerRunsOf(author.job_id)
-    .some(
-      (run) =>
-        refinerIndexOf(run) === index && run.role === "reviewer" && run.result?.kind === "ruling",
-    );
 }
 
 /** True while the review still holds this artifact back from the humans. */
@@ -159,18 +167,21 @@ async function routeByClosingText(
 ): Promise<void> {
   const reviewAgain = await authorAskedForReview(workflow, task);
   if (reviewAgain === null) return askAgentToRoute(workflow, task, artifact, pointer);
+  const revision = await artifactRevision(workflow, artifact);
   const author = workflow.store.requireTask(task.task_id);
   if (refinerInFlight(workflow, task.job_id) || !taskQuiet(workflow, author)) return;
   const index = refinerIndexOf(pointer);
-  if (!reviewAgain) {
-    await advanceArtifactPastEntry(workflow, author, index);
+  const entries = workflow.stageForTask(author).reviewers;
+  const runs = workflow.store.refinerRunsOf(author.job_id);
+  const from = segmentStartOf(index, entries);
+  const unreviewed =
+    nextEntryToRun({ entries, runs, from, revision }) <= segmentEndOf(index, entries);
+  if (reviewAgain && unreviewed) {
+    await runRefinersFrom(workflow, author, from, revision);
     return;
   }
-  await startRefiner(
-    workflow,
-    author,
-    segmentStartOf(index, workflow.stageForTask(author).reviewers),
-  );
+  if (reviewAgain) workflow.log(task.task_id, "review again passed over: the revision is reviewed");
+  await advanceArtifactPastEntry(workflow, author, index, revision);
 }
 
 /** Hand the artifact to the agent, which decides between another refiner run and the humans. */
@@ -194,7 +205,7 @@ async function askAgentToRoute(
         `The agent review of ${artifact.external_url} in job ${task.job_id} is with you. Its author ${task.task_id} is idle after a reviewer run.`,
         `The open segment is the entries ${open}.`,
         "Read what it said with read_task, and the artifact itself when that is not enough.",
-        "Then route it: request_review re-runs the open segment from its first entry, finish_review ends it and hands on. It waits until you call one of them.",
+        "Then route it: request_review re-runs the open segment on a revision it did not review, finish_review ends it and hands on. It waits until you call one of them.",
         "The humans hear the artifact when it is ready, so end the turn silent unless a person must decide something.",
       ].join(" "),
     ),
@@ -283,22 +294,30 @@ export async function onReviewerFinished(
   if (entry?.mode === "judge") return settleJudgeEntry(workflow, author, reviewer, entry);
   const entries = workflow.stageForTask(author).reviewers;
   const index = refinerIndexOf(reviewer);
-  if (!endsSegment(index, entries)) {
-    await advanceArtifactPastEntry(workflow, author, index);
+  const revision = await artifactRevision(workflow, artifact);
+  const runs = workflow.store.refinerRunsOf(author.job_id);
+  const end = segmentEndOf(index, entries);
+  const next = nextEntryToRun({ entries, runs, from: index + 1, revision });
+  if (index !== end && (next <= end || entries[end]?.mode === "judge")) {
+    await advanceArtifactPastEntry(workflow, author, index, revision);
     return;
   }
-  const settled = await segmentReview(workflow, author, artifact, index);
+  if (end !== index) {
+    const endRun = runs.findLast((run) => run.refiner_index === end);
+    if (endRun) workflow.store.setArtifactRefinerRun(author.job_id, endRun.task_id);
+  }
+  const settled = segmentReview(workflow, author, end, revision);
   if (settled.stale) {
     workflow.log(author.task_id, "reviewer run dropped: the artifact moved while the reviewer ran");
     const current = workflow.store.requireTask(author.task_id);
-    return taskQuiet(workflow, current)
-      ? startRefiner(workflow, author, segmentStartOf(index, entries))
-      : settleRefinersForAuthor(workflow, current);
+    if (!taskQuiet(workflow, current)) return settleRefinersForAuthor(workflow, current);
+    await runRefinersFrom(workflow, current, segmentStartOf(end, entries), revision);
+    return;
   }
   if (settled.review && (settled.review.blocking || settled.review.findings.length)) {
     return sendReviewToAuthor(workflow, author, artifact, settled.review);
   }
-  await advanceArtifactPastEntry(workflow, author, index);
+  await advanceArtifactPastEntry(workflow, author, end, revision);
 }
 
 /** Rule on what a judge reviewer concluded, or ask a person when code cannot tell. */
@@ -318,11 +337,35 @@ async function settleJudgeEntry(
     await applyJudgeRuling(workflow, { author, reviewer, ruling, reason: conclusion });
     return;
   }
+  const ruledMeanwhile = validateJudgeAwaitsRuling(workflow, reviewer);
+  if (ruledMeanwhile) {
+    workflow.log(author.task_id, `the agent does not ask a person to rule: ${ruledMeanwhile}`);
+    return;
+  }
   const artifact = workflow.store.artifact(author.job_id);
   if (artifact) await askPersonToRule(workflow, { author, artifact, entry, conclusion });
 }
 
 type JudgeRuling = { ruling: "approved" } | { ruling: "rejected"; reason: string };
+
+/**
+ * Why a ruling on this judge run must not be applied now: the run already has a ruling, or the
+ * artifact moved on from it. Null while the artifact still waits for the run's ruling.
+ */
+function validateJudgeAwaitsRuling(workflow: WorkflowRuntime, reviewer: TaskRow): string | null {
+  const run = workflow.store.requireTask(reviewer.task_id);
+  if (run.result?.kind === "ruling") {
+    return `The judge ${run.task_id} of job ${run.job_id} already ruled ${run.result.ruling}.`;
+  }
+  const artifact = workflow.store.artifact(run.job_id);
+  if (!artifact || artifact.status !== "drafted") {
+    return `The agent review of job ${run.job_id} is over.`;
+  }
+  if (artifact.refiner_task_id !== run.task_id) {
+    return `The artifact of job ${run.job_id} moved on from the judge ${run.task_id}.`;
+  }
+  return null;
+}
 
 /** Act on the ruling of a judge entry. The decisions model or a person made it. */
 export async function applyJudgeRuling(
@@ -335,13 +378,18 @@ export async function applyJudgeRuling(
   const support = artifact ? reviewSupportOf(workflow, artifact) : null;
   if (!artifact || !entry || !support)
     return `The artifact or the reviewer entry of job ${author.job_id} is gone.`;
-  workflow.log(author.task_id, `${entry.name} ${input.ruling} on ${reviewer.task_id}`);
   const revision = await support.revision(artifact.ref);
+  const refusal = validateJudgeAwaitsRuling(workflow, reviewer);
+  if (refusal) {
+    workflow.log(author.task_id, `${entry.name} ${input.ruling} dropped: ${refusal}`);
+    return refusal;
+  }
+  workflow.log(author.task_id, `${entry.name} ${input.ruling} on ${reviewer.task_id}`);
   if (input.ruling === "approved") {
     workflow.store.updateTask(reviewer.task_id, {
       result: { kind: "ruling", revision, ruling: "approved" },
     });
-    return advanceArtifactPastEntry(workflow, author, refinerIndexOf(reviewer));
+    return advanceArtifactPastEntry(workflow, author, refinerIndexOf(reviewer), revision);
   }
   workflow.store.updateTask(reviewer.task_id, {
     result: { kind: "ruling", revision, ruling: "rejected", reason: input.reason },
@@ -355,31 +403,35 @@ export async function applyJudgeRuling(
 }
 
 /**
- * What follows the entry at `index`: the next refiner of the stage runs, and the humans have
- * the artifact once the list is exhausted. The author row is read again here, because a
- * prompt can reach the author while the segment's review was being settled. A working author
- * stops the refiners, and the list re-runs from the top once its turn ends.
+ * What follows the entry at `index` on `revision`: the list runs on from the next entry. The
+ * author row is read again here, because a prompt can reach the author while the segment's
+ * review was being settled. A working author stops the refiners, and the list re-runs once its
+ * turn ends.
  */
 export async function advanceArtifactPastEntry(
   workflow: WorkflowRuntime,
   author: TaskRow,
   index: number,
+  revision: string | null,
 ): Promise<string> {
   const current = workflow.store.requireTask(author.task_id);
   if (!taskQuiet(workflow, current)) {
     workflow.store.setArtifactRefinerRun(author.job_id, null);
     return `${author.task_id} is still working. The refiners stop and re-run once its turn ends.`;
   }
-  return runRefinersFrom(workflow, author, index + 1);
+  return runRefinersFrom(workflow, author, index + 1, revision);
 }
 
-/** The segment's merged review, and whether the artifact moved under any review of it. */
-async function segmentReview(
+/**
+ * The merged review of the segment that ends at `index`, and whether the artifact moved from
+ * `revision` under any review of it.
+ */
+function segmentReview(
   workflow: WorkflowRuntime,
   author: TaskRow,
-  artifact: ArtifactRow,
   index: number,
-): Promise<{ review: Review | null; stale: boolean }> {
+  revision: string | null,
+): { review: Review | null; stale: boolean } {
   const entries = workflow.stageForTask(author).reviewers;
   const filed = segmentReviews(
     workflow.store.refinerRunsOf(author.job_id),
@@ -388,10 +440,17 @@ async function segmentReview(
   );
   const review = mergeReviews(entries, filed);
   if (!review) return { review: null, stale: false };
-  const support = reviewSupportOf(workflow, artifact);
-  const revision = support ? await support.revision(artifact.ref) : null;
   const stale = revision !== null && filed.some((entry) => entry.review.revision !== revision);
   return { review, stale };
+}
+
+/** The revision the host gives the artifact now. Null when its kind has no reviewer or the host cannot say. */
+export async function artifactRevision(
+  workflow: WorkflowRuntime,
+  artifact: ArtifactRow,
+): Promise<string | null> {
+  const support = reviewSupportOf(workflow, artifact);
+  return support ? support.revision(artifact.ref) : null;
 }
 
 /**
