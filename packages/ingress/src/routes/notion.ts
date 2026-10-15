@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { notionInbound, type NotionWebhook } from "@artfct-ai/adapters/documents/notion/inbound";
+import { notionInbound } from "@artfct-ai/adapters/documents/notion/inbound";
 import {
   notionVerificationToken,
   verifyNotionWebhook,
@@ -8,6 +8,8 @@ import { clientsFromEnv } from "../clients";
 import type { HonoEnv } from "../env";
 import { parseJsonBody, secretNotConfigured } from "./guards";
 import { tagSpan } from "./span";
+
+type NotionEnvelope = { type?: string };
 
 /**
  * Notion webhooks. The subscription handshake is the one unsigned request, accepted only while
@@ -34,7 +36,7 @@ notionRoutes.post("/webhooks/notion", async (ctx) => {
   if (!(await verifyNotionWebhook(secret, body, ctx.req.raw.headers)))
     return ctx.text("bad signature", 401);
 
-  const payload = parseJsonBody(body) as NotionWebhook | null;
+  const payload = parseJsonBody(body) as NotionEnvelope | null;
   if (!payload) return ctx.text("malformed body", 400);
   if (payload.type !== "comment.created") return ctx.json({ ignored: payload.type });
   const { documents } = ctx.get("clients") ?? clientsFromEnv(ctx.env);

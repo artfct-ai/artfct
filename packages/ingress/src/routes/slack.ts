@@ -1,10 +1,6 @@
 import { Hono } from "hono";
 import type { Context } from "hono";
-import {
-  appJoinedChannel,
-  slackInbound,
-  type SlackEventCallback,
-} from "@artfct-ai/adapters/chat/slack/inbound";
+import { appJoinedChannel, slackInbound } from "@artfct-ai/adapters/chat/slack/inbound";
 import { verifySlackWebhook } from "@artfct-ai/adapters/chat/slack/webhook";
 import { clientsFromEnv, type ChannelClients } from "../clients";
 import type { HonoEnv } from "../env";
@@ -18,7 +14,7 @@ const NO_RETRY = { "x-slack-no-retry": "1" };
 /** The one reaction that reaches a workflow, as a short reply. Every other reaction is dropped here. */
 const REPLY_REACTION = "white_check_mark";
 
-type SlackEnvelope = { type?: string; challenge?: string };
+type SlackEnvelope = { type?: string; challenge?: string; event_id?: string };
 
 /** Slack Events API. The reply goes out before normalization so Slack never retries. */
 export const slackRoutes = new Hono<HonoEnv>();
@@ -37,7 +33,7 @@ slackRoutes.post("/webhooks/slack", async (ctx) => {
   if (ctx.req.header("x-slack-retry-num")) return ctx.json({ ignored: "retry" }, 200, NO_RETRY);
 
   const clients = ctx.get("clients") ?? clientsFromEnv(ctx.env);
-  ctx.executionCtx.waitUntil(handleCallback(ctx, clients, payload as SlackEventCallback));
+  ctx.executionCtx.waitUntil(handleCallback(ctx, clients, payload));
   return ctx.json({ ok: true }, 200, NO_RETRY);
 });
 
@@ -45,7 +41,7 @@ slackRoutes.post("/webhooks/slack", async (ctx) => {
 async function handleCallback(
   ctx: Context<HonoEnv>,
   clients: ChannelClients,
-  callback: SlackEventCallback,
+  callback: SlackEnvelope,
 ): Promise<void> {
   try {
     const channel = appJoinedChannel(callback);

@@ -5,7 +5,7 @@ const encoder = new TextEncoder();
  * keeps the ids distinct.
  */
 export async function linearEventId(
-  payload: { webhookId?: string },
+  payload: { webhookId?: string | null },
   deliveryId: string | null,
 ): Promise<string> {
   if (deliveryId) return `linear:${deliveryId}`;

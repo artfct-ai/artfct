@@ -1,6 +1,5 @@
 import { Hono } from "hono";
 import { linearInbound } from "@artfct-ai/adapters/tracker/linear/inbound";
-import type { LinearPayload } from "@artfct-ai/adapters/tracker/linear/inbound-payloads";
 import { verifyLinearWebhook } from "@artfct-ai/adapters/tracker/linear/webhook";
 import type { HonoEnv } from "../env";
 import { secretNotConfigured } from "./guards";
@@ -15,7 +14,7 @@ linearRoutes.post("/webhooks/linear", async (ctx) => {
   const body = await ctx.req.text();
   if (!(await verifyLinearWebhook(secret, body, ctx.req.raw.headers)))
     return ctx.text("bad signature", 401);
-  const payload = JSON.parse(body) as LinearPayload;
+  const payload: unknown = JSON.parse(body);
 
   const rpc = ctx.env.ORCHESTRATOR;
   const normalized = await linearInbound(payload, {
