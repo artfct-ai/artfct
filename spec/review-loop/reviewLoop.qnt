@@ -321,10 +321,9 @@ module reviewLoop {
   }
 
   /// A segment settles on the review of the latest run of each entry. A stale review runs the
-  /// segment again from its first entry that still has a say on the revision.
+  /// list again from the segment's first entry that still has a say on the revision.
   pure def settleSegment(loop: ReviewLoop, end: int): ReviewLoop = {
     val start = segmentStartOf(end)
-    val unreviewed = unreviewedEntriesFrom(loop, start)
     val filed = runIds(loop).filter(id => and {
       loop.refinerRuns[id].refinerIndex >= start,
       loop.refinerRuns[id].refinerIndex <= end,
@@ -335,25 +334,25 @@ module reviewLoop {
       reviewedRevisionIsNot(loop.refinerRuns[id].result, loop.artifact.revision))
     if (filed.size() == 0) advancePastEntry(loop, end)
     else if (stale and not(authorQuiet(loop))) settleRefiners(loop, AgentRoutes)
-    else if (stale) startRefiner(loop, if (unreviewed.size() == 0) start else smallest(unreviewed, REFINER_COUNT))
+    else if (stale) runRefinersFrom(loop, start)
     else if (filed.exists(id => reviewHasFindings(loop.refinerRuns[id].result))) promptAuthor(loop)
     else advancePastEntry(loop, end)
   }
 
-  /// A finished reviewer hands on to the next entry of its segment that still has a say.
-  /// When none has to, the segment settles, and the artifact moves to the run that ends it.
+  /// A finished reviewer hands on while a later entry of its segment still has a say, or while a
+  /// judge ends its segment. Otherwise the segment settles on the run that ends it.
   pure def findingsReviewerFinished(loop: ReviewLoop, id: int, findings: bool): ReviewLoop = {
     val refinerRun = loop.refinerRuns[id]
     val index = refinerRun.refinerIndex
     val filed = FiledReview({ revision: loop.artifact.revision, findings: findings })
     val done = withRun(loop, id, { ...refinerRun, status: Done, result: filed })
-    val unreviewed = if (endsSegment(index)) Set() else unreviewedEntriesFrom(done, index + 1)
     val end = segmentEndOf(index)
+    val handsOn = index != end and (unreviewedEntriesFrom(done, index + 1).size() > 0 or ENTRIES[end] == Judge)
     val onEnd =
       if (end == index) done
       else { ...done, artifact: { ...done.artifact, refinerRun: OnRefinerRun(latestRunOf(done, end)) } }
     if (not(isOnRun(loop, id)) or not(drafted(loop))) done
-    else if (unreviewed.size() > 0) advancePastEntry(done, smallest(unreviewed, REFINER_COUNT) - 1)
+    else if (handsOn) advancePastEntry(done, index)
     else settleSegment(onEnd, end)
   }
 
