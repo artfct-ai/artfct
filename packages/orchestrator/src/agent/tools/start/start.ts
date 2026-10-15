@@ -16,6 +16,7 @@ import { createDb } from "../../../db/client";
 import {
   cancelTask,
   completeJob,
+  completeWorkflow,
   startJob,
   type CompleteOutcome,
   type JobInput,
@@ -23,6 +24,7 @@ import {
 } from "../../../workflow/lifecycle";
 import { stageContinuesArtifact } from "../../../workflow/artifact";
 import { newPageParent } from "../../../workflow/root-page";
+import { jobCompletesSingleIssueWorkflow, validateIssueInSubject } from "../../../workflow/subject";
 import { artifactRefKey, jobInputFor, jobInputKey } from "../../../workflow/store/input-key";
 import { isTaskFinished } from "../../../workflow/store/state";
 import type { ArtifactRow, JobRow } from "../../../workflow/store/tasks";
@@ -42,7 +44,7 @@ export const TASK_RULES = `## Job & Stage Execution Protocol
 * **Advance** to the next stage only when all active stage jobs are complete.
 
 ### Tracker Issue Ingestion
-* **Query** issues using \`ready_issues\` with project ID or via the tracker integration tools.
+* **Query** the issues of the workflow's subject using \`ready_issues\`. A job may name only an issue of the subject: the subject issue and its direct sub-issues, or the issues of the subject project.
 * **Dispatch** ready issues 1:1 via \`start_job(issue, brief)\`.
 * **Throttle** job execution strictly to available concurrency slots.
 * **Fill** released slots immediately with the next ready issues.
@@ -95,7 +97,7 @@ export function startTools(
   return {
     [START_JOB]: tool({
       description:
-        "Start a job for a stage. Its author task runs in a sandbox, or as one model call on a stage with model execution. The brief is what the harness reads first: goal, acceptance criteria, links, context. The stage instructions are added by the system. Name the tracker issue when the job works on one. Name the artifact when the request points at one that a job of this workflow did not produce, such as a design doc written elsewhere or an open pull request. Name it too for an open pull request whose job was cancelled or failed. A job that is given a pull request in a stage that produces one continues it: it works on the branch of that pull request and does not open another. Refused when the workflow has not started or has ended, every slot is busy, the issue is blocked by an unfinished issue, the artifact link is not on a configured host, the pull request to continue is closed or its author task is unfinished, a job already works on the same input, an earlier job on the same input left an artifact the host still holds, a stage with model execution or a choice ending does not have a document host, a stage that writes a page does not have a saved plan, or the plan does not set a root page or a page parent for a model-call author. The input is the issue, else the artifact. Without either, it is the artifact of the latest completed job, or else the message that asked for the job.",
+        "Start a job for a stage. Its author task runs in a sandbox, or as one model call on a stage with model execution. The brief is what the harness reads first: goal, acceptance criteria, links, context. The stage instructions are added by the system. Name the tracker issue when the job works on one. Name the artifact when the request points at one that a job of this workflow did not produce, such as a design doc written elsewhere or an open pull request. Name it too for an open pull request whose job was cancelled or failed. A job that is given a pull request in a stage that produces one continues it: it works on the branch of that pull request and does not open another. Refused when the workflow has not started or has ended, every slot is busy, the issue is not an issue of the workflow's subject, the issue is blocked by an unfinished issue, the artifact link is not on a configured host, the pull request to continue is closed or its author task is unfinished, a job already works on the same input, an earlier job on the same input left an artifact the host still holds, a stage with model execution or a choice ending does not have a document host, a stage that writes a page does not have a saved plan, or the plan does not set a root page or a page parent for a model-call author. The input is the issue, else the artifact. Without either, it is the artifact of the latest completed job, or else the message that asked for the job.",
       inputSchema: z.object({
         stage: z.string().describe("a stage name from the config"),
         brief: z.string().min(1),
@@ -104,7 +106,7 @@ export function startTools(
           .string()
           .optional()
           .describe(
-            "the link to the artifact the job works from, when the request points at one that no job of this workflow produced, or to the open pull request it continues: a page, a pull request, or an issue set",
+            "the link to the artifact the job works from, when the request points at one that no job of this workflow produced, or to the open pull request it continues: a page, a pull request, or a tracker project. Name an issue as issue.",
           ),
         title: z.string().optional().describe("short title for the branch name"),
         harness: z
@@ -401,15 +403,17 @@ export async function validateDocumentHost(
   return `Stage ${stageName} writes its page on the document host, and this workflow does not have one.`;
 }
 
-/** Resolve the issue in the tracker and refuse when it is finished or blocked. */
+/** Resolve the issue in the tracker and refuse one outside the subject, finished, or blocked. */
 async function resolveIssue(
   workflow: WorkflowRuntime,
   idOrKey: string,
 ): Promise<JobIssue | string> {
   const tracker = await workflow.tracker();
-  if (!tracker) return { id: idOrKey, key: idOrKey, title: idOrKey, team_id: null, started: false };
+  if (!tracker) return `The tracker is not configured, so a job cannot work on ${idOrKey}.`;
   const issue = await tracker.issue(idOrKey);
   if (!issue) return `The tracker has no issue ${idOrKey}.`;
+  const outside = await validateIssueInSubject(workflow, issue);
+  if (outside) return outside;
   if (isFinishedState(issue.state.type)) return `${issue.identifier} is ${issue.state.name}.`;
   const blockers = unfinishedBlockers(issue).map((blocker) => blocker.identifier);
   if (blockers.length) return `${issue.identifier} is blocked by ${blockers.join(", ")}.`;
@@ -429,6 +433,9 @@ async function resolveTarget(
 ): Promise<ArtifactTarget | string> {
   for (const kind of ARTIFACT_KINDS) {
     const target = await workflow.artifact(kind).detect(url);
+    if (target?.ref.kind === "issue") {
+      return `The link ${url} is the issue ${target.ref.issue_key}. Pass ${target.ref.issue_key} as issue, not as artifact.`;
+    }
     if (target) return target;
   }
   return `The link ${url} is not an artifact on a configured host.`;
@@ -520,7 +527,12 @@ async function complete(
     const pending = await acceptancePending(workflow, artifact, { personMessages, turn });
     if (pending) return pending;
   }
-  return whatIsNext(workflow, job, await completeJob(workflow, author, result));
+  const outcome = await completeJob(workflow, author, result);
+  if (jobCompletesSingleIssueWorkflow(workflow, job)) {
+    await completeWorkflow(workflow, result);
+    return `Job ${jobId} done. It completed the last planned stage on the subject issue, so the workflow is done.`;
+  }
+  return whatIsNext(workflow, job, outcome);
 }
 
 async function cancel(workflow: WorkflowRuntime, jobId: string, reason: string): Promise<string> {

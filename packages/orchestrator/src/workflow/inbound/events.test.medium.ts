@@ -91,6 +91,22 @@ function firstJobId(workflow: Workflow): string {
   return `${workflow.state.workflow_id}-1`;
 }
 
+describe("the subject of a new workflow", () => {
+  it("is the issue of the tracker session it started from", () =>
+    createdFrom({
+      ...start,
+      reply_to: { source: "tracker", session_id: "s-1", issue_id: "ENG-1" },
+      acknowledge: undefined,
+    })((workflow) => {
+      expect(workflow.state.subject).toEqual({ kind: "issue", issue_id: "ENG-1" });
+    }));
+
+  it("is unset for a workflow from a chat thread", () =>
+    freshWorkflow((workflow) => {
+      expect(workflow.state.subject).toBeNull();
+    }));
+});
+
 describe("acknowledge", () => {
   describe("a start from a Slack thread, then a prompt and a repeat of it", () => {
     const prompted = scenario(freshWorkflow, async (workflow) => {

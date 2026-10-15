@@ -227,7 +227,7 @@ describe("webhook invariants", () => {
           calls: await orchestratorCalls(vendor, text, tamper),
         });
       }),
-      propertyRuns("webhook signatures"),
+      propertyRuns("webhook signatures", 100),
     );
   });
 });

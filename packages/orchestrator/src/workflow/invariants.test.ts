@@ -1,6 +1,10 @@
 import { describe, expect, it } from "bun:test";
+import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/property-runs";
 import fc from "fast-check";
 import {
+  aJobWorksOnlyOnIssuesOfItsSubject,
+  aSingleIssueWorkflowIsDoneWithItsSubjectsJob,
+  subjectNeverChanges,
   aFailedCheckNeverAsksThePersonAgain,
   aFailedCheckNeverCompletesAJob,
   anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone,
@@ -47,7 +51,6 @@ import {
   aModelCallAuthorWorksOnlyWhileItsCallIsOut,
   aRestartDoesNotLoseAModelTurn,
 } from "../../test/invariants";
-import { propertyRuns, propertySeed } from "../../test/property-runs";
 import { declaredReachPoints, takeReachedPoints } from "../../test/reach";
 import { WORKFLOW_CORPUS, type ReplayedSequence } from "../../test/workflow-corpus";
 import {
@@ -117,10 +120,10 @@ import {
 } from "../../test/workflow-world";
 import { TEST_DEFINITION_NAME } from "../../test/test-config";
 
-const RUNS = propertyRuns(200);
-const REQUEST_RUNS = propertyRuns(50);
+const RUNS = 200;
+const REQUEST_RUNS = 50;
 const MAX_ACTIONS = 50;
-const TIMEOUT_MS = Math.max(120_000, RUNS * 600);
+const TIMEOUT_MS = propertyTimeoutMs(120_000, RUNS);
 const FLOOR_RUNS = 1_000;
 const FLOOR_SEED = 20_261_014;
 const FLOOR_MIN_RUNS = 20;
@@ -171,6 +174,9 @@ const STEP_INVARIANTS = [
   aPromptToAPageAuthorCarriesItsHeldComments,
   pageReviewPostsEachFindingOnce,
   authorGetsEveryPageFinding,
+  aJobWorksOnlyOnIssuesOfItsSubject,
+  subjectNeverChanges,
+  aSingleIssueWorkflowIsDoneWithItsSubjectsJob,
   everyActionSettlesWithinItsWorkBudget,
   anAcceptedArtifactNeverMovesBack,
   aModelCallAuthorWorksOnlyWhileItsCallIsOut,
@@ -203,6 +209,7 @@ const jobSetups: fc.Arbitrary<WorldSetup> = fc.record({
   origin: fc.constantFrom("chat" as const, "chat" as const, "tracker" as const, "tracker" as const),
   firstInput: fc.constantFrom("request" as const, "origin_issue" as const, "origin_issue" as const),
   sandboxStart,
+  subject: fc.constantFrom("none" as const, "none" as const, "project" as const),
 });
 
 const requestSetups: fc.Arbitrary<WorldSetup> = jobSetups.map((setup) => ({
@@ -221,6 +228,7 @@ const pageSetups: fc.Arbitrary<WorldSetup> = fc.record({
   origin: fc.constantFrom("chat" as const, "chat" as const, "tracker" as const, "tracker" as const),
   firstInput: fc.constantFrom("request" as const, "origin_issue" as const, "origin_issue" as const),
   sandboxStart,
+  subject: fc.constantFrom("none" as const, "none" as const, "project" as const),
 });
 
 const modelPageSetups: fc.Arbitrary<WorldSetup> = fc
@@ -239,6 +247,13 @@ const modelCallStart = fc.constantFrom(
 );
 
 const author = fc.nat({ max: MAX_AUTHORS - 1 });
+
+const trackerLink = fc.constantFrom(
+  "the_subject_issue" as const,
+  "the_subject_issue" as const,
+  "a_project" as const,
+  "a_stray_issue" as const,
+);
 
 const heldCommentsRead: fc.Arbitrary<HeldCommentsRead> = fc.record({
   decisions: fc.constantFrom(
@@ -266,8 +281,11 @@ const plans: fc.Arbitrary<WorkflowAction> = fc
     fc.constantFrom(...PLANNED_DEFINITIONS),
     fc.option(fc.constantFrom(...PLANNED_STAGES), { freq: 3 }),
     fc.integer({ min: 1, max: 3 }),
+    fc.option(trackerLink, { freq: 2 }),
   )
-  .map(([definition, stages, concurrency]) => agentSetsPlan(definition, stages, concurrency));
+  .map(([definition, stages, concurrency, subject]) =>
+    agentSetsPlan(definition, stages, concurrency, subject),
+  );
 
 const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
   {
@@ -358,8 +376,8 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
   {
     weight: 4,
     arbitrary: fc
-      .tuple(author, fc.constantFrom("author_text", "host_event"))
-      .map(([index, via]) => firstArtifactAppears(index, via)),
+      .tuple(author, fc.constantFrom("author_text", "host_event"), trackerLink)
+      .map(([index, via, issuesOutput]) => firstArtifactAppears(index, via, issuesOutput)),
   },
   {
     weight: 2,
@@ -504,7 +522,15 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
     arbitrary: fc
       .tuple(
         fc.constantFrom("pull", "issues"),
-        fc.constantFrom("an_issue", "a_taken_issue", "no_issue", "no_issue"),
+        fc.constantFrom(
+          "the_subject_issue",
+          "a_sub_issue",
+          "a_sub_issue",
+          "a_stray_issue",
+          "a_taken_issue",
+          "no_issue",
+          "no_issue",
+        ),
         fc.constantFrom(...REQUEST_TEXTS),
       )
       .map(([kind, on, request]) => agentStartsTask(kind, on, request)),
@@ -618,8 +644,8 @@ const approvingEnd = refinerRunEnds(0, {
   closing: "reports_work",
 });
 
-const findingsEnd = (pageCommenting: RefinerRunEnd["pageCommenting"]) =>
-  refinerRunEnds(0, {
+function findingsOnHost(pageCommenting: RefinerRunEnd["pageCommenting"]): WorkflowAction {
+  return refinerRunEnds(0, {
     reviewer: "findings",
     pageCommenting,
     judge: "rejects",
@@ -627,13 +653,14 @@ const findingsEnd = (pageCommenting: RefinerRunEnd["pageCommenting"]) =>
     stopReason: "end_turn",
     closing: "reports_work",
   });
+}
 
 const reviewedOnAFlakyHost = [
   ...draftedArtifact,
-  findingsEnd("drops_inline"),
-  findingsEnd("takes"),
-  findingsEnd("inline_throws"),
-  findingsEnd("down"),
+  findingsOnHost("drops_inline"),
+  findingsOnHost("takes"),
+  findingsOnHost("inline_throws"),
+  findingsOnHost("down"),
 ];
 
 const stoppedEarly = authorTurnEnds(0, "same", "stopped_early");
@@ -658,7 +685,7 @@ const authorKeepsStoppingEarly = [
 const abandonedArtifact = [firstArtifactAppears(0, "author_text"), agentCancels(0, "author")];
 
 const issueStartedAgain = [
-  agentStartsTask("pull", "an_issue", REQUEST_TEXTS[0]),
+  agentStartsTask("pull", "a_sub_issue", REQUEST_TEXTS[0]),
   agentCancels(1, "author"),
   agentStartsTask("pull", "a_taken_issue", REQUEST_TEXTS[0]),
 ];
@@ -733,7 +760,7 @@ const heldCommentsOnDeliveredPage = [
 
 const modelCallStoppedMidWrite = [trackerOpensSession(0), personStopsModelCall(0, "agent_prompts")];
 
-const twoIssuesInChat = [agentStartsTask("pull", "an_issue", REQUEST_TEXTS[1])];
+const twoIssuesInChat = [agentStartsTask("pull", "a_sub_issue", REQUEST_TEXTS[1])];
 
 const chatThreadWithTrackerSession = [chatThreadJoins(), trackerOpensSession(0)];
 
@@ -749,9 +776,9 @@ const acceptedArtifact = [
   agentCompletes(0, "accepts", "answers"),
 ];
 
-type OpeningSetup = Partial<Pick<WorldSetup, "refiners" | "checksOnPush">>;
+type OpeningSetup = Partial<Pick<WorldSetup, "refiners" | "checksOnPush" | "subject">>;
 
-/** The actions a sequence starts with, and the refiners and checks they need to reach anything. */
+/** The actions a sequence starts with, and the refiners, checks, and subject they need to reach anything. */
 type Opening = { setup: OpeningSetup; actions: WorkflowAction[] };
 
 function opening(sequence: WorkflowAction[], setup: OpeningSetup = {}): Opening {
@@ -763,7 +790,7 @@ const openings: fc.Arbitrary<Opening> = fc.constantFrom(
   opening(draftedArtifact),
   opening([...draftedArtifact, approvingEnd, approvingEnd, approvingEnd]),
   opening(reviewedOnAFlakyHost, { refiners: "reviewer" }),
-  opening([...draftedArtifact, findingsEnd("down")], { refiners: "reviewer" }),
+  opening([...draftedArtifact, findingsOnHost("down")], { refiners: "reviewer" }),
   opening(abandonedArtifact),
   opening(issueStartedAgain),
   opening(authorKeepsStoppingEarly),
@@ -786,7 +813,7 @@ const openings: fc.Arbitrary<Opening> = fc.constantFrom(
   opening(runningAuthorGetsSessionMessage),
   opening(heldCommentsOnDeliveredPage),
   opening(modelCallStoppedMidWrite),
-  opening(twoIssuesInChat),
+  opening(twoIssuesInChat, { subject: "project" }),
   opening(chatThreadWithTrackerSession),
   opening(acceptedArtifact, { checksOnPush: "passed" }),
   opening(acceptedArtifact, { refiners: "polisher", checksOnPush: "passed" }),
@@ -876,7 +903,7 @@ const CORPUS_EXAMPLES = WORKFLOW_CORPUS.map((replayed): [ReplayedSequence] => [r
 
 describe("the workflow invariants", () => {
   it("are every state and step invariant", () => {
-    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(44);
+    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(47);
   });
 
   for (const property of PROPERTIES) {
@@ -884,8 +911,7 @@ describe("the workflow invariants", () => {
       `hold after every action of any sequence, ${property.name}`,
       async () => {
         await fc.assert(fc.asyncProperty(property.runs, holdsThroughout), {
-          numRuns: property.numRuns,
-          seed: propertySeed(property.name),
+          ...propertyRuns(`workflow invariants ${property.name}`, property.numRuns),
           examples: CORPUS_EXAMPLES,
         });
       },
@@ -924,4 +950,63 @@ describe.if(process.env.REACH_FLOOR === "1")("the reach floor", () => {
     },
     FLOOR_TIMEOUT_MS,
   );
+});
+
+describe("a job that continued its own input", () => {
+  it("frees that input for the next job once it finishes, on a pull", async () => {
+    await holdsThroughout([
+      {
+        opening: "job",
+        artifact: "pull",
+        refiners: "none",
+        research: false,
+        pageAuthor: "harness",
+        checksOnPush: "passed",
+        pageEnding: "acceptance",
+        origin: "chat",
+        firstInput: "request",
+        subject: "none",
+        sandboxStart: "on_an_action",
+      },
+      [
+        firstArtifactAppears(0, "author_text"),
+        authorTurnEnds(0, "same"),
+        agentCancels(0, "author"),
+        agentStartsTaskOnArtifact("pull", "a_finished_author", 0),
+        sandboxComesUp("dials_in"),
+        firstArtifactAppears(1, "author_text"),
+        authorTurnEnds(1, "same"),
+        agentCancels(1, "author"),
+        agentStartsTaskOnArtifact("pull", "a_finished_author", 1),
+      ],
+    ]);
+  });
+
+  it("frees that input for the next job once it finishes, on an issue", async () => {
+    await holdsThroughout([
+      {
+        opening: "job",
+        artifact: "issues",
+        refiners: "judge_between_reviewers",
+        research: false,
+        pageAuthor: "harness",
+        checksOnPush: "passed",
+        pageEnding: "acceptance",
+        origin: "chat",
+        firstInput: "origin_issue",
+        subject: "none",
+        sandboxStart: "on_an_action",
+      },
+      [
+        firstArtifactAppears(0, "author_text", "the_subject_issue"),
+        authorTurnEnds(0, "same"),
+        findingsOnHost("drops_inline"),
+        findingsOnHost("takes"),
+        findingsOnHost("inline_throws"),
+        findingsOnHost("down"),
+        authorTurnEnds(0, "changed", "finished", "agent_cancels"),
+        agentStartsTask("pull", "the_subject_issue", REQUEST_TEXTS[0]),
+      ],
+    ]);
+  });
 });

@@ -48,6 +48,7 @@ describe("the instructions of a kind", () => {
     adapters,
     code: () => null,
     documents: async () => null,
+    tracker: async () => null,
     repo: () => null,
     log: () => {},
   };

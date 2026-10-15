@@ -214,6 +214,7 @@ describe("the shrunk sequence of seed 1718026998", () => {
       pageEnding: "acceptance",
       origin: "chat",
       firstInput: "request",
+      subject: "none",
       sandboxStart: "on_an_action",
     });
     const every = Object.values(invariants).filter(

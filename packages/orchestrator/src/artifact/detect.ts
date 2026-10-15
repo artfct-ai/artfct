@@ -15,3 +15,15 @@ export async function firstClaimedLink(
   }
   return null;
 }
+
+/** The last link in author output that `claim` recognises as the kind's own. Null when no link is one. */
+export async function lastClaimedLink(
+  text: string,
+  claim: (url: string) => Promise<ArtifactTarget | null>,
+): Promise<ArtifactTarget | null> {
+  for (const url of extractLinks(text).toReversed()) {
+    const claimed = await claim(url);
+    if (claimed) return claimed;
+  }
+  return null;
+}

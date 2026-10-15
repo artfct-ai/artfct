@@ -3,7 +3,13 @@
  * from `./types`. SDK model classes stay inside this file.
  */
 import { LinearSdk, type LinearOptions, type TokenSource } from "./sdk";
-import { fetchIssue, fetchProjectIssues, type RawQuery } from "./issues";
+import {
+  fetchIssue,
+  fetchProject,
+  fetchProjectIssues,
+  fetchSubIssues,
+  type RawQuery,
+} from "./issues";
 import type {
   ActivityOptions,
   AgentActivityContent,
@@ -14,6 +20,7 @@ import type {
   TeamMembership,
   Tracker,
   TrackerIssue,
+  TrackerProject,
   TrackerUser,
   WorkflowState,
 } from "../types";
@@ -147,6 +154,14 @@ export class LinearTracker implements Tracker {
 
   issue(idOrKey: string): Promise<TrackerIssue | null> {
     return fetchIssue(this.raw, idOrKey);
+  }
+
+  subIssues(parentId: string): Promise<TrackerIssue[]> {
+    return fetchSubIssues(this.raw, parentId);
+  }
+
+  project(idOrSlug: string): Promise<TrackerProject | null> {
+    return fetchProject(this.raw, idOrSlug);
   }
 
   projectIssues(projectId: string): Promise<TrackerIssue[]> {

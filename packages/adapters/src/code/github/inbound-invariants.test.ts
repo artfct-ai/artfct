@@ -78,7 +78,7 @@ describe("github inbound mapper invariants", () => {
       const eventName = fc.oneof({ weight: 4, arbitrary: fc.constant(name) }, anyEventName);
       await fc.assert(
         fc.asyncProperty(eventName, mutatedPayload({ repository: repo, ...payload }), checkWebhook),
-        propertyRuns(`github ${name}`),
+        propertyRuns(`github ${name}`, 100),
       );
     });
   }
@@ -86,7 +86,7 @@ describe("github inbound mapper invariants", () => {
   it("hold for a JSON value of any shape", async () => {
     await fc.assert(
       fc.asyncProperty(anyEventName, anyJsonValue, checkWebhook),
-      propertyRuns("github any JSON"),
+      propertyRuns("github any JSON", 100),
     );
   });
 });

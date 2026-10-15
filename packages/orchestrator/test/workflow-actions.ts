@@ -35,6 +35,7 @@ import type { FakeBridge } from "./fake-bridge";
 import type { TrackerHealth } from "./session-tracker";
 import { toolText } from "./tool-result";
 import { fakeDocumentsOf, JUDGE_CONCLUSION } from "./fake-runtime";
+import { strayIssueKey, subIssueKey, SUBJECT_ISSUE_KEY } from "./world-tracker";
 import {
   MAX_AUTHORS,
   PAGE_OPTION,
@@ -48,6 +49,7 @@ import {
   type PageModelAnswer,
   stopEvent,
   type StepFacts,
+  type TrackerLink,
   type WorkflowAction,
   type WorkflowWorld,
   type WorldAuthor,
@@ -249,8 +251,10 @@ export function refinerRunPromptFails(index: number): WorkflowAction {
 export function firstArtifactAppears(
   index: number,
   via: "author_text" | "host_event",
+  issuesOutput: TrackerLink = "the_subject_issue",
 ): WorkflowAction {
-  return authorAction(index, `first artifact appears by ${via}`, async (world, author) => {
+  const label = `first artifact appears by ${via}, issues output ${issuesOutput}`;
+  return authorAction(index, label, async (world, author) => {
     if (world.artifactOf(author) || isTaskFinished(world.taskOf(author).status)) return;
     if (via === "host_event") {
       if (author.kind !== "pull" || world.continuesPull(author)) return;
@@ -265,7 +269,11 @@ export function firstArtifactAppears(
     const bridge = world.runningBridgeOf(author.taskId);
     if (!bridge) return;
     if (author.kind === "pull") world.openPull(author);
-    await bridge.say(`I opened ${world.artifactUrlOf(author)} for this.`);
+    const url =
+      author.kind === "issues"
+        ? world.trackerLinkUrl(issuesOutput, author.pullNumber)
+        : world.artifactUrlOf(author);
+    await bridge.say(`I opened ${url} for this.`);
   });
 }
 
@@ -845,8 +853,16 @@ export function trackerOpensSession(index: number): WorkflowAction {
   });
 }
 
-/** Which issue a started task names: one of its own, one another author already names, or none. */
-export type StartedOn = "an_issue" | "a_taken_issue" | "no_issue";
+/**
+ * Which issue a started task names: the subject issue, a sub-issue of it, an issue outside the
+ * subject, one another author already names, or none.
+ */
+export type StartedOn =
+  | "the_subject_issue"
+  | "a_sub_issue"
+  | "a_stray_issue"
+  | "a_taken_issue"
+  | "no_issue";
 
 /**
  * The agent tries to start one more author task, in a turn a person woke with `request`. The
@@ -858,21 +874,36 @@ export function agentStartsTask(
   request: string,
 ): WorkflowAction {
   return action(`agent starts a ${kind} task on ${on}, asked "${request}"`, async (world) => {
-    if (world.authors.length >= MAX_AUTHORS) return;
+    if (world.authors.length >= MAX_AUTHORS) return {};
     const { start_job } = startTools(world.workflow, [request]);
-    await start_job.execute(
-      { stage: STAGE_OF[kind], brief: "Fix the next part.", issue: issueToName(world, on) },
-      TOOL_CALL,
+    const result = toolText(
+      await start_job.execute(
+        { stage: STAGE_OF[kind], brief: "Fix the next part.", issue: issueToName(world, on) },
+        TOOL_CALL,
+      ),
     );
+    return { start: { refused: !result.startsWith("Started job") } };
   });
 }
 
 function issueToName(world: WorkflowWorld, on: StartedOn): string | undefined {
-  if (on === "no_issue") return undefined;
-  const fresh = `ENG-10${world.authors.length}`;
-  if (on === "an_issue") return fresh;
-  const taken = world.authors.map((author) => world.jobOf(author).issue_key).find(Boolean);
-  return taken ?? fresh;
+  const fresh = subIssueKey(world.authors.length);
+  switch (on) {
+    case "no_issue":
+      return undefined;
+    case "the_subject_issue":
+      return SUBJECT_ISSUE_KEY;
+    case "a_sub_issue":
+      return fresh;
+    case "a_stray_issue":
+      return strayIssueKey(world.authors.length);
+    case "a_taken_issue":
+      return world.authors.map((author) => world.jobOf(author).issue_key).find(Boolean) ?? fresh;
+    default: {
+      const unreachable: never = on;
+      throw new Error(`unhandled issue choice ${String(unreachable)}`);
+    }
+  }
 }
 
 /** Whose artifact the agent names: an author whose job is over, or any author. */
@@ -909,14 +940,16 @@ export function agentSetsPlan(
   definition: string,
   stages: string[] | null,
   concurrency: number,
+  subject: TrackerLink | null = null,
 ): WorkflowAction {
   const route = stages ? stages.join(" -> ") : "without stages";
-  const label = `agent sets the plan ${route} of ${definition} with ${concurrency} slots`;
+  const label = `agent sets the plan ${route} of ${definition} with ${concurrency} slots, subject ${subject ?? "unnamed"}`;
   return action(label, async (world) => {
     const { set_plan } = planTools(world.workflow);
     const planned = stages ? { stages, repo: REPO, page_parent: null, concurrency } : {};
+    const named = subject ? { subject: world.trackerLinkUrl(subject, 0) } : {};
     await set_plan.execute(
-      { name: "Fix login", definition, reason: "the request changed", ...planned },
+      { name: "Fix login", definition, reason: "the request changed", ...planned, ...named },
       TOOL_CALL,
     );
     return { plan: { definition } };
@@ -926,9 +959,10 @@ export function agentSetsPlan(
 /** The agent's turn calls finish_workflow when the turn offers it. */
 export function agentFinishesWorkflow(): WorkflowAction {
   return action("agent finishes the workflow", async (world) => {
-    if (!offeredToTheAgent(world, FINISH_WORKFLOW)) return;
+    if (!offeredToTheAgent(world, FINISH_WORKFLOW)) return {};
     const { finish_workflow } = planTools(world.workflow);
     await finish_workflow.execute({ result: "The login redirect is fixed." }, TOOL_CALL);
+    return { finishedByAgent: true };
   });
 }
 

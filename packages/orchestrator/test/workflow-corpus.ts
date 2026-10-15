@@ -35,6 +35,7 @@ const MODEL_PAGE_ON_AN_ISSUE: WorldSetup = {
   pageEnding: "acceptance",
   origin: "tracker",
   firstInput: "origin_issue",
+  subject: "none",
   sandboxStart: "on_an_action",
 };
 

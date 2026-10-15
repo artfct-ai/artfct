@@ -1,6 +1,7 @@
 import { readyIssues, unfinishedBlockers } from "@artfct-ai/adapters/tracker/issues";
 import { tool } from "ai";
 import { z } from "zod";
+import { SET_SUBJECT_FIRST, subjectIssues } from "../../workflow/subject";
 import type { WorkflowRuntime } from "../../workflow/types";
 
 /** What the agent edits in the tracker itself. Kept next to the tracker tools. */
@@ -27,16 +28,20 @@ export function trackerTools(workflow: WorkflowRuntime) {
   return {
     ready_issues: tool({
       description:
-        "The issues of a tracker project that can start now: not started, every blocker finished, and no job of this workflow on them, each with its labels. Also lists what is blocked and by what.",
-      inputSchema: z.object({ project_id: z.string().describe("the tracker project id") }),
-      execute: async ({ project_id }) => listReady(workflow, project_id),
+        "The issues of the workflow's subject that can start now: not started, every blocker finished, and no job of this workflow on them, each with its labels. The subject issue counts with its direct sub-issues, and a subject project with its issues. Also lists what is blocked and by what.",
+      inputSchema: z.object({}),
+      execute: async () => listReady(workflow),
     }),
   };
 }
 
-async function listReady(workflow: WorkflowRuntime, projectId: string): Promise<string> {
+async function listReady(workflow: WorkflowRuntime): Promise<string> {
   const tracker = await workflow.tracker();
   if (!tracker) return "The tracker is not configured.";
+  const subject = workflow.state.subject ?? null;
+  if (!subject) {
+    return `This workflow does not have a subject yet. ${SET_SUBJECT_FIRST}`;
+  }
   const owned = new Set(
     workflow.store
       .jobs()
@@ -46,7 +51,7 @@ async function listReady(workflow: WorkflowRuntime, projectId: string): Promise<
       })
       .map((job) => job.issue_id),
   );
-  const issues = (await tracker.projectIssues(projectId)).filter((issue) => !owned.has(issue.id));
+  const issues = (await subjectIssues(tracker, subject)).filter((issue) => !owned.has(issue.id));
   const ready = readyIssues(issues).map((issue) => {
     const labels = issue.labels.length ? ` labels: ${issue.labels.join(", ")}` : "";
     return `- ${issue.identifier} ${issue.title} ${issue.url}${labels}`;
