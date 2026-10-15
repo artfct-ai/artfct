@@ -69,6 +69,11 @@ import type { ChecksAlarm } from "./workflow/refiner/checks-gate";
 import { recheckChecks } from "./workflow/refiner/checks-recheck";
 import { retryQueue } from "./workflow/task/harness/prompt-queue";
 import { provision } from "./workflow/task/sandbox/sandbox";
+import {
+  onModelTurnDeadline,
+  resumeLostModelTurns,
+  type ModelTurnAlarm,
+} from "./workflow/task/model-turn";
 import { TurnCoalescer } from "./workflow/task/harness/turn";
 import type { JobInput } from "./workflow/lifecycle";
 import type { ScheduledMethod, Wake, WorkflowRpc, WorkflowRuntime } from "./workflow/types";
@@ -185,6 +190,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
       { tracker: () => this.tracker(), chat: this.chatClient, documents: () => this.documents() },
       (entry) => this.store.writeOutbox(entry),
     );
+    await resumeLostModelTurns(this);
     await resumeLostTurn(this);
   }
 
@@ -283,6 +289,12 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
 
   recheckChecks(alarm: ChecksAlarm): Promise<void> {
     return this.inSpan("alarm recheckChecks", null, () => recheckChecks(this, alarm));
+  }
+
+  onModelTurnDeadline(alarm: ModelTurnAlarm): Promise<void> {
+    return this.inSpan("alarm onModelTurnDeadline", alarm.task_id, () =>
+      onModelTurnDeadline(this, alarm),
+    );
   }
 
   /** Bridge sockets carry ACP only. State sync frames would leak the request and reply targets. */

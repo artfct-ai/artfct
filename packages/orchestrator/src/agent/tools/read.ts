@@ -78,17 +78,17 @@ function readTask(workflow: WorkflowRuntime, taskId: string): string {
   const runsOn = sandbox
     ? {
         field: `harness=${sandbox.harness}`,
-        restarts: ` Restarts: ${sandbox.restarts}.`,
+        runs: "",
         inFlight: `Prompt in flight: ${sandbox.prompt_in_flight ? "yes" : "no"}. `,
       }
     : {
         field: "execution=model",
-        restarts: " It runs as one model call, with no sandbox.",
+        runs: " It runs as model calls, with no sandbox.",
         inFlight: "",
       };
   return [
     `Task ${task.task_id} job=${job.job_id} stage=${job.stage} role=${task.role} issue=${job.issue_key ?? "-"} status=${task.status} ${runsOn.field} model=${task.model}`,
-    `Branch: ${job.branch ?? "none"}. Cost: ${taskCostText(task.cost_usd)}.${runsOn.restarts}`,
+    `Branch: ${job.branch ?? "none"}. Cost: ${taskCostText(task.cost_usd)}. Restarts: ${task.restarts}.${runsOn.runs}`,
     `${runsOn.inFlight}Queued prompts: ${queued.length}.`,
     ...(task.paused_at
       ? [`Paused since ${task.paused_at}. Queued prompts wait for resume_task.`]

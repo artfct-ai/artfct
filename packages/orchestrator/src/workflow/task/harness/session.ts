@@ -23,9 +23,9 @@ import {
   mintWorkflowRepoToken,
 } from "../sandbox/credential";
 import { harnessMcpServers } from "../sandbox/mcp-servers";
-import { failTask } from "../../lifecycle";
+import { MAX_RESTARTS, failTask } from "../../lifecycle";
 import { drainQueue, sendFirstPrompt } from "./prompt-queue";
-import { MAX_SANDBOX_RESTARTS, WORKSPACE, restartSandbox } from "../sandbox/sandbox";
+import { WORKSPACE, restartSandbox } from "../sandbox/sandbox";
 import type { WorkflowRuntime } from "../../types";
 import { taskSettings } from "../settings";
 import { isTaskFinished } from "../../store/state";
@@ -77,8 +77,7 @@ export async function onBridgeExit(
 ): Promise<void> {
   workflow.log(task.task_id, `harness exited code=${exit.code}`);
   if (isTaskFinished(task.status)) return;
-  const { restarts } = workflow.store.requireSandbox(task.task_id);
-  if (restarts >= MAX_SANDBOX_RESTARTS) {
+  if (workflow.store.requireTask(task.task_id).restarts >= MAX_RESTARTS) {
     return failTask(workflow, task, `harness exited (code ${exit.code}) with no restarts left`);
   }
   await restartSandbox(workflow, task);

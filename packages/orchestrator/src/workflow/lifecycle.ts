@@ -19,7 +19,6 @@ import type { JobRow, NewTask, TaskRow } from "./store/tasks";
 import { jobInputKey } from "./store/input-key";
 import { isTaskFinished } from "./store/state";
 import {
-  MAX_SANDBOX_RESTARTS,
   clearTaskTimers,
   closeContainer,
   destroySandbox,
@@ -181,13 +180,16 @@ export async function startAuthorAfterResearch(
 /** What is left after a job completed: the author tasks still active and the free slots. */
 export type CompleteOutcome = { running: number; slots: number };
 
-/** The teardown every end of a task shares. The status is written before the sandbox goes. */
+/**
+ * The teardown every end of a task shares. The status is written before the sandbox goes, and
+ * with it the model turn of a model-call task ends.
+ */
 async function finishTask(
   workflow: WorkflowRuntime,
   task: TaskRow,
   status: "done" | "cancelled" | "failed",
 ): Promise<void> {
-  workflow.store.updateTask(task.task_id, { status });
+  workflow.store.updateTask(task.task_id, { status, model_turn_id: null });
   const sandbox = workflow.store.sandbox(task.task_id);
   if (!sandbox) {
     workflow.store.clearPromptQueue(task.task_id);
@@ -323,6 +325,9 @@ export async function failTask(
   );
 }
 
+/** How often a task restarts, whatever the cause, before it fails. */
+export const MAX_RESTARTS = 2;
+
 /**
  * A task with a sandbox hit a failure it may recover from. It restarts in a fresh sandbox on its
  * branch while it has restarts left, and fails after that.
@@ -333,7 +338,7 @@ export async function restartOrFailTask(
   reason: string,
 ): Promise<void> {
   if (isTaskFinished(task.status)) return;
-  if (workflow.store.requireSandbox(task.task_id).restarts >= MAX_SANDBOX_RESTARTS) {
+  if (workflow.store.requireTask(task.task_id).restarts >= MAX_RESTARTS) {
     return failTask(workflow, task, reason);
   }
   workflow.log(task.task_id, `${reason} restarting in a fresh sandbox.`);

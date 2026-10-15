@@ -156,7 +156,10 @@ export class FakeRuntime implements WorkflowRuntime {
   workflowDefinitionsOverride: WorkflowDefinition[] | null = null;
   private alarmSeq = 0;
 
-  constructor(db: WorkflowDb, env: Env) {
+  constructor(
+    private readonly db: WorkflowDb,
+    env: Env,
+  ) {
     this.env = env;
     this.store = new WorkflowStore(db);
     this.transcript = new TranscriptStore(db);
@@ -164,6 +167,17 @@ export class FakeRuntime implements WorkflowRuntime {
       { tracker: async () => null, chat: null, documents: async () => null },
       (entry) => this.store.writeOutbox(entry),
     );
+  }
+
+  /**
+   * The same Durable Object after a restart. The store, the alarms, and the fakes stay. The
+   * session feeds and every turn the old instance held in memory are gone.
+   */
+  restarted(): FakeRuntime {
+    const next = new FakeRuntime(this.db, this.env);
+    const { sessionFeeds } = next;
+    Object.assign(next, this, { sessionFeeds, turnRunning: false });
+    return next;
   }
 
   patchState(patch: Partial<WorkflowState>): void {

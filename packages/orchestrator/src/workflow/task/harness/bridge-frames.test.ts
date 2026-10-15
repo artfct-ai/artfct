@@ -132,14 +132,14 @@ describe("onBridgeMessage", () => {
       it("restarts the task in a fresh sandbox", () =>
         restarted((workflow) => {
           expect(workflow.sandboxProvider.calls).toEqual([`destroy ${TASK}`, `start ${TASK}`]);
-          expect(workflow.store.requireSandbox(TASK).restarts).toBe(1);
+          expect(workflow.store.requireTask(TASK).restarts).toBe(1);
         }));
     });
 
     describe("to the handshake of two tasks with no restarts left", () => {
       const bothFailed = scenario(freshRuntime, async (workflow) => {
-        seedTask(workflow, { task_id: TASK }, { wall_schedule: "w1", restarts: 2 });
-        seedTask(workflow, { task_id: REVIEW }, { wall_schedule: "w2", restarts: 2 });
+        seedTask(workflow, { task_id: TASK, restarts: 2 }, { wall_schedule: "w1" });
+        seedTask(workflow, { task_id: REVIEW, restarts: 2 }, { wall_schedule: "w2" });
         const first = workflow.store.insertRpc(TASK, "initialize", "initialize");
         const second = workflow.store.insertRpc(REVIEW, "session/new", "session_new");
         await onBridgeMessage(
