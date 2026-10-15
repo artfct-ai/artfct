@@ -16,7 +16,8 @@ A code name is one type, table, column, or function. A code name that needs a co
 | stage | One step of a workflow. It produces one artifact. Config declares it. | `Stage` | |
 | job | The execution of one stage. Its tasks belong to it, and it holds what they produce. | `jobs` row | |
 | task | One execution of a role in a job. | `tasks` row | |
-| model-call task | A task that runs as model calls through the gateway, with no sandbox and no harness session. Its task status is `working` from the start of a turn until its page waits in review. A model call is not always in flight while it is `working`, for example after a stop ended its first turn before the page existed. | `AuthorActivity.execution "model"`, no sandboxes row | |
+| model-call task | A task that runs as model calls through the gateway, with no sandbox and no harness session. Its task status is `working` from the start of a turn until its page waits in review. A model turn is in flight while it is `working`, except after a stop ended its first turn before the page existed. | `AuthorActivity.execution "model"`, no sandboxes row | |
+| model turn | One turn of a model-call task: its model call and the page write that applies the answer. It is in flight from its start until the task records the answer, drops it, or loses it. The task stores the id of the turn in flight. | `tasks.model_turn_id`, `startModelTurn` | |
 | author | The task that produces and revises the artifact of its job. | `TaskRole "author"` | |
 | author activity | What the author does in one turn: it produces the artifact or it revises it. Config sets the execution, harness, model, effort, and skill of each activity. | `AuthorActivity`, `Stage.author` | mode, phase, step |
 | produce | The author activity that writes the first artifact of a job. | `Stage.author.produce` | write, draft, compose |
@@ -30,7 +31,8 @@ A code name is one type, table, column, or function. A code name that needs a co
 | refiner run | One execution of a refiner on an artifact. | `tasks` row with role `reviewer` or `polisher` | pass task, the review |
 | run number | Which execution of the same refiner on the same artifact this is, from 1. | `runNumberOf`, `phaseRunOf` | round |
 | generation | The sandbox start count of a task. It drops alarms and connections of an older sandbox. | `sandboxes.generation` | version, revision |
-| restart | A task starting over in a fresh sandbox on its branch after a failure it may recover from. A task restarts at most twice, then fails. | `sandboxes.restarts` | retry, rehydrate |
+| restart | A task starting over after a failure it may recover from: a harness task in a fresh sandbox on its branch, a model-call task by running its lost model turn again. A task restarts at most twice, then fails. | `tasks.restarts` | retry, rehydrate |
+| lost turn | A turn that a restart of the Durable Object cut off before its result was recorded. An agent turn resumes with an agent note. A harness turn is recovered by a restart of its sandbox. A model turn runs again. | `resumeLostTurn`, `recoverLostTurn`, `resumeLostModelTurns` | dropped turn, orphaned turn |
 | workflow repo token | The code host token a task's sandbox uses for the workflow's repository. An author's token may push. A reviewer's token has only the permissions its artifact kind allows. It is refreshed before it expires. | `mintWorkflowRepoToken`, `SandboxStartSpec.workflow_repo_token` | task token, task credential |
 | all-repos read token | A read-only code host token for every repository the code host credential reaches. A sandbox gets one only when `read_all_repos` is on. Git uses it for every repository except the workflow's. | `mintAllReposReadToken`, `SandboxStartSpec.all_repos_read_token` | read token, read credential |
 | segment | Consecutive reviewers that settle together. A judge or the end of the list ends it. | `segmentStartOf`, `endsSegment` | |

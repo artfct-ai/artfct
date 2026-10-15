@@ -59,8 +59,8 @@ function stalledAgain(restarts: number) {
     decisionsPick(workflow, "stopped_early");
     const author = seedTask(
       workflow,
-      {},
-      { prompt_in_flight: 1, generation: 1, turn_text: "Tests run.", nudged: 1, restarts },
+      { restarts },
+      { prompt_in_flight: 1, generation: 1, turn_text: "Tests run.", nudged: 1 },
     );
     return onTurnEnd(workflow, author, "end_turn");
   });
@@ -79,8 +79,8 @@ const unfinished = (role: "reviewer" | "polisher", stopReason: StopReason, resta
     seedTask(workflow);
     const run = seedTask(
       workflow,
-      { task_id: REVIEW_TASK, role, job_id: JOB },
-      { prompt_in_flight: 1, restarts },
+      { task_id: REVIEW_TASK, role, job_id: JOB, restarts },
+      { prompt_in_flight: 1 },
     );
     return onTurnEnd(workflow, run, stopReason);
   });
@@ -133,7 +133,7 @@ describe("onTurnEnd", () => {
         0,
       )((workflow) => {
         expect(workflow.store.requireTask(REVIEW_TASK).status).toBe("provisioning");
-        expect(workflow.store.requireSandbox(REVIEW_TASK).restarts).toBe(1);
+        expect(workflow.store.requireTask(REVIEW_TASK).restarts).toBe(1);
       }));
 
     for (const stopReason of ["max_tokens", "max_turn_requests", "refusal"] as const) {
@@ -175,8 +175,8 @@ describe("onTurnEnd", () => {
         seedTask(workflow);
         const run = seedTask(
           workflow,
-          { task_id: REVIEW_TASK, role, job_id: JOB },
-          { prompt_in_flight: 1, turn_text: BLOCKED, restarts },
+          { task_id: REVIEW_TASK, role, job_id: JOB, restarts },
+          { prompt_in_flight: 1, turn_text: BLOCKED },
         );
         return onTurnEnd(workflow, run, "end_turn");
       });
@@ -219,8 +219,8 @@ describe("onTurnEnd", () => {
         decisionsPick(workflow, outcome);
         const author = seedTask(
           workflow,
-          {},
-          { prompt_in_flight: 1, turn_text: BLOCKED, generation: 1, restarts },
+          { restarts },
+          { prompt_in_flight: 1, turn_text: BLOCKED, generation: 1 },
         );
         return onTurnEnd(workflow, author, stopReason);
       });
@@ -238,8 +238,11 @@ describe("onTurnEnd", () => {
         "blocked",
         "end_turn",
       )((workflow) => {
-        expect(workflow.store.requireTask(TASK).status).toBe("provisioning");
-        expect(workflow.store.requireSandbox(TASK)).toMatchObject({ generation: 2, restarts: 1 });
+        expect(workflow.store.requireTask(TASK)).toMatchObject({
+          status: "provisioning",
+          restarts: 1,
+        });
+        expect(workflow.store.requireSandbox(TASK).generation).toBe(2);
       }));
 
     it("queues the wake text the fresh harness resumes with", () =>
@@ -294,7 +297,7 @@ describe("onTurnEnd", () => {
         "end_turn",
       )((workflow) => {
         expect(workflow.store.requireTask(TASK).status).not.toBe("failed");
-        expect(workflow.store.requireSandbox(TASK).restarts).toBe(0);
+        expect(workflow.store.requireTask(TASK).restarts).toBe(0);
       }));
 
     it("does not ask about a cancelled turn", () =>
@@ -303,7 +306,7 @@ describe("onTurnEnd", () => {
         "cancelled",
       )((workflow) => {
         expect(workflow.store.requireTask(TASK).status).not.toBe("failed");
-        expect(workflow.store.requireSandbox(TASK).restarts).toBe(0);
+        expect(workflow.store.requireTask(TASK).restarts).toBe(0);
       }));
   });
 
@@ -403,11 +406,8 @@ describe("onTurnEnd", () => {
     it("starts over in a fresh sandbox", () =>
       stalledAgain(0)((workflow) => {
         expect(workflow.sandboxProvider.calls).toEqual([`destroy ${TASK}`, `start ${TASK}`]);
-        expect(workflow.store.requireSandbox(TASK)).toMatchObject({
-          generation: 2,
-          restarts: 1,
-          nudged: 0,
-        });
+        expect(workflow.store.requireSandbox(TASK)).toMatchObject({ generation: 2, nudged: 0 });
+        expect(workflow.store.requireTask(TASK).restarts).toBe(1);
       }));
 
     it("tells the agent without waking it", () =>
@@ -842,7 +842,8 @@ function brokenPolisher(queued: string | null, restarts = 2) {
     patchStagePolishers(workflow, [{ name: "comments", skill: "technical-writer" }]);
     const polisher = seedPolisherRun(workflow);
     workflow.store.updateTask(polisher.task_id, { status: "working" });
-    workflow.store.updateSandbox(polisher.task_id, { prompt_in_flight: 1, restarts });
+    workflow.store.updateSandbox(polisher.task_id, { prompt_in_flight: 1 });
+    workflow.store.updateTask(polisher.task_id, { restarts });
     if (queued) workflow.store.enqueuePrompt(polisher.task_id, queued);
     await onRpcError(
       workflow,
@@ -943,8 +944,8 @@ const researchEnds = (payload: string | null, stopReason: StopReason = "end_turn
   scenario(freshRuntime, (workflow) => {
     const researcher = seedTask(
       workflow,
-      { role: "researcher", stage: "implement" },
-      { prompt_in_flight: 1, restarts: 2 },
+      { role: "researcher", stage: "implement", restarts: 2 },
+      { prompt_in_flight: 1 },
     );
     if (payload !== null) workflow.sandboxProvider.putFile(TASK, RESEARCH_PAYLOAD_PATH, payload);
     return onTurnEnd(workflow, researcher, stopReason);

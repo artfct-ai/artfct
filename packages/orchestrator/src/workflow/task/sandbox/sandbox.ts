@@ -52,17 +52,13 @@ export async function provision(workflow: WorkflowRuntime, taskId: string): Prom
   await startSandbox(workflow, task, false);
 }
 
-/** How often a task restarts, whatever the cause, before it fails. */
-export const MAX_SANDBOX_RESTARTS = 2;
-
 /**
  * Start the task's sandbox again on its branch, in its container when it still has one. The
  * harness resumes with its oldest queued prompt. Counts the restart.
  */
 export async function restartSandbox(workflow: WorkflowRuntime, task: TaskRow): Promise<void> {
-  const { restarts } = workflow.store.requireSandbox(task.task_id);
-  workflow.store.updateSandbox(task.task_id, { restarts: restarts + 1 });
-  workflow.store.updateTask(task.task_id, { status: "queued" });
+  const { restarts } = workflow.store.requireTask(task.task_id);
+  workflow.store.updateTask(task.task_id, { status: "queued", restarts: restarts + 1 });
   await startSandbox(workflow, workflow.store.requireTask(task.task_id), true);
 }
 

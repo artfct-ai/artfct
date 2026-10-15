@@ -749,7 +749,15 @@ describe("the activity on a job line", () => {
     freshRuntime((workflow) => {
       patchModelExecution(workflow);
       seedModelAuthor(workflow);
-      workflow.store.updateTask("wf_x.1", { status: "working" });
+      workflow.store.updateTask("wf_x.1", { status: "working", model_turn_id: "turn-1" });
       expect(jobLineOf(workflow, NOBODY_WROTE)).toContain(" activity=running execution=model ");
+    }));
+
+  it("is idle for a model author a stop ended before its first page", () =>
+    freshRuntime((workflow) => {
+      patchModelExecution(workflow);
+      seedModelAuthor(workflow);
+      workflow.store.updateTask("wf_x.1", { status: "working" });
+      expect(jobLineOf(workflow, NOBODY_WROTE)).toContain(" activity=idle execution=model ");
     }));
 });

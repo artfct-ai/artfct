@@ -144,7 +144,7 @@ export function firstPromptText(workflow: WorkflowRuntime, task: TaskRow): strin
   }
   const artifact = workflow.artifact(workflow.stageForTask(task).artifact).instructions;
   const instructions = harness.invokeSkill(taskSettings(workflow, task).skill);
-  const resumes = sandbox.generation > 1 || sandbox.restarts > 0;
+  const resumes = sandbox.generation > 1 || workflow.store.requireTask(task.task_id).restarts > 0;
   if (!resumes) {
     return taskPrompt({ instructions, context: taskContext(workflow, task), artifact });
   }

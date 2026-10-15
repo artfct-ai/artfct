@@ -17,6 +17,7 @@ import type { AuthorTurnOutcome } from "../src/workflow/task/author-turn";
 import { onBridgeLost } from "../src/workflow/task/harness/bridge";
 import { sendHeldCommentsOnRevisionRequest } from "../src/workflow/refiner/held-comments";
 import { retryQueue } from "../src/workflow/task/harness/prompt-queue";
+import { onModelTurnDeadline, type ModelTurnAlarm } from "../src/workflow/task/model-turn";
 import {
   RESEARCH_PAYLOAD_MAX_BYTES,
   RESEARCH_PAYLOAD_PATH,
@@ -316,9 +317,7 @@ export function authorStreams(index: number, streamed: Streamed): WorkflowAction
 }
 
 export function workflowRestarts(): WorkflowAction {
-  return action("the workflow restarts", async (world) => {
-    world.workflow.sessionFeeds.clear();
-  });
+  return action("the workflow restarts", (world) => world.restart());
 }
 
 export function trackerTurns(health: TrackerHealth): WorkflowAction {
@@ -742,25 +741,89 @@ export function personPressesStop(index: number): WorkflowAction {
   });
 }
 
-/** How a model call of a model-call author starts. */
-export type ModelCallStart = "provision_fires" | "agent_prompts";
+/**
+ * How a model call of a model-call author starts: its provision alarm fires, the agent prompts
+ * it, or a person asks for a revision of its page with a comment held on it.
+ */
+export type ModelCallStart = "provision_fires" | "agent_prompts" | "revision_requested";
+
+async function startModelCall(
+  world: WorkflowWorld,
+  author: WorldAuthor,
+  start: ModelCallStart,
+): Promise<void> {
+  switch (start) {
+    case "provision_fires":
+      return world.provisionSandboxOf(author.taskId);
+    case "agent_prompts": {
+      const { prompt_task } = taskTools(world.workflow);
+      await prompt_task.execute({ task_id: author.taskId, text: "Add a test for it." }, TOOL_CALL);
+      return;
+    }
+    case "revision_requested":
+      fakeDocumentsOf(world.workflow).holdComment({
+        id: `held-revision-${world.steps.length}`,
+        author_name: "Bea",
+        text: `Comment at step ${world.steps.length}: name the owner of each step.`,
+      });
+      world.answerDecisionsWith(REPORTS_WORK_ANSWERS);
+      await sendHeldCommentsOnRevisionRequest(world.workflow);
+      return;
+    default: {
+      const unreachable: never = start;
+      throw new Error(`unhandled start ${String(unreachable)}`);
+    }
+  }
+}
 
 /**
  * A model call of a model-call author starts, and a person presses Stop in the session of its job
- * while the page model answers. The call starts when its provision alarm fires or the agent
- * prompts it.
+ * while the page model answers.
  */
 export function personStopsModelCall(index: number, start: ModelCallStart): WorkflowAction {
   const label = `a person presses Stop while the page model answers, after ${start}`;
   return authorAction(index, label, (world, author) =>
-    world.stopWhilePageModelAnswers(author, async () => {
-      if (start === "provision_fires") {
-        await world.provisionSandboxOf(author.taskId);
-        return;
-      }
-      const { prompt_task } = taskTools(world.workflow);
-      await prompt_task.execute({ task_id: author.taskId, text: "Add a test for it." }, TOOL_CALL);
-    }),
+    world.stopWhilePageModelAnswers(author, () => startModelCall(world, author, start)),
+  );
+}
+
+/**
+ * A model call of a model-call author starts, and the workflow restarts while the page model
+ * answers.
+ */
+export function workflowRestartsDuringModelCall(
+  index: number,
+  start: ModelCallStart,
+): WorkflowAction {
+  const label = `the workflow restarts while the page model answers, after ${start}`;
+  return authorAction(index, label, (world, author) =>
+    world.restartWhilePageModelAnswers(author, () => startModelCall(world, author, start)),
+  );
+}
+
+/**
+ * A model call of a model-call author starts and answers, and the workflow restarts while the
+ * host writes the page, before or after the host applies the write.
+ */
+export function workflowRestartsWhileHostWritesPage(
+  index: number,
+  start: ModelCallStart,
+  applied: "before" | "after",
+): WorkflowAction {
+  const label = `the workflow restarts while the host writes the page, ${applied} it applies, after ${start}`;
+  return authorAction(index, label, (world, author) =>
+    world.restartWhileHostWritesPage(author, () => startModelCall(world, author, start), applied),
+  );
+}
+
+/**
+ * A model call of a model-call author starts and never answers, and the deadline alarm of its
+ * model turn fires.
+ */
+export function modelCallOutlivesItsDeadline(index: number, start: ModelCallStart): WorkflowAction {
+  const label = `the page model call outlives its deadline, after ${start}`;
+  return authorAction(index, label, (world, author) =>
+    world.modelCallOutlivesItsDeadline(author, () => startModelCall(world, author, start)),
   );
 }
 
@@ -1227,6 +1290,7 @@ export const TIMERS = [
   "queue_retry",
   "idle",
   "recheck",
+  "model_turn_deadline",
 ] as const;
 
 export type Timer = (typeof TIMERS)[number];
@@ -1268,10 +1332,19 @@ const TIMER_ALARMS: Record<
     method: "recheckChecks",
     fire: (workflow, payload) => recheckChecks(workflow, payload as ChecksAlarm),
   },
+  model_turn_deadline: {
+    method: "onModelTurnDeadline",
+    fire: (workflow, payload) => onModelTurnDeadline(workflow, payload as ModelTurnAlarm),
+  },
 };
 
 function staleAlarmOf(world: WorkflowWorld, payload: unknown): { task_id: string } | null {
-  if (typeof payload !== "object" || payload === null || !("generation" in payload)) return null;
+  if (typeof payload !== "object" || payload === null) return null;
+  if ("turn_id" in payload) {
+    const { task_id, turn_id } = payload as ModelTurnAlarm;
+    return world.workflow.store.task(task_id)?.model_turn_id === turn_id ? null : { task_id };
+  }
+  if (!("generation" in payload)) return null;
   const { task_id, generation } = payload as GenerationAlarm;
   const sandbox = world.workflow.store.sandbox(task_id);
   return sandbox && generation < sandbox.generation ? { task_id } : null;

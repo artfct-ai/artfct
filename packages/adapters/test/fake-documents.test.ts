@@ -60,14 +60,14 @@ describe("FakeDocuments nesting", () => {
   });
 });
 
+function secondLineId(documents: FakeDocuments, pageId: string): number {
+  const lineId = documents.lineIds(pageId)[1];
+  if (lineId === undefined) throw new Error("the page has one line");
+  return lineId;
+}
+
 describe("FakeDocuments lines and comments", () => {
   const before = "# Goal\nShip it.\n## Risks\nNone yet.";
-
-  function secondLineId(documents: FakeDocuments, pageId: string): number {
-    const lineId = documents.lineIds(pageId)[1];
-    if (lineId === undefined) throw new Error("the page has one line");
-    return lineId;
-  }
 
   async function seeded() {
     const documents = new FakeDocuments();

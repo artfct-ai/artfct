@@ -1,3 +1,4 @@
+import { z } from "zod";
 import type { PullDetail } from "@artfct-ai/contracts/inbound";
 import type { Binding } from "@artfct-ai/contracts/sources";
 import type { CodeUser } from "@artfct-ai/contracts/types";
@@ -5,32 +6,44 @@ import { ORCHESTRATOR_BRANCH_PREFIX } from "../branch-prefix";
 import type { CodeInbound, CodeInboundContext } from "../types";
 
 /** Repository fields GitHub sends on every webhook. */
-export type GithubRepo = { full_name: string; default_branch?: string };
-
-/** Pull request fields the mappers read. `head.repo` is null when a fork was deleted. */
-export type GithubPullRequest = {
-  number: number;
-  html_url: string;
-  merged?: boolean;
-  head: { ref: string; repo?: { full_name: string } | null };
-  base: { ref: string };
-  title?: string;
-  user?: { login: string };
-};
+export const githubRepoSchema = z.object({
+  full_name: z.string(),
+  default_branch: z.string().nullish(),
+});
 
 /** A GitHub user reference. `type` is `Bot` when the author is an App rather than a person. */
-export type GithubUser = { login: string; type?: string };
+export const githubUserSchema = z.object({ login: z.string(), type: z.string().nullish() });
+
+/** Pull request fields the mappers read. `head.repo` is null when a fork was deleted. */
+export const githubPullRequestSchema = z.object({
+  number: z.number(),
+  html_url: z.string(),
+  merged: z.boolean().nullish(),
+  head: z.object({ ref: z.string(), repo: z.object({ full_name: z.string() }).nullish() }),
+  base: z.object({ ref: z.string() }),
+  title: z.string().nullish(),
+  user: z.object({ login: z.string() }).nullish(),
+});
+
+/** A repository as the webhook names it. */
+export type GithubRepo = z.infer<typeof githubRepoSchema>;
+
+/** A pull request as the webhook carries it. */
+export type GithubPullRequest = z.infer<typeof githubPullRequestSchema>;
+
+/** A user as the webhook names them. */
+export type GithubUser = z.infer<typeof githubUserSchema>;
 
 /** True when the user is an App, by account type or by the `[bot]` login suffix. */
 export function isGithubApp(user: GithubUser): boolean {
   return user.type === "Bot" || user.login.endsWith("[bot]");
 }
 
-/** One GitHub webhook with the repository split out, ready for a per-event mapper. */
+/** One GitHub webhook with the repository split out, ready for a per-event mapper to parse. */
 export type GithubContext = CodeInboundContext & {
   eventId: string;
   repo: GithubRepo;
-  payload: Record<string, unknown>;
+  payload: unknown;
 };
 
 /** The user as the identity resolver takes them: on this webhook's repository. */
@@ -97,8 +110,7 @@ export function pullRequestDetail(
   };
 }
 
-/** A string field of the payload. Empty when the field is absent or not a string. */
-export function payloadString(payload: Record<string, unknown>, key: string): string {
-  const value = payload[key];
-  return typeof value === "string" ? value : "";
+/** The ignore for a webhook that lacks a field its mapper reads, or holds one of another type. */
+export function malformedWebhook(eventName: string): CodeInbound {
+  return { ignore: `malformed ${eventName}` };
 }

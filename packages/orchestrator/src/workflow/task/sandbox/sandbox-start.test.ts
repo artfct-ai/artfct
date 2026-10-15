@@ -101,7 +101,8 @@ describe("provision", () => {
 
       it("keeps the generation and counts no restart", () =>
         waited((workflow) => {
-          expect(workflow.store.requireSandbox(TASK)).toMatchObject({ generation: 1, restarts: 0 });
+          expect(workflow.store.requireSandbox(TASK).generation).toBe(1);
+          expect(workflow.store.requireTask(TASK).restarts).toBe(0);
         }));
 
       it("arms another hello timeout for the same generation", () =>
@@ -451,7 +452,7 @@ describe("startSandbox", () => {
     it("fails the task after its restarts are used up", () =>
       started((workflow) => {
         expect(workflow.store.requireTask(TASK).status).toBe("failed");
-        expect(workflow.store.requireSandbox(TASK).restarts).toBe(2);
+        expect(workflow.store.requireTask(TASK).restarts).toBe(2);
       }));
 
     it("posts that the sandbox start failed and the task whose log holds the details", () =>
@@ -534,8 +535,11 @@ describe("startSandbox", () => {
 
     it("keeps the task provisioning on its first restart", () =>
       started((workflow) => {
-        expect(workflow.store.requireTask(TASK).status).toBe("provisioning");
-        expect(workflow.store.requireSandbox(TASK)).toMatchObject({ generation: 3, restarts: 1 });
+        expect(workflow.store.requireTask(TASK)).toMatchObject({
+          status: "provisioning",
+          restarts: 1,
+        });
+        expect(workflow.store.requireSandbox(TASK).generation).toBe(3);
       }));
   });
 
