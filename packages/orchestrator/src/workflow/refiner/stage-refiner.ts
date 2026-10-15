@@ -47,18 +47,52 @@ export function endsSegment(index: number, entries: ReviewerEntry[]): boolean {
 /** A review filed by one entry of a segment, with the entry's position. */
 export type FiledReview = { refiner_index: number; review: Review };
 
-/** The reviews filed in the segment that ends at `index`, from its latest run only. */
+/** The index of the entry that ends the segment `index` sits in. */
+export function segmentEndOf(index: number, entries: ReviewerEntry[]): number {
+  let end = index;
+  while (end < entries.length - 1 && !endsSegment(end, entries)) end += 1;
+  return end;
+}
+
+/** The reviews filed in the segment from `start` to `index`, by the latest run of each entry. */
 export function segmentReviews(runs: TaskRow[], start: number, index: number): FiledReview[] {
-  const latestRunStart = runs.filter((run) => run.refiner_index === start).at(-1)?.started_at ?? "";
-  return runs.flatMap((run) =>
-    run.refiner_index !== null &&
-    run.refiner_index >= start &&
-    run.refiner_index <= index &&
-    run.started_at >= latestRunStart &&
-    run.result?.kind === "review"
-      ? [{ refiner_index: run.refiner_index, review: run.result }]
-      : [],
+  return runs.flatMap((run) => {
+    const entryIndex = run.refiner_index;
+    if (entryIndex === null || entryIndex < start || entryIndex > index) return [];
+    const latest = runs.findLast((later) => later.refiner_index === entryIndex);
+    if (latest !== run || run.result?.kind !== "review") return [];
+    return [{ refiner_index: entryIndex, review: run.result }];
+  });
+}
+
+/** True when a run of the entry at `index` filed a review or a ruling of `revision`. */
+function entryReviewedRevision(runs: TaskRow[], index: number, revision: string | null): boolean {
+  if (revision === null) return false;
+  return runs.some(
+    (run) =>
+      run.refiner_index === index &&
+      (run.result?.kind === "review" || run.result?.kind === "ruling") &&
+      run.result.revision === revision,
   );
+}
+
+/**
+ * The first entry from `from` to the end of its segment that still has to read `revision`. A
+ * findings entry that already reviewed it is passed over. Null when every entry left reviewed it.
+ */
+export function firstUnreviewedEntry(input: {
+  entries: ReviewerEntry[];
+  runs: TaskRow[];
+  from: number;
+  revision: string | null;
+}): number | null {
+  const { entries, runs, from, revision } = input;
+  for (let index = from; index < entries.length; index += 1) {
+    const judge = entries[index]?.mode === "judge";
+    if (judge || !entryReviewedRevision(runs, index, revision)) return index;
+    if (endsSegment(index, entries)) return null;
+  }
+  return null;
 }
 
 /** The reviewer entry of a refiner run, or null when its stage no longer declares it. */

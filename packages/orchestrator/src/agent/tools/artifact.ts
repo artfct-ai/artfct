@@ -3,6 +3,7 @@ import { z } from "zod";
 import {
   advanceArtifactPastEntry,
   applyJudgeRuling,
+  artifactRevision,
   taskQuiet,
   heldForReview,
   refinerInFlight,
@@ -11,7 +12,7 @@ import {
 import { polisherRefusal } from "../../workflow/refiner/polish";
 import { reviewLimitReached } from "../../workflow/refiner/review-limit";
 import {
-  judgeRejected,
+  firstUnreviewedEntry,
   refinerIndexOf,
   refinerRunOf,
   refinerAt,
@@ -30,7 +31,7 @@ export const REVIEW_RULES = `## Review & Refinement Protocol
 ### Reviewer Segment Routing
 * **Hold** artifacts internally during stage refiner runs; do not expose to humans until the reviewer sequence is fully resolved.
 * **Inspect** author modifications upon turn completion using \`read_task\` on the author task (and \`read_artifact\` on the job if diff context is insufficient).
-* **Call** \`request_review\` to re-run the open reviewer segment from the first entry if changes require verification or author defenses require the segment to run again.
+* **Call** \`request_review\` to re-run the open reviewer segment if the author changed the artifact and the changes require verification. It is refused while every reviewer of the segment already reviewed the current revision.
 * **Call** \`finish_review\` to finalize the open segment and advance to the next entry if findings are resolved, non-blocking polish, or reserved for human review.
 * **Call** \`cancel_task\` on the reviewer run if a reviewer hangs or a human requests termination. (The entry remains open: invoke \`request_review\` to retry or \`finish_review\` to bypass).
 
@@ -63,7 +64,7 @@ export function artifactTools(workflow: WorkflowRuntime) {
   return {
     request_review: tool({
       description:
-        "Re-run the open reviewer segment of a job's artifact from its first entry. Refused while the author is mid-turn, while a refiner is running, once the reviewers reached their run limit, and once the humans have the artifact.",
+        "Re-run the open reviewer segment of a job's artifact from its first entry that has not reviewed the current revision. Refused while the author is mid-turn, while a refiner is running, once the reviewers reached their run limit, when every reviewer of the segment already reviewed the current revision, and once the humans have the artifact.",
       inputSchema: z.object({ job_id: jobIdField }),
       execute: ({ job_id }) => requestReview(workflow, job_id),
     }),
@@ -106,6 +107,8 @@ function heldJob(
 }
 
 async function requestReview(workflow: WorkflowRuntime, jobId: string): Promise<string> {
+  const read = workflow.store.artifact(jobId);
+  const revision = read ? await artifactRevision(workflow, read) : null;
   const held = heldJob(workflow, jobId);
   if (typeof held === "string") return held;
   const { author, artifact } = held;
@@ -133,7 +136,12 @@ async function requestReview(workflow: WorkflowRuntime, jobId: string): Promise<
   if (reviewLimitReached(workflow, pointer)) {
     return `The reviewers of job ${jobId} reached the limit of ${workflow.config().orchestrator.max_review_runs} runs. Call finish_review to hand the artifact on.`;
   }
-  await startRefiner(workflow, author, segmentStartOf(index, stage.reviewers));
+  const reviewed = validateRevisionUnreviewed(workflow, pointer, revision);
+  if (reviewed) return reviewed;
+  const runs = workflow.store.refinerRunsOf(jobId);
+  const from = segmentStartOf(index, stage.reviewers);
+  const rerun = firstUnreviewedEntry({ entries: stage.reviewers, runs, from, revision }) ?? from;
+  await startRefiner(workflow, author, rerun);
   return `A review started on job ${jobId}.`;
 }
 
@@ -153,6 +161,22 @@ async function finishReview(workflow: WorkflowRuntime, jobId: string): Promise<s
     return `The author ${author.task_id} is still working. You are told when its turn ends.`;
   }
   return advanceArtifactPastEntry(workflow, author, refinerIndexOf(pointer));
+}
+
+/**
+ * Why the open segment must not run again on `revision`: every entry of it already reviewed
+ * that revision. Null while an entry of the segment still has to read it.
+ */
+function validateRevisionUnreviewed(
+  workflow: WorkflowRuntime,
+  pointer: TaskRow,
+  revision: string | null,
+): string | null {
+  const entries = workflow.stageForTask(pointer).reviewers;
+  const from = segmentStartOf(refinerIndexOf(pointer), entries);
+  const runs = workflow.store.refinerRunsOf(pointer.job_id);
+  if (firstUnreviewedEntry({ entries, runs, from, revision }) !== null) return null;
+  return `The artifact of job ${pointer.job_id} is still at revision ${revision}, which every reviewer of the open segment already reviewed. Prompt the author to change the artifact, or call finish_review to hand it on.`;
 }
 
 const JUDGE_ENTRY_REFUSAL =
@@ -177,9 +201,6 @@ async function ruleOnReview(
   }
   if (!isTaskFinished(pointer.status)) {
     return `The judge review still runs on job ${jobId} as ${pointer.task_id}. Code rules on it when it ends.`;
-  }
-  if (judgeRejected(pointer)) {
-    return `Job ${jobId} already has a rejection. The next entry runs when its turn ends.`;
   }
   if (ruling === "approve") {
     return applyJudgeRuling(workflow, { author, reviewer: pointer, ruling: "approved" });

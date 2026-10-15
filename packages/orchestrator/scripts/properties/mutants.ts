@@ -130,6 +130,21 @@ export const MUTANTS: Mutant[] = [
     replace: "        const notStarted: string | null = null;",
   },
   {
+    id: "W16",
+    invariant: "judgeRulesAtMostOnce",
+    path: "src/workflow/refiner/loop.ts",
+    find: "  const refusal = validateJudgeAwaitsRuling(workflow, reviewer);\n  if (refusal) {",
+    replace:
+      "  const refusal = validateJudgeAwaitsRuling(workflow, reviewer);\n  if (false && refusal) {",
+  },
+  {
+    id: "W17",
+    invariant: "reviewerRunsOnlyOnAnUnreviewedRevision",
+    path: "src/agent/tools/artifact.ts",
+    find: "  const reviewed = validateRevisionUnreviewed(workflow, pointer, revision);\n  if (reviewed) return reviewed;\n",
+    replace: "",
+  },
+  {
     id: "A1",
     invariant: "laterDecisionsCallsFallBackOnceOneFails",
     path: "src/decisions/ask.ts",

@@ -1,8 +1,18 @@
 import type { RefinerEntry, ReviewerEntry } from "../../config/refiner";
 import type { Stage } from "../../config/stage";
 import { describe, expect, it } from "bun:test";
-import { JUDGE_ENTRY } from "../../../test/fake-runtime";
-import { endsSegment, refinerAt, refinerCount, segmentStartOf } from "./stage-refiner";
+import { JUDGE_ENTRY, seedPullRequestTask } from "../../../test/fake-runtime";
+import { freshRuntime } from "../../../test/fresh-runtime";
+import type { TaskRow } from "../store/tasks";
+import {
+  endsSegment,
+  firstUnreviewedEntry,
+  refinerAt,
+  refinerCount,
+  segmentEndOf,
+  segmentReviews,
+  segmentStartOf,
+} from "./stage-refiner";
 
 const alignment = JUDGE_ENTRY;
 const review: ReviewerEntry = { name: "review", mode: "findings", skill: "implement-review" };
@@ -89,4 +99,88 @@ describe("refinerCount", () => {
   it("is zero when the stage declares neither", () => {
     expect(refinerCount(stageOf([], []))).toBe(0);
   });
+});
+
+describe("segmentEndOf", () => {
+  it("ends a segment of plain entries at its last entry", () => {
+    expect(segmentEndOf(0, [review, final])).toBe(1);
+  });
+
+  it("ends a segment at its judge entry", () => {
+    expect(segmentEndOf(0, [review, alignment, final])).toBe(1);
+    expect(segmentEndOf(2, [review, alignment, final])).toBe(2);
+  });
+});
+
+function withRuns(test: (runAt: (index: number, revision: string | null) => TaskRow) => void) {
+  return freshRuntime((workflow) => {
+    seedPullRequestTask(workflow);
+    const author = workflow.store.authorTaskOf("wf_x-1");
+    let sequence = 0;
+    test((index, revision) => {
+      sequence += 1;
+      return {
+        ...author,
+        task_id: `wf_x.run-${sequence}`,
+        role: "reviewer",
+        refiner_index: index,
+        result:
+          revision === null
+            ? null
+            : { kind: "review", revision, blocking: false, summary: "", findings: [] },
+      };
+    });
+  });
+}
+
+describe("segmentReviews", () => {
+  it("reads the latest run of each entry", () =>
+    withRuns((runAt) => {
+      const runs = [runAt(0, "a"), runAt(1, "b"), runAt(0, "b")];
+      expect(segmentReviews(runs, 0, 1).map(({ review: filed }) => filed.revision)).toEqual([
+        "b",
+        "b",
+      ]);
+    }));
+
+  it("leaves out an entry whose latest run filed nothing", () =>
+    withRuns((runAt) => {
+      const runs = [runAt(0, "a"), runAt(1, "a"), runAt(1, null)];
+      expect(segmentReviews(runs, 0, 1).map((filed) => filed.refiner_index)).toEqual([0]);
+    }));
+});
+
+describe("firstUnreviewedEntry", () => {
+  const entries = [review, final];
+
+  it("passes over an entry that reviewed the revision", () =>
+    withRuns((runAt) => {
+      const runs = [runAt(0, "a"), runAt(1, "b")];
+      expect(firstUnreviewedEntry({ entries, runs, from: 0, revision: "b" })).toBe(0);
+      expect(firstUnreviewedEntry({ entries, runs, from: 1, revision: "a" })).toBe(1);
+    }));
+
+  it("is null when every entry left in the segment reviewed the revision", () =>
+    withRuns((runAt) => {
+      const runs = [runAt(0, "b"), runAt(1, "b")];
+      expect(firstUnreviewedEntry({ entries, runs, from: 0, revision: "b" })).toBeNull();
+      expect(firstUnreviewedEntry({ entries, runs, from: 1, revision: "b" })).toBeNull();
+    }));
+
+  it("stops at the segment end", () =>
+    withRuns((runAt) => {
+      const runs = [runAt(0, "b")];
+      expect(
+        firstUnreviewedEntry({ entries: [review, alignment], runs, from: 0, revision: "b" }),
+      ).toBe(1);
+      expect(firstUnreviewedEntry({ entries: [final, review], runs, from: 0, revision: "b" })).toBe(
+        1,
+      );
+    }));
+
+  it("runs every entry on a revision the host cannot say", () =>
+    withRuns((runAt) => {
+      const runs = [runAt(0, "b"), runAt(1, "b")];
+      expect(firstUnreviewedEntry({ entries, runs, from: 0, revision: null })).toBe(0);
+    }));
 });

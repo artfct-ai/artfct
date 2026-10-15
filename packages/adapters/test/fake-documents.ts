@@ -22,7 +22,10 @@ export type DocumentsAnswers = {
   comments?: Record<string, FetchedComment | null>;
   /** The comments `heldComments` answers with at first, until they are acknowledged. */
   held?: HeldComment[];
-  /** The page every `document` call answers with. */
+  /**
+   * The page every `page` call answers with. Without it, a page the host holds answers with a
+   * revision that each change of its text bumps.
+   */
   document?: DocumentPage | null;
   /** Page id by page URL. A URL not listed resolves to null. */
   pages?: Record<string, string>;
@@ -83,6 +86,7 @@ export class FakeDocuments implements Documents {
   private readonly log: CallLog<DocumentsMethod>;
   private readonly pageLines = new Map<string, FakeLine[]>();
   private readonly pageTitles = new Map<string, string>();
+  private readonly pageRevisions = new Map<string, number>();
   private readonly acknowledged = new Set<string>();
   private readonly held: HeldComment[];
   private readonly personComments: FakePersonComment[] = [];
@@ -113,6 +117,12 @@ export class FakeDocuments implements Documents {
     return (this.pageLines.get(pageId) ?? []).map((line) => line.id);
   }
 
+  /** The revision of a page the host holds, without recording a call. Null for any other page. */
+  pageRevision(pageId: string): string | null {
+    const revision = this.pageRevisions.get(pageId);
+    return revision === undefined ? null : String(revision);
+  }
+
   /** The title of a page the host created, as it holds it now. Undefined for any other page. */
   pageTitle(pageId: string): string | undefined {
     return this.pageTitles.get(pageId);
@@ -120,7 +130,15 @@ export class FakeDocuments implements Documents {
 
   /** Put a page on the host with this text, as a person would have made it. */
   seedPage(pageId: string, text: string): void {
-    this.pageLines.set(pageId, this.newLines(text));
+    this.setPageLines(pageId, this.newLines(text));
+  }
+
+  /** Hold new lines for a page, and bump its revision when its text changed. */
+  private setPageLines(pageId: string, lines: FakeLine[]): void {
+    const before = this.pageText(pageId);
+    this.pageLines.set(pageId, lines);
+    if (this.pageText(pageId) === before) return;
+    this.pageRevisions.set(pageId, (this.pageRevisions.get(pageId) ?? 0) + 1);
   }
 
   /** A person comments on a line of a page, or on the whole page when `lineId` is null. */
@@ -153,7 +171,11 @@ export class FakeDocuments implements Documents {
 
   async page(pageId: string): Promise<DocumentPage | null> {
     this.record("page", pageId);
-    return this.answers.document ?? null;
+    if (this.answers.document !== undefined) return this.answers.document;
+    const revision = this.pageRevision(pageId);
+    return revision === null
+      ? null
+      : { id: pageId, contentId: null, url: fakePageUrl(pageId), revision };
   }
 
   async pageFromUrl(url: string): Promise<{ page_id: string } | null> {
@@ -170,10 +192,15 @@ export class FakeDocuments implements Documents {
   private addPage(title: string, text: string, parent: string): DocumentPage {
     this.pageSeq += 1;
     const id = `page-${this.pageSeq}`;
-    this.pageLines.set(id, this.newLines(text));
+    this.setPageLines(id, this.newLines(text));
     this.pageTitles.set(id, title);
     this.showChild(parent, id, title);
-    return { id, contentId: null, url: fakePageUrl(id), revision: "1" };
+    return {
+      id,
+      contentId: null,
+      url: fakePageUrl(id),
+      revision: String(this.pageRevisions.get(id)),
+    };
   }
 
   /** A nesting host lists a child page at the end of its parent, the way Notion does. */
@@ -181,7 +208,7 @@ export class FakeDocuments implements Documents {
     const parentLines = this.pageLines.get(parentId);
     if (!this.answers.nests || !parentLines) return;
     const childLine = this.newLine(`<page url="${fakePageUrl(childId)}">${title}</page>`);
-    this.pageLines.set(parentId, [...parentLines, childLine]);
+    this.setPageLines(parentId, [...parentLines, childLine]);
   }
 
   private fakeNesting(): PageNesting {
@@ -225,7 +252,7 @@ export class FakeDocuments implements Documents {
       "whole" in update ? this.newLines(update.whole) : this.editedLines(lines, update.edits);
     const kept = new Set(updated.map((line) => line.id));
     const removed = lines.filter((line) => !kept.has(line.id)).map((line) => line.id);
-    this.pageLines.set(pageId, updated);
+    this.setPageLines(pageId, updated);
     if (removed.length) this.events.push({ kind: "lines_removed", pageId, lineIds: removed });
   }
 
@@ -362,7 +389,7 @@ export class FakeDocuments implements Documents {
   private appendLines(pageId: string, text: string): void {
     const lines = this.pageLines.get(pageId) ?? [];
     const isEmpty = lines.length === 1 && lines[0]?.text === "";
-    this.pageLines.set(pageId, [...(isEmpty ? [] : lines), ...this.newLines(text)]);
+    this.setPageLines(pageId, [...(isEmpty ? [] : lines), ...this.newLines(text)]);
   }
 
   private newLines(text: string): FakeLine[] {

@@ -4,14 +4,9 @@
  */
 import { REPO_FULL_NAME, RUN_ID } from "./config";
 
-import { docUrlForStage } from "../../packages/bridge/test/mock-harness-turn";
+import { docUrlForStage, notionPageId } from "../../packages/bridge/test/mock-harness-turn";
 
-export { docUrlForStage };
-
-/** The 32 hex char Notion page id the orchestrator binds for a stage's document. */
-export function notionPageId(stage: string): string {
-  return /([0-9a-f]{32})$/.exec(docUrlForStage(stage))![1]!;
-}
+export { docUrlForStage, notionPageId };
 
 /** A GitHub account as it appears in `user`, `owner`, and `sender` fields. */
 export type GithubAccount = { login: string; id: number; node_id: string; type: string };

@@ -32,6 +32,7 @@ import {
   orchestratorStaysOutOfSessionsWhenChatExists,
   refinersRunAgainOnlyOnChangedRevision,
   researchReadsCompleteOnceTheAuthorStarts,
+  reviewerRunsOnlyOnAnUnreviewedRevision,
   sessionMessageReachesItsRunningAuthorSilently,
   sessionMessageWithoutAnAuthorIsAnswered,
   sessionFeedEndsWhenItsAuthorIdles,
@@ -135,6 +136,7 @@ const STEP_INVARIANTS = [
   deliveredToHumansIsNeverCleared,
   refinersRunAgainOnlyOnChangedRevision,
   judgeRulesAtMostOnce,
+  reviewerRunsOnlyOnAnUnreviewedRevision,
   everyFeedbackGetsOneRoutingDecision,
   nothingReopensAFinishedWorkflow,
   refinerRunIsDoneOnlyAfterItsTurnEnded,
@@ -361,6 +363,7 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
             "no_conclusion",
             "decisions_fail",
           ),
+          whileRuled: fc.constantFrom("nothing", "nothing", "nothing", "approve", "reject"),
           polisher: fc.constantFrom("pushed", "nothing_pushed"),
           stopReason: fc.constantFrom(
             "end_turn",
@@ -606,20 +609,52 @@ const approvingEnd = refinerRunEnds(0, {
   reviewer: "approved",
   pageCommenting: "takes",
   judge: "approves",
+  whileRuled: "nothing",
   polisher: "nothing_pushed",
   stopReason: "end_turn",
   closing: "reports_work",
 });
 
-const findingsEnd = (pageCommenting: RefinerRunEnd["pageCommenting"]) =>
-  refinerRunEnds(0, {
+function findingsEnd(pageCommenting: RefinerRunEnd["pageCommenting"]): WorkflowAction {
+  return refinerRunEnds(0, {
     reviewer: "findings",
     pageCommenting,
     judge: "rejects",
+    whileRuled: "nothing",
     polisher: "pushed",
     stopReason: "end_turn",
     closing: "reports_work",
   });
+}
+
+const personRulesWhileTheJudgeIsRuled = [
+  ...draftedArtifact,
+  refinerRunEnds(0, {
+    reviewer: "approved",
+    pageCommenting: "takes",
+    judge: "approves",
+    whileRuled: "reject",
+    polisher: "nothing_pushed",
+    stopReason: "end_turn",
+    closing: "reports_work",
+  }),
+];
+
+const revisionMovesBetweenTwoReviewers = [
+  ...draftedArtifact,
+  findingsEnd("takes"),
+  agentPromptsAuthor(0),
+  authorTurnEnds(0, "changed"),
+  findingsEnd("takes"),
+  findingsEnd("takes"),
+];
+
+const reviewAskedOnAnUnchangedRevision = [
+  ...draftedArtifact,
+  findingsEnd("takes"),
+  authorTurnEnds(0, "same"),
+  agentRoutes(0, "request_review"),
+];
 
 const reviewedOnAFlakyHost = [
   ...draftedArtifact,
@@ -660,6 +695,9 @@ const openings: fc.Arbitrary<WorkflowAction[]> = fc.constantFrom(
   [],
   draftedArtifact,
   [...draftedArtifact, approvingEnd, approvingEnd, approvingEnd],
+  personRulesWhileTheJudgeIsRuled,
+  reviewAskedOnAnUnchangedRevision,
+  revisionMovesBetweenTwoReviewers,
   reviewedOnAFlakyHost,
   abandonedArtifact,
   issueStartedAgain,
@@ -670,13 +708,18 @@ const sequences: fc.Arbitrary<WorkflowAction[]> = fc
   .tuple(openings, fc.array(actions, { maxLength: MAX_ACTIONS, size: "max" }))
   .map(([opening, rest]) => [...opening, ...rest]);
 
-async function holdsThroughout(setup: WorldSetup, sequence: WorkflowAction[]): Promise<void> {
+async function worldAfter(setup: WorldSetup, sequence: WorkflowAction[]): Promise<WorkflowWorld> {
   const world = await WorkflowWorld.open(setup);
   for (const action of sequence) {
     const step = await world.apply(action);
     for (const invariant of STATE_INVARIANTS) invariant(world.workflow);
     for (const invariant of STEP_INVARIANTS) invariant(world.workflow, step);
   }
+  return world;
+}
+
+async function holdsThroughout(setup: WorldSetup, sequence: WorkflowAction[]): Promise<void> {
+  await worldAfter(setup, sequence);
 }
 
 describe("the workflow invariants", () => {
@@ -685,7 +728,7 @@ describe("the workflow invariants", () => {
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
       await fc.assert(property, propertyRuns("workflow invariants on any refiner list", NUM_RUNS));
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(45);
+      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(46);
     },
     TIMEOUT_MS,
   );
@@ -711,17 +754,6 @@ describe("the workflow invariants", () => {
     TIMEOUT_MS,
   );
 });
-
-function findingsOnHost(pageCommenting: RefinerRunEnd["pageCommenting"]): WorkflowAction {
-  return refinerRunEnds(0, {
-    reviewer: "findings",
-    pageCommenting,
-    judge: "rejects",
-    polisher: "pushed",
-    stopReason: "end_turn",
-    closing: "reports_work",
-  });
-}
 
 describe("a job that continued its own input", () => {
   it("frees that input for the next job once it finishes, on a pull", async () => {
@@ -769,13 +801,59 @@ describe("a job that continued its own input", () => {
       [
         firstArtifactAppears(0, "author_text", "the_subject_issue"),
         authorTurnEnds(0, "same"),
-        findingsOnHost("drops_inline"),
-        findingsOnHost("takes"),
-        findingsOnHost("inline_throws"),
-        findingsOnHost("down"),
+        findingsEnd("drops_inline"),
+        findingsEnd("takes"),
+        findingsEnd("inline_throws"),
+        findingsEnd("down"),
         authorTurnEnds(0, "changed", "finished", "agent_cancels"),
         agentStartsTask("pull", "the_subject_issue", REQUEST_TEXTS[0]),
       ],
     );
+  });
+});
+
+function pullSetup(refiners: WorldSetup["refiners"]): WorldSetup {
+  return {
+    opening: "job",
+    artifact: "pull",
+    refiners,
+    research: false,
+    pageAuthor: "harness",
+    checksOnPush: "passed",
+    pageEnding: "acceptance",
+    origin: "chat",
+    firstInput: "request",
+    subject: "none",
+  };
+}
+
+function entriesRun(world: WorkflowWorld): Array<number | null> {
+  return world.workflow.store
+    .refinerRunsOf(world.jobOf(world.authorAt(0)!).job_id)
+    .map((run) => run.refiner_index);
+}
+
+describe("reviewers on a revision they reviewed", () => {
+  it("refuses request_review after the author answered without a change", async () => {
+    const world = await worldAfter(pullSetup("reviewer"), reviewAskedOnAnUnchangedRevision);
+    expect(entriesRun(world)).toEqual([0]);
+  });
+
+  it("passes over a reviewer that read the revision a stale segment moved to", async () => {
+    const world = await worldAfter(pullSetup("two_reviewers"), revisionMovesBetweenTwoReviewers);
+    expect(entriesRun(world)).toEqual([0, 1, 0]);
+    const observed = world.steps.at(-1)!.after.tasks.find((task) => task.role === "author")!;
+    expect(observed.promptTexts.at(-1)).toContain("Second read");
+  });
+
+  it("has the judge's ruling and drops a later one", async () => {
+    const world = await worldAfter(
+      pullSetup("judge_then_polisher"),
+      personRulesWhileTheJudgeIsRuled,
+    );
+    const rulings = world.workflow.store
+      .refinerRunsOf(world.jobOf(world.authorAt(0)!).job_id)
+      .flatMap((run) => (run.result?.kind === "ruling" ? [run.result.ruling] : []));
+    expect(rulings).toEqual(["rejected"]);
   });
 });

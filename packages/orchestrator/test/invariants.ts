@@ -4,6 +4,7 @@ import type { ArtifactStatus, TaskStatus, WorkflowStatus } from "@artfct-ai/cont
 import { ASK_WHETHER_ACCEPTED, ASK_WHICH_OPTION } from "../src/agent/tools/start/start";
 import type { PlanEntry } from "@agentclientprotocol/sdk";
 import { findingText, reviewLine } from "../src/artifact/review-text";
+import { rejectionHeadline } from "../src/prompts/review-prompt";
 import type { Review } from "../src/artifact/types";
 import { boardInputOf, channelKey } from "../src/workflow/board/board";
 import {
@@ -57,6 +58,8 @@ export type ObservedArtifact = {
   status: ArtifactStatus;
   delivered_to_humans_at: string | null;
   delivered_revision: string | null;
+  /** The revision the host gives the artifact now. Null when the host cannot say. */
+  revision: string | null;
 };
 
 /** A job of the workflow: the issue it works on, if any, and its stage. */
@@ -257,7 +260,10 @@ export function refinersRunAgainOnlyOnChangedRevision(
   }
 }
 
-/** A judge entry rules at most once on an artifact, and its ruling never changes. */
+/**
+ * A judge entry rules at most once on an artifact, and its ruling never changes. An author that
+ * got a rejection from a judge entry finds that entry's ruling stored as rejected.
+ */
 export function judgeRulesAtMostOnce(workflow: WorkflowRuntime, step: Step): void {
   for (const author of step.after.tasks.filter((task) => task.role === "author")) {
     const reviewers = workflow.stageFor(workflow.store.requireJob(author.job_id)).reviewers;
@@ -281,6 +287,55 @@ export function judgeRulesAtMostOnce(workflow: WorkflowRuntime, step: Step): voi
       if (earlier != null && earlier !== run.ruling) {
         violated("judgeRulesAtMostOnce", `${run.task_id} went from ${earlier} to ${run.ruling}`);
       }
+    }
+    reviewers.forEach((entry, index) => {
+      if (entry.mode !== "judge") return;
+      const headline = rejectionHeadline(entry.name);
+      if (!author.promptTexts.some((text) => text.startsWith(headline))) return;
+      const result = workflow.store
+        .refinerRunsOf(author.job_id)
+        .find((run) => run.refiner_index === index && run.result?.kind === "ruling")?.result;
+      const stored = result?.kind === "ruling" ? result.ruling : null;
+      if (stored !== "rejected") {
+        violated(
+          "judgeRulesAtMostOnce",
+          `${author.task_id} got a rejection from ${entry.name}, whose stored ruling is ${stored}`,
+        );
+      }
+    });
+  }
+}
+
+/**
+ * A reviewer run starts only on a revision that no earlier run of its entry filed a review or
+ * ruling of. A host that cannot say the revision counts as a changed one.
+ */
+export function reviewerRunsOnlyOnAnUnreviewedRevision(
+  workflow: WorkflowRuntime,
+  step: Step,
+): void {
+  const known = new Set(step.before.tasks.map((task) => task.task_id));
+  for (const run of step.after.tasks) {
+    if (known.has(run.task_id) || run.role !== "reviewer") continue;
+    const turn = step.authorTurnEnd;
+    const unreadAtTurnEnd =
+      turn !== null &&
+      turn.hostRevision === null &&
+      turn.task_id === authorIn(step.after, run.job_id)?.task_id;
+    const revision = artifactIn(step.after, run.job_id)?.revision ?? null;
+    if (unreadAtTurnEnd || revision === null) continue;
+    const earlier = workflow.store.refinerRunsOf(run.job_id).find((other) => {
+      if (other.task_id === run.task_id || other.refiner_index !== run.refiner_index) return false;
+      const result = other.result;
+      return (
+        (result?.kind === "review" || result?.kind === "ruling") && result.revision === revision
+      );
+    });
+    if (earlier) {
+      violated(
+        "reviewerRunsOnlyOnAnUnreviewedRevision",
+        `${run.task_id} started on ${revision}, which ${earlier.task_id} of its entry reviewed`,
+      );
     }
   }
 }
