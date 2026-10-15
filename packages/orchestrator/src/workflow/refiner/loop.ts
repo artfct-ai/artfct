@@ -22,6 +22,7 @@ import {
   refinerAt,
   reviewerEntryOf,
   reviewerSignature,
+  firstEntryToRerun,
   firstUnreviewedEntry,
   segmentEndOf,
   segmentReviews,
@@ -65,18 +66,14 @@ export async function settleRefinersForAuthor(
   const author = workflow.store.requireTask(task.task_id);
   if (refinerInFlight(workflow, task.job_id) || !taskQuiet(workflow, author)) return;
   const pointer = refinerRunOf(workflow, artifact);
-  if (!pointer) {
-    await runRefinersFrom(workflow, task, 0);
-    return;
-  }
+  if (!pointer) return rerunRefiners(workflow, task, artifact);
   if (pointer.role === "polisher") {
     workflow.store.setArtifactRefinerRun(task.job_id, null);
     workflow.log(
       task.task_id,
       "a finished polisher still holds the artifact. the refiners re-run.",
     );
-    await runRefinersFrom(workflow, task, 0);
-    return;
+    return rerunRefiners(workflow, task, artifact);
   }
   if (reviewerEntryOf(workflow, pointer)?.mode !== "judge") {
     if (reviewLimitReached(workflow, pointer)) {
@@ -90,6 +87,28 @@ export async function settleRefinersForAuthor(
     return askAgentToRoute(workflow, task, artifact, pointer);
   }
   if (judgeRejected(pointer)) await runRefinersFrom(workflow, task, refinerIndexOf(pointer) + 1);
+}
+
+/**
+ * Run the list again from its first entry that did not review the artifact's revision. The
+ * author row is read again after the host, because a prompt can reach the author meanwhile.
+ */
+async function rerunRefiners(
+  workflow: WorkflowRuntime,
+  author: TaskRow,
+  artifact: ArtifactRow,
+): Promise<void> {
+  const revision = await artifactRevision(workflow, artifact);
+  const current = workflow.store.requireTask(author.task_id);
+  if (refinerInFlight(workflow, author.job_id) || !taskQuiet(workflow, current)) return;
+  const from = firstEntryToRerun({
+    entries: workflow.stageForTask(author).reviewers,
+    runs: workflow.store.refinerRunsOf(author.job_id),
+    revision,
+  });
+  if (from > 0)
+    workflow.log(author.task_id, `entries before ${from} passed over: they reviewed this revision`);
+  await runRefinersFrom(workflow, current, from);
 }
 
 /**

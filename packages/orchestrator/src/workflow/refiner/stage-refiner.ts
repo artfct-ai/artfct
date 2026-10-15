@@ -95,6 +95,28 @@ export function firstUnreviewedEntry(input: {
   return null;
 }
 
+/**
+ * The first entry a re-run of the list starts at. An entry that already reviewed or ruled on
+ * `revision` is passed over, and so is a judge entry that ruled on any revision.
+ */
+export function firstEntryToRerun(input: {
+  entries: ReviewerEntry[];
+  runs: TaskRow[];
+  revision: string | null;
+}): number {
+  const { entries, runs, revision } = input;
+  let index = 0;
+  while (
+    index < entries.length &&
+    (entryReviewedRevision(runs, index, revision) ||
+      (entries[index]?.mode === "judge" &&
+        runs.some((run) => run.refiner_index === index && run.result?.kind === "ruling")))
+  ) {
+    index += 1;
+  }
+  return index;
+}
+
 /** The reviewer entry of a refiner run, or null when its stage no longer declares it. */
 export function reviewerEntryOf(workflow: WorkflowRuntime, run: TaskRow): ReviewerEntry | null {
   const refiner = refinerAt(workflow.stageForTask(run), refinerIndexOf(run));

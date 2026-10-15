@@ -656,6 +656,13 @@ const reviewAskedOnAnUnchangedRevision = [
   agentRoutes(0, "request_review"),
 ];
 
+const reviewedWhileTheAuthorWorks = [
+  ...draftedArtifact,
+  agentPromptsAuthor(0),
+  approvingEnd,
+  authorTurnEnds(0, "same"),
+];
+
 const reviewedOnAFlakyHost = [
   ...draftedArtifact,
   findingsEnd("drops_inline"),
@@ -698,6 +705,7 @@ const openings: fc.Arbitrary<WorkflowAction[]> = fc.constantFrom(
   personRulesWhileTheJudgeIsRuled,
   reviewAskedOnAnUnchangedRevision,
   revisionMovesBetweenTwoReviewers,
+  reviewedWhileTheAuthorWorks,
   reviewedOnAFlakyHost,
   abandonedArtifact,
   issueStartedAgain,
@@ -844,6 +852,14 @@ describe("reviewers on a revision they reviewed", () => {
     expect(entriesRun(world)).toEqual([0, 1, 0]);
     const observed = world.steps.at(-1)!.after.tasks.find((task) => task.role === "author")!;
     expect(observed.promptTexts.at(-1)).toContain("Second read");
+  });
+
+  it("passes over a reviewer that approved the revision while the author worked", async () => {
+    const world = await worldAfter(
+      pullSetup("reviewer_then_polisher"),
+      reviewedWhileTheAuthorWorks,
+    );
+    expect(entriesRun(world)).toEqual([0, 1]);
   });
 
   it("has the judge's ruling and drops a later one", async () => {
