@@ -17,6 +17,8 @@ import type { TaskEvent, TaskRole } from "../src/workflow/task/events";
 import { taskAtWork } from "../src/workflow/task/at-work";
 import type { Wake, WorkflowRuntime } from "../src/workflow/types";
 import { STOPPED_TEXT } from "../src/workflow/feed/feed";
+import type { Subject } from "../src/workflow/store/state";
+import { worldIssueInSubject } from "./world-tracker";
 
 /** One task row as an observer saw it. `ruling` is the stored ruling as text, or null. */
 export type ObservedTask = {
@@ -56,8 +58,18 @@ export type ObservedArtifact = {
   delivered_revision: string | null;
 };
 
+/** A job of the workflow: the issue it works on, if any, and its stage. */
+export type ObservedJob = { job_id: string; issue_id: string | null; stage: string };
+
 /** What an observer saw of the workflow between two actions. */
 export type Observation = {
+  /** The one issue or tracker project the workflow works on, or null before it has one. */
+  subject: Subject | null;
+  /** The last stage of the plan, or null before a plan with stages. */
+  lastStage: string | null;
+  /** True when a planned stage produces issues. */
+  plansIssues: boolean;
+  jobs: ObservedJob[];
   workflowStatus: WorkflowStatus;
   /** The workflow definition the workflow runs, or null before the plan that starts it. */
   definition: string | null;
@@ -110,6 +122,10 @@ export type Step = {
   storedActivities: string[];
   streamedTexts: string[];
   postedTexts: string[];
+  /** Set when the agent called start_job. `refused` is true when the tool did not start a job. */
+  start: { refused: boolean } | null;
+  /** True when the agent called finish_workflow. */
+  finishedByAgent: boolean;
   /** Set when the agent called set_plan. `definition` is the workflow definition the call named. */
   plan: { definition: string } | null;
   /** How many tracker issue updates the step wrote, a move to started among them. */
@@ -351,6 +367,77 @@ export function workflowStartsOnlyFromAPlan(workflow: WorkflowRuntime, step: Ste
   }
 }
 
+/**
+ * A job whose input is an issue names the subject issue or an issue in its scope. A start the tool
+ * refused leaves the jobs unchanged.
+ */
+export function aJobWorksOnlyOnIssuesOfItsSubject(_workflow: WorkflowRuntime, step: Step): void {
+  const { subject, jobs } = step.after;
+  for (const job of jobs) {
+    if (!job.issue_id || (subject && worldIssueInSubject(subject, job.issue_id))) continue;
+    violated(
+      "aJobWorksOnlyOnIssuesOfItsSubject",
+      `after ${step.action}, ${job.job_id} works on ${job.issue_id} outside the subject ${describeSubject(subject)}`,
+    );
+  }
+  if (step.start?.refused && jobs.length !== step.before.jobs.length) {
+    violated("aJobWorksOnlyOnIssuesOfItsSubject", `${step.action} was refused and added a job`);
+  }
+}
+
+/** The subject never changes once set. */
+export function subjectNeverChanges(_workflow: WorkflowRuntime, step: Step): void {
+  const { subject } = step.before;
+  if (!subject || describeSubject(step.after.subject) === describeSubject(subject)) return;
+  violated(
+    "subjectNeverChanges",
+    `${step.action} moved the subject from ${describeSubject(subject)} to ${describeSubject(step.after.subject)}`,
+  );
+}
+
+/**
+ * A single-issue workflow is done in the same step that a complete_job call completes the job on
+ * its subject issue at the last planned stage. A workflow becomes done in no other step, except
+ * one where the agent called finish_workflow, so a cancel or a failure of that job does not
+ * complete it.
+ */
+export function aSingleIssueWorkflowIsDoneWithItsSubjectsJob(
+  _workflow: WorkflowRuntime,
+  step: Step,
+): void {
+  const completesSubjectsJob = completedSubjectJobAtLastStage(step);
+  const singleIssue = step.after.subject?.kind === "issue" && !step.after.plansIssues;
+  if (completesSubjectsJob && singleIssue && step.after.workflowStatus !== "done") {
+    violated(
+      "aSingleIssueWorkflowIsDoneWithItsSubjectsJob",
+      `${step.action} completed the job on the subject at the last stage, and the workflow is ${step.after.workflowStatus}`,
+    );
+  }
+  const becameDone = step.before.workflowStatus !== "done" && step.after.workflowStatus === "done";
+  if (becameDone && !step.finishedByAgent && !(completesSubjectsJob && singleIssue)) {
+    violated(
+      "aSingleIssueWorkflowIsDoneWithItsSubjectsJob",
+      `${step.action} made the workflow done without completing the job on its subject issue`,
+    );
+  }
+}
+
+function completedSubjectJobAtLastStage(step: Step): boolean {
+  const { completion } = step;
+  const { subject } = step.after;
+  if (!completion || subject?.kind !== "issue") return false;
+  const before = step.before.tasks.find((task) => task.task_id === completion.task_id);
+  const after = step.after.tasks.find((task) => task.task_id === completion.task_id);
+  if (!after || after.status !== "done" || before?.status === "done") return false;
+  const job = step.after.jobs.find((candidate) => candidate.job_id === after.job_id);
+  return job?.issue_id === subject.issue_id && job.stage === step.after.lastStage;
+}
+
+function describeSubject(subject: Subject | null): string {
+  if (!subject) return "none";
+  return subject.kind === "issue" ? `issue ${subject.issue_id}` : `project ${subject.project_id}`;
+}
+
 /** A later plan cannot change the workflow definition a workflow started with. */
 export function workflowKeepsItsDefinition(_workflow: WorkflowRuntime, step: Step): void {
   const { definition } = step.before;
@@ -362,8 +449,8 @@ export function workflowKeepsItsDefinition(_workflow: WorkflowRuntime, step: Ste
 }
 
 /**
- * In a workflow that started from a chat thread, every issue a job works on gets exactly one link
- * request to that thread. A workflow that started in the tracker sends none.
+ * In a workflow that started from a chat thread, an issue subject and every issue a job works on
+ * get exactly one link request to that thread. A workflow that started in the tracker sends none.
  */
 export function eachIssueLinksTheChatThreadOnce(workflow: WorkflowRuntime): void {
   const linkedIssues = workflow.store
@@ -376,7 +463,9 @@ export function eachIssueLinksTheChatThreadOnce(workflow: WorkflowRuntime): void
     }
     return;
   }
+  const { subject } = workflow.state;
   const workedIssues = new Set(workflow.store.jobs().flatMap((job) => job.issue_id ?? []));
+  if (subject?.kind === "issue") workedIssues.add(subject.issue_id);
   for (const issue of workedIssues) {
     const links = occurrences(linkedIssues, issue);
     if (links !== 1) {
@@ -385,7 +474,10 @@ export function eachIssueLinksTheChatThreadOnce(workflow: WorkflowRuntime): void
   }
   for (const issue of linkedIssues) {
     if (!workedIssues.has(issue)) {
-      violated("eachIssueLinksTheChatThreadOnce", `${issue} was linked without a job on it`);
+      violated(
+        "eachIssueLinksTheChatThreadOnce",
+        `${issue} was linked without a job on it and is not the subject`,
+      );
     }
   }
 }

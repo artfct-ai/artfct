@@ -48,9 +48,10 @@ export async function applyControlWord(
 }
 
 /**
- * A cancel on a tracker issue the workflow did not start from cancels that issue's job alone.
- * One on an issue whose artifact the host accepted is left alone. Everything else cancels the
- * workflow. Returns the reason it was left alone, or null.
+ * A cancel on a tracker issue other than the subject issue cancels that issue's job alone, and
+ * the notice answers the people who wrote from `answering`. One on an issue whose job is over,
+ * or whose artifact the host accepted, is left alone. Everything else cancels the workflow.
+ * Returns the reason it was left alone, or null.
  */
 async function cancel(
   workflow: WorkflowRuntime,
@@ -65,10 +66,17 @@ async function cancel(
     workflow.log(null, `cancel ignored: ${why} (${reason})`);
     return why;
   }
-  const origin = workflow.state.origin;
-  const originIssue = origin?.source === "tracker" ? origin.issue_id : null;
-  if (owner && owner.issue_id !== originIssue) {
-    await cancelTask(workflow, workflow.store.authorOrResearcherTaskOf(owner.job_id), reason);
+  const subject = workflow.state.subject ?? null;
+  const subjectIssue = subject?.kind === "issue" ? subject.issue_id : null;
+  if (owner && owner.issue_id !== subjectIssue) {
+    const task = workflow.store.authorOrResearcherTaskOf(owner.job_id);
+    if (isTaskFinished(task.status)) {
+      const why = `job ${owner.job_id} is already over`;
+      workflow.log(null, `cancel ignored: ${why} (${reason})`);
+      return why;
+    }
+    await cancelTask(workflow, task, reason);
+    await workflow.post({ type: "info", text: `Cancelled job ${owner.job_id}.` }, { answering });
     return null;
   }
   await cancelWorkflow(workflow, reason, answering);

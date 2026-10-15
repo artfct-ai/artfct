@@ -62,6 +62,7 @@ export type PageClients = {
 export function pageArtifact(clients: PageClients): Artifact {
   return {
     detect: (text) => detect(clients, text),
+    endsTurn: false,
     binding: (ref) => binding(ref),
     instructions: {
       ...clients.instructions,

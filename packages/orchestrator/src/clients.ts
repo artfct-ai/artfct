@@ -28,7 +28,10 @@ import type { Gateway } from "@artfct-ai/adapters/gateway/types";
 import { harnessAdapter } from "@artfct-ai/adapters/harness/clients";
 import type { Harness, HarnessAdapter } from "@artfct-ai/adapters/harness/types";
 import type { TokenSource } from "@artfct-ai/adapters/tracker/linear/sdk";
-import { linearIssueKeyFromUrl } from "@artfct-ai/adapters/tracker/linear/url";
+import {
+  linearIssueKeyFromUrl,
+  linearProjectSlugFromUrl,
+} from "@artfct-ai/adapters/tracker/linear/url";
 import type { HostInstructions } from "@artfct-ai/adapters/instructions";
 import type { McpServer } from "@artfct-ai/adapters/mcp";
 import { LinearTracker } from "@artfct-ai/adapters/tracker/linear/tracker";
@@ -46,7 +49,7 @@ import type { ArtifactKind } from "@artfct-ai/contracts/types";
 import { issuesArtifact } from "./artifact/issues";
 import { pageArtifact } from "./artifact/page";
 import { pullArtifact } from "./artifact/pull";
-import type { Artifact } from "./artifact/types";
+import type { Artifact, TrackerRef } from "./artifact/types";
 import type { GatewayAdapter, GatewayProvider } from "./config/gateway";
 import type {
   ChatProvider,
@@ -187,6 +190,8 @@ export type ArtifactClients = {
   code: () => CodeHost | null;
   /** The document host, for the kinds that live on it. Null without a credential. */
   documents: () => Promise<Documents | null>;
+  /** The tracker, for the kinds that live on it. Null without a credential. */
+  tracker: () => Promise<Tracker | null>;
   /** The repository the workflow works in. Another repository's artifact is not this one. */
   repo: () => string | null;
   log: (line: string) => void;
@@ -249,7 +254,7 @@ export function artifact(kind: ArtifactKind, clients: ArtifactClients): Artifact
       });
     case "issues":
       return issuesArtifact({
-        ownsUrl: (url) => trackerOwnsUrl(adapters.tracker.provider, url),
+        readUrl: (url) => trackerRefFromUrl(adapters.tracker.provider, url, clients.tracker),
         mcp,
         instructions: issuesInstructions(adapters.tracker.provider),
         notes: repositoryInstructions(adapters.code.provider),
@@ -344,10 +349,24 @@ async function pageFromUrl(
   }
 }
 
-function trackerOwnsUrl(provider: TrackerProvider, url: string): boolean {
+/** The issue or project a tracker link names, read from the tracker. Null without a tracker. */
+async function trackerRefFromUrl(
+  provider: TrackerProvider,
+  url: string,
+  trackerOf: () => Promise<Tracker | null>,
+): Promise<TrackerRef | null> {
   switch (provider) {
-    case "linear":
-      return linearIssueKeyFromUrl(url) !== null;
+    case "linear": {
+      const issueKey = linearIssueKeyFromUrl(url);
+      if (issueKey) {
+        const issue = await (await trackerOf())?.issue(issueKey);
+        return issue ? { kind: "issue", issue_id: issue.id, issue_key: issue.identifier } : null;
+      }
+      const projectSlug = linearProjectSlugFromUrl(url);
+      if (!projectSlug) return null;
+      const project = await (await trackerOf())?.project(projectSlug);
+      return project ? { kind: "project", project_id: project.id } : null;
+    }
     default: {
       const unreachable: never = provider;
       throw new Error(`unhandled tracker provider ${String(unreachable)}`);

@@ -23,6 +23,12 @@ export const ALLOWED_WORDS: AllowedWord[] = [
   { word: "board", paths: "everywhere", reason: "board is its own glossary term." },
   { word: "summary", paths: "everywhere", reason: "Step, page review, and digest summaries." },
   { word: "bridge", paths: "everywhere", reason: "The sandbox bridge process." },
+  { word: "binding", paths: "everywhere", reason: "binding is its own router term." },
+  {
+    word: "scope",
+    paths: "everywhere",
+    reason: "The scope of a request or a change, and OAuth scopes.",
+  },
   { word: "the review", paths: "everywhere", reason: "review is its own glossary term." },
   {
     word: "note",
@@ -97,7 +103,6 @@ export const ALLOWED_WORDS: AllowedWord[] = [
       "packages/adapters/src/documents/notion/documents.ts",
       "packages/adapters/src/tracker/linear/inbound-comment.ts",
       "packages/adapters/src/tracker/linear/tracker.ts",
-      "packages/orchestrator/src/agent/tools/start/start.ts",
     ],
     reason: "A Notion, Linear, or Slack integration is the vendor's app.",
   },

@@ -32,7 +32,8 @@ import { startJob, type JobIssue } from "../src/workflow/lifecycle";
 import { createWorkflow, handleEvent } from "../src/workflow/inbound/events";
 import { parseControl } from "../src/workflow/inbound/control-words";
 import { plainText } from "../src/notify/messages";
-import { isTaskFinished } from "../src/workflow/store/state";
+import { isTaskFinished, type Subject } from "../src/workflow/store/state";
+import { originSubject, setWorkflowSubject } from "../src/workflow/subject";
 import type { ArtifactRow, JobRow, TaskRow } from "../src/workflow/store/tasks";
 import { onBridgeClosed, type ConnectionState } from "../src/workflow/task/harness/bridge";
 import { provision } from "../src/workflow/task/sandbox/sandbox";
@@ -57,6 +58,14 @@ import type { Observation, Step } from "./invariants";
 import { openMemoryDb } from "./memory-db";
 import { activityText, SessionTracker, type TrackerHealth } from "./session-tracker";
 import { testEnv } from "./test-env";
+import {
+  strayIssueKey,
+  SUBJECT_ISSUE_KEY,
+  WORLD_ISSUES,
+  WORLD_PROJECT,
+  WORLD_PROJECTS,
+  worldIssueUrl,
+} from "./world-tracker";
 
 /** The refiner lists a world can declare on its stages. */
 export const REFINER_SETUPS = [
@@ -86,7 +95,20 @@ export type WorldSetup = {
   pageEnding: PageEnding;
   origin: OriginSurface;
   firstInput: FirstInput;
+  subject: PlannedSubject;
 };
+
+/**
+ * What the plan of a world that opens on its first job named as the subject, when the origin
+ * does not set one. A first job on the origin issue needs that issue as the subject.
+ */
+export type PlannedSubject = "none" | "project";
+
+/**
+ * What a tracker link a breakdown author ends its turn with, or a plan names, points at: the
+ * subject issue, the world's project, or an issue outside both.
+ */
+export type TrackerLink = "the_subject_issue" | "a_project" | "a_stray_issue";
 
 export type FirstInput = "request" | "origin_issue";
 
@@ -97,8 +119,8 @@ export type PageAuthor = "harness" | "model";
 export type PageModelAnswer = "page" | "blank" | "throws";
 
 const ORIGIN_ISSUE: JobIssue = {
-  id: "ENG-100",
-  key: "ENG-100",
+  id: SUBJECT_ISSUE_KEY,
+  key: SUBJECT_ISSUE_KEY,
   title: "Fix login",
   team_id: null,
   started: false,
@@ -115,7 +137,7 @@ export type OriginSurface = "chat" | "tracker";
 
 const ORIGINS: Record<OriginSurface, ReplyTarget> = {
   chat: { source: "chat", channel: "C1", thread: "1.0" },
-  tracker: { source: "tracker", session_id: "session-origin", issue_id: "ENG-100" },
+  tracker: { source: "tracker", session_id: "session-origin", issue_id: SUBJECT_ISSUE_KEY },
 };
 
 /** How a job on the page stage ends: a person accepts the page, or selects one of its options. */
@@ -214,6 +236,8 @@ export type StepFacts = Partial<
     | "modelCallStopped"
     | "plan"
     | "heldCommentsAsked"
+    | "start"
+    | "finishedByAgent"
     | "modelTurnCut"
   >
 >;
@@ -380,7 +404,8 @@ export class WorkflowWorld {
     const documents = pageHost();
     workflow.documentsInstance = documents;
     workflow.gatewayInstance = new FakeGateway();
-    const tracker = new SessionTracker();
+    const tracker = new SessionTracker({ issues: WORLD_ISSUES, projects: WORLD_PROJECTS });
+    workflow.trackerInstance = tracker;
     workflow.notifier = new Notifier(
       { tracker: async () => tracker, chat: null, documents: async () => null },
       (entry) => workflow.store.writeOutbox(entry),
@@ -408,6 +433,8 @@ export class WorkflowWorld {
       reply_targets: [ORIGINS[setup.origin]],
       concurrency: SLOTS,
     });
+    const subject = openingSubject(setup);
+    if (subject) await setWorkflowSubject(workflow, subject);
     const first = await startJob(workflow, {
       stage,
       brief: "Fix the login redirect.",
@@ -457,6 +484,8 @@ export class WorkflowWorld {
       plan: facts.plan ?? null,
       issueUpdates: rows.filter((row) => row.kind === "issue_update").length,
       heldCommentsAsked: facts.heldCommentsAsked ?? null,
+      start: facts.start ?? null,
+      finishedByAgent: facts.finishedByAgent ?? false,
       event: this.delivered,
       sessionPosts: sessionPostsOf(rows),
       postedTypes: this.workflow.posted.slice(postedBefore).map((event) => event.type),
@@ -554,12 +583,28 @@ export class WorkflowWorld {
       case "pull":
         return pullUrl(author.pullNumber);
       case "issues":
-        return `https://linear.app/acme/issue/ENG-4${author.pullNumber}/fix-login`;
+        return this.artifactOf(author)?.external_url ?? worldIssueUrl(SUBJECT_ISSUE_KEY);
       case "page":
         return pageUrl(author.pullNumber);
       default: {
         const unreachable: never = author.kind;
         throw new Error(`unhandled artifact kind ${String(unreachable)}`);
+      }
+    }
+  }
+
+  /** The URL of a tracker link. `index` numbers the stray issue it names. */
+  trackerLinkUrl(link: TrackerLink, index: number): string {
+    switch (link) {
+      case "the_subject_issue":
+        return worldIssueUrl(SUBJECT_ISSUE_KEY);
+      case "a_project":
+        return WORLD_PROJECT.url;
+      case "a_stray_issue":
+        return worldIssueUrl(strayIssueKey(index));
+      default: {
+        const unreachable: never = link;
+        throw new Error(`unhandled tracker link ${String(unreachable)}`);
       }
     }
   }
@@ -1074,7 +1119,20 @@ export class WorkflowWorld {
       (target): target is TrackerSession => target.source === "tracker",
     );
     const startingSession = origin?.source === "tracker" ? origin.session_id : null;
+    const { stages, definition } = this.workflow.state;
+    const declared = definition ? this.workflow.workflowDefinition().stages : [];
+    const issueStages = declared
+      .filter((stage) => stage.artifact === "issues")
+      .map((stage) => stage.name);
     return {
+      subject: this.workflow.state.subject ?? null,
+      lastStage: stages.at(-1) ?? null,
+      plansIssues: stages.some((stage) => issueStages.includes(stage)),
+      jobs: store.jobs().map((job) => ({
+        job_id: job.job_id,
+        issue_id: job.issue_id,
+        stage: job.stage,
+      })),
       workflowStatus: this.workflow.state.status,
       definition: this.workflow.state.definition,
       chatThread: replyTargets.some((target) => target.source === "chat"),
@@ -1135,6 +1193,15 @@ export class WorkflowWorld {
 }
 
 type TrackerSession = Extract<ReplyTarget, { source: "tracker" }>;
+
+/** The subject a world that opens on its first job has before that job starts. */
+function openingSubject(setup: WorldSetup): Subject | null {
+  const fromOrigin = originSubject(ORIGINS[setup.origin]);
+  if (fromOrigin) return fromOrigin;
+  if (setup.subject === "project") return { kind: "project", project_id: WORLD_PROJECT.id };
+  if (setup.firstInput === "origin_issue") return { kind: "issue", issue_id: SUBJECT_ISSUE_KEY };
+  return null;
+}
 
 const NOT_SESSION_POSTS = ["issue_update", "attach_chat_thread", "delivery_error"];
 

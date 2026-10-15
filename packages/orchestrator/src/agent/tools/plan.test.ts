@@ -1,4 +1,6 @@
 import { FakeCodeHost } from "@artfct-ai/adapters/test/fake-code-host";
+import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
+import type { TrackerIssue } from "@artfct-ai/adapters/tracker/types";
 import { describe, expect, it } from "bun:test";
 import { freshRuntime, unstartedRuntime } from "../../../test/fresh-runtime";
 import {
@@ -26,7 +28,12 @@ const THREAD = { source: "chat", channel: "C1", thread: "1.0" } as const;
 
 async function planWithPages(
   workflow: FakeRuntime,
-  fields: { stages: string[]; page_parent?: string | null; root_page?: string | null },
+  fields: {
+    stages: string[];
+    page_parent?: string | null;
+    root_page?: string | null;
+    subject?: string;
+  },
 ): Promise<string> {
   const { set_plan } = planTools(workflow);
   return toolText(
@@ -898,6 +905,112 @@ describe("set_plan on a document host that nests pages", () => {
       planned((workflow) => {
         expect(workflow.state.stages).toEqual(["implement"]);
         expect(workflow.state.root_page).toBeNull();
+      }));
+  });
+});
+
+const SUBJECT_ISSUE: TrackerIssue = {
+  id: "i100",
+  identifier: "ENG-100",
+  title: "Fix login",
+  url: "https://linear.app/acme/issue/ENG-100/fix-login",
+  state: { type: "unstarted", name: "Todo" },
+  team_id: null,
+  parent_id: null,
+  project_id: null,
+  labels: [],
+  blockers: [],
+};
+
+const PROJECT = {
+  id: "proj-1",
+  name: "Login",
+  url: "https://linear.app/acme/project/login-a1b2c3",
+};
+
+async function planWithSubject(workflow: FakeRuntime, subject: string): Promise<string> {
+  workflow.trackerInstance = new FakeTracker({
+    issues: [SUBJECT_ISSUE],
+    projects: { a1b2c3: PROJECT, [PROJECT.id]: PROJECT },
+  });
+  return planWithPages(workflow, { stages: ["implement"], subject });
+}
+
+describe("set_plan with a subject", () => {
+  describe("an issue link, in a workflow from a chat thread", () => {
+    const planned = scenario(freshRuntime, async (workflow) => {
+      workflow.patchState({ origin: THREAD, reply_targets: [THREAD] });
+      await planWithSubject(workflow, SUBJECT_ISSUE.url);
+    });
+
+    it("plans the stages", () =>
+      planned((workflow) => {
+        expect(workflow.state.stages).toEqual(["implement"]);
+      }));
+
+    it("makes the issue the subject", () =>
+      planned((workflow) => {
+        expect(workflow.state.subject).toEqual({ kind: "issue", issue_id: "i100" });
+      }));
+
+    it("links the chat thread to the subject issue", () =>
+      planned((workflow) => {
+        expect(
+          workflow.store
+            .outbox()
+            .filter((row) => row.kind === "attach_chat_thread")
+            .map((row) => row.target),
+        ).toEqual([{ issue_id: "i100" }]);
+      }));
+  });
+
+  describe("a project link", () => {
+    const planned = scenario(freshRuntime, async (workflow) => {
+      await planWithSubject(workflow, PROJECT.url);
+    });
+
+    it("makes the project the subject", () =>
+      planned((workflow) => {
+        expect(workflow.state.subject).toEqual({ kind: "project", project_id: "proj-1" });
+      }));
+  });
+
+  describe("another issue, in a workflow that has a subject", () => {
+    let result: string;
+    const refused = scenario(freshRuntime, async (workflow) => {
+      workflow.patchState({ subject: { kind: "project", project_id: "proj-1" } });
+      result = await planWithSubject(workflow, SUBJECT_ISSUE.url);
+    });
+
+    it("says the subject never changes", () =>
+      refused(() => {
+        expect(result).toBe(
+          `The subject of this workflow is Login (${PROJECT.url}), and it never changes. Leave subject out, and ask the person to start a new workflow for the other issue.`,
+        );
+      }));
+
+    it("keeps the subject", () =>
+      refused((workflow) => {
+        expect(workflow.state.subject).toEqual({ kind: "project", project_id: "proj-1" });
+      }));
+  });
+
+  describe("a link the tracker does not hold", () => {
+    let result: string;
+    const refused = scenario(freshRuntime, async (workflow) => {
+      result = await planWithSubject(workflow, "https://linear.app/acme/issue/ENG-999/gone");
+    });
+
+    it("says the link is not an issue or a project", () =>
+      refused(() => {
+        expect(result).toBe(
+          "The subject https://linear.app/acme/issue/ENG-999/gone is not an issue or a project on the tracker. Pass the link of one, or leave subject out.",
+        );
+      }));
+
+    it("leaves the workflow without a subject", () =>
+      refused((workflow) => {
+        expect(workflow.state.subject).toBeNull();
       }));
   });
 });

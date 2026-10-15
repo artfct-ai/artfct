@@ -1,7 +1,8 @@
 import { tool } from "ai";
 import { z } from "zod";
 import { changeWorkflowStatus, completeWorkflow, failWorkflow } from "../../workflow/lifecycle";
-import { isWorkflowFinished } from "../../workflow/store/state";
+import { isWorkflowFinished, type Subject } from "../../workflow/store/state";
+import { setWorkflowSubject, subjectOfRef, validatePlanKeepsSubject } from "../../workflow/subject";
 import type { WorkflowRuntime } from "../../workflow/types";
 import type { WorkflowDefinition } from "../../config/workflow-definition";
 import { stageLines } from "../prompt/stage-lines";
@@ -29,6 +30,10 @@ export const PLAN_RULES = `## Workflow Planning Protocol
 ### Plan Naming Standards
 * **Assign** a concise, deliverable-focused title describing the end-state product.
 * **Persist** the existing workflow name across subsequent \`set_plan\` calls unless the underlying deliverable fundamentally changes.
+
+### Workflow Subject
+* **Pass** \`subject\` with the link of the one tracker issue or tracker project the request is about, when the person names one and the workflow does not have a subject yet. A workflow that started in a tracker session has its issue as its subject.
+* **Keep** the subject. It never changes. Work on another issue or project needs its own workflow.
 
 ### Repository Binding
 * **Query** accessible repositories using \`list_repositories\`.
@@ -97,6 +102,12 @@ export function planTools(workflow: WorkflowRuntime) {
           .describe(
             "the link of an existing page that is the root page, the page people read first. Pass it only when set_plan asks for it. Null otherwise.",
           ),
+        subject: z
+          .string()
+          .optional()
+          .describe(
+            "the link of the one tracker issue or tracker project the person named as what this workflow works on. Set once. It never changes. Leave it out when the workflow already has a subject or the person named neither.",
+          ),
         reason: z.string().describe("one line on why this plan"),
         concurrency: z
           .number()
@@ -160,6 +171,7 @@ type PlanInput = {
   repo?: string | null;
   page_parent?: string | null;
   root_page?: string | null;
+  subject?: string;
   reason: string;
   concurrency?: number;
 };
@@ -192,14 +204,35 @@ async function setPlan(workflow: WorkflowRuntime, input: PlanInput): Promise<str
   }
   const kept = validateDefinitionKept(workflow.state.definition, definition.name);
   if (kept) return kept;
+  const subject = input.subject ? await resolvePlanSubject(workflow, input.subject) : null;
+  if (typeof subject === "string") return subject;
   if (!input.stages) {
     if (workflow.state.definition !== null) {
       return `The workflow already started from workflow definition ${definition.name}. Call set_plan again with the stages.`;
     }
     await startWorkflow(workflow, definition, input);
+    if (subject) await setWorkflowSubject(workflow, subject);
     return startedAnswer(workflow, definition);
   }
-  return planStages(workflow, definition, { ...input, stages: input.stages });
+  return planStages(workflow, definition, { ...input, stages: input.stages }, subject);
+}
+
+/**
+ * The subject a plan link names, for a workflow that has none yet. Null when the workflow already
+ * has it. A string says why the link cannot be the subject.
+ */
+async function resolvePlanSubject(
+  workflow: WorkflowRuntime,
+  link: string,
+): Promise<Subject | null | string> {
+  const target = await workflow.artifact("issues").detect(link);
+  const ref = target?.ref;
+  if (ref?.kind !== "issue" && ref?.kind !== "project") {
+    return `The subject ${link} is not an issue or a project on the tracker. Pass the link of one, or leave subject out.`;
+  }
+  const changed = await validatePlanKeepsSubject(workflow, ref);
+  if (changed) return changed;
+  return workflow.state.subject ? null : subjectOfRef(ref);
 }
 
 /** Store the workflow definition and the name, and start the workflow. The tracker issue moves to started. */
@@ -230,6 +263,7 @@ async function planStages(
   workflow: WorkflowRuntime,
   definition: WorkflowDefinition,
   input: PlanInput & { stages: string[] },
+  subject: Subject | null,
 ): Promise<string> {
   const unknown = validateStagesKnown(definition, input.stages);
   if (unknown) return unknown;
@@ -249,6 +283,7 @@ async function planStages(
   });
   if ("error" in pages) return pages.error;
   if (workflow.state.definition === null) await startWorkflow(workflow, definition, input);
+  if (subject) await setWorkflowSubject(workflow, subject);
   const cap = workflow.config().orchestrator.sandbox.max_concurrency;
   const concurrency = Math.min(input.concurrency ?? cap, cap);
   workflow.patchState({

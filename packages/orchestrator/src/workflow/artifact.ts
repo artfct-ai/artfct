@@ -8,23 +8,27 @@ import { isTaskFinished } from "./store/state";
 import type { TaskRow } from "./store/tasks";
 import type { WorkflowRuntime } from "./types";
 import { publishSessionPlan } from "./feed/feed";
+import { setWorkflowSubject, subjectOfRef, validateOutputIsSubject } from "./subject";
 
 /**
  * Record the artifact a link in the author's output names. True when the job has an artifact
  * after this. A finished task reads nothing: its harness can still be mid-send while the cancel
- * tears the container down, and what it says then is about work nobody asked for any more.
+ * tears the container down, and what it says then is about work nobody asked for any more. A
+ * kind whose artifact ends the turn waits for the turn end.
  */
 export async function detectArtifact(
   workflow: WorkflowRuntime,
   task: TaskRow,
   text: string,
 ): Promise<boolean> {
-  return recordFoundArtifact(workflow, task, (kind) => kind.detect(text));
+  const find = async (kind: Artifact) => (kind.endsTurn ? null : kind.detect(text));
+  return recordFoundArtifact(workflow, task, find, () => {});
 }
 
 /**
  * Record the artifact the author's turn text names, else the one the host holds open on the
  * job's branch. The branch lookup is a host call, so it runs once per turn and not per chunk.
+ * An output that is not the subject is not recorded, and the author's next prompt says why.
  */
 export async function detectArtifactAfterTurn(
   workflow: WorkflowRuntime,
@@ -32,10 +36,14 @@ export async function detectArtifactAfterTurn(
   turnText: string,
 ): Promise<boolean> {
   const { branch } = workflow.store.requireJob(task.job_id);
-  return recordFoundArtifact(workflow, task, async (kind) => {
+  const find = async (kind: Artifact) => {
     const printed = await kind.detect(turnText);
     if (printed || !branch || !kind.openOnBranch) return printed;
     return kind.openOnBranch(branch);
+  };
+  return recordFoundArtifact(workflow, task, find, (reason) => {
+    workflow.log(task.task_id, `output not recorded: it is not the subject`);
+    workflow.store.enqueuePrompt(task.task_id, reason);
   });
 }
 
@@ -43,6 +51,7 @@ async function recordFoundArtifact(
   workflow: WorkflowRuntime,
   task: TaskRow,
   find: (kind: Artifact) => Promise<ArtifactTarget | null>,
+  refuse: (reason: string) => void,
 ): Promise<boolean> {
   if (task.role !== "author" || isTaskFinished(task.status)) return false;
   if (workflow.store.artifact(task.job_id)) return true;
@@ -52,6 +61,13 @@ async function recordFoundArtifact(
     return null;
   });
   if (!found) return false;
+  const { ref } = found;
+  const isTrackerRef = ref.kind === "issue" || ref.kind === "project";
+  const offSubject = isTrackerRef ? await validateOutputIsSubject(workflow, ref) : null;
+  if (offSubject) {
+    refuse(offSubject);
+    return false;
+  }
   await recordArtifact(workflow, task, found);
   return true;
 }
@@ -100,6 +116,10 @@ export async function recordArtifact(
     ref: target.ref,
   });
   markAuthorInReview(workflow, task.task_id);
+  const { ref } = target;
+  if ((ref.kind === "issue" || ref.kind === "project") && !workflow.state.subject) {
+    await setWorkflowSubject(workflow, subjectOfRef(ref));
+  }
   const binding = workflow.artifact(kind).binding(target.ref);
   if (binding) await bindWorkflow(workflow, binding);
   workflow.log(task.task_id, `artifact ${kind} ${target.url}`);
