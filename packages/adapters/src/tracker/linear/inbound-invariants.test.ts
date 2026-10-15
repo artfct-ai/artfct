@@ -82,7 +82,7 @@ describe("linear inbound mapper invariants", () => {
     it(`hold for a ${name} webhook with fields removed or retyped`, async () => {
       await fc.assert(
         fc.asyncProperty(mutatedPayload(payload), anyDeliveryId, checkPayload),
-        propertyRuns(`linear ${name}`),
+        propertyRuns(`linear ${name}`, 100),
       );
     });
   }
@@ -90,7 +90,7 @@ describe("linear inbound mapper invariants", () => {
   it("hold for a JSON value of any shape", async () => {
     await fc.assert(
       fc.asyncProperty(anyJsonValue, anyDeliveryId, checkPayload),
-      propertyRuns("linear any JSON"),
+      propertyRuns("linear any JSON", 100),
     );
   });
 });

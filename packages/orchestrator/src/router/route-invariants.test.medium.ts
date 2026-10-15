@@ -1,6 +1,7 @@
 import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { Binding } from "@artfct-ai/contracts/sources";
 import { env } from "cloudflare:workers";
+import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/property-runs";
 import fc from "fast-check";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -14,9 +15,9 @@ import { findWorkflow, setWorkflowStatus } from "../db/workflows";
 import { isWorkflowFinished } from "../workflow/store/state";
 import { deliver } from "./deliver";
 
-const NUM_RUNS = 60;
+const NUM_RUNS = 200;
+const TIMEOUT_MS = propertyTimeoutMs(120_000, NUM_RUNS);
 const MAX_ACTIONS = 14;
-const TIMEOUT_MS = 120_000;
 
 const db = createDb(env.DB);
 
@@ -229,7 +230,7 @@ describe("the router invariants", () => {
         fc.array(routeActions, { maxLength: MAX_ACTIONS }),
         holdsThroughout,
       );
-      await fc.assert(property, { numRuns: NUM_RUNS });
+      await fc.assert(property, propertyRuns("router invariants", NUM_RUNS));
       expect(ROUTE_INVARIANTS.length).toBe(1);
     },
     TIMEOUT_MS,

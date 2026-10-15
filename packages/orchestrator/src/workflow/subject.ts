@@ -87,11 +87,11 @@ export async function validateIssueInSubject(
   }
   if (issueInSubject(subject, issue)) return null;
   const name = await subjectName(workflow, subject);
-  const scope =
+  const subjectIssues =
     subject.kind === "issue"
       ? `the subject ${name} or one of its sub-issues`
       : `an issue of the subject project ${name}`;
-  return `${issue.identifier} is not ${scope}. A workflow works only its own issues. Ask the person to start a new workflow for it.`;
+  return `${issue.identifier} is not ${subjectIssues}. A workflow works only its own issues. Ask the person to start a new workflow for it.`;
 }
 
 /** The issues the subject covers: the subject issue and its direct sub-issues, or the project's issues. */

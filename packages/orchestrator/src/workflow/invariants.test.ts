@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/property-runs";
 import fc from "fast-check";
 import {
   aJobWorksOnlyOnIssuesOfItsSubject,
@@ -114,8 +115,8 @@ import {
 import { TEST_DEFINITION_NAME } from "../../test/test-config";
 
 const NUM_RUNS = 200;
+const TIMEOUT_MS = propertyTimeoutMs(120_000, NUM_RUNS);
 const MAX_ACTIONS = 50;
-const TIMEOUT_MS = 120_000;
 
 const STATE_INVARIANTS = [
   aQueuedPromptReachesItsModelCallAuthor,
@@ -683,7 +684,7 @@ describe("the workflow invariants", () => {
     "hold after every action of any sequence, on any refiner list",
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
-      await fc.assert(property, { numRuns: NUM_RUNS });
+      await fc.assert(property, propertyRuns("workflow invariants on any refiner list", NUM_RUNS));
       expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(45);
     },
     TIMEOUT_MS,
@@ -693,7 +694,7 @@ describe("the workflow invariants", () => {
     "hold after every action of any sequence, on a page stage of either ending",
     async () => {
       const property = fc.asyncProperty(pageSetups, sequences, holdsThroughout);
-      await fc.assert(property, { numRuns: NUM_RUNS });
+      await fc.assert(property, propertyRuns("workflow invariants on a page stage", NUM_RUNS));
     },
     TIMEOUT_MS,
   );
@@ -702,7 +703,10 @@ describe("the workflow invariants", () => {
     "hold after every action of any sequence, on a page stage whose author is a model call",
     async () => {
       const property = fc.asyncProperty(modelPageSetups, sequences, holdsThroughout);
-      await fc.assert(property, { numRuns: NUM_RUNS });
+      await fc.assert(
+        property,
+        propertyRuns("workflow invariants on a model page author", NUM_RUNS),
+      );
     },
     TIMEOUT_MS,
   );

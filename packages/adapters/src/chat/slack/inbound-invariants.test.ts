@@ -81,7 +81,7 @@ describe("slack inbound mapper invariants", () => {
     it(`hold for a ${name} callback with fields removed or retyped`, async () => {
       await fc.assert(
         fc.asyncProperty(mutatedPayload(payload), fc.boolean(), checkPayload),
-        propertyRuns(`slack ${name}`),
+        propertyRuns(`slack ${name}`, 100),
       );
     });
   }
@@ -89,7 +89,7 @@ describe("slack inbound mapper invariants", () => {
   it("hold for a JSON value of any shape", async () => {
     await fc.assert(
       fc.asyncProperty(anyJsonValue, fc.boolean(), checkPayload),
-      propertyRuns("slack any JSON"),
+      propertyRuns("slack any JSON", 100),
     );
   });
 });

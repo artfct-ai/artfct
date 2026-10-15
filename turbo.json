@@ -45,6 +45,9 @@
     "@artfct-ai/core#test": {
       "dependsOn": ["transit", "types", "build", "artfct-template#build"]
     },
+    "@artfct-ai/core#test:medium": {
+      "dependsOn": ["transit", "types", "build", "artfct-template#build"]
+    },
     "artfct#test": {
       "dependsOn": ["transit", "@artfct-ai/core#build"]
     },
@@ -66,6 +69,9 @@
     "test": {
       "dependsOn": ["transit", "types", "template-config"]
     },
+    "test:medium": {
+      "dependsOn": ["transit", "types", "template-config"]
+    },
     "lint": {
       "dependsOn": ["transit", "types", "template-config"]
     },
@@ -80,6 +86,15 @@
     },
     "//#lint:root": {
       "dependsOn": ["@artfct-ai/orchestrator#template-config"]
+    },
+    "//#test:root": {
+      "inputs": [
+        "scripts/**",
+        "spec/glossary.md",
+        "packages/*/src/**",
+        "packages/*/migrations/**",
+        "template/**"
+      ]
     },
     "//#fmt:check": {}
   }

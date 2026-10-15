@@ -16,16 +16,17 @@
     "build": "turbo run build",
     "types": "turbo run types",
     "typecheck": "turbo run typecheck typecheck:root",
-    "test": "turbo run test",
+    "test": "turbo run test test:medium",
     "lint": "turbo run lint lint:root",
-    "check": "turbo run test lint build lint:root fmt:check",
-    "check:affected": "turbo run test lint build lint:root fmt:check --filter=...[${TURBO_SCM_BASE:-main}] --filter=//",
+    "check": "turbo run test test:medium lint build lint:root test:root fmt:check",
+    "check:affected": "turbo run test test:medium lint build lint:root test:root fmt:check --filter=...[${TURBO_SCM_BASE:-main}] --filter=//",
     "fmt": "oxfmt",
     "fmt:check": "oxfmt --check",
     "db:migrate:local": "turbo run db:migrate:local",
     "db:generate": "turbo run db:generate",
     "typecheck:root": "tsc --noEmit -p tsconfig.json",
-    "lint:root": "oxlint scripts"
+    "lint:root": "oxlint scripts",
+    "test:root": "bun test ./scripts/"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261007.1",

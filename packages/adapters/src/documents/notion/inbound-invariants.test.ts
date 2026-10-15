@@ -56,12 +56,15 @@ describe("notion inbound mapper invariants", () => {
     it(`hold for a ${name} webhook with fields removed or retyped`, async () => {
       await fc.assert(
         fc.asyncProperty(mutatedPayload(payload), checkPayload),
-        propertyRuns(`notion ${name}`),
+        propertyRuns(`notion ${name}`, 100),
       );
     });
   }
 
   it("hold for a JSON value of any shape", async () => {
-    await fc.assert(fc.asyncProperty(anyJsonValue, checkPayload), propertyRuns("notion any JSON"));
+    await fc.assert(
+      fc.asyncProperty(anyJsonValue, checkPayload),
+      propertyRuns("notion any JSON", 100),
+    );
   });
 });
