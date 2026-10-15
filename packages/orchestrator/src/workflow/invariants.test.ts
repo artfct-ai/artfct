@@ -711,3 +711,71 @@ describe("the workflow invariants", () => {
     TIMEOUT_MS,
   );
 });
+
+function findingsOnHost(pageCommenting: RefinerRunEnd["pageCommenting"]): WorkflowAction {
+  return refinerRunEnds(0, {
+    reviewer: "findings",
+    pageCommenting,
+    judge: "rejects",
+    polisher: "pushed",
+    stopReason: "end_turn",
+    closing: "reports_work",
+  });
+}
+
+describe("a job that continued its own input", () => {
+  it("frees that input for the next job once it finishes, on a pull", async () => {
+    await holdsThroughout(
+      {
+        opening: "job",
+        artifact: "pull",
+        refiners: "none",
+        research: false,
+        pageAuthor: "harness",
+        checksOnPush: "passed",
+        pageEnding: "acceptance",
+        origin: "chat",
+        firstInput: "request",
+        subject: "none",
+      },
+      [
+        firstArtifactAppears(0, "author_text"),
+        authorTurnEnds(0, "same"),
+        agentCancels(0, "author"),
+        agentStartsTaskOnArtifact("pull", "a_finished_author", 0),
+        sandboxComesUp("dials_in"),
+        firstArtifactAppears(1, "author_text"),
+        authorTurnEnds(1, "same"),
+        agentCancels(1, "author"),
+        agentStartsTaskOnArtifact("pull", "a_finished_author", 1),
+      ],
+    );
+  });
+
+  it("frees that input for the next job once it finishes, on an issue", async () => {
+    await holdsThroughout(
+      {
+        opening: "job",
+        artifact: "issues",
+        refiners: "judge_between_reviewers",
+        research: false,
+        pageAuthor: "harness",
+        checksOnPush: "passed",
+        pageEnding: "acceptance",
+        origin: "chat",
+        firstInput: "origin_issue",
+        subject: "none",
+      },
+      [
+        firstArtifactAppears(0, "author_text", "the_subject_issue"),
+        authorTurnEnds(0, "same"),
+        findingsOnHost("drops_inline"),
+        findingsOnHost("takes"),
+        findingsOnHost("inline_throws"),
+        findingsOnHost("down"),
+        authorTurnEnds(0, "changed", "finished", "agent_cancels"),
+        agentStartsTask("pull", "the_subject_issue", REQUEST_TEXTS[0]),
+      ],
+    );
+  });
+});

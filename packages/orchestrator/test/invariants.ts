@@ -18,6 +18,7 @@ import { taskAtWork } from "../src/workflow/task/at-work";
 import type { Wake, WorkflowRuntime } from "../src/workflow/types";
 import { STOPPED_TEXT } from "../src/workflow/feed/feed";
 import type { Subject } from "../src/workflow/store/state";
+import { artifactRefKey } from "../src/workflow/store/input-key";
 import { worldIssueInSubject } from "./world-tracker";
 
 /** One task row as an observer saw it. `ruling` is the stored ruling as text, or null. */
@@ -793,16 +794,19 @@ export function endedWorkflowHasNoUnfinishedTask(workflow: WorkflowRuntime): voi
 }
 
 /**
- * A job's input is an artifact like an issue or a document. The only exception is an ad-hoc
- * implementation request, in which case a hash of the message content that requested it is the
- * artifact. Only one job can exist per input artifact.
+ * Only one live job works from each input artifact. An unfinished job holds its input. A finished
+ * job holds it while its output exists, unless that output is the input itself.
  */
 export function oneLiveJobPerInputArtifact(workflow: WorkflowRuntime): void {
   const owners = new Map<string, string>();
   for (const job of workflow.store.jobs()) {
     const task = workflow.store.authorOrResearcherTaskOf(job.job_id);
     const output = workflow.store.artifact(job.job_id);
-    const live = !FINISHED.includes(task.status) || (output && output.status !== "removed");
+    const outputIsItsInput =
+      output !== null &&
+      artifactRefKey({ ref: output.ref, url: output.external_url }) === job.input_key;
+    const outputHoldsInput = output !== null && output.status !== "removed" && !outputIsItsInput;
+    const live = !FINISHED.includes(task.status) || outputHoldsInput;
     if (!live || job.input_key === null) continue;
     const owner = owners.get(job.input_key);
     if (owner) {
