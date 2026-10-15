@@ -13,3 +13,4 @@ artifacts
 .local-runs
 .claude/worktrees/
 .env*
+_apalache-out

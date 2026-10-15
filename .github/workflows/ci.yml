@@ -76,7 +76,8 @@ jobs:
       - run: bunx quint typecheck "$SPEC"
       - name: Fail when a witness is never reached
         run: |
-          bunx quint run "$SPEC" --main="$SETUP" --max-samples=10000 --max-steps=25 --witnesses $WITNESSES | tee "$RUNNER_TEMP/witnesses.log"
+          read -ra witnesses <<< "$WITNESSES"
+          bunx quint run "$SPEC" --main="$SETUP" --max-samples=10000 --max-steps=25 --witnesses "${witnesses[@]}" | tee "$RUNNER_TEMP/witnesses.log"
           ! grep "witnessed in 0 trace" "$RUNNER_TEMP/witnesses.log"
       - name: Run each invariant on 100,000 samples
         run: |

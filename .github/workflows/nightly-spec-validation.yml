@@ -10,22 +10,31 @@ permissions:
 
 jobs:
   review_loop_model_check:
-    name: review loop model check (${{ matrix.setup }})
+    name: review loop model check (${{ matrix.setup }}, ${{ matrix.invariant }})
     runs-on: ubuntu-latest
-    timeout-minutes: 300
+    timeout-minutes: 80
     strategy:
       fail-fast: false
       matrix:
-        setup:
+        setup: &setups
           - judgeThenPolisher
           - reviewerThenPolisher
           - judgeBetweenReviewers
           - modelCallAuthorWithTwoReviewers
+        invariant: &invariants
+          - oneUnfinishedRefinerRunPerArtifact
+          - authorIsIdleWhileAPolisherRuns
+          - judgeRulesAtMostOnce
+          - refinerRunIsDoneOnlyAfterItsTurnEnded
+          - refinersRunAgainOnlyOnChangedRevision
+          - reviewerRunsOnlyOnAnUnreviewedRevision
     defaults:
       run:
         working-directory: packages/orchestrator
     env:
       SETUP: ${{ matrix.setup }}
+      INVARIANT: ${{ matrix.invariant }}
+      DEPTH: "4"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -41,16 +50,72 @@ jobs:
           path: ~/.quint
           key: quint-verify-${{ runner.os }}-${{ hashFiles('bun.lock') }}
           restore-keys: quint-verify-${{ runner.os }}-
-      - name: Check every invariant on every execution of up to 8 steps
-        run: bunx quint verify "../../spec/review-loop/$SETUP.qnt" --main="$SETUP" --invariant=invariants --max-steps=8
+      - name: Check the invariant on every execution up to the depth
+        timeout-minutes: 70
+        run: bunx quint verify "../../spec/review-loop/$SETUP.qnt" --main="$SETUP" --invariant="$INVARIANT" --max-steps="$DEPTH" 2>&1 | tee "$RUNNER_TEMP/quint.log"
+      - name: Write the finding
+        if: ${{ failure() }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/findings"
+          {
+            printf '## Review loop model check: %s on %s\n\nquint verify at depth %s failed or ran out of time.\n\n```\n' "$INVARIANT" "$SETUP" "$DEPTH"
+            tail -n 60 "$RUNNER_TEMP/quint.log"
+            printf '```\n\n'
+          } > "$RUNNER_TEMP/findings/verify-$SETUP-$INVARIANT.md"
+      - if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nightly-findings-verify-${{ matrix.setup }}-${{ matrix.invariant }}
+          path: ${{ runner.temp }}/findings
+
+  review_loop_simulation:
+    name: review loop simulation (${{ matrix.setup }}, ${{ matrix.invariant }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    strategy:
+      fail-fast: false
+      matrix:
+        setup: *setups
+        invariant: *invariants
+    defaults:
+      run:
+        working-directory: packages/orchestrator
+    env:
+      SETUP: ${{ matrix.setup }}
+      INVARIANT: ${{ matrix.invariant }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.quint
+          key: quint-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: quint-${{ runner.os }}-
+      - name: Run the invariant on 5,000,000 samples
+        timeout-minutes: 30
+        run: bunx quint run "../../spec/review-loop/$SETUP.qnt" --main="$SETUP" --invariant="$INVARIANT" --max-samples=5000000 --max-steps=25 2>&1 | tee "$RUNNER_TEMP/quint.log"
+      - name: Write the finding
+        if: ${{ failure() }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/findings"
+          {
+            printf '## Review loop simulation: %s on %s\n\nquint run on 5,000,000 samples failed or ran out of time. The seed in the log reproduces it.\n\n```\n' "$INVARIANT" "$SETUP"
+            tail -n 60 "$RUNNER_TEMP/quint.log"
+            printf '```\n\n'
+          } > "$RUNNER_TEMP/findings/simulation-$SETUP-$INVARIANT.md"
+      - if: ${{ failure() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nightly-findings-simulation-${{ matrix.setup }}-${{ matrix.invariant }}
+          path: ${{ runner.temp }}/findings
 
   spec_validation:
     name: spec validation
     runs-on: ubuntu-latest
     timeout-minutes: 300
-    permissions:
-      contents: read
-      issues: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -65,23 +130,50 @@ jobs:
         working-directory: packages/orchestrator
       - name: Run the property files against each mutant
         working-directory: packages/orchestrator
-        run: PROPERTY_SEED=$(( GITHUB_RUN_ID % 2147483648 )) bun scripts/properties/mutants.ts "$RUNNER_TEMP/surviving-mutants.md"
+        run: |
+          mkdir -p "$RUNNER_TEMP/findings"
+          PROPERTY_SEED=$(( GITHUB_RUN_ID % 2147483648 )) bun scripts/properties/mutants.ts "$RUNNER_TEMP/findings/surviving-mutants.md"
+      - name: Write the glossary finding
+        if: ${{ !cancelled() && steps.glossary.outcome == 'failure' }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/findings"
+          {
+            printf '## Glossary checks\n\nThe glossary checks failed.\n\n```\n'
+            tail -n 80 "$RUNNER_TEMP/glossary.log"
+            printf '```\n'
+          } > "$RUNNER_TEMP/findings/glossary.md"
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nightly-findings-spec-validation
+          path: ${{ runner.temp }}/findings
+          if-no-files-found: ignore
+
+  nightly_issue:
+    name: nightly spec issue
+    needs: [review_loop_model_check, review_loop_simulation, spec_validation]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          pattern: nightly-findings-*
+          path: ${{ runner.temp }}/findings
+          merge-multiple: true
       - name: Open or update the nightly spec issue
-        if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
-          GLOSSARY_OUTCOME: ${{ steps.glossary.outcome }}
+          GH_REPO: ${{ github.repository }}
           TITLE: Nightly spec validation findings
         run: |
           body="$RUNNER_TEMP/spec-issue.md"
           : > "$body"
-          if [ -f "$RUNNER_TEMP/surviving-mutants.md" ]; then cat "$RUNNER_TEMP/surviving-mutants.md" >> "$body"; fi
-          if [ "$GLOSSARY_OUTCOME" = failure ]; then
-            {
-              printf '## Glossary checks\n\nThe glossary checks failed.\n\n```\n'
-              tail -n 80 "$RUNNER_TEMP/glossary.log"
-              printf '```\n'
-            } >> "$body"
+          if [ -d "$RUNNER_TEMP/findings" ]; then
+            find "$RUNNER_TEMP/findings" -name '*.md' | sort | xargs -r cat >> "$body"
           fi
           if [ ! -s "$body" ]; then exit 0; fi
           number=$(gh issue list --state open --search "in:title \"$TITLE\"" --json number --jq '.[0].number')

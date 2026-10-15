@@ -71,7 +71,7 @@ export type SpecReview = {
     refinerRun: number | null;
   };
   refinerRuns: SpecRun[];
-  conclusionsAwaitingRuling: number[];
+  judgeRunsCodeRulesOn: number[];
 };
 
 /** One state of a trace: the action that led to it, the conclusion it picked, and the review. */
@@ -144,7 +144,7 @@ function specReview(value: unknown): SpecReview {
       refinerRun: refinerRun.tag === "OnRefinerRun" ? int(refinerRun.value) : null,
     },
     refinerRuns: list(field(value, "refinerRuns")).map(specRun),
-    conclusionsAwaitingRuling: sortedInts(field(value, "conclusionsAwaitingRuling")),
+    judgeRunsCodeRulesOn: sortedInts(field(value, "judgeRunsCodeRulesOn")),
   };
 }
 
@@ -360,7 +360,7 @@ export class ReviewLoopReplay {
         refinerRun: pointer === -1 ? null : pointer,
       },
       refinerRuns: runs.map(specRunOf),
-      conclusionsAwaitingRuling: [...this.held.keys()].toSorted((left, right) => left - right),
+      judgeRunsCodeRulesOn: [...this.held.keys()].toSorted((left, right) => left - right),
     };
   }
 

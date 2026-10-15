@@ -1,6 +1,6 @@
 /// The agent review of one output artifact, from the first artifact of its author to the handover.
 /// Each action is one stretch of the orchestrator that runs to its end before the next event lands.
-/// A judge run splits in two: its turn ends, then the decisions model rules on its conclusion.
+/// A judge run splits in two: its turn ends, then code rules on its conclusion with the decisions model.
 module reviewLoopTypes {
   /// One refiner of the stage. The reviewers come first, then the polishers.
   type Refiner = FindingsReviewer | Judge | Polisher
@@ -38,12 +38,12 @@ module reviewLoopTypes {
   /// Then the agent routes.
   type ReviewAgainDecision = ReviewAgain | NoReviewAgain | AgentRoutes
 
-  /// The review of one artifact. A conclusion awaits its ruling while the decisions model reads it.
+  /// The review of one artifact, and the done judge runs whose conclusion code is ruling on.
   type ReviewLoop = {
     author: Author,
     artifact: Artifact,
     refinerRuns: List[RefinerRun],
-    conclusionsAwaitingRuling: Set[int],
+    judgeRunsCodeRulesOn: Set[int],
   }
 
   /// The turn that ended in a step, if one did.
@@ -78,7 +78,7 @@ module reviewLoop {
     author: { atWork: true, queuedPrompts: 0, rejectedBy: Set() },
     artifact: { status: Drafted, revision: 0, refinerRun: NoRefinerRun },
     refinerRuns: List(),
-    conclusionsAwaitingRuling: Set(),
+    judgeRunsCodeRulesOn: Set(),
   }
 
   pure val REVIEW_AGAIN_DECISIONS: Set[ReviewAgainDecision] =
@@ -175,6 +175,33 @@ module reviewLoop {
       loop.refinerRuns[id].refinerIndex == index and
       filedOnRevision(loop.refinerRuns[id].result, loop.artifact.revision))
 
+  /// The entry that ends the segment `index` sits in.
+  pure def segmentEndOf(index: int): int =
+    smallest(ENTRIES.indices().filter(end => end >= index and endsSegment(end)), REVIEWER_COUNT - 1)
+
+  /// The entries from `from` to the end of its segment that still have to read the revision. A
+  /// judge entry always has to.
+  pure def unreviewedEntriesFrom(loop: ReviewLoop, from: int): Set[int] =
+    ENTRIES.indices().filter(index => and {
+      index >= from,
+      index < REVIEWER_COUNT,
+      index <= segmentEndOf(from),
+      ENTRIES[index] == Judge or not(entryReadRevision(loop, index)),
+    })
+
+  /// The entry a re-run of the list starts at. It passes over the leading entries that read the
+  /// revision, and the judge entries that ruled.
+  pure def firstEntryToRerun(loop: ReviewLoop): int =
+    smallest(
+      ENTRIES.indices().filter(index =>
+        index < REVIEWER_COUNT and not(entryReadRevision(loop, index)) and not(judgeRuledOn(loop, index))),
+      REVIEWER_COUNT,
+    )
+
+  /// The latest run of the entry at `index`. Only defined while the entry has one.
+  pure def latestRunOf(loop: ReviewLoop, index: int): int =
+    largest(runIds(loop).filter(id => loop.refinerRuns[id].refinerIndex == index), 0)
+
   pure def runNumberOf(loop: ReviewLoop, id: int): int =
     runIds(loop)
       .filter(earlier =>
@@ -230,15 +257,19 @@ module reviewLoop {
   pure def promptAuthor(loop: ReviewLoop): ReviewLoop =
     drainQueue({ ...loop, author: { ...loop.author, queuedPrompts: loop.author.queuedPrompts + 1 } })
 
+  /// Run the list again from its first entry that has to read the revision.
+  pure def rerunRefiners(loop: ReviewLoop): ReviewLoop = runRefinersFrom(loop, firstEntryToRerun(loop))
+
   /// A working author stops the refiners. They run again once its turn ends.
   pure def advancePastEntry(loop: ReviewLoop, index: int): ReviewLoop =
     if (authorQuiet(loop)) runRefinersFrom(loop, index + 1) else withoutRefinerRun(loop)
 
-  /// Run the open segment again from its first entry. Hand the artifact on when that entry
-  /// already read the revision.
+  /// Run the open segment again from its first entry that has to read the revision. Hand the
+  /// artifact on when every entry of it read the revision.
   pure def reviewSegmentAgain(loop: ReviewLoop, index: int): ReviewLoop = {
-    val start = segmentStartOf(index)
-    if (entryReadRevision(loop, start)) advancePastEntry(loop, index) else startRefiner(loop, start)
+    val unreviewed = unreviewedEntriesFrom(loop, segmentStartOf(index))
+    if (unreviewed.size() == 0) advancePastEntry(loop, index)
+    else startRefiner(loop, smallest(unreviewed, REFINER_COUNT))
   }
 
   /// A findings reviewer's artifact goes where the review again decision says. Without one, the
@@ -252,7 +283,7 @@ module reviewLoop {
 
   pure def settleHeldRun(loop: ReviewLoop, id: int, decision: ReviewAgainDecision): ReviewLoop = {
     val refinerRun = loop.refinerRuns[id]
-    if (refinerOf(refinerRun) == Polisher) runRefinersFrom(withoutRefinerRun(loop), 0)
+    if (refinerOf(refinerRun) == Polisher) rerunRefiners(withoutRefinerRun(loop))
     else if (refinerOf(refinerRun) == FindingsReviewer)
       (if (reviewLimitReached(loop, id)) advancePastEntry(loop, refinerRun.refinerIndex)
        else routeFindingsReviewer(loop, refinerRun.refinerIndex, decision))
@@ -264,7 +295,7 @@ module reviewLoop {
   pure def settleRefiners(loop: ReviewLoop, decision: ReviewAgainDecision): ReviewLoop =
     if (not(drafted(loop)) or refinerInFlight(loop) or not(authorQuiet(loop))) loop
     else match loop.artifact.refinerRun {
-      | NoRefinerRun => runRefinersFrom(loop, 0)
+      | NoRefinerRun => rerunRefiners(loop)
       | OnRefinerRun(id) => settleHeldRun(loop, id, decision)
     }
 
@@ -297,44 +328,47 @@ module reviewLoop {
     }
   }
 
-  /// A segment settles on the reviews its latest run filed. A stale review runs the segment
-  /// again from its first entry that has not read the revision.
-  pure def settleSegment(loop: ReviewLoop, index: int): ReviewLoop = {
-    val start = segmentStartOf(index)
-    val latestStart = largest(runIds(loop).filter(id => loop.refinerRuns[id].refinerIndex == start), 0)
-    val firstUnread = smallest(
-      ENTRIES.indices().filter(entry => entry >= start and entry <= index and not(entryReadRevision(loop, entry))),
-      index + 1,
-    )
+  /// A segment settles on the review of the latest run of each entry. A stale review runs the
+  /// segment again from its first entry that has to read the revision.
+  pure def settleSegment(loop: ReviewLoop, end: int): ReviewLoop = {
+    val start = segmentStartOf(end)
+    val unreviewed = unreviewedEntriesFrom(loop, start)
     val filed = runIds(loop).filter(id => and {
       loop.refinerRuns[id].refinerIndex >= start,
-      loop.refinerRuns[id].refinerIndex <= index,
-      id >= latestStart,
+      loop.refinerRuns[id].refinerIndex <= end,
+      id == latestRunOf(loop, loop.refinerRuns[id].refinerIndex),
       isReview(loop.refinerRuns[id].result),
     })
     val stale = filed.exists(id =>
       reviewedRevisionIsNot(loop.refinerRuns[id].result, loop.artifact.revision))
-    if (filed.size() == 0) advancePastEntry(loop, index)
+    if (filed.size() == 0) advancePastEntry(loop, end)
     else if (stale and not(authorQuiet(loop))) settleRefiners(loop, AgentRoutes)
-    else if (stale and firstUnread <= index) startRefiner(loop, firstUnread)
-    else if (stale) advancePastEntry(loop, index)
+    else if (stale) startRefiner(loop, if (unreviewed.size() == 0) start else smallest(unreviewed, REFINER_COUNT))
     else if (filed.exists(id => reviewHasFindings(loop.refinerRuns[id].result))) promptAuthor(loop)
-    else advancePastEntry(loop, index)
+    else advancePastEntry(loop, end)
   }
 
+  /// A finished reviewer hands on to the next entry of its segment that has to read the revision.
+  /// When none has to, the segment settles, and the artifact moves to the run that ends it.
   pure def findingsReviewerFinished(loop: ReviewLoop, id: int, findings: bool): ReviewLoop = {
     val refinerRun = loop.refinerRuns[id]
+    val index = refinerRun.refinerIndex
     val filed = FiledReview({ revision: loop.artifact.revision, findings: findings })
     val done = withRun(loop, id, { ...refinerRun, status: Done, result: filed })
+    val unreviewed = if (endsSegment(index)) Set() else unreviewedEntriesFrom(done, index + 1)
+    val end = segmentEndOf(index)
+    val onEnd =
+      if (end == index) done
+      else { ...done, artifact: { ...done.artifact, refinerRun: OnRefinerRun(latestRunOf(done, end)) } }
     if (not(isOnRun(loop, id)) or not(drafted(loop))) done
-    else if (not(endsSegment(refinerRun.refinerIndex))) advancePastEntry(done, refinerRun.refinerIndex)
-    else settleSegment(done, refinerRun.refinerIndex)
+    else if (unreviewed.size() > 0) advancePastEntry(done, smallest(unreviewed, REFINER_COUNT) - 1)
+    else settleSegment(onEnd, end)
   }
 
   pure def judgeFinished(loop: ReviewLoop, id: int): ReviewLoop = {
     val done = withStatus(loop, id, Done)
     if (isOnRun(loop, id) and drafted(loop))
-      { ...done, conclusionsAwaitingRuling: done.conclusionsAwaitingRuling.union(Set(id)) }
+      { ...done, judgeRunsCodeRulesOn: done.judgeRunsCodeRulesOn.union(Set(id)) }
     else done
   }
 
@@ -342,7 +376,7 @@ module reviewLoop {
   pure def decisionsModelRuled(loop: ReviewLoop, id: int, ruling: Ruling): ReviewLoop = {
     val answered = {
       ...loop,
-      conclusionsAwaitingRuling: loop.conclusionsAwaitingRuling.exclude(Set(id)),
+      judgeRunsCodeRulesOn: loop.judgeRunsCodeRulesOn.exclude(Set(id)),
     }
     if (isOnRun(answered, id) and drafted(answered) and not(isRuling(answered.refinerRuns[id].result)))
       applyJudgeRuling(answered, id, ruling)
@@ -353,7 +387,7 @@ module reviewLoop {
     drafted(loop),
     refinerOf(loop.refinerRuns[id]) == Judge,
     loop.refinerRuns[id].status != Unfinished,
-    not(isRejection(loop.refinerRuns[id].result)),
+    not(isRuling(loop.refinerRuns[id].result)),
   }
 
   pure def polisherFinished(loop: ReviewLoop, id: int, pushed: bool): ReviewLoop = {
@@ -384,7 +418,7 @@ module reviewLoop {
     loop.refinerRuns[id].refinerIndex < REVIEWER_COUNT,
     refinerOf(loop.refinerRuns[id]) != Judge or loop.refinerRuns[id].status == Cancelled,
     not(reviewLimitReached(loop, id)),
-    not(entryReadRevision(loop, segmentStartOf(loop.refinerRuns[id].refinerIndex))),
+    unreviewedEntriesFrom(loop, segmentStartOf(loop.refinerRuns[id].refinerIndex)).size() > 0,
   }
 
   pure def agentCanRoute(loop: ReviewLoop): bool = and {
@@ -442,21 +476,21 @@ module reviewLoop {
 
   /// The decisions model reads approval in a conclusion.
   action decisionsModelApproves: bool = {
-    nondet conclusion = review.conclusionsAwaitingRuling.oneOf()
-    move(decisionsModelRuled(review, conclusion, Approved), NoTurnEnd)
+    nondet judgeRun = review.judgeRunsCodeRulesOn.oneOf()
+    move(decisionsModelRuled(review, judgeRun, Approved), NoTurnEnd)
   }
 
   /// The decisions model reads a rejection in a conclusion.
   action decisionsModelRejects: bool = {
-    nondet conclusion = review.conclusionsAwaitingRuling.oneOf()
-    move(decisionsModelRuled(review, conclusion, Rejected), NoTurnEnd)
+    nondet judgeRun = review.judgeRunsCodeRulesOn.oneOf()
+    move(decisionsModelRuled(review, judgeRun, Rejected), NoTurnEnd)
   }
 
   /// The decisions model cannot tell, so the agent asks a person to rule.
   action decisionsModelCannotRule: bool = {
-    nondet conclusion = review.conclusionsAwaitingRuling.oneOf()
+    nondet judgeRun = review.judgeRunsCodeRulesOn.oneOf()
     move(
-      { ...review, conclusionsAwaitingRuling: review.conclusionsAwaitingRuling.exclude(Set(conclusion)) },
+      { ...review, judgeRunsCodeRulesOn: review.judgeRunsCodeRulesOn.exclude(Set(judgeRun)) },
       NoTurnEnd,
     )
   }
@@ -481,13 +515,13 @@ module reviewLoop {
   action polisherPushesNothing: bool = unfinishedRunOf(Polisher, id =>
     move(polisherFinished(review, id, false), RefinerTurnEnded(id)))
 
-  /// The agent runs the open segment again from its first reviewer.
+  /// The agent runs the open segment again from its first entry that has to read the revision.
   action agentRequestsReview: bool = all {
     agentCanRoute(review),
     holdsARun(review),
     canRequestReviewOn(review, heldRun(review)),
     val start = segmentStartOf(review.refinerRuns[heldRun(review)].refinerIndex)
-    move(startRefiner(review, start), NoTurnEnd),
+    move(startRefiner(review, smallest(unreviewedEntriesFrom(review, start), REFINER_COUNT)), NoTurnEnd),
   }
 
   /// The agent ends the open segment and hands the artifact on.
@@ -628,8 +662,8 @@ module reviewLoop {
 
   /// Witness for `judgeRulesAtMostOnce`: a ruling lands on a judge run that already has one.
   val aRulingLandsOnARuledJudgeRun: bool =
-    lastStep.before.conclusionsAwaitingRuling.exists(id =>
-      not(review.conclusionsAwaitingRuling.contains(id)) and isRuling(lastStep.before.refinerRuns[id].result))
+    lastStep.before.judgeRunsCodeRulesOn.exists(id =>
+      not(review.judgeRunsCodeRulesOn.contains(id)) and isRuling(lastStep.before.refinerRuns[id].result))
 
   /// Witness for `judgeRulesAtMostOnce`: the author got a rejection from a judge entry.
   val theAuthorGotARejection: bool = review.author.rejectedBy.size() > 0
