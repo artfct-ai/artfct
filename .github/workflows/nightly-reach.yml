@@ -1,4 +1,4 @@
-name: Nightly reach
+name: Nightly spec validation
 
 on:
   schedule:
@@ -9,7 +9,7 @@ permissions:
   contents: read
 
 jobs:
-  reach:
+  spec_validation:
     name: reach
     runs-on: ubuntu-latest
     timeout-minutes: 300
@@ -31,14 +31,14 @@ jobs:
       - name: Run the property files against each mutant
         working-directory: packages/orchestrator
         run: PROPERTY_SEED=$(( GITHUB_RUN_ID % 2147483648 )) bun scripts/properties/mutants.ts "$RUNNER_TEMP/surviving-mutants.md"
-      - name: Open or update the nightly reach issue
+      - name: Open or update the nightly spec issue
         if: ${{ !cancelled() }}
         env:
           GH_TOKEN: ${{ github.token }}
           GLOSSARY_OUTCOME: ${{ steps.glossary.outcome }}
-          TITLE: Nightly reach findings
+          TITLE: Nightly spec validation findings
         run: |
-          body="$RUNNER_TEMP/reach-issue.md"
+          body="$RUNNER_TEMP/spec-issue.md"
           : > "$body"
           if [ -f "$RUNNER_TEMP/surviving-mutants.md" ]; then cat "$RUNNER_TEMP/surviving-mutants.md" >> "$body"; fi
           if [ "$GLOSSARY_OUTCOME" = failure ]; then
