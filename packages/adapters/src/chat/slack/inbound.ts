@@ -1,65 +1,87 @@
+import { z } from "zod";
 import { classifyPrompt, isStatus } from "../../classify";
 import { extractLinks } from "../../links";
 import { addressesSomeoneElse, readableMentions, tagsThisApp } from "./mentions";
 import type { ChatInbound, ChatInboundContext, ChatLookup } from "../types";
 
-type MentionEvent = {
-  type: "app_mention";
-  user: string;
-  text: string;
-  channel: string;
-  ts: string;
-  thread_ts?: string;
-};
+const mentionEventSchema = z.object({
+  type: z.literal("app_mention"),
+  user: z.string(),
+  text: z.string(),
+  channel: z.string(),
+  ts: z.string(),
+  thread_ts: z.string().optional(),
+});
 
-type MessageEvent = {
-  type: "message";
-  user?: string;
-  text?: string;
-  channel: string;
-  ts: string;
-  thread_ts?: string;
-  subtype?: string;
-  bot_id?: string;
-};
+const messageEventSchema = z.object({
+  type: z.literal("message"),
+  user: z.string().optional(),
+  text: z.string().optional(),
+  channel: z.string(),
+  ts: z.string(),
+  thread_ts: z.string().optional(),
+  subtype: z.string().optional(),
+  bot_id: z.string().optional(),
+});
 
-type ReactionEvent = {
-  type: "reaction_added";
-  user: string;
-  reaction: string;
-  item: { type: string; channel: string; ts: string };
-};
+const reactionEventSchema = z.object({
+  type: z.literal("reaction_added"),
+  user: z.string(),
+  reaction: z.string(),
+  item: z.object({ type: z.string(), channel: z.string(), ts: z.string() }),
+});
 
-type MemberJoinedEvent = {
-  type: "member_joined_channel";
-  user: string;
-  channel: string;
-};
+const memberJoinedEventSchema = z.object({
+  type: z.literal("member_joined_channel"),
+  user: z.string(),
+  channel: z.string(),
+});
+
+const slackEventSchema = z.discriminatedUnion("type", [
+  mentionEventSchema,
+  messageEventSchema,
+  reactionEventSchema,
+  memberJoinedEventSchema,
+]);
+
+const slackEventCallbackSchema = z.object({
+  type: z.literal("event_callback"),
+  event_id: z.string(),
+  event: slackEventSchema,
+  authorizations: z.array(z.object({ user_id: z.string() })).optional(),
+  /** True for a Slack Connect channel, which another organization shares. */
+  is_ext_shared_channel: z.boolean().optional(),
+});
+
+type MentionEvent = z.infer<typeof mentionEventSchema>;
+
+type MessageEvent = z.infer<typeof messageEventSchema>;
+
+type ReactionEvent = z.infer<typeof reactionEventSchema>;
 
 /** Slack events the mapper handles. */
-export type SlackEvent = MentionEvent | MessageEvent | ReactionEvent | MemberJoinedEvent;
+export type SlackEvent = z.infer<typeof slackEventSchema>;
 
 /** The `event_callback` envelope from the Slack Events API. */
-export type SlackEventCallback = {
-  type: "event_callback";
-  event_id: string;
-  event: SlackEvent;
-  authorizations?: Array<{ user_id: string }>;
-  /** True for a Slack Connect channel, which another organization shares. */
-  is_ext_shared_channel?: boolean;
-};
+export type SlackEventCallback = z.infer<typeof slackEventCallbackSchema>;
+
+/** The ignore for a payload that is not a callback of an event the mapper handles. */
+const UNHANDLED_EVENT: ChatInbound = { ignore: "unhandled slack event" };
 
 type SlackContext = ChatInboundContext & { callback: SlackEventCallback };
 
 /**
  * Map a Slack event callback. Mentions start or continue. The one reaction is a short reply.
  * Every event from a Slack Connect channel is ignored, because the other organization controls
- * the profiles of its people.
+ * the profiles of its people. A payload of another shape is ignored.
  */
 export async function slackInbound(
-  callback: SlackEventCallback,
+  payload: unknown,
   context: ChatInboundContext,
 ): Promise<ChatInbound> {
+  const parsed = slackEventCallbackSchema.safeParse(payload);
+  if (!parsed.success) return UNHANDLED_EVENT;
+  const callback = parsed.data;
   if (callback.is_ext_shared_channel) return { ignore: "Slack Connect channel" };
   const eventContext: SlackContext = { ...context, callback };
   const event = callback.event;
@@ -161,7 +183,7 @@ async function reactionEvent(event: ReactionEvent, context: SlackContext): Promi
 }
 
 function unhandled(_event: never): ChatInbound {
-  return { ignore: "unhandled slack event" };
+  return UNHANDLED_EVENT;
 }
 
 /** The thread root of a message, which is what a binding is keyed on. */
@@ -177,10 +199,13 @@ async function resolveActor(context: SlackContext, userId: string) {
 }
 
 /**
- * The channel this app itself was just added to, or null for any other callback. A Slack Connect
+ * The channel this app itself was just added to, or null for any other payload. A Slack Connect
  * channel names no channel, so the app does not greet where it will not answer.
  */
-export function appJoinedChannel(callback: SlackEventCallback): string | null {
+export function appJoinedChannel(payload: unknown): string | null {
+  const parsed = slackEventCallbackSchema.safeParse(payload);
+  if (!parsed.success) return null;
+  const callback = parsed.data;
   if (callback.is_ext_shared_channel) return null;
   const event = callback.event;
   if (event.type !== "member_joined_channel") return null;

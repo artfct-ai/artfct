@@ -2,18 +2,23 @@ import {
   agentFinishesWorkflow,
   agentPromptsAuthor,
   authorTurnEnds,
+  firstArtifactAppears,
   pageModelAnswers,
   personPressesStop,
   personSendsControl,
   personStopsModelCall,
   personWritesInSession,
+  refinerRunEnds,
   refinerRunFails,
   researcherTurnEnds,
   sandboxComesUp,
   sandboxGoesAway,
   timerFires,
   trackerOpensSession,
+  workflowRestartsDuringModelCall,
+  workflowRestartsWhileHostWritesPage,
   type HeldCommentsRead,
+  type RefinerRunEnd,
 } from "./workflow-actions";
 import type { WorkflowAction, WorldSetup } from "./workflow-world";
 
@@ -52,6 +57,34 @@ const HELD_COMMENTS_ADMITTED: HeldCommentsRead = {
   meanwhile: "nothing",
 };
 
+const MODEL_PAGE_FROM_CHAT: WorldSetup = {
+  ...MODEL_PAGE_ON_AN_ISSUE,
+  origin: "chat",
+  firstInput: "request",
+};
+
+const POLISHED_MODEL_PAGE_FROM_CHAT: WorldSetup = {
+  ...MODEL_PAGE_FROM_CHAT,
+  refiners: "reviewer_then_polisher",
+};
+
+const UNSTARTED_MODEL_PAGE_ON_AN_ISSUE: WorldSetup = {
+  ...MODEL_PAGE_ON_AN_ISSUE,
+  opening: "job_unstarted",
+};
+
+const polishedAfter = (reviewer: RefinerRunEnd["reviewer"]) =>
+  refinerRunEnds(0, {
+    reviewer,
+    pageCommenting: "takes",
+    judge: "approves",
+    polisher: "pushed",
+    stopReason: "end_turn",
+    closing: "reports_work",
+  });
+
+const restartDuringPrompt = workflowRestartsDuringModelCall(0, "agent_prompts");
+
 const cancelledWhileJudgedBlocked = authorTurnEnds(0, "changed", "blocked", "agent_cancels");
 
 /**
@@ -86,6 +119,31 @@ export const WORKFLOW_CORPUS: ReplayedSequence[] = [
       timerFires("bridge_lost", 0),
       trackerOpensSession(0),
       personWritesInSession(0, "question"),
+    ],
+  ],
+  [POLISHED_MODEL_PAGE_FROM_CHAT, [restartDuringPrompt, polishedAfter("no_review")]],
+  [MODEL_PAGE_FROM_CHAT, [restartDuringPrompt, restartDuringPrompt]],
+  [MODEL_PAGE_FROM_CHAT, [restartDuringPrompt, agentPromptsAuthor(0, HELD_COMMENTS_ADMITTED)]],
+  [
+    UNSTARTED_MODEL_PAGE_ON_AN_ISSUE,
+    [workflowRestartsWhileHostWritesPage(0, "provision_fires", "before")],
+  ],
+  [
+    UNSTARTED_MODEL_PAGE_ON_AN_ISSUE,
+    [
+      trackerOpensSession(0),
+      personWritesInSession(3, "pause"),
+      personStopsModelCall(0, "provision_fires"),
+      personWritesInSession(0, "question"),
+    ],
+  ],
+  [
+    { ...POLISHED_MODEL_PAGE_FROM_CHAT, pageAuthor: "harness" },
+    [
+      firstArtifactAppears(0, "author_text"),
+      authorTurnEnds(0, "same"),
+      workflowRestartsDuringModelCall(0, "revision_requested"),
+      polishedAfter("blocking"),
     ],
   ],
 ];

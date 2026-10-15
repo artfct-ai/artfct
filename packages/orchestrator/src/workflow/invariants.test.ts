@@ -43,6 +43,9 @@ import {
   anAcceptedArtifactNeverMovesBack,
   everyActionSettlesWithinItsWorkBudget,
   type Step,
+  aQueuedPromptReachesItsModelCallAuthor,
+  aModelCallAuthorWorksOnlyWhileItsCallIsOut,
+  aRestartDoesNotLoseAModelTurn,
 } from "../../test/invariants";
 import { propertyRuns, propertySeed } from "../../test/property-runs";
 import { declaredReachPoints, takeReachedPoints } from "../../test/reach";
@@ -98,6 +101,9 @@ import {
   trackerOpensSession,
   trackerTurns,
   workflowRestarts,
+  workflowRestartsDuringModelCall,
+  workflowRestartsWhileHostWritesPage,
+  modelCallOutlivesItsDeadline,
   type HeldCommentsRead,
 } from "../../test/workflow-actions";
 import {
@@ -122,6 +128,7 @@ const FLOOR_SHARE = 0.02;
 const FLOOR_TIMEOUT_MS = 3_600_000;
 
 const STATE_INVARIANTS = [
+  aQueuedPromptReachesItsModelCallAuthor,
   inReviewTaskHasAnArtifact,
   oneUnfinishedRefinerRunPerArtifact,
   authorIsIdleWhileAPolisherRuns,
@@ -166,6 +173,8 @@ const STEP_INVARIANTS = [
   authorGetsEveryPageFinding,
   everyActionSettlesWithinItsWorkBudget,
   anAcceptedArtifactNeverMovesBack,
+  aModelCallAuthorWorksOnlyWhileItsCallIsOut,
+  aRestartDoesNotLoseAModelTurn,
 ];
 
 const research = fc.constantFrom(false, false, false, true);
@@ -214,10 +223,20 @@ const pageSetups: fc.Arbitrary<WorldSetup> = fc.record({
   sandboxStart,
 });
 
-const modelPageSetups: fc.Arbitrary<WorldSetup> = pageSetups.map((setup) => ({
-  ...setup,
-  pageAuthor: "model" as const,
-}));
+const modelPageSetups: fc.Arbitrary<WorldSetup> = fc
+  .tuple(pageSetups, fc.constantFrom("job" as const, "job" as const, "job_unstarted" as const))
+  .map(([setup, worldOpening]) => ({
+    ...setup,
+    opening: worldOpening,
+    pageAuthor: "model" as const,
+  }));
+
+const modelCallStart = fc.constantFrom(
+  "provision_fires" as const,
+  "agent_prompts" as const,
+  "agent_prompts" as const,
+  "revision_requested" as const,
+);
 
 const author = fc.nat({ max: MAX_AUTHORS - 1 });
 
@@ -304,6 +323,24 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
     arbitrary: fc
       .tuple(author, fc.constantFrom("provision_fires", "agent_prompts"))
       .map(([index, start]) => personStopsModelCall(index, start)),
+  },
+  {
+    weight: 4,
+    arbitrary: fc
+      .tuple(author, modelCallStart)
+      .map(([index, start]) => workflowRestartsDuringModelCall(index, start)),
+  },
+  {
+    weight: 3,
+    arbitrary: fc
+      .tuple(author, modelCallStart, fc.constantFrom("before" as const, "after" as const))
+      .map(([index, start, applied]) => workflowRestartsWhileHostWritesPage(index, start, applied)),
+  },
+  {
+    weight: 2,
+    arbitrary: fc
+      .tuple(author, modelCallStart)
+      .map(([index, start]) => modelCallOutlivesItsDeadline(index, start)),
   },
   { weight: 3, arbitrary: author.map(refinerRunPromptFails) },
   {
@@ -717,8 +754,8 @@ type OpeningSetup = Partial<Pick<WorldSetup, "refiners" | "checksOnPush">>;
 /** The actions a sequence starts with, and the refiners and checks they need to reach anything. */
 type Opening = { setup: OpeningSetup; actions: WorkflowAction[] };
 
-function opening(actions: WorkflowAction[], setup: OpeningSetup = {}): Opening {
-  return { setup, actions };
+function opening(sequence: WorkflowAction[], setup: OpeningSetup = {}): Opening {
+  return { setup, actions: sequence };
 }
 
 const openings: fc.Arbitrary<Opening> = fc.constantFrom(
@@ -838,7 +875,7 @@ const CORPUS_EXAMPLES = WORKFLOW_CORPUS.map((replayed): [ReplayedSequence] => [r
 
 describe("the workflow invariants", () => {
   it("are every state and step invariant", () => {
-    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(41);
+    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(44);
   });
 
   for (const property of PROPERTIES) {
@@ -874,7 +911,7 @@ describe.if(process.env.REACH_FLOOR === "1")("the reach floor", () => {
     "is met by some workflow property at every reach point",
     async () => {
       const floor = Math.max(FLOOR_MIN_RUNS, Math.ceil(FLOOR_RUNS * FLOOR_SHARE));
-      const byProperty = [];
+      const byProperty: Map<string, number>[] = [];
       for (const property of PROPERTIES) byProperty.push(await reachedRunsOf(property));
       const rows = declaredReachPoints().map((label) => {
         const runs = byProperty.map((reachedRuns) => reachedRuns.get(label) ?? 0);

@@ -14,9 +14,11 @@ import {
 } from "../src/workflow/board/render";
 import { SLEEP_TEXT } from "../src/workflow/lifecycle";
 import type { TaskEvent, TaskRole } from "../src/workflow/task/events";
+import { taskAtWork } from "../src/workflow/task/at-work";
 import type { Wake, WorkflowRuntime } from "../src/workflow/types";
 import { STOPPED_TEXT } from "../src/workflow/feed/feed";
 import { reachPoint } from "./reach";
+import { ACTION_WORK_BUDGET, exceededWorkBudget } from "./work-budget";
 
 /** One task row as an observer saw it. `ruling` is the stored ruling as text, or null. */
 export type ObservedTask = {
@@ -37,6 +39,10 @@ export type ObservedTask = {
   promptInFlight: boolean;
   queuedPrompts: number;
   handshaking: boolean;
+  /** True while the task's turn runs or is about to start, as the workflow reads it. */
+  atWork: boolean;
+  /** True while a page model call of this instance is out for the model turn the task holds. */
+  modelCallOut: boolean;
   /**
    * True when the latest turn of the author ended on its own with the work unfinished, and no
    * person stopped the author since.
@@ -146,6 +152,11 @@ export type Step = {
    * is what the agent read about it.
    */
   heldCommentsAsked: { authors: string[]; expected: "sent" | "kept"; agentRead: string } | null;
+  /**
+   * Set when a restart or the deadline cut a model turn of the author. `prompt_id` is the queued
+   * prompt a revise turn ran on, and null for a turn that produces the page.
+   */
+  modelTurnCut: { task_id: string; prompt_id: number | null } | null;
   /** How many store statements the action ran. */
   work: number;
 };
@@ -183,9 +194,6 @@ const ARTIFACT_MOVES: Array<[ArtifactStatus, ArtifactStatus]> = [
   ["drafted", "removed"],
   ["ready", "removed"],
 ];
-
-/** The most store statements one action may run. A settled action runs a few hundred at most. */
-export const ACTION_WORK_BUDGET = 5_000;
 
 const reachDeliveredArtifact = reachPoint(
   "deliveredToHumansIsNeverCleared: an artifact the humans have",
@@ -326,6 +334,13 @@ const reachPageFindingsPrompt = reachPoint(
   "authorGetsEveryPageFinding: a review prompt reaches the page author",
 );
 const reachWork = reachPoint("everyActionSettlesWithinItsWorkBudget: an action does work");
+const reachModelCallAuthorQueued = reachPoint(
+  "aQueuedPromptReachesItsModelCallAuthor: a model-call author has a queued prompt",
+);
+const reachModelCallAuthorWorking = reachPoint(
+  "aModelCallAuthorWorksOnlyWhileItsCallIsOut: a model-call author works with no call out",
+);
+const reachModelTurnCut = reachPoint("aRestartDoesNotLoseAModelTurn: a model turn is cut");
 const reachAccepted = reachPoint("anAcceptedArtifactNeverMovesBack: an artifact is accepted");
 const reachTurnOnAccepted = reachPoint(
   "anAcceptedArtifactNeverMovesBack: an author turn ends on an accepted artifact",
@@ -804,6 +819,79 @@ export function authorIsIdleWhileAPolisherRuns(workflow: WorkflowRuntime): void 
 }
 
 /**
+ * A prompt queued for a model-call author reaches it. An unpaused model-call author with a queued
+ * prompt has a model turn in flight, is starting, or a polisher holds its page.
+ */
+export function aQueuedPromptReachesItsModelCallAuthor(workflow: WorkflowRuntime): void {
+  const queue = workflow.store.queue();
+  for (const author of workflow.store.tasks()) {
+    if (author.role !== "author" || FINISHED.includes(author.status)) continue;
+    if (workflow.store.sandbox(author.task_id) || author.paused_at !== null) continue;
+    const queued = queue.filter((row) => row.task_id === author.task_id).length;
+    if (queued === 0) continue;
+    reachModelCallAuthorQueued();
+    if (taskAtWork(workflow, author)) continue;
+    const polishing = workflow.store
+      .tasks()
+      .some(
+        (run) =>
+          run.role === "polisher" && run.job_id === author.job_id && !FINISHED.includes(run.status),
+      );
+    if (polishing) continue;
+    violated(
+      "aQueuedPromptReachesItsModelCallAuthor",
+      `${author.task_id} is ${author.status} with ${queued} queued prompts and nothing takes them`,
+    );
+  }
+}
+
+/**
+ * A model-call author is working only while a page model call of this instance is out for its
+ * model turn, or after a stop ended its turn before its page existed.
+ */
+export function aModelCallAuthorWorksOnlyWhileItsCallIsOut(
+  workflow: WorkflowRuntime,
+  step: Step,
+): void {
+  for (const author of step.after.tasks) {
+    if (author.role !== "author" || author.status !== "working") continue;
+    if (workflow.store.sandbox(author.task_id) || author.modelCallOut) continue;
+    reachModelCallAuthorWorking();
+    const pageOut = workflow.store.artifact(author.job_id) !== null;
+    if (!pageOut && !author.atWork) continue;
+    violated(
+      "aModelCallAuthorWorksOnlyWhileItsCallIsOut",
+      `${author.task_id} is working with ${pageOut ? "its page out" : "a model turn"} and no call out`,
+    );
+  }
+}
+
+/**
+ * A restart or the deadline does not lose a model turn. The author whose turn was cut is
+ * starting, asks the page model again, is back in review with the prompt of its turn taken, waits
+ * paused, or failed with a post to the person.
+ */
+export function aRestartDoesNotLoseAModelTurn(workflow: WorkflowRuntime, step: Step): void {
+  const cut = step.modelTurnCut;
+  if (!cut) return;
+  reachModelTurnCut();
+  const author = workflow.store.requireTask(cut.task_id);
+  const observed = step.after.tasks.find((task) => task.task_id === cut.task_id);
+  const promptTaken = !workflow.store.queue().some((row) => row.id === cut.prompt_id);
+  const resumed =
+    STARTING_AUTHOR.includes(author.status) ||
+    observed?.modelCallOut === true ||
+    (author.status === "in_review" && promptTaken) ||
+    author.paused_at !== null ||
+    (author.status === "failed" && step.postedTypes.includes("failed"));
+  if (resumed) return;
+  violated(
+    "aRestartDoesNotLoseAModelTurn",
+    `${cut.task_id} is ${author.status} after its model turn was cut`,
+  );
+}
+
+/**
  * A job starts only into a free slot: before the action that started it, the unfinished author
  * and researcher tasks were fewer than the slots. A refiner run takes no slot.
  */
@@ -958,6 +1046,13 @@ function runningAuthorBefore(step: Step): ObservedTask | null {
   return author && RUNNING_AUTHOR.includes(author.status) ? author : null;
 }
 
+function queuedTextsOf(workflow: WorkflowRuntime, taskId: string): string[] {
+  return workflow.store
+    .queue()
+    .filter((row) => row.task_id === taskId)
+    .map((row) => row.text);
+}
+
 function occurrences(texts: string[], text: string): number {
   return texts.filter((candidate) => candidate === text).length;
 }
@@ -1064,11 +1159,12 @@ export function linearOnlyAsksReachTheStartingSession(
 }
 
 /**
- * A person's message in a job session whose author runs goes to that author as a prompt. Nothing
- * is posted, and no agent turn wakes for it.
+ * A person's message in a job session whose author runs goes to that author as a prompt. A prompt
+ * that waits in the queue of an unpaused model-call author waits on an author at work. Nothing is
+ * posted, and no agent turn wakes for it.
  */
 export function sessionMessageReachesItsRunningAuthorSilently(
-  _workflow: WorkflowRuntime,
+  workflow: WorkflowRuntime,
   step: Step,
 ): void {
   const event = step.event;
@@ -1082,6 +1178,22 @@ export function sessionMessageReachesItsRunningAuthorSilently(
     violated(
       "sessionMessageReachesItsRunningAuthorSilently",
       `${author.task_id} did not get "${event.text}"`,
+    );
+  }
+  const modelCall = workflow.store.sandbox(author.task_id) === null;
+  const paused = workflow.store.requireTask(author.task_id).paused_at !== null;
+  const waiting = occurrences(queuedTextsOf(workflow, author.task_id), event.text) > 0;
+  if (
+    modelCall &&
+    !paused &&
+    waiting &&
+    after &&
+    !after.atWork &&
+    !FINISHED.includes(after.status)
+  ) {
+    violated(
+      "sessionMessageReachesItsRunningAuthorSilently",
+      `"${event.text}" waits on ${author.task_id}, which is ${after.status} and not at work`,
     );
   }
   if (step.after.posted !== step.before.posted) {
@@ -1315,14 +1427,6 @@ export function everyActionSettlesWithinItsWorkBudget(
 ): void {
   if (step.work > 0) reachWork();
   if (step.work > ACTION_WORK_BUDGET) exceededWorkBudget(step.action, step.work);
-}
-
-/** Stop an action that ran past its work budget. */
-export function exceededWorkBudget(action: string, work: number): never {
-  violated(
-    "everyActionSettlesWithinItsWorkBudget",
-    `${action} ran ${work} store statements, past the budget of ${ACTION_WORK_BUDGET}`,
-  );
 }
 
 /**

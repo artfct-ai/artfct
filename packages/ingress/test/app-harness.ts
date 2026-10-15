@@ -24,6 +24,8 @@ const NO_CLIENTS: ChannelClients = { chat: null, documents: null };
 
 export type Harness = {
   rpc: FakeOrchestrator;
+  /** Every orchestrator RPC method a route called, in order. */
+  calls: string[];
   request: (input: Request | string, init?: RequestInit) => Promise<Response>;
   /** Resolves when every promise handed to `waitUntil` has settled. */
   settle: () => Promise<unknown>;
@@ -48,7 +50,18 @@ export function harness(options: HarnessOptions = {}): Harness {
   });
   wrapper.route("/", app);
 
-  const env: Env = { ORCHESTRATOR: rpc, GITHUB_APP_LOGIN: "artfct", ...SECRETS };
+  const calls: string[] = [];
+  const recorded = new Proxy(rpc, {
+    get(target, key, receiver) {
+      const value: unknown = Reflect.get(target, key, receiver);
+      if (typeof value !== "function") return value;
+      return (...args: unknown[]) => {
+        calls.push(String(key));
+        return Reflect.apply(value, target, args);
+      };
+    },
+  });
+  const env: Env = { ORCHESTRATOR: recorded, GITHUB_APP_LOGIN: "artfct", ...SECRETS };
   if (options.adminDebug) env.ADMIN_DEBUG = "true";
   const background: Promise<unknown>[] = [];
   const executionCtx: ExecutionContext = {
@@ -60,6 +73,7 @@ export function harness(options: HarnessOptions = {}): Harness {
   };
   return {
     rpc,
+    calls,
     request: async (input, init) => wrapper.request(input, init, env, executionCtx),
     settle: () => Promise.all(background),
   };

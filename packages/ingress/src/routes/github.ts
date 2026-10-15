@@ -18,7 +18,7 @@ githubRoutes.post("/webhooks/github", async (ctx) => {
 
   const eventName = ctx.req.header("x-github-event") ?? "";
   if (eventName === "ping") return ctx.json({ ok: true });
-  const payload = parseJsonBody(body) as Record<string, unknown> | null;
+  const payload = parseJsonBody(body);
   if (!payload) return ctx.text("malformed body", 400);
 
   const rpc = ctx.env.ORCHESTRATOR;
