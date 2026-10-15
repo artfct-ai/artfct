@@ -145,6 +145,14 @@ export const MUTANTS: Mutant[] = [
     replace: "",
   },
   {
+    id: "W18",
+    invariant: "authorGetsEveryPullFinding",
+    path: "src/workflow/refiner/loop.ts",
+    find: "    if (!reviewAsksTheAuthor(review)) {\n      return advanceArtifactPastEntry(workflow, author, index, revision);",
+    replace:
+      "    if (true || !reviewAsksTheAuthor(review)) {\n      return advanceArtifactPastEntry(workflow, author, index, revision);",
+  },
+  {
     id: "A1",
     invariant: "laterDecisionsCallsFallBackOnceOneFails",
     path: "src/decisions/ask.ts",

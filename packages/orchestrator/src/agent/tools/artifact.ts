@@ -77,7 +77,7 @@ export function artifactTools(workflow: WorkflowRuntime) {
     }),
     rule_on_review: tool({
       description:
-        "Record a person's ruling on a judge entry that waits for one. `approve` hands the artifact on. `reject` sends the person's reason to the author. Call it only with a ruling a person gave in their own words.",
+        "Record a person's ruling on a judge entry that waits for one. `approve` hands the artifact on, or first sends the author the findings the reviewers before the judge left. `reject` sends the person's reason to the author with those findings. Call it only with a ruling a person gave in their own words.",
       inputSchema: z.object({
         job_id: jobIdField,
         ruling: z.enum(["reject", "approve"]),

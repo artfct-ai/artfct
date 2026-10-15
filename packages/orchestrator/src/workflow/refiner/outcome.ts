@@ -45,12 +45,15 @@ export async function sendReviewToAuthor(
   );
 }
 
-/** Send a judge entry's rejection to the author task as its next prompt. */
+/**
+ * Send a judge entry's rejection to the author task as its next prompt, with the review the
+ * reviewers before the judge left.
+ */
 export async function sendRejectionToAuthor(
   workflow: WorkflowRuntime,
   author: TaskRow,
   artifact: ArtifactRow,
-  rejection: { entry: string; reason: string },
+  rejection: { entry: string; reason: string; review: Review | null },
 ): Promise<void> {
   if (isTaskFinished(author.status)) {
     return markArtifactReady(workflow, author.job_id, {

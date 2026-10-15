@@ -298,14 +298,11 @@ export async function onReviewerFinished(
   const runs = workflow.store.refinerRunsOf(author.job_id);
   const end = segmentEndOf(index, entries);
   const next = nextEntryToRun({ entries, runs, from: index + 1, revision });
-  if (index !== end && (next <= end || entries[end]?.mode === "judge")) {
+  if (index !== end && next <= end) {
     await advanceArtifactPastEntry(workflow, author, index, revision);
     return;
   }
-  if (end !== index) {
-    const endRun = runs.findLast((run) => run.refiner_index === end);
-    if (endRun) workflow.store.setArtifactRefinerRun(author.job_id, endRun.task_id);
-  }
+  pointAtLastReviewerOfSegment(workflow, author, end);
   const settled = segmentReview(workflow, author, end, revision);
   if (settled.stale) {
     workflow.log(author.task_id, "reviewer run dropped: the artifact moved while the reviewer ran");
@@ -314,10 +311,33 @@ export async function onReviewerFinished(
     await runRefinersFrom(workflow, current, segmentStartOf(end, entries), revision);
     return;
   }
-  if (settled.review && (settled.review.blocking || settled.review.findings.length)) {
+  if (reviewAsksTheAuthor(settled.review)) {
     return sendReviewToAuthor(workflow, author, artifact, settled.review);
   }
   await advanceArtifactPastEntry(workflow, author, end, revision);
+}
+
+/** True when a segment's review holds findings or blocks, so its author answers it. */
+function reviewAsksTheAuthor(review: Review | null): review is Review {
+  return review !== null && (review.blocking || review.findings.length > 0);
+}
+
+/**
+ * Point the artifact at the latest run of the last findings entry of the segment that ends at
+ * `end`, so the author's answer to the segment's review is routed from there. A judge that ends
+ * the segment has ruled once, and the list passes over it.
+ */
+function pointAtLastReviewerOfSegment(
+  workflow: WorkflowRuntime,
+  author: TaskRow,
+  end: number,
+): void {
+  const entries = workflow.stageForTask(author).reviewers;
+  const lastReviewer = entries[end]?.mode === "judge" ? end - 1 : end;
+  const run = workflow.store
+    .refinerRunsOf(author.job_id)
+    .findLast((candidate) => candidate.refiner_index === lastReviewer);
+  if (run) workflow.store.setArtifactRefinerRun(author.job_id, run.task_id);
 }
 
 /** Rule on what a judge reviewer concluded, or ask a person when code cannot tell. */
@@ -385,11 +405,18 @@ export async function applyJudgeRuling(
     return refusal;
   }
   workflow.log(author.task_id, `${entry.name} ${input.ruling} on ${reviewer.task_id}`);
+  const index = refinerIndexOf(reviewer);
+  const { review } = segmentReview(workflow, author, index, revision);
   if (input.ruling === "approved") {
     workflow.store.updateTask(reviewer.task_id, {
       result: { kind: "ruling", revision, ruling: "approved" },
     });
-    return advanceArtifactPastEntry(workflow, author, refinerIndexOf(reviewer), revision);
+    if (!reviewAsksTheAuthor(review)) {
+      return advanceArtifactPastEntry(workflow, author, index, revision);
+    }
+    pointAtLastReviewerOfSegment(workflow, author, index);
+    await sendReviewToAuthor(workflow, author, artifact, review);
+    return `The ${entry.name} judge approved. The author ${author.task_id} has the findings of the reviewers before it, and you route the artifact when its turn ends.`;
   }
   workflow.store.updateTask(reviewer.task_id, {
     result: { kind: "ruling", revision, ruling: "rejected", reason: input.reason },
@@ -398,7 +425,11 @@ export async function applyJudgeRuling(
   const signedReason = `${reason}\n\n${reviewerSignature(workflow, entry, reviewer)}`;
   if (support.postRejection) await support.postRejection(artifact.ref, signedReason);
   else await workflow.post({ type: "info", text: signedReason });
-  await sendRejectionToAuthor(workflow, author, artifact, { entry: entry.name, reason });
+  await sendRejectionToAuthor(workflow, author, artifact, {
+    entry: entry.name,
+    reason,
+    review: reviewAsksTheAuthor(review) ? review : null,
+  });
   return `The author ${author.task_id} has the rejection. The ${entry.name} judge has ruled, so the next entry runs when its turn ends.`;
 }
 
