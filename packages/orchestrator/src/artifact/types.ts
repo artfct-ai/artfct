@@ -10,14 +10,22 @@ import type { McpServer } from "@artfct-ai/adapters/mcp";
 import type { Actor, InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { Binding } from "@artfct-ai/contracts/sources";
 
-/** What an artifact points at, as fields. */
+/**
+ * What an artifact points at, as fields. A ref of kind `issues` is a breakdown output stored
+ * before the output named one issue or one tracker project. It names neither.
+ */
 export type ArtifactRef =
   | { kind: "pull"; repo: string; number: number }
   | { kind: "page"; page_id: string }
+  | { kind: "issue"; issue_id: string; issue_key: string }
+  | { kind: "project"; project_id: string }
   | { kind: "issues" };
 
 /** An artifact ref that names a pull request. */
 export type PullRef = Extract<ArtifactRef, { kind: "pull" }>;
+
+/** An artifact ref that names one tracker issue or one tracker project. */
+export type TrackerRef = Extract<ArtifactRef, { kind: "issue" | "project" }>;
 
 /** Where an artifact lives: what it points at, and the link a human opens. */
 export type ArtifactTarget = { ref: ArtifactRef; url: string };
@@ -155,8 +163,13 @@ export type ArtifactAction = keyof ArtifactInstructions;
 
 /** Everything that depends on the kind of artifact a stage produces. */
 export interface Artifact {
-  /** The first artifact of this kind that a link in the text names. */
+  /** The artifact of this kind that a link in the text names. */
   detect(text: string): Promise<ArtifactTarget | null>;
+  /**
+   * True when the artifact is the link the author's turn ends with, so it is read once the turn
+   * ends. False when the first link that streams by is the artifact.
+   */
+  endsTurn: boolean;
   /**
    * The artifact the host holds open on a branch, for an author that printed no link. Absent on
    * a kind that does not live on a branch.

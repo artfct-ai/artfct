@@ -502,6 +502,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
       adapters: this.config().adapters,
       code: () => this.code(),
       documents: () => this.documents(),
+      tracker: () => this.tracker(),
       repo: () => this.state.repo?.full ?? null,
       log: (line) => this.log(null, line),
     });

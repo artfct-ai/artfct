@@ -38,9 +38,25 @@ export function jobInputKey(input: JobInput): string {
   return `request:${createHash("sha256").update(input.text).digest("hex")}`;
 }
 
-/** The key of an artifact target, from its ref. An issue set has no fields, so its link is the key. */
+/**
+ * The key of an artifact target, from its ref. An issue has the key of a job input that names it.
+ * A ref of kind `issues` has no fields, so its link is the key.
+ */
 export function artifactRefKey({ ref, url }: ArtifactTarget): string {
-  if (ref.kind === "page") return `page:${ref.page_id}`;
-  if (ref.kind === "pull") return `pull:${ref.repo}#${ref.number}`;
-  return `issues:${url}`;
+  switch (ref.kind) {
+    case "page":
+      return `page:${ref.page_id}`;
+    case "pull":
+      return `pull:${ref.repo}#${ref.number}`;
+    case "issue":
+      return ref.issue_id;
+    case "project":
+      return `project:${ref.project_id}`;
+    case "issues":
+      return `issues:${url}`;
+    default: {
+      const unreachable: never = ref;
+      throw new Error(`unhandled artifact ref ${String(unreachable)}`);
+    }
+  }
 }

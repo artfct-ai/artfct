@@ -119,8 +119,9 @@ export async function startJob(
     await bindWorkflow(workflow, { source: "tracker_issue", external_id: issue.id });
     const ref = { issue_id: issue.id, team_id: issue.team_id };
     await workflow.notifier.claimIssue(ref, { started: issue.started });
-    const { origin } = state;
-    if (origin?.source === "chat" && !issueLinked) {
+    const { origin, subject } = state;
+    const syncedAsSubject = subject?.kind === "issue" && subject.issue_id === issue.id;
+    if (origin?.source === "chat" && !issueLinked && !syncedAsSubject) {
       await workflow.notifier.linkChatThread(ref, origin);
     }
   }
@@ -227,8 +228,16 @@ export async function completeJob(
   return { running, slots: Math.max(0, workflow.state.concurrency - running) };
 }
 
-/** The agent says the work is complete. The channels hear the result. Each session's issue completes. */
+/**
+ * The work is complete. Any task still running ends with it. The channels hear the result. Each
+ * session's issue completes.
+ */
 export async function completeWorkflow(workflow: WorkflowRuntime, result: string): Promise<void> {
+  const reason = "the workflow is done";
+  for (const task of workflow.store.activeAuthorAndResearcherTasks()) {
+    await cancelTask(workflow, task, reason);
+  }
+  for (const task of workflow.store.activeRefinerRuns()) await cancelTask(workflow, task, reason);
   await changeWorkflowStatus(workflow, "done");
   workflow.log(null, `finished: ${result}`);
   await workflow.post({ type: "done", result });

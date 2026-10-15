@@ -1,7 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, mock } from "bun:test";
 import { fakeLinear, PAGE, type Call } from "../../../test/linear-graphql";
 import { LinearTracker } from "./tracker";
-import type { AppUser, TeamMembership, TrackerIssue, TrackerUser, WorkflowState } from "../types";
+import type {
+  AppUser,
+  TeamMembership,
+  TrackerIssue,
+  TrackerProject,
+  TrackerUser,
+  WorkflowState,
+} from "../types";
 
 afterEach(() => mock.restore());
 
@@ -211,6 +218,8 @@ const ISSUE_NODE = {
   url: "https://l/ENG-1",
   state: { type: "unstarted", name: "Todo" },
   team: { id: "t1" },
+  parent: { id: "i100" },
+  project: { id: "p1" },
   labels: { nodes: [{ name: "harness: opencode" }, { name: "bug" }] },
   inverseRelations: {
     nodes: [
@@ -220,6 +229,8 @@ const ISSUE_NODE = {
   },
 };
 
+const PROJECT_URL = "https://linear.app/acme/project/checkout-0a1b2c3d4e5f";
+
 const MAPPED_ISSUE: TrackerIssue = {
   id: "i1",
   identifier: "ENG-1",
@@ -227,6 +238,8 @@ const MAPPED_ISSUE: TrackerIssue = {
   url: "https://l/ENG-1",
   state: { type: "unstarted", name: "Todo" },
   team_id: "t1",
+  parent_id: "i100",
+  project_id: "p1",
   labels: ["harness: opencode", "bug"],
   blockers: [{ id: "i0", identifier: "ENG-0", state: { type: "started" } }],
 };
@@ -243,6 +256,10 @@ describe("LinearTracker raw issue reads", () => {
 
     it("asks for the identifier it was given", () => {
       expect(calls[0]?.variables).toEqual({ id: "ENG-1" });
+    });
+
+    it("selects the parent and the project", () => {
+      expect(calls[0]?.query).toContain("parent { id } project { id }");
     });
 
     it("selects the labels and the inverse relations", () => {
@@ -263,6 +280,84 @@ describe("LinearTracker raw issue reads", () => {
   it("issue reads a team_id of null when the issue has no team", async () => {
     fakeLinear({ Issue: { issue: { ...ISSUE_NODE, team: null } } });
     expect((await new LinearTracker("lin_api_x").issue("ENG-1"))?.team_id).toBeNull();
+  });
+
+  it("issue reads a parent_id and a project_id of null for a top-level issue outside a project", async () => {
+    fakeLinear({ Issue: { issue: { ...ISSUE_NODE, parent: null, project: null } } });
+    const issue = await new LinearTracker("lin_api_x").issue("ENG-1");
+    expect([issue?.parent_id, issue?.project_id]).toEqual([null, null]);
+  });
+
+  describe("a project named by its slug id", () => {
+    let calls: Call[];
+    let project: TrackerProject | null;
+
+    beforeEach(async () => {
+      calls = fakeLinear({
+        Project: { project: { id: "p1", name: "Checkout", url: PROJECT_URL } },
+      });
+      project = await new LinearTracker("lin_api_x").project("0a1b2c3d4e5f");
+    });
+
+    it("asks for the slug id it was given", () => {
+      expect(calls[0]?.variables).toEqual({ id: "0a1b2c3d4e5f" });
+    });
+
+    it("returns the id, the name, and the url", () => {
+      expect(project).toEqual({ id: "p1", name: "Checkout", url: PROJECT_URL });
+    });
+  });
+
+  it("project is null when Linear has none", async () => {
+    fakeLinear({ Project: { project: null } });
+    expect(await new LinearTracker("lin_api_x").project("p404")).toBeNull();
+  });
+
+  describe("an issue whose sub-issues span two pages", () => {
+    let calls: Call[];
+    let issues: TrackerIssue[];
+
+    beforeEach(async () => {
+      const second = { ...ISSUE_NODE, id: "i2", identifier: "ENG-2" };
+      calls = fakeLinear({
+        SubIssues: (call: Call) =>
+          call.variables.after === null
+            ? {
+                issue: {
+                  children: {
+                    nodes: [ISSUE_NODE],
+                    pageInfo: { hasNextPage: true, endCursor: "c1" },
+                  },
+                },
+              }
+            : {
+                issue: {
+                  children: { nodes: [second], pageInfo: { hasNextPage: false, endCursor: null } },
+                },
+              },
+      });
+      issues = await new LinearTracker("lin_api_x").subIssues("i100");
+    });
+
+    it("asks for fifty children after the cursor", () => {
+      expect(calls[0]?.query).toContain("children(first: 50, after: $after)");
+    });
+
+    it("follows the cursor across the pages", () => {
+      expect(calls.map((call) => call.variables)).toEqual([
+        { id: "i100", after: null },
+        { id: "i100", after: "c1" },
+      ]);
+    });
+
+    it("returns the sub-issues of both pages", () => {
+      expect(issues.map((issue) => issue.identifier)).toEqual(["ENG-1", "ENG-2"]);
+    });
+  });
+
+  it("subIssues is empty for an unknown issue", async () => {
+    fakeLinear({ SubIssues: { issue: null } });
+    expect(await new LinearTracker("lin_api_x").subIssues("i404")).toEqual([]);
   });
 
   describe("a project whose issues span two pages", () => {

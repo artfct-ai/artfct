@@ -10,7 +10,8 @@ A code name is one type, table, column, or function. A code name that needs a co
 
 | Term | Meaning | Code name | Do not say |
 |---|---|---|---|
-| workflow | A workstream that a person requests in a conversation or a tracker session. It runs one workflow definition and works on many issues and pull requests. It starts when the agent sets a plan that names a definition, and it runs until done, cancelled, or failed. | `WorkflowState`, `WorkflowState.definition` | |
+| workflow | A workstream that a person requests in a conversation or a tracker session. It runs one workflow definition and works on the issues of its subject, and on the pull requests and pages they need. It starts when the agent sets a plan that names a definition. It runs until done, cancelled, or failed. | `WorkflowState`, `WorkflowState.definition` | |
+| subject | The one issue or tracker project a workflow works on. A tracker origin sets it, else the plan, else the breakdown output. It never changes. An issue subject covers the issue and its direct sub-issues. A project subject covers the project's issues. | `WorkflowState.subject` | binding, scope, root issue |
 | workflow definition | A named set of stages in config. A deployment may hold several. A workflow runs the one its plan names. | `WorkflowDefinition`, `workflows/<name>.yaml`, `set_plan` `definition` | |
 | stage | One step of a workflow. It produces one artifact. Config declares it. | `Stage` | |
 | job | The execution of one stage. Its tasks belong to it, and it holds what they produce. | `jobs` row | |
@@ -43,7 +44,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 
 | Term | Meaning | Code name | Do not say |
 |---|---|---|---|
-| artifact | A pull request, page, issue, or issue set. A job works from one and produces one. | `ArtifactRef`, `artifacts` row | |
+| artifact | A pull request, page, issue, or tracker project. A job works from one and produces one. | `ArtifactRef`, `artifacts` row | |
 | input artifact | The artifact a task works from. | `jobs.issue_id` when the input is an issue, `jobs.input_ref` when the input is an artifact no job of the workflow produced | |
 | output artifact | The artifact a task produces. The refiners run on it, and the handover delivers it. | `artifacts` row | |
 | revision | The identifier the host gives the current content of an artifact. Null when the host cannot say. | `ReviewSupport.revision` | version |
@@ -88,7 +89,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | session feed | The author's tool calls and its closing reply, posted to its job session as tracker activities. Thoughts are not posted. Only the author streams, and the orchestrator posts none of it. | `streamToSessionFeed` | transcript, mirror, log |
 | session plan | The author's todo list as the plan of its job session. Set only when the workflow has no chat thread. | `publishSessionPlan` | board, checklist |
 | stop | A person's request in a job session to end the current prompt turn of the job's author. The orchestrator sends the author's harness session a cancel. For a model-call author, the stop ends the turn that is starting or in flight, and the answer of its model call does not change the page. The task, the job, and the workflow keep running, and its session feed ends with "Stopped." | `EventKind "stop"`, `stopAuthor` | cancel, interrupt, pause |
-| synced thread | The chat thread that the tracker mirrors as the comment thread of one issue, both ways. It is the first issue a job of the workflow works on. Every later issue gets a link to the thread. | `Tracker.syncChatThread` | mirror, bridge |
+| synced thread | The chat thread that the tracker mirrors as the comment thread of one issue, both ways. It is the subject issue, or the first issue a job works on when the subject is a project. Every later issue gets a link to the thread. | `Tracker.syncChatThread` | mirror, bridge |
 | acknowledgement | How a chat thread shows a person that their message arrived. The thread enters its working status when the workflow takes the message. When that takes longer than a few seconds, the message gets the eyes reaction until the working status appears. | `Acknowledge`, `Notifier.acknowledge`, `deliverWithChatAck` | receipt |
 | person | One human actor. | `Actor` | |
 | the humans | The people a workflow reports to. | | |

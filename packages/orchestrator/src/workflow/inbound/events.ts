@@ -14,6 +14,7 @@ import {
   type ChatMessageRef,
 } from "../store/state";
 import { statusText, summarize } from "../status";
+import { originSubject } from "../subject";
 import { jobForEvent } from "./lookup";
 import type { Applied, WorkflowRuntime } from "../types";
 
@@ -43,6 +44,7 @@ export async function createWorkflow(
     workflow_id: workflowId,
     starter: event.actor,
     origin,
+    subject: originSubject(origin),
     reply_targets: origin ? [origin] : [],
     request: { title: event.title || firstLine(event.text), text: event.text, links: event.links },
     created_at: now(),

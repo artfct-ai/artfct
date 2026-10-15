@@ -343,6 +343,7 @@ export class FakeRuntime implements WorkflowRuntime {
       adapters: this.config().adapters,
       code: () => this.code(),
       documents: () => this.documents(),
+      tracker: () => this.tracker(),
       repo: () => this.state.repo?.full ?? null,
       log: (line) => this.log(null, line),
     });
@@ -486,7 +487,7 @@ export function seedIssuesTask(
     job_id: task.job_id,
     kind: "issues",
     external_url: "https://linear.app/acme/issue/ENG-42",
-    ref: { kind: "issues" },
+    ref: { kind: "issue", issue_id: "issue-42", issue_key: "ENG-42" },
   });
   if (seed.status && seed.status !== "drafted") {
     workflow.store.advanceArtifact(task.job_id, ["drafted"], seed.status);

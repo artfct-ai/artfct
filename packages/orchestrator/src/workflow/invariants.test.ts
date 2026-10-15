@@ -1,6 +1,9 @@
 import { describe, expect, it } from "bun:test";
 import fc from "fast-check";
 import {
+  aJobWorksOnlyOnIssuesOfItsSubject,
+  aSingleIssueWorkflowIsDoneWithItsSubjectsJob,
+  subjectNeverChanges,
   aFailedCheckNeverAsksThePersonAgain,
   aFailedCheckNeverCompletesAJob,
   anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone,
@@ -151,6 +154,9 @@ const STEP_INVARIANTS = [
   aPromptToAPageAuthorCarriesItsHeldComments,
   pageReviewPostsEachFindingOnce,
   authorGetsEveryPageFinding,
+  aJobWorksOnlyOnIssuesOfItsSubject,
+  subjectNeverChanges,
+  aSingleIssueWorkflowIsDoneWithItsSubjectsJob,
 ];
 
 const setups: fc.Arbitrary<WorldSetup> = fc.record({
@@ -169,6 +175,7 @@ const setups: fc.Arbitrary<WorldSetup> = fc.record({
   pageEnding: fc.constantFrom("acceptance" as const, "choice" as const),
   origin: fc.constantFrom("chat" as const, "chat" as const, "tracker" as const, "tracker" as const),
   firstInput: fc.constantFrom("request" as const, "origin_issue" as const, "origin_issue" as const),
+  subject: fc.constantFrom("none" as const, "none" as const, "project" as const),
 });
 
 const pageSetups: fc.Arbitrary<WorldSetup> = fc.record({
@@ -181,6 +188,7 @@ const pageSetups: fc.Arbitrary<WorldSetup> = fc.record({
   pageEnding: fc.constantFrom("acceptance" as const, "choice" as const),
   origin: fc.constantFrom("chat" as const, "chat" as const, "tracker" as const, "tracker" as const),
   firstInput: fc.constantFrom("request" as const, "origin_issue" as const, "origin_issue" as const),
+  subject: fc.constantFrom("none" as const, "none" as const, "project" as const),
 });
 
 const modelPageSetups: fc.Arbitrary<WorldSetup> = pageSetups.map((setup) => ({
@@ -189,6 +197,13 @@ const modelPageSetups: fc.Arbitrary<WorldSetup> = pageSetups.map((setup) => ({
 }));
 
 const author = fc.nat({ max: MAX_AUTHORS - 1 });
+
+const trackerLink = fc.constantFrom(
+  "the_subject_issue" as const,
+  "the_subject_issue" as const,
+  "a_project" as const,
+  "a_stray_issue" as const,
+);
 
 const heldCommentsRead: fc.Arbitrary<HeldCommentsRead> = fc.record({
   decisions: fc.constantFrom(
@@ -282,8 +297,8 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
   {
     weight: 4,
     arbitrary: fc
-      .tuple(author, fc.constantFrom("author_text", "host_event"))
-      .map(([index, via]) => firstArtifactAppears(index, via)),
+      .tuple(author, fc.constantFrom("author_text", "host_event"), trackerLink)
+      .map(([index, via, issuesOutput]) => firstArtifactAppears(index, via, issuesOutput)),
   },
   {
     weight: 2,
@@ -428,7 +443,15 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
     arbitrary: fc
       .tuple(
         fc.constantFrom("pull", "issues"),
-        fc.constantFrom("an_issue", "a_taken_issue", "no_issue", "no_issue"),
+        fc.constantFrom(
+          "the_subject_issue",
+          "a_sub_issue",
+          "a_sub_issue",
+          "a_stray_issue",
+          "a_taken_issue",
+          "no_issue",
+          "no_issue",
+        ),
         fc.constantFrom(...REQUEST_TEXTS),
       )
       .map(([kind, on, request]) => agentStartsTask(kind, on, request)),
@@ -440,8 +463,11 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
         fc.constantFrom(...PLANNED_DEFINITIONS),
         fc.option(fc.constantFrom(...PLANNED_STAGES), { freq: 3 }),
         fc.integer({ min: 1, max: 3 }),
+        fc.option(trackerLink, { freq: 2 }),
       )
-      .map(([definition, stages, concurrency]) => agentSetsPlan(definition, stages, concurrency)),
+      .map(([definition, stages, concurrency, subject]) =>
+        agentSetsPlan(definition, stages, concurrency, subject),
+      ),
   },
   {
     weight: 3,
@@ -591,7 +617,7 @@ const authorKeepsStoppingEarly = [
 const abandonedArtifact = [firstArtifactAppears(0, "author_text"), agentCancels(0, "author")];
 
 const issueStartedAgain = [
-  agentStartsTask("pull", "an_issue", REQUEST_TEXTS[0]),
+  agentStartsTask("pull", "a_sub_issue", REQUEST_TEXTS[0]),
   agentCancels(1, "author"),
   agentStartsTask("pull", "a_taken_issue", REQUEST_TEXTS[0]),
 ];
@@ -625,7 +651,7 @@ describe("the workflow invariants", () => {
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(39);
+      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(42);
     },
     TIMEOUT_MS,
   );

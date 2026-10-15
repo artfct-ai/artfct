@@ -1339,9 +1339,7 @@ describe("onReviewerFinished for a reviewer of issues", () => {
 
     it("says the one line the issues kind wrote", () =>
       approved((workflow) => {
-        expect(announcedText(workflow)).toBe(
-          `The issues are ready for you, starting at ${ISSUES_URL}`,
-        );
+        expect(announcedText(workflow)).toBe(`The issues are ready for you at ${ISSUES_URL}`);
       }));
   });
 
@@ -1355,9 +1353,7 @@ describe("onReviewerFinished for a reviewer of issues", () => {
 
     it("closes healthy, since nothing went wrong", () =>
       silent((workflow) => {
-        expect(announcedText(workflow)).toBe(
-          `The issues are ready for you, starting at ${ISSUES_URL}`,
-        );
+        expect(announcedText(workflow)).toBe(`The issues are ready for you at ${ISSUES_URL}`);
       }));
   });
 });

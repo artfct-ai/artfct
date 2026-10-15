@@ -1,4 +1,7 @@
 import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
+import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
+import type { TrackerIssue } from "@artfct-ai/adapters/tracker/types";
+import type { Subject } from "./store/state";
 import { describe, expect, it } from "vitest";
 import { findBinding } from "../db/bindings";
 import { createDb } from "../db/client";
@@ -193,6 +196,99 @@ describe("detectArtifact", () => {
       failed((workflow) => {
         expect(workflow.store.artifact(JOB)).toBeNull();
         expect(workflow.lines.some((line) => line.includes("lookup failed"))).toBe(true);
+      }));
+  });
+});
+
+const SUBJECT_ISSUE: TrackerIssue = {
+  id: "i100",
+  identifier: "ENG-100",
+  title: "Fix login",
+  url: "https://linear.app/acme/issue/ENG-100/fix-login",
+  state: { type: "unstarted", name: "Todo" },
+  team_id: null,
+  parent_id: null,
+  project_id: null,
+  labels: [],
+  blockers: [],
+};
+
+const STRAY_URL = "https://linear.app/acme/issue/ENG-400/other";
+
+const PROJECT = {
+  id: "proj-1",
+  name: "Login",
+  url: "https://linear.app/acme/project/login-a1b2c3",
+};
+
+function breakdownEnds(subject: Subject | null, turnText: string): Scenario<FakeRuntime> {
+  return scenario(freshDurableRuntime, async (workflow) => {
+    workflow.trackerInstance = new FakeTracker({
+      issues: [
+        SUBJECT_ISSUE,
+        { ...SUBJECT_ISSUE, id: "i400", identifier: "ENG-400", url: STRAY_URL },
+      ],
+      projects: { a1b2c3: PROJECT, [PROJECT.id]: PROJECT },
+    });
+    workflow.patchState({ subject });
+    const task = seedTask(workflow, { stage: "breakdown" });
+    await detectArtifact(workflow, task, `The issues are in ${PROJECT.url}.`);
+    await detectArtifactAfterTurn(workflow, task, turnText);
+  });
+}
+
+describe("the output of a breakdown author", () => {
+  describe("a project, in a workflow without a subject", () => {
+    const ended = breakdownEnds(null, `The issues are in ${PROJECT.url}.`);
+
+    it("is recorded once the turn ends", () =>
+      ended((workflow) => {
+        expect(workflow.store.artifact(JOB)?.ref).toEqual({
+          kind: "project",
+          project_id: "proj-1",
+        });
+      }));
+
+    it("becomes the subject", () =>
+      ended((workflow) => {
+        expect(workflow.state.subject).toEqual({ kind: "project", project_id: "proj-1" });
+      }));
+  });
+
+  describe("an issue other than the subject issue", () => {
+    const ended = breakdownEnds(
+      { kind: "issue", issue_id: "i100" },
+      `I opened ${SUBJECT_ISSUE.url}, then moved the work to ${STRAY_URL}.`,
+    );
+
+    it("is not recorded", () =>
+      ended((workflow) => {
+        expect(workflow.store.artifact(JOB)).toBeNull();
+      }));
+
+    it("tells the author to put the work in the subject", () =>
+      ended((workflow) => {
+        expect(workflow.store.queue().map((row) => row.text)).toEqual([
+          `Your output names another issue than the subject of this workflow, ENG-100 (${SUBJECT_ISSUE.url}). A workflow works only its own subject. Put the work in ENG-100 (${SUBJECT_ISSUE.url}) and end your turn with its link.`,
+        ]);
+      }));
+
+    it("keeps the subject", () =>
+      ended((workflow) => {
+        expect(workflow.state.subject).toEqual({ kind: "issue", issue_id: "i100" });
+      }));
+  });
+
+  describe("the subject issue", () => {
+    const ended = breakdownEnds({ kind: "issue", issue_id: "i100" }, `Done: ${SUBJECT_ISSUE.url}`);
+
+    it("is recorded", () =>
+      ended((workflow) => {
+        expect(workflow.store.artifact(JOB)?.ref).toEqual({
+          kind: "issue",
+          issue_id: "i100",
+          issue_key: "ENG-100",
+        });
       }));
   });
 });

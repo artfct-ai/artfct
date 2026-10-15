@@ -52,6 +52,7 @@ export function pullDetailOf(event: InboundEvent): PullDetail | null {
 export function pullArtifact(clients: PullClients): Artifact {
   return {
     detect: (text) => detect(clients, text),
+    endsTurn: false,
     openOnBranch: (branch) => openOnBranch(clients, branch),
     binding: (ref) => binding(ref),
     instructions: { ...clients.instructions, report: reviewReport(clients.review) },

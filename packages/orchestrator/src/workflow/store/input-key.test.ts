@@ -15,6 +15,16 @@ const PULL = {
 
 const ISSUES = { ref: { kind: "issues" as const }, url: "https://tracker.test/project/p1" };
 
+const ISSUE_TARGET = {
+  ref: { kind: "issue" as const, issue_id: "issue-1", issue_key: "ENG-1" },
+  url: "https://tracker.test/issue/ENG-1",
+};
+
+const PROJECT = {
+  ref: { kind: "project" as const, project_id: "p1" },
+  url: "https://tracker.test/project/p1",
+};
+
 const NONE = { issue: null, target: null };
 
 const REQUEST = "Fix the login redirect.";
@@ -32,7 +42,17 @@ describe("jobInputKey", () => {
     expect(jobInputKey({ kind: "target", target: PULL })).toBe("pull:acme/app#12");
   });
 
-  it("keys an issue set target by its link", () => {
+  it("keys an issue target like a job input that names the issue", () => {
+    expect(jobInputKey({ kind: "target", target: ISSUE_TARGET })).toBe(
+      jobInputKey({ kind: "issue", issue: ISSUE }),
+    );
+  });
+
+  it("keys a project target by its id", () => {
+    expect(jobInputKey({ kind: "target", target: PROJECT })).toBe("project:p1");
+  });
+
+  it("keys a stored issues target by its link", () => {
     expect(jobInputKey({ kind: "target", target: ISSUES })).toBe(
       "issues:https://tracker.test/project/p1",
     );
