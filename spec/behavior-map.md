@@ -11,7 +11,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | ID | Effect | Guarded by |
 |---|---|---|
 | T1 | A job and its task start only into a free slot, and only after the plan started the workflow. A harness task also gets a sandbox row. | `jobStartsOnlyIntoAFreeSlot`, `workflowStartsOnlyFromAPlan` |
-| T2 | Only one live job works from one input artifact in a workflow. | `oneLiveJobPerInputArtifact` |
+| T2 | Only one live job works from one input artifact in a workflow. An unfinished job holds its input. A finished job holds it while its output exists, unless that output is the input itself. | `oneLiveJobPerInputArtifact` |
 | T3 | A job start writes the job and its task before the router's status and binding writes. A failed router write leaves a `queued` task without a provision alarm. | |
 | T4 | A sandbox start moves the task to `provisioning` with a new generation and bridge token, and clears the session state. | |
 | T5 | The first bridge hello moves the task to `working`. | |
