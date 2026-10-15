@@ -763,6 +763,7 @@ const openings: fc.Arbitrary<Opening> = fc.constantFrom(
   opening(draftedArtifact),
   opening([...draftedArtifact, approvingEnd, approvingEnd, approvingEnd]),
   opening(reviewedOnAFlakyHost, { refiners: "reviewer" }),
+  opening([...draftedArtifact, findingsEnd("down")], { refiners: "reviewer" }),
   opening(abandonedArtifact),
   opening(issueStartedAgain),
   opening(authorKeepsStoppingEarly),
