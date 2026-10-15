@@ -46,7 +46,7 @@ import {
 } from "../../test/invariants";
 import { propertyRuns, propertySeed } from "../../test/property-runs";
 import { declaredReachPoints, takeReachedPoints } from "../../test/reach";
-import { WORKFLOW_CORPUS } from "../../test/workflow-corpus";
+import { WORKFLOW_CORPUS, type ReplayedSequence } from "../../test/workflow-corpus";
 import {
   agentCancels,
   agentAdvancesStage,
@@ -638,6 +638,8 @@ const deliveredThenUnchangedTurn = [
 const judgeApprovedThenAuthorPrompted = [
   ...draftedArtifact,
   approvingEnd,
+  approvingEnd,
+  approvingEnd,
   agentPromptsAuthor(0),
   authorTurnEnds(0, "changed"),
   approvingEnd,
@@ -649,6 +651,25 @@ const polisherRunning = [
   approvingEnd,
   personPostsFeedback(0, "comment", "for_author"),
   agentPromptsAuthor(0),
+];
+
+const checksPass = checksReport(0, "passed_long_ago", "delivered");
+
+const polishPushed = refinerRunEnds(0, {
+  reviewer: "approved",
+  pageCommenting: "takes",
+  judge: "approves",
+  polisher: "pushed",
+  stopReason: "end_turn",
+  closing: "reports_work",
+});
+
+const polisherWaitsOnChecks = [
+  ...draftedArtifact,
+  checksPass,
+  polishPushed,
+  polishPushed,
+  checksPass,
 ];
 
 const stopDuringRunningTurn = [trackerOpensSession(0), personPressesStop(0)];
@@ -673,10 +694,7 @@ const heldCommentsOnDeliveredPage = [
   agentPromptsAuthor(0, admittedHeldComments),
 ];
 
-const modelCallStoppedMidWrite = [
-  trackerOpensSession(0),
-  personStopsModelCall(0, "agent_prompts"),
-];
+const modelCallStoppedMidWrite = [trackerOpensSession(0), personStopsModelCall(0, "agent_prompts")];
 
 const twoIssuesInChat = [agentStartsTask("pull", "an_issue", REQUEST_TEXTS[1])];
 
@@ -687,28 +705,53 @@ const acceptedArtifact = [
   approvingEnd,
   approvingEnd,
   approvingEnd,
+  agentPromptsAuthor(0),
   hostSays(0, "merged"),
+  authorTurnEnds(0, "same"),
+  agentCompletes(0, "accepts", "answers"),
   agentCompletes(0, "accepts", "answers"),
 ];
 
-const openings: fc.Arbitrary<WorkflowAction[]> = fc.constantFrom(
-  [],
-  draftedArtifact,
-  [...draftedArtifact, approvingEnd, approvingEnd, approvingEnd],
-  reviewedOnAFlakyHost,
-  abandonedArtifact,
-  issueStartedAgain,
-  authorKeepsStoppingEarly,
-  deliveredThenUnchangedTurn,
-  judgeApprovedThenAuthorPrompted,
-  polisherRunning,
-  stopDuringRunningTurn,
-  runningAuthorGetsSessionMessage,
-  heldCommentsOnDeliveredPage,
-  modelCallStoppedMidWrite,
-  twoIssuesInChat,
-  chatThreadWithTrackerSession,
-  acceptedArtifact,
+type OpeningSetup = Partial<Pick<WorldSetup, "refiners" | "checksOnPush">>;
+
+/** The actions a sequence starts with, and the refiners and checks they need to reach anything. */
+type Opening = { setup: OpeningSetup; actions: WorkflowAction[] };
+
+function opening(actions: WorkflowAction[], setup: OpeningSetup = {}): Opening {
+  return { setup, actions };
+}
+
+const openings: fc.Arbitrary<Opening> = fc.constantFrom(
+  opening([]),
+  opening(draftedArtifact),
+  opening([...draftedArtifact, approvingEnd, approvingEnd, approvingEnd]),
+  opening(reviewedOnAFlakyHost, { refiners: "reviewer" }),
+  opening(abandonedArtifact),
+  opening(issueStartedAgain),
+  opening(authorKeepsStoppingEarly),
+  opening(deliveredThenUnchangedTurn, { refiners: "reviewer", checksOnPush: "passed" }),
+  opening(deliveredThenUnchangedTurn, {
+    refiners: "judge_then_polisher",
+    checksOnPush: "passed",
+  }),
+  opening(judgeApprovedThenAuthorPrompted, {
+    refiners: "judge_between_reviewers",
+    checksOnPush: "passed",
+  }),
+  opening(polisherRunning),
+  opening(polisherWaitsOnChecks, { refiners: "polisher", checksOnPush: "reported_later" }),
+  opening(polisherWaitsOnChecks, {
+    refiners: "reviewer_then_polisher",
+    checksOnPush: "reported_later",
+  }),
+  opening(stopDuringRunningTurn),
+  opening(runningAuthorGetsSessionMessage),
+  opening(heldCommentsOnDeliveredPage),
+  opening(modelCallStoppedMidWrite),
+  opening(twoIssuesInChat),
+  opening(chatThreadWithTrackerSession),
+  opening(acceptedArtifact, { checksOnPush: "passed" }),
+  opening(acceptedArtifact, { refiners: "polisher", checksOnPush: "passed" }),
 );
 
 const researchHandedOn = [researcherReportsTodos(0, 1), researcherTurnEnds(0, "written")];
@@ -719,14 +762,16 @@ const researchPrefaces: fc.Arbitrary<WorkflowAction[]> = fc.constantFrom(
   researchHandedOn,
 );
 
-const jobSequences: fc.Arbitrary<WorkflowAction[]> = fc
+const jobSequences: fc.Arbitrary<Opening> = fc
   .tuple(researchPrefaces, openings, fc.array(actions, { maxLength: MAX_ACTIONS, size: "max" }))
-  .map(([preface, opening, rest]) => [...preface, ...opening, ...rest]);
+  .map(([preface, start, rest]) => opening([...preface, ...start.actions, ...rest], start.setup));
 
-const requestSequences: fc.Arbitrary<WorkflowAction[]> = fc.array(
-  fc.oneof({ weight: 10, arbitrary: actions }, { weight: 1, arbitrary: plans }),
-  { maxLength: MAX_ACTIONS, size: "max" },
-);
+const requestSequences: fc.Arbitrary<Opening> = fc
+  .array(fc.oneof({ weight: 10, arbitrary: actions }, { weight: 1, arbitrary: plans }), {
+    maxLength: MAX_ACTIONS,
+    size: "max",
+  })
+  .map((sequence) => opening(sequence));
 
 async function checkedStep(world: WorkflowWorld, action: WorkflowAction): Promise<Step> {
   const step = await world.apply(action);
@@ -736,14 +781,18 @@ async function checkedStep(world: WorkflowWorld, action: WorkflowAction): Promis
 }
 
 function tasksStartedIn(world: WorkflowWorld, step: Step): string[] {
-  const known = new Set(step.before.tasks.map((task) => task.task_id));
+  const waitedBefore = new Set(
+    step.before.tasks
+      .filter((task) => task.status === "queued" || task.status === "provisioning")
+      .map((task) => task.task_id),
+  );
   return world
     .tasksAwaitingSandbox()
-    .filter((task) => !known.has(task.task_id))
+    .filter((task) => !waitedBefore.has(task.task_id))
     .map((task) => task.task_id);
 }
 
-async function holdsThroughout(setup: WorldSetup, sequence: WorkflowAction[]): Promise<void> {
+async function holdsThroughout([setup, sequence]: ReplayedSequence): Promise<void> {
   const world = await WorkflowWorld.open(setup);
   for (const action of sequence) {
     const step = await checkedStep(world, action);
@@ -754,27 +803,38 @@ async function holdsThroughout(setup: WorldSetup, sequence: WorkflowAction[]): P
   }
 }
 
+function worldRuns(
+  setups: fc.Arbitrary<WorldSetup>,
+  sequences: fc.Arbitrary<Opening>,
+): fc.Arbitrary<ReplayedSequence> {
+  return fc
+    .tuple(setups, sequences)
+    .map(([setup, sequence]): ReplayedSequence => [
+      { ...setup, ...sequence.setup },
+      sequence.actions,
+    ]);
+}
+
 const PROPERTIES = [
-  { name: "on any refiner list", setups: jobSetups, sequences: jobSequences, runs: RUNS },
+  { name: "on any refiner list", runs: worldRuns(jobSetups, jobSequences), numRuns: RUNS },
   {
     name: "on a page stage of either ending",
-    setups: pageSetups,
-    sequences: jobSequences,
-    runs: RUNS,
+    runs: worldRuns(pageSetups, jobSequences),
+    numRuns: RUNS,
   },
   {
     name: "on a page stage whose author is a model call",
-    setups: modelPageSetups,
-    sequences: jobSequences,
-    runs: RUNS,
+    runs: worldRuns(modelPageSetups, jobSequences),
+    numRuns: RUNS,
   },
   {
     name: "on a request before the plan",
-    setups: requestSetups,
-    sequences: requestSequences,
-    runs: REQUEST_RUNS,
+    runs: worldRuns(requestSetups, requestSequences),
+    numRuns: REQUEST_RUNS,
   },
 ];
+
+const CORPUS_EXAMPLES = WORKFLOW_CORPUS.map((replayed): [ReplayedSequence] => [replayed]);
 
 describe("the workflow invariants", () => {
   it("are every state and step invariant", () => {
@@ -785,10 +845,10 @@ describe("the workflow invariants", () => {
     it(
       `hold after every action of any sequence, ${property.name}`,
       async () => {
-        await fc.assert(fc.asyncProperty(property.setups, property.sequences, holdsThroughout), {
-          numRuns: property.runs,
+        await fc.assert(fc.asyncProperty(property.runs, holdsThroughout), {
+          numRuns: property.numRuns,
           seed: propertySeed(property.name),
-          examples: WORKFLOW_CORPUS,
+          examples: CORPUS_EXAMPLES,
         });
       },
       TIMEOUT_MS,
@@ -799,8 +859,8 @@ describe("the workflow invariants", () => {
 async function reachedRunsOf(property: (typeof PROPERTIES)[number]): Promise<Map<string, number>> {
   const reachedRuns = new Map<string, number>();
   takeReachedPoints();
-  const counted = fc.asyncProperty(property.setups, property.sequences, async (setup, sequence) => {
-    await holdsThroughout(setup, sequence);
+  const counted = fc.asyncProperty(property.runs, async (run) => {
+    await holdsThroughout(run);
     for (const label of takeReachedPoints()) {
       reachedRuns.set(label, (reachedRuns.get(label) ?? 0) + 1);
     }

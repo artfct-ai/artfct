@@ -200,20 +200,28 @@ const reachRunAfterRuling = reachPoint(
   "judgeRulesAtMostOnce: a refiner run starts after the judge ruled",
 );
 const reachRulingStands = reachPoint("judgeRulesAtMostOnce: a ruling stands into a later step");
-const reachFeedback = reachPoint("everyFeedbackGetsOneRoutingDecision: feedback on a running workflow");
+const reachFeedback = reachPoint(
+  "everyFeedbackGetsOneRoutingDecision: feedback on a running workflow",
+);
 const reachEventOnFinished = reachPoint(
   "nothingReopensAFinishedWorkflow: an event on a finished workflow",
 );
-const reachStopOnFinished = reachPoint("nothingReopensAFinishedWorkflow: a stop on a finished workflow");
+const reachStopOnFinished = reachPoint(
+  "nothingReopensAFinishedWorkflow: a stop on a finished workflow",
+);
 const reachOutsideAWorkflow = reachPoint(
   "sleepMessageOnlyDuringAWorkflow: an action outside a running workflow",
 );
 const reachSleepPosted = reachPoint("sleepMessageOnlyDuringAWorkflow: the sleep message posts");
 const reachBeforePlan = reachPoint("workflowStartsOnlyFromAPlan: an action before the plan");
-const reachEventBeforePlan = reachPoint("workflowStartsOnlyFromAPlan: a person writes before the plan");
+const reachEventBeforePlan = reachPoint(
+  "workflowStartsOnlyFromAPlan: a person writes before the plan",
+);
 const reachPlanStarts = reachPoint("workflowStartsOnlyFromAPlan: a plan starts the workflow");
 const reachPlanOnStarted = reachPoint("workflowKeepsItsDefinition: a plan on a started workflow");
-const reachChatIssue = reachPoint("eachIssueLinksTheChatThreadOnce: a chat workflow works on an issue");
+const reachChatIssue = reachPoint(
+  "eachIssueLinksTheChatThreadOnce: a chat workflow works on an issue",
+);
 const reachChatTwoIssues = reachPoint(
   "eachIssueLinksTheChatThreadOnce: a chat workflow works on two issues",
 );
@@ -247,7 +255,9 @@ const reachPolisherWithWaitingPrompt = reachPoint(
 );
 const reachJobStarts = reachPoint("jobStartsOnlyIntoAFreeSlot: a job starts");
 const reachLastSlot = reachPoint("jobStartsOnlyIntoAFreeSlot: a job starts into the last slot");
-const reachWorkflowEnded = reachPoint("endedWorkflowHasNoUnfinishedTask: a workflow ended with tasks");
+const reachWorkflowEnded = reachPoint(
+  "endedWorkflowHasNoUnfinishedTask: a workflow ended with tasks",
+);
 const reachSharedInput = reachPoint("oneLiveJobPerInputArtifact: two jobs share an input");
 const reachUnadmitted = reachPoint(
   "unadmittedFeedbackReachesNobody: feedback the screen did not admit",
@@ -260,7 +270,9 @@ const reachStaleAlarm = reachPoint("staleAlarmIsIgnored: a stale alarm fires");
 const reachHeldSent = reachPoint(
   "aPromptToAPageAuthorCarriesItsHeldComments: held comments go to a running page author",
 );
-const reachHeldKept = reachPoint("aPromptToAPageAuthorCarriesItsHeldComments: held comments stay held");
+const reachHeldKept = reachPoint(
+  "aPromptToAPageAuthorCarriesItsHeldComments: held comments stay held",
+);
 const reachChatAndSessionPost = reachPoint(
   "orchestratorStaysOutOfSessionsWhenChatExists: a chat workflow with a session posts",
 );
@@ -281,7 +293,9 @@ const reachCancelledTurnInSession = reachPoint(
 );
 const reachStop = reachPoint("stopEndsTheAuthorsTurn: a person presses Stop");
 const reachStopOnAuthor = reachPoint("stopEndsTheAuthorsTurn: a stop reaches a session author");
-const reachStopDuringTurn = reachPoint("stopEndsTheAuthorsTurn: a stop lands during a running turn");
+const reachStopDuringTurn = reachPoint(
+  "stopEndsTheAuthorsTurn: a stop lands during a running turn",
+);
 const reachStopOnIdle = reachPoint("stopEndsTheAuthorsTurn: a stop lands on an idle author");
 const reachModelCallStopped = reachPoint(
   "stoppedModelCallLeavesThePage: a stop lands during a model call",
@@ -299,7 +313,9 @@ const reachStoppedEarly = reachPoint(
 const reachStoppedEarlyIdle = reachPoint(
   "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone: an author stopped early without a prompt in flight",
 );
-const reachPageFindings = reachPoint("pageReviewPostsEachFindingOnce: a page review files findings");
+const reachPageFindings = reachPoint(
+  "pageReviewPostsEachFindingOnce: a page review files findings",
+);
 const reachPageReviewHostDown = reachPoint(
   "pageReviewPostsEachFindingOnce: a page review meets a host that is down",
 );
@@ -345,10 +361,7 @@ export function deliveredToHumansIsNeverCleared(_workflow: WorkflowRuntime, step
  * A refiner run starts on an artifact the humans have only when an author turn ended on a
  * revision they have not seen. A host that cannot say the revision counts as a changed one.
  */
-export function refinersRunAgainOnlyOnChangedRevision(
-  workflow: WorkflowRuntime,
-  step: Step,
-): void {
+export function refinersRunAgainOnlyOnChangedRevision(workflow: WorkflowRuntime, step: Step): void {
   const turn = step.authorTurnEnd;
   if (turn && endsOnTheDeliveredRevision(workflow, step, turn)) reachUnchangedTurnOnDelivered();
   const known = new Set(step.before.tasks.map((task) => task.task_id));
@@ -1279,8 +1292,7 @@ export function authorGetsEveryPageFinding(_workflow: WorkflowRuntime, step: Ste
   const author = step.after.tasks.find(
     (task) => task.role === "author" && task.job_id === reviewer?.job_id,
   );
-  const before = step.before.tasks.find((task) => task.task_id === author?.task_id);
-  const newPrompts = (author?.promptTexts ?? []).slice(before?.promptTexts.length ?? 0);
+  const newPrompts = author ? promptsAddedTo(step, author.task_id) : [];
   const reviewPrompts = newPrompts.filter((text) => text.includes("\nComments:\n"));
   if (reviewPrompts.length) reachPageFindingsPrompt();
   for (const prompt of reviewPrompts) {
@@ -1297,7 +1309,10 @@ export function authorGetsEveryPageFinding(_workflow: WorkflowRuntime, step: Ste
  * Every action settles within its work budget. An action that runs more store statements than
  * the budget is a livelock, so the world stops it there.
  */
-export function everyActionSettlesWithinItsWorkBudget(_workflow: WorkflowRuntime, step: Step): void {
+export function everyActionSettlesWithinItsWorkBudget(
+  _workflow: WorkflowRuntime,
+  step: Step,
+): void {
   if (step.work > 0) reachWork();
   if (step.work > ACTION_WORK_BUDGET) exceededWorkBudget(step.action, step.work);
 }

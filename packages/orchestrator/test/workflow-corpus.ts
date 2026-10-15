@@ -65,11 +65,7 @@ export const WORKFLOW_CORPUS: ReplayedSequence[] = [
   [RESEARCHED_MODEL_PAGE, [researcherTurnEnds(0, "written"), sandboxComesUp("dials_in")]],
   [
     RESEARCHED_MODEL_PAGE,
-    [
-      researcherTurnEnds(0, "written"),
-      personPressesStop(0),
-      personWritesInSession(0, "question"),
-    ],
+    [researcherTurnEnds(0, "written"), personPressesStop(0), personWritesInSession(0, "question")],
   ],
   [
     PULL_ON_AN_ISSUE,
@@ -79,9 +75,17 @@ export const WORKFLOW_CORPUS: ReplayedSequence[] = [
     HARNESS_PAGE_ON_AN_ISSUE,
     [cancelledWhileJudgedBlocked, agentFinishesWorkflow(), personPressesStop(0)],
   ],
-  [JUDGED_MODEL_PAGE_FROM_CHAT, [refinerRunFails(0), agentPromptsAuthor(0, HELD_COMMENTS_ADMITTED)]],
+  [
+    JUDGED_MODEL_PAGE_FROM_CHAT,
+    [refinerRunFails(0), agentPromptsAuthor(0, HELD_COMMENTS_ADMITTED)],
+  ],
   [
     { ...HARNESS_PAGE_ON_AN_ISSUE, origin: "chat" },
-    [sandboxGoesAway(0, "author"), timerFires("bridge_lost", 0), trackerOpensSession(0), personWritesInSession(0, "question")],
+    [
+      sandboxGoesAway(0, "author"),
+      timerFires("bridge_lost", 0),
+      trackerOpensSession(0),
+      personWritesInSession(0, "question"),
+    ],
   ],
 ];

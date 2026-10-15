@@ -422,12 +422,12 @@ export class WorkflowWorld {
         endedWorkflowId: null,
       });
       return new WorkflowWorld({
-      workflow,
-      database: db.$client,
-      setup,
-      tracker,
-      pageHost: documents,
-    });
+        workflow,
+        database: db.$client,
+        setup,
+        tracker,
+        pageHost: documents,
+      });
     }
     const stage = STAGE_OF[setup.artifact];
     workflow.patchState({
