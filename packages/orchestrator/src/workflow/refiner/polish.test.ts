@@ -62,7 +62,7 @@ async function runAuthorTurn(workflow: FakeRuntime, text: string): Promise<void>
 describe("a stage whose reviewers settled", () => {
   const polishing = scenario(stageWithPolishers([comments]), async (workflow) => {
     const author = seedPullRequestTask(workflow, { status: "in_review" });
-    await advanceArtifactPastEntry(workflow, author, 0);
+    await advanceArtifactPastEntry(workflow, author, 0, null);
   });
 
   it("starts the polisher at the index after the reviewers", () =>
@@ -330,7 +330,7 @@ describe("a polisher the artifact no longer points at", () => {
 describe("an author turn that restarts the lists after a polisher settled", () => {
   const refixed = scenario(stageWithPolishers([comments]), async (workflow) => {
     const author = seedPullRequestTask(workflow, { status: "in_review" });
-    await advanceArtifactPastEntry(workflow, author, 0);
+    await advanceArtifactPastEntry(workflow, author, 0, null);
     await endPolisherRun(workflow, currentRunOf(workflow), { ended: "turn" });
     await runAuthorTurn(workflow, "the checks failed");
   });
@@ -343,7 +343,7 @@ describe("an author turn that restarts the lists after a polisher settled", () =
 
   it("runs the polisher again once those reviewers settle", () =>
     refixed(async (workflow) => {
-      await advanceArtifactPastEntry(workflow, workflow.store.requireTask(TASK), 0);
+      await advanceArtifactPastEntry(workflow, workflow.store.requireTask(TASK), 0, null);
       expect(polishersOf(workflow)).toHaveLength(2);
       expect(currentRunOf(workflow)).toMatchObject({ role: "polisher", refiner_index: 1 });
     }));

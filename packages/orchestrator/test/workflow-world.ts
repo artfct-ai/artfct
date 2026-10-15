@@ -27,6 +27,7 @@ import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { Binding } from "@artfct-ai/contracts/sources";
 import { OPTIONS_HEADING } from "../src/artifact/options";
+import type { ArtifactRef } from "../src/artifact/types";
 import type { RefinerEntry, ReviewerEntry } from "../src/config/refiner";
 import { Notifier } from "../src/notify/notifier";
 import { startJob, type JobIssue } from "../src/workflow/lifecycle";
@@ -75,6 +76,7 @@ export const REFINER_SETUPS = [
   "reviewer",
   "judge",
   "judge_between_reviewers",
+  "two_reviewers",
   "reviewer_then_polisher",
   "polisher",
   "judge_then_polisher",
@@ -336,6 +338,7 @@ const REFINER_LISTS: Record<
     reviewers: [FINDINGS_REVIEWER, JUDGE_ENTRY, SECOND_REVIEWER],
     polishers: [],
   },
+  two_reviewers: { reviewers: [FINDINGS_REVIEWER, SECOND_REVIEWER], polishers: [] },
   reviewer_then_polisher: { reviewers: [FINDINGS_REVIEWER], polishers: [POLISHER] },
   polisher: { reviewers: [], polishers: [POLISHER] },
   judge_then_polisher: { reviewers: [JUDGE_ENTRY], polishers: [POLISHER] },
@@ -626,6 +629,15 @@ export class WorkflowWorld {
     return revisionOf(pull);
   }
 
+  /** What the host says an artifact is now, without a recorded call. Null when it cannot say. */
+  private revisionOnHost(ref: ArtifactRef): string | null {
+    if (!this.hostReadable) return null;
+    if (ref.kind === "page") return this.pageHost.pageRevision(ref.page_id);
+    if (ref.kind !== "pull") return null;
+    const pull = this.pulls.get(ref.number);
+    return pull && pull.state !== "unopened" ? revisionOf(pull) : null;
+  }
+
   /** True when an earlier author opened the pull request this author works on. */
   continuesPull(author: WorldAuthor): boolean {
     return this.authors.find((other) => other.pullNumber === author.pullNumber) !== author;
@@ -773,11 +785,18 @@ export class WorkflowWorld {
 
   /**
    * The decisions model that answers every question from now on. `meanwhile` runs while its
-   * first call is out, the way another event lands while the model is asked.
+   * first call is out, or its first call that asks the yes-or-no `question`, the way another
+   * event lands while the model is asked.
    */
-  answerDecisionsWith(answers: DecisionAnswers, meanwhile?: () => Promise<void>): void {
+  answerDecisionsWith(
+    answers: DecisionAnswers,
+    meanwhile?: () => Promise<void>,
+    question?: string,
+  ): void {
     const answering = decisionsAnswering(answers);
-    const decisions = meanwhile ? new InterleavedDecisions(answering, meanwhile) : answering;
+    const decisions = meanwhile
+      ? new InterleavedDecisions(answering, meanwhile, question ?? null)
+      : answering;
     this.workflow.gatewayInstance = new FakeGateway({ decisions });
   }
 
@@ -1234,6 +1253,7 @@ export class WorkflowWorld {
         status: artifact.status,
         delivered_to_humans_at: artifact.delivered_to_humans_at,
         delivered_revision: artifact.delivered_revision,
+        revision: this.revisionOnHost(artifact.ref),
       })),
       todos: Object.fromEntries(
         store.allTodoRows().map((row) => [row.task_id, JSON.stringify(row.todos)]),
@@ -1454,7 +1474,10 @@ function decisionsAnswering(answers: DecisionAnswers): Decisions {
   }
 }
 
-/** A decisions model that lets one event land while its first call is out, then answers. */
+/**
+ * A decisions model that lets one event land while a call is out, then answers. The event lands
+ * on the first call, or on the first call that asks the yes-or-no question it waits for.
+ */
 class InterleavedDecisions implements Decisions {
   readonly deadlineMs: number;
   private meanwhile: (() => Promise<void>) | null;
@@ -1462,6 +1485,7 @@ class InterleavedDecisions implements Decisions {
   constructor(
     private readonly answering: Decisions,
     meanwhile: () => Promise<void>,
+    private readonly question: string | null,
   ) {
     this.deadlineMs = answering.deadlineMs;
     this.meanwhile = meanwhile;
@@ -1472,8 +1496,9 @@ class InterleavedDecisions implements Decisions {
     questions: DecisionQuestions<YesNoName, ChoiceName>,
     signal?: AbortSignal,
   ): Promise<AnsweredDecisions<YesNoName, ChoiceName>> {
-    const meanwhile = this.meanwhile;
-    this.meanwhile = null;
+    const waited = this.question === null || Object.hasOwn(questions.yesNo, this.question);
+    const meanwhile = waited ? this.meanwhile : null;
+    if (waited) this.meanwhile = null;
     if (meanwhile) await meanwhile();
     return this.answering.decide(state, questions, signal);
   }

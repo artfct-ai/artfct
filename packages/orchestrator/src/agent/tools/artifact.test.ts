@@ -583,7 +583,18 @@ describe("rule_on_review", () => {
       awaitingRuling(async (workflow) => {
         await rule(workflow, { ruling: "reject", reason: "Use the SDK scheduler." });
         const result = toolText(await rule(workflow, { ruling: "approve" }));
-        expect(result).toContain("already has a rejection");
+        expect(result).toContain("already ruled rejected");
+      }));
+
+    it("applies one of two rulings that land together", () =>
+      awaitingRuling(async (workflow) => {
+        const results = await Promise.all([
+          rule(workflow, { ruling: "approve" }),
+          rule(workflow, { ruling: "reject", reason: "Use the SDK scheduler." }),
+        ]);
+        expect(results.map(toolText)[1]).toContain("already ruled approved");
+        expect(workflow.store.refinerRunsOf(JOB).map((run) => run.refiner_index)).toEqual([0, 1]);
+        expect(workflow.store.queue()).toEqual([]);
       }));
 
     it("keeps request_review and finish_review off the entry", () =>

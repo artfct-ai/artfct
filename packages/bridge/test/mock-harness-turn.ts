@@ -17,8 +17,8 @@ export function docUrlForStage(stage: string): string {
   return `https://www.notion.so/acme/${stage}-${notionPageId(stage)}`;
 }
 
-/** 32 hex chars, as Notion page ids are: the stage name hex-encoded and zero padded. */
-function notionPageId(stage: string): string {
+/** The page id of a stage's document: 32 hex chars of the stage name, hex-encoded and zero padded. */
+export function notionPageId(stage: string): string {
   const hex = Array.from(stage, (char) => char.charCodeAt(0).toString(16).padStart(2, "0")).join(
     "",
   );

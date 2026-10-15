@@ -1,6 +1,6 @@
 import { drainQueue } from "../task/harness/prompt-queue";
 import { checksGate, type ChecksGate } from "./checks-gate";
-import { advanceArtifactPastEntry, finishRefinerRun } from "./loop";
+import { advanceArtifactPastEntry, artifactRevision, finishRefinerRun } from "./loop";
 import { markArtifactReady } from "./outcome";
 import { refinerIndexOf, refinerAt, runningPolisherOf } from "./stage-refiner";
 import type { TaskRow } from "../store/tasks";
@@ -68,6 +68,8 @@ async function handOnFromPolisher(
   polisher: TaskRow,
   outcome: PolishOutcome,
 ): Promise<void> {
+  const read = workflow.store.artifact(author.job_id);
+  const revision = read ? await artifactRevision(workflow, read) : null;
   const artifact = workflow.store.artifact(author.job_id);
   if (!artifact || artifact.refiner_task_id !== polisher.task_id) {
     workflow.log(author.task_id, "polish dropped: the artifact no longer holds this polisher");
@@ -88,7 +90,7 @@ async function handOnFromPolisher(
     workflow.log(author.task_id, `polish dropped: the artifact is already ${artifact.status}`);
     return;
   }
-  await advanceArtifactPastEntry(workflow, author, refinerIndexOf(polisher));
+  await advanceArtifactPastEntry(workflow, author, refinerIndexOf(polisher), revision);
 }
 
 /**

@@ -630,7 +630,7 @@ describe("the phases on the checklist", () => {
     describe("when that reviewer ends clean and the next entry starts", () => {
       const handedOn = scenario(aligning, async (workflow) => {
         workflow.store.updateTask("wf_x.9", { status: "done" });
-        await advanceArtifactPastEntry(workflow, workflow.store.requireTask(TASK), 0);
+        await advanceArtifactPastEntry(workflow, workflow.store.requireTask(TASK), 0, null);
         await onFlushBoard(workflow, { job_id: JOB });
       });
 

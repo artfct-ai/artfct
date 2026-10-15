@@ -387,10 +387,15 @@ export type RefinerRunEnd = {
   /** How the document host takes the comments of a page review. */
   pageCommenting: DocumentsCommenting;
   judge: JudgeOutcome;
+  /** What a person rules through the agent while the decisions model rules on the judge. */
+  whileRuled: WhileRuled;
   polisher: PolishOutcome;
   stopReason: Exclude<StopReason, "cancelled">;
   closing: Closing;
 };
+
+/** What a person rules while the decisions model rules on a judge conclusion. */
+export type WhileRuled = "nothing" | "approve" | "reject";
 
 /** What a polisher run did to the artifact before its turn ended. */
 export type PolishOutcome = "pushed" | "nothing_pushed";
@@ -401,7 +406,7 @@ export type PolishOutcome = "pushed" | "nothing_pushed";
  * have pushed.
  */
 export function refinerRunEnds(index: number, end: RefinerRunEnd): WorkflowAction {
-  const label = `refiner run ends on ${end.stopReason}, ${end.closing} [reviewer ${end.reviewer} on a host that ${end.pageCommenting} | judge ${end.judge} | polisher ${end.polisher}]`;
+  const label = `refiner run ends on ${end.stopReason}, ${end.closing} [reviewer ${end.reviewer} on a host that ${end.pageCommenting} | judge ${end.judge}, person rules ${end.whileRuled} meanwhile | polisher ${end.polisher}]`;
   return authorAction(index, label, async (world, author) => {
     const run = world.refinerRunOf(author);
     const bridge = run ? await world.bridgeWithRunningTurn(run.task_id) : null;
@@ -411,7 +416,7 @@ export function refinerRunEnds(index: number, end: RefinerRunEnd): WorkflowActio
     const commentsBefore = world.pageHost.postedComments.length;
     if (reviewsPage) world.pageHost.commenting = end.pageCommenting;
     if (mode === "findings") await fileFindingsReview(world, author, bridge, end.reviewer);
-    if (mode === "judge") await closeJudgeTurn(world, bridge, end.judge);
+    if (mode === "judge") await closeJudgeTurn(world, bridge, end, index);
     if (mode === "polisher" && end.polisher === "pushed") world.changeRevision(author);
     if (end.closing === "gives_up") {
       world.answerDecisionsWith(GAVE_UP_ANSWERS);
@@ -452,10 +457,18 @@ async function fileFindingsReview(
 async function closeJudgeTurn(
   world: WorkflowWorld,
   bridge: FakeBridge,
-  outcome: JudgeOutcome,
+  end: RefinerRunEnd,
+  index: number,
 ): Promise<void> {
-  world.answerDecisionsWith(RULING_ANSWERS[outcome]);
-  if (outcome !== "no_conclusion") await bridge.say(JUDGE_CONCLUSION);
+  const { judge, whileRuled } = end;
+  const asksTheModel = judge !== "no_conclusion" && whileRuled !== "nothing";
+  const landing = asksTheModel ? personRules(index, whileRuled) : null;
+  world.answerDecisionsWith(
+    RULING_ANSWERS[judge],
+    landing ? () => landing.run(world).then(() => undefined) : undefined,
+    "rejects",
+  );
+  if (judge !== "no_conclusion") await bridge.say(JUDGE_CONCLUSION);
 }
 
 /** The author's unfinished refiner run dies, the way a dead sandbox fails it. */
