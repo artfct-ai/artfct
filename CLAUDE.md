@@ -87,6 +87,14 @@ Every change is specified before it is built. The spec is the glossary and the i
 - Only the repository owner adds, changes, or removes an invariant. The PR carries each approved invariant and its property test in its diff and lists each one in its description.
 - When a property test fails, never weaken an invariant, an action, or a generator to make it pass. Stop and report the shrunk sequence and the seed.
 
+### Behavior map
+
+- `spec/behavior-map.md` lists each effect a person sees or the system relies on, and the invariants that guard it.
+- A change that adds or alters an effect adds or edits its row in the same change.
+- A proposed invariant names the row it guards. The design proposal includes new rows.
+- A row's guard list changes only with an approved invariant.
+- The PR lists map edits under "Spec in this diff (approved by merging)".
+
 ## Code style
 
 - Prefer the plainest conventional solution. Before you build a script, generator, or abstraction, check whether a standard convention does the job.
