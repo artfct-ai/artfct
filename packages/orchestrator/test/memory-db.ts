@@ -22,6 +22,6 @@ function migratedDatabaseImage(): Uint8Array {
  * The workflow schema on a fresh in-memory `bun:sqlite` database, with the same generated
  * migrations the Durable Object applies.
  */
-export function openMemoryDb(): BunSQLiteDatabase<typeof schema> {
+export function openMemoryDb(): BunSQLiteDatabase<typeof schema> & { $client: Database } {
   return drizzle(Database.deserialize(migratedDatabaseImage()), { schema });
 }

@@ -19,6 +19,8 @@ import type { Wake, WorkflowRuntime } from "../src/workflow/types";
 import { STOPPED_TEXT } from "../src/workflow/feed/feed";
 import type { Subject } from "../src/workflow/store/state";
 import { artifactRefKey } from "../src/workflow/store/input-key";
+import { coverageCase } from "./coverage";
+import { ACTION_WORK_BUDGET, exceededWorkBudget } from "./work-budget";
 import { worldIssueInSubject } from "./world-tracker";
 
 /** One task row as an observer saw it. `ruling` is the stored ruling as text, or null. */
@@ -172,6 +174,8 @@ export type Step = {
    * prompt a revise turn ran on, and null for a turn that produces the page.
    */
   modelTurnCut: { task_id: string; prompt_id: number | null } | null;
+  /** How many store statements the action ran. */
+  work: number;
 };
 
 const FINISHED: TaskStatus[] = ["done", "failed", "cancelled"];
@@ -208,6 +212,164 @@ const ARTIFACT_MOVES: Array<[ArtifactStatus, ArtifactStatus]> = [
   ["ready", "removed"],
 ];
 
+const coverDeliveredArtifact = coverageCase(
+  "deliveredToHumansIsNeverCleared: an artifact the humans have",
+);
+const coverRefinerRunOnDelivered = coverageCase(
+  "refinersRunAgainOnlyOnChangedRevision: a refiner run starts on an artifact the humans have",
+);
+const coverUnchangedTurnOnDelivered = coverageCase(
+  "refinersRunAgainOnlyOnChangedRevision: an author turn ends on the revision the humans have",
+);
+const coverRunAfterRuling = coverageCase(
+  "judgeRulesAtMostOnce: a refiner run starts after the judge ruled",
+);
+const coverRulingStands = coverageCase("judgeRulesAtMostOnce: a ruling stands into a later step");
+const coverFeedback = coverageCase(
+  "everyFeedbackGetsOneRoutingDecision: feedback on a running workflow",
+);
+const coverEventOnFinished = coverageCase(
+  "nothingReopensAFinishedWorkflow: an event on a finished workflow",
+);
+const coverStopOnFinished = coverageCase(
+  "nothingReopensAFinishedWorkflow: a stop on a finished workflow",
+);
+const coverOutsideAWorkflow = coverageCase(
+  "sleepMessageOnlyDuringAWorkflow: an action outside a running workflow",
+);
+const coverSleepPosted = coverageCase("sleepMessageOnlyDuringAWorkflow: the sleep message posts");
+const coverBeforePlan = coverageCase("workflowStartsOnlyFromAPlan: an action before the plan");
+const coverEventBeforePlan = coverageCase(
+  "workflowStartsOnlyFromAPlan: a person writes before the plan",
+);
+const coverPlanStarts = coverageCase("workflowStartsOnlyFromAPlan: a plan starts the workflow");
+const coverPlanOnStarted = coverageCase("workflowKeepsItsDefinition: a plan on a started workflow");
+const coverChatIssue = coverageCase(
+  "eachIssueLinksTheChatThreadOnce: a chat workflow works on an issue",
+);
+const coverChatTwoIssues = coverageCase(
+  "eachIssueLinksTheChatThreadOnce: a chat workflow works on two issues",
+);
+const coverTrackerIssue = coverageCase(
+  "eachIssueLinksTheChatThreadOnce: a tracker workflow works on an issue",
+);
+const coverBoard = coverageCase("boardsLiveOnlyInChat: a job has a board");
+const coverJobWithoutChat = coverageCase("boardsLiveOnlyInChat: a job runs without a chat thread");
+const coverTodoEntries = coverageCase("everyJobTaskIsOnItsBoard: a task shows its todo list");
+const coverWorkLine = coverageCase("everyJobTaskIsOnItsBoard: a task shows its work line");
+const coverResearcherOnBoard = coverageCase(
+  "everyJobTaskIsOnItsBoard: a researcher is on its board",
+);
+const coverResearchHandedOn = coverageCase(
+  "researchReadsCompleteOnceTheAuthorStarts: a researcher with a todo list hands on to its author",
+);
+const coverInReview = coverageCase("inReviewTaskHasAnArtifact: a task waits in review");
+const coverRunDone = coverageCase("refinerRunIsDoneOnlyAfterItsTurnEnded: a refiner run ends done");
+const coverPolisherDoneLater = coverageCase(
+  "refinerRunIsDoneOnlyAfterItsTurnEnded: a polisher ends done in a later step",
+);
+const coverFinishedTask = coverageCase("finishedTaskKeepsItsStatus: a finished task in a step");
+const coverArtifactMove = coverageCase("artifactStatusMovesAreLegal: an artifact changes status");
+const coverTodosAfterArtifact = coverageCase(
+  "todoListIsFixedAfterFirstArtifact: an author with a todo list has an artifact",
+);
+const coverUnfinishedRun = coverageCase(
+  "oneUnfinishedRefinerRunPerArtifact: an artifact has an unfinished refiner run",
+);
+const coverPolisherRuns = coverageCase("authorIsIdleWhileAPolisherRuns: a polisher runs");
+const coverPolisherWithWaitingPrompt = coverageCase(
+  "authorIsIdleWhileAPolisherRuns: a polisher runs while its author has a prompt waiting",
+);
+const coverJobStarts = coverageCase("jobStartsOnlyIntoAFreeSlot: a job starts");
+const coverLastSlot = coverageCase("jobStartsOnlyIntoAFreeSlot: a job starts into the last slot");
+const coverWorkflowEnded = coverageCase(
+  "endedWorkflowHasNoUnfinishedTask: a workflow ended with tasks",
+);
+const coverSharedInput = coverageCase("oneLiveJobPerInputArtifact: two jobs share an input");
+const coverUnadmitted = coverageCase(
+  "unadmittedFeedbackReachesNobody: feedback the screen did not admit",
+);
+const coverFailedCheck = coverageCase(
+  "aFailedCheckNeverCompletesAJob: a check fails at completion",
+);
+const coverFailedCheckAsk = coverageCase(
+  "aFailedCheckNeverAsksThePersonAgain: a check fails at completion",
+);
+const coverStaleAlarm = coverageCase("staleAlarmIsIgnored: a stale alarm fires");
+const coverHeldSent = coverageCase(
+  "aPromptToAPageAuthorCarriesItsHeldComments: held comments go to a running page author",
+);
+const coverHeldKept = coverageCase(
+  "aPromptToAPageAuthorCarriesItsHeldComments: held comments stay held",
+);
+const coverChatAndSessionPost = coverageCase(
+  "orchestratorStaysOutOfSessionsWhenChatExists: a chat workflow with a session posts",
+);
+const coverTrackerPost = coverageCase(
+  "linearOnlyAsksReachTheStartingSession: a workflow without a chat thread posts",
+);
+const coverTrackerAsk = coverageCase(
+  "linearOnlyAsksReachTheStartingSession: a workflow without a chat thread asks or fails",
+);
+const coverSessionToRunning = coverageCase(
+  "sessionMessageReachesItsRunningAuthorSilently: a person writes to a running author's session",
+);
+const coverSessionWithoutAuthor = coverageCase(
+  "sessionMessageWithoutAnAuthorIsAnswered: a person writes to a session without a running author",
+);
+const coverCancelledTurnInSession = coverageCase(
+  "stopEndsTheAuthorsTurn: a cancelled turn ends in a session",
+);
+const coverStop = coverageCase("stopEndsTheAuthorsTurn: a person presses Stop");
+const coverStopOnAuthor = coverageCase("stopEndsTheAuthorsTurn: a stop reaches a session author");
+const coverStopDuringTurn = coverageCase(
+  "stopEndsTheAuthorsTurn: a stop lands during a running turn",
+);
+const coverStopOnIdle = coverageCase("stopEndsTheAuthorsTurn: a stop lands on an idle author");
+const coverModelCallStopped = coverageCase(
+  "stoppedModelCallLeavesThePage: a stop lands during a model call",
+);
+const coverTodosInChatWithSession = coverageCase(
+  "chatWorkflowNeverSetsASessionPlan: a todo list changes in a chat workflow with a session",
+);
+const coverIdleInSession = coverageCase(
+  "sessionFeedEndsWhenItsAuthorIdles: an author idles in a session",
+);
+const coverStreamStored = coverageCase("feedActivityPostsOnce: a streamed text is stored");
+const coverStoppedEarly = coverageCase(
+  "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone: an author stopped early",
+);
+const coverStoppedEarlyIdle = coverageCase(
+  "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone: an author stopped early without a prompt in flight",
+);
+const coverPageFindings = coverageCase(
+  "pageReviewPostsEachFindingOnce: a page review files findings",
+);
+const coverPageReviewHostDown = coverageCase(
+  "pageReviewPostsEachFindingOnce: a page review meets a host that is down",
+);
+const coverPageReviewMissing = coverageCase(
+  "pageReviewPostsEachFindingOnce: a page reviewer ends without a review",
+);
+const coverPageFindingsPrompt = coverageCase(
+  "authorGetsEveryPageFinding: a review prompt reaches the page author",
+);
+const coverWork = coverageCase("everyActionSettlesWithinItsWorkBudget: an action does work");
+const coverModelCallAuthorQueued = coverageCase(
+  "aQueuedPromptReachesItsModelCallAuthor: a model-call author has a queued prompt",
+);
+const coverModelCallAuthorWorking = coverageCase(
+  "aModelCallAuthorWorksOnlyWhileItsCallIsOut: a model-call author works with no call out",
+);
+const coverModelTurnCut = coverageCase("aRestartDoesNotLoseAModelTurn: a model turn is cut");
+const coverAccepted = coverageCase("anAcceptedArtifactNeverMovesBack: an artifact is accepted");
+const coverTurnOnAccepted = coverageCase(
+  "anAcceptedArtifactNeverMovesBack: an author turn ends on an accepted artifact",
+);
+const coverCompletedAgain = coverageCase(
+  "anAcceptedArtifactNeverMovesBack: a job with an accepted artifact is completed again",
+);
+
 function violated(rule: string, detail: string): never {
   throw new Error(`${rule}: ${detail}`);
 }
@@ -224,6 +386,7 @@ function authorIn(observation: Observation, jobId: string): ObservedTask | null 
 export function deliveredToHumansIsNeverCleared(_workflow: WorkflowRuntime, step: Step): void {
   for (const before of step.before.artifacts) {
     if (before.delivered_to_humans_at === null) continue;
+    coverDeliveredArtifact();
     if (artifactIn(step.after, before.job_id)?.delivered_to_humans_at == null) {
       violated("deliveredToHumansIsNeverCleared", `${before.job_id} lost delivered_to_humans_at`);
     }
@@ -234,16 +397,15 @@ export function deliveredToHumansIsNeverCleared(_workflow: WorkflowRuntime, step
  * A refiner run starts on an artifact the humans have only when an author turn ended on a
  * revision they have not seen. A host that cannot say the revision counts as a changed one.
  */
-export function refinersRunAgainOnlyOnChangedRevision(
-  _workflow: WorkflowRuntime,
-  step: Step,
-): void {
+export function refinersRunAgainOnlyOnChangedRevision(workflow: WorkflowRuntime, step: Step): void {
+  const turn = step.authorTurnEnd;
+  if (turn && endsOnTheDeliveredRevision(workflow, step, turn)) coverUnchangedTurnOnDelivered();
   const known = new Set(step.before.tasks.map((task) => task.task_id));
   for (const run of step.after.tasks) {
     if (known.has(run.task_id) || !REFINER_ROLES.includes(run.role)) continue;
     const before = artifactIn(step.before, run.job_id);
     if (!before || before.status === "drafted") continue;
-    const turn = step.authorTurnEnd;
+    coverRefinerRunOnDelivered();
     const changed =
       turn !== null &&
       turn.task_id === authorIn(step.after, run.job_id)?.task_id &&
@@ -257,8 +419,23 @@ export function refinersRunAgainOnlyOnChangedRevision(
   }
 }
 
+/** True when an author turn ended on the revision the humans have, on a stage with refiners. */
+function endsOnTheDeliveredRevision(
+  workflow: WorkflowRuntime,
+  step: Step,
+  turn: NonNullable<Step["authorTurnEnd"]>,
+): boolean {
+  const author = step.before.tasks.find((task) => task.task_id === turn.task_id);
+  const artifact = author && artifactIn(step.before, author.job_id);
+  if (!author || !artifact || artifact.status === "drafted") return false;
+  if (turn.hostRevision === null || turn.hostRevision !== artifact.delivered_revision) return false;
+  const stage = workflow.stageFor(workflow.store.requireJob(author.job_id));
+  return stage.reviewers.length + stage.polishers.length > 0;
+}
+
 /** A judge entry rules at most once on an artifact, and its ruling never changes. */
 export function judgeRulesAtMostOnce(workflow: WorkflowRuntime, step: Step): void {
+  const known = new Set(step.before.tasks.map((task) => task.task_id));
   for (const author of step.after.tasks.filter((task) => task.role === "author")) {
     const reviewers = workflow.stageFor(workflow.store.requireJob(author.job_id)).reviewers;
     const ruled = step.after.tasks.filter(
@@ -269,6 +446,12 @@ export function judgeRulesAtMostOnce(workflow: WorkflowRuntime, step: Step): voi
         reviewers[run.refiner_index]?.mode === "judge" &&
         run.ruling !== null,
     );
+    const ruledBefore = ruled.some((run) => rulingBefore(step, run.task_id) != null);
+    const runStarted = step.after.tasks.some(
+      (run) =>
+        run.job_id === author.job_id && REFINER_ROLES.includes(run.role) && !known.has(run.task_id),
+    );
+    if (ruledBefore && runStarted) coverRunAfterRuling();
     const indexes = ruled.map((run) => run.refiner_index);
     if (new Set(indexes).size !== indexes.length) {
       violated(
@@ -277,12 +460,17 @@ export function judgeRulesAtMostOnce(workflow: WorkflowRuntime, step: Step): voi
       );
     }
     for (const run of ruled) {
-      const earlier = step.before.tasks.find((task) => task.task_id === run.task_id)?.ruling;
+      const earlier = rulingBefore(step, run.task_id);
+      if (earlier != null) coverRulingStands();
       if (earlier != null && earlier !== run.ruling) {
         violated("judgeRulesAtMostOnce", `${run.task_id} went from ${earlier} to ${run.ruling}`);
       }
     }
   }
+}
+
+function rulingBefore(step: Step, taskId: string): string | null | undefined {
+  return step.before.tasks.find((task) => task.task_id === taskId)?.ruling;
 }
 
 /**
@@ -292,6 +480,7 @@ export function judgeRulesAtMostOnce(workflow: WorkflowRuntime, step: Step): voi
  */
 export function everyFeedbackGetsOneRoutingDecision(_workflow: WorkflowRuntime, step: Step): void {
   if (!step.feedback || FINISHED_WORKFLOW.includes(step.before.workflowStatus)) return;
+  coverFeedback();
   const decisions = [
     step.after.authorPrompts > step.before.authorPrompts ? "author" : null,
     step.notes.some((note) => note.wake === "human") ? "agent" : null,
@@ -311,6 +500,8 @@ export function everyFeedbackGetsOneRoutingDecision(_workflow: WorkflowRuntime, 
  */
 export function nothingReopensAFinishedWorkflow(_workflow: WorkflowRuntime, step: Step): void {
   if (!step.event || !FINISHED_WORKFLOW.includes(step.before.workflowStatus)) return;
+  coverEventOnFinished();
+  if (step.event.kind === "stop") coverStopOnFinished();
   const changes = [
     step.after.workflowStatus !== step.before.workflowStatus ? "the workflow status" : null,
     step.after.tasks.length !== step.before.tasks.length ? "the tasks" : null,
@@ -327,9 +518,12 @@ export function nothingReopensAFinishedWorkflow(_workflow: WorkflowRuntime, step
 
 /** The sleep message posts only while a workflow is running. */
 export function sleepMessageOnlyDuringAWorkflow(_workflow: WorkflowRuntime, step: Step): void {
-  if (!step.postedTexts.includes(SLEEP_TEXT)) return;
   const { definition, workflowStatus } = step.before;
-  if (definition !== null && workflowStatus === "running") return;
+  const inAWorkflow = definition !== null && workflowStatus === "running";
+  if (!inAWorkflow) coverOutsideAWorkflow();
+  if (!step.postedTexts.includes(SLEEP_TEXT)) return;
+  coverSleepPosted();
+  if (inAWorkflow) return;
   violated(
     "sleepMessageOnlyDuringAWorkflow",
     `${step.action} posted the sleep message on a ${workflowStatus} workflow with workflow definition ${definition ?? "null"}`,
@@ -342,7 +536,10 @@ export function sleepMessageOnlyDuringAWorkflow(_workflow: WorkflowRuntime, step
  */
 export function workflowStartsOnlyFromAPlan(workflow: WorkflowRuntime, step: Step): void {
   const { definition } = step.after;
+  if (step.before.definition === null) coverBeforePlan();
+  if (step.before.definition === null && step.event?.person) coverEventBeforePlan();
   if (step.before.definition === null && definition !== null) {
+    coverPlanStarts();
     const held = workflow.workflowDefinitions().some((declared) => declared.name === definition);
     if (step.plan?.definition !== definition || !held) {
       violated(
@@ -442,6 +639,7 @@ function describeSubject(subject: Subject | null): string {
 /** A later plan cannot change the workflow definition a workflow started with. */
 export function workflowKeepsItsDefinition(_workflow: WorkflowRuntime, step: Step): void {
   const { definition } = step.before;
+  if (definition !== null && step.plan) coverPlanOnStarted();
   if (definition === null || step.after.definition === definition) return;
   violated(
     "workflowKeepsItsDefinition",
@@ -458,15 +656,18 @@ export function eachIssueLinksTheChatThreadOnce(workflow: WorkflowRuntime): void
     .outbox()
     .filter((row) => row.kind === "attach_chat_thread")
     .map((row) => (row.target as { issue_id: string }).issue_id);
+  const workedIssues = new Set(workflow.store.jobs().flatMap((job) => job.issue_id ?? []));
   if (workflow.state.origin?.source !== "chat") {
+    if (workedIssues.size > 0) coverTrackerIssue();
     if (linkedIssues.length > 0) {
       violated("eachIssueLinksTheChatThreadOnce", `linked ${linkedIssues.join(", ")} without one`);
     }
     return;
   }
   const { subject } = workflow.state;
-  const workedIssues = new Set(workflow.store.jobs().flatMap((job) => job.issue_id ?? []));
   if (subject?.kind === "issue") workedIssues.add(subject.issue_id);
+  if (workedIssues.size > 0) coverChatIssue();
+  if (workedIssues.size > 1) coverChatTwoIssues();
   for (const issue of workedIssues) {
     const links = occurrences(linkedIssues, issue);
     if (links !== 1) {
@@ -490,8 +691,11 @@ export function boardsLiveOnlyInChat(workflow: WorkflowRuntime): void {
       .filter((target) => target.source === "chat")
       .map((target) => channelKey(target)),
   );
-  for (const job of workflow.store.jobs()) {
+  const jobs = workflow.store.jobs();
+  if (threads.size === 0 && jobs.length > 0) coverJobWithoutChat();
+  for (const job of jobs) {
     for (const board of workflow.store.boards(job.job_id)) {
+      coverBoard();
       if (!threads.has(board.channel_key)) {
         violated("boardsLiveOnlyInChat", `${job.job_id} has a board at ${board.channel_key}`);
       }
@@ -510,6 +714,9 @@ export function everyJobTaskIsOnItsBoard(workflow: WorkflowRuntime): void {
     for (const task of workflow.store.tasks()) {
       if (task.job_id !== job.job_id || !JOB_ROLES.includes(task.role)) continue;
       const entries = workflow.store.todoRow(task.task_id)?.todos?.entries ?? [];
+      if (entries.length) coverTodoEntries();
+      else coverWorkLine();
+      if (task.role === "researcher") coverResearcherOnBoard();
       const missing = entries.length
         ? missingEntry(lines, entries)
         : missingLine(lines, expectedWorkLine(task.role, task.status, produced));
@@ -547,6 +754,7 @@ export function researchReadsCompleteOnceTheAuthorStarts(workflow: WorkflowRunti
     const researcher = workflow.store.researcherTask(job.job_id);
     if (!researcher || !workflow.store.authorTask(job.job_id)) continue;
     const entries = workflow.store.todoRow(researcher.task_id)?.todos?.entries ?? [];
+    if (entries.length) coverResearchHandedOn();
     const open = entries.find((entry) => entry.status !== "completed");
     if (open) {
       violated(
@@ -560,7 +768,9 @@ export function researchReadsCompleteOnceTheAuthorStarts(workflow: WorkflowRunti
 /** A task cannot be `in_review` without an artifact on its job. */
 export function inReviewTaskHasAnArtifact(workflow: WorkflowRuntime): void {
   for (const task of workflow.store.tasks()) {
-    if (task.status === "in_review" && !workflow.store.artifact(task.job_id)) {
+    if (task.status !== "in_review") continue;
+    coverInReview();
+    if (!workflow.store.artifact(task.job_id)) {
       violated("inReviewTaskHasAnArtifact", `${task.task_id} is in_review with no artifact`);
     }
   }
@@ -577,8 +787,13 @@ export function refinerRunIsDoneOnlyAfterItsTurnEnded(
   for (const after of step.after.tasks) {
     if (!REFINER_ROLES.includes(after.role) || after.status !== "done") continue;
     const before = step.before.tasks.find((task) => task.task_id === after.task_id);
-    if (before?.status === "done" || step.refinerTurnEnd?.task_id === after.task_id) continue;
-    if (before?.role === "polisher" && before.quietSinceTurnEnd) continue;
+    if (before?.status === "done") continue;
+    coverRunDone();
+    if (step.refinerTurnEnd?.task_id === after.task_id) continue;
+    if (before?.role === "polisher" && before.quietSinceTurnEnd) {
+      coverPolisherDoneLater();
+      continue;
+    }
     violated(
       "refinerRunIsDoneOnlyAfterItsTurnEnded",
       `${after.task_id} went from ${before?.status ?? "nothing"} to done with no turn end`,
@@ -590,6 +805,7 @@ export function refinerRunIsDoneOnlyAfterItsTurnEnded(
 export function finishedTaskKeepsItsStatus(_workflow: WorkflowRuntime, step: Step): void {
   for (const before of step.before.tasks) {
     if (!FINISHED.includes(before.status)) continue;
+    coverFinishedTask();
     const after = step.after.tasks.find((task) => task.task_id === before.task_id);
     if (after?.status !== before.status) {
       violated(
@@ -608,6 +824,7 @@ export function artifactStatusMovesAreLegal(_workflow: WorkflowRuntime, step: St
   for (const before of step.before.artifacts) {
     const after = artifactIn(step.after, before.job_id);
     if (after?.status === before.status) continue;
+    coverArtifactMove();
     const legal = ARTIFACT_MOVES.some(
       ([from, to]) => from === before.status && to === after?.status,
     );
@@ -637,6 +854,7 @@ export function todoListIsFixedAfterFirstArtifact(_workflow: WorkflowRuntime, st
     if (!author) continue;
     const before = step.before.todos[author.task_id];
     const after = step.after.todos[author.task_id];
+    if (before !== undefined) coverTodosAfterArtifact();
     if (before !== after) {
       violated(
         "todoListIsFixedAfterFirstArtifact",
@@ -659,6 +877,7 @@ export function oneUnfinishedRefinerRunPerArtifact(workflow: WorkflowRuntime): v
         REFINER_ROLES.includes(run.role) &&
         !FINISHED.includes(run.status),
     );
+    if (unfinished.length > 0) coverUnfinishedRun();
     const ids = unfinished.map((run) => run.task_id).join(", ");
     if (unfinished.length > 1) {
       violated("oneUnfinishedRefinerRunPerArtifact", `${author.task_id} has ${ids} unfinished`);
@@ -681,6 +900,10 @@ export function authorIsIdleWhileAPolisherRuns(workflow: WorkflowRuntime): void 
   for (const run of workflow.store.tasks()) {
     if (run.role !== "polisher" || FINISHED.includes(run.status)) continue;
     const author = workflow.store.authorTaskOf(run.job_id);
+    coverPolisherRuns();
+    if (workflow.store.queue().some((row) => row.task_id === author.task_id)) {
+      coverPolisherWithWaitingPrompt();
+    }
     const sandbox = workflow.store.sandbox(author.task_id);
     const busy = sandbox ? sandbox.prompt_in_flight === 1 : author.status === "working";
     if (busy) {
@@ -702,7 +925,9 @@ export function aQueuedPromptReachesItsModelCallAuthor(workflow: WorkflowRuntime
     if (author.role !== "author" || FINISHED.includes(author.status)) continue;
     if (workflow.store.sandbox(author.task_id) || author.paused_at !== null) continue;
     const queued = queue.filter((row) => row.task_id === author.task_id).length;
-    if (queued === 0 || taskAtWork(workflow, author)) continue;
+    if (queued === 0) continue;
+    coverModelCallAuthorQueued();
+    if (taskAtWork(workflow, author)) continue;
     const polishing = workflow.store
       .tasks()
       .some(
@@ -728,6 +953,7 @@ export function aModelCallAuthorWorksOnlyWhileItsCallIsOut(
   for (const author of step.after.tasks) {
     if (author.role !== "author" || author.status !== "working") continue;
     if (workflow.store.sandbox(author.task_id) || author.modelCallOut) continue;
+    coverModelCallAuthorWorking();
     const pageOut = workflow.store.artifact(author.job_id) !== null;
     if (!pageOut && !author.atWork) continue;
     violated(
@@ -745,6 +971,7 @@ export function aModelCallAuthorWorksOnlyWhileItsCallIsOut(
 export function aRestartDoesNotLoseAModelTurn(workflow: WorkflowRuntime, step: Step): void {
   const cut = step.modelTurnCut;
   if (!cut) return;
+  coverModelTurnCut();
   const author = workflow.store.requireTask(cut.task_id);
   const observed = step.after.tasks.find((task) => task.task_id === cut.task_id);
   const promptTaken = !workflow.store.queue().some((row) => row.id === cut.prompt_id);
@@ -772,6 +999,10 @@ export function jobStartsOnlyIntoAFreeSlot(workflow: WorkflowRuntime, step: Step
   const unfinished = step.before.tasks.filter(
     (task) => JOB_ROLES.includes(task.role) && !FINISHED.includes(task.status),
   );
+  coverJobStarts();
+  if (unfinished.length > 0 && unfinished.length === workflow.state.concurrency - 1) {
+    coverLastSlot();
+  }
   if (unfinished.length >= workflow.state.concurrency) {
     violated(
       "jobStartsOnlyIntoAFreeSlot",
@@ -784,6 +1015,7 @@ export function jobStartsOnlyIntoAFreeSlot(workflow: WorkflowRuntime, step: Step
 export function endedWorkflowHasNoUnfinishedTask(workflow: WorkflowRuntime): void {
   const { status } = workflow.state;
   if (!FINISHED_WORKFLOW.includes(status)) return;
+  if (workflow.store.tasks().length > 0) coverWorkflowEnded();
   const unfinished = workflow.store.tasks().filter((task) => !FINISHED.includes(task.status));
   if (unfinished.length > 0) {
     violated(
@@ -799,6 +1031,8 @@ export function endedWorkflowHasNoUnfinishedTask(workflow: WorkflowRuntime): voi
  */
 export function oneLiveJobPerInputArtifact(workflow: WorkflowRuntime): void {
   const owners = new Map<string, string>();
+  const inputKeys = workflow.store.jobs().flatMap((job) => job.input_key ?? []);
+  if (new Set(inputKeys).size < inputKeys.length) coverSharedInput();
   for (const job of workflow.store.jobs()) {
     const task = workflow.store.authorOrResearcherTaskOf(job.job_id);
     const output = workflow.store.artifact(job.job_id);
@@ -825,6 +1059,7 @@ export function oneLiveJobPerInputArtifact(workflow: WorkflowRuntime): void {
  */
 export function unadmittedFeedbackReachesNobody(_workflow: WorkflowRuntime, step: Step): void {
   if (!step.unadmittedFeedback) return;
+  coverUnadmitted();
   const { texts, agentRead } = step.unadmittedFeedback;
   for (const text of texts) {
     if (step.notes.some((note) => note.text.includes(text))) {
@@ -846,6 +1081,7 @@ export function unadmittedFeedbackReachesNobody(_workflow: WorkflowRuntime, step
 export function aFailedCheckNeverCompletesAJob(_workflow: WorkflowRuntime, step: Step): void {
   const completion = step.completion;
   if (!completion?.checkFailed) return;
+  coverFailedCheck();
   const before = step.before.tasks.find((task) => task.task_id === completion.task_id);
   const after = step.after.tasks.find((task) => task.task_id === completion.task_id);
   if (!after || after.status !== "done" || before?.status === "done") return;
@@ -862,6 +1098,7 @@ export function aFailedCheckNeverCompletesAJob(_workflow: WorkflowRuntime, step:
 export function aFailedCheckNeverAsksThePersonAgain(_workflow: WorkflowRuntime, step: Step): void {
   const completion = step.completion;
   if (!completion?.checkFailed) return;
+  coverFailedCheckAsk();
   for (const askAgain of [ASK_WHETHER_ACCEPTED, ASK_WHICH_OPTION]) {
     if (completion.result.includes(askAgain)) {
       violated(
@@ -875,6 +1112,7 @@ export function aFailedCheckNeverAsksThePersonAgain(_workflow: WorkflowRuntime, 
 /** An alarm armed for an older generation of a task changes nothing and tells the agent nothing. */
 export function staleAlarmIsIgnored(_workflow: WorkflowRuntime, step: Step): void {
   if (!step.staleAlarm) return;
+  coverStaleAlarm();
   const { task_id } = step.staleAlarm;
   if (JSON.stringify(step.before) !== JSON.stringify(step.after)) {
     violated("staleAlarmIsIgnored", `a stale alarm of ${task_id} changed the workflow`);
@@ -942,6 +1180,8 @@ export function aPromptToAPageAuthorCarriesItsHeldComments(
     return task !== undefined && !FINISHED.includes(task.status);
   });
   if (!running.length) return;
+  if (asked.expected === "sent") coverHeldSent();
+  else coverHeldKept();
   const added = running.flatMap((taskId) => promptsAddedTo(step, taskId));
   for (const text of step.before.heldComments) {
     const reached = added.some((prompt) => prompt.includes(text));
@@ -972,6 +1212,9 @@ export function orchestratorStaysOutOfSessionsWhenChatExists(
   _workflow: WorkflowRuntime,
   step: Step,
 ): void {
+  const sessions = [step.before.startingSession, ...Object.values(step.before.jobSessions)];
+  const posted = step.postedTypes.length > 0 || step.feedPosts.length > 0;
+  if (step.before.chatThread && sessions.some(Boolean) && posted) coverChatAndSessionPost();
   if (!step.before.chatThread || step.sessionPosts.length === 0) return;
   const posts = step.sessionPosts.map((post) => `${post.kind} in ${post.session_id}`);
   violated("orchestratorStaysOutOfSessionsWhenChatExists", `posted ${posts.join(", ")}`);
@@ -989,6 +1232,8 @@ export function linearOnlyAsksReachTheStartingSession(
   if (step.before.chatThread || step.after.chatThread || !starting) return;
   const answered = sessionOfPerson(step);
   const asks = step.postedTypes.filter((type) => ASKS_AND_FAILURES.includes(type)).length;
+  if (step.postedTypes.length > 0 || step.sessionPosts.length > 0) coverTrackerPost();
+  if (asks > 0) coverTrackerAsk();
   const toStarting = step.sessionPosts.filter((post) => post.session_id === starting).length;
   if (toStarting < asks) {
     violated(
@@ -1026,6 +1271,7 @@ export function sessionMessageReachesItsRunningAuthorSilently(
   if (!event || !SESSION_MESSAGES.includes(event.kind)) return;
   const author = runningAuthorBefore(step);
   if (!author) return;
+  coverSessionToRunning();
   const after = step.after.tasks.find((task) => task.task_id === author.task_id);
   const held = occurrences(after?.promptTexts ?? [], event.text);
   if (held <= occurrences(author.promptTexts, event.text)) {
@@ -1070,6 +1316,7 @@ export function sessionMessageWithoutAnAuthorIsAnswered(
   const session = sessionOfPerson(step);
   if (!event || !session || !SESSION_MESSAGES.includes(event.kind)) return;
   if (runningAuthorBefore(step)) return;
+  coverSessionWithoutAuthor();
   if (step.notes.some((note) => note.wake === "message")) return;
   const posted = step.after.posted > step.before.posted;
   const reachedThem = step.after.chatThread
@@ -1097,11 +1344,13 @@ export function stopEndsTheAuthorsTurn(_workflow: WorkflowRuntime, step: Step): 
     const author = step.after.tasks.find((task) => task.task_id === ended.task_id);
     const idle = author && !author.promptInFlight && author.queuedPrompts === 0;
     const inSession = author && step.after.jobSessions[author.job_id];
+    if (idle && inSession) coverCancelledTurnInSession();
     if (idle && inSession && !endsOnTheStoppedReply(step, ended.task_id)) {
       violated("stopEndsTheAuthorsTurn", `the cancelled turn of ${ended.task_id} did not say so`);
     }
   }
   if (step.event?.kind !== "stop") return;
+  coverStop();
   if (step.after.workflowStatus !== step.before.workflowStatus) {
     violated(
       "stopEndsTheAuthorsTurn",
@@ -1114,6 +1363,9 @@ export function stopEndsTheAuthorsTurn(_workflow: WorkflowRuntime, step: Step): 
   const author = sessionAuthorBefore(step);
   const after = author && step.after.tasks.find((task) => task.task_id === author.task_id);
   if (!author || !after) return;
+  coverStopOnAuthor();
+  if (author.turnRunning) coverStopDuringTurn();
+  else if (!FINISHED.includes(author.status)) coverStopOnIdle();
   if (after.queuedPrompts > 0) {
     violated("stopEndsTheAuthorsTurn", `${author.task_id} kept ${after.queuedPrompts} prompts`);
   }
@@ -1134,7 +1386,9 @@ export function stopEndsTheAuthorsTurn(_workflow: WorkflowRuntime, step: Step): 
 /** A model call in flight when a person presses Stop does not change the page. */
 export function stoppedModelCallLeavesThePage(_workflow: WorkflowRuntime, step: Step): void {
   const stopped = step.modelCallStopped;
-  if (!stopped || stopped.pageWrites.length === 0) return;
+  if (!stopped) return;
+  coverModelCallStopped();
+  if (stopped.pageWrites.length === 0) return;
   violated(
     "stoppedModelCallLeavesThePage",
     `${stopped.task_id} made ${stopped.pageWrites.join(", ")} after the stop`,
@@ -1143,6 +1397,11 @@ export function stoppedModelCallLeavesThePage(_workflow: WorkflowRuntime, step: 
 
 /** While a chat thread exists, no tracker session gets a session plan. */
 export function chatWorkflowNeverSetsASessionPlan(_workflow: WorkflowRuntime, step: Step): void {
+  const sessions = [step.after.startingSession, ...Object.values(step.after.jobSessions)];
+  const todosChanged = JSON.stringify(step.before.todos) !== JSON.stringify(step.after.todos);
+  if (step.after.chatThread && sessions.some(Boolean) && todosChanged) {
+    coverTodosInChatWithSession();
+  }
   if (!step.after.chatThread || step.planPosts.length === 0) return;
   violated("chatWorkflowNeverSetsASessionPlan", `set a plan in ${step.planPosts.join(", ")}`);
 }
@@ -1155,6 +1414,7 @@ export function sessionFeedEndsWhenItsAuthorIdles(_workflow: WorkflowRuntime, st
   if (!author || FINISHED.includes(author.status)) return;
   if (author.promptInFlight || author.queuedPrompts > 0) return;
   if (!step.after.jobSessions[author.job_id]) return;
+  coverIdleInSession();
   const last = step.feedPosts.findLast((post) => post.task_id === author.task_id);
   if (last && FEED_CLOSINGS.includes(last.kind)) return;
   violated(
@@ -1165,6 +1425,7 @@ export function sessionFeedEndsWhenItsAuthorIdles(_workflow: WorkflowRuntime, st
 
 /** The tracker holds at most one activity for each text an author streamed. */
 export function feedActivityPostsOnce(_workflow: WorkflowRuntime, step: Step): void {
+  if (step.streamedTexts.length > 0 && step.storedActivities.length > 0) coverStreamStored();
   for (const text of step.streamedTexts) {
     const holders = step.storedActivities.filter((stored) => stored.includes(text)).length;
     if (holders > 1) violated("feedActivityPostsOnce", `${holders} activities hold ${text}`);
@@ -1180,7 +1441,10 @@ export function anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone(
   step: Step,
 ): void {
   for (const author of step.after.tasks) {
-    if (!author.stoppedEarly || author.promptInFlight || FINISHED.includes(author.status)) continue;
+    if (!author.stoppedEarly || FINISHED.includes(author.status)) continue;
+    coverStoppedEarly();
+    if (author.promptInFlight) continue;
+    coverStoppedEarlyIdle();
     if (author.queuedPrompts > 0 || author.status === "provisioning" || author.handshaking)
       continue;
     violated(
@@ -1199,12 +1463,15 @@ export function pageReviewPostsEachFindingOnce(_workflow: WorkflowRuntime, step:
   const pageReview = step.pageReview;
   if (!pageReview) return;
   const { review, comments, hostUp } = pageReview;
+  if (!hostUp) coverPageReviewHostDown();
   if (!review) {
+    coverPageReviewMissing();
     if (comments.length) {
       violated("pageReviewPostsEachFindingOnce", `${comments.length} comments without a review`);
     }
     return;
   }
+  if (review.findings.length) coverPageFindings();
   const outcomes = comments.filter((comment) => comment.passage === null);
   if (hostUp && outcomes.length !== 1) {
     violated("pageReviewPostsEachFindingOnce", `${outcomes.length} outcome comments`);
@@ -1238,12 +1505,74 @@ export function authorGetsEveryPageFinding(_workflow: WorkflowRuntime, step: Ste
     (task) => task.role === "author" && task.job_id === reviewer?.job_id,
   );
   const newPrompts = author ? promptsAddedTo(step, author.task_id) : [];
-  for (const prompt of newPrompts.filter((text) => text.includes("\nComments:\n"))) {
+  const reviewPrompts = newPrompts.filter((text) => text.includes("\nComments:\n"));
+  if (reviewPrompts.length) coverPageFindingsPrompt();
+  for (const prompt of reviewPrompts) {
     const missing = review.findings.find(
       (finding) => !prompt.includes(`- ${findingText(finding)}`),
     );
     if (missing) {
       violated("authorGetsEveryPageFinding", `the author was not told "${findingText(missing)}"`);
     }
+  }
+}
+
+/**
+ * Every action settles within its work budget. An action that runs more store statements than
+ * the budget is a livelock, so the world stops it there.
+ */
+export function everyActionSettlesWithinItsWorkBudget(
+  _workflow: WorkflowRuntime,
+  step: Step,
+): void {
+  if (step.work > 0) coverWork();
+  if (step.work > ACTION_WORK_BUDGET) exceededWorkBudget(step.action, step.work);
+}
+
+/**
+ * An accepted artifact never moves back: it stays accepted, and no refiner run starts on its
+ * job. Its job completes once: completing it again changes no task or artifact and posts nothing.
+ */
+export function anAcceptedArtifactNeverMovesBack(_workflow: WorkflowRuntime, step: Step): void {
+  const known = new Set(step.before.tasks.map((task) => task.task_id));
+  const endedTurn = step.before.tasks.find((task) => task.task_id === step.authorTurnEnd?.task_id);
+  for (const before of step.before.artifacts) {
+    if (before.status !== "accepted") continue;
+    coverAccepted();
+    if (endedTurn?.job_id === before.job_id) coverTurnOnAccepted();
+    const after = artifactIn(step.after, before.job_id);
+    if (after?.status !== "accepted") {
+      violated(
+        "anAcceptedArtifactNeverMovesBack",
+        `${before.job_id} went from accepted to ${after?.status ?? "nothing"}`,
+      );
+    }
+    const started = step.after.tasks.filter(
+      (run) =>
+        run.job_id === before.job_id && REFINER_ROLES.includes(run.role) && !known.has(run.task_id),
+    );
+    if (started.length) {
+      violated(
+        "anAcceptedArtifactNeverMovesBack",
+        `${started.map((run) => run.task_id).join(", ")} started on the accepted artifact of ${before.job_id}`,
+      );
+    }
+  }
+  const completed = step.before.tasks.find((task) => task.task_id === step.completion?.task_id);
+  if (completed?.status !== "done") return;
+  if (artifactIn(step.before, completed.job_id)?.status !== "accepted") return;
+  coverCompletedAgain();
+  const changes = [
+    JSON.stringify(step.before.tasks) !== JSON.stringify(step.after.tasks) ? "the tasks" : null,
+    JSON.stringify(step.before.artifacts) !== JSON.stringify(step.after.artifacts)
+      ? "the artifacts"
+      : null,
+    step.after.posted !== step.before.posted ? "the posts" : null,
+  ].filter((change) => change !== null);
+  if (changes.length > 0) {
+    violated(
+      "anAcceptedArtifactNeverMovesBack",
+      `completing job ${completed.job_id} again changed ${changes.join(", ")}`,
+    );
   }
 }
