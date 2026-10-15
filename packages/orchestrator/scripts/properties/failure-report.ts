@@ -30,8 +30,8 @@ export function propertyFailures(output: string): PropertyFailure[] {
   return [...failures.values()];
 }
 
-/** The step summary of a gate run that did not pass. */
-export function gateReport(file: PropertyFile, seed: number, run: PropertyRun): string {
+/** The step summary of an e2e property test run that did not pass. */
+export function propertyFailureReport(file: PropertyFile, seed: number, run: PropertyRun): string {
   const heading =
     run.outcome === "timed_out"
       ? `### The ${file.title} timed out after ${PROPERTY_FILE_TIMEOUT_MINUTES} minutes on seed ${seed}`

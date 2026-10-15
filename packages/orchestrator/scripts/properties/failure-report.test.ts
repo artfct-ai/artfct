@@ -1,5 +1,5 @@
 import { describe, expect, it } from "bun:test";
-import { gateReport, propertyFailures } from "./gate-report";
+import { propertyFailureReport, propertyFailures } from "./failure-report";
 import { PROPERTY_FILES } from "./property-files";
 
 const BUN_OUTPUT = `src/workflow/invariants.test.ts:
@@ -62,9 +62,9 @@ describe("propertyFailures", () => {
   });
 });
 
-describe("gateReport", () => {
+describe("propertyFailureReport", () => {
   it("names the invariant, seed, path, and replay command of a failure", () => {
-    const report = gateReport(PROPERTY_FILES.router, -42, {
+    const report = propertyFailureReport(PROPERTY_FILES.router, -42, {
       outcome: "failed",
       output: VITEST_OUTPUT,
     });
@@ -78,7 +78,10 @@ describe("gateReport", () => {
   });
 
   it("names the seed and replay command of a hang", () => {
-    const report = gateReport(PROPERTY_FILES.workflow, 9, { outcome: "timed_out", output: "" });
+    const report = propertyFailureReport(PROPERTY_FILES.workflow, 9, {
+      outcome: "timed_out",
+      output: "",
+    });
     expect(report).toContain("### The workflow properties timed out after 20 minutes on seed 9");
     expect(report).toContain("fast-check did not report a counterexample. Read the step log.");
     expect(report).toContain(

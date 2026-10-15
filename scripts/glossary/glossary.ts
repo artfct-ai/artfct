@@ -97,7 +97,7 @@ export function bannedWordHits(
  * The code names whose identifiers no longer occur in the code. A name with a slash is a path
  * pattern, where `<name>` stands for any file name.
  */
-export function staleCodeNames(
+export function missingCodeNames(
   rows: GlossaryRow[],
   code: string,
   pathExists: (pattern: string) => boolean,

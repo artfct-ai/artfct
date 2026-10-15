@@ -1,4 +1,4 @@
-/** The variables the main gate sets to run a property longer, on a seed it reports. */
+/** The variables that set the run count and seed of a property. */
 const PROPERTY_VARS = ["PROPERTY_RUNS", "PROPERTY_SEED"] as const;
 
 /**

@@ -37,7 +37,7 @@ jobs:
       - run: bun run check:affected
 
   e2e_property_test:
-    name: e2e property based test: (shard ${{ matrix.shard }})
+    name: e2e property based test (shard ${{ matrix.shard }})
     needs: ci
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -64,15 +64,15 @@ jobs:
       - name: Run the workflow properties
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
         timeout-minutes: 25
-        run: bun scripts/properties/gate.ts workflow
+        run: bun scripts/properties/e2e-property-test.ts workflow
       - name: Run the agent turn property
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
         timeout-minutes: 25
-        run: bun scripts/properties/gate.ts agent_turn
+        run: bun scripts/properties/e2e-property-test.ts agent_turn
       - name: Run the router property
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
         timeout-minutes: 25
-        run: bun scripts/properties/gate.ts router
+        run: bun scripts/properties/e2e-property-test.ts router
 
   preview:
     name: preview

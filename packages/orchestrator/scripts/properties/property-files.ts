@@ -1,41 +1,41 @@
 import { join } from "node:path";
 
-/** A property test file and the runs each property in it takes per main gate shard. */
-export type PropertyFile = { title: string; path: string; runner: string[]; gateRuns: number };
+/** A property test file and the runs each property in it takes per e2e property test shard. */
+export type PropertyFile = { title: string; path: string; runner: string[]; e2eRuns: number };
 
 /** The outcome of one property file run, with everything it printed. */
 export type PropertyRun = { outcome: "passed" | "failed" | "timed_out"; output: string };
 
-/** The property test files the main gate shards and the nightly mutant run. */
+/** The property test files the e2e property test job shards and the nightly mutant run. */
 export const PROPERTY_FILES = {
   workflow: {
     title: "workflow properties",
     path: "src/workflow/invariants.test.ts",
     runner: ["bun", "test"],
-    gateRuns: 1250,
+    e2eRuns: 1250,
   },
   agent_turn: {
     title: "agent turn property",
     path: "src/agent/turn/turn-invariants.test.medium.ts",
     runner: ["bunx", "vitest", "run"],
-    gateRuns: 2000,
+    e2eRuns: 2000,
   },
   router: {
     title: "router property",
     path: "src/router/route-invariants.test.medium.ts",
     runner: ["bunx", "vitest", "run"],
-    gateRuns: 1000,
+    e2eRuns: 1000,
   },
 } satisfies Record<string, PropertyFile>;
 
-/** A property file run past this is a hang. The gate reports it with its seed. */
+/** A property file run past this is a hang, reported with its seed. */
 export const PROPERTY_FILE_TIMEOUT_MINUTES = 20;
 
 const ORCHESTRATOR_DIR = join(import.meta.dirname, "../..");
 
-/** The command, run from the orchestrator package, that repeats a gate run exactly. */
+/** The command, run from the orchestrator package, that repeats an e2e run exactly. */
 export function propertyReplayCommand(file: PropertyFile, seed: number): string {
-  return `PROPERTY_SEED=${seed} PROPERTY_RUNS=${file.gateRuns} ${[...file.runner, file.path].join(" ")}`;
+  return `PROPERTY_SEED=${seed} PROPERTY_RUNS=${file.e2eRuns} ${[...file.runner, file.path].join(" ")}`;
 }
 
 async function echoAndCollect(stream: ReadableStream<Uint8Array>, echo: NodeJS.WriteStream) {
@@ -48,14 +48,14 @@ async function echoAndCollect(stream: ReadableStream<Uint8Array>, echo: NodeJS.W
   return text + decoder.decode();
 }
 
-/** Runs one property file at its gate run count on a seed, and echoes its output as it runs. */
+/** Runs one property file at its e2e run count on a seed, and echoes its output as it runs. */
 export async function runPropertyFile(file: PropertyFile, seed: number): Promise<PropertyRun> {
   const child = Bun.spawn([...file.runner, file.path], {
     cwd: ORCHESTRATOR_DIR,
     env: {
       ...process.env,
       PROPERTY_SEED: String(seed),
-      PROPERTY_RUNS: String(file.gateRuns),
+      PROPERTY_RUNS: String(file.e2eRuns),
       NO_COLOR: "1",
     },
     stdout: "pipe",

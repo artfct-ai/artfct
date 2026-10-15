@@ -1,6 +1,6 @@
 import type { AllowedWord } from "./glossary";
 
-const REVIEW =
+const NOT_RULED_ON =
   "Existing use the owner has not ruled on. Remove the entry once it is renamed or confirmed.";
 
 /** Uses of a banned word that name a different concept than the glossary term, with the reason. */
@@ -178,7 +178,7 @@ export const ALLOWED_WORDS: AllowedWord[] = [
       "template/orchestrator/skills/design-revise/SKILL.md",
       "template/orchestrator/skills/page-revise/SKILL.md",
     ],
-    reason: REVIEW,
+    reason: NOT_RULED_ON,
   },
   {
     word: "intent",
@@ -188,13 +188,21 @@ export const ALLOWED_WORDS: AllowedWord[] = [
       "packages/orchestrator/src/agent/tools/task.ts",
       "template/orchestrator/skills/code-cleaner/SKILL.md",
     ],
-    reason: REVIEW,
+    reason: NOT_RULED_ON,
   },
-  { word: "mirror", paths: ["packages/orchestrator/src/agent/tools/channel.ts"], reason: REVIEW },
+  {
+    word: "mirror",
+    paths: ["packages/orchestrator/src/agent/tools/channel.ts"],
+    reason: NOT_RULED_ON,
+  },
   {
     word: "root stage",
     paths: ["packages/orchestrator/src/agent/tools/page-plan.ts"],
-    reason: REVIEW,
+    reason: NOT_RULED_ON,
   },
-  { word: "verdict", paths: ["template/orchestrator/skills/plan-review/SKILL.md"], reason: REVIEW },
+  {
+    word: "verdict",
+    paths: ["template/orchestrator/skills/plan-review/SKILL.md"],
+    reason: NOT_RULED_ON,
+  },
 ];

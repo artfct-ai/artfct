@@ -26,7 +26,7 @@ describe("mutantReport", () => {
       [
         { mutant: MUTANT, status: "survived" },
         { mutant: { ...MUTANT, id: "X2" }, status: "killed" },
-        { mutant: { ...MUTANT, id: "X3" }, status: "stale" },
+        { mutant: { ...MUTANT, id: "X3" }, status: "not_applied" },
       ],
       5,
     );

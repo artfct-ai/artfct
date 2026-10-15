@@ -3,11 +3,11 @@ import { ALLOWED_WORDS } from "./allowlist";
 import {
   bannedWordHits,
   glossaryRows,
-  staleCodeNames,
+  missingCodeNames,
   wordsOf,
   type GlossaryRow,
 } from "./glossary";
-import { codePathExists, codeSources, readGlossary, wordedSources } from "./sources";
+import { codePathExists, codeSources, readGlossary, bannedWordSources } from "./sources";
 
 const GLOSSARY = `# Glossary
 
@@ -70,10 +70,10 @@ describe("bannedWordHits", () => {
   });
 });
 
-describe("staleCodeNames", () => {
+describe("missingCodeNames", () => {
   it("names a code name whose identifier or path is gone", () => {
     const code = "function stopAuthor() {}\ntype EventKind = 'stop';\nmintAllReposReadToken();";
-    expect(staleCodeNames(ROWS, code, () => false)).toEqual([
+    expect(missingCodeNames(ROWS, code, () => false)).toEqual([
       "SandboxStartSpec.all_repos_read_token",
       "workflows/<name>.yaml",
     ]);
@@ -81,7 +81,7 @@ describe("staleCodeNames", () => {
 
   it("reads a path code name as a pattern", () => {
     const patterns: string[] = [];
-    staleCodeNames(ROWS, "", (pattern) => patterns.push(pattern) > 0);
+    missingCodeNames(ROWS, "", (pattern) => patterns.push(pattern) > 0);
     expect(patterns).toEqual(["workflows/*.yaml"]);
   });
 });
@@ -93,18 +93,18 @@ describe("the glossary", () => {
     const code = codeSources()
       .map((file) => file.text)
       .join("\n");
-    expect(staleCodeNames(rows, code, codePathExists)).toEqual([]);
+    expect(missingCodeNames(rows, code, codePathExists)).toEqual([]);
   });
 
   it("is not contradicted by a banned word in code, prompts, or skills", () => {
-    const hits = bannedWordHits(rows, wordedSources(), ALLOWED_WORDS);
+    const hits = bannedWordHits(rows, bannedWordSources(), ALLOWED_WORDS);
     expect(hits.map((hit) => `${hit.path}:${hit.line} says "${hit.word}" for ${hit.term}`)).toEqual(
       [],
     );
   });
 
   it("allows only words that are still used", () => {
-    const hits = bannedWordHits(rows, wordedSources(), []);
+    const hits = bannedWordHits(rows, bannedWordSources(), []);
     const unused = ALLOWED_WORDS.flatMap((entry) =>
       (entry.paths === "everywhere" ? [null] : entry.paths)
         .filter(

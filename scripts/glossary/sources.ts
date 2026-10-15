@@ -20,13 +20,13 @@ function filesMatching(patterns: string[]): SourceFile[] {
 }
 
 /** The code, JSDoc, prompts, and skills that the banned words check reads. */
-export function wordedSources(): SourceFile[] {
+export function bannedWordSources(): SourceFile[] {
   return filesMatching(["packages/*/src/**/*.ts", "template/**/*.{ts,md,yaml}"]);
 }
 
 /** The production code and schema that the code names of the glossary point into. */
 export function codeSources(): SourceFile[] {
-  return [...wordedSources(), ...filesMatching(["packages/*/migrations/**/*.sql"])];
+  return [...bannedWordSources(), ...filesMatching(["packages/*/migrations/**/*.sql"])];
 }
 
 /** Whether a file under the repository matches a path pattern of a code name. */

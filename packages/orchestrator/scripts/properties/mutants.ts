@@ -1,7 +1,7 @@
 #!/usr/bin/env bun
 /**
  * Applies each hand-written mutant to the orchestrator source, one at a time, and runs the
- * property files of the main gate against it on `PROPERTY_SEED`. A mutant that every property
+ * property files of the e2e property test job against it on `PROPERTY_SEED`. A mutant that every property
  * file passes survives. When a mutant survives or no longer applies, the report goes to the
  * path in the first argument.
  * Usage: PROPERTY_SEED=<integer> bun scripts/properties/mutants.ts <report-path>
@@ -14,9 +14,9 @@ import { PROPERTY_FILES, runPropertyFile } from "./property-files";
 export type Mutant = { id: string; invariant: string; path: string; find: string; replace: string };
 
 /** What the property files did to a mutant. */
-export type MutantResult = { mutant: Mutant; status: "killed" | "survived" | "stale" };
+export type MutantResult = { mutant: Mutant; status: "killed" | "survived" | "not_applied" };
 
-/** The curated mutants. Each one breaks a rule that a property test is meant to catch. */
+/** The hand-written mutants. Each one breaks a rule that a property test is meant to catch. */
 export const MUTANTS: Mutant[] = [
   {
     id: "W1",
@@ -198,7 +198,7 @@ async function runMutant(mutant: Mutant, seed: number): Promise<MutantResult> {
   const path = join(import.meta.dirname, "../..", mutant.path);
   const original = readFileSync(path, "utf8");
   const mutated = applyMutant(original, mutant);
-  if (mutated === null) return { mutant, status: "stale" };
+  if (mutated === null) return { mutant, status: "not_applied" };
   writeFileSync(path, mutated);
   try {
     return { mutant, status: (await killedByAPropertyFile(seed)) ? "killed" : "survived" };
