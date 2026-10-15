@@ -422,6 +422,7 @@ const WORLD_SETUP: Omit<WorldSetup, "refiners"> = {
   origin: "chat",
   firstInput: "request",
   subject: "none",
+  sandboxStart: "at_task_start",
 };
 
 function rulingAnswers(rejects: number) {
