@@ -1281,6 +1281,13 @@ export function sandboxComesUp(bridge: "dials_in" | "stays_silent"): WorkflowAct
   });
 }
 
+/** The sandbox of a task that just started comes up, and its bridge dials in. */
+export function taskSandboxComesUp(taskId: string): WorkflowAction {
+  return action(`sandbox of ${taskId} comes up, bridge dials_in`, (world) =>
+    world.startSandboxOf(taskId),
+  );
+}
+
 /**
  * The sandbox of the author, or of its refiner run, goes away. The bridge socket closes, and only
  * the bridge loss timer or the next prompt brings a sandbox back.

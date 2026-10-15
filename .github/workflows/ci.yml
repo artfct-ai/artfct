@@ -74,9 +74,28 @@ jobs:
         timeout-minutes: 25
         run: bun scripts/properties/e2e-property-test.ts router
 
+  coverage_check:
+    name: coverage check
+    needs: ci
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: packages/orchestrator
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun run template-config
+      - name: Check that the workflow properties cover every coverage case
+        run: COVERAGE_CHECK=1 bun test ./src/workflow/invariants.test.ts -t "coverage check"
+
   preview:
     name: preview
-    needs: [ci, e2e_property_test]
+    needs: [ci, e2e_property_test, coverage_check]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 30

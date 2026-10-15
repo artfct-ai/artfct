@@ -26,9 +26,10 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | T14 | A workflow that is `done`, `failed` or `cancelled` keeps every task finished, and an event does not reopen it. | `endedWorkflowHasNoUnfinishedTask`, `nothingReopensAFinishedWorkflow` |
 | T15 | A later plan cannot change the workflow definition. | `workflowKeepsItsDefinition` |
 | T16 | An artifact is recorded as `drafted` from a link in the turn text, an open pull request on the branch, or a created page. Its todo list is complete and fixed from then on. A researcher never records one. | `todoListIsFixedAfterFirstArtifact` |
-| T17 | An artifact status moves only along the legal moves, and `accepted` and `removed` are final. | `artifactStatusMovesAreLegal` |
+| T17 | An artifact status moves only along the legal moves, and `accepted` and `removed` are final. | `artifactStatusMovesAreLegal`, `anAcceptedArtifactNeverMovesBack` |
 | T18 | The first handover sets the time the humans got the artifact, and it is never cleared. | `deliveredToHumansIsNeverCleared` |
 | T19 | A harness author moves to `working` only when a prompt goes out for it. | |
+| T56 | Every event, alarm and tool call settles within a bounded amount of store work. A loop that never settles does not hang the workflow. | `everyActionSettlesWithinItsWorkBudget` |
 
 ### Restart, nudge, give up and fail
 
@@ -159,6 +160,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | R14 | An author turn that ends on a ready artifact with a changed or unreadable revision reopens it to drafted and reruns the refiners. A stage without refiners posts `artifact_ready` again. | `artifactStatusMovesAreLegal`, `refinersRunAgainOnlyOnChangedRevision` |
 | R15 | A pull request review read that fails reads as if the reviewer did not file a review, and the segment advances as if clean. | |
 | R16 | A reviewer that failed or gave up restarts while it has restarts, then the artifact is handed over blocked. | `finishedTaskKeepsItsStatus` |
+| R17 | An accepted artifact stays accepted, and a refiner run does not start on its job. Its job completes once. A second `complete_job` does not change a task or the artifact, and does not post. | `anAcceptedArtifactNeverMovesBack` |
 
 ### Polish and checks
 
