@@ -11,13 +11,7 @@ import type {
   PullRequestReviewComment,
 } from "@artfct-ai/adapters/code/types";
 import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
-import type {
-  Choice,
-  DecisionAnswers as AnsweredDecisions,
-  DecisionQuestions,
-  Decisions,
-  DecisionState,
-} from "@artfct-ai/adapters/gateway/types";
+import type { Choice, Decisions } from "@artfct-ai/adapters/gateway/types";
 import type { HeldComment } from "@artfct-ai/adapters/documents/types";
 import type { AgentActivityContent } from "@artfct-ai/adapters/tracker/types";
 import { FakeDecisions, HangingDecisions } from "@artfct-ai/adapters/test/fake-decisions";
@@ -42,6 +36,7 @@ import { onModelTurnDeadline, type ModelTurnAlarm } from "../src/workflow/task/m
 import { runStartStep } from "./restart";
 import { acceptingD1 } from "./accepting-d1";
 import { FakeBridge } from "./fake-bridge";
+import { InterleavedDecisions, onFirstCall } from "./interleaved-decisions";
 import { CLOSING_TEXT_MARKER } from "../src/prompts/model-author-prompt";
 import { EchoModel, ScriptedFailure } from "./fake-model";
 import {
@@ -723,7 +718,9 @@ export class WorkflowWorld {
    */
   answerDecisionsWith(answers: DecisionAnswers, meanwhile?: () => Promise<void>): void {
     const answering = decisionsAnswering(answers);
-    const decisions = meanwhile ? new InterleavedDecisions(answering, meanwhile) : answering;
+    const decisions = meanwhile
+      ? new InterleavedDecisions(answering, onFirstCall(meanwhile))
+      : answering;
     this.workflow.gatewayInstance = new FakeGateway({ decisions });
   }
 
@@ -1353,6 +1350,11 @@ function revisionOf(pull: WorldPull): string {
   return `rev-${pull.number}-${pull.revisionNumber}`;
 }
 
+/** How many pushes came before a revision of a world pull request, read from its name. */
+export function pushCountOf(revision: string): number {
+  return Number(revision.slice(revision.lastIndexOf("-") + 1));
+}
+
 const PASSED_LONG_AGO: CommitChecks = { state: "passed", settled_at: new Date(0).toISOString() };
 
 const MERGEABLE: Record<Mergeability, { mergeable: boolean | null; mergeable_state: string }> = {
@@ -1397,30 +1399,5 @@ function decisionsAnswering(answers: DecisionAnswers): Decisions {
         ...(outcome ? { outcome } : {}),
       });
     }
-  }
-}
-
-/** A decisions model that lets one event land while its first call is out, then answers. */
-class InterleavedDecisions implements Decisions {
-  readonly deadlineMs: number;
-  private meanwhile: (() => Promise<void>) | null;
-
-  constructor(
-    private readonly answering: Decisions,
-    meanwhile: () => Promise<void>,
-  ) {
-    this.deadlineMs = answering.deadlineMs;
-    this.meanwhile = meanwhile;
-  }
-
-  async decide<YesNoName extends string, ChoiceName extends string>(
-    state: DecisionState,
-    questions: DecisionQuestions<YesNoName, ChoiceName>,
-    signal?: AbortSignal,
-  ): Promise<AnsweredDecisions<YesNoName, ChoiceName>> {
-    const meanwhile = this.meanwhile;
-    this.meanwhile = null;
-    if (meanwhile) await meanwhile();
-    return this.answering.decide(state, questions, signal);
   }
 }

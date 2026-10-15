@@ -9,6 +9,41 @@ permissions:
   contents: read
 
 jobs:
+  review_loop_model_check:
+    name: review loop model check (${{ matrix.setup }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      matrix:
+        setup:
+          - judgeThenPolisher
+          - reviewerThenPolisher
+          - judgeBetweenReviewers
+          - modelCallAuthorWithTwoReviewers
+    defaults:
+      run:
+        working-directory: packages/orchestrator
+    env:
+      SETUP: ${{ matrix.setup }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          distribution: temurin
+          java-version: "21"
+      - run: bun install --frozen-lockfile
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.quint
+          key: quint-verify-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: quint-verify-${{ runner.os }}-
+      - name: Check every invariant on every execution of up to 8 steps
+        run: bunx quint verify "../../spec/review-loop/$SETUP.qnt" --main="$SETUP" --invariant=invariants --max-steps=8
+
   spec_validation:
     name: spec validation
     runs-on: ubuntu-latest
