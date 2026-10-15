@@ -74,8 +74,8 @@ export type SpecReview = {
   judgeRunsCodeRulesOn: number[];
 };
 
-/** One state of a trace: the action that led to it, the conclusion it picked, and the review. */
-export type TraceStep = { action: string; conclusion: number | null; review: SpecReview };
+/** One state of a trace: the action that led to it, the judge run it picked, and the review. */
+export type TraceStep = { action: string; judgeRun: number | null; review: SpecReview };
 
 /** Run the spec of one setup for `count` traces from `seed`, each checked against its invariants. */
 export function generateTraces(setup: SpecSetup, count: number, seed: number): TraceStep[][] {
@@ -115,10 +115,10 @@ function traceNumber(file: string): number {
 
 function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
   return list(field(trace, "states")).map((state) => {
-    const picked = variant(field(field(state, "mbt::nondetPicks"), "conclusion", true));
+    const picked = variant(field(field(state, "mbt::nondetPicks"), "judgeRun", true));
     return {
       action: text(field(state, "mbt::actionTaken")),
-      conclusion: picked?.tag === "Some" ? int(picked.value) : null,
+      judgeRun: picked?.tag === "Some" ? int(picked.value) : null,
       review: specReview(field(state, `${setup}::reviewLoop::review`)),
     };
   });
@@ -315,7 +315,7 @@ export class ReviewLoopReplay {
     this.step += 1;
     setSystemTime(new Date(REPLAY_START + this.step * STEP_MS));
     if (step.action === "judgeTurnEnds") await this.judgeTurnEnds();
-    else if (isRulingAction(step.action)) await this.answerRuling(step.action, step.conclusion);
+    else if (isRulingAction(step.action)) await this.answerRuling(step.action, step.judgeRun);
     else {
       const action = WORLD_ACTIONS[step.action];
       if (!action) throw new Error(`no world action for spec action ${step.action}`);
@@ -389,10 +389,10 @@ export class ReviewLoopReplay {
     if (outcome === "held" && answer) this.held.set(runId, { answer, turnEnd });
   }
 
-  private async answerRuling(action: RulingAction, conclusion: number | null): Promise<void> {
-    const held = conclusion === null ? undefined : this.held.get(conclusion);
-    if (conclusion === null || !held) throw new Error(`no ruling call is out for ${conclusion}`);
-    this.held.delete(conclusion);
+  private async answerRuling(action: RulingAction, judgeRun: number | null): Promise<void> {
+    const held = judgeRun === null ? undefined : this.held.get(judgeRun);
+    if (judgeRun === null || !held) throw new Error(`no ruling call is out for ${judgeRun}`);
+    this.held.delete(judgeRun);
     held.answer(new FakeDecisions(rulingAnswers(RULING_PROBABILITIES[action])));
     await held.turnEnd;
   }

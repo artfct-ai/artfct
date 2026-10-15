@@ -26,7 +26,7 @@ async function replayTrace(setup: SpecSetup, trace: TraceStep[]): Promise<void> 
     `${setup} diverged after ${taken.join(" -> ")}\nspec state: ${JSON.stringify(step.review)}`;
   expect(replay.project(), divergence(initial)).toEqual(initial.review);
   for (const step of steps) {
-    taken.push(step.conclusion === null ? step.action : `${step.action}(${step.conclusion})`);
+    taken.push(step.judgeRun === null ? step.action : `${step.action}(${step.judgeRun})`);
     await replay.take(step);
     expect(replay.project(), divergence(step)).toEqual(step.review);
   }
