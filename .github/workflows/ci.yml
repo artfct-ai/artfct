@@ -45,10 +45,13 @@ jobs:
       matrix:
         include:
           - setup: judgeThenPolisher
+            replay: true
             witnesses: aRefinerRunIsUnfinished aPromptWaitsWhileAPolisherRuns aRulingLandsOnARuledJudgeRun theAuthorGotARejection aRefinerRunEndsDone aRefinerRunStartsAfterAHandover aReviewerRunsAgainOnANewRevision theHumansHaveTheArtifact aReviewerReachedTheLimit aRefinerRunRestarted aPolisherFinished
           - setup: reviewerThenPolisher
+            replay: true
             witnesses: aRefinerRunIsUnfinished aPromptWaitsWhileAPolisherRuns aRefinerRunEndsDone aRefinerRunStartsAfterAHandover aReviewerRunsAgainOnANewRevision theHumansHaveTheArtifact aReviewerReachedTheLimit aRefinerRunRestarted aPolisherFinished
           - setup: judgeBetweenReviewers
+            replay: true
             witnesses: aRefinerRunIsUnfinished aRulingLandsOnARuledJudgeRun theAuthorGotARejection aRefinerRunEndsDone aRefinerRunStartsAfterAHandover aReviewerRunsAgainOnANewRevision theHumansHaveTheArtifact aReviewerReachedTheLimit aRefinerRunRestarted
           - setup: modelCallAuthorWithTwoReviewers
             witnesses: aRefinerRunIsUnfinished aPromptWaitsWhileAPolisherRuns aRefinerRunEndsDone aRefinerRunStartsAfterAHandover aReviewerRunsAgainOnANewRevision aStaleReviewRunsTheSegmentAgain theHumansHaveTheArtifact aReviewerReachedTheLimit aRefinerRunRestarted aPolisherFinished
@@ -77,9 +80,16 @@ jobs:
           ! grep "witnessed in 0 trace" "$RUNNER_TEMP/witnesses.log"
       - name: Run each invariant on 100,000 samples
         run: |
+          violated=0
           for invariant in judgeRulesAtMostOnce oneUnfinishedRefinerRunPerArtifact authorIsIdleWhileAPolisherRuns refinerRunIsDoneOnlyAfterItsTurnEnded refinersRunAgainOnlyOnChangedRevision reviewerRunsOnlyOnAnUnreviewedRevision; do
-            bunx quint run "$SPEC" --main="$SETUP" --invariant="$invariant" --max-samples=100000 --max-steps=25 || exit 1
+            bunx quint run "$SPEC" --main="$SETUP" --invariant="$invariant" --max-samples=100000 --max-steps=25 || violated=1
           done
+          exit "$violated"
+      - if: ${{ !cancelled() && matrix.replay }}
+        run: bun run template-config
+      - name: Replay the spec traces through the workflow
+        if: ${{ !cancelled() && matrix.replay }}
+        run: bun test src/workflow/review-loop-replay.test.ts --test-name-pattern "on $SETUP\$"
 
   e2e_property_test:
     name: e2e property based test (shard ${{ matrix.shard }})
