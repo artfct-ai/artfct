@@ -1,4 +1,5 @@
-import type { Tracker, TrackerUser } from "@artfct-ai/adapters/tracker/types";
+import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
+import type { Tracker, TrackerIssue, TrackerUser } from "@artfct-ai/adapters/tracker/types";
 import type { WebPage } from "@artfct-ai/adapters/web/types";
 import { env } from "cloudflare:workers";
 import { generateKeyPairSync } from "node:crypto";
@@ -304,11 +305,35 @@ describe("SDK adapters under workerd's fetch", () => {
   });
 });
 
+const LINKED_ISSUE: TrackerIssue = {
+  id: "i1",
+  identifier: "ENG-1",
+  title: "Title",
+  url: "https://linear.app/acme/issue/ENG-1/title",
+  state: { type: "unstarted", name: "Todo" },
+  team_id: null,
+  parent_id: null,
+  project_id: null,
+  labels: [],
+  blockers: [],
+};
+
 function artifactClients(kinds: Adapters): ArtifactClients {
+  const linkedTracker = new FakeTracker({
+    issues: [LINKED_ISSUE],
+    projects: {
+      "0a1b2c3d4e5f": {
+        id: "p1",
+        name: "Checkout",
+        url: "https://linear.app/acme/project/checkout-0a1b2c3d4e5f",
+      },
+    },
+  });
   return {
     adapters: kinds,
     code: () => null,
     documents: async () => null,
+    tracker: async () => linkedTracker,
     repo: () => null,
     log: () => {},
   };
@@ -334,19 +359,30 @@ describe("artifact", () => {
       expect(await kind.detect(text)).toBeNull();
     });
 
-    it("is no issue list", async () => {
+    it("is not the issues of a breakdown", async () => {
       const kind = artifact("issues", artifactClients(adapters));
       expect(await kind.detect(text)).toBeNull();
     });
   });
 
   describe("a tracker issue link", () => {
-    it("is an issue list", async () => {
+    it("is the issue the tracker resolves it to", async () => {
       const kind = artifact("issues", artifactClients(adapters));
       const text = "Filed https://linear.app/acme/issue/ENG-1/title";
       expect(await kind.detect(text)).toEqual({
         url: "https://linear.app/acme/issue/ENG-1/title",
-        ref: { kind: "issues" },
+        ref: { kind: "issue", issue_id: "i1", issue_key: "ENG-1" },
+      });
+    });
+  });
+
+  describe("a tracker project link", () => {
+    it("is the project the tracker resolves its slug id to", async () => {
+      const kind = artifact("issues", artifactClients(adapters));
+      const url = "https://linear.app/acme/project/checkout-0a1b2c3d4e5f/overview";
+      expect(await kind.detect(`Filed the issues in ${url}`)).toEqual({
+        url,
+        ref: { kind: "project", project_id: "p1" },
       });
     });
   });

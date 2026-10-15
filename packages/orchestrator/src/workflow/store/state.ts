@@ -14,6 +14,12 @@ export type ChatMessageRef = { channel: string; message: string };
  */
 export type RootPage = { page_id: string; url: string; source: "container" | "named" };
 
+/**
+ * The one issue or tracker project a workflow works on. An issue subject covers the issue and its
+ * direct sub-issues. A project subject covers the project's issues.
+ */
+export type Subject = { kind: "issue"; issue_id: string } | { kind: "project"; project_id: string };
+
 /** Durable state of one workflow. Small and JSON-shaped. Task rows live in SQLite. */
 export type WorkflowState = {
   workflow_id: string;
@@ -27,6 +33,11 @@ export type WorkflowState = {
    * it, and a later plan cannot change it. Null before that plan.
    */
   definition: string | null;
+  /**
+   * What the workflow works on, written once and never changed. Null until a tracker origin, the
+   * plan, or the breakdown output sets it. Absent in a workflow stored before subjects.
+   */
+  subject?: Subject | null;
   /** The display name the plan gave the workflow. Empty until the first plan. */
   name: string;
   repo: RepoRef | null;
@@ -70,6 +81,7 @@ export const initialWorkflowState: WorkflowState = {
   reply_targets: [],
   request: { title: "", text: "", links: [] },
   definition: null,
+  subject: null,
   name: "",
   repo: null,
   page_parent: null,

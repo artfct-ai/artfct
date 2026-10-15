@@ -237,9 +237,14 @@ describe("control", () => {
           expect(workflow.sandboxProvider.calls).toEqual(["destroy wf_x.2"]);
         }));
 
-      it("says nothing in the channel", () =>
+      it("says which job it cancelled", () =>
         cancelled(({ workflow }) => {
-          expect(workflow.posted).toEqual([]);
+          expect(workflow.posted).toEqual([
+            {
+              type: "info",
+              text: `Cancelled job ${workflow.store.requireTask(SECOND_TASK).job_id}.`,
+            },
+          ]);
         }));
 
       it("logs the cancelled task and its reason", () =>
@@ -248,11 +253,41 @@ describe("control", () => {
         }));
     });
 
-    describe("from the issue the workflow was started on", () => {
+    describe("from a Linear issue whose job is over", () => {
+      const ignored = controlling(
+        (workflow) => {
+          seedTask(workflow, { issue_id: "iss1", issue_key: "ENG-1" });
+          seedTask(workflow, {
+            task_id: SECOND_TASK,
+            issue_id: "iss2",
+            issue_key: "ENG-2",
+            status: "done",
+          });
+        },
+        issueEvent("cancel", "Issue moved to Canceled", "iss2"),
+      );
+
+      it("refuses with the finished job as the reason", () =>
+        ignored(({ workflow, result }) => {
+          const { job_id } = workflow.store.requireTask(SECOND_TASK);
+          expect(result).toBe(`job ${job_id} is already over`);
+        }));
+
+      it("leaves the other task working and posts nothing", () =>
+        ignored(({ workflow }) => {
+          expect([workflow.store.requireTask(TASK).status, workflow.posted]).toEqual([
+            "working",
+            [],
+          ]);
+        }));
+    });
+
+    describe("from the subject issue", () => {
       const cancelled = controlling(
         (workflow) => {
           workflow.patchState({
             origin: { source: "tracker", session_id: "sess", issue_id: "iss1", team_id: "team" },
+            subject: { kind: "issue", issue_id: "iss1" },
           });
           seedTask(workflow, { issue_id: "iss1", issue_key: "ENG-1" });
           seedTask(workflow, { task_id: SECOND_TASK, issue_id: "iss2", issue_key: "ENG-2" });

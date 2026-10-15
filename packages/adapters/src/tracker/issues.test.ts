@@ -10,6 +10,8 @@ function issue(identifier: string, type: StateType, blockers: TrackerIssue["bloc
     url: `https://linear.app/acme/issue/${identifier}`,
     state: { type, name: type },
     team_id: "team-1",
+    parent_id: null,
+    project_id: null,
     labels: [],
     blockers,
   } satisfies TrackerIssue;

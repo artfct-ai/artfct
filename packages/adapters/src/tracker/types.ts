@@ -31,10 +31,17 @@ export type TrackerIssue = {
   url: string;
   state: { type: StateType; name: string };
   team_id: string | null;
+  /** The issue this one is a sub-issue of. Null for a top-level issue. */
+  parent_id: string | null;
+  /** The tracker project the issue belongs to. Null when it belongs to none. */
+  project_id: string | null;
   /** Label names as Linear shows them, for example `harness: opencode`. */
   labels: string[];
   blockers: Array<{ id: string; identifier: string; state: { type: StateType } }>;
 };
+
+/** A tracker project, which holds issues. */
+export type TrackerProject = { id: string; name: string; url: string };
 
 /** A team workflow state, with its board position. */
 export type WorkflowState = { id: string; name: string; type: string; position: number };
@@ -89,6 +96,10 @@ export interface Tracker {
   syncChatThread(issueId: string, threadUrl: string): Promise<void>;
   /** One issue by id or identifier (`ENG-42`), with its blockers. Null when there is none. */
   issue(idOrKey: string): Promise<TrackerIssue | null>;
+  /** The direct sub-issues of an issue, with blockers. */
+  subIssues(parentId: string): Promise<TrackerIssue[]>;
+  /** One project by id or by the slug id its URL ends with. Null when there is none. */
+  project(idOrSlug: string): Promise<TrackerProject | null>;
   /** Every issue of a project, with blockers. */
   projectIssues(projectId: string): Promise<TrackerIssue[]>;
   activity(

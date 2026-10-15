@@ -52,11 +52,11 @@ export const LINEAR_PAGE_INSTRUCTIONS: HostInstructions = {
 export const LINEAR_PAGE_PARENT_HINT =
   "the id of the Linear project the tracker issue belongs to, or of a project the request names. Ask when neither names one.";
 
-/** How an agent works with a set of issues on Linear. */
+/** How an agent works with the issues a breakdown produces on Linear. */
 export const LINEAR_ISSUES_INSTRUCTIONS: HostInstructions = {
   create:
-    "Create the issues in Linear with the Linear tools. Print each issue URL on its own line. End with a one-line summary.",
-  read: "Read the issue the artifact URL names with the Linear `get_issue` tool, then read its project with `get_project` and every issue in that project with `list_issues`.",
+    "Create the issues in Linear with the Linear tools. Do not create sub-issues. When the work fits one issue, end with that issue's URL on its own line. When it needs several, put them in one Linear project and end with the project's URL on its own line.",
+  read: "Read the issue the artifact URL names with the Linear `get_issue` tool. For a project URL, read the project with `get_project` and every issue in it with `list_issues`.",
   change:
-    "Change the issues in place with the Linear `save_issue` tool. Do not create an issue that repeats one the set already holds.",
+    "Change the issues in place with the Linear `save_issue` tool. Do not create an issue that repeats one the project already holds.",
 };

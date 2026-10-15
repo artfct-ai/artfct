@@ -7,6 +7,7 @@ import type {
   TeamMembership,
   Tracker,
   TrackerIssue,
+  TrackerProject,
   TrackerUser,
   WorkflowState,
 } from "../src/tracker/types";
@@ -36,8 +37,12 @@ export type TrackerAnswers = {
   /** The team the membership query resolves to and who its members are. */
   team?: { id: string; members: string[] };
   usersByEmail?: Record<string, TrackerUser>;
+  /** The answer to every issue lookup. Default: the issue of `issues` with that id or identifier. */
   issue?: TrackerIssue | null;
+  /** Every issue the tracker holds. Sub-issues and project issues are read from their fields. */
   issues?: TrackerIssue[];
+  /** Projects by the id or slug id a lookup names. */
+  projects?: Record<string, TrackerProject>;
   /** Every call fails. */
   failing?: boolean;
 };
@@ -97,12 +102,24 @@ export class FakeTracker implements Tracker {
 
   async issue(idOrKey: string): Promise<TrackerIssue | null> {
     this.log.record("issue", idOrKey);
-    return this.answers.issue ?? null;
+    if (this.answers.issue !== undefined) return this.answers.issue;
+    const issues = this.answers.issues ?? [];
+    return issues.find((issue) => issue.id === idOrKey || issue.identifier === idOrKey) ?? null;
+  }
+
+  async subIssues(parentId: string): Promise<TrackerIssue[]> {
+    this.log.record("subIssues", parentId);
+    return (this.answers.issues ?? []).filter((issue) => issue.parent_id === parentId);
+  }
+
+  async project(idOrSlug: string): Promise<TrackerProject | null> {
+    this.log.record("project", idOrSlug);
+    return this.answers.projects?.[idOrSlug] ?? null;
   }
 
   async projectIssues(projectId: string): Promise<TrackerIssue[]> {
     this.log.record("projectIssues", projectId);
-    return this.answers.issues ?? [];
+    return (this.answers.issues ?? []).filter((issue) => issue.project_id === projectId);
   }
 
   async activity(

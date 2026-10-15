@@ -1,5 +1,9 @@
 import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
 import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
+import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
+import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
+import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
+import type { TrackerIssue } from "@artfct-ai/adapters/tracker/types";
 import { describe, expect, it } from "vitest";
 import {
   freshWorkflow,
@@ -7,6 +11,8 @@ import {
   startWorkflow,
   type WorkflowClients,
 } from "../../../../test/fresh-workflow";
+import { freshDurableRuntime } from "../../../../test/durable-runtime";
+import { seedTask } from "../../../../test/fake-runtime";
 import { scenario, type Scenario } from "../../../../test/scenario";
 import { toolText } from "../../../../test/tool-result";
 import type { Workflow } from "../../../workflow";
@@ -39,6 +45,40 @@ function seedJob(workflow: Workflow, jobId: string, taskId: string, seed: JobSee
     sandbox: { harness: "opencode", bridge_token: "secret" },
     model: "mock",
   });
+}
+
+function subjectIssue(key: string, parentId: string | null): TrackerIssue {
+  return {
+    id: key,
+    identifier: key,
+    title: `Fix ${key}`,
+    url: `https://tracker.example/acme/issue/${key}`,
+    state: { type: "unstarted", name: "Todo" },
+    team_id: null,
+    parent_id: parentId,
+    project_id: null,
+    labels: [],
+    blockers: [],
+  };
+}
+
+function subjectTracker(): FakeTracker {
+  return new FakeTracker({
+    issues: [subjectIssue("ENG-1", null), subjectIssue("ENG-2", "ENG-1")],
+  });
+}
+
+function subjectWorkflow(
+  concurrency: number,
+  clients: () => WorkflowClients = () => ({}),
+): Scenario<Workflow> {
+  return (run) =>
+    plannedWorkflow(concurrency, () => ({ tracker: subjectTracker(), ...clients() }))(
+      async (workflow) => {
+        workflow.patchState({ subject: { kind: "issue", issue_id: "ENG-1" } });
+        await run(workflow);
+      },
+    );
 }
 
 const ENG_1 = { id: "i1", key: "ENG-1" };
@@ -98,7 +138,7 @@ type StartedFrom = { issue: true } | { issue: false; request: string };
 function cancelledJobWithPull(code: () => FakeCodeHost, from: StartedFrom): Scenario<Completion> {
   const issue = from.issue;
   return (run) =>
-    plannedWorkflow(2, () => ({ code: code() }))(async (workflow) => {
+    subjectWorkflow(2, () => ({ code: code() }))(async (workflow) => {
       pullJob(workflow, issue ? { issue: { id: "ENG-1", key: "ENG-1" } } : {});
       workflow.store.updateTask("t1", { status: "cancelled" });
       const { start_job } = startTools(workflow, from.issue ? [] : [from.request]);
@@ -278,12 +318,12 @@ function issueStartedByAnotherWorkflow(
   afterStart: (owner: Workflow, jobId: string) => void,
 ): Scenario<Completion> {
   return async (run) => {
-    await plannedWorkflow(1, () => ({ code: pullHost(false) }))(async (owner) => {
+    await subjectWorkflow(1, () => ({ code: pullHost(false) }))(async (owner) => {
       const { start_job } = startTools(owner);
       await start_job.execute({ stage: "implement", brief: "first", issue: "ENG-1" }, call);
       afterStart(owner, owner.store.jobs()[0]!.job_id);
     });
-    await plannedWorkflow(1)(async (workflow) => {
+    await subjectWorkflow(1)(async (workflow) => {
       const { start_job } = startTools(workflow);
       const result = toolText(
         await start_job.execute({ stage: "implement", brief: "second", issue: "ENG-1" }, call),
@@ -363,7 +403,7 @@ function startFrom(link: string, clients: () => WorkflowClients, input: { issue?
 describe("start_job", () => {
   describe("two calls that race for one free slot", () => {
     let texts: string[];
-    const raced = scenario(plannedWorkflow(1), async (workflow) => {
+    const raced = scenario(subjectWorkflow(1), async (workflow) => {
       const { start_job } = startTools(workflow);
       const results = await Promise.all([
         start_job.execute({ stage: "implement", brief: "one", issue: "ENG-1" }, call),
@@ -390,7 +430,7 @@ describe("start_job", () => {
 
   describe("an issue another job already works on", () => {
     let result: string;
-    const refused = scenario(plannedWorkflow(2), async (workflow) => {
+    const refused = scenario(subjectWorkflow(2), async (workflow) => {
       seedJob(workflow, "j1", "t1", { issue: { id: "ENG-1", key: "ENG-1" } });
       const { start_job } = startTools(workflow);
       result = toolText(
@@ -817,4 +857,67 @@ describe("complete_job", () => {
         );
       }));
   });
+});
+
+describe("complete_job on the subject issue at the last stage of a single-issue workflow", () => {
+  let result = "";
+  const onSubject = (stages: string[]) =>
+    scenario(freshDurableRuntime, async (workflow) => {
+      seedTask(workflow, { task_id: "wf_x.1", status: "in_review", issue_id: "i1" });
+      seedTask(workflow, { task_id: "wf_x.2", issue_id: "i2" });
+      workflow.store.upsertArtifact({
+        job_id: "wf_x-1",
+        kind: "page",
+        external_url: "https://notion.so/doc",
+        ref: { kind: "page", page_id: "doc" },
+      });
+      workflow.gatewayInstance = new FakeGateway({
+        decisions: new FakeDecisions({ accepts: 0.9 }),
+      });
+      workflow.patchState({ stages, subject: { kind: "issue", issue_id: "i1" } });
+      const { complete_job } = startTools(workflow, ["Looks good, ship it."]);
+      result = toolText(await complete_job.execute({ job_id: "wf_x-1", result: "Done." }, call));
+    });
+
+  const finished = onSubject(["design"]);
+
+  it("says the workflow is done", () =>
+    finished(() => {
+      expect(result).toBe(
+        "Job wf_x-1 done. It completed the last planned stage on the subject issue, so the workflow is done.",
+      );
+    }));
+
+  it("completes the workflow and cancels the job still working", () =>
+    finished((workflow) => {
+      expect([
+        workflow.state.status,
+        workflow.store.requireTask("wf_x.1").status,
+        workflow.store.requireTask("wf_x.2").status,
+      ]).toEqual(["done", "done", "cancelled"]);
+    }));
+
+  it("leaves a workflow whose plan produces issues open", () =>
+    onSubject(["design", "breakdown"])((workflow) => {
+      expect(workflow.state.status).not.toBe("done");
+    }));
+});
+
+describe("start_job on the link of an issue", () => {
+  const ISSUE_URL = "https://linear.app/acme/issue/ENG-2/split-the-table";
+  const refused = startFrom(ISSUE_URL, () => ({
+    tracker: new FakeTracker({ issues: [subjectIssue("ENG-2", null)] }),
+  }));
+
+  it("says to pass the issue as issue", () =>
+    refused(({ result }) => {
+      expect(result).toBe(
+        `The link ${ISSUE_URL} is the issue ENG-2. Pass ENG-2 as issue, not as artifact.`,
+      );
+    }));
+
+  it("records no job", () =>
+    refused(({ workflow }) => {
+      expect(workflow.store.jobs()).toHaveLength(0);
+    }));
 });
