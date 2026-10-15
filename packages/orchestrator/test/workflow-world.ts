@@ -1,3 +1,4 @@
+import type { Database } from "bun:sqlite";
 import type {
   LanguageModelV4,
   LanguageModelV4CallOptions,
@@ -56,6 +57,7 @@ import {
 } from "./fake-runtime";
 import type { Observation, Step } from "./invariants";
 import { openMemoryDb } from "./memory-db";
+import { ACTION_WORK_BUDGET, exceededWorkBudget } from "./work-budget";
 import { activityText, SessionTracker, type TrackerHealth } from "./session-tracker";
 import { testEnv } from "./test-env";
 import {
@@ -96,7 +98,14 @@ export type WorldSetup = {
   origin: OriginSurface;
   firstInput: FirstInput;
   subject: PlannedSubject;
+  sandboxStart: SandboxStart;
 };
+
+/**
+ * When the sandbox of a new task comes up: right after the action that started the task, or
+ * when an action brings it up.
+ */
+export type SandboxStart = "at_task_start" | "on_an_action";
 
 /**
  * What the plan of a world that opens on its first job named as the subject, when the origin
@@ -242,6 +251,9 @@ export type StepFacts = Partial<
   >
 >;
 
+/** The action that runs now, and the store statements counted when it began. */
+type RunningAction = { label: string; statementsAtStart: number };
+
 const PAGE_WRITES: readonly string[] = ["createPage", "updatePageContent", "renamePage"];
 
 /** One thing that happens to a workflow. It picks its target from the world and may do nothing. */
@@ -353,6 +365,8 @@ export class WorkflowWorld {
   private readonly modelTurnEnds: string[] = [];
   private readonly modelPromptTexts = new Map<string, string[]>();
   private whilePageModelAnswers: ((taskId: string) => Promise<void>) | null = null;
+  private statements = 0;
+  private runningAction: RunningAction | null = null;
   private readonly hungModelTurns = new Map<string, string | null>();
 
   /** The document host every page of the world lives on. */
@@ -360,6 +374,7 @@ export class WorkflowWorld {
 
   private constructor(options: {
     workflow: FakeRuntime;
+    database: Database;
     setup: WorldSetup;
     tracker: SessionTracker;
     pageHost: FakeDocuments;
@@ -368,10 +383,26 @@ export class WorkflowWorld {
     this.checksOnPush = options.setup.checksOnPush;
     this.tracker = options.tracker;
     this.pageHost = options.pageHost;
+    this.countStatementsOf(options.database);
     if (options.setup.pageAuthor === "model") {
       this.answerPageModelWith("page");
       this.recordPromptsModelTurnsTake();
     }
+  }
+
+  /**
+   * Count every statement the store prepares. An action that runs past its work budget stops
+   * there, so a livelock fails with its sequence instead of hanging the run.
+   */
+  private countStatementsOf(database: Database): void {
+    const prepare = database.prepare.bind(database);
+    database.prepare = (sql: string) => {
+      this.statements += 1;
+      const running = this.runningAction;
+      const work = running ? this.statements - running.statementsAtStart : 0;
+      if (running && work > ACTION_WORK_BUDGET) exceededWorkBudget(running.label, work);
+      return prepare(sql);
+    };
   }
 
   /** Keep the text of every prompt a model-call task takes off its queue, as a bridge keeps those it sends. */
@@ -393,7 +424,8 @@ export class WorkflowWorld {
    * workflow. The deployment holds a second workflow definition a plan may name.
    */
   static async open(setup: WorldSetup): Promise<WorkflowWorld> {
-    const workflow = new FakeRuntime(openMemoryDb(), { ...testEnv(), DB: acceptingD1() });
+    const db = openMemoryDb();
+    const workflow = new FakeRuntime(db, { ...testEnv(), DB: acceptingD1() });
     const lists = REFINER_LISTS[setup.refiners];
     patchStageReviewers(workflow, lists.reviewers);
     patchStagePolishers(workflow, lists.polishers);
@@ -422,7 +454,13 @@ export class WorkflowWorld {
         event: requestEvent(ORIGINS[setup.origin]),
         endedWorkflowId: null,
       });
-      return new WorkflowWorld({ workflow, setup, tracker, pageHost: documents });
+      return new WorkflowWorld({
+        workflow,
+        database: db.$client,
+        setup,
+        tracker,
+        pageHost: documents,
+      });
     }
     const stage = STAGE_OF[setup.artifact];
     workflow.patchState({
@@ -444,7 +482,13 @@ export class WorkflowWorld {
           : { kind: "request", text: REQUEST_TEXTS[0] },
     });
     if (!first) throw new Error(`the test config declares no stage ${stage}`);
-    const world = new WorkflowWorld({ workflow, setup, tracker, pageHost: documents });
+    const world = new WorkflowWorld({
+      workflow,
+      database: db.$client,
+      setup,
+      tracker,
+      pageHost: documents,
+    });
     world.adoptNewAuthors();
     if (setup.opening === "job_unstarted") return world;
     await world.startSandboxOf(workflow.store.authorOrResearcherTaskOf(first.job_id).task_id);
@@ -459,9 +503,12 @@ export class WorkflowWorld {
     const outboxBefore = this.workflow.store.outbox().length;
     const postedBefore = this.workflow.posted.length;
     this.delivered = null;
+    this.runningAction = { label: String(action), statementsAtStart: this.statements };
     const facts = (await action.run(this)) ?? {};
     this.adoptNewAuthors();
     await this.dropClosedSockets();
+    const work = this.statements - this.runningAction.statementsAtStart;
+    this.runningAction = null;
     const ended = facts.refinerTurnEnd?.task_id;
     if (ended && !this.runningBridgeOf(ended)) {
       this.promptsAtNormalTurnEnd.set(ended, this.promptsSentTo(ended));
@@ -494,14 +541,21 @@ export class WorkflowWorld {
       storedActivities: this.tracker.stored.map((activity) => activityText(activity.content)),
       streamedTexts: [...this.streamedTexts],
       postedTexts: this.workflow.posted.slice(postedBefore).map(plainText),
+      work,
     };
     this.steps.push(step);
     return step;
   }
 
-  /** The author an action is about, or null before any author exists. `index` counts round them. */
+  /**
+   * The author an action is about, or null before any author exists. `index` counts round the
+   * unfinished authors. The last index, and every index once all authors finished, counts round
+   * all of them.
+   */
   authorAt(index: number): WorldAuthor | null {
-    return this.authors[index % this.authors.length] ?? null;
+    const unfinished = this.authors.filter((author) => !isTaskFinished(this.taskOf(author).status));
+    const pool = index === MAX_AUTHORS - 1 || !unfinished.length ? this.authors : unfinished;
+    return pool[index % pool.length] ?? null;
   }
 
   /** An author whose task finished, or null when none has. `index` counts round them. */

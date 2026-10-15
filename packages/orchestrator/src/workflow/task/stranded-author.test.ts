@@ -215,6 +215,7 @@ describe("the shrunk sequence of seed 1718026998", () => {
       origin: "chat",
       firstInput: "request",
       subject: "none",
+      sandboxStart: "on_an_action",
     });
     const every = Object.values(invariants).filter(
       (value): value is (workflow: WorkflowRuntime, step: Step) => void =>
