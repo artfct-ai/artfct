@@ -6,6 +6,7 @@ import type { WorkflowDefinition } from "../../config/workflow-definition";
 import type { ToolSet } from "ai";
 import { taskQuiet, heldForReview, refinerInFlight } from "../../workflow/refiner/loop";
 import { runningPolisherOf } from "../../workflow/refiner/stage-refiner";
+import { taskAtWork } from "../../workflow/task/at-work";
 import type { ArtifactRow, TaskRow } from "../../workflow/store/tasks";
 import { workflowName } from "../../workflow/store/state";
 import type { WorkflowRuntime } from "../../workflow/types";
@@ -257,11 +258,7 @@ type TaskActivity = "starting" | "running" | "prompt_queued" | "paused" | "idle"
 function taskActivity(workflow: WorkflowRuntime, task: TaskRow): TaskActivity {
   if (task.paused_at !== null) return "paused";
   if (task.status === "queued" || task.status === "provisioning") return "starting";
-  const sandbox = workflow.store.sandbox(task.task_id);
-  const inTurn = sandbox
-    ? sandbox.prompt_in_flight === 1 || workflow.store.handshakePending(task.task_id)
-    : task.status === "working";
-  if (inTurn) return "running";
+  if (taskAtWork(workflow, task)) return "running";
   const queued = workflow.store.queue().some((row) => row.task_id === task.task_id);
   return queued ? "prompt_queued" : "idle";
 }

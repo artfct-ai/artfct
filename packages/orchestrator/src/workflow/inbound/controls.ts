@@ -6,7 +6,7 @@ import { flushBoards } from "../board/board";
 import { closeSessionFeed, STOPPED_CLOSING } from "../feed/feed";
 import { cancelTask, changeWorkflowStatus, unbindCodeHost } from "../lifecycle";
 import { promptTask } from "../task/harness/prompt-queue";
-import { endModelTurn, taskAtWork } from "../task/at-work";
+import { taskAtWork } from "../task/at-work";
 import { sendNotification } from "../task/harness/bridge";
 import { clearTaskTimers, closeContainer } from "../task/sandbox/sandbox";
 import type { WorkflowRuntime } from "../types";
@@ -147,9 +147,11 @@ async function endResumingTurn(workflow: WorkflowRuntime, author: TaskRow): Prom
     workflow.store.updateSandbox(author.task_id, { prompt_in_flight: 0, turn_text: "" });
     workflow.store.updateTask(author.task_id, { status: "working" });
   } else {
-    endModelTurn(workflow, author.task_id);
     const pageOut = workflow.store.artifact(author.job_id) !== null;
-    workflow.store.updateTask(author.task_id, { status: pageOut ? "in_review" : "working" });
+    workflow.store.updateTask(author.task_id, {
+      status: pageOut ? "in_review" : "working",
+      model_turn_id: null,
+    });
   }
   await flushBoards(workflow, author.job_id);
 }

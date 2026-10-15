@@ -1,22 +1,36 @@
+import { z } from "zod";
 import type { Actor } from "@artfct-ai/contracts/inbound";
 import { extractLinks } from "../../links";
 import { notionPageId } from "./page-id";
 import type { DocumentsInbound, DocumentsInboundContext } from "../types";
 
-/** Notion webhook envelope. Comments arrive as ids only. */
-export type NotionWebhook = {
-  id: string;
-  type: string;
-  entity?: { id: string; type: string };
-  data?: { parent?: { id: string; type: string }; page_id?: string };
-  authors?: Array<{ id: string; type: string }>;
-};
+const notionWebhookSchema = z.object({
+  id: z.string(),
+  type: z.string().min(1),
+  entity: z.object({ id: z.string(), type: z.string() }).nullish(),
+  data: z
+    .object({
+      parent: z.object({ id: z.string(), type: z.string() }).nullish(),
+      page_id: z.string().nullish(),
+    })
+    .nullish(),
+  authors: z.array(z.object({ id: z.string(), type: z.string() })).nullish(),
+});
 
-/** A comment on a page is feedback on the artifact bound to that page. */
+/** Notion webhook envelope. Comments arrive as ids only. */
+export type NotionWebhook = z.infer<typeof notionWebhookSchema>;
+
+/**
+ * A comment on a page is feedback on the artifact bound to that page. Every other event is
+ * ignored, and so is a payload of another shape.
+ */
 export async function notionInbound(
-  payload: NotionWebhook,
+  body: unknown,
   context: DocumentsInboundContext,
 ): Promise<DocumentsInbound> {
+  const parsed = notionWebhookSchema.safeParse(body);
+  if (!parsed.success) return { ignore: "malformed notion webhook" };
+  const payload = parsed.data;
   if (payload.type !== "comment.created") return { ignore: payload.type };
   const pageUrlId = pageIdOf(payload);
   const pageId = pageUrlId ? notionPageId(pageUrlId) : null;
