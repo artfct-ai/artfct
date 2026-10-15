@@ -238,6 +238,7 @@ type RulingAction = keyof typeof RULING_PROBABILITIES;
 const TURN_END: Omit<RefinerRunEnd, "reviewer" | "polisher" | "closing"> = {
   pageCommenting: "takes",
   judge: "approves",
+  whileRuled: "nothing",
   stopReason: "end_turn",
 };
 
