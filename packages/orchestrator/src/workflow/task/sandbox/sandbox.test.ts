@@ -38,6 +38,8 @@ const task: TaskRow = {
   cost_usd: 0,
   started_at: "2026-01-01T00:00:00.000Z",
   summary: "",
+  model_turn_id: null,
+  restarts: 0,
 };
 
 const sandbox: SandboxRow = {
@@ -57,7 +59,6 @@ const sandbox: SandboxRow = {
   token_schedule: null,
   credential_expires_at: null,
   nudged: 0,
-  restarts: 0,
 };
 
 function stage(name: string): ResolvedStage {

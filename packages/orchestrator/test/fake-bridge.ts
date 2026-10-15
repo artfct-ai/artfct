@@ -42,11 +42,16 @@ export class FakeBridge {
   private readonly answeredFrames = new Set<number>();
 
   private constructor(
-    private readonly workflow: FakeRuntime,
+    private workflow: FakeRuntime,
     private readonly socket: FakeSocket,
     readonly taskId: string,
     private readonly sessionId: string,
   ) {}
+
+  /** Keep the socket open to the instance the workflow restarted as, as a hibernated socket stays. */
+  reachRestarted(workflow: FakeRuntime): void {
+    this.workflow = workflow;
+  }
 
   /** Dial in for a provisioning task and answer the handshake, so its first prompt is sent. */
   static async connect(workflow: FakeRuntime, task: TaskRow): Promise<FakeBridge> {

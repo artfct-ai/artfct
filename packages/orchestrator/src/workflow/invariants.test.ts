@@ -40,6 +40,9 @@ import {
   workflowKeepsItsDefinition,
   workflowStartsOnlyFromAPlan,
   aPromptToAPageAuthorCarriesItsHeldComments,
+  aQueuedPromptReachesItsModelCallAuthor,
+  aModelCallAuthorWorksOnlyWhileItsCallIsOut,
+  aRestartDoesNotLoseAModelTurn,
 } from "../../test/invariants";
 import {
   agentCancels,
@@ -91,6 +94,9 @@ import {
   trackerOpensSession,
   trackerTurns,
   workflowRestarts,
+  workflowRestartsDuringModelCall,
+  workflowRestartsWhileHostWritesPage,
+  modelCallOutlivesItsDeadline,
   type HeldCommentsRead,
 } from "../../test/workflow-actions";
 import {
@@ -109,6 +115,7 @@ const MAX_ACTIONS = 50;
 const TIMEOUT_MS = 120_000;
 
 const STATE_INVARIANTS = [
+  aQueuedPromptReachesItsModelCallAuthor,
   inReviewTaskHasAnArtifact,
   oneUnfinishedRefinerRunPerArtifact,
   authorIsIdleWhileAPolisherRuns,
@@ -151,6 +158,8 @@ const STEP_INVARIANTS = [
   aPromptToAPageAuthorCarriesItsHeldComments,
   pageReviewPostsEachFindingOnce,
   authorGetsEveryPageFinding,
+  aModelCallAuthorWorksOnlyWhileItsCallIsOut,
+  aRestartDoesNotLoseAModelTurn,
 ];
 
 const setups: fc.Arbitrary<WorldSetup> = fc.record({
@@ -183,10 +192,16 @@ const pageSetups: fc.Arbitrary<WorldSetup> = fc.record({
   firstInput: fc.constantFrom("request" as const, "origin_issue" as const, "origin_issue" as const),
 });
 
-const modelPageSetups: fc.Arbitrary<WorldSetup> = pageSetups.map((setup) => ({
-  ...setup,
-  pageAuthor: "model" as const,
-}));
+const modelPageSetups: fc.Arbitrary<WorldSetup> = fc
+  .tuple(pageSetups, fc.constantFrom("job" as const, "job" as const, "job_unstarted" as const))
+  .map(([setup, opening]) => ({ ...setup, opening, pageAuthor: "model" as const }));
+
+const modelCallStart = fc.constantFrom(
+  "provision_fires" as const,
+  "agent_prompts" as const,
+  "agent_prompts" as const,
+  "revision_requested" as const,
+);
 
 const author = fc.nat({ max: MAX_AUTHORS - 1 });
 
@@ -265,6 +280,24 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
     arbitrary: fc
       .tuple(author, fc.constantFrom("provision_fires", "agent_prompts"))
       .map(([index, start]) => personStopsModelCall(index, start)),
+  },
+  {
+    weight: 4,
+    arbitrary: fc
+      .tuple(author, modelCallStart)
+      .map(([index, start]) => workflowRestartsDuringModelCall(index, start)),
+  },
+  {
+    weight: 3,
+    arbitrary: fc
+      .tuple(author, modelCallStart, fc.constantFrom("before" as const, "after" as const))
+      .map(([index, start, applied]) => workflowRestartsWhileHostWritesPage(index, start, applied)),
+  },
+  {
+    weight: 2,
+    arbitrary: fc
+      .tuple(author, modelCallStart)
+      .map(([index, start]) => modelCallOutlivesItsDeadline(index, start)),
   },
   { weight: 3, arbitrary: author.map(refinerRunPromptFails) },
   {
@@ -625,7 +658,7 @@ describe("the workflow invariants", () => {
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
       await fc.assert(property, { numRuns: NUM_RUNS });
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(39);
+      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(42);
     },
     TIMEOUT_MS,
   );

@@ -116,7 +116,7 @@ describe("read_task on a model-call author", () => {
       const lines = toolText(await read_task.execute({ task_id: "wf_x.1" }, call)).split("\n");
       expect(lines.slice(0, 3)).toEqual([
         "Task wf_x.1 job=wf_x-1 stage=design role=author issue=- status=queued execution=model model=openrouter/x-ai/grok-4.6",
-        "Branch: none. Cost: unknown. It runs as one model call, with no sandbox.",
+        "Branch: none. Cost: unknown. Restarts: 0. It runs as model calls, with no sandbox.",
         "Queued prompts: 0.",
       ]);
     }));

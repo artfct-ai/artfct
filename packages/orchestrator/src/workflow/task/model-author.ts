@@ -26,7 +26,8 @@ import { markArtifactReady, reopenChangedArtifact } from "../refiner/outcome";
 import { isTaskFinished, workflowName } from "../store/state";
 import type { JobRow, TaskRow } from "../store/tasks";
 import type { Wake, WorkflowRuntime } from "../types";
-import { runModelTurn, taskAtWork } from "./at-work";
+import { taskAtWork } from "./at-work";
+import { startModelTurn } from "./model-turn";
 import { drainQueue, taskContext } from "./harness/prompt-queue";
 import { digestFor, LOGGED_ERROR_CHARS, loggedFailureReason, SUMMARY_CHARS } from "./harness/turn";
 
@@ -52,23 +53,24 @@ export async function runModelAuthorTurn(workflow: WorkflowRuntime, task: TaskRo
       "A model-call author needs a document host and a page parent or a root page on the plan.",
     );
   }
-  workflow.store.updateTask(task.task_id, { status: "working" });
-  const outcome = await runModelTurn(workflow, task.task_id, async (turnEnded) => {
-    await flushBoards(workflow, task.job_id);
-    return producePage(workflow, task, { documents, parent, turnEnded }).catch((error: unknown) => {
-      workflow.log(
-        task.task_id,
-        `model call or page create failed: ${String(error).slice(0, LOGGED_ERROR_CHARS)}`,
-      );
-      return {
-        failure: loggedFailureReason(task.task_id, "The model call or the page create"),
-      };
-    });
+  const turn = await startModelTurn(workflow, task.task_id);
+  await flushBoards(workflow, task.job_id);
+  const outcome = await producePage(workflow, task, {
+    documents,
+    parent,
+    turnEnded: turn.ended,
+  }).catch((error: unknown) => {
+    workflow.log(
+      task.task_id,
+      `model call or page create failed: ${String(error).slice(0, LOGGED_ERROR_CHARS)}`,
+    );
+    return { failure: loggedFailureReason(task.task_id, "The model call or the page create") };
   });
   if ("failure" in outcome) {
     return failTask(workflow, workflow.store.requireTask(task.task_id), outcome.failure);
   }
   if (outcome.target === null) return;
+  turn.finish();
   await recordArtifact(workflow, workflow.store.requireTask(task.task_id), outcome.target);
   await resumeModelAuthor(workflow, task.task_id, "task_result", "");
 }
@@ -87,7 +89,10 @@ export async function drainModelAuthor(workflow: WorkflowRuntime, task: TaskRow)
   return false;
 }
 
-/** A revise turn of a model-call author. True when it took a prompt. */
+/**
+ * A revise turn of a model-call author. Its prompt stays queued until the revision is applied, so
+ * a lost turn runs again on it. True when it took a prompt.
+ */
 export async function reviseModelAuthorPage(
   workflow: WorkflowRuntime,
   task: TaskRow,
@@ -95,27 +100,25 @@ export async function reviseModelAuthorPage(
   if (task.status !== "in_review") return false;
   const next = workflow.store.peekPrompt(task.task_id);
   if (!next) return false;
-  workflow.store.dequeuePrompt(next.id);
-  workflow.store.updateTask(task.task_id, { status: "working" });
-  const outcome = await runModelTurn(workflow, task.task_id, async (turnEnded) => {
-    await flushBoards(workflow, task.job_id);
-    return revisePage(workflow, task, { findings: next.text, turnEnded }).catch(
-      (error: unknown) => {
-        workflow.log(
-          task.task_id,
-          `model call or page update failed: ${String(error).slice(0, LOGGED_ERROR_CHARS)}`,
-        );
-        return {
-          failure: loggedFailureReason(task.task_id, "The model call or the page update"),
-        };
-      },
+  const turn = await startModelTurn(workflow, task.task_id);
+  await flushBoards(workflow, task.job_id);
+  const outcome = await revisePage(workflow, task, {
+    findings: next.text,
+    turnEnded: turn.ended,
+  }).catch((error: unknown) => {
+    workflow.log(
+      task.task_id,
+      `model call or page update failed: ${String(error).slice(0, LOGGED_ERROR_CHARS)}`,
     );
+    return { failure: loggedFailureReason(task.task_id, "The model call or the page update") };
   });
   if ("failure" in outcome) {
     await failTask(workflow, workflow.store.requireTask(task.task_id), outcome.failure);
     return true;
   }
   if (outcome.closingText === null) return true;
+  workflow.store.dequeuePrompt(next.id);
+  turn.finish();
   markAuthorInReview(workflow, task.task_id);
   await reopenChangedArtifact(workflow, task.job_id);
   await resumeModelAuthor(workflow, task.task_id, "task_idle", outcome.closingText);
