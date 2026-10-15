@@ -67,6 +67,10 @@ export const tasks = sqliteTable("tasks", {
   cost_usd: real().notNull().default(0),
   started_at: text().notNull(),
   summary: text().notNull().default(""),
+  /** The id of the model turn in flight of a model-call task. Null while it does not run one. */
+  model_turn_id: text(),
+  /** How often the task started over after a failure it may recover from. */
+  restarts: integer().notNull().default(0),
 });
 
 /** The sandbox and the harness session in it, for one task. */
@@ -91,7 +95,6 @@ export const sandboxes = sqliteTable("sandboxes", {
   /** When the credential written into the sandbox stops working. Null without one. */
   credential_expires_at: text(),
   nudged: integer().notNull().default(0),
-  restarts: integer().notNull().default(0),
 });
 
 /** One model call the orchestrator made itself: an agent turn step or a named prompt. */

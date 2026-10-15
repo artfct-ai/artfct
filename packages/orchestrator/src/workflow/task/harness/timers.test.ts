@@ -113,14 +113,15 @@ describe("onNoProgress", () => {
 
       it("counts the restart and clears the nudge", () =>
         restarted(({ workflow }) => {
-          expect(workflow.store.requireSandbox(TASK)).toMatchObject({ restarts: 1, nudged: 0 });
+          expect(workflow.store.requireTask(TASK).restarts).toBe(1);
+          expect(workflow.store.requireSandbox(TASK).nudged).toBe(0);
         }));
     });
   });
 
   describe("a second silence with no restarts left", () => {
     const givenUp = scenario(freshRuntime, async (workflow) => {
-      seedTask(workflow, {}, { session_id: "s1", prompt_in_flight: 1, restarts: 2 });
+      seedTask(workflow, { restarts: 2 }, { session_id: "s1", prompt_in_flight: 1 });
       workflow.sockets.push(fakeConnection(TASK, 1).connection);
       await onNoProgress(workflow, ALARM);
       await onNoProgress(workflow, ALARM);
@@ -380,8 +381,11 @@ describe("onHelloTimeout", () => {
 
     it("counts the restart on a new generation", () =>
       restarted((workflow) => {
-        expect(workflow.store.requireTask(TASK)).toMatchObject({ status: "provisioning" });
-        expect(workflow.store.requireSandbox(TASK)).toMatchObject({ generation: 2, restarts: 1 });
+        expect(workflow.store.requireTask(TASK)).toMatchObject({
+          status: "provisioning",
+          restarts: 1,
+        });
+        expect(workflow.store.requireSandbox(TASK).generation).toBe(2);
       }));
 
     it("records the new hello alarm on the task", () =>
@@ -450,8 +454,7 @@ describe("onHelloTimeout", () => {
 
     it("leaves the task working and unrestarted", () =>
       ignored((workflow) => {
-        expect(workflow.store.requireTask(TASK)).toMatchObject({ status: "working" });
-        expect(workflow.store.requireSandbox(TASK)).toMatchObject({ restarts: 0 });
+        expect(workflow.store.requireTask(TASK)).toMatchObject({ status: "working", restarts: 0 });
       }));
 
     it("leaves the sandbox alone", () =>

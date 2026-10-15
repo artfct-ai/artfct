@@ -1,7 +1,7 @@
 import { builtinModules } from "node:module";
 import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-plugin";
 import { defineConfig } from "vitest/config";
-import { propertyVars } from "./test/property-budget.ts";
+import { propertyVars } from "@artfct-ai/adapters/test/property-runs";
 import { testVars } from "./test/test-env.ts";
 
 /** D1 migrations are read here in Node and applied inside the Worker by `vitest.setup.ts`. */

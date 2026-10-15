@@ -31,7 +31,8 @@ export type WorkflowDebug = {
     role: string;
     refiner_index: number | null;
     summary: string;
-    sandbox: { generation: number; restarts: number; session_id: string | null } | null;
+    restarts: number;
+    sandbox: { generation: number; session_id: string | null } | null;
   }>;
   artifacts: Array<{
     job_id: string;

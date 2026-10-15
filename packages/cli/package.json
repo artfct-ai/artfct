@@ -27,7 +27,7 @@
   },
   "dependencies": {
     "jsonc-parser": "^3.3.1",
-    "zod": "^4.6.5"
+    "zod": "^4.6.7"
   },
   "devDependencies": {
     "@artfct-ai/core": "^0.1.0",

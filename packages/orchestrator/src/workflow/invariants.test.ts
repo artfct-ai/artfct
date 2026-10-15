@@ -1,4 +1,5 @@
 import { describe, expect, it } from "bun:test";
+import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/property-runs";
 import fc from "fast-check";
 import {
   aFailedCheckNeverAsksThePersonAgain,
@@ -40,6 +41,9 @@ import {
   workflowKeepsItsDefinition,
   workflowStartsOnlyFromAPlan,
   aPromptToAPageAuthorCarriesItsHeldComments,
+  aQueuedPromptReachesItsModelCallAuthor,
+  aModelCallAuthorWorksOnlyWhileItsCallIsOut,
+  aRestartDoesNotLoseAModelTurn,
 } from "../../test/invariants";
 import {
   agentCancels,
@@ -91,6 +95,9 @@ import {
   trackerOpensSession,
   trackerTurns,
   workflowRestarts,
+  workflowRestartsDuringModelCall,
+  workflowRestartsWhileHostWritesPage,
+  modelCallOutlivesItsDeadline,
   type HeldCommentsRead,
 } from "../../test/workflow-actions";
 import {
@@ -102,13 +109,14 @@ import {
   type WorkflowAction,
   type WorldSetup,
 } from "../../test/workflow-world";
-import { propertyBudget } from "../../test/property-budget";
 import { TEST_DEFINITION_NAME } from "../../test/test-config";
 
-const BUDGET = propertyBudget({ runs: 200, timeoutMs: 120_000 });
+const NUM_RUNS = 200;
+const TIMEOUT_MS = propertyTimeoutMs(120_000, NUM_RUNS);
 const MAX_ACTIONS = 50;
 
 const STATE_INVARIANTS = [
+  aQueuedPromptReachesItsModelCallAuthor,
   inReviewTaskHasAnArtifact,
   oneUnfinishedRefinerRunPerArtifact,
   authorIsIdleWhileAPolisherRuns,
@@ -151,6 +159,8 @@ const STEP_INVARIANTS = [
   aPromptToAPageAuthorCarriesItsHeldComments,
   pageReviewPostsEachFindingOnce,
   authorGetsEveryPageFinding,
+  aModelCallAuthorWorksOnlyWhileItsCallIsOut,
+  aRestartDoesNotLoseAModelTurn,
 ];
 
 const setups: fc.Arbitrary<WorldSetup> = fc.record({
@@ -183,10 +193,16 @@ const pageSetups: fc.Arbitrary<WorldSetup> = fc.record({
   firstInput: fc.constantFrom("request" as const, "origin_issue" as const, "origin_issue" as const),
 });
 
-const modelPageSetups: fc.Arbitrary<WorldSetup> = pageSetups.map((setup) => ({
-  ...setup,
-  pageAuthor: "model" as const,
-}));
+const modelPageSetups: fc.Arbitrary<WorldSetup> = fc
+  .tuple(pageSetups, fc.constantFrom("job" as const, "job" as const, "job_unstarted" as const))
+  .map(([setup, opening]) => ({ ...setup, opening, pageAuthor: "model" as const }));
+
+const modelCallStart = fc.constantFrom(
+  "provision_fires" as const,
+  "agent_prompts" as const,
+  "agent_prompts" as const,
+  "revision_requested" as const,
+);
 
 const author = fc.nat({ max: MAX_AUTHORS - 1 });
 
@@ -265,6 +281,24 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
     arbitrary: fc
       .tuple(author, fc.constantFrom("provision_fires", "agent_prompts"))
       .map(([index, start]) => personStopsModelCall(index, start)),
+  },
+  {
+    weight: 4,
+    arbitrary: fc
+      .tuple(author, modelCallStart)
+      .map(([index, start]) => workflowRestartsDuringModelCall(index, start)),
+  },
+  {
+    weight: 3,
+    arbitrary: fc
+      .tuple(author, modelCallStart, fc.constantFrom("before" as const, "after" as const))
+      .map(([index, start, applied]) => workflowRestartsWhileHostWritesPage(index, start, applied)),
+  },
+  {
+    weight: 2,
+    arbitrary: fc
+      .tuple(author, modelCallStart)
+      .map(([index, start]) => modelCallOutlivesItsDeadline(index, start)),
   },
   { weight: 3, arbitrary: author.map(refinerRunPromptFails) },
   {
@@ -624,27 +658,30 @@ describe("the workflow invariants", () => {
     "hold after every action of any sequence, on any refiner list",
     async () => {
       const property = fc.asyncProperty(setups, sequences, holdsThroughout);
-      await fc.assert(property, BUDGET.parameters);
-      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(39);
+      await fc.assert(property, propertyRuns("workflow invariants on any refiner list", NUM_RUNS));
+      expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(42);
     },
-    BUDGET.timeoutMs,
+    TIMEOUT_MS,
   );
 
   it(
     "hold after every action of any sequence, on a page stage of either ending",
     async () => {
       const property = fc.asyncProperty(pageSetups, sequences, holdsThroughout);
-      await fc.assert(property, BUDGET.parameters);
+      await fc.assert(property, propertyRuns("workflow invariants on a page stage", NUM_RUNS));
     },
-    BUDGET.timeoutMs,
+    TIMEOUT_MS,
   );
 
   it(
     "hold after every action of any sequence, on a page stage whose author is a model call",
     async () => {
       const property = fc.asyncProperty(modelPageSetups, sequences, holdsThroughout);
-      await fc.assert(property, BUDGET.parameters);
+      await fc.assert(
+        property,
+        propertyRuns("workflow invariants on a model page author", NUM_RUNS),
+      );
     },
-    BUDGET.timeoutMs,
+    TIMEOUT_MS,
   );
 });

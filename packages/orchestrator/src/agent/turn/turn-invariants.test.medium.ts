@@ -18,6 +18,7 @@ import {
 } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { FakeWeb } from "@artfct-ai/adapters/test/fake-web";
+import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/property-runs";
 import fc from "fast-check";
 import { describe, it } from "vitest";
 import {
@@ -28,7 +29,6 @@ import {
   type TurnStep,
 } from "../../../test/agent-invariants";
 import { freshDurableRuntime } from "../../../test/durable-runtime";
-import { propertyBudget } from "../../../test/property-budget";
 import {
   SCRIPTED_CLOSING_TEXT,
   SCRIPTED_PAGE_URL,
@@ -74,7 +74,7 @@ type ScriptedTurn = {
   contextTokens: number;
 };
 
-const BUDGET = propertyBudget({ runs: 60, timeoutMs: 90_000 });
+const NUM_RUNS = 60;
 
 const CONTEXT_TOKENS = 40;
 const HISTORY_CONTEXT_TOKENS = 100_000;
@@ -802,7 +802,7 @@ describe("agent turn invariants", () => {
             }),
         ),
         {
-          ...BUDGET.parameters,
+          ...propertyRuns("agent turn invariants", NUM_RUNS),
           examples: [
             ["chat", [BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL]],
             ["chat", [A_LARGE_TURN, A_TURN_LOST_AFTER_A_LARGE_TURN]],
@@ -818,6 +818,6 @@ describe("agent turn invariants", () => {
           ],
         },
       ),
-    BUDGET.timeoutMs,
+    propertyTimeoutMs(90_000, NUM_RUNS),
   );
 });

@@ -1,8 +1,9 @@
+import { z } from "zod";
 import {
   branchBindings,
   isOrchestratorBranch,
+  malformedWebhook,
   NOT_ORCHESTRATOR_BRANCH,
-  payloadString,
   type GithubContext,
 } from "./inbound-shared";
 import type { CodeInbound } from "../types";
@@ -10,29 +11,38 @@ import type { CodeInbound } from "../types";
 /** Checks GitHub ran on a commit no pull request of this repository holds. */
 const NO_PULL_REQUEST: CodeInbound = { ignore: "check without a pull request" };
 
-type CheckSuite = {
-  conclusion: string | null;
-  head_branch: string | null;
-  pull_requests: Array<{ number: number }>;
-  app?: { name?: string };
-};
+const checkPullRequestsSchema = z.array(z.object({ number: z.number() }));
 
-type CheckRun = {
-  name: string;
-  conclusion: string | null;
-  check_suite?: { head_branch?: string | null };
-  pull_requests: Array<{ number: number }>;
-  html_url?: string;
-  output?: { title?: string | null; summary?: string | null };
-};
+const checkSuiteWebhookSchema = z.object({
+  action: z.string(),
+  check_suite: z.object({
+    conclusion: z.string().nullable(),
+    head_branch: z.string().nullable(),
+    pull_requests: checkPullRequestsSchema,
+    app: z.object({ name: z.string().optional() }).nullish(),
+  }),
+});
+
+const checkRunWebhookSchema = z.object({
+  action: z.string(),
+  check_run: z.object({
+    name: z.string(),
+    conclusion: z.string().nullable(),
+    check_suite: z.object({ head_branch: z.string().nullish() }).nullish(),
+    pull_requests: checkPullRequestsSchema,
+    html_url: z.string().nullish(),
+    output: z.object({ title: z.string().nullish(), summary: z.string().nullish() }).nullish(),
+  }),
+});
 
 /**
  * A completed check suite on a pull request of an orchestrator branch becomes `ci_event` with its
  * conclusion.
  */
 export async function githubCheckSuiteEvent(context: GithubContext): Promise<CodeInbound> {
-  const suite = context.payload.check_suite as CheckSuite;
-  const action = payloadString(context.payload, "action");
+  const parsed = checkSuiteWebhookSchema.safeParse(context.payload);
+  if (!parsed.success) return malformedWebhook("check_suite");
+  const { action, check_suite: suite } = parsed.data;
   if (action !== "completed") {
     return { ignore: `check_suite ${action}` };
   }
@@ -65,8 +75,9 @@ export async function githubCheckSuiteEvent(context: GithubContext): Promise<Cod
  * suite.
  */
 export async function githubCheckRunEvent(context: GithubContext): Promise<CodeInbound> {
-  const run = context.payload.check_run as CheckRun;
-  const action = payloadString(context.payload, "action");
+  const parsed = checkRunWebhookSchema.safeParse(context.payload);
+  if (!parsed.success) return malformedWebhook("check_run");
+  const { action, check_run: run } = parsed.data;
   if (action !== "completed") {
     return { ignore: `check_run ${action}` };
   }
