@@ -75,7 +75,7 @@
       "sessionWithPullRequest": {
         "pr": {
           "eventsArrived": 3,
-          "workflowsCreated": 3,
+          "workflowsCreated": 2,
           "operationsStarted": 2
         },
         "nightly": {
