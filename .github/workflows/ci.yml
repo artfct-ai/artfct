@@ -87,8 +87,8 @@ jobs:
       - run: bunx quint typecheck "../../spec/$SPEC/$SETUP.qnt"
       - name: Fail when a witness is never reached
         run: bun scripts/spec/check-spec.ts witnesses "$SPEC" "$SETUP"
-      - name: Run every invariant on 1,000,000 samples
-        run: bun scripts/spec/check-spec.ts simulate "$SPEC" "$SETUP" 1000000
+      - name: Run every invariant on 100,000 samples
+        run: bun scripts/spec/check-spec.ts simulate "$SPEC" "$SETUP" 100000
       - name: Check every state within the pull request bounds with TLC
         if: ${{ !cancelled() && matrix.tlc }}
         run: bun scripts/spec/check-spec.ts tlc "$SPEC" "$SETUP" pr

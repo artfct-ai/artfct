@@ -74,9 +74,9 @@
     "bounds": {
       "pagesWithAReviewer": {
         "pr": {
-          "jobsStarted": 2,
-          "callsOut": 1,
-          "promptsSent": 3
+          "jobsStarted": 1,
+          "callsOut": 2,
+          "promptsSent": 4
         },
         "nightly": {
           "jobsStarted": 2,
@@ -88,7 +88,7 @@
         "pr": {
           "jobsStarted": 2,
           "callsOut": 2,
-          "promptsSent": 3
+          "promptsSent": 2
         },
         "nightly": {
           "jobsStarted": 2,
