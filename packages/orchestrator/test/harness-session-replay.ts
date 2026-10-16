@@ -1,10 +1,4 @@
 import { setSystemTime } from "bun:test";
-import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import type {
   InitializeResponse,
   NewSessionResponse,
@@ -67,8 +61,10 @@ import {
 import { GAVE_UP_RESTART_TEXT } from "../src/workflow/task/harness/turn";
 import { provision, sandboxStartInFlight } from "../src/workflow/task/sandbox/sandbox";
 import { fakeConnection, type FakeAlarm, type FakeSocket } from "./fake-runtime";
+import { itfBool, itfField, itfInt, itfList, itfOneOf, itfText, itfVariant } from "./itf";
 import { FakeSandboxProvider } from "./fake-sandbox";
 import { InterleavedDecisions } from "./interleaved-decisions";
+import { quintTraces } from "./quint-traces";
 import { WorkflowWorld, type WorldSetup } from "./workflow-world";
 
 /** The setup modules of the harness session spec, and whether the stage of each asks for an effort. */
@@ -83,11 +79,6 @@ export type SpecSetup = keyof typeof SPEC_SETUPS;
 /** The most steps a generated trace takes after its initial state. */
 export const TRACE_STEPS = 25;
 
-const SPEC_DIRECTORY = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "../../../spec/harness-session",
-);
-const QUINT_CLI = createRequire(import.meta.url).resolve("@informalsystems/quint/dist/src/cli.js");
 const REPLAY_START = Date.parse("2026-01-01T00:00:00.000Z");
 const PAST_THE_RECONNECT_CEILING_MS = 31_000;
 const RECONNECT_CEILING_MS = 30_000;
@@ -205,198 +196,129 @@ export type TraceStep = { action: string; picks: SpecPicks; task: SpecTask };
 
 /** Run the spec of one setup for `count` traces from `seed`. */
 export function generateTraces(setup: SpecSetup, count: number, seed: number): TraceStep[][] {
-  const directory = mkdtempSync(join(tmpdir(), "harness-session-"));
-  try {
-    const quint = spawnSync(
-      process.execPath,
-      [
-        QUINT_CLI,
-        "run",
-        join(SPEC_DIRECTORY, `${setup}.qnt`),
-        `--main=${setup}`,
-        "--backend=typescript",
-        "--mbt",
-        `--max-steps=${TRACE_STEPS}`,
-        `--max-samples=${count}`,
-        `--n-traces=${count}`,
-        `--seed=${seed}`,
-        `--out-itf=${join(directory, "trace_{seq}.itf.json")}`,
-      ],
-      { encoding: "utf8", maxBuffer: 64 * 1024 * 1024 },
-    );
-    if (quint.status !== 0) {
-      throw new Error(`quint run failed for ${setup}:\n${quint.stdout}\n${quint.stderr}`);
-    }
-    return readdirSync(directory)
-      .toSorted((left, right) => traceNumber(left) - traceNumber(right))
-      .map((file) => traceSteps(setup, JSON.parse(readFileSync(join(directory, file), "utf8"))));
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
-}
-
-function traceNumber(file: string): number {
-  return Number(file.replace(/\D/g, ""));
+  return quintTraces({ spec: "harness-session", setup, count, steps: TRACE_STEPS, seed }).map(
+    (trace) => traceSteps(setup, trace),
+  );
 }
 
 function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
-  return list(field(trace, "states")).map((state) => {
-    const picks = field(state, "mbt::nondetPicks");
+  return itfList(itfField(trace, "states")).map((state) => {
+    const picks = itfField(state, "mbt::nondetPicks");
     const picked = (name: string) => {
-      const pick = variant(field(picks, name, true));
+      const pick = itfVariant(itfField(picks, name, true));
       return pick?.tag === "Some" ? pick.value : null;
     };
     const ok = picked("ok");
     const outcome = picked("outcome");
     const finished = picked("finished");
     return {
-      action: text(field(state, "mbt::actionTaken")),
+      action: itfText(itfField(state, "mbt::actionTaken")),
       picks: {
         alarmIndex: optionalInt(picked("alarmIndex")),
         callId: optionalInt(picked("callId")),
-        ok: ok === null ? null : bool(ok),
-        outcome: outcome === null ? null : oneOf(variant(outcome)!.tag, OUTCOMES),
+        ok: ok === null ? null : itfBool(ok),
+        outcome: outcome === null ? null : itfOneOf(itfVariant(outcome)!.tag, OUTCOMES),
         bridge: optionalInt(picked("bridge")),
         index: optionalInt(picked("index")),
-        finished: finished === null ? null : oneOf(variant(finished)!.tag, FINISHED_STOPS),
+        finished: finished === null ? null : itfOneOf(itfVariant(finished)!.tag, FINISHED_STOPS),
       },
-      task: specTask(field(state, `${setup}::harnessSession::world`)),
+      task: specTask(itfField(state, `${setup}::harnessSession::world`)),
     };
   });
 }
 
 function optionalInt(value: unknown): number | null {
-  return value === null ? null : int(value);
+  return value === null ? null : itfInt(value);
 }
 
 function specTask(world: unknown): SpecTask {
-  const token = int(field(world, "token"));
-  const alarms = list(field(world, "alarms"));
-  const alarmIds = alarms.map((alarm) => int(field(alarm, "id")));
+  const token = itfInt(itfField(world, "token"));
+  const alarms = itfList(itfField(world, "alarms"));
+  const alarmIds = alarms.map((alarm) => itfInt(itfField(alarm, "id")));
   const slot = (name: string): number | null => {
-    const armed = variant(field(world, name))!;
-    return armed.tag === "Armed" ? alarmIds.indexOf(int(armed.value)) : null;
+    const armed = itfVariant(itfField(world, name))!;
+    return armed.tag === "Armed" ? alarmIds.indexOf(itfInt(armed.value)) : null;
   };
   return {
-    status: oneOf(tagOf(field(world, "status")), TASK_STATUSES),
-    restarts: int(field(world, "restarts")),
-    paused: bool(field(world, "paused")),
-    generation: int(field(world, "generation")),
-    session: bool(field(world, "session")),
-    promptInFlight: bool(field(world, "promptInFlight")),
-    nudged: bool(field(world, "nudged")),
-    bridgeClosedAt: oneOf(tagOf(field(world, "bridgeClosedAt")), STAMPS),
-    queue: list(field(world, "queue")).map((kind) => oneOf(tagOf(kind), PROMPT_KINDS)),
-    rpcs: list(field(world, "rpcs")).map((row) => ({
-      id: int(field(row, "id")),
-      purpose: oneOf(tagOf(field(row, "purpose")), RPC_PURPOSES),
+    status: itfOneOf(tagOf(itfField(world, "status")), TASK_STATUSES),
+    restarts: itfInt(itfField(world, "restarts")),
+    paused: itfBool(itfField(world, "paused")),
+    generation: itfInt(itfField(world, "generation")),
+    session: itfBool(itfField(world, "session")),
+    promptInFlight: itfBool(itfField(world, "promptInFlight")),
+    nudged: itfBool(itfField(world, "nudged")),
+    bridgeClosedAt: itfOneOf(tagOf(itfField(world, "bridgeClosedAt")), STAMPS),
+    queue: itfList(itfField(world, "queue")).map((kind) => itfOneOf(tagOf(kind), PROMPT_KINDS)),
+    rpcs: itfList(itfField(world, "rpcs")).map((row) => ({
+      id: itfInt(itfField(row, "id")),
+      purpose: itfOneOf(tagOf(itfField(row, "purpose")), RPC_PURPOSES),
     })),
-    artifact: bool(field(world, "artifact")),
-    alarms: alarms.map((alarm) => specAlarmKind(field(alarm, "kind"))),
+    artifact: itfBool(itfField(world, "artifact")),
+    alarms: alarms.map((alarm) => specAlarmKind(itfField(alarm, "kind"))),
     slots: {
       hello: slot("helloSlot"),
       noProgress: slot("noProgressSlot"),
       wall: slot("wallSlot"),
       keepAlive: slot("keepAliveSlot"),
     },
-    startTracked: bool(field(world, "startTracked")),
-    sockets: list(field(world, "sockets")).map((socket) => ({
-      bridge: int(field(socket, "bridge")),
-      generation: int(field(socket, "generation")),
-      state: oneOf(tagOf(field(socket, "state")), SOCKET_STATES),
+    startTracked: itfBool(itfField(world, "startTracked")),
+    sockets: itfList(itfField(world, "sockets")).map((socket) => ({
+      bridge: itfInt(itfField(socket, "bridge")),
+      generation: itfInt(itfField(socket, "generation")),
+      state: itfOneOf(tagOf(itfField(socket, "state")), SOCKET_STATES),
     })),
-    bridges: list(field(world, "bridges")).map((bridge) => ({
-      generation: int(field(bridge, "generation")),
-      current: int(field(bridge, "token")) === token,
-      alive: bool(field(bridge, "alive")),
-      saidHello: bool(field(bridge, "saidHello")),
-      requests: list(field(bridge, "requests")).map((request) => ({
-        id: int(field(request, "id")),
-        purpose: oneOf(tagOf(field(request, "purpose")), RPC_PURPOSES),
-        cancelled: bool(field(request, "cancelled")),
+    bridges: itfList(itfField(world, "bridges")).map((bridge) => ({
+      generation: itfInt(itfField(bridge, "generation")),
+      current: itfInt(itfField(bridge, "token")) === token,
+      alive: itfBool(itfField(bridge, "alive")),
+      saidHello: itfBool(itfField(bridge, "saidHello")),
+      requests: itfList(itfField(bridge, "requests")).map((request) => ({
+        id: itfInt(itfField(request, "id")),
+        purpose: itfOneOf(tagOf(itfField(request, "purpose")), RPC_PURPOSES),
+        cancelled: itfBool(itfField(request, "cancelled")),
       })),
     })),
-    calls: list(field(world, "calls")).map(specCall),
-    promptsSent: int(field(world, "promptsSent")),
-    cancelsDelivered: int(field(world, "cancelsDelivered")),
-    permissionsAsked: int(field(world, "permissionsAsked")),
-    permissionsAllowed: int(field(world, "permissionsAllowed")),
-    socketsClosed: int(field(world, "socketsClosed")),
-    eventsThatThrew: int(field(world, "eventsThatThrew")),
+    calls: itfList(itfField(world, "calls")).map(specCall),
+    promptsSent: itfInt(itfField(world, "promptsSent")),
+    cancelsDelivered: itfInt(itfField(world, "cancelsDelivered")),
+    permissionsAsked: itfInt(itfField(world, "permissionsAsked")),
+    permissionsAllowed: itfInt(itfField(world, "permissionsAllowed")),
+    socketsClosed: itfInt(itfField(world, "socketsClosed")),
+    eventsThatThrew: itfInt(itfField(world, "eventsThatThrew")),
   };
 }
 
 function specAlarmKind(kind: unknown): string {
-  const alarm = variant(kind)!;
+  const alarm = itfVariant(kind)!;
   return typeof alarm.value === "object" && alarm.value !== null && "#bigint" in alarm.value
-    ? `${alarm.tag}(${int(alarm.value)})`
+    ? `${alarm.tag}(${itfInt(alarm.value)})`
     : alarm.tag;
 }
 
 function specCall(call: unknown): SpecCall {
-  const kind = variant(field(call, "kind"))!;
-  const state = oneOf(tagOf(field(call, "state")), CALL_STATES);
-  const id = int(field(call, "id"));
+  const kind = itfVariant(itfField(call, "kind"))!;
+  const state = itfOneOf(tagOf(itfField(call, "state")), CALL_STATES);
+  const id = itfInt(itfField(call, "id"));
   switch (kind.tag) {
     case "SandboxStart":
       return {
         id,
         kind: "SandboxStart",
-        generation: int(field(kind.value, "generation")),
-        launched: bool(field(kind.value, "launched")),
+        generation: itfInt(itfField(kind.value, "generation")),
+        launched: itfBool(itfField(kind.value, "launched")),
         state,
       };
     case "SandboxDestroy":
-      return { id, kind: "SandboxDestroy", upTo: int(kind.value), state };
+      return { id, kind: "SandboxDestroy", upTo: itfInt(kind.value), state };
     case "OutcomeCheck":
-      return { id, kind: "OutcomeCheck", promptsAtTurnEnd: int(kind.value), state };
+      return { id, kind: "OutcomeCheck", promptsAtTurnEnd: itfInt(kind.value), state };
     default:
       throw new Error(`the trace has a call ${kind.tag}`);
   }
 }
 
-function field(value: unknown, name: string, optional = false): unknown {
-  if (typeof value === "object" && value !== null && name in value) {
-    return Object.getOwnPropertyDescriptor(value, name)?.value;
-  }
-  if (optional) return null;
-  throw new Error(`the trace has no ${name} in ${JSON.stringify(value)}`);
-}
-
-function list(value: unknown): unknown[] {
-  if (!Array.isArray(value)) throw new Error(`the trace has ${JSON.stringify(value)}, not a list`);
-  return value;
-}
-
-function int(value: unknown): number {
-  return Number(text(field(value, "#bigint")));
-}
-
-function bool(value: unknown): boolean {
-  if (typeof value !== "boolean")
-    throw new Error(`the trace has ${JSON.stringify(value)}, not a bool`);
-  return value;
-}
-
-function text(value: unknown): string {
-  if (typeof value !== "string")
-    throw new Error(`the trace has ${JSON.stringify(value)}, not text`);
-  return value;
-}
-
-function variant(value: unknown): { tag: string; value: unknown } | null {
-  if (value === null) return null;
-  return { tag: text(field(value, "tag")), value: field(value, "value") };
-}
-
 function tagOf(value: unknown): string {
-  return variant(value)!.tag;
-}
-
-function oneOf<Name extends string>(name: string, names: readonly Name[]): Name {
-  const known = names.find((candidate) => candidate === name);
-  if (!known) throw new Error(`the trace has ${name}, not one of ${names.join(", ")}`);
-  return known;
+  return itfVariant(value)!.tag;
 }
 
 /** One request a bridge passed to its harness. */
@@ -924,7 +846,7 @@ export class HarnessSessionReplay {
       fake,
       read: 0,
     };
-    const recordClose = fake.connection.close;
+    const recordClose = fake.connection.close.bind(fake.connection);
     fake.connection.close = (code?: number, reason?: string) => {
       recordClose(code, reason);
       this.orchestratorCloses(socket, code ?? 1005);

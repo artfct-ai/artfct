@@ -68,8 +68,9 @@ module harnessSessionTypes {
     requests: List[Request],
   }
 
-  /// What runs after the call that returns, innermost first.
-  type Frame = RestartAfterClose | StopAfterClose | SettleAfterDrain | StartEnds
+  /// What runs after the call that returns, innermost first. `CloseFeedWithoutStopReason` throws
+  /// when the author is idle, because the feed closing reads a stop reason the answer lacked.
+  type Frame = RestartAfterClose | StopAfterClose | SettleAfterDrain | StartEnds | CloseFeedWithoutStopReason
 
   /// A call the orchestrator awaits. A sandbox destroy kills the bridges up to the generation it
   /// names. An outcome check remembers the prompts sent when its turn ended.
@@ -88,9 +89,8 @@ module harnessSessionTypes {
   /// How the author left its work when its turn ended on its own, by the decisions model.
   type Outcome = Finished | WaitsOnPerson | Blocked | StoppedEarly
 
-  /// The stop reason a prompt answer carries. `NoStopReason` is an answer to another request
-  /// that took the id of a prompt.
-  type StopReason = EndTurn | CancelledTurn | MaxTokens | NoStopReason
+  /// The stop reason a prompt answer carries.
+  type StopReason = EndTurn | CancelledTurn | MaxTokens
 
   /// The task, its sandbox row, its queue and rpc rows, its alarms, the sockets and bridges around
   /// it, and the calls out. The counters at the end are what an observer counts.
@@ -541,6 +541,18 @@ module harnessSession {
     else settleAndResumeAuthor({ ...ended, stoppedEarly: false }, List())
   }
 
+  /// The feed of an idle author closes on the stop reason of its turn. Without one the event throws.
+  pure def closeFeedWithoutStopReason(w: World): World =
+    if (w.promptInFlight) w else { ...w, eventsThatThrew: w.eventsThatThrew + 1 }
+
+  /// An answer to another request reaches a prompt row. The turn ends and settles like a turn
+  /// without an outcome check, then the event throws if the author is idle.
+  pure def endTurnWithoutStopReason(w: World): World = {
+    val ended = { ...w, promptInFlight: false, stoppedEarly: false }
+    val settled = settleAndResumeAuthor(ended, List(CloseFeedWithoutStopReason))
+    if (issued(ended, settled)) settled else closeFeedWithoutStopReason(settled)
+  }
+
   pure def onRpcError(w: World, purpose: RpcPurpose): World = match purpose {
     | Initialize => restartOrFailTask(w, List())
     | SessionNew => restartOrFailTask(w, List())
@@ -563,6 +575,7 @@ module harnessSession {
   pure def runFrame(w: World, frame: Frame, rest: List[Frame]): World = match frame {
     | StartEnds => { ...w, startTracked: false }
     | SettleAfterDrain => markAuthorInReview(w)
+    | CloseFeedWithoutStopReason => closeFeedWithoutStopReason(w)
     | StopAfterClose => { ...w, rpcs: List(), promptInFlight: false, status: Working, stopsEnded: w.stopsEnded + 1 }
     | RestartAfterClose =>
       if (isFinished(w.status)) w
@@ -758,6 +771,7 @@ module harnessSession {
       not(issued(step.before, step.after)),
     }
 
+  /// Whether one step kept each before-and-after rule.
   pure def rulesKeptIn(step: Step): RulesKept = {
     finishedTaskKeepsItsStatus: finishedTaskKeepsItsStatusIn(step),
     pausedAuthorGetsNoPrompt: pausedAuthorGetsNoPromptIn(step),
@@ -776,6 +790,7 @@ module harnessSession {
     aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn: aLaterPromptSurvivesTheOutcomeOfAnEarlierTurnIn(step),
   }
 
+  /// Whether one step showed each witness that reads a step.
   pure def stepWitnessesOf(step: Step): StepWitnesses = {
     aFinishedTaskIsInAStep: isFinished(step.before.status),
     aPausedAuthorStaysPaused: step.before.paused and step.after.paused,
@@ -810,15 +825,18 @@ module harnessSession {
     aCallWasDropped: step.kind == DurableObjectRestartStep,
   }
 
+  /// Write the world after a step, and which rules and witnesses that step kept and showed.
   action recordStep(step: Step): bool = all {
     world' = step.after,
     rulesKept' = rulesKeptIn(step),
     stepWitnesses' = stepWitnessesOf(step),
   }
 
+  /// Take one action from the current world and count it.
   action move(after: World, kind: StepKind): bool =
     recordStep({ before: world, after: { ...after, actions: world.actions + 1 }, kind: kind })
 
+  /// A queued task before any action.
   action init: bool = recordStep({ before: INITIAL_WORLD, after: INITIAL_WORLD, kind: OtherStep })
 
   /// A person writes to the author: a reply in its job session or the agent's `prompt_task`.
@@ -1133,7 +1151,7 @@ module harnessSession {
         if (request.purpose == SessionNew) onSessionNew(taken)
         else { ...taken, eventsThatThrew: taken.eventsThatThrew + 1 }
       | SetEffort => sendFirstPrompt(taken)
-      | Prompt => onTurnEnd(taken, if (request.purpose == Prompt) stop else NoStopReason)
+      | Prompt => if (request.purpose == Prompt) onTurnEnd(taken, stop) else endTurnWithoutStopReason(taken)
     })
 
   /// The harness answers its oldest request. A prompt ends its turn, cancelled when a cancel
@@ -1212,11 +1230,10 @@ module harnessSession {
   /// Time passes or an alarm fires.
   action timeMoves: bool = any { alarmFires, timePasses }
 
-  /// The agent pauses or resumes the author.
-  action agentPausesOrResumes: bool = any { agentPausesAuthor, agentResumesAuthor }
-
-  /// Somebody ends the work or something breaks.
+  /// Somebody pauses, resumes or ends the work, or something breaks.
   action theWorkIsInterrupted: bool = any {
+    agentPausesAuthor,
+    agentResumesAuthor,
     personStops,
     agentCancelsJob,
     durableObjectRestarts,
@@ -1226,12 +1243,14 @@ module harnessSession {
     harnessExits,
   }
 
-  /// A step picks a prompt, a pause or resume, the clock and an interruption each as often as one
-  /// event of a call, a socket or the harness, so a random walk of 25 steps reaches the end of a
-  /// turn.
+  /// The harness reports its work in a running turn: progress or a permission request.
+  action theHarnessReportsItsWork: bool = any { harnessShowsProgress, harnessAsksPermission }
+
+  /// A step picks a prompt, the clock, an interruption and a report of the harness each as often
+  /// as one event of a call, a socket or the harness, so a random walk of 25 steps reaches the end
+  /// of a turn.
   action step: bool = any {
     personPrompts,
-    agentPausesOrResumes,
     timeMoves,
     theWorkIsInterrupted,
     sandboxStartLaunchesBridge,
@@ -1241,9 +1260,8 @@ module harnessSession {
     bridgeDials,
     socketCloseLands,
     harnessAnswers,
-    harnessShowsProgress,
     harnessWritesThePage,
-    harnessAsksPermission,
+    theHarnessReportsItsWork,
   }
 
   pure def noCallOut(w: World): bool = w.calls.select(call => call.state == Out).length() == 0

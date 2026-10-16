@@ -95,11 +95,11 @@
     "bounds": {
       "harnessDefaultEffort": {
         "pr": { "actionsTaken": 9 },
-        "nightly": { "actionsTaken": 11 }
+        "nightly": { "actionsTaken": 10 }
       },
       "stageAsksForEffort": {
         "pr": { "actionsTaken": 9 },
-        "nightly": { "actionsTaken": 11 }
+        "nightly": { "actionsTaken": 10 }
       }
     }
   }
