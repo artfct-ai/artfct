@@ -6,7 +6,7 @@ import { MOCK_LINEAR_URL } from "./config";
 import type { LinearIssueFixture } from "./fixtures";
 
 /** A token grant as the mock Linear API recorded it. */
-export type GrantRecord = {
+type GrantRecord = {
   at: string;
   grant_type: string;
   code: string | null;
@@ -16,7 +16,7 @@ export type GrantRecord = {
 };
 
 /** A GraphQL call as the mock Linear API recorded it. */
-export type GqlRecord = {
+type GqlRecord = {
   at: string;
   operation: string;
   token_index: number;

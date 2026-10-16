@@ -6,7 +6,7 @@ import type { Actor, InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { ExternalUser } from "@artfct-ai/contracts/types";
 
 /** Resolves a document host user to a person the orchestrator trusts, or to null. */
-export type DocumentsActorResolver = (user: ExternalUser) => Promise<Actor | null>;
+type DocumentsActorResolver = (user: ExternalUser) => Promise<Actor | null>;
 
 /** A normalized event ready to deliver, or the reason the webhook is ignored. */
 export type DocumentsInbound = { event: InboundEvent } | { ignore: string };
@@ -19,7 +19,7 @@ export type DocumentsInboundContext = {
 };
 
 /** A comment body and its author. `author` is null when the host sends no author. */
-export type CommentBody = {
+type CommentBody = {
   text: string;
   author: { id: string; email: string | null } | null;
 };

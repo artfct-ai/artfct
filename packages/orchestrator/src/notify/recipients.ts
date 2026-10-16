@@ -16,7 +16,7 @@ export function hasChatThread(audience: Audience): boolean {
 }
 
 /** True for an event that asks a person to act or tells them work failed. */
-export function isAskOrFailure(event: TaskEvent): boolean {
+function isAskOrFailure(event: TaskEvent): boolean {
   switch (event.type) {
     case "question":
     case "artifact_ready":

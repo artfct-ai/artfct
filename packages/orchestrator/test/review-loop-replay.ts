@@ -59,13 +59,13 @@ export const SPEC_SETUPS = {
 export type SpecSetup = keyof typeof SPEC_SETUPS;
 
 /** The most steps a generated trace takes after its initial state. */
-export const TRACE_STEPS = 25;
+const TRACE_STEPS = 25;
 
 const STEP_MS = 10 * 60_000;
 const REPLAY_START = Date.parse("2026-01-01T00:00:00.000Z");
 
 /** One refiner run as the spec sees it. */
-export type SpecRun = {
+type SpecRun = {
   refinerIndex: number;
   status: "Unfinished" | "Done" | "Cancelled" | "Failed";
   result:

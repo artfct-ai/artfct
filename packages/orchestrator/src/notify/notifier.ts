@@ -25,7 +25,7 @@ export type ChatTarget = Extract<ReplyTarget, { source: "chat" }>;
 export type IssueRef = { issue_id: string; team_id?: string | null };
 
 /** What an outbox entry was addressed to: a reply target, an issue, or a board's place. */
-export type OutboxTarget = ReplyTarget | IssueRef | BoardChannel;
+type OutboxTarget = ReplyTarget | IssueRef | BoardChannel;
 
 export type OutboxEntry = { channel: string; kind: string; target: OutboxTarget; payload: unknown };
 export type OutboxWriter = (entry: OutboxEntry) => void;

@@ -10,6 +10,7 @@ import type {
   ToolKind,
 } from "@agentclientprotocol/sdk";
 import {
+  INTERNAL_ERROR,
   isNotification,
   isRequest,
   jsonRpcErrorResponse,
@@ -28,8 +29,6 @@ import {
 import { onBridgeMessage } from "../src/workflow/task/harness/bridge";
 import type { TaskRow } from "../src/workflow/store/tasks";
 import { fakeConnection, type FakeRuntime, type FakeSocket } from "./fake-runtime";
-
-const INTERNAL_ERROR = -32603;
 
 /** One request the workflow sent. The store reuses ids, so the frame number tells two apart. */
 type SentRequest = { frame: number; id: JsonRpcId };

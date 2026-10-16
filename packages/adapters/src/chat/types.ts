@@ -7,7 +7,7 @@ import type { Actor, InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { ChatUser } from "@artfct-ai/contracts/types";
 
 /** Resolves a chat user to a person the orchestrator trusts, or to null. */
-export type ChatActorResolver = (user: ChatUser) => Promise<Actor | null>;
+type ChatActorResolver = (user: ChatUser) => Promise<Actor | null>;
 
 /** A normalized event ready to deliver, or the reason the callback is ignored. */
 export type ChatInbound = { event: InboundEvent } | { ignore: string };

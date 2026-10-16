@@ -8,7 +8,7 @@ import type { StateType, TrackerIssue, TrackerProject } from "../types";
 export type RawQuery = <Data>(query: string, variables: Record<string, unknown>) => Promise<Data>;
 
 /** One issue as the documents below select it. */
-export type IssueNode = {
+type IssueNode = {
   id: string;
   identifier: string;
   title: string;
@@ -41,10 +41,10 @@ const ISSUE_FIELDS = `
   inverseRelations { nodes { type issue { id identifier state { type } } } }`;
 
 /** One issue by id or identifier, with the relations that point at it. */
-export const ISSUE_QUERY = `query Issue($id: String!) { issue(id: $id) { ${ISSUE_FIELDS} } }`;
+const ISSUE_QUERY = `query Issue($id: String!) { issue(id: $id) { ${ISSUE_FIELDS} } }`;
 
 /** One project by id or slug id. */
-export const PROJECT_QUERY = `query Project($id: String!) { project(id: $id) { id name url } }`;
+const PROJECT_QUERY = `query Project($id: String!) { project(id: $id) { id name url } }`;
 
 /** Issues per request, the largest page that fits Linear's query complexity limit. */
 const ISSUES_PER_PAGE = 50;
@@ -55,17 +55,17 @@ const ISSUE_PAGE = `(first: ${ISSUES_PER_PAGE}, after: $after) {
     }`;
 
 /** One page of a project's issues, with relations. */
-export const PROJECT_ISSUES_QUERY = `query ProjectIssues($id: String!, $after: String) {
+const PROJECT_ISSUES_QUERY = `query ProjectIssues($id: String!, $after: String) {
   project(id: $id) { issues${ISSUE_PAGE} }
 }`;
 
 /** One page of the direct sub-issues of an issue, with relations. */
-export const SUB_ISSUES_QUERY = `query SubIssues($id: String!, $after: String) {
+const SUB_ISSUES_QUERY = `query SubIssues($id: String!, $after: String) {
   issue(id: $id) { children${ISSUE_PAGE} }
 }`;
 
 /** Map the GraphQL shape. A relation where this issue is the target of `blocks` is a blocker. */
-export function toIssue(node: IssueNode): TrackerIssue {
+function toIssue(node: IssueNode): TrackerIssue {
   return {
     id: node.id,
     identifier: node.identifier,

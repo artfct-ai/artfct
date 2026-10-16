@@ -13,7 +13,7 @@ import type {
 } from "../types";
 
 /** The prefix that names a Workers AI model, as the gateway's OpenAI-compatible endpoint names it. */
-export const WORKERS_AI_PREFIX = "workers-ai/";
+const WORKERS_AI_PREFIX = "workers-ai/";
 
 /** Milliseconds one attempt may take. A decisions model answers in well under a second. */
 const TIMEOUT_MS = 3000;

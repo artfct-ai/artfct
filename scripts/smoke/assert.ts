@@ -4,7 +4,7 @@
  */
 
 /** Short JSON rendering of a value for log and error lines. */
-export function show(value: unknown): string {
+function show(value: unknown): string {
   const text = JSON.stringify(value);
   if (text === undefined) return String(value);
   return text.length > 300 ? `${text.slice(0, 300)}...` : text;

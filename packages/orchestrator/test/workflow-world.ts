@@ -104,13 +104,13 @@ export type WorldSetup = {
  * When the sandbox of a new task comes up: right after the action that started the task, or
  * when an action brings it up.
  */
-export type SandboxStart = "at_task_start" | "on_an_action";
+type SandboxStart = "at_task_start" | "on_an_action";
 
 /**
  * What the plan of a world that opens on its first job named as the subject, when the origin
  * does not set one. A first job on the origin issue needs that issue as the subject.
  */
-export type PlannedSubject = "none" | "project";
+type PlannedSubject = "none" | "project";
 
 /**
  * What a tracker link a breakdown author ends its turn with, or a plan names, points at: the
@@ -118,10 +118,10 @@ export type PlannedSubject = "none" | "project";
  */
 export type TrackerLink = "the_subject_issue" | "a_project" | "a_stray_issue";
 
-export type FirstInput = "request" | "origin_issue";
+type FirstInput = "request" | "origin_issue";
 
 /** How the author of the page stage runs: in a harness session, or as model calls. */
-export type PageAuthor = "harness" | "model";
+type PageAuthor = "harness" | "model";
 
 /**
  * What the model of a model-call page author does on each call until an action changes it. A
@@ -142,10 +142,10 @@ const ORIGIN_ISSUE: JobIssue = {
  * How a world opens: on its first job, on its first job before its author started, or on a
  * request the agent has not planned.
  */
-export type WorldOpening = "job" | "job_unstarted" | "request";
+type WorldOpening = "job" | "job_unstarted" | "request";
 
 /** Where the request that started the workflow came from: a chat thread or a tracker session. */
-export type OriginSurface = "chat" | "tracker";
+type OriginSurface = "chat" | "tracker";
 
 const ORIGINS: Record<OriginSurface, ReplyTarget> = {
   chat: { source: "chat", channel: "C1", thread: "1.0" },
@@ -153,7 +153,7 @@ const ORIGINS: Record<OriginSurface, ReplyTarget> = {
 };
 
 /** How a job on the page stage ends: a person accepts the page, or selects one of its options. */
-export type PageEnding = "acceptance" | "choice";
+type PageEnding = "acceptance" | "choice";
 
 /**
  * What the checks say about a revision the moment it is pushed: they already passed, or nothing

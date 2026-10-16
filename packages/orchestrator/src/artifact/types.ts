@@ -150,7 +150,7 @@ export interface ChecksSupport {
 }
 
 /** How a kind reads its held comments from the host. Absent on a kind that holds none. */
-export interface HeldCommentSupport {
+interface HeldCommentSupport {
   /** The held comments of a page, as the host shows them now. */
   read(pageId: string): Promise<HeldComment[]>;
 }

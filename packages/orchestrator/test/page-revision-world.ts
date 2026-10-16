@@ -14,7 +14,7 @@ import {
 } from "./fake-runtime";
 
 /** What the revise model does to one line of the page it reads. */
-export type LineStep = { lineIndex: number; kind: "change" | "delete" | "insert_after" };
+type LineStep = { lineIndex: number; kind: "change" | "delete" | "insert_after" };
 
 /** How the revise model answers one revise call. */
 export type ModelPlan = {
@@ -26,7 +26,7 @@ export type ModelPlan = {
 };
 
 /** A host method a revision action can make fail once. */
-export type FailingMethod = Extract<
+type FailingMethod = Extract<
   DocumentsMethod,
   "readPageContent" | "replyToComment" | "updatePageContent"
 >;
@@ -38,7 +38,7 @@ export type RevisionAction =
   | { kind: "revise"; plan: ModelPlan };
 
 /** What the revise model read and answered in one call. */
-export type ModelAnswer = {
+type ModelAnswer = {
   sentCommentIds: string[];
   replyCount: number;
   /** The ids of the lines the answer left as they were, from the page it read. */
@@ -47,7 +47,7 @@ export type ModelAnswer = {
 };
 
 /** One revise action as an observer saw it. */
-export type ObservedRevision = {
+type ObservedRevision = {
   answer: ModelAnswer | null;
   repliesPosted: number;
   pageBefore: string | undefined;
@@ -57,7 +57,7 @@ export type ObservedRevision = {
 };
 
 /** When the revise model read a comment: the host event count at that moment. */
-export type CommentSent = { commentId: string; atEvent: number };
+type CommentSent = { commentId: string; atEvent: number };
 
 /** A model-call author on a page with person comments, a revise model, and what it saw. */
 export type PageRevisionWorld = {

@@ -64,7 +64,7 @@ export type FakeAlarm = {
   repeats: boolean;
 };
 
-export type FakeClose = { code: number; reason: string };
+type FakeClose = { code: number; reason: string };
 
 export type FakeSocket = { connection: Connection; sent: string[]; closes: FakeClose[] };
 
@@ -410,7 +410,7 @@ export class FakeRuntime implements WorkflowRuntime {
 export type SeedTaskPatch = Partial<TaskRow> & Partial<NewJob>;
 
 /** The job id a seeded task belongs to unless the patch names one: `wf_x.3` belongs to `wf_x-3`. */
-export function seedJobId(taskId: string): string {
+function seedJobId(taskId: string): string {
   return taskId.replace(/\.(\d+)$/, "-$1");
 }
 
@@ -512,7 +512,7 @@ export function seedIssuesTask(
   return workflow.store.requireTask(task.task_id);
 }
 
-export const REVIEW_AUTHOR = "wf_x.1";
+const REVIEW_AUTHOR = "wf_x.1";
 export const REVIEW_JOB = "wf_x-1";
 export const REVIEW_TASK = "wf_x.2";
 

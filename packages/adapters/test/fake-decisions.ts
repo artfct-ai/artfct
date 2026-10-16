@@ -11,10 +11,10 @@ import type {
 import { askModelsInOrder } from "../src/gateway/models-in-order";
 
 /** How long a `HangingDecisions` call hangs before it rejects. Longer than any test turn. */
-export const FAKE_DECISIONS_DEADLINE_MS = 10_000;
+const FAKE_DECISIONS_DEADLINE_MS = 10_000;
 
 /** The option a `FakeDecisions` picks for a question it has no choice for. */
-export const FAKE_NO_CHOICE: Choice = { option: "none", probability: 1 };
+const FAKE_NO_CHOICE: Choice = { option: "none", probability: 1 };
 
 /** The yes-or-no answers of a `FakeDecisions`: one table, one table per state, or a failure. */
 export type FakeAnswers =

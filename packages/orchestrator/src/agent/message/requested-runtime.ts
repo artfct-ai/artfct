@@ -24,10 +24,10 @@ export const REQUESTED_RUNTIME_PURPOSE = "requested_runtime";
 export const GATEWAY_HARNESS: Harness = "opencode";
 
 /** A model a message may name, and the harness that runs it. */
-export type ModelCandidate = ListedModel & { harness: Harness };
+type ModelCandidate = ListedModel & { harness: Harness };
 
 /** A saved gateway preset, and the model it runs. */
-export type ModelPreset = Extract<GatewayModel, { kind: "preset" }>;
+type ModelPreset = Extract<GatewayModel, { kind: "preset" }>;
 
 /** Every model and preset a requested runtime resolves against. */
 export type ModelSources = { models: ModelCandidate[]; presets: ModelPreset[] };

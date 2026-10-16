@@ -30,7 +30,7 @@ import { openMemoryDb } from "../memory-db";
 import { testEnv } from "../test-env";
 
 /** The role name that picks the author of the stage. Any other name picks a refiner of it. */
-export const AUTHOR_ROLE = "author";
+const AUTHOR_ROLE = "author";
 
 const LOCAL_JOB = "local-1";
 const AUTHOR_TASK = "local.1";
@@ -54,7 +54,7 @@ export type LocalRunRequest = {
 };
 
 /** What the container and the harness session of one local run start with. */
-export type HarnessRunPlan = {
+type HarnessRunPlan = {
   execution: "harness";
   spec: SandboxStartSpec;
   command: HarnessCommand;
@@ -68,7 +68,7 @@ function warn(line: string): void {
 }
 
 /** The produce activity of a model-call author, on the gateway the workflow sends it to. */
-export type ModelRunPlan = {
+type ModelRunPlan = {
   execution: "model";
   modelName: string;
   produce: ProduceCall;

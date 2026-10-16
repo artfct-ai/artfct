@@ -12,7 +12,7 @@ function sentBefore(world: PageRevisionWorld, commentId: string, eventIndex: num
  * A revision removes a line that holds a person comment the author was sent only after the
  * author's reply is in that comment's comment thread.
  */
-export function sentCommentIsAnsweredBeforeItsLineGoes(world: PageRevisionWorld): void {
+function sentCommentIsAnsweredBeforeItsLineGoes(world: PageRevisionWorld): void {
   const comments = world.documents.allPersonComments;
   world.documents.events.forEach((event, eventIndex) => {
     if (event.kind !== "lines_removed") return;
@@ -33,7 +33,7 @@ export function sentCommentIsAnsweredBeforeItsLineGoes(world: PageRevisionWorld)
 }
 
 /** The author replies only to a comment it was sent. */
-export function replyGoesOnlyToASentComment(world: PageRevisionWorld): void {
+function replyGoesOnlyToASentComment(world: PageRevisionWorld): void {
   world.documents.events.forEach((event, eventIndex) => {
     if (event.kind !== "reply") return;
     if (!sentBefore(world, event.commentId, eventIndex)) {
@@ -47,7 +47,7 @@ export function replyGoesOnlyToASentComment(world: PageRevisionWorld): void {
  * neighbor of each insertion that anchors it. A revision that did not write the page keeps
  * every line.
  */
-export function untouchedLinesKeepTheirIdentity(world: PageRevisionWorld): void {
+function untouchedLinesKeepTheirIdentity(world: PageRevisionWorld): void {
   for (const revision of world.revisions) {
     const written = revision.pageAfter !== revision.pageBefore;
     if (!written || !revision.answer) {
@@ -67,7 +67,7 @@ export function untouchedLinesKeepTheirIdentity(world: PageRevisionWorld): void 
 }
 
 /** A revision that posted fewer replies than its answer holds leaves the page as it was. */
-export function failedReplyLeavesThePage(world: PageRevisionWorld): void {
+function failedReplyLeavesThePage(world: PageRevisionWorld): void {
   for (const revision of world.revisions) {
     if (!revision.answer || revision.repliesPosted >= revision.answer.replyCount) continue;
     if (revision.pageAfter !== revision.pageBefore) {
