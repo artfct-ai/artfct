@@ -3,10 +3,12 @@ import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import { describe, expect, it } from "bun:test";
-import { seedPullRequestTask } from "../../../test/fake-runtime";
+import { FakeRuntime, seedPullRequestTask } from "../../../test/fake-runtime";
 import { freshRuntime } from "../../../test/fresh-runtime";
 import { scenario } from "../../../test/scenario";
-import { createWorkflow, handleEvent } from "./events";
+import { openMemoryDb } from "../../../test/memory-db";
+import { testEnv } from "../../../test/test-env";
+import { createWorkflow, eventRefusalOf, handleEvent } from "./events";
 
 describe("handleEvent", () => {
   const MARK = "evil.test";
@@ -120,5 +122,52 @@ describe("a message a person wrote", () => {
           { reply_to: SESSION, chat_message: undefined },
         ]);
       }));
+  });
+});
+
+function workflowWith(createdAt: string, status: "running" | "done"): FakeRuntime {
+  const workflow = new FakeRuntime(openMemoryDb(), testEnv());
+  workflow.patchState({ created_at: createdAt, status });
+  return workflow;
+}
+
+describe("eventRefusalOf", () => {
+  const PROMPT: InboundEvent = {
+    id: "evt-prompt",
+    kind: "prompt",
+    actor: { person_id: "p1", email: "dev@acme.test", display_name: "Dev" },
+    bindings: [],
+    links: [],
+    text: "also add a test",
+  };
+  const STATUS: InboundEvent = { ...PROMPT, id: "evt-status", kind: "status", actor: null };
+
+  describe("a workflow whose create has not returned", () => {
+    const workflow = workflowWith("", "running");
+
+    it("refuses every event", () => {
+      expect(eventRefusalOf(workflow, STATUS)).toEqual({ refused: "not_created" });
+      expect(eventRefusalOf(workflow, PROMPT)).toEqual({ refused: "not_created" });
+    });
+  });
+
+  describe("a created workflow that ended", () => {
+    const workflow = workflowWith("2026-10-16T00:00:00.000Z", "done");
+
+    it("refuses a person's message with its status", () => {
+      expect(eventRefusalOf(workflow, PROMPT)).toEqual({ refused: "ended", status: "done" });
+    });
+
+    it("takes an event nobody wrote", () => {
+      expect(eventRefusalOf(workflow, STATUS)).toBeNull();
+    });
+  });
+
+  describe("a created workflow that runs", () => {
+    const workflow = workflowWith("2026-10-16T00:00:00.000Z", "running");
+
+    it("takes a person's message", () => {
+      expect(eventRefusalOf(workflow, PROMPT)).toBeNull();
+    });
   });
 });

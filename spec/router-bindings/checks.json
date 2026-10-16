@@ -12,7 +12,8 @@
     "chatThread": [
       "aWorkflowStarted",
       "aDeliveryJoinsAWorkflow",
-      "aStartRebindsItsBindings",
+      "aDeliveryReachesAWorkflowBeforeItsCreate",
+      "aDeliveryReachesAnEndedWorkflow",
       "aMessageAfterEndStartedTheNextWorkflow",
       "aWorkflowWasAbandoned",
       "aWorkflowEnded",
@@ -21,16 +22,21 @@
     "twoSessionsOnOneIssue": [
       "aWorkflowStarted",
       "aDeliveryJoinsAWorkflow",
+      "aDeliveryReachesAWorkflowBeforeItsCreate",
+      "aDeliveryReachesAnEndedWorkflow",
       "aStartRebindsItsBindings",
       "aWorkflowWasAbandoned",
       "aWorkflowEnded",
       "aRunningWorkflowHoldsTheIssue",
       "aJobStartAsksTheIssueOwner",
+      "aJobStartLosesTheIssueClaim",
       "aPersonWroteAfterAnEnd"
     ],
     "sessionWithPullRequest": [
       "aWorkflowStarted",
       "aDeliveryJoinsAWorkflow",
+      "aDeliveryReachesAWorkflowBeforeItsCreate",
+      "aDeliveryReachesAnEndedWorkflow",
       "aStartRebindsItsBindings",
       "aWorkflowWasAbandoned",
       "aWorkflowEnded",

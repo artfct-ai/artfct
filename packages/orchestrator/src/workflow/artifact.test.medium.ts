@@ -5,6 +5,7 @@ import type { Subject } from "./store/state";
 import { describe, expect, it } from "vitest";
 import { findBinding } from "../db/bindings";
 import { createDb } from "../db/client";
+import { createWorkflow } from "../db/workflows";
 import { freshDurableRuntime } from "../../test/durable-runtime";
 import { patchStageReviewers, seedTask, type FakeRuntime } from "../../test/fake-runtime";
 import { scenario, type Scenario } from "../../test/scenario";
@@ -31,6 +32,7 @@ function readyEvents(workflow: FakeRuntime) {
 
 describe("recordArtifact", () => {
   const recorded: Scenario<FakeRuntime> = scenario(freshDurableRuntime, async (workflow) => {
+    await createWorkflow(createDb(workflow.env.DB), workflow.state.workflow_id);
     await recordArtifact(workflow, seedAuthor(workflow), TARGET);
   });
 
@@ -51,9 +53,8 @@ describe("recordArtifact", () => {
   it("binds the artifact, so its webhooks route back to this workflow", () =>
     recorded(async (workflow) => {
       const db = createDb(workflow.env.DB);
-      expect(await findBinding(db, { source: "code_pull", repo: "acme/app", number: 1 })).toBe(
-        "wf_x",
-      );
+      const binding = { source: "code_pull", repo: "acme/app", number: 1 } as const;
+      expect((await findBinding(db, binding))?.workflow_id).toBe("wf_x");
     }));
 
   it("says in the log what was recorded", () =>

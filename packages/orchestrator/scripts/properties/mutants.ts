@@ -171,17 +171,39 @@ export const MUTANTS: Mutant[] = [
     id: "R1",
     invariant: "messageAfterEndStartsNextWorkflow (claim)",
     path: "src/router/deliver.ts",
-    find: "    const won = await claimBinding(db, claimed.binding, { previous, workflowId });",
+    find: "    if (!(await claimBinding(db, claimed.binding, { previous: claimed.holder, workflowId }))) {",
     replace:
-      "    const won = (await claimBinding(db, claimed.binding, { previous, workflowId })) || true;",
+      "    if (!((await claimBinding(db, claimed.binding, { previous: claimed.holder, workflowId })) || true)) {",
   },
   {
     id: "R2",
     invariant: "messageAfterEndStartsNextWorkflow (bind all)",
     path: "src/router/deliver.ts",
-    find: "  for (const binding of event.bindings) await bindWorkflow(db, binding, workflowId);\n  const endedWorkflowId",
+    find: "    if (index === claimedIndex) continue;\n    const previous = bound.holder;",
     replace:
-      "  for (const binding of event.bindings.slice(0, 1)) await bindWorkflow(db, binding, workflowId);\n  const endedWorkflowId",
+      "    if (index === claimedIndex || true) continue;\n    const previous = bound.holder;",
+  },
+  {
+    id: "R3",
+    invariant: "aDeliveryLeavesTheBindingsOfARunningWorkflow",
+    path: "src/router/deliver.ts",
+    find: "    const previous = bound.holder;",
+    replace: "    const previous = await findBinding(db, bound.binding);",
+  },
+  {
+    id: "R4",
+    invariant: "oneRunningWorkflowHoldsAnIssue",
+    path: "src/agent/tools/start/start.ts",
+    find: "  return claimed ? null : `Another job start claimed ${issue.key} first. Try again.`;",
+    replace:
+      "  return claimed || true ? null : `Another job start claimed ${issue.key} first. Try again.`;",
+  },
+  {
+    id: "R5",
+    invariant: "oneRunningWorkflowHoldsAnIssue (claim count)",
+    path: "src/db/bindings.ts",
+    find: "        eq(bindings.claim_seq, claim.previous.claim_seq),\n",
+    replace: "",
   },
 ];
 

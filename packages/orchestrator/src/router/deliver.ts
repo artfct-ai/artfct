@@ -5,11 +5,11 @@ import type { Delivery, RpcAck, WorkflowStatus } from "@artfct-ai/contracts/type
 import { chat, tracker } from "../clients";
 import { registeredConfig } from "../config/register-config";
 import {
-  bindWorkflow,
   claimBinding,
   deleteBindings,
   findBinding,
   workflowsWithPullsInRepo,
+  type BindingHolder,
 } from "../db/bindings";
 import { createDb, type Database } from "../db/client";
 import { createWorkflow, findWorkflow, setWorkflowStatus } from "../db/workflows";
@@ -19,17 +19,20 @@ import { isWorkflowFinished } from "../workflow/store/state";
 import { NOTHING_TO_JOIN, postStartingThought, postTrackerAck } from "./tracker-ack";
 import { deliverWithChatAck } from "./chat-ack";
 
-/** A binding of an event and the workflow it points at. */
-type BoundBinding = { binding: Binding; workflowId: string | null };
+/** A binding of an event and the holder it had when the route read it. */
+type BoundBinding = { binding: Binding; holder: BindingHolder | null };
 
-/** Where an event goes: to a running workflow, to a new one, or nowhere. */
+/** The first binding of an event whose workflow ended, by its place in the event's bindings. */
+type EndedBinding = { index: number; workflowId: string; status: WorkflowStatus };
+
+/** What a delivery read so far: every binding, and the first one whose workflow ended. */
+type RouteRead = { bound: BoundBinding[]; replaced: EndedBinding | null };
+
+/** Where an event goes: to the running workflow at one of its bindings, to a new one, or nowhere. */
 type Route =
-  | { kind: "join"; workflowId: string }
-  | { kind: "create"; bound: BoundBinding[]; replaced: EndedBinding | null }
+  | ({ kind: "join"; index: number; workflowId: string } & RouteRead)
+  | ({ kind: "create" } & RouteRead)
   | { kind: "drop"; reason: string };
-
-/** A binding that points at a workflow that ended. */
-type EndedBinding = { binding: Binding; workflowId: string; status: WorkflowStatus };
 
 /** Route an event to its workflow, or start the next one, and acknowledge it on its surface. */
 export async function deliver(
@@ -60,18 +63,32 @@ function startingSessionOf(event: InboundEvent, route: Route): string | null {
   return event.kind === "start" || route.kind === "create" ? event.reply_to.session_id : null;
 }
 
-/** Decide where the event goes. */
+/** Read every binding of the event, then decide where it goes. */
 async function routeOf(db: Database, event: InboundEvent): Promise<Route> {
   const bound: BoundBinding[] = [];
   for (const binding of event.bindings) {
-    bound.push({ binding, workflowId: await findBinding(db, binding) });
+    bound.push({ binding, holder: await findBinding(db, binding) });
   }
-  let replaced: EndedBinding | null = null;
-  for (const { binding, workflowId } of bound) {
-    if (!workflowId) continue;
-    const ended = await endedStatus(db, workflowId);
-    if (!ended) return { kind: "join", workflowId };
-    replaced ??= { binding, workflowId, status: ended };
+  return routeFrom(db, event, { bound, replaced: null }, 0);
+}
+
+/**
+ * Decide where the event goes from the binding at `from` on. The first bound workflow that has
+ * not ended is joined. Else a start, or a person's message on a binding whose workflow ended,
+ * starts the next workflow. Every other event is dropped.
+ */
+async function routeFrom(
+  db: Database,
+  event: InboundEvent,
+  read: RouteRead,
+  from: number,
+): Promise<Route> {
+  let { replaced } = read;
+  for (const [index, { holder }] of read.bound.entries()) {
+    if (index < from || !holder) continue;
+    const ended = await endedStatus(db, holder.workflow_id);
+    if (!ended) return { kind: "join", index, workflowId: holder.workflow_id, ...read, replaced };
+    replaced ??= { index, workflowId: holder.workflow_id, status: ended };
   }
   const personWrote = event.kind === "prompt" && event.actor !== null;
   if (event.kind !== "start" && !(replaced && personWrote)) {
@@ -81,7 +98,7 @@ async function routeOf(db: Database, event: InboundEvent): Promise<Route> {
     return { kind: "drop", reason };
   }
   if (!event.actor) return { kind: "drop", reason: "no actor to start a workflow for" };
-  return { kind: "create", bound, replaced };
+  return { kind: "create", bound: read.bound, replaced };
 }
 
 /** Carry the event along its route. */
@@ -95,7 +112,7 @@ async function follow(
     case "drop":
       return { dropped: route.reason };
     case "join":
-      return joinOrHandle(env, db, route.workflowId, event);
+      return joinWorkflow(env, db, event, route);
     case "create":
       return startNextWorkflow(env, db, event, route);
     default: {
@@ -105,7 +122,10 @@ async function follow(
   }
 }
 
-/** Claim the event's binding, then create the next workflow and bind it. */
+/**
+ * Claim the binding whose workflow ended, else the first binding, then create the next workflow.
+ * Each other binding moves to it only if it still has the holder the route read.
+ */
 async function startNextWorkflow(
   env: Env,
   db: Database,
@@ -113,14 +133,21 @@ async function startNextWorkflow(
   route: Extract<Route, { kind: "create" }>,
 ): Promise<Delivery> {
   const workflowId = newWorkflowId();
-  const claimed = route.replaced ?? route.bound[0];
+  const claimedIndex = route.replaced?.index ?? 0;
+  const claimed = route.bound[claimedIndex];
+  const won: BoundBinding[] = [];
   if (claimed) {
-    const previous = claimed.workflowId;
-    const won = await claimBinding(db, claimed.binding, { previous, workflowId });
-    if (!won) return follow(env, db, event, await routeOf(db, event));
+    if (!(await claimBinding(db, claimed.binding, { previous: claimed.holder, workflowId }))) {
+      return follow(env, db, event, await routeOf(db, event));
+    }
+    won.push(claimed);
   }
   await createWorkflow(db, workflowId);
-  for (const binding of event.bindings) await bindWorkflow(db, binding, workflowId);
+  for (const [index, bound] of route.bound.entries()) {
+    if (index === claimedIndex) continue;
+    const previous = bound.holder;
+    if (await claimBinding(db, bound.binding, { previous, workflowId })) won.push(bound);
+  }
   const endedWorkflowId = route.replaced?.workflowId ?? null;
   try {
     const result = await env.Workflow.getByName(workflowId).create(
@@ -130,41 +157,65 @@ async function startNextWorkflow(
     );
     return { workflow_id: workflowId, created: true, result };
   } catch (error) {
-    await abandonWorkflow(db, workflowId, route.bound);
+    await abandonWorkflow(db, workflowId, won);
     throw error;
   }
 }
 
-/** Undo a workflow whose Durable Object never started and point its bindings back. */
+/**
+ * Undo a workflow whose Durable Object never started. The bindings it won go, and each points
+ * back at the workflow it pointed at, unless another delivery bound it since.
+ */
 async function abandonWorkflow(
   db: Database,
   workflowId: string,
-  bound: BoundBinding[],
+  won: BoundBinding[],
 ): Promise<void> {
-  const sources = bound.map(({ binding }) => binding.source);
+  const sources = won.map(({ binding }) => binding.source);
   await deleteBindings(db, workflowId, sources);
-  for (const { binding, workflowId: previous } of bound) {
-    if (previous) await bindWorkflow(db, binding, previous);
+  for (const { binding, holder } of won) {
+    if (holder) await claimBinding(db, binding, { previous: null, workflowId: holder.workflow_id });
   }
   await setWorkflowStatus(db, workflowId, "failed");
 }
 
 /**
- * A start event on a running workflow joins it: every binding the event carries now points
- * at that workflow, and the message is a prompt.
+ * Hand the event to the running workflow. A workflow not created yet refuses it, and the event
+ * is dropped. A workflow that ended refuses a person's message, and the route goes on from the
+ * next binding. A start the workflow took points its unbound bindings, and those whose workflow
+ * ended, at it.
  */
-async function joinOrHandle(
+async function joinWorkflow(
   env: Env,
   db: Database,
-  workflowId: string,
   event: InboundEvent,
+  route: Extract<Route, { kind: "join" }>,
 ): Promise<Delivery> {
+  const { workflowId } = route;
+  const answer = await env.Workflow.getByName(workflowId).handle(event);
+  if ("refused" in answer) {
+    switch (answer.refused) {
+      case "not_created":
+        return { dropped: `workflow ${workflowId} is not created yet` };
+      case "ended": {
+        const ended = { index: route.index, workflowId, status: answer.status };
+        const read = { bound: route.bound, replaced: route.replaced ?? ended };
+        return follow(env, db, event, await routeFrom(db, event, read, route.index + 1));
+      }
+      default: {
+        const unreachable: never = answer;
+        throw new Error(`unhandled refusal ${String(unreachable)}`);
+      }
+    }
+  }
   const joined = event.kind === "start";
   if (joined) {
-    for (const binding of event.bindings) await bindWorkflow(db, binding, workflowId);
+    for (const [index, { binding, holder }] of route.bound.entries()) {
+      const endedOrUnbound = index < route.index || holder === null;
+      if (endedOrUnbound) await claimBinding(db, binding, { previous: holder, workflowId });
+    }
   }
-  const result = await env.Workflow.getByName(workflowId).handle(event);
-  return { workflow_id: workflowId, created: false, joined, result };
+  return { workflow_id: workflowId, created: false, joined, result: answer };
 }
 
 /** The status a bound workflow ended with, or null while it runs. */
@@ -184,7 +235,8 @@ async function fanOutBaseMoved(
   const results: RpcAck[] = [];
   for (const workflowId of workflowIds) {
     const perWorkflow: InboundEvent = { ...event, id: `${event.id}:${workflowId}`, pull: detail };
-    results.push(await env.Workflow.getByName(workflowId).handle(perWorkflow));
+    const answer = await env.Workflow.getByName(workflowId).handle(perWorkflow);
+    if (!("refused" in answer)) results.push(answer);
   }
   return { fanned_out: workflowIds.length, results };
 }

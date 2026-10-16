@@ -63,7 +63,7 @@ import {
 } from "./workflow/task/harness/bridge";
 import { onFlushBoard, type BoardAlarm } from "./workflow/board/board";
 import { openWorkflowDb } from "./workflow/store/db";
-import { createWorkflow, handleEvent } from "./workflow/inbound/events";
+import { createWorkflow, eventRefusalOf, handleEvent } from "./workflow/inbound/events";
 import { onIdle } from "./workflow/lifecycle";
 import type { ChecksAlarm } from "./workflow/refiner/checks-gate";
 import { recheckChecks } from "./workflow/refiner/checks-recheck";
@@ -76,7 +76,13 @@ import {
 } from "./workflow/task/model-turn";
 import { TurnCoalescer } from "./workflow/task/harness/turn";
 import type { JobInput } from "./workflow/lifecycle";
-import type { ScheduledMethod, Wake, WorkflowRpc, WorkflowRuntime } from "./workflow/types";
+import type {
+  EventRefusal,
+  ScheduledMethod,
+  Wake,
+  WorkflowRpc,
+  WorkflowRuntime,
+} from "./workflow/types";
 import {
   initialWorkflowState,
   isWorkflowFinished,
@@ -203,8 +209,10 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     return createWorkflow(this, { workflowId, event, endedWorkflowId });
   }
 
-  async handle(event: InboundEvent): Promise<RpcAck> {
+  async handle(event: InboundEvent): Promise<RpcAck | EventRefusal> {
     await this.lifecycle.start();
+    const refusal = eventRefusalOf(this, event);
+    if (refusal) return refusal;
     return this.inSpan(`event ${event.kind}`, null, () => handleEvent(this, event));
   }
 

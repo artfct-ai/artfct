@@ -23,7 +23,7 @@ export const ALLOWED_WORDS: AllowedWord[] = [
   { word: "board", paths: "everywhere", reason: "board is its own glossary term." },
   { word: "summary", paths: "everywhere", reason: "Step, page review, and digest summaries." },
   { word: "bridge", paths: "everywhere", reason: "The sandbox bridge process." },
-  { word: "binding", paths: "everywhere", reason: "binding is its own router term." },
+  { word: "binding", paths: "everywhere", reason: "binding is its own glossary term." },
   {
     word: "scope",
     paths: "everywhere",

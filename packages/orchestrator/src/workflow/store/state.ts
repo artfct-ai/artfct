@@ -104,9 +104,12 @@ export function workflowName(state: { name?: string; request: RequestText }): st
   return state.name || state.request.title || firstLine(state.request.text);
 }
 
+/** Workflow statuses a workflow never leaves. */
+export const FINISHED_WORKFLOW_STATUSES: WorkflowStatus[] = ["done", "cancelled", "failed"];
+
 /** True when the workflow ended. It stays ended: every later event gets the finished reply or is dropped. */
 export function isWorkflowFinished(status: WorkflowStatus): boolean {
-  return status === "done" || status === "cancelled" || status === "failed";
+  return FINISHED_WORKFLOW_STATUSES.includes(status);
 }
 
 /** Task statuses that accept no more prompts. */

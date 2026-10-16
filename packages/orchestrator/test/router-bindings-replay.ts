@@ -9,7 +9,7 @@ import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 import type { TrackerIssue } from "@artfct-ai/adapters/tracker/types";
 import type { Actor, InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { Binding } from "@artfct-ai/contracts/sources";
-import type { WorkflowStatus } from "@artfct-ai/contracts/types";
+import type { Delivery, WorkflowStatus } from "@artfct-ai/contracts/types";
 import {
   startTools,
   validateInputNotHeld,
@@ -19,6 +19,7 @@ import type { ArtifactTarget } from "../src/artifact/types";
 import type { Env } from "../src/env";
 import { deliver } from "../src/router/deliver";
 import { recordArtifact } from "../src/workflow/artifact";
+import { eventRefusalOf } from "../src/workflow/inbound/events";
 import { failWorkflow, type JobInput } from "../src/workflow/lifecycle";
 import { isWorkflowFinished } from "../src/workflow/store/state";
 import { FakeRuntime, seedTask } from "./fake-runtime";
@@ -57,6 +58,9 @@ const EVENT_KINDS = ["Start", "PersonsMessage", "OtherEvent"] as const;
 
 type EventKindName = (typeof EVENT_KINDS)[number];
 
+/** Work a workflow does against the router's tables: its end, a job start on the issue, or a pull request it records. */
+export type WorkflowWork = "end" | "job_on_issue" | "pull_request";
+
 /** What the Durable Object of one workflow knows, as the spec sees it. */
 export type ObjectView = {
   created: boolean;
@@ -66,12 +70,15 @@ export type ObjectView = {
   unbound: boolean;
 };
 
+/** The workflow a binding points at, and how many claims moved it there. */
+export type HolderView = { workflow: number; claims: number };
+
 /**
  * The router's tables, the Durable Objects, and the call each delivery and workflow operation
  * waits on. Workflows are numbered in the order the router first named them.
  */
 export type RouterView = {
-  bindings: Partial<Record<KeyName, number>>;
+  bindings: Partial<Record<KeyName, HolderView>>;
   rows: Record<number, "Live" | "Ended">;
   objects: Record<number, ObjectView>;
   calls: Record<string, string>;
@@ -177,8 +184,8 @@ type SpecDelivery = {
 
 function specView(world: unknown): RouterView {
   const bindings: RouterView["bindings"] = {};
-  for (const [key, workflow] of entries(field(world, "bindings"))) {
-    bindings[oneOf(variant(key)!.tag, KEYS)] = int(workflow);
+  for (const [key, holder] of entries(field(world, "bindings"))) {
+    bindings[oneOf(variant(key)!.tag, KEYS)] = specHolder(holder);
   }
   const rows: RouterView["rows"] = {};
   for (const [workflow, status] of entries(field(world, "rows"))) {
@@ -208,6 +215,10 @@ function specView(world: unknown): RouterView {
   return { bindings, rows, objects, calls };
 }
 
+function specHolder(holder: unknown): HolderView {
+  return { workflow: int(field(holder, "workflow")), claims: int(field(holder, "claims")) };
+}
+
 function specDelivery(delivery: unknown): SpecDelivery {
   const target = variant(field(delivery, "target"))!;
   return {
@@ -215,7 +226,7 @@ function specDelivery(delivery: unknown): SpecDelivery {
     phase: variant(field(delivery, "phase"))!.tag,
     found: list(field(delivery, "found")).map((bound) => {
       const found = variant(bound)!;
-      return found.tag === "BoundTo" ? int(found.value) : null;
+      return found.tag === "BoundTo" ? specHolder(found.value).workflow : null;
     }),
     index: int(field(delivery, "index")),
     target: target.tag === "TargetWorkflow" ? int(target.value) : null,
@@ -237,12 +248,12 @@ function deliveryCall(delivery: SpecDelivery): string {
       return `FindBinding(${keys[delivery.found.length]})`;
     case "Checking":
       return `FindWorkflow(${delivery.found[delivery.index]})`;
-    case "Rebinding":
-    case "Binding":
-      return `BindWorkflow(${key}, ${delivery.target})`;
     case "Handling":
       return `HandleEvent(${delivery.target})`;
+    case "Rebinding":
     case "Claiming":
+    case "Binding":
+    case "Restoring":
       return `ClaimBinding(${key})`;
     case "Inserting":
       return `InsertWorkflow(${delivery.target})`;
@@ -250,8 +261,6 @@ function deliveryCall(delivery: SpecDelivery): string {
       return `CreateWorkflow(${delivery.target})`;
     case "Unbinding":
       return `DeleteBindings(${delivery.target})`;
-    case "Restoring":
-      return `BindWorkflow(${key}, ${delivery.found[delivery.index]})`;
     case "MarkingFailed":
       return `SetStatus(${delivery.target})`;
     default:
@@ -269,9 +278,9 @@ function operationCall(workflow: number, phase: unknown): string {
     case "JobReadsIssueOwner":
       return "FindBinding(Issue)";
     case "JobAsksIssueOwner":
-      return `HeldInput(${int(named.value)})`;
-    case "JobBindsIssue":
-      return `BindWorkflow(Issue, ${workflow})`;
+      return `HeldInput(${specHolder(named.value).workflow})`;
+    case "JobClaimsIssue":
+      return "ClaimBinding(Issue)";
     case "PullBinds":
       return `BindWorkflow(Pull, ${workflow})`;
     default:
@@ -499,6 +508,7 @@ export class RouterBindingsReplay {
   private readonly sqlite = migratedD1Database();
   private readonly runtimes = new Map<string, FakeRuntime>();
   private readonly unbound = new Set<string>();
+  private readonly delivered = new Map<string, Delivery>();
   private readonly workflowIds: string[] = [];
   private readonly env: Env;
   private nextDelivery = 0;
@@ -510,9 +520,15 @@ export class RouterBindingsReplay {
       getByName: (name: string) => ({
         create: () =>
           this.gate.hold(`CreateWorkflow(${this.specIdOf(name)})`, () => this.createRuntime(name)),
-        handle: () => this.gate.hold(`HandleEvent(${this.specIdOf(name)})`, () => ({ ok: true })),
+        handle: (event: InboundEvent) =>
+          this.gate.hold(
+            `HandleEvent(${this.specIdOf(name)})`,
+            () => eventRefusalOf(this.runtimeOf(name), event) ?? { ok: true },
+          ),
         heldInput: (input: JobInput) =>
-          this.gate.hold(`HeldInput(${this.specIdOf(name)})`, () => this.heldInputOf(name, input)),
+          this.gate.hold(`HeldInput(${this.specIdOf(name)})`, () =>
+            validateInputNotHeld(this.runtimeOf(name), input),
+          ),
       }),
     };
     this.env = { ...testEnv(), DB: this.gatedD1(), Workflow: namespace as Env["Workflow"] };
@@ -523,30 +539,25 @@ export class RouterBindingsReplay {
     const { picks } = step;
     switch (step.action) {
       case "eventArrives":
-        return this.eventArrives(required(picks.surface, "surface"), required(picks.kind, "kind"));
+        await this.arrive(required(picks.surface, "surface"), required(picks.kind, "kind"));
+        return;
       case "deliveryResumes":
         return this.gate.land(`d${required(picks.delivery, "delivery")}`);
       case "workflowCreateReturns":
         return this.gate.land(`d${required(picks.delivery, "delivery")}`);
       case "workflowCreateFails":
-        return this.gate.fail(
-          `d${required(picks.delivery, "delivery")}`,
-          new Error("Durable Object reset"),
-        );
+        return this.failCreate(`d${required(picks.delivery, "delivery")}`);
       case "workflowCallReturns":
         return this.gate.land(`o${required(picks.operation, "operation")}`);
       case "workflowEnds":
-        return this.startOperation(required(picks.workflow, "workflow"), (runtime) =>
-          this.endWorkflow(runtime),
-        );
+        await this.startWork(required(picks.workflow, "workflow"), "end");
+        return;
       case "workflowStartsAJobOnTheIssue":
-        return this.startOperation(required(picks.workflow, "workflow"), (runtime) =>
-          this.startJobOnTheIssue(runtime),
-        );
+        await this.startWork(required(picks.workflow, "workflow"), "job_on_issue");
+        return;
       case "workflowOpensThePullRequest":
-        return this.startOperation(required(picks.workflow, "workflow"), (runtime) =>
-          this.openPullRequest(runtime),
-        );
+        await this.startWork(required(picks.workflow, "workflow"), "pull_request");
+        return;
       default:
         throw new Error(`no replay for spec action ${step.action}`);
     }
@@ -556,12 +567,12 @@ export class RouterBindingsReplay {
   project(): RouterView {
     const bindings: RouterView["bindings"] = {};
     for (const row of this.sqlite
-      .query("select source, external_id, workflow_id from bindings")
+      .query("select source, external_id, workflow_id, claim_seq from bindings")
       .all()) {
       const binding = bindingRow(row);
       const key = BINDING_KEYS[`${binding.source}:${binding.external_id}`];
       if (!key) throw new Error(`the router bound ${binding.source} ${binding.external_id}`);
-      bindings[key] = this.specIdOf(binding.workflow_id);
+      bindings[key] = { workflow: this.specIdOf(binding.workflow_id), claims: binding.claim_seq };
     }
     const rows: RouterView["rows"] = {};
     for (const row of this.sqlite.query("select workflow_id, status from workflows").all()) {
@@ -572,6 +583,7 @@ export class RouterBindingsReplay {
     }
     const objects: RouterView["objects"] = {};
     for (const [name, runtime] of this.runtimes) {
+      if (!runtime.state.created_at) continue;
       const view: ObjectView = {
         created: true,
         ended: isWorkflowFinished(runtime.state.status),
@@ -593,7 +605,8 @@ export class RouterBindingsReplay {
     }
   }
 
-  private async eventArrives(surface: SurfaceName, kind: EventKindName): Promise<void> {
+  /** An event arrives from a surface. Answers the name of its delivery. */
+  async arrive(surface: SurfaceName, kind: EventKindName): Promise<string> {
     this.nextEvent += 1;
     const event: InboundEvent = {
       id: `evt-${this.nextEvent}`,
@@ -604,19 +617,60 @@ export class RouterBindingsReplay {
     };
     const name = `d${this.nextDelivery}`;
     this.nextDelivery += 1;
-    await this.gate.start(name, () => deliver(this.env, event, null));
+    await this.gate.start(name, async () => {
+      this.delivered.set(name, await deliver(this.env, event, null));
+    });
+    return name;
+  }
+
+  /** A created workflow starts work on the router's tables. Answers the name of its operation. */
+  async startWork(workflow: number, work: WorkflowWork): Promise<string> {
+    switch (work) {
+      case "end":
+        return this.startOperation(workflow, (runtime) => this.endWorkflow(runtime));
+      case "job_on_issue":
+        return this.startOperation(workflow, (runtime) => this.startJobOnTheIssue(runtime));
+      case "pull_request":
+        return this.startOperation(workflow, (runtime) => this.openPullRequest(runtime));
+      default: {
+        const unreachable: never = work;
+        throw new Error(`unhandled work ${String(unreachable)}`);
+      }
+    }
+  }
+
+  /** Land the calls of one caller until it waits on a call `stop` accepts, or it finishes. */
+  async landUntil(caller: string, stop: (call: string) => boolean): Promise<void> {
+    let waiting = this.gate.calls()[caller];
+    while (waiting && !stop(waiting)) {
+      await this.gate.land(caller);
+      waiting = this.gate.calls()[caller];
+    }
+  }
+
+  /** Throw from the Durable Object create a delivery waits on. */
+  async failCreate(delivery: string): Promise<void> {
+    await this.gate.fail(delivery, new Error("Durable Object reset"));
+  }
+
+  /** What a finished delivery answered, or undefined while it runs or after it threw. */
+  deliveryOf(delivery: string): Delivery | undefined {
+    return this.delivered.get(delivery);
   }
 
   private async startOperation(
     workflow: number,
     run: (runtime: FakeRuntime) => Promise<unknown>,
-  ): Promise<void> {
+  ): Promise<string> {
     const name = this.workflowIds[workflow];
     const runtime = name ? this.runtimes.get(name) : undefined;
-    if (!name || !runtime) throw new Error(`workflow ${workflow} has no Durable Object`);
+    if (!name || !runtime?.state.created_at) {
+      throw new Error(`workflow ${workflow} has no created Durable Object`);
+    }
     const operation = `o${this.nextOperation}`;
     this.nextOperation += 1;
     await this.gate.start(operation, () => run(runtime));
+    return operation;
   }
 
   private async endWorkflow(runtime: FakeRuntime): Promise<void> {
@@ -641,20 +695,23 @@ export class RouterBindingsReplay {
   }
 
   private createRuntime(name: string): { ok: true } {
-    const runtime = new FakeRuntime(openMemoryDb(), this.env);
-    runtime.patchState({
-      workflow_id: name,
+    this.runtimeOf(name).patchState({
       subject: { kind: "issue", issue_id: ISSUE.id },
       concurrency: 2,
+      created_at: new Date().toISOString(),
     });
-    runtime.trackerInstance = new FakeTracker({ issues: [ISSUE] });
-    this.runtimes.set(name, runtime);
     return { ok: true };
   }
 
-  private heldInputOf(name: string, input: JobInput): Promise<string | null> | null {
-    const runtime = this.runtimes.get(name);
-    return runtime ? validateInputNotHeld(runtime, input) : null;
+  /** The Durable Object of a workflow. It exists, not yet created, from the first call on it. */
+  private runtimeOf(name: string): FakeRuntime {
+    const known = this.runtimes.get(name);
+    if (known) return known;
+    const runtime = new FakeRuntime(openMemoryDb(), this.env);
+    runtime.patchState({ workflow_id: name });
+    runtime.trackerInstance = new FakeTracker({ issues: [ISSUE] });
+    this.runtimes.set(name, runtime);
+    return runtime;
   }
 
   private specIdOf(workflowId: string): number {
@@ -697,14 +754,14 @@ export class RouterBindingsReplay {
     const ids = params
       .filter((param): param is string => typeof param === "string" && param.startsWith("wf_"))
       .map((workflowId) => this.specIdOf(workflowId));
-    if (sql.startsWith('select "workflow_id" from "bindings"'))
+    if (sql.startsWith('select "workflow_id", "claim_seq" from "bindings"'))
       return `FindBinding(${bindingKeyOf(params)})`;
     if (/^select .* from "workflows"/.test(sql)) return `FindWorkflow(${ids[0]})`;
     if (sql.startsWith('insert into "bindings"') && sql.includes("do nothing")) {
       return `ClaimBinding(${bindingKeyOf(params)})`;
     }
     if (sql.startsWith('update "bindings"'))
-      return `ClaimBinding(${bindingKeyOf(params.slice(2))})`;
+      return `ClaimBinding(${bindingKeyOf(params.slice(3))})`;
     if (sql.startsWith('insert into "bindings"'))
       return `BindWorkflow(${bindingKeyOf(params)}, ${ids[0]})`;
     if (sql.startsWith('insert into "workflows"')) return `InsertWorkflow(${ids[0]})`;
@@ -762,11 +819,19 @@ function sqliteParams(params: unknown[]): SqliteParam[] {
   });
 }
 
-function bindingRow(row: unknown): { source: string; external_id: string; workflow_id: string } {
+function bindingRow(row: unknown): {
+  source: string;
+  external_id: string;
+  workflow_id: string;
+  claim_seq: number;
+} {
+  const claims = field(row, "claim_seq");
+  if (typeof claims !== "number") throw new Error(`the binding has ${String(claims)} claims`);
   return {
     source: text(field(row, "source")),
     external_id: text(field(row, "external_id")),
     workflow_id: text(field(row, "workflow_id")),
+    claim_seq: claims,
   };
 }
 

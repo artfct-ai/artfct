@@ -3,6 +3,7 @@ import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 import { describe, expect, it } from "vitest";
 import { listBindings } from "../db/bindings";
 import { createDb } from "../db/client";
+import { createWorkflow } from "../db/workflows";
 import { type FakeRuntime, seedTask } from "../../test/fake-runtime";
 import { testNotifier } from "../../test/notifier-fixture";
 import { freshDurableRuntime } from "../../test/durable-runtime";
@@ -288,12 +289,13 @@ describe("cancelTask and failTask", () => {
 
 describe("startJob", () => {
   describe("a stage the config names", () => {
-    const started = acting((workflow) => {
+    const started = acting(async (workflow) => {
       planned(workflow);
       workflow.patchState({
         repo: { full: "acme/app" },
         request: { title: "Fix it", text: "Fix it please", links: [] },
       });
+      await createWorkflow(db, workflow.state.workflow_id);
       return startJob(workflow, {
         stage: "implement",
         brief: "Make the test pass.",

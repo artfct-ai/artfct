@@ -11,7 +11,7 @@ import type { TurnDecisions } from "../../../decisions/ask";
 import { humansAccepted } from "./humans-accepted";
 import { GATEWAY_HARNESS, type RuntimeRequest } from "../../message/requested-runtime";
 import { humansSelected } from "./humans-selected";
-import { findBinding } from "../../../db/bindings";
+import { claimBinding, findBinding } from "../../../db/bindings";
 import { createDb } from "../../../db/client";
 import {
   cancelTask,
@@ -279,16 +279,25 @@ export async function validateInputNotHeld(
   return validateInputNotInWork(workflow, input) ?? validateEarlierOutputRemoved(workflow, input);
 }
 
-/** Validate that another workflow does not still hold the issue. That workflow decides. */
-async function validateIssueNotHeldElsewhere(
+/**
+ * Point the issue's binding at this workflow, unless another workflow holds the issue. That
+ * workflow decides. The claim fails when another claim moved the binding since it was read.
+ */
+async function claimIssueBinding(
   workflow: WorkflowRuntime,
   issue: JobIssue,
 ): Promise<string | null> {
+  const db = createDb(workflow.env.DB);
   const binding = { source: "tracker_issue" as const, external_id: issue.id };
-  const owner = await findBinding(createDb(workflow.env.DB), binding);
-  if (!owner || owner === workflow.state.workflow_id) return null;
-  const held = await workflow.env.Workflow.getByName(owner).heldInput({ kind: "issue", issue });
-  return held ? `Workflow ${owner} holds ${issue.key}. ${held}` : null;
+  const holder = await findBinding(db, binding);
+  const { workflow_id: workflowId } = workflow.state;
+  if (holder && holder.workflow_id !== workflowId) {
+    const owner = workflow.env.Workflow.getByName(holder.workflow_id);
+    const held = await owner.heldInput({ kind: "issue", issue });
+    if (held) return `Workflow ${holder.workflow_id} holds ${issue.key}. ${held}`;
+  }
+  const claimed = await claimBinding(db, binding, { previous: holder, workflowId });
+  return claimed ? null : `Another job start claimed ${issue.key} first. Try again.`;
 }
 
 async function removedOnHost(workflow: WorkflowRuntime, artifact: ArtifactRow): Promise<boolean> {
@@ -455,7 +464,7 @@ async function start(
   const target = input.artifact ? await resolveTarget(workflow, input.artifact) : null;
   if (typeof target === "string") return target;
   const jobInput = jobInputFor(workflow, { issue, target }, requestText);
-  const elsewhere = issue ? await validateIssueNotHeldElsewhere(workflow, issue) : null;
+  const elsewhere = issue ? await claimIssueBinding(workflow, issue) : null;
   if (elsewhere) return elsewhere;
   const held = await validateInputNotHeld(workflow, jobInput);
   if (held) return held;

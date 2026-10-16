@@ -10,7 +10,12 @@ import type { WorkflowDefinition } from "../config/workflow-definition";
 import type { GatewayProvider } from "../config/gateway";
 import type { McpCapability } from "../config/adapters";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
-import type { ArtifactKind, RpcAck, WorkflowSummary } from "@artfct-ai/contracts/types";
+import type {
+  ArtifactKind,
+  RpcAck,
+  WorkflowStatus,
+  WorkflowSummary,
+} from "@artfct-ai/contracts/types";
 import type { Artifact } from "../artifact/types";
 import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { ResolvedStage } from "../config/stage";
@@ -141,11 +146,17 @@ export interface WorkflowRuntime {
   now(): number;
 }
 
+/** Why a workflow did not take an event the router handed it: it is not created yet, or it ended. */
+export type EventRefusal =
+  | { refused: "not_created" }
+  | { refused: "ended"; status: WorkflowStatus };
+
 /** The RPC surface of the Workflow Durable Object. The orchestrator entrypoint calls it. */
 export interface WorkflowRpc {
   /** Start the workflow from its first event and the ended workflow it follows. */
   create(workflowId: string, event: InboundEvent, endedWorkflowId: string | null): Promise<RpcAck>;
-  handle(event: InboundEvent): Promise<RpcAck>;
+  /** Take a later event, or refuse it so the router routes it elsewhere. */
+  handle(event: InboundEvent): Promise<RpcAck | EventRefusal>;
   status(): Promise<WorkflowSummary>;
   debug(): Promise<unknown>;
   /** Why this workflow still holds an input artifact, for a workflow that wants to start a job on it. */
