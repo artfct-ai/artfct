@@ -104,6 +104,8 @@ Every change is specified before it is built. The spec is the glossary and the i
 - Write a before-and-after rule as a pure def over one step, the state before and after it and the kind of step. Each step records whether it kept each rule in a record variable, and the invariant reads that field. Do not store the state before the step.
 - Record a witness that needs the step in its own record variable, and list that variable under `tlc.ignoredVariables`. TLC then leaves it out of a state.
 - Avoid a range whose length depends on the state, such as the jobs so far. Range over the constant cap and filter, so Apalache can translate the spec for TLC.
+- Run quint locally through the check-spec script, which runs every invariant in one run on the Rust backend. Use small sample counts while you iterate and the CI counts once before you push.
+- Run at most two heavy processes at a time, such as quint, TLC, a replay, or a property test.
 
 ## Code style
 
