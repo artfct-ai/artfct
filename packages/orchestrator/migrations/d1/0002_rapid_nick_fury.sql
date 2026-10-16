@@ -1,1 +1,0 @@
-ALTER TABLE `bindings` ADD `claim_seq` integer DEFAULT 0 NOT NULL;

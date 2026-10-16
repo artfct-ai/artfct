@@ -1,7 +1,7 @@
 /// How the router binds chat, tracker and code host events to workflows, and how a workflow's own
 /// binding writes race with it.
-/// Each action is one stretch of code between two awaits. A D1 statement, a Durable Object create
-/// or handle, and a held input question each end a stretch. The statement lands when the next
+/// Each action is one stretch of code between two awaits. A D1 statement and a Durable Object
+/// create or handle each end a stretch. The statement lands when the next
 /// stretch of its caller runs. An await that does not touch the router's tables or another
 /// workflow, such as a tracker read, stays inside its stretch.
 module routerBindingsTypes {
@@ -18,11 +18,8 @@ module routerBindingsTypes {
   /// A start and a person's message come from a person. Every other event does not.
   type EventKind = Start | PersonsMessage | OtherEvent
 
-  /// The workflow a binding points at, and how many claims moved it there since it was inserted.
-  type Holder = { workflow: int, claims: int }
-
-  /// What one binding pointed at when a delivery or a job start read it.
-  type Bound = Unbound | BoundTo(Holder)
+  /// What one binding pointed at when a delivery or a job start read it: no workflow, or one workflow.
+  type Bound = Unbound | BoundTo(int)
 
   /// The status of a workflow row in D1. A missing row reads as not ended.
   type RowStatus = Live | Ended
@@ -38,7 +35,6 @@ module routerBindingsTypes {
     | SetStatus(int)
     | CreateWorkflow(int)
     | HandleEvent(int)
-    | HeldInput(int)
 
   /// Where a delivery stands: reading the route, joining a running workflow, or starting the next one.
   type DeliveryPhase =
@@ -60,7 +56,7 @@ module routerBindingsTypes {
   /// The first binding whose workflow ended, by its place in the event's bindings.
   type Replaced = NothingReplaced | ReplacedAt(int)
 
-  /// One event in the router. `found` holds what each binding pointed at when the route was read.
+  /// One event in the router. `found` is what each binding pointed at when the route was read.
   /// `joined` is the place of the binding whose workflow the delivery joins. `won` lists the
   /// places of the bindings a new workflow claimed, in the order it claimed them.
   type Delivery = {
@@ -79,27 +75,27 @@ module routerBindingsTypes {
   type OperationPhase =
     | EndWritesStatus
     | EndUnbindsCodeHost
-    | JobReadsIssueOwner
-    | JobAsksIssueOwner(Holder)
-    | JobClaimsIssue(Bound)
+    | JobReadsIssueBinding
+    | JobReadsBoundWorkflow(int)
+    | JobBindsIssue(Bound)
     | PullBinds
 
   /// One stretch of work a workflow does against the router's tables.
   type WorkflowOperation = { workflow: int, phase: OperationPhase }
 
-  /// What the Durable Object of one workflow knows. `unbound` is true once its end removed its
-  /// code host bindings.
+  /// What the Durable Object of one workflow knows. `hasIssueJob` is true while it has an
+  /// unfinished job on the issue. `unbound` is true once its end removed its code host bindings.
   type WorkflowObject = {
     created: bool,
     ended: bool,
-    holdsIssue: bool,
+    hasIssueJob: bool,
     openedPull: bool,
     unbound: bool,
   }
 
   /// The router's tables, the Durable Objects, and every delivery and workflow operation in flight.
   type World = {
-    bindings: Key -> Holder,
+    bindings: Key -> int,
     rows: int -> RowStatus,
     objects: int -> WorkflowObject,
     deliveries: int -> Delivery,
@@ -152,7 +148,7 @@ module routerBindings {
   pure val CODE_SOURCES: Set[Source] = Set(CodePull)
 
   pure val NEW_OBJECT: WorkflowObject =
-    { created: false, ended: false, holdsIssue: false, openedPull: false, unbound: false }
+    { created: false, ended: false, hasIssueJob: false, openedPull: false, unbound: false }
 
   pure val EMPTY_BATCH: Batch = {
     open: false,
@@ -218,7 +214,7 @@ module routerBindings {
 
   pure def isBound(bound: Bound): bool = bound != Unbound
 
-  pure def workflowOf(bound: Bound): int = match bound { | BoundTo(holder) => holder.workflow | Unbound => -1 }
+  pure def workflowOf(bound: Bound): int = match bound { | BoundTo(workflow) => workflow | Unbound => -1 }
 
   pure def targetOf(delivery: Delivery): int = match delivery.target { | TargetWorkflow(workflow) => workflow | NoTarget => -1 }
 
@@ -245,30 +241,23 @@ module routerBindings {
   pure def withObject(state: World, workflow: int, change: WorkflowObject => WorkflowObject): World =
     { ...state, objects: state.objects.put(workflow, change(objectOf(state, workflow))) }
 
-  /// A claim points the binding at `workflow` only if it still has the holder the claimer read.
-  /// It counts one more claim than that holder. A claim on a binding read as unbound inserts it.
+  /// A claim points the binding at `workflow` only if it still points where the claimer read it.
+  /// A claim on a binding read as unbound inserts it.
   pure def claimWins(state: World, key: Key, previous: Bound): bool = boundOf(state, key) == previous
 
-  pure def claim(state: World, key: Key, previous: Bound, workflow: int): World = {
-    val claims = match previous { | BoundTo(holder) => holder.claims + 1 | Unbound => 0 }
-    if (claimWins(state, key, previous))
-      { ...state, bindings: state.bindings.put(key, { workflow: workflow, claims: claims }) }
+  pure def claim(state: World, key: Key, previous: Bound, workflow: int): World =
+    if (claimWins(state, key, previous)) { ...state, bindings: state.bindings.put(key, workflow) }
     else state
-  }
 
-  /// A workflow's own binding write points the binding at it while its row has not ended. A
-  /// move to another workflow counts as a claim.
-  pure def bindWhileLive(state: World, key: Key, workflow: int): World = {
-    val claims = match boundOf(state, key) { | BoundTo(holder) => holder.claims + 1 | Unbound => 0 }
-    if (rowLive(state, workflow))
-      { ...state, bindings: state.bindings.put(key, { workflow: workflow, claims: claims }) }
+  /// A workflow's own binding write points the binding at it while its row has not ended.
+  pure def bindWhileLive(state: World, key: Key, workflow: int): World =
+    if (rowLive(state, workflow)) { ...state, bindings: state.bindings.put(key, workflow) }
     else state
-  }
 
   pure def unbind(state: World, workflow: int, sources: Set[Source]): World = {
     ...state,
     bindings: state.bindings.keys()
-      .filter(key => not(state.bindings.get(key).workflow == workflow and sources.contains(sourceOf(key))))
+      .filter(key => not(state.bindings.get(key) == workflow and sources.contains(sourceOf(key))))
       .mapBy(key => state.bindings.get(key)),
   }
 
@@ -304,9 +293,9 @@ module routerBindings {
   pure def operationCallOf(operation: WorkflowOperation): Call = match operation.phase {
     | EndWritesStatus => SetStatus(operation.workflow)
     | EndUnbindsCodeHost => DeleteBindings(operation.workflow)
-    | JobReadsIssueOwner => FindBinding(Issue)
-    | JobAsksIssueOwner(owner) => HeldInput(owner.workflow)
-    | JobClaimsIssue(_) => ClaimBinding(Issue)
+    | JobReadsIssueBinding => FindBinding(Issue)
+    | JobReadsBoundWorkflow(bound) => FindWorkflow(bound)
+    | JobBindsIssue(_) => ClaimBinding(Issue)
     | PullBinds => BindWorkflow({ key: Pull, workflow: operation.workflow })
   }
 
@@ -348,7 +337,7 @@ module routerBindings {
     }
   }
 
-  /// A start the joined workflow took claims, from `from`, each binding that was unbound or whose
+  /// A start the joined workflow took points at it, from `from`, each binding that was unbound or whose
   /// workflow ended when the route read it.
   pure def rebindFrom(state: World, id: int, delivery: Delivery, from: int): World = {
     val left = delivery.found.indices().filter(index =>
@@ -460,15 +449,17 @@ module routerBindings {
   pure def createFailed(state: World, id: int): World =
     withDelivery(state, id, { ...state.deliveries.get(id), phase: Unbinding })
 
-  /// The job start claims the issue's binding against the holder it read. A lost claim refuses
-  /// the job. A workflow that ended while the job start waited refuses it too.
-  pure def afterIssueClaim(state: World, id: int, workflow: int, previous: Bound): World =
+  /// The job start records its job on the issue. A workflow that ended while the job start
+  /// waited refuses it.
+  pure def recordIssueJob(state: World, id: int, workflow: int): World =
+    if (objectOf(state, workflow).ended) finishOperation(state, id)
+    else finishOperation(withObject(state, workflow, object => { ...object, hasIssueJob: true }), id)
+
+  /// The job start points the issue's binding at its workflow if the binding still points where
+  /// the job start read it. Otherwise it refuses the job.
+  pure def afterIssueBind(state: World, id: int, workflow: int, previous: Bound): World =
     if (not(claimWins(state, Issue, previous))) finishOperation(state, id)
-    else {
-      val claimed = claim(state, Issue, previous, workflow)
-      if (objectOf(state, workflow).ended) finishOperation(claimed, id)
-      else finishOperation(withObject(claimed, workflow, object => { ...object, holdsIssue: true }), id)
-    }
+    else recordIssueJob(claim(state, Issue, previous, workflow), id, workflow)
 
   /// A workflow's own call returns, and its operation runs to its next call or its end.
   pure def resumeOperation(state: World, id: int): World = {
@@ -480,24 +471,24 @@ module routerBindings {
           val unbound = withObject(unbind(state, workflow, CODE_SOURCES), workflow, object => { ...object, unbound: true })
           finishOperation(unbound, id)
         }
-      | JobReadsIssueOwner => match boundOf(state, Issue) {
-          | BoundTo(owner) =>
-              if (owner.workflow == workflow) withOperation(state, id, JobClaimsIssue(BoundTo(owner)))
-              else withOperation(state, id, JobAsksIssueOwner(owner))
-          | Unbound => withOperation(state, id, JobClaimsIssue(Unbound))
+      | JobReadsIssueBinding => match boundOf(state, Issue) {
+          | BoundTo(bound) =>
+              if (bound == workflow) recordIssueJob(state, id, workflow)
+              else withOperation(state, id, JobReadsBoundWorkflow(bound))
+          | Unbound => withOperation(state, id, JobBindsIssue(Unbound))
         }
-      | JobAsksIssueOwner(owner) =>
-          if (objectOf(state, owner.workflow).holdsIssue) finishOperation(state, id)
-          else withOperation(state, id, JobClaimsIssue(BoundTo(owner)))
-      | JobClaimsIssue(previous) => afterIssueClaim(state, id, workflow, previous)
+      | JobReadsBoundWorkflow(bound) =>
+          if (rowEnded(state, bound)) withOperation(state, id, JobBindsIssue(BoundTo(bound)))
+          else finishOperation(state, id)
+      | JobBindsIssue(previous) => afterIssueBind(state, id, workflow, previous)
       | PullBinds => finishOperation(bindWhileLive(state, Pull, workflow), id)
     }
   }
 
   pure def isJobStart(phase: OperationPhase): bool = match phase {
-    | JobReadsIssueOwner => true
-    | JobAsksIssueOwner(_) => true
-    | JobClaimsIssue(_) => true
+    | JobReadsIssueBinding => true
+    | JobReadsBoundWorkflow(_) => true
+    | JobBindsIssue(_) => true
     | _ => false
   }
 
@@ -518,10 +509,10 @@ module routerBindings {
   pure def movedFromRunning(before: World, after: World): Set[{ key: Key, from: int }] =
     before.bindings.keys()
       .filter(key => {
-        val holder = before.bindings.get(key)
-        isRunning(before, holder.workflow) and workflowOf(boundOf(after, key)) != holder.workflow
+        val bound = before.bindings.get(key)
+        isRunning(before, bound) and workflowOf(boundOf(after, key)) != bound
       })
-      .map(key => { key: key, from: before.bindings.get(key).workflow })
+      .map(key => { key: key, from: before.bindings.get(key) })
 
   /// The history after a delivery step from `before` to `after`.
   pure def recordDeliveryStep(past: History, before: World, after: World, id: int): History = {
@@ -629,19 +620,20 @@ module routerBindings {
   /// writes the status to D1, then it removes its code host bindings.
   action workflowEnds: bool = {
     nondet workflow = world.objects.keys().oneOf()
-    startWorkflowOperation(workflow, EndWritesStatus, object => { ...object, ended: true, holdsIssue: false })
+    startWorkflowOperation(workflow, EndWritesStatus, object => { ...object, ended: true, hasIssueJob: false })
   }
 
-  /// A running workflow starts a job on the issue. It asks who holds the issue, then claims the
-  /// issue's binding before it records the job.
+  /// A running workflow starts a job on the issue. It reads where the issue's binding points. A
+  /// binding that points at it lets the job start. A binding that points at no workflow, or at one
+  /// whose row ended, moves to it before it records the job. Any other binding refuses the job.
   action workflowStartsAJobOnTheIssue: bool = {
     nondet workflow = world.objects.keys().oneOf()
     all {
       SETUP_KEYS.contains(Issue),
-      not(objectOf(world, workflow).holdsIssue),
+      not(objectOf(world, workflow).hasIssueJob),
       world.operations.keys().forall(id =>
         not(world.operations.get(id).workflow == workflow and isJobStart(world.operations.get(id).phase))),
-      startWorkflowOperation(workflow, JobReadsIssueOwner, object => object),
+      startWorkflowOperation(workflow, JobReadsIssueBinding, object => object),
     }
   }
 
@@ -709,16 +701,16 @@ module routerBindings {
 
   /// A workflow whose create failed and that the router marked failed keeps no binding.
   val anAbandonedWorkflowKeepsNoBinding: bool =
-    world.bindings.keys().forall(key => not(isAbandoned(world, world.bindings.get(key).workflow)))
+    world.bindings.keys().forall(key => not(isAbandoned(world, world.bindings.get(key))))
 
   /// Once a workflow's end removed its code host bindings, no code host binding points at it.
   val anEndedWorkflowKeepsNoCodeHostBinding: bool =
     world.bindings.keys().forall(key =>
-      sourceOf(key) == CodePull implies not(objectOf(world, world.bindings.get(key).workflow).unbound))
+      sourceOf(key) == CodePull implies not(objectOf(world, world.bindings.get(key)).unbound))
 
-  /// At most one running workflow holds the issue.
-  val oneRunningWorkflowHoldsAnIssue: bool =
-    world.objects.keys().filter(workflow => isRunning(world, workflow) and objectOf(world, workflow).holdsIssue).size() <= 1
+  /// At most one running workflow has an unfinished job on the issue.
+  val oneRunningWorkflowHasAJobOnAnIssue: bool =
+    world.objects.keys().filter(workflow => isRunning(world, workflow) and objectOf(world, workflow).hasIssueJob).size() <= 1
 
   /// A person's message never reaches a workflow that ended. It starts the next workflow instead.
   val aPersonsMessageNeverReachesAnEndedWorkflow: bool = history.messagesOnEndedWorkflows.size() == 0
@@ -730,7 +722,7 @@ module routerBindings {
     aWorkflowGetsEventsOnlyOnceCreated,
     anAbandonedWorkflowKeepsNoBinding,
     anEndedWorkflowKeepsNoCodeHostBinding,
-    oneRunningWorkflowHoldsAnIssue,
+    oneRunningWorkflowHasAJobOnAnIssue,
     aPersonsMessageNeverReachesAnEndedWorkflow,
   }
 
@@ -756,7 +748,7 @@ module routerBindings {
       objectOf(world, targetOf(world.deliveries.get(id))).ended,
     })
 
-  /// A start that joined a running workflow claims what it carries.
+  /// A start that joined a running workflow points its bindings at it.
   val aStartRebindsItsBindings: bool =
     world.deliveries.keys().exists(id => world.deliveries.get(id).phase == Rebinding)
 
@@ -776,21 +768,21 @@ module routerBindings {
   /// Witness for `anEndedWorkflowKeepsNoCodeHostBinding`: a workflow ended and removed its code host bindings.
   val aWorkflowEnded: bool = world.objects.keys().exists(workflow => objectOf(world, workflow).unbound)
 
-  /// Witness for `oneRunningWorkflowHoldsAnIssue`: a running workflow holds the issue.
-  val aRunningWorkflowHoldsTheIssue: bool =
-    world.objects.keys().exists(workflow => isRunning(world, workflow) and objectOf(world, workflow).holdsIssue)
+  /// Witness for `oneRunningWorkflowHasAJobOnAnIssue`: a running workflow has a job on the issue.
+  val aRunningWorkflowHasAJobOnTheIssue: bool =
+    world.objects.keys().exists(workflow => isRunning(world, workflow) and objectOf(world, workflow).hasIssueJob)
 
-  /// A job start asks another workflow whether it holds the issue.
-  val aJobStartAsksTheIssueOwner: bool =
+  /// A job start found the issue's binding pointing at another workflow and reads that workflow's row.
+  val aJobStartFindsTheIssueBoundElsewhere: bool =
     world.operations.keys().exists(id => match world.operations.get(id).phase {
-      | JobAsksIssueOwner(_) => true
+      | JobReadsBoundWorkflow(_) => true
       | _ => false
     })
 
-  /// A job start claims the issue's binding against a holder that moved since it read it.
-  val aJobStartLosesTheIssueClaim: bool =
+  /// A job start binds the issue after the binding moved since it read it.
+  val aJobStartFindsTheIssueBindingMoved: bool =
     world.operations.keys().exists(id => match world.operations.get(id).phase {
-      | JobClaimsIssue(previous) => boundOf(world, Issue) != previous
+      | JobBindsIssue(previous) => boundOf(world, Issue) != previous
       | _ => false
     })
 

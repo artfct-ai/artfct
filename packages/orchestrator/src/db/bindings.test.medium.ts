@@ -17,10 +17,6 @@ const issue = { source: "tracker_issue", external_id: "ISS-1" } as const;
 const pull = { source: "code_pull", repo: "o/r", number: 1 } as const;
 const thread = { source: "chat_thread", external_id: "C1:1.0" } as const;
 
-async function workflowOf(binding: Binding): Promise<string | null> {
-  return (await findBinding(db, binding))?.workflow_id ?? null;
-}
-
 async function seed(binding: Binding, workflowId: string): Promise<void> {
   await claimBinding(db, binding, { previous: null, workflowId });
 }
@@ -50,8 +46,8 @@ describe("bindWorkflow", () => {
       await bindWorkflow(db, issue, "wf_1");
     });
 
-    it("finds the workflow by the source and the id, with no claim yet", async () => {
-      expect(await findBinding(db, issue)).toEqual({ workflow_id: "wf_1", claim_seq: 0 });
+    it("finds the workflow by the source and the id", async () => {
+      expect(await findBinding(db, issue)).toBe("wf_1");
     });
 
     it("answers null for the same id under another source", async () => {
@@ -80,8 +76,8 @@ describe("bindWorkflow", () => {
       await bindWorkflow(db, pull, "wf_2");
     });
 
-    it("points at the second workflow and counts the move as a claim", async () => {
-      expect(await findBinding(db, pull)).toEqual({ workflow_id: "wf_2", claim_seq: 1 });
+    it("points at the second workflow", async () => {
+      expect(await findBinding(db, pull)).toBe("wf_2");
     });
 
     it("keeps one row", async () => {
@@ -123,8 +119,8 @@ describe("bindWorkflow", () => {
       await bindWorkflow(db, pull, "wf_1");
     });
 
-    it("stays with the workflow that holds it", async () => {
-      expect(await workflowOf(pull)).toBe("wf_2");
+    it("keeps pointing at the workflow that bound it", async () => {
+      expect(await findBinding(db, pull)).toBe("wf_2");
     });
   });
 
@@ -152,7 +148,7 @@ describe("claimBinding", () => {
     });
 
     it("points at the claiming workflow", async () => {
-      expect(await workflowOf(thread)).toBe("wf_first");
+      expect(await findBinding(db, thread)).toBe("wf_first");
     });
 
     describe("and a second claim that also found it unbound", () => {
@@ -165,7 +161,7 @@ describe("claimBinding", () => {
       });
 
       it("leaves it with the first", async () => {
-        expect(await workflowOf(thread)).toBe("wf_first");
+        expect(await findBinding(db, thread)).toBe("wf_first");
       });
     });
   });
@@ -176,29 +172,15 @@ describe("claimBinding", () => {
     });
 
     it("moves to a claim that found it there", async () => {
-      const previous = { workflow_id: "wf_ended", claim_seq: 0 };
+      const previous = "wf_ended";
       expect(await claimBinding(db, thread, { previous, workflowId: "wf_next" })).toBe(true);
-      expect(await findBinding(db, thread)).toEqual({ workflow_id: "wf_next", claim_seq: 1 });
+      expect(await findBinding(db, thread)).toBe("wf_next");
     });
 
     it("stays with a claim that found it somewhere else", async () => {
-      const previous = { workflow_id: "wf_other", claim_seq: 0 };
+      const previous = "wf_other";
       expect(await claimBinding(db, thread, { previous, workflowId: "wf_next" })).toBe(false);
-      expect(await workflowOf(thread)).toBe("wf_ended");
-    });
-  });
-
-  describe("a binding its holder claimed again after another workflow read it", () => {
-    const read = { workflow_id: "wf_holder", claim_seq: 0 };
-
-    beforeEach(async () => {
-      await seed(issue, "wf_holder");
-      await claimBinding(db, issue, { previous: read, workflowId: "wf_holder" });
-    });
-
-    it("stays with its holder when the other workflow claims it", async () => {
-      expect(await claimBinding(db, issue, { previous: read, workflowId: "wf_other" })).toBe(false);
-      expect(await workflowOf(issue)).toBe("wf_holder");
+      expect(await findBinding(db, thread)).toBe("wf_ended");
     });
   });
 });

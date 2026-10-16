@@ -12,7 +12,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 |---|---|---|
 | T1 | A job and its task start only into a free slot, and only after the plan started the workflow. A harness task also gets a sandbox row. | `jobStartsOnlyIntoAFreeSlot`, `workflowStartsOnlyFromAPlan` |
 | T2 | Only one live job works from one input artifact in a workflow. An unfinished job holds its input. A finished job holds it while its output exists, unless that output is the input itself. | `oneLiveJobPerInputArtifact` |
-| T3 | A job start on an issue claims the issue's binding before it writes the job. A job start writes the job and its task before the router's status and branch binding writes. A failed router write leaves a `queued` task without a provision alarm. | |
+| T3 | A job start on an issue points the issue's binding at its workflow before it writes the job. A job start writes the job and its task before the router's status and branch binding writes. A failed router write leaves a `queued` task without a provision alarm. | |
 | T4 | A sandbox start moves the task to `provisioning` with a new generation and bridge token, and clears the session state. | |
 | T5 | The first bridge hello moves the task to `working`. | |
 | T6 | A model-call author is `working` only while its model turn is in flight, or after a stop ended its first turn before the page existed. | `aModelCallAuthorWorksOnlyWhileItsCallIsOut` |
@@ -117,7 +117,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | A32 | `tell` posts info to the people who wrote, and `stay_silent` stays quiet. Both end the turn. | `closingTextAnswersOnlyAPersonWhoWrote`, `aPersonsTurnNeverEndsUnanswered` |
 | A33 | `set_plan` sets the definition, stages, slots, repository, page parent and root page. It sets the workflow `running`, moves the origin issue to started, and can create the root page on the document host. | `workflowStartsOnlyFromAPlan`, `workflowKeepsItsDefinition` |
 | A34 | `start_job` inserts the job and task, binds the issue and branch in the router, claims the issue, links the chat thread, schedules the provision alarm, and links the input page from the root page. | `jobStartsOnlyIntoAFreeSlot`, `oneLiveJobPerInputArtifact`, `eachIssueLinksTheChatThreadOnce`, `workflowStartsOnlyFromAPlan` |
-| A35 | `start_job` refuses an issue or pull request another workflow holds. It also refuses an issue whose binding another job start claimed after this one read it. | `oneRunningWorkflowHoldsAnIssue` |
+| A35 | `start_job` on an issue starts only when the issue's binding points at no workflow, at this workflow, or at a workflow that ended. The binding row alone decides. A workflow whose session maps the issue refuses another workflow's job on it until it ends, even without a job on the issue. `start_job` also refuses when the binding moved after it read it. | `oneRunningWorkflowHasAJobOnAnIssue` |
 | A36 | `complete_job` stores a selection, or advances a host-accepted artifact. It ends the author `done`, destroys its sandbox, cancels its refiner run, and hands the artifact over. | `aFailedCheckNeverCompletesAJob`, `aFailedCheckNeverAsksThePersonAgain` |
 | A37 | `cancel_job` cancels the author or researcher. It closes its feed, destroys its sandbox, cancels its refiner run, and closes the artifact. | `finishedTaskKeepsItsStatus`, `artifactStatusMovesAreLegal`, `oneUnfinishedRefinerRunPerArtifact` |
 | A38 | `prompt_task` reads and screens held page comments, marks them read, and queues the prompt. It marks the comments read before it queues the prompt. | `aPromptToAPageAuthorCarriesItsHeldComments` |
@@ -248,9 +248,9 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | ID | Effect | Guarded by |
 |---|---|---|
 | O1 | An event joins the first running workflow bound to one of its bindings. A workflow whose create has not returned refuses every event, and the router drops it. | `aWorkflowGetsEventsOnlyOnceCreated` |
-| O2 | A start event that a running workflow took moves to it each binding it carries that was unbound or whose workflow ended. A binding stays with another running workflow that holds it. A new workflow claims a binding only while it has the workflow the delivery read. | `aDeliveryLeavesTheBindingsOfARunningWorkflow` |
+| O2 | A start event that a running workflow took moves to it each binding it carries that was unbound or whose workflow ended. A binding that points at another running workflow keeps pointing at it. A new workflow takes a binding only while it still points where the delivery read it. | `aDeliveryLeavesTheBindingsOfARunningWorkflow` |
 | O3 | A person's message on a binding whose workflow ended starts exactly one new workflow, and the binding moves to it. This holds when the Durable Object ended before the router's status did. Other events on an ended workflow are dropped. | `messageAfterEndStartsNextWorkflow`, `aPersonsMessageNeverReachesAnEndedWorkflow` |
-| O4 | A failed Durable Object create removes the bindings the new workflow claimed, points each back at the workflow it had unless another delivery claimed it since, and marks the workflow failed. | `anAbandonedWorkflowKeepsNoBinding` |
+| O4 | A failed Durable Object create removes the bindings the new workflow took, points each back at the workflow it pointed at unless another delivery bound it since, and marks the workflow failed. | `anAbandonedWorkflowKeepsNoBinding` |
 | O5 | A push to a base branch fans out to every workflow with a pull request in the repository. A failed delivery stops the rest. | |
 | O6 | The router's workflow status mirrors the Durable Object status. The router reads it to decide whether a workflow ended. | |
 | O7 | A workflow that ends removes its code host bindings and keeps chat, issue and session bindings. A workflow does not bind a pull request once its status ended. | `anEndedWorkflowKeepsNoCodeHostBinding` |

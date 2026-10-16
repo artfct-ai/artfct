@@ -75,7 +75,6 @@ import {
   type ModelTurnAlarm,
 } from "./workflow/task/model-turn";
 import { TurnCoalescer } from "./workflow/task/harness/turn";
-import type { JobInput } from "./workflow/lifecycle";
 import type {
   EventRefusal,
   ScheduledMethod,
@@ -90,7 +89,6 @@ import {
   type WorkflowState,
 } from "./workflow/store/state";
 import { debugDump, summarize } from "./workflow/status";
-import { validateInputNotHeld } from "./agent/tools/start/start";
 import { WorkflowStore, type JobRow, type TaskRow } from "./workflow/store/tasks";
 import {
   keepSandboxAlive,
@@ -224,11 +222,6 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
   async debug(): Promise<unknown> {
     await this.lifecycle.start();
     return debugDump(this);
-  }
-
-  async heldInput(input: JobInput): Promise<string | null> {
-    await this.lifecycle.start();
-    return validateInputNotHeld(this, input);
   }
 
   /**

@@ -53,8 +53,9 @@ describe("recordArtifact", () => {
   it("binds the artifact, so its webhooks route back to this workflow", () =>
     recorded(async (workflow) => {
       const db = createDb(workflow.env.DB);
-      const binding = { source: "code_pull", repo: "acme/app", number: 1 } as const;
-      expect((await findBinding(db, binding))?.workflow_id).toBe("wf_x");
+      expect(await findBinding(db, { source: "code_pull", repo: "acme/app", number: 1 })).toBe(
+        "wf_x",
+      );
     }));
 
   it("says in the log what was recorded", () =>

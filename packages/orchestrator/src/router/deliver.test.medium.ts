@@ -46,10 +46,6 @@ async function seedBinding(binding: Binding, workflowId: string): Promise<void> 
   await claimBinding(db, binding, { previous: null, workflowId });
 }
 
-async function workflowOf(binding: Binding): Promise<string | null> {
-  return (await findBinding(db, binding))?.workflow_id ?? null;
-}
-
 async function startDurableObject(workflowId: string): Promise<void> {
   const stub = env.Workflow.getByName(workflowId);
   await runInDurableObject(stub, async (workflow) => {
@@ -188,7 +184,9 @@ describe("deliver to a finished workflow", () => {
     });
 
     it("binds the thread to the next workflow", async () => {
-      expect(await workflowOf({ source: "chat_thread", external_id: "C2:2.0" })).toBe(workflowId);
+      expect(await findBinding(db, { source: "chat_thread", external_id: "C2:2.0" })).toBe(
+        workflowId,
+      );
     });
 
     it("tells the next workflow to read the thread of the one that ended", () => {
@@ -241,7 +239,7 @@ describe("deliver to a finished workflow", () => {
     });
 
     it("points the thread back at the workflow that ended, so a retry starts again", async () => {
-      expect(await workflowOf({ source: "chat_thread", external_id: "C5:5.0" })).toBe(
+      expect(await findBinding(db, { source: "chat_thread", external_id: "C5:5.0" })).toBe(
         "wf_bound_retry",
       );
     });
@@ -272,7 +270,9 @@ describe("deliver to a finished workflow", () => {
     });
 
     it("binds the thread to the new workflow", async () => {
-      expect(await workflowOf({ source: "chat_thread", external_id: "C3:3.0" })).toBe(workflowId);
+      expect(await findBinding(db, { source: "chat_thread", external_id: "C3:3.0" })).toBe(
+        workflowId,
+      );
     });
 
     it("never reaches the finished Durable Object", () => {
@@ -307,7 +307,9 @@ describe("deliver a start event", () => {
     });
 
     it("binds the Slack thread to it", async () => {
-      expect(await workflowOf({ source: "chat_thread", external_id: "C1:1.0" })).toBe(workflowId);
+      expect(await findBinding(db, { source: "chat_thread", external_id: "C1:1.0" })).toBe(
+        workflowId,
+      );
     });
 
     it("logs what created it", () => {
@@ -340,7 +342,7 @@ describe("deliver a start event", () => {
     });
 
     it("leaves the Slack thread bound to nothing", async () => {
-      expect(await workflowOf({ source: "chat_thread", external_id: "C1:1.0" })).toBeNull();
+      expect(await findBinding(db, { source: "chat_thread", external_id: "C1:1.0" })).toBeNull();
     });
 
     it("records the workflow as failed", async () => {
@@ -387,7 +389,9 @@ describe("deliver a start event", () => {
     });
 
     it("binds the new Slack thread to it", async () => {
-      expect(await workflowOf({ source: "chat_thread", external_id: "C9:9.0" })).toBe("wf_join");
+      expect(await findBinding(db, { source: "chat_thread", external_id: "C9:9.0" })).toBe(
+        "wf_join",
+      );
     });
 
     describe("and then a prompt that carries another new binding", () => {
@@ -416,7 +420,9 @@ describe("deliver a start event", () => {
       });
 
       it("binds nothing new, since only a start binds", async () => {
-        expect(await workflowOf({ source: "chat_thread", external_id: "C10:10.0" })).toBeNull();
+        expect(
+          await findBinding(db, { source: "chat_thread", external_id: "C10:10.0" }),
+        ).toBeNull();
       });
 
       it("logs the start", () => {
@@ -532,8 +538,10 @@ describe("deliver a Linear session start", () => {
     });
 
     it("binds the issue and the session to the new workflow", async () => {
-      expect(await workflowOf({ source: "tracker_issue", external_id: "ISS-7" })).toBe(workflowId);
-      expect(await workflowOf({ source: "tracker_session", external_id: "sess-7" })).toBe(
+      expect(await findBinding(db, { source: "tracker_issue", external_id: "ISS-7" })).toBe(
+        workflowId,
+      );
+      expect(await findBinding(db, { source: "tracker_session", external_id: "sess-7" })).toBe(
         workflowId,
       );
     });
@@ -560,7 +568,7 @@ describe("deliver a Linear session start", () => {
     });
 
     it("leaves the issue bound to the finished workflow", async () => {
-      expect(await workflowOf({ source: "tracker_issue", external_id: "ISS-7" })).toBe(
+      expect(await findBinding(db, { source: "tracker_issue", external_id: "ISS-7" })).toBe(
         "wf_linear_idle",
       );
     });
@@ -604,10 +612,12 @@ describe("deliver a Linear session start", () => {
     });
 
     it("binds the session and the issue to the next workflow", async () => {
-      expect(await workflowOf({ source: "tracker_session", external_id: "sess-7" })).toBe(
+      expect(await findBinding(db, { source: "tracker_session", external_id: "sess-7" })).toBe(
         workflowId,
       );
-      expect(await workflowOf({ source: "tracker_issue", external_id: "ISS-7" })).toBe(workflowId);
+      expect(await findBinding(db, { source: "tracker_issue", external_id: "ISS-7" })).toBe(
+        workflowId,
+      );
     });
 
     it("tells the next workflow to read the comments of the issue", () => {
@@ -702,7 +712,7 @@ describe("deliver a Linear session start", () => {
     });
 
     it("binds the session to that workflow", async () => {
-      expect(await workflowOf({ source: "tracker_session", external_id: "sess-7" })).toBe(
+      expect(await findBinding(db, { source: "tracker_session", external_id: "sess-7" })).toBe(
         "wf_linear_adopt",
       );
     });

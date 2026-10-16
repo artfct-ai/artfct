@@ -18,9 +18,9 @@ function isAbandoned(view: RouterView, workflow: number): boolean {
   return view.rows[workflow] === "Ended" && !view.objects[workflow]?.created;
 }
 
-function holdersOfTheIssue(view: RouterView): number[] {
+function runningWithAJobOnTheIssue(view: RouterView): number[] {
   return Object.entries(view.objects)
-    .filter(([, object]) => object.holdsIssue && !object.ended)
+    .filter(([, object]) => object.hasIssueJob && !object.ended)
     .map(([workflow]) => Number(workflow));
 }
 
@@ -37,11 +37,11 @@ describe("two starts on two sessions of one issue, where the second read the iss
   });
 
   it("leaves the issue with the workflow that runs", () => {
-    expect(view.bindings.Issue?.workflow).toBe(view.bindings.SessionB?.workflow);
+    expect(view.bindings.Issue).toBe(view.bindings.SessionB);
   });
 
   it("binds the second session to the second workflow", () => {
-    expect(view.bindings.SessionA?.workflow).not.toBe(view.bindings.SessionB?.workflow);
+    expect(view.bindings.SessionA).not.toBe(view.bindings.SessionB);
   });
 });
 
@@ -78,7 +78,7 @@ describe("a start that joins a workflow whose create then fails", () => {
   });
 
   it("leaves no binding on the abandoned workflow", () => {
-    const bound = Object.values(view.bindings).map((holder) => holder.workflow);
+    const bound = Object.values(view.bindings);
     expect(bound.filter((workflow) => isAbandoned(view, workflow))).toEqual([]);
   });
 
@@ -107,27 +107,70 @@ describe("a pull request a workflow records while it ends", () => {
   });
 });
 
-describe("two workflows that start a job on one issue, where the second claims it while the first waits", () => {
+describe("a job start on an issue whose binding points at another running workflow", () => {
+  let view: RouterView;
+
+  beforeEach(async () => {
+    const session = await replay.arrive("SessionASurface", "Start");
+    await replay.landUntil(session, never);
+    const thread = await replay.arrive("ThreadSurface", "Start");
+    await replay.landUntil(thread, never);
+    const threadJob = await replay.startWork(1, "job_on_issue");
+    await replay.landUntil(threadJob, never);
+    view = replay.project();
+  });
+
+  it("leaves the issue's binding on that workflow", () => {
+    expect(view.bindings.Issue).toBe(0);
+  });
+
+  it("starts no job on the issue", () => {
+    expect(runningWithAJobOnTheIssue(view)).toEqual([]);
+  });
+});
+
+describe("a job start on an issue whose binding points at a workflow that ended", () => {
+  let view: RouterView;
+
+  beforeEach(async () => {
+    const session = await replay.arrive("SessionASurface", "Start");
+    await replay.landUntil(session, never);
+    const end = await replay.startWork(0, "end");
+    await replay.landUntil(end, never);
+    const thread = await replay.arrive("ThreadSurface", "Start");
+    await replay.landUntil(thread, never);
+    const threadJob = await replay.startWork(1, "job_on_issue");
+    await replay.landUntil(threadJob, never);
+    view = replay.project();
+  });
+
+  it("points the issue's binding at the job's workflow", () => {
+    expect(view.bindings.Issue).toBe(1);
+  });
+
+  it("starts the job", () => {
+    expect(runningWithAJobOnTheIssue(view)).toEqual([1]);
+  });
+});
+
+describe("a job start that read the issue unbound while a session start binds it to a new workflow", () => {
   let view: RouterView;
 
   beforeEach(async () => {
     const thread = await replay.arrive("ThreadSurface", "Start");
     await replay.landUntil(thread, never);
+    const threadJob = await replay.startWork(0, "job_on_issue");
+    await replay.landUntil(threadJob, (call) => call.startsWith("ClaimBinding"));
     const session = await replay.arrive("SessionASurface", "Start");
     await replay.landUntil(session, never);
-    const threadJob = await replay.startWork(0, "job_on_issue");
-    await replay.landUntil(
-      threadJob,
-      (call) => !call.startsWith("FindBinding") && !call.startsWith("HeldInput"),
-    );
+    await replay.landUntil(threadJob, never);
     const sessionJob = await replay.startWork(1, "job_on_issue");
     await replay.landUntil(sessionJob, never);
-    await replay.landUntil(threadJob, never);
     view = replay.project();
   });
 
-  it("lets one running workflow hold the issue", () => {
-    expect(holdersOfTheIssue(view)).toEqual([1]);
+  it("lets only the workflow the binding points at start a job on the issue", () => {
+    expect(runningWithAJobOnTheIssue(view)).toEqual([1]);
   });
 });
 
@@ -149,6 +192,6 @@ describe("a person's message in a chat thread whose workflow ended in its Durabl
   });
 
   it("binds the thread to it", () => {
-    expect(view.bindings.Thread?.workflow).toBe(1);
+    expect(view.bindings.Thread).toBe(1);
   });
 });

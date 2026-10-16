@@ -9,7 +9,6 @@ import {
   deleteBindings,
   findBinding,
   workflowsWithPullsInRepo,
-  type BindingHolder,
 } from "../db/bindings";
 import { createDb, type Database } from "../db/client";
 import { createWorkflow, findWorkflow, setWorkflowStatus } from "../db/workflows";
@@ -19,8 +18,8 @@ import { isWorkflowFinished } from "../workflow/store/state";
 import { NOTHING_TO_JOIN, postStartingThought, postTrackerAck } from "./tracker-ack";
 import { deliverWithChatAck } from "./chat-ack";
 
-/** A binding of an event and the holder it had when the route read it. */
-type BoundBinding = { binding: Binding; holder: BindingHolder | null };
+/** A binding of an event and the workflow it pointed at when the route read it. */
+type BoundBinding = { binding: Binding; workflowId: string | null };
 
 /** The first binding of an event whose workflow ended, by its place in the event's bindings. */
 type EndedBinding = { index: number; workflowId: string; status: WorkflowStatus };
@@ -67,7 +66,7 @@ function startingSessionOf(event: InboundEvent, route: Route): string | null {
 async function routeOf(db: Database, event: InboundEvent): Promise<Route> {
   const bound: BoundBinding[] = [];
   for (const binding of event.bindings) {
-    bound.push({ binding, holder: await findBinding(db, binding) });
+    bound.push({ binding, workflowId: await findBinding(db, binding) });
   }
   return routeFrom(db, event, { bound, replaced: null }, 0);
 }
@@ -84,11 +83,11 @@ async function routeFrom(
   from: number,
 ): Promise<Route> {
   let { replaced } = read;
-  for (const [index, { holder }] of read.bound.entries()) {
-    if (index < from || !holder) continue;
-    const ended = await endedStatus(db, holder.workflow_id);
-    if (!ended) return { kind: "join", index, workflowId: holder.workflow_id, ...read, replaced };
-    replaced ??= { index, workflowId: holder.workflow_id, status: ended };
+  for (const [index, { workflowId }] of read.bound.entries()) {
+    if (index < from || !workflowId) continue;
+    const ended = await endedStatus(db, workflowId);
+    if (!ended) return { kind: "join", index, workflowId, ...read, replaced };
+    replaced ??= { index, workflowId, status: ended };
   }
   const personWrote = event.kind === "prompt" && event.actor !== null;
   if (event.kind !== "start" && !(replaced && personWrote)) {
@@ -124,7 +123,7 @@ async function follow(
 
 /**
  * Claim the binding whose workflow ended, else the first binding, then create the next workflow.
- * Each other binding moves to it only if it still has the holder the route read.
+ * Each other binding moves to it only if it still points where the route read it.
  */
 async function startNextWorkflow(
   env: Env,
@@ -137,7 +136,7 @@ async function startNextWorkflow(
   const claimed = route.bound[claimedIndex];
   const won: BoundBinding[] = [];
   if (claimed) {
-    if (!(await claimBinding(db, claimed.binding, { previous: claimed.holder, workflowId }))) {
+    if (!(await claimBinding(db, claimed.binding, { previous: claimed.workflowId, workflowId }))) {
       return follow(env, db, event, await routeOf(db, event));
     }
     won.push(claimed);
@@ -145,7 +144,7 @@ async function startNextWorkflow(
   await createWorkflow(db, workflowId);
   for (const [index, bound] of route.bound.entries()) {
     if (index === claimedIndex) continue;
-    const previous = bound.holder;
+    const previous = bound.workflowId;
     if (await claimBinding(db, bound.binding, { previous, workflowId })) won.push(bound);
   }
   const endedWorkflowId = route.replaced?.workflowId ?? null;
@@ -173,8 +172,8 @@ async function abandonWorkflow(
 ): Promise<void> {
   const sources = won.map(({ binding }) => binding.source);
   await deleteBindings(db, workflowId, sources);
-  for (const { binding, holder } of won) {
-    if (holder) await claimBinding(db, binding, { previous: null, workflowId: holder.workflow_id });
+  for (const { binding, workflowId: restored } of won) {
+    if (restored) await claimBinding(db, binding, { previous: null, workflowId: restored });
   }
   await setWorkflowStatus(db, workflowId, "failed");
 }
@@ -210,9 +209,9 @@ async function joinWorkflow(
   }
   const joined = event.kind === "start";
   if (joined) {
-    for (const [index, { binding, holder }] of route.bound.entries()) {
-      const endedOrUnbound = index < route.index || holder === null;
-      if (endedOrUnbound) await claimBinding(db, binding, { previous: holder, workflowId });
+    for (const [index, { binding, workflowId: previous }] of route.bound.entries()) {
+      const endedOrUnbound = index < route.index || previous === null;
+      if (endedOrUnbound) await claimBinding(db, binding, { previous, workflowId });
     }
   }
   return { workflow_id: workflowId, created: false, joined, result: answer };

@@ -171,39 +171,38 @@ export const MUTANTS: Mutant[] = [
     id: "R1",
     invariant: "messageAfterEndStartsNextWorkflow (claim)",
     path: "src/router/deliver.ts",
-    find: "    if (!(await claimBinding(db, claimed.binding, { previous: claimed.holder, workflowId }))) {",
+    find: "    if (!(await claimBinding(db, claimed.binding, { previous: claimed.workflowId, workflowId }))) {",
     replace:
-      "    if (!((await claimBinding(db, claimed.binding, { previous: claimed.holder, workflowId })) || true)) {",
+      "    if (!((await claimBinding(db, claimed.binding, { previous: claimed.workflowId, workflowId })) || true)) {",
   },
   {
     id: "R2",
     invariant: "messageAfterEndStartsNextWorkflow (bind all)",
     path: "src/router/deliver.ts",
-    find: "    if (index === claimedIndex) continue;\n    const previous = bound.holder;",
+    find: "    if (index === claimedIndex) continue;\n    const previous = bound.workflowId;",
     replace:
-      "    if (index === claimedIndex || true) continue;\n    const previous = bound.holder;",
+      "    if (index === claimedIndex || true) continue;\n    const previous = bound.workflowId;",
   },
   {
     id: "R3",
     invariant: "aDeliveryLeavesTheBindingsOfARunningWorkflow",
     path: "src/router/deliver.ts",
-    find: "    const previous = bound.holder;",
+    find: "    const previous = bound.workflowId;",
     replace: "    const previous = await findBinding(db, bound.binding);",
   },
   {
     id: "R4",
-    invariant: "oneRunningWorkflowHoldsAnIssue",
+    invariant: "oneRunningWorkflowHasAJobOnAnIssue (moved binding)",
     path: "src/agent/tools/start/start.ts",
-    find: "  return claimed ? null : `Another job start claimed ${issue.key} first. Try again.`;",
-    replace:
-      "  return claimed || true ? null : `Another job start claimed ${issue.key} first. Try again.`;",
+    find: "  return bound\n    ? null",
+    replace: "  return bound || true\n    ? null",
   },
   {
     id: "R5",
-    invariant: "oneRunningWorkflowHoldsAnIssue (claim count)",
-    path: "src/db/bindings.ts",
-    find: "        eq(bindings.claim_seq, claim.previous.claim_seq),\n",
-    replace: "",
+    invariant: "oneRunningWorkflowHasAJobOnAnIssue (running workflow)",
+    path: "src/agent/tools/start/start.ts",
+    find: "    if (!row || !isWorkflowFinished(row.status)) {",
+    replace: "    if (!row) {",
   },
 ];
 

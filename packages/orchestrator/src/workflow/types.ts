@@ -29,7 +29,6 @@ import type { Env } from "../env";
 import type { Notifier, PostOptions } from "../notify/notifier";
 import type { Recipients } from "../notify/recipients";
 import type { SandboxProvider } from "../sandbox/provider";
-import type { JobInput } from "./lifecycle";
 import type { WorkflowState } from "./store/state";
 import type { JobRow, TaskRow, WorkflowStore } from "./store/tasks";
 
@@ -159,6 +158,4 @@ export interface WorkflowRpc {
   handle(event: InboundEvent): Promise<RpcAck | EventRefusal>;
   status(): Promise<WorkflowSummary>;
   debug(): Promise<unknown>;
-  /** Why this workflow still holds an input artifact, for a workflow that wants to start a job on it. */
-  heldInput(input: JobInput): Promise<string | null>;
 }

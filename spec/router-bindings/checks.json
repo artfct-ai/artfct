@@ -5,7 +5,7 @@
     "aWorkflowGetsEventsOnlyOnceCreated",
     "anAbandonedWorkflowKeepsNoBinding",
     "anEndedWorkflowKeepsNoCodeHostBinding",
-    "oneRunningWorkflowHoldsAnIssue",
+    "oneRunningWorkflowHasAJobOnAnIssue",
     "aPersonsMessageNeverReachesAnEndedWorkflow"
   ],
   "witnesses": {
@@ -27,9 +27,9 @@
       "aStartRebindsItsBindings",
       "aWorkflowWasAbandoned",
       "aWorkflowEnded",
-      "aRunningWorkflowHoldsTheIssue",
-      "aJobStartAsksTheIssueOwner",
-      "aJobStartLosesTheIssueClaim",
+      "aRunningWorkflowHasAJobOnTheIssue",
+      "aJobStartFindsTheIssueBoundElsewhere",
+      "aJobStartFindsTheIssueBindingMoved",
       "aPersonWroteAfterAnEnd"
     ],
     "sessionWithPullRequest": [
@@ -40,7 +40,7 @@
       "aStartRebindsItsBindings",
       "aWorkflowWasAbandoned",
       "aWorkflowEnded",
-      "aRunningWorkflowHoldsTheIssue",
+      "aRunningWorkflowHasAJobOnTheIssue",
       "thePullRequestIsBound",
       "aPersonWroteAfterAnEnd"
     ]

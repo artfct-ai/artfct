@@ -151,7 +151,7 @@ class RouteWorld {
     status: "done" | "failed" | "cancelled",
   ): Promise<void> {
     for (const binding of surface.bindings) {
-      const workflowId = (await findBinding(db, binding))?.workflow_id ?? null;
+      const workflowId = await findBinding(db, binding);
       if (workflowId) return setWorkflowStatus(db, workflowId, status);
     }
   }
@@ -159,7 +159,7 @@ class RouteWorld {
   private async observe(surface: Surface): Promise<ObservedBinding[]> {
     const observed: ObservedBinding[] = [];
     for (const binding of surface.bindings) {
-      const workflowId = (await findBinding(db, binding))?.workflow_id ?? null;
+      const workflowId = await findBinding(db, binding);
       const row = workflowId ? await findWorkflow(db, workflowId) : null;
       observed.push({
         key: `${binding.source}:${binding.external_id}`,

@@ -10,11 +10,7 @@ import type { TrackerIssue } from "@artfct-ai/adapters/tracker/types";
 import type { Actor, InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { Binding } from "@artfct-ai/contracts/sources";
 import type { Delivery, WorkflowStatus } from "@artfct-ai/contracts/types";
-import {
-  startTools,
-  validateInputNotHeld,
-  validateInputNotInWork,
-} from "../src/agent/tools/start/start";
+import { startTools, validateInputNotInWork } from "../src/agent/tools/start/start";
 import type { ArtifactTarget } from "../src/artifact/types";
 import type { Env } from "../src/env";
 import { deliver } from "../src/router/deliver";
@@ -65,20 +61,17 @@ export type WorkflowWork = "end" | "job_on_issue" | "pull_request";
 export type ObjectView = {
   created: boolean;
   ended: boolean;
-  holdsIssue: boolean;
+  hasIssueJob: boolean;
   openedPull: boolean;
   unbound: boolean;
 };
-
-/** The workflow a binding points at, and how many claims moved it there. */
-export type HolderView = { workflow: number; claims: number };
 
 /**
  * The router's tables, the Durable Objects, and the call each delivery and workflow operation
  * waits on. Workflows are numbered in the order the router first named them.
  */
 export type RouterView = {
-  bindings: Partial<Record<KeyName, HolderView>>;
+  bindings: Partial<Record<KeyName, number>>;
   rows: Record<number, "Live" | "Ended">;
   objects: Record<number, ObjectView>;
   calls: Record<string, string>;
@@ -184,8 +177,8 @@ type SpecDelivery = {
 
 function specView(world: unknown): RouterView {
   const bindings: RouterView["bindings"] = {};
-  for (const [key, holder] of entries(field(world, "bindings"))) {
-    bindings[oneOf(variant(key)!.tag, KEYS)] = specHolder(holder);
+  for (const [key, workflow] of entries(field(world, "bindings"))) {
+    bindings[oneOf(variant(key)!.tag, KEYS)] = int(workflow);
   }
   const rows: RouterView["rows"] = {};
   for (const [workflow, status] of entries(field(world, "rows"))) {
@@ -196,7 +189,7 @@ function specView(world: unknown): RouterView {
     const view: ObjectView = {
       created: bool(field(object, "created")),
       ended: bool(field(object, "ended")),
-      holdsIssue: bool(field(object, "holdsIssue")),
+      hasIssueJob: bool(field(object, "hasIssueJob")),
       openedPull: bool(field(object, "openedPull")),
       unbound: bool(field(object, "unbound")),
     };
@@ -215,10 +208,6 @@ function specView(world: unknown): RouterView {
   return { bindings, rows, objects, calls };
 }
 
-function specHolder(holder: unknown): HolderView {
-  return { workflow: int(field(holder, "workflow")), claims: int(field(holder, "claims")) };
-}
-
 function specDelivery(delivery: unknown): SpecDelivery {
   const target = variant(field(delivery, "target"))!;
   return {
@@ -226,7 +215,7 @@ function specDelivery(delivery: unknown): SpecDelivery {
     phase: variant(field(delivery, "phase"))!.tag,
     found: list(field(delivery, "found")).map((bound) => {
       const found = variant(bound)!;
-      return found.tag === "BoundTo" ? specHolder(found.value).workflow : null;
+      return found.tag === "BoundTo" ? int(found.value) : null;
     }),
     index: int(field(delivery, "index")),
     target: target.tag === "TargetWorkflow" ? int(target.value) : null,
@@ -275,11 +264,11 @@ function operationCall(workflow: number, phase: unknown): string {
       return `SetStatus(${workflow})`;
     case "EndUnbindsCodeHost":
       return `DeleteBindings(${workflow})`;
-    case "JobReadsIssueOwner":
+    case "JobReadsIssueBinding":
       return "FindBinding(Issue)";
-    case "JobAsksIssueOwner":
-      return `HeldInput(${specHolder(named.value).workflow})`;
-    case "JobClaimsIssue":
+    case "JobReadsBoundWorkflow":
+      return `FindWorkflow(${int(named.value)})`;
+    case "JobBindsIssue":
       return "ClaimBinding(Issue)";
     case "PullBinds":
       return `BindWorkflow(Pull, ${workflow})`;
@@ -525,10 +514,6 @@ export class RouterBindingsReplay {
             `HandleEvent(${this.specIdOf(name)})`,
             () => eventRefusalOf(this.runtimeOf(name), event) ?? { ok: true },
           ),
-        heldInput: (input: JobInput) =>
-          this.gate.hold(`HeldInput(${this.specIdOf(name)})`, () =>
-            validateInputNotHeld(this.runtimeOf(name), input),
-          ),
       }),
     };
     this.env = { ...testEnv(), DB: this.gatedD1(), Workflow: namespace as Env["Workflow"] };
@@ -567,12 +552,12 @@ export class RouterBindingsReplay {
   project(): RouterView {
     const bindings: RouterView["bindings"] = {};
     for (const row of this.sqlite
-      .query("select source, external_id, workflow_id, claim_seq from bindings")
+      .query("select source, external_id, workflow_id from bindings")
       .all()) {
       const binding = bindingRow(row);
       const key = BINDING_KEYS[`${binding.source}:${binding.external_id}`];
       if (!key) throw new Error(`the router bound ${binding.source} ${binding.external_id}`);
-      bindings[key] = { workflow: this.specIdOf(binding.workflow_id), claims: binding.claim_seq };
+      bindings[key] = this.specIdOf(binding.workflow_id);
     }
     const rows: RouterView["rows"] = {};
     for (const row of this.sqlite.query("select workflow_id, status from workflows").all()) {
@@ -587,7 +572,7 @@ export class RouterBindingsReplay {
       const view: ObjectView = {
         created: true,
         ended: isWorkflowFinished(runtime.state.status),
-        holdsIssue: validateInputNotInWork(runtime, ISSUE_INPUT) !== null,
+        hasIssueJob: validateInputNotInWork(runtime, ISSUE_INPUT) !== null,
         openedPull: runtime.store.artifacts().some((artifact) => artifact.kind === "pull"),
         unbound: this.unbound.has(name),
       };
@@ -754,14 +739,14 @@ export class RouterBindingsReplay {
     const ids = params
       .filter((param): param is string => typeof param === "string" && param.startsWith("wf_"))
       .map((workflowId) => this.specIdOf(workflowId));
-    if (sql.startsWith('select "workflow_id", "claim_seq" from "bindings"'))
+    if (sql.startsWith('select "workflow_id" from "bindings"'))
       return `FindBinding(${bindingKeyOf(params)})`;
     if (/^select .* from "workflows"/.test(sql)) return `FindWorkflow(${ids[0]})`;
     if (sql.startsWith('insert into "bindings"') && sql.includes("do nothing")) {
       return `ClaimBinding(${bindingKeyOf(params)})`;
     }
     if (sql.startsWith('update "bindings"'))
-      return `ClaimBinding(${bindingKeyOf(params.slice(3))})`;
+      return `ClaimBinding(${bindingKeyOf(params.slice(2))})`;
     if (sql.startsWith('insert into "bindings"'))
       return `BindWorkflow(${bindingKeyOf(params)}, ${ids[0]})`;
     if (sql.startsWith('insert into "workflows"')) return `InsertWorkflow(${ids[0]})`;
@@ -819,19 +804,11 @@ function sqliteParams(params: unknown[]): SqliteParam[] {
   });
 }
 
-function bindingRow(row: unknown): {
-  source: string;
-  external_id: string;
-  workflow_id: string;
-  claim_seq: number;
-} {
-  const claims = field(row, "claim_seq");
-  if (typeof claims !== "number") throw new Error(`the binding has ${String(claims)} claims`);
+function bindingRow(row: unknown): { source: string; external_id: string; workflow_id: string } {
   return {
     source: text(field(row, "source")),
     external_id: text(field(row, "external_id")),
     workflow_id: text(field(row, "workflow_id")),
-    claim_seq: claims,
   };
 }
 

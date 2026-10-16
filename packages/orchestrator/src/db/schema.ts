@@ -1,6 +1,6 @@
 import type { BindingSource } from "@artfct-ai/contracts/sources";
 import type { WorkflowStatus } from "@artfct-ai/contracts/types";
-import { index, integer, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { index, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
 /** People known to the orchestrator, joined across the tracker, chat, code host, and documents. */
 export const persons = sqliteTable("persons", {
@@ -22,7 +22,6 @@ export const bindings = sqliteTable(
     external_id: text().notNull(),
     repo: text(),
     workflow_id: text().notNull(),
-    claim_seq: integer().notNull().default(0),
     created_at: text().notNull(),
   },
   (table) => [
