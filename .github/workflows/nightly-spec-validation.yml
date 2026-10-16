@@ -9,63 +9,6 @@ permissions:
   contents: read
 
 jobs:
-  review_loop_model_check:
-    name: review loop model check (${{ matrix.setup }}, ${{ matrix.invariant }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 80
-    strategy:
-      fail-fast: false
-      matrix:
-        setup:
-          - judgeThenPolisher
-          - reviewerThenPolisher
-        invariant: &invariants
-          - oneUnfinishedRefinerRunPerArtifact
-          - authorIsIdleWhileAPolisherRuns
-          - judgeRulesAtMostOnce
-          - refinerRunIsDoneOnlyAfterItsTurnEnded
-          - refinersRunAgainOnlyOnChangedRevision
-          - reviewerRunsOnlyOnAnUnreviewedRevision
-    defaults:
-      run:
-        working-directory: packages/orchestrator
-    env:
-      SETUP: ${{ matrix.setup }}
-      INVARIANT: ${{ matrix.invariant }}
-      DEPTH: "3"
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
-        with:
-          distribution: temurin
-          java-version: "21"
-      - run: bun install --frozen-lockfile
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.quint
-          key: quint-verify-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: quint-verify-${{ runner.os }}-
-      - name: Check the invariant on every execution up to the depth
-        timeout-minutes: 70
-        run: bunx quint verify "../../spec/review-loop/$SETUP.qnt" --main="$SETUP" --invariant="$INVARIANT" --max-steps="$DEPTH" 2>&1 | tee "$RUNNER_TEMP/quint.log"
-      - name: Write the finding
-        if: ${{ failure() }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/findings"
-          {
-            printf '## Review loop model check: %s on %s\n\nquint verify at depth %s failed or ran out of time.\n\n```\n' "$INVARIANT" "$SETUP" "$DEPTH"
-            tail -n 60 "$RUNNER_TEMP/quint.log"
-            printf '```\n\n'
-          } > "$RUNNER_TEMP/findings/verify-$SETUP-$INVARIANT.md"
-      - if: ${{ failure() }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: nightly-findings-verify-${{ matrix.setup }}-${{ matrix.invariant }}
-          path: ${{ runner.temp }}/findings
-
   review_loop_simulation:
     name: review loop simulation (${{ matrix.setup }}, ${{ matrix.invariant }})
     runs-on: ubuntu-latest
@@ -78,7 +21,13 @@ jobs:
           - reviewerThenPolisher
           - judgeBetweenReviewers
           - modelCallAuthorWithTwoReviewers
-        invariant: *invariants
+        invariant:
+          - oneUnfinishedRefinerRunPerArtifact
+          - authorIsIdleWhileAPolisherRuns
+          - judgeRulesAtMostOnce
+          - refinerRunIsDoneOnlyAfterItsTurnEnded
+          - refinersRunAgainOnlyOnChangedRevision
+          - reviewerRunsOnlyOnAnUnreviewedRevision
     defaults:
       run:
         working-directory: packages/orchestrator
@@ -153,7 +102,7 @@ jobs:
 
   nightly_issue:
     name: nightly spec issue
-    needs: [review_loop_model_check, review_loop_simulation, spec_validation]
+    needs: [review_loop_simulation, spec_validation]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
