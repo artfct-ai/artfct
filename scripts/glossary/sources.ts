@@ -3,10 +3,10 @@ import { join } from "node:path";
 import type { SourceFile } from "./glossary";
 
 /** The repository root. */
-export const REPO_ROOT = join(import.meta.dirname, "../..");
+const REPO_ROOT = join(import.meta.dirname, "../..");
 
 /** The glossary every check reads. */
-export const GLOSSARY_PATH = "spec/glossary.md";
+const GLOSSARY_PATH = "spec/glossary.md";
 
 const IGNORED = /(^|\/)(node_modules|dist|\.wrangler|test)\/|\.test(\.medium)?\.ts$|\.d\.ts$/;
 

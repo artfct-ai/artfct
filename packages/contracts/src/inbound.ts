@@ -1,7 +1,7 @@
 import type { Binding } from "./sources";
 
 /** What an inbound event asks the workflow to do. */
-export type EventKind =
+type EventKind =
   | "start"
   | "prompt"
   | "feedback"
@@ -71,7 +71,7 @@ export type BaseMovedDetail = {
 };
 
 /** Details of one comment a person left on a document page. */
-export type PageDetail = {
+type PageDetail = {
   /** The page, keyed the way its `documents_page` binding keys it. */
   page_id: string;
   /** The host's id for the comment, which a reply to it is addressed to. */

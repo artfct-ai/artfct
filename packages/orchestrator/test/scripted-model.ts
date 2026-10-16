@@ -191,10 +191,10 @@ function lastEvent(prompt: LanguageModelV4Prompt): ScriptedEvent | null {
  * its stages. Before the start, the prompt lists the workflow definitions, and the mock picks
  * the first.
  */
-export type ScriptedWork = { definition: string; started: boolean; stages: string[] };
+type ScriptedWork = { definition: string; started: boolean; stages: string[] };
 
 /** The workflow definition and the stages the system prompt shows. */
-export function workFromSystemPrompt(system: string): ScriptedWork {
+function workFromSystemPrompt(system: string): ScriptedWork {
   const stages = stagesFromSystemPrompt(system);
   const listed = system.split("## Workflow definitions\n")[1];
   if (listed !== undefined) {

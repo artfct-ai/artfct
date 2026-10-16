@@ -50,7 +50,7 @@ function screenQuestions(field: string) {
 }
 
 /** The questions asked of every text from outside the deployment. */
-export const SCREEN_QUESTIONS = screenQuestions("text");
+const SCREEN_QUESTIONS = screenQuestions("text");
 
 type ScreenQuestion = keyof typeof SCREEN_QUESTIONS;
 

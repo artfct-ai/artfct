@@ -9,7 +9,7 @@ import type { Chat, ChatPage, HistoryOptions, SessionOptions, SessionStatus } fr
 const SESSION_TITLE_LIMIT = 200;
 
 /** Most characters one Slack message carries. Slack itself refuses text above 4000. */
-export const SLACK_TEXT_LIMIT = 3900;
+const SLACK_TEXT_LIMIT = 3900;
 
 /** Split text into chunks under `limit` at paragraph boundaries, then line boundaries. */
 export function splitSlackText(text: string, limit = SLACK_TEXT_LIMIT): string[] {

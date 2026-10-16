@@ -5,10 +5,10 @@ import { LINEAR_API_URL } from "./sdk";
 export type LinearApiOptions = { baseUrl?: string; fetch?: typeof fetch };
 
 /** Scopes an agent install asks for. The `app:` pair makes the app mentionable and delegatable. */
-export const AGENT_SCOPES = ["read", "write", "app:assignable", "app:mentionable"];
+const AGENT_SCOPES = ["read", "write", "app:assignable", "app:mentionable"];
 
 /** Linear access tokens last a day. Assumed when the token endpoint sends no `expires_in`. */
-export const DEFAULT_TOKEN_LIFETIME_S = 24 * 60 * 60;
+const DEFAULT_TOKEN_LIFETIME_S = 24 * 60 * 60;
 
 const AUTHORIZE_URL = "https://linear.app/oauth/authorize";
 

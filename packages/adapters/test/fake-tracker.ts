@@ -21,7 +21,7 @@ export const APP_USER: AppUser = {
 };
 
 /** The workflow states of team-1, out of board order. */
-export const TEAM_STATES: WorkflowState[] = [
+const TEAM_STATES: WorkflowState[] = [
   { id: "st-done", name: "Done", type: "completed", position: 4 },
   { id: "st-approved", name: "approved", type: "started", position: 3 },
   { id: "st-progress", name: "In Progress", type: "started", position: 2 },

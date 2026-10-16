@@ -16,7 +16,7 @@ function violated(name: string, detail: string): never {
  * A person's message on a binding whose workflow ended starts exactly one new workflow, and the
  * binding then points at it.
  */
-export function messageAfterEndStartsNextWorkflow(record: RouteRecord): void {
+function messageAfterEndStartsNextWorkflow(record: RouteRecord): void {
   if (!record.personWrote) return;
   const running = record.before.some((binding) => binding.workflowId && !binding.ended);
   const ended = record.before.filter((binding) => binding.ended);

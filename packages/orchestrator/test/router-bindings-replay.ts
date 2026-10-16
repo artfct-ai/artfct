@@ -29,7 +29,7 @@ export const SPEC_SETUPS = [
 export type SpecSetup = (typeof SPEC_SETUPS)[number];
 
 /** The most steps a generated trace takes after its initial state. */
-export const TRACE_STEPS = 25;
+const TRACE_STEPS = 25;
 
 const KEYS = ["Thread", "SessionA", "SessionB", "Issue", "Pull"] as const;
 
@@ -47,7 +47,7 @@ type EventKindName = (typeof EVENT_KINDS)[number];
 export type WorkflowWork = "end" | "job_on_issue" | "pull_request";
 
 /** What the Durable Object of one workflow knows, as the spec sees it. */
-export type ObjectView = {
+type ObjectView = {
   created: boolean;
   ended: boolean;
   hasIssueJob: boolean;
@@ -67,7 +67,7 @@ export type RouterView = {
 };
 
 /** What a spec action picked. */
-export type SpecPicks = {
+type SpecPicks = {
   surface: SurfaceName | null;
   kind: EventKindName | null;
   delivery: number | null;

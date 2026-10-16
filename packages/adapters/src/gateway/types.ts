@@ -25,7 +25,7 @@ export type JsonValue =
 export type GatewayMetadata = { workflow_id: string; task_id?: string; stage?: string };
 
 /** Where a harness looks a model up to price its own usage. */
-export type ModelCatalog = { provider: string; model: string };
+type ModelCatalog = { provider: string; model: string };
 
 /**
  * Where one OpenAI-compatible request goes. `headers` is the whole set the request needs.

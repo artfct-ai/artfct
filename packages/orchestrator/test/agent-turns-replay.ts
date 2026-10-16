@@ -73,7 +73,7 @@ export const SPEC_SETUPS = {
 export type SpecSetup = keyof typeof SPEC_SETUPS;
 
 /** The most steps a generated trace takes after its initial state. */
-export const TRACE_STEPS = 25;
+const TRACE_STEPS = 25;
 
 const ORIGINS = ["ChatThread", "StartingSession", "JobSession"] as const;
 type Origin = (typeof ORIGINS)[number];
@@ -103,7 +103,7 @@ const OWED = ["OwedAnswer", "OwedBoard"] as const;
 type Owed = (typeof OWED)[number];
 
 /** The values the spec picked in one step. Null for a pick the step's action did not read. */
-export type StepPicks = {
+type StepPicks = {
   origin: Origin | null;
   owed: Owed | null;
   flagsPage: boolean | null;

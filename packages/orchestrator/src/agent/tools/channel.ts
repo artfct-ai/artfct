@@ -14,7 +14,7 @@ export const TELL = "tell";
  * The tool that sends the first reply to the person who wrote: a thumbs-up on their chat message,
  * or one line. It works once per turn.
  */
-export const ACKNOWLEDGE = "acknowledge";
+const ACKNOWLEDGE = "acknowledge";
 /** The tools a first reply may call. A person's turn does not offer other tools until one of them works. */
 export const FIRST_REPLY_TOOLS = [ACKNOWLEDGE, ASK];
 /** The reaction a clear instruction gets in place of words. */

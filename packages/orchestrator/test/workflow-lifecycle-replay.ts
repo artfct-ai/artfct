@@ -48,7 +48,7 @@ export const SPEC_SETUPS = {
 export type SpecSetup = keyof typeof SPEC_SETUPS;
 
 /** The most steps a generated trace takes after its initial state. */
-export const TRACE_STEPS = 25;
+const TRACE_STEPS = 25;
 
 const STEP_MS = 10 * 60_000;
 const REPLAY_START = Date.parse("2026-01-01T00:00:00.000Z");
@@ -71,7 +71,7 @@ type CallKind = (typeof CALL_KINDS)[number];
 type Ending = (typeof ENDINGS)[number];
 
 /** The author task of one job as the spec sees it. */
-export type SpecAuthor = {
+type SpecAuthor = {
   status: (typeof TASK_STATUSES)[number];
   restarts: number;
   paused: boolean;
@@ -90,7 +90,7 @@ export type SpecJob = {
 };
 
 /** One held call as the spec sees it, without the rest of the step that runs when it returns. */
-export type SpecCall = { kind: CallKind; job: number };
+type SpecCall = { kind: CallKind; job: number };
 
 /** The workflow as the spec sees it. */
 export type SpecWorkflow = {
@@ -102,7 +102,7 @@ export type SpecWorkflow = {
 };
 
 /** The values the spec picked for one action. */
-export type SpecPicks = {
+type SpecPicks = {
   definition: number | null;
   request: number | null;
   id: number | null;

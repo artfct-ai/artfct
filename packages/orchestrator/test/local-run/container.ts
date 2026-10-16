@@ -8,7 +8,7 @@ import {
 } from "../../src/sandbox/spec";
 
 /** The image a local run starts. Build it with `bun run sandbox:build`. */
-export const LOCAL_IMAGE = "artfct-sandbox:local";
+const LOCAL_IMAGE = "artfct-sandbox:local";
 
 const STARTUP_SCRIPT = "/tmp/artfct-startup.sh";
 

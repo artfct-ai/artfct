@@ -78,7 +78,7 @@ function authorAction(
 }
 
 /** What the turn text of a refiner run says. */
-export type Closing = "reports_work" | "gives_up";
+type Closing = "reports_work" | "gives_up";
 
 const GAVE_UP_TEXT = "I could not check out the branch, so I did not do the work.";
 const REPORTS_WORK_ANSWERS = { for_author: 0, beyond_author: 0, rejects: 0 };
@@ -325,7 +325,7 @@ export function trackerTurns(health: TrackerHealth): WorkflowAction {
 }
 
 /** What a findings reviewer run leaves behind when its turn ends. */
-export type ReviewOutcome = "no_review" | "approved" | "findings" | "blocking";
+type ReviewOutcome = "no_review" | "approved" | "findings" | "blocking";
 
 const HOST_REVIEWS: Record<
   Exclude<ReviewOutcome, "no_review">,
@@ -369,7 +369,7 @@ const PAGE_CLOSING_REVIEWS: Record<Exclude<ReviewOutcome, "no_review">, string> 
 };
 
 /** What code can tell from the conclusion of a judge run. */
-export type JudgeOutcome = "approves" | "rejects" | "unclear" | "no_conclusion" | "decisions_fail";
+type JudgeOutcome = "approves" | "rejects" | "unclear" | "no_conclusion" | "decisions_fail";
 
 const RULING_ANSWERS: Record<JudgeOutcome, DecisionAnswers> = {
   approves: { for_author: 0, beyond_author: 0, rejects: 0.1 },
@@ -382,7 +382,10 @@ const RULING_ANSWERS: Record<JudgeOutcome, DecisionAnswers> = {
 /** How the unfinished refiner run ends, whichever kind of run it is. */
 export type RefinerRunEnd = {
   reviewer: ReviewOutcome;
-  /** How the document host takes the comments of a page review. */
+  /**
+   * How the document host takes the comments a page review or a judge rejection posts, also
+   * those of a ruling a person gives meanwhile.
+   */
   pageCommenting: DocumentsCommenting;
   judge: JudgeOutcome;
   /** What a person rules through the agent while the decisions model rules on the judge. */
@@ -393,10 +396,10 @@ export type RefinerRunEnd = {
 };
 
 /** What a person rules while the decisions model rules on a judge conclusion. */
-export type WhileRuled = "nothing" | "approve" | "reject";
+type WhileRuled = "nothing" | "approve" | "reject";
 
 /** What a polisher run did to the artifact before its turn ended. */
-export type PolishOutcome = "pushed" | "nothing_pushed";
+type PolishOutcome = "pushed" | "nothing_pushed";
 
 /**
  * The turn of the author's unfinished refiner run ends. A findings reviewer files its review
@@ -474,7 +477,7 @@ async function closeJudgeTurn(
 ): Promise<void> {
   const { judge, whileRuled } = end;
   const asksTheModel = judge !== "no_conclusion" && whileRuled !== "nothing";
-  const landing = asksTheModel ? personRules(index, whileRuled) : null;
+  const landing = asksTheModel ? personRules(index, whileRuled, end.pageCommenting) : null;
   world.answerDecisionsWith(RULING_ANSWERS[judge], landing ?? undefined, "rejects");
   if (judge !== "no_conclusion") await bridge.say(JUDGE_CONCLUSION);
 }
@@ -1044,10 +1047,10 @@ export function agentHoldsAuthor(
  * Whether the page host answers while held comments are read, and whether it marks a comment
  * read when asked.
  */
-export type PageHost = "readable" | "down" | "refuses_acknowledgement";
+type PageHost = "readable" | "down" | "refuses_acknowledgement";
 
 /** What lands while the screen reads the held comments. */
-export type WhileScreened = "nothing" | "agent_cancels";
+type WhileScreened = "nothing" | "agent_cancels";
 
 /** How held comments are read and screened in one action. */
 export type HeldCommentsRead = {
@@ -1187,7 +1190,7 @@ export function personAsksForRevision(index: number, read: HeldCommentsRead): Wo
 }
 
 /** What lands while the screen reads the held comments a mention sends. */
-export type WhileMentionScreened = "nothing" | "person_replies";
+type WhileMentionScreened = "nothing" | "person_replies";
 
 /** How a mention of the bot on a page is routed and read. */
 export type PageMention = {
@@ -1398,6 +1401,7 @@ export function personRules(
   const label = `a person rules ${ruling} on a host that ${pageCommenting}`;
   return authorAction(index, label, async (world, author) => {
     const { rule_on_review } = artifactTools(world.workflow);
+    const commentingBefore = world.pageHost.commenting;
     world.pageHost.commenting = pageCommenting;
     try {
       await rule_on_review.execute(
@@ -1405,7 +1409,7 @@ export function personRules(
         TOOL_CALL,
       );
     } finally {
-      world.pageHost.commenting = "takes";
+      world.pageHost.commenting = commentingBefore;
     }
     return { pageCommentsRefused: author.kind === "page" && pageCommenting === "down" };
   });

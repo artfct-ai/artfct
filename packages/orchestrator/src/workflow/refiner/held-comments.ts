@@ -18,12 +18,12 @@ export function heldCommentFindings(comments: HeldComment[]): Finding[] {
 }
 
 /** The held comments to acknowledge on the page once they are sent. */
-export function heldCommentHandles(comments: HeldComment[]): FeedbackHandle[] {
+function heldCommentHandles(comments: HeldComment[]): FeedbackHandle[] {
   return comments.map((comment) => ({ kind: "page", comment_id: comment.id }));
 }
 
 /** The held comments as the screen and the author read them. */
-export function heldCommentsText(comments: HeldComment[]): string {
+function heldCommentsText(comments: HeldComment[]): string {
   return feedbackText("The people who commented on the page", {
     body: "",
     findings: heldCommentFindings(comments),

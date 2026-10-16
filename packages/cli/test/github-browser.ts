@@ -1,5 +1,5 @@
 /** The manifest fields the fake browser read from the form page. */
-export type GithubAppManifestSeen = {
+type GithubAppManifestSeen = {
   hook_attributes: { url: string };
   redirect_url: string;
   setup_url: string;

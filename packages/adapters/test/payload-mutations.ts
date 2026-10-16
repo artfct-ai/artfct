@@ -5,7 +5,7 @@ type FieldPath = Array<string | number>;
 type Mutation = { at: number; remove: boolean; value: unknown };
 
 /** A string far longer than any field a vendor sends. */
-export const oversizedString: fc.Arbitrary<string> = fc
+const oversizedString: fc.Arbitrary<string> = fc
   .tuple(
     fc.string({ minLength: 1, maxLength: 8, unit: "binary" }),
     fc.integer({ min: 10_000, max: 200_000 }),

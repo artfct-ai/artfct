@@ -6,7 +6,7 @@ import { jobs, modelUsage, promptQueue, rpc, sandboxes, tasks } from "./schema";
 import type { RpcPurpose } from "./schema";
 import { FINISHED_TASK_STATUSES, now } from "./state";
 
-export type { ArtifactRow, OutboxEntry } from "./records";
+export type { ArtifactRow } from "./records";
 export type JobRow = typeof jobs.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;
 export type SandboxRow = typeof sandboxes.$inferSelect;
@@ -32,7 +32,7 @@ export type NewJob = Omit<
   Partial<Pick<JobRow, "author_harness" | "author_model" | "input_ref" | "input_url">>;
 
 /** Columns the caller sets when a sandbox row is created. */
-export type NewSandbox = Pick<SandboxRow, "harness" | "bridge_token">;
+type NewSandbox = Pick<SandboxRow, "harness" | "bridge_token">;
 
 /**
  * Columns the caller sets when a task is created. Everything else has a default. A refiner run
