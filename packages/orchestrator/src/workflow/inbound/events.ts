@@ -21,7 +21,7 @@ import type { Applied, EventRefusal, WorkflowRuntime } from "../types";
 const ACK: RpcAck = { ok: true };
 
 /** True when a person wrote to the workflow: a message in its chat thread or tracker session. */
-export function isMessage(event: InboundEvent): boolean {
+function isMessage(event: InboundEvent): boolean {
   return event.actor !== null && (event.kind === "prompt" || event.kind === "start");
 }
 
@@ -76,7 +76,7 @@ export async function createWorkflow(
 }
 
 /** Tell the first turn where the ended workflow's messages are. */
-export function earlierMessagesNote(endedWorkflowId: string, origin: ReplyTarget | null): string {
+function earlierMessagesNote(endedWorkflowId: string, origin: ReplyTarget | null): string {
   const ended = `This workflow started because workflow ${endedWorkflowId} ended here. Its messages are not in your transcript.`;
   switch (origin?.source) {
     case "chat":
@@ -187,7 +187,7 @@ async function replyFinished(workflow: WorkflowRuntime, event: InboundEvent): Pr
 }
 
 /** Post the workflow status summary to its recipients, by default the workflow's audience. */
-export async function postStatus(
+async function postStatus(
   workflow: WorkflowRuntime,
   to?: Recipients,
   options?: PostOptions,

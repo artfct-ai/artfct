@@ -28,7 +28,7 @@ function violated(name: string, detail: string): never {
  * Eyes the chat accepted come off once the delivery settles. A message gets the eyes at most
  * once, and a removal follows only an accepted reaction.
  */
-export function eyesNeverOutliveTheDelivery(record: ChatAckRecord): void {
+function eyesNeverOutliveTheDelivery(record: ChatAckRecord): void {
   const adds = record.reactions.filter((reaction) => reaction.method === "addReaction");
   if (adds.length > 1) violated("eyesNeverOutliveTheDelivery", "the message got the eyes twice");
   const expected = adds.some((reaction) => reaction.accepted)
@@ -41,7 +41,7 @@ export function eyesNeverOutliveTheDelivery(record: ChatAckRecord): void {
 }
 
 /** Only a chat message that waited past the delay for its workflow gets the eyes. */
-export function eyesMarkOnlyASlowChatDelivery(record: ChatAckRecord): void {
+function eyesMarkOnlyASlowChatDelivery(record: ChatAckRecord): void {
   if (record.reactions.length === 0 || (record.fromChat && record.slow)) return;
   violated(
     "eyesMarkOnlyASlowChatDelivery",
@@ -50,7 +50,7 @@ export function eyesMarkOnlyASlowChatDelivery(record: ChatAckRecord): void {
 }
 
 /** The caller gets exactly what the delivery settled with, whatever the reaction calls did. */
-export function theCallerGetsWhatTheDeliveryGave(record: ChatAckRecord): void {
+function theCallerGetsWhatTheDeliveryGave(record: ChatAckRecord): void {
   if (JSON.stringify(record.returned) === JSON.stringify(record.delivered)) return;
   violated(
     "theCallerGetsWhatTheDeliveryGave",

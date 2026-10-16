@@ -63,7 +63,7 @@ export function ownGithubLogins(appLogin: string | undefined): string[] {
 export const NOT_ORCHESTRATOR_BRANCH: CodeInbound = { ignore: "not an orchestrator branch" };
 
 /** Shared ignore reason for PRs whose head branch lives in another repository. */
-export const FORK_PULL_REQUEST: CodeInbound = { ignore: "pull request from a fork" };
+const FORK_PULL_REQUEST: CodeInbound = { ignore: "pull request from a fork" };
 
 /** True when the branch starts with the orchestrator branch prefix. */
 export function isOrchestratorBranch(branch: string): boolean {

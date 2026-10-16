@@ -9,7 +9,7 @@ import type { WorkflowRuntime } from "../types";
 export type Ruling = "rejected" | "approved";
 
 /** The `purpose` a ruling call records its usage under. */
-export const REVIEW_RULING_PURPOSE = "review_ruling";
+const REVIEW_RULING_PURPOSE = "review_ruling";
 
 const REJECTED_FLOOR = 0.7;
 const APPROVED_CEILING = 0.3;

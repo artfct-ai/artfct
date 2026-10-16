@@ -91,6 +91,9 @@
     "//#lint:root": {
       "dependsOn": ["@artfct-ai/orchestrator#template-config"]
     },
+    "//#knip": {
+      "inputs": ["$TURBO_DEFAULT$", "packages/**", "template/**"]
+    },
     "//#test:root": {
       "inputs": [
         "scripts/**",

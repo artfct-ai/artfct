@@ -12,7 +12,7 @@ export type CommitCheckRunPayload = {
 };
 
 /** One check suite as `GET /commits/{ref}/check-suites` lists it. */
-export type CheckSuitePayload = { status: string | null; latest_check_runs_count: number };
+type CheckSuitePayload = { status: string | null; latest_check_runs_count: number };
 
 /** One commit status as the combined status lists it, the latest per context. */
 export type CommitStatusPayload = {

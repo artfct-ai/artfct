@@ -121,7 +121,7 @@ function violated(name: string, detail: string): never {
  * Closing text is posted only as the answer to a person who wrote. An unprompted turn posts
  * none, a person owed the board alone gets none once the board changed, and no turn posts two.
  */
-export function closingTextAnswersOnlyAPersonWhoWrote(turn: AgentTurnRecord): void {
+function closingTextAnswersOnlyAPersonWhoWrote(turn: AgentTurnRecord): void {
   if (turn.closingTextsPosted === 0) return;
   if (turn.owed === null) {
     violated("closingTextAnswersOnlyAPersonWhoWrote", "an unprompted turn posted closing text");
@@ -141,7 +141,7 @@ export function closingTextAnswersOnlyAPersonWhoWrote(turn: AgentTurnRecord): vo
  * Every inbox row a turn started with is in the transcript exactly once after the turn, and no
  * longer in the inbox. This holds when the model fails and when the turn times out.
  */
-export function everyInboxRowReachesTheTranscriptOnce(turn: AgentTurnRecord): void {
+function everyInboxRowReachesTheTranscriptOnce(turn: AgentTurnRecord): void {
   for (const text of turn.inboxTexts) {
     const copies = turn.userMessages.join("\n").split(text).length - 1;
     if (copies !== 1) {
@@ -160,7 +160,7 @@ export function everyInboxRowReachesTheTranscriptOnce(turn: AgentTurnRecord): vo
  * Compaction changes only rows from before this turn. After the turn, those rows are either
  * untouched or replaced, all of them, by one recap.
  */
-export function compactionReplacesOnlyEarlierRows(turn: AgentTurnRecord): void {
+function compactionReplacesOnlyEarlierRows(turn: AgentTurnRecord): void {
   const lastEarlierId = turn.rowsBefore.at(-1)?.id ?? 0;
   const earlier = turn.rowsAfter.filter((row) => row.id <= lastEarlierId);
   if (JSON.stringify(earlier) === JSON.stringify(turn.rowsBefore)) return;
@@ -185,7 +185,7 @@ function toolCallIds(row: TranscriptRow, partType: "tool-call" | "tool-result"):
  * Every tool call in the transcript has its result before the next user or assistant message.
  * A provider refuses a request that holds a tool call with no result.
  */
-export function everyToolCallKeepsItsResult(turn: AgentTurnRecord): void {
+function everyToolCallKeepsItsResult(turn: AgentTurnRecord): void {
   const open = new Set<string>();
   for (const row of turn.rowsAfter) {
     if (row.message.role !== "tool" && open.size > 0) {
@@ -225,7 +225,7 @@ function repliedIn(step: TurnStep): boolean {
  * reaction on their message. A heads-up or a restart notice is not one. It may end unanswered
  * only after the model was told so and ran once more.
  */
-export function aPersonsTurnNeverEndsUnanswered(turn: AgentTurnRecord): void {
+function aPersonsTurnNeverEndsUnanswered(turn: AgentTurnRecord): void {
   if (turn.owed === null || turn.askedAgain) return;
   if (answersPosted(turn).length > 0 || turn.steps.some((step) => step.reacted)) return;
   violated(
@@ -238,7 +238,7 @@ export function aPersonsTurnNeverEndsUnanswered(turn: AgentTurnRecord): void {
  * In a turn where a person wrote, the first reply comes before any other tool call of the turn.
  * A step that runs any other tool follows a step that left them a post or the thumbs-up.
  */
-export function aPersonHearsBackBeforeAnyWork(turn: AgentTurnRecord): void {
+function aPersonHearsBackBeforeAnyWork(turn: AgentTurnRecord): void {
   if (turn.owed === null) return;
   const firstWork = turn.steps.findIndex((step) =>
     step.ran.some((tool) => !FIRST_REPLY_TOOLS.includes(tool)),
@@ -256,7 +256,7 @@ export function aPersonHearsBackBeforeAnyWork(turn: AgentTurnRecord): void {
  * A tool result the screen quarantined, or could not check, does not appear in any row of the
  * transcript. The model reads a fixed text in its place.
  */
-export function quarantinedTextNeverEntersTheTranscript(turn: AgentTurnRecord): void {
+function quarantinedTextNeverEntersTheTranscript(turn: AgentTurnRecord): void {
   const transcript = JSON.stringify(turn.rowsAfter);
   for (const text of turn.quarantinedTexts) {
     if (transcript.includes(text)) {
@@ -269,7 +269,7 @@ export function quarantinedTextNeverEntersTheTranscript(turn: AgentTurnRecord): 
  * After every turn, whatever its outcome, the chat thread is out of its working status. The
  * heads-up and the restart notice keep it up only while the turn runs.
  */
-export function theWorkingStatusNeverOutlivesItsTurn(turn: AgentTurnRecord): void {
+function theWorkingStatusNeverOutlivesItsTurn(turn: AgentTurnRecord): void {
   if (turn.chatSessionAfter !== "processing") return;
   violated("theWorkingStatusNeverOutlivesItsTurn", "the turn ended with the thread still working");
 }
@@ -279,7 +279,7 @@ export function theWorkingStatusNeverOutlivesItsTurn(turn: AgentTurnRecord): voi
  * request never returns on its own. A turn the deadline ended posts the timeout text. A turn
  * that ran past its timeout on the fake clock waited on a timer after the deadline aborted it.
  */
-export function aWaitingPersonHearsBackByTheTimeout(turn: AgentTurnRecord): void {
+function aWaitingPersonHearsBackByTheTimeout(turn: AgentTurnRecord): void {
   if (turn.owed === null) return;
   const timeoutMs = turn.timeoutMinutes * 60_000;
   if (turn.durationMs > timeoutMs) {
@@ -299,7 +299,7 @@ export function aWaitingPersonHearsBackByTheTimeout(turn: AgentTurnRecord): void
  * A turn lost with its Durable Object while a person waited is picked up again: their chat thread
  * hears the restart notice, and the resumed turn answers them as the lost turn would have.
  */
-export function aResumedTurnAnswersWhatItsLostTurnOwed(turn: AgentTurnRecord): void {
+function aResumedTurnAnswersWhatItsLostTurnOwed(turn: AgentTurnRecord): void {
   if (turn.lostTurnOwed === null) return;
   if (turn.chatThread && !turn.postedTexts.includes(LOST_PLACE_TEXT)) {
     violated(
@@ -318,7 +318,7 @@ export function aResumedTurnAnswersWhatItsLostTurnOwed(turn: AgentTurnRecord): v
  * A person who wrote gets the agent's answer, not the timeout text, whenever the model answers.
  * This holds when every decisions call fails or never returns.
  */
-export function aPersonGetsTheAnswerDuringADecisionsOutage(turn: AgentTurnRecord): void {
+function aPersonGetsTheAnswerDuringADecisionsOutage(turn: AgentTurnRecord): void {
   if (turn.owed === null || turn.modelHangs || !turn.timedOut) return;
   violated(
     "aPersonGetsTheAnswerDuringADecisionsOutage",
@@ -330,7 +330,7 @@ export function aPersonGetsTheAnswerDuringADecisionsOutage(turn: AgentTurnRecord
  * A decisions call takes its site's fallback only after every configured model failed. While a
  * configured model answers, every call of the turn gets the answer of the first one that does.
  */
-export function aDecisionsCallFallsBackOnlyAfterEveryModelFailed(turn: AgentTurnRecord): void {
+function aDecisionsCallFallsBackOnlyAfterEveryModelFailed(turn: AgentTurnRecord): void {
   const calls = turn.configuredDecisions;
   if (calls === null || calls.firstAnswering === null || turn.timedOut) return;
   const fellBack = calls.asked - calls.answeredBy.length;
@@ -352,7 +352,7 @@ export function aDecisionsCallFallsBackOnlyAfterEveryModelFailed(turn: AgentTurn
  * After a decisions call fails in a turn, every later decisions call in that turn takes its
  * fallback at once, without asking the decisions model.
  */
-export function laterDecisionsCallsFallBackOnceOneFails(turn: AgentTurnRecord): void {
+function laterDecisionsCallsFallBackOnceOneFails(turn: AgentTurnRecord): void {
   const failedAt = turn.decisionsEvents.indexOf("failed");
   if (failedAt === -1) return;
   const askedLater = turn.decisionsEvents.slice(failedAt).filter((event) => event === "asked");
@@ -367,9 +367,7 @@ export function laterDecisionsCallsFallBackOnceOneFails(turn: AgentTurnRecord): 
  * A flagged message never removes another message from a chat history read. Every message the
  * decisions model answered for and did not flag is in its read.
  */
-export function aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead(
-  turn: AgentTurnRecord,
-): void {
+function aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead(turn: AgentTurnRecord): void {
   for (const read of turn.chatHistoryReads) {
     const missing = read.admittedTexts.filter((text) => !read.result.includes(text));
     if (missing.length === 0) continue;
@@ -408,7 +406,7 @@ function isAnswer(turn: AgentTurnRecord, event: TaskEvent): boolean {
  * threads and no session. Without one, they reach the sessions people wrote from, and a session
  * gets a post only when a person wrote there, or as the starting session for an ask or failure.
  */
-export function sessionMessageWithoutAnAuthorIsAnswered(turn: AgentTurnRecord): void {
+function sessionMessageWithoutAnAuthorIsAnswered(turn: AgentTurnRecord): void {
   for (const { event, targets, answering } of turn.deliveries) {
     const sessions = sessionsOf(targets);
     if (turn.chatThread) {
@@ -451,7 +449,7 @@ export function sessionMessageWithoutAnAuthorIsAnswered(turn: AgentTurnRecord): 
  * Every inbox row that waits to wake the agent has a turn coming. When the Durable Object starts
  * again after a turn ended, a `runAgent` alarm runs the turn that takes the rows that wait.
  */
-export function aWaitingInboxRowHasATurnComing(turn: AgentTurnRecord): void {
+function aWaitingInboxRowHasATurnComing(turn: AgentTurnRecord): void {
   const restart = turn.restartedWithRowsWaiting;
   if (restart === null || restart.waiting === 0 || restart.turnComing) return;
   violated(
@@ -464,7 +462,7 @@ export function aWaitingInboxRowHasATurnComing(turn: AgentTurnRecord): void {
  * One turn runs at a time. The store holds a turn as running only while that turn runs: every
  * model step of a turn sees the turn's own start time or none, and the start time ends with it.
  */
-export function oneTurnRunsAtATime(turn: AgentTurnRecord): void {
+function oneTurnRunsAtATime(turn: AgentTurnRecord): void {
   if (turn.runningAfter !== null) {
     violated(
       "oneTurnRunsAtATime",

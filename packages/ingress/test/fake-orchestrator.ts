@@ -62,7 +62,7 @@ export const FAKE_BINDINGS: BindingRecord[] = [
 export const DEFAULT_WORKSPACE = "org_acme";
 
 /** The install result the fake answers when a test does not choose one. */
-export const DEFAULT_INSTALL: LinearInstallResult = {
+const DEFAULT_INSTALL: LinearInstallResult = {
   installed: true,
   organization: "Acme",
   app_user_id: "app1",

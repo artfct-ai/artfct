@@ -22,7 +22,7 @@ export function subjectOfRef(ref: TrackerRef): Subject {
 }
 
 /** True when the ref names the subject itself. */
-export function refNamesSubject(subject: Subject, ref: TrackerRef): boolean {
+function refNamesSubject(subject: Subject, ref: TrackerRef): boolean {
   if (subject.kind === "issue") return ref.kind === "issue" && ref.issue_id === subject.issue_id;
   return ref.kind === "project" && ref.project_id === subject.project_id;
 }

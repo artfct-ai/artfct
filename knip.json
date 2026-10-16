@@ -1,0 +1,43 @@
+{
+  "$schema": "https://unpkg.com/knip@6/schema.json",
+  "vitest": false,
+  "workspaces": {
+    ".": {
+      "entry": ["scripts/*.ts"]
+    },
+    "packages/*": {
+      "includeEntryExports": true
+    },
+    "packages/ingress": {
+      "wrangler": { "config": ["wrangler.test.jsonc"] }
+    },
+    "packages/orchestrator": {
+      "entry": [
+        "src/**/*.test.medium.ts",
+        "vitest.{config,setup}.ts",
+        "drizzle.*.config.ts",
+        "migrations/workflow/migrations.d.ts",
+        "scripts/**/*.ts",
+        "test/{dev,smoke}-worker.ts"
+      ],
+      "wrangler": { "config": ["wrangler.test.jsonc"] },
+      "ignoreDependencies": ["cloudflare", "@ai-sdk/provider-utils", "@informalsystems/quint"]
+    },
+    "packages/core": {
+      "entry": [
+        "src/{orchestrator,ingress,durable-objects,config}.ts",
+        "src/**/*.test.medium.ts",
+        "vitest.config.ts",
+        "test/typed-config-parameter.ts"
+      ],
+      "ignoreDependencies": [".+"]
+    },
+    "packages/cli": {
+      "entry": ["src/artfct.ts"]
+    },
+    "template": {
+      "entry": ["*/index.ts"],
+      "ignoreDependencies": ["artfct", "wrangler"]
+    }
+  }
+}

@@ -173,7 +173,7 @@ async function assertPortsFree(): Promise<void> {
 }
 
 /** Polls `url` every 300ms until it answers 2xx. Throws after `timeoutMs`. */
-export async function waitForHealth(url: string, timeoutMs: number): Promise<void> {
+async function waitForHealth(url: string, timeoutMs: number): Promise<void> {
   const deadline = Date.now() + timeoutMs;
   while (Date.now() < deadline) {
     try {
@@ -237,7 +237,7 @@ async function startMockNotion(): Promise<void> {
 }
 
 /** Clears every comment the mock Notion API holds. */
-export async function resetMockNotion(): Promise<void> {
+async function resetMockNotion(): Promise<void> {
   const response = await fetch(`${MOCK_NOTION_URL}/__reset`, { method: "POST" });
   if (!response.ok) throw new Error(`mock notion /__reset ${response.status}`);
 }
@@ -450,7 +450,7 @@ export async function releaseMockReview(): Promise<void> {
 }
 
 /** Kills every bridge the mock sandbox host runs and clears its record. */
-export async function resetMockSandbox(): Promise<void> {
+async function resetMockSandbox(): Promise<void> {
   const response = await fetch(`${MOCK_SANDBOX_URL}/__reset`, { method: "POST" });
   if (!response.ok) throw new Error(`mock sandbox /__reset ${response.status}`);
 }

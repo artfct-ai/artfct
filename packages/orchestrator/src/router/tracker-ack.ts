@@ -5,7 +5,7 @@ import type {
 } from "@artfct-ai/adapters/tracker/types";
 
 /** The ephemeral thought a session gets before a workflow reads anything. */
-export const ON_IT = "On it. Reading the issue.";
+const ON_IT = "On it. Reading the issue.";
 
 /** Posted on a session nobody opened when no workflow is working on its issue. */
 export const NOTHING_TO_JOIN =
