@@ -95,6 +95,18 @@ Every change is specified before it is built. The spec is the glossary and the i
 - A row's guard list changes only with an approved invariant.
 - The PR lists map edits under "Spec in this diff (approved by merging)".
 
+### Quint specs
+
+- A folder under `spec/` holds one Quint spec, one file per setup, and `checks.json`. `packages/orchestrator/scripts/spec/check-spec.ts` is the only reader of `checks.json`. CI and the nightly run call it for every setup, so a new spec folder needs no workflow change.
+- Simulation and TLC check the same invariants. Write every rule as a state invariant, so both can check it.
+- Cap growth with counters. Give each list or number that grows a counter val, and cap it per setup under `tlc.bounds` in `checks.json`, at `pr` and at `nightly` depth. Keep the `pr` bounds under 40 seconds of TLC in CI.
+- Remove a call from the state once it returns. A restart drops every call that is out. Do not keep a returned or dropped call.
+- Write a before-and-after rule as a pure def over one step, the state before and after it and the kind of step. Each step records whether it kept each rule in a record variable, and the invariant reads that field. Do not store the state before the step.
+- Record a witness that needs the step in its own record variable, and list that variable under `tlc.ignoredVariables`. TLC then leaves it out of a state.
+- Avoid a range whose length depends on the state, such as the jobs so far. Range over the constant cap and filter, so Apalache can translate the spec for TLC.
+- Run quint locally through the check-spec script, which runs every invariant in one run on the Rust backend. Use small sample counts while you iterate and the CI counts once before you push.
+- Run at most two heavy processes at a time, such as quint, TLC, a replay, or a property test.
+
 ## Code style
 
 - Prefer the plainest conventional solution. Before you build a script, generator, or abstraction, check whether a standard convention does the job.

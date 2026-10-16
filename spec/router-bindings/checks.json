@@ -44,5 +44,46 @@
       "thePullRequestIsBound",
       "aPersonWroteAfterAnEnd"
     ]
+  },
+  "tlc": {
+    "ignoredVariables": [],
+    "bounds": {
+      "chatThread": {
+        "pr": {
+          "eventsArrived": 4,
+          "workflowsCreated": 4,
+          "operationsStarted": 3
+        },
+        "nightly": {
+          "eventsArrived": 5,
+          "workflowsCreated": 5,
+          "operationsStarted": 3
+        }
+      },
+      "twoSessionsOnOneIssue": {
+        "pr": {
+          "eventsArrived": 2,
+          "workflowsCreated": 3,
+          "operationsStarted": 3
+        },
+        "nightly": {
+          "eventsArrived": 3,
+          "workflowsCreated": 3,
+          "operationsStarted": 3
+        }
+      },
+      "sessionWithPullRequest": {
+        "pr": {
+          "eventsArrived": 3,
+          "workflowsCreated": 2,
+          "operationsStarted": 2
+        },
+        "nightly": {
+          "eventsArrived": 4,
+          "workflowsCreated": 4,
+          "operationsStarted": 3
+        }
+      }
+    }
   }
 }
