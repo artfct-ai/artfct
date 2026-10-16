@@ -24,7 +24,8 @@ function takeChatMessages(workflow: FakeRuntime, written: ChatMessageRef[]): voi
 }
 
 function firstReplySchema(workflow: FakeRuntime): z.ZodType {
-  return channelTools(workflow).acknowledge.inputSchema as z.ZodType;
+  return channelTools(workflow, workflow.transcript.answering()).acknowledge
+    .inputSchema as z.ZodType;
 }
 
 const routedRuntime: Scenario<FakeRuntime> = async (run) => {
@@ -37,7 +38,7 @@ describe("channel tools", () => {
       let result: string;
       const acknowledged = scenario(freshRuntime, async (workflow) => {
         result = toolText(
-          await channelTools(workflow).acknowledge.execute(
+          await channelTools(workflow, workflow.transcript.answering()).acknowledge.execute(
             { reply: { kind: "text", text: "Working on it." } },
             call,
           ),
@@ -63,7 +64,7 @@ describe("channel tools", () => {
     describe("called twice in one turn", () => {
       let refusal = "";
       const twice = scenario(freshRuntime, async (workflow) => {
-        const tools = channelTools(workflow);
+        const tools = channelTools(workflow, workflow.transcript.answering());
         await tools.acknowledge.execute({ reply: { kind: "text", text: "Got it." } }, call);
         try {
           await tools.acknowledge.execute(
@@ -93,7 +94,7 @@ describe("channel tools", () => {
         chat = new FakeChat();
         workflow.chatInstance = chat;
         takeChatMessages(workflow, [MESSAGE, LATER_MESSAGE]);
-        const tools = channelTools(workflow);
+        const tools = channelTools(workflow, workflow.transcript.answering());
         result = toolText(await tools.acknowledge.execute({ reply: { kind: "reaction" } }, call));
       });
 
@@ -130,7 +131,7 @@ describe("channel tools", () => {
       const refused = scenario(freshRuntime, async (workflow) => {
         workflow.chatInstance = new FakeChat({ failing: true });
         takeChatMessages(workflow, [MESSAGE]);
-        const tools = channelTools(workflow);
+        const tools = channelTools(workflow, workflow.transcript.answering());
         try {
           await tools.acknowledge.execute({ reply: { kind: "reaction" } }, call);
         } catch (error) {
@@ -180,7 +181,10 @@ describe("channel tools", () => {
     let result: string;
     const told = scenario(freshRuntime, async (workflow) => {
       result = toolText(
-        await channelTools(workflow).tell.execute({ text: "The harness cannot push." }, call),
+        await channelTools(workflow, workflow.transcript.answering()).tell.execute(
+          { text: "The harness cannot push." },
+          call,
+        ),
       );
     });
 
@@ -199,7 +203,12 @@ describe("channel tools", () => {
     describe("while no task runs", () => {
       let result: string;
       const asked = scenario(routedRuntime, async (workflow) => {
-        result = toolText(await channelTools(workflow).ask.execute({ text: "Which repo?" }, call));
+        result = toolText(
+          await channelTools(workflow, workflow.transcript.answering()).ask.execute(
+            { text: "Which repo?" },
+            call,
+          ),
+        );
       });
 
       it("answers that the question went out", () =>
@@ -221,7 +230,10 @@ describe("channel tools", () => {
     describe("while the workflow has not started", () => {
       const asked = scenario(routedRuntime, async (workflow) => {
         workflow.patchState({ status: "new", definition: null });
-        await channelTools(workflow).ask.execute({ text: "Which repo?" }, call);
+        await channelTools(workflow, workflow.transcript.answering()).ask.execute(
+          { text: "Which repo?" },
+          call,
+        );
       });
 
       it("keeps the workflow new", () =>
@@ -233,7 +245,10 @@ describe("channel tools", () => {
     describe("while a task is active", () => {
       const asked = scenario(freshRuntime, async (workflow) => {
         seedTask(workflow);
-        await channelTools(workflow).ask.execute({ text: "Merge now?" }, call);
+        await channelTools(workflow, workflow.transcript.answering()).ask.execute(
+          { text: "Merge now?" },
+          call,
+        );
       });
 
       it("keeps the workflow running", () =>

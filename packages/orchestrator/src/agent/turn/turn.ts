@@ -24,7 +24,8 @@ import type { TranscriptRow } from "../transcript/transcript";
 import { estimatedTokens } from "../transcript/transcript-size";
 import { TURN_PURPOSE } from "../model/usage";
 import type { TurnDecisions } from "../../decisions/ask";
-import { hasChatThread, turnRecipients } from "../../notify/recipients";
+import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
+import { hasChatThread } from "../../notify/recipients";
 import {
   heldCommentCounts,
   sendHeldCommentsOnRevisionRequest,
@@ -54,13 +55,15 @@ type Outcome = "replied" | "silent" | "failed" | "timed_out";
 
 /**
  * What one agent turn works from. `firstRow` is the id of the turn's first transcript row, which
- * compaction keeps. `requestText` identifies an ad hoc job started in the turn.
+ * compaction keeps. `requestText` identifies an ad hoc job started in the turn. `answering` is
+ * where the people the turn answers wrote from, read as the turn took its inbox.
  */
 type TurnInput = {
   rows: TranscriptRow[];
   firstRow: number | null;
   messages: string[];
   requestText: string;
+  answering: ReplyTarget[];
 };
 
 /** What the decisions model read in the message of the person who waits on the turn. Null when nobody wrote. */
@@ -70,10 +73,16 @@ type Reply = PersonMessage | null;
  * What the turn did so far that a retry or a second pass must not forget. `firstReplied` turns
  * true once a first reply tool worked. Closing text that answers ends the model pass instead.
  */
-type TurnProgress = { boardChanged: boolean; firstReplied: boolean };
+type TurnProgress = { firstReplied: boolean };
 
 /** What every model run of one turn shares. */
-type GenerateInput = { tools: ToolSet; signal: AbortSignal; reply: Reply; progress: TurnProgress };
+type GenerateInput = {
+  tools: ToolSet;
+  signal: AbortSignal;
+  reply: Reply;
+  progress: TurnProgress;
+  answering: ReplyTarget[];
+};
 
 /** What the tools of a turn share with the rest of the turn. */
 type TurnToolsInput = { runtimeRequest: Promise<RuntimeRequest | null>; decisions: TurnDecisions };
@@ -104,16 +113,21 @@ export async function runAgentTurn(workflow: WorkflowRuntime): Promise<void> {
   const prompts = messages.length ? messages : taken.map((row) => row.text);
   workflow.log(null, `agent turn started${messages.length ? " on a person's message" : ""}`);
   const startedAt = await armTurnWatchdog(workflow);
-  const firstRow = workflow.state.turn_first_row ?? takenRow;
-  workflow.patchState({ turn_first_row: firstRow });
+  const lostFirstRow = workflow.state.turn_first_row ?? null;
+  const firstRow = lostFirstRow ?? takenRow;
+  workflow.patchState({
+    turn_first_row: firstRow,
+    turn_board_changed: lostFirstRow !== null && workflow.state.turn_board_changed === true,
+  });
   const outcome = await boundedAttempt(workflow, {
     rows: workflow.transcript.all(),
     firstRow,
     messages,
     requestText: prompts.join("\n"),
+    answering: workflow.transcript.answering(),
   });
-  const turnOwnsTheReply = await disarmTurnWatchdog(workflow, startedAt);
-  if (!turnOwnsTheReply) return;
+  const owesTheReply = await disarmTurnWatchdog(workflow, startedAt);
+  if (!owesTheReply) return workflow.release();
   await conclude(workflow, outcome);
 }
 
@@ -163,10 +177,10 @@ async function attempt(
     reading,
     loadTools(workflow, turn, { runtimeRequest, decisions }),
   ]);
-  const progress: TurnProgress = { boardChanged: false, firstReplied: false };
-  if (reply?.asksForRevision) await sendHeldCommentsForRevision(workflow, decisions, progress);
+  const progress: TurnProgress = { firstReplied: false };
+  if (reply?.asksForRevision) await sendHeldCommentsForRevision(workflow, decisions);
   await compactIfLarge(workflow, turn, signal);
-  const run = { tools, signal, reply, progress };
+  const run = { tools, signal, reply, progress, answering: turn.answering };
   try {
     return await generate(workflow, run);
   } catch (firstError) {
@@ -203,6 +217,7 @@ async function loadTools(
     requestText: turn.requestText,
     runtimeRequest,
     decisions,
+    answering: turn.answering,
   });
   const foreign = new Set<string>([...Object.keys(mcp), ...FOREIGN_TEXT_TOOLS]);
   return condensingTools(
@@ -217,7 +232,7 @@ async function loadTools(
  */
 async function generate(
   workflow: WorkflowRuntime,
-  { tools, signal, reply, progress }: GenerateInput,
+  { tools, signal, reply, progress, answering }: GenerateInput,
 ): Promise<Outcome> {
   const requestTimeoutMs = workflow.config().orchestrator.request_timeout_minutes * 60_000;
   const model = withRequestTimeout(await workflow.model(), requestTimeoutMs);
@@ -225,19 +240,20 @@ async function generate(
   const input = { model, tools, signal, turn, progress };
   let pass = await modelPass(workflow, { ...input, stepsBefore: 0 });
   if (signal.aborted) return "timed_out";
-  if (reply && !replied(pass, progress)) {
+  if (reply && !replied(workflow, pass)) {
     workflow.log(null, "agent ended a person's turn with nothing for them, one more pass");
     workflow.transcript.append([{ role: "user", content: noteMessage(UNANSWERED_TEXT) }]);
     pass = await modelPass(workflow, { ...input, stepsBefore: pass.steps });
     if (signal.aborted) return "timed_out";
   }
   if (pass.endedByTool || !pass.text) return "silent";
-  const withheld = closingTextWithheld(reply ? reply.owed : null, progress.boardChanged);
+  const boardChanged = workflow.state.turn_board_changed === true;
+  const withheld = closingTextWithheld(reply ? reply.owed : null, boardChanged);
   if (withheld) {
     workflow.log(null, `closing text not posted, ${withheld}: ${pass.text.slice(0, 200)}`);
     return "silent";
   }
-  await workflow.post({ type: "info", text: pass.text }, turnRecipients(workflow.transcript));
+  await workflow.post({ type: "info", text: pass.text }, { answering });
   return "replied";
 }
 
@@ -258,19 +274,23 @@ function turnFacts(reply: Reply, heldComments: TurnFacts["heldComments"]): TurnF
 async function sendHeldCommentsForRevision(
   workflow: WorkflowRuntime,
   decisions: TurnDecisions,
-  progress: TurnProgress,
 ): Promise<void> {
   const sent = await sendHeldCommentsOnRevisionRequest(workflow, decisions);
   if (!sent.notes.length) return;
   workflow.transcript.append(
     sent.notes.map((note) => ({ role: "user" as const, content: noteMessage(note) })),
   );
-  if (sent.prompted.length && hasChatThread(workflow.state)) progress.boardChanged = true;
+  if (sent.prompted.length && hasChatThread(workflow.state)) {
+    workflow.patchState({ turn_board_changed: true });
+  }
 }
 
-/** True when the pass left the person something: text, a turn-ending message, or a board change. */
-function replied(pass: ModelPass, progress: TurnProgress): boolean {
-  return pass.text !== "" || pass.endedByTool || progress.boardChanged;
+/**
+ * True when the person got something: text, a turn-ending message, or a board change of this
+ * turn or of the lost turn it resumes.
+ */
+function replied(workflow: WorkflowRuntime, pass: ModelPass): boolean {
+  return pass.text !== "" || pass.endedByTool || workflow.state.turn_board_changed === true;
 }
 
 /**
@@ -305,8 +325,12 @@ async function modelPass(
         workflow.log(null, `agent: ${call.toolName} ${JSON.stringify(call.input).slice(0, 300)}`);
         if (failed.has(call.toolName)) continue;
         if (endingTools.includes(call.toolName)) pass.endedByTool = true;
-        if (REPLYING_TOOLS.includes(call.toolName) && hasChatThread(workflow.state)) {
-          progress.boardChanged = true;
+        if (
+          turn.personWrote &&
+          REPLYING_TOOLS.includes(call.toolName) &&
+          hasChatThread(workflow.state)
+        ) {
+          workflow.patchState({ turn_board_changed: true });
         }
         if (FIRST_REPLY_TOOLS.includes(call.toolName)) progress.firstReplied = true;
       }

@@ -1,3 +1,4 @@
+import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { WorkflowRuntime } from "../../workflow/types";
 import { artifactTools } from "./artifact";
 import { channelTools } from "./channel";
@@ -10,11 +11,14 @@ import { startTools, type StartTurn } from "./start/start";
 import { taskTools } from "./task";
 import { webTools } from "./web";
 
+/** What the tools of one turn share. `answering` is where the people the turn answers wrote from. */
+export type ToolTurn = StartTurn & { answering: ReplyTarget[] };
+
 /** Every deterministic tool the orchestrator agent gets, bound to one workflow and one turn. */
 export function workflowTools(
   workflow: WorkflowRuntime,
   personMessages: string[] = [],
-  turn: StartTurn = {},
+  turn: ToolTurn = { answering: [] },
 ) {
   return {
     ...planTools(workflow),
@@ -25,7 +29,7 @@ export function workflowTools(
     ...rootPageTools(workflow),
     ...readTools(workflow),
     ...historyTools(workflow, turn.decisions),
-    ...channelTools(workflow),
+    ...channelTools(workflow, turn.answering),
     ...webTools(workflow),
   };
 }

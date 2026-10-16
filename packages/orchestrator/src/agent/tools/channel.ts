@@ -1,6 +1,6 @@
+import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import { tool } from "ai";
 import { z } from "zod";
-import { turnRecipients } from "../../notify/recipients";
 import { changeWorkflowStatus } from "../../workflow/lifecycle";
 import type { WorkflowRuntime } from "../../workflow/types";
 
@@ -76,9 +76,10 @@ When execution occurs without an inbound user message, standard closing text is 
 
 /**
  * Tools that talk to the humans in every channel bound to the workflow, or decide not to. The
- * first reply may react only while the turn has chat messages without the thumbs-up.
+ * first reply may react only while the turn has chat messages without the thumbs-up. Every post
+ * answers `answering`, where the people the turn answers wrote from.
  */
-export function channelTools(workflow: WorkflowRuntime) {
+export function channelTools(workflow: WorkflowRuntime, answering: ReplyTarget[]) {
   let acknowledged = false;
   const reactable = workflow.transcript.awaitingThumbsUp().length > 0;
   const inputSchema: z.ZodType<FirstReplyInput> = reactable ? firstReplyInput : textOnlyInput;
@@ -101,10 +102,7 @@ export function channelTools(workflow: WorkflowRuntime) {
             return "Reacted with a thumbs-up.";
           case "text":
             acknowledged = true;
-            await workflow.post(
-              { type: "info", text: reply.text },
-              turnRecipients(workflow.transcript),
-            );
+            await workflow.post({ type: "info", text: reply.text }, { answering });
             return "Acknowledged.";
           default: {
             const unreachable: never = reply;
@@ -121,7 +119,7 @@ export function channelTools(workflow: WorkflowRuntime) {
         const running = workflow.state.status === "running";
         if (running && !workflow.store.activeAuthorAndResearcherTasks().length)
           await changeWorkflowStatus(workflow, "waiting_input");
-        await workflow.post({ type: "question", text }, turnRecipients(workflow.transcript));
+        await workflow.post({ type: "question", text }, { answering });
         return "Asked. The answer arrives as a new message.";
       },
     }),
@@ -130,7 +128,7 @@ export function channelTools(workflow: WorkflowRuntime) {
         "Tell the humans something they need to know when nobody wrote to you: a problem a harness raised, or work that went wrong. Not for progress, and not for an artifact that is ready. It is the last message of this turn.",
       inputSchema: z.object({ text: z.string().min(1) }),
       execute: async ({ text }) => {
-        await workflow.post({ type: "info", text }, turnRecipients(workflow.transcript));
+        await workflow.post({ type: "info", text }, { answering });
         return "Told.";
       },
     }),

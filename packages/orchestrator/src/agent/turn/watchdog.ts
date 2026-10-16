@@ -2,7 +2,7 @@ import { isWorkflowFinished } from "../../workflow/store/state";
 import { noteMessage } from "../transcript/envelope";
 import type { WorkflowRuntime } from "../../workflow/types";
 
-/** The alarm payload. The stamp tells a late alarm from the turn it was armed for. */
+/** The alarm payload. The start time tells a late alarm from the turn it was armed for. */
 export type TurnAlarm = { started_at: string };
 
 /** Seconds into a turn on a person's message before its chat threads hear that it still runs. */
@@ -21,7 +21,7 @@ export function turnTimeoutText(minutes: number): string {
 
 /**
  * Record a turn's start. Schedule the watchdog alarm, and the heads-up when the turn took a
- * message a person wrote. Returns the stamp that identifies the turn.
+ * message a person wrote. Returns the start time that identifies the turn.
  */
 export async function armTurnWatchdog(workflow: WorkflowRuntime): Promise<string> {
   const startedAt = new Date(workflow.now()).toISOString();
@@ -41,8 +41,8 @@ export async function armTurnWatchdog(workflow: WorkflowRuntime): Promise<string
 }
 
 /**
- * A turn ends. Cancel its alarms. Returns true when this turn still owned the reply, false
- * when the watchdog already told the humans that it timed out.
+ * A turn ends. Cancel its alarms. Returns true when this turn still owes the reply, false when
+ * the watchdog already told the humans that it timed out and the turn has only to release them.
  */
 export async function disarmTurnWatchdog(
   workflow: WorkflowRuntime,
@@ -59,7 +59,7 @@ export async function disarmTurnWatchdog(
 }
 
 /**
- * Alarm: the turn armed with this stamp still runs after `HEADS_UP_SECONDS`. Tell its chat
+ * Alarm: the turn armed with this start time still runs after `HEADS_UP_SECONDS`. Tell its chat
  * threads and keep their working status. The turn still owes its reply.
  */
 export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {
@@ -70,7 +70,7 @@ export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm)
 }
 
 /**
- * Alarm: the turn armed with this stamp never ended. Tell the humans and let go of it. On a
+ * Alarm: the turn armed with this start time never ended. Tell the humans and let go of it. On a
  * finished workflow, only take the threads out of their working status.
  */
 export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {
@@ -96,12 +96,18 @@ export const LOST_TURN_TEXT =
 
 /**
  * Forget a turn still marked as running when the Durable Object starts, and wake the agent with
- * an agent note. The resumed turn keeps the lost turn's messages and transcript rows, and a person
- * who waited hears that it starts again. True when a turn was resumed.
+ * an agent note. The resumed turn keeps the lost turn's messages, transcript rows and board
+ * change, and a person who waited hears that it starts again. With no lost turn, rows that wait
+ * to wake the agent get a `runAgent` alarm, since the lost isolate took their turn with it. True
+ * when a turn was resumed.
  */
 export async function resumeLostTurn(workflow: WorkflowRuntime): Promise<boolean> {
   const startedAt = workflow.state.turn_started_at;
-  if (!startedAt) return false;
+  if (!startedAt) {
+    const waking = workflow.transcript.inbox().some((row) => row.wake !== "none");
+    if (waking) await workflow.scheduleAlarm(0, "runAgent", {});
+    return false;
+  }
   await cancelTurnAlarms(workflow);
   workflow.patchState({ turn_started_at: null });
   if (isWorkflowFinished(workflow.state.status)) {

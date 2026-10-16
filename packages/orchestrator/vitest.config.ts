@@ -2,6 +2,7 @@ import { builtinModules } from "node:module";
 import { cloudflareTest, readD1Migrations } from "@cloudflare/vitest-plugin";
 import { defineConfig } from "vitest/config";
 import { propertyVars } from "@artfct-ai/adapters/test/property-runs";
+import { quintTracesService } from "./test/quint-traces.ts";
 import { testVars } from "./test/test-env.ts";
 
 /** D1 migrations are read here in Node and applied inside the Worker by `vitest.setup.ts`. */
@@ -57,6 +58,7 @@ export default defineConfig({
       wrangler: { configPath: "./wrangler.test.jsonc" },
       miniflare: {
         outboundService: offline,
+        serviceBindings: { QUINT_TRACES: quintTracesService },
         bindings: { ...testVars(), ...propertyVars(), TEST_MIGRATIONS: migrations },
       },
     }),

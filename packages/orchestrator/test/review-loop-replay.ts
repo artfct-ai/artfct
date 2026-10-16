@@ -1,10 +1,4 @@
 import { setSystemTime } from "bun:test";
-import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { Decisions } from "@artfct-ai/adapters/gateway/types";
 import type { TaskStatus } from "@artfct-ai/contracts/types";
 import { FakeDecisions, type FakeAnswers } from "@artfct-ai/adapters/test/fake-decisions";
@@ -17,6 +11,8 @@ import { CLOSING_TEXT_MARKER, replyMarker } from "../src/prompts/model-author-pr
 import { sendHeldCommentsOnRevisionRequest } from "../src/workflow/refiner/held-comments";
 import type { ArtifactRow, TaskRow } from "../src/workflow/store/tasks";
 import { taskAtWork } from "../src/workflow/task/at-work";
+import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
+import { quintTraces } from "./quint-traces";
 import { JUDGE_CONCLUSION, MODEL_AUTHOR_MODEL } from "./fake-runtime";
 import { HeldPageModel } from "./held-page-model";
 import { InterleavedDecisions, onFirstCallAsking } from "./interleaved-decisions";
@@ -65,8 +61,6 @@ export type SpecSetup = keyof typeof SPEC_SETUPS;
 /** The most steps a generated trace takes after its initial state. */
 export const TRACE_STEPS = 25;
 
-const SPEC_DIRECTORY = join(dirname(fileURLToPath(import.meta.url)), "../../../spec/review-loop");
-const QUINT_CLI = createRequire(import.meta.url).resolve("@informalsystems/quint/dist/src/cli.js");
 const STEP_MS = 10 * 60_000;
 const REPLAY_START = Date.parse("2026-01-01T00:00:00.000Z");
 
@@ -140,124 +134,98 @@ type ReviewAgainDecision = (typeof REVIEW_AGAIN_DECISIONS)[number];
 
 /** Run the spec of one setup for `count` traces from `seed`, each checked against its invariants. */
 export function generateTraces(setup: SpecSetup, count: number, seed: number): TraceStep[][] {
-  const directory = mkdtempSync(join(tmpdir(), "review-loop-"));
-  try {
-    const quint = spawnSync(
-      process.execPath,
-      [
-        QUINT_CLI,
-        "run",
-        join(SPEC_DIRECTORY, `${setup}.qnt`),
-        `--main=${setup}`,
-        "--backend=typescript",
-        "--mbt",
-        `--max-steps=${TRACE_STEPS}`,
-        `--max-samples=${count}`,
-        `--n-traces=${count}`,
-        `--seed=${seed}`,
-        `--out-itf=${join(directory, "trace_{seq}.itf.json")}`,
-      ],
-      { encoding: "utf8" },
-    );
-    if (quint.status !== 0) {
-      throw new Error(`quint run failed for ${setup}:\n${quint.stdout}\n${quint.stderr}`);
-    }
-    return readdirSync(directory)
-      .toSorted((left, right) => traceNumber(left) - traceNumber(right))
-      .map((file) => traceSteps(setup, JSON.parse(readFileSync(join(directory, file), "utf8"))));
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
-}
-
-function traceNumber(file: string): number {
-  return Number(file.replace(/\D/g, ""));
+  return quintTraces({ spec: "review-loop", setup, count, steps: TRACE_STEPS, seed }).map((trace) =>
+    traceSteps(setup, trace),
+  );
 }
 
 function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
-  return list(field(trace, "states")).map((state) => {
-    const picks = field(state, "mbt::nondetPicks");
-    const picked = variant(field(picks, "judgeRun", true));
-    const decision = variant(field(picks, "decision", true));
-    const lastStep = field(state, `${setup}::reviewLoop::lastStep`);
+  return itfList(itfField(trace, "states")).map((state) => {
+    const picks = itfField(state, "mbt::nondetPicks");
+    const picked = itfVariant(itfField(picks, "judgeRun", true));
+    const decision = itfVariant(itfField(picks, "decision", true));
+    const lastStep = itfField(state, `${setup}::reviewLoop::lastStep`);
     return {
-      action: text(field(state, "mbt::actionTaken")),
-      judgeRun: picked?.tag === "Some" ? int(picked.value) : null,
+      action: itfText(itfField(state, "mbt::actionTaken")),
+      judgeRun: picked?.tag === "Some" ? itfInt(picked.value) : null,
       decision:
         decision?.tag === "Some"
-          ? oneOf(text(field(decision.value, "tag")), REVIEW_AGAIN_DECISIONS)
+          ? itfOneOf(itfText(itfField(decision.value, "tag")), REVIEW_AGAIN_DECISIONS)
           : null,
       picks: somePicks(picks),
-      agentHeard: sortedTags(field(lastStep, "agentHeard")),
-      review: specReview(field(state, `${setup}::reviewLoop::review`)),
+      agentHeard: sortedTags(itfField(lastStep, "agentHeard")),
+      review: specReview(itfField(state, `${setup}::reviewLoop::review`)),
     };
   });
 }
 
 function specReview(value: unknown): SpecReview {
-  const author = field(value, "author");
-  const artifact = field(value, "artifact");
-  const status = variant(field(artifact, "status"))!;
-  const refinerRun = variant(field(artifact, "refinerRun"))!;
+  const author = itfField(value, "author");
+  const artifact = itfField(value, "artifact");
+  const status = itfVariant(itfField(artifact, "status"))!;
+  const refinerRun = itfVariant(itfField(artifact, "refinerRun"))!;
   return {
     author: {
-      atWork: bool(field(author, "atWork")),
-      failed: bool(field(author, "failed")),
-      queuedPrompts: list(field(author, "queuedPrompts")).map(sortedInts),
-      turnComments: sortedInts(field(author, "turnComments")),
-      pageEditsDuringTurn: sortedTags(field(author, "pageEditsDuringTurn")),
-      rejectedBy: sortedInts(field(author, "rejectedBy")),
-      findingsFrom: sortedInts(field(author, "findingsFrom")),
+      atWork: itfBool(itfField(author, "atWork")),
+      failed: itfBool(itfField(author, "failed")),
+      queuedPrompts: itfList(itfField(author, "queuedPrompts")).map(sortedInts),
+      turnComments: sortedInts(itfField(author, "turnComments")),
+      pageEditsDuringTurn: sortedTags(itfField(author, "pageEditsDuringTurn")),
+      rejectedBy: sortedInts(itfField(author, "rejectedBy")),
+      findingsFrom: sortedInts(itfField(author, "findingsFrom")),
     },
     artifact: {
       status:
         status.tag === "Ready"
-          ? { status: "Ready", deliveredRevision: int(field(status.value, "deliveredRevision")) }
+          ? {
+              status: "Ready",
+              deliveredRevision: itfInt(itfField(status.value, "deliveredRevision")),
+            }
           : { status: "Drafted" },
-      revision: int(field(artifact, "revision")),
-      refinerRun: refinerRun.tag === "OnRefinerRun" ? int(refinerRun.value) : null,
+      revision: itfInt(itfField(artifact, "revision")),
+      refinerRun: refinerRun.tag === "OnRefinerRun" ? itfInt(refinerRun.value) : null,
     },
-    refinerRuns: list(field(value, "refinerRuns")).map(specRun),
-    judgeRunsCodeRulesOn: sortedInts(field(value, "judgeRunsCodeRulesOn")),
-    reviewComments: list(field(value, "reviewComments")).map(specReviewComment),
-    personComments: list(field(value, "personComments")).map(specPersonComment),
+    refinerRuns: itfList(itfField(value, "refinerRuns")).map(specRun),
+    judgeRunsCodeRulesOn: sortedInts(itfField(value, "judgeRunsCodeRulesOn")),
+    reviewComments: itfList(itfField(value, "reviewComments")).map(specReviewComment),
+    personComments: itfList(itfField(value, "personComments")).map(specPersonComment),
   };
 }
 
 function specReviewComment(value: unknown): SpecReviewComment {
-  const comment = variant(value)!;
+  const comment = itfVariant(value)!;
   switch (comment.tag) {
     case "InlineFinding":
       return {
         kind: "inline",
-        run: int(field(comment.value, "refinerRun")),
-        passage: variant(field(comment.value, "passage"))!.tag,
+        run: itfInt(itfField(comment.value, "refinerRun")),
+        passage: itfVariant(itfField(comment.value, "passage"))!.tag,
       };
     case "OutcomeComment":
       return {
         kind: "outcome",
-        run: int(field(comment.value, "refinerRun")),
-        findings: sortedTags(field(comment.value, "findings")),
-        approves: bool(field(comment.value, "approves")),
+        run: itfInt(itfField(comment.value, "refinerRun")),
+        findings: sortedTags(itfField(comment.value, "findings")),
+        approves: itfBool(itfField(comment.value, "approves")),
       };
     case "RejectionComment":
-      return { kind: "rejection", run: int(comment.value) };
+      return { kind: "rejection", run: itfInt(comment.value) };
     default:
       throw new Error(`the trace has review comment ${comment.tag}`);
   }
 }
 
 function specPersonComment(value: unknown): SpecPersonComment {
-  const discussion = variant(field(value, "discussion"))!;
+  const discussion = itfVariant(itfField(value, "discussion"))!;
   const opened = discussion.tag === "OpenedBy" ? "opened" : "review";
   return {
-    discussion: `${opened} ${int(discussion.value)}`,
-    onTheBlock: bool(field(value, "onTheBlock")),
-    mentions: bool(field(value, "mentions")),
-    acknowledged: bool(field(value, "acknowledged")),
-    gone: bool(field(value, "gone")),
-    sent: bool(field(value, "sent")),
-    answered: bool(field(value, "answered")),
+    discussion: `${opened} ${itfInt(discussion.value)}`,
+    onTheBlock: itfBool(itfField(value, "onTheBlock")),
+    mentions: itfBool(itfField(value, "mentions")),
+    acknowledged: itfBool(itfField(value, "acknowledged")),
+    gone: itfBool(itfField(value, "gone")),
+    sent: itfBool(itfField(value, "sent")),
+    answered: itfBool(itfField(value, "answered")),
   };
 }
 
@@ -265,31 +233,31 @@ function somePicks(picks: unknown): Record<string, unknown> {
   if (typeof picks !== "object" || picks === null) return {};
   return Object.fromEntries(
     Object.entries(picks).flatMap(([name, picked]) => {
-      const option = variant(picked);
+      const option = itfVariant(picked);
       return option?.tag === "Some" ? [[name, option.value]] : [];
     }),
   );
 }
 
 function sortedTags(set: unknown): string[] {
-  return list(field(set, "#set"))
-    .map((value) => variant(value)!.tag)
+  return itfSet(set)
+    .map((value) => itfVariant(value)!.tag)
     .toSorted();
 }
 
 function sortedInts(set: unknown): number[] {
-  return list(field(set, "#set"))
-    .map(int)
+  return itfSet(set)
+    .map(itfInt)
     .toSorted((left, right) => left - right);
 }
 
 function specRun(value: unknown): SpecRun {
-  const result = variant(field(value, "result"))!;
+  const result = itfVariant(itfField(value, "result"))!;
   return {
-    refinerIndex: int(field(value, "refinerIndex")),
-    status: oneOf(variant(field(value, "status"))!.tag, RUN_STATUSES),
+    refinerIndex: itfInt(itfField(value, "refinerIndex")),
+    status: itfOneOf(itfVariant(itfField(value, "status"))!.tag, RUN_STATUSES),
     result: specResult(result),
-    restarts: int(field(value, "restarts")),
+    restarts: itfInt(itfField(value, "restarts")),
   };
 }
 
@@ -301,58 +269,18 @@ function specResult(result: { tag: string; value: unknown }): SpecRun["result"] 
     case "FiledReview":
       return {
         filed: "review",
-        revision: int(field(result.value, "revision")),
-        findings: bool(field(result.value, "findings")),
+        revision: itfInt(itfField(result.value, "revision")),
+        findings: itfBool(itfField(result.value, "findings")),
       };
     case "FiledRuling":
       return {
         filed: "ruling",
-        ruling: oneOf(variant(field(result.value, "ruling"))!.tag, RULINGS),
-        revision: int(field(result.value, "revision")),
+        ruling: itfOneOf(itfVariant(itfField(result.value, "ruling"))!.tag, RULINGS),
+        revision: itfInt(itfField(result.value, "revision")),
       };
     default:
       return { filed: "nothing" };
   }
-}
-
-function field(value: unknown, name: string, optional = false): unknown {
-  if (typeof value === "object" && value !== null && name in value) {
-    return Object.getOwnPropertyDescriptor(value, name)?.value;
-  }
-  if (optional) return null;
-  throw new Error(`the trace has no ${name} in ${JSON.stringify(value)}`);
-}
-
-function list(value: unknown): unknown[] {
-  if (!Array.isArray(value)) throw new Error(`the trace has ${JSON.stringify(value)}, not a list`);
-  return value;
-}
-
-function int(value: unknown): number {
-  return Number(text(field(value, "#bigint")));
-}
-
-function bool(value: unknown): boolean {
-  if (typeof value !== "boolean")
-    throw new Error(`the trace has ${JSON.stringify(value)}, not a bool`);
-  return value;
-}
-
-function text(value: unknown): string {
-  if (typeof value !== "string")
-    throw new Error(`the trace has ${JSON.stringify(value)}, not text`);
-  return value;
-}
-
-function variant(value: unknown): { tag: string; value: unknown } | null {
-  if (value === null) return null;
-  return { tag: text(field(value, "tag")), value: field(value, "value") };
-}
-
-function oneOf<Name extends string>(name: string, names: readonly Name[]): Name {
-  const known = names.find((candidate) => candidate === name);
-  if (!known) throw new Error(`the trace has ${name}, not one of ${names.join(", ")}`);
-  return known;
 }
 
 /** The ruling answers the decisions model gives a held conclusion. */
@@ -1317,16 +1245,16 @@ function agentHeardOf(heard: string, said: Pick<HeardInStep, "heldTexts" | "ment
 }
 
 function commentPlaceOf(picked: unknown): CommentPlace {
-  const place = variant(picked)!;
+  const place = itfVariant(picked)!;
   switch (place.tag) {
     case "OnThePageAsAWhole":
       return { place: "page" };
     case "OnTheBlock":
       return { place: "block" };
     case "InTheDiscussionOf":
-      return { place: "discussion", of: int(place.value) };
+      return { place: "discussion", of: itfInt(place.value) };
     case "UnderTheReviewComment":
-      return { place: "review", of: int(place.value) };
+      return { place: "review", of: itfInt(place.value) };
     default:
       throw new Error(`the trace has comment place ${place.tag}`);
   }
@@ -1338,7 +1266,7 @@ function pickOf(step: TraceStep, name: string): unknown {
 }
 
 function pickTag(step: TraceStep, name: string): string {
-  return variant(pickOf(step, name))!.tag;
+  return itfVariant(pickOf(step, name))!.tag;
 }
 
 const WORLD_SETUP: Omit<WorldSetup, "refiners"> = {
