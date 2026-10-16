@@ -1,0 +1,59 @@
+{
+  "invariants": [
+    "oneUnfinishedRefinerRunPerArtifact",
+    "authorIsIdleWhileAPolisherRuns",
+    "judgeRulesAtMostOnce",
+    "refinerRunIsDoneOnlyAfterItsTurnEnded",
+    "refinersRunAgainOnlyOnChangedRevision",
+    "reviewerRunsOnlyOnAnUnreviewedRevision"
+  ],
+  "witnesses": {
+    "judgeThenPolisher": [
+      "aRefinerRunIsUnfinished",
+      "aPromptWaitsWhileAPolisherRuns",
+      "aRulingLandsOnARuledJudgeRun",
+      "theAuthorGotARejection",
+      "aRefinerRunEndsDone",
+      "aRefinerRunStartsAfterAHandover",
+      "aReviewerRunsAgainOnANewRevision",
+      "theHumansHaveTheArtifact",
+      "aReviewerReachedTheLimit",
+      "aRefinerRunRestarted",
+      "aPolisherFinished"
+    ],
+    "reviewerThenPolisher": [
+      "aRefinerRunIsUnfinished",
+      "aPromptWaitsWhileAPolisherRuns",
+      "aRefinerRunEndsDone",
+      "aRefinerRunStartsAfterAHandover",
+      "aReviewerRunsAgainOnANewRevision",
+      "theHumansHaveTheArtifact",
+      "aReviewerReachedTheLimit",
+      "aRefinerRunRestarted",
+      "aPolisherFinished"
+    ],
+    "judgeBetweenReviewers": [
+      "aRefinerRunIsUnfinished",
+      "aRulingLandsOnARuledJudgeRun",
+      "theAuthorGotARejection",
+      "aRefinerRunEndsDone",
+      "aRefinerRunStartsAfterAHandover",
+      "aReviewerRunsAgainOnANewRevision",
+      "theHumansHaveTheArtifact",
+      "aReviewerReachedTheLimit",
+      "aRefinerRunRestarted"
+    ],
+    "modelCallAuthorWithTwoReviewers": [
+      "aRefinerRunIsUnfinished",
+      "aPromptWaitsWhileAPolisherRuns",
+      "aRefinerRunEndsDone",
+      "aRefinerRunStartsAfterAHandover",
+      "aReviewerRunsAgainOnANewRevision",
+      "aStaleReviewRunsTheSegmentAgain",
+      "theHumansHaveTheArtifact",
+      "aReviewerReachedTheLimit",
+      "aRefinerRunRestarted",
+      "aPolisherFinished"
+    ]
+  }
+}

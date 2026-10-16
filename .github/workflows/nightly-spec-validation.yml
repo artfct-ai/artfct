@@ -9,29 +9,34 @@ permissions:
   contents: read
 
 jobs:
-  review_loop_simulation:
-    name: review loop simulation (${{ matrix.setup }}, ${{ matrix.invariant }})
+  quint_specs:
+    name: quint specs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      runs: ${{ steps.list.outputs.runs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: List each spec's setups and invariants
+        id: list
+        run: |
+          runs=$(jq -nc '[inputs | (input_filename | split("/")[1]) as $spec | .invariants[] as $invariant | .witnesses | keys[] | {spec: $spec, setup: ., invariant: $invariant}]' spec/*/checks.json)
+          echo "runs=$runs" >> "$GITHUB_OUTPUT"
+
+  quint_simulation:
+    name: quint simulation (${{ matrix.spec }}, ${{ matrix.setup }}, ${{ matrix.invariant }})
+    needs: quint_specs
     runs-on: ubuntu-latest
     timeout-minutes: 40
     strategy:
       fail-fast: false
       matrix:
-        setup:
-          - judgeThenPolisher
-          - reviewerThenPolisher
-          - judgeBetweenReviewers
-          - modelCallAuthorWithTwoReviewers
-        invariant:
-          - oneUnfinishedRefinerRunPerArtifact
-          - authorIsIdleWhileAPolisherRuns
-          - judgeRulesAtMostOnce
-          - refinerRunIsDoneOnlyAfterItsTurnEnded
-          - refinersRunAgainOnlyOnChangedRevision
-          - reviewerRunsOnlyOnAnUnreviewedRevision
+        include: ${{ fromJSON(needs.quint_specs.outputs.runs) }}
     defaults:
       run:
         working-directory: packages/orchestrator
     env:
+      SPEC: ${{ matrix.spec }}
       SETUP: ${{ matrix.setup }}
       INVARIANT: ${{ matrix.invariant }}
     steps:
@@ -47,20 +52,20 @@ jobs:
           restore-keys: quint-${{ runner.os }}-
       - name: Run the invariant on 5,000,000 samples
         timeout-minutes: 30
-        run: bunx quint run "../../spec/review-loop/$SETUP.qnt" --main="$SETUP" --invariant="$INVARIANT" --max-samples=5000000 --max-steps=25 2>&1 | tee "$RUNNER_TEMP/quint.log"
+        run: bunx quint run "../../spec/$SPEC/$SETUP.qnt" --main="$SETUP" --invariant="$INVARIANT" --max-samples=5000000 --max-steps=25 2>&1 | tee "$RUNNER_TEMP/quint.log"
       - name: Write the finding
         if: ${{ failure() }}
         run: |
           mkdir -p "$RUNNER_TEMP/findings"
           {
-            printf '## Review loop simulation: %s on %s\n\nquint run on 5,000,000 samples failed or ran out of time. The seed in the log reproduces it.\n\n```\n' "$INVARIANT" "$SETUP"
+            printf '## Quint simulation: %s on %s of %s\n\nquint run on 5,000,000 samples failed or ran out of time. The seed in the log reproduces it.\n\n```\n' "$INVARIANT" "$SETUP" "$SPEC"
             tail -n 60 "$RUNNER_TEMP/quint.log"
             printf '```\n\n'
-          } > "$RUNNER_TEMP/findings/simulation-$SETUP-$INVARIANT.md"
+          } > "$RUNNER_TEMP/findings/simulation-$SPEC-$SETUP-$INVARIANT.md"
       - if: ${{ failure() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: nightly-findings-simulation-${{ matrix.setup }}-${{ matrix.invariant }}
+          name: nightly-findings-simulation-${{ matrix.spec }}-${{ matrix.setup }}-${{ matrix.invariant }}
           path: ${{ runner.temp }}/findings
 
   spec_validation:
@@ -102,7 +107,7 @@ jobs:
 
   nightly_issue:
     name: nightly spec issue
-    needs: [review_loop_simulation, spec_validation]
+    needs: [quint_simulation, spec_validation]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
