@@ -1,5 +1,10 @@
 import { describe, expect, it } from "bun:test";
-import { FakeDecisions, HangingDecisions } from "@artfct-ai/adapters/test/fake-decisions";
+import {
+  ConfiguredModelsDecisions,
+  FAKE_MODEL_BUDGET_MS,
+  FakeDecisions,
+  HangingDecisions,
+} from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import type { Decisions } from "@artfct-ai/adapters/gateway/types";
 import type { FakeRuntime } from "../../test/fake-runtime";
@@ -17,6 +22,10 @@ function askClean(workflow: FakeRuntime, turn: TurnDecisions) {
   return askYesNo(workflow, { purpose: "test", state: { text: "hi" }, questions: QUESTIONS, turn });
 }
 
+function blockTheEventLoop(ms: number): void {
+  Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0, ms);
+}
+
 function withDecisions(
   decisions: Decisions,
   run: (workflow: FakeRuntime) => Promise<void>,
@@ -26,6 +35,17 @@ function withDecisions(
     await run(workflow);
   });
 }
+
+describe("askYesNo while the event loop runs late", () => {
+  it("takes the answer of the last model after the others ran past their budgets", async () => {
+    const decisions = new ConfiguredModelsDecisions(["hangs", "hangs", "answers"], ANSWERS);
+    await withDecisions(decisions, async (workflow) => {
+      const asking = askClean(workflow, turnDecisions());
+      blockTheEventLoop(FAKE_MODEL_BUDGET_MS * 2.5);
+      expect(await asking).toEqual(ANSWERS);
+    });
+  });
+});
 
 describe("askYesNo in an agent turn", () => {
   describe("after a call of the turn failed", () => {

@@ -15,14 +15,10 @@ export type WhileCallIsOut = (
 
 /** A decisions model that lets other events land while a call is out, then answers it. */
 export class InterleavedDecisions implements Decisions {
-  readonly deadlineMs: number;
-
   constructor(
     private readonly answering: Decisions,
     private readonly meanwhile: WhileCallIsOut,
-  ) {
-    this.deadlineMs = answering.deadlineMs;
-  }
+  ) {}
 
   async decide<YesNoName extends string, ChoiceName extends string>(
     state: DecisionState,
