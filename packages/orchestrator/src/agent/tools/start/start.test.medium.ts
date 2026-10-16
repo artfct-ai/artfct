@@ -4,7 +4,11 @@ import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 import type { TrackerIssue } from "@artfct-ai/adapters/tracker/types";
+import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
+import { findBinding } from "../../../db/bindings";
+import { createDb } from "../../../db/client";
+import { createWorkflow, setWorkflowStatus } from "../../../db/workflows";
 import {
   freshWorkflow,
   plannedWorkflow,
@@ -315,13 +319,13 @@ describe("start_job on the open pull request of an earlier job", () => {
 });
 
 function issueStartedByAnotherWorkflow(
-  afterStart: (owner: Workflow, jobId: string) => void,
+  afterStart: (firstWorkflow: Workflow, jobId: string) => Promise<void> | void,
 ): Scenario<Completion> {
   return async (run) => {
-    await subjectWorkflow(1, () => ({ code: pullHost(false) }))(async (owner) => {
-      const { start_job } = startTools(owner);
+    await subjectWorkflow(1, () => ({ code: pullHost(false) }))(async (firstWorkflow) => {
+      const { start_job } = startTools(firstWorkflow);
       await start_job.execute({ stage: "implement", brief: "first", issue: "ENG-1" }, call);
-      afterStart(owner, owner.store.jobs()[0]!.job_id);
+      await afterStart(firstWorkflow, firstWorkflow.store.jobs()[0]!.job_id);
     });
     await subjectWorkflow(1)(async (workflow) => {
       const { start_job } = startTools(workflow);
@@ -333,19 +337,19 @@ function issueStartedByAnotherWorkflow(
   };
 }
 
-function cancelAuthor(owner: Workflow, jobId: string): void {
-  owner.store.updateTask(owner.store.authorTaskOf(jobId).task_id, { status: "cancelled" });
+function cancelAuthor(firstWorkflow: Workflow, jobId: string): void {
+  firstWorkflow.store.updateTask(firstWorkflow.store.authorTaskOf(jobId).task_id, {
+    status: "cancelled",
+  });
 }
 
 describe("start_job on an issue another workflow started a job on", () => {
-  describe("while that job is unfinished", () => {
+  describe("while that workflow runs", () => {
     const refused = issueStartedByAnotherWorkflow(() => {});
 
-    it("refuses and names the workflow and its job", () =>
+    it("refuses and names the workflow", () =>
       refused(({ result }) => {
-        expect(result).toMatch(
-          /^Workflow wf_fresh_\d+ holds ENG-1\. Job \S+ already works on ENG-1/,
-        );
+        expect(result).toMatch(/^Workflow wf_fresh_\d+ is still running on ENG-1\./);
       }));
 
     it("records no job", () =>
@@ -354,31 +358,31 @@ describe("start_job on an issue another workflow started a job on", () => {
       }));
   });
 
-  describe("after that job was cancelled with its pull request still open", () => {
-    const refused = issueStartedByAnotherWorkflow((owner, jobId) => {
-      cancelAuthor(owner, jobId);
-      owner.store.upsertArtifact({
-        job_id: jobId,
-        kind: "pull",
-        external_url: "https://github.com/acme/app/pull/1",
-        ref: { kind: "pull", repo: "acme/app", number: 1 },
-      });
-    });
+  describe("after that job was cancelled, while that workflow runs", () => {
+    const refused = issueStartedByAnotherWorkflow(cancelAuthor);
 
-    it("refuses and names the output artifact", () =>
+    it("refuses", () =>
       refused(({ result }) => {
-        expect(result).toMatch(
-          /^Workflow wf_fresh_\d+ holds ENG-1\. Job \S+ \(cancelled\) already produced https:\/\/github.com\/acme\/app\/pull\/1/,
-        );
+        expect(result).toMatch(/^Workflow wf_fresh_\d+ is still running on ENG-1\./);
       }));
   });
 
-  describe("after that job was cancelled with no output artifact", () => {
-    const started = issueStartedByAnotherWorkflow(cancelAuthor);
+  describe("after that workflow ended", () => {
+    const started = issueStartedByAnotherWorkflow(async (firstWorkflow) => {
+      const db = createDb(env.DB);
+      await createWorkflow(db, firstWorkflow.state.workflow_id);
+      await setWorkflowStatus(db, firstWorkflow.state.workflow_id, "done");
+    });
 
     it("starts the job", () =>
       started(({ result }) => {
         expect(result).toMatch(/^Started job/);
+      }));
+
+    it("points the issue's binding at the workflow of the new job", () =>
+      started(async ({ workflow }) => {
+        const issue = { source: "tracker_issue", external_id: "ENG-1" } as const;
+        expect(await findBinding(createDb(env.DB), issue)).toBe(workflow.state.workflow_id);
       }));
   });
 });

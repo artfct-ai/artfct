@@ -16,13 +16,27 @@ import {
 import { statusText, summarize } from "../status";
 import { originSubject } from "../subject";
 import { jobForEvent } from "./lookup";
-import type { Applied, WorkflowRuntime } from "../types";
+import type { Applied, EventRefusal, WorkflowRuntime } from "../types";
 
 const ACK: RpcAck = { ok: true };
 
 /** True when a person wrote to the workflow: a message in its chat thread or tracker session. */
 export function isMessage(event: InboundEvent): boolean {
   return event.actor !== null && (event.kind === "prompt" || event.kind === "start");
+}
+
+/**
+ * Why the workflow refuses an event the router hands it, or null when it takes it. It refuses
+ * every event before its create, and a person's message once it ended.
+ */
+export function eventRefusalOf(
+  workflow: WorkflowRuntime,
+  event: InboundEvent,
+): EventRefusal | null {
+  const { created_at, status } = workflow.state;
+  if (!created_at) return { refused: "not_created" };
+  if (isWorkflowFinished(status) && isMessage(event)) return { refused: "ended", status };
+  return null;
 }
 
 /** The first event of a workflow and the ended workflow it follows, if any. */

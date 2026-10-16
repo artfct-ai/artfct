@@ -423,9 +423,10 @@ describe("finished workflows", () => {
 
   describe("a message from a person", () => {
     let before: number;
+    let answer: Awaited<ReturnType<Workflow["handle"]>>;
     const answered = scenario(failed, async (workflow) => {
       before = (await outboxOf(workflow)).length;
-      await workflow.handle({
+      answer = await workflow.handle({
         ...start,
         id: "evt-late-prompt",
         kind: "prompt",
@@ -439,12 +440,14 @@ describe("finished workflows", () => {
         expect(workflow.state.status).toBe("failed");
       }));
 
-    it("answers that the workflow is failed", () =>
+    it("refuses it with the status, so the router starts the next workflow", () =>
+      answered(() => {
+        expect(answer).toEqual({ refused: "ended", status: "failed" });
+      }));
+
+    it("posts nothing", () =>
       answered(async (workflow) => {
-        const posted = (await outboxOf(workflow)).slice(before);
-        expect(posted.map((entry) => entry.payload.text)).toContain(
-          "This workflow is failed. Start a new request for more work.",
-        );
+        expect((await outboxOf(workflow)).slice(before)).toEqual([]);
       }));
 
     it("tells the agent nothing", () =>

@@ -5,7 +5,10 @@
     "judgeRulesAtMostOnce",
     "refinerRunIsDoneOnlyAfterItsTurnEnded",
     "refinersRunAgainOnlyOnChangedRevision",
-    "reviewerRunsOnlyOnAnUnreviewedRevision"
+    "reviewerRunsOnlyOnAnUnreviewedRevision",
+    "authorGetsEveryPullFinding",
+    "authorGetsEveryPageFinding",
+    "aQueuedPromptReachesItsModelCallAuthor"
   ],
   "witnesses": {
     "judgeThenPolisher": [
@@ -27,6 +30,7 @@
       "aRefinerRunEndsDone",
       "aRefinerRunStartsAfterAHandover",
       "aReviewerRunsAgainOnANewRevision",
+      "aRefinerRunStartsPastFindings",
       "theHumansHaveTheArtifact",
       "aReviewerReachedTheLimit",
       "aRefinerRunRestarted",
@@ -39,6 +43,8 @@
       "aRefinerRunEndsDone",
       "aRefinerRunStartsAfterAHandover",
       "aReviewerRunsAgainOnANewRevision",
+      "aRefinerRunStartsPastFindings",
+      "aRefinerRunStartsPastAJudgeWithFindings",
       "theHumansHaveTheArtifact",
       "aReviewerReachedTheLimit",
       "aRefinerRunRestarted"
@@ -46,14 +52,40 @@
     "modelCallAuthorWithTwoReviewers": [
       "aRefinerRunIsUnfinished",
       "aPromptWaitsWhileAPolisherRuns",
+      "aModelCallAuthorHasAQueuedPrompt",
       "aRefinerRunEndsDone",
       "aRefinerRunStartsAfterAHandover",
       "aReviewerRunsAgainOnANewRevision",
+      "aPageAuthorGetsTheFindingsOfItsReviewer",
       "aStaleReviewRunsTheSegmentAgain",
       "theHumansHaveTheArtifact",
       "aReviewerReachedTheLimit",
       "aRefinerRunRestarted",
       "aPolisherFinished"
+    ],
+    "pageReviewerThenPolisher": [
+      "aRefinerRunIsUnfinished",
+      "aPromptWaitsWhileAPolisherRuns",
+      "aRefinerRunEndsDone",
+      "aRefinerRunStartsAfterAHandover",
+      "aReviewerRunsAgainOnANewRevision",
+      "aPageAuthorGetsTheFindingsOfItsReviewer",
+      "theHumansHaveTheArtifact",
+      "aReviewerReachedTheLimit",
+      "aRefinerRunRestarted",
+      "aPolisherFinished"
+    ],
+    "pageJudgeBetweenReviewers": [
+      "aRefinerRunIsUnfinished",
+      "aRulingLandsOnARuledJudgeRun",
+      "theAuthorGotARejection",
+      "aRefinerRunEndsDone",
+      "aRefinerRunStartsAfterAHandover",
+      "aReviewerRunsAgainOnANewRevision",
+      "aPageAuthorGetsTheFindingsOfItsReviewer",
+      "theHumansHaveTheArtifact",
+      "aReviewerReachedTheLimit",
+      "aRefinerRunRestarted"
     ]
   }
 }

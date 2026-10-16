@@ -11,8 +11,9 @@ import type { TurnDecisions } from "../../../decisions/ask";
 import { humansAccepted } from "./humans-accepted";
 import { GATEWAY_HARNESS, type RuntimeRequest } from "../../message/requested-runtime";
 import { humansSelected } from "./humans-selected";
-import { findBinding } from "../../../db/bindings";
+import { claimBinding, findBinding } from "../../../db/bindings";
 import { createDb } from "../../../db/client";
+import { findWorkflow } from "../../../db/workflows";
 import {
   cancelTask,
   completeJob,
@@ -26,7 +27,7 @@ import { stageContinuesArtifact } from "../../../workflow/artifact";
 import { newPageParent } from "../../../workflow/root-page";
 import { jobCompletesSingleIssueWorkflow, validateIssueInSubject } from "../../../workflow/subject";
 import { artifactRefKey, jobInputFor, jobInputKey } from "../../../workflow/store/input-key";
-import { isTaskFinished } from "../../../workflow/store/state";
+import { isTaskFinished, isWorkflowFinished } from "../../../workflow/store/state";
 import type { ArtifactRow, JobRow } from "../../../workflow/store/tasks";
 import type { WorkflowRuntime } from "../../../workflow/types";
 import { validateWorkflowRunning } from "../plan";
@@ -272,23 +273,33 @@ async function validateEarlierOutputRemoved(
 }
 
 /** Why this workflow still holds an input artifact: a job works from it, or an output artifact for it exists. */
-export async function validateInputNotHeld(
+async function validateInputNotHeld(
   workflow: WorkflowRuntime,
   input: JobInput,
 ): Promise<string | null> {
   return validateInputNotInWork(workflow, input) ?? validateEarlierOutputRemoved(workflow, input);
 }
 
-/** Validate that another workflow does not still hold the issue. That workflow decides. */
-async function validateIssueNotHeldElsewhere(
-  workflow: WorkflowRuntime,
-  issue: JobIssue,
-): Promise<string | null> {
+/**
+ * Point the issue's binding at this workflow for a job on the issue. The binding must point at no
+ * workflow, at this one, or at one that ended. Answers why the job cannot start, or null.
+ */
+async function bindIssueForJob(workflow: WorkflowRuntime, issue: JobIssue): Promise<string | null> {
+  const db = createDb(workflow.env.DB);
   const binding = { source: "tracker_issue" as const, external_id: issue.id };
-  const owner = await findBinding(createDb(workflow.env.DB), binding);
-  if (!owner || owner === workflow.state.workflow_id) return null;
-  const held = await workflow.env.Workflow.getByName(owner).heldInput({ kind: "issue", issue });
-  return held ? `Workflow ${owner} holds ${issue.key}. ${held}` : null;
+  const { workflow_id: workflowId } = workflow.state;
+  const boundTo = await findBinding(db, binding);
+  if (boundTo === workflowId) return null;
+  if (boundTo) {
+    const row = await findWorkflow(db, boundTo);
+    if (!row || !isWorkflowFinished(row.status)) {
+      return `Workflow ${boundTo} is still running on ${issue.key}. A job on ${issue.key} can start once that workflow ends.`;
+    }
+  }
+  const bound = await claimBinding(db, binding, { previous: boundTo, workflowId });
+  return bound
+    ? null
+    : `Another workflow started on ${issue.key} while this job started. Try again.`;
 }
 
 async function removedOnHost(workflow: WorkflowRuntime, artifact: ArtifactRow): Promise<boolean> {
@@ -455,7 +466,7 @@ async function start(
   const target = input.artifact ? await resolveTarget(workflow, input.artifact) : null;
   if (typeof target === "string") return target;
   const jobInput = jobInputFor(workflow, { issue, target }, requestText);
-  const elsewhere = issue ? await validateIssueNotHeldElsewhere(workflow, issue) : null;
+  const elsewhere = issue ? await bindIssueForJob(workflow, issue) : null;
   if (elsewhere) return elsewhere;
   const held = await validateInputNotHeld(workflow, jobInput);
   if (held) return held;
@@ -527,7 +538,11 @@ async function complete(
     const pending = await acceptancePending(workflow, artifact, { personMessages, turn });
     if (pending) return pending;
   }
-  const outcome = await completeJob(workflow, author, result);
+  const checked = workflow.store.requireTask(author.task_id);
+  if (isTaskFinished(checked.status)) {
+    return `Job ${jobId} ended while its acceptance was checked: its author task is ${checked.status}.`;
+  }
+  const outcome = await completeJob(workflow, checked, result);
   if (jobCompletesSingleIssueWorkflow(workflow, job)) {
     await completeWorkflow(workflow, result);
     return `Job ${jobId} done. It completed the last planned stage on the subject issue, so the workflow is done.`;

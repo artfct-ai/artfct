@@ -153,6 +153,27 @@ export const MUTANTS: Mutant[] = [
       "    if (true || !reviewAsksTheAuthor(review)) {\n      return advanceArtifactPastEntry(workflow, author, index, revision);",
   },
   {
+    id: "W19",
+    invariant: "finishedTaskKeepsItsStatus (restart)",
+    path: "src/workflow/lifecycle.ts",
+    find: "  const closed = workflow.store.requireTask(task.task_id);\n  if (isTaskFinished(closed.status)) return;\n",
+    replace: "  const closed = workflow.store.requireTask(task.task_id);\n",
+  },
+  {
+    id: "W20",
+    invariant: "endedWorkflowHasNoUnfinishedTask",
+    path: "src/agent/tools/plan.ts",
+    find: '  if (workflowEnding(workflow)) return "The workflow is ending. A workflow that ends stays ended.";\n',
+    replace: "",
+  },
+  {
+    id: "W21",
+    invariant: "pausedAuthorGetsNoPrompt",
+    path: "src/workflow/task/harness/prompt-queue.ts",
+    find: "  if (task.paused_at === null) return sendPrompt(workflow, task, text);",
+    replace: "  return sendPrompt(workflow, task, text);",
+  },
+  {
     id: "A1",
     invariant: "laterDecisionsCallsFallBackOnceOneFails",
     path: "src/decisions/ask.ts",
@@ -171,17 +192,38 @@ export const MUTANTS: Mutant[] = [
     id: "R1",
     invariant: "messageAfterEndStartsNextWorkflow (claim)",
     path: "src/router/deliver.ts",
-    find: "    const won = await claimBinding(db, claimed.binding, { previous, workflowId });",
+    find: "    if (!(await claimBinding(db, claimed.binding, { previous: claimed.workflowId, workflowId }))) {",
     replace:
-      "    const won = (await claimBinding(db, claimed.binding, { previous, workflowId })) || true;",
+      "    if (!((await claimBinding(db, claimed.binding, { previous: claimed.workflowId, workflowId })) || true)) {",
   },
   {
     id: "R2",
     invariant: "messageAfterEndStartsNextWorkflow (bind all)",
     path: "src/router/deliver.ts",
-    find: "  for (const binding of event.bindings) await bindWorkflow(db, binding, workflowId);\n  const endedWorkflowId",
+    find: "    if (index === claimedIndex) continue;\n    const previous = bound.workflowId;",
     replace:
-      "  for (const binding of event.bindings.slice(0, 1)) await bindWorkflow(db, binding, workflowId);\n  const endedWorkflowId",
+      "    if (index === claimedIndex || true) continue;\n    const previous = bound.workflowId;",
+  },
+  {
+    id: "R3",
+    invariant: "aDeliveryLeavesTheBindingsOfARunningWorkflow",
+    path: "src/router/deliver.ts",
+    find: "    const previous = bound.workflowId;",
+    replace: "    const previous = await findBinding(db, bound.binding);",
+  },
+  {
+    id: "R4",
+    invariant: "oneRunningWorkflowHasAJobOnAnIssue (moved binding)",
+    path: "src/agent/tools/start/start.ts",
+    find: "  return bound\n    ? null",
+    replace: "  return bound || true\n    ? null",
+  },
+  {
+    id: "R5",
+    invariant: "oneRunningWorkflowHasAJobOnAnIssue (running workflow)",
+    path: "src/agent/tools/start/start.ts",
+    find: "    if (!row || !isWorkflowFinished(row.status)) {",
+    replace: "    if (!row) {",
   },
 ];
 

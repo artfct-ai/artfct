@@ -1,18 +1,25 @@
+import type { Binding } from "@artfct-ai/contracts/sources";
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";
 import {
   bindWorkflow,
+  claimBinding,
   deleteBindings,
   findBinding,
   listBindings,
-  claimBinding,
   workflowsWithPullsInRepo,
 } from "./bindings";
 import { createDb } from "./client";
+import { createWorkflow, setWorkflowStatus } from "./workflows";
 
 const db = createDb(env.DB);
 const issue = { source: "tracker_issue", external_id: "ISS-1" } as const;
 const pull = { source: "code_pull", repo: "o/r", number: 1 } as const;
+const thread = { source: "chat_thread", external_id: "C1:1.0" } as const;
+
+async function seed(binding: Binding, workflowId: string): Promise<void> {
+  await claimBinding(db, binding, { previous: null, workflowId });
+}
 
 describe("an empty binding table", () => {
   it("lists nothing", async () => {
@@ -29,6 +36,11 @@ describe("an empty binding table", () => {
 });
 
 describe("bindWorkflow", () => {
+  beforeEach(async () => {
+    await createWorkflow(db, "wf_1");
+    await createWorkflow(db, "wf_2");
+  });
+
   describe("an external object bound to a workflow", () => {
     beforeEach(async () => {
       await bindWorkflow(db, issue, "wf_1");
@@ -88,11 +100,42 @@ describe("bindWorkflow", () => {
       expect(rows.map((row) => [row.external_id, row.repo])).toEqual([["o/r:artfct/x", "o/r"]]);
     });
   });
+
+  describe("a workflow whose row ended", () => {
+    beforeEach(async () => {
+      await setWorkflowStatus(db, "wf_1", "done");
+      await bindWorkflow(db, pull, "wf_1");
+    });
+
+    it("binds nothing", async () => {
+      expect(await findBinding(db, pull)).toBeNull();
+    });
+  });
+
+  describe("a pull request of a workflow that ended after it bound it", () => {
+    beforeEach(async () => {
+      await bindWorkflow(db, pull, "wf_2");
+      await setWorkflowStatus(db, "wf_1", "failed");
+      await bindWorkflow(db, pull, "wf_1");
+    });
+
+    it("keeps pointing at the workflow that bound it", async () => {
+      expect(await findBinding(db, pull)).toBe("wf_2");
+    });
+  });
+
+  describe("a workflow without a row", () => {
+    beforeEach(async () => {
+      await bindWorkflow(db, pull, "wf_unknown");
+    });
+
+    it("binds nothing", async () => {
+      expect(await findBinding(db, pull)).toBeNull();
+    });
+  });
 });
 
 describe("claimBinding", () => {
-  const thread = { source: "chat_thread", external_id: "C1:1.0" } as const;
-
   describe("a binding nobody bound", () => {
     let won: boolean;
 
@@ -125,20 +168,18 @@ describe("claimBinding", () => {
 
   describe("a binding of an ended workflow", () => {
     beforeEach(async () => {
-      await bindWorkflow(db, thread, "wf_ended");
+      await seed(thread, "wf_ended");
     });
 
     it("moves to a claim that found it there", async () => {
-      expect(await claimBinding(db, thread, { previous: "wf_ended", workflowId: "wf_next" })).toBe(
-        true,
-      );
+      const previous = "wf_ended";
+      expect(await claimBinding(db, thread, { previous, workflowId: "wf_next" })).toBe(true);
       expect(await findBinding(db, thread)).toBe("wf_next");
     });
 
     it("stays with a claim that found it somewhere else", async () => {
-      expect(await claimBinding(db, thread, { previous: "wf_other", workflowId: "wf_next" })).toBe(
-        false,
-      );
+      const previous = "wf_other";
+      expect(await claimBinding(db, thread, { previous, workflowId: "wf_next" })).toBe(false);
       expect(await findBinding(db, thread)).toBe("wf_ended");
     });
   });
@@ -147,10 +188,10 @@ describe("claimBinding", () => {
 describe("deleteBindings", () => {
   describe("two workflows with bindings of several sources", () => {
     beforeEach(async () => {
-      await bindWorkflow(db, { source: "code_pull", repo: "acme/app", number: 1 }, "wf_1");
-      await bindWorkflow(db, { source: "code_branch", repo: "acme/app", branch: "b" }, "wf_1");
-      await bindWorkflow(db, { source: "chat_thread", external_id: "C1:1.0" }, "wf_1");
-      await bindWorkflow(db, { source: "code_pull", repo: "acme/app", number: 2 }, "wf_2");
+      await seed({ source: "code_pull", repo: "acme/app", number: 1 }, "wf_1");
+      await seed({ source: "code_branch", repo: "acme/app", branch: "b" }, "wf_1");
+      await seed({ source: "chat_thread", external_id: "C1:1.0" }, "wf_1");
+      await seed({ source: "code_pull", repo: "acme/app", number: 2 }, "wf_2");
       await deleteBindings(db, "wf_1", ["code_pull", "code_branch"]);
     });
 
@@ -167,11 +208,11 @@ describe("deleteBindings", () => {
 describe("workflowsWithPullsInRepo", () => {
   describe("pull requests of two repos whose names share a prefix", () => {
     beforeEach(async () => {
-      await bindWorkflow(db, { source: "code_pull", repo: "acme/app", number: 1 }, "wf_1");
-      await bindWorkflow(db, { source: "code_pull", repo: "acme/app", number: 2 }, "wf_2");
-      await bindWorkflow(db, { source: "code_pull", repo: "acme/app", number: 3 }, "wf_2");
-      await bindWorkflow(db, { source: "code_pull", repo: "acme/app-two", number: 4 }, "wf_3");
-      await bindWorkflow(db, { source: "code_branch", repo: "acme/app", branch: "b" }, "wf_4");
+      await seed({ source: "code_pull", repo: "acme/app", number: 1 }, "wf_1");
+      await seed({ source: "code_pull", repo: "acme/app", number: 2 }, "wf_2");
+      await seed({ source: "code_pull", repo: "acme/app", number: 3 }, "wf_2");
+      await seed({ source: "code_pull", repo: "acme/app-two", number: 4 }, "wf_3");
+      await seed({ source: "code_branch", repo: "acme/app", branch: "b" }, "wf_4");
     });
 
     it("names each workflow of the named repo once", async () => {

@@ -357,7 +357,7 @@ SOFTWARE.
 
 License: Apache-2.0
 
-Source: https://github.com/rtk-ai/rtk
+Source: https://github.com/rtk-ai/rtk (the rtk-oss edition)
 
 Path: `/usr/local/bin/rtk`
 
@@ -539,7 +539,7 @@ Path: `/usr/local/bin/rtk`
 
    END OF TERMS AND CONDITIONS
 
-   Copyright 2024 rtk-ai and rtk-ai Labs
+   Copyright 2026 RTK AI Labs
 
    Licensed under the Apache License, Version 2.0 (the "License");
    you may not use this file except in compliance with the License.

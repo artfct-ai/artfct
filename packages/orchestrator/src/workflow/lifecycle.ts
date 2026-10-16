@@ -17,7 +17,7 @@ import { markArtifactReady } from "./refiner/outcome";
 import type { WorkflowRuntime } from "./types";
 import type { JobRow, NewTask, TaskRow } from "./store/tasks";
 import { jobInputKey } from "./store/input-key";
-import { isTaskFinished } from "./store/state";
+import { isTaskFinished, isWorkflowFinished } from "./store/state";
 import {
   clearTaskTimers,
   closeContainer,
@@ -115,7 +115,6 @@ export async function startJob(
   );
   await changeWorkflowStatus(workflow, "running");
   if (issue) {
-    await bindWorkflow(workflow, { source: "tracker_issue", external_id: issue.id });
     const ref = { issue_id: issue.id, team_id: issue.team_id };
     await workflow.notifier.claimIssue(ref, { started: issue.started });
     const { origin, subject } = state;
@@ -183,21 +182,23 @@ export type CompleteOutcome = { running: number; slots: number };
 
 /**
  * The teardown every end of a task shares. The status is written before the sandbox goes, and
- * with it the model turn of a model-call task ends.
+ * with it the model turn of a model-call task ends. False when the task had already finished.
  */
 async function finishTask(
   workflow: WorkflowRuntime,
   task: TaskRow,
   status: "done" | "cancelled" | "failed",
-): Promise<void> {
+): Promise<boolean> {
+  if (isTaskFinished(workflow.store.requireTask(task.task_id).status)) return false;
   workflow.store.updateTask(task.task_id, { status, model_turn_id: null });
   const sandbox = workflow.store.sandbox(task.task_id);
   if (!sandbox) {
     workflow.store.clearPromptQueue(task.task_id);
-    return;
+    return true;
   }
   await clearTaskTimers(workflow, sandbox);
   await destroySandbox(workflow, task);
+  return true;
 }
 
 /**
@@ -235,12 +236,7 @@ export async function completeJob(
  * session's issue completes.
  */
 export async function completeWorkflow(workflow: WorkflowRuntime, result: string): Promise<void> {
-  const reason = "the workflow is done";
-  for (const task of workflow.store.activeAuthorAndResearcherTasks()) {
-    await cancelTask(workflow, task, reason);
-  }
-  for (const task of workflow.store.activeRefinerRuns()) await cancelTask(workflow, task, reason);
-  await changeWorkflowStatus(workflow, "done");
+  if (!(await endWorkflow(workflow, "done", "the workflow is done"))) return;
   workflow.log(null, `finished: ${result}`);
   await workflow.post({ type: "done", result });
   for (const target of workflow.state.reply_targets) {
@@ -258,10 +254,10 @@ export async function cancelTask(
   task: TaskRow,
   reason: string,
 ): Promise<void> {
-  if (isTaskFinished(task.status)) return;
+  if (isTaskFinished(workflow.store.requireTask(task.task_id).status)) return;
   workflow.log(task.task_id, `cancelled: ${reason}`);
   await closeAbandonedTurnFeed(workflow, task, STOPPED_CLOSING);
-  await finishTask(workflow, task, "cancelled");
+  if (!(await finishTask(workflow, task, "cancelled"))) return;
   switch (task.role) {
     case "polisher":
       return endPolisherRun(workflow, task, {
@@ -305,13 +301,13 @@ export async function failTask(
   task: TaskRow,
   reason: string,
 ): Promise<void> {
-  if (isTaskFinished(task.status)) return;
+  if (isTaskFinished(workflow.store.requireTask(task.task_id).status)) return;
   workflow.log(task.task_id, `failed: ${reason}`);
   await closeAbandonedTurnFeed(workflow, task, {
     kind: "error",
     text: `The task failed: ${reason}`,
   });
-  await finishTask(workflow, task, "failed");
+  if (!(await finishTask(workflow, task, "failed"))) return;
   switch (task.role) {
     case "polisher":
       return endPolisherRun(workflow, task, { ended: "stopped", reason });
@@ -339,21 +335,24 @@ export const MAX_RESTARTS = 2;
 
 /**
  * A task with a sandbox hit a failure it may recover from. It restarts in a fresh sandbox on its
- * branch while it has restarts left, and fails after that.
+ * branch while it has restarts left, and fails after that. A task that finished while its old
+ * container went stays finished.
  */
 export async function restartOrFailTask(
   workflow: WorkflowRuntime,
   task: TaskRow,
   reason: string,
 ): Promise<void> {
-  if (isTaskFinished(task.status)) return;
-  if (workflow.store.requireTask(task.task_id).restarts >= MAX_RESTARTS) {
-    return failTask(workflow, task, reason);
-  }
+  const current = workflow.store.requireTask(task.task_id);
+  if (isTaskFinished(current.status)) return;
+  if (current.restarts >= MAX_RESTARTS) return failTask(workflow, task, reason);
   workflow.log(task.task_id, `${reason} restarting in a fresh sandbox.`);
   await closeContainer(workflow, task, "the task restarts");
+  const closed = workflow.store.requireTask(task.task_id);
+  if (isTaskFinished(closed.status)) return;
   workflow.store.patchTodoRow(task.task_id, { note: `Restarted in a fresh sandbox: ${reason}` });
-  await restartSandbox(workflow, task);
+  if (closed.paused_at === null) await restartSandbox(workflow, closed);
+  else await holdRestartForResume(workflow, closed);
   await flushBoards(workflow, task.job_id);
   await workflow.tellAgent(
     noteMessage(
@@ -368,13 +367,43 @@ export async function restartOrFailTask(
  * bindings stay, so a person's next message on them starts a new workflow.
  */
 export async function failWorkflow(workflow: WorkflowRuntime, reason: string): Promise<void> {
-  for (const task of workflow.store.activeAuthorAndResearcherTasks()) {
-    await cancelTask(workflow, task, reason);
-  }
-  for (const task of workflow.store.activeRefinerRuns()) await cancelTask(workflow, task, reason);
-  await changeWorkflowStatus(workflow, "failed");
+  if (!(await endWorkflow(workflow, "failed", reason))) return;
   await workflow.post({ type: "workflow_failed", reason });
   await unbindCodeHost(workflow);
+}
+
+/**
+ * Workflows whose end is cancelling their tasks now, per runtime. It dies with the isolate, so a
+ * restart of the Durable Object that cut an end off leaves the workflow running.
+ */
+const workflowsEnding = new WeakSet<WorkflowRuntime>();
+
+/** True while this instance cancels the tasks of the workflow to end it. */
+export function workflowEnding(workflow: WorkflowRuntime): boolean {
+  return workflowsEnding.has(workflow);
+}
+
+/**
+ * Cancel every active task, author and researcher tasks first, then set the final status. False
+ * when the workflow already ended or another end runs, so the caller says nothing.
+ */
+export async function endWorkflow(
+  workflow: WorkflowRuntime,
+  status: "done" | "failed" | "cancelled",
+  reason: string,
+): Promise<boolean> {
+  if (workflowEnding(workflow) || isWorkflowFinished(workflow.state.status)) return false;
+  workflowsEnding.add(workflow);
+  try {
+    for (const task of workflow.store.activeAuthorAndResearcherTasks()) {
+      await cancelTask(workflow, task, reason);
+    }
+    for (const task of workflow.store.activeRefinerRuns()) await cancelTask(workflow, task, reason);
+    await changeWorkflowStatus(workflow, status);
+  } finally {
+    workflowsEnding.delete(workflow);
+  }
+  return true;
 }
 
 /** Point an external object (pull, branch, page) at this workflow so ingress can route to it. */
@@ -433,4 +462,13 @@ export async function onIdle(workflow: WorkflowRuntime): Promise<void> {
   workflow.log(null, "idle. going to sleep.");
   await changeWorkflowStatus(workflow, "waiting_input");
   await workflow.post({ type: "info", text: SLEEP_TEXT });
+}
+
+/**
+ * Count the restart of a paused task without starting its sandbox, and stop the alarms of the
+ * closed one. Its resume wakes the fresh sandbox, which resumes with the queued prompt.
+ */
+async function holdRestartForResume(workflow: WorkflowRuntime, task: TaskRow): Promise<void> {
+  workflow.store.updateTask(task.task_id, { restarts: task.restarts + 1 });
+  await clearTaskTimers(workflow, workflow.store.requireSandbox(task.task_id));
 }

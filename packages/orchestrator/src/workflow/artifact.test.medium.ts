@@ -5,6 +5,7 @@ import type { Subject } from "./store/state";
 import { describe, expect, it } from "vitest";
 import { findBinding } from "../db/bindings";
 import { createDb } from "../db/client";
+import { createWorkflow } from "../db/workflows";
 import { freshDurableRuntime } from "../../test/durable-runtime";
 import { patchStageReviewers, seedTask, type FakeRuntime } from "../../test/fake-runtime";
 import { scenario, type Scenario } from "../../test/scenario";
@@ -31,6 +32,7 @@ function readyEvents(workflow: FakeRuntime) {
 
 describe("recordArtifact", () => {
   const recorded: Scenario<FakeRuntime> = scenario(freshDurableRuntime, async (workflow) => {
+    await createWorkflow(createDb(workflow.env.DB), workflow.state.workflow_id);
     await recordArtifact(workflow, seedAuthor(workflow), TARGET);
   });
 

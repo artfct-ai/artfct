@@ -1,7 +1,8 @@
 import type { Binding, BindingSource } from "@artfct-ai/contracts/sources";
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
+import { FINISHED_WORKFLOW_STATUSES } from "../workflow/store/state";
 import { nowIso, type Database } from "./client";
-import { bindings } from "./schema";
+import { bindings, workflows } from "./schema";
 
 /** One row of the bindings table. */
 export type BindingRow = typeof bindings.$inferSelect;
@@ -40,7 +41,7 @@ export async function findBinding(db: Database, binding: Binding): Promise<strin
 }
 
 /**
- * Point a binding at a workflow if it still points at `previous`. False when another delivery
+ * Point a binding at a workflow if it still points at `previous`. False when another write
  * moved it first.
  */
 export async function claimBinding(
@@ -75,25 +76,40 @@ export async function claimBinding(
   return moved.length > 0;
 }
 
-/** Point an external object at a workflow. Replaces an existing binding for it. */
+/**
+ * Point an external object at a workflow while the workflow's row has not ended. Replaces an
+ * existing binding for it.
+ */
 export async function bindWorkflow(
   db: Database,
   binding: Binding,
   workflowId: string,
 ): Promise<void> {
-  const row = {
-    source: binding.source,
-    external_id: externalId(binding),
-    repo: repoOf(binding),
-    workflow_id: workflowId,
-    created_at: nowIso(),
-  };
+  const live = db
+    .select({
+      source: sql<BindingSource>`${binding.source}`.as("source"),
+      external_id: sql<string>`${externalId(binding)}`.as("external_id"),
+      repo: sql<string | null>`${repoOf(binding)}`.as("repo"),
+      workflow_id: workflows.workflow_id,
+      created_at: sql<string>`${nowIso()}`.as("created_at"),
+    })
+    .from(workflows)
+    .where(
+      and(
+        eq(workflows.workflow_id, workflowId),
+        notInArray(workflows.status, FINISHED_WORKFLOW_STATUSES),
+      ),
+    );
   await db
     .insert(bindings)
-    .values(row)
+    .select(live)
     .onConflictDoUpdate({
       target: [bindings.source, bindings.external_id],
-      set: { repo: row.repo, workflow_id: row.workflow_id, created_at: row.created_at },
+      set: {
+        repo: sql`excluded.repo`,
+        workflow_id: sql`excluded.workflow_id`,
+        created_at: sql`excluded.created_at`,
+      },
     });
 }
 
