@@ -245,7 +245,7 @@ export function artifact(kind: ArtifactKind, clients: ArtifactClients): Artifact
         commentOnPassages: async (pageId, comments) =>
           (await clients.documents())?.commentOnPassages(pageId, comments) ?? comments,
         acknowledgeComment: async (comment) =>
-          (await clients.documents())?.acknowledgeComment(comment),
+          (await (await clients.documents())?.acknowledgeComment(comment)) ?? false,
         instructions: pageInstructions(adapters.documents.provider),
         pageParentHint: pageParentHint(adapters.documents.provider),
         mcp,

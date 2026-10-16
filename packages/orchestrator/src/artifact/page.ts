@@ -47,8 +47,8 @@ export type PageClients = {
   comment: (pageId: string, text: string) => Promise<void>;
   /** Comment on the block that holds each passage. Returns the comments it did not post. */
   commentOnPassages: (pageId: string, comments: PassageComment[]) => Promise<PassageComment[]>;
-  /** Mark a comment as read, in the host's own way. */
-  acknowledgeComment: (comment: PageCommentRef) => Promise<void>;
+  /** Mark a held comment read, in the host's own way. False when the host did not mark it. */
+  acknowledgeComment: (comment: PageCommentRef) => Promise<boolean>;
   instructions: HostInstructions;
   /** What the page parent names on this host. */
   pageParentHint: string;
@@ -212,20 +212,41 @@ async function selfName(clients: PageClients): Promise<string | null> {
   }
 }
 
-/** Show on the page that feedback left there was read: each comment it came in is acknowledged. */
+/**
+ * Show on the page that feedback left there was read: each comment it came in is acknowledged,
+ * in order. Returns the comments the host did not mark read.
+ */
 async function acknowledge(
   clients: PageClients,
   handles: FeedbackHandle[],
   ref: ArtifactRef,
-): Promise<void> {
-  if (ref.kind !== "page") return;
-  try {
-    for (const handle of handles) {
-      if (handle.kind !== "page") continue;
-      await clients.acknowledgeComment({ pageId: ref.page_id, commentId: handle.comment_id });
+): Promise<FeedbackHandle[]> {
+  if (ref.kind !== "page") return handles;
+  const unmarked: FeedbackHandle[] = [];
+  for (const handle of handles) {
+    if (
+      handle.kind !== "page" ||
+      !(await acknowledgeOne(clients, ref.page_id, handle.comment_id))
+    ) {
+      unmarked.push(handle);
     }
+  }
+  return unmarked;
+}
+
+async function acknowledgeOne(
+  clients: PageClients,
+  pageId: string,
+  commentId: string,
+): Promise<boolean> {
+  try {
+    const marked = await clients.acknowledgeComment({ pageId, commentId });
+    if (!marked)
+      clients.log(`page comment ${commentId} not marked read: another one is held first`);
+    return marked;
   } catch (error) {
     clients.log(`page acknowledgement failed: ${String(error).slice(0, 200)}`);
+    return false;
   }
 }
 

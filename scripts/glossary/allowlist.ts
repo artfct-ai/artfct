@@ -206,6 +206,15 @@ export const ALLOWED_WORDS: AllowedWord[] = [
     reason: NOT_RULED_ON,
   },
   {
+    word: "discussion",
+    paths: [
+      "packages/adapters/src/documents/notion/cli.ts",
+      "packages/adapters/src/documents/notion/documents.ts",
+      "packages/adapters/src/documents/notion/held-comments.ts",
+    ],
+    reason: "Notion's comment payload names a comment thread `discussion_id`.",
+  },
+  {
     word: "verdict",
     paths: ["template/orchestrator/skills/plan-review/SKILL.md"],
     reason: NOT_RULED_ON,

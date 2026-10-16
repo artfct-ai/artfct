@@ -373,15 +373,16 @@ function acknowledgementHandles(detail: PullDetail, comments: ReviewComment[]): 
 
 /**
  * Show on the pull request that feedback left there was read. A review with no comment to
- * react to gets one reply instead.
+ * react to gets one reply instead. A reaction that fails is logged, and the feedback still
+ * counts as read.
  */
 async function acknowledge(
   clients: PullClients,
   handles: FeedbackHandle[],
   ref: ArtifactRef,
-): Promise<void> {
+): Promise<FeedbackHandle[]> {
   const host = clients.host();
-  if (!host || ref.kind !== "pull") return;
+  if (!host || ref.kind !== "pull") return [];
   try {
     for (const handle of handles) {
       if (handle.kind === "pull") await host.reactToComment(ref.repo, handle.comment, "eyes");
@@ -390,6 +391,7 @@ async function acknowledge(
   } catch (error) {
     clients.log(`pull request acknowledgement failed: ${String(error).slice(0, 200)}`);
   }
+  return [];
 }
 
 async function removed(clients: PullClients, ref: ArtifactRef): Promise<boolean> {

@@ -2,17 +2,21 @@ import { setSystemTime } from "bun:test";
 import type { Decisions } from "@artfct-ai/adapters/gateway/types";
 import type { TaskStatus } from "@artfct-ai/contracts/types";
 import { FakeDecisions, type FakeAnswers } from "@artfct-ai/adapters/test/fake-decisions";
+import type { DocumentsCommenting, FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
+import { taskTools } from "../src/agent/tools/task";
 import { labeledPageCommentIds } from "../src/artifact/page-comment-label";
 import { findingText } from "../src/artifact/review-text";
 import { CLOSING_TEXT_MARKER, replyMarker } from "../src/prompts/model-author-prompt";
+import { sendHeldCommentsOnRevisionRequest } from "../src/workflow/refiner/held-comments";
 import type { ArtifactRow, TaskRow } from "../src/workflow/store/tasks";
 import { taskAtWork } from "../src/workflow/task/at-work";
-import { itfBool, itfField, itfInt, itfList, itfOneOf, itfText, itfVariant } from "./itf";
+import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
 import { quintTraces } from "./quint-traces";
 import { JUDGE_CONCLUSION, MODEL_AUTHOR_MODEL } from "./fake-runtime";
 import { HeldPageModel } from "./held-page-model";
-import { InterleavedDecisions } from "./interleaved-decisions";
+import { InterleavedDecisions, onFirstCallAsking } from "./interleaved-decisions";
+import { toolText } from "./tool-result";
 import {
   agentCancels,
   agentPromptsAuthor,
@@ -25,6 +29,8 @@ import {
   type RefinerRunEnd,
 } from "./workflow-actions";
 import {
+  HELD_COMMENT,
+  PAGE_OPTION,
   pushCountOf,
   WorkflowWorld,
   type RefinerSetup,
@@ -69,11 +75,31 @@ export type SpecRun = {
   restarts: number;
 };
 
+/** A comment code posted on the page for a refiner run, as the spec sees it. */
+export type SpecReviewComment =
+  | { kind: "inline"; run: number; passage: string }
+  | { kind: "outcome"; run: number; findings: string[]; approves: boolean }
+  | { kind: "rejection"; run: number };
+
+/** A comment a person left on the page, as the spec sees it. */
+export type SpecPersonComment = {
+  commentThread: string;
+  onTheBlock: boolean;
+  mentions: boolean;
+  acknowledged: boolean;
+  gone: boolean;
+  sent: boolean;
+  answered: boolean;
+};
+
 /** The review of one artifact as the spec sees it. */
 export type SpecReview = {
   author: {
     atWork: boolean;
-    queuedPrompts: number;
+    failed: boolean;
+    queuedPrompts: number[][];
+    turnComments: number[];
+    pageEditsDuringTurn: string[];
     rejectedBy: number[];
     findingsFrom: number[];
   };
@@ -84,13 +110,20 @@ export type SpecReview = {
   };
   refinerRuns: SpecRun[];
   judgeRunsCodeRulesOn: number[];
+  reviewComments: SpecReviewComment[];
+  personComments: SpecPersonComment[];
 };
 
-/** One state of a trace: the action that led to it, the judge run it picked, and the review. */
+/**
+ * One state of a trace: the action that led to it, the judge run and review again decision it
+ * picked, its other picks by name, what the agent read about held comments, and the review.
+ */
 export type TraceStep = {
   action: string;
   judgeRun: number | null;
   decision: ReviewAgainDecision | null;
+  picks: Record<string, unknown>;
+  agentHeard: string[];
   review: SpecReview;
 };
 
@@ -118,6 +151,8 @@ function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
         decision?.tag === "Some"
           ? itfOneOf(itfText(itfField(decision.value, "tag")), REVIEW_AGAIN_DECISIONS)
           : null,
+      picks: somePicks(picks),
+      agentHeard: sortedTags(itfField(state, `${setup}::reviewLoop::agentHeard`)),
       review: specReview(itfField(state, `${setup}::reviewLoop::review`)),
     };
   });
@@ -131,7 +166,10 @@ function specReview(value: unknown): SpecReview {
   return {
     author: {
       atWork: itfBool(itfField(author, "atWork")),
-      queuedPrompts: itfInt(itfField(author, "queuedPrompts")),
+      failed: itfBool(itfField(author, "failed")),
+      queuedPrompts: itfList(itfField(author, "queuedPrompts")).map(sortedInts),
+      turnComments: sortedInts(itfField(author, "turnComments")),
+      pageEditsDuringTurn: sortedTags(itfField(author, "pageEditsDuringTurn")),
       rejectedBy: sortedInts(itfField(author, "rejectedBy")),
       findingsFrom: sortedInts(itfField(author, "findingsFrom")),
     },
@@ -148,11 +186,66 @@ function specReview(value: unknown): SpecReview {
     },
     refinerRuns: itfList(itfField(value, "refinerRuns")).map(specRun),
     judgeRunsCodeRulesOn: sortedInts(itfField(value, "judgeRunsCodeRulesOn")),
+    reviewComments: itfList(itfField(value, "reviewComments")).map(specReviewComment),
+    personComments: itfList(itfField(value, "personComments")).map(specPersonComment),
   };
 }
 
+function specReviewComment(value: unknown): SpecReviewComment {
+  const comment = itfVariant(value)!;
+  switch (comment.tag) {
+    case "InlineFinding":
+      return {
+        kind: "inline",
+        run: itfInt(itfField(comment.value, "refinerRun")),
+        passage: itfVariant(itfField(comment.value, "passage"))!.tag,
+      };
+    case "OutcomeComment":
+      return {
+        kind: "outcome",
+        run: itfInt(itfField(comment.value, "refinerRun")),
+        findings: sortedTags(itfField(comment.value, "findings")),
+        approves: itfBool(itfField(comment.value, "approves")),
+      };
+    case "RejectionComment":
+      return { kind: "rejection", run: itfInt(comment.value) };
+    default:
+      throw new Error(`the trace has review comment ${comment.tag}`);
+  }
+}
+
+function specPersonComment(value: unknown): SpecPersonComment {
+  const commentThread = itfVariant(itfField(value, "commentThread"))!;
+  const opened = commentThread.tag === "OpenedBy" ? "opened" : "review";
+  return {
+    commentThread: `${opened} ${itfInt(commentThread.value)}`,
+    onTheBlock: itfBool(itfField(value, "onTheBlock")),
+    mentions: itfBool(itfField(value, "mentions")),
+    acknowledged: itfBool(itfField(value, "acknowledged")),
+    gone: itfBool(itfField(value, "gone")),
+    sent: itfBool(itfField(value, "sent")),
+    answered: itfBool(itfField(value, "answered")),
+  };
+}
+
+function somePicks(picks: unknown): Record<string, unknown> {
+  if (typeof picks !== "object" || picks === null) return {};
+  return Object.fromEntries(
+    Object.entries(picks).flatMap(([name, picked]) => {
+      const option = itfVariant(picked);
+      return option?.tag === "Some" ? [[name, option.value]] : [];
+    }),
+  );
+}
+
+function sortedTags(set: unknown): string[] {
+  return itfSet(set)
+    .map((value) => itfVariant(value)!.tag)
+    .toSorted();
+}
+
 function sortedInts(set: unknown): number[] {
-  return itfList(itfField(set, "#set"))
+  return itfSet(set)
     .map(itfInt)
     .toSorted((left, right) => left - right);
 }
@@ -198,54 +291,65 @@ const RULING_PROBABILITIES = {
 
 type RulingAction = keyof typeof RULING_PROBABILITIES;
 
-const TURN_END: Omit<RefinerRunEnd, "reviewer" | "polisher" | "closing"> = {
-  pageCommenting: "takes",
+const TURN_END: Omit<RefinerRunEnd, "reviewer" | "polisher" | "closing" | "pageCommenting"> = {
   judge: "approves",
   whileRuled: "nothing",
   stopReason: "end_turn",
 };
 
 const WORLD_ACTIONS: Record<string, WorkflowAction> = {
-  agentPromptsAuthor: agentPromptsAuthor(0),
   authorTurnEndsOnANewRevision: authorTurnEnds(0, "changed", "finished"),
   authorTurnEndsOnTheSameRevision: authorTurnEnds(0, "same", "finished"),
-  findingsReviewerLeavesFindings: refinerRunEnds(0, {
-    ...TURN_END,
-    reviewer: "findings",
-    polisher: "nothing_pushed",
-    closing: "reports_work",
-  }),
-  findingsReviewerApproves: refinerRunEnds(0, {
-    ...TURN_END,
-    reviewer: "approved",
-    polisher: "nothing_pushed",
-    closing: "reports_work",
-  }),
   polisherPushes: refinerRunEnds(0, {
     ...TURN_END,
+    pageCommenting: "takes",
     reviewer: "no_review",
     polisher: "pushed",
     closing: "reports_work",
   }),
   polisherPushesNothing: refinerRunEnds(0, {
     ...TURN_END,
+    pageCommenting: "takes",
     reviewer: "no_review",
     polisher: "nothing_pushed",
     closing: "reports_work",
   }),
   refinerRunGivesUp: refinerRunEnds(0, {
     ...TURN_END,
+    pageCommenting: "takes",
     reviewer: "no_review",
     polisher: "nothing_pushed",
     closing: "gives_up",
   }),
-  personApproves: personRules(0, "approve"),
-  personRejects: personRules(0, "reject"),
   agentRequestsReview: agentRoutes(0, "request_review"),
   agentFinishesReview: agentRoutes(0, "finish_review"),
   agentCancelsRefinerRun: agentCancels(0, "refiner_run"),
   refinerRunFails: refinerRunFails(0),
 };
+
+/** How the fake host takes the comments of a page review, for each spec commenting. */
+const PAGE_COMMENTING: Record<string, DocumentsCommenting> = {
+  TakesAll: "takes",
+  DropsInline: "drops_inline",
+  InlineThrows: "inline_throws",
+  HostDown: "down",
+};
+
+/** A findings reviewer files `reviewer` on a host that takes comments the way `commenting` says. */
+function findingsReviewerEnds(
+  reviewer: "findings" | "approved",
+  commenting: string,
+): WorkflowAction {
+  const pageCommenting = PAGE_COMMENTING[commenting];
+  if (!pageCommenting) throw new Error(`the trace has commenting ${commenting}`);
+  return refinerRunEnds(0, {
+    ...TURN_END,
+    pageCommenting,
+    reviewer,
+    polisher: "nothing_pushed",
+    closing: "reports_work",
+  });
+}
 
 /** A ruling call the decisions model holds, and the judge turn end that waits on it. */
 type HeldRuling = { answer: (decisions: Decisions) => void; turnEnd: Promise<unknown> };
@@ -262,11 +366,94 @@ const REVIEW_AGAIN_ANSWERS: Record<ReviewAgainDecision, FakeAnswers> = {
   AgentRoutes: new Error("the decisions model is down"),
 };
 
+/** What the decisions model says to the feedback route questions, for each spec route. */
+const ROUTE_ANSWERS: Record<string, Record<string, number>> = {
+  ToTheAuthor: { for_author: 0.9 },
+  ToNobody: { for_author: 0.1 },
+  ToTheAgent: { for_author: 0.5 },
+};
+
+/** A screen answer that quarantines the text it reads. */
+const SCREEN_REFUSES = { takes_control: 0.9 };
+
+/** The line of the page each part of it is, as the spec names the parts. */
+const PAGE_PART_LINES: Record<string, number> = { Title: 0, Body: 2, TheBlock: 5 };
+
+/** The line a passage of a page review quotes. No edit rewrites it. */
+const QUOTED_PASSAGES: Record<string, string> = {
+  "Keep one table": "QuotesThePage",
+  "Merge the session rows": "QuotesMissingText",
+};
+
+/** Text each finding of a page review carries, by the passage the spec says it quotes. */
+const FINDING_MARKERS: Record<string, string> = {
+  QuotesThePage: "one table mixes two lifetimes",
+  QuotesMissingText: "the page never says this",
+  WithoutPassage: "the page names no metric",
+};
+
+const TOOL_CALL = { toolCallId: "call-1", messages: [], context: {} };
+
+/** What a person asks in a comment that mentions the bot, named by the comment. */
+function mentionBody(hostId: string): string {
+  return `Tighten the summary (${hostId}).`;
+}
+
+/**
+ * What the agent read in one step: the texts so far, how many tool results or events are still
+ * out, the texts of the comments held when the step began, and what a mention in it asked.
+ */
+type HeardInStep = {
+  step: number;
+  texts: string[];
+  pending: number;
+  heldTexts: string[];
+  mention: string | null;
+  reported: boolean;
+};
+
+/** The page host methods a step can make fail. */
+type FailingHostMethod =
+  | "heldComments"
+  | "acknowledgeComment"
+  | "fetchComment"
+  | "replyToComment"
+  | "updatePageContent";
+
+/** Where a person leaves a comment, as the spec picks it. */
+type CommentPlace =
+  | { place: "page" }
+  | { place: "block" }
+  | { place: "comment_thread"; of: number }
+  | { place: "review"; of: number };
+
+/** A person comment the replay put on the page, with what the spec says about where it sits. */
+type ReplayComment = {
+  hostId: string;
+  commentThread: string;
+  hostCommentThread: string;
+  onTheBlock: boolean;
+  mentions: boolean;
+  lineId: number | null;
+};
+
+/** The comment every page of a world holds when the review starts. */
+const COMMENT_HELD_AT_OPEN: ReplayComment = {
+  hostId: HELD_COMMENT.id,
+  commentThread: "opened 0",
+  hostCommentThread: HELD_COMMENT.id,
+  onTheBlock: false,
+  mentions: false,
+  lineId: null,
+};
+
 /**
  * Replays spec traces through a workflow world with one author. Each spec action maps to one
  * world action. A judge turn end stays open while the decisions model holds its ruling call,
  * until a later spec step answers it. A model-call author's turn stays open while the page model
- * holds its call, until a later spec step ends the turn.
+ * holds its call, until a later spec step ends the turn. People comment on the page and edit it
+ * on the fake host, and a step that the spec says the host fails swaps the failing host methods
+ * in for that step.
  */
 export class ReviewLoopReplay {
   readonly world: WorkflowWorld;
@@ -274,8 +461,14 @@ export class ReviewLoopReplay {
   private readonly revisions: ArtifactRevisions;
   private readonly pageModel: HeldPageModel | null;
   private readonly held = new Map<number, HeldRuling>();
+  private readonly comments: ReplayComment[];
+  private readonly pageLinesAtOpen: string[];
   private step = 0;
   private modelTurn: OpenModelTurn | null;
+  private pageTextAtCall: string | null = null;
+  private callsSeen = 0;
+  private readonly heardSteps: HeardInStep[] = [];
+  private heardNow: HeardInStep | null = null;
 
   private constructor(options: {
     world: WorkflowWorld;
@@ -289,6 +482,10 @@ export class ReviewLoopReplay {
     this.revisions = options.revisions;
     this.pageModel = options.pageModel;
     this.modelTurn = options.modelTurn;
+    const onPage = options.revisions.kind === "page";
+    this.comments = onPage ? [COMMENT_HELD_AT_OPEN] : [];
+    this.pageLinesAtOpen = onPage ? this.pageText().split("\n") : [];
+    this.noteModelCall();
   }
 
   /** A world on the refiner list of `setup` whose author opened its artifact. */
@@ -359,16 +556,112 @@ export class ReviewLoopReplay {
     this.step += 1;
     setSystemTime(new Date(REPLAY_START + this.step * STEP_MS));
     this.world.workflow.gatewayInstance = new FakeGateway();
-    if (step.action === "judgeTurnEnds") await this.judgeTurnEnds();
-    else if (isRulingAction(step.action)) await this.answerRuling(step.action, step.judgeRun);
-    else if (this.pageModel && isAuthorTurnEnd(step.action)) {
-      await this.modelTurnEnds(step.action === "authorTurnEndsOnANewRevision", step.decision);
-    } else {
-      const action = this.worldActionFor(step.action);
-      await this.untilModelCall(() => this.world.apply(action));
-    }
+    const heard: HeardInStep = {
+      step: this.step,
+      texts: [],
+      pending: 0,
+      heldTexts:
+        this.revisions.kind === "page"
+          ? this.host()
+              .heldNow()
+              .map((held) => held.text)
+          : [],
+      mention: null,
+      reported: false,
+    };
+    this.heardSteps.push(heard);
+    this.heardNow = heard;
+    const notesBefore = this.world.workflow.notes.length;
+    await this.takeAction(step);
     for (const task of this.world.tasksAwaitingSandbox()) {
       await this.world.startSandboxOf(task.task_id);
+    }
+    this.noteModelCall();
+    const otherMentions = this.heardSteps.flatMap((other) =>
+      other !== heard && other.mention !== null ? [other.mention] : [],
+    );
+    const notes = this.world.workflow.notes
+      .slice(notesBefore)
+      .map((note) => note.text)
+      .filter((note) => !otherMentions.some((mention) => note.includes(mention)));
+    heard.texts.push(...notes);
+  }
+
+  /**
+   * What the agent read about page comments in each step whose tool results and events have all
+   * come back since the last call, as the spec names it. A step that prompts an idle model-call
+   * author gets its tool result once the author's model call answers.
+   */
+  settledHeard(): Array<{ step: number; agentHeard: string[] }> {
+    return this.heardSteps
+      .filter((heard) => !heard.reported && heard.pending === 0)
+      .map((heard) => {
+        heard.reported = true;
+        return { step: heard.step, agentHeard: agentHeardOf(heard.texts.join("\n"), heard) };
+      });
+  }
+
+  /** The steps whose tool result or event has not come back. */
+  unsettledSteps(): number[] {
+    return this.heardSteps.filter((heard) => heard.pending > 0).map((heard) => heard.step);
+  }
+
+  /** Add what `reading` resolves to to what the agent read in the step that started it. */
+  private async readInStep(reading: Promise<string[]>): Promise<void> {
+    const heard = this.heardNow;
+    if (!heard) throw new Error("no step is being taken");
+    heard.pending += 1;
+    try {
+      heard.texts.push(...(await reading));
+    } finally {
+      heard.pending -= 1;
+    }
+  }
+
+  private async takeAction(step: TraceStep): Promise<void> {
+    const { action } = step;
+    if (action === "judgeTurnEnds") return this.judgeTurnEnds();
+    if (isRulingAction(action)) return this.answerRuling(action, step);
+    if (action === "theHostFailsAModelCallAuthorsWrite") {
+      return this.modelTurnEnds({
+        part: pickTag(step, "part"),
+        decision: "AgentRoutes",
+        failure: pickTag(step, "failure"),
+      });
+    }
+    if (this.pageModel && isAuthorTurnEnd(action)) {
+      return this.modelTurnEnds({
+        part: action === "authorTurnEndsOnANewRevision" ? pickTag(step, "part") : null,
+        decision: step.decision,
+        failure: null,
+      });
+    }
+    switch (action) {
+      case "agentPromptsAuthor":
+        return this.whileHeldCommentsRead(step, {}, () => this.agentSendsAPrompt());
+      case "personAsksForRevision":
+        return this.whileHeldCommentsRead(step, {}, () => this.personAsksForRevision());
+      case "personMentionsTheBot":
+        return this.personMentionsTheBot(step);
+      case "personCommentsOnThePage":
+        return this.personComments(commentPlaceOf(pickOf(step, "place")));
+      case "personEditsThePage":
+        return this.personRewritesPage(pickTag(step, "part"));
+      case "personApproves":
+      case "personRejects":
+        return this.untilModelCall(() =>
+          this.world.apply(
+            personRules(
+              0,
+              action === "personApproves" ? "approve" : "reject",
+              pickTag(step, "post") === "HostTakes" ? "takes" : "down",
+            ),
+          ),
+        );
+      default: {
+        const mapped = this.worldActionFor(step);
+        await this.untilModelCall(() => this.world.apply(mapped));
+      }
     }
   }
 
@@ -385,7 +678,7 @@ export class ReviewLoopReplay {
     setSystemTime();
   }
 
-  /** The store as the spec sees it. */
+  /** The store and the page host as the spec sees them. */
   project(): SpecReview {
     const { store } = this.world.workflow;
     const author = this.world.taskOf(this.author);
@@ -395,12 +688,18 @@ export class ReviewLoopReplay {
     const pointer = runs.findIndex((run) => run.task_id === artifact.refiner_task_id);
     const delivered = artifact.delivered_revision;
     const atWork = taskAtWork(this.world.workflow, author);
-    const queued = store.queue().filter((row) => row.task_id === author.task_id).length;
+    const queued = store.queue().filter((row) => row.task_id === author.task_id);
+    const turnAsked = this.pageModel && atWork ? this.pageModel.heldUserText : null;
     const revisionCount = (revision: string | null) => this.revisionCount(revision);
     return {
       author: {
         atWork,
-        queuedPrompts: this.pageModel && atWork ? queued - 1 : queued,
+        failed: author.status === "failed",
+        queuedPrompts: (this.pageModel && atWork ? queued.slice(1) : queued).map((row) =>
+          this.specCommentIdsIn(row.text),
+        ),
+        turnComments: turnAsked === null ? [] : this.specCommentIdsIn(turnAsked),
+        pageEditsDuringTurn: turnAsked === null ? [] : this.pagePartsEditedSinceTheCall(),
         rejectedBy: this.judgeEntriesThatRejected(author, artifact),
         findingsFrom: this.runsWhoseFindingsReachedTheAuthor(author, runs),
       },
@@ -414,30 +713,288 @@ export class ReviewLoopReplay {
       },
       refinerRuns: runs.map((run) => specRunOf(run, revisionCount)),
       judgeRunsCodeRulesOn: [...this.held.keys()].toSorted((left, right) => left - right),
+      reviewComments: this.reviewComments(runs),
+      personComments: this.comments.map((comment) => this.specPersonCommentOf(comment, author)),
     };
   }
 
-  private worldActionFor(action: string): WorkflowAction {
+  private worldActionFor(step: TraceStep): WorkflowAction {
+    const { action } = step;
+    if (action === "findingsReviewerLeavesFindings" || action === "findingsReviewerApproves") {
+      const reviewer = action === "findingsReviewerLeavesFindings" ? "findings" : "approved";
+      return findingsReviewerEnds(reviewer, pickTag(step, "commenting"));
+    }
     if (this.revisions.kind === "page" && action === "authorTurnEndsOnANewRevision") {
-      return this.afterPageEdit(WORLD_ACTIONS.authorTurnEndsOnTheSameRevision!);
+      return this.afterPageEdit(
+        pickTag(step, "part"),
+        WORLD_ACTIONS.authorTurnEndsOnTheSameRevision!,
+      );
     }
     if (this.revisions.kind === "page" && action === "polisherPushes") {
-      return this.afterPageEdit(WORLD_ACTIONS.polisherPushesNothing!);
+      return this.afterPageEdit(pickTag(step, "part"), WORLD_ACTIONS.polisherPushesNothing!);
     }
     const mapped = WORLD_ACTIONS[action];
     if (!mapped) throw new Error(`no world action for spec action ${action}`);
     return mapped;
   }
 
-  /** The author or a polisher edits the page on the host, then `action` runs. */
-  private afterPageEdit(action: WorkflowAction): WorkflowAction {
+  /** The author or a polisher rewrites one part of the page on the host, then `action` runs. */
+  private afterPageEdit(part: string, action: WorkflowAction): WorkflowAction {
     return {
-      toString: () => `the page changes, then ${String(action)}`,
+      toString: () => `the page changes at ${part}, then ${String(action)}`,
       run: async (world) => {
-        const pageId = this.requirePageId();
-        world.pageHost.seedPage(pageId, `${world.pageHost.pageText(pageId)}\nEdit ${this.step}.`);
+        await this.editPage(part);
         return action.run(world);
       },
+    };
+  }
+
+  /** Rewrite the line of `part` on the host, and keep the id of every other line. */
+  private async editPage(part: string): Promise<void> {
+    const before = this.pageText();
+    await this.host().updatePageContent(this.requirePageId(), {
+      before,
+      after: this.withPartRewritten(before, part),
+    });
+  }
+
+  /**
+   * A person rewrites the whole line of `part` on the host, so a model-call author's write that
+   * read the line before does not find it.
+   */
+  private async personRewritesPage(part: string): Promise<void> {
+    const index = PAGE_PART_LINES[part];
+    if (index === undefined) throw new Error(`the trace has page part ${part}`);
+    const before = this.pageText();
+    const lines = before.split("\n");
+    lines[index] = `A person rewrote ${part} at step ${this.step}.`;
+    await this.host().updatePageContent(this.requirePageId(), { before, after: lines.join("\n") });
+  }
+
+  private withPartRewritten(pageText: string, part: string): string {
+    const index = PAGE_PART_LINES[part];
+    if (index === undefined) throw new Error(`the trace has page part ${part}`);
+    const lines = pageText.split("\n");
+    lines[index] = `${this.pageLinesAtOpen[index]} (edit ${this.step})`;
+    return lines.join("\n");
+  }
+
+  /** The agent sends the author a prompt of its own, and reads what the tool says. */
+  private async agentSendsAPrompt(): Promise<void> {
+    const { prompt_task } = taskTools(this.world.workflow);
+    await this.untilModelCall(() =>
+      this.readInStep(
+        (async () => {
+          const prompt = { task_id: this.author.taskId, text: "Add a test for it." };
+          return [toolText(await prompt_task.execute(prompt, TOOL_CALL))];
+        })(),
+      ),
+    );
+  }
+
+  /** A person tells the agent they finished reviewing, and the agent reads what was sent. */
+  private async personAsksForRevision(): Promise<void> {
+    await this.untilModelCall(() =>
+      this.readInStep(
+        sendHeldCommentsOnRevisionRequest(this.world.workflow).then((sent) => sent.notes),
+      ),
+    );
+  }
+
+  /** A person comments on the page and mentions the bot, and the host delivers the comment. */
+  private async personMentionsTheBot(step: TraceStep): Promise<void> {
+    const route = ROUTE_ANSWERS[pickTag(step, "route")];
+    if (!route) throw new Error(`the trace has route ${pickTag(step, "route")}`);
+    await this.whileHeldCommentsRead(step, route, async () => {
+      const mention = this.addComment({ place: "page" }, true);
+      const restore =
+        pickTag(step, "lookup") === "TheHostCannotSay"
+          ? this.failingHost("fetchComment", "the host cannot say who it mentions")
+          : () => undefined;
+      try {
+        const asked = mentionBody(mention.hostId);
+        if (this.heardNow) this.heardNow.mention = asked;
+        await this.untilModelCall(() =>
+          this.readInStep(
+            this.deliverComment(mention, `@artfct ${asked}`).then(() => this.notesSaying(asked)),
+          ),
+        );
+      } finally {
+        restore();
+      }
+    });
+  }
+
+  /** The agent notes that carry `text`. */
+  private notesSaying(asked: string): string[] {
+    return this.world.workflow.notes
+      .map((note) => note.text)
+      .filter((note) => note.includes(asked));
+  }
+
+  /** A person comments on the page at `place` without a mention, and the host delivers it. */
+  private async personComments(place: CommentPlace): Promise<void> {
+    const comment = this.addComment(place, false);
+    await this.untilModelCall(() => this.deliverComment(comment, this.commentText(comment)));
+  }
+
+  private async deliverComment(comment: ReplayComment, said: string): Promise<void> {
+    const pageId = this.requirePageId();
+    await this.world.deliver({
+      kind: "feedback",
+      text: said,
+      bindings: [{ source: "documents_page", external_id: pageId }],
+      page: { page_id: pageId, comment_id: comment.hostId },
+    });
+  }
+
+  /** Put a person comment on the host at `place`, numbered the way the spec numbers it. */
+  private addComment(place: CommentPlace, mentions: boolean): ReplayComment {
+    const specId = this.comments.length;
+    const hostId = `cmt-${specId}`;
+    const comment = this.placedComment(place, specId, hostId, mentions);
+    this.comments.push(comment);
+    this.host().addPersonComment({
+      id: hostId,
+      pageId: this.requirePageId(),
+      lineId: comment.lineId,
+      authorName: "Bea",
+      text: mentions ? `@artfct ${mentionBody(hostId)}` : this.commentText(comment),
+      ...(comment.hostCommentThread === hostId
+        ? {}
+        : { commentThreadId: comment.hostCommentThread }),
+      mentionsSelf: mentions,
+    });
+    return comment;
+  }
+
+  private placedComment(
+    place: CommentPlace,
+    specId: number,
+    hostId: string,
+    mentions: boolean,
+  ): ReplayComment {
+    const opened = {
+      hostId,
+      commentThread: `opened ${specId}`,
+      hostCommentThread: hostId,
+      onTheBlock: false,
+      mentions,
+      lineId: null,
+    };
+    switch (place.place) {
+      case "page":
+        return opened;
+      case "block": {
+        const lineId = this.host().lineIds(this.requirePageId())[PAGE_PART_LINES.TheBlock!];
+        if (lineId === undefined) throw new Error("the page has no block");
+        return { ...opened, onTheBlock: true, lineId };
+      }
+      case "comment_thread": {
+        const earlier = this.comments[place.of];
+        if (!earlier) throw new Error(`the trace replies to comment ${place.of}`);
+        return { ...earlier, hostId, mentions };
+      }
+      case "review":
+        return {
+          ...opened,
+          commentThread: `review ${place.of}`,
+          hostCommentThread: `review-${place.of}`,
+        };
+      default: {
+        const unreachable: never = place;
+        throw new Error(`unhandled comment place ${JSON.stringify(unreachable)}`);
+      }
+    }
+  }
+
+  private commentText(comment: ReplayComment): string {
+    return `Comment ${comment.hostId}: cite the source.`;
+  }
+
+  /**
+   * Run `body` while the held comments read the way the step says: the host cannot be read, the
+   * screen quarantines them, or it admits them and their acknowledgement lands or fails. A person
+   * may reply to the oldest held comment while the screen reads.
+   */
+  private async whileHeldCommentsRead(
+    step: TraceStep,
+    route: Record<string, number>,
+    body: () => Promise<void>,
+  ): Promise<void> {
+    const read = pickTag(step, "read");
+    const replyTo = this.oldestHeldComment();
+    const answering = new FakeDecisions(
+      read === "ScreenRefuses" ? { ...SCREEN_REFUSES, ...route } : route,
+    );
+    const replies = pickTag(step, "meanwhile") === "APersonReplies" && replyTo !== null;
+    this.world.workflow.gatewayInstance = new FakeGateway({
+      decisions: replies
+        ? new InterleavedDecisions(
+            answering,
+            onFirstCallAsking("takes_control", async () => {
+              this.addComment({ place: "comment_thread", of: replyTo }, false);
+            }),
+          )
+        : answering,
+    });
+    const restore =
+      read === "HostCannotBeRead"
+        ? this.failingHost("heldComments", "the host cannot be read")
+        : read === "AdmittedButAcknowledgementFails"
+          ? this.failingHost("acknowledgeComment", "the host refuses the acknowledgement")
+          : () => undefined;
+    try {
+      await body();
+    } finally {
+      restore();
+    }
+  }
+
+  /** The held comment with the lowest spec number, or null when none is held. */
+  private oldestHeldComment(): number | null {
+    if (this.revisions.kind !== "page") return null;
+    const held = this.host()
+      .heldNow()
+      .map((comment) => this.specCommentId(comment.id));
+    return held.length ? Math.min(...held) : null;
+  }
+
+  /** Run `body` while the host takes or fails the comment of a judge rejection. */
+  private async whileRejectionPosts(post: string, body: () => Promise<void>): Promise<void> {
+    if (this.revisions.kind !== "page" || post === "HostTakes") return body();
+    this.host().commenting = "down";
+    try {
+      await body();
+    } finally {
+      this.host().commenting = "takes";
+    }
+  }
+
+  /** Make `method` of the page host fail until the returned function puts it back. */
+  private failingHost(method: FailingHostMethod, reason: string): () => void {
+    const host = this.host();
+    const original = host[method];
+    Object.assign(host, {
+      [method]: async () => {
+        throw new Error(`${method}: ${reason}`);
+      },
+    });
+    return () => {
+      Object.assign(host, { [method]: original });
+    };
+  }
+
+  /** Make the page host apply a page text change and then fail the call. */
+  private hostFailsAfterTheUpdate(): () => void {
+    const host = this.host();
+    const update = host.updatePageContent.bind(host);
+    host.updatePageContent = async (pageId, change) => {
+      await update(pageId, change);
+      throw new Error("updatePageContent: the host lost the answer");
+    };
+    return () => {
+      host.updatePageContent = update;
     };
   }
 
@@ -449,6 +1006,13 @@ export class ReviewLoopReplay {
     }
     const opened = await untilModelCall(this.pageModel, work);
     if (opened) this.modelTurn = opened;
+  }
+
+  /** Keep the page text a new page model call read, for the edits that land while it is out. */
+  private noteModelCall(): void {
+    if (!this.pageModel || this.pageModel.calls === this.callsSeen) return;
+    this.callsSeen = this.pageModel.calls;
+    this.pageTextAtCall = this.pageText();
   }
 
   /** Answer the call the page model holds, then let the turn it ends run on. */
@@ -463,27 +1027,65 @@ export class ReviewLoopReplay {
     });
   }
 
-  /** The model-call author's revise call answers, on a changed page or on the same one. */
-  private async modelTurnEnds(
-    changed: boolean,
-    decision: ReviewAgainDecision | null,
-  ): Promise<void> {
-    const pageModel = this.pageModel;
-    const asked = pageModel?.heldUserText ?? null;
-    if (asked === null) throw new Error("the model-call author has no turn in flight");
-    if (!decision) throw new Error("the spec ended a model-call author's turn without a decision");
-    const pageText = await this.world.pageHost.readPageContent(this.requirePageId());
-    const revised = changed ? `${pageText}\nEdit ${this.step}.` : pageText;
-    const replies = labeledPageCommentIds(asked).flatMap((commentId) => [
-      replyMarker(commentId),
+  /**
+   * The model-call author's revise call answers with the page it read, with `part` rewritten when
+   * it changed the page, and one comment reply per comment its prompt carries, in spec order. The
+   * host takes its writes, or fails the one `failure` names.
+   */
+  private async modelTurnEnds(turnEnd: {
+    part: string | null;
+    decision: ReviewAgainDecision | null;
+    failure: string | null;
+  }): Promise<void> {
+    const asked = this.pageModel?.heldUserText ?? null;
+    const pageText = this.pageTextAtCall;
+    if (asked === null || pageText === null) {
+      throw new Error("the model-call author has no turn in flight");
+    }
+    if (!turnEnd.decision)
+      throw new Error("the spec ended a model-call author's turn without a decision");
+    const revised =
+      turnEnd.part === null ? pageText : this.withPartRewritten(pageText, turnEnd.part);
+    const replies = this.specCommentIdsIn(asked).flatMap((specId) => [
+      replyMarker(this.comments[specId]!.hostId),
       "Answered on the page.",
     ]);
     const gatewayBefore = this.world.workflow.gatewayInstance;
-    this.world.workflow.gatewayInstance = reviewAgainGateway(decision);
-    await this.answerModelCall(
-      [revised, "", CLOSING_TEXT_MARKER, "Revised the page.", ...replies].join("\n"),
-    );
+    this.world.workflow.gatewayInstance = reviewAgainGateway(turnEnd.decision);
+    const restore = this.hostFailing(turnEnd.failure);
+    try {
+      await this.answerModelCall(
+        [revised, "", CLOSING_TEXT_MARKER, "Revised the page.", ...replies].join("\n"),
+      );
+    } finally {
+      restore();
+    }
     this.world.workflow.gatewayInstance = gatewayBefore;
+  }
+
+  private hostFailing(failure: string | null): () => void {
+    switch (failure) {
+      case null:
+        return () => undefined;
+      case "RepliesFail":
+        return this.failingHost("replyToComment", "the host refuses the reply");
+      case "UpdateFails":
+        return this.failingHost("updatePageContent", "the host refuses the change");
+      case "UpdateLandsThenFails":
+        return this.hostFailsAfterTheUpdate();
+      default:
+        throw new Error(`the trace has host failure ${failure}`);
+    }
+  }
+
+  private host(): FakeDocuments {
+    return this.world.pageHost;
+  }
+
+  private pageText(): string {
+    const pageText = this.host().pageText(this.requirePageId());
+    if (pageText === undefined) throw new Error("the host does not hold the page");
+    return pageText;
   }
 
   private requirePageId(): string {
@@ -501,6 +1103,73 @@ export class ReviewLoopReplay {
   private revisionCount(revision: string | null): number {
     if (this.revisions.kind === "pull") return pushCountOf(revision ?? "");
     return Number(revision) - this.revisions.revisionAtOpen;
+  }
+
+  private specCommentId(hostId: string): number {
+    const specId = this.comments.findIndex((comment) => comment.hostId === hostId);
+    if (specId === -1) throw new Error(`the host holds comment ${hostId} the replay did not leave`);
+    return specId;
+  }
+
+  /** The spec numbers of the page comments a prompt labels, lowest first. */
+  private specCommentIdsIn(labeled: string): number[] {
+    return labeledPageCommentIds(labeled)
+      .map((hostId) => this.specCommentId(hostId))
+      .toSorted((left, right) => left - right);
+  }
+
+  /** The parts of the page whose line changed since the open page model call read it. */
+  private pagePartsEditedSinceTheCall(): string[] {
+    if (this.pageTextAtCall === null) return [];
+    const atCall = this.pageTextAtCall.split("\n");
+    const now = this.pageText().split("\n");
+    return Object.entries(PAGE_PART_LINES)
+      .filter(([, index]) => atCall[index] !== now[index])
+      .map(([part]) => part)
+      .toSorted();
+  }
+
+  private specPersonCommentOf(comment: ReplayComment, author: TaskRow): SpecPersonComment {
+    const host = this.host();
+    const prompts = this.world.promptsQueuedFor(author.task_id);
+    const lineIds = host.lineIds(this.requirePageId());
+    return {
+      commentThread: comment.commentThread,
+      onTheBlock: comment.onTheBlock,
+      mentions: comment.mentions,
+      acknowledged: host.isAcknowledged(comment.hostId),
+      gone: comment.lineId !== null && !lineIds.includes(comment.lineId),
+      sent: prompts.some((prompt) => labeledPageCommentIds(prompt).includes(comment.hostId)),
+      answered: host.events.some(
+        (event) => event.kind === "reply" && event.commentId === comment.hostId,
+      ),
+    };
+  }
+
+  /** The comments code posted on the page for refiner runs, oldest first. */
+  private reviewComments(runs: TaskRow[]): SpecReviewComment[] {
+    if (this.revisions.kind !== "page") return [];
+    const { pageId } = this.revisions;
+    return this.host().postedComments.flatMap((posted): SpecReviewComment[] => {
+      if (posted.pageId !== pageId) return [];
+      const signed = /· task (\S+)\s*$/.exec(posted.text)?.[1];
+      const run = runs.findIndex((candidate) => candidate.task_id === signed);
+      if (run === -1) return [];
+      if (posted.passage !== null) {
+        const passage = QUOTED_PASSAGES[posted.passage];
+        if (!passage) throw new Error(`a review quoted ${posted.passage}`);
+        return [{ kind: "inline", run, passage }];
+      }
+      if (posted.text.startsWith("Review:")) {
+        const findings = Object.entries(FINDING_MARKERS)
+          .filter(([, marker]) => posted.text.includes(marker))
+          .map(([passage]) => passage)
+          .toSorted();
+        const approves = posted.text.startsWith("Review: approved");
+        return [{ kind: "outcome", run, findings, approves }];
+      }
+      return [{ kind: "rejection", run }];
+    });
   }
 
   private async judgeTurnEnds(): Promise<void> {
@@ -528,14 +1197,18 @@ export class ReviewLoopReplay {
     if (outcome === "held" && answer) this.held.set(runId, { answer, turnEnd });
   }
 
-  private async answerRuling(action: RulingAction, judgeRun: number | null): Promise<void> {
+  private async answerRuling(action: RulingAction, step: TraceStep): Promise<void> {
+    const { judgeRun } = step;
     const held = judgeRun === null ? undefined : this.held.get(judgeRun);
     if (judgeRun === null || !held) throw new Error(`no ruling call is out for ${judgeRun}`);
     this.held.delete(judgeRun);
-    await this.untilModelCall(async () => {
-      held.answer(new FakeDecisions(rulingAnswers(RULING_PROBABILITIES[action])));
-      await held.turnEnd;
-    });
+    const post = action === "decisionsModelCannotRule" ? "HostTakes" : pickTag(step, "post");
+    await this.whileRejectionPosts(post, () =>
+      this.untilModelCall(async () => {
+        held.answer(new FakeDecisions(rulingAnswers(RULING_PROBABILITIES[action])));
+        await held.turnEnd;
+      }),
+    );
   }
 
   private judgeEntriesThatRejected(author: TaskRow, artifact: ArtifactRow): number[] {
@@ -564,6 +1237,43 @@ export class ReviewLoopReplay {
   }
 }
 
+/**
+ * What the agent read about page comments, as the spec names it: the text of a comment that was
+ * held when the step began, that held comments stay held, and the mention that came in.
+ */
+function agentHeardOf(heard: string, said: Pick<HeardInStep, "heldTexts" | "mention">): string[] {
+  const notes: string[] = [];
+  if (said.heldTexts.some((heldText) => heard.includes(heldText))) notes.push("HeldCommentText");
+  if (heard.includes("They stay held")) notes.push("HeldCommentsStayHeld");
+  if (said.mention !== null && heard.includes(said.mention)) notes.push("MentionText");
+  return notes;
+}
+
+function commentPlaceOf(picked: unknown): CommentPlace {
+  const place = itfVariant(picked)!;
+  switch (place.tag) {
+    case "OnThePageAsAWhole":
+      return { place: "page" };
+    case "OnTheBlock":
+      return { place: "block" };
+    case "InTheCommentThreadOf":
+      return { place: "comment_thread", of: itfInt(place.value) };
+    case "UnderTheReviewComment":
+      return { place: "review", of: itfInt(place.value) };
+    default:
+      throw new Error(`the trace has comment place ${place.tag}`);
+  }
+}
+
+function pickOf(step: TraceStep, name: string): unknown {
+  if (!(name in step.picks)) throw new Error(`${step.action} picked no ${name}`);
+  return step.picks[name];
+}
+
+function pickTag(step: TraceStep, name: string): string {
+  return itfVariant(pickOf(step, name))!.tag;
+}
+
 const WORLD_SETUP: Omit<WorldSetup, "refiners"> = {
   opening: "job",
   artifact: "pull",
@@ -577,10 +1287,14 @@ const WORLD_SETUP: Omit<WorldSetup, "refiners"> = {
   sandboxStart: "at_task_start",
 };
 
+/** The page a model-call author produces. Its lines line up with the parts the spec edits. */
 const PRODUCED_PAGE_TEXT = [
   "# Login redirect",
   "",
   "Send the user back to the page they left.",
+  "",
+  "1. Keep one table",
+  `2. ${PAGE_OPTION}`,
 ].join("\n");
 
 /** A model-call author's turn the page model holds open, with the work that waits on it. */

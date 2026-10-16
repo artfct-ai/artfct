@@ -102,6 +102,8 @@ export type Observation = {
   authorPrompts: number;
   /** The text of every comment the page host holds. */
   heldComments: string[];
+  /** The text of every comment the page host marked read that does not mention the bot. */
+  readComments: string[];
 };
 
 /** One action and what an observer saw around it. */
@@ -188,6 +190,17 @@ export type Step = {
   modelTurnCut: { task_id: string; prompt_id: number | null } | null;
   /** True when an end of the workflow landed while another end waited on a sandbox destroy. */
   secondEnd: boolean;
+  /** Every comment the document host took during the step, oldest first. */
+  pageCommentsPosted: PostedComment[];
+  /** True when the document host refused every comment while a ruling landed on a page. */
+  pageCommentsRefused: boolean;
+  /**
+   * What failed under the model-call authors during the step: the page model, or a call to the
+   * document host.
+   */
+  modelAuthorErrors: { pageModelThrows: boolean; pageHostFailed: boolean };
+  /** True when a person edited the page while a page model call of its author was out. */
+  personEditedPage: boolean;
   /** How many store statements the action ran. */
   work: number;
 };
@@ -405,6 +418,21 @@ const coverModelCallAuthorWorking = coverageCase(
   "aModelCallAuthorWorksOnlyWhileItsCallIsOut: a model-call author works with no call out",
 );
 const coverModelTurnCut = coverageCase("aRestartDoesNotLoseAModelTurn: a model turn is cut");
+const coverJudgeRejectsPage = coverageCase(
+  "aJudgeRejectionPostsItsReasonOnce: a judge rejects a page",
+);
+const coverRejectionRefused = coverageCase(
+  "aJudgeRejectionPostsItsReasonOnce: the host refuses the rejection comment",
+);
+const coverHeldCommentRead = coverageCase(
+  "aHeldCommentStaysHeldUntilItReachesTheAuthor: a held comment is marked read",
+);
+const coverReviseFailed = coverageCase(
+  "aModelCallAuthorFailsOnlyOnAHostError: a revise turn fails",
+);
+const coverPersonEditedPage = coverageCase(
+  "aModelCallAuthorFailsOnlyOnAHostError: a person edits the page during a model call",
+);
 const coverAccepted = coverageCase("anAcceptedArtifactNeverMovesBack: an artifact is accepted");
 const coverTurnOnAccepted = coverageCase(
   "anAcceptedArtifactNeverMovesBack: an author turn ends on an accepted artifact",
@@ -1381,6 +1409,97 @@ export function aPromptToAPageAuthorCarriesItsHeldComments(
       violated("aPromptToAPageAuthorCarriesItsHeldComments", "the agent was not told");
     }
   }
+}
+
+/**
+ * A judge rejection on a page posts its reason in one comment when the host takes it, and the
+ * author gets the rejection whether the post landed or not.
+ */
+export function aJudgeRejectionPostsItsReasonOnce(workflow: WorkflowRuntime, step: Step): void {
+  for (const run of step.after.tasks) {
+    if (run.role !== "reviewer" || run.ruling === null || rulingBefore(step, run.task_id) != null) {
+      continue;
+    }
+    const result = workflow.store.requireTask(run.task_id).result;
+    const ref = workflow.store.artifact(run.job_id)?.ref;
+    if (result?.kind !== "ruling" || result.ruling !== "rejected" || ref?.kind !== "page") continue;
+    coverJudgeRejectsPage();
+    if (step.pageCommentsRefused) coverRejectionRefused();
+    const posted = step.pageCommentsPosted.filter(
+      (comment) =>
+        comment.pageId === ref.page_id &&
+        comment.passage === null &&
+        comment.text.startsWith(result.reason),
+    ).length;
+    const expected = step.pageCommentsRefused ? 0 : 1;
+    if (posted !== expected) {
+      violated(
+        "aJudgeRejectionPostsItsReasonOnce",
+        `the rejection by ${run.task_id} posted ${posted} comments, not ${expected}`,
+      );
+    }
+    const author = authorIn(step.after, run.job_id);
+    if (!author || FINISHED.includes(author.status) || run.refiner_index === null) continue;
+    const entry = workflow.stageFor(workflow.store.requireJob(run.job_id)).reviewers[
+      run.refiner_index
+    ];
+    const headline = rejectionHeadline(entry?.name ?? "");
+    const rejectionsBefore = (authorIn(step.before, run.job_id)?.promptsQueued ?? []).filter(
+      (text) => text.startsWith(headline),
+    ).length;
+    const rejectionsAfter = author.promptsQueued.filter((text) => text.startsWith(headline)).length;
+    if (rejectionsAfter <= rejectionsBefore) {
+      violated(
+        "aJudgeRejectionPostsItsReasonOnce",
+        `${author.task_id} did not get the rejection by ${run.task_id}`,
+      );
+    }
+  }
+}
+
+/**
+ * A person comment that does not mention the bot is marked read on the page only once a prompt
+ * that carries it is queued for the author. Until then it stays held.
+ */
+export function aHeldCommentStaysHeldUntilItReachesTheAuthor(
+  _workflow: WorkflowRuntime,
+  step: Step,
+): void {
+  const queued = step.after.tasks
+    .filter((task) => task.role === "author")
+    .flatMap((task) => task.promptsQueued);
+  for (const text of step.after.readComments) {
+    coverHeldCommentRead();
+    if (!queued.some((prompt) => prompt.includes(text))) {
+      violated(
+        "aHeldCommentStaysHeldUntilItReachesTheAuthor",
+        `"${text}" is marked read and no prompt carries it`,
+      );
+    }
+  }
+}
+
+/** The failure a revise turn of a model-call author posts when a call under it throws. */
+const REVISE_TURN_FAILED = "The model call or the page update failed.";
+
+/**
+ * A model-call author's revise turn fails only when the document host refuses or loses one of
+ * its writes. An edit to the page by a person, a polisher, or an earlier revision does not fail
+ * it. A page model that throws fails it too.
+ */
+export function aModelCallAuthorFailsOnlyOnAHostError(
+  _workflow: WorkflowRuntime,
+  step: Step,
+): void {
+  if (step.personEditedPage) coverPersonEditedPage();
+  if (!step.postedTexts.some((text) => text.includes(REVISE_TURN_FAILED))) return;
+  coverReviseFailed();
+  const { pageModelThrows, pageHostFailed } = step.modelAuthorErrors;
+  if (pageModelThrows || pageHostFailed) return;
+  violated(
+    "aModelCallAuthorFailsOnlyOnAHostError",
+    "a revise turn failed while the page model answered and the host took every call",
+  );
 }
 
 /** While a chat thread exists, the orchestrator posts nothing in a tracker session. */

@@ -59,7 +59,7 @@ describe("sendHeldCommentsOnRevisionRequest", () => {
         expect(await sendHeldCommentsOnRevisionRequest(workflow)).toEqual({
           prompted: [TASK],
           notes: [
-            `The person asked for a revision, so the system sent the 1 comment held on ${PAGE_URL} to the author ${TASK}. The author revises the page now. Do not send them again.`,
+            `The person asked for a revision, so the system sent 1 comment held on ${PAGE_URL} to the author ${TASK}. The author revises the page now. Do not send them again.`,
           ],
         });
       }));
@@ -72,6 +72,41 @@ describe("sendHeldCommentsOnRevisionRequest", () => {
           notes: [],
         });
         expect(workflow.store.queue()).toHaveLength(1);
+      }));
+  });
+
+  describe("a host that does not mark the held comment read", () => {
+    const refusing = pageScenario(HELD, "in_review");
+
+    it("prompts nobody, leaves it held, and tells the agent", () =>
+      refusing(async (workflow) => {
+        fakeDocumentsOf(workflow).failNext("acknowledgeComment");
+        expect(await sendHeldCommentsOnRevisionRequest(workflow)).toEqual({
+          prompted: [],
+          notes: [
+            `The person asked for a revision. The host did not mark the 1 comment held on ${PAGE_URL} read, so it was not sent. They stay held. Tell the person.`,
+          ],
+        });
+        expect(workflow.store.queue()).toEqual([]);
+        expect(fakeDocumentsOf(workflow).heldNow()).toEqual(HELD);
+      }));
+  });
+
+  describe("a host that marks one of two held comments read", () => {
+    const second: HeldComment = { id: "cmt-2", author_name: "Bo", text: "Name the owner." };
+    const partly = pageScenario([...HELD, second], "in_review");
+
+    it("sends the author only the comment the host marked", () =>
+      partly(async (workflow) => {
+        fakeDocumentsOf(workflow).failNext("acknowledgeComment");
+        const sent = await sendHeldCommentsOnRevisionRequest(workflow);
+        expect(workflow.store.queue().map((row) => row.text)).toEqual([
+          `${REVISION_REQUEST_PROMPT}\n\nThe people who commented on the page said:\n\nComments:\n- [comment cmt-2]: Bo: Name the owner.`,
+        ]);
+        expect(fakeDocumentsOf(workflow).heldNow()).toEqual(HELD);
+        expect(sent.notes.join(" ")).toContain(
+          "The host did not mark the other 1 comment read, so it was not sent. They stay held.",
+        );
       }));
   });
 

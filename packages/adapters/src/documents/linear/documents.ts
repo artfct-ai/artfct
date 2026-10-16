@@ -206,13 +206,19 @@ export class LinearDocuments implements Documents {
     return unposted;
   }
 
-  /** An eyes reaction on the comment. Linear finds the comment by its id alone. */
-  async acknowledgeComment(comment: PageCommentRef): Promise<void> {
+  /** An eyes reaction on the comment. A reaction marks its comment alone, so it is always true. */
+  async acknowledgeComment(comment: PageCommentRef): Promise<boolean> {
     const client = await this.sdk.client();
     await client.createReaction({
       commentId: comment.commentId,
       emoji: LINEAR_ACKNOWLEDGEMENT_EMOJI,
     });
+    return true;
+  }
+
+  /** Linear keeps a comment on a document when the text it quotes changes. */
+  async commentsOnRemovedLines(): Promise<string[]> {
+    return [];
   }
 
   /** A reply joins the thread of the comment. Linear threads one level deep, under the first comment. */

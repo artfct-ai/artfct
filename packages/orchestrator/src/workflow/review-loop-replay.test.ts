@@ -26,9 +26,16 @@ async function replayTrace(setup: SpecSetup, trace: TraceStep[]): Promise<void> 
     `${setup} diverged after ${taken.join(" -> ")}\nspec state: ${JSON.stringify(step.review)}`;
   expect(replay.project(), divergence(initial)).toEqual(initial.review);
   for (const step of steps) {
-    taken.push(step.judgeRun === null ? step.action : `${step.action}(${step.judgeRun})`);
+    taken.push(`${step.action}${JSON.stringify(step.picks)}`);
     await replay.take(step);
     expect(replay.project(), divergence(step)).toEqual(step.review);
+    for (const { step: heardAt, agentHeard } of replay.settledHeard()) {
+      const expected = steps[heardAt - 1];
+      if (!expected) throw new Error(`the replay took step ${heardAt} the trace lacks`);
+      expect(agentHeard, `${divergence(expected)}\nagent read at step ${heardAt}`).toEqual(
+        expected.agentHeard,
+      );
+    }
   }
   await replay.close();
   replay = null;

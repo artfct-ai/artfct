@@ -131,6 +131,47 @@ describe("FakeDocuments lines and comments", () => {
     expect(documents.pageText(pageId)).toBe("# Goal");
   });
 
+  it("acknowledges only the earliest held comment of a comment thread", async () => {
+    const { documents, pageId } = await seeded();
+    const comment = { pageId, lineId: null, authorName: "Ann" };
+    documents.addPersonComment({ ...comment, id: "c1", text: "Why?" });
+    documents.addPersonComment({ ...comment, id: "c2", text: "Also.", commentThreadId: "c1" });
+    documents.addPersonComment({ ...comment, id: "c3", text: "Other." });
+    expect(await documents.acknowledgeComment({ pageId, commentId: "c2" })).toBe(false);
+    expect(await documents.acknowledgeComment({ pageId, commentId: "c1" })).toBe(true);
+    expect(await documents.acknowledgeComment({ pageId, commentId: "c1" })).toBe(false);
+    expect((await documents.heldComments(pageId)).map((held) => held.id)).toEqual(["c2", "c3"]);
+  });
+
+  it("names the comments on the lines a change would replace, and changes nothing", async () => {
+    const { documents, pageId } = await seeded();
+    const [goal, ship] = documents.lineIds(pageId);
+    const comment = { pageId, authorName: "Ann", text: "Why?" };
+    documents.addPersonComment({ ...comment, id: "on-goal", lineId: goal ?? null });
+    documents.addPersonComment({ ...comment, id: "on-ship", lineId: ship ?? null });
+    documents.addPersonComment({ ...comment, id: "on-page", lineId: null });
+    const lineIds = documents.lineIds(pageId);
+    const change = { before, after: "# Goal\nShip it today.\n## Risks\nNone yet." };
+    expect(
+      await documents.commentsOnRemovedLines(pageId, change, ["on-goal", "on-ship", "on-page"]),
+    ).toEqual(["on-ship"]);
+    expect(documents.pageText(pageId)).toBe(before);
+    expect(documents.lineIds(pageId)).toEqual(lineIds);
+  });
+
+  it("answers a person comment with its text, its author, and a mention", async () => {
+    const { documents, pageId } = await seeded();
+    const comment = { pageId, lineId: null, authorName: "Ann" };
+    documents.addPersonComment({ ...comment, id: "c1", text: "@artfct go", mentionsSelf: true });
+    documents.addPersonComment({ ...comment, id: "c2", text: "Why?" });
+    expect(await documents.fetchComment("c1")).toEqual({
+      text: "@artfct go",
+      author: { id: "person-Ann", email: null },
+      mentions: ["self"],
+    });
+    expect((await documents.fetchComment("c2"))?.mentions).toEqual([]);
+  });
+
   it("keeps the page when an edit does not match the page", async () => {
     const { documents, pageId } = await seeded();
     const change = { before: "# Goal\nShip it later.", after: "# Goal\nShip it now." };
