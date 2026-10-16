@@ -1,10 +1,6 @@
 import type { BaseCloudflare } from "cloudflare/client";
 import { workerdFetch } from "../../workerd-fetch";
-import {
-  askModelsInOrder,
-  DECISIONS_MODEL_BUDGET_MS,
-  decisionsDeadlineMs,
-} from "../models-in-order";
+import { askModelsInOrder, DECISIONS_MODEL_BUDGET_MS } from "../models-in-order";
 import type {
   Choice,
   ChoiceQuestion,
@@ -60,10 +56,6 @@ export class CloudflareDecisions implements Decisions {
   private client: Promise<BaseCloudflare> | null = null;
 
   constructor(private readonly options: CloudflareDecisionsOptions) {}
-
-  get deadlineMs(): number {
-    return decisionsDeadlineMs(this.options.models, DECISIONS_MODEL_BUDGET_MS);
-  }
 
   async decide<YesNoName extends string, ChoiceName extends string>(
     state: DecisionState,
