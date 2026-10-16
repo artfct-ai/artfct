@@ -715,16 +715,14 @@ module routerBindings {
   /// A person's message never reaches a workflow that ended. It starts the next workflow instead.
   val aPersonsMessageNeverReachesAnEndedWorkflow: bool = history.messagesOnEndedWorkflows.size() == 0
 
-  /// Every invariant above, for one check of all of them.
-  val invariants: bool = and {
-    messageAfterEndStartsNextWorkflow,
-    aDeliveryLeavesTheBindingsOfARunningWorkflow,
-    aWorkflowGetsEventsOnlyOnceCreated,
-    anAbandonedWorkflowKeepsNoBinding,
-    anEndedWorkflowKeepsNoCodeHostBinding,
-    oneRunningWorkflowHasAJobOnAnIssue,
-    aPersonsMessageNeverReachesAnEndedWorkflow,
-  }
+  /// The events that reached the router, which model checking bounds.
+  val eventsArrived: int = world.nextDelivery
+
+  /// The workflows the router created, which model checking bounds.
+  val workflowsCreated: int = world.nextWorkflow
+
+  /// The workflow operations that started, which model checking bounds.
+  val operationsStarted: int = world.nextOperation
 
   /// A delivery started a workflow.
   val aWorkflowStarted: bool = world.objects.keys().exists(workflow => objectOf(world, workflow).created)

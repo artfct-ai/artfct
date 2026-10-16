@@ -14,58 +14,83 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
-      runs: ${{ steps.list.outputs.runs }}
+      setups: ${{ steps.list.outputs.setups }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - name: List each spec's setups and invariants
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - name: List each spec's setups
         id: list
-        run: |
-          runs=$(jq -nc '[inputs | (input_filename | split("/")[1]) as $spec | .invariants[] as $invariant | .witnesses | keys[] | {spec: $spec, setup: ., invariant: $invariant}]' spec/*/checks.json)
-          echo "runs=$runs" >> "$GITHUB_OUTPUT"
+        working-directory: packages/orchestrator
+        run: echo "setups=$(bun scripts/spec/check-spec.ts setups)" >> "$GITHUB_OUTPUT"
 
-  quint_simulation:
-    name: quint simulation (${{ matrix.spec }}, ${{ matrix.setup }}, ${{ matrix.invariant }})
+  quint_nightly:
+    name: quint nightly (${{ matrix.spec }}, ${{ matrix.setup }})
     needs: quint_specs
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 240
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(needs.quint_specs.outputs.runs) }}
+        include: ${{ fromJSON(needs.quint_specs.outputs.setups) }}
     defaults:
       run:
+        shell: bash
         working-directory: packages/orchestrator
     env:
       SPEC: ${{ matrix.spec }}
       SETUP: ${{ matrix.setup }}
-      INVARIANT: ${{ matrix.invariant }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
+      - if: ${{ matrix.tlc }}
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21.0.12+8"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.quint
-          key: quint-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          key: quint-${{ runner.os }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
           restore-keys: quint-${{ runner.os }}-
-      - name: Run the invariant on 5,000,000 samples
-        timeout-minutes: 30
-        run: bunx quint run "../../spec/$SPEC/$SETUP.qnt" --main="$SETUP" --invariant="$INVARIANT" --max-samples=5000000 --max-steps=25 2>&1 | tee "$RUNNER_TEMP/quint.log"
-      - name: Write the finding
-        if: ${{ failure() }}
+      - name: Run every invariant on 10,000,000 samples
+        id: simulation
+        timeout-minutes: 75
+        run: bun scripts/spec/check-spec.ts simulate "$SPEC" "$SETUP" 10000000 2>&1 | tee "$RUNNER_TEMP/simulation.log"
+      - name: Check every state within the nightly bounds with TLC
+        id: tlc
+        if: ${{ !cancelled() && matrix.tlc }}
+        timeout-minutes: 150
+        run: bun scripts/spec/check-spec.ts tlc "$SPEC" "$SETUP" nightly 2>&1 | tee "$RUNNER_TEMP/tlc.log"
+      - name: Write the findings
+        if: ${{ !cancelled() && (steps.simulation.outcome == 'failure' || steps.tlc.outcome == 'failure') }}
+        env:
+          SIMULATION: ${{ steps.simulation.outcome }}
+          TLC: ${{ steps.tlc.outcome }}
         run: |
           mkdir -p "$RUNNER_TEMP/findings"
-          {
-            printf '## Quint simulation: %s on %s of %s\n\nquint run on 5,000,000 samples failed or ran out of time. The seed in the log reproduces it.\n\n```\n' "$INVARIANT" "$SETUP" "$SPEC"
-            tail -n 60 "$RUNNER_TEMP/quint.log"
-            printf '```\n\n'
-          } > "$RUNNER_TEMP/findings/simulation-$SPEC-$SETUP-$INVARIANT.md"
-      - if: ${{ failure() }}
+          if [ "$SIMULATION" = failure ]; then
+            {
+              printf '## Quint simulation: %s of %s\n\nquint run on 10,000,000 samples failed or ran out of time. The seed in the log reproduces it.\n\n```\n' "$SETUP" "$SPEC"
+              tail -n 60 "$RUNNER_TEMP/simulation.log"
+              printf '```\n\n'
+            } > "$RUNNER_TEMP/findings/simulation-$SPEC-$SETUP.md"
+          fi
+          if [ "$TLC" = failure ]; then
+            {
+              printf '## TLC: %s of %s\n\nTLC at the nightly bounds failed or ran out of time. The log ends with the shortest trace and the command that reproduces it.\n\n```\n' "$SETUP" "$SPEC"
+              tail -n 150 "$RUNNER_TEMP/tlc.log"
+              printf '```\n\n'
+            } > "$RUNNER_TEMP/findings/tlc-$SPEC-$SETUP.md"
+          fi
+      - if: ${{ !cancelled() && (steps.simulation.outcome == 'failure' || steps.tlc.outcome == 'failure') }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: nightly-findings-simulation-${{ matrix.spec }}-${{ matrix.setup }}-${{ matrix.invariant }}
+          name: nightly-findings-quint-${{ matrix.spec }}-${{ matrix.setup }}
           path: ${{ runner.temp }}/findings
 
   spec_validation:
@@ -107,7 +132,7 @@ jobs:
 
   nightly_issue:
     name: nightly spec issue
-    needs: [quint_simulation, spec_validation]
+    needs: [quint_nightly, spec_validation]
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

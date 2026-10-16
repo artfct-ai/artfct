@@ -68,5 +68,34 @@
       "theWorkflowIsDone",
       "theWorkflowFailed"
     ]
+  },
+  "tlc": {
+    "ignoredVariables": ["lastStepReached"],
+    "bounds": {
+      "pagesWithAReviewer": {
+        "pr": {
+          "jobsStarted": 2,
+          "callsOut": 1,
+          "promptsSent": 3
+        },
+        "nightly": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 4
+        }
+      },
+      "pagesWithoutRefiners": {
+        "pr": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 3
+        },
+        "nightly": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 4
+        }
+      }
+    }
   }
 }

@@ -44,15 +44,13 @@ jobs:
       setups: ${{ steps.list.outputs.setups }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
       - name: List each spec's setups and its replay test
         id: list
-        run: |
-          setups=$(for checks in spec/*/checks.json; do
-            spec=$(basename "$(dirname "$checks")")
-            replay=$(git -C packages/orchestrator ls-files "*/$spec-replay.test.ts")
-            jq -c --arg spec "$spec" --arg replay "$replay" '.witnesses | keys[] | {spec: $spec, setup: ., replay: $replay}' "$checks"
-          done | jq -sc .)
-          echo "setups=$setups" >> "$GITHUB_OUTPUT"
+        working-directory: packages/orchestrator
+        run: echo "setups=$(bun scripts/spec/check-spec.ts setups)" >> "$GITHUB_OUTPUT"
 
   quint_spec:
     name: quint spec (${{ matrix.spec }}, ${{ matrix.setup }})
@@ -67,9 +65,8 @@ jobs:
       run:
         working-directory: packages/orchestrator
     env:
+      SPEC: ${{ matrix.spec }}
       SETUP: ${{ matrix.setup }}
-      SETUP_FILE: ../../spec/${{ matrix.spec }}/${{ matrix.setup }}.qnt
-      CHECKS: ../../spec/${{ matrix.spec }}/checks.json
       REPLAY: ${{ matrix.replay }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -77,25 +74,24 @@ jobs:
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
+      - if: ${{ matrix.tlc }}
+        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+        with:
+          distribution: temurin
+          java-version: "21.0.12+8"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.quint
-          key: quint-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          key: quint-${{ runner.os }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
           restore-keys: quint-${{ runner.os }}-
-      - run: bunx quint typecheck "$SETUP_FILE"
+      - run: bunx quint typecheck "../../spec/$SPEC/$SETUP.qnt"
       - name: Fail when a witness is never reached
-        run: |
-          mapfile -t witnesses < <(jq -r --arg setup "$SETUP" '.witnesses[$setup][]' "$CHECKS")
-          bunx quint run "$SETUP_FILE" --main="$SETUP" --max-samples=10000 --max-steps=25 --witnesses "${witnesses[@]}" | tee "$RUNNER_TEMP/witnesses.log"
-          ! grep "witnessed in 0 trace" "$RUNNER_TEMP/witnesses.log"
-      - name: Run each invariant on 100,000 samples
-        run: |
-          violated=0
-          mapfile -t invariants < <(jq -r '.invariants[]' "$CHECKS")
-          for invariant in "${invariants[@]}"; do
-            bunx quint run "$SETUP_FILE" --main="$SETUP" --invariant="$invariant" --max-samples=100000 --max-steps=25 || violated=1
-          done
-          exit "$violated"
+        run: bun scripts/spec/check-spec.ts witnesses "$SPEC" "$SETUP"
+      - name: Run every invariant on 1,000,000 samples
+        run: bun scripts/spec/check-spec.ts simulate "$SPEC" "$SETUP" 1000000
+      - name: Check every state within the pull request bounds with TLC
+        if: ${{ !cancelled() && matrix.tlc }}
+        run: bun scripts/spec/check-spec.ts tlc "$SPEC" "$SETUP" pr
       - if: ${{ !cancelled() && matrix.replay != '' }}
         run: bun run template-config
       - name: Replay the spec traces through the workflow
