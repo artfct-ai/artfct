@@ -8,8 +8,9 @@ import { taskTools } from "../src/agent/tools/task";
 import { labeledPageCommentIds } from "../src/artifact/page-comment-label";
 import { findingText } from "../src/artifact/review-text";
 import { CLOSING_TEXT_MARKER, replyMarker } from "../src/prompts/model-author-prompt";
+import { rejectionHeadline } from "../src/prompts/review-prompt";
 import { sendHeldCommentsOnRevisionRequest } from "../src/workflow/refiner/held-comments";
-import type { ArtifactRow, TaskRow } from "../src/workflow/store/tasks";
+import type { TaskRow } from "../src/workflow/store/tasks";
 import { taskAtWork } from "../src/workflow/task/at-work";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
 import { quintTraces } from "./quint-traces";
@@ -700,7 +701,7 @@ export class ReviewLoopReplay {
         ),
         turnComments: turnAsked === null ? [] : this.specCommentIdsIn(turnAsked),
         pageEditsDuringTurn: turnAsked === null ? [] : this.pagePartsEditedSinceTheCall(),
-        rejectedBy: this.judgeEntriesThatRejected(author, artifact),
+        rejectedBy: this.judgeEntriesThatRejected(author),
         findingsFrom: this.runsWhoseFindingsReachedTheAuthor(author, runs),
       },
       artifact: {
@@ -1211,11 +1212,11 @@ export class ReviewLoopReplay {
     );
   }
 
-  private judgeEntriesThatRejected(author: TaskRow, artifact: ArtifactRow): number[] {
-    const notes = this.world.workflow.notes.map((note) => note.text);
+  private judgeEntriesThatRejected(author: TaskRow): number[] {
+    const prompts = this.world.promptsQueuedFor(author.task_id);
     return this.world.workflow.stageForTask(author).reviewers.flatMap((entry, index) => {
-      const rejection = `The ${entry.name} judge rejected ${artifact.external_url}.`;
-      return notes.some((note) => note.includes(rejection)) ? [index] : [];
+      const headline = rejectionHeadline(entry.name);
+      return prompts.some((prompt) => prompt.startsWith(headline)) ? [index] : [];
     });
   }
 
