@@ -9,6 +9,8 @@ declare global {
   namespace Cloudflare {
     interface Env {
       TEST_MIGRATIONS: D1Migration[];
+      /** Samples spec traces in Node for a replay test. The body is a `QuintTraceRequest`. */
+      QUINT_TRACES: Fetcher;
     }
   }
 }

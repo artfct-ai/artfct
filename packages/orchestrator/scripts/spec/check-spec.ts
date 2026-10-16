@@ -52,7 +52,9 @@ function setupFile(spec: string, setup: string): string {
 
 function listSetups(): void {
   const setups = listSpecSetups().map(({ spec, setup }) => {
-    const replay = [...new Bun.Glob(`src/**/${spec}-replay.test.ts`).scanSync(ORCHESTRATOR_DIR)];
+    const replay = [
+      ...new Bun.Glob(`src/**/${spec}-replay.test{,.medium}.ts`).scanSync(ORCHESTRATOR_DIR),
+    ];
     return {
       spec,
       setup,

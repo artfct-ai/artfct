@@ -167,9 +167,9 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W21",
-    invariant: "pausedAuthorGetsNoPrompt",
+    invariant: "pausedAuthorGetsNoPrompt, authorIsIdleWhileAPolisherRuns",
     path: "src/workflow/task/harness/prompt-queue.ts",
-    find: "  if (task.paused_at === null) return sendPrompt(workflow, task, text);",
+    find: "  if (!promptsWait(workflow, task)) return sendPrompt(workflow, task, text);",
     replace: "  return sendPrompt(workflow, task, text);",
   },
   {
@@ -193,6 +193,35 @@ export const MUTANTS: Mutant[] = [
     find: "  const awaitingFirstReply = () => turn.personWrote && !progress.firstReplied;",
     replace:
       "  const awaitingFirstReply = () => false && turn.personWrote && !progress.firstReplied;",
+  },
+  {
+    id: "A3",
+    invariant: "theWorkingStatusNeverOutlivesItsTurn",
+    path: "src/agent/turn/turn.ts",
+    find: "  if (!owesTheReply) return workflow.release();",
+    replace: "  if (!owesTheReply) return;",
+  },
+  {
+    id: "A4",
+    invariant: "aWaitingInboxRowHasATurnComing",
+    path: "src/agent/turn/watchdog.ts",
+    find: '    if (waking) await workflow.scheduleAlarm(0, "runAgent", {});\n',
+    replace: "",
+  },
+  {
+    id: "A5",
+    invariant: "sessionMessageWithoutAnAuthorIsAnswered",
+    path: "src/agent/tools/channel.ts",
+    find: '              { answering },\n            );\n            return "Acknowledged.";',
+    replace:
+      '              { answering: workflow.transcript.answering() },\n            );\n            return "Acknowledged.";',
+  },
+  {
+    id: "A6",
+    invariant: "closingTextAnswersOnlyAPersonWhoWrote",
+    path: "src/agent/turn/turn.ts",
+    find: "    turn_board_changed: lostFirstRow !== null && workflow.state.turn_board_changed === true,",
+    replace: "    turn_board_changed: false,",
   },
   {
     id: "R1",

@@ -1288,3 +1288,23 @@ describe("the shortest traces of the workflow lifecycle spec", () => {
     ]);
   });
 });
+
+describe("an author whose artifact a polisher holds", () => {
+  it("gets no prompt from a restart while the polisher runs", async () => {
+    await holdsThroughout([
+      {
+        ...pageSetup,
+        refiners: "reviewer_then_polisher",
+        pageEnding: "choice",
+        sandboxStart: "at_task_start",
+      },
+      [
+        ...draftedPage,
+        agentPromptsAuthor(0),
+        approvingEnd,
+        authorTurnEnds(0, "same"),
+        authorRestartsWhile(0, "agent_completes"),
+      ],
+    ]);
+  });
+});

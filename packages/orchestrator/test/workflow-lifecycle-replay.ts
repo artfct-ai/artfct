@@ -1,10 +1,4 @@
 import { setSystemTime } from "bun:test";
-import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { Decisions } from "@artfct-ai/adapters/gateway/types";
 import type { TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
@@ -18,6 +12,8 @@ import { isTaskFinished } from "../src/workflow/store/state";
 import type { JobRow, TaskRow } from "../src/workflow/store/tasks";
 import type { ConnectionState } from "../src/workflow/task/harness/bridge";
 import { onNoProgress } from "../src/workflow/task/harness/timers";
+import { itfBool, itfField, itfInt, itfList, itfOneOf, itfText, itfVariant } from "./itf";
+import { quintTraces } from "./quint-traces";
 import { FakeSandboxProvider } from "./fake-sandbox";
 import { InterleavedDecisions } from "./interleaved-decisions";
 import {
@@ -54,11 +50,6 @@ export type SpecSetup = keyof typeof SPEC_SETUPS;
 /** The most steps a generated trace takes after its initial state. */
 export const TRACE_STEPS = 25;
 
-const SPEC_DIRECTORY = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "../../../spec/workflow-lifecycle",
-);
-const QUINT_CLI = createRequire(import.meta.url).resolve("@informalsystems/quint/dist/src/cli.js");
 const STEP_MS = 10 * 60_000;
 const REPLAY_START = Date.parse("2026-01-01T00:00:00.000Z");
 
@@ -125,142 +116,74 @@ export type TraceStep = { action: string; picks: SpecPicks; workflow: SpecWorkfl
 
 /** Run the spec of one setup for `count` traces from `seed`. */
 export function generateTraces(setup: SpecSetup, count: number, seed: number): TraceStep[][] {
-  const directory = mkdtempSync(join(tmpdir(), "workflow-lifecycle-"));
-  try {
-    const quint = spawnSync(
-      process.execPath,
-      [
-        QUINT_CLI,
-        "run",
-        join(SPEC_DIRECTORY, `${setup}.qnt`),
-        `--main=${setup}`,
-        "--backend=typescript",
-        "--mbt",
-        `--max-steps=${TRACE_STEPS}`,
-        `--max-samples=${count}`,
-        `--n-traces=${count}`,
-        `--seed=${seed}`,
-        `--out-itf=${join(directory, "trace_{seq}.itf.json")}`,
-      ],
-      { encoding: "utf8" },
-    );
-    if (quint.status !== 0) {
-      throw new Error(`quint run failed for ${setup}:\n${quint.stdout}\n${quint.stderr}`);
-    }
-    return readdirSync(directory)
-      .toSorted((left, right) => traceNumber(left) - traceNumber(right))
-      .map((file) => traceSteps(setup, JSON.parse(readFileSync(join(directory, file), "utf8"))));
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
+  return quintTraces({ spec: "workflow-lifecycle", setup, count, steps: TRACE_STEPS, seed }).map(
+    (trace) => traceSteps(setup, trace),
+  );
 }
 
-function traceNumber(file: string): number {
-  return Number(file.replace(/\D/g, ""));
-}
-
-function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
-  return list(field(trace, "states")).map((state) => {
-    const picks = field(state, "mbt::nondetPicks");
+/** The steps of one spec trace, given as its ITF JSON, run on one setup. */
+export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
+  return itfList(itfField(trace, "states")).map((state) => {
+    const picks = itfField(state, "mbt::nondetPicks");
     const picked = (name: string) => {
-      const pick = variant(field(picks, name, true));
+      const pick = itfVariant(itfField(picks, name, true));
       return pick?.tag === "Some" ? pick.value : null;
     };
     const ending = picked("ending");
     const accepted = picked("accepted");
     return {
-      action: text(field(state, "mbt::actionTaken")),
+      action: itfText(itfField(state, "mbt::actionTaken")),
       picks: {
         definition: optionalInt(picked("definition")),
         request: optionalInt(picked("request")),
         id: optionalInt(picked("id")),
         callId: optionalInt(picked("callId")),
-        accepted: accepted === null ? null : bool(accepted),
-        ending: ending === null ? null : oneOf(variant(ending)!.tag, ENDINGS),
+        accepted: accepted === null ? null : itfBool(accepted),
+        ending: ending === null ? null : itfOneOf(itfVariant(ending)!.tag, ENDINGS),
       },
-      workflow: specWorkflow(field(state, `${setup}::workflowLifecycle::workflow`)),
+      workflow: specWorkflow(itfField(state, `${setup}::workflowLifecycle::workflow`)),
     };
   });
 }
 
 function optionalInt(value: unknown): number | null {
-  return value === null ? null : int(value);
+  return value === null ? null : itfInt(value);
 }
 
 function specWorkflow(value: unknown): SpecWorkflow {
-  const definition = variant(field(value, "definition"))!;
+  const definition = itfVariant(itfField(value, "definition"))!;
   return {
-    status: oneOf(variant(field(value, "status"))!.tag, WORKFLOW_STATUSES),
-    definition: definition.tag === "Planned" ? int(definition.value) : null,
-    idleArmed: bool(field(value, "idleArmed")),
-    jobs: list(field(value, "jobs")).map(specJob),
-    calls: list(field(value, "calls")).map((call) => ({
-      kind: oneOf(variant(field(call, "kind"))!.tag, CALL_KINDS),
-      job: int(field(call, "job")),
+    status: itfOneOf(itfVariant(itfField(value, "status"))!.tag, WORKFLOW_STATUSES),
+    definition: definition.tag === "Planned" ? itfInt(definition.value) : null,
+    idleArmed: itfBool(itfField(value, "idleArmed")),
+    jobs: itfList(itfField(value, "jobs")).map(specJob),
+    calls: itfList(itfField(value, "calls")).map((call) => ({
+      kind: itfOneOf(itfVariant(itfField(call, "kind"))!.tag, CALL_KINDS),
+      job: itfInt(itfField(call, "job")),
     })),
   };
 }
 
 function specJob(value: unknown): SpecJob {
-  const input = variant(field(value, "input"))!;
-  const author = field(value, "author");
+  const input = itfVariant(itfField(value, "input"))!;
+  const author = itfField(value, "author");
   return {
     input:
       input.tag === "FromRequest"
-        ? { from: "request", request: int(input.value) }
-        : { from: "artifact", job: int(input.value) },
+        ? { from: "request", request: itfInt(input.value) }
+        : { from: "artifact", job: itfInt(input.value) },
     author: {
-      status: oneOf(variant(field(author, "status"))!.tag, TASK_STATUSES),
-      restarts: int(field(author, "restarts")),
-      paused: bool(field(author, "paused")),
-      turnRunning: bool(field(author, "turnRunning")),
-      promptsSent: int(field(author, "promptsSent")),
-      promptsQueued: int(field(author, "promptsQueued")),
-      generationClosed: bool(field(author, "generationClosed")),
+      status: itfOneOf(itfVariant(itfField(author, "status"))!.tag, TASK_STATUSES),
+      restarts: itfInt(itfField(author, "restarts")),
+      paused: itfBool(itfField(author, "paused")),
+      turnRunning: itfBool(itfField(author, "turnRunning")),
+      promptsSent: itfInt(itfField(author, "promptsSent")),
+      promptsQueued: itfInt(itfField(author, "promptsQueued")),
+      generationClosed: itfBool(itfField(author, "generationClosed")),
     },
-    artifact: oneOf(variant(field(value, "artifact"))!.tag, ARTIFACT_STATUSES),
-    refinerRun: oneOf(variant(field(value, "refinerRun"))!.tag, REFINER_RUN_STATUSES),
+    artifact: itfOneOf(itfVariant(itfField(value, "artifact"))!.tag, ARTIFACT_STATUSES),
+    refinerRun: itfOneOf(itfVariant(itfField(value, "refinerRun"))!.tag, REFINER_RUN_STATUSES),
   };
-}
-
-function field(value: unknown, name: string, optional = false): unknown {
-  if (typeof value === "object" && value !== null && name in value) {
-    return Object.getOwnPropertyDescriptor(value, name)?.value;
-  }
-  if (optional) return null;
-  throw new Error(`the trace has no ${name} in ${JSON.stringify(value)}`);
-}
-
-function list(value: unknown): unknown[] {
-  if (!Array.isArray(value)) throw new Error(`the trace has ${JSON.stringify(value)}, not a list`);
-  return value;
-}
-
-function int(value: unknown): number {
-  return Number(text(field(value, "#bigint")));
-}
-
-function bool(value: unknown): boolean {
-  if (typeof value !== "boolean")
-    throw new Error(`the trace has ${JSON.stringify(value)}, not a bool`);
-  return value;
-}
-
-function text(value: unknown): string {
-  if (typeof value !== "string")
-    throw new Error(`the trace has ${JSON.stringify(value)}, not text`);
-  return value;
-}
-
-function variant(value: unknown): { tag: string; value: unknown } | null {
-  if (value === null) return null;
-  return { tag: text(field(value, "tag")), value: field(value, "value") };
-}
-
-function oneOf<Name extends string>(name: string, names: readonly Name[]): Name {
-  const known = names.find((candidate) => candidate === name);
-  if (!known) throw new Error(`the trace has ${name}, not one of ${names.join(", ")}`);
-  return known;
 }
 
 /** One call the replay holds, with the step that waits on it. */

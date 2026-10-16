@@ -1,10 +1,6 @@
 import { Database as SqliteDatabase } from "bun:sqlite";
-import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
 import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 import type { TrackerIssue } from "@artfct-ai/adapters/tracker/types";
 import type { Actor, InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
@@ -18,6 +14,8 @@ import { recordArtifact } from "../src/workflow/artifact";
 import { eventRefusalOf } from "../src/workflow/inbound/events";
 import { failWorkflow, type JobInput } from "../src/workflow/lifecycle";
 import { isWorkflowFinished } from "../src/workflow/store/state";
+import { itfBool, itfField, itfInt, itfList, itfOneOf, itfText, itfVariant } from "./itf";
+import { quintTraces } from "./quint-traces";
 import { FakeRuntime, seedTask } from "./fake-runtime";
 import { openMemoryDb } from "./memory-db";
 import { testEnv } from "./test-env";
@@ -35,11 +33,6 @@ export type SpecSetup = (typeof SPEC_SETUPS)[number];
 /** The most steps a generated trace takes after its initial state. */
 export const TRACE_STEPS = 25;
 
-const SPEC_DIRECTORY = join(
-  dirname(fileURLToPath(import.meta.url)),
-  "../../../spec/router-bindings",
-);
-const QUINT_CLI = createRequire(import.meta.url).resolve("@informalsystems/quint/dist/src/cli.js");
 const D1_MIGRATIONS = join(import.meta.dirname, "../migrations/d1");
 
 const KEYS = ["Thread", "SessionA", "SessionB", "Issue", "Pull"] as const;
@@ -91,47 +84,18 @@ export type TraceStep = { action: string; picks: SpecPicks; view: RouterView };
 
 /** Run the spec of one setup for `count` traces from `seed`. */
 export function generateTraces(setup: SpecSetup, count: number, seed: number): TraceStep[][] {
-  const directory = mkdtempSync(join(tmpdir(), "router-bindings-"));
-  try {
-    const quint = spawnSync(
-      process.execPath,
-      [
-        QUINT_CLI,
-        "run",
-        join(SPEC_DIRECTORY, `${setup}.qnt`),
-        `--main=${setup}`,
-        "--backend=typescript",
-        "--mbt",
-        `--max-steps=${TRACE_STEPS}`,
-        `--max-samples=${count}`,
-        `--n-traces=${count}`,
-        `--seed=${seed}`,
-        `--out-itf=${join(directory, "trace_{seq}.itf.json")}`,
-      ],
-      { encoding: "utf8" },
-    );
-    if (quint.status !== 0) {
-      throw new Error(`quint run failed for ${setup}:\n${quint.stdout}\n${quint.stderr}`);
-    }
-    return readdirSync(directory)
-      .toSorted((left, right) => traceNumber(left) - traceNumber(right))
-      .map((file) => traceSteps(JSON.parse(readFileSync(join(directory, file), "utf8"))));
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
-}
-
-function traceNumber(file: string): number {
-  return Number(file.replace(/\D/g, ""));
+  return quintTraces({ spec: "router-bindings", setup, count, steps: TRACE_STEPS, seed }).map(
+    (trace) => traceSteps(trace),
+  );
 }
 
 function traceSteps(trace: unknown): TraceStep[] {
-  return list(field(trace, "states")).map((state) => {
+  return itfList(itfField(trace, "states")).map((state) => {
     const worldName = Object.keys(asRecord(state)).find((name) => name.endsWith("::world"));
     if (!worldName) throw new Error("the trace has no world");
-    const picks = field(state, "mbt::nondetPicks");
+    const picks = itfField(state, "mbt::nondetPicks");
     return {
-      action: text(field(state, "mbt::actionTaken")),
+      action: itfText(itfField(state, "mbt::actionTaken")),
       picks: {
         surface: pickedTag(picks, "surface", SURFACES),
         kind: pickedTag(picks, "kind", EVENT_KINDS),
@@ -139,19 +103,19 @@ function traceSteps(trace: unknown): TraceStep[] {
         workflow: pickedInt(picks, "workflow"),
         operation: pickedInt(picks, "operation"),
       },
-      view: specView(field(state, worldName)),
+      view: specView(itfField(state, worldName)),
     };
   });
 }
 
 function pickedValue(picks: unknown, name: string): unknown {
-  const picked = variant(field(picks, name, true));
+  const picked = itfVariant(itfField(picks, name, true));
   return picked?.tag === "Some" ? picked.value : null;
 }
 
 function pickedInt(picks: unknown, name: string): number | null {
   const value = pickedValue(picks, name);
-  return value === null ? null : int(value);
+  return value === null ? null : itfInt(value);
 }
 
 function pickedTag<Name extends string>(
@@ -160,7 +124,7 @@ function pickedTag<Name extends string>(
   names: readonly Name[],
 ): Name | null {
   const value = pickedValue(picks, name);
-  return value === null ? null : oneOf(variant(value)!.tag, names);
+  return value === null ? null : itfOneOf(itfVariant(value)!.tag, names);
 }
 
 function isNewObject(object: ObjectView): boolean {
@@ -177,48 +141,48 @@ type SpecDelivery = {
 
 function specView(world: unknown): RouterView {
   const bindings: RouterView["bindings"] = {};
-  for (const [key, workflow] of entries(field(world, "bindings"))) {
-    bindings[oneOf(variant(key)!.tag, KEYS)] = int(workflow);
+  for (const [key, workflow] of entries(itfField(world, "bindings"))) {
+    bindings[itfOneOf(itfVariant(key)!.tag, KEYS)] = itfInt(workflow);
   }
   const rows: RouterView["rows"] = {};
-  for (const [workflow, status] of entries(field(world, "rows"))) {
-    rows[int(workflow)] = variant(status)!.tag === "Ended" ? "Ended" : "Live";
+  for (const [workflow, status] of entries(itfField(world, "rows"))) {
+    rows[itfInt(workflow)] = itfVariant(status)!.tag === "Ended" ? "Ended" : "Live";
   }
   const objects: RouterView["objects"] = {};
-  for (const [workflow, object] of entries(field(world, "objects"))) {
+  for (const [workflow, object] of entries(itfField(world, "objects"))) {
     const view: ObjectView = {
-      created: bool(field(object, "created")),
-      ended: bool(field(object, "ended")),
-      hasIssueJob: bool(field(object, "hasIssueJob")),
-      openedPull: bool(field(object, "openedPull")),
-      unbound: bool(field(object, "unbound")),
+      created: itfBool(itfField(object, "created")),
+      ended: itfBool(itfField(object, "ended")),
+      hasIssueJob: itfBool(itfField(object, "hasIssueJob")),
+      openedPull: itfBool(itfField(object, "openedPull")),
+      unbound: itfBool(itfField(object, "unbound")),
     };
-    if (!isNewObject(view)) objects[int(workflow)] = view;
+    if (!isNewObject(view)) objects[itfInt(workflow)] = view;
   }
   const calls: RouterView["calls"] = {};
-  for (const [id, delivery] of entries(field(world, "deliveries"))) {
-    calls[`d${int(id)}`] = deliveryCall(specDelivery(delivery));
+  for (const [id, delivery] of entries(itfField(world, "deliveries"))) {
+    calls[`d${itfInt(id)}`] = deliveryCall(specDelivery(delivery));
   }
-  for (const [id, operation] of entries(field(world, "operations"))) {
-    calls[`o${int(id)}`] = operationCall(
-      int(field(operation, "workflow")),
-      field(operation, "phase"),
+  for (const [id, operation] of entries(itfField(world, "operations"))) {
+    calls[`o${itfInt(id)}`] = operationCall(
+      itfInt(itfField(operation, "workflow")),
+      itfField(operation, "phase"),
     );
   }
   return { bindings, rows, objects, calls };
 }
 
 function specDelivery(delivery: unknown): SpecDelivery {
-  const target = variant(field(delivery, "target"))!;
+  const target = itfVariant(itfField(delivery, "target"))!;
   return {
-    surface: oneOf(variant(field(delivery, "surface"))!.tag, SURFACES),
-    phase: variant(field(delivery, "phase"))!.tag,
-    found: list(field(delivery, "found")).map((bound) => {
-      const found = variant(bound)!;
-      return found.tag === "BoundTo" ? int(found.value) : null;
+    surface: itfOneOf(itfVariant(itfField(delivery, "surface"))!.tag, SURFACES),
+    phase: itfVariant(itfField(delivery, "phase"))!.tag,
+    found: itfList(itfField(delivery, "found")).map((bound) => {
+      const found = itfVariant(bound)!;
+      return found.tag === "BoundTo" ? itfInt(found.value) : null;
     }),
-    index: int(field(delivery, "index")),
-    target: target.tag === "TargetWorkflow" ? int(target.value) : null,
+    index: itfInt(itfField(delivery, "index")),
+    target: target.tag === "TargetWorkflow" ? itfInt(target.value) : null,
   };
 }
 
@@ -258,7 +222,7 @@ function deliveryCall(delivery: SpecDelivery): string {
 }
 
 function operationCall(workflow: number, phase: unknown): string {
-  const named = variant(phase)!;
+  const named = itfVariant(phase)!;
   switch (named.tag) {
     case "EndWritesStatus":
       return `SetStatus(${workflow})`;
@@ -267,7 +231,7 @@ function operationCall(workflow: number, phase: unknown): string {
     case "JobReadsIssueBinding":
       return "FindBinding(Issue)";
     case "JobReadsBoundWorkflow":
-      return `FindWorkflow(${int(named.value)})`;
+      return `FindWorkflow(${itfInt(named.value)})`;
     case "JobBindsIssue":
       return "ClaimBinding(Issue)";
     case "PullBinds":
@@ -278,8 +242,8 @@ function operationCall(workflow: number, phase: unknown): string {
 }
 
 function entries(map: unknown): [unknown, unknown][] {
-  return list(field(map, "#map")).map((pair) => {
-    const [key, value] = list(pair);
+  return itfList(itfField(map, "#map")).map((pair) => {
+    const [key, value] = itfList(pair);
     return [key, value];
   });
 }
@@ -289,46 +253,6 @@ function asRecord(value: unknown): object {
     throw new Error(`the trace has ${JSON.stringify(value)}, not a record`);
   }
   return value;
-}
-
-function field(value: unknown, name: string, optional = false): unknown {
-  if (typeof value === "object" && value !== null && name in value) {
-    return Object.getOwnPropertyDescriptor(value, name)?.value;
-  }
-  if (optional) return null;
-  throw new Error(`the trace has no ${name} in ${JSON.stringify(value)}`);
-}
-
-function list(value: unknown): unknown[] {
-  if (!Array.isArray(value)) throw new Error(`the trace has ${JSON.stringify(value)}, not a list`);
-  return value;
-}
-
-function int(value: unknown): number {
-  return Number(text(field(value, "#bigint")));
-}
-
-function bool(value: unknown): boolean {
-  if (typeof value !== "boolean")
-    throw new Error(`the trace has ${JSON.stringify(value)}, not a bool`);
-  return value;
-}
-
-function text(value: unknown): string {
-  if (typeof value !== "string")
-    throw new Error(`the trace has ${JSON.stringify(value)}, not text`);
-  return value;
-}
-
-function variant(value: unknown): { tag: string; value: unknown } | null {
-  if (value === null) return null;
-  return { tag: text(field(value, "tag")), value: field(value, "value") };
-}
-
-function oneOf<Name extends string>(name: string, names: readonly Name[]): Name {
-  const known = names.find((candidate) => candidate === name);
-  if (!known) throw new Error(`the trace has ${name}, not one of ${names.join(", ")}`);
-  return known;
 }
 
 /** One caller the replay drives: a delivery or a workflow operation, and the call it waits on. */
@@ -806,9 +730,9 @@ function sqliteParams(params: unknown[]): SqliteParam[] {
 
 function bindingRow(row: unknown): { source: string; external_id: string; workflow_id: string } {
   return {
-    source: text(field(row, "source")),
-    external_id: text(field(row, "external_id")),
-    workflow_id: text(field(row, "workflow_id")),
+    source: itfText(itfField(row, "source")),
+    external_id: itfText(itfField(row, "external_id")),
+    workflow_id: itfText(itfField(row, "workflow_id")),
   };
 }
 
@@ -823,8 +747,8 @@ const WORKFLOW_STATUSES: readonly WorkflowStatus[] = [
 
 function workflowRow(row: unknown): { workflow_id: string; status: WorkflowStatus } {
   return {
-    workflow_id: text(field(row, "workflow_id")),
-    status: oneOf(text(field(row, "status")), WORKFLOW_STATUSES),
+    workflow_id: itfText(itfField(row, "workflow_id")),
+    status: itfOneOf(itfText(itfField(row, "status")), WORKFLOW_STATUSES),
   };
 }
 

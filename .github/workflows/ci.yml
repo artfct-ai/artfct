@@ -96,7 +96,12 @@ jobs:
         run: bun run template-config
       - name: Replay the spec traces through the workflow
         if: ${{ !cancelled() && matrix.replay != '' }}
-        run: bun test "./$REPLAY" --test-name-pattern "on $SETUP\$" --pass-with-no-tests
+        run: |
+          if [[ "$REPLAY" == *.test.medium.ts ]]; then
+            bunx vitest run "./$REPLAY" --testNamePattern "on $SETUP\$" --passWithNoTests
+          else
+            bun test "./$REPLAY" --test-name-pattern "on $SETUP\$" --pass-with-no-tests
+          fi
 
   e2e_property_test:
     name: e2e property based test (shard ${{ matrix.shard }})
