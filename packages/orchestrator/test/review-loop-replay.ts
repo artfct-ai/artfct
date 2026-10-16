@@ -1,10 +1,4 @@
 import { setSystemTime } from "bun:test";
-import { spawnSync } from "node:child_process";
-import { mkdtempSync, readdirSync, readFileSync, rmSync } from "node:fs";
-import { createRequire } from "node:module";
-import { tmpdir } from "node:os";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 import type { Decisions } from "@artfct-ai/adapters/gateway/types";
 import type { TaskStatus } from "@artfct-ai/contracts/types";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
@@ -13,6 +7,8 @@ import type { ArtifactRow, TaskRow } from "../src/workflow/store/tasks";
 import { taskAtWork } from "../src/workflow/task/at-work";
 import { JUDGE_CONCLUSION } from "./fake-runtime";
 import { InterleavedDecisions } from "./interleaved-decisions";
+import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
+import { quintTraces } from "./quint-traces";
 import {
   agentCancels,
   agentPromptsAuthor,
@@ -46,8 +42,6 @@ export type SpecSetup = keyof typeof SPEC_SETUPS;
 /** The most steps a generated trace takes after its initial state. */
 export const TRACE_STEPS = 25;
 
-const SPEC_DIRECTORY = join(dirname(fileURLToPath(import.meta.url)), "../../../spec/review-loop");
-const QUINT_CLI = createRequire(import.meta.url).resolve("@informalsystems/quint/dist/src/cli.js");
 const STEP_MS = 10 * 60_000;
 const REPLAY_START = Date.parse("2026-01-01T00:00:00.000Z");
 
@@ -79,88 +73,62 @@ export type TraceStep = { action: string; judgeRun: number | null; review: SpecR
 
 /** Run the spec of one setup for `count` traces from `seed`, each checked against its invariants. */
 export function generateTraces(setup: SpecSetup, count: number, seed: number): TraceStep[][] {
-  const directory = mkdtempSync(join(tmpdir(), "review-loop-"));
-  try {
-    const quint = spawnSync(
-      process.execPath,
-      [
-        QUINT_CLI,
-        "run",
-        join(SPEC_DIRECTORY, `${setup}.qnt`),
-        `--main=${setup}`,
-        "--backend=typescript",
-        "--mbt",
-        `--max-steps=${TRACE_STEPS}`,
-        `--max-samples=${count}`,
-        `--n-traces=${count}`,
-        `--seed=${seed}`,
-        `--out-itf=${join(directory, "trace_{seq}.itf.json")}`,
-      ],
-      { encoding: "utf8" },
-    );
-    if (quint.status !== 0) {
-      throw new Error(`quint run failed for ${setup}:\n${quint.stdout}\n${quint.stderr}`);
-    }
-    return readdirSync(directory)
-      .toSorted((left, right) => traceNumber(left) - traceNumber(right))
-      .map((file) => traceSteps(setup, JSON.parse(readFileSync(join(directory, file), "utf8"))));
-  } finally {
-    rmSync(directory, { recursive: true, force: true });
-  }
-}
-
-function traceNumber(file: string): number {
-  return Number(file.replace(/\D/g, ""));
+  return quintTraces({ spec: "review-loop", setup, count, steps: TRACE_STEPS, seed }).map((trace) =>
+    traceSteps(setup, trace),
+  );
 }
 
 function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
-  return list(field(trace, "states")).map((state) => {
-    const picked = variant(field(field(state, "mbt::nondetPicks"), "judgeRun", true));
+  return itfList(itfField(trace, "states")).map((state) => {
+    const picked = itfVariant(itfField(itfField(state, "mbt::nondetPicks"), "judgeRun", true));
     return {
-      action: text(field(state, "mbt::actionTaken")),
-      judgeRun: picked?.tag === "Some" ? int(picked.value) : null,
-      review: specReview(field(state, `${setup}::reviewLoop::review`)),
+      action: itfText(itfField(state, "mbt::actionTaken")),
+      judgeRun: picked?.tag === "Some" ? itfInt(picked.value) : null,
+      review: specReview(itfField(state, `${setup}::reviewLoop::review`)),
     };
   });
 }
 
 function specReview(value: unknown): SpecReview {
-  const author = field(value, "author");
-  const artifact = field(value, "artifact");
-  const status = variant(field(artifact, "status"))!;
-  const refinerRun = variant(field(artifact, "refinerRun"))!;
+  const author = itfField(value, "author");
+  const artifact = itfField(value, "artifact");
+  const status = itfVariant(itfField(artifact, "status"))!;
+  const refinerRun = itfVariant(itfField(artifact, "refinerRun"))!;
   return {
     author: {
-      atWork: bool(field(author, "atWork")),
-      queuedPrompts: int(field(author, "queuedPrompts")),
-      rejectedBy: sortedInts(field(author, "rejectedBy")),
+      atWork: itfBool(itfField(author, "atWork")),
+      queuedPrompts: itfInt(itfField(author, "queuedPrompts")),
+      rejectedBy: sortedInts(itfField(author, "rejectedBy")),
     },
     artifact: {
       status:
         status.tag === "Ready"
-          ? { status: "Ready", deliveredRevision: int(field(status.value, "deliveredRevision")) }
+          ? {
+              status: "Ready",
+              deliveredRevision: itfInt(itfField(status.value, "deliveredRevision")),
+            }
           : { status: "Drafted" },
-      revision: int(field(artifact, "revision")),
-      refinerRun: refinerRun.tag === "OnRefinerRun" ? int(refinerRun.value) : null,
+      revision: itfInt(itfField(artifact, "revision")),
+      refinerRun: refinerRun.tag === "OnRefinerRun" ? itfInt(refinerRun.value) : null,
     },
-    refinerRuns: list(field(value, "refinerRuns")).map(specRun),
-    judgeRunsCodeRulesOn: sortedInts(field(value, "judgeRunsCodeRulesOn")),
+    refinerRuns: itfList(itfField(value, "refinerRuns")).map(specRun),
+    judgeRunsCodeRulesOn: sortedInts(itfField(value, "judgeRunsCodeRulesOn")),
   };
 }
 
 function sortedInts(set: unknown): number[] {
-  return list(field(set, "#set"))
-    .map(int)
+  return itfSet(set)
+    .map(itfInt)
     .toSorted((left, right) => left - right);
 }
 
 function specRun(value: unknown): SpecRun {
-  const result = variant(field(value, "result"))!;
+  const result = itfVariant(itfField(value, "result"))!;
   return {
-    refinerIndex: int(field(value, "refinerIndex")),
-    status: oneOf(variant(field(value, "status"))!.tag, RUN_STATUSES),
+    refinerIndex: itfInt(itfField(value, "refinerIndex")),
+    status: itfOneOf(itfVariant(itfField(value, "status"))!.tag, RUN_STATUSES),
     result: specResult(result),
-    restarts: int(field(value, "restarts")),
+    restarts: itfInt(itfField(value, "restarts")),
   };
 }
 
@@ -172,58 +140,18 @@ function specResult(result: { tag: string; value: unknown }): SpecRun["result"] 
     case "FiledReview":
       return {
         filed: "review",
-        revision: int(field(result.value, "revision")),
-        findings: bool(field(result.value, "findings")),
+        revision: itfInt(itfField(result.value, "revision")),
+        findings: itfBool(itfField(result.value, "findings")),
       };
     case "FiledRuling":
       return {
         filed: "ruling",
-        ruling: oneOf(variant(field(result.value, "ruling"))!.tag, RULINGS),
-        revision: int(field(result.value, "revision")),
+        ruling: itfOneOf(itfVariant(itfField(result.value, "ruling"))!.tag, RULINGS),
+        revision: itfInt(itfField(result.value, "revision")),
       };
     default:
       return { filed: "nothing" };
   }
-}
-
-function field(value: unknown, name: string, optional = false): unknown {
-  if (typeof value === "object" && value !== null && name in value) {
-    return Object.getOwnPropertyDescriptor(value, name)?.value;
-  }
-  if (optional) return null;
-  throw new Error(`the trace has no ${name} in ${JSON.stringify(value)}`);
-}
-
-function list(value: unknown): unknown[] {
-  if (!Array.isArray(value)) throw new Error(`the trace has ${JSON.stringify(value)}, not a list`);
-  return value;
-}
-
-function int(value: unknown): number {
-  return Number(text(field(value, "#bigint")));
-}
-
-function bool(value: unknown): boolean {
-  if (typeof value !== "boolean")
-    throw new Error(`the trace has ${JSON.stringify(value)}, not a bool`);
-  return value;
-}
-
-function text(value: unknown): string {
-  if (typeof value !== "string")
-    throw new Error(`the trace has ${JSON.stringify(value)}, not text`);
-  return value;
-}
-
-function variant(value: unknown): { tag: string; value: unknown } | null {
-  if (value === null) return null;
-  return { tag: text(field(value, "tag")), value: field(value, "value") };
-}
-
-function oneOf<Name extends string>(name: string, names: readonly Name[]): Name {
-  const known = names.find((candidate) => candidate === name);
-  if (!known) throw new Error(`the trace has ${name}, not one of ${names.join(", ")}`);
-  return known;
 }
 
 /** The ruling answers the decisions model gives a held conclusion. */

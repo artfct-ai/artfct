@@ -49,7 +49,7 @@ jobs:
         run: |
           setups=$(for checks in spec/*/checks.json; do
             spec=$(basename "$(dirname "$checks")")
-            replay=$(git -C packages/orchestrator ls-files "*/$spec-replay.test.ts")
+            replay=$(git -C packages/orchestrator ls-files "*/$spec-replay.test.ts" "*/$spec-replay.test.medium.ts")
             jq -c --arg spec "$spec" --arg replay "$replay" '.witnesses | keys[] | {spec: $spec, setup: ., replay: $replay}' "$checks"
           done | jq -sc .)
           echo "setups=$setups" >> "$GITHUB_OUTPUT"
@@ -100,7 +100,12 @@ jobs:
         run: bun run template-config
       - name: Replay the spec traces through the workflow
         if: ${{ !cancelled() && matrix.replay != '' }}
-        run: bun test "./$REPLAY" --test-name-pattern "on $SETUP\$" --pass-with-no-tests
+        run: |
+          if [[ "$REPLAY" == *.test.medium.ts ]]; then
+            bunx vitest run "./$REPLAY" --testNamePattern "on $SETUP\$" --passWithNoTests
+          else
+            bun test "./$REPLAY" --test-name-pattern "on $SETUP\$" --pass-with-no-tests
+          fi
 
   e2e_property_test:
     name: e2e property based test (shard ${{ matrix.shard }})
