@@ -85,6 +85,10 @@ A code name is one type, table, column, or function. A code name that needs a co
 | board note | One line from the orchestrator on a board. | `BoardInput.note` | note |
 | agent note | A system message to the orchestrator agent. | `noteMessage`, `Applied.notes` | note |
 | harness session | The ACP session of one task. | `sandboxes.session_id` | session |
+| bridge | The connection between the workflow and the harness in the sandbox. A process in the sandbox dials the workflow with the bridge token of its generation and carries the ACP messages both ways. | `onBridgeHello`, `onBridgeClosed`, `sandboxes.bridge_token` | |
+| prompt in flight | A prompt sent to the harness session that has not answered yet. A task has at most one. | `sandboxes.prompt_in_flight` | |
+| handshake | The bridge's first exchange with a fresh harness, which starts the harness session: initialize, session/new, and the effort when the stage asks for one. A bridge that reconnects with its harness session skips it. A queued prompt waits until it ends. | `onBridgeHello`, `WorkflowStore.handshakePending` | |
+| nudge | The prompt sent once in the same harness session to a stalled author to make it continue. | `NUDGE_TEXT`, `sandboxes.nudged` | |
 | MCP server | A tool server a harness session connects to. Each provider supplies an MCP server or a CLI, and the deployment config lists the customer's own. | `McpServer`, `mcp_servers` | integration, tool server |
 | tracker session | The agent session of the tracker that a reply goes to. | `tracker_session` | session |
 | job session | The tracker session on the job's input issue. A job whose input artifact is not an issue does not have one. | `jobSessionOf` | home |
