@@ -167,6 +167,10 @@ jobs:
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
         timeout-minutes: 25
         run: bun scripts/properties/e2e-property-test.ts workflow_lifecycle
+      - name: Replay the agent turns spec
+        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
+        timeout-minutes: 25
+        run: bun scripts/properties/e2e-property-test.ts agent_turns
 
   coverage_check:
     name: coverage check

@@ -22,7 +22,6 @@ import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { Binding } from "@artfct-ai/contracts/sources";
 import { OPTIONS_HEADING } from "../src/artifact/options";
 import { labeledPageCommentIds } from "../src/artifact/page-comment-label";
-import type { ArtifactRef } from "../src/artifact/types";
 import type { RefinerEntry, ReviewerEntry } from "../src/config/refiner";
 import { Notifier } from "../src/notify/notifier";
 import { startJob, type JobIssue } from "../src/workflow/lifecycle";
@@ -241,19 +240,15 @@ export type StepFacts = Partial<
     | "authorTurnEnd"
     | "feedback"
     | "refinerTurnEnd"
-    | "pageReview"
     | "staleAlarm"
     | "completion"
     | "unadmittedFeedback"
     | "modelCallStopped"
     | "plan"
-    | "heldCommentsAsked"
     | "start"
     | "finishedByAgent"
     | "modelTurnCut"
-    | "secondEnd"
     | "pageCommentsRefused"
-    | "personEditedPage"
   >
 >;
 
@@ -378,9 +373,6 @@ export class WorkflowWorld {
   private readonly modelPromptTexts = new Map<string, string[]>();
   private readonly queuedPromptTexts = new Map<string, string[]>();
   private whilePageModelAnswers: ((taskId: string) => Promise<void>) | null = null;
-  private pageModelAnswer: PageModelAnswer = "page";
-  private pageHostFailed = false;
-  private readonly commentsHeld: HeldComment[];
   private statements = 0;
   private runningAction: RunningAction | null = null;
   private readonly hungModelTurns = new Map<string, string | null>();
@@ -399,10 +391,8 @@ export class WorkflowWorld {
     this.checksOnPush = options.setup.checksOnPush;
     this.tracker = options.tracker;
     this.pageHost = options.pageHost;
-    this.commentsHeld = this.pageHost.heldNow();
     this.countStatementsOf(options.database);
     this.recordQueuedPrompts();
-    this.recordHeldComments();
     if (options.setup.pageAuthor === "model") {
       this.answerPageModelWith("page");
       this.recordPromptsModelTurnsTake();
@@ -432,16 +422,6 @@ export class WorkflowWorld {
       const texts = this.queuedPromptTexts.get(taskId) ?? [];
       this.queuedPromptTexts.set(taskId, [...texts, text]);
       enqueuePrompt(taskId, text);
-    };
-  }
-
-  /** Keep every comment a person leaves on the page host without a mention. */
-  private recordHeldComments(): void {
-    const host = this.pageHost;
-    const holdComment = host.holdComment.bind(host);
-    host.holdComment = (comment) => {
-      this.commentsHeld.push(comment);
-      holdComment(comment);
     };
   }
 
@@ -548,7 +528,6 @@ export class WorkflowWorld {
     const outboxBefore = this.workflow.store.outbox().length;
     const postedBefore = this.workflow.posted.length;
     const pageCommentsBefore = this.pageHost.postedComments.length;
-    this.pageHostFailed = false;
     this.delivered = null;
     this.landed = [];
     const running = { label: String(action), statementsAtStart: this.statements };
@@ -572,7 +551,6 @@ export class WorkflowWorld {
       authorTurnEnd: facts.authorTurnEnd ?? this.modelTurnEndSince(modelTurnEndsBefore),
       feedback: facts.feedback ?? null,
       refinerTurnEnd: facts.refinerTurnEnd ?? null,
-      pageReview: facts.pageReview ?? null,
       staleAlarm: facts.staleAlarm ?? null,
       completion: facts.completion ?? null,
       unadmittedFeedback: facts.unadmittedFeedback ?? null,
@@ -580,10 +558,8 @@ export class WorkflowWorld {
       modelTurnCut: facts.modelTurnCut ?? null,
       plan: facts.plan ?? null,
       issueUpdates: rows.filter((row) => row.kind === "issue_update").length,
-      heldCommentsAsked: facts.heldCommentsAsked ?? null,
       start: facts.start ?? null,
       finishedByAgent: facts.finishedByAgent ?? false,
-      secondEnd: facts.secondEnd ?? false,
       event: this.delivered,
       sessionPosts: sessionPostsOf(rows),
       postedTypes: this.workflow.posted.slice(postedBefore).map((event) => event.type),
@@ -594,11 +570,6 @@ export class WorkflowWorld {
       postedTexts: this.workflow.posted.slice(postedBefore).map(plainText),
       pageCommentsPosted: this.pageHost.postedComments.slice(pageCommentsBefore),
       pageCommentsRefused: facts.pageCommentsRefused ?? false,
-      modelAuthorErrors: {
-        pageModelThrows: this.pageModelAnswer === "throws",
-        pageHostFailed: this.pageHostFailed,
-      },
-      personEditedPage: facts.personEditedPage ?? false,
       work,
     };
     this.steps.push(step);
@@ -682,15 +653,6 @@ export class WorkflowWorld {
     const pull = this.pullOf(author);
     if (author.kind !== "pull" || pull.state === "unopened" || !this.hostReadable) return null;
     return revisionOf(pull);
-  }
-
-  /** What the host says an artifact is now, without a recorded call. Null when it cannot say. */
-  private revisionOnHost(ref: ArtifactRef): string | null {
-    if (!this.hostReadable) return null;
-    if (ref.kind === "page") return this.pageHost.pageRevision(ref.page_id);
-    if (ref.kind !== "pull") return null;
-    const pull = this.pulls.get(ref.number);
-    return pull && pull.state !== "unopened" ? revisionOf(pull) : null;
   }
 
   /** True when an earlier author opened the pull request this author works on. */
@@ -793,7 +755,6 @@ export class WorkflowWorld {
   async whilePageHostIsDown<Result>(body: () => Promise<Result>): Promise<Result> {
     const host = this.workflow.documentsInstance;
     this.workflow.documentsInstance = new FakeDocuments({ failing: true });
-    this.pageHostFailed = true;
     try {
       return await body();
     } finally {
@@ -812,25 +773,6 @@ export class WorkflowWorld {
       return await body();
     } finally {
       host.acknowledgeComment = acknowledgeComment;
-    }
-  }
-
-  /** Run `body` while the page host refuses every page update and every comment reply. */
-  async whilePageHostRefusesWrites<Result>(body: () => Promise<Result>): Promise<Result> {
-    const host = this.pageHost;
-    const updatePageContent = host.updatePageContent.bind(host);
-    const replyToComment = host.replyToComment.bind(host);
-    const refuse = async (): Promise<never> => {
-      this.pageHostFailed = true;
-      throw new Error("the host refuses the write");
-    };
-    host.updatePageContent = refuse;
-    host.replyToComment = refuse;
-    try {
-      return await body();
-    } finally {
-      host.updatePageContent = updatePageContent;
-      host.replyToComment = replyToComment;
     }
   }
 
@@ -938,7 +880,6 @@ export class WorkflowWorld {
 
   /** The model of a model-call page author answers every call this way from now on. */
   answerPageModelWith(answer: PageModelAnswer): void {
-    this.pageModelAnswer = answer;
     this.workflow.modelsByName[MODEL_AUTHOR_MODEL] = new TurnEndingModel(
       pageModelAnswering(answer),
       () => this.beforePageModelAnswers(),
@@ -990,11 +931,13 @@ export class WorkflowWorld {
   async editPageWhilePageModelAnswers(
     author: WorldAuthor,
     start: () => Promise<void>,
-  ): Promise<StepFacts> {
+  ): Promise<void> {
     const ref = this.artifactOf(author)?.ref;
-    if (ref?.kind !== "page") return {};
+    if (ref?.kind !== "page") {
+      await start();
+      return;
+    }
     const edit = `1. Keep one table, as a person edited it at step ${this.steps.length}`;
-    let edited = false;
     this.whilePageModelAnswers = async (taskId) => {
       if (taskId !== author.taskId) return;
       this.whilePageModelAnswers = null;
@@ -1002,14 +945,12 @@ export class WorkflowWorld {
       if (before === undefined) return;
       const after = before.replace(/^1\. Keep one table.*$/m, edit);
       await this.pageHost.updatePageContent(ref.page_id, { before, after });
-      edited = true;
     };
     try {
       await start();
     } finally {
       this.whilePageModelAnswers = null;
     }
-    return { personEditedPage: edited };
   }
 
   /**
@@ -1428,31 +1369,12 @@ export class WorkflowWorld {
         status: artifact.status,
         delivered_to_humans_at: artifact.delivered_to_humans_at,
         delivered_revision: artifact.delivered_revision,
-        revision: this.revisionOnHost(artifact.ref),
       })),
       todos: Object.fromEntries(
         store.allTodoRows().map((row) => [row.task_id, JSON.stringify(row.todos)]),
       ),
       authorPrompts: queued + sent,
-      heldComments: fakeDocumentsOf(this.workflow)
-        .heldNow()
-        .map((comment) => comment.text),
-      readComments: this.readCommentTexts(),
     };
-  }
-
-  /** The text of every comment the page host marked read that does not mention the bot. */
-  private readCommentTexts(): string[] {
-    const host = this.pageHost;
-    const unmentioned = [
-      ...this.commentsHeld,
-      ...host.allPersonComments
-        .filter((comment) => !comment.mentionsSelf)
-        .map((comment) => ({ id: comment.id, text: comment.text })),
-    ];
-    return unmentioned
-      .filter((comment) => host.isAcknowledged(comment.id))
-      .map((comment) => comment.text);
   }
 }
 

@@ -3,9 +3,7 @@ import type { Control, InboundEvent, ReplyTarget } from "@artfct-ai/contracts/in
 import type { ArtifactStatus, TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
 import { ASK_WHETHER_ACCEPTED, ASK_WHICH_OPTION } from "../src/agent/tools/start/start";
 import type { PlanEntry } from "@agentclientprotocol/sdk";
-import { findingText, reviewLine } from "../src/artifact/review-text";
 import { rejectionHeadline } from "../src/prompts/review-prompt";
-import type { Review } from "../src/artifact/types";
 import { boardInputOf, channelKey } from "../src/workflow/board/board";
 import {
   BOARD_MAX_ENTRIES,
@@ -16,11 +14,9 @@ import {
 import { MAX_RESTARTS, SLEEP_TEXT } from "../src/workflow/lifecycle";
 import type { TaskEvent, TaskRole } from "../src/workflow/task/events";
 import { taskAtWork } from "../src/workflow/task/at-work";
-import { segmentEndOf } from "../src/workflow/refiner/stage-refiner";
 import type { Wake, WorkflowRuntime } from "../src/workflow/types";
 import { STOPPED_TEXT } from "../src/workflow/feed/feed";
 import type { Subject } from "../src/workflow/store/state";
-import type { TaskRow } from "../src/workflow/store/tasks";
 import { artifactRefKey } from "../src/workflow/store/input-key";
 import { coverageCase } from "./coverage";
 import { ACTION_WORK_BUDGET, exceededWorkBudget } from "./work-budget";
@@ -67,8 +63,6 @@ export type ObservedArtifact = {
   status: ArtifactStatus;
   delivered_to_humans_at: string | null;
   delivered_revision: string | null;
-  /** The revision the host gives the artifact now. Null when the host cannot say. */
-  revision: string | null;
 };
 
 /** A job of the workflow: the issue it works on, if any, and its stage. */
@@ -100,10 +94,6 @@ export type Observation = {
   todos: Record<string, string>;
   /** Prompts queued for authors plus prompts sent to authors, since the workflow began. */
   authorPrompts: number;
-  /** The text of every comment the page host holds. */
-  heldComments: string[];
-  /** The text of every comment the page host marked read that does not mention the bot. */
-  readComments: string[];
 };
 
 /** One action and what an observer saw around it. */
@@ -149,16 +139,6 @@ export type Step = {
   issueUpdates: number;
   /** Set when the turn of a refiner run ended normally. */
   refinerTurnEnd: { task_id: string } | null;
-  /**
-   * Set when the turn of a findings reviewer of a page ended. `review` is what the run filed,
-   * `comments` what the document host took during the step, and `hostUp` false when it took none.
-   */
-  pageReview: {
-    task_id: string;
-    review: Review | null;
-    comments: PostedComment[];
-    hostUp: boolean;
-  } | null;
   /** Set when the alarm that fired was armed for an older generation of its task. */
   staleAlarm: { task_id: string } | null;
   /**
@@ -177,30 +157,14 @@ export type Step = {
    */
   modelCallStopped: { task_id: string; pageWrites: string[] } | null;
   /**
-   * Set when the agent prompted the author of a page, or a person asked for a revision while an
-   * author held a page. `authors` are those page authors. `expected` is `sent` when the host and
-   * the screen let the held comments through, and `kept` when either held them back. `agentRead`
-   * is what the agent read about it.
-   */
-  heldCommentsAsked: { authors: string[]; expected: "sent" | "kept"; agentRead: string } | null;
-  /**
    * Set when a restart or the deadline cut a model turn of the author. `prompt_id` is the queued
    * prompt a revise turn ran on, and null for a turn that produces the page.
    */
   modelTurnCut: { task_id: string; prompt_id: number | null } | null;
-  /** True when an end of the workflow landed while another end waited on a sandbox destroy. */
-  secondEnd: boolean;
   /** Every comment the document host took during the step, oldest first. */
   pageCommentsPosted: PostedComment[];
   /** True when the document host refused every comment while a ruling landed on a page. */
   pageCommentsRefused: boolean;
-  /**
-   * What failed under the model-call authors during the step: the page model, or a call to the
-   * document host.
-   */
-  modelAuthorErrors: { pageModelThrows: boolean; pageHostFailed: boolean };
-  /** True when a person edited the page while a page model call of its author was out. */
-  personEditedPage: boolean;
   /** How many store statements the action ran. */
   work: number;
 };
@@ -253,12 +217,6 @@ const coverRunAfterRuling = coverageCase(
 );
 const coverRulingStands = coverageCase("judgeRulesAtMostOnce: a ruling stands into a later step");
 const coverRejectionSent = coverageCase("judgeRulesAtMostOnce: an author got a judge's rejection");
-const coverEntryRunsAgain = coverageCase(
-  "reviewerRunsOnlyOnAnUnreviewedRevision: a reviewer run starts on an entry that reviewed before",
-);
-const coverRunAfterAnotherEntryReviewed = coverageCase(
-  "reviewerRunsOnlyOnAnUnreviewedRevision: a reviewer run starts after another entry reviewed the revision",
-);
 const coverFeedback = coverageCase(
   "everyFeedbackGetsOneRoutingDecision: feedback on a running workflow",
 );
@@ -277,7 +235,6 @@ const coverEventBeforePlan = coverageCase(
   "workflowStartsOnlyFromAPlan: a person writes before the plan",
 );
 const coverPlanStarts = coverageCase("workflowStartsOnlyFromAPlan: a plan starts the workflow");
-const coverPlanOnStarted = coverageCase("workflowKeepsItsDefinition: a plan on a started workflow");
 const coverChatIssue = coverageCase(
   "eachIssueLinksTheChatThreadOnce: a chat workflow works on an issue",
 );
@@ -303,12 +260,6 @@ const coverPolisherDoneLater = coverageCase(
   "refinerRunIsDoneOnlyAfterItsTurnEnded: a polisher ends done in a later step",
 );
 const coverFinishedTask = coverageCase("finishedTaskKeepsItsStatus: a finished task in a step");
-const coverStepOnFinishedWorkflow = coverageCase(
-  "finishedWorkflowKeepsItsStatus: a step lands on a finished workflow",
-);
-const coverSecondEnd = coverageCase(
-  "finishedWorkflowKeepsItsStatus: a second end lands while the workflow ends",
-);
 const coverTaskRestarted = coverageCase("taskRestartsAtMostTwice: a task restarted");
 const coverPausedThroughAStep = coverageCase(
   "pausedAuthorGetsNoPrompt: a task stays paused through a step",
@@ -322,13 +273,6 @@ const coverWorkflowWaits = coverageCase(
 const coverArtifactMove = coverageCase("artifactStatusMovesAreLegal: an artifact changes status");
 const coverTodosAfterArtifact = coverageCase(
   "todoListIsFixedAfterFirstArtifact: an author with a todo list has an artifact",
-);
-const coverUnfinishedRun = coverageCase(
-  "oneUnfinishedRefinerRunPerArtifact: an artifact has an unfinished refiner run",
-);
-const coverPolisherRuns = coverageCase("authorIsIdleWhileAPolisherRuns: a polisher runs");
-const coverPolisherWithWaitingPrompt = coverageCase(
-  "authorIsIdleWhileAPolisherRuns: a polisher runs while its author has a prompt waiting",
 );
 const coverJobStarts = coverageCase("jobStartsOnlyIntoAFreeSlot: a job starts");
 const coverLastSlot = coverageCase("jobStartsOnlyIntoAFreeSlot: a job starts into the last slot");
@@ -346,12 +290,6 @@ const coverFailedCheckAsk = coverageCase(
   "aFailedCheckNeverAsksThePersonAgain: a check fails at completion",
 );
 const coverStaleAlarm = coverageCase("staleAlarmIsIgnored: a stale alarm fires");
-const coverHeldSent = coverageCase(
-  "aPromptToAPageAuthorCarriesItsHeldComments: held comments go to a running page author",
-);
-const coverHeldKept = coverageCase(
-  "aPromptToAPageAuthorCarriesItsHeldComments: held comments stay held",
-);
 const coverChatAndSessionPost = coverageCase(
   "orchestratorStaysOutOfSessionsWhenChatExists: a chat workflow with a session posts",
 );
@@ -392,24 +330,6 @@ const coverStoppedEarly = coverageCase(
 const coverStoppedEarlyIdle = coverageCase(
   "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone: an author stopped early without a prompt in flight",
 );
-const coverPageFindings = coverageCase(
-  "pageReviewPostsEachFindingOnce: a page review files findings",
-);
-const coverPageReviewHostDown = coverageCase(
-  "pageReviewPostsEachFindingOnce: a page review meets a host that is down",
-);
-const coverPageReviewMissing = coverageCase(
-  "pageReviewPostsEachFindingOnce: a page reviewer ends without a review",
-);
-const coverPageFindingsPrompt = coverageCase(
-  "authorGetsEveryPageFinding: a review prompt reaches the page author",
-);
-const coverPullFindingsPassed = coverageCase(
-  "authorGetsEveryPullFinding: the agent review moves past a pull request review with findings",
-);
-const coverPullFindingsPastJudge = coverageCase(
-  "authorGetsEveryPullFinding: the agent review moves past a judge whose segment left findings",
-);
 const coverWork = coverageCase("everyActionSettlesWithinItsWorkBudget: an action does work");
 const coverModelCallAuthorQueued = coverageCase(
   "aQueuedPromptReachesItsModelCallAuthor: a model-call author has a queued prompt",
@@ -423,15 +343,6 @@ const coverJudgeRejectsPage = coverageCase(
 );
 const coverRejectionRefused = coverageCase(
   "aJudgeRejectionPostsItsReasonOnce: the host refuses the rejection comment",
-);
-const coverHeldCommentRead = coverageCase(
-  "aHeldCommentStaysHeldUntilItReachesTheAuthor: a held comment is marked read",
-);
-const coverReviseFailed = coverageCase(
-  "aModelCallAuthorFailsOnlyOnAHostError: a revise turn fails",
-);
-const coverPersonEditedPage = coverageCase(
-  "aModelCallAuthorFailsOnlyOnAHostError: a person edits the page during a model call",
 );
 const coverAccepted = coverageCase("anAcceptedArtifactNeverMovesBack: an artifact is accepted");
 const coverTurnOnAccepted = coverageCase(
@@ -557,52 +468,6 @@ export function judgeRulesAtMostOnce(workflow: WorkflowRuntime, step: Step): voi
       }
     });
   }
-}
-
-/**
- * A reviewer run starts only on a revision that no earlier run of its entry filed a review or
- * ruling of. A host that cannot say the revision counts as a changed one.
- */
-export function reviewerRunsOnlyOnAnUnreviewedRevision(
-  workflow: WorkflowRuntime,
-  step: Step,
-): void {
-  const known = new Set(step.before.tasks.map((task) => task.task_id));
-  for (const run of step.after.tasks) {
-    if (known.has(run.task_id) || run.role !== "reviewer") continue;
-    const turn = step.authorTurnEnd;
-    const unreadAtTurnEnd =
-      turn !== null &&
-      turn.hostRevision === null &&
-      turn.task_id === authorIn(step.after, run.job_id)?.task_id;
-    const revision = artifactIn(step.after, run.job_id)?.revision ?? null;
-    if (unreadAtTurnEnd || revision === null) continue;
-    const filed = workflow.store.refinerRunsOf(run.job_id).filter((other) => {
-      const kind = other.result?.kind;
-      return other.task_id !== run.task_id && (kind === "review" || kind === "ruling");
-    });
-    const ownEntry = filed.filter((other) => other.refiner_index === run.refiner_index);
-    if (ownEntry.length) coverEntryRunsAgain();
-    if (
-      filed.some(
-        (other) => other.refiner_index !== run.refiner_index && reviewedOn(other, revision),
-      )
-    ) {
-      coverRunAfterAnotherEntryReviewed();
-    }
-    const earlier = ownEntry.find((other) => reviewedOn(other, revision));
-    if (earlier) {
-      violated(
-        "reviewerRunsOnlyOnAnUnreviewedRevision",
-        `${run.task_id} started on ${revision}, which ${earlier.task_id} of its entry reviewed`,
-      );
-    }
-  }
-}
-
-function reviewedOn(run: TaskRow, revision: string): boolean {
-  const result = run.result;
-  return (result?.kind === "review" || result?.kind === "ruling") && result.revision === revision;
 }
 
 function rulingBefore(step: Step, taskId: string): string | null | undefined {
@@ -770,17 +635,6 @@ function completedSubjectJobAtLastStage(step: Step): boolean {
 function describeSubject(subject: Subject | null): string {
   if (!subject) return "none";
   return subject.kind === "issue" ? `issue ${subject.issue_id}` : `project ${subject.project_id}`;
-}
-
-/** A later plan cannot change the workflow definition a workflow started with. */
-export function workflowKeepsItsDefinition(_workflow: WorkflowRuntime, step: Step): void {
-  const { definition } = step.before;
-  if (definition !== null && step.plan) coverPlanOnStarted();
-  if (definition === null || step.after.definition === definition) return;
-  violated(
-    "workflowKeepsItsDefinition",
-    `${step.action} moved the workflow from ${definition} to ${step.after.definition ?? "null"}`,
-  );
 }
 
 /**
@@ -964,20 +818,6 @@ function stepParts(step: Step): Array<{ before: Observation; after: Observation 
   return parts;
 }
 
-/** A workflow that is done, failed or cancelled keeps that status. */
-export function finishedWorkflowKeepsItsStatus(_workflow: WorkflowRuntime, step: Step): void {
-  if (step.secondEnd) coverSecondEnd();
-  for (const { before, after } of stepParts(step)) {
-    if (!FINISHED_WORKFLOW.includes(before.workflowStatus)) continue;
-    coverStepOnFinishedWorkflow();
-    if (after.workflowStatus === before.workflowStatus) continue;
-    violated(
-      "finishedWorkflowKeepsItsStatus",
-      `${step.action} moved a ${before.workflowStatus} workflow to ${after.workflowStatus}`,
-    );
-  }
-}
-
 /** A task restarts at most `MAX_RESTARTS` times, whatever the cause. */
 export function taskRestartsAtMostTwice(workflow: WorkflowRuntime): void {
   for (const task of workflow.store.tasks()) {
@@ -1062,57 +902,6 @@ export function todoListIsFixedAfterFirstArtifact(_workflow: WorkflowRuntime, st
       violated(
         "todoListIsFixedAfterFirstArtifact",
         `${author.task_id} todos went from ${before} to ${after}`,
-      );
-    }
-  }
-}
-
-/**
- * An artifact has at most one unfinished refiner run, and `refiner_task_id` points at it when
- * one exists.
- */
-export function oneUnfinishedRefinerRunPerArtifact(workflow: WorkflowRuntime): void {
-  const tasks = workflow.store.tasks();
-  for (const author of tasks.filter((task) => task.role === "author")) {
-    const unfinished = tasks.filter(
-      (run) =>
-        run.job_id === author.job_id &&
-        REFINER_ROLES.includes(run.role) &&
-        !FINISHED.includes(run.status),
-    );
-    if (unfinished.length > 0) coverUnfinishedRun();
-    const ids = unfinished.map((run) => run.task_id).join(", ");
-    if (unfinished.length > 1) {
-      violated("oneUnfinishedRefinerRunPerArtifact", `${author.task_id} has ${ids} unfinished`);
-    }
-    const pointer = workflow.store.artifact(author.job_id)?.refiner_task_id ?? null;
-    if (unfinished.length === 1 && pointer !== unfinished[0]!.task_id) {
-      violated(
-        "oneUnfinishedRefinerRunPerArtifact",
-        `${ids} is unfinished and refiner_task_id of ${author.task_id} is ${pointer}`,
-      );
-    }
-  }
-}
-
-/**
- * The author and a polisher never work at once. While a polisher run is unfinished, its author
- * does not have a prompt or a model call in flight.
- */
-export function authorIsIdleWhileAPolisherRuns(workflow: WorkflowRuntime): void {
-  for (const run of workflow.store.tasks()) {
-    if (run.role !== "polisher" || FINISHED.includes(run.status)) continue;
-    const author = workflow.store.authorTaskOf(run.job_id);
-    coverPolisherRuns();
-    if (workflow.store.queue().some((row) => row.task_id === author.task_id)) {
-      coverPolisherWithWaitingPrompt();
-    }
-    const sandbox = workflow.store.sandbox(author.task_id);
-    const busy = sandbox ? sandbox.prompt_in_flight === 1 : author.status === "working";
-    if (busy) {
-      violated(
-        "authorIsIdleWhileAPolisherRuns",
-        `${author.task_id} has a prompt in flight while polisher ${run.task_id} is ${run.status}`,
       );
     }
   }
@@ -1361,56 +1150,6 @@ function occurrences(texts: string[], text: string): number {
   return texts.filter((candidate) => candidate === text).length;
 }
 
-function promptsAddedTo(step: Step, taskId: string): string[] {
-  const before = step.before.tasks.find((task) => task.task_id === taskId)?.promptTexts ?? [];
-  const after = step.after.tasks.find((task) => task.task_id === taskId)?.promptTexts ?? [];
-  return [...new Set(after)].filter((text) => occurrences(after, text) > occurrences(before, text));
-}
-
-/**
- * A prompt the agent sends to the author of a page, and a person's request for a revision, carry
- * every comment held on the page and mark it read. When the host cannot be read or the screen
- * does not admit them, no prompt carries them, they stay held, and the agent is told so. An
- * author that finished during the step is not owed them.
- */
-export function aPromptToAPageAuthorCarriesItsHeldComments(
-  _workflow: WorkflowRuntime,
-  step: Step,
-): void {
-  const asked = step.heldCommentsAsked;
-  if (!asked || !step.before.heldComments.length) return;
-  const running = asked.authors.filter((taskId) => {
-    const task = step.after.tasks.find((candidate) => candidate.task_id === taskId);
-    return task !== undefined && !FINISHED.includes(task.status);
-  });
-  if (!running.length) return;
-  if (asked.expected === "sent") coverHeldSent();
-  else coverHeldKept();
-  const added = running.flatMap((taskId) => promptsAddedTo(step, taskId));
-  for (const text of step.before.heldComments) {
-    const reached = added.some((prompt) => prompt.includes(text));
-    const stillHeld = step.after.heldComments.includes(text);
-    if (asked.expected === "sent" && !reached) {
-      violated("aPromptToAPageAuthorCarriesItsHeldComments", `"${text}" did not reach the author`);
-    }
-    if (asked.expected === "sent" && stillHeld) {
-      violated("aPromptToAPageAuthorCarriesItsHeldComments", `"${text}" is still held`);
-    }
-    if (asked.expected === "kept" && reached) {
-      violated("aPromptToAPageAuthorCarriesItsHeldComments", `"${text}" reached the author`);
-    }
-    if (asked.expected === "kept" && !stillHeld) {
-      violated("aPromptToAPageAuthorCarriesItsHeldComments", `"${text}" was marked read`);
-    }
-    if (asked.expected === "kept" && asked.agentRead.includes(text)) {
-      violated("aPromptToAPageAuthorCarriesItsHeldComments", `the agent read "${text}"`);
-    }
-    if (asked.expected === "kept" && !asked.agentRead.includes("They stay held.")) {
-      violated("aPromptToAPageAuthorCarriesItsHeldComments", "the agent was not told");
-    }
-  }
-}
-
 /**
  * A judge rejection on a page posts its reason in one comment when the host takes it, and the
  * author gets the rejection whether the post landed or not.
@@ -1455,51 +1194,6 @@ export function aJudgeRejectionPostsItsReasonOnce(workflow: WorkflowRuntime, ste
       );
     }
   }
-}
-
-/**
- * A person comment that does not mention the bot is marked read on the page only once a prompt
- * that carries it is queued for the author. Until then it stays held.
- */
-export function aHeldCommentStaysHeldUntilItReachesTheAuthor(
-  _workflow: WorkflowRuntime,
-  step: Step,
-): void {
-  const queued = step.after.tasks
-    .filter((task) => task.role === "author")
-    .flatMap((task) => task.promptsQueued);
-  for (const text of step.after.readComments) {
-    coverHeldCommentRead();
-    if (!queued.some((prompt) => prompt.includes(text))) {
-      violated(
-        "aHeldCommentStaysHeldUntilItReachesTheAuthor",
-        `"${text}" is marked read and no prompt carries it`,
-      );
-    }
-  }
-}
-
-/** The failure a revise turn of a model-call author posts when a call under it throws. */
-const REVISE_TURN_FAILED = "The model call or the page update failed.";
-
-/**
- * A model-call author's revise turn fails only when the document host refuses or loses one of
- * its writes. An edit to the page by a person, a polisher, or an earlier revision does not fail
- * it. A page model that throws fails it too.
- */
-export function aModelCallAuthorFailsOnlyOnAHostError(
-  _workflow: WorkflowRuntime,
-  step: Step,
-): void {
-  if (step.personEditedPage) coverPersonEditedPage();
-  if (!step.postedTexts.some((text) => text.includes(REVISE_TURN_FAILED))) return;
-  coverReviseFailed();
-  const { pageModelThrows, pageHostFailed } = step.modelAuthorErrors;
-  if (pageModelThrows || pageHostFailed) return;
-  violated(
-    "aModelCallAuthorFailsOnlyOnAHostError",
-    "a revise turn failed while the page model answered and the host took every call",
-  );
 }
 
 /** While a chat thread exists, the orchestrator posts nothing in a tracker session. */
@@ -1746,104 +1440,6 @@ export function anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone(
       "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone",
       `${author.task_id} stopped early and is idle with nothing queued, and it is not restarting`,
     );
-  }
-}
-
-/**
- * PROPOSED, pending owner approval. When a page review reaches the document host, each finding
- * lands once, on its passage or in the outcome comment, and the outcome comment opens with the
- * review line. A turn that did not file a review does not post a comment.
- */
-export function pageReviewPostsEachFindingOnce(_workflow: WorkflowRuntime, step: Step): void {
-  const pageReview = step.pageReview;
-  if (!pageReview) return;
-  const { review, comments, hostUp } = pageReview;
-  if (!hostUp) coverPageReviewHostDown();
-  if (!review) {
-    coverPageReviewMissing();
-    if (comments.length) {
-      violated("pageReviewPostsEachFindingOnce", `${comments.length} comments without a review`);
-    }
-    return;
-  }
-  if (review.findings.length) coverPageFindings();
-  const outcomes = comments.filter((comment) => comment.passage === null);
-  if (hostUp && outcomes.length !== 1) {
-    violated("pageReviewPostsEachFindingOnce", `${outcomes.length} outcome comments`);
-  }
-  if (outcomes.some((comment) => !comment.text.startsWith(reviewLine(review)))) {
-    violated(
-      "pageReviewPostsEachFindingOnce",
-      "an outcome comment does not open with the review line",
-    );
-  }
-  for (const finding of review.findings) {
-    const landed = comments.filter((comment) => comment.text.includes(findingText(finding))).length;
-    if (landed > 1 || (hostUp && landed === 0)) {
-      violated(
-        "pageReviewPostsEachFindingOnce",
-        `"${findingText(finding)}" landed ${landed} times`,
-      );
-    }
-  }
-}
-
-/**
- * PROPOSED, pending owner approval. A review prompt the author of a page gets in the step its
- * reviewer ended carries every finding of that review with its passage, whatever the host took.
- */
-export function authorGetsEveryPageFinding(_workflow: WorkflowRuntime, step: Step): void {
-  const review = step.pageReview?.review;
-  if (!review) return;
-  const reviewer = step.after.tasks.find((task) => task.task_id === step.pageReview?.task_id);
-  const author = step.after.tasks.find(
-    (task) => task.role === "author" && task.job_id === reviewer?.job_id,
-  );
-  const newPrompts = author ? promptsAddedTo(step, author.task_id) : [];
-  const reviewPrompts = newPrompts.filter((text) => text.includes("\nComments:\n"));
-  if (reviewPrompts.length) coverPageFindingsPrompt();
-  for (const prompt of reviewPrompts) {
-    const missing = review.findings.find(
-      (finding) => !prompt.includes(`- ${findingText(finding)}`),
-    );
-    if (missing) {
-      violated("authorGetsEveryPageFinding", `the author was not told "${findingText(missing)}"`);
-    }
-  }
-}
-
-/**
- * Every review a findings reviewer files on a pull request reaches its author as a prompt. A
- * judge's approval does not drop it. The latest review of each findings entry is checked when a
- * refiner run of an entry past its segment starts.
- */
-export function authorGetsEveryPullFinding(workflow: WorkflowRuntime, step: Step): void {
-  const known = new Set(step.before.tasks.map((task) => task.task_id));
-  for (const started of step.after.tasks) {
-    if (known.has(started.task_id) || started.refiner_index === null) continue;
-    if (workflow.store.artifact(started.job_id)?.kind !== "pull") continue;
-    const author = authorIn(step.after, started.job_id);
-    if (!author) continue;
-    const entries = workflow.stageForTask(workflow.store.requireTask(started.task_id)).reviewers;
-    const runs = workflow.store.refinerRunsOf(started.job_id);
-    for (const [index, entry] of entries.entries()) {
-      const end = segmentEndOf(index, entries);
-      if (entry.mode !== "findings" || end >= started.refiner_index) continue;
-      const review = runs.findLast((run) => run.refiner_index === index)?.result;
-      if (review?.kind !== "review" || !review.findings.length) continue;
-      coverPullFindingsPassed();
-      if (entries[end]?.mode === "judge") coverPullFindingsPastJudge();
-      const missing = review.findings.find(
-        (finding) =>
-          !author.promptsQueued.some((text) => text.includes(`- ${findingText(finding)}`)),
-      );
-      if (missing) {
-        violated(
-          "authorGetsEveryPullFinding",
-          `${started.task_id} started past entry ${index}, and the author was not told "${findingText(missing)}"`,
-        );
-      }
-    }
   }
 }
 

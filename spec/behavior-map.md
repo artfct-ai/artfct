@@ -2,9 +2,9 @@
 
 This file lists each effect a person sees or the system relies on, and the invariants that guard it. A scheduled audit compares the code against it.
 
-Effects use the terms of the glossary. A guard is the exact function name of an invariant. A row with an empty guard list is unguarded.
+Effects use the terms of the glossary. A guard is the exact function name of an invariant. A guard written `module::name` is an invariant of that Quint spec module. A row with an empty guard list is unguarded.
 
-The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The agent turn invariants live in `packages/orchestrator/test/agent-invariants.ts`. The router, chat acknowledgement and page revision invariants live beside them. The router binding invariants live in the Quint spec at `spec/router-bindings/routerBindings.qnt`. The review loop invariants live in the Quint spec at `spec/review-loop/reviewLoop.qnt`, which mirrors a workflow invariant under its name. The webhook invariants live in `packages/ingress/test/webhook-invariants.ts`, and the inbound mapper invariants in `packages/adapters/test/inbound-invariants.ts`.
+The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The agent turn invariants live in `packages/orchestrator/test/agent-invariants.ts`. The router, chat acknowledgement and page revision invariants live beside them. The router binding invariants live in the Quint spec at `spec/router-bindings/routerBindings.qnt`. The review loop invariants live in the Quint spec at `spec/review-loop/reviewLoop.qnt`, the workflow lifecycle invariants in `spec/workflow-lifecycle/workflowLifecycle.qnt`, and the agent turns invariants in `spec/agent-turns/agentTurns.qnt`. The webhook invariants live in `packages/ingress/test/webhook-invariants.ts`, and the inbound mapper invariants in `packages/adapters/test/inbound-invariants.ts`.
 
 ## Workflow, tasks and statuses
 
@@ -23,8 +23,8 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | T11 | Each usage update replaces a harness task's cost. A restart can lower the reported cost. | |
 | T12 | The workflow is `running` after the plan, a job start, or a person's message on a `waiting_input` workflow. | `workflowStartsOnlyFromAPlan` |
 | T13 | The workflow moves to `waiting_input` on the sleep message or on `ask`, only while every author and researcher is idle. | `workflowWaitsOnlyWhileNoAuthorWorks` |
-| T14 | A workflow that is `done`, `failed` or `cancelled` keeps that status and every task finished, and an event does not reopen it. While the workflow ends, `set_plan`, `start_job`, `finish_workflow`, `fail_workflow` and a cancel are refused. | `endedWorkflowHasNoUnfinishedTask`, `nothingReopensAFinishedWorkflow`, `finishedWorkflowKeepsItsStatus` |
-| T15 | A later plan cannot change the workflow definition. | `workflowKeepsItsDefinition` |
+| T14 | A workflow that is `done`, `failed` or `cancelled` keeps that status and every task finished, and an event does not reopen it. While the workflow ends, `set_plan`, `start_job`, `finish_workflow`, `fail_workflow` and a cancel are refused. | `endedWorkflowHasNoUnfinishedTask`, `nothingReopensAFinishedWorkflow`, `workflowLifecycle::finishedWorkflowKeepsItsStatus` |
+| T15 | A later plan cannot change the workflow definition. | `workflowLifecycle::workflowKeepsItsDefinition` |
 | T16 | An artifact is recorded as `drafted` from a link in the turn text, an open pull request on the branch, or a created page. Its todo list is complete and fixed from then on. A researcher never records one. | `todoListIsFixedAfterFirstArtifact` |
 | T17 | An artifact status moves only along the legal moves, and `accepted` and `removed` are final. | `artifactStatusMovesAreLegal`, `anAcceptedArtifactNeverMovesBack` |
 | T18 | The first handover sets the time the humans got the artifact, and it is never cleared. | `deliveredToHumansIsNeverCleared` |
@@ -45,7 +45,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | T27 | A researcher or refiner turn that gave up or stopped on a limit restarts or fails. | |
 | T28 | A researcher's payload passes to its author. A missing or oversized payload restarts or fails the researcher. | `researchReadsCompleteOnceTheAuthorStarts` |
 | T29 | A prompt RPC error clears the prompt, writes a board note, and wakes the agent for an idle author. A researcher or refiner drains its queue or restarts. | |
-| T30 | A model-call author fails without a restart on a model error, an empty answer, a missing closing text, a comment reply that does not validate, or a page host error. A person's page edit during its model call does not fail it. The turn starts over on the page as it is now. | `aModelCallAuthorFailsOnlyOnAHostError` |
+| T30 | A model-call author fails without a restart on a model error, an empty answer, a missing closing text, a comment reply that does not validate, or a page host error. A person's page edit during its model call does not fail it. The turn starts over on the page as it is now. | `reviewLoop::aModelCallAuthorFailsOnlyOnAHostError` |
 | T31 | A model turn that a restart or its deadline cut runs again as a restart. A revise keeps its prompt queued until it applies the answer. An author with its page out goes back in review and takes that prompt. One without its page produces it again. A paused author stays paused. Past the restart limit the task fails with a post to the person. | `aRestartDoesNotLoseAModelTurn` |
 | T32 | A prompt queued for an unpaused model-call author reaches it. A model turn is in flight, the author is starting, or a polisher holds its page. | `aQueuedPromptReachesItsModelCallAuthor` |
 | T33 | A restart after the host wrote the page but before the store recorded it runs the turn again. A first turn creates a second page. A revise runs again on the revised text and can post its comment replies twice. | |
@@ -80,64 +80,64 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| A1 | Every inbox row a turn takes moves into the transcript once and leaves the inbox, also when the model fails or the turn times out. | `everyInboxRowReachesTheTranscriptOnce` |
-| A2 | The decisions model reads a person's message: owed reply, requests work, asks for a revision, requested runtime, input artifact. A failed call falls back to an unread message, and every later decisions call of the turn falls back too. | `laterDecisionsCallsFallBackOnceOneFails`, `aDecisionsCallFallsBackOnlyAfterEveryModelFailed`, `aPersonGetsTheAnswerDuringADecisionsOutage` |
-| A3 | A message that asks for a revision sends the held comments of every running page author before the model runs. Unreadable or unadmitted comments stay held, and the agent is told. | `aPromptToAPageAuthorCarriesItsHeldComments` |
-| A4 | Compaction replaces the rows before the turn with one recap. A failed summarization leaves the transcript whole. | `compactionReplacesOnlyEarlierRows` |
-| A5 | Every tool call in the transcript keeps its result. | `everyToolCallKeepsItsResult` |
-| A6 | In a person's turn, only `acknowledge` and `ask` are offered until one of them succeeds. | `aPersonHearsBackBeforeAnyWork` |
-| A7 | The chat thread shows a working status per step and leaves it when the turn ends. A turn the watchdog already answered releases the thread when it ends. | `theWorkingStatusNeverOutlivesItsTurn` |
-| A8 | A person's turn that left them without a reply runs the model once more with a note that says so. | `aPersonsTurnNeverEndsUnanswered` |
-| A9 | Closing text posts only as the answer to a person who wrote, once, and is withheld when the board change was the reply. A resumed turn keeps the board change of the lost turn on a person's message. | `closingTextAnswersOnlyAPersonWhoWrote` |
+| A1 | Every inbox row a turn takes moves into the transcript once and leaves the inbox, also when the model fails or the turn times out. | `agentTurns::everyInboxRowReachesTheTranscriptOnce` |
+| A2 | The decisions model reads a person's message: owed reply, requests work, asks for a revision, requested runtime, input artifact. A failed call falls back to an unread message, and every later decisions call of the turn falls back too. | `agentTurns::laterDecisionsCallsFallBackOnceOneFails`, `aDecisionsCallFallsBackOnlyAfterEveryModelFailed`, `aPersonGetsTheAnswerDuringADecisionsOutage` |
+| A3 | A message that asks for a revision sends the held comments of every running page author before the model runs. Unreadable or unadmitted comments stay held, and the agent is told. | `reviewLoop::aPromptToAPageAuthorCarriesItsHeldComments` |
+| A4 | Compaction replaces the rows before the turn with one recap. A failed summarization leaves the transcript whole. | `agentTurns::compactionReplacesOnlyEarlierRows` |
+| A5 | Every tool call in the transcript keeps its result. | `agentTurns::everyToolCallKeepsItsResult` |
+| A6 | In a person's turn, only `acknowledge` and `ask` are offered until one of them succeeds. | `agentTurns::aPersonHearsBackBeforeAnyWork` |
+| A7 | The chat thread shows a working status per step and leaves it when the turn ends. A turn the watchdog already answered releases the thread when it ends. | `agentTurns::theWorkingStatusNeverOutlivesItsTurn` |
+| A8 | A person's turn that left them without a reply runs the model once more with a note that says so. | `agentTurns::aPersonsTurnNeverEndsUnanswered` |
+| A9 | Closing text posts only as the answer to a person who wrote, once, and is withheld when the board change was the reply. A resumed turn keeps the board change of the lost turn on a person's message. | `agentTurns::closingTextAnswersOnlyAPersonWhoWrote` |
 | A10 | A model that fails twice posts the stuck text. The post goes to the workflow audience with an empty answer list, so in a workflow without a chat thread the session the person wrote from does not get it. | |
 | A11 | The turn deadline aborts the attempt and posts the timeout text. The same empty answer list applies. | `aWaitingPersonHearsBackByTheTimeout` |
-| A12 | A turn lost with its Durable Object resumes, posts the restart notice in chat, keeps the lost turn's board change, and answers what the lost turn owed. | `aResumedTurnAnswersWhatItsLostTurnOwed`, `closingTextAnswersOnlyAPersonWhoWrote` |
-| A13 | Tool results from MCP, `fetch_url`, `read_artifact` and `ready_issues` pass the screen. Fixed text replaces a quarantined or unchecked result. | `quarantinedTextNeverEntersTheTranscript` |
-| A14 | `read_channel` screens each message. A flagged message does not remove another from the read. | `aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead`, `quarantinedTextNeverEntersTheTranscript` |
+| A12 | A turn lost with its Durable Object resumes, posts the restart notice in chat, keeps the lost turn's board change, and answers what the lost turn owed. | `agentTurns::aResumedTurnAnswersWhatItsLostTurnOwed`, `agentTurns::closingTextAnswersOnlyAPersonWhoWrote` |
+| A13 | Tool results from MCP, `fetch_url`, `read_artifact` and `ready_issues` pass the screen. Fixed text replaces a quarantined or unchecked result. | `agentTurns::quarantinedTextNeverEntersTheTranscript` |
+| A14 | `read_channel` screens each message. A flagged message does not remove another from the read. | `agentTurns::aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead`, `agentTurns::quarantinedTextNeverEntersTheTranscript` |
 | A15 | A tool result over the context limit is replaced by its summarization under a marker, or by a fixed "too large" text. | |
 | A16 | A failed MCP connect is logged, and the turn runs without the MCP tools. | |
-| A17 | Turn answers reach the people the turn answers, read as the turn takes its inbox, so a post after the watchdog fired still reaches them. They reach the chat thread and do not reach a session when a chat thread exists. Otherwise they reach the sessions people wrote from. | `sessionMessageWithoutAnAuthorIsAnswered` |
+| A17 | Turn answers reach the people the turn answers, read as the turn takes its inbox, so a post after the watchdog fired still reaches them. They reach the chat thread and do not reach a session when a chat thread exists. Otherwise they reach the sessions people wrote from. | `agentTurns::sessionMessageWithoutAnAuthorIsAnswered` |
 
 ### Agent turn alarms
 
 | ID | Effect | Guarded by |
 |---|---|---|
 | A20 | The heads-up alarm at 60 seconds posts the heads-up in chat and keeps the thread working, when a person's message was taken and the turn it was armed for still runs. | |
-| A21 | The watchdog alarm at the turn timeout records that no turn runs, deletes taken rows and posts the timeout text. The hung turn keeps running, its tools keep acting, its closing text can still post, and it releases the threads when it ends. | `oneTurnRunsAtATime`, `aWaitingPersonHearsBackByTheTimeout`, `theWorkingStatusNeverOutlivesItsTurn` |
-| A22 | The start step of a Durable Object with a turn still marked as running resumes the lost turn. With no lost turn, inbox rows that wait to wake the agent get a `runAgent` alarm. A finished workflow only releases its threads. | `aResumedTurnAnswersWhatItsLostTurnOwed`, `aWaitingInboxRowHasATurnComing` |
-| A23 | A `runAgent` alarm runs a turn when none runs. `tellAgent` arms one and cancels it once its call to the turn loop returns, which is at once when a turn already runs. | `aWaitingInboxRowHasATurnComing` |
+| A21 | The watchdog alarm at the turn timeout records that no turn runs, deletes taken rows and posts the timeout text. The hung turn keeps running, its tools keep acting, its closing text can still post, and it releases the threads when it ends. | `agentTurns::oneTurnRunsAtATime`, `aWaitingPersonHearsBackByTheTimeout`, `agentTurns::theWorkingStatusNeverOutlivesItsTurn` |
+| A22 | The start step of a Durable Object with a turn still marked as running resumes the lost turn. With no lost turn, inbox rows that wait to wake the agent get a `runAgent` alarm. A finished workflow only releases its threads. | `agentTurns::aResumedTurnAnswersWhatItsLostTurnOwed`, `agentTurns::aWaitingInboxRowHasATurnComing` |
+| A23 | A `runAgent` alarm runs a turn when none runs. `tellAgent` arms one and cancels it once its call to the turn loop returns, which is at once when a turn already runs. | `agentTurns::aWaitingInboxRowHasATurnComing` |
 | A24 | A stale heads-up or watchdog alarm, armed for a turn that no longer runs, does not act. | |
-| A25 | One agent turn runs at a time. The store marks a turn as running from its start until it ends or the watchdog fires. | `oneTurnRunsAtATime` |
+| A25 | One agent turn runs at a time. The store marks a turn as running from its start until it ends or the watchdog fires. | `agentTurns::oneTurnRunsAtATime` |
 
 ### Agent tools
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| A30 | `acknowledge` puts a thumbs-up on each taken chat message, or posts one line to the people who wrote. A failed reaction partway leaves some messages without it. | `aPersonHearsBackBeforeAnyWork`, `aPersonsTurnNeverEndsUnanswered` |
+| A30 | `acknowledge` puts a thumbs-up on each taken chat message, or posts one line to the people who wrote. A failed reaction partway leaves some messages without it. | `agentTurns::aPersonHearsBackBeforeAnyWork`, `agentTurns::aPersonsTurnNeverEndsUnanswered` |
 | A31 | `ask` posts a question, and sets the workflow `waiting_input` when every author and researcher is idle. | `linearOnlyAsksReachTheStartingSession` |
-| A32 | `tell` posts info to the people who wrote, and `stay_silent` stays quiet. Both end the turn. | `closingTextAnswersOnlyAPersonWhoWrote`, `aPersonsTurnNeverEndsUnanswered` |
-| A33 | `set_plan` sets the definition, stages, slots, repository, page parent and root page. It sets the workflow `running`, moves the origin issue to started, and can create the root page on the document host. | `workflowStartsOnlyFromAPlan`, `workflowKeepsItsDefinition` |
+| A32 | `tell` posts info to the people who wrote, and `stay_silent` stays quiet. Both end the turn. | `agentTurns::closingTextAnswersOnlyAPersonWhoWrote`, `agentTurns::aPersonsTurnNeverEndsUnanswered` |
+| A33 | `set_plan` sets the definition, stages, slots, repository, page parent and root page. It sets the workflow `running`, moves the origin issue to started, and can create the root page on the document host. | `workflowStartsOnlyFromAPlan`, `workflowLifecycle::workflowKeepsItsDefinition` |
 | A34 | `start_job` inserts the job and task, binds the issue and branch in the router, claims the issue, links the chat thread, schedules the provision alarm, and links the input page from the root page. | `jobStartsOnlyIntoAFreeSlot`, `oneLiveJobPerInputArtifact`, `eachIssueLinksTheChatThreadOnce`, `workflowStartsOnlyFromAPlan` |
 | A35 | `start_job` on an issue starts only when the issue's binding points at no workflow, at this workflow, or at a workflow that ended. The binding row alone decides. A workflow whose session maps the issue refuses another workflow's job on it until it ends, even without a job on the issue. `start_job` also refuses when the binding moved after it read it. | `oneRunningWorkflowHasAJobOnAnIssue` |
 | A36 | `complete_job` stores a selection, or advances a host-accepted artifact. It ends the author `done`, destroys its sandbox, cancels its refiner run, and hands the artifact over. | `aFailedCheckNeverCompletesAJob`, `aFailedCheckNeverAsksThePersonAgain` |
-| A37 | `cancel_job` cancels the author or researcher. It closes its feed, destroys its sandbox, cancels its refiner run, and closes the artifact. | `finishedTaskKeepsItsStatus`, `artifactStatusMovesAreLegal`, `oneUnfinishedRefinerRunPerArtifact` |
-| A38 | `prompt_task` reads and screens held page comments, marks them read, and queues the prompt. It marks the comments read before it queues the prompt. | `aPromptToAPageAuthorCarriesItsHeldComments` |
+| A37 | `cancel_job` cancels the author or researcher. It closes its feed, destroys its sandbox, cancels its refiner run, and closes the artifact. | `finishedTaskKeepsItsStatus`, `artifactStatusMovesAreLegal`, `reviewLoop::oneUnfinishedRefinerRunPerArtifact` |
+| A38 | `prompt_task` reads and screens held page comments, marks them read, and queues the prompt. It marks the comments read before it queues the prompt. | `reviewLoop::aPromptToAPageAuthorCarriesItsHeldComments` |
 | A39 | `pause_task` and `resume_task` set or clear the pause, send a cancel to the harness session, post "Paused" or "Resumed", and queue "Continue where you left off." on resume. They report success on a no-op. A paused task gets no prompt until it resumes. The first prompt of a session that opens while the task is paused waits at the head of its queue, and the restart of a paused task waits for the resume to start the next generation. | `pausedAuthorGetsNoPrompt` |
-| A40 | `cancel_task` cancels a refiner run. A cancelled polisher hands the artifact over as it was left. | `oneUnfinishedRefinerRunPerArtifact`, `finishedTaskKeepsItsStatus` |
-| A41 | `request_review` starts the reviewer segment from its first entry. `finish_review` moves past the open entry to the next refiner or the handover. | `refinersRunAgainOnlyOnChangedRevision`, `oneUnfinishedRefinerRunPerArtifact`, `authorIsIdleWhileAPolisherRuns` |
-| A42 | `rule_on_review` with approve moves on, or first sends the author the findings of the judge's segment. With reject it posts the signed reason on the artifact host and sends it to the author with those findings. | `judgeRulesAtMostOnce`, `authorGetsEveryPullFinding` |
+| A40 | `cancel_task` cancels a refiner run. A cancelled polisher hands the artifact over as it was left. | `reviewLoop::oneUnfinishedRefinerRunPerArtifact`, `finishedTaskKeepsItsStatus` |
+| A41 | `request_review` starts the reviewer segment from its first entry. `finish_review` moves past the open entry to the next refiner or the handover. | `refinersRunAgainOnlyOnChangedRevision`, `reviewLoop::oneUnfinishedRefinerRunPerArtifact`, `reviewLoop::authorIsIdleWhileAPolisherRuns` |
+| A42 | `rule_on_review` with approve moves on, or first sends the author the findings of the judge's segment. With reject it posts the signed reason on the artifact host and sends it to the author with those findings. | `judgeRulesAtMostOnce`, `reviewLoop::authorGetsEveryPullFinding` |
 | A43 | `finish_workflow` sets `done`, posts the done event, moves tracker issues to completed, and removes code host bindings. It refuses while an author or researcher is active. | `endedWorkflowHasNoUnfinishedTask`, `nothingReopensAFinishedWorkflow` |
 | A44 | `fail_workflow` cancels every active task and refiner run, sets `failed`, posts the failure, and removes code host bindings. | `endedWorkflowHasNoUnfinishedTask`, `linearOnlyAsksReachTheStartingSession` |
 | A45 | `move_into_root_page` moves a page under the root page on the document host and drops its link. | |
 | A46 | The MCP tracker tools write to the tracker under prompt rules only. A result the screen does not admit reads to the model as not given, though the write happened. | |
-| A47 | The read tools only read, and they screen text that comes from outside. | `quarantinedTextNeverEntersTheTranscript` |
+| A47 | The read tools only read, and they screen text that comes from outside. | `agentTurns::quarantinedTextNeverEntersTheTranscript` |
 
 ### Agent external calls
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| A50 | The main model request retries once per turn and fails into the stuck text. A hang ends at the turn deadline. | `aPersonsTurnNeverEndsUnanswered`, `aWaitingPersonHearsBackByTheTimeout` |
-| A51 | A decisions call that fails, hangs or lacks a gateway returns its site's fallback. The fallback of the acceptance and selection checks keeps the job open. | `laterDecisionsCallsFallBackOnceOneFails`, `aFailedCheckNeverCompletesAJob` |
+| A50 | The main model request retries once per turn and fails into the stuck text. A hang ends at the turn deadline. | `agentTurns::aPersonsTurnNeverEndsUnanswered`, `aWaitingPersonHearsBackByTheTimeout` |
+| A51 | A decisions call that fails, hangs or lacks a gateway returns its site's fallback. The fallback of the acceptance and selection checks keeps the job open. | `agentTurns::laterDecisionsCallsFallBackOnceOneFails`, `aFailedCheckNeverCompletesAJob` |
 | A52 | A failed model list for a requested runtime reads to the person as "matched none clearly". | |
 | A53 | A host acceptance lookup that throws reads as "not accepted". | |
 
@@ -145,17 +145,17 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| R1 | Refiners settle only once the author is quiet and the checks gate is open. Each settle reads the store again after the host read. | `authorIsIdleWhileAPolisherRuns`, `oneUnfinishedRefinerRunPerArtifact` |
-| R2 | An artifact has at most one unfinished refiner run, and the artifact points at it. | `oneUnfinishedRefinerRunPerArtifact` |
+| R1 | Refiners settle only once the author is quiet and the checks gate is open. Each settle reads the store again after the host read. | `reviewLoop::authorIsIdleWhileAPolisherRuns`, `reviewLoop::oneUnfinishedRefinerRunPerArtifact` |
+| R2 | An artifact has at most one unfinished refiner run, and the artifact points at it. | `reviewLoop::oneUnfinishedRefinerRunPerArtifact` |
 | R3 | A refiner run starts on an artifact the humans hold only after an author turn ended on a changed revision. | `refinersRunAgainOnlyOnChangedRevision` |
-| R4 | A reviewer does not run again on a revision it already reviewed. One rule picks the next entry on every path that runs the list: after the author's turn, `request_review`, `finish_review`, a review again decision, a stale segment restart, and a finished entry handing on. It passes over an entry that already reviewed or ruled on the current revision, and a judge that ruled. `request_review` refuses when that leaves no entry of the open segment, and a review again decision of yes then advances, as no does. A host that cannot say the revision allows the run. | `reviewerRunsOnlyOnAnUnreviewedRevision` |
+| R4 | A reviewer does not run again on a revision it already reviewed. One rule picks the next entry on every path that runs the list: after the author's turn, `request_review`, `finish_review`, a review again decision, a stale segment restart, and a finished entry handing on. It passes over an entry that already reviewed or ruled on the current revision, and a judge that ruled. `request_review` refuses when that leaves no entry of the open segment, and a review again decision of yes then advances, as no does. A host that cannot say the revision allows the run. | `reviewLoop::reviewerRunsOnlyOnAnUnreviewedRevision` |
 | R5 | A findings reviewer entry runs at most `max_review_runs` times on one artifact. The limit adds the unreviewed revision note at handover. A stale segment restart does not count against the limit. | |
 | R6 | A judge rules at most once on an artifact, and its ruling never changes. Later runs skip judge entries that ruled. A ruling that lands while the decisions model or the host is asked stands, and the later one is dropped. | `judgeRulesAtMostOnce` |
 | R7 | The decisions model rules a judge conclusion. A missing conclusion, a failed call or a middle probability asks a person to rule. | |
 | R8 | A refiner run ends `done` only after its turn ended normally. A polisher waiting on the checks of its push ends later, only if it did not take a prompt since. | `refinerRunIsDoneOnlyAfterItsTurnEnded` |
 | R9 | The review again decision reads a model-call author's closing text. An answer of yes reruns the segment from its first entry that did not review the revision, and an answer of no advances. A failed call asks the agent to route. | |
 | R10 | The agent routes a harness author's review with `request_review` or `finish_review`. The agent is told again on every settle until it routes. | |
-| R11 | A segment merges the latest reviews of its entries and sends the merged review to the author when it holds findings or blocks. A segment that ends with a judge sends it once the judge rules: with the rejection, or on its own after an approval. A clean or empty segment advances. | `authorGetsEveryPullFinding` |
+| R11 | A segment merges the latest reviews of its entries and sends the merged review to the author when it holds findings or blocks. A segment that ends with a judge sends it once the judge rules: with the rejection, or on its own after an approval. A clean or empty segment advances. | `reviewLoop::authorGetsEveryPullFinding` |
 | R12 | The handover moves the artifact from drafted to ready once, records the delivered revision, posts `artifact_ready` and arms the idle alarm. Blocked paths hand over with a reason. | `deliveredToHumansIsNeverCleared`, `artifactStatusMovesAreLegal`, `inReviewTaskHasAnArtifact` |
 | R13 | A cancelled judge run leaves the artifact drafted with its pointer until the agent routes it. A failed reviewer hands over blocked. A cancelled or failed polisher hands over blocked. | |
 | R14 | An author turn that ends on a ready artifact with a changed or unreadable revision reopens it to drafted and reruns the refiners. A stage without refiners posts `artifact_ready` again. | `artifactStatusMovesAreLegal`, `refinersRunAgainOnlyOnChangedRevision` |
@@ -167,7 +167,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| R20 | The author does not take a prompt while a polisher runs. The first prompt of a session that opens meanwhile, such as after a restart, waits at the head of its queue until the polisher ends. | `authorIsIdleWhileAPolisherRuns` |
+| R20 | The author does not take a prompt while a polisher runs. The first prompt of a session that opens meanwhile, such as after a restart, waits at the head of its queue until the polisher ends. | `reviewLoop::authorIsIdleWhileAPolisherRuns` |
 | R21 | The checks gate waits for checks on the pushed revision. Passed checks stand 60 seconds, unreported ones wait 5 minutes, and running ones wait up to 2 hours, then the gate blocks. Failed checks or a conflict go back to the pusher once per revision. | |
 | R22 | An unreadable revision opens the checks gate, so the refiners and the handover skip CI. | |
 | R23 | The `recheck` alarm ticks every 60 seconds while the gate waits and stops when it opens, blocks, or the workflow ends. | |
@@ -179,11 +179,11 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | ID | Effect | Guarded by |
 |---|---|---|
 | R30 | A pull request reviewer posts its own review with its own token. | |
-| R31 | A page review posts each finding with a passage as an inline comment, then one outcome comment with the review line. A failed inline comment moves into the outcome comment. The post happens before the check that the run still owns the artifact. | `pageReviewPostsEachFindingOnce` |
+| R31 | A page review posts each finding with a passage as an inline comment, then one outcome comment with the review line. A failed inline comment moves into the outcome comment. The post happens before the check that the run still owns the artifact. | `reviewLoop::pageReviewPostsEachFindingOnce` |
 | R32 | A judge rejection posts the signed reason on the pull request or page, or in the thread for issues. A failed post is logged, and the author still gets the rejection. | `aJudgeRejectionPostsItsReasonOnce` |
 | R33 | Person feedback on a pull request gets the eyes reaction per comment, or "Relayed to the author." when it lacks comment handles, before routing. One failure skips the rest. | |
-| R34 | A page comment is acknowledged with the eyes reply before it is sent to the author, and only the comments the host marked read are sent. The host marks only the earliest held comment of a comment thread, so a reply posted while the screen reads stays held. A comment the host does not mark stays held, and the agent is told. | `aPromptToAPageAuthorCarriesItsHeldComments`, `aHeldCommentStaysHeldUntilItReachesTheAuthor` |
-| R35 | A model-call author's revise posts one comment reply per handled comment still on the page before it writes the page. It also replies to each comment a queued prompt carries on a line the write removes, saying the author reads it next. A failed reply fails the task, and replies already posted stay. | `sentCommentIsAnsweredBeforeItsLineGoes`, `replyGoesOnlyToASentComment`, `failedReplyLeavesThePage`, `aModelCallAuthorFailsOnlyOnAHostError` |
+| R34 | A page comment is acknowledged with the eyes reply before it is sent to the author, and only the comments the host marked read are sent. The host marks only the earliest held comment of a comment thread, so a reply posted while the screen reads stays held. A comment the host does not mark stays held, and the agent is told. | `reviewLoop::aPromptToAPageAuthorCarriesItsHeldComments`, `reviewLoop::aHeldCommentStaysHeldUntilItReachesTheAuthor` |
+| R35 | A model-call author's revise posts one comment reply per handled comment still on the page before it writes the page. It also replies to each comment a queued prompt carries on a line the write removes, saying the author reads it next. A failed reply fails the task, and replies already posted stay. | `sentCommentIsAnsweredBeforeItsLineGoes`, `replyGoesOnlyToASentComment`, `failedReplyLeavesThePage`, `reviewLoop::aModelCallAuthorFailsOnlyOnAHostError` |
 | R36 | A page text change keeps the identity of every line the answer left alone. | `untouchedLinesKeepTheirIdentity` |
 | R37 | The root page holds a resources section that code writes: a heading, one link line per linked page, and the link removed when a page moves under the root page. The author text goes above it. | |
 
@@ -194,7 +194,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | E1 | Every feedback event on a running workflow gets one routing decision: author, agent, or `nobody`. A failed decisions call routes to the agent. | `everyFeedbackGetsOneRoutingDecision` |
 | E2 | Feedback the screen does not admit reaches neither the agent nor the author. | `unadmittedFeedbackReachesNobody` |
 | E3 | A pull request review claims its review id only when the host read succeeds. On a failed read, the review and its comments can each prompt the author. | |
-| E4 | A page comment that does not mention the bot stays held. A mention screens every held comment with it. When the decisions model routes it to the author, the held comments the host marks read go with it as one feedback. On any other route they stay held. | `aPromptToAPageAuthorCarriesItsHeldComments`, `aHeldCommentStaysHeldUntilItReachesTheAuthor` |
+| E4 | A page comment that does not mention the bot stays held. A mention screens every held comment with it. When the decisions model routes it to the author, the held comments the host marks read go with it as one feedback. On any other route they stay held. | `reviewLoop::aPromptToAPageAuthorCarriesItsHeldComments`, `reviewLoop::aHeldCommentStaysHeldUntilItReachesTheAuthor` |
 | E5 | A finished workflow ignores events. It refuses a person's message, and the router starts the next workflow with it. A stop still stops the author, a status gets the summary, and anything else gets "This workflow is X". | `nothingReopensAFinishedWorkflow`, `endedWorkflowHasNoUnfinishedTask`, `aPersonsMessageNeverReachesAnEndedWorkflow` |
 | E6 | A message wakes a workflow from `waiting_input` to `running` and rearms the idle alarm. | |
 | E7 | A stop clears the author's queue, cancels its turn or ends a starting turn, and closes the feed with "Stopped.". The workflow does not change, and the orchestrator does not post. | `stopEndsTheAuthorsTurn`, `stoppedModelCallLeavesThePage` |
