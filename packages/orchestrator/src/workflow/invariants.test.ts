@@ -24,6 +24,7 @@ import {
   nothingReopensAFinishedWorkflow,
   refinerRunIsDoneOnlyAfterItsTurnEnded,
   finishedTaskKeepsItsStatus,
+  finishedWorkflowKeepsItsStatus,
   inReviewTaskHasAnArtifact,
   jobStartsOnlyIntoAFreeSlot,
   judgeRulesAtMostOnce,
@@ -31,6 +32,7 @@ import {
   oneLiveJobPerInputArtifact,
   oneUnfinishedRefinerRunPerArtifact,
   orchestratorStaysOutOfSessionsWhenChatExists,
+  pausedAuthorGetsNoPrompt,
   refinersRunAgainOnlyOnChangedRevision,
   researchReadsCompleteOnceTheAuthorStarts,
   reviewerRunsOnlyOnAnUnreviewedRevision,
@@ -40,11 +42,13 @@ import {
   stopEndsTheAuthorsTurn,
   stoppedModelCallLeavesThePage,
   staleAlarmIsIgnored,
+  taskRestartsAtMostTwice,
   todoListIsFixedAfterFirstArtifact,
   sleepMessageOnlyDuringAWorkflow,
   unadmittedFeedbackReachesNobody,
   workflowKeepsItsDefinition,
   workflowStartsOnlyFromAPlan,
+  workflowWaitsOnlyWhileNoAuthorWorks,
   aPromptToAPageAuthorCarriesItsHeldComments,
   anAcceptedArtifactNeverMovesBack,
   everyActionSettlesWithinItsWorkBudget,
@@ -69,6 +73,7 @@ import {
   agentStartsTask,
   agentStartsTaskOnArtifact,
   authorReportsTodos,
+  authorRestartsWhile,
   authorStreams,
   authorTurnEnds,
   baseMoves,
@@ -109,6 +114,7 @@ import {
   workflowRestartsDuringModelCall,
   workflowRestartsWhileHostWritesPage,
   modelCallOutlivesItsDeadline,
+  workflowEndsWhile,
   type HeldCommentsRead,
 } from "../../test/workflow-actions";
 import {
@@ -139,6 +145,7 @@ const STATE_INVARIANTS = [
   authorIsIdleWhileAPolisherRuns,
   oneLiveJobPerInputArtifact,
   endedWorkflowHasNoUnfinishedTask,
+  taskRestartsAtMostTwice,
   boardsLiveOnlyInChat,
   eachIssueLinksTheChatThreadOnce,
   everyJobTaskIsOnItsBoard,
@@ -154,6 +161,9 @@ const STEP_INVARIANTS = [
   nothingReopensAFinishedWorkflow,
   refinerRunIsDoneOnlyAfterItsTurnEnded,
   finishedTaskKeepsItsStatus,
+  finishedWorkflowKeepsItsStatus,
+  pausedAuthorGetsNoPrompt,
+  workflowWaitsOnlyWhileNoAuthorWorks,
   artifactStatusMovesAreLegal,
   todoListIsFixedAfterFirstArtifact,
   staleAlarmIsIgnored,
@@ -592,8 +602,39 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
         author,
         fc.constantFrom("accepts", "accepts", "asks_for_a_change", "wrote_nothing"),
         fc.constantFrom("answers", "answers", "answers", "fails", "hangs"),
+        fc.constantFrom("nothing" as const, "nothing" as const, "agent_cancels" as const),
       )
-      .map(([index, person, decisions]) => agentCompletes(index, person, decisions)),
+      .map(([index, person, decisions, meanwhile]) =>
+        agentCompletes(index, person, decisions, meanwhile),
+      ),
+  },
+  {
+    weight: 2,
+    arbitrary: fc
+      .tuple(
+        author,
+        fc.constantFrom(
+          "agent_cancels" as const,
+          "agent_cancels_and_starts_again" as const,
+          "agent_completes" as const,
+          "agent_pauses" as const,
+        ),
+      )
+      .map(([index, meanwhile]) => authorRestartsWhile(index, meanwhile)),
+  },
+  {
+    weight: 1,
+    arbitrary: fc
+      .tuple(
+        fc.constantFrom("agent_fails" as const, "person_cancels" as const),
+        fc.constantFrom(
+          "agent_starts" as const,
+          "agent_fails" as const,
+          "agent_finishes" as const,
+          "person_cancels" as const,
+        ),
+      )
+      .map(([ending, meanwhile]) => workflowEndsWhile(ending, meanwhile)),
   },
   {
     weight: 2,
@@ -1010,7 +1051,7 @@ const CORPUS_EXAMPLES = WORKFLOW_CORPUS.map((replayed): [ReplayedSequence] => [r
 
 describe("the workflow invariants", () => {
   it("are every state and step invariant", () => {
-    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(49);
+    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(53);
   });
 
   for (const property of PROPERTIES) {
@@ -1193,5 +1234,57 @@ describe("reviewers on a revision they reviewed", () => {
       .refinerRunsOf(world.jobOf(world.authorAt(0)!).job_id)
       .flatMap((run) => (run.result?.kind === "ruling" ? [run.result.ruling] : []));
     expect(rulings).toEqual(["rejected"]);
+  });
+});
+
+const pageSetup: WorldSetup = { ...pullSetup("none"), artifact: "page" };
+
+const draftedPage = [firstArtifactAppears(0, "author_text"), authorTurnEnds(0, "same")];
+
+describe("the shortest traces of the workflow lifecycle spec", () => {
+  it("keeps an author cancelled while its restart destroys the old container", async () => {
+    await holdsThroughout([pageSetup, [authorRestartsWhile(0, "agent_cancels")]]);
+  });
+
+  it("keeps an author done when it completes while its restart destroys the old container", async () => {
+    await holdsThroughout([pageSetup, [...draftedPage, authorRestartsWhile(0, "agent_completes")]]);
+  });
+
+  it("keeps one live job on an input when it starts again during a restart", async () => {
+    await holdsThroughout([pageSetup, [authorRestartsWhile(0, "agent_cancels_and_starts_again")]]);
+  });
+
+  it("keeps an author cancelled while the acceptance check is out", async () => {
+    await holdsThroughout([
+      pageSetup,
+      [...draftedPage, agentCompletes(0, "accepts", "answers", "agent_cancels")],
+    ]);
+  });
+
+  it("refuses a job start while the workflow fails", async () => {
+    await holdsThroughout([pageSetup, [workflowEndsWhile("agent_fails", "agent_starts")]]);
+  });
+
+  it("refuses finish_workflow while the workflow fails", async () => {
+    await holdsThroughout([pageSetup, [workflowEndsWhile("agent_fails", "agent_finishes")]]);
+  });
+
+  it("holds the first prompt of an author paused before its sandbox came up", async () => {
+    await holdsThroughout([
+      { ...pageSetup, research: true },
+      [
+        researcherTurnEnds(0, "written"),
+        agentHoldsAuthor(0, "pause_task"),
+        sandboxComesUp("dials_in"),
+        agentHoldsAuthor(0, "resume_task"),
+      ],
+    ]);
+  });
+
+  it("sends no prompt to an author paused while its restart destroys the old container", async () => {
+    await holdsThroughout([
+      pageSetup,
+      [authorRestartsWhile(0, "agent_pauses"), sandboxComesUp("dials_in")],
+    ]);
   });
 });

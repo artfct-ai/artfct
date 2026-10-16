@@ -13,7 +13,7 @@ import {
   lifecycleLabel,
   renderBoard,
 } from "../src/workflow/board/render";
-import { SLEEP_TEXT } from "../src/workflow/lifecycle";
+import { MAX_RESTARTS, SLEEP_TEXT } from "../src/workflow/lifecycle";
 import type { TaskEvent, TaskRole } from "../src/workflow/task/events";
 import { taskAtWork } from "../src/workflow/task/at-work";
 import { segmentEndOf } from "../src/workflow/refiner/stage-refiner";
@@ -42,6 +42,9 @@ export type ObservedTask = {
   promptTexts: string[];
   /** The text of every prompt ever queued for the task, also one a stop or a cancel cleared. */
   promptsQueued: string[];
+  /** How many prompts its harness sessions and its model turns took since the workflow began. */
+  promptsSent: number;
+  paused: boolean;
   /** How many cancels its harness session was sent. */
   cancelsSent: number;
   promptInFlight: boolean;
@@ -105,6 +108,8 @@ export type Observation = {
 export type Step = {
   action: string;
   before: Observation;
+  /** The world right after each event that landed in the middle of the action, in order. */
+  landed: Observation[];
   after: Observation;
   /** What the agent was told during the action. */
   notes: Array<{ text: string; wake: Wake }>;
@@ -181,6 +186,8 @@ export type Step = {
    * prompt a revise turn ran on, and null for a turn that produces the page.
    */
   modelTurnCut: { task_id: string; prompt_id: number | null } | null;
+  /** True when an end of the workflow landed while another end waited on a sandbox destroy. */
+  secondEnd: boolean;
   /** How many store statements the action ran. */
   work: number;
 };
@@ -283,6 +290,22 @@ const coverPolisherDoneLater = coverageCase(
   "refinerRunIsDoneOnlyAfterItsTurnEnded: a polisher ends done in a later step",
 );
 const coverFinishedTask = coverageCase("finishedTaskKeepsItsStatus: a finished task in a step");
+const coverStepOnFinishedWorkflow = coverageCase(
+  "finishedWorkflowKeepsItsStatus: a step lands on a finished workflow",
+);
+const coverSecondEnd = coverageCase(
+  "finishedWorkflowKeepsItsStatus: a second end lands while the workflow ends",
+);
+const coverTaskRestarted = coverageCase("taskRestartsAtMostTwice: a task restarted");
+const coverPausedThroughAStep = coverageCase(
+  "pausedAuthorGetsNoPrompt: a task stays paused through a step",
+);
+const coverPausedRestart = coverageCase(
+  "pausedAuthorGetsNoPrompt: a paused task restarts in the step",
+);
+const coverWorkflowWaits = coverageCase(
+  "workflowWaitsOnlyWhileNoAuthorWorks: the workflow moves to waiting for input",
+);
 const coverArtifactMove = coverageCase("artifactStatusMovesAreLegal: an artifact changes status");
 const coverTodosAfterArtifact = coverageCase(
   "todoListIsFixedAfterFirstArtifact: an author with a todo list has an artifact",
@@ -888,17 +911,84 @@ export function refinerRunIsDoneOnlyAfterItsTurnEnded(
 
 /** A finished task never changes status again. */
 export function finishedTaskKeepsItsStatus(_workflow: WorkflowRuntime, step: Step): void {
-  for (const before of step.before.tasks) {
-    if (!FINISHED.includes(before.status)) continue;
-    coverFinishedTask();
-    const after = step.after.tasks.find((task) => task.task_id === before.task_id);
-    if (after?.status !== before.status) {
+  for (const { before, after } of stepParts(step)) {
+    for (const was of before.tasks) {
+      if (!FINISHED.includes(was.status)) continue;
+      coverFinishedTask();
+      const now = after.tasks.find((task) => task.task_id === was.task_id);
+      if (now?.status === was.status) continue;
       violated(
         "finishedTaskKeepsItsStatus",
-        `${before.task_id} went from ${before.status} to ${after?.status ?? "nothing"}`,
+        `${was.task_id} went from ${was.status} to ${now?.status ?? "nothing"}`,
       );
     }
   }
+}
+
+/** The step cut at each event that landed in the middle of its action, in order. */
+function stepParts(step: Step): Array<{ before: Observation; after: Observation }> {
+  const parts: Array<{ before: Observation; after: Observation }> = [];
+  let before = step.before;
+  for (const after of [...step.landed, step.after]) {
+    parts.push({ before, after });
+    before = after;
+  }
+  return parts;
+}
+
+/** A workflow that is done, failed or cancelled keeps that status. */
+export function finishedWorkflowKeepsItsStatus(_workflow: WorkflowRuntime, step: Step): void {
+  if (step.secondEnd) coverSecondEnd();
+  for (const { before, after } of stepParts(step)) {
+    if (!FINISHED_WORKFLOW.includes(before.workflowStatus)) continue;
+    coverStepOnFinishedWorkflow();
+    if (after.workflowStatus === before.workflowStatus) continue;
+    violated(
+      "finishedWorkflowKeepsItsStatus",
+      `${step.action} moved a ${before.workflowStatus} workflow to ${after.workflowStatus}`,
+    );
+  }
+}
+
+/** A task restarts at most `MAX_RESTARTS` times, whatever the cause. */
+export function taskRestartsAtMostTwice(workflow: WorkflowRuntime): void {
+  for (const task of workflow.store.tasks()) {
+    if (task.restarts > 0) coverTaskRestarted();
+    if (task.restarts <= MAX_RESTARTS) continue;
+    violated("taskRestartsAtMostTwice", `${task.task_id} restarted ${task.restarts} times`);
+  }
+}
+
+/** The workflow sends a paused task no prompt until it resumes. */
+export function pausedAuthorGetsNoPrompt(workflow: WorkflowRuntime, step: Step): void {
+  for (const { before, after } of stepParts(step)) {
+    for (const was of before.tasks) {
+      const now = after.tasks.find((task) => task.task_id === was.task_id);
+      if (!was.paused || !now?.paused) continue;
+      coverPausedThroughAStep();
+      if (workflow.store.requireTask(now.task_id).restarts > 0) coverPausedRestart();
+      if (now.promptsSent === was.promptsSent) continue;
+      violated(
+        "pausedAuthorGetsNoPrompt",
+        `${step.action} sent ${now.promptsSent - was.promptsSent} prompt(s) to paused ${now.task_id}`,
+      );
+    }
+  }
+}
+
+/** The workflow moves to waiting for input only in a step that leaves no author or researcher at work. */
+export function workflowWaitsOnlyWhileNoAuthorWorks(_workflow: WorkflowRuntime, step: Step): void {
+  if (step.after.workflowStatus !== "waiting_input") return;
+  if (step.before.workflowStatus === "waiting_input") return;
+  coverWorkflowWaits();
+  const working = step.after.tasks.filter(
+    (task) => JOB_ROLES.includes(task.role) && RUNNING_AUTHOR.includes(task.status),
+  );
+  if (!working.length) return;
+  violated(
+    "workflowWaitsOnlyWhileNoAuthorWorks",
+    `${step.action} moved the workflow to waiting_input while ${working.map((task) => `${task.task_id} (${task.status})`).join(", ")} worked`,
+  );
 }
 
 /**
@@ -1078,17 +1168,18 @@ export function aRestartDoesNotLoseAModelTurn(workflow: WorkflowRuntime, step: S
  * and researcher tasks were fewer than the slots. A refiner run takes no slot.
  */
 export function jobStartsOnlyIntoAFreeSlot(workflow: WorkflowRuntime, step: Step): void {
-  const knownJobs = new Set(step.before.tasks.map((task) => task.job_id));
-  const started = step.after.tasks.filter((task) => !knownJobs.has(task.job_id));
-  if (started.length === 0) return;
-  const unfinished = step.before.tasks.filter(
-    (task) => JOB_ROLES.includes(task.role) && !FINISHED.includes(task.status),
-  );
-  coverJobStarts();
-  if (unfinished.length > 0 && unfinished.length === workflow.state.concurrency - 1) {
-    coverLastSlot();
-  }
-  if (unfinished.length >= workflow.state.concurrency) {
+  for (const { before, after } of stepParts(step)) {
+    const knownJobs = new Set(before.tasks.map((task) => task.job_id));
+    const started = after.tasks.filter((task) => !knownJobs.has(task.job_id));
+    if (started.length === 0) continue;
+    const unfinished = before.tasks.filter(
+      (task) => JOB_ROLES.includes(task.role) && !FINISHED.includes(task.status),
+    );
+    coverJobStarts();
+    if (unfinished.length > 0 && unfinished.length === workflow.state.concurrency - 1) {
+      coverLastSlot();
+    }
+    if (unfinished.length < workflow.state.concurrency) continue;
     violated(
       "jobStartsOnlyIntoAFreeSlot",
       `${started.map((task) => task.job_id).join(", ")} started with ${unfinished.length} unfinished and ${workflow.state.concurrency} slots`,

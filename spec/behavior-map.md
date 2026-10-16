@@ -17,13 +17,13 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | T5 | The first bridge hello moves the task to `working`. | |
 | T6 | A model-call author is `working` only while its model turn is in flight, or after a stop ended its first turn before the page existed. | `aModelCallAuthorWorksOnlyWhileItsCallIsOut` |
 | T7 | An author moves to `in_review` only when its job has an artifact and a prompt is not in flight. | `inReviewTaskHasAnArtifact` |
-| T8 | A finished task (`done`, `failed`, `cancelled`) never changes status again. | `finishedTaskKeepsItsStatus` |
+| T8 | A finished task (`done`, `failed`, `cancelled`) never changes status again. A restart or a completion that finds the task finished when it reads it again leaves it finished. | `finishedTaskKeepsItsStatus` |
 | T9 | A failed author or researcher closes its review as blocked, posts `failed`, and wakes the agent. A failed reviewer or polisher hands the artifact over blocked. | |
 | T10 | A cancelled author or researcher closes its review as blocked, flushes the board, and tells the agent. | `finishedTaskKeepsItsStatus`, `endedWorkflowHasNoUnfinishedTask` |
 | T11 | Each usage update replaces a harness task's cost. A restart can lower the reported cost. | |
 | T12 | The workflow is `running` after the plan, a job start, or a person's message on a `waiting_input` workflow. | `workflowStartsOnlyFromAPlan` |
-| T13 | The workflow moves to `waiting_input` on the sleep message or on `ask`, only while every author and researcher is idle. | |
-| T14 | A workflow that is `done`, `failed` or `cancelled` keeps every task finished, and an event does not reopen it. | `endedWorkflowHasNoUnfinishedTask`, `nothingReopensAFinishedWorkflow` |
+| T13 | The workflow moves to `waiting_input` on the sleep message or on `ask`, only while every author and researcher is idle. | `workflowWaitsOnlyWhileNoAuthorWorks` |
+| T14 | A workflow that is `done`, `failed` or `cancelled` keeps that status and every task finished, and an event does not reopen it. While the workflow ends, `set_plan`, `start_job`, `finish_workflow`, `fail_workflow` and a cancel are refused. | `endedWorkflowHasNoUnfinishedTask`, `nothingReopensAFinishedWorkflow`, `finishedWorkflowKeepsItsStatus` |
 | T15 | A later plan cannot change the workflow definition. | `workflowKeepsItsDefinition` |
 | T16 | An artifact is recorded as `drafted` from a link in the turn text, an open pull request on the branch, or a created page. Its todo list is complete and fixed from then on. A researcher never records one. | `todoListIsFixedAfterFirstArtifact` |
 | T17 | An artifact status moves only along the legal moves, and `accepted` and `removed` are final. | `artifactStatusMovesAreLegal`, `anAcceptedArtifactNeverMovesBack` |
@@ -35,7 +35,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| T20 | A task restarts at most twice, whatever the cause, then fails. The count lives on the task and covers harness and model-call tasks. | |
+| T20 | A task restarts at most twice, whatever the cause, then fails. The count lives on the task and covers harness and model-call tasks. | `taskRestartsAtMostTwice` |
 | T21 | Recovery of a lost harness turn starts a fresh sandbox without counting a restart. A sandbox that keeps dying mid-turn restarts without a limit. | |
 | T22 | A harness process exit counts a restart and starts a fresh sandbox. It does not close the container, write the board note, or tell the agent. | |
 | T23 | A sandbox start that throws restarts or fails. A spec error, a gateway error or a stage the definition stopped declaring fails at once. | |
@@ -121,7 +121,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | A36 | `complete_job` stores a selection, or advances a host-accepted artifact. It ends the author `done`, destroys its sandbox, cancels its refiner run, and hands the artifact over. | `aFailedCheckNeverCompletesAJob`, `aFailedCheckNeverAsksThePersonAgain` |
 | A37 | `cancel_job` cancels the author or researcher. It closes its feed, destroys its sandbox, cancels its refiner run, and closes the artifact. | `finishedTaskKeepsItsStatus`, `artifactStatusMovesAreLegal`, `oneUnfinishedRefinerRunPerArtifact` |
 | A38 | `prompt_task` reads and screens held page comments, marks them read, and queues the prompt. It marks the comments read before it queues the prompt. | `aPromptToAPageAuthorCarriesItsHeldComments` |
-| A39 | `pause_task` and `resume_task` set or clear the pause, send a cancel to the harness session, post "Paused" or "Resumed", and queue "Continue where you left off." on resume. They report success on a no-op. | |
+| A39 | `pause_task` and `resume_task` set or clear the pause, send a cancel to the harness session, post "Paused" or "Resumed", and queue "Continue where you left off." on resume. They report success on a no-op. A paused task gets no prompt until it resumes. The first prompt of a session that opens while the task is paused waits at the head of its queue, and the restart of a paused task waits for the resume to start the next generation. | `pausedAuthorGetsNoPrompt` |
 | A40 | `cancel_task` cancels a refiner run. A cancelled polisher hands the artifact over as it was left. | `oneUnfinishedRefinerRunPerArtifact`, `finishedTaskKeepsItsStatus` |
 | A41 | `request_review` starts the reviewer segment from its first entry. `finish_review` moves past the open entry to the next refiner or the handover. | `refinersRunAgainOnlyOnChangedRevision`, `oneUnfinishedRefinerRunPerArtifact`, `authorIsIdleWhileAPolisherRuns` |
 | A42 | `rule_on_review` with approve moves on, or first sends the author the findings of the judge's segment. With reject it posts the signed reason on the artifact host and sends it to the author with those findings. | `judgeRulesAtMostOnce`, `authorGetsEveryPullFinding` |

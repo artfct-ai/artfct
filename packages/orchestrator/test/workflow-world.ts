@@ -245,6 +245,7 @@ export type StepFacts = Partial<
     | "start"
     | "finishedByAgent"
     | "modelTurnCut"
+    | "secondEnd"
   >
 >;
 
@@ -355,6 +356,7 @@ export class WorkflowWorld {
   private reviewNumber = 0;
   private eventNumber = 0;
   private delivered: Step["event"] = null;
+  private landed: Observation[] = [];
   private chatThreadsJoined = 0;
   private readonly checksOnPush: ChecksOnPush;
   private readonly tracker: SessionTracker;
@@ -519,6 +521,7 @@ export class WorkflowWorld {
     const outboxBefore = this.workflow.store.outbox().length;
     const postedBefore = this.workflow.posted.length;
     this.delivered = null;
+    this.landed = [];
     const running = { label: String(action), statementsAtStart: this.statements };
     this.runningAction = running;
     const facts = (await action.run(this)) ?? {};
@@ -534,6 +537,7 @@ export class WorkflowWorld {
     const step: Step = {
       action: String(action),
       before,
+      landed: this.landed,
       after: this.observe(),
       notes: this.workflow.notes.slice(notesBefore),
       authorTurnEnd: facts.authorTurnEnd ?? this.modelTurnEndSince(modelTurnEndsBefore),
@@ -550,6 +554,7 @@ export class WorkflowWorld {
       heldCommentsAsked: facts.heldCommentsAsked ?? null,
       start: facts.start ?? null,
       finishedByAgent: facts.finishedByAgent ?? false,
+      secondEnd: facts.secondEnd ?? false,
       event: this.delivered,
       sessionPosts: sessionPostsOf(rows),
       postedTypes: this.workflow.posted.slice(postedBefore).map((event) => event.type),
@@ -797,6 +802,37 @@ export class WorkflowWorld {
     this.installHost();
   }
 
+  /** Run an event that lands in the middle of the running action, and observe the world after it. */
+  async land(meanwhile: WorkflowAction): Promise<StepFacts> {
+    const facts = (await meanwhile.run(this)) ?? {};
+    this.landed.push(this.observe());
+    return facts;
+  }
+
+  /**
+   * Run `body`, and run `meanwhile` while the first sandbox destroy that `body` makes is out. The
+   * destroy returns once `meanwhile` ended. The facts are those of both.
+   */
+  async whileSandboxDestroyed(
+    meanwhile: WorkflowAction,
+    body: () => Promise<StepFacts | void>,
+  ): Promise<StepFacts> {
+    const provider = this.workflow.sandboxProvider;
+    const destroy = provider.destroy.bind(provider);
+    let landedFacts: StepFacts = {};
+    provider.destroy = async (sandbox) => {
+      provider.destroy = destroy;
+      await destroy(sandbox);
+      landedFacts = await this.land(meanwhile);
+    };
+    try {
+      const bodyFacts = (await body()) ?? {};
+      return { ...bodyFacts, ...landedFacts };
+    } finally {
+      provider.destroy = destroy;
+    }
+  }
+
   /**
    * The decisions model that answers every question from now on. `meanwhile` runs while its
    * first call is out, or its first call that asks the yes-or-no `question`, the way another
@@ -804,14 +840,19 @@ export class WorkflowWorld {
    */
   answerDecisionsWith(
     answers: DecisionAnswers,
-    meanwhile?: () => Promise<void>,
+    meanwhile?: WorkflowAction,
     question?: string,
   ): void {
     const answering = decisionsAnswering(answers);
-    const decisions = meanwhile
+    const landing =
+      meanwhile &&
+      (async () => {
+        await this.land(meanwhile);
+      });
+    const decisions = landing
       ? new InterleavedDecisions(
           answering,
-          question ? onFirstCallAsking(question, meanwhile) : onFirstCall(meanwhile),
+          question ? onFirstCallAsking(question, landing) : onFirstCall(landing),
         )
       : answering;
     this.workflow.gatewayInstance = new FakeGateway({ decisions });
@@ -1254,6 +1295,9 @@ export class WorkflowWorld {
           ...(this.modelPromptTexts.get(task.task_id) ?? []),
         ],
         promptsQueued: this.promptsQueuedFor(task.task_id),
+        promptsSent:
+          this.promptsSentTo(task.task_id) + (this.modelPromptTexts.get(task.task_id)?.length ?? 0),
+        paused: task.paused_at !== null,
         cancelsSent: this.bridges
           .filter((bridge) => bridge.taskId === task.task_id)
           .reduce((total, bridge) => total + bridge.cancelsSent, 0),

@@ -320,6 +320,18 @@ export class WorkflowStore extends BoardStore {
     this.db.insert(promptQueue).values({ task_id: taskId, text, created_at: now() }).run();
   }
 
+  /** Queue a prompt ahead of every prompt that waits. */
+  enqueuePromptFirst(taskId: string, text: string): void {
+    const head = this.db
+      .select({ id: promptQueue.id })
+      .from(promptQueue)
+      .orderBy(promptQueue.id)
+      .limit(1)
+      .get();
+    const id = head ? head.id - 1 : undefined;
+    this.db.insert(promptQueue).values({ id, task_id: taskId, text, created_at: now() }).run();
+  }
+
   peekPrompt(taskId: string): QueuedPrompt | null {
     return (
       this.db

@@ -527,7 +527,11 @@ async function complete(
     const pending = await acceptancePending(workflow, artifact, { personMessages, turn });
     if (pending) return pending;
   }
-  const outcome = await completeJob(workflow, author, result);
+  const checked = workflow.store.requireTask(author.task_id);
+  if (isTaskFinished(checked.status)) {
+    return `Job ${jobId} ended while its acceptance was checked: its author task is ${checked.status}.`;
+  }
+  const outcome = await completeJob(workflow, checked, result);
   if (jobCompletesSingleIssueWorkflow(workflow, job)) {
     await completeWorkflow(workflow, result);
     return `Job ${jobId} done. It completed the last planned stage on the subject issue, so the workflow is done.`;

@@ -89,7 +89,7 @@ export type SpecAuthor = {
   turnRunning: boolean;
   promptsSent: number;
   promptsQueued: number;
-  sandboxGone: boolean;
+  generationClosed: boolean;
 };
 
 /** One job as the spec sees it. */
@@ -100,7 +100,7 @@ export type SpecJob = {
   refinerRun: (typeof REFINER_RUN_STATUSES)[number];
 };
 
-/** One held call as the spec sees it, without the stretch that runs when it returns. */
+/** One held call as the spec sees it, without the rest of the step that runs when it returns. */
 export type SpecCall = { kind: CallKind; job: number; state: CallState };
 
 /** The workflow as the spec sees it. */
@@ -219,7 +219,7 @@ function specJob(value: unknown): SpecJob {
       turnRunning: bool(field(author, "turnRunning")),
       promptsSent: int(field(author, "promptsSent")),
       promptsQueued: int(field(author, "promptsQueued")),
-      sandboxGone: bool(field(author, "sandboxGone")),
+      generationClosed: bool(field(author, "generationClosed")),
     },
     artifact: oneOf(variant(field(value, "artifact"))!.tag, ARTIFACT_STATUSES),
     refinerRun: oneOf(variant(field(value, "refinerRun"))!.tag, REFINER_RUN_STATUSES),
@@ -266,13 +266,13 @@ function oneOf<Name extends string>(name: string, names: readonly Name[]): Name 
   return known;
 }
 
-/** One call the replay holds, with the stretch that waits on it. */
+/** One call the replay holds, with the step that waits on it. */
 type HeldCall = {
   kind: CallKind;
   jobId: string;
   state: CallState;
   answer: (decisions: Decisions) => void;
-  stretch: Promise<unknown> | null;
+  step: Promise<unknown> | null;
 };
 
 /** A sandbox provider that holds the destroy of every author sandbox until the replay returns it. */
@@ -320,10 +320,10 @@ function worldAction(
  */
 export class WorkflowLifecycleReplay {
   private readonly calls: HeldCall[] = [];
-  private stretchOut: Promise<unknown> | null = null;
+  private stepOut: Promise<unknown> | null = null;
   private completingJobId = "";
   private heldArrived: (() => void) | null = null;
-  private step = 0;
+  private taken = 0;
 
   private constructor(readonly world: WorkflowWorld) {}
 
@@ -343,8 +343,8 @@ export class WorkflowLifecycleReplay {
    * bridge process of the old one, so the old socket closes first.
    */
   async take(step: TraceStep): Promise<void> {
-    this.step += 1;
-    setSystemTime(new Date(REPLAY_START + this.step * STEP_MS));
+    this.taken += 1;
+    setSystemTime(new Date(REPLAY_START + this.taken * STEP_MS));
     this.world.workflow.gatewayInstance = new FakeGateway({
       decisions: new InterleavedDecisions(new FakeDecisions(ANSWERS), (questions) =>
         Object.hasOwn(questions.yesNo, "accepts") ? this.holdAcceptance() : null,
@@ -403,7 +403,7 @@ export class WorkflowLifecycleReplay {
             turnRunning: store.sandbox(author.task_id)?.prompt_in_flight === 1,
             promptsSent: seen ? seen.promptTexts.length - seen.queuedPrompts : 0,
             promptsQueued: seen?.queuedPrompts ?? 0,
-            sandboxGone:
+            generationClosed:
               !isTaskFinished(author.status) &&
               workflow.connections(author.task_id).length === 0 &&
               !this.calls.some((call) => call.jobId === job.job_id && call.state === "Out"),
@@ -470,7 +470,7 @@ export class WorkflowLifecycleReplay {
         );
       case "agentCancelsJob":
         return worldAction(`agent cancels job ${picks.id}`, (world) =>
-          this.runStretch(async () => {
+          this.runStep(async () => {
             const { cancel_job } = startTools(world.workflow);
             const jobId = this.jobOf(required(picks.id)).job_id;
             await cancel_job.execute({ job_id: jobId, reason: "a person asked" }, TOOL_CALL);
@@ -478,7 +478,7 @@ export class WorkflowLifecycleReplay {
         );
       case "agentCompletesJob":
         return worldAction(`agent completes job ${picks.id}`, (world) =>
-          this.runStretch(async () => {
+          this.runStep(async () => {
             const { complete_job } = startTools(world.workflow, ACCEPTANCE);
             this.completingJobId = this.jobOf(required(picks.id)).job_id;
             await complete_job.execute(
@@ -499,7 +499,7 @@ export class WorkflowLifecycleReplay {
         return personWrites("prompt");
       case "workflowEnds":
         return worldAction(`the workflow ends: ${picks.ending}`, (world) =>
-          this.runStretch(() => this.endWorkflow(world, required(picks.ending))),
+          this.runStep(() => this.endWorkflow(world, required(picks.ending))),
         );
       case "idleAlarmFires":
         return timerFires("idle", 0);
@@ -576,31 +576,31 @@ export class WorkflowLifecycleReplay {
     const sandbox = world.workflow.store.requireSandbox(author.task_id);
     const alarm = { task_id: author.task_id, generation: sandbox.generation };
     if (!sandbox.nudged) await onNoProgress(world.workflow, alarm);
-    await this.runStretch(() => onNoProgress(world.workflow, alarm));
+    await this.runStep(() => onNoProgress(world.workflow, alarm));
   }
 
-  /** Run a stretch until it ends or a call it makes is held. */
-  private async runStretch(stretch: () => Promise<unknown>): Promise<void> {
+  /** Run a step until it ends or a call it makes is held. */
+  private async runStep(step: () => Promise<unknown>): Promise<void> {
     const held = new Promise<"held">((resolve) => {
       this.heldArrived = () => resolve("held");
     });
     const started: { running: Promise<unknown> | null } = { running: null };
-    this.stretchOut = Promise.resolve().then(() => started.running);
-    const running = stretch();
+    this.stepOut = Promise.resolve().then(() => started.running);
+    const running = step();
     started.running = running;
     await Promise.race([held, running]);
     this.heldArrived = null;
-    this.stretchOut = null;
+    this.stepOut = null;
   }
 
   private async returnCall(callId: number, accepts: number): Promise<void> {
     const call = this.calls[callId];
     if (!call || call.state !== "Out") throw new Error(`no call ${callId} is out`);
     call.state = "Returned";
-    const { stretch } = call;
-    await this.runStretch(async () => {
+    const rest = call.step;
+    await this.runStep(async () => {
       call.answer(new FakeDecisions({ ...ANSWERS, accepts }));
-      await stretch;
+      await rest;
     });
   }
 
@@ -619,8 +619,8 @@ export class WorkflowLifecycleReplay {
     });
   }
 
-  private hold(call: Omit<HeldCall, "state" | "stretch">): void {
-    this.calls.push({ ...call, state: "Out", stretch: this.stretchOut });
+  private hold(call: Omit<HeldCall, "state" | "step">): void {
+    this.calls.push({ ...call, state: "Out", step: this.stepOut });
     this.heldArrived?.();
   }
 

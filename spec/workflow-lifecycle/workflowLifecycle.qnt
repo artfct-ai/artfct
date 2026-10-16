@@ -1,9 +1,9 @@
 /// The lifecycle of one workflow and its jobs, from the request to the end of the workflow.
-/// Each action is one stretch of the orchestrator that runs to its end before the next event lands.
-/// Two calls split a stretch: the destroy of an author's sandbox, and the acceptance check of
+/// Each action is one step of the orchestrator that runs to its end before the next event lands.
+/// Two calls split a step: the destroy of an author's sandbox, and the acceptance check of
 /// `complete_job`. One action sends the call and a later action returns it. A restart of the
-/// Durable Object drops every call that is out, with the rest of its stretch.
-/// The world answers every other await at once, so the model folds those into the stretch.
+/// Durable Object drops every call that is out, with the rest of its step.
+/// The world answers every other await at once, so the model folds those into the step.
 /// A refiner run is modelled only as running or finished.
 module workflowLifecycleTypes {
   type WorkflowStatus = New | Running | WaitingInput | Done | Failed | Cancelled
@@ -16,8 +16,9 @@ module workflowLifecycleTypes {
 
   /// The author task of a job. `turnRunning` holds while a prompt is in flight, also after the task
   /// finished. `promptsSent` counts the prompts the workflow sent its harness. `promptsQueued`
-  /// counts the prompts that wait for the turn to end. `sandboxGone` holds once a restart closed the
-  /// container and a restart of the Durable Object dropped the rest.
+  /// counts the prompts that wait for the turn to end. `generationClosed` holds while a restart
+  /// closed the container of the author's generation and did not start the next one, because a
+  /// restart of the Durable Object dropped the rest or because the author is paused.
   type Author = {
     status: TaskStatus,
     restarts: int,
@@ -25,7 +26,7 @@ module workflowLifecycleTypes {
     turnRunning: bool,
     promptsSent: int,
     promptsQueued: int,
-    sandboxGone: bool,
+    generationClosed: bool,
   }
 
   type ArtifactStatus = NoArtifact | Drafted | Ready
@@ -49,8 +50,8 @@ module workflowLifecycleTypes {
   /// still has to cancel.
   type Caller = ToolOrEvent | WorkflowEnd({ endsAs: WorkflowStatus, remaining: List[int] })
 
-  /// The rest of the stretch that runs when the call returns. `RestartAfterWake` is a restart whose
-  /// author a resume woke in a new sandbox while its old container went.
+  /// The rest of the step that runs when the call returns. `RestartAfterWake` is a restart whose
+  /// author a resume woke in a new generation while its old container went.
   type Rest =
     | TeardownGoesOn({ teardown: Teardown, caller: Caller })
     | RestartGoesOn
@@ -144,7 +145,7 @@ module workflowLifecycle {
       ...flow.jobs[id].author,
       status: status,
       promptsQueued: 0,
-      sandboxGone: false,
+      generationClosed: false,
     })
 
   /// The input of a new job: the artifact of the latest done job whose artifact the humans have,
@@ -163,8 +164,23 @@ module workflowLifecycle {
   pure def inputHeld(flow: Workflow, input: Input): bool =
     jobIds(flow).exists(id => flow.jobs[id].input == input and holdsItsInput(flow.jobs[id]))
 
+  /// True while the loop of a workflow end cancels its authors. Only this instance knows it, so a
+  /// restart of the Durable Object forgets it with the calls it drops.
+  pure def workflowEnding(flow: Workflow): bool =
+    flow.calls.indices().exists(callId => and {
+      flow.calls[callId].state == Out,
+      match flow.calls[callId].rest {
+        | TeardownGoesOn(teardown) => match teardown.caller {
+          | WorkflowEnd(_) => true
+          | ToolOrEvent => false
+        }
+        | _ => false
+      },
+    })
+
   pure def canStartJob(flow: Workflow, input: Input): bool = and {
     not(hasEnded(flow.status)),
+    not(workflowEnding(flow)),
     flow.definition != Unplanned,
     unfinishedJobIds(flow).length() < SLOTS,
     not(inputHeld(flow, input)),
@@ -178,7 +194,7 @@ module workflowLifecycle {
       turnRunning: true,
       promptsSent: 1,
       promptsQueued: 0,
-      sandboxGone: false,
+      generationClosed: false,
     }
     val job = { input: input, author: author, artifact: NoArtifact, refinerRun: NoRefinerRun }
     { ...flow, jobs: flow.jobs.append(job), status: Running }
@@ -205,13 +221,14 @@ module workflowLifecycle {
     { ...flow, jobs: stopped, status: endsAs }
   }
 
-  /// The loop of a workflow end cancels the next author of the list it read when it began. The
-  /// list holds the rows as they were then, so the author is cancelled whatever it is now.
-  pure def continueWorkflowEnd(flow: Workflow, endsAs: WorkflowStatus, remaining: List[int]): Workflow =
-    if (remaining.length() == 0) finishWorkflowEnd(flow, endsAs)
+  /// The loop of a workflow end cancels the next author of the list it read when it began. It reads
+  /// each author again, so an author that finished meanwhile keeps its status.
+  pure def continueWorkflowEnd(flow: Workflow, endsAs: WorkflowStatus, remaining: List[int]): Workflow = {
+    val left = remaining.select(id => not(isFinished(flow.jobs[id].author.status)))
+    if (left.length() == 0) finishWorkflowEnd(flow, endsAs)
     else {
-      val id = remaining.head()
-      val caller = WorkflowEnd({ endsAs: endsAs, remaining: remaining.tail() })
+      val id = left.head()
+      val caller = WorkflowEnd({ endsAs: endsAs, remaining: left.tail() })
       sendCall(
         finishAuthor(flow, id, TaskCancelled),
         SandboxDestroy,
@@ -219,6 +236,7 @@ module workflowLifecycle {
         TeardownGoesOn({ teardown: AfterCancel, caller: caller }),
       )
     }
+  }
 
   pure def startWorkflowEnd(flow: Workflow, endsAs: WorkflowStatus): Workflow =
     continueWorkflowEnd(flow, endsAs, unfinishedJobIds(flow))
@@ -231,18 +249,28 @@ module workflowLifecycle {
     }
   }
 
-  /// `restartSandbox` puts the task back to queued and counts the restart, then the sandbox comes
-  /// up and the harness gets the queued prompt, or its first prompt.
-  pure def restartGoesOn(flow: Workflow, id: int): Workflow = {
+  /// The restart reads the author again once its old container went. A finished author stays
+  /// finished. A paused author counts the restart and waits for its resume to start the next
+  /// generation. Otherwise `restartSandbox` puts the task back to queued and counts the restart,
+  /// then the sandbox comes up and the harness gets the queued prompt, or its first prompt.
+  pure def restartGoesOn(flow: Workflow, id: int, woken: bool): Workflow = {
     val author = flow.jobs[id].author
-    withAuthor(flow, id, {
-      ...author,
-      status: Busy,
-      restarts: author.restarts + 1,
-      turnRunning: true,
-      promptsSent: author.promptsSent + 1,
-      promptsQueued: if (author.promptsQueued > 0) author.promptsQueued - 1 else 0,
-    })
+    if (isFinished(author.status)) flow
+    else if (author.paused)
+      withAuthor(flow, id, {
+        ...author,
+        restarts: author.restarts + 1,
+        generationClosed: author.generationClosed or not(woken),
+      })
+    else
+      withAuthor(flow, id, {
+        ...author,
+        status: Busy,
+        restarts: author.restarts + 1,
+        turnRunning: true,
+        promptsSent: author.promptsSent + 1,
+        promptsQueued: if (author.promptsQueued > 0) author.promptsQueued - 1 else 0,
+      })
   }
 
   /// `completeJob` ends the author done with the row it read before the check.
@@ -259,14 +287,14 @@ module workflowLifecycle {
     val returned = withCallState(flow, callId, Returned)
     match call.rest {
       | TeardownGoesOn(teardown) => teardownGoesOn(returned, call.job, teardown.caller)
-      | RestartGoesOn => restartGoesOn(returned, call.job)
-      | RestartAfterWake => restartGoesOn(returned, call.job)
+      | RestartGoesOn => restartGoesOn(returned, call.job, false)
+      | RestartAfterWake => restartGoesOn(returned, call.job, true)
       | CompletionGoesOn => returned
     }
   }
 
   /// A restart of the Durable Object drops every call that is out. An author whose restart it
-  /// dropped keeps its task without a sandbox.
+  /// dropped keeps its task while its generation is closed.
   pure def dropCalls(flow: Workflow): Workflow = {
     val stranded = flow.calls.indices().filter(callId =>
       flow.calls[callId].state == Out and flow.calls[callId].rest == RestartGoesOn and
@@ -275,7 +303,7 @@ module workflowLifecycle {
       ...flow.jobs[id],
       author: {
         ...flow.jobs[id].author,
-        sandboxGone: flow.jobs[id].author.sandboxGone or
+        generationClosed: flow.jobs[id].author.generationClosed or
           stranded.exists(callId => flow.calls[callId].job == id),
       },
     }))
@@ -284,20 +312,20 @@ module workflowLifecycle {
     { ...flow, jobs: jobs, calls: calls }
   }
 
-  /// A stalled author without a sandbox gets a fresh one, and its harness the queued prompt or a
-  /// wake text. This does not count as a restart.
+  /// A stalled author whose generation is closed gets the next one, and its harness the queued
+  /// prompt or a wake text. This does not count as a restart.
   pure def recoverLostTurn(flow: Workflow, id: int): Workflow = {
     val author = flow.jobs[id].author
     withAuthor(flow, id, {
       ...author,
-      sandboxGone: false,
+      generationClosed: false,
       promptsSent: author.promptsSent + 1,
       promptsQueued: if (author.promptsQueued > 0) author.promptsQueued - 1 else 0,
     })
   }
 
   /// `resumeTask` queues the resume prompt and sends the head of the queue. Without a bridge it
-  /// wakes a sandbox for it, also while a restart is closing the old container.
+  /// starts the next generation for it, also while a restart is closing the old container.
   pure def resumeAuthor(flow: Workflow, id: int): Workflow = {
     val author = flow.jobs[id].author
     val calls = flow.calls.foldl(List(), (calls, call) => calls.append(
@@ -309,7 +337,7 @@ module workflowLifecycle {
       paused: false,
       turnRunning: true,
       promptsSent: author.promptsSent + 1,
-      sandboxGone: false,
+      generationClosed: false,
       status: if (author.status == InReview) Busy else author.status,
     })
   }
@@ -340,9 +368,9 @@ module workflowLifecycle {
     { ...withJob(flow, id, finished), idleArmed: flow.idleArmed or handedOver }
   }
 
-  /// True when the author's harness is on a turn the agent did not pause, in a sandbox that stays.
+  /// True when the author's harness is on a turn the agent did not pause, in a generation that runs.
   pure def authorWorks(flow: Workflow, id: int): bool =
-    authorStuck(flow, id) and not(flow.jobs[id].author.sandboxGone)
+    authorStuck(flow, id) and not(flow.jobs[id].author.generationClosed)
 
   /// True when the author's turn runs unpaused and its sandbox is not on its way out.
   pure def authorStuck(flow: Workflow, id: int): bool = and {
@@ -381,12 +409,14 @@ module workflowLifecycle {
     lastStep' = { before: INITIAL_WORKFLOW, kind: OtherStep },
   }
 
-  /// The agent calls `set_plan` with stages and one of the workflow definitions. A plan on an ended
-  /// A plan that names another workflow definition than the one the workflow started from is refused.
+  /// The agent calls `set_plan` with stages and one of the workflow definitions while the workflow
+  /// has not ended. A plan is refused while the workflow ends, and when it names another workflow
+  /// definition than the one the workflow started from.
   action agentSetsPlan: bool = all {
     not(hasEnded(workflow.status)),
     nondet definition = DEFINITIONS.oneOf()
-    val refused = workflow.definition != Unplanned and workflow.definition != Planned(definition)
+    val otherDefinition = workflow.definition != Unplanned and workflow.definition != Planned(definition)
+    val refused = workflowEnding(workflow) or otherDefinition
     move(
       if (refused) workflow else { ...workflow, definition: Planned(definition), status: Running },
       PlanStep(definition),
@@ -433,7 +463,7 @@ module workflowLifecycle {
     val author = workflow.jobs[id].author
     all {
       move(
-        if (author.sandboxGone) recoverLostTurn(workflow, id)
+        if (author.generationClosed) recoverLostTurn(workflow, id)
         else if (author.restarts < MAX_RESTARTS)
           sendCall(
             withAuthor(workflow, id, { ...author, promptsQueued: author.promptsQueued + 1 }),
@@ -475,13 +505,16 @@ module workflowLifecycle {
   ))
 
   /// The decisions model answers the acceptance check. The job completes when it reads an acceptance
-  /// in the person's message and stays open when it does not.
+  /// in the person's message and stays open when it does not. `complete_job` reads the author
+  /// again after the check, so an author that finished meanwhile keeps its status.
   action acceptanceCheckReturns: bool = all {
     outCalls(workflow, AcceptanceCheck).size() > 0,
     nondet callId = outCalls(workflow, AcceptanceCheck).oneOf()
     nondet accepted = Set(true, false).oneOf()
     val returned = withCallState(workflow, callId, Returned)
-    move(if (accepted) completeAuthor(returned, workflow.calls[callId].job) else returned, OtherStep),
+    val id = workflow.calls[callId].job
+    val completes = accepted and not(isFinished(workflow.jobs[id].author.status))
+    move(if (completes) completeAuthor(returned, id) else returned, OtherStep),
   }
 
   /// The sandbox provider returns from the destroy of an author's sandbox.
@@ -500,21 +533,24 @@ module workflowLifecycle {
 
   /// The workflow ends once a job started. A person sends the cancel control word from the chat
   /// thread, the agent calls `fail_workflow`, or the agent calls `finish_workflow`, which is refused
-  /// while an author is unfinished. The cancel word may land on a workflow that already ended.
+  /// while an author is unfinished. Each is refused while another end runs. The cancel word may
+  /// land on a workflow that already ended.
   action workflowEnds: bool = all {
     workflow.jobs.length() > 0,
     nondet ending = Set(PersonCancels, AgentFails, AgentFinishes).oneOf()
+    val refused = hasEnded(workflow.status) or workflowEnding(workflow)
     match ending {
       | PersonCancels =>
-        move(if (hasEnded(workflow.status)) workflow else startWorkflowEnd(workflow, Cancelled), EventStep)
+        move(if (refused) workflow else startWorkflowEnd(workflow, Cancelled), EventStep)
       | AgentFails => all {
         not(hasEnded(workflow.status)),
-        move(startWorkflowEnd(workflow, Failed), OtherStep),
+        move(if (refused) workflow else startWorkflowEnd(workflow, Failed), OtherStep),
       }
       | AgentFinishes => all {
         not(hasEnded(workflow.status)),
         move(
-          if (unfinishedJobIds(workflow).length() > 0) workflow else finishWorkflowEnd(workflow, Done),
+          if (refused or unfinishedJobIds(workflow).length() > 0) workflow
+          else finishWorkflowEnd(workflow, Done),
           OtherStep,
         ),
       }
@@ -636,21 +672,21 @@ module workflowLifecycle {
     lastStep.kind == SleepStep implies
       (lastStep.before.definition != Unplanned and lastStep.before.status == Running)
 
-  /// Proposed. A workflow that is done, failed or cancelled keeps that status.
+  /// A workflow that is done, failed or cancelled keeps that status.
   val finishedWorkflowKeepsItsStatus: bool =
     hasEnded(lastStep.before.status) implies workflow.status == lastStep.before.status
 
-  /// Proposed. A task restarts at most `MAX_RESTARTS` times, whatever the cause.
+  /// A task restarts at most `MAX_RESTARTS` times, whatever the cause.
   val taskRestartsAtMostTwice: bool =
     jobIds(workflow).forall(id => workflow.jobs[id].author.restarts <= MAX_RESTARTS)
 
-  /// Proposed. The workflow sends a paused author no prompt until it resumes.
+  /// The workflow sends a paused author no prompt until it resumes.
   val pausedAuthorGetsNoPrompt: bool =
     lastStep.before.jobs.indices().forall(id =>
       (lastStep.before.jobs[id].author.paused and workflow.jobs[id].author.paused) implies
         workflow.jobs[id].author.promptsSent == lastStep.before.jobs[id].author.promptsSent)
 
-  /// Proposed. The workflow moves to waiting for input only in a step that leaves no author busy.
+  /// The workflow moves to waiting for input only in a step that leaves no author busy.
   val workflowWaitsOnlyWhileNoAuthorWorks: bool =
     (workflow.status == WaitingInput and lastStep.before.status != WaitingInput) implies
       busyAuthors(workflow).size() == 0
@@ -723,8 +759,17 @@ module workflowLifecycle {
   /// An author restarted.
   val anAuthorRestarted: bool = jobIds(workflow).exists(id => workflow.jobs[id].author.restarts > 0)
 
-  /// A restart of the Durable Object left an author without a sandbox.
-  val anAuthorLostItsSandbox: bool = jobIds(workflow).exists(id => workflow.jobs[id].author.sandboxGone)
+  /// A restart closed the generation of an author and did not start the next one.
+  val aRestartClosedAGeneration: bool =
+    jobIds(workflow).exists(id => workflow.jobs[id].author.generationClosed)
+
+  /// A paused author restarted and waits for its resume to start the next generation.
+  val aPausedAuthorWaitsToRestart: bool =
+    jobIds(workflow).exists(id =>
+      workflow.jobs[id].author.paused and workflow.jobs[id].author.generationClosed)
+
+  /// The workflow ends while its loop waits on the destroy of an author's sandbox.
+  val theWorkflowIsEnding: bool = workflowEnding(workflow)
 
   /// A prompt waits for the turn of an author to end.
   val aPromptWaits: bool = jobIds(workflow).exists(id => workflow.jobs[id].author.promptsQueued > 0)

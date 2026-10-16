@@ -4,7 +4,7 @@ import type { Actor, InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbo
 import { TAG_TO_START_AGAIN } from "../../notify/messages";
 import { flushBoards } from "../board/board";
 import { closeSessionFeed, STOPPED_CLOSING } from "../feed/feed";
-import { cancelTask, changeWorkflowStatus, unbindCodeHost } from "../lifecycle";
+import { cancelTask, endWorkflow, unbindCodeHost, workflowEnding } from "../lifecycle";
 import { promptTask } from "../task/harness/prompt-queue";
 import { taskAtWork } from "../task/at-work";
 import { sendNotification } from "../task/harness/bridge";
@@ -50,7 +50,8 @@ export async function applyControlWord(
 /**
  * A cancel on a tracker issue other than the subject issue cancels that issue's job alone, and
  * the notice answers the people who wrote from `answering`. One on an issue whose job is over,
- * or whose artifact the host accepted, is left alone. Everything else cancels the workflow.
+ * or whose artifact the host accepted, is left alone, and so is one while the workflow ends.
+ * Everything else cancels the workflow.
  * Returns the reason it was left alone, or null.
  */
 async function cancel(
@@ -79,6 +80,11 @@ async function cancel(
     await workflow.post({ type: "info", text: `Cancelled job ${owner.job_id}.` }, { answering });
     return null;
   }
+  if (workflowEnding(workflow)) {
+    const why = "the workflow is already ending";
+    workflow.log(null, `cancel ignored: ${why} (${reason})`);
+    return why;
+  }
   await cancelWorkflow(workflow, reason, answering);
   return null;
 }
@@ -98,11 +104,7 @@ async function cancelWorkflow(
   reason: string,
   answering: ReplyTarget[],
 ): Promise<void> {
-  for (const task of workflow.store.activeAuthorAndResearcherTasks()) {
-    await cancelTask(workflow, task, reason);
-  }
-  for (const task of workflow.store.activeRefinerRuns()) await cancelTask(workflow, task, reason);
-  await changeWorkflowStatus(workflow, "cancelled");
+  await endWorkflow(workflow, "cancelled", reason);
   await workflow.post({ type: "info", text: `Cancelled. ${TAG_TO_START_AGAIN}` }, { answering });
   await unbindCodeHost(workflow);
 }

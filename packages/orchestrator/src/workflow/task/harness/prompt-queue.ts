@@ -127,9 +127,14 @@ export async function sendPrompt(
   await armKeepAlive(workflow, workflow.store.requireSandbox(task.task_id));
 }
 
-/** Send the first prompt of a harness session that finished its handshake. */
-export function sendFirstPrompt(workflow: WorkflowRuntime, task: TaskRow): Promise<void> {
-  return sendPrompt(workflow, task, firstPromptText(workflow, task));
+/**
+ * Send the first prompt of a harness session that finished its handshake. A paused task holds it
+ * at the head of its queue, so its resume sends it before the prompts that waited.
+ */
+export async function sendFirstPrompt(workflow: WorkflowRuntime, task: TaskRow): Promise<void> {
+  const text = firstPromptText(workflow, task);
+  if (task.paused_at === null) return sendPrompt(workflow, task, text);
+  workflow.store.enqueuePromptFirst(task.task_id, text);
 }
 
 /** First prompt of a fresh harness session, or the resume prompt on a later generation. */

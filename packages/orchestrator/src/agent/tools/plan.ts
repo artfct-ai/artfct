@@ -1,6 +1,11 @@
 import { tool } from "ai";
 import { z } from "zod";
-import { changeWorkflowStatus, completeWorkflow, failWorkflow } from "../../workflow/lifecycle";
+import {
+  changeWorkflowStatus,
+  completeWorkflow,
+  failWorkflow,
+  workflowEnding,
+} from "../../workflow/lifecycle";
 import { isWorkflowFinished, type Subject } from "../../workflow/store/state";
 import { setWorkflowSubject, subjectOfRef, validatePlanKeepsSubject } from "../../workflow/subject";
 import type { WorkflowRuntime } from "../../workflow/types";
@@ -149,9 +154,13 @@ export function planTools(workflow: WorkflowRuntime) {
   };
 }
 
-/** Validate that the workflow still runs, for every tool that would change it. Null while it runs. */
+/**
+ * Validate that the workflow still runs and is not ending, for every tool that would change it.
+ * Null while it runs.
+ */
 export function validateWorkflowRunning(workflow: WorkflowRuntime): string | null {
   const { status } = workflow.state;
+  if (workflowEnding(workflow)) return "The workflow is ending. A workflow that ends stays ended.";
   if (!isWorkflowFinished(status)) return null;
   return `The workflow is ${status}. A finished workflow stays finished.`;
 }

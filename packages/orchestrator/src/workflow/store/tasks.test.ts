@@ -320,6 +320,13 @@ describe("WorkflowStore", () => {
         store.clearPromptQueue("t1");
         expect(store.queue().map((row) => row.task_id)).toEqual(["t2"]);
       }));
+
+    it("puts a prompt queued first ahead of the prompts that wait", () =>
+      twoQueued((store) => {
+        store.enqueuePromptFirst("t1", "first");
+        expect(store.peekPrompt("t1")?.text).toBe("first");
+        expect(store.queue().map((row) => row.text)).toEqual(["first", "a", "b"]);
+      }));
   });
 
   describe("a job that works from the artifact of an earlier job", () => {
