@@ -189,6 +189,35 @@ export const MUTANTS: Mutant[] = [
       "  const awaitingFirstReply = () => false && turn.personWrote && !progress.firstReplied;",
   },
   {
+    id: "A3",
+    invariant: "theWorkingStatusNeverOutlivesItsTurn",
+    path: "src/agent/turn/turn.ts",
+    find: "  if (!owesTheReply) return workflow.release();",
+    replace: "  if (!owesTheReply) return;",
+  },
+  {
+    id: "A4",
+    invariant: "aWaitingInboxRowHasATurnComing",
+    path: "src/agent/turn/watchdog.ts",
+    find: '    if (waking) await workflow.scheduleAlarm(0, "runAgent", {});\n',
+    replace: "",
+  },
+  {
+    id: "A5",
+    invariant: "sessionMessageWithoutAnAuthorIsAnswered",
+    path: "src/agent/tools/channel.ts",
+    find: '              { answering },\n            );\n            return "Acknowledged.";',
+    replace:
+      '              { answering: workflow.transcript.answering() },\n            );\n            return "Acknowledged.";',
+  },
+  {
+    id: "A6",
+    invariant: "closingTextAnswersOnlyAPersonWhoWrote",
+    path: "src/agent/turn/turn.ts",
+    find: "    turn_board_changed: lostFirstRow !== null && workflow.state.turn_board_changed === true,",
+    replace: "    turn_board_changed: false,",
+  },
+  {
     id: "R1",
     invariant: "messageAfterEndStartsNextWorkflow (claim)",
     path: "src/router/deliver.ts",

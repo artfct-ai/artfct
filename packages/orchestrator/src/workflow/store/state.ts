@@ -69,6 +69,12 @@ export type WorkflowState = {
    * stored before this field.
    */
   turn_first_row?: number | null;
+  /**
+   * True once the running turn on a person's message, or the lost turn it resumes, started or
+   * prompted a task in a workflow with a chat thread. A turn that resumes nothing starts it at
+   * false. Absent in a workflow stored before this field.
+   */
+  turn_board_changed?: boolean;
   /** The schedule id of the idle alarm that posts the sleep note, or null. */
   idle_alarm: string | null;
 };
@@ -96,6 +102,7 @@ export const initialWorkflowState: WorkflowState = {
   turn_watchdog: null,
   turn_heads_up: null,
   turn_first_row: null,
+  turn_board_changed: false,
   idle_alarm: null,
 };
 

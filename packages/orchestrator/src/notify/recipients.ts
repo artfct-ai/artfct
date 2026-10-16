@@ -7,11 +7,6 @@ import type { TaskEvent } from "../workflow/task/events";
  */
 export type Recipients = { reply_to: ReplyTarget } | { answering: ReplyTarget[] };
 
-/** The recipients of a post of the running turn: the audience, and the people the turn answers. */
-export function turnRecipients(turn: { answering(): ReplyTarget[] }): Recipients {
-  return { answering: turn.answering() };
-}
-
 /** The part of the workflow state that decides who hears a post. */
 export type Audience = { origin: ReplyTarget | null; reply_targets: ReplyTarget[] };
 

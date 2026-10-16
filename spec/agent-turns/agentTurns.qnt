@@ -45,10 +45,10 @@ module agentTurnsTypes {
 
   type Row = { id: int, entry: Entry }
 
-  /// The stamp of the turn the store holds as running.
-  type Stamp = Unstamped | Stamped(int)
+  /// The start time of the turn the store holds as running, by number.
+  type StartTime = NotRunning | StartedAt(int)
 
-  /// A watchdog or heads-up alarm, with the stamp it was armed for.
+  /// A watchdog or heads-up alarm, with the start time of the turn it was armed for.
   type Alarm = NoAlarm | ArmedFor(int)
 
   /// The first transcript row of the running turn, which compaction keeps.
@@ -80,11 +80,15 @@ module agentTurnsTypes {
     transcript: List[Row],
     nextRowId: int,
     nextInboxId: int,
-    stamp: Stamp,
-    nextStamp: int,
+    startedAt: StartTime,
+    nextStart: int,
     watchdog: Alarm,
     headsUp: Alarm,
     firstRow: FirstRow,
+    // A person's running turn, or the lost turn it resumes, started or prompted a task in chat.
+    boardChanged: bool,
+    // The `runAgent` alarms each new instance arms for rows that wait. A restart does not reuse an armed one.
+    runAgentAlarms: int,
     lastInputOverLimit: bool,
     chat: ChatStatus,
     posts: List[Post],
@@ -148,7 +152,7 @@ module agentTurnsTypes {
 
   /// The turn that runs in the isolate, with what its code keeps in memory.
   type TurnRun = {
-    stamp: int,
+    startedAt: int,
     phase: Phase,
     aborted: bool,
     pastTimeout: bool,
@@ -158,7 +162,8 @@ module agentTurnsTypes {
     owed: Owed,
     acknowledged: bool,
     firstReplied: bool,
-    boardChanged: bool,
+    // Where the people the turn answers wrote from, read as it took its inbox.
+    answering: Set[Origin],
     attempt: int,
     pass: int,
     passEndedByTool: bool,
@@ -167,7 +172,7 @@ module agentTurnsTypes {
 
   type TurnSlot = NoTurn | Running(TurnRun)
 
-  /// The isolate's memory: the turn that runs, and whether the turn coalescer runs once more.
+  /// The isolate's memory: the turn that runs, and whether the isolate runs one more turn after it.
   type Isolate = { turn: TurnSlot, rerun: bool }
 
   type Workflow = { store: Store, isolate: Isolate }
@@ -237,11 +242,13 @@ module agentTurns {
     transcript: [],
     nextRowId: 1,
     nextInboxId: 1,
-    stamp: Unstamped,
-    nextStamp: 1,
+    startedAt: NotRunning,
+    nextStart: 1,
     watchdog: NoAlarm,
     headsUp: NoAlarm,
     firstRow: NoFirstRow,
+    boardChanged: false,
+    runAgentAlarms: 0,
     lastInputOverLimit: false,
     chat: NoStatus,
     posts: [],
@@ -377,11 +384,12 @@ module agentTurns {
       val people = takenPersonRows(took)
       val armed = {
         ...took,
-        stamp: Stamped(store.nextStamp),
-        nextStamp: store.nextStamp + 1,
-        watchdog: ArmedFor(store.nextStamp),
-        headsUp: if (people.length() > 0) ArmedFor(store.nextStamp) else NoAlarm,
+        startedAt: StartedAt(store.nextStart),
+        nextStart: store.nextStart + 1,
+        watchdog: ArmedFor(store.nextStart),
+        headsUp: if (people.length() > 0) ArmedFor(store.nextStart) else NoAlarm,
         firstRow: FirstRowIs(first),
+        boardChanged: store.firstRow != NoFirstRow and store.boardChanged,
       }
       val base = match carried {
         | Fresh => { ...FRESH_RECORD, rowsBefore: store.transcript }
@@ -398,7 +406,7 @@ module agentTurns {
         answering: answeringNow(armed),
       }
       val turnRun = {
-        stamp: store.nextStamp,
+        startedAt: store.nextStart,
         phase: ReadingMessage,
         aborted: false,
         pastTimeout: false,
@@ -408,7 +416,7 @@ module agentTurns {
         owed: NotOwed,
         acknowledged: false,
         firstReplied: false,
-        boardChanged: false,
+        answering: answeringNow(armed),
         attempt: 1,
         pass: 1,
         passEndedByTool: false,
@@ -431,7 +439,7 @@ module agentTurns {
     if (turnRun.aborted) attemptEnds(store, turnRun, TimedOut, rerun, said)
     else keepRerun(awaitModel(store, turnRun), rerun)
 
-  /// The turn that ended leaves its record. The coalescer runs the next turn when a row arrived.
+  /// The turn that ended leaves its record. The isolate runs one more turn when a row arrived while it ran.
   pure def endTurn(store: Store, turnRun: TurnRun, rerun: bool, said: List[ModelSays]): Next =
     val ended = TurnEnded({
       record: turnRun.record,
@@ -445,16 +453,16 @@ module agentTurns {
       { workflow: { store: after.store, isolate: { turn: after.turn, rerun: false } }, turnEnd: ended }
     else { workflow: { store: store, isolate: { turn: NoTurn, rerun: false } }, turnEnd: ended }
 
-  /// `boundedAttempt` returns. The turn disarms its watchdog, then concludes when it still owns
-  /// the reply.
+  /// `boundedAttempt` returns. The turn disarms its watchdog, then concludes when it still owes
+  /// the reply. When the watchdog already posted the timeout text, the turn only releases.
   pure def attemptEnds(store: Store, turnRun: TurnRun, outcome: Outcome, rerun: bool, said: List[ModelSays]): Next =
-    if (store.stamp != Stamped(turnRun.stamp)) endTurn(store, turnRun, rerun, said)
+    if (store.startedAt != StartedAt(turnRun.startedAt)) withTurnKeepingRerun(store, { ...turnRun, phase: Concluding(Releases) }, rerun)
     else
       val disarmed = {
         ...store,
         watchdog: NoAlarm,
         headsUp: NoAlarm,
-        stamp: Unstamped,
+        startedAt: NotRunning,
         firstRow: NoFirstRow,
         inbox: store.inbox.select(row => not(row.taken)),
       }
@@ -477,7 +485,7 @@ module agentTurns {
   /// posts closing text only as the answer to a person who wrote.
   pure def passEnds(store: Store, turnRun: TurnRun, text: bool, rerun: bool, said: List[ModelSays]): Next =
     if (turnRun.aborted) attemptEnds(store, turnRun, TimedOut, rerun, said)
-    else if (turnRun.owed != NotOwed and turnRun.pass == 1 and not(text or turnRun.passEndedByTool or turnRun.boardChanged))
+    else if (turnRun.owed != NotOwed and turnRun.pass == 1 and not(text or turnRun.passEndedByTool or store.boardChanged))
       callModel(
         appendRows(store, [UnansweredNote]),
         { ...turnRun, pass: 2, passEndedByTool: false, record: { ...turnRun.record, askedAgain: true } },
@@ -485,8 +493,8 @@ module agentTurns {
         said,
       )
     else if (turnRun.passEndedByTool or not(text)) attemptEnds(store, turnRun, Silent, rerun, said)
-    else if (turnRun.owed == NotOwed or (turnRun.owed == OwedBoard and turnRun.boardChanged)) attemptEnds(store, turnRun, Silent, rerun, said)
-    else withTurnKeepingRerun(store, { ...turnRun, phase: PostingClosing(answeringTargets(false, answeringNow(store))) }, rerun)
+    else if (turnRun.owed == NotOwed or (turnRun.owed == OwedBoard and store.boardChanged)) attemptEnds(store, turnRun, Silent, rerun, said)
+    else withTurnKeepingRerun(store, { ...turnRun, phase: PostingClosing(answeringTargets(false, turnRun.answering)) }, rerun)
 
   pure def keepRerun(after: Next, rerun: bool): Next =
     { ...after, workflow: { ...after.workflow, isolate: { ...after.workflow.isolate, rerun: rerun } } }
@@ -511,7 +519,7 @@ module agentTurns {
   /// The model answered with a call to one tool that the step offered. The tool runs.
   pure def runTool(store: Store, turnRun: TurnRun, tool: Tool, overLimit: bool, rerun: bool, said: List[ModelSays]): Next =
     val ran = ranIn(turnRun, tool)
-    val answering = answeringTargets(false, answeringNow(store))
+    val answering = answeringTargets(false, turnRun.answering)
     match tool {
       | Acknowledge =>
           if (turnRun.acknowledged) stepEnds(store, ran, [ToolCallRow(tool), ToolResultRow(ToolFailed)], overLimit, false, rerun, said)
@@ -528,7 +536,7 @@ module agentTurns {
             stepEnds(reacted, { ...ran, acknowledged: true, firstReplied: true, record: answered },
               [ToolCallRow(tool), ToolResultRow(ToolRan)], overLimit, false, rerun, said)
       | Ask =>
-          val asked = answeringTargets(true, answeringNow(store))
+          val asked = answeringTargets(true, turnRun.answering)
           stepEnds(
             landPost(store, QuestionText, asked, false),
             { ...ran, firstReplied: true, record: recordPost(ran.record, QuestionText, asked) },
@@ -540,8 +548,9 @@ module agentTurns {
             [ToolCallRow(tool), ToolResultRow(ToolRan)], overLimit, true, rerun, said)
       | StaySilent => stepEnds(store, ran, [ToolCallRow(tool), ToolResultRow(ToolRan)], overLimit, true, rerun, said)
       | PromptTask =>
-          val changed = { ...ran, boardChanged: turnRun.boardChanged or HAS_CHAT_THREAD, record: { ...ran.record, boardChanged: ran.record.boardChanged or HAS_CHAT_THREAD } }
-          stepEnds(store, changed, [ToolCallRow(tool), ToolResultRow(ToolRan)], overLimit, false, rerun, said)
+          val changed = { ...ran, record: { ...ran.record, boardChanged: ran.record.boardChanged or HAS_CHAT_THREAD } }
+          val board = { ...store, boardChanged: store.boardChanged or (turnRun.owed != NotOwed and HAS_CHAT_THREAD) }
+          stepEnds(board, changed, [ToolCallRow(tool), ToolResultRow(ToolRan)], overLimit, false, rerun, said)
       | FetchUrl =>
           val page = store.pagesFetched
           val fetched = { ...store, pagesFetched: page + 1 }
@@ -624,16 +633,19 @@ module agentTurns {
       callModel(store, { ...turnRun, attempt: 2, pass: 1, passEndedByTool: false }, rerun, said)
     else attemptEnds(store, turnRun, if (turnRun.aborted) TimedOut else Failed, rerun, said)
 
-  /// `resumeLostTurn` on the new instance, and the turn its wake starts.
+  /// `resumeLostTurn` on the new instance, and the turn its wake starts. With no lost turn, rows
+  /// that wait get the `runAgent` alarm.
   pure def restarted(store: Store, lost: TurnSlot, said: List[ModelSays]): Next =
     val counted = { ...store, restarts: store.restarts + 1 }
-    match store.stamp {
-      | Unstamped => { workflow: { store: counted, isolate: { turn: NoTurn, rerun: false } }, turnEnd: NoTurnEnd }
-      | Stamped(_) =>
-          val unstamped = { ...counted, stamp: Unstamped, watchdog: NoAlarm, headsUp: NoAlarm }
+    match store.startedAt {
+      | NotRunning =>
+          val armed = if (waitingRows(counted).length() > 0) { ...counted, runAgentAlarms: counted.runAgentAlarms + 1 } else counted
+          { workflow: { store: armed, isolate: { turn: NoTurn, rerun: false } }, turnEnd: NoTurnEnd }
+      | StartedAt(_) =>
+          val forgotten = { ...counted, startedAt: NotRunning, watchdog: NoAlarm, headsUp: NoAlarm }
           val lostRecord = match lost { | Running(turnRun) => turnRun.record | NoTurn => FRESH_RECORD }
           val noticed = takenPersonRows(store).length() > 0 and HAS_CHAT_THREAD
-          val told = if (noticed) landPost(unstamped, LostPlaceText, CHAT_THREADS, true) else unstamped
+          val told = if (noticed) landPost(forgotten, LostPlaceText, CHAT_THREADS, true) else forgotten
           val carried = if (noticed) recordPost(lostRecord, LostPlaceText, CHAT_THREADS) else lostRecord
           val woken = { ...told,
             inbox: told.inbox.append({ id: told.nextInboxId, from: FromWorkflow, taken: false, reacted: false }),
@@ -662,7 +674,7 @@ module agentTurns {
     lastTurnEnd' = NoTurnEnd,
   }
 
-  /// A row lands in the inbox and wakes the agent. The coalescer runs the turn now, or once more
+  /// A row lands in the inbox and wakes the agent. The isolate runs the turn now, or once more
   /// after the turn that runs.
   pure def arrive(w: Workflow, from: RowFrom, said: List[ModelSays]): Next =
     val store = w.store
@@ -812,12 +824,12 @@ module agentTurns {
   /// the taken rows and posts the timeout text. The turn itself keeps running.
   action watchdogFires: bool = onTurn(turnRun => all {
     turnRun.pastTimeout,
-    workflow.store.watchdog == ArmedFor(turnRun.stamp),
-    workflow.store.stamp == Stamped(turnRun.stamp),
+    workflow.store.watchdog == ArmedFor(turnRun.startedAt),
+    workflow.store.startedAt == StartedAt(turnRun.startedAt),
     val store = workflow.store
     val nobody = answeringTargets(false, Set())
     val cleared = { ...store,
-      stamp: Unstamped,
+      startedAt: NotRunning,
       watchdog: NoAlarm,
       headsUp: NoAlarm,
       firstRow: NoFirstRow,
@@ -832,8 +844,8 @@ module agentTurns {
 
   /// The heads-up alarm of the running turn fires. Its chat threads hear that it still runs.
   action headsUpFires: bool = onTurn(turnRun => all {
-    workflow.store.headsUp == ArmedFor(turnRun.stamp),
-    workflow.store.stamp == Stamped(turnRun.stamp),
+    workflow.store.headsUp == ArmedFor(turnRun.startedAt),
+    workflow.store.startedAt == StartedAt(turnRun.startedAt),
     val store = { ...workflow.store, headsUp: NoAlarm }
     val told = if (HAS_CHAT_THREAD) landPost(store, HeadsUpText, CHAT_THREADS, true) else store
     val record = if (HAS_CHAT_THREAD) recordPost(turnRun.record, HeadsUpText, CHAT_THREADS) else turnRun.record
@@ -845,6 +857,18 @@ module agentTurns {
   action durableObjectRestarts: bool = all {
     workflow.store.restarts < MAX_RESTARTS,
     move(restarted(workflow.store, workflow.isolate.turn, models)),
+  }
+
+  /// The `runAgent` alarm fires. Like `runIfIdle`, it runs a turn only when none runs.
+  action runAgentAlarmFires: bool = all {
+    workflow.store.runAgentAlarms > 0,
+    val store = { ...workflow.store, runAgentAlarms: workflow.store.runAgentAlarms - 1 }
+    match workflow.isolate.turn {
+      | Running(_) => move({ workflow: { ...workflow, store: store }, turnEnd: NoTurnEnd })
+      | NoTurn =>
+          val after = startTurn(store, Fresh, models)
+          move({ workflow: { store: after.store, isolate: { turn: after.turn, rerun: false } }, turnEnd: NoTurnEnd })
+    }
   }
 
   action step: bool = {
@@ -871,6 +895,7 @@ module agentTurns {
       watchdogFires,
       headsUpFires,
       durableObjectRestarts,
+      runAgentAlarmFires,
     }
   }
 
@@ -1021,21 +1046,19 @@ module agentTurns {
       }
     }))
 
-  // Proposed invariants. They are not in the property test yet.
-
-  /// Every row that waits in the inbox has a turn coming: the turn that runs takes it when the
-  /// coalescer runs once more.
+  /// Every row that waits in the inbox has a turn coming: the isolate runs one more turn after
+  /// the turn that runs, or the `runAgent` alarm runs one.
   val aWaitingInboxRowHasATurnComing: bool =
     waitingRows(workflow.store).length() > 0 implies
-      (workflow.isolate.turn != NoTurn and workflow.isolate.rerun)
+      ((workflow.isolate.turn != NoTurn and workflow.isolate.rerun) or workflow.store.runAgentAlarms > 0)
 
   /// The store holds a turn as running only while that turn runs. One turn runs at a time.
-  val theTurnStampBelongsToTheRunningTurn: bool = match workflow.store.stamp {
-    | Stamped(stamp) => match workflow.isolate.turn {
-        | Running(turnRun) => turnRun.stamp == stamp
+  val oneTurnRunsAtATime: bool = match workflow.store.startedAt {
+    | StartedAt(start) => match workflow.isolate.turn {
+        | Running(turnRun) => turnRun.startedAt == start
         | NoTurn => false
       }
-    | Unstamped => true
+    | NotRunning => true
   }
 
   /// Every invariant above, for one check of all of them.
@@ -1056,7 +1079,7 @@ module agentTurns {
     aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead,
     sessionMessageWithoutAnAuthorIsAnswered,
     aWaitingInboxRowHasATurnComing,
-    theTurnStampBelongsToTheRunningTurn,
+    oneTurnRunsAtATime,
   }
 
   // Witnesses: states where the behavior an invariant guards happens.
@@ -1103,7 +1126,7 @@ module agentTurns {
 
   /// The watchdog fired on a turn that kept running.
   val theWatchdogFiresOnARunningTurn: bool = match workflow.isolate.turn {
-    | Running(turnRun) => turnRun.pastTimeout and workflow.store.stamp == Unstamped and turnRun.record.timedOut
+    | Running(turnRun) => turnRun.pastTimeout and workflow.store.startedAt == NotRunning and turnRun.record.timedOut
     | NoTurn => false
   }
 
@@ -1126,4 +1149,8 @@ module agentTurns {
 
   /// The heads-up reached a chat thread.
   val theHeadsUpPosts: bool = anyOf(workflow.store.posts, post => post.text == HeadsUpText)
+
+  /// A row waits for the `runAgent` alarm after a restart.
+  val aRowWaitsForTheRunAgentAlarm: bool =
+    workflow.store.runAgentAlarms > 0 and waitingRows(workflow.store).length() > 0
 }

@@ -16,7 +16,7 @@
     "aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead",
     "sessionMessageWithoutAnAuthorIsAnswered",
     "aWaitingInboxRowHasATurnComing",
-    "theTurnStampBelongsToTheRunningTurn"
+    "oneTurnRunsAtATime"
   ],
   "witnesses": {
     "chatThread": [
@@ -34,6 +34,7 @@
       "aTurnPostsTheStuckText",
       "aDecisionsCallFallsBack",
       "aRowWaitsForTheNextTurn",
+      "aRowWaitsForTheRunAgentAlarm",
       "aTurnReadsTheChat",
       "theHeadsUpPosts"
     ],
@@ -52,6 +53,7 @@
       "aTurnPostsTheStuckText",
       "aDecisionsCallFallsBack",
       "aRowWaitsForTheNextTurn",
+      "aRowWaitsForTheRunAgentAlarm",
       "anAnswerReachesASession"
     ],
     "chatAndSession": [
@@ -69,6 +71,7 @@
       "aTurnPostsTheStuckText",
       "aDecisionsCallFallsBack",
       "aRowWaitsForTheNextTurn",
+      "aRowWaitsForTheRunAgentAlarm",
       "aTurnReadsTheChat",
       "theHeadsUpPosts"
     ]

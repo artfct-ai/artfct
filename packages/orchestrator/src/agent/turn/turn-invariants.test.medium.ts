@@ -47,8 +47,9 @@ import type { OwedReply } from "../message/owed-reply";
 import { THUMBS_UP } from "../tools/channel";
 import { PROMPT_TASK } from "../tools/task";
 import { runAgentTurn, UNANSWERED_TEXT } from "./turn";
-import { onTurnHeadsUp, resumeLostTurn } from "./watchdog";
+import { onTurnHeadsUp, onTurnTimeout, resumeLostTurn } from "./watchdog";
 
+type LostTurn = "before_first_reply" | "after_first_reply" | "after_a_board_change";
 type From = "chat_thread" | "chat_start" | "starting_session" | "job_session" | "nowhere";
 type InboxRow = { wake: Wake; text: string; from: From };
 type Surface = "chat" | "linear_only" | "chat_and_session";
@@ -69,7 +70,8 @@ type ScriptedTurn = {
   request: "under_the_limit" | "over_the_limit";
   summarization: "answers" | "fails";
   headsUp: "fires" | "waits";
-  restart: "none" | "before_first_reply" | "after_first_reply";
+  watchdog: "fires" | "waits";
+  restart: "none" | LostTurn | "after_the_turn";
   history: MessageKind[];
   contextTokens: number;
 };
@@ -200,13 +202,17 @@ const scriptedTurn: fc.Arbitrary<ScriptedTurn> = fc.record({
   request: fc.constantFrom("under_the_limit", "over_the_limit"),
   summarization: fc.constantFrom("answers", "answers", "fails"),
   headsUp: fc.constantFrom("fires", "waits"),
+  watchdog: fc.constantFrom("waits", "waits", "waits", "fires"),
   restart: fc.constantFrom<ScriptedTurn["restart"]>(
+    "none",
     "none",
     "none",
     "none",
     "none",
     "before_first_reply",
     "after_first_reply",
+    "after_a_board_change",
+    "after_the_turn",
   ),
   history: fc.constant([]),
   contextTokens: fc.constant(CONTEXT_TOKENS),
@@ -386,6 +392,23 @@ function firingTheHeadsUpFirst(workflow: FakeRuntime, model: LanguageModelV4): L
   };
 }
 
+function firingTheWatchdogFirst(workflow: FakeRuntime, model: LanguageModelV4): LanguageModelV4 {
+  return {
+    specificationVersion: "v4",
+    provider: model.provider,
+    modelId: model.modelId,
+    supportedUrls: model.supportedUrls,
+    doGenerate: async (options) => {
+      const startedAt = workflow.state.turn_started_at;
+      if (workflow.state.turn_watchdog && startedAt) {
+        await onTurnTimeout(workflow, { started_at: startedAt });
+      }
+      return model.doGenerate(options);
+    },
+    doStream: (options) => model.doStream(options),
+  };
+}
+
 function beforeEachStep(model: LanguageModelV4, hook: () => void): LanguageModelV4 {
   return {
     specificationVersion: "v4",
@@ -431,7 +454,8 @@ function turnModel(workflow: FakeRuntime, turn: ScriptedTurn): LanguageModelV4 {
     turn.model === "answers"
       ? new ScriptedFailure(turn.script, "model outage", inputTokens)
       : new SilentModel();
-  return turn.headsUp === "fires" ? firingTheHeadsUpFirst(workflow, model) : model;
+  const headsUp = turn.headsUp === "fires" ? firingTheHeadsUpFirst(workflow, model) : model;
+  return turn.watchdog === "fires" ? firingTheWatchdogFirst(workflow, headsUp) : headsUp;
 }
 
 type StepMark = { posted: number; reactions: number; lines: number };
@@ -483,19 +507,37 @@ function stepMark(workflow: FakeRuntime, chat: FakeChat): StepMark {
   };
 }
 
-const LOST_BEFORE_THE_FIRST_REPLY: Action[] = ["throw", "throw"];
-const LOST_AFTER_THE_FIRST_REPLY: Action[] = ["react", "acknowledge", "throw", "throw"];
+const LOST_TURN_SCRIPTS: Record<LostTurn, Action[]> = {
+  before_first_reply: ["throw", "throw"],
+  after_first_reply: ["react", "acknowledge", "throw", "throw"],
+  after_a_board_change: ["react", "prompt_task", "throw", "throw"],
+};
+
+function lostTurnOf(restart: ScriptedTurn["restart"]): LostTurn | null {
+  return restart === "none" || restart === "after_the_turn" ? null : restart;
+}
+
+async function restartAfterTheTurn(
+  workflow: FakeRuntime,
+): Promise<AgentTurnRecord["restartedWithRowsWaiting"]> {
+  await resumeLostTurn(workflow);
+  return {
+    waiting: workflow.transcript.inbox().filter((row) => row.wake !== "none").length,
+    turnComing: workflow.alarmsFor("runAgent").length > 0,
+  };
+}
 
 async function loseTheTurnToARestart(
   workflow: FakeRuntime,
-  restart: "before_first_reply" | "after_first_reply",
+  restart: LostTurn,
   beforeStep: () => void,
 ): Promise<void> {
   const decisions = workflow.gatewayInstance;
   workflow.gatewayInstance = new FakeGateway({ decisions: new FakeDecisions(OWED_ANSWERS.answer) });
-  const script =
-    restart === "before_first_reply" ? LOST_BEFORE_THE_FIRST_REPLY : LOST_AFTER_THE_FIRST_REPLY;
-  workflow.modelInstance = beforeEachStep(new ScriptedFailure(script, RESET), beforeStep);
+  workflow.modelInstance = beforeEachStep(
+    new ScriptedFailure(LOST_TURN_SCRIPTS[restart], RESET),
+    beforeStep,
+  );
   await runAgentTurn(workflow).then(
     () => {
       throw new Error("the turn was meant to be lost to the restart");
@@ -619,31 +661,41 @@ async function runScriptedTurn(
   const marks: StepMark[] = [];
   const markStep = () => marks.push(stepMark(workflow, chat));
   const { arrival: arriving } = turn;
-  const lostTurnRows = turn.restart === "none" ? [] : [...turnRows];
-  if (turn.restart !== "none") {
+  const lostTurn = lostTurnOf(turn.restart);
+  const lostTurnRows = lostTurn ? [...turnRows] : [];
+  if (lostTurn) {
     const arriveInLostTurn = arrivingOnce(() => {
       if (arriving?.when !== "during_lost_turn") return;
       turnRows.push(writeRow(workflow, surface, arriving.row));
       workflow.chatSession = "processing";
     });
-    await loseTheTurnToARestart(workflow, turn.restart, () => {
+    await loseTheTurnToARestart(workflow, lostTurn, () => {
       markStep();
       arriveInLostTurn();
     });
   }
+  const carriesTheLostTurn = personWrote(lostTurnRows);
+  if (!carriesTheLostTurn) marks.splice(0);
+  const linesOfTheRecord = carriesTheLostTurn ? linesBefore : workflow.lines.length;
   const arriveMidTurn = arrivingOnce(() => {
     if (arriving?.when !== "mid_turn") return;
     waiting.push(writeRow(workflow, surface, arriving.row));
   });
+  const runningAtSteps: Array<string | null> = [];
   workflow.modelInstance = beforeEachStep(turnModel(workflow, turn), () => {
     markStep();
+    runningAtSteps.push(workflow.state.turn_started_at);
     arriveMidTurn();
   });
+  for (const alarm of workflow.alarmsFor("runAgent")) await workflow.cancelAlarm(alarm.id);
   const deliveriesOfTheLostTurn = workflow.deliveries.length - deliveriesBefore;
   const decisionsAskedBefore = decisions instanceof ConfiguredModelsDecisions ? decisions.calls : 0;
   const usageBefore = workflow.store.modelUsage().length;
   const durationMs = await elapsedOnAFakeClock(() => runAgentTurn(workflow));
-  const lines = workflow.lines.slice(linesBefore);
+  const runningAfter = workflow.state.turn_started_at;
+  const restartedWithRowsWaiting =
+    turn.restart === "after_the_turn" ? await restartAfterTheTurn(workflow) : null;
+  const lines = workflow.lines.slice(linesOfTheRecord);
   const prompts = lines.filter((line) => line.startsWith(`agent: ${PROMPT_TASK} {`)).length;
   const failedPrompts = lines.filter((line) =>
     line.startsWith(`agent: ${PROMPT_TASK} failed`),
@@ -692,7 +744,7 @@ async function runScriptedTurn(
     timeoutMinutes: workflow.config().orchestrator.turn_timeout_minutes,
     timedOut: lines.some((line) => line.startsWith("agent turn timed out")),
     lostTurnOwed: owedIn(turn, lostTurnRows),
-    modelHangs: turn.model === "never_answers",
+    modelHangs: turn.model === "never_answers" || turn.watchdog === "fires",
     configuredDecisions:
       decisions instanceof ConfiguredModelsDecisions
         ? {
@@ -716,6 +768,9 @@ async function runScriptedTurn(
         index < deliveriesOfTheLostTurn ? lostTurnRows : turnRows,
       ),
     })),
+    runningAfter,
+    runningAtSteps,
+    restartedWithRowsWaiting,
   };
 }
 
@@ -731,6 +786,7 @@ const BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL: ScriptedTurn = {
   request: "under_the_limit",
   summarization: "answers",
   headsUp: "waits",
+  watchdog: "waits",
   restart: "none",
   history: [],
   contextTokens: CONTEXT_TOKENS,
@@ -807,6 +863,38 @@ const A_PROMPT_REFUSED_BEFORE_THE_THUMBS_UP_OF_A_RESUMED_TURN: ScriptedTurn = {
   restart: "before_first_reply",
 };
 
+const A_SILENT_TURN_AFTER_THE_WATCHDOG: ScriptedTurn = {
+  ...BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL,
+  inbox: [{ wake: "task_idle", text: "Fix the flaky test.", from: "nowhere" }],
+  script: ["silent"],
+  decisions: "answer",
+  watchdog: "fires",
+};
+
+const A_MESSAGE_THAT_WAITS_THROUGH_A_RESTART: ScriptedTurn = {
+  ...BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL,
+  inbox: [{ wake: "task_idle", text: "Fix the flaky test.", from: "nowhere" }],
+  arrival: {
+    when: "mid_turn",
+    row: { wake: "message", text: "What is the status?", from: "chat_thread" },
+  },
+  script: ["text"],
+  decisions: "answer",
+  restart: "after_the_turn",
+};
+
+const A_SESSION_REPLY_AFTER_THE_WATCHDOG: ScriptedTurn = {
+  ...A_SESSION_MESSAGE,
+  script: ["acknowledge"],
+  watchdog: "fires",
+};
+
+const CLOSING_TEXT_AFTER_A_LOST_BOARD_CHANGE: ScriptedTurn = {
+  ...BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL,
+  script: ["text"],
+  restart: "after_a_board_change",
+};
+
 describe("agent turn invariants", () => {
   it(
     "hold after every turn of a random sequence",
@@ -850,4 +938,39 @@ describe("agent turn invariants", () => {
       ),
     propertyTimeoutMs(90_000, NUM_RUNS),
   );
+});
+
+const PINNED_SPEC_TRACES: Array<{ invariant: string; surface: Surface; turn: ScriptedTurn }> = [
+  {
+    invariant: "theWorkingStatusNeverOutlivesItsTurn",
+    surface: "chat",
+    turn: A_SILENT_TURN_AFTER_THE_WATCHDOG,
+  },
+  {
+    invariant: "aWaitingInboxRowHasATurnComing",
+    surface: "chat",
+    turn: A_MESSAGE_THAT_WAITS_THROUGH_A_RESTART,
+  },
+  {
+    invariant: "sessionMessageWithoutAnAuthorIsAnswered",
+    surface: "linear_only",
+    turn: A_SESSION_REPLY_AFTER_THE_WATCHDOG,
+  },
+  {
+    invariant: "closingTextAnswersOnlyAPersonWhoWrote",
+    surface: "chat",
+    turn: CLOSING_TEXT_AFTER_A_LOST_BOARD_CHANGE,
+  },
+];
+
+describe("the shortest agent turns spec trace", () => {
+  for (const { invariant, surface, turn } of PINNED_SPEC_TRACES) {
+    it(`that broke ${invariant} keeps every invariant`, () =>
+      freshDurableRuntime(async (workflow) => {
+        seedTask(workflow);
+        workflow.patchState(SURFACES[surface]);
+        const record = await runScriptedTurn(workflow, turn, surface, []);
+        for (const check of AGENT_TURN_INVARIANTS) check(record);
+      }));
+  }
 });

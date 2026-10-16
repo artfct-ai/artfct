@@ -119,10 +119,12 @@ export type TurnsView = {
   turn: string;
   inbox: string[];
   transcript: string[];
-  stamp: number | null;
+  startedAt: number | null;
   watchdog: number | null;
   headsUp: number | null;
   firstRow: number | null;
+  boardChanged: boolean;
+  runAgentAlarms: number;
   lastInputOverLimit: boolean;
   chat: string;
   posts: string[];
@@ -235,10 +237,12 @@ function specView(workflow: unknown): TurnsView {
     transcript: itfList(itfField(store, "transcript")).map(
       (row) => `${itfInt(itfField(row, "id"))} ${specEntry(itfField(row, "entry"))}`,
     ),
-    stamp: armedFor(itfField(store, "stamp"), "Stamped"),
+    startedAt: armedFor(itfField(store, "startedAt"), "StartedAt"),
     watchdog: armedFor(itfField(store, "watchdog"), "ArmedFor"),
     headsUp: armedFor(itfField(store, "headsUp"), "ArmedFor"),
     firstRow: armedFor(itfField(store, "firstRow"), "FirstRowIs"),
+    boardChanged: itfBool(itfField(store, "boardChanged")),
+    runAgentAlarms: itfInt(itfField(store, "runAgentAlarms")),
     lastInputOverLimit: itfBool(itfField(store, "lastInputOverLimit")),
     chat: tagOf(itfField(store, "chat")),
     posts: itfList(itfField(store, "posts")).map(
@@ -327,7 +331,7 @@ type Deadline = { fire: () => void; cleared: boolean };
 
 /**
  * What the replay keeps across restarts of the Durable Object: the held call, the spec ids of the
- * inbox rows and the turn stamps, and what the fakes counted.
+ * inbox rows and the turn start times, and what the fakes counted.
  */
 class ReplayLedger {
   held: HeldCall | null = null;
@@ -341,7 +345,7 @@ class ReplayLedger {
   readonly deadlines: Deadline[] = [];
   readonly inboxIds = new Map<number, number>();
   readonly takenRows = new Map<number, number[]>();
-  readonly stamps = new Map<string, number>();
+  readonly startNumbers = new Map<string, number>();
 
   constructor(readonly models: readonly [ModelSays, ...ModelSays[]]) {}
 
@@ -362,13 +366,13 @@ class ReplayLedger {
     });
   }
 
-  stampOf(startedAt: string | null): number | null {
+  startNumberOf(startedAt: string | null): number | null {
     if (startedAt === null) return null;
-    const known = this.stamps.get(startedAt);
+    const known = this.startNumbers.get(startedAt);
     if (known !== undefined) return known;
-    const stamp = this.stamps.size + 1;
-    this.stamps.set(startedAt, stamp);
-    return stamp;
+    const assigned = this.startNumbers.size + 1;
+    this.startNumbers.set(startedAt, assigned);
+    return assigned;
   }
 }
 
@@ -510,7 +514,7 @@ function historyMessageText(message: number): string {
 
 /**
  * The fake runtime as the Workflow wires agent turns: `tellAgent` queues the text and runs the
- * turn through the turn coalescer. The posts and the release that close a turn wait for the replay.
+ * turn through the turn loop of the Workflow. The posts and the release that close a turn wait for the replay.
  */
 class ReplayRuntime extends FakeRuntime {
   override readonly transcript: ReplayTranscript;
@@ -544,6 +548,13 @@ class ReplayRuntime extends FakeRuntime {
     if (wake === "none") return;
     void this.turns
       .run(() => this.agentTurn())
+      .catch((error: unknown) => this.ledger.failures.push(`agent turn threw: ${String(error)}`));
+  }
+
+  /** The `runAgent` alarm: a turn only when none runs, as the Workflow runs it. */
+  async runAgent(): Promise<void> {
+    await this.turns
+      .runIfIdle(() => this.agentTurn())
       .catch((error: unknown) => this.ledger.failures.push(`agent turn threw: ${String(error)}`));
   }
 
@@ -946,6 +957,8 @@ export class AgentTurnsReplay {
         return this.settleAfter(() => this.fireAlarm("onTurnHeadsUp", onTurnHeadsUp));
       case "durableObjectRestarts":
         return this.settleAfter(() => this.restart());
+      case "runAgentAlarmFires":
+        return this.settleAfter(() => this.fireRunAgent());
       default:
         throw new Error(`the replay cannot take ${step.action}`);
     }
@@ -968,10 +981,12 @@ export class AgentTurnsReplay {
       turn: ledger.held?.phase ?? (runtime.turnActive ? "Busy" : "NoTurn"),
       inbox: inbox.map(inboxLine),
       transcript: rows.map((row, index) => `${row.id} ${entryName(row, rows[index - 1], ledger)}`),
-      stamp: ledger.stampOf(state.turn_started_at ?? null),
-      watchdog: this.armedStamp(state.turn_watchdog ?? null),
-      headsUp: this.armedStamp(state.turn_heads_up ?? null),
+      startedAt: ledger.startNumberOf(state.turn_started_at ?? null),
+      watchdog: this.armedStart(state.turn_watchdog ?? null),
+      headsUp: this.armedStart(state.turn_heads_up ?? null),
       firstRow: state.turn_first_row ?? null,
+      boardChanged: state.turn_board_changed === true,
+      runAgentAlarms: runtime.alarmsFor("runAgent").length,
       lastInputOverLimit: runtime.store.lastTurnInputTokens() > CONTEXT_TOKENS,
       chat: chatStatus(runtime.chatSession),
       posts: [...ledger.posts],
@@ -985,11 +1000,11 @@ export class AgentTurnsReplay {
     return [...this.ledger.failures];
   }
 
-  private armedStamp(alarmId: string | null): number | null {
+  private armedStart(alarmId: string | null): number | null {
     if (alarmId === null) return null;
     const alarm = this.runtime.alarms.find((armed) => armed.id === alarmId);
     if (!alarm) return null;
-    return this.ledger.stampOf(startedAtOf(alarm.payload));
+    return this.ledger.startNumberOf(startedAtOf(alarm.payload));
   }
 
   private async personWrites(origin: Origin): Promise<void> {
@@ -1040,6 +1055,13 @@ export class AgentTurnsReplay {
     } finally {
       this.ledger.firingAlarm = false;
     }
+  }
+
+  private async fireRunAgent(): Promise<void> {
+    const alarm = this.runtime.alarmsFor("runAgent")[0];
+    if (!alarm) throw new Error("the trace fires runAgent, but no such alarm is armed");
+    await this.runtime.cancelAlarm(alarm.id);
+    void this.runtime.runAgent();
   }
 
   private async restart(): Promise<void> {
