@@ -4,6 +4,7 @@ import { pauseTask, resumeTask } from "../../workflow/inbound/controls";
 import { cancelTask } from "../../workflow/lifecycle";
 import type { TurnDecisions } from "../../decisions/ask";
 import {
+  carryHeldComments,
   heldCommentsNote,
   promptWithHeldComments,
   readHeldComments,
@@ -51,10 +52,14 @@ export function taskTools(workflow: WorkflowRuntime, turn?: TurnDecisions) {
       execute: ({ task_id, text }) =>
         withActiveTask(workflow, task_id, async (task) => {
           const held = await readHeldComments(workflow, task, turn);
-          if (!(await promptWithHeldComments(workflow, task.task_id, text, held))) {
+          const carried = await carryHeldComments(workflow, task.task_id, held);
+          if (carried === null) {
             return `Task ${task.task_id} is ${workflow.store.requireTask(task.task_id).status}.`;
           }
-          return [`Queued for ${task.task_id}.`, heldCommentsNote(held)].filter(Boolean).join(" ");
+          await promptWithHeldComments(workflow, task.task_id, text, carried);
+          return [`Queued for ${task.task_id}.`, heldCommentsNote(held, carried)]
+            .filter(Boolean)
+            .join(" ");
         }),
     }),
     pause_task: tool({

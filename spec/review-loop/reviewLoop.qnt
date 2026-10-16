@@ -74,15 +74,15 @@ module reviewLoopTypes {
     | OutcomeComment({ refinerRun: int, findings: Set[Passage], approves: bool })
     | RejectionComment(int)
 
-  /// The discussion a person comment sits in: the one a person comment opened, or the one under a
-  /// comment code posted for a review.
-  type Discussion = OpenedBy(int) | UnderReviewComment(int)
+  /// The comment thread a person comment sits in: the one a person comment opened, or the one
+  /// under a comment code posted for a review.
+  type CommentThread = OpenedBy(int) | UnderReviewComment(int)
 
-  /// A comment a person left on the page. It is acknowledged once code marked its discussion read,
+  /// A comment a person left on the page. It is acknowledged once code marked it read on the page,
   /// gone once an edit rewrote the block it sits on, sent once a prompt for the author carried it,
   /// and answered once the author posted its comment reply.
   type PersonComment = {
-    discussion: Discussion,
+    commentThread: CommentThread,
     onTheBlock: bool,
     mentions: bool,
     acknowledged: bool,
@@ -91,12 +91,12 @@ module reviewLoopTypes {
     answered: bool,
   }
 
-  /// Where a person leaves a comment: on the page as a whole, on the block, in the discussion of a
-  /// person comment, or under a comment code posted for a review.
+  /// Where a person leaves a comment: on the page as a whole, on the block, in the comment thread
+  /// of a person comment, or under a comment code posted for a review.
   type CommentPlace =
     | OnThePageAsAWhole
     | OnTheBlock
-    | InTheDiscussionOf(int)
+    | InTheCommentThreadOf(int)
     | UnderTheReviewComment(int)
 
   /// How the held comments read in one step: the host cannot be read, the screen does not admit
@@ -120,12 +120,7 @@ module reviewLoopTypes {
   type PageWrite = WritesLand | WriteFails(HostFailure)
 
   /// Why a model-call author's revise turn failed.
-  type TurnFailure =
-    | ReplyRefused
-    | ReplyToAGoneComment
-    | EditMeetsAnotherEdit
-    | UpdateRefused
-    | UpdateLandedThenFailed
+  type TurnFailure = ReplyRefused | UpdateRefused | UpdateLandedThenFailed
 
   /// Who asked for the held comments to go to the author.
   type Asker = TheAgent | APersonsRevisionRequest | AMention
@@ -153,16 +148,71 @@ module reviewLoopTypes {
     personComments: List[PersonComment],
   }
 
-  /// The turn that ended in a step, if one did.
+  /// The turn that ended in a step, if one did. A model-call author's turn starts over when a
+  /// person changed the page text while its model call ran.
   type TurnEnd =
     | NoTurnEnd
     | AuthorTurnEnded({ revision: int })
     | AuthorTurnFailed(TurnFailure)
+    | AuthorTurnStartsOver
     | RefinerTurnEnded(int)
 
-  /// What an observer saw around the last step: the review before it, the turn that ended, what
-  /// happened on the document host, and what the agent read about held comments.
-  type Step = { before: ReviewLoop, turnEnd: TurnEnd, page: PageFact, agentHeard: Set[AgentNote] }
+  /// What an observer knows about the last step besides the reviews around it: the turn that
+  /// ended, what happened on the document host, whether the host took a model-call author's
+  /// writes, and what the agent read about page comments.
+  type StepKind = { turnEnd: TurnEnd, page: PageFact, write: PageWrite, agentHeard: Set[AgentNote] }
+
+  /// One step: the review before it, the review after it, and what an observer knows of it.
+  type Transition = { before: ReviewLoop, after: ReviewLoop, kind: StepKind }
+
+  /// Whether the last step kept each before-and-after rule, by the name of the invariant that reads
+  /// it. Each step writes it again, so the state does not keep the review before the step.
+  type KeptRules = {
+    judgeRulesAtMostOnce: bool,
+    refinerRunIsDoneOnlyAfterItsTurnEnded: bool,
+    refinersRunAgainOnlyOnChangedRevision: bool,
+    reviewerRunsOnlyOnAnUnreviewedRevision: bool,
+    authorGetsEveryPullFinding: bool,
+    authorGetsEveryPageFinding: bool,
+    pageReviewPostsEachFindingOnce: bool,
+    aPromptToAPageAuthorCarriesItsHeldComments: bool,
+    unadmittedFeedbackReachesNobody: bool,
+    sentCommentIsAnsweredBeforeItsLineGoes: bool,
+    failedReplyLeavesThePage: bool,
+    aJudgeRejectionPostsItsReasonOnce: bool,
+    aModelCallAuthorFailsOnlyOnAHostError: bool,
+  }
+
+  /// Whether the last step reached each before-and-after witness, by the name of the witness. Only
+  /// witnesses read it, so model checking leaves it out of the state.
+  type ReachedWitnesses = {
+    aRulingLandsOnARuledJudgeRun: bool,
+    aReviewerRunsAgainOnANewRevision: bool,
+    aRefinerRunEndsDone: bool,
+    aRefinerRunStartsAfterAHandover: bool,
+    aRefinerRunStartsPastFindings: bool,
+    aRefinerRunStartsPastAJudgeWithFindings: bool,
+    aPageAuthorGetsTheFindingsOfItsReviewer: bool,
+    aStaleReviewRunsTheSegmentAgain: bool,
+    aPageReviewPostsAnInlineFinding: bool,
+    aPageReviewMovesInlineFindingsIntoItsOutcome: bool,
+    aPageReviewMeetsAHostThatIsDown: bool,
+    heldCommentsGoToThePageAuthor: bool,
+    heldCommentsStayHeld: bool,
+    theHostKeepsHeldCommentsHeld: bool,
+    theScreenKeepsHeldComments: bool,
+    aMentionRoutedAwayLeavesHeldComments: bool,
+    aPersonRepliesWhileTheScreenReads: bool,
+    aHeldCommentReachesTheAuthor: bool,
+    aRevisionRewritesTheBlockOfAnAnsweredComment: bool,
+    aRevisionAnswersAQueuedComment: bool,
+    aCommentReplyFails: bool,
+    aRejectionLandsOnThePage: bool,
+    theHostFailsARejection: bool,
+    theHostFailsAModelCallAuthor: bool,
+    aPersonEditsDuringAModelCallTurn: bool,
+    aModelCallTurnStartsOver: bool,
+  }
 
   /// A model-call author's turn end: the review after it and how the turn ended.
   type ModelCallTurnEnd = { loop: ReviewLoop, turnEnd: TurnEnd }
@@ -216,7 +266,7 @@ module reviewLoop {
 
   /// The comment a person left on the page before the review began. It is held.
   pure val COMMENT_HELD_AT_OPEN: PersonComment = {
-    discussion: OpenedBy(0),
+    commentThread: OpenedBy(0),
     onTheBlock: false,
     mentions: false,
     acknowledged: false,
@@ -272,7 +322,11 @@ module reviewLoop {
   pure val REVIEW_PASSAGES: Set[Passage] = Set(QuotesThePage, QuotesMissingText, WithoutPassage)
 
   var review: ReviewLoop
-  var lastStep: Step
+  var lastStepKept: KeptRules
+  var lastStepReached: ReachedWitnesses
+  /// What the agent read about page comments in the last step. Only the replay reads it, so model
+  /// checking leaves it out of the state.
+  var agentHeard: Set[AgentNote]
 
   pure def larger(left: int, right: int): int = if (left > right) left else right
 
@@ -449,13 +503,10 @@ module reviewLoop {
   pure def heldCommentIds(loop: ReviewLoop): Set[int] =
     personCommentIds(loop).filter(id => isHeld(loop.personComments[id]))
 
-  /// Mark the discussion of each of these comments read on the page. Every comment already in a
-  /// discussion is acknowledged with it.
-  pure def acknowledge(loop: ReviewLoop, ids: Set[int]): ReviewLoop = {
-    val discussions = ids.map(id => loop.personComments[id].discussion)
-    changeComments(loop, (_, comment) =>
-      if (discussions.contains(comment.discussion)) { ...comment, acknowledged: true } else comment)
-  }
+  /// Mark these comments read on the page, and no other. Each is the earliest held comment of its
+  /// comment thread, so a reply that landed in the thread after the read stays held.
+  pure def acknowledge(loop: ReviewLoop, ids: Set[int]): ReviewLoop =
+    changeComments(loop, (id, comment) => if (ids.contains(id)) { ...comment, acknowledged: true } else comment)
 
   pure def markSent(loop: ReviewLoop, ids: Set[int]): ReviewLoop =
     changeComments(loop, (id, comment) => if (ids.contains(id)) { ...comment, sent: true } else comment)
@@ -463,9 +514,9 @@ module reviewLoop {
   pure def markAnswered(loop: ReviewLoop, ids: Set[int]): ReviewLoop =
     changeComments(loop, (id, comment) => if (ids.contains(id)) { ...comment, answered: true } else comment)
 
-  /// A person comment, held, in `discussion`.
-  pure def newComment(discussion: Discussion, onTheBlock: bool, mentions: bool): PersonComment = {
-    discussion: discussion,
+  /// A person comment, held, in `commentThread`.
+  pure def newComment(commentThread: CommentThread, onTheBlock: bool, mentions: bool): PersonComment = {
+    commentThread: commentThread,
     onTheBlock: onTheBlock,
     mentions: mentions,
     acknowledged: false,
@@ -492,20 +543,20 @@ module reviewLoop {
     val comment = match place {
       | OnThePageAsAWhole => newComment(OpenedBy(id), false, false)
       | OnTheBlock => newComment(OpenedBy(id), true, false)
-      | InTheDiscussionOf(earlier) =>
-        newComment(loop.personComments[earlier].discussion, loop.personComments[earlier].onTheBlock, false)
+      | InTheCommentThreadOf(earlier) =>
+        newComment(loop.personComments[earlier].commentThread, loop.personComments[earlier].onTheBlock, false)
       | UnderTheReviewComment(posted) => newComment(UnderReviewComment(posted), false, false)
     }
     { ...loop, personComments: loop.personComments.append(comment) }
   }
 
-  /// Where a person can comment now: on the page, on the block, in the discussion of a comment
+  /// Where a person can comment now: on the page, on the block, in the comment thread of a comment
   /// whose block is there, or under a comment code posted.
   pure def commentPlaces(loop: ReviewLoop): Set[CommentPlace] =
     Set(OnThePageAsAWhole, OnTheBlock)
       .union(personCommentIds(loop)
         .filter(id => not(loop.personComments[id].gone))
-        .map(id => InTheDiscussionOf(id)))
+        .map(id => InTheCommentThreadOf(id)))
       .union(REVIEW_COMMENT_IDS
         .filter(id => id < loop.reviewComments.length())
         .map(id => UnderTheReviewComment(id)))
@@ -648,9 +699,32 @@ module reviewLoop {
     { loop: ended, turnEnd: AuthorTurnEnded({ revision: ended.artifact.revision }) }
   }
 
-  /// A model-call author's revise turn ends. It posts one comment reply per comment its prompt
-  /// carries, in comment order, and stops at the first the host does not take. Then it writes the
-  /// page text change on the text it read when the turn started.
+  /// The person comments the prompts that wait for the author carry.
+  pure def queuedComments(loop: ReviewLoop): Set[int] =
+    loop.author.queuedPrompts.foldl(Set(), (comments, prompt) => comments.union(prompt))
+
+  /// True when a person changed the page text since the author's turn read it.
+  pure def pageTextEditedDuringTurn(loop: ReviewLoop): bool =
+    loop.author.pageEditsDuringTurn.size() > 0
+
+  /// The comment replies a model-call author's revise turn posts: one to each comment its prompt
+  /// carries that is still on the page, then one to each comment a queued prompt carries on the
+  /// block the change rewrites.
+  pure def turnReplies(loop: ReviewLoop, changed: bool, part: PagePart): Set[int] = {
+    val rewritten =
+      if (changed and part == TheBlock)
+        queuedComments(loop).filter(id => loop.personComments[id].onTheBlock)
+      else Set()
+    loop.author.turnComments.union(rewritten).filter(id => not(loop.personComments[id].gone))
+  }
+
+  /// The turn runs again on the current page: it keeps its prompt and drops what it read.
+  pure def startOver(loop: ReviewLoop): ModelCallTurnEnd =
+    { loop: { ...loop, author: { ...loop.author, pageEditsDuringTurn: Set() } }, turnEnd: AuthorTurnStartsOver }
+
+  /// A model-call author's revise turn ends. When a person changed the page text while its model
+  /// call ran, it starts over on the current page without a write. Otherwise it posts its comment
+  /// replies and stops at the first the host does not take. Then it writes the page text change.
   pure def modelCallTurnEnds(
     loop: ReviewLoop,
     changed: bool,
@@ -658,16 +732,12 @@ module reviewLoop {
     write: PageWrite,
     decision: ReviewAgainDecision,
   ): ModelCallTurnEnd = {
-    val turn = loop.author.turnComments
-    val goneInTurn = turn.filter(id => loop.personComments[id].gone)
-    val firstGone = smallest(goneInTurn, loop.personComments.length())
-    val replies = if (write == WriteFails(RepliesFail)) Set() else turn.filter(id => id < firstGone)
+    val replies = turnReplies(loop, changed, part)
     val replied = markAnswered(loop, replies)
-    if (write == WriteFails(RepliesFail)) turnFailed(replied, ReplyRefused)
-    else if (goneInTurn.size() > 0) turnFailed(replied, ReplyToAGoneComment)
+    if (pageTextEditedDuringTurn(loop)) startOver(loop)
+    else if (write == WriteFails(RepliesFail) and replies.size() > 0) turnFailed(loop, ReplyRefused)
     else if (not(changed)) turnEnded(replied, decision)
     else if (write == WriteFails(UpdateFails)) turnFailed(replied, UpdateRefused)
-    else if (loop.author.pageEditsDuringTurn.contains(part)) turnFailed(replied, EditMeetsAnotherEdit)
     else if (write == WriteFails(UpdateLandsThenFails)) turnFailed(pageChanged(replied, part), UpdateLandedThenFailed)
     else turnEnded(pageChanged(replied, part), decision)
   }
@@ -815,16 +885,17 @@ module reviewLoop {
     authorQuiet(loop),
   }
 
-  /// A person replies in the discussion of the comment `id` while the screen reads.
+  /// A person replies in the comment thread of the comment `id` while the screen reads.
   pure def personRepliesTo(loop: ReviewLoop, id: int): ReviewLoop =
-    withPersonComment(loop, InTheDiscussionOf(id))
+    withPersonComment(loop, InTheCommentThreadOf(id))
 
   pure def admits(read: HeldRead): bool =
     read == AdmittedAndAcknowledged or read == AdmittedButAcknowledgementFails
 
-  /// Read the held comments and screen them. Admitted, they are marked read on the page and go
-  /// to the author in a prompt. Otherwise they stay held and the agent is told so. `agentText`
-  /// is true when the agent's own text goes to the author whatever the read found.
+  /// Read the held comments and screen them. Admitted, they are marked read on the page, and the
+  /// ones the host marked go to the author in a prompt. Otherwise they stay held and the agent is
+  /// told so. `agentText` is true when the agent's own text goes to the author whatever the read
+  /// found.
   pure def sendHeldComments(
     loop: ReviewLoop,
     read: HeldRead,
@@ -835,19 +906,19 @@ module reviewLoop {
     val screened = read != HostCannotBeRead and held.size() > 0
     val during =
       if (screened and meanwhile == APersonReplies) personRepliesTo(loop, smallest(held, loop.personComments.length())) else loop
-    val sends = screened and admits(read)
-    val acknowledged =
-      if (sends and read == AdmittedAndAcknowledged) acknowledge(during, held) else during
-    val carried = if (sends) held else Set()
-    val prompted = if (agentText or sends) promptAuthorWith(acknowledged, carried) else acknowledged
-    val stayHeld = read == HostCannotBeRead or (screened and read == ScreenRefuses)
+    val marked = screened and read == AdmittedAndAcknowledged
+    val carried = if (marked) held else Set()
+    val acknowledged = acknowledge(during, carried)
+    val prompted = if (agentText or marked) promptAuthorWith(acknowledged, carried) else acknowledged
+    val stayHeld = read == HostCannotBeRead or (screened and not(marked))
     { loop: prompted, carried: carried, agentHeard: if (stayHeld) Set(HeldCommentsStayHeld) else Set() }
   }
 
   /// A person's comment mentions the bot. When the host says so, the held comments go out with
-  /// it as one feedback: screened, marked read on the page, then routed. Only the author route
-  /// prompts the author. The agent reads the mention with the event in every case. When the host
-  /// cannot say, the comment waits as a held comment.
+  /// it as one feedback: screened, then routed. The mention is marked read on the page. The held
+  /// comments are marked read only on the author route, which prompts the author with the
+  /// comments the host marked. On every other route they stay held. The agent reads the mention
+  /// with the event in every case. When the host cannot say, the comment waits as a held comment.
   pure def mentionArrives(
     loop: ReviewLoop,
     lookup: MentionLookup,
@@ -863,10 +934,11 @@ module reviewLoop {
       if (screened and meanwhile == APersonReplies) personRepliesTo(withMention, smallest(held, mention)) else withMention
     val refused = screened and read == ScreenRefuses
     val readHeld = if (read == ScreenRefuses and not(screened)) AdmittedAndAcknowledged else read
-    val acknowledged =
-      if (read == AdmittedButAcknowledgementFails) during else acknowledge(during, held.union(Set(mention)))
+    val marks = readHeld == AdmittedAndAcknowledged
     val toTheAuthor = route == ToTheAuthor and not(loop.author.failed)
-    val carried = if (toTheAuthor) held.union(Set(mention)) else Set()
+    val carried = if (marks and toTheAuthor) held.union(Set(mention)) else Set()
+    val acknowledged = acknowledge(during, if (marks) carried.union(Set(mention)) else Set())
+    val stayHeld = screened and not(marks and toTheAuthor)
     val asked = HeldCommentsAsked({ by: AMention, read: readHeld, carried: carried })
     if (lookup == TheHostCannotSay) { loop: withMention, page: NoPageFact, agentHeard: Set() }
     else if (read == HostCannotBeRead) {
@@ -876,22 +948,43 @@ module reviewLoop {
     }
     else if (refused) { loop: during, page: asked, agentHeard: Set(MentionText) }
     else {
-      loop: if (toTheAuthor) promptAuthorWith(acknowledged, carried) else acknowledged,
+      loop: if (carried.size() > 0) promptAuthorWith(acknowledged, carried) else acknowledged,
       page: asked,
-      agentHeard: if (screened) Set(HeldCommentText, MentionText) else Set(MentionText),
+      agentHeard: Set(MentionText)
+        .union(if (screened) Set(HeldCommentText) else Set())
+        .union(if (stayHeld) Set(HeldCommentsStayHeld) else Set()),
     }
   }
 
-  action moveWith(after: ReviewLoop, turnEnd: TurnEnd, page: PageFact, agentHeard: Set[AgentNote]): bool = all {
-    review' = after,
-    lastStep' = { before: review, turnEnd: turnEnd, page: page, agentHeard: agentHeard },
+  /// What an observer knows of a step that does not touch page comments or a model-call author's
+  /// writes.
+  pure def quietStep(turnEnd: TurnEnd): StepKind =
+    { turnEnd: turnEnd, page: NoPageFact, write: WritesLand, agentHeard: Set() }
+
+  action moveWith(after: ReviewLoop, kind: StepKind): bool = {
+    val step = { before: review, after: after, kind: kind }
+    all {
+      review' = after,
+      lastStepKept' = rulesKeptBy(step),
+      lastStepReached' = witnessesReachedBy(step),
+      agentHeard' = kind.agentHeard,
+    }
   }
 
-  action move(after: ReviewLoop, turnEnd: TurnEnd): bool = moveWith(after, turnEnd, NoPageFact, Set())
+  action move(after: ReviewLoop, turnEnd: TurnEnd): bool = moveWith(after, quietStep(turnEnd))
 
-  action init: bool = all {
-    review' = INITIAL_REVIEW,
-    lastStep' = { before: INITIAL_REVIEW, turnEnd: NoTurnEnd, page: NoPageFact, agentHeard: Set() },
+  /// A step on the page: what happened on the host and what the agent read.
+  action moveOnThePage(after: ReviewLoop, page: PageFact, heard: Set[AgentNote]): bool =
+    moveWith(after, { ...quietStep(NoTurnEnd), page: page, agentHeard: heard })
+
+  action init: bool = {
+    val step = { before: INITIAL_REVIEW, after: INITIAL_REVIEW, kind: quietStep(NoTurnEnd) }
+    all {
+      review' = INITIAL_REVIEW,
+      lastStepKept' = rulesKeptBy(step),
+      lastStepReached' = witnessesReachedBy(step),
+      agentHeard' = Set(),
+    }
   }
 
   /// The agent sends the author a prompt of its own. On a page, it carries the held comments.
@@ -904,7 +997,7 @@ module reviewLoop {
     val sent = sendHeldComments(review, read, meanwhile, true)
     val page =
       if (ON_A_PAGE) HeldCommentsAsked({ by: TheAgent, read: read, carried: sent.carried }) else NoPageFact
-    moveWith(sent.loop, NoTurnEnd, page, sent.agentHeard),
+    moveOnThePage(sent.loop, page, sent.agentHeard),
   }
 
   /// The author's turn ends after it changed the artifact.
@@ -929,13 +1022,13 @@ module reviewLoop {
   action theHostFailsAModelCallAuthorsWrite: bool = all {
     MODEL_CALL_AUTHOR,
     review.author.atWork,
+    nondet part = REVISION_PARTS.oneOf()
     val failures =
-      if (review.author.turnComments.size() > 0) Set(RepliesFail, UpdateFails, UpdateLandsThenFails)
+      if (turnReplies(review, true, part).size() > 0) Set(RepliesFail, UpdateFails, UpdateLandsThenFails)
       else Set(UpdateFails, UpdateLandsThenFails)
     nondet failure = failures.oneOf()
-    nondet part = REVISION_PARTS.oneOf()
     val ended = modelCallTurnEnds(review, true, part, WriteFails(failure), AgentRoutes)
-    move(ended.loop, ended.turnEnd),
+    moveWith(ended.loop, { ...quietStep(ended.turnEnd), write: WriteFails(failure) }),
   }
 
   /// A findings reviewer files a review with findings, and its turn ends.
@@ -944,7 +1037,7 @@ module reviewLoop {
     nondet commenting = COMMENTINGS.oneOf()
     val id = lastUnfinishedRun(review)
     val page = if (ON_A_PAGE) PageReviewPosted(commenting) else NoPageFact
-    moveWith(findingsReviewerFinished(review, id, true, commenting), RefinerTurnEnded(id), page, Set()),
+    moveWith(findingsReviewerFinished(review, id, true, commenting), { ...quietStep(RefinerTurnEnded(id)), page: page }),
   }
 
   /// A findings reviewer files an approving review, and its turn ends.
@@ -953,7 +1046,7 @@ module reviewLoop {
     nondet commenting = COMMENTINGS.oneOf()
     val id = lastUnfinishedRun(review)
     val page = if (ON_A_PAGE) PageReviewPosted(commenting) else NoPageFact
-    moveWith(findingsReviewerFinished(review, id, false, commenting), RefinerTurnEnded(id), page, Set()),
+    moveWith(findingsReviewerFinished(review, id, false, commenting), { ...quietStep(RefinerTurnEnded(id)), page: page }),
   }
 
   /// A judge closes with its conclusion. The decisions model starts to read it.
@@ -969,9 +1062,8 @@ module reviewLoop {
   action decisionsModelRules(ruling: Ruling): bool = {
     nondet judgeRun = review.judgeRunsCodeRulesOn.oneOf()
     nondet post = HOST_WRITES.oneOf()
-    moveWith(
+    moveOnThePage(
       decisionsModelRuled(review, judgeRun, ruling, post),
-      NoTurnEnd,
       rejectionFact(review, judgeRun, ruling, post),
       Set(),
     )
@@ -997,7 +1089,7 @@ module reviewLoop {
     canPersonRuleOn(review, heldRun(review)),
     nondet post = HOST_WRITES.oneOf()
     val page = if (ON_A_PAGE and ruling == Rejected) RejectionPosted(post) else NoPageFact
-    moveWith(applyJudgeRuling(review, heldRun(review), ruling, post), NoTurnEnd, page, Set()),
+    moveOnThePage(applyJudgeRuling(review, heldRun(review), ruling, post), page, Set()),
   }
 
   /// A person approves the judge run the artifact is on, through the agent.
@@ -1085,7 +1177,7 @@ module reviewLoop {
     nondet meanwhile = WHILE_SCREENED.oneOf()
     nondet route = FEEDBACK_ROUTES.oneOf()
     val handled = mentionArrives(review, lookup, read, meanwhile, route)
-    moveWith(handled.loop, NoTurnEnd, handled.page, handled.agentHeard),
+    moveOnThePage(handled.loop, handled.page, handled.agentHeard),
   }
 
   /// A person tells the agent they finished reviewing. The held comments go to a running author.
@@ -1099,7 +1191,7 @@ module reviewLoop {
     else {
       val sent = sendHeldComments(review, read, meanwhile, false)
       val page = HeldCommentsAsked({ by: APersonsRevisionRequest, read: read, carried: sent.carried })
-      moveWith(sent.loop, NoTurnEnd, page, sent.agentHeard)
+      moveOnThePage(sent.loop, page, sent.agentHeard)
     },
   }
 
@@ -1113,7 +1205,7 @@ module reviewLoop {
       if (MODEL_CALL_AUTHOR and review.author.atWork)
         { ...edited, author: { ...edited.author, pageEditsDuringTurn: edited.author.pageEditsDuringTurn.union(Set(part)) } }
       else edited
-    moveWith(noted, NoTurnEnd, APersonEditedThePage, Set()),
+    moveOnThePage(noted, APersonEditedThePage, Set()),
   }
 
   action step: bool = any {
@@ -1151,6 +1243,322 @@ module reviewLoop {
       | Ready(handed) => endedOnRevisionOtherThan(turnEnd, handed.deliveredRevision)
     }
 
+  pure def readByAnEarlierRun(loop: ReviewLoop, id: int): bool =
+    runIds(loop).exists(earlier => and {
+      earlier < id,
+      loop.refinerRuns[earlier].refinerIndex == loop.refinerRuns[id].refinerIndex,
+      filedOnRevision(loop.refinerRuns[earlier].result, loop.artifact.revision),
+    })
+
+  /// The latest run of each findings entry whose segment ends before `index`, when that run filed
+  /// a review with findings.
+  pure def findingsBefore(loop: ReviewLoop, index: int): Set[int] =
+    runIds(loop).filter(id => and {
+      refinerOf(loop.refinerRuns[id]) == FindingsReviewer,
+      segmentEndOf(loop.refinerRuns[id].refinerIndex) < index,
+      id == latestRunOf(loop, loop.refinerRuns[id].refinerIndex),
+      reviewHasFindings(loop.refinerRuns[id].result),
+    })
+
+  /// The refiner runs that started in a step.
+  pure def startedRuns(step: Transition): Set[int] =
+    runIds(step.after).filter(id => id >= step.before.refinerRuns.length())
+
+  /// True when the author got a prompt in a step with findings it did not have before.
+  pure def gotNewFindings(step: Transition): bool =
+    step.after.author.findingsFrom != step.before.author.findingsFrom
+
+  /// The review comments posted in a step.
+  pure def postedIn(step: Transition): List[ReviewComment] =
+    step.after.reviewComments.slice(step.before.reviewComments.length(), step.after.reviewComments.length())
+
+  pure def isOutcomeComment(comment: ReviewComment): bool =
+    match comment { | OutcomeComment(_) => true | _ => false }
+
+  pure def isRejectionComment(comment: ReviewComment): bool =
+    match comment { | RejectionComment(_) => true | _ => false }
+
+  pure def approves(comment: ReviewComment): bool =
+    match comment { | OutcomeComment(outcome) => outcome.approves | _ => false }
+
+  /// How often a finding with `passage` sits in the comments.
+  pure def findingLanded(comments: List[ReviewComment], passage: Passage): int =
+    comments.foldl(0, (count, comment) => match comment {
+      | InlineFinding(inline) => if (inline.passage == passage) count + 1 else count
+      | OutcomeComment(outcome) => if (outcome.findings.contains(passage)) count + 1 else count
+      | RejectionComment(_) => count
+    })
+
+  pure def countOf(comments: List[ReviewComment], counted: ReviewComment => bool): int =
+    comments.foldl(0, (count, comment) => if (counted(comment)) count + 1 else count)
+
+  /// True when the comment `id` was held before a step, or a person left it in the step.
+  pure def heldBeforeOrNew(step: Transition, id: int): bool =
+    id >= step.before.personComments.length() or isHeld(step.before.personComments[id])
+
+  /// True when a step ended or started over a model-call author's revise turn.
+  pure def endsAModelCallTurn(step: Transition): bool =
+    MODEL_CALL_AUTHOR and match step.kind.turnEnd {
+      | AuthorTurnEnded(_) => true
+      | AuthorTurnFailed(_) => true
+      | AuthorTurnStartsOver => true
+      | _ => false
+    }
+
+  /// A ruling a judge run filed stays as it is.
+  pure def keepsEveryRuling(step: Transition): bool =
+    step.before.refinerRuns.indices().forall(id =>
+      isRuling(step.before.refinerRuns[id].result)
+        implies step.after.refinerRuns[id].result == step.before.refinerRuns[id].result)
+
+  /// A refiner run ends `Done` only in the step its turn ended, or it was already done.
+  pure def endsDoneOnlyWithItsTurn(step: Transition): bool =
+    runIds(step.after).forall(id =>
+      step.after.refinerRuns[id].status == Done implies or {
+        id < step.before.refinerRuns.length() and step.before.refinerRuns[id].status == Done,
+        step.kind.turnEnd == RefinerTurnEnded(id),
+      })
+
+  /// A refiner run starts on an artifact the humans have only when an author turn ended on a
+  /// revision they have not seen.
+  pure def runsAgainOnlyOnAChangedRevision(step: Transition): bool =
+    startedRuns(step).size() == 0 or startedOnAChangedRevision(step.before, step.kind.turnEnd)
+
+  /// A reviewer run starts only on a revision no earlier run of its entry filed on.
+  pure def reviewsOnlyAnUnreviewedRevision(step: Transition): bool =
+    startedRuns(step).forall(id =>
+      refinerOf(step.after.refinerRuns[id]) != Polisher implies not(readByAnEarlierRun(step.after, id)))
+
+  /// A refiner run that starts past a pull request review with findings finds them sent.
+  pure def sendsEveryPullFinding(step: Transition): bool =
+    ARTIFACT == Page or startedRuns(step).forall(started =>
+      findingsBefore(step.after, step.after.refinerRuns[started].refinerIndex)
+        .forall(id => step.after.author.findingsFrom.contains(id)))
+
+  /// A review prompt in the step a page reviewer ended carries that reviewer's findings.
+  pure def sendsEveryPageFinding(step: Transition): bool =
+    ARTIFACT == PullRequest or match step.kind.turnEnd {
+      | RefinerTurnEnded(id) =>
+        (gotNewFindings(step) and reviewHasFindings(step.after.refinerRuns[id].result))
+          implies step.after.author.findingsFrom.contains(id)
+      | _ => true
+    }
+
+  /// A page review that reached the host posts each finding once and one outcome comment.
+  pure def postsEachFindingOnce(step: Transition): bool =
+    match step.kind.page {
+      | PageReviewPosted(commenting) => match step.kind.turnEnd {
+        | RefinerTurnEnded(id) => {
+          val result = step.after.refinerRuns[id].result
+          val posted = postedIn(step)
+          val hostUp = commenting != HostDown
+          val findings = if (reviewHasFindings(result)) REVIEW_PASSAGES else Set()
+          if (not(isReview(result))) posted.length() == 0
+          else and {
+            not(hostUp) or countOf(posted, isOutcomeComment) == 1,
+            posted.foldl(true, (opensWithTheLine, comment) =>
+              opensWithTheLine and (isOutcomeComment(comment) implies approves(comment) == not(reviewHasFindings(result)))),
+            findings.forall(passage => and {
+              findingLanded(posted, passage) <= 1,
+              hostUp implies findingLanded(posted, passage) == 1,
+            }),
+            REVIEW_PASSAGES.exclude(findings).forall(passage => findingLanded(posted, passage) == 0),
+          }
+        }
+        | _ => true
+      }
+      | _ => true
+    }
+
+  /// A prompt the agent sends or a revision request carries every held comment the host marked
+  /// read. A held comment it does not mark stays held, and the agent is told so.
+  pure def carriesTheHeldComments(step: Transition): bool =
+    match step.kind.page {
+      | HeldCommentsAsked(asked) => {
+        val heldBefore = heldCommentIds(step.before)
+        or {
+          asked.by == AMention,
+          step.after.author.failed,
+          heldBefore.size() == 0,
+          if (asked.read == AdmittedAndAcknowledged)
+            heldBefore.forall(id => asked.carried.contains(id) and not(isHeld(step.after.personComments[id])))
+          else and {
+            heldBefore.forall(id => not(asked.carried.contains(id)) and isHeld(step.after.personComments[id])),
+            not(step.kind.agentHeard.contains(HeldCommentText)),
+            step.kind.agentHeard.contains(HeldCommentsStayHeld),
+          },
+        }
+      }
+      | _ => true
+    }
+
+  /// Unadmitted held comments of a revision request or a mention reach neither the agent nor the
+  /// author.
+  pure def unadmittedReachesNobody(step: Transition): bool =
+    match step.kind.page {
+      | HeldCommentsAsked(asked) =>
+        (asked.by != TheAgent and not(admits(asked.read))) implies and {
+          step.after.author.queuedPrompts == step.before.author.queuedPrompts,
+          step.after.author.atWork == step.before.author.atWork,
+          not(step.kind.agentHeard.contains(HeldCommentText)),
+        }
+      | _ => true
+    }
+
+  /// A model-call author's write removes the block of a sent comment only after its reply.
+  pure def answersBeforeTheLineGoes(step: Transition): bool =
+    not(endsAModelCallTurn(step)) or personCommentIds(step.after).forall(id => and {
+      id < step.before.personComments.length(),
+      step.before.personComments[id].sent,
+      not(step.before.personComments[id].gone),
+      step.after.personComments[id].gone,
+    } implies step.after.personComments[id].answered)
+
+  /// A revise turn that did not reply to every comment its prompt carries that is still on the
+  /// page leaves the page as it was.
+  pure def failedReplyLeavesItAsItWas(step: Transition): bool =
+    not(endsAModelCallTurn(step)) or
+      step.before.author.turnComments.forall(id =>
+        step.before.personComments[id].gone or step.after.personComments[id].answered) or
+      step.after.artifact.revision == step.before.artifact.revision
+
+  /// A judge rejection on a page posts its reason once when the host takes it, and reaches the
+  /// author either way.
+  pure def postsTheRejectionOnce(step: Transition): bool =
+    match step.kind.page {
+      | RejectionPosted(post) => and {
+        countOf(postedIn(step), isRejectionComment) == (if (post == HostTakes) 1 else 0),
+        step.after.author.rejectedBy.size() > step.before.author.rejectedBy.size(),
+      }
+      | _ => true
+    }
+
+  /// A model-call author's turn fails only in a step where the host did not take a write.
+  pure def failsOnlyOnAHostError(step: Transition): bool =
+    match step.kind.turnEnd {
+      | AuthorTurnFailed(_) => step.kind.write != WritesLand
+      | _ => true
+    }
+
+  /// Whether one step kept each before-and-after rule.
+  pure def rulesKeptBy(step: Transition): KeptRules = {
+    judgeRulesAtMostOnce: keepsEveryRuling(step),
+    refinerRunIsDoneOnlyAfterItsTurnEnded: endsDoneOnlyWithItsTurn(step),
+    refinersRunAgainOnlyOnChangedRevision: runsAgainOnlyOnAChangedRevision(step),
+    reviewerRunsOnlyOnAnUnreviewedRevision: reviewsOnlyAnUnreviewedRevision(step),
+    authorGetsEveryPullFinding: sendsEveryPullFinding(step),
+    authorGetsEveryPageFinding: sendsEveryPageFinding(step),
+    pageReviewPostsEachFindingOnce: postsEachFindingOnce(step),
+    aPromptToAPageAuthorCarriesItsHeldComments: carriesTheHeldComments(step),
+    unadmittedFeedbackReachesNobody: unadmittedReachesNobody(step),
+    sentCommentIsAnsweredBeforeItsLineGoes: answersBeforeTheLineGoes(step),
+    failedReplyLeavesThePage: failedReplyLeavesItAsItWas(step),
+    aJudgeRejectionPostsItsReasonOnce: postsTheRejectionOnce(step),
+    aModelCallAuthorFailsOnlyOnAHostError: failsOnlyOnAHostError(step),
+  }
+
+  /// The held comments read in a step whose host marks them read, when some were held.
+  pure def heldCommentsAskedFor(step: Transition, matches: { by: Asker, read: HeldRead, carried: Set[int] } => bool): bool =
+    match step.kind.page {
+      | HeldCommentsAsked(asked) => heldCommentIds(step.before).size() > 0 and matches(asked)
+      | _ => false
+    }
+
+  /// Whether one step reached each before-and-after witness.
+  pure def witnessesReachedBy(step: Transition): ReachedWitnesses = {
+    aRulingLandsOnARuledJudgeRun:
+      step.before.judgeRunsCodeRulesOn.exists(id =>
+        not(step.after.judgeRunsCodeRulesOn.contains(id)) and isRuling(step.before.refinerRuns[id].result)),
+    aReviewerRunsAgainOnANewRevision:
+      startedRuns(step).exists(id => and {
+        refinerOf(step.after.refinerRuns[id]) != Polisher,
+        runIds(step.after).exists(earlier =>
+          earlier < id and step.after.refinerRuns[earlier].refinerIndex == step.after.refinerRuns[id].refinerIndex),
+      }),
+    aRefinerRunEndsDone: match step.kind.turnEnd {
+      | RefinerTurnEnded(id) => step.after.refinerRuns[id].status == Done
+      | _ => false
+    },
+    aRefinerRunStartsAfterAHandover:
+      step.before.artifact.status != Drafted and startedRuns(step).size() > 0,
+    aRefinerRunStartsPastFindings:
+      startedRuns(step).exists(started =>
+        findingsBefore(step.after, step.after.refinerRuns[started].refinerIndex).size() > 0),
+    aRefinerRunStartsPastAJudgeWithFindings:
+      startedRuns(step).exists(started =>
+        findingsBefore(step.after, step.after.refinerRuns[started].refinerIndex)
+          .exists(id => ENTRIES[segmentEndOf(step.after.refinerRuns[id].refinerIndex)] == Judge)),
+    aPageAuthorGetsTheFindingsOfItsReviewer:
+      ARTIFACT == Page and gotNewFindings(step) and match step.kind.turnEnd {
+        | RefinerTurnEnded(id) => step.after.author.findingsFrom.contains(id)
+        | _ => false
+      },
+    aStaleReviewRunsTheSegmentAgain: match step.kind.turnEnd {
+      | RefinerTurnEnded(id) => startedRuns(step).exists(started =>
+          step.after.refinerRuns[started].refinerIndex <= step.after.refinerRuns[id].refinerIndex)
+      | _ => false
+    },
+    aPageReviewPostsAnInlineFinding:
+      step.kind.page == PageReviewPosted(TakesAll) and findingLanded(postedIn(step), QuotesThePage) == 1,
+    aPageReviewMovesInlineFindingsIntoItsOutcome: and {
+      step.kind.page == PageReviewPosted(InlineThrows) or step.kind.page == PageReviewPosted(DropsInline),
+      postedIn(step).foldl(false, (found, comment) => found or match comment {
+        | OutcomeComment(outcome) => outcome.findings.contains(QuotesThePage)
+        | _ => false
+      }),
+    },
+    aPageReviewMeetsAHostThatIsDown: step.kind.page == PageReviewPosted(HostDown),
+    heldCommentsGoToThePageAuthor:
+      heldCommentsAskedFor(step, asked => asked.by != AMention and asked.carried.size() > 0),
+    heldCommentsStayHeld:
+      heldCommentsAskedFor(step, asked => asked.by != AMention and not(admits(asked.read))),
+    theHostKeepsHeldCommentsHeld:
+      heldCommentsAskedFor(step, asked => asked.read == AdmittedButAcknowledgementFails),
+    theScreenKeepsHeldComments:
+      heldCommentsAskedFor(step, asked => asked.by != TheAgent and asked.read == ScreenRefuses),
+    aMentionRoutedAwayLeavesHeldComments:
+      heldCommentsAskedFor(step, asked => and {
+        asked.by == AMention,
+        asked.read == AdmittedAndAcknowledged,
+        asked.carried.size() == 0,
+      }),
+    aPersonRepliesWhileTheScreenReads:
+      heldCommentsAskedFor(step, asked => asked.carried.size() > 0) and
+        personCommentIds(step.after).exists(id => and {
+          id >= step.before.personComments.length(),
+          not(step.after.personComments[id].mentions),
+          isHeld(step.after.personComments[id]),
+        }),
+    aHeldCommentReachesTheAuthor:
+      personCommentIds(step.after).exists(id => and {
+        heldBeforeOrNew(step, id),
+        not(isHeld(step.after.personComments[id])),
+        step.after.personComments[id].sent,
+      }),
+    aRevisionRewritesTheBlockOfAnAnsweredComment:
+      endsAModelCallTurn(step) and personCommentIds(step.after).exists(id => and {
+        id < step.before.personComments.length(),
+        not(step.before.personComments[id].gone),
+        step.after.personComments[id].gone,
+        step.after.personComments[id].answered,
+      }),
+    aRevisionAnswersAQueuedComment:
+      endsAModelCallTurn(step) and personCommentIds(step.after).exists(id => and {
+        id < step.before.personComments.length(),
+        not(step.before.author.turnComments.contains(id)),
+        not(step.before.personComments[id].answered),
+        step.after.personComments[id].answered,
+      }),
+    aCommentReplyFails: step.kind.turnEnd == AuthorTurnFailed(ReplyRefused),
+    aRejectionLandsOnThePage: step.kind.page == RejectionPosted(HostTakes),
+    theHostFailsARejection: step.kind.page == RejectionPosted(HostFails),
+    theHostFailsAModelCallAuthor:
+      step.kind.turnEnd == AuthorTurnFailed(UpdateRefused) or step.kind.turnEnd == AuthorTurnFailed(UpdateLandedThenFailed),
+    aPersonEditsDuringAModelCallTurn:
+      step.kind.page == APersonEditedThePage and step.after.author.pageEditsDuringTurn.size() > 0,
+    aModelCallTurnStartsOver: step.kind.turnEnd == AuthorTurnStartsOver,
+  }
+
   /// An artifact has at most one unfinished refiner run, and the artifact is on it.
   val oneUnfinishedRefinerRunPerArtifact: bool = and {
     unfinishedRunIds(review).size() <= 1,
@@ -1168,74 +1576,29 @@ module reviewLoop {
     runIds(review).forall(id => runIds(review).forall(other =>
       (id != other and isRuling(review.refinerRuns[id].result) and isRuling(review.refinerRuns[other].result))
         implies review.refinerRuns[id].refinerIndex != review.refinerRuns[other].refinerIndex)),
-    lastStep.before.refinerRuns.indices().forall(id =>
-      isRuling(lastStep.before.refinerRuns[id].result)
-        implies review.refinerRuns[id].result == lastStep.before.refinerRuns[id].result),
+    lastStepKept.judgeRulesAtMostOnce,
     review.author.rejectedBy.forall(index => runIds(review).exists(id =>
       review.refinerRuns[id].refinerIndex == index and isRejection(review.refinerRuns[id].result))),
   }
 
   /// A refiner run ends `Done` only in the step its turn ended, or it was already done.
-  val refinerRunIsDoneOnlyAfterItsTurnEnded: bool =
-    runIds(review).forall(id =>
-      review.refinerRuns[id].status == Done implies or {
-        id < lastStep.before.refinerRuns.length() and lastStep.before.refinerRuns[id].status == Done,
-        lastStep.turnEnd == RefinerTurnEnded(id),
-      })
+  val refinerRunIsDoneOnlyAfterItsTurnEnded: bool = lastStepKept.refinerRunIsDoneOnlyAfterItsTurnEnded
 
   /// A refiner run starts on an artifact the humans have only when an author turn ended on a
   /// revision they have not seen.
-  val refinersRunAgainOnlyOnChangedRevision: bool =
-    runIds(review).forall(id =>
-      id >= lastStep.before.refinerRuns.length()
-        implies startedOnAChangedRevision(lastStep.before, lastStep.turnEnd))
-
-  pure def readByAnEarlierRun(loop: ReviewLoop, id: int): bool =
-    runIds(loop).exists(earlier => and {
-      earlier < id,
-      loop.refinerRuns[earlier].refinerIndex == loop.refinerRuns[id].refinerIndex,
-      filedOnRevision(loop.refinerRuns[earlier].result, loop.artifact.revision),
-    })
+  val refinersRunAgainOnlyOnChangedRevision: bool = lastStepKept.refinersRunAgainOnlyOnChangedRevision
 
   /// A reviewer run starts only on a revision that no earlier run of its entry filed a review or
   /// ruling of. A host that cannot say the revision counts as a changed one.
-  val reviewerRunsOnlyOnAnUnreviewedRevision: bool =
-    runIds(review).forall(id =>
-      (id >= lastStep.before.refinerRuns.length() and refinerOf(review.refinerRuns[id]) != Polisher)
-        implies not(readByAnEarlierRun(review, id)))
-
-  /// The refiner runs that started in the last step.
-  val startedRuns: Set[int] = runIds(review).filter(id => id >= lastStep.before.refinerRuns.length())
-
-  /// The latest run of each findings entry whose segment ends before `index`, when that run filed
-  /// a review with findings.
-  pure def findingsBefore(loop: ReviewLoop, index: int): Set[int] =
-    runIds(loop).filter(id => and {
-      refinerOf(loop.refinerRuns[id]) == FindingsReviewer,
-      segmentEndOf(loop.refinerRuns[id].refinerIndex) < index,
-      id == latestRunOf(loop, loop.refinerRuns[id].refinerIndex),
-      reviewHasFindings(loop.refinerRuns[id].result),
-    })
+  val reviewerRunsOnlyOnAnUnreviewedRevision: bool = lastStepKept.reviewerRunsOnlyOnAnUnreviewedRevision
 
   /// Every review a findings reviewer files on a pull request reaches its author as a prompt. A
   /// judge's approval does not drop it.
-  val authorGetsEveryPullFinding: bool =
-    ARTIFACT == Page or startedRuns.forall(started =>
-      findingsBefore(review, review.refinerRuns[started].refinerIndex)
-        .forall(id => review.author.findingsFrom.contains(id)))
-
-  /// True when the author got a prompt with findings it did not have in the last step.
-  val authorGotNewFindings: bool = review.author.findingsFrom != lastStep.before.author.findingsFrom
+  val authorGetsEveryPullFinding: bool = lastStepKept.authorGetsEveryPullFinding
 
   /// A review prompt the author of a page gets in the step its reviewer ended carries every
   /// finding of that review.
-  val authorGetsEveryPageFinding: bool =
-    ARTIFACT == PullRequest or match lastStep.turnEnd {
-      | RefinerTurnEnded(id) =>
-        (authorGotNewFindings and reviewHasFindings(review.refinerRuns[id].result))
-          implies review.author.findingsFrom.contains(id)
-      | _ => true
-    }
+  val authorGetsEveryPageFinding: bool = lastStepKept.authorGetsEveryPageFinding
 
   /// A prompt queued for a model-call author reaches it. A model-call author with a queued
   /// prompt has a model turn in flight, or a polisher holds its page.
@@ -1246,158 +1609,51 @@ module reviewLoop {
     unfinishedRunIds(review).exists(id => refinerOf(review.refinerRuns[id]) == Polisher),
   }
 
-  /// The review comments posted in the last step.
-  val postedInLastStep: List[ReviewComment] =
-    review.reviewComments.slice(lastStep.before.reviewComments.length(), review.reviewComments.length())
-
-  pure def isOutcomeComment(comment: ReviewComment): bool =
-    match comment { | OutcomeComment(_) => true | _ => false }
-
-  pure def approves(comment: ReviewComment): bool =
-    match comment { | OutcomeComment(outcome) => outcome.approves | _ => false }
-
-  /// How often a finding with `passage` sits in the comments.
-  pure def findingLanded(comments: List[ReviewComment], passage: Passage): int =
-    comments.foldl(0, (count, comment) => match comment {
-      | InlineFinding(inline) => if (inline.passage == passage) count + 1 else count
-      | OutcomeComment(outcome) => if (outcome.findings.contains(passage)) count + 1 else count
-      | RejectionComment(_) => count
-    })
-
-  pure def countOf(comments: List[ReviewComment], counted: ReviewComment => bool): int =
-    comments.foldl(0, (count, comment) => if (counted(comment)) count + 1 else count)
-
   /// When a page review reaches the document host, each finding lands once, on its passage or in
   /// the outcome comment, and the outcome comment opens with the review line. A turn that did not
   /// file a review does not post a comment.
-  val pageReviewPostsEachFindingOnce: bool =
-    match lastStep.page {
-      | PageReviewPosted(commenting) => match lastStep.turnEnd {
-        | RefinerTurnEnded(id) => {
-          val result = review.refinerRuns[id].result
-          val hostUp = commenting != HostDown
-          val findings = if (reviewHasFindings(result)) REVIEW_PASSAGES else Set()
-          if (not(isReview(result))) postedInLastStep.length() == 0
-          else and {
-            not(hostUp) or countOf(postedInLastStep, isOutcomeComment) == 1,
-            postedInLastStep.foldl(true, (opensWithTheLine, comment) =>
-              opensWithTheLine and (isOutcomeComment(comment) implies approves(comment) == not(reviewHasFindings(result)))),
-            findings.forall(passage => and {
-              findingLanded(postedInLastStep, passage) <= 1,
-              hostUp implies findingLanded(postedInLastStep, passage) == 1,
-            }),
-            REVIEW_PASSAGES.exclude(findings).forall(passage => findingLanded(postedInLastStep, passage) == 0),
-          }
-        }
-        | _ => true
-      }
-      | _ => true
-    }
-
-  /// True when the comment `id` was held before the last step, or a person left it in the step.
-  def heldBeforeOrNew(id: int): bool =
-    id >= lastStep.before.personComments.length() or isHeld(lastStep.before.personComments[id])
+  val pageReviewPostsEachFindingOnce: bool = lastStepKept.pageReviewPostsEachFindingOnce
 
   /// A prompt the agent sends to the author of a page, and a person's request for a revision,
-  /// carry every comment held on the page and mark it read. When the host cannot be read or the
-  /// screen does not admit them, no prompt carries them, they stay held, and the agent is told
-  /// so. An author that finished during the step is not owed them.
-  val aPromptToAPageAuthorCarriesItsHeldComments: bool =
-    match lastStep.page {
-      | HeldCommentsAsked(asked) => {
-        val heldBefore = heldCommentIds(lastStep.before)
-        or {
-          asked.by == AMention,
-          review.author.failed,
-          heldBefore.size() == 0,
-          if (admits(asked.read))
-            heldBefore.forall(id => asked.carried.contains(id) and not(isHeld(review.personComments[id])))
-          else and {
-            heldBefore.forall(id => not(asked.carried.contains(id)) and isHeld(review.personComments[id])),
-            not(lastStep.agentHeard.contains(HeldCommentText)),
-            lastStep.agentHeard.contains(HeldCommentsStayHeld),
-          },
-        }
-      }
-      | _ => true
-    }
+  /// carry every comment held on the page and mark it read. When the host cannot be read, the
+  /// screen does not admit them, or the host does not mark them read, no prompt carries them,
+  /// they stay held, and the agent is told so. An author that finished during the step is not
+  /// owed them.
+  val aPromptToAPageAuthorCarriesItsHeldComments: bool = lastStepKept.aPromptToAPageAuthorCarriesItsHeldComments
 
   /// Held comments a person's revision request or mention sends, when the host cannot be read or
   /// the screen does not admit them, reach neither the agent nor the author. No prompt goes out
   /// and the agent does not read their text.
-  val unadmittedFeedbackReachesNobody: bool =
-    match lastStep.page {
-      | HeldCommentsAsked(asked) =>
-        (asked.by != TheAgent and not(admits(asked.read))) implies and {
-          review.author.queuedPrompts == lastStep.before.author.queuedPrompts,
-          review.author.atWork == lastStep.before.author.atWork,
-          not(lastStep.agentHeard.contains(HeldCommentText)),
-        }
-      | _ => true
-    }
-
-  /// True when the last step ended a model-call author's revise turn, whether it wrote or failed.
-  val aModelCallTurnEnded: bool = MODEL_CALL_AUTHOR and match lastStep.turnEnd {
-    | AuthorTurnEnded(_) => true
-    | AuthorTurnFailed(_) => true
-    | _ => false
-  }
+  val unadmittedFeedbackReachesNobody: bool = lastStepKept.unadmittedFeedbackReachesNobody
 
   /// A revision removes the block of a person comment the author was sent only after the author's
-  /// comment reply is in that comment's discussion.
-  val sentCommentIsAnsweredBeforeItsLineGoes: bool =
-    not(aModelCallTurnEnded) or personCommentIds(review).forall(id => and {
-      id < lastStep.before.personComments.length(),
-      lastStep.before.personComments[id].sent,
-      not(lastStep.before.personComments[id].gone),
-      review.personComments[id].gone,
-    } implies review.personComments[id].answered)
+  /// comment reply is in that comment's comment thread.
+  val sentCommentIsAnsweredBeforeItsLineGoes: bool = lastStepKept.sentCommentIsAnsweredBeforeItsLineGoes
 
   /// The author replies only to a comment it was sent.
   val replyGoesOnlyToASentComment: bool =
     personCommentIds(review).forall(id =>
       review.personComments[id].answered implies review.personComments[id].sent)
 
-  /// A revision that posted fewer comment replies than its prompt carries comments leaves the
-  /// page as it was.
-  val failedReplyLeavesThePage: bool =
-    not(aModelCallTurnEnded) or
-      lastStep.before.author.turnComments.forall(id => review.personComments[id].answered) or
-      review.artifact.revision == lastStep.before.artifact.revision
+  /// A revision that posted fewer comment replies than its prompt carries comments still on the
+  /// page leaves the page as it was.
+  val failedReplyLeavesThePage: bool = lastStepKept.failedReplyLeavesThePage
 
   /// A judge rejection on a page posts its reason in one comment when the host takes it, and the
   /// author gets the rejection whether the post landed or not.
-  val aJudgeRejectionPostsItsReasonOnce: bool =
-    match lastStep.page {
-      | RejectionPosted(post) => and {
-        countOf(postedInLastStep, comment => match comment { | RejectionComment(_) => true | _ => false })
-          == (if (post == HostTakes) 1 else 0),
-        review.author.rejectedBy.size() > lastStep.before.author.rejectedBy.size(),
-      }
-      | _ => true
-    }
+  val aJudgeRejectionPostsItsReasonOnce: bool = lastStepKept.aJudgeRejectionPostsItsReasonOnce
 
-  /// A person comment that does not mention the bot stays held until a prompt that carries it is
-  /// queued for the author. Only the end of the author, or a person's edit that rewrites its
-  /// block, ends it sooner.
-  val aHeldCommentStaysHeldUntilItReachesTheAuthor: bool = or {
-    review.author.failed,
-    lastStep.page == APersonEditedThePage,
-    personCommentIds(review).forall(id => and {
-      heldBeforeOrNew(id),
-      not(review.personComments[id].mentions),
-      not(isHeld(review.personComments[id])),
-    } implies review.personComments[id].sent),
-  }
+  /// A person comment that does not mention the bot is marked read on the page only once a prompt
+  /// that carries it is queued for the author. Until then it stays held.
+  val aHeldCommentStaysHeldUntilItReachesTheAuthor: bool =
+    personCommentIds(review).forall(id =>
+      (review.personComments[id].acknowledged and not(review.personComments[id].mentions))
+        implies review.personComments[id].sent)
 
   /// A model-call author's revise turn fails only when the document host refuses or loses one of
   /// its writes. An edit to the page by a person, a polisher, or an earlier revision does not
   /// fail it.
-  val aModelCallAuthorFailsOnlyOnAHostError: bool =
-    match lastStep.turnEnd {
-      | AuthorTurnFailed(failure) => failure != ReplyToAGoneComment and failure != EditMeetsAnotherEdit
-      | _ => true
-    }
+  val aModelCallAuthorFailsOnlyOnAHostError: bool = lastStepKept.aModelCallAuthorFailsOnlyOnAHostError
 
   /// Every invariant above, for one check of all of them.
   val invariants: bool = and {
@@ -1421,6 +1677,21 @@ module reviewLoop {
     aModelCallAuthorFailsOnlyOnAHostError,
   }
 
+  /// The revisions of the artifact, a counter that model checking bounds.
+  val revisions: int = review.artifact.revision
+
+  /// The refiner runs that started, a counter that model checking bounds.
+  val refinerRunsStarted: int = review.refinerRuns.length()
+
+  /// The comments code posted on the page, a counter that model checking bounds.
+  val reviewCommentsPosted: int = review.reviewComments.length()
+
+  /// The comments people left on the page, a counter that model checking bounds.
+  val personCommentsLeft: int = review.personComments.length()
+
+  /// The prompts waiting for the author, a counter that model checking bounds.
+  val promptsQueued: int = review.author.queuedPrompts.length()
+
   /// Witness for `oneUnfinishedRefinerRunPerArtifact`: a refiner run is unfinished.
   val aRefinerRunIsUnfinished: bool = unfinishedRunIds(review).size() > 0
 
@@ -1429,52 +1700,30 @@ module reviewLoop {
     polisherRunning(review) and review.author.queuedPrompts.length() > 0
 
   /// Witness for `judgeRulesAtMostOnce`: a ruling lands on a judge run that already has one.
-  val aRulingLandsOnARuledJudgeRun: bool =
-    lastStep.before.judgeRunsCodeRulesOn.exists(id =>
-      not(review.judgeRunsCodeRulesOn.contains(id)) and isRuling(lastStep.before.refinerRuns[id].result))
+  val aRulingLandsOnARuledJudgeRun: bool = lastStepReached.aRulingLandsOnARuledJudgeRun
 
   /// Witness for `judgeRulesAtMostOnce`: the author got a rejection from a judge entry.
   val theAuthorGotARejection: bool = review.author.rejectedBy.size() > 0
 
   /// Witness for `reviewerRunsOnlyOnAnUnreviewedRevision`: a reviewer entry runs again on a new revision.
-  val aReviewerRunsAgainOnANewRevision: bool =
-    runIds(review).exists(id => and {
-      id >= lastStep.before.refinerRuns.length(),
-      refinerOf(review.refinerRuns[id]) != Polisher,
-      runIds(review).exists(earlier =>
-        earlier < id and review.refinerRuns[earlier].refinerIndex == review.refinerRuns[id].refinerIndex),
-    })
+  val aReviewerRunsAgainOnANewRevision: bool = lastStepReached.aReviewerRunsAgainOnANewRevision
 
   /// Witness for `refinerRunIsDoneOnlyAfterItsTurnEnded`: a refiner run ends done.
-  val aRefinerRunEndsDone: bool = match lastStep.turnEnd {
-    | RefinerTurnEnded(id) => review.refinerRuns[id].status == Done
-    | _ => false
-  }
+  val aRefinerRunEndsDone: bool = lastStepReached.aRefinerRunEndsDone
 
   /// Witness for `refinersRunAgainOnlyOnChangedRevision`: a refiner run starts on an artifact the humans had.
-  val aRefinerRunStartsAfterAHandover: bool = and {
-    lastStep.before.artifact.status != Drafted,
-    review.refinerRuns.length() > lastStep.before.refinerRuns.length(),
-  }
+  val aRefinerRunStartsAfterAHandover: bool = lastStepReached.aRefinerRunStartsAfterAHandover
 
   /// Witness for `authorGetsEveryPullFinding`: a refiner run starts past a review with findings.
-  val aRefinerRunStartsPastFindings: bool =
-    startedRuns.exists(started => findingsBefore(review, review.refinerRuns[started].refinerIndex).size() > 0)
+  val aRefinerRunStartsPastFindings: bool = lastStepReached.aRefinerRunStartsPastFindings
 
   /// Witness for `authorGetsEveryPullFinding`: a refiner run starts past a judge whose segment
   /// left findings.
-  val aRefinerRunStartsPastAJudgeWithFindings: bool =
-    startedRuns.exists(started =>
-      findingsBefore(review, review.refinerRuns[started].refinerIndex)
-        .exists(id => ENTRIES[segmentEndOf(review.refinerRuns[id].refinerIndex)] == Judge))
+  val aRefinerRunStartsPastAJudgeWithFindings: bool = lastStepReached.aRefinerRunStartsPastAJudgeWithFindings
 
   /// Witness for `authorGetsEveryPageFinding`: the author of a page gets the findings of the
   /// reviewer that just ended.
-  val aPageAuthorGetsTheFindingsOfItsReviewer: bool =
-    ARTIFACT == Page and authorGotNewFindings and match lastStep.turnEnd {
-      | RefinerTurnEnded(id) => review.author.findingsFrom.contains(id)
-      | _ => false
-    }
+  val aPageAuthorGetsTheFindingsOfItsReviewer: bool = lastStepReached.aPageAuthorGetsTheFindingsOfItsReviewer
 
   /// Witness for `aQueuedPromptReachesItsModelCallAuthor`: a model-call author has a queued prompt.
   val aModelCallAuthorHasAQueuedPrompt: bool =
@@ -1484,13 +1733,7 @@ module reviewLoop {
   val theHumansHaveTheArtifact: bool = not(drafted(review))
 
   /// A stale review runs its segment again.
-  val aStaleReviewRunsTheSegmentAgain: bool = match lastStep.turnEnd {
-    | RefinerTurnEnded(id) => runIds(review).exists(started => and {
-        started >= lastStep.before.refinerRuns.length(),
-        review.refinerRuns[started].refinerIndex <= review.refinerRuns[id].refinerIndex,
-      })
-    | _ => false
-  }
+  val aStaleReviewRunsTheSegmentAgain: bool = lastStepReached.aStaleReviewRunsTheSegmentAgain
 
   /// A reviewer reached the review limit.
   val aReviewerReachedTheLimit: bool = runIds(review).exists(id => reviewLimitReached(review, id))
@@ -1504,41 +1747,39 @@ module reviewLoop {
 
   /// Witness for `pageReviewPostsEachFindingOnce`: a page review posts an inline finding and its
   /// outcome comment.
-  val aPageReviewPostsAnInlineFinding: bool =
-    lastStep.page == PageReviewPosted(TakesAll) and findingLanded(postedInLastStep, QuotesThePage) == 1
+  val aPageReviewPostsAnInlineFinding: bool = lastStepReached.aPageReviewPostsAnInlineFinding
 
   /// Witness for `pageReviewPostsEachFindingOnce`: the host fails the inline findings of a page
   /// review with findings, and they move into the outcome comment.
-  val aPageReviewMovesInlineFindingsIntoItsOutcome: bool = and {
-    lastStep.page == PageReviewPosted(InlineThrows) or lastStep.page == PageReviewPosted(DropsInline),
-    postedInLastStep.foldl(false, (found, comment) => found or match comment {
-      | OutcomeComment(outcome) => outcome.findings.contains(QuotesThePage)
-      | _ => false
-    }),
-  }
+  val aPageReviewMovesInlineFindingsIntoItsOutcome: bool = lastStepReached.aPageReviewMovesInlineFindingsIntoItsOutcome
 
   /// Witness for `pageReviewPostsEachFindingOnce`: a page review meets a host that is down.
-  val aPageReviewMeetsAHostThatIsDown: bool = lastStep.page == PageReviewPosted(HostDown)
+  val aPageReviewMeetsAHostThatIsDown: bool = lastStepReached.aPageReviewMeetsAHostThatIsDown
 
   /// Witness for `aPromptToAPageAuthorCarriesItsHeldComments`: held comments go to the author.
-  val heldCommentsGoToThePageAuthor: bool = match lastStep.page {
-    | HeldCommentsAsked(asked) => asked.by != AMention and asked.carried.size() > 0
-    | _ => false
-  }
+  val heldCommentsGoToThePageAuthor: bool = lastStepReached.heldCommentsGoToThePageAuthor
 
   /// Witness for `aPromptToAPageAuthorCarriesItsHeldComments`: held comments stay held.
-  val heldCommentsStayHeld: bool = match lastStep.page {
-    | HeldCommentsAsked(asked) =>
-      asked.by != AMention and not(admits(asked.read)) and heldCommentIds(lastStep.before).size() > 0
-    | _ => false
-  }
+  val heldCommentsStayHeld: bool = lastStepReached.heldCommentsStayHeld
+
+  /// Witness for `aPromptToAPageAuthorCarriesItsHeldComments`: the host does not mark the held
+  /// comments read, so they stay held.
+  val theHostKeepsHeldCommentsHeld: bool = lastStepReached.theHostKeepsHeldCommentsHeld
 
   /// Witness for `unadmittedFeedbackReachesNobody`: the screen keeps the held comments of a
   /// mention or a revision request.
-  val theScreenKeepsHeldComments: bool = match lastStep.page {
-    | HeldCommentsAsked(asked) => asked.by != TheAgent and asked.read == ScreenRefuses
-    | _ => false
-  }
+  val theScreenKeepsHeldComments: bool = lastStepReached.theScreenKeepsHeldComments
+
+  /// Witness for `aHeldCommentStaysHeldUntilItReachesTheAuthor`: a mention the decisions model
+  /// does not route to the author leaves the other held comments held.
+  val aMentionRoutedAwayLeavesHeldComments: bool = lastStepReached.aMentionRoutedAwayLeavesHeldComments
+
+  /// Witness for `aHeldCommentStaysHeldUntilItReachesTheAuthor`: a person replies in a comment
+  /// thread while the screen reads it, and the reply stays held.
+  val aPersonRepliesWhileTheScreenReads: bool = lastStepReached.aPersonRepliesWhileTheScreenReads
+
+  /// Witness for `aHeldCommentStaysHeldUntilItReachesTheAuthor`: a held comment reaches the author.
+  val aHeldCommentReachesTheAuthor: bool = lastStepReached.aHeldCommentReachesTheAuthor
 
   /// Witness for `replyGoesOnlyToASentComment`: the author posts a comment reply.
   val theAuthorRepliesToAComment: bool =
@@ -1546,40 +1787,29 @@ module reviewLoop {
 
   /// Witness for `sentCommentIsAnsweredBeforeItsLineGoes`: a revision rewrites the block of an
   /// answered comment.
-  val aRevisionRewritesTheBlockOfAnAnsweredComment: bool =
-    aModelCallTurnEnded and personCommentIds(review).exists(id => and {
-      id < lastStep.before.personComments.length(),
-      not(lastStep.before.personComments[id].gone),
-      review.personComments[id].gone,
-      review.personComments[id].answered,
-    })
+  val aRevisionRewritesTheBlockOfAnAnsweredComment: bool = lastStepReached.aRevisionRewritesTheBlockOfAnAnsweredComment
+
+  /// Witness for `sentCommentIsAnsweredBeforeItsLineGoes`: a revision answers a comment a queued
+  /// prompt carries before it rewrites that comment's block.
+  val aRevisionAnswersAQueuedComment: bool = lastStepReached.aRevisionAnswersAQueuedComment
 
   /// Witness for `failedReplyLeavesThePage`: a comment reply fails.
-  val aCommentReplyFails: bool =
-    lastStep.turnEnd == AuthorTurnFailed(ReplyRefused) or lastStep.turnEnd == AuthorTurnFailed(ReplyToAGoneComment)
+  val aCommentReplyFails: bool = lastStepReached.aCommentReplyFails
 
   /// Witness for `aJudgeRejectionPostsItsReasonOnce`: a rejection lands on the page.
-  val aRejectionLandsOnThePage: bool = lastStep.page == RejectionPosted(HostTakes)
+  val aRejectionLandsOnThePage: bool = lastStepReached.aRejectionLandsOnThePage
 
   /// Witness for `aJudgeRejectionPostsItsReasonOnce`: the host fails the post of a rejection.
-  val theHostFailsARejection: bool = lastStep.page == RejectionPosted(HostFails)
-
-  /// Witness for `aHeldCommentStaysHeldUntilItReachesTheAuthor`: a held comment reaches the author.
-  val aHeldCommentReachesTheAuthor: bool =
-    personCommentIds(review).exists(id => and {
-      heldBeforeOrNew(id),
-      not(isHeld(review.personComments[id])),
-      review.personComments[id].sent,
-    })
+  val theHostFailsARejection: bool = lastStepReached.theHostFailsARejection
 
   /// Witness for `aModelCallAuthorFailsOnlyOnAHostError`: the host fails a model-call author's write.
-  val theHostFailsAModelCallAuthor: bool = match lastStep.turnEnd {
-    | AuthorTurnFailed(failure) => failure == UpdateRefused or failure == UpdateLandedThenFailed
-    | _ => false
-  }
+  val theHostFailsAModelCallAuthor: bool = lastStepReached.theHostFailsAModelCallAuthor
 
   /// Witness for `aModelCallAuthorFailsOnlyOnAHostError`: a person edits the page while a
   /// model-call author's turn runs.
-  val aPersonEditsDuringAModelCallTurn: bool =
-    lastStep.page == APersonEditedThePage and review.author.pageEditsDuringTurn.size() > 0
+  val aPersonEditsDuringAModelCallTurn: bool = lastStepReached.aPersonEditsDuringAModelCallTurn
+
+  /// Witness for `aModelCallAuthorFailsOnlyOnAHostError`: a model-call author's turn starts over
+  /// on a page a person edited.
+  val aModelCallTurnStartsOver: bool = lastStepReached.aModelCallTurnStartsOver
 }

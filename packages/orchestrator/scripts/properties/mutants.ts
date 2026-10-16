@@ -103,8 +103,9 @@ export const MUTANTS: Mutant[] = [
     id: "W12",
     invariant: "everyFeedbackGetsOneRoutingDecision",
     path: "src/workflow/refiner/feedback.ts",
-    find: '      return { notes: [`${reviewed} and sent it to nobody.`, said], wake: "human" };',
-    replace: '      return { notes: [`${reviewed} and sent it to nobody.`, said], wake: "none" };',
+    find: '      return { notes: [`${reviewed} and sent it to nobody.${stayHeld}`, said], wake: "human" };',
+    replace:
+      '      return { notes: [`${reviewed} and sent it to nobody.${stayHeld}`, said], wake: "none" };',
   },
   {
     id: "W13",
@@ -118,8 +119,8 @@ export const MUTANTS: Mutant[] = [
     id: "W14",
     invariant: "aPromptToAPageAuthorCarriesItsHeldComments",
     path: "src/workflow/refiner/held-comments.ts",
-    find: "  await workflow.artifact(artifact.kind).acknowledge(heldCommentHandles(comments), artifact.ref);\n",
-    replace: "",
+    find: "  const unmarked = await workflow\n    .artifact(artifact.kind)\n    .acknowledge(heldCommentHandles(comments), artifact.ref);",
+    replace: "  const unmarked: FeedbackHandle[] = [];",
   },
   {
     id: "W15",
@@ -178,6 +179,42 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/lifecycle.ts",
     find: "  if (closed.paused_at === null) await restartSandbox(workflow, closed);",
     replace: "  if (true || closed.paused_at === null) await restartSandbox(workflow, closed);",
+  },
+  {
+    id: "W23",
+    invariant: "aPromptToAPageAuthorCarriesItsHeldComments (unmarked)",
+    path: "src/workflow/refiner/held-comments.ts",
+    find: "  return comments.filter((comment) => !unmarkedIds.has(comment.id));",
+    replace: "  return comments;",
+  },
+  {
+    id: "W24",
+    invariant: "aHeldCommentStaysHeldUntilItReachesTheAuthor",
+    path: "src/workflow/refiner/feedback.ts",
+    find: "    ? await workflow.artifact(artifact.kind).acknowledge(feedback.handles, artifact.ref)",
+    replace:
+      '    ? await workflow.artifact(artifact.kind).acknowledge([...feedback.handles, ...held.map((comment) => ({ kind: "page" as const, comment_id: comment.id }))], artifact.ref)',
+  },
+  {
+    id: "W25",
+    invariant: "sentCommentIsAnsweredBeforeItsLineGoes (queued)",
+    path: "src/workflow/task/model-author.ts",
+    find: "  if (!queuedCommentIds.length) return;",
+    replace: "  if (queuedCommentIds.length || true) return;",
+  },
+  {
+    id: "W26",
+    invariant: "aModelCallAuthorFailsOnlyOnAHostError",
+    path: "src/workflow/task/model-author.ts",
+    find: "  if ((await documents.readPageContent(ref.page_id)) !== pageText) return { startOver: true };\n",
+    replace: "",
+  },
+  {
+    id: "W27",
+    invariant: "aModelCallAuthorFailsOnlyOnAHostError (gone comment)",
+    path: "src/workflow/task/model-author.ts",
+    find: "    if (!(await documents.fetchComment(reply.comment_id))) {",
+    replace: "    if (false) {",
   },
   {
     id: "A1",

@@ -77,12 +77,17 @@
       "heldCommentsGoToThePageAuthor",
       "heldCommentsStayHeld",
       "theScreenKeepsHeldComments",
+      "theHostKeepsHeldCommentsHeld",
+      "aMentionRoutedAwayLeavesHeldComments",
+      "aPersonRepliesWhileTheScreenReads",
       "aHeldCommentReachesTheAuthor",
       "theAuthorRepliesToAComment",
       "aRevisionRewritesTheBlockOfAnAnsweredComment",
+      "aRevisionAnswersAQueuedComment",
       "aCommentReplyFails",
       "theHostFailsAModelCallAuthor",
-      "aPersonEditsDuringAModelCallTurn"
+      "aPersonEditsDuringAModelCallTurn",
+      "aModelCallTurnStartsOver"
     ],
     "pageReviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -101,6 +106,9 @@
       "heldCommentsGoToThePageAuthor",
       "heldCommentsStayHeld",
       "theScreenKeepsHeldComments",
+      "theHostKeepsHeldCommentsHeld",
+      "aMentionRoutedAwayLeavesHeldComments",
+      "aPersonRepliesWhileTheScreenReads",
       "aHeldCommentReachesTheAuthor"
     ],
     "pageJudgeBetweenReviewers": [
@@ -120,9 +128,116 @@
       "heldCommentsGoToThePageAuthor",
       "heldCommentsStayHeld",
       "theScreenKeepsHeldComments",
+      "theHostKeepsHeldCommentsHeld",
+      "aMentionRoutedAwayLeavesHeldComments",
+      "aPersonRepliesWhileTheScreenReads",
       "aHeldCommentReachesTheAuthor",
       "aRejectionLandsOnThePage",
       "theHostFailsARejection"
     ]
+  },
+  "tlc": {
+    "ignoredVariables": [
+      "lastStepReached",
+      "agentHeard"
+    ],
+    "bounds": {
+      "judgeThenPolisher": {
+        "pr": {
+          "revisions": 2,
+          "refinerRunsStarted": 3,
+          "reviewCommentsPosted": 3,
+          "personCommentsLeft": 2,
+          "promptsQueued": 2
+        },
+        "nightly": {
+          "revisions": 3,
+          "refinerRunsStarted": 4,
+          "reviewCommentsPosted": 4,
+          "personCommentsLeft": 3,
+          "promptsQueued": 3
+        }
+      },
+      "reviewerThenPolisher": {
+        "pr": {
+          "revisions": 2,
+          "refinerRunsStarted": 3,
+          "reviewCommentsPosted": 3,
+          "personCommentsLeft": 2,
+          "promptsQueued": 2
+        },
+        "nightly": {
+          "revisions": 3,
+          "refinerRunsStarted": 4,
+          "reviewCommentsPosted": 4,
+          "personCommentsLeft": 3,
+          "promptsQueued": 3
+        }
+      },
+      "judgeBetweenReviewers": {
+        "pr": {
+          "revisions": 2,
+          "refinerRunsStarted": 3,
+          "reviewCommentsPosted": 3,
+          "personCommentsLeft": 2,
+          "promptsQueued": 2
+        },
+        "nightly": {
+          "revisions": 3,
+          "refinerRunsStarted": 4,
+          "reviewCommentsPosted": 4,
+          "personCommentsLeft": 3,
+          "promptsQueued": 3
+        }
+      },
+      "modelCallAuthorWithTwoReviewers": {
+        "pr": {
+          "revisions": 2,
+          "refinerRunsStarted": 3,
+          "reviewCommentsPosted": 3,
+          "personCommentsLeft": 2,
+          "promptsQueued": 2
+        },
+        "nightly": {
+          "revisions": 3,
+          "refinerRunsStarted": 4,
+          "reviewCommentsPosted": 4,
+          "personCommentsLeft": 3,
+          "promptsQueued": 3
+        }
+      },
+      "pageReviewerThenPolisher": {
+        "pr": {
+          "revisions": 2,
+          "refinerRunsStarted": 3,
+          "reviewCommentsPosted": 3,
+          "personCommentsLeft": 2,
+          "promptsQueued": 2
+        },
+        "nightly": {
+          "revisions": 3,
+          "refinerRunsStarted": 4,
+          "reviewCommentsPosted": 4,
+          "personCommentsLeft": 3,
+          "promptsQueued": 3
+        }
+      },
+      "pageJudgeBetweenReviewers": {
+        "pr": {
+          "revisions": 2,
+          "refinerRunsStarted": 3,
+          "reviewCommentsPosted": 3,
+          "personCommentsLeft": 2,
+          "promptsQueued": 2
+        },
+        "nightly": {
+          "revisions": 3,
+          "refinerRunsStarted": 4,
+          "reviewCommentsPosted": 4,
+          "personCommentsLeft": 3,
+          "promptsQueued": 3
+        }
+      }
+    }
   }
 }

@@ -55,8 +55,8 @@ type FakeLine = { id: number; text: string };
 
 /**
  * A person's comment on a page, on one line or on the page as a whole when `lineId` is null. It
- * opens its own discussion unless `discussionId` names the discussion it replies in, and it
- * mentions the document user when `mentionsSelf` is true.
+ * opens its own comment thread unless `commentThreadId` names the comment thread it replies in,
+ * and it mentions the document user when `mentionsSelf` is true.
  */
 export type FakePersonComment = {
   id: string;
@@ -64,7 +64,7 @@ export type FakePersonComment = {
   lineId: number | null;
   authorName: string;
   text: string;
-  discussionId?: string;
+  commentThreadId?: string;
   mentionsSelf?: boolean;
 };
 
@@ -256,13 +256,16 @@ export class FakeDocuments implements Documents {
     this.record("updatePageContent", pageId, change);
     const lines = this.pageLines.get(pageId);
     if (!lines) throw new Error(`updatePageContent: no page ${pageId}`);
-    const update = planPageTextUpdate(change, FAKE_EDITS_MAX);
-    const updated =
-      "whole" in update ? this.newLines(update.whole) : this.editedLines(lines, update.edits);
+    const updated = this.plannedLines(lines, change);
     const kept = new Set(updated.map((line) => line.id));
     const removed = lines.filter((line) => !kept.has(line.id)).map((line) => line.id);
     this.setPageLines(pageId, updated);
     if (removed.length) this.events.push({ kind: "lines_removed", pageId, lineIds: removed });
+  }
+
+  private plannedLines(lines: FakeLine[], change: PageTextChange): FakeLine[] {
+    const update = planPageTextUpdate(change, FAKE_EDITS_MAX);
+    return "whole" in update ? this.newLines(update.whole) : this.editedLines(lines, update.edits);
   }
 
   private editedLines(lines: FakeLine[], edits: PageTextEdit[]): FakeLine[] {
@@ -331,24 +334,44 @@ export class FakeDocuments implements Documents {
   }
 
   /**
-   * Mark the discussion of the comment read, the way the Notion eyes reply does: every comment in
-   * that discussion now is acknowledged, and a later one is held again.
+   * Mark the comment read, the way the Notion eyes reply does: a reply marks the earliest held
+   * comment of its comment thread. False when that is another comment, or the comment is not held.
    */
-  async acknowledgeComment(comment: PageCommentRef): Promise<void> {
+  async acknowledgeComment(comment: PageCommentRef): Promise<boolean> {
     this.record("acknowledgeComment", comment);
-    const discussion = this.discussionOf(comment.commentId);
+    const commentThread = this.commentThreadOf(comment.commentId);
+    const earliest = this.heldNow().find((held) => this.commentThreadOf(held.id) === commentThread);
+    if (earliest?.id !== comment.commentId) return false;
     this.acknowledged.add(comment.commentId);
-    for (const held of this.held) {
-      if (held.id === discussion) this.acknowledged.add(held.id);
-    }
-    for (const person of this.personComments) {
-      if (this.discussionOf(person.id) === discussion) this.acknowledged.add(person.id);
-    }
+    return true;
   }
 
-  private discussionOf(commentId: string): string {
+  private commentThreadOf(commentId: string): string {
     const person = this.personComments.find((listed) => listed.id === commentId);
-    return person?.discussionId ?? commentId;
+    return person?.commentThreadId ?? commentId;
+  }
+
+  /** The comments among `commentIds` on a line of the page that the change would replace. */
+  async commentsOnRemovedLines(
+    pageId: string,
+    change: PageTextChange,
+    commentIds: string[],
+  ): Promise<string[]> {
+    this.record("commentsOnRemovedLines", pageId, change, commentIds);
+    const lines = this.pageLines.get(pageId);
+    if (!lines) throw new Error(`commentsOnRemovedLines: no page ${pageId}`);
+    const lineSeq = this.lineSeq;
+    const kept = new Set(this.plannedLines(lines, change).map((line) => line.id));
+    this.lineSeq = lineSeq;
+    return commentIds.filter((commentId) => {
+      const person = this.personComments.find((listed) => listed.id === commentId);
+      return (
+        person?.pageId === pageId &&
+        person.lineId !== null &&
+        this.isOpen(person) &&
+        !kept.has(person.lineId)
+      );
+    });
   }
 
   /** A reply to a person comment whose line is gone fails, the way a deleted block's would. */
@@ -367,6 +390,7 @@ export class FakeDocuments implements Documents {
     if (listed && commentId in listed) return listed[commentId] ?? null;
     const person = this.personComments.find((comment) => comment.id === commentId);
     if (!person) return { text: "", author: null, mentions: [] };
+    if (!this.isOpen(person)) return null;
     const self = this.answers.self ?? FAKE_SELF;
     return {
       text: person.text,

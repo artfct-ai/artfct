@@ -85,10 +85,10 @@ const posted = (calls: Call[]) =>
       expect(call.url).toBe("https://api.notion.com/v1/comments");
       return JSON.parse(call.body);
     });
-const pageComment = (id: string, discussion: string, author: string, text: string) => ({
+const pageComment = (id: string, commentThread: string, author: string, text: string) => ({
   ...fullComment,
   id,
-  discussion_id: discussion,
+  discussion_id: commentThread,
   created_by: { object: "user", id: author },
   rich_text: [{ type: "text", plain_text: text }],
 });
@@ -481,30 +481,72 @@ describe("NotionDocuments", () => {
   });
 
   describe("acknowledgeComment", () => {
-    describe("a comment the integration can read", () => {
+    const commentThreadAnswers = (listed: unknown[]) => (url: string) => {
+      const { pathname, search } = new URL(url);
+      if (pathname === "/v1/users/me") {
+        return Response.json({ object: "user", id: "bot1", type: "bot", name: "artfct", bot: {} });
+      }
+      if (`${pathname}${search}` === "/v1/comments?block_id=b1")
+        return Response.json(listOf(listed));
+      return Response.json({ ...fullComment, parent: { type: "block_id", block_id: "b1" } });
+    };
+
+    describe("the earliest held comment of its comment thread", () => {
       let calls: Call[];
+      let marked: boolean;
 
       beforeEach(async () => {
-        const notion = notionDocuments(() => Response.json(fullComment));
+        const notion = notionDocuments(
+          commentThreadAnswers([
+            pageComment("c0", "d1", "u1", "Done before."),
+            pageComment("ack", "d1", "bot1", "👀"),
+            pageComment("c1", "d1", "u1", "Why?"),
+            pageComment("c2", "d1", "u2", "Also."),
+            pageComment("c9", "d9", "u1", "Elsewhere."),
+          ]),
+        );
         calls = notion.calls;
-        await notion.documents.acknowledgeComment({ pageId: "p1", commentId: "c1" });
+        marked = await notion.documents.acknowledgeComment({ pageId: "p1", commentId: "c1" });
       });
 
-      it("reads the comment to learn its discussion", () => {
-        expect(calls[0]?.url).toBe("https://api.notion.com/v1/comments/c1");
-        expect(calls[0]?.method).toBe("GET");
+      it("reads the comment, then lists the comments of its block", () => {
+        expect(paths(calls).slice(0, 1)).toEqual(["/v1/comments/c1"]);
+        expect(paths(calls)).toContain("/v1/comments?block_id=b1");
       });
 
-      it("posts to the comments collection", () => {
-        expect(calls[1]?.url).toBe("https://api.notion.com/v1/comments");
-        expect(calls[1]?.method).toBe("POST");
+      it("replies in the comment thread with the eyes emoji alone", () => {
+        expect(posted(calls)).toEqual([
+          { discussion_id: "d1", rich_text: [{ type: "text", text: { content: "👀" } }] },
+        ]);
+        expect(marked).toBe(true);
       });
+    });
 
-      it("replies in the discussion with the eyes emoji alone", () => {
-        expect(JSON.parse(calls[1]?.body ?? "")).toEqual({
-          discussion_id: "d1",
-          rich_text: [{ type: "text", text: { content: "👀" } }],
-        });
+    describe("a comment after another held comment of its comment thread", () => {
+      it("posts nothing and says so", async () => {
+        const notion = notionDocuments(
+          commentThreadAnswers([
+            pageComment("c1", "d1", "u1", "Why?"),
+            pageComment("c2", "d1", "u2", "Also."),
+          ]),
+        );
+        const marked = await notion.documents.acknowledgeComment({ pageId: "p1", commentId: "c2" });
+        expect(marked).toBe(false);
+        expect(posted(notion.calls)).toEqual([]);
+      });
+    });
+
+    describe("a comment an acknowledgement already marks", () => {
+      it("posts nothing and says so", async () => {
+        const notion = notionDocuments(
+          commentThreadAnswers([
+            pageComment("c1", "d1", "u1", "Why?"),
+            pageComment("ack", "d1", "bot1", "👀"),
+          ]),
+        );
+        const marked = await notion.documents.acknowledgeComment({ pageId: "p1", commentId: "c1" });
+        expect(marked).toBe(false);
+        expect(posted(notion.calls)).toEqual([]);
       });
     });
 
@@ -688,6 +730,58 @@ describe("NotionDocuments", () => {
     });
   });
 
+  describe("commentsOnRemovedLines", () => {
+    const before = "# Design\nFirst draft.\n## Risks\nNone yet.";
+    const change = { before, after: "# Design\nSecond draft.\n## Risks\nNone yet." };
+    const respond = (url: string) => {
+      const { pathname } = new URL(url);
+      const answers: Record<string, unknown> = {
+        "/v1/comments/on-draft": {
+          ...fullComment,
+          id: "on-draft",
+          parent: { type: "block_id", block_id: "b2" },
+        },
+        "/v1/comments/on-risks": {
+          ...fullComment,
+          id: "on-risks",
+          parent: { type: "block_id", block_id: "b3" },
+        },
+        "/v1/comments/on-page": { ...fullComment, id: "on-page" },
+        "/v1/blocks/b2": textBlock("b2", "paragraph", "First draft."),
+        "/v1/blocks/b3": textBlock("b3", "heading_2", "Risks"),
+      };
+      return Response.json(answers[pathname] ?? emptyList);
+    };
+
+    it("names the comments on the blocks the edits rewrite", async () => {
+      const notion = notionDocuments(respond);
+      expect(
+        await notion.documents.commentsOnRemovedLines("p1", change, [
+          "on-draft",
+          "on-risks",
+          "on-page",
+        ]),
+      ).toEqual(["on-draft"]);
+    });
+
+    it("reads each comment and the block it sits on, and writes nothing", async () => {
+      const notion = notionDocuments(respond);
+      await notion.documents.commentsOnRemovedLines("p1", change, ["on-draft", "on-page"]);
+      expect(paths(notion.calls)).toEqual([
+        "/v1/comments/on-draft",
+        "/v1/blocks/b2",
+        "/v1/comments/on-page",
+      ]);
+      expect(notion.calls.every((call) => call.method === "GET")).toBe(true);
+    });
+
+    it("does not call Notion without comments to check", async () => {
+      const notion = notionDocuments(respond);
+      expect(await notion.documents.commentsOnRemovedLines("p1", change, [])).toEqual([]);
+      expect(notion.calls).toEqual([]);
+    });
+  });
+
   describe("replyToComment", () => {
     let calls: Call[];
 
@@ -700,12 +794,12 @@ describe("NotionDocuments", () => {
       );
     });
 
-    it("reads the comment to learn its discussion", () => {
+    it("reads the comment to learn its comment thread", () => {
       expect(calls[0]?.url).toBe("https://api.notion.com/v1/comments/c1");
       expect(calls[0]?.method).toBe("GET");
     });
 
-    it("posts the reply text in that discussion", () => {
+    it("posts the reply text in that comment thread", () => {
       expect(calls[1]?.url).toBe("https://api.notion.com/v1/comments");
       expect(JSON.parse(calls[1]?.body ?? "")).toEqual({
         discussion_id: "d1",

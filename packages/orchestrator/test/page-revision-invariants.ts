@@ -10,7 +10,7 @@ function sentBefore(world: PageRevisionWorld, commentId: string, eventIndex: num
 
 /**
  * A revision removes a line that holds a person comment the author was sent only after the
- * author's reply is in that comment's discussion.
+ * author's reply is in that comment's comment thread.
  */
 export function sentCommentIsAnsweredBeforeItsLineGoes(world: PageRevisionWorld): void {
   const comments = world.documents.allPersonComments;

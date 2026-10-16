@@ -83,7 +83,7 @@ export type SpecReviewComment =
 
 /** A comment a person left on the page, as the spec sees it. */
 export type SpecPersonComment = {
-  discussion: string;
+  commentThread: string;
   onTheBlock: boolean;
   mentions: boolean;
   acknowledged: boolean;
@@ -144,7 +144,6 @@ function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
     const picks = itfField(state, "mbt::nondetPicks");
     const picked = itfVariant(itfField(picks, "judgeRun", true));
     const decision = itfVariant(itfField(picks, "decision", true));
-    const lastStep = itfField(state, `${setup}::reviewLoop::lastStep`);
     return {
       action: itfText(itfField(state, "mbt::actionTaken")),
       judgeRun: picked?.tag === "Some" ? itfInt(picked.value) : null,
@@ -153,7 +152,7 @@ function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
           ? itfOneOf(itfText(itfField(decision.value, "tag")), REVIEW_AGAIN_DECISIONS)
           : null,
       picks: somePicks(picks),
-      agentHeard: sortedTags(itfField(lastStep, "agentHeard")),
+      agentHeard: sortedTags(itfField(state, `${setup}::reviewLoop::agentHeard`)),
       review: specReview(itfField(state, `${setup}::reviewLoop::review`)),
     };
   });
@@ -216,10 +215,10 @@ function specReviewComment(value: unknown): SpecReviewComment {
 }
 
 function specPersonComment(value: unknown): SpecPersonComment {
-  const discussion = itfVariant(itfField(value, "discussion"))!;
-  const opened = discussion.tag === "OpenedBy" ? "opened" : "review";
+  const commentThread = itfVariant(itfField(value, "commentThread"))!;
+  const opened = commentThread.tag === "OpenedBy" ? "opened" : "review";
   return {
-    discussion: `${opened} ${itfInt(discussion.value)}`,
+    commentThread: `${opened} ${itfInt(commentThread.value)}`,
     onTheBlock: itfBool(itfField(value, "onTheBlock")),
     mentions: itfBool(itfField(value, "mentions")),
     acknowledged: itfBool(itfField(value, "acknowledged")),
@@ -425,14 +424,14 @@ type FailingHostMethod =
 type CommentPlace =
   | { place: "page" }
   | { place: "block" }
-  | { place: "discussion"; of: number }
+  | { place: "comment_thread"; of: number }
   | { place: "review"; of: number };
 
 /** A person comment the replay put on the page, with what the spec says about where it sits. */
 type ReplayComment = {
   hostId: string;
-  discussion: string;
-  hostDiscussion: string;
+  commentThread: string;
+  hostCommentThread: string;
   onTheBlock: boolean;
   mentions: boolean;
   lineId: number | null;
@@ -441,8 +440,8 @@ type ReplayComment = {
 /** The comment every page of a world holds when the review starts. */
 const COMMENT_HELD_AT_OPEN: ReplayComment = {
   hostId: HELD_COMMENT.id,
-  discussion: "opened 0",
-  hostDiscussion: HELD_COMMENT.id,
+  commentThread: "opened 0",
+  hostCommentThread: HELD_COMMENT.id,
   onTheBlock: false,
   mentions: false,
   lineId: null,
@@ -857,7 +856,9 @@ export class ReviewLoopReplay {
       lineId: comment.lineId,
       authorName: "Bea",
       text: mentions ? `@artfct ${mentionBody(hostId)}` : this.commentText(comment),
-      ...(comment.hostDiscussion === hostId ? {} : { discussionId: comment.hostDiscussion }),
+      ...(comment.hostCommentThread === hostId
+        ? {}
+        : { commentThreadId: comment.hostCommentThread }),
       mentionsSelf: mentions,
     });
     return comment;
@@ -871,8 +872,8 @@ export class ReviewLoopReplay {
   ): ReplayComment {
     const opened = {
       hostId,
-      discussion: `opened ${specId}`,
-      hostDiscussion: hostId,
+      commentThread: `opened ${specId}`,
+      hostCommentThread: hostId,
       onTheBlock: false,
       mentions,
       lineId: null,
@@ -885,7 +886,7 @@ export class ReviewLoopReplay {
         if (lineId === undefined) throw new Error("the page has no block");
         return { ...opened, onTheBlock: true, lineId };
       }
-      case "discussion": {
+      case "comment_thread": {
         const earlier = this.comments[place.of];
         if (!earlier) throw new Error(`the trace replies to comment ${place.of}`);
         return { ...earlier, hostId, mentions };
@@ -893,8 +894,8 @@ export class ReviewLoopReplay {
       case "review":
         return {
           ...opened,
-          discussion: `review ${place.of}`,
-          hostDiscussion: `review-${place.of}`,
+          commentThread: `review ${place.of}`,
+          hostCommentThread: `review-${place.of}`,
         };
       default: {
         const unreachable: never = place;
@@ -928,7 +929,7 @@ export class ReviewLoopReplay {
         ? new InterleavedDecisions(
             answering,
             onFirstCallAsking("takes_control", async () => {
-              this.addComment({ place: "discussion", of: replyTo }, false);
+              this.addComment({ place: "comment_thread", of: replyTo }, false);
             }),
           )
         : answering,
@@ -1129,7 +1130,7 @@ export class ReviewLoopReplay {
     const prompts = this.world.promptsQueuedFor(author.task_id);
     const lineIds = host.lineIds(this.requirePageId());
     return {
-      discussion: comment.discussion,
+      commentThread: comment.commentThread,
       onTheBlock: comment.onTheBlock,
       mentions: comment.mentions,
       acknowledged: host.isAcknowledged(comment.hostId),
@@ -1251,8 +1252,8 @@ function commentPlaceOf(picked: unknown): CommentPlace {
       return { place: "page" };
     case "OnTheBlock":
       return { place: "block" };
-    case "InTheDiscussionOf":
-      return { place: "discussion", of: itfInt(place.value) };
+    case "InTheCommentThreadOf":
+      return { place: "comment_thread", of: itfInt(place.value) };
     case "UnderTheReviewComment":
       return { place: "review", of: itfInt(place.value) };
     default:
