@@ -9,6 +9,7 @@ import {
   aFailedCheckNeverCompletesAJob,
   anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone,
   authorGetsEveryPageFinding,
+  authorGetsEveryPullFinding,
   pageReviewPostsEachFindingOnce,
   artifactStatusMovesAreLegal,
   authorIsIdleWhileAPolisherRuns,
@@ -176,6 +177,7 @@ const STEP_INVARIANTS = [
   aPromptToAPageAuthorCarriesItsHeldComments,
   pageReviewPostsEachFindingOnce,
   authorGetsEveryPageFinding,
+  authorGetsEveryPullFinding,
   aJobWorksOnlyOnIssuesOfItsSubject,
   subjectNeverChanges,
   aSingleIssueWorkflowIsDoneWithItsSubjectsJob,
@@ -720,6 +722,24 @@ const reviewedPastARuledJudge = [
   approvingEnd,
 ];
 
+const findingsThenJudgeApproves = refinerRunEnds(0, {
+  reviewer: "findings",
+  pageCommenting: "takes",
+  judge: "approves",
+  whileRuled: "nothing",
+  polisher: "nothing_pushed",
+  stopReason: "end_turn",
+  closing: "reports_work",
+});
+
+const judgeApprovesAfterFindings = [
+  ...draftedArtifact,
+  findingsThenJudgeApproves,
+  findingsThenJudgeApproves,
+  authorTurnEnds(0, "changed"),
+  agentRoutes(0, "finish_review"),
+];
+
 const reviewedOnAFlakyHost = [
   ...draftedArtifact,
   findingsOnHost("drops_inline"),
@@ -889,6 +909,10 @@ const startingSequences: fc.Arbitrary<StartingSequence> = fc.constantFrom(
   startingSequence(reviewedWhileTheAuthorWorks, { refiners: "reviewer_then_polisher" }),
   startingSequence(handedOnAfterAStaleRestartIsCancelled, { refiners: "two_reviewers" }),
   startingSequence(reviewedPastARuledJudge, { refiners: "judge_between_reviewers" }),
+  startingSequence(judgeApprovesAfterFindings, {
+    refiners: "judge_between_reviewers",
+    checksOnPush: "passed",
+  }),
 );
 
 const researchHandedOn = [researcherReportsTodos(0, 1), researcherTurnEnds(0, "written")];
@@ -986,7 +1010,7 @@ const CORPUS_EXAMPLES = WORKFLOW_CORPUS.map((replayed): [ReplayedSequence] => [r
 
 describe("the workflow invariants", () => {
   it("are every state and step invariant", () => {
-    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(48);
+    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(49);
   });
 
   for (const property of PROPERTIES) {
@@ -1148,6 +1172,16 @@ describe("reviewers on a revision they reviewed", () => {
   it("passes over a ruled judge and a reviewer that read the revision", async () => {
     const world = await worldAfter([pullSetup("judge_between_reviewers"), reviewedPastARuledJudge]);
     expect(entriesRun(world)).toEqual([0, 1, 2, 0]);
+  });
+
+  it("sends the findings before a judge to the author when the judge approves", async () => {
+    const world = await worldAfter([
+      pullSetup("judge_between_reviewers"),
+      judgeApprovesAfterFindings,
+    ]);
+    expect(entriesRun(world)).toEqual([0, 1, 2]);
+    const observed = world.steps.at(-1)!.after.tasks.find((task) => task.role === "author")!;
+    expect(observed.promptsQueued.some((text) => text.includes("Name the owner."))).toBe(true);
   });
 
   it("has the judge's ruling and drops a later one", async () => {

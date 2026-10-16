@@ -287,6 +287,7 @@ describe("rejectionPrompt", () => {
     url: URL,
     entry: "alignment",
     reason: "Use the SDK scheduler.",
+    review: null,
   });
 
   it("names the entry, the artifact, and the reason", () => {
@@ -297,5 +298,23 @@ describe("rejectionPrompt", () => {
 
   it("says the next review reads the artifact", () => {
     expect(prompt).toContain("The next review reads it when this turn ends.");
+  });
+
+  it("carries the findings the reviewers before the judge left", () => {
+    const withReview = rejectionPrompt({
+      url: URL,
+      entry: "alignment",
+      reason: "Use the SDK scheduler.",
+      review: {
+        kind: "review",
+        revision: "abc",
+        blocking: false,
+        summary: "Code review: Two things to weigh.",
+        findings: [{ location: "src/login.ts:10", body: "Name the owner." }],
+      },
+    });
+    expect(withReview).toContain("Code review: Two things to weigh.");
+    expect(withReview).toContain("- src/login.ts:10: Name the owner.");
+    expect(prompt).not.toContain("Comments:");
   });
 });

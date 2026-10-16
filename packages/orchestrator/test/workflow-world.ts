@@ -362,6 +362,7 @@ export class WorkflowWorld {
   private readonly stoppedEarly = new Set<string>();
   private readonly modelTurnEnds: string[] = [];
   private readonly modelPromptTexts = new Map<string, string[]>();
+  private readonly queuedPromptTexts = new Map<string, string[]>();
   private whilePageModelAnswers: ((taskId: string) => Promise<void>) | null = null;
   private statements = 0;
   private runningAction: RunningAction | null = null;
@@ -382,6 +383,7 @@ export class WorkflowWorld {
     this.tracker = options.tracker;
     this.pageHost = options.pageHost;
     this.countStatementsOf(options.database);
+    this.recordQueuedPrompts();
     if (options.setup.pageAuthor === "model") {
       this.answerPageModelWith("page");
       this.recordPromptsModelTurnsTake();
@@ -400,6 +402,17 @@ export class WorkflowWorld {
       const work = running ? this.statements - running.statementsAtStart : 0;
       if (running && work > ACTION_WORK_BUDGET) exceededWorkBudget(running.label, work);
       return prepare(sql);
+    };
+  }
+
+  /** Keep the text of every prompt queued for a task, also one a stop or a cancel clears later. */
+  private recordQueuedPrompts(): void {
+    const { store } = this.workflow;
+    const enqueuePrompt = store.enqueuePrompt.bind(store);
+    store.enqueuePrompt = (taskId, text) => {
+      const texts = this.queuedPromptTexts.get(taskId) ?? [];
+      this.queuedPromptTexts.set(taskId, [...texts, text]);
+      enqueuePrompt(taskId, text);
     };
   }
 
@@ -774,7 +787,7 @@ export class WorkflowWorld {
       path: "src/login.ts",
       line: 10 + index,
       original_line: null,
-      body,
+      body: `${body} (review ${id})`,
     }));
     this.installHost();
   }
@@ -1235,6 +1248,7 @@ export class WorkflowWorld {
             .flatMap((bridge) => bridge.promptTexts),
           ...(this.modelPromptTexts.get(task.task_id) ?? []),
         ],
+        promptsQueued: this.queuedPromptTexts.get(task.task_id) ?? [],
         cancelsSent: this.bridges
           .filter((bridge) => bridge.taskId === task.task_id)
           .reduce((total, bridge) => total + bridge.cancelsSent, 0),

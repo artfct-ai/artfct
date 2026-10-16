@@ -16,6 +16,7 @@ import {
 import { SLEEP_TEXT } from "../src/workflow/lifecycle";
 import type { TaskEvent, TaskRole } from "../src/workflow/task/events";
 import { taskAtWork } from "../src/workflow/task/at-work";
+import { segmentEndOf } from "../src/workflow/refiner/stage-refiner";
 import type { Wake, WorkflowRuntime } from "../src/workflow/types";
 import { STOPPED_TEXT } from "../src/workflow/feed/feed";
 import type { Subject } from "../src/workflow/store/state";
@@ -39,6 +40,8 @@ export type ObservedTask = {
   turnRunning: boolean;
   /** The text of every prompt queued for the task or sent to it. */
   promptTexts: string[];
+  /** The text of every prompt ever queued for the task, also one a stop or a cancel cleared. */
+  promptsQueued: string[];
   /** How many cancels its harness session was sent. */
   cancelsSent: number;
   promptInFlight: boolean;
@@ -364,6 +367,12 @@ const coverPageReviewMissing = coverageCase(
 );
 const coverPageFindingsPrompt = coverageCase(
   "authorGetsEveryPageFinding: a review prompt reaches the page author",
+);
+const coverPullFindingsPassed = coverageCase(
+  "authorGetsEveryPullFinding: the agent review moves past a pull request review with findings",
+);
+const coverPullFindingsPastJudge = coverageCase(
+  "authorGetsEveryPullFinding: the agent review moves past a judge whose segment left findings",
 );
 const coverWork = coverageCase("everyActionSettlesWithinItsWorkBudget: an action does work");
 const coverModelCallAuthorQueued = coverageCase(
@@ -1589,6 +1598,41 @@ export function authorGetsEveryPageFinding(_workflow: WorkflowRuntime, step: Ste
     );
     if (missing) {
       violated("authorGetsEveryPageFinding", `the author was not told "${findingText(missing)}"`);
+    }
+  }
+}
+
+/**
+ * Every review a findings reviewer files on a pull request reaches its author as a prompt. A
+ * judge's approval does not drop it. The latest review of each findings entry is checked when a
+ * refiner run of an entry past its segment starts.
+ */
+export function authorGetsEveryPullFinding(workflow: WorkflowRuntime, step: Step): void {
+  const known = new Set(step.before.tasks.map((task) => task.task_id));
+  for (const started of step.after.tasks) {
+    if (known.has(started.task_id) || started.refiner_index === null) continue;
+    if (workflow.store.artifact(started.job_id)?.kind !== "pull") continue;
+    const author = authorIn(step.after, started.job_id);
+    if (!author) continue;
+    const entries = workflow.stageForTask(workflow.store.requireTask(started.task_id)).reviewers;
+    const runs = workflow.store.refinerRunsOf(started.job_id);
+    for (const [index, entry] of entries.entries()) {
+      const end = segmentEndOf(index, entries);
+      if (entry.mode !== "findings" || end >= started.refiner_index) continue;
+      const review = runs.findLast((run) => run.refiner_index === index)?.result;
+      if (review?.kind !== "review" || !review.findings.length) continue;
+      coverPullFindingsPassed();
+      if (entries[end]?.mode === "judge") coverPullFindingsPastJudge();
+      const missing = review.findings.find(
+        (finding) =>
+          !author.promptsQueued.some((text) => text.includes(`- ${findingText(finding)}`)),
+      );
+      if (missing) {
+        violated(
+          "authorGetsEveryPullFinding",
+          `${started.task_id} started past entry ${index}, and the author was not told "${findingText(missing)}"`,
+        );
+      }
     }
   }
 }

@@ -1392,3 +1392,75 @@ describe("onReviewerFailed", () => {
       }));
   });
 });
+
+function authorPrompts(workflow: FakeRuntime): string[] {
+  return workflow.store
+    .queue()
+    .filter((row) => row.task_id === TASK)
+    .map((row) => row.text);
+}
+
+describe("a findings reviewer before a judge in its segment", () => {
+  const entries: ReviewerEntry[] = [
+    { name: "review", mode: "findings", skill: "implement-review" },
+    JUDGE_ENTRY,
+    { name: "final", mode: "findings", skill: "design-review" },
+  ];
+
+  function judgeRules(rejects: number): Scenario<FakeRuntime> {
+    return scenario(freshRuntime, async (workflow) => {
+      patchStageReviewers(workflow, entries);
+      workflow.codeHostInstance = reviewHost(submittedReview({ body: "Two things to weigh." }), [
+        { path: "src/login.ts", line: 12, body: "Name the owner." },
+      ]);
+      stubRulingModel(workflow, rejects);
+      await settleRefinersForAuthor(workflow, seedPullRequestTask(workflow));
+      await onReviewerFinished(workflow, reviewerFor(workflow, 0), "");
+      const judge = reviewerFor(workflow, 1);
+      workflow.store.updateTask(judge.task_id, { summary: JUDGE_CONCLUSION });
+      await onReviewerFinished(workflow, judge, "");
+    });
+  }
+
+  describe("the judge approves", () => {
+    const approved = judgeRules(0.03);
+
+    it("sends the reviewer's findings to the author", () =>
+      approved((workflow) => {
+        expect(authorPrompts(workflow)).toHaveLength(1);
+        expect(authorPrompts(workflow)[0]).toContain("Name the owner.");
+      }));
+
+    it("starts no entry after the judge while the author answers", () =>
+      approved((workflow) => {
+        expect(refinerIndexes(workflow)).toEqual([0, 1]);
+        expect(workflow.store.artifact(JOB)?.status).toBe("drafted");
+      }));
+
+    it("points the artifact at the reviewer, so its review is routed", () =>
+      approved((workflow) => {
+        expect(reviewerFor(workflow, 0).refiner_index).toBe(0);
+      }));
+
+    describe("once the author's turn ends", () => {
+      const answered = scenario(approved, authorTurnEnds);
+
+      it("asks the agent to route the review, and does not run the judge again", () =>
+        answered((workflow) => {
+          expect(refinerIndexes(workflow)).toEqual([0, 1]);
+          expect(workflow.notes.at(-1)?.text).toContain("is with you");
+        }));
+    });
+  });
+
+  describe("the judge rejects", () => {
+    const rejected = judgeRules(0.97);
+
+    it("sends the rejection and the reviewer's findings in one prompt", () =>
+      rejected((workflow) => {
+        expect(authorPrompts(workflow)).toHaveLength(1);
+        expect(authorPrompts(workflow)[0]).toContain("The alignment judge rejected your artifact.");
+        expect(authorPrompts(workflow)[0]).toContain("Name the owner.");
+      }));
+  });
+});

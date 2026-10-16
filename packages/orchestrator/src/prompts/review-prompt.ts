@@ -99,16 +99,27 @@ export function rejectionHeadline(entry: string): string {
   return `The ${entry} judge rejected your artifact.`;
 }
 
-/** The prompt sent to the author when a judge entry rejected its artifact. */
-export function rejectionPrompt(options: { url: string; entry: string; reason: string }): string {
-  return [
-    rejectionHeadline(options.entry),
-    options.url,
-    "",
-    options.reason,
+/**
+ * The prompt sent to the author when a judge entry rejected its artifact. `review` is what the
+ * reviewers before the judge in its segment left, or null when they left nothing to answer.
+ */
+export function rejectionPrompt(options: {
+  url: string;
+  entry: string;
+  reason: string;
+  review: Review | null;
+}): string {
+  const lines = [rejectionHeadline(options.entry), options.url, "", options.reason];
+  if (options.review) {
+    lines.push("", "The reviewers before the judge also left a review.");
+    if (options.review.summary) lines.push("", options.review.summary);
+    lines.push(...findingLines(options.review.findings));
+  }
+  lines.push(
     "",
     "Address the rejection, then update the artifact. The next review reads it when this turn ends.",
-  ].join("\n");
+  );
+  return lines.join("\n");
 }
 
 /** How the author asks for another review, and what happens without the ask. */
