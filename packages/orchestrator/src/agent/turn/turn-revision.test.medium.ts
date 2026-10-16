@@ -67,7 +67,7 @@ describe("a person's turn", () => {
     it("tells the model what the system sent", () =>
       reviewed(({ model }) => {
         expect(model.userTexts.join("\n")).toContain(
-          `the system sent the 1 comment held on ${PAGE_URL} to the author wf_x.1`,
+          `the system sent 1 comment held on ${PAGE_URL} to the author wf_x.1`,
         );
       }));
   });

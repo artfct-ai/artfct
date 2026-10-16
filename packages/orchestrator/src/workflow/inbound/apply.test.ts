@@ -276,7 +276,9 @@ describe("applyEvent", () => {
           ],
         });
         seedPage(workflow, documents);
-        workflow.gatewayInstance = new FakeGateway({ decisions: new FakeDecisions({}) });
+        workflow.gatewayInstance = new FakeGateway({
+          decisions: new FakeDecisions({ for_author: 0.95, beyond_author: 0.05 }),
+        });
       },
     );
 
@@ -293,14 +295,54 @@ describe("applyEvent", () => {
     it("acknowledges each comment it sent", () =>
       mentioned(({ workflow }) => {
         expect(fakeDocumentsOf(workflow).argsOf("acknowledgeComment")).toEqual([
-          [{ pageId: PAGE_ID, commentId: "cmt-1" }],
           [{ pageId: PAGE_ID, commentId: "cmt-3" }],
+          [{ pageId: PAGE_ID, commentId: "cmt-1" }],
         ]);
       }));
 
     it("leaves nothing held on the host", () =>
       mentioned(async ({ workflow }) => {
         expect(await fakeDocumentsOf(workflow).heldComments(PAGE_ID)).toEqual([]);
+      }));
+  });
+
+  describe("a mention after held comments that is not for the author", () => {
+    const mentioned = afterAppliedEvent(
+      freshRuntime,
+      pageComment("cmt-3", "@artfct please revise"),
+      (workflow) => {
+        const documents = new FakeDocuments({
+          self: { id: "bot-1", name: "artfct" },
+          comments: { "cmt-3": hostComment("@artfct please revise", ["bot-1"]) },
+          held: [
+            { id: "cmt-1", author_name: "Ann", text: "Tighten the intro." },
+            { id: "cmt-3", author_name: "Dev", text: "@artfct please revise" },
+          ],
+        });
+        seedPage(workflow, documents);
+        workflow.gatewayInstance = new FakeGateway({ decisions: new FakeDecisions({}) });
+      },
+    );
+
+    it("tells the agent the held comments stay held", () =>
+      mentioned(({ result }) => {
+        expect(result).toMatchObject({
+          notes: [expect.stringContaining("They stay held."), expect.any(String)],
+        });
+      }));
+
+    it("acknowledges only the mention", () =>
+      mentioned(({ workflow }) => {
+        expect(fakeDocumentsOf(workflow).argsOf("acknowledgeComment")).toEqual([
+          [{ pageId: PAGE_ID, commentId: "cmt-3" }],
+        ]);
+      }));
+
+    it("leaves the other comment held", () =>
+      mentioned(async ({ workflow }) => {
+        expect(await fakeDocumentsOf(workflow).heldComments(PAGE_ID)).toEqual([
+          { id: "cmt-1", author_name: "Ann", text: "Tighten the intro." },
+        ]);
       }));
   });
 
