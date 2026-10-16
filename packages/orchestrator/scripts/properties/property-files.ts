@@ -32,6 +32,18 @@ export const PROPERTY_FILES = {
     runner: ["bun", "test"],
     e2eRuns: 3000,
   },
+  review_loop: {
+    title: "review loop spec replay",
+    path: "src/workflow/review-loop-replay.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 300,
+  },
+  workflow_lifecycle: {
+    title: "workflow lifecycle spec replay",
+    path: "src/workflow/workflow-lifecycle-replay.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 1000,
+  },
 } satisfies Record<string, PropertyFile>;
 
 /** A property file run past this is a hang, reported with its seed. */
