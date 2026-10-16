@@ -153,6 +153,27 @@ export const MUTANTS: Mutant[] = [
       "    if (true || !reviewAsksTheAuthor(review)) {\n      return advanceArtifactPastEntry(workflow, author, index, revision);",
   },
   {
+    id: "W19",
+    invariant: "finishedTaskKeepsItsStatus (restart)",
+    path: "src/workflow/lifecycle.ts",
+    find: "  const closed = workflow.store.requireTask(task.task_id);\n  if (isTaskFinished(closed.status)) return;\n",
+    replace: "  const closed = workflow.store.requireTask(task.task_id);\n",
+  },
+  {
+    id: "W20",
+    invariant: "endedWorkflowHasNoUnfinishedTask",
+    path: "src/agent/tools/plan.ts",
+    find: '  if (workflowEnding(workflow)) return "The workflow is ending. A workflow that ends stays ended.";\n',
+    replace: "",
+  },
+  {
+    id: "W21",
+    invariant: "pausedAuthorGetsNoPrompt",
+    path: "src/workflow/task/harness/prompt-queue.ts",
+    find: "  if (task.paused_at === null) return sendPrompt(workflow, task, text);",
+    replace: "  return sendPrompt(workflow, task, text);",
+  },
+  {
     id: "A1",
     invariant: "laterDecisionsCallsFallBackOnceOneFails",
     path: "src/decisions/ask.ts",

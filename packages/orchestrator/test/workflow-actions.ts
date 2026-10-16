@@ -10,7 +10,7 @@ import { workflowTools } from "../src/agent/tools/toolset";
 import { onFlushBoard, type BoardAlarm } from "../src/workflow/board/board";
 import type { ChecksAlarm } from "../src/workflow/refiner/checks-gate";
 import { recheckChecks } from "../src/workflow/refiner/checks-recheck";
-import { failTask, onIdle } from "../src/workflow/lifecycle";
+import { failTask, onIdle, restartOrFailTask } from "../src/workflow/lifecycle";
 import { isTaskFinished } from "../src/workflow/store/state";
 import { openEntryCount } from "../src/workflow/board/render";
 import type { AuthorTurnOutcome } from "../src/workflow/task/author-turn";
@@ -40,6 +40,7 @@ import {
   MAX_AUTHORS,
   PAGE_OPTION,
   REPO,
+  REQUEST_TEXTS,
   STAGE_OF,
   UNOWNED_PULL,
   type ArtifactKind,
@@ -156,10 +157,7 @@ export function authorTurnEnds(
     const cancelled = world.taskOf(author).paused_at !== null || bridge.cancelRequested;
     const stopReason = cancelled ? "cancelled" : "end_turn";
     const landing = whileJudged(index, meanwhile);
-    world.answerDecisionsWith(
-      authorClosingAnswers(closing),
-      landing ? () => landing.run(world).then(() => undefined) : undefined,
-    );
+    world.answerDecisionsWith(authorClosingAnswers(closing), landing ?? undefined);
     const closingText = AUTHOR_CLOSING_TEXTS[closing];
     if (closingText) await bridge.say(closingText);
     if (revision === "unreadable") await world.whileHostIsDown(() => bridge.endTurn(stopReason));
@@ -472,11 +470,7 @@ async function closeJudgeTurn(
   const { judge, whileRuled } = end;
   const asksTheModel = judge !== "no_conclusion" && whileRuled !== "nothing";
   const landing = asksTheModel ? personRules(index, whileRuled) : null;
-  world.answerDecisionsWith(
-    RULING_ANSWERS[judge],
-    landing ? () => landing.run(world).then(() => undefined) : undefined,
-    "rejects",
-  );
+  world.answerDecisionsWith(RULING_ANSWERS[judge], landing ?? undefined, "rejects");
   if (judge !== "no_conclusion") await bridge.say(JUDGE_CONCLUSION);
 }
 
@@ -1040,7 +1034,7 @@ function answerScreenWith(world: WorkflowWorld, index: number, read: HeldComment
   const landing = read.meanwhile === "agent_cancels" ? agentCancels(index, "author") : null;
   world.answerDecisionsWith(
     read.decisions === "answers" ? REPORTS_WORK_ANSWERS : read.decisions,
-    landing ? () => landing.run(world).then(() => undefined) : undefined,
+    landing ?? undefined,
   );
 }
 
@@ -1174,19 +1168,29 @@ export type DecisionsAtCompletion = "answers" | "fails" | "hangs";
 /** Milliseconds until the turn's abort signal stops a decisions model that never answers. */
 const TURN_DEADLINE_MS = 5;
 
-/** The agent completes the author task, in whatever state it is. */
+/** What lands while the decisions model checks whether the person accepted the artifact. */
+export type WhileAcceptanceChecked = "nothing" | "agent_cancels";
+
+/**
+ * The agent completes the author task, in whatever state it is. `meanwhile` lands while the
+ * decisions model checks the acceptance.
+ */
 export function agentCompletes(
   index: number,
   person: PersonAtCompletion,
   decisions: DecisionsAtCompletion,
+  meanwhile: WhileAcceptanceChecked = "nothing",
 ): WorkflowAction {
-  const label = `agent completes the task, the person ${person}, decisions ${decisions}`;
+  const label = `agent completes the task, the person ${person}, decisions ${decisions}, meanwhile ${meanwhile}`;
   return authorAction(index, label, async (world, author) => {
     const accepts = person === "accepts" ? 0.9 : 0.1;
+    const landing = meanwhile === "agent_cancels" ? agentCancels(index, "author") : null;
     world.answerDecisionsWith(
       decisions === "answers"
         ? { for_author: 0, beyond_author: 0, rejects: 0, accepts }
         : decisions,
+      landing ?? undefined,
+      "accepts",
     );
     const { complete_job } = startTools(world.workflow, PERSON_MESSAGES[person]);
     const result = toolText(
@@ -1421,5 +1425,102 @@ export function staleAlarmFires(
     const alarm: GenerationAlarm = { task_id: sandbox.task_id, generation: sandbox.generation - 1 };
     await TIMER_ALARMS[timer].fire(world.workflow, alarm);
     return { staleAlarm: { task_id: sandbox.task_id } };
+  });
+}
+
+/** What lands while a restart of the author waits on the destroy of its old container. */
+export type WhileRestarting =
+  | "agent_cancels"
+  | "agent_cancels_and_starts_again"
+  | "agent_completes"
+  | "agent_pauses";
+
+function whileRestarting(
+  index: number,
+  author: WorldAuthor,
+  meanwhile: WhileRestarting,
+): WorkflowAction {
+  switch (meanwhile) {
+    case "agent_cancels":
+      return agentCancels(index, "author");
+    case "agent_cancels_and_starts_again":
+      return action("agent cancels the author and starts its job again", async (world) => {
+        await world.land(agentCancels(index, "author"));
+        return agentStartsTheJobAgain(world, author);
+      });
+    case "agent_completes":
+      return agentCompletes(index, "accepts", "answers");
+    case "agent_pauses":
+      return agentHoldsAuthor(index, "pause_task");
+    default: {
+      const unreachable: never = meanwhile;
+      throw new Error(`unhandled meanwhile ${String(unreachable)}`);
+    }
+  }
+}
+
+/** The agent starts a job of the author's stage on the author's issue, or on the first request. */
+async function agentStartsTheJobAgain(
+  world: WorkflowWorld,
+  author: WorldAuthor,
+): Promise<StepFacts> {
+  const job = world.jobOf(author);
+  const { start_job } = startTools(world.workflow, [REQUEST_TEXTS[0]]);
+  const result = toolText(
+    await start_job.execute(
+      { stage: job.stage, brief: "Try it again.", issue: job.issue_key ?? undefined },
+      TOOL_CALL,
+    ),
+  );
+  return { start: { refused: !result.startsWith("Started job") } };
+}
+
+/**
+ * The author restarts in a fresh sandbox after a failure it may recover from, and `meanwhile`
+ * lands while the destroy of its old container is out.
+ */
+export function authorRestartsWhile(index: number, meanwhile: WhileRestarting): WorkflowAction {
+  return authorAction(index, `restarts, meanwhile ${meanwhile}`, async (world, author) => {
+    const task = world.taskOf(author);
+    if (isTaskFinished(task.status) || !world.workflow.store.sandbox(task.task_id)) {
+      return undefined;
+    }
+    return world.whileSandboxDestroyed(whileRestarting(index, author, meanwhile), () =>
+      restartOrFailTask(world.workflow, task, "No progress after a nudge."),
+    );
+  });
+}
+
+/** How the workflow ends: the agent fails it, or a person cancels it from the chat thread. */
+export type WorkflowEnding = "agent_fails" | "person_cancels";
+
+/** What lands while an end of the workflow waits on the destroy of the first sandbox it closes. */
+export type WhileEnding = "agent_starts" | "agent_fails" | "agent_finishes" | "person_cancels";
+
+function workflowEnd(ending: WorkflowEnding | WhileEnding): WorkflowAction {
+  switch (ending) {
+    case "agent_starts":
+      return agentStartsTask("pull", "no_issue", REQUEST_TEXTS[1]);
+    case "agent_fails":
+      return agentFailsWorkflow();
+    case "agent_finishes":
+      return agentFinishesWorkflow();
+    case "person_cancels":
+      return personCancels("control");
+    default: {
+      const unreachable: never = ending;
+      throw new Error(`unhandled ending ${String(unreachable)}`);
+    }
+  }
+}
+
+/** The workflow ends, and `meanwhile` lands while the end waits on its first sandbox destroy. */
+export function workflowEndsWhile(ending: WorkflowEnding, meanwhile: WhileEnding): WorkflowAction {
+  return action(`the workflow ends: ${ending}, meanwhile ${meanwhile}`, async (world) => {
+    const landing = action(meanwhile, async (landingWorld) => {
+      const facts = (await workflowEnd(meanwhile).run(landingWorld)) ?? {};
+      return { ...facts, secondEnd: meanwhile !== "agent_starts" };
+    });
+    return world.whileSandboxDestroyed(landing, () => workflowEnd(ending).run(world));
   });
 }
