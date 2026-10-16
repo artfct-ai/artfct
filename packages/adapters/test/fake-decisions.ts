@@ -8,9 +8,9 @@ import type {
   DecisionsModels,
   YesNoQuestion,
 } from "../src/gateway/types";
-import { askModelsInOrder, decisionsDeadlineMs } from "../src/gateway/models-in-order";
+import { askModelsInOrder } from "../src/gateway/models-in-order";
 
-/** How long a fake decisions call may take before its caller gives up. Longer than any test turn. */
+/** How long a `HangingDecisions` call hangs before it rejects. Longer than any test turn. */
 export const FAKE_DECISIONS_DEADLINE_MS = 10_000;
 
 /** The option a `FakeDecisions` picks for a question it has no choice for. */
@@ -27,7 +27,6 @@ export type FakeAnswers =
  * option picked for each choice question.
  */
 export class FakeDecisions implements Decisions {
-  readonly deadlineMs = FAKE_DECISIONS_DEADLINE_MS;
   readonly asked: DecisionState[] = [];
   readonly offered: ChoiceQuestion[] = [];
   readonly yesNoAsked: Record<string, YesNoQuestion>[] = [];
@@ -63,13 +62,13 @@ export class FakeDecisions implements Decisions {
 }
 
 /**
- * A `Decisions` that never answers. Each call rejects with the abort reason once the caller's
- * signal aborts.
+ * A `Decisions` whose one model never answers. Each call rejects once that model runs past
+ * `deadlineMs`, or with the abort reason as soon as the caller's signal aborts.
  */
 export class HangingDecisions implements Decisions {
   calls = 0;
 
-  constructor(readonly deadlineMs = FAKE_DECISIONS_DEADLINE_MS) {}
+  constructor(private readonly deadlineMs = FAKE_DECISIONS_DEADLINE_MS) {}
 
   decide<YesNoName extends string, ChoiceName extends string>(
     _state: DecisionState,
@@ -77,10 +76,10 @@ export class HangingDecisions implements Decisions {
     signal?: AbortSignal,
   ): Promise<DecisionAnswers<YesNoName, ChoiceName>> {
     this.calls += 1;
-    return new Promise((_resolve, reject) => {
-      if (signal?.aborted) reject(signal.reason);
-      signal?.addEventListener("abort", () => reject(signal.reason), { once: true });
-    });
+    const inOrder = { models: [fakeModelName(0)] as const, budgetMs: this.deadlineMs, signal };
+    return askModelsInOrder(inOrder, (_model, modelSignal) =>
+      hangUntilAborted<YesNoName, ChoiceName>(modelSignal),
+    );
   }
 }
 
@@ -97,7 +96,6 @@ export const FAKE_MODEL_BUDGET_MS = 10;
 export class ConfiguredModelsDecisions implements Decisions {
   calls = 0;
   readonly models: DecisionsModels;
-  readonly deadlineMs: number;
   private readonly answering: FakeDecisions;
 
   constructor(
@@ -106,7 +104,6 @@ export class ConfiguredModelsDecisions implements Decisions {
   ) {
     const [, ...rest] = says;
     this.models = [fakeModelName(0), ...rest.map((_, index) => fakeModelName(index + 1))];
-    this.deadlineMs = decisionsDeadlineMs(this.models, FAKE_MODEL_BUDGET_MS);
     this.answering = new FakeDecisions(answers);
   }
 

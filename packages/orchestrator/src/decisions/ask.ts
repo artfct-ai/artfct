@@ -32,7 +32,7 @@ export type DecisionsAsk<Questions> = {
 /**
  * Ask the orchestrator's decisions model every question over one state in one call, and record
  * the usage. Null when the orchestrator's gateway is missing a secret, or every configured model
- * failed, or the call aborts or runs past its deadline, or an earlier call of the turn failed.
+ * failed or ran past its budget, or the turn aborts, or an earlier call of the turn failed.
  */
 export async function askDecisions<YesNoName extends string, ChoiceName extends string>(
   workflow: WorkflowRuntime,
@@ -44,22 +44,14 @@ export async function askDecisions<YesNoName extends string, ChoiceName extends 
     workflow.log(null, `${purpose} unknown, a decisions call failed earlier in the turn`);
     return null;
   }
-  const deadline = new AbortController();
-  const timer = setTimeout(
-    () => deadline.abort(new Error(`decisions deadline of ${decisions.deadlineMs} ms passed`)),
-    decisions.deadlineMs,
-  );
-  const callSignal = turn ? AbortSignal.any([turn.signal, deadline.signal]) : deadline.signal;
   try {
-    const { usage, ...answers } = await decisions.decide(state, questions, callSignal);
+    const { usage, ...answers } = await decisions.decide(state, questions, turn?.signal);
     workflow.store.recordModelUsage({ purpose, ...usage });
     return answers;
   } catch (error) {
     if (turn) turn.failed = true;
     workflow.log(null, `${purpose} unknown, decisions failed: ${String(error).slice(0, 200)}`);
     return null;
-  } finally {
-    clearTimeout(timer);
   }
 }
 

@@ -314,7 +314,6 @@ describe("onTurnEnd", () => {
     const cancelledMeanwhile = scenario(freshRuntime, (workflow) => {
       const picks = new FakeDecisions({}, { outcome: { option: "blocked", probability: 0.9 } });
       const decisions: Decisions = {
-        deadlineMs: picks.deadlineMs,
         decide: async (state, questions) => {
           workflow.store.updateTask(TASK, { status: "cancelled" });
           return picks.decide(state, questions);

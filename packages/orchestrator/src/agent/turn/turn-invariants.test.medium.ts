@@ -10,7 +10,6 @@ import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import { FakeChat } from "@artfct-ai/adapters/test/fake-chat";
 import {
   ConfiguredModelsDecisions,
-  FAKE_DECISIONS_DEADLINE_MS,
   FakeDecisions,
   HangingDecisions,
   type FakeAnswers,
@@ -268,10 +267,6 @@ class RecordingDecisions implements Decisions {
     readonly events: DecisionsEvent[],
   ) {}
 
-  get deadlineMs(): number {
-    return this.inner.deadlineMs;
-  }
-
   async decide<YesNoName extends string, ChoiceName extends string>(
     state: DecisionState,
     questions: DecisionQuestions<YesNoName, ChoiceName>,
@@ -291,7 +286,6 @@ class RecordingDecisions implements Decisions {
 }
 
 class RecoveringDecisions implements Decisions {
-  readonly deadlineMs = FAKE_DECISIONS_DEADLINE_MS;
   private calls = 0;
 
   constructor(private readonly recovered: FakeDecisions) {}
@@ -651,8 +645,10 @@ async function runScriptedTurn(
   await runAgentTurn(workflow);
   const durationMs = Date.now() - started;
   const lines = workflow.lines.slice(linesBefore);
-  const prompted = lines.some((line) => line.startsWith(`agent: ${PROMPT_TASK} {`));
-  const promptFailed = lines.some((line) => line.startsWith(`agent: ${PROMPT_TASK} failed`));
+  const prompts = lines.filter((line) => line.startsWith(`agent: ${PROMPT_TASK} {`)).length;
+  const failedPrompts = lines.filter((line) =>
+    line.startsWith(`agent: ${PROMPT_TASK} failed`),
+  ).length;
   const posted = workflow.posted.slice(postedBefore);
   const rowsAfter = workflow.transcript.all();
   const lastEarlierId = rowsBefore.at(-1)?.id ?? 0;
@@ -666,7 +662,7 @@ async function runScriptedTurn(
   const chatThread = SURFACES[surface].reply_targets.some((target) => target.source === "chat");
   return {
     owed: owedIn(turn, turnRows),
-    boardChanged: prompted && !promptFailed && chatThread,
+    boardChanged: prompts > failedPrompts && chatThread,
     closingTextsPosted: posted.filter(
       (event) => event.type === "info" && event.text === SCRIPTED_CLOSING_TEXT,
     ).length,
@@ -779,6 +775,39 @@ const A_SESSION_MESSAGE: ScriptedTurn = {
   decisions: "answer",
 };
 
+const A_DECISIONS_CALL_AFTER_TWO_HANGING_MODELS: ScriptedTurn = {
+  ...BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL,
+  script: [],
+  decisions: "answer",
+  models: ["hangs", "hangs", "answers"],
+};
+
+const A_QUARANTINED_HISTORY_READ: ScriptedTurn = {
+  ...BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL,
+  inbox: [{ wake: "external_state", text: "Fix the flaky test.", from: "chat_thread" }],
+  arrival: {
+    when: "mid_turn",
+    row: { wake: "message", text: "Fix the flaky test.", from: "chat_thread" },
+  },
+  script: ["tell", "call", "read"],
+  decisions: "hangs",
+  screen: "quarantines",
+  history: ["harmless", "harmless"],
+  contextTokens: HISTORY_CONTEXT_TOKENS,
+};
+
+const A_PROMPT_REFUSED_BEFORE_THE_THUMBS_UP_OF_A_RESUMED_TURN: ScriptedTurn = {
+  ...BOARD_CHANGE_BEFORE_A_FAILED_MODEL_CALL,
+  inbox: [
+    { wake: "message", text: "Fix the flaky test.", from: "chat_thread" },
+    { wake: "message", text: "Fix the flaky test.", from: "chat_thread" },
+  ],
+  script: ["prompt_task", "react", "prompt_task", "empty"],
+  decisions: "answer",
+  headsUp: "fires",
+  restart: "before_first_reply",
+};
+
 describe("agent turn invariants", () => {
   it(
     "hold after every turn of a random sequence",
@@ -815,6 +844,8 @@ describe("agent turn invariants", () => {
                 A_TURN_LOST_AFTER_ITS_THUMBS_UP,
               ],
             ],
+            ["chat", [A_DECISIONS_CALL_AFTER_TWO_HANGING_MODELS, A_QUARANTINED_HISTORY_READ]],
+            ["chat", [A_PROMPT_REFUSED_BEFORE_THE_THUMBS_UP_OF_A_RESUMED_TURN]],
           ],
         },
       ),
