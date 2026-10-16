@@ -649,9 +649,13 @@ export class ReviewLoopReplay {
         return this.personRewritesPage(pickTag(step, "part"));
       case "personApproves":
       case "personRejects":
-        return this.whileRejectionPosts(pickTag(step, "post"), () =>
-          this.untilModelCall(() =>
-            this.world.apply(personRules(0, action === "personApproves" ? "approve" : "reject")),
+        return this.untilModelCall(() =>
+          this.world.apply(
+            personRules(
+              0,
+              action === "personApproves" ? "approve" : "reject",
+              pickTag(step, "post") === "HostTakes" ? "takes" : "down",
+            ),
           ),
         );
       default: {

@@ -95,6 +95,37 @@ const pageComment = (id: string, commentThread: string, author: string, text: st
 const paths = (calls: Call[]) =>
   calls.map((call) => new URL(call.url).pathname + new URL(call.url).search);
 
+function commentThreadAnswers(listed: unknown[]) {
+  return (url: string) => {
+    const { pathname, search } = new URL(url);
+    if (pathname === "/v1/users/me") {
+      return Response.json({ object: "user", id: "bot1", type: "bot", name: "artfct", bot: {} });
+    }
+    if (`${pathname}${search}` === "/v1/comments?block_id=b1") return Response.json(listOf(listed));
+    return Response.json({ ...fullComment, parent: { type: "block_id", block_id: "b1" } });
+  };
+}
+
+function removedLinesAnswers(url: string) {
+  const { pathname } = new URL(url);
+  const answers: Record<string, unknown> = {
+    "/v1/comments/on-draft": {
+      ...fullComment,
+      id: "on-draft",
+      parent: { type: "block_id", block_id: "b2" },
+    },
+    "/v1/comments/on-risks": {
+      ...fullComment,
+      id: "on-risks",
+      parent: { type: "block_id", block_id: "b3" },
+    },
+    "/v1/comments/on-page": { ...fullComment, id: "on-page" },
+    "/v1/blocks/b2": textBlock("b2", "paragraph", "First draft."),
+    "/v1/blocks/b3": textBlock("b3", "heading_2", "Risks"),
+  };
+  return Response.json(answers[pathname] ?? emptyList);
+}
+
 describe("NotionDocuments", () => {
   describe("fetchComment", () => {
     describe("a comment with rich text and an author", () => {
@@ -481,16 +512,6 @@ describe("NotionDocuments", () => {
   });
 
   describe("acknowledgeComment", () => {
-    const commentThreadAnswers = (listed: unknown[]) => (url: string) => {
-      const { pathname, search } = new URL(url);
-      if (pathname === "/v1/users/me") {
-        return Response.json({ object: "user", id: "bot1", type: "bot", name: "artfct", bot: {} });
-      }
-      if (`${pathname}${search}` === "/v1/comments?block_id=b1")
-        return Response.json(listOf(listed));
-      return Response.json({ ...fullComment, parent: { type: "block_id", block_id: "b1" } });
-    };
-
     describe("the earliest held comment of its comment thread", () => {
       let calls: Call[];
       let marked: boolean;
@@ -733,28 +754,9 @@ describe("NotionDocuments", () => {
   describe("commentsOnRemovedLines", () => {
     const before = "# Design\nFirst draft.\n## Risks\nNone yet.";
     const change = { before, after: "# Design\nSecond draft.\n## Risks\nNone yet." };
-    const respond = (url: string) => {
-      const { pathname } = new URL(url);
-      const answers: Record<string, unknown> = {
-        "/v1/comments/on-draft": {
-          ...fullComment,
-          id: "on-draft",
-          parent: { type: "block_id", block_id: "b2" },
-        },
-        "/v1/comments/on-risks": {
-          ...fullComment,
-          id: "on-risks",
-          parent: { type: "block_id", block_id: "b3" },
-        },
-        "/v1/comments/on-page": { ...fullComment, id: "on-page" },
-        "/v1/blocks/b2": textBlock("b2", "paragraph", "First draft."),
-        "/v1/blocks/b3": textBlock("b3", "heading_2", "Risks"),
-      };
-      return Response.json(answers[pathname] ?? emptyList);
-    };
 
     it("names the comments on the blocks the edits rewrite", async () => {
-      const notion = notionDocuments(respond);
+      const notion = notionDocuments(removedLinesAnswers);
       expect(
         await notion.documents.commentsOnRemovedLines("p1", change, [
           "on-draft",
@@ -765,7 +767,7 @@ describe("NotionDocuments", () => {
     });
 
     it("reads each comment and the block it sits on, and writes nothing", async () => {
-      const notion = notionDocuments(respond);
+      const notion = notionDocuments(removedLinesAnswers);
       await notion.documents.commentsOnRemovedLines("p1", change, ["on-draft", "on-page"]);
       expect(paths(notion.calls)).toEqual([
         "/v1/comments/on-draft",
@@ -776,7 +778,7 @@ describe("NotionDocuments", () => {
     });
 
     it("does not call Notion without comments to check", async () => {
-      const notion = notionDocuments(respond);
+      const notion = notionDocuments(removedLinesAnswers);
       expect(await notion.documents.commentsOnRemovedLines("p1", change, [])).toEqual([]);
       expect(notion.calls).toEqual([]);
     });
