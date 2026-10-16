@@ -12,7 +12,7 @@ export const STOPPED_TEXT = "Stopped.";
 export const DONE_TEXT = "Done.";
 
 /** The longest author message the feed keeps for the closing reply. */
-export const FEED_BODY_CHARS = 10_000;
+const FEED_BODY_CHARS = 10_000;
 
 /** What the session feed keeps in memory during one author turn. */
 export type AuthorFeed = {

@@ -78,7 +78,7 @@ function authorAction(
 }
 
 /** What the turn text of a refiner run says. */
-export type Closing = "reports_work" | "gives_up";
+type Closing = "reports_work" | "gives_up";
 
 const GAVE_UP_TEXT = "I could not check out the branch, so I did not do the work.";
 const REPORTS_WORK_ANSWERS = { for_author: 0, beyond_author: 0, rejects: 0 };
@@ -325,7 +325,7 @@ export function trackerTurns(health: TrackerHealth): WorkflowAction {
 }
 
 /** What a findings reviewer run leaves behind when its turn ends. */
-export type ReviewOutcome = "no_review" | "approved" | "findings" | "blocking";
+type ReviewOutcome = "no_review" | "approved" | "findings" | "blocking";
 
 const HOST_REVIEWS: Record<
   Exclude<ReviewOutcome, "no_review">,
@@ -369,7 +369,7 @@ const PAGE_CLOSING_REVIEWS: Record<Exclude<ReviewOutcome, "no_review">, string> 
 };
 
 /** What code can tell from the conclusion of a judge run. */
-export type JudgeOutcome = "approves" | "rejects" | "unclear" | "no_conclusion" | "decisions_fail";
+type JudgeOutcome = "approves" | "rejects" | "unclear" | "no_conclusion" | "decisions_fail";
 
 const RULING_ANSWERS: Record<JudgeOutcome, DecisionAnswers> = {
   approves: { for_author: 0, beyond_author: 0, rejects: 0.1 },
@@ -382,7 +382,10 @@ const RULING_ANSWERS: Record<JudgeOutcome, DecisionAnswers> = {
 /** How the unfinished refiner run ends, whichever kind of run it is. */
 export type RefinerRunEnd = {
   reviewer: ReviewOutcome;
-  /** How the document host takes the comments of a page review. */
+  /**
+   * How the document host takes the comments a page review or a judge rejection posts, also
+   * those of a ruling a person gives meanwhile.
+   */
   pageCommenting: DocumentsCommenting;
   judge: JudgeOutcome;
   /** What a person rules through the agent while the decisions model rules on the judge. */
@@ -393,10 +396,10 @@ export type RefinerRunEnd = {
 };
 
 /** What a person rules while the decisions model rules on a judge conclusion. */
-export type WhileRuled = "nothing" | "approve" | "reject";
+type WhileRuled = "nothing" | "approve" | "reject";
 
 /** What a polisher run did to the artifact before its turn ended. */
-export type PolishOutcome = "pushed" | "nothing_pushed";
+type PolishOutcome = "pushed" | "nothing_pushed";
 
 /**
  * The turn of the author's unfinished refiner run ends. A findings reviewer files its review
@@ -411,8 +414,9 @@ export function refinerRunEnds(index: number, end: RefinerRunEnd): WorkflowActio
     if (!run || !bridge) return undefined;
     const mode = world.reviewerEntryOf(run)?.mode ?? "polisher";
     const reviewsPage = mode === "findings" && author.kind === "page";
+    const judgesPage = mode === "judge" && author.kind === "page";
     const commentsBefore = world.pageHost.postedComments.length;
-    if (reviewsPage) world.pageHost.commenting = end.pageCommenting;
+    if (reviewsPage || judgesPage) world.pageHost.commenting = end.pageCommenting;
     if (mode === "findings") await fileFindingsReview(world, author, bridge, end.reviewer);
     if (mode === "judge") await closeJudgeTurn(world, bridge, end, index);
     if (mode === "polisher" && end.polisher === "pushed") world.changeRevision(author);
@@ -431,7 +435,11 @@ export function refinerRunEnds(index: number, end: RefinerRunEnd): WorkflowActio
           hostUp: end.pageCommenting !== "down",
         }
       : null;
-    return { refinerTurnEnd: finished ? { task_id: run.task_id } : null, pageReview };
+    return {
+      refinerTurnEnd: finished ? { task_id: run.task_id } : null,
+      pageReview,
+      pageCommentsRefused: judgesPage && end.pageCommenting === "down",
+    };
   });
 }
 
@@ -469,7 +477,7 @@ async function closeJudgeTurn(
 ): Promise<void> {
   const { judge, whileRuled } = end;
   const asksTheModel = judge !== "no_conclusion" && whileRuled !== "nothing";
-  const landing = asksTheModel ? personRules(index, whileRuled) : null;
+  const landing = asksTheModel ? personRules(index, whileRuled, end.pageCommenting) : null;
   world.answerDecisionsWith(RULING_ANSWERS[judge], landing ?? undefined, "rejects");
   if (judge !== "no_conclusion") await bridge.say(JUDGE_CONCLUSION);
 }
@@ -804,6 +812,28 @@ export function personStopsModelCall(index: number, start: ModelCallStart): Work
 }
 
 /**
+ * A model call of a model-call author starts, and a person edits its page while the page model
+ * answers.
+ */
+export function personEditsPageDuringModelCall(
+  index: number,
+  start: ModelCallStart,
+): WorkflowAction {
+  const label = `a person edits the page while the page model answers, after ${start}`;
+  return authorAction(index, label, (world, author) =>
+    world.editPageWhilePageModelAnswers(author, () => startModelCall(world, author, start)),
+  );
+}
+
+/** A model call of a model-call author starts while the page host refuses every page write. */
+export function pageHostRefusesWrites(index: number, start: ModelCallStart): WorkflowAction {
+  const label = `the page host refuses every page write, after ${start}`;
+  return authorAction(index, label, async (world, author) => {
+    await world.whilePageHostRefusesWrites(() => startModelCall(world, author, start));
+  });
+}
+
+/**
  * A model call of a model-call author starts, and the workflow restarts while the page model
  * answers.
  */
@@ -1013,11 +1043,14 @@ export function agentHoldsAuthor(
   });
 }
 
-/** Whether the page host answers while held comments are read. */
-export type PageHost = "readable" | "down";
+/**
+ * Whether the page host answers while held comments are read, and whether it marks a comment
+ * read when asked.
+ */
+type PageHost = "readable" | "down" | "refuses_acknowledgement";
 
 /** What lands while the screen reads the held comments. */
-export type WhileScreened = "nothing" | "agent_cancels";
+type WhileScreened = "nothing" | "agent_cancels";
 
 /** How held comments are read and screened in one action. */
 export type HeldCommentsRead = {
@@ -1038,12 +1071,31 @@ function answerScreenWith(world: WorkflowWorld, index: number, read: HeldComment
   );
 }
 
+function onPageHost<Result>(
+  world: WorkflowWorld,
+  host: PageHost,
+  body: () => Promise<Result>,
+): Promise<Result> {
+  switch (host) {
+    case "readable":
+      return body();
+    case "down":
+      return world.whilePageHostIsDown(body);
+    case "refuses_acknowledgement":
+      return world.whilePageHostRefusesAcknowledgements(body);
+    default: {
+      const unreachable: never = host;
+      throw new Error(`unhandled page host ${String(unreachable)}`);
+    }
+  }
+}
+
 async function readingHeldComments<Result>(
   world: WorkflowWorld,
   read: HeldCommentsRead,
   body: () => Promise<Result>,
 ): Promise<Result> {
-  const result = await (read.host === "down" ? world.whilePageHostIsDown(body) : body());
+  const result = await onPageHost(world, read.host, body);
   if (read.decisions === "hangs") world.answerDecisionsWith("fails");
   return result;
 }
@@ -1127,11 +1179,78 @@ export function personAsksForRevision(index: number, read: HeldCommentsRead): Wo
     );
     const agentRead = sent.notes.join(" ");
     const expected = heldCommentsExpected(read);
-    const keptWithoutCancel = authors.length && expected === "kept" && read.meanwhile === "nothing";
+    const screenAdmitted = read.host === "refuses_acknowledgement" && read.decisions === "answers";
+    const keptWithoutCancel =
+      authors.length && expected === "kept" && !screenAdmitted && read.meanwhile === "nothing";
     return {
       heldCommentsAsked: authors.length ? { authors, expected, agentRead } : null,
       unadmittedFeedback: keptWithoutCancel ? { texts: held, agentRead } : null,
     };
+  });
+}
+
+/** What lands while the screen reads the held comments a mention sends. */
+type WhileMentionScreened = "nothing" | "person_replies";
+
+/** How a mention of the bot on a page is routed and read. */
+export type PageMention = {
+  routing: FeedbackRouting;
+  host: PageHost;
+  meanwhile: WhileMentionScreened;
+};
+
+/**
+ * A person mentions the bot in a comment on the author's page, and the host delivers it. The
+ * comments held on the page go out with it. A person may reply in the comment thread of a held
+ * comment while the screen reads them.
+ */
+export function personMentionsOnPage(index: number, mention: PageMention): WorkflowAction {
+  const label = `a person mentions the bot on the page, routed ${mention.routing}, page host ${mention.host}, meanwhile ${mention.meanwhile}`;
+  return authorAction(index, label, async (world, author) => {
+    const ref = world.artifactOf(author)?.ref;
+    if (ref?.kind !== "page") return;
+    const commentId = `mention-${world.steps.length}`;
+    const text = `@artfct Mention ${world.steps.length}: tighten the summary.`;
+    world.pageHost.addPersonComment({
+      id: commentId,
+      pageId: ref.page_id,
+      lineId: null,
+      authorName: "Bea",
+      text,
+      mentionsSelf: true,
+    });
+    const reply =
+      mention.meanwhile === "person_replies" ? personRepliesInACommentThread(ref.page_id) : null;
+    world.answerDecisionsWith(ROUTING_ANSWERS[mention.routing], reply ?? undefined);
+    await onPageHost(world, mention.host, () =>
+      world.deliver({
+        kind: "feedback",
+        text,
+        bindings: [{ source: "documents_page", external_id: ref.page_id }],
+        page: { page_id: ref.page_id, comment_id: commentId },
+      }),
+    );
+  });
+}
+
+/** A person replies in the comment thread of the first comment held on the page. */
+function personRepliesInACommentThread(pageId: string): WorkflowAction {
+  return action("a person replies in a comment thread", async (world) => {
+    const host = world.pageHost;
+    const mentions = new Set(
+      host.allPersonComments.filter((comment) => comment.mentionsSelf).map((comment) => comment.id),
+    );
+    const first = host.heldNow().find((comment) => !mentions.has(comment.id));
+    if (!first) return;
+    const opened = host.allPersonComments.find((comment) => comment.id === first.id);
+    host.addPersonComment({
+      id: `reply-${world.steps.length}`,
+      pageId,
+      lineId: null,
+      authorName: "Cy",
+      text: `Reply at step ${world.steps.length}: and the owner of each row.`,
+      commentThreadId: opened?.commentThreadId ?? first.id,
+    });
   });
 }
 
@@ -1270,14 +1389,29 @@ export function agentRoutes(
   });
 }
 
-/** The agent records the ruling a person gave on a judge entry. */
-export function personRules(index: number, ruling: "approve" | "reject"): WorkflowAction {
-  return authorAction(index, `a person rules ${ruling}`, async (world, author) => {
+/**
+ * The agent records the ruling a person gave on a judge entry, while the page host takes or
+ * refuses comments.
+ */
+export function personRules(
+  index: number,
+  ruling: "approve" | "reject",
+  pageCommenting: DocumentsCommenting = "takes",
+): WorkflowAction {
+  const label = `a person rules ${ruling} on a host that ${pageCommenting}`;
+  return authorAction(index, label, async (world, author) => {
     const { rule_on_review } = artifactTools(world.workflow);
-    await rule_on_review.execute(
-      { job_id: world.jobOf(author).job_id, ruling, reason: "The approach is wrong." },
-      TOOL_CALL,
-    );
+    const commentingBefore = world.pageHost.commenting;
+    world.pageHost.commenting = pageCommenting;
+    try {
+      await rule_on_review.execute(
+        { job_id: world.jobOf(author).job_id, ruling, reason: "The approach is wrong." },
+        TOOL_CALL,
+      );
+    } finally {
+      world.pageHost.commenting = commentingBefore;
+    }
+    return { pageCommentsRefused: author.kind === "page" && pageCommenting === "down" };
   });
 }
 

@@ -167,7 +167,7 @@ async function endResumingTurn(workflow: WorkflowRuntime, author: TaskRow): Prom
 }
 
 /** Send the harness session a cancel when a prompt turn runs. True when one was sent. */
-export function cancelPromptTurn(workflow: WorkflowRuntime, task: TaskRow): boolean {
+function cancelPromptTurn(workflow: WorkflowRuntime, task: TaskRow): boolean {
   const sandbox = workflow.store.sandbox(task.task_id);
   if (!sandbox?.session_id || !sandbox.prompt_in_flight) return false;
   const params: CancelNotification = { sessionId: sandbox.session_id };

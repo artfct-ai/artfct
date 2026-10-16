@@ -1,9 +1,12 @@
 import {
   APIErrorCode,
   Client,
+  collectPaginatedAPI,
+  isFullBlock,
   isFullComment,
   isFullPage,
   isNotionClientError,
+  type CommentObjectResponse,
 } from "@notionhq/client";
 import pLimit from "p-limit";
 import { workerdFetch } from "../../workerd-fetch";
@@ -168,20 +171,65 @@ export class NotionDocuments implements Documents {
     }
   }
 
-  /** Notion does not have reactions, so an eyes reply joins the discussion of the comment. */
-  async acknowledgeComment(comment: PageCommentRef): Promise<void> {
-    await this.replyToComment(comment, NOTION_ACKNOWLEDGEMENT);
+  /**
+   * Notion does not have reactions, so an eyes reply joins the comment thread of the comment. It
+   * marks the earliest held comment there, so it is posted only when that is this comment.
+   */
+  async acknowledgeComment(comment: PageCommentRef): Promise<boolean> {
+    const found = await this.readComment(comment.commentId);
+    const [self, listed] = await Promise.all([
+      this.self(),
+      collectPaginatedAPI(this.client.comments.list, { block_id: notionCommentParentId(found) }),
+    ]);
+    const commentThread = listed.filter(
+      (listedComment) => listedComment.discussion_id === found.discussion_id,
+    );
+    if (notionHeldComments(commentThread, self.id)[0]?.id !== comment.commentId) return false;
+    await this.client.comments.create({
+      discussion_id: found.discussion_id,
+      rich_text: notionRichText(NOTION_ACKNOWLEDGEMENT),
+    });
+    return true;
   }
 
-  /** A reply joins the discussion of the comment. Notion keys the discussion apart from the comment. */
+  /** A reply joins the comment thread of the comment. Notion keys it apart from the comment. */
   async replyToComment(comment: PageCommentRef, text: string): Promise<void> {
-    const found = await this.client.comments.retrieve({ comment_id: comment.commentId });
-    if (!isFullComment(found))
-      throw new Error(`notion: comment ${comment.commentId} is unreadable`);
+    const found = await this.readComment(comment.commentId);
     await this.client.comments.create({
       discussion_id: found.discussion_id,
       rich_text: notionRichText(text),
     });
+  }
+
+  private async readComment(commentId: string): Promise<CommentObjectResponse> {
+    const found = await this.client.comments.retrieve({ comment_id: commentId });
+    if (!isFullComment(found)) throw new Error(`notion: comment ${commentId} is unreadable`);
+    return found;
+  }
+
+  /**
+   * An edit replaces every block whose text it covers, and those blocks take their comments with
+   * them. A comment on the page itself stays.
+   */
+  async commentsOnRemovedLines(
+    _pageId: string,
+    change: PageTextChange,
+    commentIds: string[],
+  ): Promise<string[]> {
+    if (!commentIds.length) return [];
+    const update = planPageTextUpdate(change, NOTION_CONTENT_UPDATES_MAX);
+    const removed: string[] = [];
+    for (const commentId of commentIds) {
+      const found = await this.readComment(commentId);
+      if (found.parent.type !== "block_id") continue;
+      const block = await this.client.blocks.retrieve({ block_id: found.parent.block_id });
+      if (!isFullBlock(block)) continue;
+      const text = notionBlockText(block);
+      const rewritten =
+        "whole" in update || update.edits.some((edit) => textHoldsPassage(edit.find, text));
+      if (rewritten) removed.push(commentId);
+    }
+    return removed;
   }
 
   /**
@@ -227,4 +275,9 @@ export class NotionDocuments implements Documents {
     if (user.type !== "person") return null;
     return user.person.email ?? null;
   }
+}
+
+/** The block or page Notion lists a comment under. */
+function notionCommentParentId(comment: CommentObjectResponse): string {
+  return comment.parent.type === "block_id" ? comment.parent.block_id : comment.parent.page_id;
 }

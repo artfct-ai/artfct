@@ -14,7 +14,7 @@ import type { Applied, Wake, WorkflowRuntime } from "../types";
 import { settleChecks } from "./checks-recheck";
 import { settleRefinersForAuthor } from "./loop";
 import { feedbackRoute } from "./feedback-route";
-import { heldCommentFindings, heldCommentHandles } from "./held-comments";
+import { heldCommentFindings, markHeldCommentsRead } from "./held-comments";
 import { markArtifactReady } from "./outcome";
 
 /**
@@ -91,7 +91,7 @@ async function applyChange(
     case "opened":
       return onOpened(workflow, task, artifact, change.target);
     case "feedback":
-      return onFeedback(workflow, task, artifact, change.feedback);
+      return onFeedback(workflow, task, artifact, change.feedback, []);
     case "comment_held":
       workflow.log(task.task_id, "a page comment waits for a mention");
       return "handled";
@@ -153,24 +153,26 @@ export function unadmittedFeedbackNote(
 }
 
 /**
- * A person posted about the artifact. Unchecked feedback passes the screen first, and one it
- * does not admit goes to nobody. Then mark it read on the host. What only the author can act
- * on goes to the author, a remark that asks for nothing goes nowhere, and the rest is the agent's.
+ * A person posted about the artifact. `held` are the comments held on the page besides it. They
+ * are screened with it. Unchecked feedback passes the screen first, and one it does not admit
+ * goes to nobody. Then mark it read on the host. What only the author can act on goes to the
+ * author with the held comments the host marks read, a remark that asks for nothing goes nowhere,
+ * and the rest is the agent's. Held comments that do not go to the author stay held.
  */
 async function onFeedback(
   workflow: WorkflowRuntime,
   task: TaskRow,
   artifact: ArtifactRow | null,
   feedback: Feedback,
+  held: HeldComment[],
 ): Promise<Applied> {
   const who = feedback.from.display_name ?? feedback.from.email ?? "A reviewer";
-  const count = feedback.findings.length;
+  const count = feedback.findings.length + held.length;
   const left = count ? ` and left ${count} comment${count === 1 ? "" : "s"}` : "";
   const wrote = `${who} reviewed the artifact of job ${task.job_id}${left}`;
-  const reviewed = `${wrote}. The system marked it read on the host`;
-  const said = feedbackText(who, feedback);
+  const said = feedbackText(who, withHeldComments(feedback, held));
   workflow.log(task.task_id, `${who} reviewed`);
-  if (feedback.unchecked) {
+  if (feedback.unchecked || held.length) {
     const screened = await screenText(workflow, {
       source: `feedback on job ${task.job_id}`,
       text: said,
@@ -179,25 +181,35 @@ async function onFeedback(
       return { notes: [unadmittedFeedbackNote(wrote, screened)], wake: "human" };
     }
   }
-  if (artifact) {
-    await workflow.artifact(artifact.kind).acknowledge(feedback.handles, artifact.ref);
+  const unmarked = artifact
+    ? await workflow.artifact(artifact.kind).acknowledge(feedback.handles, artifact.ref)
+    : [];
+  const stayHeld = held.length ? " The held comments were not sent. They stay held." : "";
+  if (unmarked.length) {
+    return {
+      notes: [
+        `${wrote}. The host did not mark it read, so nobody was sent it.${held.length ? " They stay held." : ""} Tell the humans.`,
+        said,
+      ],
+      wake: "human",
+    };
   }
+  const reviewed = `${wrote}. The system marked it read on the host`;
   if (isTaskFinished(task.status)) {
-    const dead = `That task is ${task.status}, so nothing can be sent to it.`;
+    const dead = `That task is ${task.status}, so nothing can be sent to it.${stayHeld}`;
     return { notes: [`${reviewed} and sent it to nobody. ${dead}`, said], wake: "human" };
   }
   const route = await feedbackRoute(workflow, task.task_id, said);
   switch (route) {
     case "author":
-      await promptTask(workflow, task, said);
-      return { notes: [`${reviewed} and sent it whole to the author.`, said], wake: "none" };
+      return sendFeedbackToAuthor(workflow, { task, artifact, feedback, held, reviewed, said });
     case "nobody":
       return {
-        notes: [`${reviewed}. It asks for nothing, so nobody was sent it.`, said],
+        notes: [`${reviewed}. It asks for nothing, so nobody was sent it.${stayHeld}`, said],
         wake: "none",
       };
     case "agent":
-      return { notes: [`${reviewed} and sent it to nobody.`, said], wake: "human" };
+      return { notes: [`${reviewed} and sent it to nobody.${stayHeld}`, said], wake: "human" };
     default: {
       const unreachable: never = route;
       throw new Error(`unhandled feedback route ${String(unreachable)}`);
@@ -205,9 +217,41 @@ async function onFeedback(
   }
 }
 
+/** The feedback with the held comments after its own findings. */
+function withHeldComments(feedback: Feedback, held: HeldComment[]): Feedback {
+  return { ...feedback, findings: [...feedback.findings, ...heldCommentFindings(held)] };
+}
+
+/**
+ * Mark the held comments read and send the author the feedback with the ones the host marked.
+ * The rest stay held.
+ */
+async function sendFeedbackToAuthor(
+  workflow: WorkflowRuntime,
+  sending: {
+    task: TaskRow;
+    artifact: ArtifactRow | null;
+    feedback: Feedback;
+    held: HeldComment[];
+    reviewed: string;
+    said: string;
+  },
+): Promise<Applied> {
+  const { task, artifact, feedback, held, reviewed, said } = sending;
+  const carried =
+    artifact && held.length ? await markHeldCommentsRead(workflow, artifact, held) : [];
+  const who = feedback.from.display_name ?? feedback.from.email ?? "A reviewer";
+  await promptTask(workflow, task, feedbackText(who, withHeldComments(feedback, carried)));
+  const left = held.length - carried.length;
+  const sent = left
+    ? `${reviewed} and sent it to the author. The host did not mark ${left} held comment${left === 1 ? "" : "s"} read, so ${left === 1 ? "it was" : "they were"} not sent. They stay held.`
+    : `${reviewed} and sent it whole to the author.`;
+  return { notes: [sent, said], wake: "none" };
+}
+
 /**
  * A person mentioned the document user in a comment on the page. The held comments the host
- * shows and this one go out as one feedback, each labeled with its comment so the author can
+ * shows go out with this one as one feedback, each labeled with its comment so the author can
  * reply to it. When the host cannot be read, they all stay held.
  */
 async function onMentioned(
@@ -232,12 +276,12 @@ async function onMentioned(
     : [];
   const feedback: Feedback = {
     from: change.from,
-    unchecked: held.length > 0,
+    unchecked: false,
     body: "",
-    findings: [...mention, ...heldCommentFindings(held)],
-    handles: [...heldCommentHandles(held), { kind: "page", comment_id: change.comment_id }],
+    findings: mention,
+    handles: [{ kind: "page", comment_id: change.comment_id }],
   };
-  if (!feedback.findings.length) {
+  if (!feedback.findings.length && !held.length) {
     if (artifact) await workflow.artifact(kind).acknowledge(feedback.handles, artifact.ref);
     return {
       notes: [
@@ -246,7 +290,7 @@ async function onMentioned(
       wake: "none",
     };
   }
-  return onFeedback(workflow, task, artifact, feedback);
+  return onFeedback(workflow, task, artifact, feedback, held);
 }
 
 /** The held comments on the page other than the mention. Null when the host cannot be read. */

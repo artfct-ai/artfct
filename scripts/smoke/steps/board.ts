@@ -11,8 +11,8 @@ import {
   isRefinerRun,
   jobById,
   outboxText,
-  waitForHandoverRead,
   type WorkflowDebug,
+  waitUntil,
 } from "../admin";
 import { assert, assertEqual } from "../assert";
 import {
@@ -69,14 +69,10 @@ export async function runNoTrackerBoard(options: { workflowId: string }): Promis
   assertEqual(written, [], "no board message was created, edited, or deleted");
 }
 
-/** Runs step 12 over the whole Slack workflow, once every author's artifact is handed over. */
+/** Runs step 12 over the whole Slack workflow. */
 export async function runBoardChecks(options: { workflowId: string }): Promise<void> {
   console.log("\n12. Boards");
-  const started = await fetchWorkflowDebug(options.workflowId);
-  for (const task of started.tasks.filter((row) => row.role === "author")) {
-    await waitForHandoverRead(options.workflowId, task.job_id);
-  }
-  const debug = await fetchWorkflowDebug(options.workflowId);
+  const debug = await waitForEveryHandover(options.workflowId);
   const creates = countOutboxMessages(
     debug,
     (message) => message.channel === "board" && message.kind === "create",
@@ -105,6 +101,27 @@ export async function runBoardChecks(options: { workflowId: string }): Promise<v
     .map(outboxText)
     .filter((text) => LEAK.test(text));
   assertEqual(leaked.length, 0, "board text holds no link, CI result, review, or merge state");
+}
+
+/**
+ * Waits until the thread heard about every artifact of the workflow. Step 11 ends once the pull
+ * request exists, while its refiners may still hold it.
+ */
+function waitForEveryHandover(workflowId: string): Promise<WorkflowDebug> {
+  return waitUntil(
+    { label: "the thread heard about every artifact", timeoutMs: 30_000 },
+    async () => {
+      const debug = await fetchWorkflowDebug(workflowId);
+      const announced = debug.artifacts.every((artifact) =>
+        debug.outbox.some(
+          (message) =>
+            message.kind === "artifact_ready" &&
+            outboxText(message).includes(artifact.external_url),
+        ),
+      );
+      return announced ? debug : null;
+    },
+  );
 }
 
 /** Reviewers and polishers ran. */

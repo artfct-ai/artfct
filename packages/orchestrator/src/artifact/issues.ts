@@ -40,7 +40,7 @@ export function issuesArtifact(clients: IssuesClients): Artifact {
       postRejection: null,
     },
     change: async () => null,
-    acknowledge: async () => {},
+    acknowledge: async () => [],
     describe: async (target) => `The issues are on the tracker at ${target.url}.`,
   };
 }

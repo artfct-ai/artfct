@@ -9,7 +9,7 @@ import { isTaskFinished } from "../../store/state";
 import type { SandboxRow, TaskRow } from "../../store/tasks";
 
 /** Session updates arrive in bursts. One no-progress reschedule per window is enough. */
-export const PROGRESS_WINDOW_MS = 30_000;
+const PROGRESS_WINDOW_MS = 30_000;
 /** Sent once in the same session to a stalled task before it restarts. */
 export const NUDGE_TEXT =
   "Your work is not finished, and it has not shown progress. Summarize where you are and continue the work. When a run you started in the background is still going, wait for it to finish and report its result before you end your turn. When something blocks you, explain what blocks you.";

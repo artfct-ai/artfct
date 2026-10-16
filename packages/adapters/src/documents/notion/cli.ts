@@ -21,7 +21,7 @@ export const NOTION_PAGE_INSTRUCTIONS: HostInstructions = {
     "Change the page in place with targeted edits. People comment on blocks, and a block you rewrite or remove loses its comments, so change only the text a finding needs.",
     'Write the request body to a file as `{"type":"update_content","update_content":{"content_updates":[{"old_str":"<exact current text>","new_str":"<new text>"}]}}` and run `ntn api v1/pages/<page id>/markdown -X PATCH --data @edit.json`. Each `old_str` must match the page exactly once. Send at most 100 edits in one request.',
     "Do not replace the whole page, and do not create another page.",
-    'A finding that starts with a label such as [comment <id>] came from a comment on the page. Reply to each one in its discussion: read the comment with `ntn api v1/comments/<id>`, write `{"discussion_id":"<its discussion_id>","rich_text":[{"text":{"content":"<reply>"}}]}` to a file, and run `ntn api v1/comments --data @reply.json`. Say in one or two sentences what you changed for it, or why the page does not change.',
+    'A finding that starts with a label such as [comment <id>] came from a comment on the page. Reply to each one in its comment thread: read the comment with `ntn api v1/comments/<id>`, write `{"discussion_id":"<its discussion_id>","rich_text":[{"text":{"content":"<reply>"}}]}` to a file, and run `ntn api v1/comments --data @reply.json`. Say in one or two sentences what you changed for it, or why the page does not change.',
   ].join("\n"),
 };
 

@@ -120,7 +120,7 @@ export function isRefinerRun(task: WorkflowDebug["tasks"][number]): boolean {
 }
 
 /** Task ids of the refiner runs in the dump: its reviewers and its polishers. */
-export function refinerRunIds(debug: WorkflowDebug): string[] {
+function refinerRunIds(debug: WorkflowDebug): string[] {
   return debug.tasks.filter(isRefinerRun).map((task) => task.task_id);
 }
 
@@ -266,14 +266,6 @@ export function artifactOf(
   jobId: string,
 ): WorkflowDebug["artifacts"][number] | undefined {
   return debug.artifacts.find((row) => row.job_id === jobId);
-}
-
-/** The first outbox message matching `predicate`, or undefined. */
-export function findOutboxMessage(
-  debug: WorkflowDebug,
-  predicate: (message: WorkflowDebug["outbox"][number]) => boolean,
-): WorkflowDebug["outbox"][number] | undefined {
-  return debug.outbox.find(predicate);
 }
 
 /** Number of outbox messages matching `predicate`. */

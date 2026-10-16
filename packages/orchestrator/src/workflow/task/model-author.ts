@@ -1,6 +1,7 @@
-import type { Documents } from "@artfct-ai/adapters/documents/types";
+import type { Documents, PageTextChange } from "@artfct-ai/adapters/documents/types";
 import type { Effort } from "@artfct-ai/adapters/harness/types";
 import type { JSONValue, LanguageModel } from "ai";
+import { labeledPageCommentIds } from "../../artifact/page-comment-label";
 import { aboveResources, splitAtResources } from "../../artifact/resources-section";
 import type { ArtifactTarget } from "../../artifact/types";
 import { noteMessage } from "../../agent/transcript/envelope";
@@ -89,9 +90,14 @@ export async function drainModelAuthor(workflow: WorkflowRuntime, task: TaskRow)
   return false;
 }
 
+/** The reply to a comment a queued prompt carries, when a revision rewrites the block it is on. */
+export const QUEUED_COMMENT_REPLY =
+  "A revision that started before this comment arrived rewrites this part of the page. The author reads this comment next.";
+
 /**
  * A revise turn of a model-call author. Its prompt stays queued until the revision is applied, so
- * a lost turn runs again on it. True when it took a prompt.
+ * a lost turn runs again on it. A turn on a page a person edited during the model call starts
+ * over on the page as it is now. True when it took a prompt.
  */
 export async function reviseModelAuthorPage(
   workflow: WorkflowRuntime,
@@ -104,6 +110,7 @@ export async function reviseModelAuthorPage(
   await flushBoards(workflow, task.job_id);
   const outcome = await revisePage(workflow, task, {
     findings: next.text,
+    promptId: next.id,
     turnEnded: turn.ended,
   }).catch((error: unknown) => {
     workflow.log(
@@ -115,6 +122,12 @@ export async function reviseModelAuthorPage(
   if ("failure" in outcome) {
     await failTask(workflow, workflow.store.requireTask(task.task_id), outcome.failure);
     return true;
+  }
+  if ("startOver" in outcome) {
+    workflow.log(task.task_id, "a person edited the page during the model call. starting over.");
+    turn.finish();
+    markAuthorInReview(workflow, task.task_id);
+    return reviseModelAuthorPage(workflow, workflow.store.requireTask(task.task_id));
   }
   if (outcome.closingText === null) return true;
   workflow.store.dequeuePrompt(next.id);
@@ -198,16 +211,18 @@ async function producePage(
 /**
  * Revise the page in place with the revise activity, on its current text and the findings, and
  * keep the closing text as the task summary. The author replies to each page comment the
- * findings label before the page changes, so a comment on a line the revision rewrites already
- * holds the answer. Only the lines that changed are written. On the root page the author sees
- * and changes only the text above the resources section. A null closing text means the task
- * finished or a stop ended the turn first.
+ * findings label that is still on the page before the page changes, so a comment on a line the
+ * revision rewrites already holds the answer. A comment another queued prompt carries gets a
+ * reply too when the revision rewrites its line. Only the lines that changed are written. On the
+ * root page the author sees and changes only the text above the resources section. A null
+ * closing text means the task finished or a stop ended the turn first. `startOver` means a
+ * person edited the page during the model call, and nothing was written.
  */
 async function revisePage(
   workflow: WorkflowRuntime,
   task: TaskRow,
-  turn: { findings: string; turnEnded: () => boolean },
-): Promise<{ closingText: string | null } | { failure: string }> {
+  turn: { findings: string; promptId: number; turnEnded: () => boolean },
+): Promise<{ closingText: string | null } | { startOver: true } | { failure: string }> {
   const { findings, turnEnded } = turn;
   const documents = await workflow.documents();
   const ref = workflow.store.artifact(task.job_id)?.ref;
@@ -231,25 +246,67 @@ async function revisePage(
     turnEnded,
   });
   if (text === null) return { closingText: null };
+  if ((await documents.readPageContent(ref.page_id)) !== pageText) return { startOver: true };
   const revision = splitReviseAnswer(text);
   if (!revision) return { failure: "The model answered with no closing text." };
   if (!revision.pageText) return { failure: "The model answered with no document text." };
   const unanswered = validateCommentReplies(findings, revision.replies);
   if (unanswered) return { failure: unanswered };
   for (const reply of revision.replies) {
+    if (!(await documents.fetchComment(reply.comment_id))) {
+      workflow.log(task.task_id, `comment ${reply.comment_id} is gone from the page. no reply.`);
+      continue;
+    }
     await documents.replyToComment(
       { pageId: ref.page_id, commentId: reply.comment_id },
       reply.text,
     );
   }
   const after = isRootPage ? aboveResources(revision.pageText, pageText) : revision.pageText;
-  await documents.updatePageContent(ref.page_id, { before: pageText, after });
+  const change = { before: pageText, after };
+  await replyToQueuedCommentsOnRemovedLines(workflow, task, {
+    documents,
+    pageId: ref.page_id,
+    change,
+    promptId: turn.promptId,
+  });
+  await documents.updatePageContent(ref.page_id, change);
   workflow.store.updateTask(task.task_id, { summary: revision.closingText.slice(-SUMMARY_CHARS) });
   workflow.log(
     task.task_id,
     `page updated: ${ref.page_id}, replied to ${revision.replies.length} comment(s)`,
   );
   return { closingText: revision.closingText };
+}
+
+/**
+ * Reply to each comment that another queued prompt of the task carries, when writing `change`
+ * would remove it. The author reads it only after this revision, so the reply says so.
+ */
+async function replyToQueuedCommentsOnRemovedLines(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+  write: { documents: Documents; pageId: string; change: PageTextChange; promptId: number },
+): Promise<void> {
+  const queuedCommentIds = workflow.store
+    .queue()
+    .filter((row) => row.task_id === task.task_id && row.id !== write.promptId)
+    .flatMap((row) => labeledPageCommentIds(row.text));
+  if (!queuedCommentIds.length) return;
+  const removed = await write.documents.commentsOnRemovedLines(
+    write.pageId,
+    write.change,
+    queuedCommentIds,
+  );
+  for (const commentId of removed) {
+    await write.documents.replyToComment({ pageId: write.pageId, commentId }, QUEUED_COMMENT_REPLY);
+  }
+  if (removed.length) {
+    workflow.log(
+      task.task_id,
+      `replied to ${removed.length} queued comment(s) the revision removes`,
+    );
+  }
 }
 
 /**

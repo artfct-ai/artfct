@@ -125,12 +125,20 @@ it("comment addresses the document content id", async () => {
 
 describe("LinearDocuments acknowledgeComment", () => {
   let calls: Call[];
+  let marked: boolean;
 
   beforeEach(async () => {
     calls = fakeLinear({
       createReaction: { reactionCreate: { success: true, reaction: { id: "r1" } } },
     });
-    await new LinearDocuments("lin_api_x").acknowledgeComment({ pageId: "dc1", commentId: "c1" });
+    marked = await new LinearDocuments("lin_api_x").acknowledgeComment({
+      pageId: "dc1",
+      commentId: "c1",
+    });
+  });
+
+  it("marks the comment", () => {
+    expect(marked).toBe(true);
   });
 
   it("sends one reaction and no reply", () => {

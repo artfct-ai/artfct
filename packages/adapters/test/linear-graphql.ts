@@ -15,7 +15,7 @@ export type Call = {
 };
 
 /** A GraphQL `data` object, or `{ errors }` to answer with a GraphQL error response. */
-export type Answer = Record<string, unknown>;
+type Answer = Record<string, unknown>;
 
 /** Answers keyed by the operation name the SDK (or a raw document) declares. */
 export type Answers = Record<string, Answer | ((call: Call) => Answer)>;
@@ -29,7 +29,7 @@ export const PAGE = {
 };
 
 /** The operation name after `query` or `mutation`. */
-export function operationName(query: string): string {
+function operationName(query: string): string {
   return /^\s*(?:query|mutation)\s+(\w+)/.exec(query)?.[1] ?? "unknown";
 }
 

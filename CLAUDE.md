@@ -104,7 +104,7 @@ Every change is specified before it is built. The spec is the glossary and the i
 - Write a before-and-after rule as a pure def over one step, the state before and after it and the kind of step. Each step records whether it kept each rule in a record variable, and the invariant reads that field. Do not store the state before the step.
 - Record a witness that needs the step in its own record variable, and list that variable under `tlc.ignoredVariables`. TLC then leaves it out of a state.
 - Avoid a range whose length depends on the state, such as the jobs so far. Range over the constant cap and filter, so Apalache can translate the spec for TLC.
-- Run quint locally through the check-spec script, which runs every invariant in one run on the Rust backend. Use small sample counts while you iterate and the CI counts once before you push.
+- Run quint locally through the check-spec script, which runs every invariant in one run on the Rust backend. Use small sample counts locally. CI runs the full counts.
 - Run at most two heavy processes at a time, such as quint, TLC, a replay, or a property test.
 
 ## Code style
@@ -122,6 +122,6 @@ Every change is specified before it is built. The spec is the glossary and the i
 
 ## Done means
 
-A change carries its spec: the glossary rows for its concepts, and the invariants for its behavior with their property tests. CI does not run on a pull request from a fork until a maintainer approves it, so test every change fully before you push. Use `scripts/test-near` on the files you change while you work. Before you push, `bun run check` passes with zero errors and zero warnings, and `bun run smoke` prints `SMOKE PASSED`. Push the branch and open a draft PR. Then run `gh pr checks <number> --watch --fail-fast`, fix what fails, and push again until every check is green. Do not stop at a local commit, and do not ask first. Never leave a lint warning or a failing test because it was already there. Fix it in the same change and mention the fix in one line.
+A change carries its spec: the glossary rows for its concepts, and the invariants for its behavior with their property tests. Use `scripts/test-near` on the files you change while you work. Before you push, `bun run lint` passes with zero warnings and the tests near your change pass. Push the branch early and open a draft PR. CI runs `bun run check`, smoke, the spec checks, TLC, and the replays on the pull request, and the full property counts after merge. Do not repeat those runs locally. CI does not run on a pull request from a fork until a maintainer approves it, so a fork runs `bun run check` and `bun run smoke` locally before it pushes. Then run `gh pr checks <number> --watch --fail-fast`, fix what fails, and push again until every check is green. Do not stop at a local commit, and do not ask first. Never leave a lint warning or a failing test because it was already there. Fix it in the same change and mention the fix in one line.
 
 The PR description states the reason for each part of the change. That is where rationale lives. When a stacked PR's base merges, replay the branch with `git rebase --onto origin/main <old-base-tip> <branch>`, push with `--force-with-lease`, and retarget with `gh pr edit <number> --base main`.

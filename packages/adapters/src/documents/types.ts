@@ -6,7 +6,7 @@ import type { Actor, InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { ExternalUser } from "@artfct-ai/contracts/types";
 
 /** Resolves a document host user to a person the orchestrator trusts, or to null. */
-export type DocumentsActorResolver = (user: ExternalUser) => Promise<Actor | null>;
+type DocumentsActorResolver = (user: ExternalUser) => Promise<Actor | null>;
 
 /** A normalized event ready to deliver, or the reason the webhook is ignored. */
 export type DocumentsInbound = { event: InboundEvent } | { ignore: string };
@@ -19,7 +19,7 @@ export type DocumentsInboundContext = {
 };
 
 /** A comment body and its author. `author` is null when the host sends no author. */
-export type CommentBody = {
+type CommentBody = {
   text: string;
   author: { id: string; email: string | null } | null;
 };
@@ -92,10 +92,22 @@ export interface Documents {
   pageRemoved(url: string): Promise<boolean>;
   /** Add a plain text comment to a page. */
   comment(pageId: string, text: string): Promise<void>;
-  /** Mark a comment as read, in the host's own way. */
-  acknowledgeComment(comment: PageCommentRef): Promise<void>;
-  /** Reply to a comment in its discussion, with plain text. */
+  /**
+   * Mark a held comment read, in the host's own way. False when the host cannot mark it alone:
+   * it is not held, or an earlier comment of its comment thread is held.
+   */
+  acknowledgeComment(comment: PageCommentRef): Promise<boolean>;
+  /** Reply to a comment in its comment thread, with plain text. */
   replyToComment(comment: PageCommentRef, text: string): Promise<void>;
+  /**
+   * The comments among `commentIds` that writing `change` to the page would remove, because the
+   * host rewrites the block they sit on. Read before the change is written. It changes nothing.
+   */
+  commentsOnRemovedLines(
+    pageId: string,
+    change: PageTextChange,
+    commentIds: string[],
+  ): Promise<string[]>;
   /**
    * Add each comment on the block of the page that holds its passage. Returns the comments it
    * did not post, a subset of `comments`: the page does not hold the passage, or the host did not

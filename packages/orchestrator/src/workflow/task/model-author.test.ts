@@ -16,7 +16,7 @@ import { testEnv } from "../../../test/test-env";
 import type { TaskRow } from "../store/tasks";
 import { CLOSING_TEXT_MARKER, replyMarker } from "../../prompts/model-author-prompt";
 import { registeredConfig } from "../../config/register-config";
-import { modelAuthorPageTitle, runModelAuthorTurn } from "./model-author";
+import { modelAuthorPageTitle, QUEUED_COMMENT_REPLY, runModelAuthorTurn } from "./model-author";
 import { promptTask } from "./harness/prompt-queue";
 import { provision } from "./sandbox/sandbox";
 import { stopAuthor, type StopOutcome } from "../inbound/controls";
@@ -336,6 +336,114 @@ describe("reviseModelAuthorPage", () => {
         expect(answering.userTexts).toHaveLength(2);
         expect(answering.userTexts[1]).toContain(FEEDBACK);
         expect(workflow.store.queue()).toEqual([]);
+      }));
+  });
+
+  describe("a person edits the page during the model call", () => {
+    const EDITED_PAGE = "## Goal\nLet people sign in with a passkey.";
+    let answering = new EchoModel(REVISE_ANSWER);
+    const edited = scenario(freshRuntime, async (workflow) => {
+      const author = await seedPageWithHumans(workflow);
+      const documents = fakeDocumentsOf(workflow);
+      answering = new EchoModel((userText) => {
+        if (userText.includes(FIRST_PAGE)) documents.seedPage("page-1", EDITED_PAGE);
+        return REVISE_ANSWER;
+      });
+      workflow.modelInstance = answering;
+      await promptTask(workflow, author, FEEDBACK);
+    });
+
+    it("starts the turn over on the page as the person left it", () =>
+      edited(() => {
+        expect(answering.userTexts).toHaveLength(2);
+        expect(answering.userTexts[1]).toContain(EDITED_PAGE);
+      }));
+
+    it("writes the revision over the edited page", () =>
+      edited((workflow) => {
+        expect(fakeDocumentsOf(workflow).argsOf("updatePageContent")).toEqual([
+          ["page-1", { before: EDITED_PAGE, after: REVISED_PAGE }],
+        ]);
+      }));
+
+    it("takes the prompt and puts the author back in review", () =>
+      edited((workflow) => {
+        expect(workflow.store.queue()).toEqual([]);
+        expect(workflow.store.requireTask("wf_x.1").status).toBe("in_review");
+      }));
+  });
+
+  describe("a reply to a comment that is gone from the page", () => {
+    const gone = scenario(freshRuntime, async (workflow) => {
+      const author = await seedPageWithHumans(workflow);
+      fakeDocumentsOf(workflow).addPersonComment({
+        id: "c-1",
+        pageId: "page-1",
+        lineId: Math.max(...fakeDocumentsOf(workflow).lineIds("page-1")) + 1,
+        authorName: "Ann",
+        text: "Name it.",
+      });
+      workflow.modelInstance = new EchoModel(`${REVISE_ANSWER}\n${replyMarker("c-1")}\nDone.`);
+      await promptTask(workflow, author, "Comments:\n- [comment c-1] Ann: Name it.");
+    });
+
+    it("does not reply to it", () =>
+      gone((workflow) => {
+        expect(fakeDocumentsOf(workflow).argsOf("replyToComment")).toEqual([]);
+      }));
+
+    it("revises the page and puts the author back in review", () =>
+      gone((workflow) => {
+        expect(fakeDocumentsOf(workflow).pageText("page-1")).toBe(REVISED_PAGE);
+        expect(workflow.store.requireTask("wf_x.1").status).toBe("in_review");
+      }));
+  });
+
+  describe("a revision that rewrites the line of a comment a queued prompt carries", () => {
+    const QUEUED_COMMENT = "Comments:\n- [comment c-2] Bo: Say who signs in.";
+    const queued = scenario(freshRuntime, async (workflow) => {
+      const author = await seedPageWithHumans(workflow);
+      const documents = fakeDocumentsOf(workflow);
+      const [, goalLine] = documents.lineIds("page-1");
+      documents.addPersonComment({
+        id: "c-2",
+        pageId: "page-1",
+        lineId: goalLine ?? null,
+        authorName: "Bo",
+        text: "Say who signs in.",
+      });
+      const model = new GatedModel(
+        new EchoModel((userText) =>
+          userText.includes("[comment c-2]")
+            ? `${REVISE_ANSWER}\n${replyMarker("c-2")}\nSaid it.`
+            : REVISE_ANSWER,
+        ),
+      );
+      workflow.modelInstance = model;
+      const firstTurn = promptTask(workflow, author, FEEDBACK);
+      await model.waiting;
+      await promptTask(workflow, workflow.store.requireTask(author.task_id), QUEUED_COMMENT);
+      model.release();
+      await firstTurn;
+    });
+
+    it("replies to the comment before the revision removes its line", () =>
+      queued((workflow) => {
+        const documents = fakeDocumentsOf(workflow);
+        const methods = documents.calls.map((call) => call.method);
+        expect(documents.argsOf("replyToComment")[0]).toEqual([
+          { pageId: "page-1", commentId: "c-2" },
+          QUEUED_COMMENT_REPLY,
+        ]);
+        expect(methods.indexOf("replyToComment")).toBeLessThan(
+          methods.indexOf("updatePageContent"),
+        );
+      }));
+
+    it("answers the queued prompt next without failing", () =>
+      queued((workflow) => {
+        expect(workflow.store.queue()).toEqual([]);
+        expect(workflow.store.requireTask("wf_x.1").status).toBe("in_review");
       }));
   });
 

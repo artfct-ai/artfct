@@ -567,7 +567,7 @@ export const ASK_WHETHER_ACCEPTED = "Ask them whether it is accepted.";
 export const ASK_WHICH_OPTION = "Ask them which option they choose.";
 
 /** What the agent reads when the decisions model could not check what the person wrote. */
-export function checkUnavailableText(checked: string): string {
+function checkUnavailableText(checked: string): string {
   return `The check of ${checked} is unavailable right now, so the job stays open. Tell the person the check is unavailable. Do not ask them again.`;
 }
 

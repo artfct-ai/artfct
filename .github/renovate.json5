@@ -1,0 +1,77 @@
+{
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  extends: ["config:recommended"],
+  rangeStrategy: "bump",
+  customManagers: [
+    {
+      customType: "regex",
+      description: "Sandbox downloads, each a version whose checksum pin-sha256.sh writes",
+      managerFilePatterns: ["/^packages/orchestrator/sandbox/Dockerfile$/"],
+      matchStrings: [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)(?: packageName=(?<packageName>\\S+))?\\nARG \\w+_VERSION=(?<currentValue>\\S+)\\n",
+      ],
+      versioningTemplate: "semver",
+      depTypeTemplate: "download",
+    },
+  ],
+  packageRules: [
+    {
+      matchManagers: ["bun"],
+      matchUpdateTypes: ["minor", "patch"],
+      groupName: "workspace packages",
+    },
+    {
+      matchManagers: ["github-actions"],
+      matchUpdateTypes: ["minor", "patch", "digest"],
+      groupName: "GitHub Actions",
+    },
+    {
+      matchFileNames: ["packages/orchestrator/sandbox/**"],
+      matchUpdateTypes: ["minor", "patch", "digest"],
+      groupName: "sandbox image",
+    },
+    {
+      matchFileNames: ["packages/orchestrator/sandbox/**"],
+      prBodyNotes: [
+        "Check that the sandbox NOTICES.md still matches the license and copyright of each program this bumps.",
+      ],
+    },
+    {
+      matchPackageNames: ["bun", "@types/bun", "bun-types", "docker.io/oven/bun"],
+      groupName: "Bun",
+    },
+    {
+      description: "The SDK requires the sandbox image at its own version",
+      matchPackageNames: ["@cloudflare/sandbox", "docker.io/cloudflare/sandbox"],
+      groupName: "Cloudflare Sandbox",
+    },
+    {
+      description: "@cloudflare/vitest-pool-workers supports vitest 4 only",
+      matchPackageNames: ["vitest"],
+      matchUpdateTypes: ["major"],
+      enabled: false,
+    },
+    {
+      description: "engines states the Node lines a package supports, so only a person changes it",
+      matchDepTypes: ["engines"],
+      enabled: false,
+    },
+    {
+      description: "Hold Node and its types at the 24 line",
+      matchPackageNames: ["docker.io/node", "@types/node"],
+      allowedVersions: "/^24\\./",
+    },
+    {
+      matchDepTypes: ["download"],
+      matchDatasources: ["github-releases"],
+      extractVersion: "^v(?<version>.+)$",
+    },
+    {
+      matchDepTypes: ["download"],
+      postUpgradeTasks: {
+        commands: ["sh packages/orchestrator/sandbox/pin-sha256.sh {{{depName}}}"],
+        fileFilters: ["packages/orchestrator/sandbox/Dockerfile"],
+      },
+    },
+  ],
+}

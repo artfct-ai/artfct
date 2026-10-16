@@ -44,7 +44,7 @@ const CLEARLY_YES = 0.6;
 const CLEARLY_NO = 0.4;
 
 /** The questions asked of every message a person writes. */
-export const OWED_REPLY_QUESTIONS = {
+const OWED_REPLY_QUESTIONS = {
   wants_answer: {
     instructions:
       "Does `message` ask the assistant for information that must be given back in words, such as a question, a status check, or a request for options or an opinion?",
@@ -97,7 +97,7 @@ export function closingTextWithheld(owed: OwedReply | null, boardChanged: boolea
 }
 
 /** True when the probability says the message clearly asks for a revision. */
-export function asksForRevisionFrom(probabilities: { asks_revision: number }): boolean {
+function asksForRevisionFrom(probabilities: { asks_revision: number }): boolean {
   return probabilities.asks_revision >= CLEARLY_YES;
 }
 

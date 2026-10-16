@@ -150,7 +150,7 @@ export interface ChecksSupport {
 }
 
 /** How a kind reads its held comments from the host. Absent on a kind that holds none. */
-export interface HeldCommentSupport {
+interface HeldCommentSupport {
   /** The held comments of a page, as the host shows them now. */
   read(pageId: string): Promise<HeldComment[]>;
 }
@@ -194,8 +194,11 @@ export interface Artifact {
   pageParentHint?: string;
   /** One inbound event as a change, or null when it changes nothing. */
   change(input: ChangeInput): Promise<ArtifactChange | null>;
-  /** Show on the host that the comments feedback came in were read. Never throws. */
-  acknowledge(handles: FeedbackHandle[], ref: ArtifactRef): Promise<void>;
+  /**
+   * Show on the host that the comments feedback came in were read. Returns the ones the host did
+   * not mark read. Never throws.
+   */
+  acknowledge(handles: FeedbackHandle[], ref: ArtifactRef): Promise<FeedbackHandle[]>;
   /**
    * The branch a job commits to when it continues this artifact. Null when the host no longer
    * holds it open. Absent on a kind that does not live on a branch.

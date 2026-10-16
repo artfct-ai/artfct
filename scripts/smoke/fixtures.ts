@@ -34,7 +34,7 @@ export type PullRequestFixture = {
 };
 
 /** Repository object as GitHub sends it in every event. */
-export type RepositoryFixture = {
+type RepositoryFixture = {
   id: number;
   node_id: string;
   name: string;
@@ -48,7 +48,7 @@ export type RepositoryFixture = {
 const [OWNER_LOGIN, REPO_NAME] = REPO_FULL_NAME.split("/") as [string, string];
 
 /** The organization that owns the smoke repository. */
-export const ownerFixture: GithubAccount = {
+const ownerFixture: GithubAccount = {
   login: OWNER_LOGIN,
   id: 9919,
   node_id: "O_kgDOAAAmvw",
@@ -71,7 +71,7 @@ export const agentBotFixture: GithubAccount = {
   type: "Bot",
 };
 
-export const repositoryFixture: RepositoryFixture = {
+const repositoryFixture: RepositoryFixture = {
   id: 583231,
   node_id: "R_kgDOIvd0Bw",
   name: REPO_NAME,
@@ -83,22 +83,22 @@ export const repositoryFixture: RepositoryFixture = {
 };
 
 /** The GitHub App installation every event of the smoke repository carries. */
-export const installationFixture = {
+const installationFixture = {
   id: 41522,
   node_id: "MDIzOkludGVncmF0aW9uSW5zdGFsbGF0aW9uNDE1MjI=",
 };
 
 /** Head commit of the task branch. */
-export const HEAD_SHA = "abc1234def5678abc1234def5678abc1234def56";
+const HEAD_SHA = "abc1234def5678abc1234def5678abc1234def56";
 
 /** Commit `main` points at before the base push. */
-export const BASE_SHA = "0f2c9a1b4e7d3f6a8c5b2e9d1f4a7c0b3e6d9f2a";
+const BASE_SHA = "0f2c9a1b4e7d3f6a8c5b2e9d1f4a7c0b3e6d9f2a";
 
 /** Commit `main` points at after the base push. */
-export const PUSHED_SHA = "def5678abc1234def5678abc1234def5678abc12";
+const PUSHED_SHA = "def5678abc1234def5678abc1234def5678abc12";
 
 /** Number of the first PR the mock harness opens against the smoke repo. */
-export const PULL_REQUEST_NUMBER = 1;
+const PULL_REQUEST_NUMBER = 1;
 
 /** URL of the first PR the mock harness opens against the smoke repo. */
 export const PULL_REQUEST_URL = `https://github.com/${REPO_FULL_NAME}/pull/${PULL_REQUEST_NUMBER}`;
@@ -328,7 +328,7 @@ export function pushToMainEvent(): Record<string, unknown> {
 }
 
 /** Constant per webhook configuration, as Linear sends it on every delivery. */
-export const LINEAR_WEBHOOK_ID = "7d3c0b2a-7c6e-4f8a-9a1b-2c3d4e5f6a7b";
+const LINEAR_WEBHOOK_ID = "7d3c0b2a-7c6e-4f8a-9a1b-2c3d4e5f6a7b";
 
 /** The workspace the mock Linear API reports for the app-actor token. */
 export const LINEAR_ORG = { id: "org-acme", name: "Acme", urlKey: "acme" };

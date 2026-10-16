@@ -18,17 +18,43 @@ export function heldCommentFindings(comments: HeldComment[]): Finding[] {
 }
 
 /** The held comments to acknowledge on the page once they are sent. */
-export function heldCommentHandles(comments: HeldComment[]): FeedbackHandle[] {
+function heldCommentHandles(comments: HeldComment[]): FeedbackHandle[] {
   return comments.map((comment) => ({ kind: "page", comment_id: comment.id }));
 }
 
+/** The held comments as the screen and the author read them. */
+function heldCommentsText(comments: HeldComment[]): string {
+  return feedbackText("The people who commented on the page", {
+    body: "",
+    findings: heldCommentFindings(comments),
+  });
+}
+
 /**
- * The comments held on the page of an author, read from the host and screened. `admitted`
- * carries the text the author reads. The other arms keep the comments held on the page.
+ * Acknowledge the held comments on the page, in order. Returns the ones the host marked read.
+ * The rest stay held.
+ */
+export async function markHeldCommentsRead(
+  workflow: WorkflowRuntime,
+  artifact: ArtifactRow,
+  comments: HeldComment[],
+): Promise<HeldComment[]> {
+  const unmarked = await workflow
+    .artifact(artifact.kind)
+    .acknowledge(heldCommentHandles(comments), artifact.ref);
+  const unmarkedIds = new Set(
+    unmarked.flatMap((handle) => (handle.kind === "page" ? [handle.comment_id] : [])),
+  );
+  return comments.filter((comment) => !unmarkedIds.has(comment.id));
+}
+
+/**
+ * The comments held on the page of an author, read from the host and screened. Only `admitted`
+ * comments may go to the author. The other arms keep the comments held on the page.
  */
 export type HeldCommentsRead =
   | { held: "none" }
-  | { held: "admitted"; artifact: ArtifactRow; comments: HeldComment[]; text: string }
+  | { held: "admitted"; artifact: ArtifactRow; comments: HeldComment[] }
   | { held: "unreadable"; artifact: ArtifactRow }
   | { held: "unadmitted"; artifact: ArtifactRow; screened: Exclude<Screened, "admitted"> };
 
@@ -59,53 +85,54 @@ export async function readHeldComments(
     return { held: "unreadable", artifact };
   }
   if (!comments.length) return NONE_HELD;
-  const text = feedbackText("The people who commented on the page", {
-    body: "",
-    findings: heldCommentFindings(comments),
-  });
   const screened = await screenText(workflow, {
     source: `the held comments of job ${author.job_id}`,
-    text,
+    text: heldCommentsText(comments),
     turn,
   });
   if (screened !== "admitted") return { held: "unadmitted", artifact, screened };
-  return { held: "admitted", artifact, comments, text };
+  return { held: "admitted", artifact, comments };
 }
 
 /**
- * Queue `text` for the author with the admitted held comments after it, then mark those
- * comments read on the page. Comments in any other arm stay held. The author is read again
- * from the store, because it may have finished while the comments were read. False when it did,
- * and nothing was queued or marked read.
+ * Mark the admitted held comments read on the page, for a prompt to the author. Returns the
+ * ones the host marked, which the prompt carries. The author is read again from the store,
+ * because it may have finished while the comments were read. Null when it did, and nothing was
+ * marked read.
  */
+export async function carryHeldComments(
+  workflow: WorkflowRuntime,
+  authorId: string,
+  held: HeldCommentsRead,
+): Promise<HeldComment[] | null> {
+  if (isTaskFinished(workflow.store.requireTask(authorId).status)) return null;
+  if (held.held !== "admitted") return [];
+  return markHeldCommentsRead(workflow, held.artifact, held.comments);
+}
+
+/** Queue `text` for the author with the held comments it carries after it. */
 export async function promptWithHeldComments(
   workflow: WorkflowRuntime,
   authorId: string,
   text: string,
-  held: HeldCommentsRead,
-): Promise<boolean> {
+  carried: HeldComment[],
+): Promise<void> {
   const author = workflow.store.requireTask(authorId);
-  if (isTaskFinished(author.status)) return false;
-  if (held.held !== "admitted") {
-    await promptTask(workflow, author, text);
-    return true;
-  }
-  const { artifact, comments } = held;
-  await workflow.artifact(artifact.kind).acknowledge(heldCommentHandles(comments), artifact.ref);
-  await promptTask(workflow, author, `${text}\n\n${held.text}`);
-  workflow.log(author.task_id, `sent ${comments.length} held comments`);
-  return true;
+  if (!carried.length) return promptTask(workflow, author, text);
+  await promptTask(workflow, author, `${text}\n\n${heldCommentsText(carried)}`);
+  workflow.log(author.task_id, `sent ${carried.length} held comments`);
 }
 
-/** What the agent reads about the held comments of one prompt. Empty when none were held. */
-export function heldCommentsNote(held: HeldCommentsRead): string {
+/**
+ * What the agent reads about the held comments of one prompt, given the ones it carries. Empty
+ * when none were held.
+ */
+export function heldCommentsNote(held: HeldCommentsRead, carried: HeldComment[]): string {
   switch (held.held) {
     case "none":
       return "";
-    case "admitted": {
-      const count = held.comments.length;
-      return `It carries the ${count} comment${count === 1 ? "" : "s"} held on ${held.artifact.external_url}, now marked read on the page.`;
-    }
+    case "admitted":
+      return carriedHeldCommentsNote(held.artifact.external_url, held.comments, carried);
     case "unreadable":
       return `The comments held on ${held.artifact.external_url} could not be read, so they were not sent. They stay held. Tell the person.`;
     case "unadmitted":
@@ -115,6 +142,23 @@ export function heldCommentsNote(held: HeldCommentsRead): string {
       throw new Error(`unhandled held comments ${JSON.stringify(unreachable)}`);
     }
   }
+}
+
+function carriedHeldCommentsNote(
+  url: string,
+  comments: HeldComment[],
+  carried: HeldComment[],
+): string {
+  const left = comments.length - carried.length;
+  const unmarked = `The host did not mark ${left === comments.length ? "the" : "the other"} ${countOf(left, "comment")} held on ${url} read, so ${left === 1 ? "it was" : "they were"} not sent. They stay held.`;
+  if (!carried.length) return `${unmarked} Tell the person.`;
+  const sent = `It carries the ${countOf(carried.length, "comment")} held on ${url}, now marked read on the page.`;
+  return left ? `${sent} ${unmarked}` : sent;
+}
+
+/** A count and its noun, singular for one. */
+function countOf(count: number, noun: string): string {
+  return `${count} ${noun}${count === 1 ? "" : "s"}`;
 }
 
 function unadmittedHeldCommentsNote(url: string, screened: Exclude<Screened, "admitted">): string {
@@ -138,7 +182,8 @@ export type RevisionRequestSent = { notes: string[]; prompted: string[] };
 
 /**
  * A person asked for a revision. Send the comments held on the page of every running author to
- * that author, and say what happened for the agent. An author with none held gets no prompt.
+ * that author, and say what happened for the agent. An author gets a prompt only when the host
+ * marked at least one of its held comments read.
  */
 export async function sendHeldCommentsOnRevisionRequest(
   workflow: WorkflowRuntime,
@@ -152,20 +197,23 @@ export async function sendHeldCommentsOnRevisionRequest(
     const held = await readHeldComments(workflow, author, turn);
     if (held.held === "none") continue;
     if (held.held !== "admitted") {
-      sent.notes.push(`The person asked for a revision. ${heldCommentsNote(held)}`);
+      sent.notes.push(`The person asked for a revision. ${heldCommentsNote(held, [])}`);
       continue;
     }
-    const prompted = await promptWithHeldComments(
-      workflow,
-      author.task_id,
-      REVISION_REQUEST_PROMPT,
-      held,
-    );
-    if (!prompted) continue;
+    const carried = await carryHeldComments(workflow, author.task_id, held);
+    if (carried === null) continue;
+    if (!carried.length) {
+      sent.notes.push(`The person asked for a revision. ${heldCommentsNote(held, carried)}`);
+      continue;
+    }
+    await promptWithHeldComments(workflow, author.task_id, REVISION_REQUEST_PROMPT, carried);
     sent.prompted.push(author.task_id);
-    const count = held.comments.length;
+    const left = held.comments.length - carried.length;
+    const stayHeld = left
+      ? ` The host did not mark the other ${countOf(left, "comment")} read, so ${left === 1 ? "it was" : "they were"} not sent. They stay held.`
+      : "";
     sent.notes.push(
-      `The person asked for a revision, so the system sent the ${count} comment${count === 1 ? "" : "s"} held on ${held.artifact.external_url} to the author ${author.task_id}. The author revises the page now. Do not send them again.`,
+      `The person asked for a revision, so the system sent ${countOf(carried.length, "comment")} held on ${held.artifact.external_url} to the author ${author.task_id}. The author revises the page now. Do not send them again.${stayHeld}`,
     );
   }
   return sent;

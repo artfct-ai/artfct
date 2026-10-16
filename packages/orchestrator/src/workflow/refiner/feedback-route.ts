@@ -17,7 +17,7 @@ const ASKS_FLOOR = 0.8;
 const ASKS_CEILING = 0.15;
 
 /** The questions asked of every comment a person leaves on an artifact. */
-export const FEEDBACK_ROUTE_QUESTIONS = {
+const FEEDBACK_ROUTE_QUESTIONS = {
   for_author: {
     instructions:
       "Does `comment` ask the author of the pull request or document to change it, fix something in it, or explain a choice made in it?",

@@ -2,7 +2,7 @@ import type { Chat } from "@artfct-ai/adapters/chat/types";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 
 /** How long a chat message may wait for its workflow before it gets the eyes reaction. */
-export const CHAT_ACK_DELAY_MS = 3_000;
+const CHAT_ACK_DELAY_MS = 3_000;
 
 const EYES = "eyes";
 

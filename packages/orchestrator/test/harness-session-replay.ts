@@ -78,7 +78,7 @@ export const SPEC_SETUPS = {
 export type SpecSetup = keyof typeof SPEC_SETUPS;
 
 /** The most steps a generated trace takes after its initial state. */
-export const TRACE_STEPS = 25;
+const TRACE_STEPS = 25;
 
 const REPLAY_START = Date.parse("2026-01-01T00:00:00.000Z");
 const PAST_THE_RECONNECT_CEILING_MS = 31_000;
@@ -123,10 +123,10 @@ type Outcome = (typeof OUTCOMES)[number];
 type FinishedStop = (typeof FINISHED_STOPS)[number];
 
 /** A request a bridge passed to its harness, as the spec sees it. */
-export type SpecRequest = { id: number; purpose: SpecPurpose; cancelled: boolean };
+type SpecRequest = { id: number; purpose: SpecPurpose; cancelled: boolean };
 
 /** One bridge process, as the spec sees it. `current` says it carries the task's token. */
-export type SpecBridge = {
+type SpecBridge = {
   generation: number;
   current: boolean;
   alive: boolean;
@@ -135,10 +135,10 @@ export type SpecBridge = {
 };
 
 /** One socket between the orchestrator and a bridge, as the spec sees it. */
-export type SpecSocket = { bridge: number; generation: number; state: SocketState };
+type SpecSocket = { bridge: number; generation: number; state: SocketState };
 
 /** One call the orchestrator awaits, as the spec sees it. */
-export type SpecCall =
+type SpecCall =
   | { id: number; kind: "SandboxStart"; generation: number; launched: boolean; state: CallState }
   | { id: number; kind: "SandboxDestroy"; upTo: number; state: CallState }
   | {
@@ -153,7 +153,7 @@ export type SpecCall =
  * Where each schedule column points: the index of its alarm among the alarms, -1 for an alarm
  * that already went, or null when the column is empty.
  */
-export type SpecSlots = {
+type SpecSlots = {
   hello: number | null;
   noProgress: number | null;
   wall: number | null;
@@ -188,7 +188,7 @@ export type SpecTask = {
 };
 
 /** The values the spec picked for one action. */
-export type SpecPicks = {
+type SpecPicks = {
   alarmIndex: number | null;
   callId: number | null;
   ok: boolean | null;

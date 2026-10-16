@@ -21,6 +21,7 @@ import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { Binding } from "@artfct-ai/contracts/sources";
 import { OPTIONS_HEADING } from "../src/artifact/options";
+import { labeledPageCommentIds } from "../src/artifact/page-comment-label";
 import type { ArtifactRef } from "../src/artifact/types";
 import type { RefinerEntry, ReviewerEntry } from "../src/config/refiner";
 import { Notifier } from "../src/notify/notifier";
@@ -39,7 +40,7 @@ import { runStartStep } from "./restart";
 import { sqliteD1 } from "./sqlite-d1";
 import { FakeBridge } from "./fake-bridge";
 import { InterleavedDecisions, onFirstCall, onFirstCallAsking } from "./interleaved-decisions";
-import { CLOSING_TEXT_MARKER } from "../src/prompts/model-author-prompt";
+import { CLOSING_TEXT_MARKER, replyMarker } from "../src/prompts/model-author-prompt";
 import { EchoModel, ScriptedFailure } from "./fake-model";
 import {
   fakeDocumentsOf,
@@ -103,13 +104,13 @@ export type WorldSetup = {
  * When the sandbox of a new task comes up: right after the action that started the task, or
  * when an action brings it up.
  */
-export type SandboxStart = "at_task_start" | "on_an_action";
+type SandboxStart = "at_task_start" | "on_an_action";
 
 /**
  * What the plan of a world that opens on its first job named as the subject, when the origin
  * does not set one. A first job on the origin issue needs that issue as the subject.
  */
-export type PlannedSubject = "none" | "project";
+type PlannedSubject = "none" | "project";
 
 /**
  * What a tracker link a breakdown author ends its turn with, or a plan names, points at: the
@@ -117,13 +118,17 @@ export type PlannedSubject = "none" | "project";
  */
 export type TrackerLink = "the_subject_issue" | "a_project" | "a_stray_issue";
 
-export type FirstInput = "request" | "origin_issue";
+type FirstInput = "request" | "origin_issue";
 
 /** How the author of the page stage runs: in a harness session, or as model calls. */
-export type PageAuthor = "harness" | "model";
+type PageAuthor = "harness" | "model";
 
-/** What the model of a model-call page author does on each call until an action changes it. */
-export type PageModelAnswer = "page" | "blank" | "throws";
+/**
+ * What the model of a model-call page author does on each call until an action changes it. A
+ * `page` answer replies to each page comment the prompt labels, and `skips_replies` replies to
+ * none.
+ */
+export type PageModelAnswer = "page" | "skips_replies" | "blank" | "throws";
 
 const ORIGIN_ISSUE: JobIssue = {
   id: SUBJECT_ISSUE_KEY,
@@ -137,10 +142,10 @@ const ORIGIN_ISSUE: JobIssue = {
  * How a world opens: on its first job, on its first job before its author started, or on a
  * request the agent has not planned.
  */
-export type WorldOpening = "job" | "job_unstarted" | "request";
+type WorldOpening = "job" | "job_unstarted" | "request";
 
 /** Where the request that started the workflow came from: a chat thread or a tracker session. */
-export type OriginSurface = "chat" | "tracker";
+type OriginSurface = "chat" | "tracker";
 
 const ORIGINS: Record<OriginSurface, ReplyTarget> = {
   chat: { source: "chat", channel: "C1", thread: "1.0" },
@@ -148,7 +153,7 @@ const ORIGINS: Record<OriginSurface, ReplyTarget> = {
 };
 
 /** How a job on the page stage ends: a person accepts the page, or selects one of its options. */
-export type PageEnding = "acceptance" | "choice";
+type PageEnding = "acceptance" | "choice";
 
 /**
  * What the checks say about a revision the moment it is pushed: they already passed, or nothing
@@ -247,6 +252,8 @@ export type StepFacts = Partial<
     | "finishedByAgent"
     | "modelTurnCut"
     | "secondEnd"
+    | "pageCommentsRefused"
+    | "personEditedPage"
   >
 >;
 
@@ -371,6 +378,9 @@ export class WorkflowWorld {
   private readonly modelPromptTexts = new Map<string, string[]>();
   private readonly queuedPromptTexts = new Map<string, string[]>();
   private whilePageModelAnswers: ((taskId: string) => Promise<void>) | null = null;
+  private pageModelAnswer: PageModelAnswer = "page";
+  private pageHostFailed = false;
+  private readonly commentsHeld: HeldComment[];
   private statements = 0;
   private runningAction: RunningAction | null = null;
   private readonly hungModelTurns = new Map<string, string | null>();
@@ -389,8 +399,10 @@ export class WorkflowWorld {
     this.checksOnPush = options.setup.checksOnPush;
     this.tracker = options.tracker;
     this.pageHost = options.pageHost;
+    this.commentsHeld = this.pageHost.heldNow();
     this.countStatementsOf(options.database);
     this.recordQueuedPrompts();
+    this.recordHeldComments();
     if (options.setup.pageAuthor === "model") {
       this.answerPageModelWith("page");
       this.recordPromptsModelTurnsTake();
@@ -420,6 +432,16 @@ export class WorkflowWorld {
       const texts = this.queuedPromptTexts.get(taskId) ?? [];
       this.queuedPromptTexts.set(taskId, [...texts, text]);
       enqueuePrompt(taskId, text);
+    };
+  }
+
+  /** Keep every comment a person leaves on the page host without a mention. */
+  private recordHeldComments(): void {
+    const host = this.pageHost;
+    const holdComment = host.holdComment.bind(host);
+    host.holdComment = (comment) => {
+      this.commentsHeld.push(comment);
+      holdComment(comment);
     };
   }
 
@@ -525,6 +547,8 @@ export class WorkflowWorld {
     const modelTurnEndsBefore = this.modelTurnEnds.length;
     const outboxBefore = this.workflow.store.outbox().length;
     const postedBefore = this.workflow.posted.length;
+    const pageCommentsBefore = this.pageHost.postedComments.length;
+    this.pageHostFailed = false;
     this.delivered = null;
     this.landed = [];
     const running = { label: String(action), statementsAtStart: this.statements };
@@ -568,6 +592,13 @@ export class WorkflowWorld {
       storedActivities: this.tracker.stored.map((activity) => activityText(activity.content)),
       streamedTexts: [...this.streamedTexts],
       postedTexts: this.workflow.posted.slice(postedBefore).map(plainText),
+      pageCommentsPosted: this.pageHost.postedComments.slice(pageCommentsBefore),
+      pageCommentsRefused: facts.pageCommentsRefused ?? false,
+      modelAuthorErrors: {
+        pageModelThrows: this.pageModelAnswer === "throws",
+        pageHostFailed: this.pageHostFailed,
+      },
+      personEditedPage: facts.personEditedPage ?? false,
       work,
     };
     this.steps.push(step);
@@ -762,10 +793,44 @@ export class WorkflowWorld {
   async whilePageHostIsDown<Result>(body: () => Promise<Result>): Promise<Result> {
     const host = this.workflow.documentsInstance;
     this.workflow.documentsInstance = new FakeDocuments({ failing: true });
+    this.pageHostFailed = true;
     try {
       return await body();
     } finally {
       this.workflow.documentsInstance = host;
+    }
+  }
+
+  /** Run `body` while the page host refuses to mark any comment read. */
+  async whilePageHostRefusesAcknowledgements<Result>(body: () => Promise<Result>): Promise<Result> {
+    const host = this.pageHost;
+    const acknowledgeComment = host.acknowledgeComment.bind(host);
+    host.acknowledgeComment = async () => {
+      throw new Error("acknowledgeComment: the host refuses");
+    };
+    try {
+      return await body();
+    } finally {
+      host.acknowledgeComment = acknowledgeComment;
+    }
+  }
+
+  /** Run `body` while the page host refuses every page update and every comment reply. */
+  async whilePageHostRefusesWrites<Result>(body: () => Promise<Result>): Promise<Result> {
+    const host = this.pageHost;
+    const updatePageContent = host.updatePageContent.bind(host);
+    const replyToComment = host.replyToComment.bind(host);
+    const refuse = async (): Promise<never> => {
+      this.pageHostFailed = true;
+      throw new Error("the host refuses the write");
+    };
+    host.updatePageContent = refuse;
+    host.replyToComment = refuse;
+    try {
+      return await body();
+    } finally {
+      host.updatePageContent = updatePageContent;
+      host.replyToComment = replyToComment;
     }
   }
 
@@ -873,6 +938,7 @@ export class WorkflowWorld {
 
   /** The model of a model-call page author answers every call this way from now on. */
   answerPageModelWith(answer: PageModelAnswer): void {
+    this.pageModelAnswer = answer;
     this.workflow.modelsByName[MODEL_AUTHOR_MODEL] = new TurnEndingModel(
       pageModelAnswering(answer),
       () => this.beforePageModelAnswers(),
@@ -917,6 +983,36 @@ export class WorkflowWorld {
   }
 
   /**
+   * Run `start`, and let a person edit the page of `author` while the first page model call of
+   * that author is out. The edit changes the first option line, so a revision that changes that
+   * line meets a page it did not read.
+   */
+  async editPageWhilePageModelAnswers(
+    author: WorldAuthor,
+    start: () => Promise<void>,
+  ): Promise<StepFacts> {
+    const ref = this.artifactOf(author)?.ref;
+    if (ref?.kind !== "page") return {};
+    const edit = `1. Keep one table, as a person edited it at step ${this.steps.length}`;
+    let edited = false;
+    this.whilePageModelAnswers = async (taskId) => {
+      if (taskId !== author.taskId) return;
+      this.whilePageModelAnswers = null;
+      const before = this.pageHost.pageText(ref.page_id);
+      if (before === undefined) return;
+      const after = before.replace(/^1\. Keep one table.*$/m, edit);
+      await this.pageHost.updatePageContent(ref.page_id, { before, after });
+      edited = true;
+    };
+    try {
+      await start();
+    } finally {
+      this.whilePageModelAnswers = null;
+    }
+    return { personEditedPage: edited };
+  }
+
+  /**
    * The Durable Object restarts. A new instance over the same store runs the start step, and the
    * alarms it arms for now fire. A call the old instance awaited never answers.
    */
@@ -943,7 +1039,8 @@ export class WorkflowWorld {
 
   /**
    * Run `start`, and restart the workflow while the host writes the page of `author`'s first
-   * model turn, before or after the host applies the write.
+   * model turn, before or after the host applies the write. A page write of another author's
+   * model turn goes through.
    */
   async restartWhileHostWritesPage(
     author: WorldAuthor,
@@ -954,11 +1051,14 @@ export class WorkflowWorld {
     const createPage = host.createPage.bind(host);
     const updatePageContent = host.updatePageContent.bind(host);
     const turnPrompt = this.turnPromptOf(author);
+    const modelTurnEndsBefore = this.modelTurnEnds.length;
     let cutTurn: (() => void) | null = null;
     const cut = new Promise<"cut">((resolve) => {
       cutTurn = () => resolve("cut");
     });
     const hang = async <Result>(write: () => Promise<Result>): Promise<Result> => {
+      const writer = this.modelTurnEnds.slice(modelTurnEndsBefore).at(-1);
+      if (writer !== author.taskId) return write();
       host.createPage = createPage;
       host.updatePageContent = updatePageContent;
       if (applied === "after") await write();
@@ -1337,7 +1437,22 @@ export class WorkflowWorld {
       heldComments: fakeDocumentsOf(this.workflow)
         .heldNow()
         .map((comment) => comment.text),
+      readComments: this.readCommentTexts(),
     };
+  }
+
+  /** The text of every comment the page host marked read that does not mention the bot. */
+  private readCommentTexts(): string[] {
+    const host = this.pageHost;
+    const unmentioned = [
+      ...this.commentsHeld,
+      ...host.allPersonComments
+        .filter((comment) => !comment.mentionsSelf)
+        .map((comment) => ({ id: comment.id, text: comment.text })),
+    ];
+    return unmentioned
+      .filter((comment) => host.isAcknowledged(comment.id))
+      .map((comment) => comment.text);
   }
 }
 
@@ -1424,9 +1539,19 @@ const PAGE_MODEL_ANSWER = `${PAGE_TEXT}\n\n${CLOSING_TEXT_MARKER}\nRevised the p
 /** The most calls a throwing page model fails. More than any sequence makes. */
 const PAGE_MODEL_FAILURES = 100;
 
+/** The page answer with a reply to each page comment the prompt labels. */
+function pageModelAnswerReplying(userText: string): string {
+  const replies = labeledPageCommentIds(userText).map(
+    (commentId) => `${replyMarker(commentId)}\nAnswered in the revision.`,
+  );
+  return [PAGE_MODEL_ANSWER, ...replies].join("\n");
+}
+
 function pageModelAnswering(answer: PageModelAnswer): LanguageModelV4 {
   switch (answer) {
     case "page":
+      return new EchoModel(pageModelAnswerReplying);
+    case "skips_replies":
       return new EchoModel(PAGE_MODEL_ANSWER);
     case "blank":
       return new EchoModel("  ");

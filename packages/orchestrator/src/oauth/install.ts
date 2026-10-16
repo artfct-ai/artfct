@@ -21,7 +21,7 @@ import { linearApi, linearOAuthApp, type TokenOptions } from "./token";
 export const STATE_LIFETIME_MS = 15 * 60_000;
 
 /** The message when the OAuth app secrets are missing. */
-export const OAUTH_NOT_CONFIGURED = "LINEAR_CLIENT_ID and LINEAR_CLIENT_SECRET are not set";
+const OAUTH_NOT_CONFIGURED = "LINEAR_CLIENT_ID and LINEAR_CLIENT_SECRET are not set";
 
 const BAD_STATE = "state is invalid, expired, or already used. Request a new install link.";
 

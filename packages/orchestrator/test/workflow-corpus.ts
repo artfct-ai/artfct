@@ -1,6 +1,7 @@
 import {
   agentFinishesWorkflow,
   agentPromptsAuthor,
+  agentStartsTask,
   authorTurnEnds,
   firstArtifactAppears,
   pageModelAnswers,
@@ -62,6 +63,12 @@ const MODEL_PAGE_FROM_CHAT: WorldSetup = {
   ...MODEL_PAGE_ON_AN_ISSUE,
   origin: "chat",
   firstInput: "request",
+};
+
+const JUDGED_HARNESS_PAGE_FROM_CHAT: WorldSetup = {
+  ...MODEL_PAGE_FROM_CHAT,
+  pageAuthor: "harness",
+  refiners: "judge",
 };
 
 const POLISHED_MODEL_PAGE_FROM_CHAT: WorldSetup = {
@@ -146,6 +153,29 @@ export const WORKFLOW_CORPUS: ReplayedSequence[] = [
       authorTurnEnds(0, "same"),
       workflowRestartsDuringModelCall(0, "revision_requested"),
       polishedAfter("blocking"),
+    ],
+  ],
+  [
+    { ...JUDGED_HARNESS_PAGE_FROM_CHAT, sandboxStart: "at_task_start" },
+    [
+      firstArtifactAppears(0, "author_text"),
+      authorTurnEnds(0, "same"),
+      refinerRunEnds(0, {
+        reviewer: "no_review",
+        pageCommenting: "down",
+        judge: "approves",
+        whileRuled: "reject",
+        polisher: "pushed",
+        stopReason: "end_turn",
+        closing: "reports_work",
+      }),
+    ],
+  ],
+  [
+    { ...MODEL_PAGE_FROM_CHAT, firstInput: "origin_issue", sandboxStart: "at_task_start" },
+    [
+      agentStartsTask("pull", "a_sub_issue", "Fix the login redirect."),
+      workflowRestartsWhileHostWritesPage(1, "revision_requested", "before"),
     ],
   ],
 ];

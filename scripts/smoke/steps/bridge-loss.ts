@@ -22,7 +22,7 @@ import { assertStartsSince, latestStart, startCountBaseline } from "../sandbox";
 import { postLinearWebhook } from "../webhooks";
 
 /** The session and issue of the third workflow. Step 10 cancels it from the issue. */
-export const FOURTH_SESSION = linearSessionId(4);
+const FOURTH_SESSION = linearSessionId(4);
 export const THIRD_ISSUE = linearIssue(
   3,
   "ENG-44",

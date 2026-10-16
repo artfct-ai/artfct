@@ -82,7 +82,7 @@ function build(overrides: Overrides = {}): Artifact {
     heldComments: async () => [],
     self: async () => ({ id: SELF_ID, name: "artfct" }),
     comment: async () => {},
-    acknowledgeComment: async () => {},
+    acknowledgeComment: async () => true,
     instructions: {
       create: "Write the design.",
       read: "Read it with the page tool.",
@@ -376,27 +376,42 @@ describe("acknowledge", () => {
   const ref = { kind: "page" as const, page_id: PAGE_ID };
   const handles = [{ kind: "page" as const, comment_id: "cmt-1" }];
 
-  it("acknowledges each comment the feedback came in", async () => {
+  it("acknowledges each comment the feedback came in, in order", async () => {
     const acknowledged: PageCommentRef[] = [];
     const artifact = build({
-      acknowledgeComment: async (commentRef) => void acknowledged.push(commentRef),
+      acknowledgeComment: async (commentRef) => {
+        acknowledged.push(commentRef);
+        return true;
+      },
     });
-    await artifact.acknowledge([...handles, { kind: "page", comment_id: "cmt-2" }], ref);
+    expect(
+      await artifact.acknowledge([...handles, { kind: "page", comment_id: "cmt-2" }], ref),
+    ).toEqual([]);
     expect(acknowledged).toEqual([
       { pageId: PAGE_ID, commentId: "cmt-1" },
       { pageId: PAGE_ID, commentId: "cmt-2" },
     ]);
   });
 
-  it("logs an acknowledgement the host refused and does not throw", async () => {
-    const lines: string[] = [];
+  it("returns the comments the host did not mark read", async () => {
+    const second = { kind: "page" as const, comment_id: "cmt-2" };
     const artifact = build({
-      acknowledgeComment: async () => {
-        throw new Error("docs host down");
+      acknowledgeComment: async (commentRef) => commentRef.commentId === "cmt-1",
+    });
+    expect(await artifact.acknowledge([...handles, second], ref)).toEqual([second]);
+  });
+
+  it("logs an acknowledgement the host refused, goes on, and does not throw", async () => {
+    const lines: string[] = [];
+    const second = { kind: "page" as const, comment_id: "cmt-2" };
+    const artifact = build({
+      acknowledgeComment: async (commentRef) => {
+        if (commentRef.commentId === "cmt-1") throw new Error("docs host down");
+        return true;
       },
       log: (line) => lines.push(line),
     });
-    await expect(artifact.acknowledge(handles, ref)).resolves.toBeUndefined();
+    expect(await artifact.acknowledge([...handles, second], ref)).toEqual(handles);
     expect(lines.join(" ")).toContain("docs host down");
   });
 });
