@@ -382,7 +382,10 @@ const RULING_ANSWERS: Record<JudgeOutcome, DecisionAnswers> = {
 /** How the unfinished refiner run ends, whichever kind of run it is. */
 export type RefinerRunEnd = {
   reviewer: ReviewOutcome;
-  /** How the document host takes the comments of a page review. */
+  /**
+   * How the document host takes the comments a page review or a judge rejection posts, also
+   * those of a ruling a person gives meanwhile.
+   */
   pageCommenting: DocumentsCommenting;
   judge: JudgeOutcome;
   /** What a person rules through the agent while the decisions model rules on the judge. */
@@ -474,7 +477,7 @@ async function closeJudgeTurn(
 ): Promise<void> {
   const { judge, whileRuled } = end;
   const asksTheModel = judge !== "no_conclusion" && whileRuled !== "nothing";
-  const landing = asksTheModel ? personRules(index, whileRuled) : null;
+  const landing = asksTheModel ? personRules(index, whileRuled, end.pageCommenting) : null;
   world.answerDecisionsWith(RULING_ANSWERS[judge], landing ?? undefined, "rejects");
   if (judge !== "no_conclusion") await bridge.say(JUDGE_CONCLUSION);
 }
@@ -1398,6 +1401,7 @@ export function personRules(
   const label = `a person rules ${ruling} on a host that ${pageCommenting}`;
   return authorAction(index, label, async (world, author) => {
     const { rule_on_review } = artifactTools(world.workflow);
+    const commentingBefore = world.pageHost.commenting;
     world.pageHost.commenting = pageCommenting;
     try {
       await rule_on_review.execute(
@@ -1405,7 +1409,7 @@ export function personRules(
         TOOL_CALL,
       );
     } finally {
-      world.pageHost.commenting = "takes";
+      world.pageHost.commenting = commentingBefore;
     }
     return { pageCommentsRefused: author.kind === "page" && pageCommenting === "down" };
   });
