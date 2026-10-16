@@ -86,27 +86,28 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | A4 | Compaction replaces the rows before the turn with one recap. A failed summarization leaves the transcript whole. | `compactionReplacesOnlyEarlierRows` |
 | A5 | Every tool call in the transcript keeps its result. | `everyToolCallKeepsItsResult` |
 | A6 | In a person's turn, only `acknowledge` and `ask` are offered until one of them succeeds. | `aPersonHearsBackBeforeAnyWork` |
-| A7 | The chat thread shows a working status per step and leaves it when the turn ends. | `theWorkingStatusNeverOutlivesItsTurn` |
+| A7 | The chat thread shows a working status per step and leaves it when the turn ends. A turn the watchdog already answered releases the thread when it ends. | `theWorkingStatusNeverOutlivesItsTurn` |
 | A8 | A person's turn that left them without a reply runs the model once more with a note that says so. | `aPersonsTurnNeverEndsUnanswered` |
-| A9 | Closing text posts only as the answer to a person who wrote, once, and is withheld when the board change was the reply. | `closingTextAnswersOnlyAPersonWhoWrote` |
+| A9 | Closing text posts only as the answer to a person who wrote, once, and is withheld when the board change was the reply. A resumed turn keeps the board change of the lost turn on a person's message. | `closingTextAnswersOnlyAPersonWhoWrote` |
 | A10 | A model that fails twice posts the stuck text. The post goes to the workflow audience with an empty answer list, so in a workflow without a chat thread the session the person wrote from does not get it. | |
 | A11 | The turn deadline aborts the attempt and posts the timeout text. The same empty answer list applies. | `aWaitingPersonHearsBackByTheTimeout` |
-| A12 | A turn lost with its Durable Object resumes, posts the restart notice in chat, and answers what the lost turn owed. | `aResumedTurnAnswersWhatItsLostTurnOwed` |
+| A12 | A turn lost with its Durable Object resumes, posts the restart notice in chat, keeps the lost turn's board change, and answers what the lost turn owed. | `aResumedTurnAnswersWhatItsLostTurnOwed`, `closingTextAnswersOnlyAPersonWhoWrote` |
 | A13 | Tool results from MCP, `fetch_url`, `read_artifact` and `ready_issues` pass the screen. Fixed text replaces a quarantined or unchecked result. | `quarantinedTextNeverEntersTheTranscript` |
 | A14 | `read_channel` screens each message. A flagged message does not remove another from the read. | `aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead`, `quarantinedTextNeverEntersTheTranscript` |
 | A15 | A tool result over the context limit is replaced by its summarization under a marker, or by a fixed "too large" text. | |
 | A16 | A failed MCP connect is logged, and the turn runs without the MCP tools. | |
-| A17 | Turn answers reach the chat thread and do not reach a session when a chat thread exists. Otherwise they reach the sessions people wrote from. | `sessionMessageWithoutAnAuthorIsAnswered` |
+| A17 | Turn answers reach the people the turn answers, read as the turn takes its inbox, so a post after the watchdog fired still reaches them. They reach the chat thread and do not reach a session when a chat thread exists. Otherwise they reach the sessions people wrote from. | `sessionMessageWithoutAnAuthorIsAnswered` |
 
 ### Agent turn alarms
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| A20 | The heads-up alarm at 60 seconds posts "Still working on this." in chat and keeps the thread working, when a person's message was taken and the stamp still matches. | |
-| A21 | The watchdog alarm at the turn timeout clears the turn, deletes taken rows and posts the timeout text. The hung turn keeps running, its tools keep acting, and its closing text can still post. | |
-| A22 | The start step of a Durable Object with a stamped turn resumes the lost turn. A finished workflow only releases its threads. | `aResumedTurnAnswersWhatItsLostTurnOwed` |
-| A23 | A backup "runAgent" alarm runs the turn if the in-process turn died before it started. | |
-| A24 | A stale heads-up or watchdog alarm, whose stamp does not match, does not act. | |
+| A20 | The heads-up alarm at 60 seconds posts the heads-up in chat and keeps the thread working, when a person's message was taken and the turn it was armed for still runs. | |
+| A21 | The watchdog alarm at the turn timeout records that no turn runs, deletes taken rows and posts the timeout text. The hung turn keeps running, its tools keep acting, its closing text can still post, and it releases the threads when it ends. | `oneTurnRunsAtATime`, `aWaitingPersonHearsBackByTheTimeout`, `theWorkingStatusNeverOutlivesItsTurn` |
+| A22 | The start step of a Durable Object with a turn still marked as running resumes the lost turn. With no lost turn, inbox rows that wait to wake the agent get a `runAgent` alarm. A finished workflow only releases its threads. | `aResumedTurnAnswersWhatItsLostTurnOwed`, `aWaitingInboxRowHasATurnComing` |
+| A23 | A `runAgent` alarm runs a turn when none runs. `tellAgent` arms one and cancels it once its call to the turn loop returns, which is at once when a turn already runs. | `aWaitingInboxRowHasATurnComing` |
+| A24 | A stale heads-up or watchdog alarm, armed for a turn that no longer runs, does not act. | |
+| A25 | One agent turn runs at a time. The store marks a turn as running from its start until it ends or the watchdog fires. | `oneTurnRunsAtATime` |
 
 ### Agent tools
 

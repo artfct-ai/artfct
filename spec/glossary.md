@@ -121,6 +121,10 @@ A code name is one type, table, column, or function. A code name that needs a co
 | task activity | What a task does now, read from the store for each agent turn: starting, running a turn, holding a queued prompt, paused, or idle. The agent states whether a task runs only from it. | `taskActivity`, `activity` on the job line | status |
 | requested runtime | The harness and model a person's message names for the work, resolved to a model the harness runs. It replaces the stage's pair for the author of the job it starts. | `RequestedRuntime` | |
 | closing text | The text the model ends a turn with. It is posted only as the answer to a person who wrote. | `ModelPass.text` | |
+| deadline | The in-process timer that aborts every model and decisions call of an agent turn once the turn timeout passes, so the turn ends and posts the timeout text itself. | `runUnderDeadline`, `boundedAttempt` | |
+| watchdog | The alarm armed at the start of each agent turn that, when the turn still runs after the turn timeout, posts the timeout text, deletes the inbox rows the turn took, and records that no turn is running. | `armTurnWatchdog`, `onTurnTimeout`, `WorkflowState.turn_watchdog` | |
+| heads-up | The line posted to the chat threads, with their working status kept, when an agent turn on a person's message still runs a minute after it started. | `HEADS_UP_TEXT`, `onTurnHeadsUp`, `WorkflowState.turn_heads_up` | |
+| restart notice | The line posted to the chat threads, with their working status kept, when a new Durable Object instance resumes a lost turn that took a person's message. | `LOST_PLACE_TEXT`, `resumeLostTurn` | |
 | transcript | The stored conversation of the orchestrator agent. The only part of the context that persists across agent turns. | `transcript` table, `TranscriptStore` | history, memory |
 | transcript row | One model message in the transcript, with its id. | `TranscriptRow` | |
 | decisions model | The System One model that answers yes-or-no and choice questions with probabilities. The deployment names one, or an ordered list, on its gateway. | `orchestrator.decisions_model`, `Decisions` | classifier, Jev |

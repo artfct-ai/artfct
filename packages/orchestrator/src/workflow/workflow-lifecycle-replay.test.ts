@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it } from "bun:test";
+import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/property-runs";
 import {
   generateTraces,
   SPEC_SETUPS,
-  traceStepsOf,
+  traceSteps,
   WorkflowLifecycleReplay,
   type SpecSetup,
   type TraceStep,
@@ -52,7 +53,8 @@ const PINNED_TRACES = join(
 describe("workflow lifecycle spec", () => {
   it("keeps a generation closed while an acceptance check is out after a dropped restart", async () => {
     const path = join(PINNED_TRACES, "acceptance-check-after-a-dropped-restart.itf.json");
-    await replayTrace("pagesWithoutRefiners", traceStepsOf("pagesWithoutRefiners", path));
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("pagesWithoutRefiners", traceSteps("pagesWithoutRefiners", trace));
   });
 
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
