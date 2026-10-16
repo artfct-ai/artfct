@@ -88,10 +88,9 @@ export const MUTANTS: Mutant[] = [
   {
     id: "W10",
     invariant: "judgeRulesAtMostOnce",
-    path: "src/workflow/refiner/loop.ts",
-    find: '  if (workflow.stageForTask(author).reviewers[index]?.mode !== "judge") return false;\n  return workflow.store',
-    replace:
-      '  if (workflow.stageForTask(author).reviewers[index]?.mode !== "judge") return false;\n  return false && workflow.store',
+    path: "src/workflow/refiner/stage-refiner.ts",
+    find: '  if (entries[index]?.mode !== "judge") return false;\n  return runs.some(',
+    replace: '  if (entries[index]?.mode !== "judge") return false;\n  return false && runs.some(',
   },
   {
     id: "W11",
@@ -172,6 +171,13 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/task/harness/prompt-queue.ts",
     find: "  if (task.paused_at === null) return sendPrompt(workflow, task, text);",
     replace: "  return sendPrompt(workflow, task, text);",
+  },
+  {
+    id: "W22",
+    invariant: "pausedAuthorGetsNoPrompt (restart)",
+    path: "src/workflow/lifecycle.ts",
+    find: "  if (closed.paused_at === null) await restartSandbox(workflow, closed);",
+    replace: "  if (true || closed.paused_at === null) await restartSandbox(workflow, closed);",
   },
   {
     id: "A1",

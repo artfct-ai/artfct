@@ -143,6 +143,14 @@ jobs:
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
         timeout-minutes: 25
         run: bun scripts/properties/e2e-property-test.ts router_bindings
+      - name: Replay the review loop spec
+        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
+        timeout-minutes: 25
+        run: bun scripts/properties/e2e-property-test.ts review_loop
+      - name: Replay the workflow lifecycle spec
+        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
+        timeout-minutes: 25
+        run: bun scripts/properties/e2e-property-test.ts workflow_lifecycle
 
   coverage_check:
     name: coverage check
