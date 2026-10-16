@@ -151,7 +151,7 @@ export function generateTraces(setup: SpecSetup, count: number, seed: number): T
     }
     return readdirSync(directory)
       .toSorted((left, right) => traceNumber(left) - traceNumber(right))
-      .map((file) => traceSteps(setup, JSON.parse(readFileSync(join(directory, file), "utf8"))));
+      .map((file) => traceStepsOf(setup, join(directory, file)));
   } finally {
     rmSync(directory, { recursive: true, force: true });
   }
@@ -161,7 +161,9 @@ function traceNumber(file: string): number {
   return Number(file.replace(/\D/g, ""));
 }
 
-function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
+/** The steps of the spec trace in the ITF file at `path`, run on one setup. */
+export function traceStepsOf(setup: SpecSetup, path: string): TraceStep[] {
+  const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
   return list(field(trace, "states")).map((state) => {
     const picks = field(state, "mbt::nondetPicks");
     const picked = (name: string) => {
@@ -406,7 +408,12 @@ export class WorkflowLifecycleReplay {
             generationClosed:
               !isTaskFinished(author.status) &&
               workflow.connections(author.task_id).length === 0 &&
-              !this.calls.some((call) => call.jobId === job.job_id && call.state === "Out"),
+              !this.calls.some(
+                (call) =>
+                  call.kind === "SandboxDestroy" &&
+                  call.jobId === job.job_id &&
+                  call.state === "Out",
+              ),
           },
           artifact: !artifact ? "NoArtifact" : artifact.status === "drafted" ? "Drafted" : "Ready",
           refinerRun:

@@ -1,8 +1,11 @@
 import { afterEach, describe, expect, it } from "bun:test";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/property-runs";
 import {
   generateTraces,
   SPEC_SETUPS,
+  traceStepsOf,
   WorkflowLifecycleReplay,
   type SpecSetup,
   type TraceStep,
@@ -41,7 +44,17 @@ async function replayTrace(setup: SpecSetup, trace: TraceStep[]): Promise<void> 
   replay = null;
 }
 
+const PINNED_TRACES = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../test/workflow-lifecycle-traces",
+);
+
 describe("workflow lifecycle spec", () => {
+  it("keeps a generation closed while an acceptance check is out after a dropped restart", async () => {
+    const path = join(PINNED_TRACES, "acceptance-check-after-a-dropped-restart.itf.json");
+    await replayTrace("pagesWithoutRefiners", traceStepsOf("pagesWithoutRefiners", path));
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,
