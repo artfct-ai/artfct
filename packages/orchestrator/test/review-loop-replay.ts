@@ -7,12 +7,15 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import type { Decisions } from "@artfct-ai/adapters/gateway/types";
 import type { TaskStatus } from "@artfct-ai/contracts/types";
-import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
+import { FakeDecisions, type FakeAnswers } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
+import { labeledPageCommentIds } from "../src/artifact/page-comment-label";
 import { findingText } from "../src/artifact/review-text";
+import { CLOSING_TEXT_MARKER, replyMarker } from "../src/prompts/model-author-prompt";
 import type { ArtifactRow, TaskRow } from "../src/workflow/store/tasks";
 import { taskAtWork } from "../src/workflow/task/at-work";
-import { JUDGE_CONCLUSION } from "./fake-runtime";
+import { JUDGE_CONCLUSION, MODEL_AUTHOR_MODEL } from "./fake-runtime";
+import { HeldPageModel } from "./held-page-model";
 import { InterleavedDecisions } from "./interleaved-decisions";
 import {
   agentCancels,
@@ -34,12 +37,21 @@ import {
   type WorldSetup,
 } from "./workflow-world";
 
-/** The setup modules of the review loop spec with a harness author, and the refiner list of each. */
+/** Who writes the artifact of a setup, and where. */
+type SetupAuthor = "pull_harness" | "page_harness" | "page_model";
+
+/** The setup modules of the review loop spec, with the refiner list and the author of each. */
 export const SPEC_SETUPS = {
-  judgeThenPolisher: "judge_then_polisher",
-  reviewerThenPolisher: "reviewer_then_polisher",
-  judgeBetweenReviewers: "judge_between_reviewers",
-} as const satisfies Record<string, RefinerSetup>;
+  judgeThenPolisher: { refiners: "judge_then_polisher", author: "pull_harness" },
+  reviewerThenPolisher: { refiners: "reviewer_then_polisher", author: "pull_harness" },
+  judgeBetweenReviewers: { refiners: "judge_between_reviewers", author: "pull_harness" },
+  pageReviewerThenPolisher: { refiners: "reviewer_then_polisher", author: "page_harness" },
+  pageJudgeBetweenReviewers: { refiners: "judge_between_reviewers", author: "page_harness" },
+  modelCallAuthorWithTwoReviewers: {
+    refiners: "two_reviewers_then_polisher",
+    author: "page_model",
+  },
+} as const satisfies Record<string, { refiners: RefinerSetup; author: SetupAuthor }>;
 
 /** The name of one setup module of the spec. */
 export type SpecSetup = keyof typeof SPEC_SETUPS;
@@ -81,7 +93,17 @@ export type SpecReview = {
 };
 
 /** One state of a trace: the action that led to it, the judge run it picked, and the review. */
-export type TraceStep = { action: string; judgeRun: number | null; review: SpecReview };
+export type TraceStep = {
+  action: string;
+  judgeRun: number | null;
+  decision: ReviewAgainDecision | null;
+  review: SpecReview;
+};
+
+const REVIEW_AGAIN_DECISIONS = ["ReviewAgain", "NoReviewAgain", "AgentRoutes"] as const;
+
+/** What the review again decision says when a model-call author's turn ends. */
+type ReviewAgainDecision = (typeof REVIEW_AGAIN_DECISIONS)[number];
 
 /** Run the spec of one setup for `count` traces from `seed`, each checked against its invariants. */
 export function generateTraces(setup: SpecSetup, count: number, seed: number): TraceStep[][] {
@@ -121,10 +143,16 @@ function traceNumber(file: string): number {
 
 function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
   return list(field(trace, "states")).map((state) => {
-    const picked = variant(field(field(state, "mbt::nondetPicks"), "judgeRun", true));
+    const picks = field(state, "mbt::nondetPicks");
+    const picked = variant(field(picks, "judgeRun", true));
+    const decision = variant(field(picks, "decision", true));
     return {
       action: text(field(state, "mbt::actionTaken")),
       judgeRun: picked?.tag === "Some" ? int(picked.value) : null,
+      decision:
+        decision?.tag === "Some"
+          ? oneOf(text(field(decision.value, "tag")), REVIEW_AGAIN_DECISIONS)
+          : null,
       review: specReview(field(state, `${setup}::reviewLoop::review`)),
     };
   });
@@ -294,53 +322,138 @@ const WORLD_ACTIONS: Record<string, WorkflowAction> = {
 /** A ruling call the decisions model holds, and the judge turn end that waits on it. */
 type HeldRuling = { answer: (decisions: Decisions) => void; turnEnd: Promise<unknown> };
 
+/** How the replay reads the revisions of the artifact. */
+type ArtifactRevisions =
+  | { kind: "pull" }
+  | { kind: "page"; pageId: string; revisionAtOpen: number };
+
+/** What the decisions model says to the review again question, for each spec decision. */
+const REVIEW_AGAIN_ANSWERS: Record<ReviewAgainDecision, FakeAnswers> = {
+  ReviewAgain: { review_again: 0.9 },
+  NoReviewAgain: { review_again: 0.1 },
+  AgentRoutes: new Error("the decisions model is down"),
+};
+
 /**
- * Replays spec traces through a workflow world with one pull request author. Each spec action
- * maps to one world action. A judge turn end stays open while the decisions model holds its
- * ruling call, until a later spec step answers it.
+ * Replays spec traces through a workflow world with one author. Each spec action maps to one
+ * world action. A judge turn end stays open while the decisions model holds its ruling call,
+ * until a later spec step answers it. A model-call author's turn stays open while the page model
+ * holds its call, until a later spec step ends the turn.
  */
 export class ReviewLoopReplay {
+  readonly world: WorkflowWorld;
+  private readonly author: WorldAuthor;
+  private readonly revisions: ArtifactRevisions;
+  private readonly pageModel: HeldPageModel | null;
   private readonly held = new Map<number, HeldRuling>();
   private step = 0;
+  private modelTurn: OpenModelTurn | null;
 
-  private constructor(
-    readonly world: WorkflowWorld,
-    private readonly author: WorldAuthor,
-  ) {}
+  private constructor(options: {
+    world: WorkflowWorld;
+    author: WorldAuthor;
+    revisions: ArtifactRevisions;
+    pageModel: HeldPageModel | null;
+    modelTurn: OpenModelTurn | null;
+  }) {
+    this.world = options.world;
+    this.author = options.author;
+    this.revisions = options.revisions;
+    this.pageModel = options.pageModel;
+    this.modelTurn = options.modelTurn;
+  }
 
-  /** A world on the refiner list of `setup` whose author opened its pull request. */
+  /** A world on the refiner list of `setup` whose author opened its artifact. */
   static async open(setup: SpecSetup): Promise<ReviewLoopReplay> {
     setSystemTime(new Date(REPLAY_START));
-    const world = await WorkflowWorld.open({ ...WORLD_SETUP, refiners: SPEC_SETUPS[setup] });
+    const { refiners, author } = SPEC_SETUPS[setup];
+    switch (author) {
+      case "pull_harness":
+        return ReviewLoopReplay.openPull(refiners);
+      case "page_harness":
+        return ReviewLoopReplay.openHarnessPage(refiners);
+      case "page_model":
+        return ReviewLoopReplay.openModelPage(refiners);
+      default: {
+        const unreachable: never = author;
+        throw new Error(`unhandled author ${String(unreachable)}`);
+      }
+    }
+  }
+
+  private static async openPull(refiners: RefinerSetup): Promise<ReviewLoopReplay> {
+    const world = await WorkflowWorld.open({ ...WORLD_SETUP, refiners });
     await world.apply(firstArtifactAppears(0, "host_event"));
-    const author = world.authorAt(0);
-    if (!author) throw new Error("the world opened without an author");
-    return new ReviewLoopReplay(world, author);
+    return new ReviewLoopReplay({
+      world,
+      author: firstAuthorOf(world),
+      revisions: { kind: "pull" },
+      pageModel: null,
+      modelTurn: null,
+    });
+  }
+
+  private static async openHarnessPage(refiners: RefinerSetup): Promise<ReviewLoopReplay> {
+    const world = await WorkflowWorld.open({ ...WORLD_SETUP, refiners, artifact: "page" });
+    await world.apply(firstArtifactAppears(0, "author_text"));
+    const author = firstAuthorOf(world);
+    const revisions = pageRevisionsOf(world, author);
+    return new ReviewLoopReplay({ world, author, revisions, pageModel: null, modelTurn: null });
+  }
+
+  /**
+   * The model-call author produces its page while the agent queues a prompt for it, so its first
+   * revise turn is in flight on the page, the way the spec starts.
+   */
+  private static async openModelPage(refiners: RefinerSetup): Promise<ReviewLoopReplay> {
+    const world = await WorkflowWorld.open({
+      ...WORLD_SETUP,
+      refiners,
+      artifact: "page",
+      pageAuthor: "model",
+      opening: "job_unstarted",
+    });
+    const pageModel = new HeldPageModel();
+    world.workflow.modelsByName[MODEL_AUTHOR_MODEL] = pageModel;
+    const author = firstAuthorOf(world);
+    const produceTurn = await untilModelCall(pageModel, () => world.startSandboxOf(author.taskId));
+    await world.apply(agentPromptsAuthor(0));
+    const modelTurn = await untilModelCall(pageModel, async () => {
+      pageModel.answer(PRODUCED_PAGE_TEXT);
+      await produceTurn?.work;
+    });
+    const revisions = pageRevisionsOf(world, author);
+    return new ReviewLoopReplay({ world, author, revisions, pageModel, modelTurn });
   }
 
   /** Take one spec action, then bring up every sandbox that waits. */
   async take(step: TraceStep): Promise<void> {
     this.step += 1;
     setSystemTime(new Date(REPLAY_START + this.step * STEP_MS));
+    this.world.workflow.gatewayInstance = new FakeGateway();
     if (step.action === "judgeTurnEnds") await this.judgeTurnEnds();
     else if (isRulingAction(step.action)) await this.answerRuling(step.action, step.judgeRun);
-    else {
-      const action = WORLD_ACTIONS[step.action];
-      if (!action) throw new Error(`no world action for spec action ${step.action}`);
-      await this.world.apply(action);
+    else if (this.pageModel && isAuthorTurnEnd(step.action)) {
+      await this.modelTurnEnds(step.action === "authorTurnEndsOnANewRevision", step.decision);
+    } else {
+      const action = this.worldActionFor(step.action);
+      await this.untilModelCall(() => this.world.apply(action));
     }
     for (const task of this.world.tasksAwaitingSandbox()) {
       await this.world.startSandboxOf(task.task_id);
     }
   }
 
-  /** Answer every held ruling call and put the clock back. */
+  /** Answer every held ruling call and model call, and put the clock back. */
   async close(): Promise<void> {
     for (const held of this.held.values()) {
       held.answer(new FakeDecisions(rulingAnswers(RULING_PROBABILITIES.decisionsModelCannotRule)));
       await held.turnEnd;
     }
     this.held.clear();
+    if (this.pageModel && this.pageModel.heldUserText !== null) {
+      await this.answerModelCall("The model gave up.");
+    }
     setSystemTime();
   }
 
@@ -353,10 +466,13 @@ export class ReviewLoopReplay {
     const runs = store.refinerRunsOf(author.job_id);
     const pointer = runs.findIndex((run) => run.task_id === artifact.refiner_task_id);
     const delivered = artifact.delivered_revision;
+    const atWork = taskAtWork(this.world.workflow, author);
+    const queued = store.queue().filter((row) => row.task_id === author.task_id).length;
+    const revisionCount = (revision: string | null) => this.revisionCount(revision);
     return {
       author: {
-        atWork: taskAtWork(this.world.workflow, author),
-        queuedPrompts: store.queue().filter((row) => row.task_id === author.task_id).length,
+        atWork,
+        queuedPrompts: this.pageModel && atWork ? queued - 1 : queued,
         rejectedBy: this.judgeEntriesThatRejected(author, artifact),
         findingsFrom: this.runsWhoseFindingsReachedTheAuthor(author, runs),
       },
@@ -364,13 +480,99 @@ export class ReviewLoopReplay {
         status:
           artifact.status === "drafted" || delivered === null
             ? { status: "Drafted" }
-            : { status: "Ready", deliveredRevision: pushCountOf(delivered) },
-        revision: pushCountOf(this.world.hostRevisionOf(this.author) ?? ""),
+            : { status: "Ready", deliveredRevision: revisionCount(delivered) },
+        revision: revisionCount(this.hostRevision()),
         refinerRun: pointer === -1 ? null : pointer,
       },
-      refinerRuns: runs.map(specRunOf),
+      refinerRuns: runs.map((run) => specRunOf(run, revisionCount)),
       judgeRunsCodeRulesOn: [...this.held.keys()].toSorted((left, right) => left - right),
     };
+  }
+
+  private worldActionFor(action: string): WorkflowAction {
+    if (this.revisions.kind === "page" && action === "authorTurnEndsOnANewRevision") {
+      return this.afterPageEdit(WORLD_ACTIONS.authorTurnEndsOnTheSameRevision!);
+    }
+    if (this.revisions.kind === "page" && action === "polisherPushes") {
+      return this.afterPageEdit(WORLD_ACTIONS.polisherPushesNothing!);
+    }
+    const mapped = WORLD_ACTIONS[action];
+    if (!mapped) throw new Error(`no world action for spec action ${action}`);
+    return mapped;
+  }
+
+  /** The author or a polisher edits the page on the host, then `action` runs. */
+  private afterPageEdit(action: WorkflowAction): WorkflowAction {
+    return {
+      toString: () => `the page changes, then ${String(action)}`,
+      run: async (world) => {
+        const pageId = this.requirePageId();
+        world.pageHost.seedPage(pageId, `${world.pageHost.pageText(pageId)}\nEdit ${this.step}.`);
+        return action.run(world);
+      },
+    };
+  }
+
+  /** Run `work`, and keep it as the open model turn when the page model takes a call meanwhile. */
+  private async untilModelCall(work: () => Promise<unknown>): Promise<void> {
+    if (!this.pageModel) {
+      await work();
+      return;
+    }
+    const opened = await untilModelCall(this.pageModel, work);
+    if (opened) this.modelTurn = opened;
+  }
+
+  /** Answer the call the page model holds, then let the turn it ends run on. */
+  private async answerModelCall(answer: string): Promise<void> {
+    const pageModel = this.pageModel;
+    if (!pageModel || pageModel.heldUserText === null) throw new Error("no page model call is out");
+    const turn = this.modelTurn;
+    this.modelTurn = null;
+    await this.untilModelCall(async () => {
+      pageModel.answer(answer);
+      await turn?.work;
+    });
+  }
+
+  /** The model-call author's revise call answers, on a changed page or on the same one. */
+  private async modelTurnEnds(
+    changed: boolean,
+    decision: ReviewAgainDecision | null,
+  ): Promise<void> {
+    const pageModel = this.pageModel;
+    const asked = pageModel?.heldUserText ?? null;
+    if (asked === null) throw new Error("the model-call author has no turn in flight");
+    if (!decision) throw new Error("the spec ended a model-call author's turn without a decision");
+    const pageText = await this.world.pageHost.readPageContent(this.requirePageId());
+    const revised = changed ? `${pageText}\nEdit ${this.step}.` : pageText;
+    const replies = labeledPageCommentIds(asked).flatMap((commentId) => [
+      replyMarker(commentId),
+      "Answered on the page.",
+    ]);
+    const gatewayBefore = this.world.workflow.gatewayInstance;
+    this.world.workflow.gatewayInstance = reviewAgainGateway(decision);
+    await this.answerModelCall(
+      [revised, "", CLOSING_TEXT_MARKER, "Revised the page.", ...replies].join("\n"),
+    );
+    this.world.workflow.gatewayInstance = gatewayBefore;
+  }
+
+  private requirePageId(): string {
+    if (this.revisions.kind !== "page") throw new Error("the artifact is not a page");
+    return this.revisions.pageId;
+  }
+
+  /** What the host says the artifact is now. */
+  private hostRevision(): string | null {
+    if (this.revisions.kind === "pull") return this.world.hostRevisionOf(this.author);
+    return this.world.pageHost.pageRevision(this.revisions.pageId);
+  }
+
+  /** How often the artifact changed since the author opened it, as the spec counts revisions. */
+  private revisionCount(revision: string | null): number {
+    if (this.revisions.kind === "pull") return pushCountOf(revision ?? "");
+    return Number(revision) - this.revisions.revisionAtOpen;
   }
 
   private async judgeTurnEnds(): Promise<void> {
@@ -402,8 +604,10 @@ export class ReviewLoopReplay {
     const held = judgeRun === null ? undefined : this.held.get(judgeRun);
     if (judgeRun === null || !held) throw new Error(`no ruling call is out for ${judgeRun}`);
     this.held.delete(judgeRun);
-    held.answer(new FakeDecisions(rulingAnswers(RULING_PROBABILITIES[action])));
-    await held.turnEnd;
+    await this.untilModelCall(async () => {
+      held.answer(new FakeDecisions(rulingAnswers(RULING_PROBABILITIES[action])));
+      await held.turnEnd;
+    });
   }
 
   private judgeEntriesThatRejected(author: TaskRow, artifact: ArtifactRow): number[] {
@@ -445,12 +649,63 @@ const WORLD_SETUP: Omit<WorldSetup, "refiners"> = {
   sandboxStart: "at_task_start",
 };
 
+const PRODUCED_PAGE_TEXT = [
+  "# Login redirect",
+  "",
+  "Send the user back to the page they left.",
+].join("\n");
+
+/** A model-call author's turn the page model holds open, with the work that waits on it. */
+type OpenModelTurn = { work: Promise<unknown> };
+
+/**
+ * Run `work` until it ends or the page model takes a call. The call keeps the model-call author's
+ * turn open, so `work` comes back unfinished, for the step that answers the call to await.
+ */
+async function untilModelCall(
+  pageModel: HeldPageModel,
+  work: () => Promise<unknown>,
+): Promise<OpenModelTurn | null> {
+  const callOut = pageModel.nextCall();
+  const running = work();
+  const outcome = await Promise.race([callOut, running.then(() => "ended" as const)]);
+  return outcome === "call_out" ? { work: running } : null;
+}
+
+function firstAuthorOf(world: WorkflowWorld): WorldAuthor {
+  const author = world.authorAt(0);
+  if (!author) throw new Error("the world opened without an author");
+  return author;
+}
+
+function pageRevisionsOf(world: WorkflowWorld, author: WorldAuthor): ArtifactRevisions {
+  const ref = world.artifactOf(author)?.ref;
+  if (ref?.kind !== "page") throw new Error("the author opened no page");
+  const revision = world.pageHost.pageRevision(ref.page_id);
+  return { kind: "page", pageId: ref.page_id, revisionAtOpen: Number(revision) };
+}
+
+/** A gateway whose decisions model gives `decision` on the review again question alone. */
+function reviewAgainGateway(decision: ReviewAgainDecision): FakeGateway {
+  const failing = new FakeDecisions(REVIEW_AGAIN_ANSWERS.AgentRoutes);
+  const answering = new FakeDecisions(REVIEW_AGAIN_ANSWERS[decision]);
+  return new FakeGateway({
+    decisions: new InterleavedDecisions(failing, (questions) =>
+      "review_again" in questions.yesNo ? Promise.resolve(answering) : null,
+    ),
+  });
+}
+
 function rulingAnswers(rejects: number) {
   return { for_author: 0, beyond_author: 0, rejects };
 }
 
 function isRulingAction(action: string): action is RulingAction {
   return action in RULING_PROBABILITIES;
+}
+
+function isAuthorTurnEnd(action: string): boolean {
+  return action === "authorTurnEndsOnANewRevision" || action === "authorTurnEndsOnTheSameRevision";
 }
 
 function judgeClosesWithItsConclusion(run: TaskRow): WorkflowAction {
@@ -466,11 +721,11 @@ function judgeClosesWithItsConclusion(run: TaskRow): WorkflowAction {
   };
 }
 
-function specRunOf(run: TaskRow): SpecRun {
+function specRunOf(run: TaskRow, revisionCount: (revision: string | null) => number): SpecRun {
   return {
     refinerIndex: run.refiner_index ?? 0,
     status: SPEC_STATUSES[run.status],
-    result: specResultOf(run.result),
+    result: specResultOf(run.result, revisionCount),
     restarts: run.restarts,
   };
 }
@@ -485,18 +740,21 @@ const SPEC_STATUSES: Record<TaskStatus, SpecRun["status"]> = {
   failed: "Failed",
 };
 
-function specResultOf(result: TaskRow["result"]): SpecRun["result"] {
+function specResultOf(
+  result: TaskRow["result"],
+  revisionCount: (revision: string | null) => number,
+): SpecRun["result"] {
   if (!result) return { filed: "nothing" };
   if (result.kind === "ruling") {
     return {
       filed: "ruling",
       ruling: result.ruling === "approved" ? "Approved" : "Rejected",
-      revision: pushCountOf(result.revision ?? ""),
+      revision: revisionCount(result.revision),
     };
   }
   return {
     filed: "review",
-    revision: pushCountOf(result.revision ?? ""),
+    revision: revisionCount(result.revision),
     findings: result.blocking || result.findings.length > 0,
   };
 }

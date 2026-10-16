@@ -75,6 +75,7 @@ export const REFINER_SETUPS = [
   "reviewer_then_polisher",
   "polisher",
   "judge_then_polisher",
+  "two_reviewers_then_polisher",
 ] as const;
 
 export type RefinerSetup = (typeof REFINER_SETUPS)[number];
@@ -337,6 +338,10 @@ const REFINER_LISTS: Record<
   reviewer_then_polisher: { reviewers: [FINDINGS_REVIEWER], polishers: [POLISHER] },
   polisher: { reviewers: [], polishers: [POLISHER] },
   judge_then_polisher: { reviewers: [JUDGE_ENTRY], polishers: [POLISHER] },
+  two_reviewers_then_polisher: {
+    reviewers: [FINDINGS_REVIEWER, SECOND_REVIEWER],
+    polishers: [POLISHER],
+  },
 };
 
 /**
@@ -776,8 +781,7 @@ export class WorkflowWorld {
     author: WorldAuthor,
     review: { state: string; body: string; comments: string[] },
   ): void {
-    this.reviewNumber += 1;
-    const id = this.reviewNumber;
+    const id = this.nextReviewNumber();
     const pull = this.pullOf(author);
     pull.reviews.push({
       id,
@@ -815,6 +819,12 @@ export class WorkflowWorld {
         )
       : answering;
     this.workflow.gatewayInstance = new FakeGateway({ decisions });
+  }
+
+  /** A number no review filed in this world had before, for the text that tells reviews apart. */
+  nextReviewNumber(): number {
+    this.reviewNumber += 1;
+    return this.reviewNumber;
   }
 
   /** The model of a model-call page author answers every call this way from now on. */

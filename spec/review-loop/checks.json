@@ -6,7 +6,9 @@
     "refinerRunIsDoneOnlyAfterItsTurnEnded",
     "refinersRunAgainOnlyOnChangedRevision",
     "reviewerRunsOnlyOnAnUnreviewedRevision",
-    "authorGetsEveryPullFinding"
+    "authorGetsEveryPullFinding",
+    "authorGetsEveryPageFinding",
+    "aQueuedPromptReachesItsModelCallAuthor"
   ],
   "witnesses": {
     "judgeThenPolisher": [
@@ -50,14 +52,40 @@
     "modelCallAuthorWithTwoReviewers": [
       "aRefinerRunIsUnfinished",
       "aPromptWaitsWhileAPolisherRuns",
+      "aModelCallAuthorHasAQueuedPrompt",
       "aRefinerRunEndsDone",
       "aRefinerRunStartsAfterAHandover",
       "aReviewerRunsAgainOnANewRevision",
+      "aPageAuthorGetsTheFindingsOfItsReviewer",
       "aStaleReviewRunsTheSegmentAgain",
       "theHumansHaveTheArtifact",
       "aReviewerReachedTheLimit",
       "aRefinerRunRestarted",
       "aPolisherFinished"
+    ],
+    "pageReviewerThenPolisher": [
+      "aRefinerRunIsUnfinished",
+      "aPromptWaitsWhileAPolisherRuns",
+      "aRefinerRunEndsDone",
+      "aRefinerRunStartsAfterAHandover",
+      "aReviewerRunsAgainOnANewRevision",
+      "aPageAuthorGetsTheFindingsOfItsReviewer",
+      "theHumansHaveTheArtifact",
+      "aReviewerReachedTheLimit",
+      "aRefinerRunRestarted",
+      "aPolisherFinished"
+    ],
+    "pageJudgeBetweenReviewers": [
+      "aRefinerRunIsUnfinished",
+      "aRulingLandsOnARuledJudgeRun",
+      "theAuthorGotARejection",
+      "aRefinerRunEndsDone",
+      "aRefinerRunStartsAfterAHandover",
+      "aReviewerRunsAgainOnANewRevision",
+      "aPageAuthorGetsTheFindingsOfItsReviewer",
+      "theHumansHaveTheArtifact",
+      "aReviewerReachedTheLimit",
+      "aRefinerRunRestarted"
     ]
   }
 }

@@ -5,6 +5,9 @@ module reviewLoopTypes {
   /// One refiner of the stage. The reviewers come first, then the polishers.
   type Refiner = FindingsReviewer | Judge | Polisher
 
+  /// The kind of the output artifact: a pull request on the code host, or a page on the document host.
+  type ArtifactKind = PullRequest | Page
+
   /// What a judge files on the artifact.
   type Ruling = Approved | Rejected
 
@@ -60,8 +63,12 @@ module reviewLoop {
   /// The refiner list of the stage.
   const ENTRIES: List[Refiner]
 
-  /// True when the author is a model-call author, false for a harness author.
+  /// True when the author is a model-call author, false for a harness author. A model-call
+  /// author writes a page.
   const MODEL_CALL_AUTHOR: bool
+
+  /// The kind of the artifact the author writes.
+  const ARTIFACT: ArtifactKind
 
   /// How often one reviewer runs on one artifact. The config default.
   pure val MAX_REVIEW_RUNS: int = 3
@@ -672,12 +679,33 @@ module reviewLoop {
     })
 
   /// Every review a findings reviewer files on a pull request reaches its author as a prompt. A
-  /// judge's approval does not drop it. A harness author here writes a pull request, and a
-  /// model-call author writes a page.
+  /// judge's approval does not drop it.
   val authorGetsEveryPullFinding: bool =
-    MODEL_CALL_AUTHOR or startedRuns.forall(started =>
+    ARTIFACT == Page or startedRuns.forall(started =>
       findingsBefore(review, review.refinerRuns[started].refinerIndex)
         .forall(id => review.author.findingsFrom.contains(id)))
+
+  /// True when the author got a prompt with findings it did not have in the last step.
+  val authorGotNewFindings: bool = review.author.findingsFrom != lastStep.before.author.findingsFrom
+
+  /// A review prompt the author of a page gets in the step its reviewer ended carries every
+  /// finding of that review.
+  val authorGetsEveryPageFinding: bool =
+    ARTIFACT == PullRequest or match lastStep.turnEnd {
+      | RefinerTurnEnded(id) =>
+        (authorGotNewFindings and reviewHasFindings(review.refinerRuns[id].result))
+          implies review.author.findingsFrom.contains(id)
+      | _ => true
+    }
+
+  /// A prompt queued for a model-call author reaches it. A model-call author with a queued
+  /// prompt has a model turn in flight, or a polisher holds its page.
+  val aQueuedPromptReachesItsModelCallAuthor: bool = or {
+    not(MODEL_CALL_AUTHOR),
+    review.author.queuedPrompts == 0,
+    review.author.atWork,
+    unfinishedRunIds(review).exists(id => refinerOf(review.refinerRuns[id]) == Polisher),
+  }
 
   /// Every invariant above, for one check of all of them.
   val invariants: bool = and {
@@ -688,6 +716,8 @@ module reviewLoop {
     refinersRunAgainOnlyOnChangedRevision,
     reviewerRunsOnlyOnAnUnreviewedRevision,
     authorGetsEveryPullFinding,
+    authorGetsEveryPageFinding,
+    aQueuedPromptReachesItsModelCallAuthor,
   }
 
   /// Witness for `oneUnfinishedRefinerRunPerArtifact`: a refiner run is unfinished.
@@ -735,6 +765,17 @@ module reviewLoop {
     startedRuns.exists(started =>
       findingsBefore(review, review.refinerRuns[started].refinerIndex)
         .exists(id => ENTRIES[segmentEndOf(review.refinerRuns[id].refinerIndex)] == Judge))
+
+  /// Witness for `authorGetsEveryPageFinding`: the author of a page gets the findings of the
+  /// reviewer that just ended.
+  val aPageAuthorGetsTheFindingsOfItsReviewer: bool =
+    ARTIFACT == Page and authorGotNewFindings and match lastStep.turnEnd {
+      | RefinerTurnEnded(id) => review.author.findingsFrom.contains(id)
+      | _ => false
+    }
+
+  /// Witness for `aQueuedPromptReachesItsModelCallAuthor`: a model-call author has a queued prompt.
+  val aModelCallAuthorHasAQueuedPrompt: bool = MODEL_CALL_AUTHOR and review.author.queuedPrompts > 0
 
   /// The humans have the artifact.
   val theHumansHaveTheArtifact: bool = not(drafted(review))
