@@ -28,6 +28,7 @@ import {
   type TurnStep,
 } from "../../../test/agent-invariants";
 import { freshDurableRuntime } from "../../../test/durable-runtime";
+import { elapsedOnAFakeClock } from "../../../test/fake-clock";
 import {
   SCRIPTED_CLOSING_TEXT,
   SCRIPTED_PAGE_URL,
@@ -641,9 +642,7 @@ async function runScriptedTurn(
   const deliveriesOfTheLostTurn = workflow.deliveries.length - deliveriesBefore;
   const decisionsAskedBefore = decisions instanceof ConfiguredModelsDecisions ? decisions.calls : 0;
   const usageBefore = workflow.store.modelUsage().length;
-  const started = Date.now();
-  await runAgentTurn(workflow);
-  const durationMs = Date.now() - started;
+  const durationMs = await elapsedOnAFakeClock(() => runAgentTurn(workflow));
   const lines = workflow.lines.slice(linesBefore);
   const prompts = lines.filter((line) => line.startsWith(`agent: ${PROMPT_TASK} {`)).length;
   const failedPrompts = lines.filter((line) =>

@@ -7,9 +7,6 @@ import { plainText } from "../src/notify/messages";
 import type { TaskEvent } from "../src/workflow/task/events";
 import { HEADS_UP_TEXT, LOST_PLACE_TEXT, turnTimeoutText } from "../src/agent/turn/watchdog";
 
-/** How long past its timeout a turn may take to stop its work and post. */
-const DEADLINE_GRACE_MS = 1000;
-
 /** What happened to one call at the decisions model: it was asked, it answered, or it failed. */
 export type DecisionsEvent = "asked" | "answered" | "failed";
 
@@ -63,7 +60,7 @@ export type AgentTurnRecord = {
   quarantinedTexts: string[];
   /** The session status the chat thread was left in after the turn. Null when it never had one. */
   chatSessionAfter: SessionStatus | null;
-  /** How long the turn ran. */
+  /** How long the turn ran on a fake clock that moves only when a timer fires. */
   durationMs: number;
   /** The turn timeout the turn ran under. */
   timeoutMinutes: number;
@@ -267,12 +264,13 @@ export function theWorkingStatusNeverOutlivesItsTurn(turn: AgentTurnRecord): voi
 
 /**
  * A person who wrote hears back by the turn timeout, even when a decisions call or a model
- * request never returns on its own. A turn the deadline ended posts the timeout text.
+ * request never returns on its own. A turn the deadline ended posts the timeout text. A turn
+ * that ran past its timeout on the fake clock waited on a timer after the deadline aborted it.
  */
 export function aWaitingPersonHearsBackByTheTimeout(turn: AgentTurnRecord): void {
   if (turn.owed === null) return;
   const timeoutMs = turn.timeoutMinutes * 60_000;
-  if (turn.durationMs > timeoutMs + DEADLINE_GRACE_MS) {
+  if (turn.durationMs > timeoutMs) {
     violated(
       "aWaitingPersonHearsBackByTheTimeout",
       `the turn ran ${turn.durationMs} ms under a timeout of ${timeoutMs} ms`,
