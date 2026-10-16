@@ -450,8 +450,17 @@ async function fileFindingsReview(
 ): Promise<void> {
   if (outcome === "no_review") return;
   if (author.kind === "pull") world.fileReview(author, HOST_REVIEWS[outcome]);
-  else if (author.kind === "page") await bridge.say(PAGE_CLOSING_REVIEWS[outcome]);
-  else await bridge.say(CLOSING_REVIEWS[outcome]);
+  else if (author.kind === "page") {
+    await bridge.say(numberedFindings(PAGE_CLOSING_REVIEWS[outcome], world.nextReviewNumber()));
+  } else await bridge.say(CLOSING_REVIEWS[outcome]);
+}
+
+/** A review text whose finding lines name the review they came from, so each review reads apart. */
+function numberedFindings(review: string, reviewNumber: number): string {
+  return review
+    .split("\n")
+    .map((line) => (line.startsWith("- ") ? `${line} (review ${reviewNumber})` : line))
+    .join("\n");
 }
 
 async function closeJudgeTurn(
