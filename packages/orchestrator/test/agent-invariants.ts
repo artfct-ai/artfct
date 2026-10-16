@@ -68,7 +68,10 @@ export type AgentTurnRecord = {
   timedOut: boolean;
   /** What the lost turn this turn resumed owed. Null without a lost turn, or for an unprompted one. */
   lostTurnOwed: OwedReply | null;
-  /** True when the model of the turn never returns on its own. */
+  /**
+   * True when the turn timeout passed while the model ran: it never returns on its own, or it ran
+   * long enough for the watchdog to fire.
+   */
   modelHangs: boolean;
   /**
    * The decisions calls of the turn on configured models that each answer, fail, or hang on every
@@ -93,6 +96,15 @@ export type AgentTurnRecord = {
    * people its turn answered wrote from when it posted.
    */
   deliveries: Array<{ event: TaskEvent; targets: ReplyTarget[]; answering: string[] }>;
+  /** The start time of the turn the store held as running after the turn ended, or null. */
+  runningAfter: string | null;
+  /** The start time of the turn the store held as running at each model step of the turn. */
+  runningAtSteps: Array<string | null>;
+  /**
+   * After the Durable Object started again with no turn running: how many inbox rows wait to wake
+   * the agent, and whether a turn is coming for them. Null when it did not restart after the turn.
+   */
+  restartedWithRowsWaiting: { waiting: number; turnComing: boolean } | null;
 };
 
 /**
@@ -435,6 +447,38 @@ export function sessionMessageWithoutAnAuthorIsAnswered(turn: AgentTurnRecord): 
   }
 }
 
+/**
+ * Every inbox row that waits to wake the agent has a turn coming. When the Durable Object starts
+ * again after a turn ended, a `runAgent` alarm runs the turn that takes the rows that wait.
+ */
+export function aWaitingInboxRowHasATurnComing(turn: AgentTurnRecord): void {
+  const restart = turn.restartedWithRowsWaiting;
+  if (restart === null || restart.waiting === 0 || restart.turnComing) return;
+  violated(
+    "aWaitingInboxRowHasATurnComing",
+    `${restart.waiting} inbox rows wait after a restart and no turn is coming for them`,
+  );
+}
+
+/**
+ * One turn runs at a time. The store holds a turn as running only while that turn runs: every
+ * model step of a turn sees the turn's own start time or none, and the start time ends with it.
+ */
+export function oneTurnRunsAtATime(turn: AgentTurnRecord): void {
+  if (turn.runningAfter !== null) {
+    violated(
+      "oneTurnRunsAtATime",
+      `the store holds the turn started at ${turn.runningAfter} as running after it ended`,
+    );
+  }
+  const startTimes = new Set(turn.runningAtSteps.filter((startedAt) => startedAt !== null));
+  if (startTimes.size <= 1) return;
+  violated(
+    "oneTurnRunsAtATime",
+    `the steps of one turn saw ${startTimes.size} turns as running: ${[...startTimes].join(", ")}`,
+  );
+}
+
 /** Every agent turn invariant. */
 export const AGENT_TURN_INVARIANTS = [
   closingTextAnswersOnlyAPersonWhoWrote,
@@ -452,4 +496,6 @@ export const AGENT_TURN_INVARIANTS = [
   laterDecisionsCallsFallBackOnceOneFails,
   aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead,
   sessionMessageWithoutAnAuthorIsAnswered,
+  aWaitingInboxRowHasATurnComing,
+  oneTurnRunsAtATime,
 ];
