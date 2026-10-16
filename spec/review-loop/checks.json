@@ -5,7 +5,8 @@
     "judgeRulesAtMostOnce",
     "refinerRunIsDoneOnlyAfterItsTurnEnded",
     "refinersRunAgainOnlyOnChangedRevision",
-    "reviewerRunsOnlyOnAnUnreviewedRevision"
+    "reviewerRunsOnlyOnAnUnreviewedRevision",
+    "authorGetsEveryPullFinding"
   ],
   "witnesses": {
     "judgeThenPolisher": [
@@ -27,6 +28,7 @@
       "aRefinerRunEndsDone",
       "aRefinerRunStartsAfterAHandover",
       "aReviewerRunsAgainOnANewRevision",
+      "aRefinerRunStartsPastFindings",
       "theHumansHaveTheArtifact",
       "aReviewerReachedTheLimit",
       "aRefinerRunRestarted",
@@ -39,6 +41,8 @@
       "aRefinerRunEndsDone",
       "aRefinerRunStartsAfterAHandover",
       "aReviewerRunsAgainOnANewRevision",
+      "aRefinerRunStartsPastFindings",
+      "aRefinerRunStartsPastAJudgeWithFindings",
       "theHumansHaveTheArtifact",
       "aReviewerReachedTheLimit",
       "aRefinerRunRestarted"
