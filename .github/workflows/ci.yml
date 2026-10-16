@@ -49,7 +49,7 @@ jobs:
         run: |
           setups=$(for checks in spec/*/checks.json; do
             spec=$(basename "$(dirname "$checks")")
-            replay=$(git -C packages/orchestrator ls-files "*/$spec-replay.test.ts")
+            replay=$(git -C packages/orchestrator ls-files "*/$spec-replay.test.ts" "*/$spec-replay.test.medium.ts")
             jq -c --arg spec "$spec" --arg replay "$replay" '.witnesses | keys[] | {spec: $spec, setup: ., replay: $replay}' "$checks"
           done | jq -sc .)
           echo "setups=$setups" >> "$GITHUB_OUTPUT"
@@ -88,19 +88,20 @@ jobs:
           mapfile -t witnesses < <(jq -r --arg setup "$SETUP" '.witnesses[$setup][]' "$CHECKS")
           bunx quint run "$SETUP_FILE" --main="$SETUP" --max-samples=10000 --max-steps=25 --witnesses "${witnesses[@]}" | tee "$RUNNER_TEMP/witnesses.log"
           ! grep "witnessed in 0 trace" "$RUNNER_TEMP/witnesses.log"
-      - name: Run each invariant on 100,000 samples
+      - name: Run every invariant on 100,000 samples
         run: |
-          violated=0
           mapfile -t invariants < <(jq -r '.invariants[]' "$CHECKS")
-          for invariant in "${invariants[@]}"; do
-            bunx quint run "$SETUP_FILE" --main="$SETUP" --invariant="$invariant" --max-samples=100000 --max-steps=25 || violated=1
-          done
-          exit "$violated"
+          bunx quint run "$SETUP_FILE" --main="$SETUP" --invariants "${invariants[@]}" --max-samples=100000 --max-steps=25
       - if: ${{ !cancelled() && matrix.replay != '' }}
         run: bun run template-config
       - name: Replay the spec traces through the workflow
         if: ${{ !cancelled() && matrix.replay != '' }}
-        run: bun test "./$REPLAY" --test-name-pattern "on $SETUP\$" --pass-with-no-tests
+        run: |
+          if [[ "$REPLAY" == *.test.medium.ts ]]; then
+            bunx vitest run "./$REPLAY" --testNamePattern "on $SETUP\$" --passWithNoTests
+          else
+            bun test "./$REPLAY" --test-name-pattern "on $SETUP\$" --pass-with-no-tests
+          fi
 
   e2e_property_test:
     name: e2e property based test (shard ${{ matrix.shard }})
