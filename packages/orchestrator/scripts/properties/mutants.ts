@@ -216,6 +216,13 @@ export const MUTANTS: Mutant[] = [
     replace: "",
   },
   {
+    id: "W28",
+    invariant: "anAuthorInReviewRunsNoTurn (handshake)",
+    path: "src/workflow/artifact.ts",
+    find: "  if (workflow.store.handshakePending(taskId)) return;\n",
+    replace: "",
+  },
+  {
     id: "A1",
     invariant: "laterDecisionsCallsFallBackOnceOneFails",
     path: "src/decisions/ask.ts",

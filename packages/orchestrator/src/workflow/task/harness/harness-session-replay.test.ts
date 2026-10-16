@@ -76,6 +76,10 @@ describe("harness session spec", () => {
     await replayPinnedTrace("stop-destroy-returns-after-the-task-finished");
   });
 
+  it("keeps an author out of review while its handshake is pending", async () => {
+    await replayPinnedTrace("settle-during-a-handshake");
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,

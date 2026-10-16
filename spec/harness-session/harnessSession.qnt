@@ -496,7 +496,7 @@ module harnessSession {
     }
 
   pure def markAuthorInReview(w: World): World =
-    if ((w.status == Working or w.status == Queued) and w.artifact and not(w.promptInFlight))
+    if ((w.status == Working or w.status == Queued) and w.artifact and not(w.promptInFlight) and not(handshakePending(w)))
       { ...w, status: InReview }
     else w
 
@@ -812,6 +812,37 @@ module harnessSession {
     aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn: aLaterPromptSurvivesTheOutcomeOfAnEarlierTurnIn(step),
   }
 
+  /// Whether a sandbox start of the current generation, or of an older one, failed for an unfinished task.
+  pure def failedASandboxStart(step: Step, current: bool): bool = match step.kind {
+    | StartFailedStep(generation) =>
+      (generation == step.before.generation) == current and not(isFinished(step.before.status))
+    | _ => false
+  }
+
+  /// Whether a step dropped the restart of an unfinished task whose container closed after another
+  /// restart or a newer generation.
+  pure def droppedAStaleRestart(step: Step): bool = and {
+    step.kind == OtherStep,
+    not(isFinished(step.before.status)),
+    step.before.calls.foldl(false, (dropped, call) => dropped or and {
+      call.state == Out,
+      isDestroy(call.kind),
+      staleRestartAfter(step.before, call),
+      callsWith(step.after, call.id).length() == 0,
+    }),
+  }
+
+  /// Whether a step dropped the outcome check of a turn of an older generation.
+  pure def droppedAStaleOutcomeCheck(step: Step): bool = match step.kind {
+    | OutcomeStep(_) =>
+      step.before.calls.foldl(false, (dropped, call) => dropped or and {
+        isOutcomeCheck(call.kind),
+        generationOfCall(step.before, call.id) != step.before.generation,
+        callsWith(step.after, call.id).length() == 0,
+      })
+    | _ => false
+  }
+
   /// Whether one step showed each witness that reads a step.
   pure def stepWitnessesOf(step: Step): StepWitnesses = {
     aFinishedTaskIsInAStep: isFinished(step.before.status),
@@ -826,33 +857,10 @@ module harnessSession {
     aLostTurnIsRecovered: recoveredALostTurn(step),
     aHarnessExitRestartsTheTask:
       step.kind == ExitStep and not(isFinished(step.before.status)) and step.before.restarts < MAX_RESTARTS,
-    aSandboxStartFails: match step.kind {
-      | StartFailedStep(generation) => generation == step.before.generation and not(isFinished(step.before.status))
-      | _ => false
-    },
-    aStaleSandboxStartFails: match step.kind {
-      | StartFailedStep(generation) => generation != step.before.generation and not(isFinished(step.before.status))
-      | _ => false
-    },
-    aStaleRestartIsDropped: and {
-      step.kind == OtherStep,
-      not(isFinished(step.before.status)),
-      step.before.calls.select(call => and {
-        call.state == Out,
-        isDestroy(call.kind),
-        staleRestartAfter(step.before, call),
-        step.after.calls.select(kept => kept.id == call.id).length() == 0,
-      }).length() > 0,
-    },
-    aStaleOutcomeCheckIsDropped: match step.kind {
-      | OutcomeStep(_) =>
-        step.before.calls.select(call => and {
-          isOutcomeCheck(call.kind),
-          generationOfCall(step.before, call.id) != step.before.generation,
-          step.after.calls.select(kept => kept.id == call.id).length() == 0,
-        }).length() > 0
-      | _ => false
-    },
+    aSandboxStartFails: failedASandboxStart(step, true),
+    aStaleSandboxStartFails: failedASandboxStart(step, false),
+    aStaleRestartIsDropped: droppedAStaleRestart(step),
+    aStaleOutcomeCheckIsDropped: droppedAStaleOutcomeCheck(step),
     theHarnessRefusesAPrompt: step.kind == PromptRefusedStep,
     theProvisionAlarmFires: step.kind == ProvisionStep,
     theWallClockFailsATurn:

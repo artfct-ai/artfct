@@ -16,7 +16,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | T4 | A sandbox start moves the task to `provisioning` with a new generation and bridge token, and clears the session state. | |
 | T5 | The first bridge hello moves the task to `working`. | |
 | T6 | A model-call author is `working` only while its model turn is in flight, or after a stop ended its first turn before the page existed. | `aModelCallAuthorWorksOnlyWhileItsCallIsOut` |
-| T7 | An author moves to `in_review` only when its job has an artifact and a prompt is not in flight. It leaves `in_review` only for a prompt. | `inReviewTaskHasAnArtifact`, `anAuthorInReviewWorksOnlyWithAPrompt` |
+| T7 | An author moves to `in_review` only when its job has an artifact, a prompt is not in flight, and its handshake is not pending. It leaves `in_review` only for a prompt. | `inReviewTaskHasAnArtifact`, `anAuthorInReviewWorksOnlyWithAPrompt` |
 | T8 | A finished task (`done`, `failed`, `cancelled`) never changes status again. A restart or a completion that finds the task finished when it reads it again leaves it finished. A stop writes its stopped state before it awaits the destroy, so a destroy that returns late writes nothing. | `finishedTaskKeepsItsStatus` |
 | T9 | A failed author or researcher closes its review as blocked, posts `failed`, and wakes the agent. A failed reviewer or polisher hands the artifact over blocked. | |
 | T10 | A cancelled author or researcher closes its review as blocked, flushes the board, and tells the agent. | `finishedTaskKeepsItsStatus`, `endedWorkflowHasNoUnfinishedTask` |
