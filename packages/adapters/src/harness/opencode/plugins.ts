@@ -3,26 +3,6 @@
  * plugins directory of its config.
  */
 
-/** Sends each shell command through `rtk rewrite` before OpenCode runs it. */
-export const OPENCODE_RTK_PLUGIN = `import { execFile } from "node:child_process";
-
-const rewrite = (command) =>
-  new Promise((resolve) => {
-    execFile("rtk", ["rewrite", command], (_error, stdout) => resolve(String(stdout).trim()));
-  });
-
-export default {
-  id: "rtk",
-  async setup(context) {
-    await context.tool.hook("execute.before", async (event) => {
-      if (event.tool !== "shell" || typeof event.input?.command !== "string") return;
-      const rewritten = await rewrite(event.input.command);
-      if (rewritten) event.input.command = rewritten;
-    });
-  },
-};
-`;
-
 /**
  * Adds the `todowrite` tool, because OpenCode 2 does not ship a todo tool. The todo list of a
  * task comes from the calls of this tool.

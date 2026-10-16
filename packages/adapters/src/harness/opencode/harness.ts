@@ -10,10 +10,13 @@ import {
   type HarnessTaskInput,
   type ModelsLineContext,
 } from "../types";
-import { OPENCODE_RTK_PLUGIN, OPENCODE_TODO_PLUGIN } from "./plugins";
+import { OPENCODE_TODO_PLUGIN } from "./plugins";
 import { todoPlan } from "./todos";
 
 const CONFIG_DIR = `${SANDBOX_HOME}/.config/opencode`;
+
+/** Writes the rtk plugin into the OpenCode config. rtk also adds its Claude Code hook. */
+const RTK_PLUGIN_INSTALL = "rtk init --global --opencode --hook-only --auto-patch";
 
 /**
  * OpenCode through its native `opencode acp`. It reads providers from a config file, so every
@@ -58,10 +61,9 @@ export class OpenCodeHarness implements HarnessAdapter {
       env: {},
       files: [
         { path: `${CONFIG_DIR}/opencode.json`, content },
-        { path: `${CONFIG_DIR}/plugins/rtk.js`, content: OPENCODE_RTK_PLUGIN },
         { path: `${CONFIG_DIR}/plugins/todo.js`, content: OPENCODE_TODO_PLUGIN },
       ],
-      commands: [],
+      commands: [RTK_PLUGIN_INSTALL],
     };
   }
 }

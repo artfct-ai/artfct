@@ -81,10 +81,9 @@ describe("OpenCodeHarness", () => {
       expect(setup.env).toEqual({});
     });
 
-    it("writes its config file and its plugins", () => {
+    it("writes its config file and its todo plugin", () => {
       expect(setup.files.map((file) => file.path)).toEqual([
         "/home/node/.config/opencode/opencode.json",
-        "/home/node/.config/opencode/plugins/rtk.js",
         "/home/node/.config/opencode/plugins/todo.js",
       ]);
     });
@@ -94,8 +93,8 @@ describe("OpenCodeHarness", () => {
       expect(JSON.parse(setup.files[0]!.content)).not.toHaveProperty("agent");
     });
 
-    it("runs no setup command", () => {
-      expect(setup.commands).toEqual([]);
+    it("installs the rtk plugin", () => {
+      expect(setup.commands).toEqual(["rtk init --global --opencode --hook-only --auto-patch"]);
     });
 
     it("names the routed model in the config", () => {

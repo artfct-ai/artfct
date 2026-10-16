@@ -8,8 +8,8 @@ ARG NODE_VERSION=24.21.0
 ARG NODE_DIGEST=sha256:d6aa754f16b3197301076f047b5def2f02ea1dbbc2ca920407d46d7ec7f87b20
 ARG GH_VERSION=2.102.0
 ARG GH_SHA256=bb766f710eef8ede859c18578c72c327597cd4c8a85b06001b1f3843c6019386
-ARG RTK_VERSION=0.52.0
-ARG RTK_SHA256=46765d4e570ccb3d759e95bcec11feb42fceed5ab2453eac8d787f81d4a0cdab
+ARG RTK_VERSION=1.0.1
+ARG RTK_SHA256=a44e8ffc43981100b4ddf1710399a1649a6c874591aa6d0c0727fe6cbd983c41
 ARG NTN_VERSION=0.23.19
 ARG NTN_SHA256=8ba9ea63981d82265428607df1b5c08c541afec40f7d156a2ac7fabcd06d4ce0
 
@@ -53,8 +53,9 @@ RUN cd /opt/agents \
   && rm -rf node_modules/@opencode/cli-linux-x64-* \
   && ln -s /opt/agents/node_modules/.bin/claude-agent-acp /opt/agents/node_modules/@opencode/cli-linux-x64/bin/opencode /usr/local/bin/
 
+# rtk-oss, the Apache-2.0 edition of rtk. The default rtk build adds BUSL-1.1 code.
 RUN cd /tmp \
-  && RTK_ASSET=rtk-x86_64-unknown-linux-musl.tar.gz \
+  && RTK_ASSET=rtk-oss-x86_64-unknown-linux-musl.tar.gz \
   && curl -fsSLO "https://github.com/rtk-ai/rtk/releases/download/v${RTK_VERSION}/${RTK_ASSET}" \
   && echo "${RTK_SHA256}  ${RTK_ASSET}" | sha256sum --check \
   && tar -xzf "${RTK_ASSET}" -C /usr/local/bin rtk \
