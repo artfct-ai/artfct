@@ -1,0 +1,42 @@
+{
+  "invariants": [
+    "messageAfterEndStartsNextWorkflow",
+    "aDeliveryLeavesTheBindingsOfARunningWorkflow",
+    "aWorkflowGetsEventsOnlyOnceCreated",
+    "anAbandonedWorkflowKeepsNoBinding",
+    "anEndedWorkflowKeepsNoCodeHostBinding",
+    "oneRunningWorkflowHoldsAnIssue",
+    "aPersonsMessageNeverReachesAnEndedWorkflow"
+  ],
+  "witnesses": {
+    "chatThread": [
+      "aWorkflowStarted",
+      "aDeliveryJoinsAWorkflow",
+      "aStartRebindsItsBindings",
+      "aMessageAfterEndStartedTheNextWorkflow",
+      "aWorkflowWasAbandoned",
+      "aWorkflowEnded",
+      "aPersonWroteAfterAnEnd"
+    ],
+    "twoSessionsOnOneIssue": [
+      "aWorkflowStarted",
+      "aDeliveryJoinsAWorkflow",
+      "aStartRebindsItsBindings",
+      "aWorkflowWasAbandoned",
+      "aWorkflowEnded",
+      "aRunningWorkflowHoldsTheIssue",
+      "aJobStartAsksTheIssueOwner",
+      "aPersonWroteAfterAnEnd"
+    ],
+    "sessionWithPullRequest": [
+      "aWorkflowStarted",
+      "aDeliveryJoinsAWorkflow",
+      "aStartRebindsItsBindings",
+      "aWorkflowWasAbandoned",
+      "aWorkflowEnded",
+      "aRunningWorkflowHoldsTheIssue",
+      "thePullRequestIsBound",
+      "aPersonWroteAfterAnEnd"
+    ]
+  }
+}
