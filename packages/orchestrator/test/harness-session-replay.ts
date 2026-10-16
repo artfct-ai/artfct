@@ -71,6 +71,7 @@ import { WorkflowWorld, type WorldSetup } from "./workflow-world";
 export const SPEC_SETUPS = {
   harnessDefaultEffort: false,
   stageAsksForEffort: true,
+  agentPausesRunningTurns: false,
 } as const satisfies Record<string, boolean>;
 
 /** The name of one setup module of the spec. */
@@ -140,7 +141,13 @@ export type SpecSocket = { bridge: number; generation: number; state: SocketStat
 export type SpecCall =
   | { id: number; kind: "SandboxStart"; generation: number; launched: boolean; state: CallState }
   | { id: number; kind: "SandboxDestroy"; upTo: number; state: CallState }
-  | { id: number; kind: "OutcomeCheck"; promptsAtTurnEnd: number; state: CallState };
+  | {
+      id: number;
+      kind: "OutcomeCheck";
+      promptsAtTurnEnd: number;
+      generation: number;
+      state: CallState;
+    };
 
 /**
  * Where each schedule column points: the index of its alarm among the alarms, -1 for an alarm
@@ -201,7 +208,8 @@ export function generateTraces(setup: SpecSetup, count: number, seed: number): T
   );
 }
 
-function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
+/** The steps of one ITF trace of a setup, such as a pinned one. */
+export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
   return itfList(itfField(trace, "states")).map((state) => {
     const picks = itfField(state, "mbt::nondetPicks");
     const picked = (name: string) => {
@@ -311,7 +319,13 @@ function specCall(call: unknown): SpecCall {
     case "SandboxDestroy":
       return { id, kind: "SandboxDestroy", upTo: itfInt(kind.value), state };
     case "OutcomeCheck":
-      return { id, kind: "OutcomeCheck", promptsAtTurnEnd: itfInt(kind.value), state };
+      return {
+        id,
+        kind: "OutcomeCheck",
+        promptsAtTurnEnd: itfInt(itfField(kind.value, "promptsSent")),
+        generation: itfInt(itfField(kind.value, "generation")),
+        state,
+      };
     default:
       throw new Error(`the trace has a call ${kind.tag}`);
   }
@@ -348,10 +362,11 @@ type HeldCall = {
   kind:
     | { name: "SandboxStart"; generation: number; token: string; launched: boolean }
     | { name: "SandboxDestroy"; upTo: number }
-    | { name: "OutcomeCheck"; promptsAtTurnEnd: number };
+    | { name: "OutcomeCheck"; promptsAtTurnEnd: number; generation: number };
   state: CallState;
   answer: (answer: { ok: boolean; decisions: Decisions }) => void;
   step: Promise<unknown> | null;
+  alarm: FakeAlarm | null;
 };
 
 /** A sandbox provider whose starts and destroys stay out until the replay returns them. */
@@ -458,6 +473,7 @@ export class HarnessSessionReplay {
   private sockets: ReplaySocket[] = [];
   private readonly rpcs: { id: number; purpose: SpecPurpose }[] = [];
   private stepOut: Promise<unknown> | null = null;
+  private alarmOut: FakeAlarm | null = null;
   private heldArrived: (() => void) | null = null;
   private promptsSent = 0;
   private cancelsDelivered = 0;
@@ -598,14 +614,24 @@ export class HarnessSessionReplay {
   private holdOutcomeCheck(): Promise<Decisions | null> {
     return new Promise<Decisions | null>((resolve) => {
       this.hold({
-        kind: { name: "OutcomeCheck", promptsAtTurnEnd: this.promptsSent },
+        kind: {
+          name: "OutcomeCheck",
+          promptsAtTurnEnd: this.promptsSent,
+          generation: this.world.workflow.store.requireSandbox(this.taskId).generation,
+        },
         answer: ({ decisions }) => resolve(decisions),
       });
     });
   }
 
-  private hold(call: Omit<HeldCall, "id" | "state" | "step">): void {
-    this.calls.push({ ...call, id: this.nextCall++, state: "Out", step: this.stepOut });
+  private hold(call: Omit<HeldCall, "id" | "state" | "step" | "alarm">): void {
+    this.calls.push({
+      ...call,
+      id: this.nextCall++,
+      state: "Out",
+      step: this.stepOut,
+      alarm: this.alarmOut,
+    });
     this.heldArrived?.();
   }
 
@@ -738,19 +764,25 @@ export class HarnessSessionReplay {
         default:
           throw new Error(`the replay does not fire ${alarm.method}`);
       }
-    });
+    }, alarm);
   }
 
   private async restartDurableObject(): Promise<void> {
     const kept: HeldCall[] = [];
+    const rescheduled: FakeAlarm[] = [];
     for (const call of this.calls) {
-      if (call.state !== "Out") kept.push(call);
-      else if (call.kind.name === "SandboxDestroy") this.containerGoes(call.kind.upTo);
+      if (call.state !== "Out") {
+        kept.push(call);
+        continue;
+      }
+      if (call.alarm) rescheduled.push(call.alarm);
+      if (call.kind.name === "SandboxDestroy") this.containerGoes(call.kind.upTo);
       else if (call.kind.name === "SandboxStart" && !call.kind.launched)
-        kept.push({ ...call, state: "Dropped" });
+        kept.push({ ...call, state: "Dropped", alarm: null });
     }
     this.calls = kept;
     await this.world.restart();
+    this.world.workflow.alarms.push(...rescheduled);
   }
 
   private callOf(callId: number): HeldCall {
@@ -805,7 +837,7 @@ export class HarnessSessionReplay {
     await this.runStep(async () => {
       call.answer(answer);
       await rest;
-    });
+    }, call.alarm);
   }
 
   private containerGoes(upTo: number): void {
@@ -1048,8 +1080,15 @@ export class HarnessSessionReplay {
     return socket;
   }
 
-  /** Run a step until it ends or a call it makes is held. A step that throws ends there, as the Durable Object event would. */
-  private async runStep(step: () => Promise<unknown>): Promise<void> {
+  /**
+   * Run a step until it ends or a call it makes is held. A step that throws ends there, as the
+   * Durable Object event would. A call held while an alarm's handler runs carries that alarm.
+   */
+  private async runStep(
+    step: () => Promise<unknown>,
+    alarm: FakeAlarm | null = null,
+  ): Promise<void> {
+    this.alarmOut = alarm;
     const held = new Promise<"held">((resolve) => {
       this.heldArrived = () => resolve("held");
     });
@@ -1066,6 +1105,7 @@ export class HarnessSessionReplay {
     if (outcome === "threw") this.eventsThatThrew += 1;
     this.heldArrived = null;
     this.stepOut = null;
+    this.alarmOut = null;
   }
 }
 
@@ -1091,6 +1131,7 @@ function projectCall(call: HeldCall): SpecCall {
         id: call.id,
         kind: "OutcomeCheck",
         promptsAtTurnEnd: call.kind.promptsAtTurnEnd,
+        generation: call.kind.generation,
         state: call.state,
       };
     default: {

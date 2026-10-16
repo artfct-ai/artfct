@@ -180,6 +180,42 @@ export const MUTANTS: Mutant[] = [
     replace: "  if (true || closed.paused_at === null) await restartSandbox(workflow, closed);",
   },
   {
+    id: "W23",
+    invariant: "taskRestartsAtMostTwice (stale start)",
+    path: "src/workflow/task/sandbox/sandbox.ts",
+    find: "    if (workflow.store.requireSandbox(fresh.task_id).generation !== sandbox.generation) return;\n",
+    replace: "",
+  },
+  {
+    id: "W24",
+    invariant: "aRunningTurnKeepsItsSandboxAwake (stale restart)",
+    path: "src/workflow/lifecycle.ts",
+    find: "  if (workflow.store.requireSandbox(task.task_id).generation !== generation) return;\n",
+    replace: "",
+  },
+  {
+    id: "W25",
+    invariant: "taskRestartsAtMostTwice (counted restart)",
+    path: "src/workflow/lifecycle.ts",
+    find: "  if (isTaskFinished(closed.status) || closed.restarts !== current.restarts) return;",
+    replace: "  if (isTaskFinished(closed.status)) return;",
+  },
+  {
+    id: "W26",
+    invariant: "finishedTaskKeepsItsStatus, anAuthorInReviewWorksOnlyWithAPrompt (stop)",
+    path: "src/workflow/inbound/controls.ts",
+    find: '    workflow.store.updateTask(author.task_id, { status: "working" });\n    await closeContainer(workflow, author, "a person pressed Stop");\n',
+    replace:
+      '    await closeContainer(workflow, author, "a person pressed Stop");\n    workflow.store.updateTask(author.task_id, { status: "working" });\n',
+  },
+  {
+    id: "W27",
+    invariant: "anAuthorInReviewRunsNoTurn (stale outcome)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: "  if (workflow.store.requireSandbox(task.task_id).generation !== generation) return;\n",
+    replace: "",
+  },
+  {
     id: "A1",
     invariant: "laterDecisionsCallsFallBackOnceOneFails",
     path: "src/decisions/ask.ts",

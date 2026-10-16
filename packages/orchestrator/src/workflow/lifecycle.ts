@@ -336,7 +336,8 @@ export const MAX_RESTARTS = 2;
 /**
  * A task with a sandbox hit a failure it may recover from. It restarts in a fresh sandbox on its
  * branch while it has restarts left, and fails after that. A task that finished while its old
- * container went stays finished.
+ * container went stays finished. One that another restart counted or that began a newer generation
+ * meanwhile is left to that restart.
  */
 export async function restartOrFailTask(
   workflow: WorkflowRuntime,
@@ -347,9 +348,11 @@ export async function restartOrFailTask(
   if (isTaskFinished(current.status)) return;
   if (current.restarts >= MAX_RESTARTS) return failTask(workflow, task, reason);
   workflow.log(task.task_id, `${reason} restarting in a fresh sandbox.`);
+  const { generation } = workflow.store.requireSandbox(task.task_id);
   await closeContainer(workflow, task, "the task restarts");
   const closed = workflow.store.requireTask(task.task_id);
-  if (isTaskFinished(closed.status)) return;
+  if (isTaskFinished(closed.status) || closed.restarts !== current.restarts) return;
+  if (workflow.store.requireSandbox(task.task_id).generation !== generation) return;
   workflow.store.patchTodoRow(task.task_id, { note: `Restarted in a fresh sandbox: ${reason}` });
   if (closed.paused_at === null) await restartSandbox(workflow, closed);
   else await holdRestartForResume(workflow, closed);

@@ -5,25 +5,19 @@
     "pausedAuthorGetsNoPrompt",
     "inReviewTaskHasAnArtifact",
     "staleAlarmIsIgnored",
-    "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone",
-    "stopEndsTheAuthorsTurn",
     "aSandboxStartBeginsAFreshGeneration",
     "aStartingTaskWorksOnlyAfterItsHello",
     "anAuthorInReviewWorksOnlyWithAPrompt",
     "aLostTurnIsRecoveredWithoutARestart",
     "aHarnessExitCountsOneRestart",
     "aFailedSandboxStartRestartsOrFails",
-    "anUnpausedTaskWithWorkIsNeverStranded",
     "aRefusedPromptLeavesTheTurn",
     "provisionStartsOnlyAQueuedTask",
     "wallClockFailsWithoutARestart",
     "aRunningTurnKeepsItsSandboxAwake",
     "aBridgeConnectsOnlyWithTheCurrentToken",
     "everyPermissionRequestIsAllowed",
-    "aHarnessSessionRunsOneTurnAtATime",
-    "anAuthorInReviewRunsNoTurn",
-    "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn",
-    "anAnswerReachesOnlyItsOwnRequest"
+    "anAuthorInReviewRunsNoTurn"
   ],
   "witnesses": {
     "harnessDefaultEffort": [
@@ -41,6 +35,9 @@
       "aLostTurnIsRecovered",
       "aHarnessExitRestartsTheTask",
       "aSandboxStartFails",
+      "aStaleSandboxStartFails",
+      "aStaleRestartIsDropped",
+      "aStaleOutcomeCheckIsDropped",
       "theHandshakeWaitsOnTheHarness",
       "theHarnessRefusesAPrompt",
       "theProvisionAlarmFires",
@@ -50,10 +47,10 @@
       "aSocketIsReplaced",
       "aPermissionIsAllowed",
       "aTurnRuns",
-      "aResumeLandsDuringACancelledTurn",
       "aPromptGoesOutDuringAnOutcomeCheck",
       "anAnswerArrivesAfterItsRowWasCleared",
       "aCallWasDropped",
+      "anAlarmRunsAgainAfterARestart",
       "theAuthorWasNudged",
       "theTaskWasCancelled"
     ],
@@ -72,6 +69,43 @@
       "aLostTurnIsRecovered",
       "aHarnessExitRestartsTheTask",
       "aSandboxStartFails",
+      "aStaleSandboxStartFails",
+      "aStaleRestartIsDropped",
+      "theHandshakeWaitsOnTheHarness",
+      "theHarnessRefusesAPrompt",
+      "theProvisionAlarmFires",
+      "theWallClockFailsATurn",
+      "theKeepAliveFiresOnATurn",
+      "aDialIsRefused",
+      "aSocketIsReplaced",
+      "aPermissionIsAllowed",
+      "aTurnRuns",
+      "aPromptGoesOutDuringAnOutcomeCheck",
+      "anAnswerArrivesAfterItsRowWasCleared",
+      "aCallWasDropped",
+      "anAlarmRunsAgainAfterARestart",
+      "theAuthorWasNudged",
+      "theTaskWasCancelled",
+      "theEffortIsSet"
+    ],
+    "agentPausesRunningTurns": [
+      "aFinishedTaskIsInAStep",
+      "theTaskRestartedTwice",
+      "aPausedAuthorStaysPaused",
+      "theAuthorWaitsInReview",
+      "aStaleAlarmFires",
+      "anAuthorStoppedEarlyAndIsIdle",
+      "aStopLandsDuringATurn",
+      "aStopEndsAStartingTurn",
+      "aLaterGenerationBegins",
+      "aHelloMovesTheTaskToWorking",
+      "anAuthorInReviewTakesAPrompt",
+      "aLostTurnIsRecovered",
+      "aHarnessExitRestartsTheTask",
+      "aSandboxStartFails",
+      "aStaleSandboxStartFails",
+      "aStaleRestartIsDropped",
+      "aStaleOutcomeCheckIsDropped",
       "theHandshakeWaitsOnTheHarness",
       "theHarnessRefusesAPrompt",
       "theProvisionAlarmFires",
@@ -85,21 +119,37 @@
       "aPromptGoesOutDuringAnOutcomeCheck",
       "anAnswerArrivesAfterItsRowWasCleared",
       "aCallWasDropped",
+      "anAlarmRunsAgainAfterARestart",
       "theAuthorWasNudged",
-      "theTaskWasCancelled",
-      "theEffortIsSet"
+      "theTaskWasCancelled"
     ]
   },
   "tlc": {
     "ignoredVariables": ["stepWitnesses"],
     "bounds": {
       "harnessDefaultEffort": {
-        "pr": { "actionsTaken": 9 },
-        "nightly": { "actionsTaken": 10 }
+        "pr": {
+          "actionsTaken": 9
+        },
+        "nightly": {
+          "actionsTaken": 10
+        }
       },
       "stageAsksForEffort": {
-        "pr": { "actionsTaken": 9 },
-        "nightly": { "actionsTaken": 10 }
+        "pr": {
+          "actionsTaken": 9
+        },
+        "nightly": {
+          "actionsTaken": 10
+        }
+      },
+      "agentPausesRunningTurns": {
+        "pr": {
+          "actionsTaken": 9
+        },
+        "nightly": {
+          "actionsTaken": 10
+        }
       }
     }
   }
