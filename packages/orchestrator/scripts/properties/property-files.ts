@@ -44,6 +44,12 @@ export const PROPERTY_FILES = {
     runner: ["bun", "test"],
     e2eRuns: 1000,
   },
+  harness_session: {
+    title: "harness session spec replay",
+    path: "src/workflow/task/harness/harness-session-replay.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 3000,
+  },
 } satisfies Record<string, PropertyFile>;
 
 /** A property file run past this is a hang, reported with its seed. */
