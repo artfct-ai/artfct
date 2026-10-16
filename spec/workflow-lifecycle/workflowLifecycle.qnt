@@ -40,9 +40,6 @@ module workflowLifecycleTypes {
 
   type CallKind = SandboxDestroy | AcceptanceCheck
 
-  /// A call is out until it returns, or until a restart of the Durable Object drops it.
-  type CallState = Out | Returned | Dropped
-
   /// The end of an author task that sent the sandbox destroy.
   type Teardown = AfterCancel | AfterFail | AfterComplete
 
@@ -58,7 +55,9 @@ module workflowLifecycleTypes {
     | RestartAfterWake
     | CompletionGoesOn
 
-  type Call = { kind: CallKind, job: int, state: CallState, rest: Rest }
+  /// A call that is out. It leaves the list when it returns, or when a restart of the Durable
+  /// Object drops it.
+  type Call = { kind: CallKind, job: int, rest: Rest }
 
   type Workflow = {
     status: WorkflowStatus,
@@ -69,9 +68,40 @@ module workflowLifecycleTypes {
   }
 
   /// What an observer knows about the last step besides the states around it.
-  type StepKind = OtherStep | PlanStep(int) | EventStep | StaleAlarmStep | SleepStep
+  type StepKind = OtherStep | PlanStep(int) | EventStep | StaleAlarmStep | SleepStep | RestartStep
 
-  type Step = { before: Workflow, kind: StepKind }
+  /// One step: the workflow before it, the workflow after it, and what an observer knows of it.
+  type Transition = { before: Workflow, after: Workflow, kind: StepKind }
+
+  /// Whether the last step kept each before-and-after rule, by the name of the invariant that reads
+  /// it. Each step writes it again, so the state does not keep the workflow before the step.
+  type KeptRules = {
+    jobStartsOnlyIntoAFreeSlot: bool,
+    onlyAPlanStartsTheWorkflow: bool,
+    workflowKeepsItsDefinition: bool,
+    finishedTaskKeepsItsStatus: bool,
+    nothingReopensAFinishedWorkflow: bool,
+    staleAlarmIsIgnored: bool,
+    sleepMessageOnlyDuringAWorkflow: bool,
+    finishedWorkflowKeepsItsStatus: bool,
+    pausedAuthorGetsNoPrompt: bool,
+    workflowWaitsOnlyWhileNoAuthorWorks: bool,
+  }
+
+  /// Whether the last step reached each before-and-after witness, by the name of the witness. Only
+  /// witnesses read it, so model checking leaves it out of the state.
+  type ReachedWitnesses = {
+    aPlanStartsTheWorkflow: bool,
+    aPlanLandsOnAStartedWorkflow: bool,
+    aJobStartsIntoTheLastSlot: bool,
+    aFinishedTaskIsInAStep: bool,
+    anEventLandsOnAFinishedWorkflow: bool,
+    aStaleAlarmFires: bool,
+    theSleepMessagePosts: bool,
+    aMessageWakesTheWorkflow: bool,
+    aPausedAuthorResumes: bool,
+    aCallWasDropped: bool,
+  }
 
   type Ending = PersonCancels | AgentFails | AgentFinishes
 }
@@ -107,7 +137,8 @@ module workflowLifecycle {
   }
 
   var workflow: Workflow
-  var lastStep: Step
+  var lastStepKept: KeptRules
+  var lastStepReached: ReachedWitnesses
 
   pure def isFinished(status: TaskStatus): bool =
     status == TaskDone or status == TaskCancelled or status == TaskFailed
@@ -118,13 +149,13 @@ module workflowLifecycle {
   pure def jobIds(flow: Workflow): Set[int] = flow.jobs.indices()
 
   pure def unfinishedJobIds(flow: Workflow): List[int] =
-    range(0, flow.jobs.length()).select(id => not(isFinished(flow.jobs[id].author.status)))
+    range(0, MAX_JOBS).select(id => id < flow.jobs.length() and not(isFinished(flow.jobs[id].author.status)))
 
   pure def busyAuthors(flow: Workflow): Set[int] =
     jobIds(flow).filter(id => flow.jobs[id].author.status == Busy)
 
   pure def outCalls(flow: Workflow, kind: CallKind): Set[int] =
-    flow.calls.indices().filter(id => flow.calls[id].kind == kind and flow.calls[id].state == Out)
+    flow.calls.indices().filter(id => flow.calls[id].kind == kind)
 
   pure def withJob(flow: Workflow, id: int, job: Job): Workflow =
     { ...flow, jobs: flow.jobs.replaceAt(id, job) }
@@ -132,11 +163,11 @@ module workflowLifecycle {
   pure def withAuthor(flow: Workflow, id: int, author: Author): Workflow =
     withJob(flow, id, { ...flow.jobs[id], author: author })
 
-  pure def withCallState(flow: Workflow, id: int, state: CallState): Workflow =
-    { ...flow, calls: flow.calls.replaceAt(id, { ...flow.calls[id], state: state }) }
+  pure def withoutCall(flow: Workflow, id: int): Workflow =
+    { ...flow, calls: flow.calls.slice(0, id).concat(flow.calls.slice(id + 1, flow.calls.length())) }
 
   pure def sendCall(flow: Workflow, kind: CallKind, id: int, rest: Rest): Workflow =
-    { ...flow, calls: flow.calls.append({ kind: kind, job: id, state: Out, rest: rest }) }
+    { ...flow, calls: flow.calls.append({ kind: kind, job: id, rest: rest }) }
 
   /// The status an author takes from `finishTask`. The status is written before the sandbox goes.
   /// A prompt in flight stays in flight on the finished task.
@@ -167,15 +198,12 @@ module workflowLifecycle {
   /// True while the loop of a workflow end cancels its authors. Only this instance knows it, so a
   /// restart of the Durable Object forgets it with the calls it drops.
   pure def workflowEnding(flow: Workflow): bool =
-    flow.calls.indices().exists(callId => and {
-      flow.calls[callId].state == Out,
-      match flow.calls[callId].rest {
-        | TeardownGoesOn(teardown) => match teardown.caller {
-          | WorkflowEnd(_) => true
-          | ToolOrEvent => false
-        }
-        | _ => false
-      },
+    flow.calls.indices().exists(callId => match flow.calls[callId].rest {
+      | TeardownGoesOn(teardown) => match teardown.caller {
+        | WorkflowEnd(_) => true
+        | ToolOrEvent => false
+      }
+      | _ => false
     })
 
   pure def canStartJob(flow: Workflow, input: Input): bool = and {
@@ -284,7 +312,7 @@ module workflowLifecycle {
 
   pure def returnCall(flow: Workflow, callId: int): Workflow = {
     val call = flow.calls[callId]
-    val returned = withCallState(flow, callId, Returned)
+    val returned = withoutCall(flow, callId)
     match call.rest {
       | TeardownGoesOn(teardown) => teardownGoesOn(returned, call.job, teardown.caller)
       | RestartGoesOn => restartGoesOn(returned, call.job, false)
@@ -297,9 +325,9 @@ module workflowLifecycle {
   /// dropped keeps its task while its generation is closed.
   pure def dropCalls(flow: Workflow): Workflow = {
     val stranded = flow.calls.indices().filter(callId =>
-      flow.calls[callId].state == Out and flow.calls[callId].rest == RestartGoesOn and
+      flow.calls[callId].rest == RestartGoesOn and
       not(isFinished(flow.jobs[flow.calls[callId].job].author.status)))
-    val jobs = range(0, flow.jobs.length()).foldl(List(), (jobs, id) => jobs.append({
+    val jobs = range(0, MAX_JOBS).select(id => id < flow.jobs.length()).foldl(List(), (jobs, id) => jobs.append({
       ...flow.jobs[id],
       author: {
         ...flow.jobs[id].author,
@@ -307,9 +335,7 @@ module workflowLifecycle {
           stranded.exists(callId => flow.calls[callId].job == id),
       },
     }))
-    val calls = flow.calls.foldl(List(), (calls, call) =>
-      calls.append(if (call.state == Out) { ...call, state: Dropped } else call))
-    { ...flow, jobs: jobs, calls: calls }
+    { ...flow, jobs: jobs, calls: List() }
   }
 
   /// A stalled author whose generation is closed gets the next one, and its harness the queued
@@ -329,7 +355,7 @@ module workflowLifecycle {
   pure def resumeAuthor(flow: Workflow, id: int): Workflow = {
     val author = flow.jobs[id].author
     val calls = flow.calls.foldl(List(), (calls, call) => calls.append(
-      if (call.job == id and call.state == Out and call.rest == RestartGoesOn)
+      if (call.job == id and call.rest == RestartGoesOn)
         { ...call, rest: RestartAfterWake }
       else call))
     withAuthor({ ...flow, calls: calls }, id, {
@@ -378,15 +404,18 @@ module workflowLifecycle {
     flow.jobs[id].author.turnRunning,
     not(flow.jobs[id].author.paused),
     not(flow.calls.indices().exists(callId =>
-      flow.calls[callId].job == id and flow.calls[callId].kind == SandboxDestroy and
-      flow.calls[callId].state == Out)),
+      flow.calls[callId].job == id and flow.calls[callId].kind == SandboxDestroy)),
   }
 
   pure def sleeps(flow: Workflow): bool = flow.status == Running and busyAuthors(flow).size() == 0
 
-  action move(after: Workflow, kind: StepKind): bool = all {
-    workflow' = after,
-    lastStep' = { before: workflow, kind: kind },
+  action move(after: Workflow, kind: StepKind): bool = {
+    val step = { before: workflow, after: after, kind: kind }
+    all {
+      workflow' = after,
+      lastStepKept' = rulesKeptBy(step),
+      lastStepReached' = witnessesReachedBy(step),
+    }
   }
 
   action onJob(act: int => bool): bool = all {
@@ -404,9 +433,13 @@ module workflowLifecycle {
     }
   }
 
-  action init: bool = all {
-    workflow' = INITIAL_WORKFLOW,
-    lastStep' = { before: INITIAL_WORKFLOW, kind: OtherStep },
+  action init: bool = {
+    val step = { before: INITIAL_WORKFLOW, after: INITIAL_WORKFLOW, kind: OtherStep }
+    all {
+      workflow' = INITIAL_WORKFLOW,
+      lastStepKept' = rulesKeptBy(step),
+      lastStepReached' = witnessesReachedBy(step),
+    }
   }
 
   /// The agent calls `set_plan` with stages and one of the workflow definitions while the workflow
@@ -511,7 +544,7 @@ module workflowLifecycle {
     outCalls(workflow, AcceptanceCheck).size() > 0,
     nondet callId = outCalls(workflow, AcceptanceCheck).oneOf()
     nondet accepted = Set(true, false).oneOf()
-    val returned = withCallState(workflow, callId, Returned)
+    val returned = withoutCall(workflow, callId)
     val id = workflow.calls[callId].job
     val completes = accepted and not(isFinished(workflow.jobs[id].author.status))
     move(if (completes) completeAuthor(returned, id) else returned, OtherStep),
@@ -573,8 +606,8 @@ module workflowLifecycle {
 
   /// The Durable Object restarts while a call is out. Every call that is out is lost with its isolate.
   action workflowRestarts: bool = all {
-    workflow.calls.indices().exists(id => workflow.calls[id].state == Out),
-    move(dropCalls(workflow), OtherStep),
+    workflow.calls.length() > 0,
+    move(dropCalls(workflow), RestartStep),
   }
 
   action step: bool = any {
@@ -613,15 +646,102 @@ module workflowLifecycle {
 
   /// A job starts only into a free slot: before the step that started it, the unfinished authors
   /// were fewer than the slots. A refiner run takes no slot.
-  val jobStartsOnlyIntoAFreeSlot: bool =
-    startedIn(lastStep.before, workflow) implies unfinishedCount(lastStep.before) < SLOTS
+  pure def startsOnlyIntoAFreeSlot(step: Transition): bool =
+    startedIn(step.before, step.after) implies unfinishedCount(step.before) < SLOTS
+
+  /// A step that gives the workflow its definition is a plan that names a workflow definition of
+  /// the deployment.
+  pure def onlyAPlanStarts(step: Transition): bool =
+    (step.before.definition == Unplanned and step.after.definition != Unplanned) implies
+      DEFINITIONS.exists(definition =>
+        step.after.definition == Planned(definition) and step.kind == PlanStep(definition))
+
+  /// A later plan cannot change the workflow definition a workflow started with.
+  pure def keepsTheDefinition(step: Transition): bool =
+    step.before.definition != Unplanned implies step.after.definition == step.before.definition
+
+  /// A finished task never changes status again.
+  pure def keepsFinishedTasks(step: Transition): bool =
+    step.before.jobs.indices().forall(id => and {
+      isFinished(step.before.jobs[id].author.status) implies
+        step.after.jobs[id].author.status == step.before.jobs[id].author.status,
+      step.before.jobs[id].refinerRun == RefinerRunFinished implies
+        step.after.jobs[id].refinerRun == RefinerRunFinished,
+    })
+
+  /// On a finished workflow, no event changes the status, the tasks, or the prompts.
+  pure def leavesAFinishedWorkflow(step: Transition): bool =
+    (step.kind == EventStep and hasEnded(step.before.status)) implies and {
+      step.after.status == step.before.status,
+      step.after.jobs.length() == step.before.jobs.length(),
+      promptsSentToAuthors(step.after) == promptsSentToAuthors(step.before),
+    }
+
+  /// An alarm of an older sandbox generation changes nothing.
+  pure def ignoresAStaleAlarm(step: Transition): bool =
+    step.kind == StaleAlarmStep implies step.after == step.before
+
+  /// The sleep message posts only while the workflow runs from a plan.
+  pure def sleepsOnlyDuringAWorkflow(step: Transition): bool =
+    step.kind == SleepStep implies (step.before.definition != Unplanned and step.before.status == Running)
+
+  /// A workflow that is done, failed or cancelled keeps that status.
+  pure def keepsAFinishedStatus(step: Transition): bool =
+    hasEnded(step.before.status) implies step.after.status == step.before.status
+
+  /// The workflow sends a paused author no prompt until it resumes.
+  pure def sendsAPausedAuthorNoPrompt(step: Transition): bool =
+    step.before.jobs.indices().forall(id =>
+      (step.before.jobs[id].author.paused and step.after.jobs[id].author.paused) implies
+        step.after.jobs[id].author.promptsSent == step.before.jobs[id].author.promptsSent)
+
+  /// The workflow moves to waiting for input only in a step that leaves no author busy.
+  pure def waitsOnlyWhileNoAuthorWorks(step: Transition): bool =
+    (step.after.status == WaitingInput and step.before.status != WaitingInput) implies
+      busyAuthors(step.after).size() == 0
+
+  /// Whether one step kept each before-and-after rule.
+  pure def rulesKeptBy(step: Transition): KeptRules = {
+    jobStartsOnlyIntoAFreeSlot: startsOnlyIntoAFreeSlot(step),
+    onlyAPlanStartsTheWorkflow: onlyAPlanStarts(step),
+    workflowKeepsItsDefinition: keepsTheDefinition(step),
+    finishedTaskKeepsItsStatus: keepsFinishedTasks(step),
+    nothingReopensAFinishedWorkflow: leavesAFinishedWorkflow(step),
+    staleAlarmIsIgnored: ignoresAStaleAlarm(step),
+    sleepMessageOnlyDuringAWorkflow: sleepsOnlyDuringAWorkflow(step),
+    finishedWorkflowKeepsItsStatus: keepsAFinishedStatus(step),
+    pausedAuthorGetsNoPrompt: sendsAPausedAuthorNoPrompt(step),
+    workflowWaitsOnlyWhileNoAuthorWorks: waitsOnlyWhileNoAuthorWorks(step),
+  }
+
+  /// Whether one step reached each before-and-after witness.
+  pure def witnessesReachedBy(step: Transition): ReachedWitnesses = {
+    aPlanStartsTheWorkflow: step.before.definition == Unplanned and step.after.definition != Unplanned,
+    aPlanLandsOnAStartedWorkflow: match step.kind {
+      | PlanStep(_) => step.before.definition != Unplanned
+      | _ => false
+    },
+    aJobStartsIntoTheLastSlot:
+      startedIn(step.before, step.after) and unfinishedCount(step.before) == SLOTS - 1,
+    aFinishedTaskIsInAStep:
+      step.before.jobs.indices().exists(id => isFinished(step.before.jobs[id].author.status)),
+    anEventLandsOnAFinishedWorkflow: step.kind == EventStep and hasEnded(step.before.status),
+    aStaleAlarmFires: step.kind == StaleAlarmStep,
+    theSleepMessagePosts: step.kind == SleepStep,
+    aMessageWakesTheWorkflow:
+      step.kind == EventStep and step.before.status == WaitingInput and step.after.status == Running,
+    aPausedAuthorResumes: step.before.jobs.indices().exists(id =>
+      step.before.jobs[id].author.paused and not(step.after.jobs[id].author.paused)),
+    aCallWasDropped: step.kind == RestartStep,
+  }
+
+  /// A job starts only into a free slot.
+  val jobStartsOnlyIntoAFreeSlot: bool = lastStepKept.jobStartsOnlyIntoAFreeSlot
 
   /// A workflow starts only from a plan that names a workflow definition of the deployment. Before
   /// that, a job does not start and the workflow is not running or waiting for input.
   val workflowStartsOnlyFromAPlan: bool = and {
-    (lastStep.before.definition == Unplanned and workflow.definition != Unplanned) implies
-      DEFINITIONS.exists(definition =>
-        workflow.definition == Planned(definition) and lastStep.kind == PlanStep(definition)),
+    lastStepKept.onlyAPlanStartsTheWorkflow,
     workflow.definition == Unplanned implies and {
       workflow.jobs.length() == 0,
       workflow.status != Running,
@@ -630,8 +750,7 @@ module workflowLifecycle {
   }
 
   /// A later plan cannot change the workflow definition a workflow started with.
-  val workflowKeepsItsDefinition: bool =
-    lastStep.before.definition != Unplanned implies workflow.definition == lastStep.before.definition
+  val workflowKeepsItsDefinition: bool = lastStepKept.workflowKeepsItsDefinition
 
   /// Only one live job works from each input. An unfinished job holds its input. A finished job
   /// holds it while its output exists.
@@ -643,88 +762,51 @@ module workflowLifecycle {
     } implies not(holdsItsInput(workflow.jobs[other]))))
 
   /// A finished task never changes status again.
-  val finishedTaskKeepsItsStatus: bool =
-    lastStep.before.jobs.indices().forall(id => and {
-      isFinished(lastStep.before.jobs[id].author.status) implies
-        workflow.jobs[id].author.status == lastStep.before.jobs[id].author.status,
-      lastStep.before.jobs[id].refinerRun == RefinerRunFinished implies
-        workflow.jobs[id].refinerRun == RefinerRunFinished,
-    })
+  val finishedTaskKeepsItsStatus: bool = lastStepKept.finishedTaskKeepsItsStatus
 
   /// A workflow whose status is done, failed or cancelled has no unfinished task.
   val endedWorkflowHasNoUnfinishedTask: bool =
     hasEnded(workflow.status) implies not(hasUnfinishedTask(workflow))
 
   /// On a finished workflow, no event changes the status, the tasks, or the prompts.
-  val nothingReopensAFinishedWorkflow: bool =
-    (lastStep.kind == EventStep and hasEnded(lastStep.before.status)) implies and {
-      workflow.status == lastStep.before.status,
-      workflow.jobs.length() == lastStep.before.jobs.length(),
-      promptsSentToAuthors(workflow) == promptsSentToAuthors(lastStep.before),
-    }
+  val nothingReopensAFinishedWorkflow: bool = lastStepKept.nothingReopensAFinishedWorkflow
 
   /// An alarm of an older sandbox generation changes nothing.
-  val staleAlarmIsIgnored: bool =
-    lastStep.kind == StaleAlarmStep implies workflow == lastStep.before
+  val staleAlarmIsIgnored: bool = lastStepKept.staleAlarmIsIgnored
 
   /// The sleep message posts only while the workflow runs from a plan.
-  val sleepMessageOnlyDuringAWorkflow: bool =
-    lastStep.kind == SleepStep implies
-      (lastStep.before.definition != Unplanned and lastStep.before.status == Running)
+  val sleepMessageOnlyDuringAWorkflow: bool = lastStepKept.sleepMessageOnlyDuringAWorkflow
 
   /// A workflow that is done, failed or cancelled keeps that status.
-  val finishedWorkflowKeepsItsStatus: bool =
-    hasEnded(lastStep.before.status) implies workflow.status == lastStep.before.status
+  val finishedWorkflowKeepsItsStatus: bool = lastStepKept.finishedWorkflowKeepsItsStatus
 
   /// A task restarts at most `MAX_RESTARTS` times, whatever the cause.
   val taskRestartsAtMostTwice: bool =
     jobIds(workflow).forall(id => workflow.jobs[id].author.restarts <= MAX_RESTARTS)
 
   /// The workflow sends a paused author no prompt until it resumes.
-  val pausedAuthorGetsNoPrompt: bool =
-    lastStep.before.jobs.indices().forall(id =>
-      (lastStep.before.jobs[id].author.paused and workflow.jobs[id].author.paused) implies
-        workflow.jobs[id].author.promptsSent == lastStep.before.jobs[id].author.promptsSent)
+  val pausedAuthorGetsNoPrompt: bool = lastStepKept.pausedAuthorGetsNoPrompt
 
   /// The workflow moves to waiting for input only in a step that leaves no author busy.
-  val workflowWaitsOnlyWhileNoAuthorWorks: bool =
-    (workflow.status == WaitingInput and lastStep.before.status != WaitingInput) implies
-      busyAuthors(workflow).size() == 0
+  val workflowWaitsOnlyWhileNoAuthorWorks: bool = lastStepKept.workflowWaitsOnlyWhileNoAuthorWorks
 
-  /// Every mirrored invariant, for one check of all of them.
-  val invariants: bool = and {
-    jobStartsOnlyIntoAFreeSlot,
-    workflowStartsOnlyFromAPlan,
-    workflowKeepsItsDefinition,
-    oneLiveJobPerInputArtifact,
-    finishedTaskKeepsItsStatus,
-    endedWorkflowHasNoUnfinishedTask,
-    nothingReopensAFinishedWorkflow,
-    staleAlarmIsIgnored,
-    sleepMessageOnlyDuringAWorkflow,
-  }
+  /// The prompts the workflow sent its authors, a counter that model checking bounds.
+  val promptsSent: int = promptsSentToAuthors(workflow)
 
-  /// Every proposed invariant, for one check of all of them.
-  val proposedInvariants: bool = and {
-    finishedWorkflowKeepsItsStatus,
-    taskRestartsAtMostTwice,
-    pausedAuthorGetsNoPrompt,
-    workflowWaitsOnlyWhileNoAuthorWorks,
-  }
+  /// The calls that are out, a counter that model checking bounds.
+  val callsOut: int = workflow.calls.length()
+
+  /// The jobs the workflow started, a counter that model checking bounds.
+  val jobsStarted: int = workflow.jobs.length()
 
   /// Witness for `workflowStartsOnlyFromAPlan`: a plan starts the workflow.
-  val aPlanStartsTheWorkflow: bool =
-    lastStep.before.definition == Unplanned and workflow.definition != Unplanned
+  val aPlanStartsTheWorkflow: bool = lastStepReached.aPlanStartsTheWorkflow
 
   /// Witness for `workflowKeepsItsDefinition`: a plan lands on a started workflow.
-  val aPlanLandsOnAStartedWorkflow: bool = match lastStep.kind {
-    | PlanStep(_) => lastStep.before.definition != Unplanned
-    | _ => false
-  }
+  val aPlanLandsOnAStartedWorkflow: bool = lastStepReached.aPlanLandsOnAStartedWorkflow
 
   /// Witness for `jobStartsOnlyIntoAFreeSlot`: a job starts into the last slot.
-  val aJobStartsIntoTheLastSlot: bool =
-    startedIn(lastStep.before, workflow) and unfinishedCount(lastStep.before) == SLOTS - 1
+  val aJobStartsIntoTheLastSlot: bool = lastStepReached.aJobStartsIntoTheLastSlot
 
   /// Witness for `oneLiveJobPerInputArtifact`: two jobs share an input.
   val twoJobsShareAnInput: bool =
@@ -736,25 +818,22 @@ module workflowLifecycle {
     jobIds(workflow).exists(id => match workflow.jobs[id].input { | FromArtifactOf(_) => true | _ => false })
 
   /// Witness for `finishedTaskKeepsItsStatus`: a finished task is there before a step.
-  val aFinishedTaskIsInAStep: bool =
-    lastStep.before.jobs.indices().exists(id => isFinished(lastStep.before.jobs[id].author.status))
+  val aFinishedTaskIsInAStep: bool = lastStepReached.aFinishedTaskIsInAStep
 
   /// Witness for `endedWorkflowHasNoUnfinishedTask`: a workflow ended with jobs.
   val aWorkflowEndedWithJobs: bool = hasEnded(workflow.status) and workflow.jobs.length() > 0
 
   /// Witness for `nothingReopensAFinishedWorkflow`: an event lands on a finished workflow.
-  val anEventLandsOnAFinishedWorkflow: bool =
-    lastStep.kind == EventStep and hasEnded(lastStep.before.status)
+  val anEventLandsOnAFinishedWorkflow: bool = lastStepReached.anEventLandsOnAFinishedWorkflow
 
   /// Witness for `staleAlarmIsIgnored`: a stale alarm fires.
-  val aStaleAlarmFires: bool = lastStep.kind == StaleAlarmStep
+  val aStaleAlarmFires: bool = lastStepReached.aStaleAlarmFires
 
   /// Witness for `sleepMessageOnlyDuringAWorkflow`: the sleep message posts.
-  val theSleepMessagePosts: bool = lastStep.kind == SleepStep
+  val theSleepMessagePosts: bool = lastStepReached.theSleepMessagePosts
 
   /// A person's message wakes a sleeping workflow.
-  val aMessageWakesTheWorkflow: bool =
-    lastStep.kind == EventStep and lastStep.before.status == WaitingInput and workflow.status == Running
+  val aMessageWakesTheWorkflow: bool = lastStepReached.aMessageWakesTheWorkflow
 
   /// An author restarted.
   val anAuthorRestarted: bool = jobIds(workflow).exists(id => workflow.jobs[id].author.restarts > 0)
@@ -778,9 +857,7 @@ module workflowLifecycle {
   val anAuthorFailed: bool = jobIds(workflow).exists(id => workflow.jobs[id].author.status == TaskFailed)
 
   /// A paused author resumes.
-  val aPausedAuthorResumes: bool =
-    lastStep.before.jobs.indices().exists(id =>
-      lastStep.before.jobs[id].author.paused and not(workflow.jobs[id].author.paused))
+  val aPausedAuthorResumes: bool = lastStepReached.aPausedAuthorResumes
 
   /// A job completes.
   val aJobCompletes: bool = jobIds(workflow).exists(id => workflow.jobs[id].author.status == TaskDone)
@@ -789,7 +866,7 @@ module workflowLifecycle {
   val anAcceptanceCheckIsOut: bool = outCalls(workflow, AcceptanceCheck).size() > 0
 
   /// A restart of the Durable Object dropped a call.
-  val aCallWasDropped: bool = workflow.calls.indices().exists(id => workflow.calls[id].state == Dropped)
+  val aCallWasDropped: bool = lastStepReached.aCallWasDropped
 
   /// The reviewer of a page finished.
   val aRefinerRunFinished: bool =

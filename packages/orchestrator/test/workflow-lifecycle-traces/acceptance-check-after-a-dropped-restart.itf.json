@@ -1581,12 +1581,6 @@
               "value": {
                 "#tup": []
               }
-            },
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
             }
           }
         ],
@@ -1691,31 +1685,7 @@
         }
       },
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
-        "calls": [
-          {
-            "job": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#tup": []
-              }
-            },
-            "rest": {
-              "tag": "RestartGoesOn",
-              "value": {
-                "#tup": []
-              }
-            },
-            "state": {
-              "tag": "Dropped",
-              "value": {
-                "#tup": []
-              }
-            }
-          }
-        ],
+        "calls": [],
         "definition": {
           "tag": "Planned",
           "value": {
@@ -1823,29 +1793,6 @@
               "#bigint": "0"
             },
             "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#tup": []
-              }
-            },
-            "rest": {
-              "tag": "RestartGoesOn",
-              "value": {
-                "#tup": []
-              }
-            },
-            "state": {
-              "tag": "Dropped",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "job": {
-              "#bigint": "0"
-            },
-            "kind": {
               "tag": "AcceptanceCheck",
               "value": {
                 "#tup": []
@@ -1853,12 +1800,6 @@
             },
             "rest": {
               "tag": "CompletionGoesOn",
-              "value": {
-                "#tup": []
-              }
-            },
-            "state": {
-              "tag": "Out",
               "value": {
                 "#tup": []
               }

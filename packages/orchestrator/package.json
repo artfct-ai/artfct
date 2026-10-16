@@ -18,8 +18,7 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "test:medium": "vitest run",
-    "lint": "oxlint",
-    "spec:verify": "quint verify"
+    "lint": "oxlint"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^1.8.0",
