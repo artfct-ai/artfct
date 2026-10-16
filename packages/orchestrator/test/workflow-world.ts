@@ -1039,7 +1039,8 @@ export class WorkflowWorld {
 
   /**
    * Run `start`, and restart the workflow while the host writes the page of `author`'s first
-   * model turn, before or after the host applies the write.
+   * model turn, before or after the host applies the write. A page write of another author's
+   * model turn goes through.
    */
   async restartWhileHostWritesPage(
     author: WorldAuthor,
@@ -1050,11 +1051,14 @@ export class WorkflowWorld {
     const createPage = host.createPage.bind(host);
     const updatePageContent = host.updatePageContent.bind(host);
     const turnPrompt = this.turnPromptOf(author);
+    const modelTurnEndsBefore = this.modelTurnEnds.length;
     let cutTurn: (() => void) | null = null;
     const cut = new Promise<"cut">((resolve) => {
       cutTurn = () => resolve("cut");
     });
     const hang = async <Result>(write: () => Promise<Result>): Promise<Result> => {
+      const writer = this.modelTurnEnds.slice(modelTurnEndsBefore).at(-1);
+      if (writer !== author.taskId) return write();
       host.createPage = createPage;
       host.updatePageContent = updatePageContent;
       if (applied === "after") await write();
