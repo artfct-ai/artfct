@@ -4,7 +4,8 @@ import type { Delivery } from "@artfct-ai/contracts/types";
 import { runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { bindWorkflow, findBinding, listBindings } from "../db/bindings";
+import type { Binding } from "@artfct-ai/contracts/sources";
+import { claimBinding, findBinding, listBindings } from "../db/bindings";
 import { createDb } from "../db/client";
 import { createWorkflow, findWorkflow, setWorkflowStatus } from "../db/workflows";
 import { deliver } from "./deliver";
@@ -40,6 +41,17 @@ const linearStart: InboundEvent = {
   ],
   reply_to: { source: "tracker", session_id: "sess-7", issue_id: "ISS-7", team_id: "team-1" },
 };
+
+async function seedBinding(binding: Binding, workflowId: string): Promise<void> {
+  await claimBinding(db, binding, { previous: null, workflowId });
+}
+
+async function startDurableObject(workflowId: string): Promise<void> {
+  const stub = env.Workflow.getByName(workflowId);
+  await runInDurableObject(stub, async (workflow) => {
+    workflow.patchState({ workflow_id: workflowId, created_at: new Date().toISOString() });
+  });
+}
 
 async function stopTurnAndReadLog(workflowId: string): Promise<string[]> {
   const stub = env.Workflow.getByName(workflowId);
@@ -96,9 +108,10 @@ describe("an event that binds to nothing and is no start", () => {
 
   it("reaches the workflow the branch binding names", async () => {
     await createWorkflow(db, "wf_deliver_run");
+    await startDurableObject("wf_deliver_run");
     await setWorkflowStatus(db, "wf_deliver_run", "running");
     const bound = { source: "code_branch", repo: "acme/app", branch: "artfct/wf_x-1-fix" } as const;
-    await bindWorkflow(db, bound, "wf_deliver_run");
+    await seedBinding(bound, "wf_deliver_run");
     const delivery = await deliver(env, {
       ...prClosed,
       id: "evt-pr-run",
@@ -121,7 +134,7 @@ describe("deliver to a finished workflow", () => {
 
     beforeEach(async () => {
       await createWorkflow(db, "wf_bound_done");
-      await bindWorkflow(db, { source: "tracker_issue", external_id: "ISS-9" }, "wf_bound_done");
+      await seedBinding({ source: "tracker_issue", external_id: "ISS-9" }, "wf_bound_done");
       await setWorkflowStatus(db, "wf_bound_done", "done");
       delivery = await deliver(env, {
         ...slackStart,
@@ -151,7 +164,7 @@ describe("deliver to a finished workflow", () => {
 
     beforeEach(async () => {
       await createWorkflow(db, "wf_bound_late");
-      await bindWorkflow(db, { source: "chat_thread", external_id: "C2:2.0" }, "wf_bound_late");
+      await seedBinding({ source: "chat_thread", external_id: "C2:2.0" }, "wf_bound_late");
       await setWorkflowStatus(db, "wf_bound_late", "done");
       delivery = await deliver(env, {
         ...slackStart,
@@ -188,7 +201,7 @@ describe("deliver to a finished workflow", () => {
   describe("a prompt from nobody", () => {
     beforeEach(async () => {
       await createWorkflow(db, "wf_bound_quiet");
-      await bindWorkflow(db, { source: "chat_thread", external_id: "C4:4.0" }, "wf_bound_quiet");
+      await seedBinding({ source: "chat_thread", external_id: "C4:4.0" }, "wf_bound_quiet");
       await setWorkflowStatus(db, "wf_bound_quiet", "failed");
       delivery = await deliver(env, {
         ...slackStart,
@@ -209,7 +222,7 @@ describe("deliver to a finished workflow", () => {
 
     beforeEach(async () => {
       await createWorkflow(db, "wf_bound_retry");
-      await bindWorkflow(db, { source: "chat_thread", external_id: "C5:5.0" }, "wf_bound_retry");
+      await seedBinding({ source: "chat_thread", external_id: "C5:5.0" }, "wf_bound_retry");
       await setWorkflowStatus(db, "wf_bound_retry", "done");
       const spy = failCreates();
       failure = await deliver(env, {
@@ -238,7 +251,7 @@ describe("deliver to a finished workflow", () => {
 
     beforeEach(async () => {
       await createWorkflow(db, "wf_thread_done");
-      await bindWorkflow(db, { source: "chat_thread", external_id: "C3:3.0" }, "wf_thread_done");
+      await seedBinding({ source: "chat_thread", external_id: "C3:3.0" }, "wf_thread_done");
       await setWorkflowStatus(db, "wf_thread_done", "cancelled");
       delivery = await deliver(env, {
         ...slackStart,
@@ -354,7 +367,8 @@ describe("deliver a start event", () => {
   describe("a start whose bindings reach an existing workflow", () => {
     beforeEach(async () => {
       await createWorkflow(db, "wf_join");
-      await bindWorkflow(db, { source: "tracker_issue", external_id: "ISS-1" }, "wf_join");
+      await startDurableObject("wf_join");
+      await seedBinding({ source: "tracker_issue", external_id: "ISS-1" }, "wf_join");
       delivery = await deliver(env, {
         ...slackStart,
         id: "evt-join",
@@ -510,7 +524,7 @@ describe("deliver a Linear session start", () => {
 
     beforeEach(async () => {
       await createWorkflow(db, "wf_linear_done");
-      await bindWorkflow(db, { source: "tracker_issue", external_id: "ISS-7" }, "wf_linear_done");
+      await seedBinding({ source: "tracker_issue", external_id: "ISS-7" }, "wf_linear_done");
       await setWorkflowStatus(db, "wf_linear_done", "done");
       delivery = await deliver(env, { ...linearStart, id: "evt-linear-late" }, tracker);
       workflowId = workflowIdOf(delivery);
@@ -540,7 +554,7 @@ describe("deliver a Linear session start", () => {
   describe("a session nobody opened, on an issue a finished workflow claimed", () => {
     beforeEach(async () => {
       await createWorkflow(db, "wf_linear_idle");
-      await bindWorkflow(db, { source: "tracker_issue", external_id: "ISS-7" }, "wf_linear_idle");
+      await seedBinding({ source: "tracker_issue", external_id: "ISS-7" }, "wf_linear_idle");
       await setWorkflowStatus(db, "wf_linear_idle", "failed");
       delivery = await deliver(
         env,
@@ -566,12 +580,8 @@ describe("deliver a Linear session start", () => {
 
     beforeEach(async () => {
       await createWorkflow(db, "wf_session_done");
-      await bindWorkflow(db, { source: "tracker_issue", external_id: "ISS-7" }, "wf_session_done");
-      await bindWorkflow(
-        db,
-        { source: "tracker_session", external_id: "sess-7" },
-        "wf_session_done",
-      );
+      await seedBinding({ source: "tracker_issue", external_id: "ISS-7" }, "wf_session_done");
+      await seedBinding({ source: "tracker_session", external_id: "sess-7" }, "wf_session_done");
       await setWorkflowStatus(db, "wf_session_done", "done");
       delivery = await deliver(
         env,
@@ -618,11 +628,7 @@ describe("deliver a Linear session start", () => {
   describe("a stop in a session whose workflow ended", () => {
     beforeEach(async () => {
       await createWorkflow(db, "wf_session_stopped");
-      await bindWorkflow(
-        db,
-        { source: "tracker_session", external_id: "sess-7" },
-        "wf_session_stopped",
-      );
+      await seedBinding({ source: "tracker_session", external_id: "sess-7" }, "wf_session_stopped");
       await setWorkflowStatus(db, "wf_session_stopped", "done");
       delivery = await deliver(
         env,
@@ -652,12 +658,9 @@ describe("deliver a Linear session start", () => {
     beforeEach(async () => {
       await createWorkflow(db, "wf_session_old");
       await createWorkflow(db, "wf_issue_running");
-      await bindWorkflow(
-        db,
-        { source: "tracker_session", external_id: "sess-7" },
-        "wf_session_old",
-      );
-      await bindWorkflow(db, { source: "tracker_issue", external_id: "ISS-7" }, "wf_issue_running");
+      await startDurableObject("wf_issue_running");
+      await seedBinding({ source: "tracker_session", external_id: "sess-7" }, "wf_session_old");
+      await seedBinding({ source: "tracker_issue", external_id: "ISS-7" }, "wf_issue_running");
       await setWorkflowStatus(db, "wf_session_old", "done");
       await setWorkflowStatus(db, "wf_issue_running", "running");
       delivery = await deliver(
@@ -688,7 +691,8 @@ describe("deliver a Linear session start", () => {
   describe("a session the agent's own delegation opened", () => {
     beforeEach(async () => {
       await createWorkflow(db, "wf_linear_adopt");
-      await bindWorkflow(db, { source: "tracker_issue", external_id: "ISS-7" }, "wf_linear_adopt");
+      await startDurableObject("wf_linear_adopt");
+      await seedBinding({ source: "tracker_issue", external_id: "ISS-7" }, "wf_linear_adopt");
       delivery = await deliver(
         env,
         { ...linearStart, id: "evt-linear-adopt", actor: null },
@@ -717,7 +721,8 @@ describe("deliver a Linear session start", () => {
   describe("a session on an issue a running workflow claimed", () => {
     beforeEach(async () => {
       await createWorkflow(db, "wf_linear_join");
-      await bindWorkflow(db, { source: "tracker_issue", external_id: "ISS-7" }, "wf_linear_join");
+      await startDurableObject("wf_linear_join");
+      await seedBinding({ source: "tracker_issue", external_id: "ISS-7" }, "wf_linear_join");
       delivery = await deliver(env, { ...linearStart, id: "evt-linear-join" }, tracker);
       await stopTurnAndReadLog("wf_linear_join");
     });
@@ -778,10 +783,12 @@ describe("deliver a base branch move", () => {
     let delivery: Delivery;
 
     beforeEach(async () => {
-      await bindWorkflow(db, { source: "code_pull", repo: "acme/app", number: 1 }, "wf_fan_a");
-      await bindWorkflow(db, { source: "code_pull", repo: "acme/app", number: 2 }, "wf_fan_b");
-      await bindWorkflow(db, { source: "code_pull", repo: "acme/app", number: 3 }, "wf_fan_b");
-      await bindWorkflow(db, { source: "code_pull", repo: "acme/other", number: 4 }, "wf_fan_d");
+      await startDurableObject("wf_fan_a");
+      await startDurableObject("wf_fan_b");
+      await seedBinding({ source: "code_pull", repo: "acme/app", number: 1 }, "wf_fan_a");
+      await seedBinding({ source: "code_pull", repo: "acme/app", number: 2 }, "wf_fan_b");
+      await seedBinding({ source: "code_pull", repo: "acme/app", number: 3 }, "wf_fan_b");
+      await seedBinding({ source: "code_pull", repo: "acme/other", number: 4 }, "wf_fan_d");
       delivery = await deliver(env, {
         ...prClosed,
         id: "evt-base",

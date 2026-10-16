@@ -1,0 +1,48 @@
+{
+  "invariants": [
+    "messageAfterEndStartsNextWorkflow",
+    "aDeliveryLeavesTheBindingsOfARunningWorkflow",
+    "aWorkflowGetsEventsOnlyOnceCreated",
+    "anAbandonedWorkflowKeepsNoBinding",
+    "anEndedWorkflowKeepsNoCodeHostBinding",
+    "oneRunningWorkflowHasAJobOnAnIssue",
+    "aPersonsMessageNeverReachesAnEndedWorkflow"
+  ],
+  "witnesses": {
+    "chatThread": [
+      "aWorkflowStarted",
+      "aDeliveryJoinsAWorkflow",
+      "aDeliveryReachesAWorkflowBeforeItsCreate",
+      "aDeliveryReachesAnEndedWorkflow",
+      "aMessageAfterEndStartedTheNextWorkflow",
+      "aWorkflowWasAbandoned",
+      "aWorkflowEnded",
+      "aPersonWroteAfterAnEnd"
+    ],
+    "twoSessionsOnOneIssue": [
+      "aWorkflowStarted",
+      "aDeliveryJoinsAWorkflow",
+      "aDeliveryReachesAWorkflowBeforeItsCreate",
+      "aDeliveryReachesAnEndedWorkflow",
+      "aStartRebindsItsBindings",
+      "aWorkflowWasAbandoned",
+      "aWorkflowEnded",
+      "aRunningWorkflowHasAJobOnTheIssue",
+      "aJobStartFindsTheIssueBoundElsewhere",
+      "aJobStartFindsTheIssueBindingMoved",
+      "aPersonWroteAfterAnEnd"
+    ],
+    "sessionWithPullRequest": [
+      "aWorkflowStarted",
+      "aDeliveryJoinsAWorkflow",
+      "aDeliveryReachesAWorkflowBeforeItsCreate",
+      "aDeliveryReachesAnEndedWorkflow",
+      "aStartRebindsItsBindings",
+      "aWorkflowWasAbandoned",
+      "aWorkflowEnded",
+      "aRunningWorkflowHasAJobOnTheIssue",
+      "thePullRequestIsBound",
+      "aPersonWroteAfterAnEnd"
+    ]
+  }
+}

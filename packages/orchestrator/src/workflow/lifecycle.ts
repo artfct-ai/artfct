@@ -115,7 +115,6 @@ export async function startJob(
   );
   await changeWorkflowStatus(workflow, "running");
   if (issue) {
-    await bindWorkflow(workflow, { source: "tracker_issue", external_id: issue.id });
     const ref = { issue_id: issue.id, team_id: issue.team_id };
     await workflow.notifier.claimIssue(ref, { started: issue.started });
     const { origin, subject } = state;

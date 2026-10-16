@@ -1,6 +1,6 @@
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-import { bindWorkflow, listBindings } from "../db/bindings";
+import { claimBinding, listBindings } from "../db/bindings";
 import { createDb } from "../db/client";
 import { type FakeRuntime, seedTask } from "../../test/fake-runtime";
 import { freshDurableRuntime } from "../../test/durable-runtime";
@@ -12,11 +12,31 @@ const STAGES = ["design", "breakdown", "implement"];
 const db = createDb(env.DB);
 
 async function bindEverything(): Promise<void> {
-  await bindWorkflow(db, { source: "chat_thread", external_id: "C1:1.0" }, "wf_x");
-  await bindWorkflow(db, { source: "tracker_issue", external_id: "iss1" }, "wf_x");
-  await bindWorkflow(db, { source: "code_branch", repo: "acme/app", branch: "b" }, "wf_x");
-  await bindWorkflow(db, { source: "code_pull", repo: "acme/app", number: 1 }, "wf_x");
-  await bindWorkflow(db, { source: "code_pull", repo: "acme/app", number: 2 }, "wf_other");
+  await claimBinding(
+    db,
+    { source: "chat_thread", external_id: "C1:1.0" },
+    { previous: null, workflowId: "wf_x" },
+  );
+  await claimBinding(
+    db,
+    { source: "tracker_issue", external_id: "iss1" },
+    { previous: null, workflowId: "wf_x" },
+  );
+  await claimBinding(
+    db,
+    { source: "code_branch", repo: "acme/app", branch: "b" },
+    { previous: null, workflowId: "wf_x" },
+  );
+  await claimBinding(
+    db,
+    { source: "code_pull", repo: "acme/app", number: 1 },
+    { previous: null, workflowId: "wf_x" },
+  );
+  await claimBinding(
+    db,
+    { source: "code_pull", repo: "acme/app", number: 2 },
+    { previous: null, workflowId: "wf_other" },
+  );
 }
 
 async function boundSources(): Promise<string[]> {

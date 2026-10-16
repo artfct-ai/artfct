@@ -1,7 +1,7 @@
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
-import { bindWorkflow, listBindings } from "../../db/bindings";
+import { claimBinding, listBindings } from "../../db/bindings";
 import { createDb } from "../../db/client";
 import { applyControlWord } from "./controls";
 import { type FakeRuntime, seedPullRequestTask, seedTask } from "../../../test/fake-runtime";
@@ -146,10 +146,26 @@ describe("control", () => {
 
     describe("with a binding of every kind on the workflow", () => {
       const cancelled = controlling(async (workflow) => {
-        await bindWorkflow(db, { source: "code_pull", repo: "acme/app", number: 1 }, "wf_x");
-        await bindWorkflow(db, { source: "code_branch", repo: "acme/app", branch: "b" }, "wf_x");
-        await bindWorkflow(db, { source: "tracker_issue", external_id: "iss1" }, "wf_x");
-        await bindWorkflow(db, { source: "code_pull", repo: "acme/app", number: 2 }, "wf_other");
+        await claimBinding(
+          db,
+          { source: "code_pull", repo: "acme/app", number: 1 },
+          { previous: null, workflowId: "wf_x" },
+        );
+        await claimBinding(
+          db,
+          { source: "code_branch", repo: "acme/app", branch: "b" },
+          { previous: null, workflowId: "wf_x" },
+        );
+        await claimBinding(
+          db,
+          { source: "tracker_issue", external_id: "iss1" },
+          { previous: null, workflowId: "wf_x" },
+        );
+        await claimBinding(
+          db,
+          { source: "code_pull", repo: "acme/app", number: 2 },
+          { previous: null, workflowId: "wf_other" },
+        );
         seedTask(workflow);
       }, controlEvent("cancel"));
 

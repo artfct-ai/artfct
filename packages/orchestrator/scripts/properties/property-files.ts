@@ -26,6 +26,12 @@ export const PROPERTY_FILES = {
     runner: ["bunx", "vitest", "run"],
     e2eRuns: 1000,
   },
+  router_bindings: {
+    title: "router bindings spec replay",
+    path: "src/router/router-bindings-replay.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 3000,
+  },
 } satisfies Record<string, PropertyFile>;
 
 /** A property file run past this is a hang, reported with its seed. */
