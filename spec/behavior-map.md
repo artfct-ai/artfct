@@ -4,7 +4,7 @@ This file lists each effect a person sees or the system relies on, and the invar
 
 Effects use the terms of the glossary. A guard is the exact function name of an invariant. A row with an empty guard list is unguarded.
 
-The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The agent turn invariants live in `packages/orchestrator/test/agent-invariants.ts`. The router, chat acknowledgement and page revision invariants live beside them. The router binding invariants live in the Quint spec at `spec/router-bindings/routerBindings.qnt`. The webhook invariants live in `packages/ingress/test/webhook-invariants.ts`, and the inbound mapper invariants in `packages/adapters/test/inbound-invariants.ts`.
+The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The agent turn invariants live in `packages/orchestrator/test/agent-invariants.ts`. The router, chat acknowledgement and page revision invariants live beside them. The router binding invariants live in the Quint spec at `spec/router-bindings/routerBindings.qnt`. The review loop invariants live in the Quint spec at `spec/review-loop/reviewLoop.qnt`, which mirrors a workflow invariant under its name. The webhook invariants live in `packages/ingress/test/webhook-invariants.ts`, and the inbound mapper invariants in `packages/adapters/test/inbound-invariants.ts`.
 
 ## Workflow, tasks and statuses
 
@@ -45,7 +45,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | T27 | A researcher or refiner turn that gave up or stopped on a limit restarts or fails. | |
 | T28 | A researcher's payload passes to its author. A missing or oversized payload restarts or fails the researcher. | `researchReadsCompleteOnceTheAuthorStarts` |
 | T29 | A prompt RPC error clears the prompt, writes a board note, and wakes the agent for an idle author. A researcher or refiner drains its queue or restarts. | |
-| T30 | A model-call author fails without a restart on a model error, an empty answer, a missing closing text, a comment reply that does not validate, or a page host error. | |
+| T30 | A model-call author fails without a restart on a model error, an empty answer, a missing closing text, a comment reply that does not validate, or a page host error. | `aModelCallAuthorFailsOnlyOnAHostError` |
 | T31 | A model turn that a restart or its deadline cut runs again as a restart. A revise keeps its prompt queued until it applies the answer. An author with its page out goes back in review and takes that prompt. One without its page produces it again. A paused author stays paused. Past the restart limit the task fails with a post to the person. | `aRestartDoesNotLoseAModelTurn` |
 | T32 | A prompt queued for an unpaused model-call author reaches it. A model turn is in flight, the author is starting, or a polisher holds its page. | `aQueuedPromptReachesItsModelCallAuthor` |
 | T33 | A restart after the host wrote the page but before the store recorded it runs the turn again. A first turn creates a second page. A revise runs again on the revised text and can post its comment replies twice. | |
@@ -178,11 +178,11 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | ID | Effect | Guarded by |
 |---|---|---|
 | R30 | A pull request reviewer posts its own review with its own token. | |
-| R31 | A page review posts each finding with a passage as an inline comment, then one outcome comment with the review line. A failed inline comment moves into the outcome comment. The post happens before the check that the run still owns the artifact. | |
-| R32 | A judge rejection posts the signed reason on the pull request or page, or in the thread for issues. A failed post is logged, and the author still gets the rejection. | |
+| R31 | A page review posts each finding with a passage as an inline comment, then one outcome comment with the review line. A failed inline comment moves into the outcome comment. The post happens before the check that the run still owns the artifact. | `pageReviewPostsEachFindingOnce` |
+| R32 | A judge rejection posts the signed reason on the pull request or page, or in the thread for issues. A failed post is logged, and the author still gets the rejection. | `aJudgeRejectionPostsItsReasonOnce` |
 | R33 | Person feedback on a pull request gets the eyes reaction per comment, or "Relayed to the author." when it lacks comment handles, before routing. One failure skips the rest. | |
-| R34 | A page comment is acknowledged with the eyes reply when it is sent to the author. | `aPromptToAPageAuthorCarriesItsHeldComments` |
-| R35 | A model-call author's revise posts one comment reply per handled comment before it writes the page. A failed reply fails the task, and replies already posted stay. | `sentCommentIsAnsweredBeforeItsLineGoes`, `replyGoesOnlyToASentComment`, `failedReplyLeavesThePage` |
+| R34 | A page comment is acknowledged with the eyes reply when it is sent to the author. | `aPromptToAPageAuthorCarriesItsHeldComments`, `aHeldCommentStaysHeldUntilItReachesTheAuthor` |
+| R35 | A model-call author's revise posts one comment reply per handled comment before it writes the page. A failed reply fails the task, and replies already posted stay. | `sentCommentIsAnsweredBeforeItsLineGoes`, `replyGoesOnlyToASentComment`, `failedReplyLeavesThePage`, `aModelCallAuthorFailsOnlyOnAHostError` |
 | R36 | A page text change keeps the identity of every line the answer left alone. | `untouchedLinesKeepTheirIdentity` |
 | R37 | The root page holds a resources section that code writes: a heading, one link line per linked page, and the link removed when a page moves under the root page. The author text goes above it. | |
 
@@ -193,7 +193,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | E1 | Every feedback event on a running workflow gets one routing decision: author, agent, or `nobody`. A failed decisions call routes to the agent. | `everyFeedbackGetsOneRoutingDecision` |
 | E2 | Feedback the screen does not admit reaches neither the agent nor the author. | `unadmittedFeedbackReachesNobody` |
 | E3 | A pull request review claims its review id only when the host read succeeds. On a failed read, the review and its comments can each prompt the author. | |
-| E4 | A page comment that does not mention the bot stays held. A mention sends every held comment with it as one feedback. | `aPromptToAPageAuthorCarriesItsHeldComments` |
+| E4 | A page comment that does not mention the bot stays held. A mention sends every held comment with it as one feedback. | `aPromptToAPageAuthorCarriesItsHeldComments`, `aHeldCommentStaysHeldUntilItReachesTheAuthor` |
 | E5 | A finished workflow ignores events. It refuses a person's message, and the router starts the next workflow with it. A stop still stops the author, a status gets the summary, and anything else gets "This workflow is X". | `nothingReopensAFinishedWorkflow`, `endedWorkflowHasNoUnfinishedTask`, `aPersonsMessageNeverReachesAnEndedWorkflow` |
 | E6 | A message wakes a workflow from `waiting_input` to `running` and rearms the idle alarm. | |
 | E7 | A stop clears the author's queue, cancels its turn or ends a starting turn, and closes the feed with "Stopped.". The workflow does not change, and the orchestrator does not post. | `stopEndsTheAuthorsTurn`, `stoppedModelCallLeavesThePage` |

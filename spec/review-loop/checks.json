@@ -8,7 +8,16 @@
     "reviewerRunsOnlyOnAnUnreviewedRevision",
     "authorGetsEveryPullFinding",
     "authorGetsEveryPageFinding",
-    "aQueuedPromptReachesItsModelCallAuthor"
+    "aQueuedPromptReachesItsModelCallAuthor",
+    "pageReviewPostsEachFindingOnce",
+    "aPromptToAPageAuthorCarriesItsHeldComments",
+    "unadmittedFeedbackReachesNobody",
+    "sentCommentIsAnsweredBeforeItsLineGoes",
+    "replyGoesOnlyToASentComment",
+    "failedReplyLeavesThePage",
+    "aJudgeRejectionPostsItsReasonOnce",
+    "aHeldCommentStaysHeldUntilItReachesTheAuthor",
+    "aModelCallAuthorFailsOnlyOnAHostError"
   ],
   "witnesses": {
     "judgeThenPolisher": [
@@ -61,7 +70,19 @@
       "theHumansHaveTheArtifact",
       "aReviewerReachedTheLimit",
       "aRefinerRunRestarted",
-      "aPolisherFinished"
+      "aPolisherFinished",
+      "aPageReviewPostsAnInlineFinding",
+      "aPageReviewMovesInlineFindingsIntoItsOutcome",
+      "aPageReviewMeetsAHostThatIsDown",
+      "heldCommentsGoToThePageAuthor",
+      "heldCommentsStayHeld",
+      "theScreenKeepsHeldComments",
+      "aHeldCommentReachesTheAuthor",
+      "theAuthorRepliesToAComment",
+      "aRevisionRewritesTheBlockOfAnAnsweredComment",
+      "aCommentReplyFails",
+      "theHostFailsAModelCallAuthor",
+      "aPersonEditsDuringAModelCallTurn"
     ],
     "pageReviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -73,7 +94,14 @@
       "theHumansHaveTheArtifact",
       "aReviewerReachedTheLimit",
       "aRefinerRunRestarted",
-      "aPolisherFinished"
+      "aPolisherFinished",
+      "aPageReviewPostsAnInlineFinding",
+      "aPageReviewMovesInlineFindingsIntoItsOutcome",
+      "aPageReviewMeetsAHostThatIsDown",
+      "heldCommentsGoToThePageAuthor",
+      "heldCommentsStayHeld",
+      "theScreenKeepsHeldComments",
+      "aHeldCommentReachesTheAuthor"
     ],
     "pageJudgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -85,7 +113,16 @@
       "aPageAuthorGetsTheFindingsOfItsReviewer",
       "theHumansHaveTheArtifact",
       "aReviewerReachedTheLimit",
-      "aRefinerRunRestarted"
+      "aRefinerRunRestarted",
+      "aPageReviewPostsAnInlineFinding",
+      "aPageReviewMovesInlineFindingsIntoItsOutcome",
+      "aPageReviewMeetsAHostThatIsDown",
+      "heldCommentsGoToThePageAuthor",
+      "heldCommentsStayHeld",
+      "theScreenKeepsHeldComments",
+      "aHeldCommentReachesTheAuthor",
+      "aRejectionLandsOnThePage",
+      "theHostFailsARejection"
     ]
   }
 }

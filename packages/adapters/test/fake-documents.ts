@@ -44,19 +44,28 @@ export type DocumentsAnswers = {
 /** Methods a `FakeDocuments` records. */
 export type DocumentsMethod = Exclude<keyof Documents, "nesting"> | keyof PageNesting;
 
+/** The user the credential acts as when the answers name none. */
+const FAKE_SELF: DocumentsUser = { id: "self", name: "artfct" };
+
 /** The most edits the fake takes in one update, the way Notion limits them. */
 const FAKE_EDITS_MAX = 100;
 
 /** One line of a page. A line keeps its id until an edit covers it, like a Notion block. */
 type FakeLine = { id: number; text: string };
 
-/** A person's comment on a page, on one line or on the page as a whole when `lineId` is null. */
+/**
+ * A person's comment on a page, on one line or on the page as a whole when `lineId` is null. It
+ * opens its own discussion unless `discussionId` names the discussion it replies in, and it
+ * mentions the document user when `mentionsSelf` is true.
+ */
 export type FakePersonComment = {
   id: string;
   pageId: string;
   lineId: number | null;
   authorName: string;
   text: string;
+  discussionId?: string;
+  mentionsSelf?: boolean;
 };
 
 /** What happened to comments and lines on the host, in order. */
@@ -321,9 +330,25 @@ export class FakeDocuments implements Documents {
     return unposted;
   }
 
+  /**
+   * Mark the discussion of the comment read, the way the Notion eyes reply does: every comment in
+   * that discussion now is acknowledged, and a later one is held again.
+   */
   async acknowledgeComment(comment: PageCommentRef): Promise<void> {
     this.record("acknowledgeComment", comment);
+    const discussion = this.discussionOf(comment.commentId);
     this.acknowledged.add(comment.commentId);
+    for (const held of this.held) {
+      if (held.id === discussion) this.acknowledged.add(held.id);
+    }
+    for (const person of this.personComments) {
+      if (this.discussionOf(person.id) === discussion) this.acknowledged.add(person.id);
+    }
+  }
+
+  private discussionOf(commentId: string): string {
+    const person = this.personComments.find((listed) => listed.id === commentId);
+    return person?.discussionId ?? commentId;
   }
 
   /** A reply to a person comment whose line is gone fails, the way a deleted block's would. */
@@ -340,7 +365,14 @@ export class FakeDocuments implements Documents {
     this.record("fetchComment", commentId);
     const listed = this.answers.comments;
     if (listed && commentId in listed) return listed[commentId] ?? null;
-    return { text: "", author: null, mentions: [] };
+    const person = this.personComments.find((comment) => comment.id === commentId);
+    if (!person) return { text: "", author: null, mentions: [] };
+    const self = this.answers.self ?? FAKE_SELF;
+    return {
+      text: person.text,
+      author: { id: `person-${person.authorName}`, email: null },
+      mentions: person.mentionsSelf ? [self.id] : [],
+    };
   }
 
   async heldComments(pageId: string): Promise<HeldComment[]> {
@@ -366,7 +398,7 @@ export class FakeDocuments implements Documents {
 
   async self(): Promise<DocumentsUser> {
     this.record("self");
-    return this.answers.self ?? { id: "self", name: "artfct" };
+    return this.answers.self ?? FAKE_SELF;
   }
 
   async userEmail(userId: string): Promise<string | null> {
