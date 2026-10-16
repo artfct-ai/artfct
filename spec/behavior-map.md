@@ -167,7 +167,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| R20 | The author does not take a prompt while a polisher runs. | `authorIsIdleWhileAPolisherRuns` |
+| R20 | The author does not take a prompt while a polisher runs. The first prompt of a session that opens meanwhile, such as after a restart, waits at the head of its queue until the polisher ends. | `authorIsIdleWhileAPolisherRuns` |
 | R21 | The checks gate waits for checks on the pushed revision. Passed checks stand 60 seconds, unreported ones wait 5 minutes, and running ones wait up to 2 hours, then the gate blocks. Failed checks or a conflict go back to the pusher once per revision. | |
 | R22 | An unreadable revision opens the checks gate, so the refiners and the handover skip CI. | |
 | R23 | The `recheck` alarm ticks every 60 seconds while the gate waits and stops when it opens, blocks, or the workflow ends. | |

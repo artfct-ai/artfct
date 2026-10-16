@@ -123,7 +123,8 @@ export function generateTraces(setup: SpecSetup, count: number, seed: number): T
   );
 }
 
-function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
+/** The steps of one spec trace, given as its ITF JSON, run on one setup. */
+export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
   return itfList(itfField(trace, "states")).map((state) => {
     const picks = itfField(state, "mbt::nondetPicks");
     const picked = (name: string) => {
@@ -328,7 +329,12 @@ export class WorkflowLifecycleReplay {
             generationClosed:
               !isTaskFinished(author.status) &&
               workflow.connections(author.task_id).length === 0 &&
-              !this.calls.some((call) => call.jobId === job.job_id && call.state === "Out"),
+              !this.calls.some(
+                (call) =>
+                  call.kind === "SandboxDestroy" &&
+                  call.jobId === job.job_id &&
+                  call.state === "Out",
+              ),
           },
           artifact: !artifact ? "NoArtifact" : artifact.status === "drafted" ? "Drafted" : "Ready",
           refinerRun:
