@@ -253,6 +253,22 @@ const admittedHeldComments: HeldCommentsRead = {
   meanwhile: "nothing",
 };
 
+const heldCommentsRead: fc.Arbitrary<HeldCommentsRead> = fc.record({
+  decisions: fc.constantFrom(
+    "answers" as const,
+    "answers" as const,
+    "fails" as const,
+    "hangs" as const,
+  ),
+  host: fc.constantFrom(
+    "readable" as const,
+    "readable" as const,
+    "down" as const,
+    "refuses_acknowledgement" as const,
+  ),
+  meanwhile: fc.constantFrom("nothing" as const, "nothing" as const, "agent_cancels" as const),
+});
+
 const PLANNED_STAGES = [["implement"], ["breakdown", "implement"], ["design", "plan", "breakdown"]];
 
 const PLANNED_DEFINITIONS = [
@@ -548,6 +564,12 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
   {
     weight: 4,
     arbitrary: author.map((index) => agentPromptsAuthor(index, admittedHeldComments)),
+  },
+  {
+    weight: 2,
+    arbitrary: fc
+      .tuple(author, heldCommentsRead)
+      .map(([index, read]) => personAsksForRevision(index, read)),
   },
   {
     weight: 1,
