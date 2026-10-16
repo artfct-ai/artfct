@@ -36,6 +36,72 @@ jobs:
         run: bun install --lockfile-only && git diff --exit-code bun.lock
       - run: bun run check:affected
 
+  quint_specs:
+    name: quint specs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      setups: ${{ steps.list.outputs.setups }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: List each spec's setups and its replay test
+        id: list
+        run: |
+          setups=$(for checks in spec/*/checks.json; do
+            spec=$(basename "$(dirname "$checks")")
+            replay=$(git -C packages/orchestrator ls-files "*/$spec-replay.test.ts")
+            jq -c --arg spec "$spec" --arg replay "$replay" '.witnesses | keys[] | {spec: $spec, setup: ., replay: $replay}' "$checks"
+          done | jq -sc .)
+          echo "setups=$setups" >> "$GITHUB_OUTPUT"
+
+  quint_spec:
+    name: quint spec (${{ matrix.spec }}, ${{ matrix.setup }})
+    needs: quint_specs
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJSON(needs.quint_specs.outputs.setups) }}
+    defaults:
+      run:
+        working-directory: packages/orchestrator
+    env:
+      SETUP: ${{ matrix.setup }}
+      SETUP_FILE: ../../spec/${{ matrix.spec }}/${{ matrix.setup }}.qnt
+      CHECKS: ../../spec/${{ matrix.spec }}/checks.json
+      REPLAY: ${{ matrix.replay }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.quint
+          key: quint-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: quint-${{ runner.os }}-
+      - run: bunx quint typecheck "$SETUP_FILE"
+      - name: Fail when a witness is never reached
+        run: |
+          mapfile -t witnesses < <(jq -r --arg setup "$SETUP" '.witnesses[$setup][]' "$CHECKS")
+          bunx quint run "$SETUP_FILE" --main="$SETUP" --max-samples=10000 --max-steps=25 --witnesses "${witnesses[@]}" | tee "$RUNNER_TEMP/witnesses.log"
+          ! grep "witnessed in 0 trace" "$RUNNER_TEMP/witnesses.log"
+      - name: Run each invariant on 100,000 samples
+        run: |
+          violated=0
+          mapfile -t invariants < <(jq -r '.invariants[]' "$CHECKS")
+          for invariant in "${invariants[@]}"; do
+            bunx quint run "$SETUP_FILE" --main="$SETUP" --invariant="$invariant" --max-samples=100000 --max-steps=25 || violated=1
+          done
+          exit "$violated"
+      - if: ${{ !cancelled() && matrix.replay != '' }}
+        run: bun run template-config
+      - name: Replay the spec traces through the workflow
+        if: ${{ !cancelled() && matrix.replay != '' }}
+        run: bun test "./$REPLAY" --test-name-pattern "on $SETUP\$" --pass-with-no-tests
+
   e2e_property_test:
     name: e2e property based test (shard ${{ matrix.shard }})
     needs: ci

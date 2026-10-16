@@ -12,13 +12,7 @@ import type {
   PullRequestReviewComment,
 } from "@artfct-ai/adapters/code/types";
 import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
-import type {
-  Choice,
-  DecisionAnswers as AnsweredDecisions,
-  DecisionQuestions,
-  Decisions,
-  DecisionState,
-} from "@artfct-ai/adapters/gateway/types";
+import type { Choice, Decisions } from "@artfct-ai/adapters/gateway/types";
 import type { HeldComment } from "@artfct-ai/adapters/documents/types";
 import type { AgentActivityContent } from "@artfct-ai/adapters/tracker/types";
 import { FakeDecisions, HangingDecisions } from "@artfct-ai/adapters/test/fake-decisions";
@@ -44,6 +38,7 @@ import { onModelTurnDeadline, type ModelTurnAlarm } from "../src/workflow/task/m
 import { runStartStep } from "./restart";
 import { acceptingD1 } from "./accepting-d1";
 import { FakeBridge } from "./fake-bridge";
+import { InterleavedDecisions, onFirstCall, onFirstCallAsking } from "./interleaved-decisions";
 import { CLOSING_TEXT_MARKER } from "../src/prompts/model-author-prompt";
 import { EchoModel, ScriptedFailure } from "./fake-model";
 import {
@@ -506,12 +501,13 @@ export class WorkflowWorld {
     const outboxBefore = this.workflow.store.outbox().length;
     const postedBefore = this.workflow.posted.length;
     this.delivered = null;
-    this.runningAction = { label: String(action), statementsAtStart: this.statements };
+    const running = { label: String(action), statementsAtStart: this.statements };
+    this.runningAction = running;
     const facts = (await action.run(this)) ?? {};
     this.adoptNewAuthors();
     await this.dropClosedSockets();
-    const work = this.statements - this.runningAction.statementsAtStart;
-    this.runningAction = null;
+    const work = this.statements - running.statementsAtStart;
+    if (this.runningAction === running) this.runningAction = null;
     const ended = facts.refinerTurnEnd?.task_id;
     if (ended && !this.runningBridgeOf(ended)) {
       this.promptsAtNormalTurnEnd.set(ended, this.promptsSentTo(ended));
@@ -795,7 +791,10 @@ export class WorkflowWorld {
   ): void {
     const answering = decisionsAnswering(answers);
     const decisions = meanwhile
-      ? new InterleavedDecisions(answering, meanwhile, question ?? null)
+      ? new InterleavedDecisions(
+          answering,
+          question ? onFirstCallAsking(question, meanwhile) : onFirstCall(meanwhile),
+        )
       : answering;
     this.workflow.gatewayInstance = new FakeGateway({ decisions });
   }
@@ -1427,6 +1426,11 @@ function revisionOf(pull: WorldPull): string {
   return `rev-${pull.number}-${pull.revisionNumber}`;
 }
 
+/** How many pushes came before a revision of a world pull request, read from its name. */
+export function pushCountOf(revision: string): number {
+  return Number(revision.slice(revision.lastIndexOf("-") + 1));
+}
+
 const PASSED_LONG_AGO: CommitChecks = { state: "passed", settled_at: new Date(0).toISOString() };
 
 const MERGEABLE: Record<Mergeability, { mergeable: boolean | null; mergeable_state: string }> = {
@@ -1471,35 +1475,5 @@ function decisionsAnswering(answers: DecisionAnswers): Decisions {
         ...(outcome ? { outcome } : {}),
       });
     }
-  }
-}
-
-/**
- * A decisions model that lets one event land while a call is out, then answers. The event lands
- * on the first call, or on the first call that asks the yes-or-no question it waits for.
- */
-class InterleavedDecisions implements Decisions {
-  readonly deadlineMs: number;
-  private meanwhile: (() => Promise<void>) | null;
-
-  constructor(
-    private readonly answering: Decisions,
-    meanwhile: () => Promise<void>,
-    private readonly question: string | null,
-  ) {
-    this.deadlineMs = answering.deadlineMs;
-    this.meanwhile = meanwhile;
-  }
-
-  async decide<YesNoName extends string, ChoiceName extends string>(
-    state: DecisionState,
-    questions: DecisionQuestions<YesNoName, ChoiceName>,
-    signal?: AbortSignal,
-  ): Promise<AnsweredDecisions<YesNoName, ChoiceName>> {
-    const waited = this.question === null || Object.hasOwn(questions.yesNo, this.question);
-    const meanwhile = waited ? this.meanwhile : null;
-    if (waited) this.meanwhile = null;
-    if (meanwhile) await meanwhile();
-    return this.answering.decide(state, questions, signal);
   }
 }

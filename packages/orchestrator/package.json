@@ -18,7 +18,8 @@
     "typecheck": "tsc --noEmit",
     "test": "bun test",
     "test:medium": "vitest run",
-    "lint": "oxlint"
+    "lint": "oxlint",
+    "spec:verify": "quint verify"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^1.8.0",
@@ -37,6 +38,7 @@
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.3.3",
+    "@informalsystems/quint": "^0.33.0",
     "drizzle-kit": "^0.31.11",
     "fast-check": "^4.10.2",
     "wrangler": "^4.148.0"
