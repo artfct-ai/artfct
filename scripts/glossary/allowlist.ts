@@ -206,6 +206,20 @@ export const ALLOWED_WORDS: AllowedWord[] = [
     reason: NOT_RULED_ON,
   },
   {
+    word: "discussion",
+    paths: [
+      "packages/adapters/src/documents/notion/cli.ts",
+      "packages/adapters/src/documents/notion/documents.ts",
+      "packages/adapters/src/documents/notion/held-comments.ts",
+    ],
+    reason: "The Notion API names a comment thread by its `discussion_id`.",
+  },
+  {
+    word: "discussion",
+    paths: ["packages/orchestrator/src/decisions/screen.ts"],
+    reason: "The plain word for a text that discusses a subject.",
+  },
+  {
     word: "verdict",
     paths: ["template/orchestrator/skills/plan-review/SKILL.md"],
     reason: NOT_RULED_ON,
