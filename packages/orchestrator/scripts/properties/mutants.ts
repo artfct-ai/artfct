@@ -139,8 +139,8 @@ export const MUTANTS: Mutant[] = [
   {
     id: "W17",
     invariant: "reviewerRunsOnlyOnAnUnreviewedRevision",
-    path: "src/agent/tools/artifact.ts",
-    find: "  const reviewed = validateRevisionUnreviewed(workflow, pointer, revision);\n  if (reviewed) return reviewed;\n",
+    path: "src/workflow/refiner/stage-refiner.ts",
+    find: "  if (entryReviewedRevision(runs, index, revision)) return true;\n",
     replace: "",
   },
   {
