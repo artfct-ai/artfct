@@ -42,7 +42,11 @@ import {
   LINEAR_PAGE_PARENT_HINT,
   linearMcpServer,
 } from "@artfct-ai/adapters/tracker/linear/mcp";
-import type { Tracker } from "@artfct-ai/adapters/tracker/types";
+import {
+  LinearTrackerOAuth,
+  type LinearApiOptions,
+} from "@artfct-ai/adapters/tracker/linear/tracker-oauth";
+import type { Tracker, TrackerOAuth } from "@artfct-ai/adapters/tracker/types";
 import { HttpWeb } from "@artfct-ai/adapters/web/http";
 import type { Web } from "@artfct-ai/adapters/web/types";
 import type { ArtifactKind } from "@artfct-ai/contracts/types";
@@ -62,7 +66,7 @@ import type {
 import { createDb } from "./db/client";
 import { readLinearInstall } from "./db/linear-installs";
 import type { Env } from "./env";
-import { InstallToken, linearApi, type TokenOptions } from "./oauth/token";
+import { InstallToken, type TokenOptions } from "./oauth/token";
 
 /** The code host from a GitHub App installation. Null while any of its credentials is unset. */
 export function codeHost(env: Env, provider: CodeProvider): CodeHost | null {
@@ -118,6 +122,21 @@ export function web(): Web {
   return new HttpWeb();
 }
 
+/** Where Linear's API is. `LINEAR_API_URL` points the smoke run at a fake server. */
+function linearApi(env: Env, fetchImpl?: typeof fetch): LinearApiOptions {
+  return {
+    ...(env.LINEAR_API_URL ? { baseUrl: env.LINEAR_API_URL } : {}),
+    ...(fetchImpl ? { fetch: fetchImpl } : {}),
+  };
+}
+
+/** The tracker's OAuth app, or null while either of its client secrets is unset. */
+export function trackerOAuth(env: Env, fetchImpl?: typeof fetch): TrackerOAuth | null {
+  if (!env.LINEAR_CLIENT_ID || !env.LINEAR_CLIENT_SECRET) return null;
+  const app = { clientId: env.LINEAR_CLIENT_ID, clientSecret: env.LINEAR_CLIENT_SECRET };
+  return new LinearTrackerOAuth(app, linearApi(env, fetchImpl));
+}
+
 /** A tracker over one fixed token, for reading who a fresh OAuth token acts as. */
 export function trackerForToken(env: Env, token: string): Tracker {
   return new LinearTracker(token, linearApi(env));
@@ -134,7 +153,7 @@ async function linearCredential(
   const db = createDb(env.DB);
   const install = await readLinearInstall(db);
   if (!install) return null;
-  const token = new InstallToken(install, env, db, options);
+  const token = new InstallToken(install, db, trackerOAuth(env, options.fetch), options.now);
   return { token: () => token.current(), appUserId: install.app_user_id };
 }
 

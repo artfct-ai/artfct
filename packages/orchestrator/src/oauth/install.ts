@@ -1,21 +1,16 @@
-import {
-  linearAuthorizeUrl,
-  linearExchangeCode,
-  linearTokenExpiryIso,
-} from "@artfct-ai/adapters/tracker/linear/oauth";
-import type { Tracker } from "@artfct-ai/adapters/tracker/types";
+import type { Tracker, TrackerOAuth } from "@artfct-ai/adapters/tracker/types";
 import type {
   LinearInstallInput,
   LinearInstallLink,
   LinearInstallResult,
 } from "@artfct-ai/contracts/types";
-import { trackerForToken } from "../clients";
+import { trackerForToken, trackerOAuth } from "../clients";
 import type { Database } from "../db/client";
 import { readLinearInstall, saveLinearInstall } from "../db/linear-installs";
 import { consumeOauthState, saveOauthState } from "../db/linear-oauth-states";
 import type { Env } from "../env";
 import { newToken } from "../ids";
-import { linearApi, linearOAuthApp, type TokenOptions } from "./token";
+import { tokenExpiryIso, type TokenOptions } from "./token";
 
 /** How long an install link stays valid. */
 export const STATE_LIFETIME_MS = 15 * 60_000;
@@ -35,13 +30,12 @@ export async function linearInstallUrl(
   input: { redirect_uri: string },
   options: TokenOptions = {},
 ): Promise<LinearInstallLink> {
-  const app = linearOAuthApp(env);
-  if (!app) return { error: OAUTH_NOT_CONFIGURED };
+  const oauth = trackerOAuth(env);
+  if (!oauth) return { error: OAUTH_NOT_CONFIGURED };
   const now = (options.now ?? Date.now)();
   const state = newToken();
   await saveOauthState(db, state, new Date(now + STATE_LIFETIME_MS).toISOString());
-  const redirectUri = input.redirect_uri;
-  return { url: linearAuthorizeUrl({ clientId: app.clientId, redirectUri, state }) };
+  return { url: oauth.authorizeUrl({ redirectUri: input.redirect_uri, state }) };
 }
 
 /**
@@ -54,29 +48,29 @@ export async function completeLinearInstall(
   input: LinearInstallInput,
   options: TokenOptions = {},
 ): Promise<LinearInstallResult> {
-  const app = linearOAuthApp(env);
-  if (!app) return { installed: false, error: OAUTH_NOT_CONFIGURED };
+  const oauth = trackerOAuth(env, options.fetch);
+  if (!oauth) return { installed: false, error: OAUTH_NOT_CONFIGURED };
   const now = (options.now ?? Date.now)();
   const fresh = await consumeOauthState(db, input.state, new Date(now).toISOString());
   if (!fresh) return { installed: false, error: BAD_STATE };
   try {
-    const redirectUri = input.redirect_uri;
-    return await installFromCode(env, db, { code: input.code, redirectUri }, options);
+    const code = { code: input.code, redirectUri: input.redirect_uri };
+    return await installFromCode({ env, db, oauth, code, options });
   } catch (error) {
     return { installed: false, error: String(error) };
   }
 }
 
 /** Exchange the code, learn who the token acts as, and store the install for that workspace. */
-async function installFromCode(
-  env: Env,
-  db: Database,
-  input: { code: string; redirectUri: string },
-  options: TokenOptions,
-): Promise<LinearInstallResult> {
-  const app = linearOAuthApp(env);
-  if (!app) return { installed: false, error: OAUTH_NOT_CONFIGURED };
-  const tokens = await linearExchangeCode(app, input, linearApi(env, options.fetch));
+async function installFromCode(install: {
+  env: Env;
+  db: Database;
+  oauth: TrackerOAuth;
+  code: { code: string; redirectUri: string };
+  options: TokenOptions;
+}): Promise<LinearInstallResult> {
+  const { env, db, oauth, options } = install;
+  const tokens = await oauth.exchangeCode(install.code);
   const appUser = await trackerFor(env, options, tokens.access_token).appUser();
   const existing = await readLinearInstall(db);
   if (existing && existing.organization_id !== appUser.organization.id) {
@@ -89,7 +83,7 @@ async function installFromCode(
     app_user_id: appUser.id,
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token ?? null,
-    expires_at: linearTokenExpiryIso(tokens, (options.now ?? Date.now)()),
+    expires_at: tokenExpiryIso(tokens, (options.now ?? Date.now)()),
     scope: tokens.scope ?? "",
   });
   return { installed: true, organization: appUser.organization.name, app_user_id: appUser.id };

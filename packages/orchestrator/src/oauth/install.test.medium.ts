@@ -1,5 +1,5 @@
 import { APP_USER, FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
-import type { LinearTokens } from "@artfct-ai/adapters/tracker/linear/oauth";
+import type { LinearTokens } from "@artfct-ai/adapters/tracker/linear/tracker-oauth";
 import type { LinearInstallResult } from "@artfct-ai/contracts/types";
 import { env } from "cloudflare:workers";
 import { beforeEach, describe, expect, it } from "vitest";

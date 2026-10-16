@@ -78,6 +78,24 @@ export type SessionPlanItem = {
   status: "pending" | "inProgress" | "completed" | "canceled";
 };
 
+/** Tokens a tracker's OAuth grant returns. `expires_in` is in seconds. */
+export type TrackerTokens = {
+  access_token: string;
+  refresh_token?: string;
+  scope?: string;
+  expires_in: number;
+};
+
+/** The tracker's OAuth app: the link an admin installs it from, and the token grants. */
+export interface TrackerOAuth {
+  /** The URL the admin opens in a browser to install the app. */
+  authorizeUrl(input: { redirectUri: string; state: string }): string;
+  /** Trade the authorization code from the callback for tokens. */
+  exchangeCode(input: { code: string; redirectUri: string }): Promise<TrackerTokens>;
+  /** Trade a refresh token for a new access token and refresh token. */
+  refreshTokens(refreshToken: string): Promise<TrackerTokens>;
+}
+
 /** What the orchestrator asks of a work tracker. */
 export interface Tracker {
   /** The agent's own user id under an app install. Null under a personal API key. */

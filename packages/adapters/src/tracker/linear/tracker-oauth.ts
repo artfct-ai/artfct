@@ -1,3 +1,4 @@
+import type { TrackerOAuth, TrackerTokens } from "../types";
 import { LINEAR_API_URL } from "./sdk";
 
 /** Where the API is and how to reach it. Both are seams for tests and the smoke run. */
@@ -22,50 +23,38 @@ export type LinearTokens = {
 /** The OAuth app as registered in Linear. */
 export type LinearOAuthApp = { clientId: string; clientSecret: string };
 
-/** The authorize URL for an app-actor install. The workspace admin opens it in a browser. */
-export function linearAuthorizeUrl(input: {
-  clientId: string;
-  redirectUri: string;
-  state: string;
-}) {
-  const url = new URL(AUTHORIZE_URL);
-  url.searchParams.set("client_id", input.clientId);
-  url.searchParams.set("redirect_uri", input.redirectUri);
-  url.searchParams.set("response_type", "code");
-  url.searchParams.set("scope", AGENT_SCOPES.join(","));
-  url.searchParams.set("actor", "app");
-  url.searchParams.set("prompt", "consent");
-  url.searchParams.set("state", input.state);
-  return url.href;
-}
+/** The Linear OAuth app. It installs as an app actor, so the app is mentionable and delegatable. */
+export class LinearTrackerOAuth implements TrackerOAuth {
+  constructor(
+    private readonly app: LinearOAuthApp,
+    private readonly options: LinearApiOptions = {},
+  ) {}
 
-/** Trade the authorization code from the callback for tokens. */
-export function linearExchangeCode(
-  app: LinearOAuthApp,
-  input: { code: string; redirectUri: string },
-  options: LinearApiOptions = {},
-): Promise<LinearTokens> {
-  const fields = {
-    grant_type: "authorization_code",
-    code: input.code,
-    redirect_uri: input.redirectUri,
-  };
-  return tokenRequest(app, fields, options);
-}
+  authorizeUrl(input: { redirectUri: string; state: string }): string {
+    const url = new URL(AUTHORIZE_URL);
+    url.searchParams.set("client_id", this.app.clientId);
+    url.searchParams.set("redirect_uri", input.redirectUri);
+    url.searchParams.set("response_type", "code");
+    url.searchParams.set("scope", AGENT_SCOPES.join(","));
+    url.searchParams.set("actor", "app");
+    url.searchParams.set("prompt", "consent");
+    url.searchParams.set("state", input.state);
+    return url.href;
+  }
 
-/** Trade a refresh token for a new access token and refresh token. */
-export function linearRefreshTokens(
-  app: LinearOAuthApp,
-  refreshToken: string,
-  options: LinearApiOptions = {},
-): Promise<LinearTokens> {
-  return tokenRequest(app, { grant_type: "refresh_token", refresh_token: refreshToken }, options);
-}
+  exchangeCode(input: { code: string; redirectUri: string }): Promise<TrackerTokens> {
+    const fields = {
+      grant_type: "authorization_code",
+      code: input.code,
+      redirect_uri: input.redirectUri,
+    };
+    return tokenRequest(this.app, fields, this.options);
+  }
 
-/** The instant a token issued now stops working. Linear's default applies without `expires_in`. */
-export function linearTokenExpiryIso(tokens: LinearTokens, nowMs = Date.now()): string {
-  const seconds = tokens.expires_in ?? DEFAULT_TOKEN_LIFETIME_S;
-  return new Date(nowMs + seconds * 1000).toISOString();
+  refreshTokens(refreshToken: string): Promise<TrackerTokens> {
+    const fields = { grant_type: "refresh_token", refresh_token: refreshToken };
+    return tokenRequest(this.app, fields, this.options);
+  }
 }
 
 /** The failure body of a refused grant. Linear sends both fields, other errors send neither. */
@@ -75,7 +64,7 @@ async function tokenRequest(
   app: LinearOAuthApp,
   fields: Record<string, string>,
   options: LinearApiOptions,
-): Promise<LinearTokens> {
+): Promise<TrackerTokens> {
   const body = new URLSearchParams({
     ...fields,
     client_id: app.clientId,
@@ -89,7 +78,15 @@ async function tokenRequest(
   });
   const text = await response.text();
   const payload = parseTokenBody(text);
-  if (response.ok && payload.access_token) return payload as LinearTokens;
+  const { access_token, refresh_token, scope, expires_in } = payload;
+  if (response.ok && access_token) {
+    return {
+      access_token,
+      refresh_token,
+      scope,
+      expires_in: expires_in ?? DEFAULT_TOKEN_LIFETIME_S,
+    };
+  }
   const reason = payload.error_description ?? payload.error ?? `HTTP ${response.status} ${text}`;
   throw new Error(`linear oauth ${fields.grant_type}: ${reason}`);
 }

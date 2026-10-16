@@ -1,7 +1,8 @@
-import type { LinearTokens } from "@artfct-ai/adapters/tracker/linear/oauth";
+import type { LinearTokens } from "@artfct-ai/adapters/tracker/linear/tracker-oauth";
 import { env } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { installRow, TOKENS } from "../../test/linear-install";
+import { trackerOAuth } from "../clients";
 import { createDb } from "../db/client";
 import { readLinearInstall, saveLinearInstall } from "../db/linear-installs";
 import type { Env } from "../env";
@@ -42,8 +43,7 @@ async function seeded(
   await saveLinearInstall(db, row);
   const stored = await readLinearInstall(db);
   if (!stored) throw new Error("no install");
-  const options = { now: () => NOW, ...(patch.fetch ? { fetch: patch.fetch } : {}) };
-  return new InstallToken(stored, patch.env ?? oauth, db, options);
+  return new InstallToken(stored, db, trackerOAuth(patch.env ?? oauth, patch.fetch), () => NOW);
 }
 
 const refreshed = { access_token: "lin_oauth_new", refresh_token: "r2", expires_in: 86399 };

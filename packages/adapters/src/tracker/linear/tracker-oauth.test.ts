@@ -1,14 +1,8 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { fetchBody, fetchUrl } from "../../../test/fetch";
-import {
-  linearAuthorizeUrl,
-  linearExchangeCode,
-  linearTokenExpiryIso,
-  linearRefreshTokens,
-} from "./oauth";
-import type { LinearTokens } from "./oauth";
+import type { TrackerTokens } from "../types";
+import { LinearTrackerOAuth, type LinearApiOptions } from "./tracker-oauth";
 
-const NOW = Date.parse("2026-09-03T10:00:00.000Z");
 const APP = { clientId: "cid", clientSecret: "sec" };
 
 function tokenEndpoint(answer: Record<string, unknown> | Response) {
@@ -19,15 +13,18 @@ function tokenEndpoint(answer: Record<string, unknown> | Response) {
     forms.push(Object.fromEntries(new URLSearchParams(fetchBody(init))));
     return answer instanceof Response ? answer : Response.json(answer);
   };
-  return { app: APP, fetch: fetchImpl, forms, urls };
+  return { fetch: fetchImpl, forms, urls };
 }
 
 type TokenEndpoint = ReturnType<typeof tokenEndpoint>;
 
-describe("linearAuthorizeUrl", () => {
-  const url = new URL(
-    linearAuthorizeUrl({ clientId: "cid", redirectUri: "https://in/cb", state: "st" }),
-  );
+function oauthOn(endpoint: TokenEndpoint, options: LinearApiOptions = {}): LinearTrackerOAuth {
+  return new LinearTrackerOAuth(APP, { fetch: endpoint.fetch, ...options });
+}
+
+describe("LinearTrackerOAuth.authorizeUrl", () => {
+  const oauth = new LinearTrackerOAuth(APP);
+  const url = new URL(oauth.authorizeUrl({ redirectUri: "https://in/cb", state: "st" }));
 
   it("points at the Linear authorize page", () => {
     expect(url.origin + url.pathname).toBe("https://linear.app/oauth/authorize");
@@ -49,19 +46,19 @@ describe("linearAuthorizeUrl", () => {
 describe("token requests", () => {
   describe("an authorization code exchange", () => {
     let endpoint: TokenEndpoint;
-    let tokens: LinearTokens;
+    let tokens: TrackerTokens;
 
     beforeEach(async () => {
       endpoint = tokenEndpoint({ access_token: "lin_oauth_a", expires_in: 86399 });
-      tokens = await linearExchangeCode(
-        endpoint.app,
-        { code: "c1", redirectUri: "https://in/cb" },
-        { fetch: endpoint.fetch },
-      );
+      tokens = await oauthOn(endpoint).exchangeCode({ code: "c1", redirectUri: "https://in/cb" });
     });
 
     it("returns the access token", () => {
       expect(tokens.access_token).toBe("lin_oauth_a");
+    });
+
+    it("returns the lifetime the endpoint sent", () => {
+      expect(tokens.expires_in).toBe(86399);
     });
 
     it("posts to the Linear token endpoint", () => {
@@ -81,18 +78,19 @@ describe("token requests", () => {
 
   describe("a refresh against a custom base URL", () => {
     let endpoint: TokenEndpoint;
-    let tokens: LinearTokens;
+    let tokens: TrackerTokens;
 
     beforeEach(async () => {
       endpoint = tokenEndpoint({ access_token: "lin_oauth_b", refresh_token: "r2" });
-      tokens = await linearRefreshTokens(APP, "r1", {
-        fetch: endpoint.fetch,
-        baseUrl: "https://linear.test",
-      });
+      tokens = await oauthOn(endpoint, { baseUrl: "https://linear.test" }).refreshTokens("r1");
     });
 
     it("returns the new refresh token", () => {
       expect(tokens.refresh_token).toBe("r2");
+    });
+
+    it("assumes a day when the endpoint sends no lifetime", () => {
+      expect(tokens.expires_in).toBe(24 * 60 * 60);
     });
 
     it("posts to the given base URL", () => {
@@ -115,11 +113,7 @@ describe("token requests", () => {
 
     it("throws with Linear's description", async () => {
       await expect(
-        linearExchangeCode(
-          APP,
-          { code: "c", redirectUri: "u" },
-          { fetch: tokenEndpoint(refused).fetch },
-        ),
+        oauthOn(tokenEndpoint(refused)).exchangeCode({ code: "c", redirectUri: "u" }),
       ).rejects.toThrow("linear oauth authorization_code: code used");
     });
   });
@@ -128,21 +122,9 @@ describe("token requests", () => {
     const down = new Response("<html>bad gateway</html>", { status: 502 });
 
     it("throws with the status and the body", async () => {
-      await expect(
-        linearRefreshTokens(APP, "r1", { fetch: tokenEndpoint(down).fetch }),
-      ).rejects.toThrow("linear oauth refresh_token: HTTP 502 <html>bad gateway</html>");
+      await expect(oauthOn(tokenEndpoint(down)).refreshTokens("r1")).rejects.toThrow(
+        "linear oauth refresh_token: HTTP 502 <html>bad gateway</html>",
+      );
     });
-  });
-});
-
-describe("linearTokenExpiryIso", () => {
-  it("computes the expiry from expires_in", () => {
-    expect(linearTokenExpiryIso({ access_token: "a", expires_in: 60 }, NOW)).toBe(
-      "2026-09-03T10:01:00.000Z",
-    );
-  });
-
-  it("assumes a day when the tokens carry no lifetime", () => {
-    expect(linearTokenExpiryIso({ access_token: "a" }, NOW)).toBe("2026-09-04T10:00:00.000Z");
   });
 });
