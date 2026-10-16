@@ -11,6 +11,7 @@ import {
   isRefinerRun,
   jobById,
   outboxText,
+  waitForHandoverRead,
   type WorkflowDebug,
 } from "../admin";
 import { assert, assertEqual } from "../assert";
@@ -68,9 +69,13 @@ export async function runNoTrackerBoard(options: { workflowId: string }): Promis
   assertEqual(written, [], "no board message was created, edited, or deleted");
 }
 
-/** Runs step 12 over the whole Slack workflow. */
+/** Runs step 12 over the whole Slack workflow, once every author's artifact is handed over. */
 export async function runBoardChecks(options: { workflowId: string }): Promise<void> {
   console.log("\n12. Boards");
+  const started = await fetchWorkflowDebug(options.workflowId);
+  for (const task of started.tasks.filter((row) => row.role === "author")) {
+    await waitForHandoverRead(options.workflowId, task.job_id);
+  }
   const debug = await fetchWorkflowDebug(options.workflowId);
   const creates = countOutboxMessages(
     debug,

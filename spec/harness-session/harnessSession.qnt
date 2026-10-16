@@ -887,7 +887,14 @@ module harnessSession {
     recordStep({ before: world, after: { ...after, actions: world.actions + 1 }, kind: kind })
 
   /// A queued task before any action.
-  action init: bool = recordStep({ before: INITIAL_WORLD, after: INITIAL_WORLD, kind: OtherStep })
+  action init: bool = {
+    val step = { before: INITIAL_WORLD, after: INITIAL_WORLD, kind: OtherStep }
+    all {
+      world' = INITIAL_WORLD,
+      rulesKept' = rulesKeptIn(step),
+      stepWitnesses' = stepWitnessesOf(step),
+    }
+  }
 
   /// A person writes to the author: a reply in its job session or the agent's `prompt_task`.
   action personPrompts: bool = all {
