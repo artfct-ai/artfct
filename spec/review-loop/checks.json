@@ -143,96 +143,96 @@
         "pr": {
           "revisions": 2,
           "refinerRunsStarted": 3,
-          "reviewCommentsPosted": 3,
-          "personCommentsLeft": 2,
-          "promptsQueued": 2
+          "reviewCommentsPosted": 2,
+          "personCommentsLeft": 1,
+          "promptsQueued": 1
         },
         "nightly": {
           "revisions": 3,
           "refinerRunsStarted": 4,
-          "reviewCommentsPosted": 4,
-          "personCommentsLeft": 3,
-          "promptsQueued": 3
+          "reviewCommentsPosted": 2,
+          "personCommentsLeft": 1,
+          "promptsQueued": 2
         }
       },
       "reviewerThenPolisher": {
         "pr": {
           "revisions": 2,
           "refinerRunsStarted": 3,
-          "reviewCommentsPosted": 3,
-          "personCommentsLeft": 2,
-          "promptsQueued": 2
+          "reviewCommentsPosted": 2,
+          "personCommentsLeft": 1,
+          "promptsQueued": 1
         },
         "nightly": {
           "revisions": 3,
           "refinerRunsStarted": 4,
-          "reviewCommentsPosted": 4,
-          "personCommentsLeft": 3,
-          "promptsQueued": 3
+          "reviewCommentsPosted": 2,
+          "personCommentsLeft": 1,
+          "promptsQueued": 2
         }
       },
       "judgeBetweenReviewers": {
         "pr": {
           "revisions": 2,
           "refinerRunsStarted": 3,
-          "reviewCommentsPosted": 3,
-          "personCommentsLeft": 2,
-          "promptsQueued": 2
+          "reviewCommentsPosted": 2,
+          "personCommentsLeft": 1,
+          "promptsQueued": 1
         },
         "nightly": {
           "revisions": 3,
           "refinerRunsStarted": 4,
-          "reviewCommentsPosted": 4,
-          "personCommentsLeft": 3,
-          "promptsQueued": 3
+          "reviewCommentsPosted": 2,
+          "personCommentsLeft": 1,
+          "promptsQueued": 2
         }
       },
       "modelCallAuthorWithTwoReviewers": {
         "pr": {
-          "revisions": 2,
-          "refinerRunsStarted": 3,
-          "reviewCommentsPosted": 3,
-          "personCommentsLeft": 2,
-          "promptsQueued": 2
+          "revisions": 1,
+          "refinerRunsStarted": 2,
+          "reviewCommentsPosted": 2,
+          "personCommentsLeft": 1,
+          "promptsQueued": 1
         },
         "nightly": {
-          "revisions": 3,
-          "refinerRunsStarted": 4,
-          "reviewCommentsPosted": 4,
-          "personCommentsLeft": 3,
-          "promptsQueued": 3
+          "revisions": 2,
+          "refinerRunsStarted": 2,
+          "reviewCommentsPosted": 2,
+          "personCommentsLeft": 2,
+          "promptsQueued": 1
         }
       },
       "pageReviewerThenPolisher": {
         "pr": {
-          "revisions": 2,
-          "refinerRunsStarted": 3,
-          "reviewCommentsPosted": 3,
-          "personCommentsLeft": 2,
-          "promptsQueued": 2
+          "revisions": 1,
+          "refinerRunsStarted": 2,
+          "reviewCommentsPosted": 2,
+          "personCommentsLeft": 1,
+          "promptsQueued": 1
         },
         "nightly": {
-          "revisions": 3,
-          "refinerRunsStarted": 4,
-          "reviewCommentsPosted": 4,
-          "personCommentsLeft": 3,
-          "promptsQueued": 3
+          "revisions": 2,
+          "refinerRunsStarted": 2,
+          "reviewCommentsPosted": 2,
+          "personCommentsLeft": 2,
+          "promptsQueued": 1
         }
       },
       "pageJudgeBetweenReviewers": {
         "pr": {
-          "revisions": 2,
-          "refinerRunsStarted": 3,
-          "reviewCommentsPosted": 3,
-          "personCommentsLeft": 2,
-          "promptsQueued": 2
+          "revisions": 1,
+          "refinerRunsStarted": 2,
+          "reviewCommentsPosted": 2,
+          "personCommentsLeft": 1,
+          "promptsQueued": 1
         },
         "nightly": {
-          "revisions": 3,
-          "refinerRunsStarted": 4,
-          "reviewCommentsPosted": 4,
-          "personCommentsLeft": 3,
-          "promptsQueued": 3
+          "revisions": 2,
+          "refinerRunsStarted": 2,
+          "reviewCommentsPosted": 2,
+          "personCommentsLeft": 2,
+          "promptsQueued": 1
         }
       }
     }
