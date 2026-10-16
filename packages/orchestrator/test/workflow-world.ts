@@ -416,6 +416,11 @@ export class WorkflowWorld {
     };
   }
 
+  /** The text of every prompt ever queued for the task, also one a stop or a cancel cleared. */
+  promptsQueuedFor(taskId: string): string[] {
+    return this.queuedPromptTexts.get(taskId) ?? [];
+  }
+
   /** Keep the text of every prompt a model-call task takes off its queue, as a bridge keeps those it sends. */
   private recordPromptsModelTurnsTake(): void {
     const { store } = this.workflow;
@@ -1248,7 +1253,7 @@ export class WorkflowWorld {
             .flatMap((bridge) => bridge.promptTexts),
           ...(this.modelPromptTexts.get(task.task_id) ?? []),
         ],
-        promptsQueued: this.queuedPromptTexts.get(task.task_id) ?? [],
+        promptsQueued: this.promptsQueuedFor(task.task_id),
         cancelsSent: this.bridges
           .filter((bridge) => bridge.taskId === task.task_id)
           .reduce((total, bridge) => total + bridge.cancelsSent, 0),

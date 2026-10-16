@@ -29,9 +29,9 @@ module reviewLoopTypes {
   /// The output artifact. A revision is a number here. The host gives it a name.
   type Artifact = { status: ArtifactStatus, revision: int, refinerRun: RefinerRunOfArtifact }
 
-  /// The author task: whether a turn runs or starts, how many prompts wait for it, and the
-  /// judge entries whose rejection it got.
-  type Author = { atWork: bool, queuedPrompts: int, rejectedBy: Set[int] }
+  /// The author task: whether a turn runs or starts, how many prompts wait for it, the judge
+  /// entries whose rejection it got, and the refiner runs whose findings it got in a prompt.
+  type Author = { atWork: bool, queuedPrompts: int, rejectedBy: Set[int], findingsFrom: Set[int] }
 
   /// The review again decision over a model-call author's closing text. A harness author does
   /// not get one, and neither does a model-call author when the decisions model cannot say.
@@ -75,7 +75,7 @@ module reviewLoop {
     ENTRIES.foldl(0, (count, refiner) => if (refiner == Polisher) count else count + 1)
 
   pure val INITIAL_REVIEW: ReviewLoop = {
-    author: { atWork: true, queuedPrompts: 0, rejectedBy: Set() },
+    author: { atWork: true, queuedPrompts: 0, rejectedBy: Set(), findingsFrom: Set() },
     artifact: { status: Drafted, revision: 0, refinerRun: NoRefinerRun },
     refinerRuns: List(),
     judgeRunsCodeRulesOn: Set(),
@@ -252,6 +252,31 @@ module reviewLoop {
   pure def promptAuthor(loop: ReviewLoop): ReviewLoop =
     drainQueue({ ...loop, author: { ...loop.author, queuedPrompts: loop.author.queuedPrompts + 1 } })
 
+  /// The author gets one prompt that carries the findings of these reviews.
+  pure def sendFindingsToAuthor(loop: ReviewLoop, reviewRuns: Set[int]): ReviewLoop = {
+    val withFindings = reviewRuns.filter(id => reviewHasFindings(loop.refinerRuns[id].result))
+    promptAuthor({ ...loop, author: { ...loop.author, findingsFrom: loop.author.findingsFrom.union(withFindings) } })
+  }
+
+  /// The refiner runs whose reviews the segment that ends at `end` filed: the latest run of each
+  /// of its entries, when that run filed a review.
+  pure def segmentReviewRuns(loop: ReviewLoop, end: int): Set[int] =
+    runIds(loop).filter(id => and {
+      loop.refinerRuns[id].refinerIndex >= segmentStartOf(end),
+      loop.refinerRuns[id].refinerIndex <= end,
+      id == latestRunOf(loop, loop.refinerRuns[id].refinerIndex),
+      isReview(loop.refinerRuns[id].result),
+    })
+
+  /// Point the artifact at the latest run of the last findings entry of the segment that ends at
+  /// `end`, so the author's answer to the segment's review is routed from there.
+  pure def pointAtLastReviewerOfSegment(loop: ReviewLoop, end: int): ReviewLoop = {
+    val lastReviewer = if (ENTRIES[end] == Judge) end - 1 else end
+    val runs = runIds(loop).filter(id => loop.refinerRuns[id].refinerIndex == lastReviewer)
+    if (runs.size() == 0) loop
+    else { ...loop, artifact: { ...loop.artifact, refinerRun: OnRefinerRun(largest(runs, 0)) } }
+  }
+
   /// A working author stops the refiners. They run again once its turn ends.
   pure def advancePastEntry(loop: ReviewLoop, index: int): ReviewLoop =
     if (authorQuiet(loop)) runRefinersFrom(loop, index + 1) else withoutRefinerRun(loop)
@@ -309,51 +334,49 @@ module reviewLoop {
     drainQueue(settleRefiners(reopenChangedArtifact(ended), decision))
   }
 
+  /// A ruling settles the judge's segment. A rejection reaches the author with the findings of the
+  /// reviewers before the judge. An approval sends those findings on their own, or moves on.
   pure def applyJudgeRuling(loop: ReviewLoop, id: int, ruling: Ruling): ReviewLoop = {
     val refinerRun = loop.refinerRuns[id]
+    val index = refinerRun.refinerIndex
     val filed = FiledRuling({ ruling: ruling, revision: loop.artifact.revision })
     val ruled = withRun(loop, id, { ...refinerRun, result: filed })
-    if (ruling == Approved) advancePastEntry(ruled, refinerRun.refinerIndex)
-    else {
-      val rejectedBy = ruled.author.rejectedBy.union(Set(refinerRun.refinerIndex))
-      promptAuthor({ ...ruled, author: { ...ruled.author, rejectedBy: rejectedBy } })
+    val reviewRuns = segmentReviewRuns(ruled, index)
+    val findingsBeforeJudge = reviewRuns.exists(reviewRun => reviewHasFindings(ruled.refinerRuns[reviewRun].result))
+    if (ruling == Rejected) {
+      val rejectedBy = ruled.author.rejectedBy.union(Set(index))
+      sendFindingsToAuthor({ ...ruled, author: { ...ruled.author, rejectedBy: rejectedBy } }, reviewRuns)
     }
+    else if (findingsBeforeJudge) sendFindingsToAuthor(pointAtLastReviewerOfSegment(ruled, index), reviewRuns)
+    else advancePastEntry(ruled, index)
   }
 
   /// A segment settles on the review of the latest run of each entry. A stale review runs the
   /// list again from the segment's first entry that still has a say on the revision.
   pure def settleSegment(loop: ReviewLoop, end: int): ReviewLoop = {
     val start = segmentStartOf(end)
-    val filed = runIds(loop).filter(id => and {
-      loop.refinerRuns[id].refinerIndex >= start,
-      loop.refinerRuns[id].refinerIndex <= end,
-      id == latestRunOf(loop, loop.refinerRuns[id].refinerIndex),
-      isReview(loop.refinerRuns[id].result),
-    })
+    val filed = segmentReviewRuns(loop, end)
     val stale = filed.exists(id =>
       reviewedRevisionIsNot(loop.refinerRuns[id].result, loop.artifact.revision))
     if (filed.size() == 0) advancePastEntry(loop, end)
     else if (stale and not(authorQuiet(loop))) settleRefiners(loop, AgentRoutes)
     else if (stale) runRefinersFrom(loop, start)
-    else if (filed.exists(id => reviewHasFindings(loop.refinerRuns[id].result))) promptAuthor(loop)
+    else if (filed.exists(id => reviewHasFindings(loop.refinerRuns[id].result))) sendFindingsToAuthor(loop, filed)
     else advancePastEntry(loop, end)
   }
 
-  /// A finished reviewer hands on while a later entry of its segment still has a say, or while a
-  /// judge ends its segment. Otherwise the segment settles on the run that ends it.
+  /// A finished reviewer hands on while a later entry of its segment still has a say. Otherwise
+  /// the segment settles, on the last findings entry of it. A judge that ruled has no say.
   pure def findingsReviewerFinished(loop: ReviewLoop, id: int, findings: bool): ReviewLoop = {
     val refinerRun = loop.refinerRuns[id]
     val index = refinerRun.refinerIndex
     val filed = FiledReview({ revision: loop.artifact.revision, findings: findings })
     val done = withRun(loop, id, { ...refinerRun, status: Done, result: filed })
     val end = segmentEndOf(index)
-    val handsOn = index != end and (unreviewedEntriesFrom(done, index + 1).size() > 0 or ENTRIES[end] == Judge)
-    val onEnd =
-      if (end == index) done
-      else { ...done, artifact: { ...done.artifact, refinerRun: OnRefinerRun(latestRunOf(done, end)) } }
+    val handsOn = index != end and unreviewedEntriesFrom(done, index + 1).size() > 0
     if (not(isOnRun(loop, id)) or not(drafted(loop))) done
     else if (handsOn) advancePastEntry(done, index)
-    else settleSegment(onEnd, end)
+    else settleSegment(pointAtLastReviewerOfSegment(done, end), end)
   }
 
   pure def judgeFinished(loop: ReviewLoop, id: int): ReviewLoop = {
@@ -635,6 +658,27 @@ module reviewLoop {
       (id >= lastStep.before.refinerRuns.length() and refinerOf(review.refinerRuns[id]) != Polisher)
         implies not(readByAnEarlierRun(review, id)))
 
+  /// The refiner runs that started in the last step.
+  val startedRuns: Set[int] = runIds(review).filter(id => id >= lastStep.before.refinerRuns.length())
+
+  /// The latest run of each findings entry whose segment ends before `index`, when that run filed
+  /// a review with findings.
+  pure def findingsBefore(loop: ReviewLoop, index: int): Set[int] =
+    runIds(loop).filter(id => and {
+      refinerOf(loop.refinerRuns[id]) == FindingsReviewer,
+      segmentEndOf(loop.refinerRuns[id].refinerIndex) < index,
+      id == latestRunOf(loop, loop.refinerRuns[id].refinerIndex),
+      reviewHasFindings(loop.refinerRuns[id].result),
+    })
+
+  /// Every review a findings reviewer files on a pull request reaches its author as a prompt. A
+  /// judge's approval does not drop it. A harness author here writes a pull request, and a
+  /// model-call author writes a page.
+  val authorGetsEveryPullFinding: bool =
+    MODEL_CALL_AUTHOR or startedRuns.forall(started =>
+      findingsBefore(review, review.refinerRuns[started].refinerIndex)
+        .forall(id => review.author.findingsFrom.contains(id)))
+
   /// Every invariant above, for one check of all of them.
   val invariants: bool = and {
     oneUnfinishedRefinerRunPerArtifact,
@@ -643,6 +687,7 @@ module reviewLoop {
     refinerRunIsDoneOnlyAfterItsTurnEnded,
     refinersRunAgainOnlyOnChangedRevision,
     reviewerRunsOnlyOnAnUnreviewedRevision,
+    authorGetsEveryPullFinding,
   }
 
   /// Witness for `oneUnfinishedRefinerRunPerArtifact`: a refiner run is unfinished.
@@ -679,6 +724,17 @@ module reviewLoop {
     lastStep.before.artifact.status != Drafted,
     review.refinerRuns.length() > lastStep.before.refinerRuns.length(),
   }
+
+  /// Witness for `authorGetsEveryPullFinding`: a refiner run starts past a review with findings.
+  val aRefinerRunStartsPastFindings: bool =
+    startedRuns.exists(started => findingsBefore(review, review.refinerRuns[started].refinerIndex).size() > 0)
+
+  /// Witness for `authorGetsEveryPullFinding`: a refiner run starts past a judge whose segment
+  /// left findings.
+  val aRefinerRunStartsPastAJudgeWithFindings: bool =
+    startedRuns.exists(started =>
+      findingsBefore(review, review.refinerRuns[started].refinerIndex)
+        .exists(id => ENTRIES[segmentEndOf(review.refinerRuns[id].refinerIndex)] == Judge))
 
   /// The humans have the artifact.
   val theHumansHaveTheArtifact: bool = not(drafted(review))

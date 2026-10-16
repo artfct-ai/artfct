@@ -9,6 +9,7 @@ import type { Decisions } from "@artfct-ai/adapters/gateway/types";
 import type { TaskStatus } from "@artfct-ai/contracts/types";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
+import { findingText } from "../src/artifact/review-text";
 import type { ArtifactRow, TaskRow } from "../src/workflow/store/tasks";
 import { taskAtWork } from "../src/workflow/task/at-work";
 import { JUDGE_CONCLUSION } from "./fake-runtime";
@@ -64,7 +65,12 @@ export type SpecRun = {
 
 /** The review of one artifact as the spec sees it. */
 export type SpecReview = {
-  author: { atWork: boolean; queuedPrompts: number; rejectedBy: number[] };
+  author: {
+    atWork: boolean;
+    queuedPrompts: number;
+    rejectedBy: number[];
+    findingsFrom: number[];
+  };
   artifact: {
     status: { status: "Drafted" } | { status: "Ready"; deliveredRevision: number };
     revision: number;
@@ -134,6 +140,7 @@ function specReview(value: unknown): SpecReview {
       atWork: bool(field(author, "atWork")),
       queuedPrompts: int(field(author, "queuedPrompts")),
       rejectedBy: sortedInts(field(author, "rejectedBy")),
+      findingsFrom: sortedInts(field(author, "findingsFrom")),
     },
     artifact: {
       status:
@@ -351,6 +358,7 @@ export class ReviewLoopReplay {
         atWork: taskAtWork(this.world.workflow, author),
         queuedPrompts: store.queue().filter((row) => row.task_id === author.task_id).length,
         rejectedBy: this.judgeEntriesThatRejected(author, artifact),
+        findingsFrom: this.runsWhoseFindingsReachedTheAuthor(author, runs),
       },
       artifact: {
         status:
@@ -403,6 +411,17 @@ export class ReviewLoopReplay {
     return this.world.workflow.stageForTask(author).reviewers.flatMap((entry, index) => {
       const rejection = `The ${entry.name} judge rejected ${artifact.external_url}.`;
       return notes.some((note) => note.includes(rejection)) ? [index] : [];
+    });
+  }
+
+  private runsWhoseFindingsReachedTheAuthor(author: TaskRow, runs: TaskRow[]): number[] {
+    const prompts = this.world.promptsQueuedFor(author.task_id);
+    return runs.flatMap((run, runId) => {
+      if (run.result?.kind !== "review" || !run.result.findings.length) return [];
+      const reached = run.result.findings.every((finding) =>
+        prompts.some((prompt) => prompt.includes(`- ${findingText(finding)}`)),
+      );
+      return reached ? [runId] : [];
     });
   }
 
