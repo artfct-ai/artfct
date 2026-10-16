@@ -168,9 +168,9 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W21",
-    invariant: "pausedAuthorGetsNoPrompt",
+    invariant: "pausedAuthorGetsNoPrompt, authorIsIdleWhileAPolisherRuns",
     path: "src/workflow/task/harness/prompt-queue.ts",
-    find: "  if (task.paused_at === null) return sendPrompt(workflow, task, text);",
+    find: "  if (!promptsWait(workflow, task)) return sendPrompt(workflow, task, text);",
     replace: "  return sendPrompt(workflow, task, text);",
   },
   {

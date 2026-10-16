@@ -65,11 +65,9 @@ const WORKFLOW_STATUSES = [
 const ARTIFACT_STATUSES = ["NoArtifact", "Drafted", "Ready"] as const;
 const REFINER_RUN_STATUSES = ["NoRefinerRun", "RefinerRunning", "RefinerRunFinished"] as const;
 const CALL_KINDS = ["SandboxDestroy", "AcceptanceCheck"] as const;
-const CALL_STATES = ["Out", "Returned", "Dropped"] as const;
 const ENDINGS = ["PersonCancels", "AgentFails", "AgentFinishes"] as const;
 
 type CallKind = (typeof CALL_KINDS)[number];
-type CallState = (typeof CALL_STATES)[number];
 type Ending = (typeof ENDINGS)[number];
 
 /** The author task of one job as the spec sees it. */
@@ -92,7 +90,7 @@ export type SpecJob = {
 };
 
 /** One held call as the spec sees it, without the rest of the step that runs when it returns. */
-export type SpecCall = { kind: CallKind; job: number; state: CallState };
+export type SpecCall = { kind: CallKind; job: number };
 
 /** The workflow as the spec sees it. */
 export type SpecWorkflow = {
@@ -123,7 +121,8 @@ export function generateTraces(setup: SpecSetup, count: number, seed: number): T
   );
 }
 
-function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
+/** The steps of one spec trace, given as its ITF JSON, run on one setup. */
+export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
   return itfList(itfField(trace, "states")).map((state) => {
     const picks = itfField(state, "mbt::nondetPicks");
     const picked = (name: string) => {
@@ -161,7 +160,6 @@ function specWorkflow(value: unknown): SpecWorkflow {
     calls: itfList(itfField(value, "calls")).map((call) => ({
       kind: itfOneOf(itfVariant(itfField(call, "kind"))!.tag, CALL_KINDS),
       job: itfInt(itfField(call, "job")),
-      state: itfOneOf(itfVariant(itfField(call, "state"))!.tag, CALL_STATES),
     })),
   };
 }
@@ -192,7 +190,6 @@ function specJob(value: unknown): SpecJob {
 type HeldCall = {
   kind: CallKind;
   jobId: string;
-  state: CallState;
   answer: (decisions: Decisions) => void;
   step: Promise<unknown> | null;
 };
@@ -293,11 +290,7 @@ export class WorkflowLifecycleReplay {
 
   /** Return every held call and put the clock back. */
   async close(): Promise<void> {
-    for (const call of this.calls) {
-      if (call.state !== "Out") continue;
-      call.state = "Returned";
-      call.answer(new FakeDecisions(ANSWERS));
-    }
+    for (const call of this.calls.splice(0)) call.answer(new FakeDecisions(ANSWERS));
     setSystemTime();
   }
 
@@ -328,7 +321,9 @@ export class WorkflowLifecycleReplay {
             generationClosed:
               !isTaskFinished(author.status) &&
               workflow.connections(author.task_id).length === 0 &&
-              !this.calls.some((call) => call.jobId === job.job_id && call.state === "Out"),
+              !this.calls.some(
+                (call) => call.kind === "SandboxDestroy" && call.jobId === job.job_id,
+              ),
           },
           artifact: !artifact ? "NoArtifact" : artifact.status === "drafted" ? "Drafted" : "Ready",
           refinerRun:
@@ -342,7 +337,6 @@ export class WorkflowLifecycleReplay {
       calls: this.calls.map((call) => ({
         kind: call.kind,
         job: jobs.findIndex((job) => job.job_id === call.jobId),
-        state: call.state,
       })),
     };
   }
@@ -429,9 +423,7 @@ export class WorkflowLifecycleReplay {
         return staleAlarmFires("no_progress", 0);
       case "workflowRestarts":
         return worldAction("the workflow restarts", async (world) => {
-          for (const call of this.calls) {
-            if (call.state === "Out") call.state = "Dropped";
-          }
+          this.calls.length = 0;
           await workflowRestarts().run(world);
         });
       default:
@@ -516,9 +508,8 @@ export class WorkflowLifecycleReplay {
   }
 
   private async returnCall(callId: number, accepts: number): Promise<void> {
-    const call = this.calls[callId];
-    if (!call || call.state !== "Out") throw new Error(`no call ${callId} is out`);
-    call.state = "Returned";
+    const [call] = this.calls.splice(callId, 1);
+    if (!call) throw new Error(`no call ${callId} is out`);
     const rest = call.step;
     await this.runStep(async () => {
       call.answer(new FakeDecisions({ ...ANSWERS, accepts }));
@@ -541,8 +532,8 @@ export class WorkflowLifecycleReplay {
     });
   }
 
-  private hold(call: Omit<HeldCall, "state" | "step">): void {
-    this.calls.push({ ...call, state: "Out", step: this.stepOut });
+  private hold(call: Omit<HeldCall, "step">): void {
+    this.calls.push({ ...call, step: this.stepOut });
     this.heldArrived?.();
   }
 

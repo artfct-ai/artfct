@@ -45,13 +45,20 @@ export async function promptTask(
 }
 
 /**
+ * True while the task's prompts wait: it is paused, or it is an author whose artifact a polisher
+ * holds, until the polisher ends.
+ */
+function promptsWait(workflow: WorkflowRuntime, task: TaskRow): boolean {
+  if (task.paused_at !== null) return true;
+  return task.role === "author" && runningPolisherOf(workflow, task.job_id) !== null;
+}
+
+/**
  * Send the oldest queued prompt if the harness can take one. A bridge still handshaking sends
- * it itself. Without a bridge, wake the sandbox once the reconnect window has passed. An
- * author whose artifact a polisher holds waits like a paused one until the polisher ends.
+ * it itself. Without a bridge, wake the sandbox once the reconnect window has passed.
  */
 export async function drainQueue(workflow: WorkflowRuntime, task: TaskRow): Promise<boolean> {
-  if (isTaskFinished(task.status) || task.paused_at !== null) return false;
-  if (task.role === "author" && runningPolisherOf(workflow, task.job_id)) return false;
+  if (isTaskFinished(task.status) || promptsWait(workflow, task)) return false;
   if (taskSettings(workflow, task).execution === "model") {
     return drainModelAuthor(workflow, task);
   }
@@ -128,12 +135,13 @@ export async function sendPrompt(
 }
 
 /**
- * Send the first prompt of a harness session that finished its handshake. A paused task holds it
- * at the head of its queue, so its resume sends it before the prompts that waited.
+ * Send the first prompt of a harness session that finished its handshake. A task whose prompts
+ * wait holds it at the head of its queue, so the next drain sends it before the prompts that
+ * waited.
  */
 export async function sendFirstPrompt(workflow: WorkflowRuntime, task: TaskRow): Promise<void> {
   const text = firstPromptText(workflow, task);
-  if (task.paused_at === null) return sendPrompt(workflow, task, text);
+  if (!promptsWait(workflow, task)) return sendPrompt(workflow, task, text);
   workflow.store.enqueuePromptFirst(task.task_id, text);
 }
 

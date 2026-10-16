@@ -37,7 +37,7 @@ import { provision } from "../src/workflow/task/sandbox/sandbox";
 import { taskAtWork } from "../src/workflow/task/at-work";
 import { onModelTurnDeadline, type ModelTurnAlarm } from "../src/workflow/task/model-turn";
 import { runStartStep } from "./restart";
-import { acceptingD1 } from "./accepting-d1";
+import { sqliteD1 } from "./sqlite-d1";
 import { FakeBridge } from "./fake-bridge";
 import { InterleavedDecisions, onFirstCall, onFirstCallAsking } from "./interleaved-decisions";
 import { CLOSING_TEXT_MARKER, replyMarker } from "../src/prompts/model-author-prompt";
@@ -470,7 +470,7 @@ export class WorkflowWorld {
    */
   static async open(setup: WorldSetup): Promise<WorkflowWorld> {
     const db = openMemoryDb();
-    const workflow = new FakeRuntime(db, { ...testEnv(), DB: acceptingD1() });
+    const workflow = new FakeRuntime(db, { ...testEnv(), DB: sqliteD1() });
     const lists = REFINER_LISTS[setup.refiners];
     patchStageReviewers(workflow, lists.reviewers);
     patchStagePolishers(workflow, lists.polishers);
@@ -905,7 +905,8 @@ export class WorkflowWorld {
   /**
    * The decisions model that answers every question from now on. `meanwhile` runs while its
    * first call is out, or its first call that asks the yes-or-no `question`, the way another
-   * event lands while the model is asked.
+   * event lands while the model is asked. A `meanwhile` that did not land during the action
+   * that set it is dropped.
    */
   answerDecisionsWith(
     answers: DecisionAnswers,
@@ -913,9 +914,11 @@ export class WorkflowWorld {
     question?: string,
   ): void {
     const answering = decisionsAnswering(answers);
+    const settingAction = this.runningAction;
     const landing =
       meanwhile &&
       (async () => {
+        if (this.runningAction !== settingAction) return;
         await this.land(meanwhile);
       });
     const decisions = landing

@@ -1,6 +1,3 @@
-import { Database as SqliteDatabase } from "bun:sqlite";
-import { readdirSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 import type { TrackerIssue } from "@artfct-ai/adapters/tracker/types";
 import type { Actor, InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
@@ -16,6 +13,7 @@ import { failWorkflow, type JobInput } from "../src/workflow/lifecycle";
 import { isWorkflowFinished } from "../src/workflow/store/state";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfText, itfVariant } from "./itf";
 import { quintTraces } from "./quint-traces";
+import { migratedD1Database, sqliteParams } from "./sqlite-d1";
 import { FakeRuntime, seedTask } from "./fake-runtime";
 import { openMemoryDb } from "./memory-db";
 import { testEnv } from "./test-env";
@@ -32,8 +30,6 @@ export type SpecSetup = (typeof SPEC_SETUPS)[number];
 
 /** The most steps a generated trace takes after its initial state. */
 export const TRACE_STEPS = 25;
-
-const D1_MIGRATIONS = join(import.meta.dirname, "../migrations/d1");
 
 const KEYS = ["Thread", "SessionA", "SessionB", "Issue", "Pull"] as const;
 
@@ -711,23 +707,6 @@ function bindingKeyOf(params: unknown[]): KeyName {
   return key;
 }
 
-type SqliteParam = string | number | bigint | boolean | null;
-
-function sqliteParams(params: unknown[]): SqliteParam[] {
-  return params.map((param) => {
-    if (
-      param === null ||
-      typeof param === "string" ||
-      typeof param === "number" ||
-      typeof param === "bigint" ||
-      typeof param === "boolean"
-    ) {
-      return param;
-    }
-    throw new Error(`the replay cannot bind ${JSON.stringify(param)}`);
-  });
-}
-
 function bindingRow(row: unknown): { source: string; external_id: string; workflow_id: string } {
   return {
     source: itfText(itfField(row, "source")),
@@ -750,18 +729,4 @@ function workflowRow(row: unknown): { workflow_id: string; status: WorkflowStatu
     workflow_id: itfText(itfField(row, "workflow_id")),
     status: itfOneOf(itfText(itfField(row, "status")), WORKFLOW_STATUSES),
   };
-}
-
-function migratedD1Database(): SqliteDatabase {
-  const database = new SqliteDatabase(":memory:");
-  for (const file of readdirSync(D1_MIGRATIONS)
-    .filter((name) => name.endsWith(".sql"))
-    .toSorted()) {
-    for (const statement of readFileSync(join(D1_MIGRATIONS, file), "utf8").split(
-      "--> statement-breakpoint",
-    )) {
-      if (statement.trim()) database.run(statement);
-    }
-  }
-  return database;
 }

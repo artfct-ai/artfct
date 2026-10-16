@@ -1433,3 +1433,58 @@ describe("the shortest traces of the review loop spec", () => {
     await holdsThroughout([judgedPageSetup, [...draftedPage, judgeRejects("down")]]);
   });
 });
+
+describe("an author whose artifact a polisher holds", () => {
+  it("gets no prompt from a restart while the polisher runs", async () => {
+    await holdsThroughout([
+      {
+        ...pageSetup,
+        refiners: "reviewer_then_polisher",
+        pageEnding: "choice",
+        sandboxStart: "at_task_start",
+      },
+      [
+        ...draftedPage,
+        agentPromptsAuthor(0),
+        approvingEnd,
+        authorTurnEnds(0, "same"),
+        authorRestartsWhile(0, "agent_completes"),
+      ],
+    ]);
+  });
+});
+
+describe("a model page author asked for a revision without held comments", () => {
+  it("keeps its next turn when the cancel set to land during the request never did", async () => {
+    await holdsThroughout([
+      {
+        ...pageSetup,
+        refiners: "reviewer",
+        pageAuthor: "model",
+        origin: "tracker",
+        firstInput: "origin_issue",
+        sandboxStart: "at_task_start",
+      },
+      [
+        firstArtifactAppears(0, "author_text"),
+        refinerRunEnds(0, {
+          reviewer: "findings",
+          pageCommenting: "takes",
+          judge: "rejects",
+          whileRuled: "nothing",
+          polisher: "pushed",
+          stopReason: "end_turn",
+          closing: "reports_work",
+        }),
+        agentCompletes(0, "asks_for_a_change", "answers"),
+        personStopsModelCall(0, "agent_prompts"),
+        personAsksForRevision(0, {
+          decisions: "answers",
+          host: "readable",
+          meanwhile: "agent_cancels",
+        }),
+        modelCallOutlivesItsDeadline(0, "agent_prompts"),
+      ],
+    ]);
+  });
+});
