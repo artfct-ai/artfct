@@ -309,8 +309,8 @@ export const MUTANTS: Mutant[] = [
     id: "W40",
     invariant: "anUnpausedTaskWithWorkIsNeverStranded (paused restart)",
     path: "src/workflow/lifecycle.ts",
-    find: '  workflow.store.updateTask(task.task_id, { restarts: task.restarts + 1, status: "queued" });',
-    replace: "  workflow.store.updateTask(task.task_id, { restarts: task.restarts + 1 });",
+    find: '  workflow.store.updateTask(task.task_id, { status: "queued", restarts });',
+    replace: "  workflow.store.updateTask(task.task_id, { restarts });",
   },
   {
     id: "W41",
@@ -326,6 +326,22 @@ export const MUTANTS: Mutant[] = [
     find: '  if (task.status === "provisioning" || workflow.store.handshakePending(task.task_id)) {\n    return false;\n  }\n  const connected = workflow.connections(task.task_id).length > 0;\n  if (connected && sandbox.session_id) {\n    workflow.store.dequeuePrompt(next.id);\n    await sendPrompt(workflow, task, next.text);\n    return true;\n  }\n',
     replace:
       '  const connected = workflow.connections(task.task_id).length > 0;\n  if (connected && sandbox.session_id) {\n    workflow.store.dequeuePrompt(next.id);\n    await sendPrompt(workflow, task, next.text);\n    return true;\n  }\n  if (task.status === "provisioning" || workflow.store.handshakePending(task.task_id)) {\n    return false;\n  }\n',
+  },
+  {
+    id: "W43",
+    invariant: "anUnpausedTaskWithWorkIsNeverStranded (restart lost with the instance)",
+    path: "src/workflow/lifecycle.ts",
+    find: '  workflow.store.updateTask(task.task_id, { status: "queued", restarts });\n  workflow.store.patchTodoRow(task.task_id, { note: `Restarted in a fresh sandbox: ${reason}` });\n  await workflow.tellAgent(\n    noteMessage(\n      `The ${task.role} ${task.task_id} of job ${task.job_id} restarted in a fresh sandbox on its branch (${reason}).`,\n    ),\n    "none",\n  );\n  const { generation } = workflow.store.requireSandbox(task.task_id);\n  await closeContainer(workflow, task, "the task restarts");\n',
+    replace:
+      '  workflow.store.patchTodoRow(task.task_id, { note: `Restarted in a fresh sandbox: ${reason}` });\n  await workflow.tellAgent(\n    noteMessage(\n      `The ${task.role} ${task.task_id} of job ${task.job_id} restarted in a fresh sandbox on its branch (${reason}).`,\n    ),\n    "none",\n  );\n  const { generation } = workflow.store.requireSandbox(task.task_id);\n  await closeContainer(workflow, task, "the task restarts");\n  workflow.store.updateTask(task.task_id, { status: "queued", restarts });\n',
+  },
+  {
+    id: "W44",
+    invariant:
+      "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone (outcome check lost with the instance)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: '    await workflow.scheduleAlarm(0, "settleIdleAuthor", alarm);\n',
+    replace: "",
   },
   {
     id: "A1",

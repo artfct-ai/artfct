@@ -22,7 +22,7 @@ import {
   clearTaskTimers,
   closeContainer,
   destroySandbox,
-  restartSandbox,
+  startSandbox,
 } from "./task/sandbox/sandbox";
 
 /** The tracker issue a job works on, as resolved by the start_job guard. */
@@ -335,9 +335,12 @@ export const MAX_RESTARTS = 2;
 
 /**
  * A task with a sandbox hit a failure it may recover from. It restarts in a fresh sandbox on its
- * branch while it has restarts left, and fails after that. A task that finished while its old
- * container went stays finished. One that another restart counted or that began a newer generation
- * meanwhile is left to that restart.
+ * branch while it has restarts left, and fails after that. The restart is written before the old
+ * container goes, so a restart of the Durable Object during the destroy leaves the task queued for
+ * the start step to provision. A paused task waits queued for its resume. A queued task already
+ * has its restart written and is left to it. A task that finished while its old container went
+ * stays finished. One that another restart counted or that began a newer generation meanwhile is
+ * left to that restart.
  */
 export async function restartOrFailTask(
   workflow: WorkflowRuntime,
@@ -345,24 +348,27 @@ export async function restartOrFailTask(
   reason: string,
 ): Promise<void> {
   const current = workflow.store.requireTask(task.task_id);
-  if (isTaskFinished(current.status)) return;
+  if (isTaskFinished(current.status) || current.status === "queued") return;
   if (current.restarts >= MAX_RESTARTS) return failTask(workflow, task, reason);
   workflow.log(task.task_id, `${reason} restarting in a fresh sandbox.`);
-  const { generation } = workflow.store.requireSandbox(task.task_id);
-  await closeContainer(workflow, task, "the task restarts");
-  const closed = workflow.store.requireTask(task.task_id);
-  if (isTaskFinished(closed.status) || closed.restarts !== current.restarts) return;
-  if (workflow.store.requireSandbox(task.task_id).generation !== generation) return;
+  const restarts = current.restarts + 1;
+  workflow.store.updateTask(task.task_id, { status: "queued", restarts });
   workflow.store.patchTodoRow(task.task_id, { note: `Restarted in a fresh sandbox: ${reason}` });
-  if (closed.paused_at === null) await restartSandbox(workflow, closed);
-  else await holdRestartForResume(workflow, closed);
-  await flushBoards(workflow, task.job_id);
   await workflow.tellAgent(
     noteMessage(
       `The ${task.role} ${task.task_id} of job ${task.job_id} restarted in a fresh sandbox on its branch (${reason}).`,
     ),
     "none",
   );
+  const { generation } = workflow.store.requireSandbox(task.task_id);
+  await closeContainer(workflow, task, "the task restarts");
+  const closed = workflow.store.requireTask(task.task_id);
+  if (isTaskFinished(closed.status) || closed.restarts !== restarts) return;
+  const sandbox = workflow.store.requireSandbox(task.task_id);
+  if (sandbox.generation !== generation) return;
+  if (closed.paused_at === null) await startSandbox(workflow, closed, true);
+  else await clearTaskTimers(workflow, sandbox);
+  await flushBoards(workflow, task.job_id);
 }
 
 /**
@@ -467,13 +473,4 @@ export async function onIdle(workflow: WorkflowRuntime): Promise<void> {
   workflow.log(null, "idle. going to sleep.");
   await changeWorkflowStatus(workflow, "waiting_input");
   await workflow.post({ type: "info", text: SLEEP_TEXT });
-}
-
-/**
- * Count the restart of a paused task without starting its sandbox, and stop the alarms of the
- * closed one. The task waits queued, so its resume starts a fresh sandbox with the queued prompt.
- */
-async function holdRestartForResume(workflow: WorkflowRuntime, task: TaskRow): Promise<void> {
-  workflow.store.updateTask(task.task_id, { restarts: task.restarts + 1, status: "queued" });
-  await clearTaskTimers(workflow, workflow.store.requireSandbox(task.task_id));
 }

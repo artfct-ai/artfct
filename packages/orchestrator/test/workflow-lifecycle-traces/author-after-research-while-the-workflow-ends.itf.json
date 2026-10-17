@@ -2,15 +2,13 @@
   "#meta": {
     "format": "ITF",
     "format-description": "https://apalache-mc.org/docs/adr/015adr-trace.html",
-    "source": "/Users/matt/code/artfct/.claude/worktrees/agent-a324fe655e38bb6ee/spec/workflow-lifecycle/pagesAfterResearch.qnt",
-    "status": "ok",
-    "description": "Created by Quint on Fri Oct 16 2026 22:28:44 GMT-0400 (Eastern Daylight Time)",
-    "timestamp": 1792204124623
+    "source": "../../spec/workflow-lifecycle/pagesAfterResearch.qnt",
+    "status": "violation",
+    "description": "Created by Quint on Sat Oct 17 2026 11:56:42 GMT-0400 (Eastern Daylight Time)",
+    "timestamp": 1792252602478
   },
   "vars": [
     "pagesAfterResearch::workflowLifecycle::workflow",
-    "pagesAfterResearch::workflowLifecycle::lastStepKept",
-    "pagesAfterResearch::workflowLifecycle::lastStepReached",
     "mbt::actionTaken",
     "mbt::nondetPicks"
   ],
@@ -18,6 +16,26 @@
     {
       "#meta": {
         "index": 0
+      },
+      "pagesAfterResearch::workflowLifecycle::workflow": {
+        "calls": [],
+        "definition": {
+          "tag": "Unplanned",
+          "value": {
+            "#tup": []
+          }
+        },
+        "failuresPosted": {
+          "#bigint": "0"
+        },
+        "idleArmed": true,
+        "jobs": [],
+        "status": {
+          "tag": "New",
+          "value": {
+            "#tup": []
+          }
+        }
       },
       "mbt::actionTaken": "init",
       "mbt::nondetPicks": {
@@ -57,44 +75,18 @@
             "#tup": []
           }
         }
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
-        "aRestartDoesNotLoseAModelTurn": true,
-        "finishedTaskKeepsItsStatus": true,
-        "finishedWorkflowKeepsItsStatus": true,
-        "jobStartsOnlyIntoAFreeSlot": true,
-        "nothingReopensAFinishedWorkflow": true,
-        "onlyAPlanStartsTheWorkflow": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "sleepMessageOnlyDuringAWorkflow": true,
-        "staleAlarmIsIgnored": true,
-        "workflowKeepsItsDefinition": true,
-        "workflowWaitsOnlyWhileNoAuthorWorks": true
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
-        "aCallWasDropped": false,
-        "aFinishedTaskIsInAStep": false,
-        "aJobStartsBesideAResearcher": false,
-        "aJobStartsIntoTheLastSlot": false,
-        "aMessageWakesTheWorkflow": false,
-        "aModelTurnOutlivesItsDeadline": false,
-        "aPausedAuthorLosesAModelTurn": false,
-        "aPausedAuthorResumes": false,
-        "aPlanLandsOnAStartedWorkflow": false,
-        "aPlanStartsTheWorkflow": false,
-        "aRestartCutsAModelTurn": false,
-        "aReviseTurnIsCut": false,
-        "aStaleAlarmFires": false,
-        "anAuthorFailsOnALostModelTurn": false,
-        "anEventLandsOnAFinishedWorkflow": false,
-        "theSleepMessagePosts": false
+      }
+    },
+    {
+      "#meta": {
+        "index": 1
       },
       "pagesAfterResearch::workflowLifecycle::workflow": {
         "calls": [],
         "definition": {
-          "tag": "Unplanned",
+          "tag": "Planned",
           "value": {
-            "#tup": []
+            "#bigint": "0"
           }
         },
         "failuresPosted": {
@@ -103,16 +95,11 @@
         "idleArmed": true,
         "jobs": [],
         "status": {
-          "tag": "New",
+          "tag": "Running",
           "value": {
             "#tup": []
           }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 1
       },
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
@@ -148,57 +135,6 @@
         },
         "request": {
           "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
-        "aRestartDoesNotLoseAModelTurn": true,
-        "finishedTaskKeepsItsStatus": true,
-        "finishedWorkflowKeepsItsStatus": true,
-        "jobStartsOnlyIntoAFreeSlot": true,
-        "nothingReopensAFinishedWorkflow": true,
-        "onlyAPlanStartsTheWorkflow": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "sleepMessageOnlyDuringAWorkflow": true,
-        "staleAlarmIsIgnored": true,
-        "workflowKeepsItsDefinition": true,
-        "workflowWaitsOnlyWhileNoAuthorWorks": true
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
-        "aCallWasDropped": false,
-        "aFinishedTaskIsInAStep": false,
-        "aJobStartsBesideAResearcher": false,
-        "aJobStartsIntoTheLastSlot": false,
-        "aMessageWakesTheWorkflow": false,
-        "aModelTurnOutlivesItsDeadline": false,
-        "aPausedAuthorLosesAModelTurn": false,
-        "aPausedAuthorResumes": false,
-        "aPlanLandsOnAStartedWorkflow": false,
-        "aPlanStartsTheWorkflow": true,
-        "aRestartCutsAModelTurn": false,
-        "aReviseTurnIsCut": false,
-        "aStaleAlarmFires": false,
-        "anAuthorFailsOnALostModelTurn": false,
-        "anEventLandsOnAFinishedWorkflow": false,
-        "theSleepMessagePosts": false
-      },
-      "pagesAfterResearch::workflowLifecycle::workflow": {
-        "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
-        "idleArmed": true,
-        "jobs": [],
-        "status": {
-          "tag": "Running",
           "value": {
             "#tup": []
           }
@@ -209,76 +145,6 @@
       "#meta": {
         "index": 2
       },
-      "mbt::actionTaken": "agentStartsJob",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "1"
-          }
-        }
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
-        "aRestartDoesNotLoseAModelTurn": true,
-        "finishedTaskKeepsItsStatus": true,
-        "finishedWorkflowKeepsItsStatus": true,
-        "jobStartsOnlyIntoAFreeSlot": true,
-        "nothingReopensAFinishedWorkflow": true,
-        "onlyAPlanStartsTheWorkflow": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "sleepMessageOnlyDuringAWorkflow": true,
-        "staleAlarmIsIgnored": true,
-        "workflowKeepsItsDefinition": true,
-        "workflowWaitsOnlyWhileNoAuthorWorks": true
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
-        "aCallWasDropped": false,
-        "aFinishedTaskIsInAStep": false,
-        "aJobStartsBesideAResearcher": false,
-        "aJobStartsIntoTheLastSlot": false,
-        "aMessageWakesTheWorkflow": false,
-        "aModelTurnOutlivesItsDeadline": false,
-        "aPausedAuthorLosesAModelTurn": false,
-        "aPausedAuthorResumes": false,
-        "aPlanLandsOnAStartedWorkflow": false,
-        "aPlanStartsTheWorkflow": false,
-        "aRestartCutsAModelTurn": false,
-        "aReviseTurnIsCut": false,
-        "aStaleAlarmFires": false,
-        "anAuthorFailsOnALostModelTurn": false,
-        "anEventLandsOnAFinishedWorkflow": false,
-        "theSleepMessagePosts": false
-      },
       "pagesAfterResearch::workflowLifecycle::workflow": {
         "calls": [],
         "definition": {
@@ -291,70 +157,13 @@
           "#bigint": "0"
         },
         "idleArmed": true,
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Researcher",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          }
-        ],
+        "jobs": [],
         "status": {
           "tag": "Running",
           "value": {
             "#tup": []
           }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 3
       },
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
@@ -394,37 +203,11 @@
             "#tup": []
           }
         }
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
-        "aRestartDoesNotLoseAModelTurn": true,
-        "finishedTaskKeepsItsStatus": true,
-        "finishedWorkflowKeepsItsStatus": true,
-        "jobStartsOnlyIntoAFreeSlot": true,
-        "nothingReopensAFinishedWorkflow": true,
-        "onlyAPlanStartsTheWorkflow": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "sleepMessageOnlyDuringAWorkflow": true,
-        "staleAlarmIsIgnored": true,
-        "workflowKeepsItsDefinition": true,
-        "workflowWaitsOnlyWhileNoAuthorWorks": true
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
-        "aCallWasDropped": false,
-        "aFinishedTaskIsInAStep": false,
-        "aJobStartsBesideAResearcher": false,
-        "aJobStartsIntoTheLastSlot": false,
-        "aMessageWakesTheWorkflow": false,
-        "aModelTurnOutlivesItsDeadline": false,
-        "aPausedAuthorLosesAModelTurn": false,
-        "aPausedAuthorResumes": false,
-        "aPlanLandsOnAStartedWorkflow": true,
-        "aPlanStartsTheWorkflow": false,
-        "aRestartCutsAModelTurn": false,
-        "aReviseTurnIsCut": false,
-        "aStaleAlarmFires": false,
-        "anAuthorFailsOnALostModelTurn": false,
-        "anEventLandsOnAFinishedWorkflow": false,
-        "theSleepMessagePosts": false
+      }
+    },
+    {
+      "#meta": {
+        "index": 3
       },
       "pagesAfterResearch::workflowLifecycle::workflow": {
         "calls": [],
@@ -438,1560 +221,13 @@
           "#bigint": "0"
         },
         "idleArmed": true,
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Researcher",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          }
-        ],
+        "jobs": [],
         "status": {
           "tag": "Running",
           "value": {
             "#tup": []
           }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 4
-      },
-      "mbt::actionTaken": "workflowEnds",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "Some",
-          "value": {
-            "tag": "AgentFinishes",
-            "value": {
-              "#tup": []
-            }
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
-        "aRestartDoesNotLoseAModelTurn": true,
-        "finishedTaskKeepsItsStatus": true,
-        "finishedWorkflowKeepsItsStatus": true,
-        "jobStartsOnlyIntoAFreeSlot": true,
-        "nothingReopensAFinishedWorkflow": true,
-        "onlyAPlanStartsTheWorkflow": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "sleepMessageOnlyDuringAWorkflow": true,
-        "staleAlarmIsIgnored": true,
-        "workflowKeepsItsDefinition": true,
-        "workflowWaitsOnlyWhileNoAuthorWorks": true
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
-        "aCallWasDropped": false,
-        "aFinishedTaskIsInAStep": false,
-        "aJobStartsBesideAResearcher": false,
-        "aJobStartsIntoTheLastSlot": false,
-        "aMessageWakesTheWorkflow": false,
-        "aModelTurnOutlivesItsDeadline": false,
-        "aPausedAuthorLosesAModelTurn": false,
-        "aPausedAuthorResumes": false,
-        "aPlanLandsOnAStartedWorkflow": false,
-        "aPlanStartsTheWorkflow": false,
-        "aRestartCutsAModelTurn": false,
-        "aReviseTurnIsCut": false,
-        "aStaleAlarmFires": false,
-        "anAuthorFailsOnALostModelTurn": false,
-        "anEventLandsOnAFinishedWorkflow": false,
-        "theSleepMessagePosts": false
-      },
-      "pagesAfterResearch::workflowLifecycle::workflow": {
-        "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
-        "idleArmed": true,
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Researcher",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          }
-        ],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 5
-      },
-      "mbt::actionTaken": "researcherHandsOver",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
-        "aRestartDoesNotLoseAModelTurn": true,
-        "finishedTaskKeepsItsStatus": true,
-        "finishedWorkflowKeepsItsStatus": true,
-        "jobStartsOnlyIntoAFreeSlot": true,
-        "nothingReopensAFinishedWorkflow": true,
-        "onlyAPlanStartsTheWorkflow": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "sleepMessageOnlyDuringAWorkflow": true,
-        "staleAlarmIsIgnored": true,
-        "workflowKeepsItsDefinition": true,
-        "workflowWaitsOnlyWhileNoAuthorWorks": true
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
-        "aCallWasDropped": false,
-        "aFinishedTaskIsInAStep": false,
-        "aJobStartsBesideAResearcher": false,
-        "aJobStartsIntoTheLastSlot": false,
-        "aMessageWakesTheWorkflow": false,
-        "aModelTurnOutlivesItsDeadline": false,
-        "aPausedAuthorLosesAModelTurn": false,
-        "aPausedAuthorResumes": false,
-        "aPlanLandsOnAStartedWorkflow": false,
-        "aPlanStartsTheWorkflow": false,
-        "aRestartCutsAModelTurn": false,
-        "aReviseTurnIsCut": false,
-        "aStaleAlarmFires": false,
-        "anAuthorFailsOnALostModelTurn": false,
-        "anEventLandsOnAFinishedWorkflow": false,
-        "theSleepMessagePosts": false
-      },
-      "pagesAfterResearch::workflowLifecycle::workflow": {
-        "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
-        "idleArmed": true,
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Researcher",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "TaskDone",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": false
-              },
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "1"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          }
-        ],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 6
-      },
-      "mbt::actionTaken": "taskStalls",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
-        "aRestartDoesNotLoseAModelTurn": true,
-        "finishedTaskKeepsItsStatus": true,
-        "finishedWorkflowKeepsItsStatus": true,
-        "jobStartsOnlyIntoAFreeSlot": true,
-        "nothingReopensAFinishedWorkflow": true,
-        "onlyAPlanStartsTheWorkflow": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "sleepMessageOnlyDuringAWorkflow": true,
-        "staleAlarmIsIgnored": true,
-        "workflowKeepsItsDefinition": true,
-        "workflowWaitsOnlyWhileNoAuthorWorks": true
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
-        "aCallWasDropped": false,
-        "aFinishedTaskIsInAStep": true,
-        "aJobStartsBesideAResearcher": false,
-        "aJobStartsIntoTheLastSlot": false,
-        "aMessageWakesTheWorkflow": false,
-        "aModelTurnOutlivesItsDeadline": false,
-        "aPausedAuthorLosesAModelTurn": false,
-        "aPausedAuthorResumes": false,
-        "aPlanLandsOnAStartedWorkflow": false,
-        "aPlanStartsTheWorkflow": false,
-        "aRestartCutsAModelTurn": false,
-        "aReviseTurnIsCut": false,
-        "aStaleAlarmFires": false,
-        "anAuthorFailsOnALostModelTurn": false,
-        "anEventLandsOnAFinishedWorkflow": false,
-        "theSleepMessagePosts": false
-      },
-      "pagesAfterResearch::workflowLifecycle::workflow": {
-        "calls": [
-          {
-            "job": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#tup": []
-              }
-            },
-            "rest": {
-              "tag": "RestartGoesOn",
-              "value": {
-                "#tup": []
-              }
-            }
-          }
-        ],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
-        "idleArmed": true,
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Researcher",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "TaskDone",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": false
-              },
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "1"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "1"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          }
-        ],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 7
-      },
-      "mbt::actionTaken": "agentPausesAuthor",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
-        "aRestartDoesNotLoseAModelTurn": true,
-        "finishedTaskKeepsItsStatus": true,
-        "finishedWorkflowKeepsItsStatus": true,
-        "jobStartsOnlyIntoAFreeSlot": true,
-        "nothingReopensAFinishedWorkflow": true,
-        "onlyAPlanStartsTheWorkflow": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "sleepMessageOnlyDuringAWorkflow": true,
-        "staleAlarmIsIgnored": true,
-        "workflowKeepsItsDefinition": true,
-        "workflowWaitsOnlyWhileNoAuthorWorks": true
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
-        "aCallWasDropped": false,
-        "aFinishedTaskIsInAStep": true,
-        "aJobStartsBesideAResearcher": false,
-        "aJobStartsIntoTheLastSlot": false,
-        "aMessageWakesTheWorkflow": false,
-        "aModelTurnOutlivesItsDeadline": false,
-        "aPausedAuthorLosesAModelTurn": false,
-        "aPausedAuthorResumes": false,
-        "aPlanLandsOnAStartedWorkflow": false,
-        "aPlanStartsTheWorkflow": false,
-        "aRestartCutsAModelTurn": false,
-        "aReviseTurnIsCut": false,
-        "aStaleAlarmFires": false,
-        "anAuthorFailsOnALostModelTurn": false,
-        "anEventLandsOnAFinishedWorkflow": false,
-        "theSleepMessagePosts": false
-      },
-      "pagesAfterResearch::workflowLifecycle::workflow": {
-        "calls": [
-          {
-            "job": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#tup": []
-              }
-            },
-            "rest": {
-              "tag": "RestartGoesOn",
-              "value": {
-                "#tup": []
-              }
-            }
-          }
-        ],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
-        "idleArmed": true,
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Researcher",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "TaskDone",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": false
-              },
-              {
-                "generationClosed": false,
-                "paused": true,
-                "promptsQueued": {
-                  "#bigint": "1"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "1"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          }
-        ],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 8
-      },
-      "mbt::actionTaken": "workflowEnds",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "Some",
-          "value": {
-            "tag": "AgentFinishes",
-            "value": {
-              "#tup": []
-            }
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
-        "aRestartDoesNotLoseAModelTurn": true,
-        "finishedTaskKeepsItsStatus": true,
-        "finishedWorkflowKeepsItsStatus": true,
-        "jobStartsOnlyIntoAFreeSlot": true,
-        "nothingReopensAFinishedWorkflow": true,
-        "onlyAPlanStartsTheWorkflow": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "sleepMessageOnlyDuringAWorkflow": true,
-        "staleAlarmIsIgnored": true,
-        "workflowKeepsItsDefinition": true,
-        "workflowWaitsOnlyWhileNoAuthorWorks": true
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
-        "aCallWasDropped": false,
-        "aFinishedTaskIsInAStep": true,
-        "aJobStartsBesideAResearcher": false,
-        "aJobStartsIntoTheLastSlot": false,
-        "aMessageWakesTheWorkflow": false,
-        "aModelTurnOutlivesItsDeadline": false,
-        "aPausedAuthorLosesAModelTurn": false,
-        "aPausedAuthorResumes": false,
-        "aPlanLandsOnAStartedWorkflow": false,
-        "aPlanStartsTheWorkflow": false,
-        "aRestartCutsAModelTurn": false,
-        "aReviseTurnIsCut": false,
-        "aStaleAlarmFires": false,
-        "anAuthorFailsOnALostModelTurn": false,
-        "anEventLandsOnAFinishedWorkflow": false,
-        "theSleepMessagePosts": false
-      },
-      "pagesAfterResearch::workflowLifecycle::workflow": {
-        "calls": [
-          {
-            "job": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#tup": []
-              }
-            },
-            "rest": {
-              "tag": "RestartGoesOn",
-              "value": {
-                "#tup": []
-              }
-            }
-          }
-        ],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
-        "idleArmed": true,
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Researcher",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "TaskDone",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": false
-              },
-              {
-                "generationClosed": false,
-                "paused": true,
-                "promptsQueued": {
-                  "#bigint": "1"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "1"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          }
-        ],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 9
-      },
-      "mbt::actionTaken": "workflowRestarts",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
-        "aRestartDoesNotLoseAModelTurn": true,
-        "finishedTaskKeepsItsStatus": true,
-        "finishedWorkflowKeepsItsStatus": true,
-        "jobStartsOnlyIntoAFreeSlot": true,
-        "nothingReopensAFinishedWorkflow": true,
-        "onlyAPlanStartsTheWorkflow": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "sleepMessageOnlyDuringAWorkflow": true,
-        "staleAlarmIsIgnored": true,
-        "workflowKeepsItsDefinition": true,
-        "workflowWaitsOnlyWhileNoAuthorWorks": true
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
-        "aCallWasDropped": true,
-        "aFinishedTaskIsInAStep": true,
-        "aJobStartsBesideAResearcher": false,
-        "aJobStartsIntoTheLastSlot": false,
-        "aMessageWakesTheWorkflow": false,
-        "aModelTurnOutlivesItsDeadline": false,
-        "aPausedAuthorLosesAModelTurn": false,
-        "aPausedAuthorResumes": false,
-        "aPlanLandsOnAStartedWorkflow": false,
-        "aPlanStartsTheWorkflow": false,
-        "aRestartCutsAModelTurn": false,
-        "aReviseTurnIsCut": false,
-        "aStaleAlarmFires": false,
-        "anAuthorFailsOnALostModelTurn": false,
-        "anEventLandsOnAFinishedWorkflow": false,
-        "theSleepMessagePosts": false
-      },
-      "pagesAfterResearch::workflowLifecycle::workflow": {
-        "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
-        "idleArmed": true,
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Researcher",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "TaskDone",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": false
-              },
-              {
-                "generationClosed": true,
-                "paused": true,
-                "promptsQueued": {
-                  "#bigint": "1"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "1"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          }
-        ],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 10
-      },
-      "mbt::actionTaken": "staleAlarmFires",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
-        "aRestartDoesNotLoseAModelTurn": true,
-        "finishedTaskKeepsItsStatus": true,
-        "finishedWorkflowKeepsItsStatus": true,
-        "jobStartsOnlyIntoAFreeSlot": true,
-        "nothingReopensAFinishedWorkflow": true,
-        "onlyAPlanStartsTheWorkflow": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "sleepMessageOnlyDuringAWorkflow": true,
-        "staleAlarmIsIgnored": true,
-        "workflowKeepsItsDefinition": true,
-        "workflowWaitsOnlyWhileNoAuthorWorks": true
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
-        "aCallWasDropped": false,
-        "aFinishedTaskIsInAStep": true,
-        "aJobStartsBesideAResearcher": false,
-        "aJobStartsIntoTheLastSlot": false,
-        "aMessageWakesTheWorkflow": false,
-        "aModelTurnOutlivesItsDeadline": false,
-        "aPausedAuthorLosesAModelTurn": false,
-        "aPausedAuthorResumes": false,
-        "aPlanLandsOnAStartedWorkflow": false,
-        "aPlanStartsTheWorkflow": false,
-        "aRestartCutsAModelTurn": false,
-        "aReviseTurnIsCut": false,
-        "aStaleAlarmFires": true,
-        "anAuthorFailsOnALostModelTurn": false,
-        "anEventLandsOnAFinishedWorkflow": false,
-        "theSleepMessagePosts": false
-      },
-      "pagesAfterResearch::workflowLifecycle::workflow": {
-        "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
-        "idleArmed": true,
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Researcher",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "TaskDone",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": false
-              },
-              {
-                "generationClosed": true,
-                "paused": true,
-                "promptsQueued": {
-                  "#bigint": "1"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "1"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          }
-        ],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 11
-      },
-      "mbt::actionTaken": "agentStartsJob",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "0"
-          }
-        }
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
-        "aRestartDoesNotLoseAModelTurn": true,
-        "finishedTaskKeepsItsStatus": true,
-        "finishedWorkflowKeepsItsStatus": true,
-        "jobStartsOnlyIntoAFreeSlot": true,
-        "nothingReopensAFinishedWorkflow": true,
-        "onlyAPlanStartsTheWorkflow": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "sleepMessageOnlyDuringAWorkflow": true,
-        "staleAlarmIsIgnored": true,
-        "workflowKeepsItsDefinition": true,
-        "workflowWaitsOnlyWhileNoAuthorWorks": true
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
-        "aCallWasDropped": false,
-        "aFinishedTaskIsInAStep": true,
-        "aJobStartsBesideAResearcher": false,
-        "aJobStartsIntoTheLastSlot": true,
-        "aMessageWakesTheWorkflow": false,
-        "aModelTurnOutlivesItsDeadline": false,
-        "aPausedAuthorLosesAModelTurn": false,
-        "aPausedAuthorResumes": false,
-        "aPlanLandsOnAStartedWorkflow": false,
-        "aPlanStartsTheWorkflow": false,
-        "aRestartCutsAModelTurn": false,
-        "aReviseTurnIsCut": false,
-        "aStaleAlarmFires": false,
-        "anAuthorFailsOnALostModelTurn": false,
-        "anEventLandsOnAFinishedWorkflow": false,
-        "theSleepMessagePosts": false
-      },
-      "pagesAfterResearch::workflowLifecycle::workflow": {
-        "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
-        "idleArmed": true,
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Researcher",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "TaskDone",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": false
-              },
-              {
-                "generationClosed": true,
-                "paused": true,
-                "promptsQueued": {
-                  "#bigint": "1"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "1"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          },
-          {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "0"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Researcher",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "2"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          }
-        ],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 12
       },
       "mbt::actionTaken": "personWrites",
       "mbt::nondetPicks": {
@@ -2031,37 +267,75 @@
             "#tup": []
           }
         }
+      }
+    },
+    {
+      "#meta": {
+        "index": 4
       },
-      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
-        "aRestartDoesNotLoseAModelTurn": true,
-        "finishedTaskKeepsItsStatus": true,
-        "finishedWorkflowKeepsItsStatus": true,
-        "jobStartsOnlyIntoAFreeSlot": true,
-        "nothingReopensAFinishedWorkflow": true,
-        "onlyAPlanStartsTheWorkflow": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "sleepMessageOnlyDuringAWorkflow": true,
-        "staleAlarmIsIgnored": true,
-        "workflowKeepsItsDefinition": true,
-        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      "pagesAfterResearch::workflowLifecycle::workflow": {
+        "calls": [],
+        "definition": {
+          "tag": "Planned",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "failuresPosted": {
+          "#bigint": "0"
+        },
+        "idleArmed": true,
+        "jobs": [],
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        }
       },
-      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
-        "aCallWasDropped": false,
-        "aFinishedTaskIsInAStep": true,
-        "aJobStartsBesideAResearcher": false,
-        "aJobStartsIntoTheLastSlot": false,
-        "aMessageWakesTheWorkflow": false,
-        "aModelTurnOutlivesItsDeadline": false,
-        "aPausedAuthorLosesAModelTurn": false,
-        "aPausedAuthorResumes": false,
-        "aPlanLandsOnAStartedWorkflow": false,
-        "aPlanStartsTheWorkflow": false,
-        "aRestartCutsAModelTurn": false,
-        "aReviseTurnIsCut": false,
-        "aStaleAlarmFires": false,
-        "anAuthorFailsOnALostModelTurn": false,
-        "anEventLandsOnAFinishedWorkflow": false,
-        "theSleepMessagePosts": false
+      "mbt::actionTaken": "agentSetsPlan",
+      "mbt::nondetPicks": {
+        "accepted": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "callId": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "definition": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "1"
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 5
       },
       "pagesAfterResearch::workflowLifecycle::workflow": {
         "calls": [],
@@ -2086,86 +360,6 @@
             "input": {
               "tag": "FromRequest",
               "value": {
-                "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Researcher",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "TaskDone",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": false
-              },
-              {
-                "generationClosed": true,
-                "paused": true,
-                "promptsQueued": {
-                  "#bigint": "1"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "1"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          },
-          {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
                 "#bigint": "0"
               }
             },
@@ -2195,7 +389,7 @@
                   }
                 },
                 "startOrder": {
-                  "#bigint": "2"
+                  "#bigint": "0"
                 },
                 "status": {
                   "tag": "Busy",
@@ -2214,275 +408,8 @@
             "#tup": []
           }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 13
       },
-      "mbt::actionTaken": "workflowEnds",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "Some",
-          "value": {
-            "tag": "AgentFails",
-            "value": {
-              "#tup": []
-            }
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
-        "aRestartDoesNotLoseAModelTurn": true,
-        "finishedTaskKeepsItsStatus": true,
-        "finishedWorkflowKeepsItsStatus": true,
-        "jobStartsOnlyIntoAFreeSlot": true,
-        "nothingReopensAFinishedWorkflow": true,
-        "onlyAPlanStartsTheWorkflow": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "sleepMessageOnlyDuringAWorkflow": true,
-        "staleAlarmIsIgnored": true,
-        "workflowKeepsItsDefinition": true,
-        "workflowWaitsOnlyWhileNoAuthorWorks": true
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
-        "aCallWasDropped": false,
-        "aFinishedTaskIsInAStep": true,
-        "aJobStartsBesideAResearcher": false,
-        "aJobStartsIntoTheLastSlot": false,
-        "aMessageWakesTheWorkflow": false,
-        "aModelTurnOutlivesItsDeadline": false,
-        "aPausedAuthorLosesAModelTurn": false,
-        "aPausedAuthorResumes": false,
-        "aPlanLandsOnAStartedWorkflow": false,
-        "aPlanStartsTheWorkflow": false,
-        "aRestartCutsAModelTurn": false,
-        "aReviseTurnIsCut": false,
-        "aStaleAlarmFires": false,
-        "anAuthorFailsOnALostModelTurn": false,
-        "anEventLandsOnAFinishedWorkflow": false,
-        "theSleepMessagePosts": false
-      },
-      "pagesAfterResearch::workflowLifecycle::workflow": {
-        "calls": [
-          {
-            "job": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#tup": []
-              }
-            },
-            "rest": {
-              "tag": "TeardownGoesOn",
-              "value": {
-                "caller": {
-                  "tag": "WorkflowEnd",
-                  "value": {
-                    "tag": "Failed",
-                    "value": {
-                      "#tup": []
-                    }
-                  }
-                },
-                "teardown": {
-                  "tag": "AfterCancel",
-                  "value": {
-                    "#tup": []
-                  }
-                }
-              }
-            }
-          }
-        ],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
-        "idleArmed": true,
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Researcher",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "TaskDone",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": false
-              },
-              {
-                "generationClosed": false,
-                "paused": true,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "1"
-                },
-                "status": {
-                  "tag": "TaskCancelled",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          },
-          {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "0"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Researcher",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "2"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          }
-        ],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 14
-      },
-      "mbt::actionTaken": "taskStalls",
+      "mbt::actionTaken": "agentStartsJob",
       "mbt::nondetPicks": {
         "accepted": {
           "tag": "None",
@@ -2509,83 +436,25 @@
           }
         },
         "id": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "1"
-          }
-        },
-        "request": {
           "tag": "None",
           "value": {
             "#tup": []
           }
+        },
+        "request": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
         }
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
-        "aRestartDoesNotLoseAModelTurn": true,
-        "finishedTaskKeepsItsStatus": true,
-        "finishedWorkflowKeepsItsStatus": true,
-        "jobStartsOnlyIntoAFreeSlot": true,
-        "nothingReopensAFinishedWorkflow": true,
-        "onlyAPlanStartsTheWorkflow": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "sleepMessageOnlyDuringAWorkflow": true,
-        "staleAlarmIsIgnored": true,
-        "workflowKeepsItsDefinition": true,
-        "workflowWaitsOnlyWhileNoAuthorWorks": true
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
-        "aCallWasDropped": false,
-        "aFinishedTaskIsInAStep": true,
-        "aJobStartsBesideAResearcher": false,
-        "aJobStartsIntoTheLastSlot": false,
-        "aMessageWakesTheWorkflow": false,
-        "aModelTurnOutlivesItsDeadline": false,
-        "aPausedAuthorLosesAModelTurn": false,
-        "aPausedAuthorResumes": false,
-        "aPlanLandsOnAStartedWorkflow": false,
-        "aPlanStartsTheWorkflow": false,
-        "aRestartCutsAModelTurn": false,
-        "aReviseTurnIsCut": false,
-        "aStaleAlarmFires": false,
-        "anAuthorFailsOnALostModelTurn": false,
-        "anEventLandsOnAFinishedWorkflow": false,
-        "theSleepMessagePosts": false
+      }
+    },
+    {
+      "#meta": {
+        "index": 6
       },
       "pagesAfterResearch::workflowLifecycle::workflow": {
-        "calls": [
-          {
-            "job": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#tup": []
-              }
-            },
-            "rest": {
-              "tag": "TeardownGoesOn",
-              "value": {
-                "caller": {
-                  "tag": "WorkflowEnd",
-                  "value": {
-                    "tag": "Failed",
-                    "value": {
-                      "#tup": []
-                    }
-                  }
-                },
-                "teardown": {
-                  "tag": "AfterCancel",
-                  "value": {
-                    "#tup": []
-                  }
-                }
-              }
-            }
-          }
-        ],
+        "calls": [],
         "definition": {
           "tag": "Planned",
           "value": {
@@ -2607,7 +476,7 @@
             "input": {
               "tag": "FromRequest",
               "value": {
-                "#bigint": "1"
+                "#bigint": "0"
               }
             },
             "refinerRun": {
@@ -2648,7 +517,7 @@
               },
               {
                 "generationClosed": false,
-                "paused": true,
+                "paused": false,
                 "promptsQueued": {
                   "#bigint": "0"
                 },
@@ -2668,57 +537,6 @@
                   "#bigint": "1"
                 },
                 "status": {
-                  "tag": "TaskCancelled",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          },
-          {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "0"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "1"
-                },
-                "promptsSent": {
-                  "#bigint": "2"
-                },
-                "restarts": {
-                  "#bigint": "1"
-                },
-                "role": {
-                  "tag": "Researcher",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "2"
-                },
-                "status": {
                   "tag": "Busy",
                   "value": {
                     "#tup": []
@@ -2735,11 +553,6 @@
             "#tup": []
           }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 15
       },
       "mbt::actionTaken": "researcherHandsOver",
       "mbt::nondetPicks": {
@@ -2770,7 +583,7 @@
         "id": {
           "tag": "Some",
           "value": {
-            "#bigint": "1"
+            "#bigint": "0"
           }
         },
         "request": {
@@ -2779,72 +592,14 @@
             "#tup": []
           }
         }
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
-        "aRestartDoesNotLoseAModelTurn": true,
-        "finishedTaskKeepsItsStatus": true,
-        "finishedWorkflowKeepsItsStatus": true,
-        "jobStartsOnlyIntoAFreeSlot": true,
-        "nothingReopensAFinishedWorkflow": true,
-        "onlyAPlanStartsTheWorkflow": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "sleepMessageOnlyDuringAWorkflow": true,
-        "staleAlarmIsIgnored": true,
-        "workflowKeepsItsDefinition": true,
-        "workflowWaitsOnlyWhileNoAuthorWorks": true
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
-        "aCallWasDropped": false,
-        "aFinishedTaskIsInAStep": true,
-        "aJobStartsBesideAResearcher": false,
-        "aJobStartsIntoTheLastSlot": false,
-        "aMessageWakesTheWorkflow": false,
-        "aModelTurnOutlivesItsDeadline": false,
-        "aPausedAuthorLosesAModelTurn": false,
-        "aPausedAuthorResumes": false,
-        "aPlanLandsOnAStartedWorkflow": false,
-        "aPlanStartsTheWorkflow": false,
-        "aRestartCutsAModelTurn": false,
-        "aReviseTurnIsCut": false,
-        "aStaleAlarmFires": false,
-        "anAuthorFailsOnALostModelTurn": false,
-        "anEventLandsOnAFinishedWorkflow": false,
-        "theSleepMessagePosts": false
+      }
+    },
+    {
+      "#meta": {
+        "index": 7
       },
       "pagesAfterResearch::workflowLifecycle::workflow": {
-        "calls": [
-          {
-            "job": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#tup": []
-              }
-            },
-            "rest": {
-              "tag": "TeardownGoesOn",
-              "value": {
-                "caller": {
-                  "tag": "WorkflowEnd",
-                  "value": {
-                    "tag": "Failed",
-                    "value": {
-                      "#tup": []
-                    }
-                  }
-                },
-                "teardown": {
-                  "tag": "AfterCancel",
-                  "value": {
-                    "#tup": []
-                  }
-                }
-              }
-            }
-          }
-        ],
+        "calls": [],
         "definition": {
           "tag": "Planned",
           "value": {
@@ -2856,6 +611,86 @@
         },
         "idleArmed": true,
         "jobs": [
+          {
+            "artifact": {
+              "tag": "NoArtifact",
+              "value": {
+                "#tup": []
+              }
+            },
+            "input": {
+              "tag": "FromRequest",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            "refinerRun": {
+              "tag": "NoRefinerRun",
+              "value": {
+                "#tup": []
+              }
+            },
+            "tasks": [
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "1"
+                },
+                "restarts": {
+                  "#bigint": "0"
+                },
+                "role": {
+                  "tag": "Researcher",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "0"
+                },
+                "status": {
+                  "tag": "TaskDone",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "turnRunning": false
+              },
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "1"
+                },
+                "restarts": {
+                  "#bigint": "0"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "1"
+                },
+                "status": {
+                  "tag": "Busy",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "turnRunning": true
+              }
+            ]
+          },
           {
             "artifact": {
               "tag": "NoArtifact",
@@ -2895,6 +730,154 @@
                   }
                 },
                 "startOrder": {
+                  "#bigint": "2"
+                },
+                "status": {
+                  "tag": "Busy",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "turnRunning": true
+              }
+            ]
+          }
+        ],
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "mbt::actionTaken": "agentStartsJob",
+      "mbt::nondetPicks": {
+        "accepted": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "callId": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "definition": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "request": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "1"
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 8
+      },
+      "pagesAfterResearch::workflowLifecycle::workflow": {
+        "calls": [
+          {
+            "job": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "SandboxDestroy",
+              "value": {
+                "#tup": []
+              }
+            },
+            "rest": {
+              "tag": "TeardownGoesOn",
+              "value": {
+                "caller": {
+                  "tag": "WorkflowEnd",
+                  "value": {
+                    "tag": "Cancelled",
+                    "value": {
+                      "#tup": []
+                    }
+                  }
+                },
+                "teardown": {
+                  "tag": "AfterCancel",
+                  "value": {
+                    "#tup": []
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "definition": {
+          "tag": "Planned",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "failuresPosted": {
+          "#bigint": "0"
+        },
+        "idleArmed": true,
+        "jobs": [
+          {
+            "artifact": {
+              "tag": "NoArtifact",
+              "value": {
+                "#tup": []
+              }
+            },
+            "input": {
+              "tag": "FromRequest",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            "refinerRun": {
+              "tag": "NoRefinerRun",
+              "value": {
+                "#tup": []
+              }
+            },
+            "tasks": [
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "1"
+                },
+                "restarts": {
+                  "#bigint": "0"
+                },
+                "role": {
+                  "tag": "Researcher",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
                   "#bigint": "0"
                 },
                 "status": {
@@ -2907,7 +890,7 @@
               },
               {
                 "generationClosed": false,
-                "paused": true,
+                "paused": false,
                 "promptsQueued": {
                   "#bigint": "0"
                 },
@@ -2946,7 +929,7 @@
             "input": {
               "tag": "FromRequest",
               "value": {
-                "#bigint": "0"
+                "#bigint": "1"
               }
             },
             "refinerRun": {
@@ -2963,10 +946,10 @@
                   "#bigint": "0"
                 },
                 "promptsSent": {
-                  "#bigint": "2"
+                  "#bigint": "1"
                 },
                 "restarts": {
-                  "#bigint": "1"
+                  "#bigint": "0"
                 },
                 "role": {
                   "tag": "Researcher",
@@ -2976,35 +959,6 @@
                 },
                 "startOrder": {
                   "#bigint": "2"
-                },
-                "status": {
-                  "tag": "TaskDone",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": false
-              },
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "3"
                 },
                 "status": {
                   "tag": "Busy",
@@ -3023,11 +977,6 @@
             "#tup": []
           }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 16
       },
       "mbt::actionTaken": "workflowEnds",
       "mbt::nondetPicks": {
@@ -3070,37 +1019,11 @@
             "#tup": []
           }
         }
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
-        "aRestartDoesNotLoseAModelTurn": true,
-        "finishedTaskKeepsItsStatus": true,
-        "finishedWorkflowKeepsItsStatus": true,
-        "jobStartsOnlyIntoAFreeSlot": true,
-        "nothingReopensAFinishedWorkflow": true,
-        "onlyAPlanStartsTheWorkflow": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "sleepMessageOnlyDuringAWorkflow": true,
-        "staleAlarmIsIgnored": true,
-        "workflowKeepsItsDefinition": true,
-        "workflowWaitsOnlyWhileNoAuthorWorks": true
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
-        "aCallWasDropped": false,
-        "aFinishedTaskIsInAStep": true,
-        "aJobStartsBesideAResearcher": false,
-        "aJobStartsIntoTheLastSlot": false,
-        "aMessageWakesTheWorkflow": false,
-        "aModelTurnOutlivesItsDeadline": false,
-        "aPausedAuthorLosesAModelTurn": false,
-        "aPausedAuthorResumes": false,
-        "aPlanLandsOnAStartedWorkflow": false,
-        "aPlanStartsTheWorkflow": false,
-        "aRestartCutsAModelTurn": false,
-        "aReviseTurnIsCut": false,
-        "aStaleAlarmFires": false,
-        "anAuthorFailsOnALostModelTurn": false,
-        "anEventLandsOnAFinishedWorkflow": false,
-        "theSleepMessagePosts": false
+      }
+    },
+    {
+      "#meta": {
+        "index": 9
       },
       "pagesAfterResearch::workflowLifecycle::workflow": {
         "calls": [
@@ -3120,7 +1043,7 @@
                 "caller": {
                   "tag": "WorkflowEnd",
                   "value": {
-                    "tag": "Failed",
+                    "tag": "Cancelled",
                     "value": {
                       "#tup": []
                     }
@@ -3145,7 +1068,7 @@
         "failuresPosted": {
           "#bigint": "0"
         },
-        "idleArmed": true,
+        "idleArmed": false,
         "jobs": [
           {
             "artifact": {
@@ -3157,7 +1080,7 @@
             "input": {
               "tag": "FromRequest",
               "value": {
-                "#bigint": "1"
+                "#bigint": "0"
               }
             },
             "refinerRun": {
@@ -3198,7 +1121,7 @@
               },
               {
                 "generationClosed": false,
-                "paused": true,
+                "paused": false,
                 "promptsQueued": {
                   "#bigint": "0"
                 },
@@ -3237,6 +1160,154 @@
             "input": {
               "tag": "FromRequest",
               "value": {
+                "#bigint": "1"
+              }
+            },
+            "refinerRun": {
+              "tag": "NoRefinerRun",
+              "value": {
+                "#tup": []
+              }
+            },
+            "tasks": [
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "1"
+                },
+                "restarts": {
+                  "#bigint": "0"
+                },
+                "role": {
+                  "tag": "Researcher",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "2"
+                },
+                "status": {
+                  "tag": "Busy",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "turnRunning": true
+              }
+            ]
+          }
+        ],
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "mbt::actionTaken": "idleAlarmFires",
+      "mbt::nondetPicks": {
+        "accepted": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "callId": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "definition": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 10
+      },
+      "pagesAfterResearch::workflowLifecycle::workflow": {
+        "calls": [
+          {
+            "job": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "SandboxDestroy",
+              "value": {
+                "#tup": []
+              }
+            },
+            "rest": {
+              "tag": "TeardownGoesOn",
+              "value": {
+                "caller": {
+                  "tag": "WorkflowEnd",
+                  "value": {
+                    "tag": "Cancelled",
+                    "value": {
+                      "#tup": []
+                    }
+                  }
+                },
+                "teardown": {
+                  "tag": "AfterCancel",
+                  "value": {
+                    "#tup": []
+                  }
+                }
+              }
+            }
+          }
+        ],
+        "definition": {
+          "tag": "Planned",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "failuresPosted": {
+          "#bigint": "0"
+        },
+        "idleArmed": false,
+        "jobs": [
+          {
+            "artifact": {
+              "tag": "NoArtifact",
+              "value": {
+                "#tup": []
+              }
+            },
+            "input": {
+              "tag": "FromRequest",
+              "value": {
                 "#bigint": "0"
               }
             },
@@ -3254,10 +1325,90 @@
                   "#bigint": "0"
                 },
                 "promptsSent": {
-                  "#bigint": "2"
+                  "#bigint": "1"
                 },
                 "restarts": {
+                  "#bigint": "0"
+                },
+                "role": {
+                  "tag": "Researcher",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "0"
+                },
+                "status": {
+                  "tag": "TaskDone",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "turnRunning": false
+              },
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
                   "#bigint": "1"
+                },
+                "restarts": {
+                  "#bigint": "0"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "1"
+                },
+                "status": {
+                  "tag": "TaskCancelled",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "turnRunning": true
+              }
+            ]
+          },
+          {
+            "artifact": {
+              "tag": "NoArtifact",
+              "value": {
+                "#tup": []
+              }
+            },
+            "input": {
+              "tag": "FromRequest",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            "refinerRun": {
+              "tag": "NoRefinerRun",
+              "value": {
+                "#tup": []
+              }
+            },
+            "tasks": [
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "1"
+                },
+                "restarts": {
+                  "#bigint": "0"
                 },
                 "role": {
                   "tag": "Researcher",
@@ -3314,13 +1465,8 @@
             "#tup": []
           }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 17
       },
-      "mbt::actionTaken": "sandboxDestroyReturns",
+      "mbt::actionTaken": "researcherHandsOver",
       "mbt::nondetPicks": {
         "accepted": {
           "tag": "None",
@@ -3329,9 +1475,9 @@
           }
         },
         "callId": {
-          "tag": "Some",
+          "tag": "None",
           "value": {
-            "#bigint": "0"
+            "#tup": []
           }
         },
         "definition": {
@@ -3347,9 +1493,9 @@
           }
         },
         "id": {
-          "tag": "None",
+          "tag": "Some",
           "value": {
-            "#tup": []
+            "#bigint": "1"
           }
         },
         "request": {
@@ -3358,37 +1504,11 @@
             "#tup": []
           }
         }
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
-        "aRestartDoesNotLoseAModelTurn": true,
-        "finishedTaskKeepsItsStatus": true,
-        "finishedWorkflowKeepsItsStatus": true,
-        "jobStartsOnlyIntoAFreeSlot": true,
-        "nothingReopensAFinishedWorkflow": true,
-        "onlyAPlanStartsTheWorkflow": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "sleepMessageOnlyDuringAWorkflow": true,
-        "staleAlarmIsIgnored": true,
-        "workflowKeepsItsDefinition": true,
-        "workflowWaitsOnlyWhileNoAuthorWorks": true
-      },
-      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
-        "aCallWasDropped": false,
-        "aFinishedTaskIsInAStep": true,
-        "aJobStartsBesideAResearcher": false,
-        "aJobStartsIntoTheLastSlot": false,
-        "aMessageWakesTheWorkflow": false,
-        "aModelTurnOutlivesItsDeadline": false,
-        "aPausedAuthorLosesAModelTurn": false,
-        "aPausedAuthorResumes": false,
-        "aPlanLandsOnAStartedWorkflow": false,
-        "aPlanStartsTheWorkflow": false,
-        "aRestartCutsAModelTurn": false,
-        "aReviseTurnIsCut": false,
-        "aStaleAlarmFires": false,
-        "anAuthorFailsOnALostModelTurn": false,
-        "anEventLandsOnAFinishedWorkflow": false,
-        "theSleepMessagePosts": false
+      }
+    },
+    {
+      "#meta": {
+        "index": 11
       },
       "pagesAfterResearch::workflowLifecycle::workflow": {
         "calls": [
@@ -3408,7 +1528,7 @@
                 "caller": {
                   "tag": "WorkflowEnd",
                   "value": {
-                    "tag": "Failed",
+                    "tag": "Cancelled",
                     "value": {
                       "#tup": []
                     }
@@ -3433,7 +1553,7 @@
         "failuresPosted": {
           "#bigint": "0"
         },
-        "idleArmed": true,
+        "idleArmed": false,
         "jobs": [
           {
             "artifact": {
@@ -3445,7 +1565,7 @@
             "input": {
               "tag": "FromRequest",
               "value": {
-                "#bigint": "1"
+                "#bigint": "0"
               }
             },
             "refinerRun": {
@@ -3486,7 +1606,7 @@
               },
               {
                 "generationClosed": false,
-                "paused": true,
+                "paused": false,
                 "promptsQueued": {
                   "#bigint": "0"
                 },
@@ -3525,7 +1645,7 @@
             "input": {
               "tag": "FromRequest",
               "value": {
-                "#bigint": "0"
+                "#bigint": "1"
               }
             },
             "refinerRun": {
@@ -3542,10 +1662,10 @@
                   "#bigint": "0"
                 },
                 "promptsSent": {
-                  "#bigint": "2"
+                  "#bigint": "1"
                 },
                 "restarts": {
-                  "#bigint": "1"
+                  "#bigint": "0"
                 },
                 "role": {
                   "tag": "Researcher",
@@ -3598,6 +1718,45 @@
         ],
         "status": {
           "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "mbt::actionTaken": "sandboxDestroyReturns",
+      "mbt::nondetPicks": {
+        "accepted": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "callId": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "definition": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "request": {
+          "tag": "None",
           "value": {
             "#tup": []
           }

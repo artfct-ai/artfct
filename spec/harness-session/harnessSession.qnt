@@ -40,6 +40,7 @@ module harnessSessionTypes {
     | WallClock
     | KeepAlive(int)
     | RetryQueue(int)
+    | SettleIdleAuthor(int)
     | BridgeLost(int)
 
   type Alarm = { id: int, kind: AlarmKind }
@@ -71,6 +72,7 @@ module harnessSessionTypes {
   /// What runs after the call that returns, innermost first. `CloseFeedWithoutStopReason` throws
   /// when the author is idle, because the feed closing reads a stop reason the answer lacked.
   /// `AlarmEnds` marks the end of an alarm's handler. The alarm stays scheduled until it runs.
+  /// `RestartAfterClose` names the generation and the restart count that its restart began from.
   type Frame =
     | RestartAfterClose({ generation: int, restarts: int })
     | SettleAfterDrain
@@ -445,14 +447,17 @@ module harnessSession {
   pure def cancelTask(w: World): World =
     if (isFinished(w.status)) w else finishTask(w, Cancelled, List())
 
+  /// `restartOrFailTask`: the restart is written before the old container goes, so a restart of
+  /// the Durable Object during the destroy leaves the task queued for the start step. A paused
+  /// task waits queued for its resume. A queued task already has its restart written and is left
+  /// to it.
   pure def restartOrFailTask(w: World, rest: List[Frame]): World =
-    if (isFinished(w.status)) w
+    if (isFinished(w.status) or w.status == Queued) w
     else if (w.restarts >= MAX_RESTARTS) failTask(w, rest)
-    else closeContainer(w, List(RestartAfterClose({ generation: w.generation, restarts: w.restarts })).concat(rest))
-
-  /// `holdRestartForResume`: the task waits queued, so its resume starts the sandbox.
-  pure def holdRestartForResume(w: World): World =
-    clearTaskTimers({ ...w, status: Queued, restarts: w.restarts + 1 })
+    else {
+      val restarting = { ...w, status: Queued, restarts: w.restarts + 1 }
+      closeContainer(restarting, List(RestartAfterClose({ generation: w.generation, restarts: w.restarts })).concat(rest))
+    }
 
   /// `sendPrompt`: the turn goes in flight and arms its timers.
   pure def sendPrompt(w: World): World =
@@ -617,9 +622,9 @@ module harnessSession {
     | CloseFeedWithoutStopReason => closeFeedWithoutStopReason(w)
     | AlarmEnds(_) => w
     | RestartAfterClose(began) =>
-      if (isFinished(w.status) or w.generation != began.generation or w.restarts != began.restarts) w
-      else if (w.paused) holdRestartForResume(w)
-      else restartSandbox(w, rest)
+      if (isFinished(w.status) or w.generation != began.generation or w.restarts != began.restarts + 1) w
+      else if (w.paused) clearTaskTimers(w)
+      else startSandbox(w, rest)
   }
 
   /// Run the frames in order until one sends a call. That call carries the frames after it.
@@ -768,10 +773,11 @@ module harnessSession {
     }
 
   /// PROPOSED, T23. A sandbox start of the current generation that throws on an unfinished task
-  /// fails it, or closes its container to restart it. One of an older generation changes nothing.
+  /// fails it, or closes its container to restart it. One that throws on a task already queued
+  /// for a restart changes nothing, and neither does one of an older generation.
   pure def aFailedSandboxStartRestartsOrFailsIn(step: Step): bool = match step.kind {
     | StartFailedStep(generation) =>
-      if (generation != step.before.generation) and {
+      if (generation != step.before.generation or step.before.status == Queued) and {
         step.after.status == step.before.status,
         step.after.restarts == step.before.restarts,
         step.after.generation == step.before.generation,
@@ -905,7 +911,8 @@ module harnessSession {
       step.kind == AnswerStep({ reachedItsOwnRow: true, purpose: SetEffort }) and sentPrompt(step),
     aCallWasDropped: step.kind == DurableObjectRestartStep,
     anAlarmRunsAgainAfterARestart:
-      step.kind == DurableObjectRestartStep and step.after.alarms.length() > step.before.alarms.length(),
+      step.kind == DurableObjectRestartStep and
+        step.before.calls.select(call => call.state == Out and alarmsAwaiting(call).length() > 0).length() > 0,
   }
 
   /// Write the world after a step, and which rules and witnesses that step kept and showed.
@@ -981,6 +988,7 @@ module harnessSession {
     | NoProgress(generation) => generation != w.generation
     | KeepAlive(generation) => generation != w.generation
     | RetryQueue(generation) => generation != w.generation
+    | SettleIdleAuthor(generation) => generation != w.generation
     | BridgeLost(generation) => generation != w.generation
   }
 
@@ -1001,6 +1009,7 @@ module harnessSession {
       if (not(w.promptInFlight) or isFinished(w.status)) { ...w, keepAliveSlot: Unarmed }
       else { ...arm(w, KeepAlive(generation)), keepAliveSlot: Armed(w.nextAlarm) }
     | RetryQueue(_) => drainQueue(w, List())
+    | SettleIdleAuthor(_) => if (w.status != Working or w.promptInFlight) w else settleAndResumeAuthor(w, List())
     | BridgeLost(_) => onBridgeLostNow(w)
   }
 
@@ -1036,7 +1045,7 @@ module harnessSession {
   /// newer generation.
   pure def staleRestartAfter(w: World, call: Call): bool =
     call.rest.length() > 0 and match call.rest[0] {
-      | RestartAfterClose(began) => began.generation != w.generation or began.restarts != w.restarts
+      | RestartAfterClose(began) => began.generation != w.generation or began.restarts + 1 != w.restarts
       | _ => false
     }
 
@@ -1057,10 +1066,18 @@ module harnessSession {
     }, OtherStep),
   }
 
+  /// `provisionQueuedTasks` and `settleIdleAuthors`: the start step of a new instance arms the
+  /// provision alarm of an unpaused queued task and the settle alarm of a working author with no
+  /// prompt in flight.
+  pure def startStep(w: World): World =
+    if (w.status == Queued and not(w.paused)) arm(w, Provision)
+    else if (w.status == Working and not(w.promptInFlight)) arm(w, SettleIdleAuthor(w.generation))
+    else w
+
   /// The Durable Object restarts while a call is out. The calls are lost with the isolate. A destroy
   /// that was out still takes the container. A start that was out may still bring its container up.
   /// An alarm whose handler awaited a lost call is scheduled again, because its row is deleted only
-  /// when the handler ends.
+  /// when the handler ends. Then the start step runs.
   action durableObjectRestarts: bool = all {
     world.faults < MAX_FAULTS,
     world.calls.select(call => call.state == Out).length() > 0,
@@ -1076,7 +1093,7 @@ module harnessSession {
           | OutcomeCheck(_) => rescheduled
         }
       })
-    move(lost, DurableObjectRestartStep),
+    move(startStep(lost), DurableObjectRestartStep),
   }
 
   pure def unlaunchedStarts(w: World): Set[int] =
@@ -1428,11 +1445,11 @@ module harnessSession {
   val staleAlarmIsIgnored: bool = rulesKept.staleAlarmIsIgnored
 
   /// An idle author whose last turn stopped early is never left alone. It has a prompt queued or
-  /// in flight, or it is restarting, or its task finished. The world checks it only between steps
+  /// in flight, or it is queued for a restart or restarting, or its task finished. The world checks it only between steps
   /// that ran to their end, so a state with a call out is not checked.
   val anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone: bool =
     (noCallOut(world) and world.stoppedEarly and not(isFinished(world.status)) and not(world.promptInFlight)) implies
-      (world.queue.length() > 0 or world.status == Provisioning or handshakePending(world))
+      (world.queue.length() > 0 or world.status == Queued or world.status == Provisioning or handshakePending(world))
 
   /// A stop drops the queued prompts. It cancels a running turn. Once its work ran to the end, the
   /// author does not resume unless its task finished.
@@ -1480,6 +1497,7 @@ module harnessSession {
       | NoProgress(generation) => generation == w.generation and w.promptInFlight
       | BridgeLost(generation) => generation == w.generation and waitsOnTheBridge(w)
       | RetryQueue(generation) => generation == w.generation
+      | SettleIdleAuthor(generation) => generation == w.generation and w.status == Working and not(w.promptInFlight)
       | WallClock => w.promptInFlight
       | KeepAlive(_) => false
     }).length() > 0

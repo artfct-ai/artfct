@@ -44,6 +44,7 @@ export type ScheduledMethod =
   | "refreshToken"
   | "keepSandboxAlive"
   | "retryQueue"
+  | "settleIdleAuthor"
   | "onBridgeLost"
   | "flushBoard"
   | "onIdle"

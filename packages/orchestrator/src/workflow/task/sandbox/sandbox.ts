@@ -53,6 +53,18 @@ export async function provision(workflow: WorkflowRuntime, taskId: string): Prom
 }
 
 /**
+ * Arm the provision alarm of every unpaused task that waits queued. A restart writes its task
+ * queued before the old container goes, so a new instance starts the sandbox that a restart of
+ * the Durable Object cut off. A paused task waits for its resume.
+ */
+export async function provisionQueuedTasks(workflow: WorkflowRuntime): Promise<void> {
+  for (const task of workflow.store.tasks()) {
+    if (task.status !== "queued" || task.paused_at !== null) continue;
+    await workflow.scheduleAlarm(0, "provision", { task_id: task.task_id });
+  }
+}
+
+/**
  * Start the task's sandbox again on its branch, in its container when it still has one. The
  * harness resumes with its oldest queued prompt. Counts the restart.
  */

@@ -3,60 +3,15 @@
     "format": "ITF",
     "format-description": "https://apalache-mc.org/docs/adr/015adr-trace.html",
     "source": "../../spec/harness-session/harnessDefaultEffort.qnt",
-    "status": "ok",
-    "description": "Created by Quint on Fri Oct 16 2026 22:44:27 GMT-0400 (Eastern Daylight Time)",
-    "timestamp": 1792205067836
+    "status": "violation",
+    "description": "Created by Quint on Sat Oct 17 2026 11:47:38 GMT-0400 (Eastern Daylight Time)",
+    "timestamp": 1792252058250
   },
   "vars": ["harnessDefaultEffort::harnessSession::world", "mbt::actionTaken", "mbt::nondetPicks"],
   "states": [
     {
       "#meta": {
         "index": 0
-      },
-      "mbt::actionTaken": "init",
-      "mbt::nondetPicks": {
-        "alarmIndex": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "bridge": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "finished": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "index": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ok": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outcome": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
@@ -180,18 +135,13 @@
             "#tup": []
           }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 1
       },
-      "mbt::actionTaken": "alarmFires",
+      "mbt::actionTaken": "init",
       "mbt::nondetPicks": {
         "alarmIndex": {
-          "tag": "Some",
+          "tag": "None",
           "value": {
-            "#bigint": "0"
+            "#tup": []
           }
         },
         "bridge": {
@@ -230,12 +180,28 @@
             "#tup": []
           }
         }
+      }
+    },
+    {
+      "#meta": {
+        "index": 1
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
           "#bigint": "1"
         },
         "alarms": [
+          {
+            "id": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "Provision",
+              "value": {
+                "#tup": []
+              }
+            }
+          },
           {
             "id": {
               "#bigint": "1"
@@ -281,20 +247,6 @@
                 "tag": "StartEnds",
                 "value": {
                   "#tup": []
-                }
-              },
-              {
-                "tag": "AlarmEnds",
-                "value": {
-                  "id": {
-                    "#bigint": "0"
-                  },
-                  "kind": {
-                    "tag": "Provision",
-                    "value": {
-                      "#tup": []
-                    }
-                  }
                 }
               }
             ],
@@ -363,13 +315,20 @@
           "#bigint": "0"
         },
         "personPrompts": {
-          "#bigint": "0"
+          "#bigint": "1"
         },
         "promptInFlight": false,
         "promptsSent": {
           "#bigint": "0"
         },
-        "queue": [],
+        "queue": [
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
         "restarts": {
           "#bigint": "0"
         },
@@ -399,13 +358,8 @@
             "#tup": []
           }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 2
       },
-      "mbt::actionTaken": "agentPausesAuthor",
+      "mbt::actionTaken": "personPrompts",
       "mbt::nondetPicks": {
         "alarmIndex": {
           "tag": "None",
@@ -449,12 +403,28 @@
             "#tup": []
           }
         }
+      }
+    },
+    {
+      "#meta": {
+        "index": 2
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
           "#bigint": "2"
         },
         "alarms": [
+          {
+            "id": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "Provision",
+              "value": {
+                "#tup": []
+              }
+            }
+          },
           {
             "id": {
               "#bigint": "1"
@@ -500,20 +470,6 @@
                 "tag": "StartEnds",
                 "value": {
                   "#tup": []
-                }
-              },
-              {
-                "tag": "AlarmEnds",
-                "value": {
-                  "id": {
-                    "#bigint": "0"
-                  },
-                  "kind": {
-                    "tag": "Provision",
-                    "value": {
-                      "#tup": []
-                    }
-                  }
                 }
               }
             ],
@@ -574,7 +530,7 @@
           }
         },
         "nudged": false,
-        "paused": true,
+        "paused": false,
         "permissionsAllowed": {
           "#bigint": "0"
         },
@@ -582,13 +538,26 @@
           "#bigint": "0"
         },
         "personPrompts": {
-          "#bigint": "0"
+          "#bigint": "2"
         },
         "promptInFlight": false,
         "promptsSent": {
           "#bigint": "0"
         },
-        "queue": [],
+        "queue": [
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
         "restarts": {
           "#bigint": "0"
         },
@@ -618,13 +587,8 @@
             "#tup": []
           }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 3
       },
-      "mbt::actionTaken": "timePasses",
+      "mbt::actionTaken": "personPrompts",
       "mbt::nondetPicks": {
         "alarmIndex": {
           "tag": "None",
@@ -668,6 +632,11 @@
             "#tup": []
           }
         }
+      }
+    },
+    {
+      "#meta": {
+        "index": 3
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
@@ -720,20 +689,6 @@
                 "value": {
                   "#tup": []
                 }
-              },
-              {
-                "tag": "AlarmEnds",
-                "value": {
-                  "id": {
-                    "#bigint": "0"
-                  },
-                  "kind": {
-                    "tag": "Provision",
-                    "value": {
-                      "#tup": []
-                    }
-                  }
-                }
               }
             ],
             "state": {
@@ -769,7 +724,7 @@
           }
         },
         "lastProgressAt": {
-          "tag": "Old",
+          "tag": "Recent",
           "value": {
             "#tup": []
           }
@@ -793,7 +748,7 @@
           }
         },
         "nudged": false,
-        "paused": true,
+        "paused": false,
         "permissionsAllowed": {
           "#bigint": "0"
         },
@@ -801,13 +756,26 @@
           "#bigint": "0"
         },
         "personPrompts": {
-          "#bigint": "0"
+          "#bigint": "2"
         },
         "promptInFlight": false,
         "promptsSent": {
           "#bigint": "0"
         },
-        "queue": [],
+        "queue": [
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
         "restarts": {
           "#bigint": "0"
         },
@@ -837,18 +805,13 @@
             "#tup": []
           }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 4
       },
-      "mbt::actionTaken": "sandboxStartReturns",
+      "mbt::actionTaken": "alarmFires",
       "mbt::nondetPicks": {
         "alarmIndex": {
-          "tag": "None",
+          "tag": "Some",
           "value": {
-            "#tup": []
+            "#bigint": "0"
           }
         },
         "bridge": {
@@ -858,9 +821,9 @@
           }
         },
         "callId": {
-          "tag": "Some",
+          "tag": "None",
           "value": {
-            "#bigint": "0"
+            "#tup": []
           }
         },
         "finished": {
@@ -876,8 +839,10 @@
           }
         },
         "ok": {
-          "tag": "Some",
-          "value": false
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         },
         "outcome": {
           "tag": "None",
@@ -885,6 +850,11 @@
             "#tup": []
           }
         }
+      }
+    },
+    {
+      "#meta": {
+        "index": 4
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
@@ -942,20 +912,6 @@
                 "value": {
                   "#tup": []
                 }
-              },
-              {
-                "tag": "AlarmEnds",
-                "value": {
-                  "id": {
-                    "#bigint": "0"
-                  },
-                  "kind": {
-                    "tag": "Provision",
-                    "value": {
-                      "#tup": []
-                    }
-                  }
-                }
               }
             ],
             "state": {
@@ -991,7 +947,7 @@
           }
         },
         "lastProgressAt": {
-          "tag": "Old",
+          "tag": "Recent",
           "value": {
             "#tup": []
           }
@@ -1015,7 +971,7 @@
           }
         },
         "nudged": false,
-        "paused": true,
+        "paused": false,
         "permissionsAllowed": {
           "#bigint": "0"
         },
@@ -1023,15 +979,28 @@
           "#bigint": "0"
         },
         "personPrompts": {
-          "#bigint": "0"
+          "#bigint": "2"
         },
         "promptInFlight": false,
         "promptsSent": {
           "#bigint": "0"
         },
-        "queue": [],
+        "queue": [
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
         "restarts": {
-          "#bigint": "0"
+          "#bigint": "1"
         },
         "rpcs": [],
         "session": false,
@@ -1041,7 +1010,7 @@
         },
         "startTracked": true,
         "status": {
-          "tag": "Provisioning",
+          "tag": "Queued",
           "value": {
             "#tup": []
           }
@@ -1059,13 +1028,8 @@
             "#tup": []
           }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 5
       },
-      "mbt::actionTaken": "agentPausesAuthor",
+      "mbt::actionTaken": "sandboxStartReturns",
       "mbt::nondetPicks": {
         "alarmIndex": {
           "tag": "None",
@@ -1080,9 +1044,9 @@
           }
         },
         "callId": {
-          "tag": "None",
+          "tag": "Some",
           "value": {
-            "#tup": []
+            "#bigint": "0"
           }
         },
         "finished": {
@@ -1098,10 +1062,8 @@
           }
         },
         "ok": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
+          "tag": "Some",
+          "value": false
         },
         "outcome": {
           "tag": "None",
@@ -1109,6 +1071,11 @@
             "#tup": []
           }
         }
+      }
+    },
+    {
+      "#meta": {
+        "index": 5
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
@@ -1166,20 +1133,6 @@
                 "value": {
                   "#tup": []
                 }
-              },
-              {
-                "tag": "AlarmEnds",
-                "value": {
-                  "id": {
-                    "#bigint": "0"
-                  },
-                  "kind": {
-                    "tag": "Provision",
-                    "value": {
-                      "#tup": []
-                    }
-                  }
-                }
               }
             ],
             "state": {
@@ -1215,7 +1168,7 @@
           }
         },
         "lastProgressAt": {
-          "tag": "Old",
+          "tag": "Recent",
           "value": {
             "#tup": []
           }
@@ -1247,15 +1200,28 @@
           "#bigint": "0"
         },
         "personPrompts": {
-          "#bigint": "0"
+          "#bigint": "2"
         },
         "promptInFlight": false,
         "promptsSent": {
           "#bigint": "0"
         },
-        "queue": [],
+        "queue": [
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
         "restarts": {
-          "#bigint": "0"
+          "#bigint": "1"
         },
         "rpcs": [],
         "session": false,
@@ -1265,7 +1231,7 @@
         },
         "startTracked": true,
         "status": {
-          "tag": "Provisioning",
+          "tag": "Queued",
           "value": {
             "#tup": []
           }
@@ -1283,11 +1249,180 @@
             "#tup": []
           }
         }
+      },
+      "mbt::actionTaken": "agentPausesAuthor",
+      "mbt::nondetPicks": {
+        "alarmIndex": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "bridge": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "callId": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "finished": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "index": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ok": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
       }
     },
     {
       "#meta": {
         "index": 6
+      },
+      "harnessDefaultEffort::harnessSession::world": {
+        "actions": {
+          "#bigint": "6"
+        },
+        "alarms": [],
+        "answersToOtherRequests": {
+          "#bigint": "0"
+        },
+        "artifact": false,
+        "bridgeClosedAt": {
+          "tag": "Unset",
+          "value": {
+            "#tup": []
+          }
+        },
+        "bridges": [],
+        "calls": [],
+        "cancelsDelivered": {
+          "#bigint": "0"
+        },
+        "eventsThatThrew": {
+          "#bigint": "0"
+        },
+        "faults": {
+          "#bigint": "1"
+        },
+        "generation": {
+          "#bigint": "1"
+        },
+        "helloSlot": {
+          "tag": "Unarmed",
+          "value": {
+            "#tup": []
+          }
+        },
+        "keepAliveSlot": {
+          "tag": "Unarmed",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lastProgressAt": {
+          "tag": "Recent",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostTurnsRecovered": {
+          "#bigint": "0"
+        },
+        "nextAlarm": {
+          "#bigint": "2"
+        },
+        "nextCall": {
+          "#bigint": "2"
+        },
+        "nextSerial": {
+          "#bigint": "0"
+        },
+        "noProgressSlot": {
+          "tag": "Unarmed",
+          "value": {
+            "#tup": []
+          }
+        },
+        "nudged": false,
+        "paused": true,
+        "permissionsAllowed": {
+          "#bigint": "0"
+        },
+        "permissionsAsked": {
+          "#bigint": "0"
+        },
+        "personPrompts": {
+          "#bigint": "2"
+        },
+        "promptInFlight": false,
+        "promptsSent": {
+          "#bigint": "0"
+        },
+        "queue": [
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "restarts": {
+          "#bigint": "1"
+        },
+        "rpcs": [],
+        "session": false,
+        "sockets": [],
+        "socketsClosed": {
+          "#bigint": "0"
+        },
+        "startTracked": false,
+        "status": {
+          "tag": "Queued",
+          "value": {
+            "#tup": []
+          }
+        },
+        "stoppedEarly": false,
+        "stopsEnded": {
+          "#bigint": "0"
+        },
+        "token": {
+          "#bigint": "2"
+        },
+        "wallSlot": {
+          "tag": "Unarmed",
+          "value": {
+            "#tup": []
+          }
+        }
       },
       "mbt::actionTaken": "sandboxDestroyReturns",
       "mbt::nondetPicks": {
@@ -1333,10 +1468,15 @@
             "#tup": []
           }
         }
+      }
+    },
+    {
+      "#meta": {
+        "index": 7
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "6"
+          "#bigint": "7"
         },
         "alarms": [],
         "answersToOtherRequests": {
@@ -1408,13 +1548,26 @@
           "#bigint": "0"
         },
         "personPrompts": {
-          "#bigint": "0"
+          "#bigint": "2"
         },
         "promptInFlight": false,
         "promptsSent": {
           "#bigint": "0"
         },
-        "queue": [],
+        "queue": [
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
         "restarts": {
           "#bigint": "1"
         },
@@ -1444,13 +1597,8 @@
             "#tup": []
           }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 7
       },
-      "mbt::actionTaken": "agentResumesAuthor",
+      "mbt::actionTaken": "timePasses",
       "mbt::nondetPicks": {
         "alarmIndex": {
           "tag": "None",
@@ -1494,10 +1642,15 @@
             "#tup": []
           }
         }
+      }
+    },
+    {
+      "#meta": {
+        "index": 8
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "7"
+          "#bigint": "8"
         },
         "alarms": [
           {
@@ -1613,13 +1766,25 @@
           "#bigint": "0"
         },
         "personPrompts": {
-          "#bigint": "0"
+          "#bigint": "2"
         },
         "promptInFlight": false,
         "promptsSent": {
           "#bigint": "0"
         },
         "queue": [
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          },
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          },
           {
             "tag": "ContinuePrompt",
             "value": {
@@ -1652,6 +1817,51 @@
         },
         "wallSlot": {
           "tag": "Unarmed",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "mbt::actionTaken": "agentResumesAuthor",
+      "mbt::nondetPicks": {
+        "alarmIndex": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "bridge": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "callId": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "finished": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "index": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ok": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
           "value": {
             "#tup": []
           }

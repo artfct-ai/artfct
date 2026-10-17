@@ -21,7 +21,9 @@
     "anAnswerReachesOnlyItsOwnRequest",
     "stopEndsTheAuthorsTurn",
     "aHarnessSessionRunsOneTurnAtATime",
-    "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn"
+    "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn",
+    "anUnpausedTaskWithWorkIsNeverStranded",
+    "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone"
   ],
   "witnesses": {
     "harnessDefaultEffort": [

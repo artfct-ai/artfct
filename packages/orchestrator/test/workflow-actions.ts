@@ -16,6 +16,7 @@ import type { AuthorTurnOutcome } from "../src/workflow/task/author-turn";
 import { onBridgeLost } from "../src/workflow/task/harness/bridge";
 import { sendHeldCommentsOnRevisionRequest } from "../src/workflow/refiner/held-comments";
 import { retryQueue } from "../src/workflow/task/harness/prompt-queue";
+import { settleIdleAuthor } from "../src/workflow/task/harness/turn";
 import { onModelTurnDeadline, type ModelTurnAlarm } from "../src/workflow/task/model-turn";
 import {
   RESEARCH_PAYLOAD_MAX_BYTES,
@@ -1405,6 +1406,7 @@ export const TIMERS = [
   "keep_alive",
   "bridge_lost",
   "queue_retry",
+  "settle_idle_author",
   "idle",
   "recheck",
   "model_turn_deadline",
@@ -1443,6 +1445,10 @@ const TIMER_ALARMS: Record<
   queue_retry: {
     method: "retryQueue",
     fire: (workflow, payload) => retryQueue(workflow, payload as GenerationAlarm),
+  },
+  settle_idle_author: {
+    method: "settleIdleAuthor",
+    fire: (workflow, payload) => settleIdleAuthor(workflow, payload as GenerationAlarm),
   },
   idle: { method: "onIdle", fire: (workflow) => onIdle(workflow) },
   recheck: {
@@ -1491,6 +1497,7 @@ export const GENERATION_TIMERS = [
   "keep_alive",
   "bridge_lost",
   "queue_retry",
+  "settle_idle_author",
 ] as const satisfies readonly Timer[];
 
 /** An alarm armed for the generation before the task's current one fires, as after a lost cancel. */
