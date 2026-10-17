@@ -56,6 +56,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | feedback | Anything anyone posts on an artifact that the system must route. A review or a comment. | `Feedback` | |
 | review | What a person or an agent posts on an artifact as a whole: a summary, findings, and whether it blocks. | `Review`, the review arm of `tasks.result` | verdict |
 | ruling | What a judge files on an artifact: approved, or rejected with a reason. Code reads it from a conclusion, or a person gives it. | `Ruling`, the ruling arm of `tasks.result` | verdict |
+| ruling ask | The agent being told to get a person's ruling on a judge run that the decisions model could not rule. It stays on the judge run until a ruling replaces it. | the `ruling_asked` arm of `tasks.result`, `RulingAsked` | |
 | comment | Feedback that is not a review. | part of `Feedback` | |
 | comment thread | A page comment and the replies under it. | `commentThread` | discussion |
 | held comment | A person's comment on a page artifact that the system has not acknowledged. Three things send every held comment to the author and acknowledge it: a comment there that mentions the bot when the decisions model routes it to the author, a person's message that asks for a revision, and any prompt the orchestrator sends to that author. The author gets only the held comments the host marked read. A held comment the screen does not admit, the host does not mark read, or a mention routes elsewhere stays held. | `HeldComment`, `Documents.heldComments` | |

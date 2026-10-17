@@ -50,13 +50,15 @@ export type Review = {
 };
 
 /**
- * What a refiner run filed on its artifact: a findings reviewer's review, or a judge's ruling.
- * Kept on the refiner run's row until its segment settles.
+ * What a refiner run filed on its artifact: a findings reviewer's review, a judge's ruling, or
+ * the agent's ask for a person's ruling on a judge run. Kept on the refiner run's row until its
+ * segment settles.
  */
 export type RefinerResult =
   | Review
   | { kind: "ruling"; revision: string | null; ruling: "approved" }
-  | { kind: "ruling"; revision: string | null; ruling: "rejected"; reason: string };
+  | { kind: "ruling"; revision: string | null; ruling: "rejected"; reason: string }
+  | { kind: "ruling_asked" };
 
 /** A human message about an artifact, on its way to becoming a prompt for the author. */
 export type Feedback = {

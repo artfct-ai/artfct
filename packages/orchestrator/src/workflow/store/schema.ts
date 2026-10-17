@@ -71,8 +71,6 @@ export const tasks = sqliteTable("tasks", {
   model_turn_id: text(),
   /** How often the task started over after a failure it may recover from. */
   restarts: integer().notNull().default(0),
-  /** True once the agent was told to get a person's ruling on this judge run. */
-  asked_person_to_rule: integer({ mode: "boolean" }).notNull().default(false),
 });
 
 /** The sandbox and the harness session in it, for one task. */

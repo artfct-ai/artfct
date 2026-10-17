@@ -1,1 +1,0 @@
-ALTER TABLE `tasks` ADD `asked_person_to_rule` integer DEFAULT false NOT NULL;

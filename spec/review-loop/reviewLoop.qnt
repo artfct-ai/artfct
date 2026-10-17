@@ -16,11 +16,13 @@ module reviewLoopTypes {
   /// Where a refiner run stands. Every status but `Unfinished` is final.
   type RunStatus = Unfinished | Done | Cancelled | Failed
 
-  /// What a refiner run filed: a review of one revision, or a ruling on one.
+  /// What a refiner run filed: a review of one revision, a ruling on one, or the agent's ask for
+  /// a person's ruling on a judge run.
   type RefinerResult =
     | NoResult
     | FiledReview({ revision: int, findings: bool })
     | FiledRuling({ ruling: Ruling, revision: int })
+    | RulingAsked
 
   /// One execution of a refiner on the artifact.
   type RefinerRun = { refinerIndex: int, status: RunStatus, result: RefinerResult, restarts: int }
@@ -137,14 +139,13 @@ module reviewLoopTypes {
     | HeldCommentsAsked({ by: Asker, read: HeldRead, carried: Set[int] })
     | APersonEditedThePage
 
-  /// The review of one artifact, the done judge runs whose conclusion code is ruling on, the done
-  /// judge runs the agent was asked to get a person's ruling on, and the comments on a page.
+  /// The review of one artifact, the done judge runs whose conclusion code is ruling on, and the
+  /// comments on a page.
   type ReviewLoop = {
     author: Author,
     artifact: Artifact,
     refinerRuns: List[RefinerRun],
     judgeRunsCodeRulesOn: Set[int],
-    judgeRunsAPersonRulesOn: Set[int],
     reviewComments: List[ReviewComment],
     personComments: List[PersonComment],
   }
@@ -299,7 +300,6 @@ module reviewLoop {
     artifact: { status: Drafted, revision: 0, refinerRun: NoRefinerRun },
     refinerRuns: List(),
     judgeRunsCodeRulesOn: Set(),
-    judgeRunsAPersonRulesOn: Set(),
     reviewComments: List(),
     personComments: if (ON_A_PAGE) List(COMMENT_HELD_AT_OPEN) else List(),
   }
@@ -371,6 +371,7 @@ module reviewLoop {
       | FiledReview(filed) => filed.revision == revision
       | FiledRuling(filed) => filed.revision == revision
       | NoResult => false
+      | RulingAsked => false
     }
 
   pure def isReview(result: RefinerResult): bool =
@@ -1095,8 +1096,7 @@ module reviewLoop {
   /// artifact still waits on the judge run.
   pure def decisionsModelCannotRuleOn(loop: ReviewLoop, id: int): ReviewLoop = {
     val answered = { ...loop, judgeRunsCodeRulesOn: loop.judgeRunsCodeRulesOn.exclude(Set(id)) }
-    if (rulingLands(answered, id))
-      { ...answered, judgeRunsAPersonRulesOn: answered.judgeRunsAPersonRulesOn.union(Set(id)) }
+    if (rulingLands(answered, id)) withRun(answered, id, { ...answered.refinerRuns[id], result: RulingAsked })
     else answered
   }
 
@@ -1238,8 +1238,7 @@ module reviewLoop {
       isOnRun(loop, id),
       refinerOf(loop.refinerRuns[id]) == Judge,
       loop.refinerRuns[id].status == Done,
-      not(isRuling(loop.refinerRuns[id].result)),
-      not(loop.judgeRunsAPersonRulesOn.contains(id)),
+      loop.refinerRuns[id].result == NoResult,
     })
 
   /// A new Durable Object instance takes over the workflow with the store. The ruling calls in
@@ -1724,7 +1723,7 @@ module reviewLoop {
       not(isRuling(review.refinerRuns[id].result)),
     } implies or {
       review.judgeRunsCodeRulesOn.contains(id),
-      review.judgeRunsAPersonRulesOn.contains(id),
+      review.refinerRuns[id].result == RulingAsked,
     })
 
   /// Every invariant above, for one check of all of them.
@@ -1891,7 +1890,8 @@ module reviewLoop {
   val aRulingCallIsLostWithTheInstance: bool = lastStepReached.aRulingCallIsLostWithTheInstance
 
   /// Witness for `aRestartDoesNotStrandAJudgeRun`: the agent was asked to get a person's ruling.
-  val theAgentIsAskedForAPersonsRuling: bool = review.judgeRunsAPersonRulesOn.size() > 0
+  val theAgentIsAskedForAPersonsRuling: bool =
+    runIds(review).exists(id => review.refinerRuns[id].result == RulingAsked)
 
   /// A new instance took over the workflow.
   val theInstanceRestarted: bool = instanceRestartCount > 0

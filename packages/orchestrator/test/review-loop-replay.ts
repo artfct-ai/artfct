@@ -99,7 +99,8 @@ type SpecRun = {
   result:
     | { filed: "nothing" }
     | { filed: "review"; revision: number; findings: boolean }
-    | { filed: "ruling"; ruling: "Approved" | "Rejected"; revision: number };
+    | { filed: "ruling"; ruling: "Approved" | "Rejected"; revision: number }
+    | { filed: "ruling_asked" };
   restarts: number;
 };
 
@@ -138,7 +139,6 @@ export type SpecReview = {
   };
   refinerRuns: SpecRun[];
   judgeRunsCodeRulesOn: number[];
-  judgeRunsAPersonRulesOn: number[];
   reviewComments: SpecReviewComment[];
   personComments: SpecPersonComment[];
 };
@@ -196,7 +196,7 @@ function specReview(value: unknown): SpecReview {
   const artifact = itfField(value, "artifact");
   const status = itfVariant(itfField(artifact, "status"))!;
   const refinerRun = itfVariant(itfField(artifact, "refinerRun"))!;
-  const review: SpecReview = {
+  return {
     author: {
       atWork: itfBool(itfField(author, "atWork")),
       failed: itfBool(itfField(author, "failed")),
@@ -219,25 +219,9 @@ function specReview(value: unknown): SpecReview {
     },
     refinerRuns: itfList(itfField(value, "refinerRuns")).map(specRun),
     judgeRunsCodeRulesOn: sortedInts(itfField(value, "judgeRunsCodeRulesOn")),
-    judgeRunsAPersonRulesOn: [],
     reviewComments: itfList(itfField(value, "reviewComments")).map(specReviewComment),
     personComments: itfList(itfField(value, "personComments")).map(specPersonComment),
   };
-  const asked = sortedInts(itfField(value, "judgeRunsAPersonRulesOn"));
-  return { ...review, judgeRunsAPersonRulesOn: awaitingARuling(review, asked) };
-}
-
-/**
- * The runs of `asked` the artifact still waits on for a ruling. The spec and the store agree on
- * whether a person was asked only while the ruling matters.
- */
-function awaitingARuling(review: SpecReview, asked: number[]): number[] {
-  return asked.filter(
-    (runId) =>
-      review.artifact.status.status === "Drafted" &&
-      review.artifact.refinerRun === runId &&
-      review.refinerRuns[runId]?.result.filed !== "ruling",
-  );
 }
 
 function specReviewComment(value: unknown): SpecReviewComment {
@@ -326,6 +310,8 @@ function specResult(result: { tag: string; value: unknown }): SpecRun["result"] 
         ruling: itfOneOf(itfVariant(itfField(result.value, "ruling"))!.tag, RULINGS),
         revision: itfInt(itfField(result.value, "revision")),
       };
+    case "RulingAsked":
+      return { filed: "ruling_asked" };
     default:
       return { filed: "nothing" };
   }
@@ -857,7 +843,7 @@ export class ReviewLoopReplay {
     const queued = store.queue().filter((row) => row.task_id === author.task_id);
     const turnAsked = this.pageModel && atWork ? this.pageModel.heldUserText : null;
     const revisionCount = (revision: string | null) => this.revisionCount(revision);
-    const review: SpecReview = {
+    return {
       author: {
         atWork,
         failed: author.status === "failed",
@@ -879,14 +865,9 @@ export class ReviewLoopReplay {
       },
       refinerRuns: runs.map((run) => specRunOf(run, revisionCount)),
       judgeRunsCodeRulesOn: [...this.held.keys()].toSorted((left, right) => left - right),
-      judgeRunsAPersonRulesOn: [],
       reviewComments: this.reviewComments(runs),
       personComments: this.comments.map((comment) => this.specPersonCommentOf(comment, author)),
     };
-    const asked = runs.flatMap((run, runId) =>
-      run.asked_person_to_rule && !this.held.has(runId) ? [runId] : [],
-    );
-    return { ...review, judgeRunsAPersonRulesOn: awaitingARuling(review, asked) };
   }
 
   private worldActionFor(step: TraceStep): WorkflowAction {
@@ -1710,16 +1691,24 @@ function specResultOf(
   revisionCount: (revision: string | null) => number,
 ): SpecRun["result"] {
   if (!result) return { filed: "nothing" };
-  if (result.kind === "ruling") {
-    return {
-      filed: "ruling",
-      ruling: result.ruling === "approved" ? "Approved" : "Rejected",
-      revision: revisionCount(result.revision),
-    };
+  switch (result.kind) {
+    case "ruling":
+      return {
+        filed: "ruling",
+        ruling: result.ruling === "approved" ? "Approved" : "Rejected",
+        revision: revisionCount(result.revision),
+      };
+    case "ruling_asked":
+      return { filed: "ruling_asked" };
+    case "review":
+      return {
+        filed: "review",
+        revision: revisionCount(result.revision),
+        findings: result.blocking || result.findings.length > 0,
+      };
+    default: {
+      const unhandled: never = result;
+      throw new Error(`unhandled refiner result ${JSON.stringify(unhandled)}`);
+    }
   }
-  return {
-    filed: "review",
-    revision: revisionCount(result.revision),
-    findings: result.blocking || result.findings.length > 0,
-  };
 }

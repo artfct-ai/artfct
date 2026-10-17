@@ -396,7 +396,7 @@ export async function settleLostJudgeRuling(
  * agent's ask for a person's ruling is recorded. Null otherwise.
  */
 function judgeEntryWithoutARulingAsked(workflow: WorkflowRuntime, run: TaskRow): JudgeEntry | null {
-  if (run.role !== "reviewer" || run.status !== "done" || run.asked_person_to_rule) return null;
+  if (run.role !== "reviewer" || run.status !== "done" || run.result !== null) return null;
   const entry = reviewerEntryOf(workflow, run);
   if (entry?.mode !== "judge") return null;
   return validateJudgeAwaitsRuling(workflow, run) ? null : entry;

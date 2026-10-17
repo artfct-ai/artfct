@@ -106,9 +106,6 @@
             "#set": []
           }
         },
-        "judgeRunsAPersonRulesOn": {
-          "#set": []
-        },
         "judgeRunsCodeRulesOn": {
           "#set": []
         },
@@ -274,9 +271,6 @@
           "turnComments": {
             "#set": []
           }
-        },
-        "judgeRunsAPersonRulesOn": {
-          "#set": []
         },
         "judgeRunsCodeRulesOn": {
           "#set": []
@@ -471,9 +465,6 @@
             "#set": []
           }
         },
-        "judgeRunsAPersonRulesOn": {
-          "#set": []
-        },
         "judgeRunsCodeRulesOn": {
           "#set": [
             {
@@ -664,9 +655,6 @@
           "turnComments": {
             "#set": []
           }
-        },
-        "judgeRunsAPersonRulesOn": {
-          "#set": []
         },
         "judgeRunsCodeRulesOn": {
           "#set": [
@@ -862,9 +850,6 @@
           "turnComments": {
             "#set": []
           }
-        },
-        "judgeRunsAPersonRulesOn": {
-          "#set": []
         },
         "judgeRunsCodeRulesOn": {
           "#set": []
