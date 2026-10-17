@@ -73,9 +73,13 @@ module workflowLifecycleTypes {
   type Call = { kind: CallKind, job: int, rest: Rest }
 
   /// `failuresPosted` counts the posts that tell the person a researcher or author failed.
+  /// `stagesPlanned` holds once a plan set the stages. A plan without stages only starts the
+  /// workflow. `movedATrackerIssue` holds once the workflow moved a tracker issue.
   type Workflow = {
     status: WorkflowStatus,
     definition: PlanDefinition,
+    stagesPlanned: bool,
+    movedATrackerIssue: bool,
     idleArmed: bool,
     jobs: List[Job],
     calls: List[Call],
@@ -93,14 +97,19 @@ module workflowLifecycleTypes {
     | RestartStep
     | DeadlineStep(int)
 
+  /// The timers whose alarms are about one sandbox generation.
+  type GenerationTimer = HelloTimeout | NoProgress | KeepAlive | BridgeLost | QueueRetry | SettleIdleAuthor
+
   /// One step: the workflow before it, the workflow after it, and what an observer knows of it.
-  type Transition = { before: Workflow, after: Workflow, kind: StepKind }
+  /// `mayTellTheAgent` is false for a step the spec knows does not tell the agent anything.
+  type Transition = { before: Workflow, after: Workflow, kind: StepKind, mayTellTheAgent: bool }
 
   /// Whether the last step kept each before-and-after rule, by the name of the invariant that reads
   /// it. Each step writes it again, so the state does not keep the workflow before the step.
   type KeptRules = {
     jobStartsOnlyIntoAFreeSlot: bool,
     onlyAPlanStartsTheWorkflow: bool,
+    anUndeclaredPlanChangesNothing: bool,
     workflowKeepsItsDefinition: bool,
     finishedTaskKeepsItsStatus: bool,
     nothingReopensAFinishedWorkflow: bool,
@@ -117,6 +126,7 @@ module workflowLifecycleTypes {
   type ReachedWitnesses = {
     aPlanStartsTheWorkflow: bool,
     aPlanLandsOnAStartedWorkflow: bool,
+    anUndeclaredPlanLands: bool,
     aJobStartsIntoTheLastSlot: bool,
     aJobStartsBesideAResearcher: bool,
     aFinishedTaskIsInAStep: bool,
@@ -166,9 +176,21 @@ module workflowLifecycle {
   /// The workflow definitions of the deployment.
   pure val DEFINITIONS: Set[int] = 0.to(1)
 
+  /// The workflow definitions a plan can name: those of the deployment and one it does not hold.
+  pure val NAMED_DEFINITIONS: Set[int] = 0.to(2)
+
+  /// The timers whose alarm can fire for a generation before the current one.
+  pure val GENERATION_TIMERS: Set[GenerationTimer] =
+    Set(HelloTimeout, NoProgress, KeepAlive, BridgeLost, QueueRetry, SettleIdleAuthor)
+
+  /// The sandboxes a stale alarm can be about, counted round those with an earlier generation.
+  pure val STALE_SANDBOXES: Set[int] = 0.to(2)
+
   pure val INITIAL_WORKFLOW: Workflow = {
     status: New,
     definition: Unplanned,
+    stagesPlanned: false,
+    movedATrackerIssue: false,
     idleArmed: true,
     jobs: List(),
     calls: List(),
@@ -296,7 +318,7 @@ module workflowLifecycle {
   pure def canStartJob(flow: Workflow, input: Input): bool = and {
     not(hasEnded(flow.status)),
     not(workflowEnding(flow)),
-    flow.definition != Unplanned,
+    flow.stagesPlanned,
     unfinishedJobIds(flow).length() < SLOTS,
     not(inputHeld(flow, input)),
   }
@@ -598,14 +620,14 @@ module workflowLifecycle {
 
   pure def sleeps(flow: Workflow): bool = flow.status == Running and busyJobs(flow).size() == 0
 
-  action move(after: Workflow, kind: StepKind): bool = {
-    val step = { before: workflow, after: after, kind: kind }
-    all {
-      workflow' = after,
-      lastStepKept' = rulesKeptBy(step),
-      lastStepReached' = witnessesReachedBy(step),
-    }
+  action record(step: Transition): bool = all {
+    workflow' = step.after,
+    lastStepKept' = rulesKeptBy(step),
+    lastStepReached' = witnessesReachedBy(step),
   }
+
+  action move(after: Workflow, kind: StepKind): bool =
+    record({ before: workflow, after: after, kind: kind, mayTellTheAgent: true })
 
   action onJob(act: int => bool): bool = all {
     workflow.jobs.length() > 0,
@@ -623,7 +645,7 @@ module workflowLifecycle {
   }
 
   action init: bool = {
-    val step = { before: INITIAL_WORKFLOW, after: INITIAL_WORKFLOW, kind: OtherStep }
+    val step = { before: INITIAL_WORKFLOW, after: INITIAL_WORKFLOW, kind: OtherStep, mayTellTheAgent: false }
     all {
       workflow' = INITIAL_WORKFLOW,
       lastStepKept' = rulesKeptBy(step),
@@ -631,18 +653,25 @@ module workflowLifecycle {
     }
   }
 
-  /// The agent calls `set_plan` with stages and one of the workflow definitions while the workflow
-  /// has not ended. A plan is refused while the workflow ends, and when it names another workflow
-  /// definition than the one the workflow started from.
+  /// The agent calls `set_plan` with a workflow definition while the workflow has not ended. The
+  /// call that starts the workflow may leave out the stages. A plan is refused while the workflow
+  /// ends, when it names a workflow definition the deployment does not hold or another one than
+  /// the workflow started from, and when it leaves out the stages on a started workflow.
   action agentSetsPlan: bool = all {
     not(hasEnded(workflow.status)),
-    nondet definition = DEFINITIONS.oneOf()
+    nondet definition = NAMED_DEFINITIONS.oneOf()
+    nondet withStages = Set(true, false).oneOf()
+    val undeclared = not(DEFINITIONS.contains(definition))
     val otherDefinition = workflow.definition != Unplanned and workflow.definition != Planned(definition)
-    val refused = workflowEnding(workflow) or otherDefinition
-    move(
-      if (refused) workflow else { ...workflow, definition: Planned(definition), status: Running },
-      PlanStep(definition),
-    )
+    val stagesLeftOut = not(withStages) and workflow.definition != Unplanned
+    val refused = workflowEnding(workflow) or undeclared or otherDefinition or stagesLeftOut
+    val planned = {
+      ...workflow,
+      definition: Planned(definition),
+      status: Running,
+      stagesPlanned: workflow.stagesPlanned or withStages,
+    }
+    move(if (refused) workflow else planned, PlanStep(definition))
   }
 
   /// The agent calls `start_job` for the page stage in a turn a request woke. It may be refused.
@@ -814,10 +843,13 @@ module workflowLifecycle {
     else move(disarmed, OtherStep),
   }
 
-  /// An alarm of a sandbox generation before the current one fires.
+  /// An alarm of a sandbox generation before the current one fires. The timer and the sandbox it
+  /// is about change nothing here. Only the replay reads them.
   action staleAlarmFires: bool = all {
     workflow.jobs.length() > 0,
-    move(workflow, StaleAlarmStep),
+    nondet timer = GENERATION_TIMERS.oneOf()
+    nondet sandbox = STALE_SANDBOXES.oneOf()
+    record({ before: workflow, after: workflow, kind: StaleAlarmStep, mayTellTheAgent: false }),
   }
 
   /// The Durable Object restarts while a call is out. Every call that is out is lost with its isolate.
@@ -885,6 +917,12 @@ module workflowLifecycle {
       DEFINITIONS.exists(definition =>
         step.after.definition == Planned(definition) and step.kind == PlanStep(definition))
 
+  /// A plan that names a workflow definition the deployment does not hold changes nothing.
+  pure def ignoresAnUndeclaredPlan(step: Transition): bool = match step.kind {
+    | PlanStep(definition) => not(DEFINITIONS.contains(definition)) implies step.after == step.before
+    | _ => true
+  }
+
   /// A later plan cannot change the workflow definition a workflow started with.
   pure def keepsTheDefinition(step: Transition): bool =
     step.before.definition != Unplanned implies step.after.definition == step.before.definition
@@ -907,9 +945,9 @@ module workflowLifecycle {
       promptsSentToTasks(step.after) == promptsSentToTasks(step.before),
     }
 
-  /// An alarm of an older sandbox generation changes nothing.
+  /// An alarm of an older sandbox generation changes nothing and does not tell the agent.
   pure def ignoresAStaleAlarm(step: Transition): bool =
-    step.kind == StaleAlarmStep implies step.after == step.before
+    step.kind == StaleAlarmStep implies (step.after == step.before and not(step.mayTellTheAgent))
 
   /// The sleep message posts only while the workflow runs from a plan.
   pure def sleepsOnlyDuringAWorkflow(step: Transition): bool =
@@ -963,6 +1001,7 @@ module workflowLifecycle {
   pure def rulesKeptBy(step: Transition): KeptRules = {
     jobStartsOnlyIntoAFreeSlot: startsOnlyIntoAFreeSlot(step),
     onlyAPlanStartsTheWorkflow: onlyAPlanStarts(step),
+    anUndeclaredPlanChangesNothing: ignoresAnUndeclaredPlan(step),
     workflowKeepsItsDefinition: keepsTheDefinition(step),
     finishedTaskKeepsItsStatus: keepsFinishedTasks(step),
     nothingReopensAFinishedWorkflow: leavesAFinishedWorkflow(step),
@@ -981,6 +1020,10 @@ module workflowLifecycle {
       aPlanStartsTheWorkflow: step.before.definition == Unplanned and step.after.definition != Unplanned,
       aPlanLandsOnAStartedWorkflow: match step.kind {
         | PlanStep(_) => step.before.definition != Unplanned
+        | _ => false
+      },
+      anUndeclaredPlanLands: match step.kind {
+        | PlanStep(definition) => not(DEFINITIONS.contains(definition))
         | _ => false
       },
       aJobStartsIntoTheLastSlot:
@@ -1013,11 +1056,14 @@ module workflowLifecycle {
   val jobStartsOnlyIntoAFreeSlot: bool = lastStepKept.jobStartsOnlyIntoAFreeSlot
 
   /// A workflow starts only from a plan that names a workflow definition of the deployment. Before
-  /// that, a job does not start and the workflow is not running or waiting for input.
+  /// that, a job does not start, the workflow has not moved a tracker issue, and it is not running
+  /// or waiting for input. A plan with an undeclared definition does not change the workflow.
   val workflowStartsOnlyFromAPlan: bool = and {
     lastStepKept.onlyAPlanStartsTheWorkflow,
+    lastStepKept.anUndeclaredPlanChangesNothing,
     workflow.definition == Unplanned implies and {
       workflow.jobs.length() == 0,
+      not(workflow.movedATrackerIssue),
       workflow.status != Running,
       workflow.status != WaitingInput,
     },
@@ -1038,6 +1084,12 @@ module workflowLifecycle {
   /// A finished task never changes status again.
   val finishedTaskKeepsItsStatus: bool = lastStepKept.finishedTaskKeepsItsStatus
 
+  /// An author or researcher in review has an artifact on its job.
+  val inReviewTaskHasAnArtifact: bool =
+    jobIds(workflow).forall(id =>
+      anyTaskOf(workflow.jobs[id], task => task.status == InReview) implies
+        workflow.jobs[id].artifact != NoArtifact)
+
   /// A workflow whose status is done, failed or cancelled has no unfinished task.
   val endedWorkflowHasNoUnfinishedTask: bool =
     hasEnded(workflow.status) implies not(hasUnfinishedTask(workflow))
@@ -1045,7 +1097,7 @@ module workflowLifecycle {
   /// On a finished workflow, no event changes the status, the tasks, or the prompts.
   val nothingReopensAFinishedWorkflow: bool = lastStepKept.nothingReopensAFinishedWorkflow
 
-  /// An alarm of an older sandbox generation changes nothing.
+  /// An alarm of an older sandbox generation changes nothing and does not tell the agent.
   val staleAlarmIsIgnored: bool = lastStepKept.staleAlarmIsIgnored
 
   /// The sleep message posts only while the workflow runs from a plan.
@@ -1086,6 +1138,13 @@ module workflowLifecycle {
 
   /// Witness for `workflowKeepsItsDefinition`: a plan lands on a started workflow.
   val aPlanLandsOnAStartedWorkflow: bool = lastStepReached.aPlanLandsOnAStartedWorkflow
+
+  /// Witness for `workflowStartsOnlyFromAPlan`: a plan names a workflow definition the deployment
+  /// does not hold.
+  val anUndeclaredPlanLands: bool = lastStepReached.anUndeclaredPlanLands
+
+  /// A plan without stages started the workflow, and the stages are not planned yet.
+  val theWorkflowWaitsForItsStages: bool = workflow.definition != Unplanned and not(workflow.stagesPlanned)
 
   /// Witness for `jobStartsOnlyIntoAFreeSlot`: a job starts into the last slot.
   val aJobStartsIntoTheLastSlot: bool = lastStepReached.aJobStartsIntoTheLastSlot
@@ -1184,6 +1243,9 @@ module workflowLifecycle {
   /// The reviewer of a page finished.
   val aRefinerRunFinished: bool =
     jobIds(workflow).exists(id => workflow.jobs[id].refinerRun == RefinerRunFinished)
+
+  /// Witness for `inReviewTaskHasAnArtifact`: an author waits in review.
+  val anAuthorIsInReview: bool = jobIds(workflow).exists(id => jobTask(workflow, id).status == InReview)
 
   /// The humans have a page.
   val theHumansHaveAPage: bool = jobIds(workflow).exists(id => workflow.jobs[id].artifact == Ready)

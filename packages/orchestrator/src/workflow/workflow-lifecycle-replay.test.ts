@@ -11,6 +11,7 @@ import {
   type SpecSetup,
   type TraceStep,
 } from "../../test/workflow-lifecycle-replay";
+import { SLEEP_TEXT } from "./lifecycle";
 
 const TRACES_PER_SETUP = 20;
 
@@ -28,6 +29,14 @@ function stepName(step: TraceStep): string {
   return picked.length ? `${step.action}(${picked.join(", ")})` : step.action;
 }
 
+function idleAlarmSleeps(before: TraceStep, step: TraceStep): boolean {
+  return (
+    step.action === "idleAlarmFires" &&
+    before.workflow.status === "Running" &&
+    step.workflow.status === "WaitingInput"
+  );
+}
+
 async function replayTrace(setup: SpecSetup, trace: TraceStep[]): Promise<void> {
   const [initial, ...steps] = trace;
   if (!initial) throw new Error(`${setup} produced an empty trace`);
@@ -36,10 +45,20 @@ async function replayTrace(setup: SpecSetup, trace: TraceStep[]): Promise<void> 
   const divergence = (step: TraceStep) =>
     `${setup} diverged after ${taken.join(" -> ")}\nspec state: ${JSON.stringify(step.workflow)}`;
   expect(replay.project(), divergence(initial)).toEqual(initial.workflow);
+  let before = initial;
   for (const step of steps) {
     taken.push(stepName(step));
-    await replay.take(step);
+    const worldSteps = await replay.take(step);
     expect(replay.project(), divergence(step)).toEqual(step.workflow);
+    const sleepPosted = worldSteps.some((worldStep) => worldStep.postedTexts.includes(SLEEP_TEXT));
+    expect(sleepPosted, divergence(step)).toBe(idleAlarmSleeps(before, step));
+    if (step.action === "staleAlarmFires") {
+      expect(
+        worldSteps.flatMap((worldStep) => worldStep.notes),
+        divergence(step),
+      ).toEqual([]);
+    }
+    before = step;
   }
   await replay.close();
   replay = null;

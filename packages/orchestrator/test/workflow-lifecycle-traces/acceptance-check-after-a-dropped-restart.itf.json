@@ -30,6 +30,8 @@
         },
         "idleArmed": true,
         "jobs": [],
+        "movedATrackerIssue": false,
+        "stagesPlanned": false,
         "status": {
           "tag": "New",
           "value": {
@@ -74,6 +76,24 @@
           "value": {
             "#tup": []
           }
+        },
+        "sandbox": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "timer": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -94,6 +114,8 @@
         },
         "idleArmed": false,
         "jobs": [],
+        "movedATrackerIssue": false,
+        "stagesPlanned": false,
         "status": {
           "tag": "New",
           "value": {
@@ -138,6 +160,24 @@
           "value": {
             "#tup": []
           }
+        },
+        "sandbox": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "timer": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -158,6 +198,8 @@
         },
         "idleArmed": false,
         "jobs": [],
+        "movedATrackerIssue": false,
+        "stagesPlanned": true,
         "status": {
           "tag": "Running",
           "value": {
@@ -202,6 +244,22 @@
           "value": {
             "#tup": []
           }
+        },
+        "sandbox": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "timer": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
+          "tag": "Some",
+          "value": true
         }
       }
     },
@@ -274,6 +332,8 @@
             ]
           }
         ],
+        "movedATrackerIssue": false,
+        "stagesPlanned": true,
         "status": {
           "tag": "Running",
           "value": {
@@ -317,6 +377,24 @@
           "tag": "Some",
           "value": {
             "#bigint": "0"
+          }
+        },
+        "sandbox": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "timer": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         }
       }
@@ -390,6 +468,8 @@
             ]
           }
         ],
+        "movedATrackerIssue": false,
+        "stagesPlanned": true,
         "status": {
           "tag": "Running",
           "value": {
@@ -430,6 +510,24 @@
           }
         },
         "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "sandbox": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "timer": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -506,6 +604,8 @@
             ]
           }
         ],
+        "movedATrackerIssue": false,
+        "stagesPlanned": true,
         "status": {
           "tag": "Running",
           "value": {
@@ -546,6 +646,24 @@
           }
         },
         "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "sandbox": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "timer": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -622,6 +740,8 @@
             ]
           }
         ],
+        "movedATrackerIssue": false,
+        "stagesPlanned": true,
         "status": {
           "tag": "Running",
           "value": {
@@ -662,6 +782,24 @@
           }
         },
         "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "sandbox": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "timer": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -756,6 +894,8 @@
             ]
           }
         ],
+        "movedATrackerIssue": false,
+        "stagesPlanned": true,
         "status": {
           "tag": "Running",
           "value": {
@@ -796,6 +936,24 @@
           }
         },
         "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "sandbox": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "timer": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -890,6 +1048,8 @@
             ]
           }
         ],
+        "movedATrackerIssue": false,
+        "stagesPlanned": true,
         "status": {
           "tag": "Running",
           "value": {
@@ -934,6 +1094,22 @@
           "value": {
             "#tup": []
           }
+        },
+        "sandbox": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "timer": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
+          "tag": "Some",
+          "value": true
         }
       }
     },
@@ -1024,6 +1200,8 @@
             ]
           }
         ],
+        "movedATrackerIssue": false,
+        "stagesPlanned": true,
         "status": {
           "tag": "Running",
           "value": {
@@ -1068,6 +1246,22 @@
           "value": {
             "#tup": []
           }
+        },
+        "sandbox": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "timer": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
+          "tag": "Some",
+          "value": true
         }
       }
     },
@@ -1158,6 +1352,8 @@
             ]
           }
         ],
+        "movedATrackerIssue": false,
+        "stagesPlanned": true,
         "status": {
           "tag": "Running",
           "value": {
@@ -1198,6 +1394,24 @@
           }
         },
         "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "sandbox": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "timer": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1274,6 +1488,8 @@
             ]
           }
         ],
+        "movedATrackerIssue": false,
+        "stagesPlanned": true,
         "status": {
           "tag": "Running",
           "value": {
@@ -1314,6 +1530,24 @@
           }
         },
         "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "sandbox": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "timer": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1390,6 +1624,8 @@
             ]
           }
         ],
+        "movedATrackerIssue": false,
+        "stagesPlanned": true,
         "status": {
           "tag": "Running",
           "value": {
@@ -1434,6 +1670,22 @@
           "value": {
             "#tup": []
           }
+        },
+        "sandbox": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "timer": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
+          "tag": "Some",
+          "value": true
         }
       }
     },
@@ -1524,6 +1776,8 @@
             ]
           }
         ],
+        "movedATrackerIssue": false,
+        "stagesPlanned": true,
         "status": {
           "tag": "Running",
           "value": {
@@ -1564,6 +1818,24 @@
           }
         },
         "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "sandbox": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "timer": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
           "tag": "None",
           "value": {
             "#tup": []
