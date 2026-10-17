@@ -133,7 +133,7 @@
     "bounds": {
       "harnessDefaultEffort": {
         "pr": {
-          "actionsTaken": 9
+          "actionsTaken": 7
         },
         "nightly": {
           "actionsTaken": 10
@@ -141,7 +141,7 @@
       },
       "stageAsksForEffort": {
         "pr": {
-          "actionsTaken": 9
+          "actionsTaken": 7
         },
         "nightly": {
           "actionsTaken": 10
@@ -149,7 +149,7 @@
       },
       "agentPausesRunningTurns": {
         "pr": {
-          "actionsTaken": 9
+          "actionsTaken": 7
         },
         "nightly": {
           "actionsTaken": 10

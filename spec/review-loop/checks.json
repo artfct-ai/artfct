@@ -89,6 +89,36 @@
       "aPersonEditsDuringAModelCallTurn",
       "aModelCallTurnStartsOver"
     ],
+    "modelCallAuthorWithAReviewer": [
+      "aRefinerRunIsUnfinished",
+      "aPromptWaitsWhileAPolisherRuns",
+      "aModelCallAuthorHasAQueuedPrompt",
+      "aRefinerRunEndsDone",
+      "aRefinerRunStartsAfterAHandover",
+      "aReviewerRunsAgainOnANewRevision",
+      "aPageAuthorGetsTheFindingsOfItsReviewer",
+      "theHumansHaveTheArtifact",
+      "aReviewerReachedTheLimit",
+      "aRefinerRunRestarted",
+      "aPolisherFinished",
+      "aPageReviewPostsAnInlineFinding",
+      "aPageReviewMovesInlineFindingsIntoItsOutcome",
+      "aPageReviewMeetsAHostThatIsDown",
+      "heldCommentsGoToThePageAuthor",
+      "heldCommentsStayHeld",
+      "theScreenKeepsHeldComments",
+      "theHostKeepsHeldCommentsHeld",
+      "aMentionRoutedAwayLeavesHeldComments",
+      "aPersonRepliesWhileTheScreenReads",
+      "aHeldCommentReachesTheAuthor",
+      "theAuthorRepliesToAComment",
+      "aRevisionRewritesTheBlockOfAnAnsweredComment",
+      "aRevisionAnswersAQueuedComment",
+      "aCommentReplyFails",
+      "theHostFailsAModelCallAuthor",
+      "aPersonEditsDuringAModelCallTurn",
+      "aModelCallTurnStartsOver"
+    ],
     "pageReviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
       "aPromptWaitsWhileAPolisherRuns",
@@ -188,12 +218,21 @@
         }
       },
       "modelCallAuthorWithTwoReviewers": {
+        "nightly": {
+          "revisions": 2,
+          "refinerRunsStarted": 2,
+          "reviewCommentsPosted": 2,
+          "personCommentsLeft": 2,
+          "promptsQueued": 1
+        }
+      },
+      "modelCallAuthorWithAReviewer": {
         "pr": {
           "revisions": 1,
           "refinerRunsStarted": 2,
-          "reviewCommentsPosted": 2,
+          "reviewCommentsPosted": 1,
           "personCommentsLeft": 1,
-          "promptsQueued": 1
+          "promptsQueued": 0
         },
         "nightly": {
           "revisions": 2,

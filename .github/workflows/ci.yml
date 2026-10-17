@@ -151,7 +151,7 @@ jobs:
         run: |
           setups=$(bun scripts/spec/check-spec.ts setups)
           echo "SETUPS=$(jq -r --arg spec "$SPEC" 'map(select(.spec == $spec) | .setup) | join(" ")' <<< "$setups")" >> "$GITHUB_ENV"
-          echo "TLC_SETUPS=$(jq -r --arg spec "$SPEC" 'map(select(.spec == $spec and .tlc) | .setup) | join(" ")' <<< "$setups")" >> "$GITHUB_ENV"
+          echo "TLC_SETUPS=$(jq -r --arg spec "$SPEC" 'map(select(.spec == $spec and (.tlcDepths | index("pr"))) | .setup) | join(" ")' <<< "$setups")" >> "$GITHUB_ENV"
       - if: env.TLC_SETUPS != ''
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:

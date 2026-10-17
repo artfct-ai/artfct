@@ -22,6 +22,7 @@ import { installTlcTools } from "./tlc-tools";
 
 const ORCHESTRATOR_DIR = join(import.meta.dirname, "../..");
 const MAX_STEPS = 25;
+const TLC_DEPTHS: TlcDepth[] = ["pr", "nightly"];
 const USAGE = [
   "usage: bun scripts/spec/check-spec.ts setups",
   "       bun scripts/spec/check-spec.ts witnesses <spec> <setup>",
@@ -55,11 +56,12 @@ function listSetups(): void {
     const replay = [
       ...new Bun.Glob(`src/**/${spec}-replay.test{,.medium}.ts`).scanSync(ORCHESTRATOR_DIR),
     ];
+    const bounds = readSpecChecks(spec).tlc?.bounds[setup];
     return {
       spec,
       setup,
       replay: replay[0] ?? "",
-      tlc: Boolean(readSpecChecks(spec).tlc?.bounds[setup]),
+      tlcDepths: TLC_DEPTHS.filter((depth) => bounds?.[depth]),
     };
   });
   console.log(JSON.stringify(setups));

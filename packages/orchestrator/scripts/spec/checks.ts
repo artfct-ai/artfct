@@ -7,13 +7,16 @@ export type TlcDepth = "pr" | "nightly";
 /** The cap on each counter val of a setup, by the val's name. */
 export type TlcBounds = Record<string, number>;
 
+/** The bounds of one setup at each depth. A setup without `pr` bounds is model checked only at night. */
+export type TlcSetupBounds = { pr?: TlcBounds; nightly: TlcBounds };
+
 /** What a spec folder's `checks.json` declares. */
 export type SpecChecks = {
   invariants: string[];
   witnesses: Record<string, string[]>;
   tlc?: {
     ignoredVariables: string[];
-    bounds: Record<string, Record<TlcDepth, TlcBounds>>;
+    bounds: Record<string, TlcSetupBounds>;
   };
 };
 

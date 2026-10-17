@@ -76,6 +76,11 @@ export const SPEC_SETUPS = {
     author: "page_model",
     authors: 1,
   },
+  modelCallAuthorWithAReviewer: {
+    refiners: "reviewer_then_polisher",
+    author: "page_model",
+    authors: 1,
+  },
 } as const satisfies Record<
   string,
   { refiners: RefinerSetup; author: SetupAuthor; authors: 1 | 2 }

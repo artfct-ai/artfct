@@ -153,7 +153,7 @@
         "pr": {
           "jobsStarted": 2,
           "callsOut": 2,
-          "promptsSent": 4,
+          "promptsSent": 3,
           "promptsWaiting": 2
         },
         "nightly": {

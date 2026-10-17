@@ -14,12 +14,12 @@ describe("listSpecSetups", () => {
     }
   });
 
-  it("bounds model checking only for listed setups, at both depths", () => {
+  it("bounds model checking only for listed setups, always at nightly depth", () => {
     for (const specName of new Set(listSpecSetups().map(({ spec }) => spec))) {
       const checks = readSpecChecks(specName);
       for (const [setup, depths] of Object.entries(checks.tlc?.bounds ?? {})) {
         expect(Object.keys(checks.witnesses)).toContain(setup);
-        expect(Object.keys(depths).toSorted()).toEqual(["nightly", "pr"]);
+        expect([["nightly"], ["nightly", "pr"]]).toContainEqual(Object.keys(depths).toSorted());
       }
     }
   });
