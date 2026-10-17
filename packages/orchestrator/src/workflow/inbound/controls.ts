@@ -199,9 +199,9 @@ export async function resumeTask(
   await flushBoards(workflow, task.job_id);
   await workflow.post({ type: "info", text: `Resumed ${task.task_id}.` }, { answering });
   const fresh = workflow.store.requireTask(task.task_id);
+  const pausedGeneration = workflow.store.sandbox(task.task_id)?.generation;
   await promptTask(workflow, fresh, text.trim() || "Continue where you left off.");
-  const sandbox = workflow.store.sandbox(task.task_id);
-  if (sandbox) {
-    await onBridgeLost(workflow, { task_id: task.task_id, generation: sandbox.generation });
+  if (pausedGeneration !== undefined) {
+    await onBridgeLost(workflow, { task_id: task.task_id, generation: pausedGeneration });
   }
 }
