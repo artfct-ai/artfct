@@ -10,7 +10,7 @@ import { freshRuntime } from "../../../../test/fresh-runtime";
 import { FakeSandboxProvider } from "../../../../test/fake-sandbox";
 import { seedTask, type FakeRuntime } from "../../../../test/fake-runtime";
 import { scenario } from "../../../../test/scenario";
-import { provision, startSandbox } from "./sandbox";
+import { provision, restartSandbox, sandboxStartInFlight, startSandbox } from "./sandbox";
 import { onHelloTimeout } from "../harness/timers";
 import type { TaskRow } from "../../store/tasks";
 import { CREDENTIAL_REFRESH_MARGIN_MS, TOKEN_RETRY_S } from "./credential";
@@ -58,6 +58,19 @@ class FailsFirstStart extends FakeSandboxProvider {
 class NeverFinishesStart extends FakeSandboxProvider {
   override async start(): Promise<void> {
     await new Promise<never>(() => {});
+  }
+}
+
+class HeldStarts extends FakeSandboxProvider {
+  private readonly held: (() => void)[] = [];
+
+  override async start(spec: SandboxStartSpec): Promise<void> {
+    await super.start(spec);
+    await new Promise<void>((resolve) => this.held.push(resolve));
+  }
+
+  finishFirst(): void {
+    this.held.shift()?.();
   }
 }
 
@@ -110,6 +123,49 @@ describe("provision", () => {
           expect(workflow.alarmsFor("onHelloTimeout").at(-1)).toMatchObject({
             id: workflow.store.requireSandbox(TASK).hello_schedule,
             payload: { task_id: TASK, generation: 1 },
+          });
+        }));
+    });
+  });
+
+  describe("a task that restarted while the start of its first generation was out", () => {
+    const restarted = scenario(freshRuntime, async (workflow) => {
+      const starts = new HeldStarts();
+      workflow.sandboxProvider = starts;
+      seedTask(workflow, { status: "queued" }, { generation: 0 });
+      void provision(workflow, TASK);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      void restartSandbox(workflow, workflow.store.requireTask(TASK));
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      starts.finishFirst();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    it("awaits only the start of the second generation", () =>
+      restarted((workflow) => {
+        expect(sandboxStartInFlight(workflow, TASK, 1)).toBe(false);
+        expect(sandboxStartInFlight(workflow, TASK, 2)).toBe(true);
+      }));
+
+    describe("and the hello timeout of the second generation fires", () => {
+      const waited = scenario(restarted, (workflow) =>
+        onHelloTimeout(workflow, { task_id: TASK, generation: 2 }),
+      );
+
+      it("keeps the generation and counts no further restart", () =>
+        waited((workflow) => {
+          expect(workflow.store.requireSandbox(TASK).generation).toBe(2);
+          expect(workflow.store.requireTask(TASK)).toMatchObject({
+            status: "provisioning",
+            restarts: 1,
+          });
+        }));
+
+      it("arms another hello timeout for the second generation", () =>
+        waited((workflow) => {
+          expect(workflow.alarmsFor("onHelloTimeout").at(-1)).toMatchObject({
+            id: workflow.store.requireSandbox(TASK).hello_schedule,
+            payload: { task_id: TASK, generation: 2 },
           });
         }));
     });

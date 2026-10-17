@@ -176,7 +176,7 @@ export type SpecTask = {
   artifact: boolean;
   alarms: string[];
   slots: SpecSlots;
-  startTracked: boolean;
+  startsOut: number[];
   sockets: SpecSocket[];
   bridges: SpecBridge[];
   calls: SpecCall[];
@@ -280,7 +280,7 @@ function specTask(world: unknown): SpecTask {
       wall: slot("wallSlot"),
       keepAlive: slot("keepAliveSlot"),
     },
-    startTracked: itfBool(itfField(world, "startTracked")),
+    startsOut: specStartsOut(itfList(itfField(world, "calls"))),
     sockets: itfList(itfField(world, "sockets")).map((socket) => ({
       bridge: itfInt(itfField(socket, "bridge")),
       generation: itfInt(itfField(socket, "generation")),
@@ -305,6 +305,18 @@ function specTask(world: unknown): SpecTask {
     socketsClosed: itfInt(itfField(world, "socketsClosed")),
     eventsThatThrew: itfInt(itfField(world, "eventsThatThrew")),
   };
+}
+
+function specStartsOut(calls: unknown[]): number[] {
+  const generations = new Set<number>();
+  for (const call of calls) {
+    if (tagOf(itfField(call, "state")) !== "Out") continue;
+    for (const frame of itfList(itfField(call, "rest"))) {
+      const named = itfVariant(frame)!;
+      if (named.tag === "StartEnds") generations.add(itfInt(named.value));
+    }
+  }
+  return [...generations].toSorted((left, right) => left - right);
 }
 
 function specAlarmKind(kind: unknown): string {
@@ -576,7 +588,9 @@ export class HarnessSessionReplay {
         wall: slot(sandbox.wall_schedule),
         keepAlive: slot(sandbox.keepalive_schedule),
       },
-      startTracked: sandboxStartInFlight(workflow, this.taskId),
+      startsOut: Array.from({ length: sandbox.generation }, (_, index) => index + 1).filter(
+        (generation) => sandboxStartInFlight(workflow, this.taskId, generation),
+      ),
       sockets: this.sockets.map(({ bridge, generation, state }) => ({ bridge, generation, state })),
       bridges: this.bridges.map((bridge) => ({
         generation: bridge.generation,

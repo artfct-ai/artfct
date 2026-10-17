@@ -137,7 +137,7 @@ export async function onHelloTimeout(
   const sandbox = workflow.store.sandbox(alarm.task_id);
   if (!task || !sandbox || sandbox.generation !== alarm.generation) return;
   if (task.status !== "provisioning") return;
-  if (sandboxStartInFlight(workflow, task.task_id)) {
+  if (sandboxStartInFlight(workflow, task.task_id, sandbox.generation)) {
     return armHelloTimeout(workflow, { ...sandbox, hello_schedule: null });
   }
   await restartOrFailTask(workflow, task, "The sandbox bridge never connected.");

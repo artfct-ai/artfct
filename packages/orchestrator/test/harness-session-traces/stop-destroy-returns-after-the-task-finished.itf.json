@@ -160,7 +160,6 @@
         "socketsClosed": {
           "#bigint": "0"
         },
-        "startTracked": false,
         "status": {
           "tag": "Queued",
           "value": {
@@ -333,7 +332,6 @@
         "socketsClosed": {
           "#bigint": "0"
         },
-        "startTracked": false,
         "status": {
           "tag": "Queued",
           "value": {
@@ -525,7 +523,6 @@
         "socketsClosed": {
           "#bigint": "0"
         },
-        "startTracked": false,
         "status": {
           "tag": "Working",
           "value": {
@@ -705,7 +702,6 @@
         "socketsClosed": {
           "#bigint": "0"
         },
-        "startTracked": false,
         "status": {
           "tag": "Working",
           "value": {
@@ -903,7 +899,6 @@
         "socketsClosed": {
           "#bigint": "0"
         },
-        "startTracked": false,
         "status": {
           "tag": "Cancelled",
           "value": {
@@ -1101,7 +1096,6 @@
         "socketsClosed": {
           "#bigint": "0"
         },
-        "startTracked": false,
         "status": {
           "tag": "Cancelled",
           "value": {
@@ -1299,7 +1293,6 @@
         "socketsClosed": {
           "#bigint": "0"
         },
-        "startTracked": false,
         "status": {
           "tag": "Cancelled",
           "value": {
@@ -1479,7 +1472,6 @@
         "socketsClosed": {
           "#bigint": "0"
         },
-        "startTracked": false,
         "status": {
           "tag": "Cancelled",
           "value": {

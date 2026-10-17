@@ -128,7 +128,11 @@ describe("harness session spec", () => {
   });
 
   it("keeps an author with its page out queued when its woken start fails during a restart", async () => {
-    await replayPinnedTrace("start-fails-while-queued-with-the-page-out", "stageAsksForEffort");
+    await replayPinnedTrace("start-fails-while-queued-with-the-page-out");
+  });
+
+  it("keeps waiting on the start of the current generation after an older start returns", async () => {
+    await replayPinnedTrace("hello-timeout-after-an-older-start-returns");
   });
 
   it("keeps a stopped early author queued for its restart through a restart of the instance", async () => {
