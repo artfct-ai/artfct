@@ -1,10 +1,17 @@
 import { setSystemTime } from "bun:test";
+import type {
+  LanguageModelV4,
+  LanguageModelV4CallOptions,
+  LanguageModelV4GenerateResult,
+  LanguageModelV4StreamResult,
+} from "@ai-sdk/provider";
 import type { Decisions } from "@artfct-ai/adapters/gateway/types";
 import type { TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { planTools } from "../src/agent/tools/plan";
 import { startTools } from "../src/agent/tools/start/start";
+import { CLOSING_TEXT_MARKER } from "../src/prompts/model-author-prompt";
 import { taskTools } from "../src/agent/tools/task";
 import type { SandboxRef } from "../src/sandbox/spec";
 import { jobInputKey } from "../src/workflow/store/input-key";
@@ -12,8 +19,11 @@ import { isTaskFinished } from "../src/workflow/store/state";
 import type { JobRow, TaskRow } from "../src/workflow/store/tasks";
 import type { ConnectionState } from "../src/workflow/task/harness/bridge";
 import { onNoProgress } from "../src/workflow/task/harness/timers";
+import { onModelTurnDeadline, type ModelTurnAlarm } from "../src/workflow/task/model-turn";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfText, itfVariant } from "./itf";
 import { quintTraces } from "./quint-traces";
+import { EchoModel } from "./fake-model";
+import { MODEL_AUTHOR_MODEL, PAGE_PARENT } from "./fake-runtime";
 import { FakeSandboxProvider } from "./fake-sandbox";
 import { InterleavedDecisions } from "./interleaved-decisions";
 import {
@@ -21,6 +31,7 @@ import {
   firstArtifactAppears,
   personCancels,
   personWrites,
+  researcherTurnEnds,
   staleAlarmFires,
   timerFires,
   workflowRestarts,
@@ -32,17 +43,18 @@ import {
   SLOTS,
   STAGE_OF,
   WorkflowWorld,
-  type RefinerSetup,
   type StepFacts,
   type WorkflowAction,
   type WorldSetup,
 } from "./workflow-world";
 
-/** The setup modules of the workflow lifecycle spec, and the refiner list of each. */
+/** The setup modules of the workflow lifecycle spec, and the stage each one runs. */
 export const SPEC_SETUPS = {
-  pagesWithAReviewer: "reviewer",
-  pagesWithoutRefiners: "none",
-} as const satisfies Record<string, RefinerSetup>;
+  pagesWithAReviewer: { refiners: "reviewer", pageAuthor: "harness", research: false },
+  pagesWithoutRefiners: { refiners: "none", pageAuthor: "harness", research: false },
+  pagesAfterResearch: { refiners: "none", pageAuthor: "harness", research: true },
+  pagesFromModelCalls: { refiners: "none", pageAuthor: "model", research: false },
+} as const satisfies Record<string, Pick<WorldSetup, "refiners" | "pageAuthor" | "research">>;
 
 /** The name of one setup module of the spec. */
 export type SpecSetup = keyof typeof SPEC_SETUPS;
@@ -64,14 +76,18 @@ const WORKFLOW_STATUSES = [
 ] as const;
 const ARTIFACT_STATUSES = ["NoArtifact", "Drafted", "Ready"] as const;
 const REFINER_RUN_STATUSES = ["NoRefinerRun", "RefinerRunning", "RefinerRunFinished"] as const;
-const CALL_KINDS = ["SandboxDestroy", "AcceptanceCheck"] as const;
+const CALL_KINDS = ["SandboxDestroy", "AcceptanceCheck", "ModelCall"] as const;
+const ROLES = ["Researcher", "Author"] as const;
+const JOB_ROLES: readonly TaskRow["role"][] = ["researcher", "author"];
 const ENDINGS = ["PersonCancels", "AgentFails", "AgentFinishes"] as const;
 
 type CallKind = (typeof CALL_KINDS)[number];
 type Ending = (typeof ENDINGS)[number];
 
-/** The author task of one job as the spec sees it. */
-type SpecAuthor = {
+/** A researcher or author task of one job as the spec sees it. */
+type SpecTask = {
+  role: (typeof ROLES)[number];
+  startOrder: number;
   status: (typeof TASK_STATUSES)[number];
   restarts: number;
   paused: boolean;
@@ -84,7 +100,7 @@ type SpecAuthor = {
 /** One job as the spec sees it. */
 export type SpecJob = {
   input: { from: "request"; request: number } | { from: "artifact"; job: number };
-  author: SpecAuthor;
+  tasks: SpecTask[];
   artifact: (typeof ARTIFACT_STATUSES)[number];
   refinerRun: (typeof REFINER_RUN_STATUSES)[number];
 };
@@ -99,6 +115,7 @@ export type SpecWorkflow = {
   idleArmed: boolean;
   jobs: SpecJob[];
   calls: SpecCall[];
+  failuresPosted: number;
 };
 
 /** The values the spec picked for one action. */
@@ -161,37 +178,44 @@ function specWorkflow(value: unknown): SpecWorkflow {
       kind: itfOneOf(itfVariant(itfField(call, "kind"))!.tag, CALL_KINDS),
       job: itfInt(itfField(call, "job")),
     })),
+    failuresPosted: itfInt(itfField(value, "failuresPosted")),
   };
 }
 
 function specJob(value: unknown): SpecJob {
   const input = itfVariant(itfField(value, "input"))!;
-  const author = itfField(value, "author");
   return {
     input:
       input.tag === "FromRequest"
         ? { from: "request", request: itfInt(input.value) }
         : { from: "artifact", job: itfInt(input.value) },
-    author: {
-      status: itfOneOf(itfVariant(itfField(author, "status"))!.tag, TASK_STATUSES),
-      restarts: itfInt(itfField(author, "restarts")),
-      paused: itfBool(itfField(author, "paused")),
-      turnRunning: itfBool(itfField(author, "turnRunning")),
-      promptsSent: itfInt(itfField(author, "promptsSent")),
-      promptsQueued: itfInt(itfField(author, "promptsQueued")),
-      generationClosed: itfBool(itfField(author, "generationClosed")),
-    },
+    tasks: itfList(itfField(value, "tasks")).map((task) => ({
+      role: itfOneOf(itfVariant(itfField(task, "role"))!.tag, ROLES),
+      startOrder: itfInt(itfField(task, "startOrder")),
+      status: itfOneOf(itfVariant(itfField(task, "status"))!.tag, TASK_STATUSES),
+      restarts: itfInt(itfField(task, "restarts")),
+      paused: itfBool(itfField(task, "paused")),
+      turnRunning: itfBool(itfField(task, "turnRunning")),
+      promptsSent: itfInt(itfField(task, "promptsSent")),
+      promptsQueued: itfInt(itfField(task, "promptsQueued")),
+      generationClosed: itfBool(itfField(task, "generationClosed")),
+    })),
     artifact: itfOneOf(itfVariant(itfField(value, "artifact"))!.tag, ARTIFACT_STATUSES),
     refinerRun: itfOneOf(itfVariant(itfField(value, "refinerRun"))!.tag, REFINER_RUN_STATUSES),
   };
 }
 
-/** One call the replay holds, with the step that waits on it. */
+/**
+ * One call the replay holds, with the step that waits on it. A model call names the model turn
+ * that made it, and the task when that turn revises its page.
+ */
 type HeldCall = {
   kind: CallKind;
   jobId: string;
   answer: (decisions: Decisions) => void;
   step: Promise<unknown> | null;
+  turnId: string | null;
+  revisedBy: string | null;
 };
 
 /** A sandbox provider that holds the destroy of every author sandbox until the replay returns it. */
@@ -206,17 +230,33 @@ class HoldingSandboxProvider extends FakeSandboxProvider {
   }
 }
 
+/** A page model that holds each call until the replay returns it, then answers with a new page. */
+class HoldingPageModel implements LanguageModelV4 {
+  readonly specificationVersion = "v4" as const;
+  readonly provider = "test";
+  readonly modelId = "holding-page";
+  readonly supportedUrls = {};
+
+  constructor(private readonly hold: () => Promise<string>) {}
+
+  async doGenerate(options: LanguageModelV4CallOptions): Promise<LanguageModelV4GenerateResult> {
+    return new EchoModel(await this.hold()).doGenerate(options);
+  }
+
+  async doStream(_options: LanguageModelV4CallOptions): Promise<LanguageModelV4StreamResult> {
+    return Promise.reject(new Error("no streaming"));
+  }
+}
+
 const TOOL_CALL = { toolCallId: "call-1", messages: [], context: {} };
 const ANSWERS = { for_author: 0, beyond_author: 0, rejects: 0 };
 const ACCEPTANCE = ["Looks good, ship it."];
 const PAGE_APPROVED = "Review: approved\nReady as it stands.";
 const STAGE = STAGE_OF.page;
 
-const WORLD_SETUP: Omit<WorldSetup, "refiners"> = {
+const WORLD_SETUP: Omit<WorldSetup, "refiners" | "pageAuthor" | "research"> = {
   opening: "request",
   artifact: "page",
-  research: false,
-  pageAuthor: "harness",
   checksOnPush: "passed",
   pageEnding: "acceptance",
   origin: "chat",
@@ -234,8 +274,8 @@ function worldAction(
 
 /**
  * Replays spec traces through a workflow world that opens on a person's request. Each spec action
- * maps to the entry point production uses. The destroy of an author sandbox and the acceptance
- * check of `complete_job` stay out until a later spec step returns them.
+ * maps to the entry point production uses. The destroy of an author sandbox, the acceptance
+ * check of `complete_job`, and a page model call stay out until a later spec step returns them.
  */
 export class WorkflowLifecycleReplay {
   private readonly calls: HeldCall[] = [];
@@ -243,17 +283,29 @@ export class WorkflowLifecycleReplay {
   private completingJobId = "";
   private heldArrived: (() => void) | null = null;
   private taken = 0;
+  private readonly heldTurns = new Set<string>();
+  private readonly reviseTurns = new Map<string, number>();
+  private pagesWritten = 0;
 
-  private constructor(readonly world: WorkflowWorld) {}
+  private constructor(
+    readonly world: WorkflowWorld,
+    private readonly modelAuthor: boolean,
+  ) {}
 
-  /** A world on the refiner list of `setup`, before the plan. */
+  /** A world on the stage of `setup`, before the plan. */
   static async open(setup: SpecSetup): Promise<WorkflowLifecycleReplay> {
     setSystemTime(new Date(REPLAY_START));
-    const world = await WorkflowWorld.open({ ...WORLD_SETUP, refiners: SPEC_SETUPS[setup] });
-    const replay = new WorkflowLifecycleReplay(world);
+    const world = await WorkflowWorld.open({ ...WORLD_SETUP, ...SPEC_SETUPS[setup] });
+    const modelAuthor = SPEC_SETUPS[setup].pageAuthor === "model";
+    const replay = new WorkflowLifecycleReplay(world, modelAuthor);
     world.workflow.sandboxProvider = new HoldingSandboxProvider((taskId) =>
       replay.holdDestroy(taskId),
     );
+    if (modelAuthor) {
+      world.workflow.modelsByName[MODEL_AUTHOR_MODEL] = new HoldingPageModel(() =>
+        replay.holdModelCall(),
+      );
+    }
     return replay;
   }
 
@@ -283,7 +335,9 @@ export class WorkflowLifecycleReplay {
     );
     await this.world.apply(
       worldAction("sandboxes come up", async (world) => {
-        for (const task of world.tasksAwaitingSandbox()) await world.startSandboxOf(task.task_id);
+        for (const task of world.tasksAwaitingSandbox()) {
+          await this.runStep(() => world.startSandboxOf(task.task_id));
+        }
       }),
     );
   }
@@ -300,31 +354,47 @@ export class WorkflowLifecycleReplay {
     const { store, state } = workflow;
     const jobs = store.jobs();
     const observed = this.world.steps.at(-1)?.after.tasks ?? [];
+    const started = store
+      .tasks()
+      .filter((task) => JOB_ROLES.includes(task.role))
+      .map((task) => task.task_id);
     return {
       status: WORKFLOW_STATUS_OF[state.status],
       definition: state.definition === null ? null : state.definition === SECOND_DEFINITION ? 1 : 0,
       idleArmed: workflow.alarmsFor("onIdle").length > 0,
       jobs: jobs.map((job) => {
-        const author = store.authorOrResearcherTaskOf(job.job_id);
-        const seen = observed.find((task) => task.task_id === author.task_id);
         const artifact = store.artifact(job.job_id);
         const runs = store.refinerRunsOf(job.job_id);
         return {
           input: this.inputOf(job, jobs),
-          author: {
-            status: SPEC_TASK_STATUS[author.status],
-            restarts: author.restarts,
-            paused: author.paused_at !== null,
-            turnRunning: store.sandbox(author.task_id)?.prompt_in_flight === 1,
-            promptsSent: seen ? seen.promptTexts.length - seen.queuedPrompts : 0,
-            promptsQueued: seen?.queuedPrompts ?? 0,
-            generationClosed:
-              !isTaskFinished(author.status) &&
-              workflow.connections(author.task_id).length === 0 &&
-              !this.calls.some(
-                (call) => call.kind === "SandboxDestroy" && call.jobId === job.job_id,
-              ),
-          },
+          tasks: store
+            .tasks()
+            .filter((task) => task.job_id === job.job_id && JOB_ROLES.includes(task.role))
+            .map((task) => {
+              const seen = observed.find((observedTask) => observedTask.task_id === task.task_id);
+              const common = {
+                role: task.role === "researcher" ? ("Researcher" as const) : ("Author" as const),
+                startOrder: started.indexOf(task.task_id),
+                status: SPEC_TASK_STATUS[task.status],
+                restarts: task.restarts,
+                paused: task.paused_at !== null,
+              };
+              if (this.modelAuthor && task.role === "author") {
+                return { ...common, ...this.modelTurnsOf(task) };
+              }
+              return {
+                ...common,
+                turnRunning: store.sandbox(task.task_id)?.prompt_in_flight === 1,
+                promptsSent: seen ? seen.promptTexts.length - seen.queuedPrompts : 0,
+                promptsQueued: seen?.queuedPrompts ?? 0,
+                generationClosed:
+                  !isTaskFinished(task.status) &&
+                  workflow.connections(task.task_id).length === 0 &&
+                  !this.calls.some(
+                    (call) => call.kind === "SandboxDestroy" && call.jobId === job.job_id,
+                  ),
+              };
+            }),
           artifact: !artifact ? "NoArtifact" : artifact.status === "drafted" ? "Drafted" : "Ready",
           refinerRun:
             runs.length === 0
@@ -338,6 +408,28 @@ export class WorkflowLifecycleReplay {
         kind: call.kind,
         job: jobs.findIndex((job) => job.job_id === call.jobId),
       })),
+      failuresPosted: workflow.posted.filter((event) => event.type === "failed").length,
+    };
+  }
+
+  /**
+   * The prompts of a model-call author as the spec counts them. A revise turn sends its prompt
+   * as it starts, and that prompt stays queued until the turn applies its revision.
+   */
+  private modelTurnsOf(
+    task: TaskRow,
+  ): Pick<SpecTask, "turnRunning" | "promptsSent" | "promptsQueued" | "generationClosed"> {
+    const queued = this.world.workflow.store
+      .queue()
+      .filter((row) => row.task_id === task.task_id).length;
+    const revising =
+      !isTaskFinished(task.status) &&
+      this.calls.some((call) => call.kind === "ModelCall" && call.revisedBy === task.task_id);
+    return {
+      turnRunning: false,
+      promptsSent: this.reviseTurns.get(task.task_id) ?? 0,
+      promptsQueued: revising ? queued - 1 : queued,
+      generationClosed: false,
     };
   }
 
@@ -363,6 +455,12 @@ export class WorkflowLifecycleReplay {
           const { start_job } = startTools(world.workflow, [requestText]);
           await start_job.execute({ stage: STAGE, brief: "Write the design." }, TOOL_CALL);
         });
+      case "researcherHandsOver":
+        return worldAction(`researcher of job ${picks.id} hands over`, (world) =>
+          researcherTurnEnds(this.unfinishedResearcherIndexOf(required(picks.id)), "written").run(
+            world,
+          ),
+        );
       case "authorWritesItsPage":
         return worldAction(`author of job ${picks.id} writes its page`, async (world) => {
           const index = this.unfinishedIndexOf(required(picks.id));
@@ -375,14 +473,16 @@ export class WorkflowLifecycleReplay {
         );
       case "agentPausesAuthor":
       case "agentResumesAuthor":
-        return worldAction(`${step.action} of job ${picks.id}`, async (world) => {
-          const call = step.action === "agentPausesAuthor" ? "pause_task" : "resume_task";
-          const author = this.authorOf(required(picks.id));
-          await taskTools(world.workflow)[call].execute({ task_id: author.task_id }, TOOL_CALL);
-        });
-      case "authorStalls":
-        return worldAction(`author of job ${picks.id} stalls`, (world) =>
-          this.authorStalls(world, required(picks.id)),
+        return worldAction(`${step.action} of job ${picks.id}`, (world) =>
+          this.runStep(async () => {
+            const call = step.action === "agentPausesAuthor" ? "pause_task" : "resume_task";
+            const task = this.taskOf(required(picks.id));
+            await taskTools(world.workflow)[call].execute({ task_id: task.task_id }, TOOL_CALL);
+          }),
+        );
+      case "taskStalls":
+        return worldAction(`task of job ${picks.id} stalls`, (world) =>
+          this.taskStalls(world, required(picks.id)),
         );
       case "agentCancelsJob":
         return worldAction(`agent cancels job ${picks.id}`, (world) =>
@@ -411,6 +511,14 @@ export class WorkflowLifecycleReplay {
         return worldAction(`sandbox destroy ${picks.callId} returns`, () =>
           this.returnCall(required(picks.callId), 0),
         );
+      case "modelCallReturns":
+        return worldAction(`model call ${picks.callId} returns`, () =>
+          this.returnCall(required(picks.callId), 0),
+        );
+      case "modelTurnOutlivesItsDeadline":
+        return worldAction(`the deadline of model call ${picks.callId} passes`, (world) =>
+          this.modelTurnOutlivesItsDeadline(world, required(picks.callId)),
+        );
       case "personWrites":
         return personWrites("prompt");
       case "workflowEnds":
@@ -422,10 +530,7 @@ export class WorkflowLifecycleReplay {
       case "staleAlarmFires":
         return staleAlarmFires("no_progress", 0);
       case "workflowRestarts":
-        return worldAction("the workflow restarts", async (world) => {
-          this.calls.length = 0;
-          await workflowRestarts().run(world);
-        });
+        return worldAction("the workflow restarts", (world) => this.restart(world));
       default:
         throw new Error(`no world action for spec action ${step.action}`);
     }
@@ -442,7 +547,7 @@ export class WorkflowLifecycleReplay {
         reason: "the request asks for a design",
         stages: [STAGE],
         repo: REPO,
-        page_parent: null,
+        page_parent: this.modelAuthor ? PAGE_PARENT : null,
         concurrency: SLOTS,
       },
       TOOL_CALL,
@@ -485,12 +590,45 @@ export class WorkflowLifecycleReplay {
     await bridge.endTurn("end_turn");
   }
 
-  private async authorStalls(world: WorkflowWorld, jobIndex: number): Promise<void> {
-    const author = this.authorOf(jobIndex);
-    const sandbox = world.workflow.store.requireSandbox(author.task_id);
-    const alarm = { task_id: author.task_id, generation: sandbox.generation };
+  private async taskStalls(world: WorkflowWorld, jobIndex: number): Promise<void> {
+    const task = this.taskOf(jobIndex);
+    const sandbox = world.workflow.store.requireSandbox(task.task_id);
+    const alarm = { task_id: task.task_id, generation: sandbox.generation };
     if (!sandbox.nudged) await onNoProgress(world.workflow, alarm);
     await this.runStep(() => onNoProgress(world.workflow, alarm));
+  }
+
+  /**
+   * The Durable Object restarts and every held call is lost. Each model turn the start step arms
+   * for now resumes in its own step, so a resumed turn whose model call is held does not hold
+   * the next one back.
+   */
+  private async restart(world: WorkflowWorld): Promise<void> {
+    this.calls.length = 0;
+    await this.runStep(() => workflowRestarts().run(world));
+    const due = world.workflow
+      .alarmsFor("onModelTurnDeadline")
+      .filter((alarm) => alarm.delay === 0);
+    for (const alarm of due) {
+      await world.workflow.cancelAlarm(alarm.id);
+      await this.runStep(() =>
+        onModelTurnDeadline(world.workflow, alarm.payload as ModelTurnAlarm),
+      );
+    }
+  }
+
+  /** The deadline of a held model call fires first. The call never answers. */
+  private async modelTurnOutlivesItsDeadline(world: WorkflowWorld, callId: number): Promise<void> {
+    const [call] = this.calls.splice(callId, 1);
+    if (!call?.turnId) throw new Error(`no model call ${callId} is out`);
+    const deadline = world.workflow
+      .alarmsFor("onModelTurnDeadline")
+      .find((alarm) => (alarm.payload as ModelTurnAlarm).turn_id === call.turnId);
+    if (!deadline) throw new Error(`model turn ${call.turnId} has no deadline armed`);
+    await world.workflow.cancelAlarm(deadline.id);
+    await this.runStep(() =>
+      onModelTurnDeadline(world.workflow, deadline.payload as ModelTurnAlarm),
+    );
   }
 
   /** Run a step until it ends or a call it makes is held. */
@@ -521,14 +659,46 @@ export class WorkflowLifecycleReplay {
     const task = this.world.workflow.store.task(taskId);
     if (task?.role !== "author") return null;
     return new Promise<void>((release) => {
-      this.hold({ kind: "SandboxDestroy", jobId: task.job_id, answer: () => release() });
+      this.hold({
+        kind: "SandboxDestroy",
+        jobId: task.job_id,
+        answer: () => release(),
+        turnId: null,
+        revisedBy: null,
+      });
     });
   }
 
   private holdAcceptance(): Promise<Decisions | null> {
     const jobId = this.completingJobId;
     return new Promise<Decisions | null>((release) => {
-      this.hold({ kind: "AcceptanceCheck", jobId, answer: release });
+      this.hold({ kind: "AcceptanceCheck", jobId, answer: release, turnId: null, revisedBy: null });
+    });
+  }
+
+  /**
+   * Hold the page model call of the model turn that just started. It answers with a page text no
+   * earlier answer had, so each revision changes the page.
+   */
+  private holdModelCall(): Promise<string> {
+    const { store } = this.world.workflow;
+    const task = store
+      .tasks()
+      .find((candidate) => candidate.model_turn_id && !this.heldTurns.has(candidate.model_turn_id));
+    if (!task?.model_turn_id) throw new Error("a page model call went out without a model turn");
+    this.heldTurns.add(task.model_turn_id);
+    const revises = store.artifact(task.job_id) !== null;
+    if (revises) this.reviseTurns.set(task.task_id, (this.reviseTurns.get(task.task_id) ?? 0) + 1);
+    this.pagesWritten += 1;
+    const page = `# Sessions\n\nVersion ${this.pagesWritten} of the page.\n\n${CLOSING_TEXT_MARKER}\nRevised the page.`;
+    return new Promise<string>((release) => {
+      this.hold({
+        kind: "ModelCall",
+        jobId: task.job_id,
+        answer: () => release(page),
+        turnId: task.model_turn_id,
+        revisedBy: revises ? task.task_id : null,
+      });
     });
   }
 
@@ -543,17 +713,23 @@ export class WorkflowLifecycleReplay {
     return job;
   }
 
-  private authorOfJob(job: JobRow): TaskRow {
-    return this.world.workflow.store.authorOrResearcherTaskOf(job.job_id);
+  /** The task of the job now: its author once the researcher handed over, else its researcher. */
+  private taskOf(jobIndex: number): TaskRow {
+    return this.world.workflow.store.authorOrResearcherTaskOf(this.jobOf(jobIndex).job_id);
   }
 
-  private authorOf(jobIndex: number): TaskRow {
-    return this.authorOfJob(this.jobOf(jobIndex));
+  /** The index `researcherAt` counts the researcher of the job by, among the unfinished ones. */
+  private unfinishedResearcherIndexOf(jobIndex: number): number {
+    const jobId = this.jobOf(jobIndex).job_id;
+    return this.world.workflow.store
+      .tasks()
+      .filter((task) => task.role === "researcher" && !isTaskFinished(task.status))
+      .findIndex((task) => task.job_id === jobId);
   }
 
   /** The index `authorAt` counts the author of the job by, among the unfinished authors. */
   private unfinishedIndexOf(jobIndex: number): number {
-    const taskId = this.authorOf(jobIndex).task_id;
+    const taskId = this.taskOf(jobIndex).task_id;
     return this.world.authors
       .filter((author) => !isTaskFinished(this.world.taskOf(author).status))
       .findIndex((author) => author.taskId === taskId);
@@ -565,7 +741,7 @@ function required<Value>(value: Value | null): Value {
   return value;
 }
 
-const SPEC_TASK_STATUS: Record<TaskStatus, SpecAuthor["status"]> = {
+const SPEC_TASK_STATUS: Record<TaskStatus, SpecTask["status"]> = {
   queued: "Busy",
   provisioning: "Busy",
   working: "Busy",
