@@ -773,10 +773,11 @@ module harnessSession {
     }
 
   /// PROPOSED, T23. A sandbox start of the current generation that throws on an unfinished task
-  /// fails it, or closes its container to restart it. One of an older generation changes nothing.
+  /// fails it, or closes its container to restart it. One that throws on a task already queued
+  /// for a restart changes nothing, and neither does one of an older generation.
   pure def aFailedSandboxStartRestartsOrFailsIn(step: Step): bool = match step.kind {
     | StartFailedStep(generation) =>
-      if (generation != step.before.generation) and {
+      if (generation != step.before.generation or step.before.status == Queued) and {
         step.after.status == step.before.status,
         step.after.restarts == step.before.restarts,
         step.after.generation == step.before.generation,
@@ -1444,11 +1445,11 @@ module harnessSession {
   val staleAlarmIsIgnored: bool = rulesKept.staleAlarmIsIgnored
 
   /// An idle author whose last turn stopped early is never left alone. It has a prompt queued or
-  /// in flight, or it is restarting, or its task finished. The world checks it only between steps
+  /// in flight, or it is queued for a restart or restarting, or its task finished. The world checks it only between steps
   /// that ran to their end, so a state with a call out is not checked.
   val anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone: bool =
     (noCallOut(world) and world.stoppedEarly and not(isFinished(world.status)) and not(world.promptInFlight)) implies
-      (world.queue.length() > 0 or world.status == Provisioning or handshakePending(world))
+      (world.queue.length() > 0 or world.status == Queued or world.status == Provisioning or handshakePending(world))
 
   /// A stop drops the queued prompts. It cancels a running turn. Once its work ran to the end, the
   /// author does not resume unless its task finished.

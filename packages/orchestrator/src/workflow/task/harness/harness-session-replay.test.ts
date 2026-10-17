@@ -119,6 +119,14 @@ describe("harness session spec", () => {
     await replayPinnedTrace("restart-lost-with-the-instance");
   });
 
+  it("drops a start failure of a task already queued for a restart", async () => {
+    await replayPinnedTrace("start-fails-while-queued-for-a-restart");
+  });
+
+  it("keeps a stopped early author queued for its restart through a restart of the instance", async () => {
+    await replayPinnedTrace("stopped-early-author-queued-for-a-restart");
+  });
+
   it("settles an author whose outcome check a restart of the instance dropped", async () => {
     await replayPinnedTrace("outcome-check-lost-with-the-instance");
   });
