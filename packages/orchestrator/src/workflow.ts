@@ -68,13 +68,13 @@ import { onIdle } from "./workflow/lifecycle";
 import type { ChecksAlarm } from "./workflow/refiner/checks-gate";
 import { recheckChecks } from "./workflow/refiner/checks-recheck";
 import { retryQueue } from "./workflow/task/harness/prompt-queue";
-import { provision } from "./workflow/task/sandbox/sandbox";
+import { provision, provisionQueuedTasks } from "./workflow/task/sandbox/sandbox";
 import {
   onModelTurnDeadline,
   resumeLostModelTurns,
   type ModelTurnAlarm,
 } from "./workflow/task/model-turn";
-import { TurnCoalescer } from "./workflow/task/harness/turn";
+import { settleIdleAuthor, settleIdleAuthors, TurnCoalescer } from "./workflow/task/harness/turn";
 import type {
   EventRefusal,
   ScheduledMethod,
@@ -196,6 +196,8 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     );
     await resumeLostModelTurns(this);
     await resumeLostTurn(this);
+    await provisionQueuedTasks(this);
+    await settleIdleAuthors(this);
   }
 
   async create(
@@ -274,6 +276,12 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
 
   retryQueue(alarm: GenerationAlarm): Promise<void> {
     return this.inSpan("alarm retryQueue", alarm.task_id, () => retryQueue(this, alarm));
+  }
+
+  settleIdleAuthor(alarm: GenerationAlarm): Promise<void> {
+    return this.inSpan("alarm settleIdleAuthor", alarm.task_id, () =>
+      settleIdleAuthor(this, alarm),
+    );
   }
 
   onBridgeLost(alarm: GenerationAlarm): Promise<void> {

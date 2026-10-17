@@ -35,13 +35,13 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| T20 | A task restarts at most twice, whatever the cause, then fails. The count lives on the task and covers harness and model-call tasks. A restart whose container closed after another restart counted, or after a newer generation began, is dropped. | `taskRestartsAtMostTwice` |
+| T20 | A task restarts at most twice, whatever the cause, then fails. The count lives on the task and covers harness and model-call tasks. A restart writes the task `queued` with its restart counted before it destroys the old container, so a restart of the Durable Object during the destroy leaves the task queued for the start step. A paused task waits queued for its resume. A failure of a task already queued for a restart is dropped. A restart whose container closed after another restart counted, or after a newer generation began, is dropped. | `taskRestartsAtMostTwice`, `harnessSession::anUnpausedTaskWithWorkIsNeverStranded` |
 | T21 | Recovery of a lost harness turn starts a fresh sandbox without counting a restart. A sandbox that keeps dying mid-turn restarts without a limit. | |
 | T22 | A harness process exit counts a restart and starts a fresh sandbox. It does not close the container, write the board note, or tell the agent. | |
 | T23 | A sandbox start that throws restarts or fails. A spec error, a gateway error or a stage the definition stopped declaring fails at once. A start of an older generation that throws changes nothing. | `aFailedSandboxStartRestartsOrFails`, `taskRestartsAtMostTwice` |
-| T24 | After the hello, the handshake runs without a timer. An `initialize` or `session/new` that never answers leaves the task `working` without an alarm until the socket closes. A socket that closes during the handshake and does not come back restarts the sandbox the way a lost turn does. A queued prompt waits for the handshake to end. | `harnessSession::aHarnessSessionRunsOneTurnAtATime` |
+| T24 | After the hello, the handshake runs without a timer. An `initialize` or `session/new` that never answers leaves the task `working` without an alarm until the socket closes. A socket that closes during the handshake and does not come back restarts the sandbox the way a lost turn does. A queued prompt waits for the handshake to end. | `harnessSession::aHarnessSessionRunsOneTurnAtATime`, `harnessSession::anUnpausedTaskWithWorkIsNeverStranded` |
 | T25 | A stalled author gets one nudge. A second stall restarts it. | `anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone` |
-| T26 | An author turn the decisions model reads as blocked queues the gave up text and restarts or fails. A failed decisions call falls back to a heuristic. The outcome of a turn of an older generation is dropped. A blocked outcome leaves the author alone while a later prompt is in flight or queued. | `anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone`, `anAuthorInReviewRunsNoTurn`, `harnessSession::aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn` |
+| T26 | An author turn the decisions model reads as blocked queues the gave up text and restarts or fails. A failed decisions call falls back to a heuristic. The outcome of a turn of an older generation is dropped. A blocked outcome leaves the author alone while a later prompt is in flight or queued. | `anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone`, `anAuthorInReviewRunsNoTurn`, `harnessSession::aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn`, `harnessSession::anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone` |
 | T27 | A researcher or refiner turn that gave up or stopped on a limit restarts or fails. | |
 | T28 | A researcher's payload passes to its author. A missing or oversized payload restarts or fails the researcher. | `researchReadsCompleteOnceTheAuthorStarts` |
 | T29 | A prompt RPC error clears the prompt, writes a board note, and wakes the agent for an idle author. A refused prompt of an author whose last turn stopped early counts as a stall and nudges or restarts it. A researcher or refiner drains its queue or restarts. An RPC id is never given twice, so a late answer cannot reach a later request. | `anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone`, `harnessSession::anAnswerReachesOnlyItsOwnRequest` |
@@ -54,16 +54,17 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| T40 | The provision alarm starts the task only while it is still `queued`. A model-call task runs its first model turn. | |
+| T40 | The provision alarm starts the task only while it is still `queued`. A model-call task runs its first model turn. The start step of a Durable Object arms a provision alarm for each unpaused `queued` task. | `harnessSession::anUnpausedTaskWithWorkIsNeverStranded` |
 | T41 | The `no_progress` alarm ignores a stale generation, an idle, finished or paused task. Without a socket it recovers the lost turn. Otherwise it nudges or restarts. | `staleAlarmIsIgnored`, `anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone` |
 | T42 | The wall clock alarm fails a task whose turn ran past the limit, without a restart. It belongs to the task, not to a generation. | |
 | T43 | The hello timeout restarts or fails a task that never said hello. While the start is still awaited in this isolate it rearms without a limit. | `staleAlarmIsIgnored` |
 | T44 | The keep alive chain keeps an active sandbox awake and stops when the task is idle or finished. A restart that another restart made stale does not stop it. | `staleAlarmIsIgnored`, `aRunningTurnKeepsItsSandboxAwake` |
-| T45 | The queue retry alarm drains a prompt queued while the bridge was briefly closed. | `staleAlarmIsIgnored` |
+| T45 | The queue retry alarm drains a prompt queued while the bridge was briefly closed. | `staleAlarmIsIgnored`, `harnessSession::anUnpausedTaskWithWorkIsNeverStranded` |
 | T46 | The bridge lost alarm recovers the turn of a socket that closed with a prompt in flight or a pending handshake and did not reconnect. The recovery forgets the harness session, so the next prompt goes to a fresh sandbox. | `staleAlarmIsIgnored`, `harnessSession::aHarnessSessionRunsOneTurnAtATime` |
 | T47 | The token refresh alarm mints a new workflow repo token before expiry and retries every 60 seconds without a limit. A first mint that fails starts the sandbox without a token and does not arm a refresh. | |
 | T48 | The idle alarm posts the sleep message. | `sleepMessageOnlyDuringAWorkflow` |
 | T49 | The model turn deadline alarm fires 20 minutes after a model turn starts, and at once for every model turn in flight when the Durable Object starts. An alarm of an older turn does not act. | `staleAlarmIsIgnored`, `aRestartDoesNotLoseAModelTurn`, `workflowLifecycle::aRestartDoesNotLoseAModelTurn` |
+| T57 | The start step of a Durable Object arms a settle alarm for each `working` author without a prompt in flight. The alarm settles the author and drains its queue, as the outcome check that a restart of the Durable Object dropped would have. It does not wake the agent. An alarm of an older generation does not act. | `staleAlarmIsIgnored`, `harnessSession::anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone`, `harnessSession::anUnpausedTaskWithWorkIsNeverStranded` |
 
 ### Task external calls
 

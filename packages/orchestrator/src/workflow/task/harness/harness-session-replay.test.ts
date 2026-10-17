@@ -115,6 +115,14 @@ describe("harness session spec", () => {
     await replayPinnedTrace("restart-held-for-a-resume");
   });
 
+  it("starts a queued restart whose destroy a restart of the instance dropped", async () => {
+    await replayPinnedTrace("restart-lost-with-the-instance");
+  });
+
+  it("settles an author whose outcome check a restart of the instance dropped", async () => {
+    await replayPinnedTrace("outcome-check-lost-with-the-instance");
+  });
+
   it("starts a fresh harness session after a lost turn", async () => {
     await replayPinnedTrace("lost-turn-forgets-its-session");
   });

@@ -1,4 +1,6 @@
 import { resumeLostTurn } from "../src/agent/turn/watchdog";
+import { settleIdleAuthors } from "../src/workflow/task/harness/turn";
+import { provisionQueuedTasks } from "../src/workflow/task/sandbox/sandbox";
 import {
   onModelTurnDeadline,
   resumeLostModelTurns,
@@ -13,6 +15,8 @@ import type { FakeRuntime } from "./fake-runtime";
 export async function runStartStep(restarted: FakeRuntime): Promise<void> {
   await resumeLostModelTurns(restarted);
   await resumeLostTurn(restarted);
+  await provisionQueuedTasks(restarted);
+  await settleIdleAuthors(restarted);
   const due = restarted.alarmsFor("onModelTurnDeadline").filter((alarm) => alarm.delay === 0);
   for (const alarm of due) {
     await restarted.cancelAlarm(alarm.id);

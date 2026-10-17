@@ -58,7 +58,7 @@ import {
   type GenerationAlarm,
   type TaskAlarm,
 } from "../src/workflow/task/harness/timers";
-import { GAVE_UP_RESTART_TEXT } from "../src/workflow/task/harness/turn";
+import { GAVE_UP_RESTART_TEXT, settleIdleAuthor } from "../src/workflow/task/harness/turn";
 import { provision, sandboxStartInFlight } from "../src/workflow/task/sandbox/sandbox";
 import { fakeConnection, type FakeAlarm, type FakeSocket } from "./fake-runtime";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfText, itfVariant } from "./itf";
@@ -762,6 +762,8 @@ export class HarnessSessionReplay {
           return keepSandboxAlive(workflow, alarm.payload as GenerationAlarm);
         case "retryQueue":
           return retryQueue(workflow, alarm.payload as GenerationAlarm);
+        case "settleIdleAuthor":
+          return settleIdleAuthor(workflow, alarm.payload as GenerationAlarm);
         case "onBridgeLost":
           return onBridgeLost(workflow, alarm.payload as GenerationAlarm);
         default:
@@ -784,8 +786,8 @@ export class HarnessSessionReplay {
         kept.push({ ...call, state: "Dropped", alarm: null });
     }
     this.calls = kept;
-    await this.world.restart();
     this.world.workflow.alarms.push(...rescheduled);
+    await this.world.restart();
   }
 
   private callOf(callId: number): HeldCall {
@@ -1159,6 +1161,8 @@ function specAlarmOf(alarm: FakeAlarm): string | null {
       return `KeepAlive(${generation})`;
     case "retryQueue":
       return `RetryQueue(${generation})`;
+    case "settleIdleAuthor":
+      return `SettleIdleAuthor(${generation})`;
     case "onBridgeLost":
       return `BridgeLost(${generation})`;
     default:

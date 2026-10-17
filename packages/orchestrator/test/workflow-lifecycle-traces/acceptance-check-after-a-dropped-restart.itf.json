@@ -3,9 +3,9 @@
     "format": "ITF",
     "format-description": "https://apalache-mc.org/docs/adr/015adr-trace.html",
     "source": "../../spec/workflow-lifecycle/pagesWithoutRefiners.qnt",
-    "status": "ok",
-    "description": "Created by Quint on Fri Oct 16 2026 12:26:43 GMT-0400 (Eastern Daylight Time)",
-    "timestamp": 1792168003935
+    "status": "violation",
+    "description": "Created by Quint on Sat Oct 17 2026 11:56:41 GMT-0400 (Eastern Daylight Time)",
+    "timestamp": 1792252601074
   },
   "vars": [
     "pagesWithoutRefiners::workflowLifecycle::workflow",
@@ -16,6 +16,26 @@
     {
       "#meta": {
         "index": 0
+      },
+      "pagesWithoutRefiners::workflowLifecycle::workflow": {
+        "calls": [],
+        "definition": {
+          "tag": "Unplanned",
+          "value": {
+            "#tup": []
+          }
+        },
+        "failuresPosted": {
+          "#bigint": "0"
+        },
+        "idleArmed": true,
+        "jobs": [],
+        "status": {
+          "tag": "New",
+          "value": {
+            "#tup": []
+          }
+        }
       },
       "mbt::actionTaken": "init",
       "mbt::nondetPicks": {
@@ -55,6 +75,11 @@
             "#tup": []
           }
         }
+      }
+    },
+    {
+      "#meta": {
+        "index": 1
       },
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
         "calls": [],
@@ -64,22 +89,17 @@
             "#tup": []
           }
         },
-        "idleArmed": true,
+        "failuresPosted": {
+          "#bigint": "0"
+        },
+        "idleArmed": false,
         "jobs": [],
         "status": {
           "tag": "New",
           "value": {
             "#tup": []
           }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 1
       },
       "mbt::actionTaken": "idleAlarmFires",
       "mbt::nondetPicks": {
@@ -119,78 +139,22 @@
             "#tup": []
           }
         }
-      },
-      "pagesWithoutRefiners::workflowLifecycle::workflow": {
-        "calls": [],
-        "definition": {
-          "tag": "Unplanned",
-          "value": {
-            "#tup": []
-          }
-        },
-        "idleArmed": false,
-        "jobs": [],
-        "status": {
-          "tag": "New",
-          "value": {
-            "#tup": []
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        }
       }
     },
     {
       "#meta": {
         "index": 2
       },
-      "mbt::actionTaken": "agentSetsPlan",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
         "calls": [],
         "definition": {
           "tag": "Planned",
           "value": {
-            "#bigint": "0"
+            "#bigint": "1"
           }
+        },
+        "failuresPosted": {
+          "#bigint": "0"
         },
         "idleArmed": false,
         "jobs": [],
@@ -199,271 +163,7 @@
           "value": {
             "#tup": []
           }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 3
-      },
-      "mbt::actionTaken": "personWrites",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "pagesWithoutRefiners::workflowLifecycle::workflow": {
-        "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "idleArmed": true,
-        "jobs": [],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 4
-      },
-      "mbt::actionTaken": "agentSetsPlan",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "pagesWithoutRefiners::workflowLifecycle::workflow": {
-        "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "idleArmed": true,
-        "jobs": [],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 5
-      },
-      "mbt::actionTaken": "agentSetsPlan",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "pagesWithoutRefiners::workflowLifecycle::workflow": {
-        "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "idleArmed": true,
-        "jobs": [],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 6
-      },
-      "mbt::actionTaken": "personWrites",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "pagesWithoutRefiners::workflowLifecycle::workflow": {
-        "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "idleArmed": true,
-        "jobs": [],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 7
       },
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
@@ -503,31 +203,83 @@
             "#tup": []
           }
         }
+      }
+    },
+    {
+      "#meta": {
+        "index": 3
       },
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
         "calls": [],
         "definition": {
           "tag": "Planned",
           "value": {
-            "#bigint": "0"
+            "#bigint": "1"
           }
         },
-        "idleArmed": true,
-        "jobs": [],
+        "failuresPosted": {
+          "#bigint": "0"
+        },
+        "idleArmed": false,
+        "jobs": [
+          {
+            "artifact": {
+              "tag": "NoArtifact",
+              "value": {
+                "#tup": []
+              }
+            },
+            "input": {
+              "tag": "FromRequest",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            "refinerRun": {
+              "tag": "NoRefinerRun",
+              "value": {
+                "#tup": []
+              }
+            },
+            "tasks": [
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "1"
+                },
+                "restarts": {
+                  "#bigint": "0"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "0"
+                },
+                "status": {
+                  "tag": "Busy",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "turnRunning": true
+              }
+            ]
+          }
+        ],
         "status": {
           "tag": "Running",
           "value": {
             "#tup": []
           }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 8
       },
       "mbt::actionTaken": "agentStartsJob",
       "mbt::nondetPicks": {
@@ -564,23 +316,31 @@
         "request": {
           "tag": "Some",
           "value": {
-            "#bigint": "1"
+            "#bigint": "0"
           }
         }
+      }
+    },
+    {
+      "#meta": {
+        "index": 4
       },
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
         "calls": [],
         "definition": {
           "tag": "Planned",
           "value": {
-            "#bigint": "0"
+            "#bigint": "1"
           }
+        },
+        "failuresPosted": {
+          "#bigint": "0"
         },
         "idleArmed": true,
         "jobs": [
           {
             "artifact": {
-              "tag": "NoArtifact",
+              "tag": "Ready",
               "value": {
                 "#tup": []
               }
@@ -588,7 +348,7 @@
             "input": {
               "tag": "FromRequest",
               "value": {
-                "#bigint": "1"
+                "#bigint": "0"
               }
             },
             "refinerRun": {
@@ -599,15 +359,6 @@
             },
             "tasks": [
               {
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
                 "generationClosed": false,
                 "paused": false,
                 "promptsQueued": {
@@ -619,13 +370,22 @@
                 "restarts": {
                   "#bigint": "0"
                 },
-                "status": {
-                  "tag": "Busy",
+                "role": {
+                  "tag": "Author",
                   "value": {
                     "#tup": []
                   }
                 },
-                "turnRunning": true
+                "startOrder": {
+                  "#bigint": "0"
+                },
+                "status": {
+                  "tag": "InReview",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "turnRunning": false
               }
             ]
           }
@@ -635,15 +395,7 @@
           "value": {
             "#tup": []
           }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 9
       },
       "mbt::actionTaken": "authorWritesItsPage",
       "mbt::nondetPicks": {
@@ -683,14 +435,22 @@
             "#tup": []
           }
         }
+      }
+    },
+    {
+      "#meta": {
+        "index": 5
       },
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
         "calls": [],
         "definition": {
           "tag": "Planned",
           "value": {
-            "#bigint": "0"
+            "#bigint": "1"
           }
+        },
+        "failuresPosted": {
+          "#bigint": "0"
         },
         "idleArmed": true,
         "jobs": [
@@ -704,7 +464,7 @@
             "input": {
               "tag": "FromRequest",
               "value": {
-                "#bigint": "1"
+                "#bigint": "0"
               }
             },
             "refinerRun": {
@@ -715,17 +475,8 @@
             },
             "tasks": [
               {
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
                 "generationClosed": false,
-                "paused": false,
+                "paused": true,
                 "promptsQueued": {
                   "#bigint": "0"
                 },
@@ -733,6 +484,15 @@
                   "#bigint": "1"
                 },
                 "restarts": {
+                  "#bigint": "0"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
                   "#bigint": "0"
                 },
                 "status": {
@@ -751,15 +511,7 @@
           "value": {
             "#tup": []
           }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 10
       },
       "mbt::actionTaken": "agentPausesAuthor",
       "mbt::nondetPicks": {
@@ -799,246 +551,22 @@
             "#tup": []
           }
         }
+      }
+    },
+    {
+      "#meta": {
+        "index": 6
       },
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
         "calls": [],
         "definition": {
           "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "idleArmed": true,
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "Ready",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "generationClosed": false,
-                "paused": true,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "InReview",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": false
-              }
-            ]
-          }
-        ],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 11
-      },
-      "mbt::actionTaken": "agentStartsJob",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "1"
-          }
-        }
-      },
-      "pagesWithoutRefiners::workflowLifecycle::workflow": {
-        "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "idleArmed": true,
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "Ready",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "generationClosed": false,
-                "paused": true,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "InReview",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": false
-              }
-            ]
-          }
-        ],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 12
-      },
-      "mbt::actionTaken": "agentSetsPlan",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "Some",
           "value": {
             "#bigint": "1"
           }
         },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "pagesWithoutRefiners::workflowLifecycle::workflow": {
-        "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
+        "failuresPosted": {
+          "#bigint": "0"
         },
         "idleArmed": true,
         "jobs": [
@@ -1052,7 +580,7 @@
             "input": {
               "tag": "FromRequest",
               "value": {
-                "#bigint": "1"
+                "#bigint": "0"
               }
             },
             "refinerRun": {
@@ -1063,6 +591,17 @@
             },
             "tasks": [
               {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "2"
+                },
+                "restarts": {
+                  "#bigint": "0"
+                },
                 "role": {
                   "tag": "Author",
                   "value": {
@@ -1072,24 +611,13 @@
                 "startOrder": {
                   "#bigint": "0"
                 },
-                "generationClosed": false,
-                "paused": true,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
                 "status": {
-                  "tag": "InReview",
+                  "tag": "Busy",
                   "value": {
                     "#tup": []
                   }
                 },
-                "turnRunning": false
+                "turnRunning": true
               }
             ]
           }
@@ -1099,15 +627,7 @@
           "value": {
             "#tup": []
           }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 13
       },
       "mbt::actionTaken": "agentResumesAuthor",
       "mbt::nondetPicks": {
@@ -1147,130 +667,40 @@
             "#tup": []
           }
         }
-      },
-      "pagesWithoutRefiners::workflowLifecycle::workflow": {
-        "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "idleArmed": true,
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "Ready",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "2"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          }
-        ],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        }
       }
     },
     {
       "#meta": {
-        "index": 14
+        "index": 7
       },
-      "mbt::actionTaken": "agentSetsPlan",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
+      "pagesWithoutRefiners::workflowLifecycle::workflow": {
+        "calls": [
+          {
+            "job": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "SandboxDestroy",
+              "value": {
+                "#tup": []
+              }
+            },
+            "rest": {
+              "tag": "RestartGoesOn",
+              "value": {
+                "#tup": []
+              }
+            }
           }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
+        ],
         "definition": {
-          "tag": "Some",
+          "tag": "Planned",
           "value": {
             "#bigint": "1"
           }
         },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "pagesWithoutRefiners::workflowLifecycle::workflow": {
-        "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
+        "failuresPosted": {
+          "#bigint": "0"
         },
         "idleArmed": true,
         "jobs": [
@@ -1284,7 +714,7 @@
             "input": {
               "tag": "FromRequest",
               "value": {
-                "#bigint": "1"
+                "#bigint": "0"
               }
             },
             "refinerRun": {
@@ -1295,6 +725,17 @@
             },
             "tasks": [
               {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "1"
+                },
+                "promptsSent": {
+                  "#bigint": "2"
+                },
+                "restarts": {
+                  "#bigint": "1"
+                },
                 "role": {
                   "tag": "Author",
                   "value": {
@@ -1302,17 +743,6 @@
                   }
                 },
                 "startOrder": {
-                  "#bigint": "0"
-                },
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "2"
-                },
-                "restarts": {
                   "#bigint": "0"
                 },
                 "status": {
@@ -1331,363 +761,7 @@
           "value": {
             "#tup": []
           }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 15
-      },
-      "mbt::actionTaken": "agentSetsPlan",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "1"
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "pagesWithoutRefiners::workflowLifecycle::workflow": {
-        "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "idleArmed": true,
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "Ready",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "2"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          }
-        ],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 16
-      },
-      "mbt::actionTaken": "agentSetsPlan",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "pagesWithoutRefiners::workflowLifecycle::workflow": {
-        "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "idleArmed": true,
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "Ready",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "2"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          }
-        ],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 17
-      },
-      "mbt::actionTaken": "agentSetsPlan",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "1"
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "pagesWithoutRefiners::workflowLifecycle::workflow": {
-        "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "idleArmed": true,
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "Ready",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "2"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          }
-        ],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 18
       },
       "mbt::actionTaken": "taskStalls",
       "mbt::nondetPicks": {
@@ -1727,6 +801,11 @@
             "#tup": []
           }
         }
+      }
+    },
+    {
+      "#meta": {
+        "index": 8
       },
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
         "calls": [
@@ -1751,8 +830,11 @@
         "definition": {
           "tag": "Planned",
           "value": {
-            "#bigint": "0"
+            "#bigint": "1"
           }
+        },
+        "failuresPosted": {
+          "#bigint": "0"
         },
         "idleArmed": true,
         "jobs": [
@@ -1766,7 +848,7 @@
             "input": {
               "tag": "FromRequest",
               "value": {
-                "#bigint": "1"
+                "#bigint": "0"
               }
             },
             "refinerRun": {
@@ -1777,15 +859,6 @@
             },
             "tasks": [
               {
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
                 "generationClosed": false,
                 "paused": false,
                 "promptsQueued": {
@@ -1795,6 +868,15 @@
                   "#bigint": "2"
                 },
                 "restarts": {
+                  "#bigint": "1"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
                   "#bigint": "0"
                 },
                 "status": {
@@ -1813,15 +895,391 @@
           "value": {
             "#tup": []
           }
+        }
+      },
+      "mbt::actionTaken": "agentSetsPlan",
+      "mbt::nondetPicks": {
+        "accepted": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         },
-        "failuresPosted": {
-          "#bigint": "0"
+        "callId": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "definition": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "1"
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
     {
       "#meta": {
-        "index": 19
+        "index": 9
+      },
+      "pagesWithoutRefiners::workflowLifecycle::workflow": {
+        "calls": [
+          {
+            "job": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "SandboxDestroy",
+              "value": {
+                "#tup": []
+              }
+            },
+            "rest": {
+              "tag": "RestartGoesOn",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "definition": {
+          "tag": "Planned",
+          "value": {
+            "#bigint": "1"
+          }
+        },
+        "failuresPosted": {
+          "#bigint": "0"
+        },
+        "idleArmed": true,
+        "jobs": [
+          {
+            "artifact": {
+              "tag": "Ready",
+              "value": {
+                "#tup": []
+              }
+            },
+            "input": {
+              "tag": "FromRequest",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            "refinerRun": {
+              "tag": "NoRefinerRun",
+              "value": {
+                "#tup": []
+              }
+            },
+            "tasks": [
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "1"
+                },
+                "promptsSent": {
+                  "#bigint": "2"
+                },
+                "restarts": {
+                  "#bigint": "1"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "0"
+                },
+                "status": {
+                  "tag": "Busy",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "turnRunning": true
+              }
+            ]
+          }
+        ],
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "mbt::actionTaken": "agentSetsPlan",
+      "mbt::nondetPicks": {
+        "accepted": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "callId": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "definition": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 10
+      },
+      "pagesWithoutRefiners::workflowLifecycle::workflow": {
+        "calls": [
+          {
+            "job": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "SandboxDestroy",
+              "value": {
+                "#tup": []
+              }
+            },
+            "rest": {
+              "tag": "RestartGoesOn",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "definition": {
+          "tag": "Planned",
+          "value": {
+            "#bigint": "1"
+          }
+        },
+        "failuresPosted": {
+          "#bigint": "0"
+        },
+        "idleArmed": true,
+        "jobs": [
+          {
+            "artifact": {
+              "tag": "Ready",
+              "value": {
+                "#tup": []
+              }
+            },
+            "input": {
+              "tag": "FromRequest",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            "refinerRun": {
+              "tag": "NoRefinerRun",
+              "value": {
+                "#tup": []
+              }
+            },
+            "tasks": [
+              {
+                "generationClosed": false,
+                "paused": true,
+                "promptsQueued": {
+                  "#bigint": "1"
+                },
+                "promptsSent": {
+                  "#bigint": "2"
+                },
+                "restarts": {
+                  "#bigint": "1"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "0"
+                },
+                "status": {
+                  "tag": "Busy",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "turnRunning": true
+              }
+            ]
+          }
+        ],
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "mbt::actionTaken": "agentPausesAuthor",
+      "mbt::nondetPicks": {
+        "accepted": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "callId": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "definition": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 11
+      },
+      "pagesWithoutRefiners::workflowLifecycle::workflow": {
+        "calls": [],
+        "definition": {
+          "tag": "Planned",
+          "value": {
+            "#bigint": "1"
+          }
+        },
+        "failuresPosted": {
+          "#bigint": "0"
+        },
+        "idleArmed": true,
+        "jobs": [
+          {
+            "artifact": {
+              "tag": "Ready",
+              "value": {
+                "#tup": []
+              }
+            },
+            "input": {
+              "tag": "FromRequest",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            "refinerRun": {
+              "tag": "NoRefinerRun",
+              "value": {
+                "#tup": []
+              }
+            },
+            "tasks": [
+              {
+                "generationClosed": true,
+                "paused": true,
+                "promptsQueued": {
+                  "#bigint": "1"
+                },
+                "promptsSent": {
+                  "#bigint": "2"
+                },
+                "restarts": {
+                  "#bigint": "1"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "0"
+                },
+                "status": {
+                  "tag": "Busy",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "turnRunning": true
+              }
+            ]
+          }
+        ],
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        }
       },
       "mbt::actionTaken": "workflowRestarts",
       "mbt::nondetPicks": {
@@ -1861,14 +1319,22 @@
             "#tup": []
           }
         }
+      }
+    },
+    {
+      "#meta": {
+        "index": 12
       },
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
         "calls": [],
         "definition": {
           "tag": "Planned",
           "value": {
-            "#bigint": "0"
+            "#bigint": "1"
           }
+        },
+        "failuresPosted": {
+          "#bigint": "0"
         },
         "idleArmed": true,
         "jobs": [
@@ -1882,7 +1348,7 @@
             "input": {
               "tag": "FromRequest",
               "value": {
-                "#bigint": "1"
+                "#bigint": "0"
               }
             },
             "refinerRun": {
@@ -1893,17 +1359,8 @@
             },
             "tasks": [
               {
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
                 "generationClosed": true,
-                "paused": false,
+                "paused": true,
                 "promptsQueued": {
                   "#bigint": "1"
                 },
@@ -1911,6 +1368,15 @@
                   "#bigint": "2"
                 },
                 "restarts": {
+                  "#bigint": "1"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
                   "#bigint": "0"
                 },
                 "status": {
@@ -1929,15 +1395,141 @@
           "value": {
             "#tup": []
           }
+        }
+      },
+      "mbt::actionTaken": "agentSetsPlan",
+      "mbt::nondetPicks": {
+        "accepted": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         },
-        "failuresPosted": {
-          "#bigint": "0"
+        "callId": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "definition": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
     {
       "#meta": {
-        "index": 20
+        "index": 13
+      },
+      "pagesWithoutRefiners::workflowLifecycle::workflow": {
+        "calls": [
+          {
+            "job": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "AcceptanceCheck",
+              "value": {
+                "#tup": []
+              }
+            },
+            "rest": {
+              "tag": "CompletionGoesOn",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "definition": {
+          "tag": "Planned",
+          "value": {
+            "#bigint": "1"
+          }
+        },
+        "failuresPosted": {
+          "#bigint": "0"
+        },
+        "idleArmed": true,
+        "jobs": [
+          {
+            "artifact": {
+              "tag": "Ready",
+              "value": {
+                "#tup": []
+              }
+            },
+            "input": {
+              "tag": "FromRequest",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            "refinerRun": {
+              "tag": "NoRefinerRun",
+              "value": {
+                "#tup": []
+              }
+            },
+            "tasks": [
+              {
+                "generationClosed": true,
+                "paused": true,
+                "promptsQueued": {
+                  "#bigint": "1"
+                },
+                "promptsSent": {
+                  "#bigint": "2"
+                },
+                "restarts": {
+                  "#bigint": "1"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "0"
+                },
+                "status": {
+                  "tag": "Busy",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "turnRunning": true
+              }
+            ]
+          }
+        ],
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        }
       },
       "mbt::actionTaken": "agentCompletesJob",
       "mbt::nondetPicks": {
@@ -1976,96 +1568,6 @@
           "value": {
             "#tup": []
           }
-        }
-      },
-      "pagesWithoutRefiners::workflowLifecycle::workflow": {
-        "calls": [
-          {
-            "job": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "AcceptanceCheck",
-              "value": {
-                "#tup": []
-              }
-            },
-            "rest": {
-              "tag": "CompletionGoesOn",
-              "value": {
-                "#tup": []
-              }
-            }
-          }
-        ],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "idleArmed": true,
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "Ready",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
-            "tasks": [
-              {
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "generationClosed": true,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "1"
-                },
-                "promptsSent": {
-                  "#bigint": "2"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": true
-              }
-            ]
-          }
-        ],
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "failuresPosted": {
-          "#bigint": "0"
         }
       }
     }

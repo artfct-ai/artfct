@@ -25,7 +25,12 @@ import {
 } from "../../artifact";
 import { markArtifactReady, reopenChangedArtifact } from "../../refiner/outcome";
 import { sandboxRefOf } from "../sandbox/size";
-import { nudgeOrRestartStalledTask, touchProgress, type StallResponse } from "./timers";
+import {
+  nudgeOrRestartStalledTask,
+  touchProgress,
+  type GenerationAlarm,
+  type StallResponse,
+} from "./timers";
 import {
   closeSessionFeed,
   feedClosingOf,
@@ -283,6 +288,33 @@ async function settleAndResumeAuthor(workflow: WorkflowRuntime, taskId: string):
   if (!busy) markAuthorInReview(workflow, taskId);
   await flushBoards(workflow, jobId);
   return busy;
+}
+
+/**
+ * Arm the settle alarm of every working harness author with no prompt in flight. A restart of the
+ * Durable Object during the outcome check of a turn drops the rest of that turn end, so a new
+ * instance settles the author and sends what is queued.
+ */
+export async function settleIdleAuthors(workflow: WorkflowRuntime): Promise<void> {
+  for (const task of workflow.store.tasks()) {
+    if (task.role !== "author" || task.status !== "working") continue;
+    const sandbox = workflow.store.sandbox(task.task_id);
+    if (!sandbox || sandbox.prompt_in_flight === 1) continue;
+    const alarm: GenerationAlarm = { task_id: task.task_id, generation: sandbox.generation };
+    await workflow.scheduleAlarm(0, "settleIdleAuthor", alarm);
+  }
+}
+
+/** Alarm: settle a working author of the alarm's generation with no prompt in flight. */
+export async function settleIdleAuthor(
+  workflow: WorkflowRuntime,
+  alarm: GenerationAlarm,
+): Promise<void> {
+  const task = workflow.store.task(alarm.task_id);
+  const sandbox = workflow.store.sandbox(alarm.task_id);
+  if (!task || !sandbox || sandbox.generation !== alarm.generation) return;
+  if (task.status !== "working" || sandbox.prompt_in_flight === 1) return;
+  await settleAndResumeAuthor(workflow, task.task_id);
 }
 
 /**

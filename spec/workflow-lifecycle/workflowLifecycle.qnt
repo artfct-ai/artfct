@@ -23,8 +23,8 @@ module workflowLifecycleTypes {
   /// also after the task finished. `promptsSent` counts the prompts the workflow sent the task:
   /// those its harness got, and for a model-call author those a model turn started on.
   /// `promptsQueued` counts the prompts that wait for a turn. `generationClosed` holds while a
-  /// restart closed the container of the task's generation and did not start the next one,
-  /// because a restart of the Durable Object dropped the rest or because the task is paused.
+  /// restart closed the container of a paused task's generation, and the task waits for its
+  /// resume to start the next one.
   /// `startOrder` is the place of the task among the researchers and authors of the workflow, in
   /// the order they started.
   type Task = {
@@ -396,20 +396,17 @@ module workflowLifecycle {
   /// queue as it is.
   pure def wakesWithAQueuedPrompt(task: Task): bool = task.role == Author
 
-  /// The restart reads the task again once its old container went. A finished task stays
-  /// finished. A paused task counts the restart and waits for its resume to start the next
-  /// generation. Otherwise `restartSandbox` puts the task back to queued and counts the restart,
-  /// then the sandbox comes up and the harness gets its first prompt.
+  /// The restart reads the task again once its old container went. The restart counted before
+  /// the destroy. A finished task stays finished. A paused task waits for its resume to start the
+  /// next generation. Otherwise the sandbox comes up and the harness gets its first prompt.
   pure def restartGoesOn(flow: Workflow, id: int): Workflow = {
     val task = jobTask(flow, id)
     if (isFinished(task.status)) flow
-    else if (task.paused)
-      withTask(flow, id, { ...task, restarts: task.restarts + 1, generationClosed: true })
+    else if (task.paused) withTask(flow, id, { ...task, generationClosed: true })
     else
       withTask(flow, id, {
         ...task,
         status: Busy,
-        restarts: task.restarts + 1,
         turnRunning: true,
         promptsSent: task.promptsSent + 1,
         promptsQueued:
@@ -506,14 +503,15 @@ module workflowLifecycle {
   }
 
   /// A restart of the Durable Object drops every call that is out. A task whose restart it
-  /// dropped keeps its task while its generation is closed.
+  /// dropped waits queued with its restart counted, so the start step provisions it as the
+  /// restart would have. A paused one keeps its generation closed until its resume.
   pure def dropCalls(flow: Workflow): Workflow = {
     val stranded = flow.calls.indices().filter(callId =>
       flow.calls[callId].rest == RestartGoesOn and
       not(isFinished(jobTask(flow, flow.calls[callId].job).status))).map(callId => flow.calls[callId].job)
-    val closed = range(0, MAX_JOBS).select(id => stranded.contains(id)).foldl(flow, (closing, id) =>
-      withTask(closing, id, { ...jobTask(closing, id), generationClosed: true }))
-    { ...closed, calls: List() }
+    val dropped = { ...flow, calls: List() }
+    range(0, MAX_JOBS).select(id => stranded.contains(id)).foldl(dropped, (restarting, id) =>
+      restartGoesOn(restarting, id))
   }
 
   /// A restart of the Durable Object drops every call that is out. The start step runs each model
@@ -523,18 +521,6 @@ module workflowLifecycle {
     val resumed = range(0, MAX_JOBS).select(id => cut.contains(id)).foldl(dropCalls(flow), (resuming, id) =>
       resumeLostModelTurn(resuming, id))
     startQueuedModelAuthors(resumed)
-  }
-
-  /// A stalled task whose generation is closed gets the next one, and its harness the queued
-  /// prompt or a wake text. This does not count as a restart.
-  pure def recoverLostTurn(flow: Workflow, id: int): Workflow = {
-    val task = jobTask(flow, id)
-    withTask(flow, id, {
-      ...task,
-      generationClosed: false,
-      promptsSent: task.promptsSent + 1,
-      promptsQueued: if (task.promptsQueued > 0) task.promptsQueued - 1 else 0,
-    })
   }
 
   /// `resumeTask` on a harness author queues the resume prompt and sends the head of the queue.
@@ -717,10 +703,12 @@ module workflowLifecycle {
     val task = jobTask(workflow, id)
     val queued = withTask(workflow, id, { ...task, promptsQueued: task.promptsQueued + 1 })
     move(
-      if (task.generationClosed) recoverLostTurn(workflow, id)
-      else if (task.restarts >= MAX_RESTARTS) endTask(workflow, id, TaskFailed, AfterFail)
-      else if (destroyIsACall(task)) sendCall(queued, SandboxDestroy, id, RestartGoesOn)
-      else restartGoesOn(queued, id),
+      if (task.restarts >= MAX_RESTARTS) endTask(workflow, id, TaskFailed, AfterFail)
+      else {
+        val counted = withTask(queued, id, { ...jobTask(queued, id), restarts: task.restarts + 1 })
+        if (destroyIsACall(task)) sendCall(counted, SandboxDestroy, id, RestartGoesOn)
+        else restartGoesOn(counted, id)
+      },
       OtherStep,
     )
   })
