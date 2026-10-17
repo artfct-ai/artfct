@@ -79,10 +79,19 @@ type SpecPicks = {
 export type TraceStep = { action: string; picks: SpecPicks; view: RouterView };
 
 /** Run the spec of one setup for `count` traces from `seed`. */
-export function generateTraces(setup: SpecSetup, count: number, seed: number): TraceStep[][] {
-  return quintTraces({ spec: "router-bindings", setup, count, steps: TRACE_STEPS, seed }).map(
-    (trace) => traceSteps(trace),
-  );
+export async function generateTraces(
+  setup: SpecSetup,
+  count: number,
+  seed: number,
+): Promise<TraceStep[][]> {
+  const traces = await quintTraces({
+    spec: "router-bindings",
+    setup,
+    count,
+    steps: TRACE_STEPS,
+    seed,
+  });
+  return traces.map((trace) => traceSteps(trace));
 }
 
 function traceSteps(trace: unknown): TraceStep[] {
