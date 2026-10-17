@@ -71,7 +71,8 @@ describe("workflow lifecycle spec", () => {
           `workflow lifecycle replay ${setup}`,
           TRACES_PER_SETUP,
         );
-        for (const trace of generateTraces(setup, numRuns, seed)) await replayTrace(setup, trace);
+        for (const trace of await generateTraces(setup, numRuns, seed))
+          await replayTrace(setup, trace);
       },
       propertyTimeoutMs(60_000, TRACES_PER_SETUP),
     );

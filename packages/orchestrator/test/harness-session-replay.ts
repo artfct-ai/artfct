@@ -203,10 +203,19 @@ type SpecPicks = {
 export type TraceStep = { action: string; picks: SpecPicks; task: SpecTask };
 
 /** Run the spec of one setup for `count` traces from `seed`. */
-export function generateTraces(setup: SpecSetup, count: number, seed: number): TraceStep[][] {
-  return quintTraces({ spec: "harness-session", setup, count, steps: TRACE_STEPS, seed }).map(
-    (trace) => traceSteps(setup, trace),
-  );
+export async function generateTraces(
+  setup: SpecSetup,
+  count: number,
+  seed: number,
+): Promise<TraceStep[][]> {
+  const traces = await quintTraces({
+    spec: "harness-session",
+    setup,
+    count,
+    steps: TRACE_STEPS,
+    seed,
+  });
+  return traces.map((trace) => traceSteps(setup, trace));
 }
 
 /** The steps of one ITF trace of a setup, such as a pinned one. */

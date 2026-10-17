@@ -81,7 +81,7 @@ describe("review loop spec", () => {
       `replays its traces through the workflow on ${setup}`,
       async () => {
         const { numRuns, seed } = propertyRuns(`review loop replay ${setup}`, TRACES_PER_SETUP);
-        const traces = generateTraces(setup, numRuns, seed);
+        const traces = await generateTraces(setup, numRuns, seed);
         for (const [world, traced] of inWorlds(traces, SPEC_SETUPS[setup].authors).entries()) {
           await replayTraces(setup, traced, seed + world * traced.length);
           for (const replay of replays) await replay.close();
