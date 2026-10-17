@@ -1,3 +1,4 @@
+import type { CommitChecks } from "@artfct-ai/adapters/code/types";
 import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
 import { describe, expect, it } from "bun:test";
 import {
@@ -14,6 +15,8 @@ import type { RefinerEntry, ReviewerEntry } from "../../config/refiner";
 import { cancelTask, failTask } from "../lifecycle";
 import { drainQueue, promptTask } from "../task/harness/prompt-queue";
 import { onTurnEnd } from "../task/harness/turn";
+import { CHECKS_GRACE_MS, CHECKS_QUIET_MS } from "./checks-gate";
+import { recheckChecks } from "./checks-recheck";
 import { advanceArtifactPastEntry, settleRefinersForAuthor, startRefiner } from "./loop";
 import { endPolisherRun, polisherRefusal, settlePolisherTurn } from "./polish";
 
@@ -364,6 +367,121 @@ describe("a stage of polishers only, whose artifact a later author turn reopens"
       expect(polishersOf(workflow)).toHaveLength(2);
       expect(workflow.store.artifact(JOB)).toMatchObject({ status: "drafted" });
       expect(currentRunOf(workflow)).toMatchObject({ role: "polisher", refiner_index: 0 });
+    }));
+});
+
+const REVISION = "abc123";
+const NOW = Date.parse("2026-09-30T12:00:00.000Z");
+const POLISHER = "wf_x.2";
+
+function at(offsetMs: number): string {
+  return new Date(NOW + offsetMs).toISOString();
+}
+
+function polisherTurnEndedOn(checks: CommitChecks): Scenario<FakeRuntime> {
+  return scenario(stageWithPolishers([comments]), async (workflow) => {
+    workflow.clock = NOW;
+    checksReport(workflow, checks);
+    const author = seedPullRequestTask(workflow, { status: "in_review" });
+    await startRefiner(workflow, author, 1);
+    workflow.store.updateTask(POLISHER, { status: "working" });
+    workflow.store.updateSandbox(POLISHER, { last_progress_at: at(0) });
+    await onTurnEnd(workflow, workflow.store.requireTask(POLISHER), "end_turn");
+  });
+}
+
+function checksReport(workflow: FakeRuntime, checks: CommitChecks): void {
+  workflow.codeHostInstance = new FakeCodeHost({
+    pulls: [pullRequest({ number: 1, head: { ref: "artfct/wf_x-1-fix", sha: REVISION } })],
+    commitChecks: { [REVISION]: checks },
+  });
+}
+
+async function recheckAt(workflow: FakeRuntime, offsetMs: number): Promise<void> {
+  workflow.clock = NOW + offsetMs;
+  await recheckChecks(workflow, { job_id: JOB });
+}
+
+function recheckAlarms(workflow: FakeRuntime) {
+  return workflow.alarms.filter((alarm) => alarm.method === "recheckChecks");
+}
+
+describe("a polisher whose push the checks passed on", () => {
+  const passedOnPush = polisherTurnEndedOn({
+    state: "passed",
+    settled_at: new Date(0).toISOString(),
+  });
+
+  it("ends its run done in the turn end", () =>
+    passedOnPush((workflow) => {
+      expect(workflow.store.requireTask(POLISHER).status).toBe("done");
+    }));
+
+  it("opens the checks gate at once and gives the artifact to the humans", () =>
+    passedOnPush((workflow) => {
+      expect(workflow.store.artifact(JOB)).toMatchObject({
+        status: "ready",
+        refiner_task_id: null,
+      });
+      expect(recheckAlarms(workflow)).toEqual([]);
+    }));
+});
+
+describe("a polisher whose push the checks report on later", () => {
+  const reportedLater = polisherTurnEndedOn({ state: "unreported" });
+
+  it("keeps its run open at the turn end, holding the draft", () =>
+    reportedLater((workflow) => {
+      expect(workflow.store.requireTask(POLISHER).status).not.toBe("done");
+      expect(workflow.store.artifact(JOB)).toMatchObject({
+        status: "drafted",
+        refiner_task_id: POLISHER,
+      });
+      expect(recheckAlarms(workflow)).toHaveLength(1);
+    }));
+
+  it("keeps its run open through the grace period", () =>
+    reportedLater(async (workflow) => {
+      await recheckAt(workflow, CHECKS_GRACE_MS - 1);
+      expect(workflow.store.requireTask(POLISHER).status).not.toBe("done");
+      expect(recheckAlarms(workflow)).toHaveLength(1);
+    }));
+
+  it("ends its run done once the grace period passes without a report", () =>
+    reportedLater(async (workflow) => {
+      await recheckAt(workflow, CHECKS_GRACE_MS);
+      expect(workflow.store.requireTask(POLISHER).status).toBe("done");
+      expect(workflow.store.artifact(JOB)?.status).toBe("ready");
+      expect(recheckAlarms(workflow)).toEqual([]);
+    }));
+
+  it("keeps its run open while passed checks have not stood", () =>
+    reportedLater(async (workflow) => {
+      checksReport(workflow, { state: "passed", settled_at: at(0) });
+      await recheckAt(workflow, CHECKS_QUIET_MS - 1);
+      expect(workflow.store.requireTask(POLISHER).status).not.toBe("done");
+      expect(workflow.store.artifact(JOB)?.status).toBe("drafted");
+    }));
+
+  it("ends its run done once passed checks stood", () =>
+    reportedLater(async (workflow) => {
+      checksReport(workflow, { state: "passed", settled_at: at(0) });
+      await recheckAt(workflow, CHECKS_QUIET_MS);
+      expect(workflow.store.requireTask(POLISHER).status).toBe("done");
+      expect(workflow.store.artifact(JOB)?.status).toBe("ready");
+      expect(recheckAlarms(workflow)).toEqual([]);
+    }));
+
+  it("keeps its run open when it took a prompt since its turn ended", () =>
+    reportedLater(async (workflow) => {
+      workflow.store.enqueuePrompt(POLISHER, "Still there?");
+      checksReport(workflow, { state: "passed", settled_at: at(0) });
+      await recheckAt(workflow, CHECKS_GRACE_MS);
+      expect(workflow.store.requireTask(POLISHER).status).not.toBe("done");
+      expect(workflow.store.artifact(JOB)).toMatchObject({
+        status: "drafted",
+        refiner_task_id: POLISHER,
+      });
     }));
 });
 

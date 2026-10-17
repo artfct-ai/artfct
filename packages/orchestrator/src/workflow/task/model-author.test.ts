@@ -187,6 +187,20 @@ describe("reviseModelAuthorPage", () => {
         expect(documents.argsOf("createPage")).toHaveLength(1);
       }));
 
+    it("keeps the id of the line the answer left as it was, and only that one", () =>
+      freshRuntime(async (workflow) => {
+        const author = await seedPageWithHumans(workflow);
+        const documents = fakeDocumentsOf(workflow);
+        const before = documents.lineIds("page-1");
+        workflow.modelInstance = new EchoModel(REVISE_ANSWER);
+        await promptTask(workflow, author, FEEDBACK);
+        const after = documents.lineIds("page-1");
+        expect(documents.pageText("page-1")).toBe(REVISED_PAGE);
+        expect(before).toHaveLength(2);
+        expect(after[0]).toBe(before[0]);
+        expect(after[1]).not.toBe(before[1]);
+      }));
+
     it("takes the prompt off the queue", () =>
       revised((workflow) => {
         expect(workflow.store.queue()).toEqual([]);
