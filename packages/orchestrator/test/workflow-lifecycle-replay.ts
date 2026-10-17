@@ -26,9 +26,11 @@ import { EchoModel } from "./fake-model";
 import { MODEL_AUTHOR_MODEL, PAGE_PARENT } from "./fake-runtime";
 import { FakeSandboxProvider } from "./fake-sandbox";
 import { InterleavedDecisions } from "./interleaved-decisions";
+import type { Step } from "./invariants";
 import {
   authorTurnEnds,
   firstArtifactAppears,
+  GENERATION_TIMERS,
   personCancels,
   personWrites,
   researcherTurnEnds,
@@ -81,8 +83,23 @@ const ROLES = ["Researcher", "Author"] as const;
 const JOB_ROLES: readonly TaskRow["role"][] = ["researcher", "author"];
 const ENDINGS = ["PersonCancels", "AgentFails", "AgentFinishes"] as const;
 
+/** The world timer of each generation timer of the spec. */
+const GENERATION_TIMER_OF = {
+  HelloTimeout: "hello_timeout",
+  NoProgress: "no_progress",
+  KeepAlive: "keep_alive",
+  BridgeLost: "bridge_lost",
+  QueueRetry: "queue_retry",
+  SettleIdleAuthor: "settle_idle_author",
+} as const satisfies Record<string, (typeof GENERATION_TIMERS)[number]>;
+const SPEC_TIMERS = Object.keys(GENERATION_TIMER_OF) as (keyof typeof GENERATION_TIMER_OF)[];
+
+/** The workflow definition the spec names by 2, which the deployment does not hold. */
+const UNDECLARED_DEFINITION = "triage";
+
 type CallKind = (typeof CALL_KINDS)[number];
 type Ending = (typeof ENDINGS)[number];
+type GenerationTimer = (typeof GENERATION_TIMERS)[number];
 
 /** A researcher or author task of one job as the spec sees it. */
 type SpecTask = {
@@ -112,6 +129,8 @@ type SpecCall = { kind: CallKind; job: number };
 export type SpecWorkflow = {
   status: (typeof WORKFLOW_STATUSES)[number];
   definition: number | null;
+  stagesPlanned: boolean;
+  movedATrackerIssue: boolean;
   idleArmed: boolean;
   jobs: SpecJob[];
   calls: SpecCall[];
@@ -121,6 +140,9 @@ export type SpecWorkflow = {
 /** The values the spec picked for one action. */
 type SpecPicks = {
   definition: number | null;
+  withStages: boolean | null;
+  timer: GenerationTimer | null;
+  sandbox: number | null;
   request: number | null;
   id: number | null;
   callId: number | null;
@@ -148,10 +170,18 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
     };
     const ending = picked("ending");
     const accepted = picked("accepted");
+    const withStages = picked("withStages");
+    const timer = picked("timer");
     return {
       action: itfText(itfField(state, "mbt::actionTaken")),
       picks: {
         definition: optionalInt(picked("definition")),
+        withStages: withStages === null ? null : itfBool(withStages),
+        timer:
+          timer === null
+            ? null
+            : GENERATION_TIMER_OF[itfOneOf(itfVariant(timer)!.tag, SPEC_TIMERS)],
+        sandbox: optionalInt(picked("sandbox")),
         request: optionalInt(picked("request")),
         id: optionalInt(picked("id")),
         callId: optionalInt(picked("callId")),
@@ -172,6 +202,8 @@ function specWorkflow(value: unknown): SpecWorkflow {
   return {
     status: itfOneOf(itfVariant(itfField(value, "status"))!.tag, WORKFLOW_STATUSES),
     definition: definition.tag === "Planned" ? itfInt(definition.value) : null,
+    stagesPlanned: itfBool(itfField(value, "stagesPlanned")),
+    movedATrackerIssue: itfBool(itfField(value, "movedATrackerIssue")),
     idleArmed: itfBool(itfField(value, "idleArmed")),
     jobs: itfList(itfField(value, "jobs")).map(specJob),
     calls: itfList(itfField(value, "calls")).map((call) => ({
@@ -311,9 +343,10 @@ export class WorkflowLifecycleReplay {
 
   /**
    * Take one spec action, then bring up every sandbox that waits. A new generation replaces the
-   * bridge process of the old one, so the old socket closes first.
+   * bridge process of the old one, so the old socket closes first. Returns the world steps the
+   * spec action took.
    */
-  async take(step: TraceStep): Promise<void> {
+  async take(step: TraceStep): Promise<Step[]> {
     this.taken += 1;
     setSystemTime(new Date(REPLAY_START + this.taken * STEP_MS));
     this.world.workflow.gatewayInstance = new FakeGateway({
@@ -321,8 +354,8 @@ export class WorkflowLifecycleReplay {
         Object.hasOwn(questions.yesNo, "accepts") ? this.holdAcceptance() : null,
       ),
     });
-    await this.world.apply(this.actionFor(step));
-    await this.world.apply(
+    const acted = await this.world.apply(this.actionFor(step));
+    const closed = await this.world.apply(
       worldAction("replaced bridges close", async (world) => {
         for (const socket of world.workflow.connections()) {
           const served = socket.state as ConnectionState;
@@ -333,13 +366,14 @@ export class WorkflowLifecycleReplay {
         }
       }),
     );
-    await this.world.apply(
+    const started = await this.world.apply(
       worldAction("sandboxes come up", async (world) => {
         for (const task of world.tasksAwaitingSandbox()) {
           await this.runStep(() => world.startSandboxOf(task.task_id));
         }
       }),
     );
+    return [acted, closed, started];
   }
 
   /** Return every held call and put the clock back. */
@@ -361,6 +395,8 @@ export class WorkflowLifecycleReplay {
     return {
       status: WORKFLOW_STATUS_OF[state.status],
       definition: state.definition === null ? null : state.definition === SECOND_DEFINITION ? 1 : 0,
+      stagesPlanned: state.stages.length > 0,
+      movedATrackerIssue: this.world.steps.some((step) => step.issueUpdates > 0),
       idleArmed: workflow.alarmsFor("onIdle").length > 0,
       jobs: jobs.map((job) => {
         const artifact = store.artifact(job.job_id);
@@ -446,8 +482,9 @@ export class WorkflowLifecycleReplay {
     const { picks } = step;
     switch (step.action) {
       case "agentSetsPlan":
-        return worldAction(`agent sets the plan of definition ${picks.definition}`, (world) =>
-          this.setPlan(world, required(picks.definition)),
+        return worldAction(
+          `agent sets the plan of definition ${picks.definition}, with stages ${picks.withStages}`,
+          (world) => this.setPlan(world, required(picks.definition), required(picks.withStages)),
         );
       case "agentStartsJob":
         return worldAction(`agent starts a job on request ${picks.request}`, async (world) => {
@@ -528,7 +565,7 @@ export class WorkflowLifecycleReplay {
       case "idleAlarmFires":
         return timerFires("idle", 0);
       case "staleAlarmFires":
-        return staleAlarmFires("no_progress", 0);
+        return staleAlarmFires(required(picks.timer), required(picks.sandbox));
       case "workflowRestarts":
         return worldAction("the workflow restarts", (world) => this.restart(world));
       default:
@@ -536,19 +573,30 @@ export class WorkflowLifecycleReplay {
     }
   }
 
-  private async setPlan(world: WorkflowWorld, definition: number): Promise<StepFacts> {
+  private async setPlan(
+    world: WorkflowWorld,
+    definition: number,
+    withStages: boolean,
+  ): Promise<StepFacts> {
     const name =
-      definition === 1 ? SECOND_DEFINITION : (world.workflow.workflowDefinitions()[0]?.name ?? "");
+      definition === 2
+        ? UNDECLARED_DEFINITION
+        : definition === 1
+          ? SECOND_DEFINITION
+          : (world.workflow.workflowDefinitions()[0]?.name ?? "");
+    const stages = {
+      stages: [STAGE],
+      repo: REPO,
+      page_parent: this.modelAuthor ? PAGE_PARENT : null,
+      concurrency: SLOTS,
+    };
     const { set_plan } = planTools(world.workflow);
     await set_plan.execute(
       {
         name: "Fix login",
         definition: name,
         reason: "the request asks for a design",
-        stages: [STAGE],
-        repo: REPO,
-        page_parent: this.modelAuthor ? PAGE_PARENT : null,
-        concurrency: SLOTS,
+        ...(withStages ? stages : {}),
       },
       TOOL_CALL,
     );
