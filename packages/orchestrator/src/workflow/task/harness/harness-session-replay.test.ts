@@ -107,6 +107,10 @@ describe("harness session spec", () => {
     await replayPinnedTrace("socket-closes-during-the-handshake");
   });
 
+  it("waits for the reconnect when the socket closes during the handshake of a resumed start", async () => {
+    await replayPinnedTrace("socket-closes-during-the-handshake-of-a-resumed-start");
+  });
+
   it("leaves a paused restart queued so the resume starts the sandbox", async () => {
     await replayPinnedTrace("restart-held-for-a-resume");
   });
