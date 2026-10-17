@@ -50,13 +50,23 @@ export async function ruleOnConclusion(
   return ruling;
 }
 
-/** Have the agent ask the thread for the ruling the decisions model could not give. */
+/**
+ * Have the agent ask the thread for the ruling the decisions model could not give. The judge run
+ * records that the agent was asked in the same step that queues the note.
+ */
 export async function askPersonToRule(
   workflow: WorkflowRuntime,
-  input: { author: TaskRow; artifact: ArtifactRow; entry: JudgeEntry; conclusion: string },
+  input: {
+    author: TaskRow;
+    reviewer: TaskRow;
+    artifact: ArtifactRow;
+    entry: JudgeEntry;
+    conclusion: string;
+  },
 ): Promise<void> {
-  const { author, artifact, entry, conclusion } = input;
+  const { author, reviewer, artifact, entry, conclusion } = input;
   await markBoardDirty(workflow, author.job_id);
+  workflow.store.updateTask(reviewer.task_id, { asked_person_to_rule: true });
   await workflow.tellAgent(
     noteMessage(
       [

@@ -17,7 +17,8 @@
     "failedReplyLeavesThePage",
     "aJudgeRejectionPostsItsReasonOnce",
     "aHeldCommentStaysHeldUntilItReachesTheAuthor",
-    "aModelCallAuthorFailsOnlyOnAHostError"
+    "aModelCallAuthorFailsOnlyOnAHostError",
+    "aRestartDoesNotStrandAJudgeRun"
   ],
   "mainMinutes": {
     "judgeThenPolisher": 3.2,
@@ -39,7 +40,10 @@
       "theHumansHaveTheArtifact",
       "aReviewerReachedTheLimit",
       "aRefinerRunRestarted",
-      "aPolisherFinished"
+      "aPolisherFinished",
+      "theAgentIsAskedForAPersonsRuling",
+      "theInstanceRestarted",
+      "aRulingCallIsLostWithTheInstance"
     ],
     "reviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -51,7 +55,8 @@
       "theHumansHaveTheArtifact",
       "aReviewerReachedTheLimit",
       "aRefinerRunRestarted",
-      "aPolisherFinished"
+      "aPolisherFinished",
+      "theInstanceRestarted"
     ],
     "judgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -64,7 +69,10 @@
       "aRefinerRunStartsPastAJudgeWithFindings",
       "theHumansHaveTheArtifact",
       "aReviewerReachedTheLimit",
-      "aRefinerRunRestarted"
+      "aRefinerRunRestarted",
+      "theAgentIsAskedForAPersonsRuling",
+      "theInstanceRestarted",
+      "aRulingCallIsLostWithTheInstance"
     ],
     "modelCallAuthorWithTwoReviewers": [
       "aRefinerRunIsUnfinished",
@@ -117,7 +125,8 @@
       "theHostKeepsHeldCommentsHeld",
       "aMentionRoutedAwayLeavesHeldComments",
       "aPersonRepliesWhileTheScreenReads",
-      "aHeldCommentReachesTheAuthor"
+      "aHeldCommentReachesTheAuthor",
+      "theInstanceRestarted"
     ],
     "pageJudgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -141,7 +150,10 @@
       "aPersonRepliesWhileTheScreenReads",
       "aHeldCommentReachesTheAuthor",
       "aRejectionLandsOnThePage",
-      "theHostFailsARejection"
+      "theHostFailsARejection",
+      "theAgentIsAskedForAPersonsRuling",
+      "theInstanceRestarted",
+      "aRulingCallIsLostWithTheInstance"
     ]
   },
   "tlc": {
@@ -153,14 +165,16 @@
           "refinerRunsStarted": 3,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
-          "promptsQueued": 1
+          "promptsQueued": 1,
+          "instanceRestartCount": 1
         },
         "nightly": {
           "revisions": 3,
           "refinerRunsStarted": 4,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
-          "promptsQueued": 2
+          "promptsQueued": 2,
+          "instanceRestartCount": 2
         }
       },
       "reviewerThenPolisher": {
@@ -169,14 +183,16 @@
           "refinerRunsStarted": 3,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
-          "promptsQueued": 1
+          "promptsQueued": 1,
+          "instanceRestartCount": 1
         },
         "nightly": {
           "revisions": 3,
           "refinerRunsStarted": 4,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
-          "promptsQueued": 2
+          "promptsQueued": 2,
+          "instanceRestartCount": 2
         }
       },
       "judgeBetweenReviewers": {
@@ -185,14 +201,16 @@
           "refinerRunsStarted": 3,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
-          "promptsQueued": 1
+          "promptsQueued": 1,
+          "instanceRestartCount": 1
         },
         "nightly": {
           "revisions": 3,
           "refinerRunsStarted": 4,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
-          "promptsQueued": 2
+          "promptsQueued": 2,
+          "instanceRestartCount": 2
         }
       },
       "modelCallAuthorWithTwoReviewers": {
@@ -217,14 +235,16 @@
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
-          "promptsQueued": 1
+          "promptsQueued": 1,
+          "instanceRestartCount": 1
         },
         "nightly": {
           "revisions": 2,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 2,
-          "promptsQueued": 1
+          "promptsQueued": 1,
+          "instanceRestartCount": 2
         }
       },
       "pageJudgeBetweenReviewers": {
@@ -233,14 +253,16 @@
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
-          "promptsQueued": 1
+          "promptsQueued": 1,
+          "instanceRestartCount": 1
         },
         "nightly": {
           "revisions": 2,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 2,
-          "promptsQueued": 1
+          "promptsQueued": 1,
+          "instanceRestartCount": 2
         }
       }
     }

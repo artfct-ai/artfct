@@ -11,6 +11,7 @@ import type { ArtifactRow, TaskRow } from "../store/tasks";
 import { taskAtWork } from "../task/at-work";
 import { clearTaskTimers, closeContainer, destroySandbox } from "../task/sandbox/sandbox";
 import { taskSettings } from "../task/settings";
+import type { TaskAlarm } from "../task/harness/timers";
 import type { WorkflowRuntime } from "../types";
 import { checksGate } from "./checks-gate";
 import { markArtifactReady, sendRejectionToAuthor, sendReviewToAuthor } from "./outcome";
@@ -363,7 +364,42 @@ async function settleJudgeEntry(
     return;
   }
   const artifact = workflow.store.artifact(author.job_id);
-  if (artifact) await askPersonToRule(workflow, { author, artifact, entry, conclusion });
+  if (artifact) await askPersonToRule(workflow, { author, reviewer, artifact, entry, conclusion });
+}
+
+/**
+ * Start step: a new instance lost the ruling calls the old one had out. Arm a settle of each done
+ * judge run the artifact waits on that neither has a ruling nor asked a person for one.
+ */
+export async function settleLostJudgeRulings(workflow: WorkflowRuntime): Promise<void> {
+  for (const run of workflow.store.tasks()) {
+    if (!judgeEntryWithoutARulingAsked(workflow, run)) continue;
+    const alarm: TaskAlarm = { task_id: run.task_id };
+    await workflow.scheduleAlarm(0, "settleLostJudgeRuling", alarm);
+  }
+}
+
+/** Alarm: rule on a done judge run whose ruling call a lost instance had out. */
+export async function settleLostJudgeRuling(
+  workflow: WorkflowRuntime,
+  alarm: TaskAlarm,
+): Promise<void> {
+  const reviewer = workflow.store.task(alarm.task_id);
+  const entry = reviewer && judgeEntryWithoutARulingAsked(workflow, reviewer);
+  if (!reviewer || !entry) return;
+  workflow.log(reviewer.task_id, "ruling asked again: a new instance lost the ruling call");
+  await settleJudgeEntry(workflow, workflow.store.authorTaskOf(reviewer.job_id), reviewer, entry);
+}
+
+/**
+ * The judge entry of a done judge run the artifact waits on, when neither a ruling nor the
+ * agent's ask for a person's ruling is recorded. Null otherwise.
+ */
+function judgeEntryWithoutARulingAsked(workflow: WorkflowRuntime, run: TaskRow): JudgeEntry | null {
+  if (run.role !== "reviewer" || run.status !== "done" || run.asked_person_to_rule) return null;
+  const entry = reviewerEntryOf(workflow, run);
+  if (entry?.mode !== "judge") return null;
+  return validateJudgeAwaitsRuling(workflow, run) ? null : entry;
 }
 
 type JudgeRuling = { ruling: "approved" } | { ruling: "rejected"; reason: string };

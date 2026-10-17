@@ -40,6 +40,7 @@ const task: TaskRow = {
   summary: "",
   model_turn_id: null,
   restarts: 0,
+  asked_person_to_rule: false,
 };
 
 const sandbox: SandboxRow = {
