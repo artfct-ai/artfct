@@ -4,7 +4,7 @@
  * artfct-bridge, which dials back into the ingress Worker. With `--scripted-harness` it spawns the
  * bridge with the in-process mock harness instead, as the smoke run does. Every call that changes a
  * sandbox is recorded. Each sandbox gets a directory on this host that stands for its container
- * root. `GET /__state` returns the record, `POST /__reset` clears it, `POST /__kill` ends one bridge.
+ * root. `GET /__state` returns the record, and `POST /__reset` clears it.
  * `POST /bridge` tells whether the bridge of one generation still runs.
  */
 import { mkdirSync, mkdtempSync, rmSync } from "node:fs";
@@ -200,17 +200,6 @@ async function handleRead(body: Record<string, unknown>): Promise<Response> {
   return new Response(await file.text());
 }
 
-/** Kills the bridge of one sandbox and nothing else. The orchestrator is not told. */
-function handleKill(body: Record<string, unknown>): Response {
-  const sandboxId = String(body.sandbox_id);
-  const entry = bridges.get(sandboxId);
-  if (!entry) return new Response("no bridge", { status: 404 });
-  log(`kill ${sandboxId} gen=${entry.generation}`);
-  killBridge(entry);
-  bridges.delete(sandboxId);
-  return Response.json({ ok: true });
-}
-
 /** Whether the bridge of the named sandbox and generation still runs on this host. */
 function handleBridge(body: Record<string, unknown>): Response {
   const entry = bridges.get(String(body.sandbox_id));
@@ -252,8 +241,6 @@ async function handleRequest(request: Request): Promise<Response> {
   if (url.pathname === "/__release") return handleRelease();
   const body = (await request.json()) as Record<string, unknown>;
   switch (url.pathname) {
-    case "/__kill":
-      return handleKill(body);
     case "/start":
       return handleStart(body as StartSpec);
     case "/env":

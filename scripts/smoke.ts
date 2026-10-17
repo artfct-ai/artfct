@@ -1,21 +1,20 @@
 #!/usr/bin/env bun
 /**
- * End-to-end smoke test with mock event data. It runs the steps below against a local stack
- * and asserts on the Workflow DO debug dump and the mock sandbox record.
+ * End-to-end wiring check with mock event data. It drives the real Worker entrypoints, service
+ * bindings, ingress routes, orchestrator, and mock vendors through the steps below, and asserts
+ * on the Workflow DO debug dump and the mock vendor records. The Quint specs and the property
+ * tests check workflow and agent behavior.
  * INGRESS_URL targets a live stack. SMOKE_VERBOSE=1 echoes every wrangler line.
  */
 import { IS_EXTERNAL_INGRESS } from "./smoke/config";
 import { installProcessHandlers, startHarness, stopHarness, verifyStack } from "./smoke/harness";
 import { runArtifactFromAgentOutput } from "./smoke/steps/artifact";
-import { runBoardChecks, runNoTrackerBoard } from "./smoke/steps/board";
-import { runBridgeLoss } from "./smoke/steps/bridge-loss";
-import { runContextBudget } from "./smoke/steps/budget";
-import { runCancel } from "./smoke/steps/cancel";
+import { runBoardChecks } from "./smoke/steps/board";
+import { runGithubEvents } from "./smoke/steps/github";
 import { runLinearCancel } from "./smoke/steps/linear-cancel";
 import { runLinearInstall } from "./smoke/steps/linear-install";
 import { runLinearStart } from "./smoke/steps/linear-start";
 import { runMerge } from "./smoke/steps/merge";
-import { runReviewLoop } from "./smoke/steps/review-loop";
 import { runSlack } from "./smoke/steps/slack";
 import { runDocumentStages } from "./smoke/steps/stages";
 
@@ -37,15 +36,11 @@ async function main(): Promise<void> {
     runDocumentStages({ workflowId, taskId: first.taskId }),
   );
   await step("3. Artifact", () => runArtifactFromAgentOutput({ workflowId, taskId, branch }));
-  await step("4. No board on Linear", () => runNoTrackerBoard({ workflowId }));
-  await step("5. Context budget", () => runContextBudget({ workflowId, taskId }));
-  await step("6. Review loop", () => runReviewLoop({ workflowId, taskId, branch }));
-  const done = await step("7. Merge", () => runMerge({ workflowId, taskId, branch }));
-  await step("8. Cancel", runCancel);
-  const third = await step("9. Bridge loss", runBridgeLoss);
-  await step("10. Linear issue canceled", () => runLinearCancel(third));
-  const slack = await step("11. Slack", runSlack);
-  await step("12. Boards", () => runBoardChecks(slack));
+  await step("4. GitHub events", () => runGithubEvents({ workflowId, taskId, branch }));
+  const done = await step("5. Merge", () => runMerge({ workflowId, taskId, branch }));
+  await step("6. Linear issue canceled", runLinearCancel);
+  const slack = await step("7. Slack", runSlack);
+  await step("8. Boards", () => runBoardChecks(slack));
 
   console.log("\nSMOKE PASSED");
   const workflowLog = done.log.map((entry) => entry.line).join(" | ");

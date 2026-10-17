@@ -1,8 +1,7 @@
 /**
- * Steps 4 and 12. The job boards. A workflow without a chat thread has none. Otherwise one board
- * message per job per chat thread, edited in place, with no link, CI result or merge state in its
- * text. A follow-up moves a board to a new message. Between a job's launch and its artifact, no
- * message reaches a channel.
+ * Step 8. The job boards of the Slack workflow. One board message per job per chat thread, edited
+ * in place, with no link, CI result or merge state in its text. A follow-up moves a board to a new
+ * message. Between a job's launch and its artifact, no message reaches a channel.
  */
 import {
   artifactOf,
@@ -55,23 +54,9 @@ function reachesHumans(message: OutboxMessage): boolean {
   );
 }
 
-/** The outbox kinds of a board message being written. */
-const BOARD_WRITES = ["create", "edit", "delete"];
-
-/** Runs step 4. A workflow that only a tracker session follows posts no board anywhere. */
-export async function runNoTrackerBoard(options: { workflowId: string }): Promise<void> {
-  console.log("\n4. No board on Linear");
-  const debug = await fetchWorkflowDebug(options.workflowId);
-  assertEqual(debug.boards, [], "a workflow without a chat thread has no board");
-  const written = debug.outbox.filter(
-    (message) => message.channel === "board" && BOARD_WRITES.includes(message.kind),
-  );
-  assertEqual(written, [], "no board message was created, edited, or deleted");
-}
-
-/** Runs step 12 over the whole Slack workflow. */
+/** Runs step 8 over the whole Slack workflow. */
 export async function runBoardChecks(options: { workflowId: string }): Promise<void> {
-  console.log("\n12. Boards");
+  console.log("\n8. Boards");
   const debug = await waitForEveryHandover(options.workflowId);
   const creates = countOutboxMessages(
     debug,

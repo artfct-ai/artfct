@@ -49,7 +49,7 @@ async function countStarts(taskId?: string): Promise<number> {
 }
 
 /** The latest start record for a task. Null when the stack is external. */
-export async function latestStart(taskId: string): Promise<StartRecord | null> {
+async function latestStart(taskId: string): Promise<StartRecord | null> {
   if (IS_EXTERNAL_INGRESS) return null;
   const state = await fetchMockSandboxState();
   return state.starts.filter((start) => start.sandbox_id === taskId).at(-1) ?? null;

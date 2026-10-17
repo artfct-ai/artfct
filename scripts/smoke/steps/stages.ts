@@ -1,8 +1,8 @@
 /**
  * Step 2. The document stages. A harness author writes a Notion page, the orchestrator records
  * it, a plain Linear reply accepts it, and the next stage starts in a fresh sandbox. The model
- * stage runs a researcher and a model-call author, takes one revision, and completes on a
- * selection. The last advance starts the PR stage, whose task the later steps drive.
+ * stage runs a researcher and a model-call author and completes on a selection. The last advance
+ * starts the PR stage, whose task the later steps drive.
  */
 import { parseDocumentOptions } from "../../../packages/orchestrator/src/artifact/options";
 import { SCRIPTED_AUTHOR_OPTIONS } from "../../../packages/orchestrator/test/scripted-model";
@@ -22,7 +22,6 @@ import {
   hasOutboxMessage,
   jobById,
   outboxText,
-  reviewersOf,
   taskById,
   turnBaseline,
   waitForHandoverRead,
@@ -38,7 +37,7 @@ import {
   REVIEWED_DOC_STAGE,
 } from "../../../packages/orchestrator/test/smoke-config";
 import { agentSessionPrompted, docUrlForStage, linearDev, notionPageId } from "../fixtures";
-import { fetchMockNotionComments, fetchMockNotionPages, type MockNotionPage } from "../harness";
+import { fetchMockNotionComments, fetchMockNotionPages } from "../harness";
 import { assertStartSpec, assertStartsSince, waitForSandboxDestroyed } from "../sandbox";
 import { postLinearWebhook } from "../webhooks";
 import { FIRST_ISSUE, FIRST_SESSION } from "./linear-start";
@@ -56,9 +55,6 @@ const TITLE_SLUG = "eng-42-fix-login-redirect";
 
 /** The reply that accepts a document. */
 const ACCEPT_REPLY = "looks good, go ahead";
-
-/** The reply that asks the model-call author to revise its page. */
-const REVISION_REQUEST = "Add a rollback step.";
 
 /** A Linear status reply. */
 function isStatusReply(message: WorkflowDebug["outbox"][number]): boolean {
@@ -151,65 +147,35 @@ async function assertDocumentRecorded(options: {
 }
 
 /**
- * Checks the page review run the reviewed stage ran. The humans hear about the page once,
- * and only after the loop closed.
+ * Checks what the page review of the reviewed stage posted on the document host. The humans hear
+ * about the page once, and only after the loop closed.
  */
-async function assertPageReviewRound(
+async function assertPageReviewPosted(
   workflowId: string,
   taskId: string,
   stage: string,
 ): Promise<void> {
   const debug = await fetchWorkflowDebug(workflowId);
   const jobId = taskById(debug, taskId).job_id;
-  const reviewers = reviewersOf(debug, jobId);
-  assertEqual(reviewers.length, 2, `${stage}: two reviewers read the page`);
-  assertEqual(
-    reviewers.filter((task) => task.status === "done").length,
-    2,
-    `${stage}: both reviewers are done`,
-  );
-  assertEqual(
-    artifactOf(debug, jobId)?.refiner_task_id,
-    null,
-    `${stage}: the artifact holds no open reviewer`,
-  );
-
   const onPage = (await fetchMockNotionComments()).filter(
     (comment) => comment.page_id === notionPageId(stage),
   );
-  const comments = onPage.filter((comment) => comment.block_id === null);
-  const inline = onPage.filter((comment) => comment.block_id !== null);
-  assertEqual(comments.length, 2, `${stage}: one outcome comment per review`);
-  assertEqual(inline.length, 1, `${stage}: the finding that quotes a passage sits on its block`);
+  const inline = onPage.find((comment) => comment.block_id !== null);
   assert(
-    inline[0]!.text.includes("Reviewer: "),
+    inline?.text.includes("Reviewer: "),
     `${stage}: the inline finding carries the reviewer's signature`,
-    inline[0],
+    onPage,
   );
+  const outcome = onPage.find((comment) => comment.block_id === null);
   assert(
-    comments[0]!.text.includes("1 finding is on the block it quotes."),
+    outcome?.text.includes("1 finding is on the block it quotes."),
     `${stage}: the outcome comment counts the inline finding`,
-    comments[0],
-  );
-  assert(
-    comments[0]!.text.startsWith("Review: findings"),
-    `${stage}: the first review filed findings`,
-    comments[0],
-  );
-  assert(
-    comments[1]!.text.startsWith("Review: approved"),
-    `${stage}: the second review approved`,
-    comments[1],
+    onPage,
   );
 
   assert(
     hasLogLine(debug, "holding the announcement until the review settles"),
     `${stage}: the page was held back until the review settled`,
-    debug.log.slice(-8),
-  );
-  assert(
-    hasLogLine(debug, "review left 2 findings (nothing blocking)"),
-    `${stage}: the findings reached the author`,
     debug.log.slice(-8),
   );
   assertEqual(countLogLines(debug, handedOverLine(jobId)), 1, `${stage}: one handover`);
@@ -241,6 +207,11 @@ async function assertStatusNamesStage(workflowId: string, stage: string): Promis
     return countOutboxMessages(dump, isStatusReply) > replies ? dump : null;
   });
   const text = outboxText(debug.outbox.filter(isStatusReply).at(-1)!);
+  assert(
+    text.includes(`Workflow ${workflowId}: running`),
+    `${stage}: status names the workflow and its state`,
+    text,
+  );
   assert(
     text.includes(`Plan: ${STAGE_NAMES.join(" -> ")}`),
     `${stage}: status names the plan`,
@@ -334,10 +305,7 @@ async function assertResearchStored(workflowId: string, researcherId: string): P
 }
 
 /** Waits for the page the model-call author created and checks what the document host received. */
-async function assertModelAuthorPage(
-  workflowId: string,
-  jobId: string,
-): Promise<{ author: DebugTask; page: MockNotionPage }> {
+async function assertModelAuthorPage(workflowId: string, jobId: string): Promise<DebugTask> {
   const stage = MODEL_DOC_STAGE;
   const debug = await waitUntil(
     { label: `${stage}: the model call created the page` },
@@ -378,42 +346,7 @@ async function assertModelAuthorPage(
   assert(artifact.external_url.endsWith(page.id), `${stage}: artifact url`, artifact);
   const url = artifact.external_url;
   await assertDocumentAnnounced({ workflowId, stage, url, pageId: page.id });
-  return { author, page };
-}
-
-/** A reply asks for a change, and the model-call author rewrites the page in place. */
-async function assertPageRevised(
-  workflowId: string,
-  author: DebugTask,
-  pageId: string,
-): Promise<void> {
-  const stage = MODEL_DOC_STAGE;
-  const turns = countTurns(await fetchWorkflowDebug(workflowId));
-  await replyOnLinear(REVISION_REQUEST);
-  const page = await waitUntil({ label: `${stage}: the page was updated in place` }, async () => {
-    const found = (await fetchMockNotionPages()).find((candidate) => candidate.id === pageId);
-    return found && found.markdown_versions.length === 2 ? found : null;
-  });
-  const revised = page.markdown_versions[1]!;
-  assert(
-    revised.includes(`Revised for: ${REVISION_REQUEST}`),
-    `${stage}: the model call answered the change`,
-    revised,
-  );
-  assertEqual(
-    parseDocumentOptions(revised),
-    SCRIPTED_AUTHOR_OPTIONS,
-    `${stage}: the revised page keeps its options`,
-  );
-  const debug = await waitUntil({ label: `${stage}: the author is back in review` }, async () => {
-    const dump = await fetchWorkflowDebug(workflowId);
-    return taskById(dump, author.task_id).status === "in_review" &&
-      countTaskLogLines(dump, author.task_id, `page updated: ${pageId}`) === 1
-      ? dump
-      : null;
-  });
-  assertEqual((await fetchMockNotionPages()).length, 1, `${stage}: no second page was created`);
-  assertEqual(countTurns(debug), turns, `${stage}: the revision took no harness turn`);
+  return author;
 }
 
 /** The job of the model stage holds the selection, and the next stage's author worked from it. */
@@ -447,15 +380,13 @@ async function runModelDocStage(workflowId: string, researcherId: string): Promi
   const stage = MODEL_DOC_STAGE;
   const next = STAGE_NAMES[STAGE_NAMES.indexOf(stage) + 1]!;
   const jobId = await assertResearchStored(workflowId, researcherId);
-  const { author, page } = await assertModelAuthorPage(workflowId, jobId);
+  const author = await assertModelAuthorPage(workflowId, jobId);
   await waitForHandoverRead(workflowId, jobId);
   assertEqual(
     countTurns(await fetchWorkflowDebug(workflowId)),
     authorTurnsThrough(stage),
     `${stage}: one harness turn per stage so far`,
   );
-  await assertPageRevised(workflowId, author, page.id);
-  await waitForHandoverRead(workflowId, jobId);
   await assertStatusNamesStage(workflowId, stage);
   const nextTask = await completeAndAdvance({
     workflowId,
@@ -485,7 +416,7 @@ export async function runDocumentStages(
     }
     const expectedTurns = authorTurnsThrough(stage);
     const recorded = await assertDocumentRecorded({ workflowId, taskId, stage, expectedTurns });
-    if (stage === REVIEWED_DOC_STAGE) await assertPageReviewRound(workflowId, taskId, stage);
+    if (stage === REVIEWED_DOC_STAGE) await assertPageReviewPosted(workflowId, taskId, stage);
     await waitForHandoverRead(workflowId, taskById(recorded, taskId).job_id);
     await assertStatusNamesStage(workflowId, stage);
     task = await completeAndAdvance({ workflowId, taskId, stage, next, reply: ACCEPT_REPLY });
