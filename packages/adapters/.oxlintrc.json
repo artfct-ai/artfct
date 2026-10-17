@@ -1,4 +1,66 @@
 {
   "$schema": "../../node_modules/oxlint/configuration_schema.json",
-  "extends": ["../../.oxlintrc.json"]
+  "extends": ["../../.oxlintrc.json"],
+  "overrides": [
+    {
+      "files": ["src/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(@linear/sdk|@notionhq/client|@octokit/.+|@openrouter/sdk|@slack/.+|cloudflare(/.+)?)$",
+                "message": "Only a vendor directory imports a vendor SDK."
+              },
+              {
+                "regex": "^(@artfct-ai/adapters|\\.)/[a-z]+/[a-z-]+/",
+                "message": "Shared adapter code does not import a vendor directory."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/*/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(@linear/sdk|@notionhq/client|@octokit/.+|@openrouter/sdk|@slack/.+|cloudflare(/.+)?)$",
+                "message": "Only a vendor directory imports a vendor SDK."
+              },
+              {
+                "regex": "^(@artfct-ai/adapters/[a-z]+|\\.\\./[a-z]+|\\.)/[a-z-]+/",
+                "message": "Capability code does not import a vendor directory. Only a clients.ts does."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/harness/clients.ts", "src/*.test.ts", "src/*/*.test.ts"],
+      "rules": { "no-restricted-imports": "off" }
+    },
+    {
+      "files": ["src/*/*/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(@artfct-ai/adapters/[a-z]+|\\.\\./\\.\\./[a-z]+|\\.\\.)/[a-z-]+/",
+                "message": "A vendor directory never imports from another vendor directory. Keep a copy instead."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }

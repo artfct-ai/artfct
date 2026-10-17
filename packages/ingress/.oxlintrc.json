@@ -1,4 +1,63 @@
 {
   "$schema": "../../node_modules/oxlint/configuration_schema.json",
-  "extends": ["../../.oxlintrc.json"]
+  "extends": ["../../.oxlintrc.json"],
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "regex": "^(@artfct-ai/orchestrator|(\\.\\./)+(packages/)?orchestrator)(/|$)",
+            "message": "Ingress never imports the orchestrator. Call it through the OrchestratorRpc binding."
+          },
+          {
+            "regex": "^(@linear/sdk|@notionhq/client|@octokit/.+|@openrouter/sdk|@slack/.+|cloudflare(/.+)?)$",
+            "message": "Only a vendor directory under packages/adapters imports a vendor SDK."
+          },
+          {
+            "regex": "^@artfct-ai/adapters/[a-z]+/[a-z-]+/",
+            "message": "Import the capability interface from its types.ts. Only a clients.ts or an ingress route imports a vendor directory."
+          }
+        ]
+      }
+    ]
+  },
+  "overrides": [
+    {
+      "files": ["src/routes/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(@artfct-ai/orchestrator|(\\.\\./)+(packages/)?orchestrator)(/|$)",
+                "message": "Ingress never imports the orchestrator. Call it through the OrchestratorRpc binding."
+              },
+              {
+                "regex": "^(@linear/sdk|@notionhq/client|@octokit/.+|@openrouter/sdk|@slack/.+|cloudflare(/.+)?)$",
+                "message": "Only a vendor directory under packages/adapters imports a vendor SDK."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/clients.ts", "**/*.test.ts", "**/*.test.medium.ts", "test/**"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "regex": "^(@artfct-ai/orchestrator|(\\.\\./)+(packages/)?orchestrator)(/|$)",
+                "message": "Ingress never imports the orchestrator. Call it through the OrchestratorRpc binding."
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ]
 }
