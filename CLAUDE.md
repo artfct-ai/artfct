@@ -141,7 +141,7 @@ Judge a change by the complexity it leaves behind, not by its size. An interface
 - While you work, run `scripts/test-near` on the files you change. Before you push, `bun run lint` passes with zero warnings and the nearby tests pass.
 - Push early and open a draft PR. Do not stop at a local commit, and do not ask first.
 - Do not repeat CI runs locally. CI runs these:
-  - Pull request: `bun run check`, smoke, and a light quint run when spec or workflow code changes.
+  - Pull request: `bun run check` then smoke in one job, and a light quint run in 3 shards when spec or workflow code changes.
   - Main: full quint with TLC at the `pr` bounds, the spec replays, and the properties at reduced counts.
   - Nightly: deep quint, the full property counts, and the mutants. To bisect a failure, start the nightly workflow by hand with a commit.
 - CI does not run on a fork's PR until a maintainer approves it. A fork runs `bun run check` and `bun run smoke` locally before it pushes.
