@@ -76,24 +76,28 @@
         "pr": {
           "jobsStarted": 1,
           "callsOut": 2,
-          "promptsSent": 4
+          "promptsSent": 4,
+          "promptsWaiting": 2
         },
         "nightly": {
           "jobsStarted": 2,
           "callsOut": 2,
-          "promptsSent": 4
+          "promptsSent": 4,
+          "promptsWaiting": 2
         }
       },
       "pagesWithoutRefiners": {
         "pr": {
           "jobsStarted": 2,
           "callsOut": 2,
-          "promptsSent": 2
+          "promptsSent": 2,
+          "promptsWaiting": 2
         },
         "nightly": {
           "jobsStarted": 2,
           "callsOut": 2,
-          "promptsSent": 4
+          "promptsSent": 4,
+          "promptsWaiting": 2
         }
       }
     }

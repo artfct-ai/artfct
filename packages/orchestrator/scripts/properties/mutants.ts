@@ -287,14 +287,16 @@ export const MUTANTS: Mutant[] = [
     invariant: "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone (refused prompt)",
     path: "src/workflow/task/harness/turn.ts",
     find: '  if (stoppedEarly && (await stalledAtTurnEnd(workflow, task)) === "restarted") {',
-    replace: '  if (false && stoppedEarly && (await stalledAtTurnEnd(workflow, task)) === "restarted") {',
+    replace:
+      '  if (false && stoppedEarly && (await stalledAtTurnEnd(workflow, task)) === "restarted") {',
   },
   {
     id: "W38",
     invariant: "stopEndsTheAuthorsTurn (lost cancel)",
     path: "src/workflow/inbound/controls.ts",
     find: "  if (atWork) await endStoppedTurn(workflow, author);\n",
-    replace: '  if (cancelled) return "cancelled";\n  if (atWork) await endStoppedTurn(workflow, author);\n',
+    replace:
+      '  if (cancelled) return "cancelled";\n  if (atWork) await endStoppedTurn(workflow, author);\n',
   },
   {
     id: "W39",

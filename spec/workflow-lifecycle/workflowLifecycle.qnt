@@ -794,6 +794,9 @@ module workflowLifecycle {
   /// The prompts the workflow sent its authors, a counter that model checking bounds.
   val promptsSent: int = promptsSentToAuthors(workflow)
 
+  /// The prompts that wait for their author's turn to end, a counter that model checking bounds.
+  val promptsWaiting: int = workflow.jobs.foldl(0, (total, job) => total + job.author.promptsQueued)
+
   /// The calls that are out, a counter that model checking bounds.
   val callsOut: int = workflow.calls.length()
 
