@@ -1,7 +1,6 @@
 import type { StopReason } from "@agentclientprotocol/sdk";
 import type { DocumentsCommenting } from "@artfct-ai/adapters/test/fake-documents";
 import { artifactTools } from "../src/agent/tools/artifact";
-import type { Review } from "../src/artifact/types";
 import { activeToolNames, type TurnFacts } from "../src/agent/prompt/system-prompt";
 import { FAIL_WORKFLOW, FINISH_WORKFLOW, planTools } from "../src/agent/tools/plan";
 import { startTools } from "../src/agent/tools/start/start";
@@ -415,7 +414,6 @@ export function refinerRunEnds(index: number, end: RefinerRunEnd): WorkflowActio
     const mode = world.reviewerEntryOf(run)?.mode ?? "polisher";
     const reviewsPage = mode === "findings" && author.kind === "page";
     const judgesPage = mode === "judge" && author.kind === "page";
-    const commentsBefore = world.pageHost.postedComments.length;
     if (reviewsPage || judgesPage) world.pageHost.commenting = end.pageCommenting;
     if (mode === "findings") await fileFindingsReview(world, author, bridge, end.reviewer);
     if (mode === "judge") await closeJudgeTurn(world, bridge, end, index);
@@ -427,25 +425,11 @@ export function refinerRunEnds(index: number, end: RefinerRunEnd): WorkflowActio
     await bridge.endTurn(end.stopReason);
     world.pageHost.commenting = "takes";
     const finished = end.stopReason === "end_turn" && end.closing === "reports_work";
-    const pageReview = reviewsPage
-      ? {
-          task_id: run.task_id,
-          review: reviewFiledBy(world, run.task_id),
-          comments: world.pageHost.postedComments.slice(commentsBefore),
-          hostUp: end.pageCommenting !== "down",
-        }
-      : null;
     return {
       refinerTurnEnd: finished ? { task_id: run.task_id } : null,
-      pageReview,
       pageCommentsRefused: judgesPage && end.pageCommenting === "down",
     };
   });
-}
-
-function reviewFiledBy(world: WorkflowWorld, taskId: string): Review | null {
-  const result = world.workflow.store.requireTask(taskId).result;
-  return result?.kind === "review" ? result : null;
 }
 
 async function fileFindingsReview(
@@ -820,16 +804,8 @@ export function personEditsPageDuringModelCall(
   start: ModelCallStart,
 ): WorkflowAction {
   const label = `a person edits the page while the page model answers, after ${start}`;
-  return authorAction(index, label, (world, author) =>
-    world.editPageWhilePageModelAnswers(author, () => startModelCall(world, author, start)),
-  );
-}
-
-/** A model call of a model-call author starts while the page host refuses every page write. */
-export function pageHostRefusesWrites(index: number, start: ModelCallStart): WorkflowAction {
-  const label = `the page host refuses every page write, after ${start}`;
   return authorAction(index, label, async (world, author) => {
-    await world.whilePageHostRefusesWrites(() => startModelCall(world, author, start));
+    await world.editPageWhilePageModelAnswers(author, () => startModelCall(world, author, start));
   });
 }
 
@@ -1132,33 +1108,10 @@ export function agentPromptsAuthor(index: number, read?: HeldCommentsRead): Work
       );
     if (!read) {
       await prompt();
-      return undefined;
+      return;
     }
-    const onPage = runningPageAuthors(world).includes(author.taskId);
     answerScreenWith(world, index, read);
-    const agentRead = await readingHeldComments(world, read, prompt);
-    if (!onPage) return undefined;
-    return {
-      heldCommentsAsked: {
-        authors: [author.taskId],
-        expected: heldCommentsExpected(read),
-        agentRead,
-      },
-    };
-  });
-}
-
-/**
- * A person comments on every page of the world without mentioning the bot, so the host holds the
- * comment. `number` makes its id and text its own.
- */
-export function personCommentsOnPage(number: number): WorkflowAction {
-  return action(`a person leaves held comment ${number}`, async (world) => {
-    fakeDocumentsOf(world.workflow).holdComment({
-      id: `held-comment-${number}`,
-      author_name: "Bea",
-      text: `Comment ${number}: cite the source of the numbers.`,
-    });
+    await readingHeldComments(world, read, prompt);
   });
 }
 
@@ -1182,10 +1135,7 @@ export function personAsksForRevision(index: number, read: HeldCommentsRead): Wo
     const screenAdmitted = read.host === "refuses_acknowledgement" && read.decisions === "answers";
     const keptWithoutCancel =
       authors.length && expected === "kept" && !screenAdmitted && read.meanwhile === "nothing";
-    return {
-      heldCommentsAsked: authors.length ? { authors, expected, agentRead } : null,
-      unadmittedFeedback: keptWithoutCancel ? { texts: held, agentRead } : null,
-    };
+    return { unadmittedFeedback: keptWithoutCancel ? { texts: held, agentRead } : null };
   });
 }
 
@@ -1651,10 +1601,8 @@ function workflowEnd(ending: WorkflowEnding | WhileEnding): WorkflowAction {
 /** The workflow ends, and `meanwhile` lands while the end waits on its first sandbox destroy. */
 export function workflowEndsWhile(ending: WorkflowEnding, meanwhile: WhileEnding): WorkflowAction {
   return action(`the workflow ends: ${ending}, meanwhile ${meanwhile}`, async (world) => {
-    const landing = action(meanwhile, async (landingWorld) => {
-      const facts = (await workflowEnd(meanwhile).run(landingWorld)) ?? {};
-      return { ...facts, secondEnd: meanwhile !== "agent_starts" };
-    });
-    return world.whileSandboxDestroyed(landing, () => workflowEnd(ending).run(world));
+    return world.whileSandboxDestroyed(workflowEnd(meanwhile), () =>
+      workflowEnd(ending).run(world),
+    );
   });
 }

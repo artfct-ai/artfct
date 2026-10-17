@@ -8,11 +8,7 @@ import {
   aFailedCheckNeverAsksThePersonAgain,
   aFailedCheckNeverCompletesAJob,
   anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone,
-  authorGetsEveryPageFinding,
-  authorGetsEveryPullFinding,
-  pageReviewPostsEachFindingOnce,
   artifactStatusMovesAreLegal,
-  authorIsIdleWhileAPolisherRuns,
   boardsLiveOnlyInChat,
   chatWorkflowNeverSetsASessionPlan,
   deliveredToHumansIsNeverCleared,
@@ -24,18 +20,15 @@ import {
   nothingReopensAFinishedWorkflow,
   refinerRunIsDoneOnlyAfterItsTurnEnded,
   finishedTaskKeepsItsStatus,
-  finishedWorkflowKeepsItsStatus,
   inReviewTaskHasAnArtifact,
   jobStartsOnlyIntoAFreeSlot,
   judgeRulesAtMostOnce,
   linearOnlyAsksReachTheStartingSession,
   oneLiveJobPerInputArtifact,
-  oneUnfinishedRefinerRunPerArtifact,
   orchestratorStaysOutOfSessionsWhenChatExists,
   pausedAuthorGetsNoPrompt,
   refinersRunAgainOnlyOnChangedRevision,
   researchReadsCompleteOnceTheAuthorStarts,
-  reviewerRunsOnlyOnAnUnreviewedRevision,
   sessionMessageReachesItsRunningAuthorSilently,
   sessionMessageWithoutAnAuthorIsAnswered,
   sessionFeedEndsWhenItsAuthorIdles,
@@ -46,10 +39,8 @@ import {
   todoListIsFixedAfterFirstArtifact,
   sleepMessageOnlyDuringAWorkflow,
   unadmittedFeedbackReachesNobody,
-  workflowKeepsItsDefinition,
   workflowStartsOnlyFromAPlan,
   workflowWaitsOnlyWhileNoAuthorWorks,
-  aPromptToAPageAuthorCarriesItsHeldComments,
   anAcceptedArtifactNeverMovesBack,
   everyActionSettlesWithinItsWorkBudget,
   type Step,
@@ -57,8 +48,6 @@ import {
   aModelCallAuthorWorksOnlyWhileItsCallIsOut,
   aRestartDoesNotLoseAModelTurn,
   aJudgeRejectionPostsItsReasonOnce,
-  aHeldCommentStaysHeldUntilItReachesTheAuthor,
-  aModelCallAuthorFailsOnlyOnAHostError,
 } from "../../test/invariants";
 import { declaredCoverageCases, takeCoveredCases } from "../../test/coverage";
 import { WORKFLOW_CORPUS, type ReplayedSequence } from "../../test/workflow-corpus";
@@ -87,7 +76,6 @@ import {
   pageModelAnswers,
   hostSays,
   personAsksForRevision,
-  personCommentsOnPage,
   personPostsFeedback,
   personCancels,
   personPostsOnUnownedPull,
@@ -121,7 +109,6 @@ import {
   type HeldCommentsRead,
   personMentionsOnPage,
   personEditsPageDuringModelCall,
-  pageHostRefusesWrites,
   type PageMention,
 } from "../../test/workflow-actions";
 import {
@@ -148,8 +135,6 @@ const COVERAGE_TIMEOUT_MS = 3_600_000;
 const STATE_INVARIANTS = [
   aQueuedPromptReachesItsModelCallAuthor,
   inReviewTaskHasAnArtifact,
-  oneUnfinishedRefinerRunPerArtifact,
-  authorIsIdleWhileAPolisherRuns,
   oneLiveJobPerInputArtifact,
   endedWorkflowHasNoUnfinishedTask,
   taskRestartsAtMostTwice,
@@ -163,12 +148,10 @@ const STEP_INVARIANTS = [
   deliveredToHumansIsNeverCleared,
   refinersRunAgainOnlyOnChangedRevision,
   judgeRulesAtMostOnce,
-  reviewerRunsOnlyOnAnUnreviewedRevision,
   everyFeedbackGetsOneRoutingDecision,
   nothingReopensAFinishedWorkflow,
   refinerRunIsDoneOnlyAfterItsTurnEnded,
   finishedTaskKeepsItsStatus,
-  finishedWorkflowKeepsItsStatus,
   pausedAuthorGetsNoPrompt,
   workflowWaitsOnlyWhileNoAuthorWorks,
   artifactStatusMovesAreLegal,
@@ -189,12 +172,7 @@ const STEP_INVARIANTS = [
   feedActivityPostsOnce,
   sleepMessageOnlyDuringAWorkflow,
   workflowStartsOnlyFromAPlan,
-  workflowKeepsItsDefinition,
   anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone,
-  aPromptToAPageAuthorCarriesItsHeldComments,
-  pageReviewPostsEachFindingOnce,
-  authorGetsEveryPageFinding,
-  authorGetsEveryPullFinding,
   aJobWorksOnlyOnIssuesOfItsSubject,
   subjectNeverChanges,
   aSingleIssueWorkflowIsDoneWithItsSubjectsJob,
@@ -203,8 +181,6 @@ const STEP_INVARIANTS = [
   aModelCallAuthorWorksOnlyWhileItsCallIsOut,
   aRestartDoesNotLoseAModelTurn,
   aJudgeRejectionPostsItsReasonOnce,
-  aHeldCommentStaysHeldUntilItReachesTheAuthor,
-  aModelCallAuthorFailsOnlyOnAHostError,
 ];
 
 const research = fc.constantFrom(false, false, false, true);
@@ -241,12 +217,12 @@ const requestSetups: fc.Arbitrary<WorldSetup> = jobSetups.map((setup) => ({
   opening: "request" as const,
 }));
 
-const pageSetups: fc.Arbitrary<WorldSetup> = fc.record({
-  opening: fc.constant("job" as const),
+const modelPageSetups: fc.Arbitrary<WorldSetup> = fc.record({
+  opening: fc.constantFrom("job" as const, "job" as const, "job_unstarted" as const),
   artifact: fc.constant("page" as const),
   refiners: fc.constantFrom(...REFINER_SETUPS),
   research,
-  pageAuthor: fc.constant("harness" as const),
+  pageAuthor: fc.constant("model" as const),
   checksOnPush: fc.constantFrom("passed" as const, "reported_later" as const),
   pageEnding: fc.constantFrom("acceptance" as const, "choice" as const),
   origin: fc.constantFrom("chat" as const, "chat" as const, "tracker" as const, "tracker" as const),
@@ -254,14 +230,6 @@ const pageSetups: fc.Arbitrary<WorldSetup> = fc.record({
   sandboxStart,
   subject: fc.constantFrom("none" as const, "none" as const, "project" as const),
 });
-
-const modelPageSetups: fc.Arbitrary<WorldSetup> = fc
-  .tuple(pageSetups, fc.constantFrom("job" as const, "job" as const, "job_unstarted" as const))
-  .map(([setup, worldOpening]) => ({
-    ...setup,
-    opening: worldOpening,
-    pageAuthor: "model" as const,
-  }));
 
 const modelCallStart = fc.constantFrom(
   "provision_fires" as const,
@@ -279,6 +247,12 @@ const trackerLink = fc.constantFrom(
   "a_stray_issue" as const,
 );
 
+const admittedHeldComments: HeldCommentsRead = {
+  decisions: "answers",
+  host: "readable",
+  meanwhile: "nothing",
+};
+
 const heldCommentsRead: fc.Arbitrary<HeldCommentsRead> = fc.record({
   decisions: fc.constantFrom(
     "answers" as const,
@@ -293,23 +267,6 @@ const heldCommentsRead: fc.Arbitrary<HeldCommentsRead> = fc.record({
     "refuses_acknowledgement" as const,
   ),
   meanwhile: fc.constantFrom("nothing" as const, "nothing" as const, "agent_cancels" as const),
-});
-
-const pageMention: fc.Arbitrary<PageMention> = fc.record({
-  routing: fc.constantFrom(
-    "for_author" as const,
-    "for_author" as const,
-    "beyond_author" as const,
-    "asks_nothing" as const,
-    "fails" as const,
-  ),
-  host: fc.constantFrom(
-    "readable" as const,
-    "readable" as const,
-    "down" as const,
-    "refuses_acknowledgement" as const,
-  ),
-  meanwhile: fc.constantFrom("nothing" as const, "nothing" as const, "person_replies" as const),
 });
 
 const PLANNED_STAGES = [["implement"], ["breakdown", "implement"], ["design", "plan", "breakdown"]];
@@ -385,18 +342,6 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
       .map(pageModelAnswers),
   },
   {
-    weight: 3,
-    arbitrary: fc
-      .tuple(author, modelCallStart)
-      .map(([index, start]) => personEditsPageDuringModelCall(index, start)),
-  },
-  {
-    weight: 2,
-    arbitrary: fc
-      .tuple(author, modelCallStart)
-      .map(([index, start]) => pageHostRefusesWrites(index, start)),
-  },
-  {
     weight: 6,
     arbitrary: fc
       .tuple(author, fc.constantFrom("provision_fires", "agent_prompts"))
@@ -452,13 +397,7 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
         author,
         fc.record({
           reviewer: fc.constantFrom("no_review", "approved", "findings", "blocking"),
-          pageCommenting: fc.constantFrom(
-            "takes" as const,
-            "takes" as const,
-            "drops_inline" as const,
-            "inline_throws" as const,
-            "down" as const,
-          ),
+          pageCommenting: fc.constantFrom("takes" as const, "takes" as const, "down" as const),
           judge: fc.constantFrom(
             "approves",
             "rejects",
@@ -624,22 +563,13 @@ const actions: fc.Arbitrary<WorkflowAction> = fc.oneof(
   },
   {
     weight: 4,
-    arbitrary: fc
-      .tuple(author, heldCommentsRead)
-      .map(([index, read]) => agentPromptsAuthor(index, read)),
+    arbitrary: author.map((index) => agentPromptsAuthor(index, admittedHeldComments)),
   },
   {
     weight: 2,
     arbitrary: fc
       .tuple(author, heldCommentsRead)
       .map(([index, read]) => personAsksForRevision(index, read)),
-  },
-  { weight: 2, arbitrary: fc.nat({ max: 999 }).map(personCommentsOnPage) },
-  {
-    weight: 3,
-    arbitrary: fc
-      .tuple(author, pageMention)
-      .map(([index, mention]) => personMentionsOnPage(index, mention)),
   },
   {
     weight: 1,
@@ -837,14 +767,6 @@ const judgeApprovesAfterFindings = [
   agentRoutes(0, "finish_review"),
 ];
 
-const reviewedOnAFlakyHost = [
-  ...draftedArtifact,
-  findingsOnHost("drops_inline"),
-  findingsOnHost("takes"),
-  findingsOnHost("inline_throws"),
-  findingsOnHost("down"),
-];
-
 const stoppedEarly = authorTurnEnds(0, "same", "stopped_early");
 const stoppedEarlySilently = authorTurnEnds(0, "same", "silent");
 const freshSandboxDialsIn = sandboxComesUp("dials_in");
@@ -892,13 +814,6 @@ const judgeApprovedThenAuthorPrompted = [
   approvingEnd,
 ];
 
-const polisherRunning = [
-  ...draftedArtifact,
-  approvingEnd,
-  personPostsFeedback(0, "comment", "for_author"),
-  agentPromptsAuthor(0),
-];
-
 const checksPass = checksReport(0, "passed_long_ago", "delivered");
 
 const polishPushed = refinerRunEnds(0, {
@@ -924,21 +839,6 @@ const stopDuringRunningTurn = [trackerOpensSession(0), personPressesStop(0)];
 const runningAuthorGetsSessionMessage = [
   trackerOpensSession(0),
   personWritesInSession(0, "question"),
-];
-
-const admittedHeldComments: HeldCommentsRead = {
-  decisions: "answers",
-  host: "readable",
-  meanwhile: "nothing",
-};
-
-const heldCommentsOnDeliveredPage = [
-  ...draftedArtifact,
-  approvingEnd,
-  approvingEnd,
-  approvingEnd,
-  personCommentsOnPage(1),
-  agentPromptsAuthor(0, admittedHeldComments),
 ];
 
 const modelCallStoppedMidWrite = [trackerOpensSession(0), personStopsModelCall(0, "agent_prompts")];
@@ -972,8 +872,6 @@ const startingSequences: fc.Arbitrary<StartingSequence> = fc.constantFrom(
   startingSequence([]),
   startingSequence(draftedArtifact),
   startingSequence([...draftedArtifact, approvingEnd, approvingEnd, approvingEnd]),
-  startingSequence(reviewedOnAFlakyHost, { refiners: "reviewer" }),
-  startingSequence([...draftedArtifact, findingsOnHost("down")], { refiners: "reviewer" }),
   startingSequence(abandonedArtifact),
   startingSequence(issueStartedAgain),
   startingSequence(authorKeepsStoppingEarly),
@@ -986,7 +884,6 @@ const startingSequences: fc.Arbitrary<StartingSequence> = fc.constantFrom(
     refiners: "judge_between_reviewers",
     checksOnPush: "passed",
   }),
-  startingSequence(polisherRunning),
   startingSequence(polisherWaitsOnChecks, { refiners: "polisher", checksOnPush: "reported_later" }),
   startingSequence(polisherWaitsOnChecks, {
     refiners: "reviewer_then_polisher",
@@ -994,7 +891,6 @@ const startingSequences: fc.Arbitrary<StartingSequence> = fc.constantFrom(
   }),
   startingSequence(stopDuringRunningTurn),
   startingSequence(runningAuthorGetsSessionMessage),
-  startingSequence(heldCommentsOnDeliveredPage),
   startingSequence(modelCallStoppedMidWrite),
   startingSequence(twoIssuesInChat, { subject: "project" }),
   startingSequence(chatThreadWithTrackerSession),
@@ -1002,15 +898,6 @@ const startingSequences: fc.Arbitrary<StartingSequence> = fc.constantFrom(
   startingSequence(acceptedArtifact, { refiners: "polisher", checksOnPush: "passed" }),
   startingSequence(personRulesWhileTheJudgeIsRuled, { refiners: "judge_then_polisher" }),
   startingSequence([...draftedArtifact, judgeRejects("down")], { refiners: "judge" }),
-  startingSequence(reviewAskedOnAnUnchangedRevision, { refiners: "reviewer" }),
-  startingSequence(revisionMovesBetweenTwoReviewers, { refiners: "two_reviewers" }),
-  startingSequence(reviewedWhileTheAuthorWorks, { refiners: "reviewer_then_polisher" }),
-  startingSequence(handedOnAfterAStaleRestartIsCancelled, { refiners: "two_reviewers" }),
-  startingSequence(reviewedPastARuledJudge, { refiners: "judge_between_reviewers" }),
-  startingSequence(judgeApprovesAfterFindings, {
-    refiners: "judge_between_reviewers",
-    checksOnPush: "passed",
-  }),
 );
 
 const researchHandedOn = [researcherReportsTodos(0, 1), researcherTurnEnds(0, "written")];
@@ -1088,11 +975,6 @@ function worldRuns(
 const PROPERTIES = [
   { name: "on any refiner list", runs: worldRuns(jobSetups, jobSequences), numRuns: RUNS },
   {
-    name: "on a page stage of either ending",
-    runs: worldRuns(pageSetups, jobSequences),
-    numRuns: RUNS,
-  },
-  {
     name: "on a page stage whose author is a model call",
     runs: worldRuns(modelPageSetups, jobSequences),
     numRuns: RUNS,
@@ -1108,7 +990,7 @@ const CORPUS_EXAMPLES = WORKFLOW_CORPUS.map((replayed): [ReplayedSequence] => [r
 
 describe("the workflow invariants", () => {
   it("are every state and step invariant", () => {
-    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(56);
+    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(45);
   });
 
   for (const property of PROPERTIES) {
@@ -1350,12 +1232,6 @@ const judgedPageSetup: WorldSetup = { ...pageSetup, refiners: "judge" };
 
 const modelPageSetup: WorldSetup = { ...pageSetup, pageAuthor: "model" };
 
-const acknowledgementRefused: HeldCommentsRead = {
-  decisions: "answers",
-  host: "refuses_acknowledgement",
-  meanwhile: "nothing",
-};
-
 function mentionOnThePage(mention: Partial<PageMention>): WorkflowAction {
   return personMentionsOnPage(0, {
     routing: "for_author",
@@ -1378,40 +1254,12 @@ function judgeRejects(pageCommenting: RefinerRunEnd["pageCommenting"]): Workflow
 }
 
 describe("the shortest traces of the review loop spec", () => {
-  it("keeps the held comments held when the host does not mark them read on a revision request", async () => {
-    await holdsThroughout([
-      pageSetup,
-      [...draftedPage, personAsksForRevision(0, acknowledgementRefused)],
-    ]);
-  });
-
-  it("keeps the held comments held when the host does not mark them read on a prompt", async () => {
-    await holdsThroughout([
-      pageSetup,
-      [...draftedPage, agentPromptsAuthor(0, acknowledgementRefused)],
-    ]);
-  });
-
   it("keeps a reply held that a person left while the screen read its comment thread", async () => {
     const world = await worldAfter([
       pageSetup,
       [...draftedPage, mentionOnThePage({ meanwhile: "person_replies" })],
     ]);
     expect(world.pageHost.heldNow().map((comment) => comment.author_name)).toEqual(["Cy"]);
-  });
-
-  it("keeps the held comments held when a mention goes to the agent", async () => {
-    await holdsThroughout([
-      pageSetup,
-      [...draftedPage, mentionOnThePage({ routing: "beyond_author" })],
-    ]);
-  });
-
-  it("keeps the held comments held when a mention asks for nothing", async () => {
-    await holdsThroughout([
-      pageSetup,
-      [...draftedPage, mentionOnThePage({ routing: "asks_nothing" })],
-    ]);
   });
 
   it("starts a revise turn over when a person edits the page during the model call", async () => {

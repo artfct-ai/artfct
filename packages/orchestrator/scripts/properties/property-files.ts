@@ -50,6 +50,12 @@ export const PROPERTY_FILES = {
     runner: ["bun", "test"],
     e2eRuns: 3000,
   },
+  agent_turns: {
+    title: "agent turns spec replay",
+    path: "src/agent/turn/agent-turns-replay.test.medium.ts",
+    runner: ["bunx", "vitest", "run"],
+    e2eRuns: 300,
+  },
 } satisfies Record<string, PropertyFile>;
 
 /** A property file run past this is a hang, reported with its seed. */
