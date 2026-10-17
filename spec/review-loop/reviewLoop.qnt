@@ -221,6 +221,7 @@ module reviewLoopTypes {
     aPersonEditsDuringAModelCallTurn: bool,
     aModelCallTurnStartsOver: bool,
     aRulingCallIsLostWithTheInstance: bool,
+    aJudgeClosesWithoutAConclusion: bool,
   }
 
   /// A model-call author's turn end: the review after it and how the turn ended.
@@ -1073,6 +1074,14 @@ module reviewLoop {
     move(judgeFinished(review, id), RefinerTurnEnded(id)),
   }
 
+  /// A judge closes without a conclusion. Code does not call the decisions model, and the agent
+  /// is asked to get a person's ruling in the same step.
+  action judgeClosesWithoutAConclusion: bool = all {
+    unfinishedRunIs(review, Judge),
+    val id = lastUnfinishedRun(review)
+    move(decisionsModelCannotRuleOn(judgeFinished(review, id), id), RefinerTurnEnded(id)),
+  }
+
   pure def rejectionFact(loop: ReviewLoop, id: int, ruling: Ruling, post: HostWrite): PageFact =
     if (ON_A_PAGE and ruling == Rejected and rulingLands(loop, id)) RejectionPosted(post) else NoPageFact
 
@@ -1260,6 +1269,7 @@ module reviewLoop {
     findingsReviewerLeavesFindings,
     findingsReviewerApproves,
     judgeTurnEnds,
+    judgeClosesWithoutAConclusion,
     decisionsModelApproves,
     decisionsModelRejects,
     decisionsModelCannotRule,
@@ -1615,6 +1625,11 @@ module reviewLoop {
     aModelCallTurnStartsOver: step.kind.turnEnd == AuthorTurnStartsOver,
     aRulingCallIsLostWithTheInstance:
       step.kind.instanceRestarted and step.before.judgeRunsCodeRulesOn.exists(id => isOnRun(step.before, id)),
+    aJudgeClosesWithoutAConclusion:
+      match step.kind.turnEnd {
+        | RefinerTurnEnded(id) => step.after.refinerRuns[id].result == RulingAsked
+        | _ => false
+      },
   }
 
   /// An artifact has at most one unfinished refiner run, and the artifact is on it.
@@ -1888,6 +1903,10 @@ module reviewLoop {
   /// Witness for `aRestartDoesNotStrandAJudgeRun`: a new instance takes over while the ruling call
   /// of the judge run the artifact is on is out.
   val aRulingCallIsLostWithTheInstance: bool = lastStepReached.aRulingCallIsLostWithTheInstance
+
+  /// Witness for `aRestartDoesNotStrandAJudgeRun`: a judge closes without a conclusion, and the
+  /// agent is asked for a person's ruling at its turn end.
+  val aJudgeClosesWithoutAConclusion: bool = lastStepReached.aJudgeClosesWithoutAConclusion
 
   /// Witness for `aRestartDoesNotStrandAJudgeRun`: the agent was asked to get a person's ruling.
   val theAgentIsAskedForAPersonsRuling: bool =
