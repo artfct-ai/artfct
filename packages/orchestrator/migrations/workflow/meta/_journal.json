@@ -43,6 +43,13 @@
       "when": 1792202009560,
       "tag": "0005_brainy_stranger",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "6",
+      "when": 1792267965138,
+      "tag": "0006_foamy_war_machine",
+      "breakpoints": true
     }
   ]
 }

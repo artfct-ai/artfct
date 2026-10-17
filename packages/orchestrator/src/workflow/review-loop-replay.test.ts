@@ -1,10 +1,14 @@
 import { afterEach, describe, expect, it } from "bun:test";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import fc from "fast-check";
 import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/property-runs";
 import {
   generateTraces,
   ReviewLoopReplay,
   SPEC_SETUPS,
+  traceSteps,
   type SpecSetup,
   type TraceStep,
 } from "../../test/review-loop-replay";
@@ -75,7 +79,21 @@ function inWorlds(traces: TraceStep[][], authors: number): TraceStep[][][] {
   );
 }
 
+const PINNED_TRACES = join(
+  dirname(fileURLToPath(import.meta.url)),
+  "../../test/review-loop-traces",
+);
+
+async function replayPinnedTrace(name: string, setup: SpecSetup): Promise<void> {
+  const trace: unknown = JSON.parse(readFileSync(join(PINNED_TRACES, `${name}.itf.json`), "utf8"));
+  await replayTraces(setup, [traceSteps(setup, trace)], 0);
+}
+
 describe("review loop spec", () => {
+  it("rules on a judge run whose ruling call a new instance lost", async () => {
+    await replayPinnedTrace("ruling-call-lost-with-the-instance", "judgeThenPolisher");
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,

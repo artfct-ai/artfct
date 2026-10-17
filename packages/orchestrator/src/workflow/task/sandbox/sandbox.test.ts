@@ -31,7 +31,6 @@ const task: TaskRow = {
   job_id: "wf_x-1",
   role: "author",
   refiner_index: null,
-  result: null,
   model: "claude-opus-5",
   status: "provisioning",
   paused_at: null,

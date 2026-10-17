@@ -2,7 +2,7 @@ import type { Review } from "../../artifact/types";
 import type { RefinerEntry, ReviewerEntry } from "../../config/refiner";
 import type { Stage } from "../../config/stage";
 import { isTaskFinished } from "../store/state";
-import type { ArtifactRow, TaskRow } from "../store/tasks";
+import type { ArtifactRow, RefinerRun, RulingState, TaskRow } from "../store/tasks";
 import type { WorkflowRuntime } from "../types";
 
 /**
@@ -55,24 +55,35 @@ export function segmentEndOf(index: number, entries: ReviewerEntry[]): number {
 }
 
 /** The reviews filed in the segment from `start` to `index`, by the latest run of each entry. */
-export function segmentReviews(runs: TaskRow[], start: number, index: number): FiledReview[] {
+export function segmentReviews(runs: RefinerRun[], start: number, index: number): FiledReview[] {
   return runs.flatMap((run) => {
     const entryIndex = run.refiner_index;
     if (entryIndex === null || entryIndex < start || entryIndex > index) return [];
     const latest = runs.findLast((later) => later.refiner_index === entryIndex);
-    if (latest !== run || run.result?.kind !== "review") return [];
-    return [{ refiner_index: entryIndex, review: run.result }];
+    if (latest !== run || !run.review) return [];
+    return [{ refiner_index: entryIndex, review: run.review }];
   });
 }
 
+/** True when the judge ruled. An ask for a person's ruling is not a ruling. */
+export function judgeRuled(
+  ruling: RulingState | null,
+): ruling is Exclude<RulingState, { status: "asked" }> {
+  return ruling !== null && ruling.status !== "asked";
+}
+
 /** True when a run of the entry at `index` filed a review or a ruling of `revision`. */
-function entryReviewedRevision(runs: TaskRow[], index: number, revision: string | null): boolean {
+function entryReviewedRevision(
+  runs: RefinerRun[],
+  index: number,
+  revision: string | null,
+): boolean {
   if (revision === null) return false;
   return runs.some(
     (run) =>
       run.refiner_index === index &&
-      (run.result?.kind === "review" || run.result?.kind === "ruling") &&
-      run.result.revision === revision,
+      (run.review?.revision === revision ||
+        (judgeRuled(run.ruling) && run.ruling.revision === revision)),
   );
 }
 
@@ -82,7 +93,7 @@ function entryReviewedRevision(runs: TaskRow[], index: number, revision: string 
  */
 export function nextEntryToRun(input: {
   entries: ReviewerEntry[];
-  runs: TaskRow[];
+  runs: RefinerRun[];
   from: number;
   revision: string | null;
 }): number {
@@ -95,13 +106,13 @@ export function nextEntryToRun(input: {
 /** True when the entry at `index` reviewed or ruled on `revision`, or is a judge that ruled. */
 function entryHadItsSay(
   entries: ReviewerEntry[],
-  runs: TaskRow[],
+  runs: RefinerRun[],
   index: number,
   revision: string | null,
 ): boolean {
   if (entryReviewedRevision(runs, index, revision)) return true;
   if (entries[index]?.mode !== "judge") return false;
-  return runs.some((run) => run.refiner_index === index && run.result?.kind === "ruling");
+  return runs.some((run) => run.refiner_index === index && judgeRuled(run.ruling));
 }
 
 /** The reviewer entry of a refiner run, or null when its stage no longer declares it. */
@@ -113,11 +124,6 @@ export function reviewerEntryOf(workflow: WorkflowRuntime, run: TaskRow): Review
 /** The entry index a refiner run ran. An author task reads as entry 0. */
 export function refinerIndexOf(task: TaskRow): number {
   return task.refiner_index ?? 0;
-}
-
-/** True when a judge filed a rejection on this refiner run. */
-export function judgeRejected(run: TaskRow): boolean {
-  return run.result?.kind === "ruling" && run.result.ruling === "rejected";
 }
 
 /** The refiner run the artifact points at, or null once the pointer is cleared. */

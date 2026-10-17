@@ -146,7 +146,6 @@ describe("reviewPrompt", () => {
 
 describe("reviewForAuthorPrompt", () => {
   const review: Review = {
-    kind: "review",
     revision: "abc123",
     blocking: true,
     summary: "Two things.",
@@ -306,7 +305,6 @@ describe("rejectionPrompt", () => {
       entry: "alignment",
       reason: "Use the SDK scheduler.",
       review: {
-        kind: "review",
         revision: "abc",
         blocking: false,
         summary: "Code review: Two things to weigh.",

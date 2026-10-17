@@ -16,11 +16,13 @@ module reviewLoopTypes {
   /// Where a refiner run stands. Every status but `Unfinished` is final.
   type RunStatus = Unfinished | Done | Cancelled | Failed
 
-  /// What a refiner run filed: a review of one revision, or a ruling on one.
+  /// What a refiner run filed: a review of one revision, a ruling on one, or the agent's ask for
+  /// a person's ruling on a judge run.
   type RefinerResult =
     | NoResult
     | FiledReview({ revision: int, findings: bool })
     | FiledRuling({ ruling: Ruling, revision: int })
+    | RulingAsked
 
   /// One execution of a refiner on the artifact.
   type RefinerRun = { refinerIndex: int, status: RunStatus, result: RefinerResult, restarts: int }
@@ -159,8 +161,14 @@ module reviewLoopTypes {
 
   /// What an observer knows about the last step besides the reviews around it: the turn that
   /// ended, what happened on the document host, whether the host took a model-call author's
-  /// writes, and what the agent read about page comments.
-  type StepKind = { turnEnd: TurnEnd, page: PageFact, write: PageWrite, agentHeard: Set[AgentNote] }
+  /// writes, what the agent read about page comments, and whether a new instance took over.
+  type StepKind = {
+    turnEnd: TurnEnd,
+    page: PageFact,
+    write: PageWrite,
+    agentHeard: Set[AgentNote],
+    instanceRestarted: bool,
+  }
 
   /// One step: the review before it, the review after it, and what an observer knows of it.
   type Transition = { before: ReviewLoop, after: ReviewLoop, kind: StepKind }
@@ -212,6 +220,7 @@ module reviewLoopTypes {
     theHostFailsAModelCallAuthor: bool,
     aPersonEditsDuringAModelCallTurn: bool,
     aModelCallTurnStartsOver: bool,
+    aRulingCallIsLostWithTheInstance: bool,
   }
 
   /// A model-call author's turn end: the review after it and how the turn ended.
@@ -238,6 +247,9 @@ module reviewLoop {
 
   /// The kind of the artifact the author writes.
   const ARTIFACT: ArtifactKind
+
+  /// True when a new Durable Object instance can take over the workflow.
+  const INSTANCE_RESTARTS: bool
 
   /// How often one reviewer runs on one artifact. The config default.
   pure val MAX_REVIEW_RUNS: int = 3
@@ -327,6 +339,8 @@ module reviewLoop {
   /// What the agent read about page comments in the last step. Only the replay reads it, so model
   /// checking leaves it out of the state.
   var agentHeard: Set[AgentNote]
+  /// How often a new instance took over the workflow, a counter that model checking bounds.
+  var instanceRestartCount: int
 
   pure def larger(left: int, right: int): int = if (left > right) left else right
 
@@ -357,6 +371,7 @@ module reviewLoop {
       | FiledReview(filed) => filed.revision == revision
       | FiledRuling(filed) => filed.revision == revision
       | NoResult => false
+      | RulingAsked => false
     }
 
   pure def isReview(result: RefinerResult): bool =
@@ -959,7 +974,7 @@ module reviewLoop {
   /// What an observer knows of a step that does not touch page comments or a model-call author's
   /// writes.
   pure def quietStep(turnEnd: TurnEnd): StepKind =
-    { turnEnd: turnEnd, page: NoPageFact, write: WritesLand, agentHeard: Set() }
+    { turnEnd: turnEnd, page: NoPageFact, write: WritesLand, agentHeard: Set(), instanceRestarted: false }
 
   action moveWith(after: ReviewLoop, kind: StepKind): bool = {
     val step = { before: review, after: after, kind: kind }
@@ -968,6 +983,7 @@ module reviewLoop {
       lastStepKept' = rulesKeptBy(step),
       lastStepReached' = witnessesReachedBy(step),
       agentHeard' = kind.agentHeard,
+      instanceRestartCount' = if (kind.instanceRestarted) instanceRestartCount + 1 else instanceRestartCount,
     }
   }
 
@@ -984,6 +1000,7 @@ module reviewLoop {
       lastStepKept' = rulesKeptBy(step),
       lastStepReached' = witnessesReachedBy(step),
       agentHeard' = Set(),
+      instanceRestartCount' = 0,
     }
   }
 
@@ -1075,13 +1092,18 @@ module reviewLoop {
   /// The decisions model reads a rejection in a conclusion.
   action decisionsModelRejects: bool = decisionsModelRules(Rejected)
 
+  /// The decisions model cannot tell. The agent is asked to get a person's ruling when the
+  /// artifact still waits on the judge run.
+  pure def decisionsModelCannotRuleOn(loop: ReviewLoop, id: int): ReviewLoop = {
+    val answered = { ...loop, judgeRunsCodeRulesOn: loop.judgeRunsCodeRulesOn.exclude(Set(id)) }
+    if (rulingLands(answered, id)) withRun(answered, id, { ...answered.refinerRuns[id], result: RulingAsked })
+    else answered
+  }
+
   /// The decisions model cannot tell, so the agent asks a person to rule.
   action decisionsModelCannotRule: bool = {
     nondet judgeRun = review.judgeRunsCodeRulesOn.oneOf()
-    move(
-      { ...review, judgeRunsCodeRulesOn: review.judgeRunsCodeRulesOn.exclude(Set(judgeRun)) },
-      NoTurnEnd,
-    )
+    move(decisionsModelCannotRuleOn(review, judgeRun), NoTurnEnd)
   }
 
   action personRules(ruling: Ruling): bool = all {
@@ -1208,6 +1230,28 @@ module reviewLoop {
     moveOnThePage(noted, APersonEditedThePage, Set()),
   }
 
+  /// The done judge runs the artifact waits on whose ruling neither code nor a person is asked
+  /// for. The start step of a new instance asks the decisions model again for each one.
+  pure def judgeRunsWithoutARulingAsked(loop: ReviewLoop): Set[int] =
+    runIds(loop).filter(id => and {
+      drafted(loop),
+      isOnRun(loop, id),
+      refinerOf(loop.refinerRuns[id]) == Judge,
+      loop.refinerRuns[id].status == Done,
+      loop.refinerRuns[id].result == NoResult,
+    })
+
+  /// A new Durable Object instance takes over the workflow with the store. The ruling calls in
+  /// flight are lost, and the start step asks the decisions model again for each done judge run
+  /// the artifact waits on. Queued prompts and harness refiner runs stay.
+  action instanceRestarts: bool = all {
+    INSTANCE_RESTARTS,
+    moveWith(
+      { ...review, judgeRunsCodeRulesOn: judgeRunsWithoutARulingAsked(review) },
+      { ...quietStep(NoTurnEnd), instanceRestarted: true },
+    ),
+  }
+
   action step: bool = any {
     agentPromptsAuthor,
     authorTurnEndsOnANewRevision,
@@ -1232,6 +1276,7 @@ module reviewLoop {
     personMentionsTheBot,
     personAsksForRevision,
     personEditsThePage,
+    instanceRestarts,
   }
 
   pure def endedOnRevisionOtherThan(turnEnd: TurnEnd, delivered: int): bool =
@@ -1568,6 +1613,8 @@ module reviewLoop {
     aPersonEditsDuringAModelCallTurn:
       step.kind.page == APersonEditedThePage and step.after.author.pageEditsDuringTurn.size() > 0,
     aModelCallTurnStartsOver: step.kind.turnEnd == AuthorTurnStartsOver,
+    aRulingCallIsLostWithTheInstance:
+      step.kind.instanceRestarted and step.before.judgeRunsCodeRulesOn.exists(id => isOnRun(step.before, id)),
   }
 
   /// An artifact has at most one unfinished refiner run, and the artifact is on it.
@@ -1666,6 +1713,19 @@ module reviewLoop {
   /// fail it.
   val aModelCallAuthorFailsOnlyOnAHostError: bool = lastStepKept.aModelCallAuthorFailsOnlyOnAHostError
 
+  /// A done judge run that the artifact points at without a ruling has a ruling call out, or the
+  /// agent has been asked to get a person's ruling.
+  val aRestartDoesNotStrandAJudgeRun: bool =
+    runIds(review).forall(id => and {
+      isOnRun(review, id),
+      refinerOf(review.refinerRuns[id]) == Judge,
+      review.refinerRuns[id].status == Done,
+      not(isRuling(review.refinerRuns[id].result)),
+    } implies or {
+      review.judgeRunsCodeRulesOn.contains(id),
+      review.refinerRuns[id].result == RulingAsked,
+    })
+
   /// Every invariant above, for one check of all of them.
   val invariants: bool = and {
     oneUnfinishedRefinerRunPerArtifact,
@@ -1686,6 +1746,7 @@ module reviewLoop {
     aJudgeRejectionPostsItsReasonOnce,
     aHeldCommentStaysHeldUntilItReachesTheAuthor,
     aModelCallAuthorFailsOnlyOnAHostError,
+    aRestartDoesNotStrandAJudgeRun,
   }
 
   /// The revisions of the artifact, a counter that model checking bounds.
@@ -1823,4 +1884,15 @@ module reviewLoop {
   /// Witness for `aModelCallAuthorFailsOnlyOnAHostError`: a model-call author's turn starts over
   /// on a page a person edited.
   val aModelCallTurnStartsOver: bool = lastStepReached.aModelCallTurnStartsOver
+
+  /// Witness for `aRestartDoesNotStrandAJudgeRun`: a new instance takes over while the ruling call
+  /// of the judge run the artifact is on is out.
+  val aRulingCallIsLostWithTheInstance: bool = lastStepReached.aRulingCallIsLostWithTheInstance
+
+  /// Witness for `aRestartDoesNotStrandAJudgeRun`: the agent was asked to get a person's ruling.
+  val theAgentIsAskedForAPersonsRuling: bool =
+    runIds(review).exists(id => review.refinerRuns[id].result == RulingAsked)
+
+  /// A new instance took over the workflow.
+  val theInstanceRestarted: bool = instanceRestartCount > 0
 }

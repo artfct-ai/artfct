@@ -11,7 +11,8 @@ import { findingText } from "../src/artifact/review-text";
 import { CLOSING_TEXT_MARKER, replyMarker } from "../src/prompts/model-author-prompt";
 import { rejectionHeadline } from "../src/prompts/review-prompt";
 import { sendHeldCommentsOnRevisionRequest } from "../src/workflow/refiner/held-comments";
-import type { TaskRow } from "../src/workflow/store/tasks";
+import type { RefinerRun, TaskRow } from "../src/workflow/store/tasks";
+import type { TaskAlarm } from "../src/workflow/task/harness/timers";
 import { taskAtWork } from "../src/workflow/task/at-work";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
 import { quintTraces } from "./quint-traces";
@@ -29,6 +30,7 @@ import {
   personRules,
   refinerRunEnds,
   refinerRunFails,
+  timerFires,
   type AuthorClosing,
   type RefinerRunEnd,
 } from "./workflow-actions";
@@ -97,7 +99,8 @@ type SpecRun = {
   result:
     | { filed: "nothing" }
     | { filed: "review"; revision: number; findings: boolean }
-    | { filed: "ruling"; ruling: "Approved" | "Rejected"; revision: number };
+    | { filed: "ruling"; ruling: "Approved" | "Rejected"; revision: number }
+    | { filed: "ruling_asked" };
   restarts: number;
 };
 
@@ -168,7 +171,8 @@ export async function generateTraces(
   return traces.map((trace) => traceSteps(setup, trace));
 }
 
-function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
+/** The steps of one ITF trace of a setup, such as a pinned trace. */
+export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
   return itfList(itfField(trace, "states")).map((state) => {
     const picks = itfField(state, "mbt::nondetPicks");
     const picked = itfVariant(itfField(picks, "judgeRun", true));
@@ -306,6 +310,8 @@ function specResult(result: { tag: string; value: unknown }): SpecRun["result"] 
         ruling: itfOneOf(itfVariant(itfField(result.value, "ruling"))!.tag, RULINGS),
         revision: itfInt(itfField(result.value, "revision")),
       };
+    case "RulingAsked":
+      return { filed: "ruling_asked" };
     default:
       return { filed: "nothing" };
   }
@@ -402,9 +408,15 @@ function findingsReviewerEnds(
 
 /**
  * A judge turn end that waits for the step that rules on it: on the ruling call the decisions
- * model holds, or on the note that asks the agent for a person's ruling.
+ * model holds, or on the note that asks the agent for a person's ruling. It keeps the judge run
+ * and the path, so a ruling call that a new instance asks again is held the same way.
  */
-type HeldRuling = { release: (action: RulingAction) => void; turnEnd: Promise<unknown> };
+type HeldRuling = {
+  taskId: string;
+  path: RulingPath;
+  release: (action: RulingAction) => void;
+  turnEnd: Promise<unknown>;
+};
 
 /** How the replay reads the revisions of the artifact. */
 type ArtifactRevisions =
@@ -518,6 +530,7 @@ export class ReviewLoopReplay {
   private readonly pageModel: HeldPageModel | null;
   private readonly held = new Map<number, HeldRuling>();
   private readonly comments: ReplayComment[];
+  private readonly worldReplays: ReviewLoopReplay[];
   private readonly pageLinesAtOpen: string[];
   private step = 0;
   private modelTurn: OpenModelTurn | null;
@@ -534,6 +547,7 @@ export class ReviewLoopReplay {
     revisions: ArtifactRevisions;
     pageModel: HeldPageModel | null;
     modelTurn: OpenModelTurn | null;
+    worldReplays: ReviewLoopReplay[];
   }) {
     this.world = options.world;
     this.trace = options.trace;
@@ -542,6 +556,8 @@ export class ReviewLoopReplay {
     this.revisions = options.revisions;
     this.pageModel = options.pageModel;
     this.modelTurn = options.modelTurn;
+    this.worldReplays = options.worldReplays;
+    this.worldReplays.push(this);
     const onPage = options.revisions.kind === "page";
     this.comments = onPage ? [COMMENT_HELD_AT_OPEN] : [];
     this.pageLinesAtOpen = onPage ? this.pageText().split("\n") : [];
@@ -593,6 +609,7 @@ export class ReviewLoopReplay {
       revisions: { kind: "pull" },
       pageModel: null,
       modelTurn: null,
+      worldReplays: first.worldReplays,
     });
   }
 
@@ -609,6 +626,7 @@ export class ReviewLoopReplay {
       revisions: { kind: "pull" },
       pageModel: null,
       modelTurn: null,
+      worldReplays: [],
     });
   }
 
@@ -627,6 +645,7 @@ export class ReviewLoopReplay {
       revisions,
       pageModel: null,
       modelTurn: null,
+      worldReplays: [],
     });
   }
 
@@ -655,7 +674,15 @@ export class ReviewLoopReplay {
       await produceTurn?.work;
     });
     const revisions = pageRevisionsOf(world, author);
-    return new ReviewLoopReplay({ ...replayed, world, author, revisions, pageModel, modelTurn });
+    return new ReviewLoopReplay({
+      ...replayed,
+      world,
+      author,
+      revisions,
+      pageModel,
+      modelTurn,
+      worldReplays: [],
+    });
   }
 
   /** The step of the trace the replay stands on. */
@@ -745,6 +772,7 @@ export class ReviewLoopReplay {
   private async takeAction(step: TraceStep): Promise<void> {
     const { action } = step;
     if (action === "judgeTurnEnds") return this.judgeTurnEnds();
+    if (action === "instanceRestarts") return this.instanceRestarts();
     if (isRulingAction(action)) return this.answerRuling(action, step);
     if (action === "theHostFailsAModelCallAuthorsWrite") {
       return this.modelTurnEnds({
@@ -1295,7 +1323,7 @@ export class ReviewLoopReplay {
   }
 
   /** The comments code posted on the page for refiner runs, oldest first. */
-  private reviewComments(runs: TaskRow[]): SpecReviewComment[] {
+  private reviewComments(runs: RefinerRun[]): SpecReviewComment[] {
     if (this.revisions.kind !== "page") return [];
     const { pageId } = this.revisions;
     return this.host().postedComments.flatMap((posted): SpecReviewComment[] => {
@@ -1316,9 +1344,8 @@ export class ReviewLoopReplay {
         const approves = posted.text.startsWith("Review: approved");
         return [{ kind: "outcome", run, findings, approves }];
       }
-      const result = runs[run]?.result;
-      const rejected = result?.kind === "ruling" && result.ruling === "rejected";
-      if (!rejected || !posted.text.startsWith(result.reason)) {
+      const ruling = runs[run]?.ruling;
+      if (ruling?.status !== "rejected" || !posted.text.startsWith(ruling.reason)) {
         throw new Error(`run ${run} posted a comment that is not its rejection:\n${posted.text}`);
       }
       return [{ kind: "rejection", run }];
@@ -1337,8 +1364,44 @@ export class ReviewLoopReplay {
     const held =
       path === "no_conclusion"
         ? await this.untilAskedForARuling(run)
-        : await this.untilRulingCall(run, path);
+        : await this.untilRulingCall({ taskId: run.task_id, path }, () =>
+            this.world.apply(judgeCloses(run, JUDGE_CONCLUSION)),
+          );
     if (held) this.held.set(runId, held);
+  }
+
+  /**
+   * A new instance takes over the world. Every replay in it loses its held ruling calls, and the
+   * start step arms a settle of each judge run whose ruling call was lost. The new ruling call of
+   * each settle is held on the path the lost one took. The trace of another author in the world
+   * does not restart, so a lost call it does not get again stays held with an answer that does
+   * not land, as the spec says of a ruling on a run that ruled or that the artifact left.
+   */
+  private async instanceRestarts(): Promise<void> {
+    const lost = this.worldReplays.flatMap((replay) => {
+      const calls = [...replay.held.entries()].map(([runId, held]) => ({ replay, runId, held }));
+      replay.held.clear();
+      return calls;
+    });
+    await this.world.restart();
+    for (const alarm of this.world.workflow.alarmsFor("settleLostJudgeRuling")) {
+      const settled = alarm.payload as TaskAlarm;
+      const call = lost.find(({ held }) => held.taskId === settled.task_id);
+      const path = call?.held.path;
+      if (!call || !path || path === "no_conclusion") {
+        throw new Error(
+          `the start step settles ${settled.task_id}, whose ruling call was not lost`,
+        );
+      }
+      const held = await call.replay.untilRulingCall({ taskId: settled.task_id, path }, () =>
+        this.world.apply(timerFires("settle_lost_judge_ruling", 0)),
+      );
+      if (held) call.replay.held.set(call.runId, held);
+    }
+    for (const { replay, runId, held } of lost) {
+      if (replay === this || replay.held.has(runId)) continue;
+      replay.held.set(runId, { ...held, release: () => {}, turnEnd: Promise.resolve() });
+    }
   }
 
   /**
@@ -1350,13 +1413,18 @@ export class ReviewLoopReplay {
       .slice(this.step + 1)
       .find((later) => isRulingAction(later.action) && later.judgeRun === runId);
     if (ruling && ruling.action !== "decisionsModelCannotRule") return "reads_a_ruling";
-    return this.pick(CANNOT_RULE_PATHS);
+    const restarts = this.worldReplays.some((replay) =>
+      replay.trace.some((step) => step.action === "instanceRestarts"),
+    );
+    return this.pick(
+      restarts ? CANNOT_RULE_PATHS.filter((path) => path !== "no_conclusion") : CANNOT_RULE_PATHS,
+    );
   }
 
-  /** The judge closes with its conclusion, and the decisions model holds the ruling call. */
+  /** Run `work` until the decisions model holds the ruling call of the judge run. */
   private async untilRulingCall(
-    run: TaskRow,
-    path: Exclude<RulingPath, "no_conclusion">,
+    ruling: { taskId: string; path: Exclude<RulingPath, "no_conclusion"> },
+    work: () => Promise<unknown>,
   ): Promise<HeldRuling | null> {
     const gatewayBefore = this.world.workflow.gatewayInstance;
     const call: { answer: ((decisions: Decisions) => void) | null } = { answer: null };
@@ -1373,12 +1441,13 @@ export class ReviewLoopReplay {
       );
       this.world.workflow.gatewayInstance = new FakeGateway({ decisions: holdRuling });
     });
-    const turnEnd = this.world.apply(judgeCloses(run, JUDGE_CONCLUSION));
+    const turnEnd = work();
     const outcome = await Promise.race([callOut, turnEnd.then(() => "ended" as const)]);
     this.world.workflow.gatewayInstance = gatewayBefore;
     const { answer } = call;
     if (outcome !== "held" || !answer) return null;
-    return { release: (action) => answer(rulingDecisions(action, path)), turnEnd };
+    const { taskId, path } = ruling;
+    return { taskId, path, release: (action) => answer(rulingDecisions(action, path)), turnEnd };
   }
 
   /**
@@ -1407,7 +1476,7 @@ export class ReviewLoopReplay {
     workflow.tellAgent = tellAgent;
     const { resume } = note;
     if (outcome !== "held" || !resume) return null;
-    return { release: () => resume(), turnEnd };
+    return { taskId: run.task_id, path: "no_conclusion", release: () => resume(), turnEnd };
   }
 
   private async answerRuling(action: RulingAction, step: TraceStep): Promise<void> {
@@ -1432,11 +1501,11 @@ export class ReviewLoopReplay {
     });
   }
 
-  private runsWhoseFindingsReachedTheAuthor(author: TaskRow, runs: TaskRow[]): number[] {
+  private runsWhoseFindingsReachedTheAuthor(author: TaskRow, runs: RefinerRun[]): number[] {
     const prompts = this.world.promptsQueuedFor(author.task_id);
     return runs.flatMap((run, runId) => {
-      if (run.result?.kind !== "review" || !run.result.findings.length) return [];
-      const reached = run.result.findings.every((finding) =>
+      if (!run.review?.findings.length) return [];
+      const reached = run.review.findings.every((finding) =>
         prompts.some((prompt) => prompt.includes(`- ${findingText(finding)}`)),
       );
       return reached ? [runId] : [];
@@ -1597,11 +1666,11 @@ function judgeCloses(run: TaskRow, conclusion: string): WorkflowAction {
   };
 }
 
-function specRunOf(run: TaskRow, revisionCount: (revision: string | null) => number): SpecRun {
+function specRunOf(run: RefinerRun, revisionCount: (revision: string | null) => number): SpecRun {
   return {
     refinerIndex: run.refiner_index ?? 0,
     status: SPEC_STATUSES[run.status],
-    result: specResultOf(run.result, revisionCount),
+    result: specResultOf(run, revisionCount),
     restarts: run.restarts,
   };
 }
@@ -1617,20 +1686,27 @@ const SPEC_STATUSES: Record<TaskStatus, SpecRun["status"]> = {
 };
 
 function specResultOf(
-  result: TaskRow["result"],
+  run: RefinerRun,
   revisionCount: (revision: string | null) => number,
 ): SpecRun["result"] {
-  if (!result) return { filed: "nothing" };
-  if (result.kind === "ruling") {
+  if (run.review) {
     return {
-      filed: "ruling",
-      ruling: result.ruling === "approved" ? "Approved" : "Rejected",
-      revision: revisionCount(result.revision),
+      filed: "review",
+      revision: revisionCount(run.review.revision),
+      findings: run.review.blocking || run.review.findings.length > 0,
     };
   }
-  return {
-    filed: "review",
-    revision: revisionCount(result.revision),
-    findings: result.blocking || result.findings.length > 0,
-  };
+  if (!run.ruling) return { filed: "nothing" };
+  switch (run.ruling.status) {
+    case "asked":
+      return { filed: "ruling_asked" };
+    case "approved":
+      return { filed: "ruling", ruling: "Approved", revision: revisionCount(run.ruling.revision) };
+    case "rejected":
+      return { filed: "ruling", ruling: "Rejected", revision: revisionCount(run.ruling.revision) };
+    default: {
+      const unhandled: never = run.ruling;
+      throw new Error(`unhandled ruling ${JSON.stringify(unhandled)}`);
+    }
+  }
 }

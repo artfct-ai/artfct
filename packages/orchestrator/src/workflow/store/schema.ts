@@ -1,12 +1,15 @@
 import { HARNESSES } from "@artfct-ai/adapters/harness/types";
 import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { ArtifactKind, ArtifactStatus, TaskStatus } from "@artfct-ai/contracts/types";
-import type { ArtifactRef, RefinerResult } from "../../artifact/types";
+import type { ArtifactRef, Finding } from "../../artifact/types";
 import type { TaskRole } from "../task/events";
 import { integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import type { BoardChannel, TodoSnapshot } from "../board/types";
 import type { Wake } from "../types";
 import type { ChatMessageRef } from "./state";
+
+/** Where a judge run's ruling stands: a person is asked for it, or the judge ruled. */
+export type RulingStatus = "asked" | "approved" | "rejected";
 
 /** Why a JSON-RPC request was sent to the harness. Decides how its response is handled. */
 export type RpcPurpose = "initialize" | "session_new" | "set_effort" | "prompt" | "cancel";
@@ -57,8 +60,6 @@ export const tasks = sqliteTable("tasks", {
   role: text().$type<TaskRole>().notNull().default("author"),
   /** The position in the stage's refiner list this task runs. Null on an author task. */
   refiner_index: integer(),
-  /** What this refiner run filed: a review, or a judge's ruling. Read when its segment settles. */
-  result: text({ mode: "json" }).$type<RefinerResult>(),
   model: text().notNull(),
   status: text().$type<TaskStatus>().notNull(),
   /** When a person paused the task. Null while it is not paused. The status stays as it was. */
@@ -71,6 +72,34 @@ export const tasks = sqliteTable("tasks", {
   model_turn_id: text(),
   /** How often the task started over after a failure it may recover from. */
   restarts: integer().notNull().default(0),
+});
+
+/** The review a findings reviewer run filed on its artifact. One per run that filed one. */
+export const reviews = sqliteTable("reviews", {
+  task_id: text()
+    .primaryKey()
+    .references(() => tasks.task_id),
+  /** The revision the review read. Null when the host could not say. */
+  revision: text(),
+  blocking: integer({ mode: "boolean" }).notNull(),
+  /** What the reviewer said about the artifact as a whole. Empty when it said nothing. */
+  summary: text().notNull(),
+  findings: text({ mode: "json" }).$type<Finding[]>().notNull(),
+});
+
+/**
+ * Where the ruling on a judge run stands. A judge run without a row is not decided and has not
+ * asked a person yet.
+ */
+export const rulings = sqliteTable("rulings", {
+  task_id: text()
+    .primaryKey()
+    .references(() => tasks.task_id),
+  status: text().$type<RulingStatus>().notNull(),
+  /** The revision the judge ruled on. Null while a person is asked, or when the host could not say. */
+  revision: text(),
+  /** Why the judge rejected. Null unless the status is `rejected`. */
+  reason: text(),
 });
 
 /** The sandbox and the harness session in it, for one task. */

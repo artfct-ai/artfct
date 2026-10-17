@@ -237,7 +237,6 @@ describe("review", () => {
   it("reads the summary, the review, and every finding of its own review", async () => {
     const { artifact } = build(reviewHost([submittedReview({ state: "CHANGES_REQUESTED" })]));
     expect(await artifact.review!.postedReview(TARGET.ref, REVIEW_INPUT)).toEqual({
-      kind: "review",
       revision: "abc123",
       blocking: true,
       summary: "Looks fine.",

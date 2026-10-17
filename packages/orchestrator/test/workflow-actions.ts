@@ -15,6 +15,7 @@ import { openEntryCount } from "../src/workflow/board/render";
 import type { AuthorTurnOutcome } from "../src/workflow/task/author-turn";
 import { onBridgeLost } from "../src/workflow/task/harness/bridge";
 import { sendHeldCommentsOnRevisionRequest } from "../src/workflow/refiner/held-comments";
+import { settleLostJudgeRuling } from "../src/workflow/refiner/loop";
 import { retryQueue } from "../src/workflow/task/harness/prompt-queue";
 import { settleIdleAuthor } from "../src/workflow/task/harness/turn";
 import { onModelTurnDeadline, type ModelTurnAlarm } from "../src/workflow/task/model-turn";
@@ -1407,6 +1408,7 @@ export const TIMERS = [
   "bridge_lost",
   "queue_retry",
   "settle_idle_author",
+  "settle_lost_judge_ruling",
   "idle",
   "recheck",
   "model_turn_deadline",
@@ -1449,6 +1451,10 @@ const TIMER_ALARMS: Record<
   settle_idle_author: {
     method: "settleIdleAuthor",
     fire: (workflow, payload) => settleIdleAuthor(workflow, payload as GenerationAlarm),
+  },
+  settle_lost_judge_ruling: {
+    method: "settleLostJudgeRuling",
+    fire: (workflow, payload) => settleLostJudgeRuling(workflow, payload as TaskAlarm),
   },
   idle: { method: "onIdle", fire: (workflow) => onIdle(workflow) },
   recheck: {
