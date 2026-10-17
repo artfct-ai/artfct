@@ -8,6 +8,11 @@
     "oneRunningWorkflowHasAJobOnAnIssue",
     "aPersonsMessageNeverReachesAnEndedWorkflow"
   ],
+  "mainMinutes": {
+    "chatThread": 1.4,
+    "twoSessionsOnOneIssue": 0.7,
+    "sessionWithPullRequest": 1.2
+  },
   "witnesses": {
     "chatThread": [
       "aWorkflowStarted",

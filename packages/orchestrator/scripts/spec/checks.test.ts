@@ -11,6 +11,7 @@ describe("listSpecSetups", () => {
       expect(readFileSync(join(specDir(spec), `${setup}.qnt`), "utf8")).toContain(
         `module ${setup} {`,
       );
+      expect(readSpecChecks(spec).mainMinutes[setup]).toBeGreaterThan(0);
     }
   });
 

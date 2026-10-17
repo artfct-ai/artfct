@@ -1,4 +1,5 @@
 import type { Database } from "bun:sqlite";
+import { gt, max } from "drizzle-orm";
 import type {
   LanguageModelV4,
   LanguageModelV4CallOptions,
@@ -28,6 +29,7 @@ import { startJob, type JobIssue } from "../src/workflow/lifecycle";
 import { createWorkflow, handleEvent } from "../src/workflow/inbound/events";
 import { parseControl } from "../src/workflow/inbound/control-words";
 import { plainText } from "../src/notify/messages";
+import { outbox } from "../src/workflow/store/schema";
 import { isTaskFinished, type Subject } from "../src/workflow/store/state";
 import { originSubject, setWorkflowSubject } from "../src/workflow/subject";
 import type { ArtifactRow, JobRow, TaskRow } from "../src/workflow/store/tasks";
@@ -52,7 +54,7 @@ import {
   patchStageReviewers,
 } from "./fake-runtime";
 import type { Observation, Step } from "./invariants";
-import { openMemoryDb } from "./memory-db";
+import { openMemoryDb, type MemoryDb } from "./memory-db";
 import { ACTION_WORK_BUDGET, exceededWorkBudget } from "./work-budget";
 import { activityText, SessionTracker, type TrackerHealth } from "./session-tracker";
 import { testEnv } from "./test-env";
@@ -379,19 +381,21 @@ export class WorkflowWorld {
 
   /** The document host every page of the world lives on. */
   readonly pageHost: FakeDocuments;
+  private readonly db: MemoryDb;
 
   private constructor(options: {
     workflow: FakeRuntime;
-    database: Database;
+    db: MemoryDb;
     setup: WorldSetup;
     tracker: SessionTracker;
     pageHost: FakeDocuments;
   }) {
     this.workflow = options.workflow;
+    this.db = options.db;
     this.checksOnPush = options.setup.checksOnPush;
     this.tracker = options.tracker;
     this.pageHost = options.pageHost;
-    this.countStatementsOf(options.database);
+    this.countStatementsOf(options.db.$client);
     this.recordQueuedPrompts();
     if (options.setup.pageAuthor === "model") {
       this.answerPageModelWith("page");
@@ -481,7 +485,7 @@ export class WorkflowWorld {
       });
       return new WorkflowWorld({
         workflow,
-        database: db.$client,
+        db,
         setup,
         tracker,
         pageHost: documents,
@@ -509,7 +513,7 @@ export class WorkflowWorld {
     if (!first) throw new Error(`the test config declares no stage ${stage}`);
     const world = new WorkflowWorld({
       workflow,
-      database: db.$client,
+      db,
       setup,
       tracker,
       pageHost: documents,
@@ -525,7 +529,7 @@ export class WorkflowWorld {
     const before = this.steps.at(-1)?.after ?? this.observe();
     const notesBefore = this.workflow.notes.length;
     const modelTurnEndsBefore = this.modelTurnEnds.length;
-    const outboxBefore = this.workflow.store.outbox().length;
+    const outboxBefore = this.lastOutboxId();
     const postedBefore = this.workflow.posted.length;
     const pageCommentsBefore = this.pageHost.postedComments.length;
     this.delivered = null;
@@ -541,7 +545,7 @@ export class WorkflowWorld {
     if (ended && !this.runningBridgeOf(ended)) {
       this.promptsAtNormalTurnEnd.set(ended, this.promptsSentTo(ended));
     }
-    const rows = this.workflow.store.outbox().slice(outboxBefore);
+    const rows = this.outboxRowsAfter(outboxBefore);
     const step: Step = {
       action: String(action),
       before,
@@ -1291,6 +1295,19 @@ export class WorkflowWorld {
       .reduce((total, bridge) => total + bridge.promptsSent, 0);
   }
 
+  private lastOutboxId(): number {
+    return (
+      this.db
+        .select({ id: max(outbox.id) })
+        .from(outbox)
+        .get()?.id ?? 0
+    );
+  }
+
+  private outboxRowsAfter(id: number): OutboxRow[] {
+    return this.db.select().from(outbox).where(gt(outbox.id, id)).orderBy(outbox.id).all();
+  }
+
   private observe(): Observation {
     const { store } = this.workflow;
     const authors = new Set(this.authors.map((author) => author.taskId));
@@ -1309,11 +1326,12 @@ export class WorkflowWorld {
     const issueStages = declared
       .filter((stage) => stage.artifact === "issues")
       .map((stage) => stage.name);
+    const jobs = store.jobs();
     return {
       subject: this.workflow.state.subject ?? null,
       lastStage: stages.at(-1) ?? null,
       plansIssues: stages.some((stage) => issueStages.includes(stage)),
-      jobs: store.jobs().map((job) => ({
+      jobs: jobs.map((job) => ({
         job_id: job.job_id,
         issue_id: job.issue_id,
         stage: job.stage,
@@ -1323,47 +1341,49 @@ export class WorkflowWorld {
       chatThread: replyTargets.some((target) => target.source === "chat"),
       startingSession,
       jobSessions: Object.fromEntries(
-        store.jobs().map((job) => {
+        jobs.map((job) => {
           const onIssue = sessions.find((session) => session.issue_id === job.issue_id);
           return [job.job_id, job.issue_id && onIssue ? onIssue.session_id : null];
         }),
       ),
       posted: store.postedCount(),
-      tasks: store.tasks().map((task) => ({
-        task_id: task.task_id,
-        role: task.role,
-        status: task.status,
-        job_id: task.job_id,
-        refiner_index: task.refiner_index,
-        ruling: task.result?.kind === "ruling" ? JSON.stringify(task.result) : null,
-        quietSinceTurnEnd:
-          this.promptsAtNormalTurnEnd.get(task.task_id) === this.promptsSentTo(task.task_id),
-        turnRunning:
-          store.sandbox(task.task_id)?.prompt_in_flight === 1 &&
-          this.runningBridgeOf(task.task_id) !== null,
-        promptTexts: [
-          ...queue.filter((row) => row.task_id === task.task_id).map((row) => row.text),
-          ...this.bridges
+      tasks: store.tasks().map((task) => {
+        const promptInFlight = store.sandbox(task.task_id)?.prompt_in_flight === 1;
+        return {
+          task_id: task.task_id,
+          role: task.role,
+          status: task.status,
+          job_id: task.job_id,
+          refiner_index: task.refiner_index,
+          ruling: task.result?.kind === "ruling" ? JSON.stringify(task.result) : null,
+          quietSinceTurnEnd:
+            this.promptsAtNormalTurnEnd.get(task.task_id) === this.promptsSentTo(task.task_id),
+          turnRunning: promptInFlight && this.runningBridgeOf(task.task_id) !== null,
+          promptTexts: [
+            ...queue.filter((row) => row.task_id === task.task_id).map((row) => row.text),
+            ...this.bridges
+              .filter((bridge) => bridge.taskId === task.task_id)
+              .flatMap((bridge) => bridge.promptTexts),
+            ...(this.modelPromptTexts.get(task.task_id) ?? []),
+          ],
+          promptsQueued: this.promptsQueuedFor(task.task_id),
+          promptsSent:
+            this.promptsSentTo(task.task_id) +
+            (this.modelPromptTexts.get(task.task_id)?.length ?? 0),
+          paused: task.paused_at !== null,
+          cancelsSent: this.bridges
             .filter((bridge) => bridge.taskId === task.task_id)
-            .flatMap((bridge) => bridge.promptTexts),
-          ...(this.modelPromptTexts.get(task.task_id) ?? []),
-        ],
-        promptsQueued: this.promptsQueuedFor(task.task_id),
-        promptsSent:
-          this.promptsSentTo(task.task_id) + (this.modelPromptTexts.get(task.task_id)?.length ?? 0),
-        paused: task.paused_at !== null,
-        cancelsSent: this.bridges
-          .filter((bridge) => bridge.taskId === task.task_id)
-          .reduce((total, bridge) => total + bridge.cancelsSent, 0),
-        promptInFlight: store.sandbox(task.task_id)?.prompt_in_flight === 1,
-        queuedPrompts: queue.filter((row) => row.task_id === task.task_id).length,
-        handshaking: store.handshakePending(task.task_id),
-        atWork: !isTaskFinished(task.status) && taskAtWork(this.workflow, task),
-        modelCallOut:
-          task.model_turn_id !== null &&
-          this.hungModelTurns.get(task.task_id) === task.model_turn_id,
-        stoppedEarly: this.stoppedEarly.has(task.task_id),
-      })),
+            .reduce((total, bridge) => total + bridge.cancelsSent, 0),
+          promptInFlight,
+          queuedPrompts: queue.filter((row) => row.task_id === task.task_id).length,
+          handshaking: store.handshakePending(task.task_id),
+          atWork: !isTaskFinished(task.status) && taskAtWork(this.workflow, task),
+          modelCallOut:
+            task.model_turn_id !== null &&
+            this.hungModelTurns.get(task.task_id) === task.model_turn_id,
+          stoppedEarly: this.stoppedEarly.has(task.task_id),
+        };
+      }),
       artifacts: store.artifacts().map((artifact) => ({
         job_id: artifact.job_id,
         status: artifact.status,

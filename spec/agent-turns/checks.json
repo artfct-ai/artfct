@@ -18,6 +18,11 @@
     "aWaitingInboxRowHasATurnComing",
     "oneTurnRunsAtATime"
   ],
+  "mainMinutes": {
+    "chatThread": 1.5,
+    "trackerOnly": 2.6,
+    "chatAndSession": 2.4
+  },
   "witnesses": {
     "chatThread": [
       "aTurnPostsClosingText",

@@ -1,4 +1,6 @@
+import { availableParallelism } from "node:os";
 import { join } from "node:path";
+import type { Subprocess } from "bun";
 
 /** A property test file and the runs each property in it takes per full e2e run. */
 export type PropertyFile = { title: string; path: string; runner: string[]; e2eRuns: number };
@@ -73,19 +75,73 @@ export function propertyReplayCommand(file: PropertyFile, seed: number): string 
   return `PROPERTY_SEED=${seed} PROPERTY_RUNS=${e2eRunCount(file)} ${[...file.runner, file.path].join(" ")}`;
 }
 
-async function echoAndCollect(stream: ReadableStream<Uint8Array>, echo: NodeJS.WriteStream) {
-  const decoder = new TextDecoder();
-  let text = "";
-  for await (const chunk of stream) {
-    echo.write(chunk);
-    text += decoder.decode(chunk, { stream: true });
-  }
-  return text + decoder.decode();
+/** One process of a property file run: the test runner arguments it adds, and the name on its output lines. */
+export type PropertyPart = { label: string; args: string[] };
+
+/**
+ * The processes a property file runs in: one per spec setup of a replay file, or one for the
+ * whole file. The process of the first setup also takes every test outside a setup.
+ */
+export function propertyParts(file: PropertyFile, setups: string[]): PropertyPart[] {
+  const [first, ...others] = setups;
+  if (!first || !others.length) return [{ label: file.title, args: [] }];
+  return [
+    { label: first, args: ["-t", `^(?!.* on (${others.join("|")})$)`] },
+    ...others.map((setup) => ({ label: setup, args: ["-t", ` on ${setup}$`] })),
+  ];
 }
 
-/** Runs one property file at its e2e run count on a seed, and echoes its output as it runs. */
-export async function runPropertyFile(file: PropertyFile, seed: number): Promise<PropertyRun> {
-  const child = Bun.spawn([...file.runner, file.path], {
+/** The spec setups whose traces a property file replays, as the spec checks list them. */
+function replayedSetups(file: PropertyFile): string[] {
+  const listed = Bun.spawnSync(["bun", "scripts/spec/check-spec.ts", "setups"], {
+    cwd: ORCHESTRATOR_DIR,
+    stderr: "inherit",
+  });
+  const setups: Array<{ setup: string; replay: string }> = JSON.parse(listed.stdout.toString());
+  return setups.filter((entry) => entry.replay === file.path).map((entry) => entry.setup);
+}
+
+/** Echoes each line of a stream with `prefix` in front of it, and returns the stream's text. */
+async function echoAndCollect(
+  stream: ReadableStream<Uint8Array>,
+  echo: NodeJS.WriteStream,
+  prefix: string,
+): Promise<string> {
+  const decoder = new TextDecoder();
+  const echoLines = (lines: string) =>
+    echo.write(
+      lines
+        .split("\n")
+        .map((line) => `${prefix}${line}\n`)
+        .join(""),
+    );
+  let text = "";
+  let unfinishedLine = "";
+  for await (const chunk of stream) {
+    const decoded = decoder.decode(chunk, { stream: true });
+    text += decoded;
+    unfinishedLine += decoded;
+    const lineEnd = unfinishedLine.lastIndexOf("\n");
+    if (lineEnd === -1) continue;
+    echoLines(unfinishedLine.slice(0, lineEnd));
+    unfinishedLine = unfinishedLine.slice(lineEnd + 1);
+  }
+  const rest = decoder.decode();
+  text += rest;
+  unfinishedLine += rest;
+  if (unfinishedLine) echoLines(unfinishedLine);
+  return text;
+}
+
+async function runPart(options: {
+  file: PropertyFile;
+  seed: number;
+  part: PropertyPart;
+  prefix: string;
+  children: Set<Subprocess>;
+}): Promise<{ exitCode: number; output: string }> {
+  const { file, seed, part, prefix, children } = options;
+  const child = Bun.spawn([...file.runner, file.path, ...part.args], {
     cwd: ORCHESTRATOR_DIR,
     env: {
       ...process.env,
@@ -96,18 +152,45 @@ export async function runPropertyFile(file: PropertyFile, seed: number): Promise
     stdout: "pipe",
     stderr: "pipe",
   });
+  children.add(child);
+  const [stdout, stderr, exitCode] = await Promise.all([
+    echoAndCollect(child.stdout, process.stdout, prefix),
+    echoAndCollect(child.stderr, process.stderr, prefix),
+    child.exited,
+  ]);
+  children.delete(child);
+  return { exitCode, output: stdout + stderr };
+}
+
+/**
+ * Runs one property file at its e2e run count on a seed, and echoes its output as it runs. A spec
+ * replay runs each setup in its own process, as many at once as the machine has cores.
+ */
+export async function runPropertyFile(file: PropertyFile, seed: number): Promise<PropertyRun> {
+  const parts = propertyParts(file, replayedSetups(file));
+  const children = new Set<Subprocess>();
   let timedOut = false;
   const timer = setTimeout(() => {
     timedOut = true;
-    child.kill();
+    for (const child of children) child.kill();
   }, PROPERTY_FILE_TIMEOUT_MINUTES * 60_000);
-  const [stdout, stderr, exitCode] = await Promise.all([
-    echoAndCollect(child.stdout, process.stdout),
-    echoAndCollect(child.stderr, process.stderr),
-    child.exited,
-  ]);
+  const outputs: string[] = [];
+  let failed = false;
+  const waiting = [...parts.entries()];
+  const runWaitingParts = async () => {
+    for (let next = waiting.shift(); next; next = waiting.shift()) {
+      if (timedOut) return;
+      const [index, part] = next;
+      const prefix = parts.length > 1 ? `[${part.label}] ` : "";
+      const run = await runPart({ file, seed, part, prefix, children });
+      outputs[index] = run.output;
+      if (run.exitCode !== 0) failed = true;
+    }
+  };
+  const processes = Math.min(availableParallelism(), parts.length);
+  await Promise.all(Array.from({ length: processes }, runWaitingParts));
   clearTimeout(timer);
-  const output = stdout + stderr;
+  const output = outputs.join("");
   if (timedOut) return { outcome: "timed_out", output };
-  return { outcome: exitCode === 0 ? "passed" : "failed", output };
+  return { outcome: failed ? "failed" : "passed", output };
 }

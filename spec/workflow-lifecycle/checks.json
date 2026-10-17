@@ -15,6 +15,12 @@
     "workflowWaitsOnlyWhileNoAuthorWorks",
     "aRestartDoesNotLoseAModelTurn"
   ],
+  "mainMinutes": {
+    "pagesWithAReviewer": 1.7,
+    "pagesWithoutRefiners": 2.1,
+    "pagesAfterResearch": 2.9,
+    "pagesFromModelCalls": 1.3
+  },
   "witnesses": {
     "pagesWithAReviewer": [
       "aPlanStartsTheWorkflow",

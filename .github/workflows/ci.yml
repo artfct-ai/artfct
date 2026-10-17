@@ -109,51 +109,29 @@ jobs:
           done
           exit "$status"
 
-  quint_specs:
-    name: quint specs
+  quint_spec:
+    name: quint spec (shard ${{ matrix.shard }})
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      specs: ${{ steps.list.outputs.specs }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - name: List the specs
-        id: list
-        working-directory: packages/orchestrator
-        run: echo "specs=$(bun scripts/spec/check-spec.ts setups | jq -c 'map(.spec) | unique')" >> "$GITHUB_OUTPUT"
-
-  quint_spec:
-    name: quint spec (${{ matrix.spec }})
-    needs: quint_specs
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        spec: ${{ fromJSON(needs.quint_specs.outputs.specs) }}
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     defaults:
       run:
         shell: bash
         working-directory: packages/orchestrator
     env:
-      SPEC: ${{ matrix.spec }}
+      SHARD_INDEX: ${{ strategy.job-index }}
+      SHARD_COUNT: ${{ strategy.job-total }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
-      - name: List the setups of the spec and the ones TLC checks
-        run: |
-          setups=$(bun scripts/spec/check-spec.ts setups)
-          echo "SETUPS=$(jq -r --arg spec "$SPEC" 'map(select(.spec == $spec) | .setup) | join(" ")' <<< "$setups")" >> "$GITHUB_ENV"
-          echo "TLC_SETUPS=$(jq -r --arg spec "$SPEC" 'map(select(.spec == $spec and .tlc) | .setup) | join(" ")' <<< "$setups")" >> "$GITHUB_ENV"
-      - if: env.TLC_SETUPS != ''
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: "21.0.12+8"
@@ -162,25 +140,23 @@ jobs:
           path: ~/.quint
           key: quint-${{ runner.os }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
           restore-keys: quint-${{ runner.os }}-
-      - name: Typecheck each setup
-        run: |
-          for setup in $SETUPS; do bunx quint typecheck "../../spec/$SPEC/$setup.qnt"; done
-      - name: Fail when a witness is never reached
+      - name: Typecheck, check the witnesses, run every invariant on 100,000 samples, and check every state within the pr bounds with TLC for each setup of this shard
         run: |
           status=0
-          for setup in $SETUPS; do bun scripts/spec/check-spec.ts witnesses "$SPEC" "$setup" || status=1; done
-          exit "$status"
-      - name: Run every invariant on 100,000 samples
-        if: ${{ !cancelled() }}
-        run: |
-          status=0
-          for setup in $SETUPS; do bun scripts/spec/check-spec.ts simulate "$SPEC" "$setup" 100000 || status=1; done
-          exit "$status"
-      - name: Check every state within the pr bounds with TLC
-        if: ${{ !cancelled() && env.TLC_SETUPS != '' }}
-        run: |
-          status=0
-          for setup in $TLC_SETUPS; do bun scripts/spec/check-spec.ts tlc "$SPEC" "$setup" pr || status=1; done
+          for entry in $(bun scripts/spec/check-spec.ts main-shard "$SHARD_INDEX" "$SHARD_COUNT" | jq -r '.[] | "\(.spec)/\(.setup)/\(.tlc)"'); do
+            IFS=/ read -r spec setup tlc <<< "$entry"
+            echo "::group::$setup of $spec"
+            if ! {
+              bunx quint typecheck "../../spec/$spec/$setup.qnt" &&
+                bun scripts/spec/check-spec.ts witnesses "$spec" "$setup" &&
+                bun scripts/spec/check-spec.ts simulate "$spec" "$setup" 100000 &&
+                { [ "$tlc" = false ] || bun scripts/spec/check-spec.ts tlc "$spec" "$setup" pr; }
+            }; then
+              status=1
+              echo "::error::$setup of $spec failed. Its group in this step's log has the output."
+            fi
+            echo "::endgroup::"
+          done
           exit "$status"
 
   spec_replays:
