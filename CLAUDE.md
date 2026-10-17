@@ -58,7 +58,6 @@ Judge a change by the complexity it leaves behind, not by its size. An interface
 - Add state only when something reads it today. Do not persist, cache, or copy an unread value. Store each fact once, or derive it.
 - Add a guard only for an input or state that occurs, and name the wrong outcome it prevents.
 - Add a config key, mode, flag, or option only for a use today. One place sets a value and one place reads it.
-- Give each schema change a reason in the PR. On SQLite a column change rebuilds the table.
 - A helper needs two callers today, or a name that lets a reader skip its body. Keep callers loosely coupled. Do not add a flag, mode, or fallback to serve different callers. Split it instead. Inline a helper that fails these tests.
 - Do not wrap one field access or one method call in a function. Call `workflow.store.activeTasks()` directly.
 - Put a method on an interface only when a consumer outside the package calls it. A method that only the vendor implementations call stays on the class, off the interface and the fake.
@@ -69,6 +68,23 @@ Judge a change by the complexity it leaves behind, not by its size. An interface
 - Normalize a vendor value, such as a page id or a login, once in the adapter mapper or the ingress route. Downstream code trusts it.
 - Do not use sentinel values. Give a case with a different shape its own union arm. Never fill a field with `0` or `""` to satisfy a type.
 - Each path, key, or id format has one module that both writes and reads it.
+
+## Stored state
+
+Run a model check when a change adds or changes stored state: a column, the shape of a JSON column, or a field of a spec's state.
+
+1. Read the whole table, the tables it references or that reference it, and the code that writes them. For a spec, read its whole state.
+2. List what the state carries today: the entity each table holds, the states it moves through, and the columns that record each state.
+3. Describe the model the change needs: the entity, its states, and where each fact belongs.
+4. Compare the two. When they differ, refactor the existing state to match the needed model. A new column is right only when the existing model already matches.
+5. Put the list, the needed model, and the decision in the PR body under "Model check".
+
+Judge the model by these rules:
+- A table holds one entity. Every column applies to every row. A fact about only some rows goes in its own table, keyed by the row it describes.
+- A lifecycle is one status column with named values, not a boolean per stage.
+- Store each fact once. Do not store what you can derive.
+- A JSON column holds data that is read and written whole. Code does not branch on it or query into it.
+- On SQLite a column change rebuilds the table, so a schema change is worth it only when the model needs it.
 
 ## Domain spec
 
