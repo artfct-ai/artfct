@@ -95,6 +95,10 @@ describe("harness session spec", () => {
     await replayPinnedTrace("blocked-outcome-with-a-later-prompt");
   });
 
+  it("records the outcome of the check that returns last when checks return out of order", async () => {
+    await replayPinnedTrace("outcome-checks-return-out-of-order");
+  });
+
   it("counts a refused prompt after a turn that stopped early as a stall", async () => {
     await replayPinnedTrace("refused-prompt-after-a-stopped-early-turn");
   });
