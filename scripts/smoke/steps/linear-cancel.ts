@@ -17,13 +17,16 @@ import {
 import { assertStartsSince, startCountBaseline, waitForSandboxDestroyed } from "../sandbox";
 import { postLinearWebhook } from "../webhooks";
 
-/** The session and issue of the workflow this step cancels. */
+/**
+ * The session and issue of the workflow this step cancels. Its author never finishes the turn,
+ * so no reviewer sandbox starts while the cancel tears the workflow down.
+ */
 const CANCEL_SESSION = linearSessionId(2);
 const CANCEL_ISSUE = linearIssue(
   2,
   "ENG-43",
   "Add a changelog",
-  `Keep a changelog. Repo: https://github.com/${REPO_FULL_NAME}\nPage parent: ${PAGE_PARENT_ID}`,
+  `Keep a changelog. Never finish this. Repo: https://github.com/${REPO_FULL_NAME}\nPage parent: ${PAGE_PARENT_ID}`,
 );
 
 /** Runs step 6 on a workflow of its own. */
