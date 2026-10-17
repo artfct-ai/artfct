@@ -30,7 +30,6 @@
         },
         "idleArmed": true,
         "jobs": [],
-        "movedATrackerIssue": false,
         "stagesPlanned": false,
         "status": {
           "tag": "New",
@@ -114,7 +113,6 @@
         },
         "idleArmed": true,
         "jobs": [],
-        "movedATrackerIssue": false,
         "stagesPlanned": true,
         "status": {
           "tag": "Running",
@@ -196,7 +194,6 @@
         },
         "idleArmed": true,
         "jobs": [],
-        "movedATrackerIssue": false,
         "stagesPlanned": true,
         "status": {
           "tag": "Running",
@@ -278,7 +275,6 @@
         },
         "idleArmed": true,
         "jobs": [],
-        "movedATrackerIssue": false,
         "stagesPlanned": true,
         "status": {
           "tag": "Running",
@@ -362,7 +358,6 @@
         },
         "idleArmed": true,
         "jobs": [],
-        "movedATrackerIssue": false,
         "stagesPlanned": true,
         "status": {
           "tag": "Running",
@@ -496,7 +491,6 @@
             ]
           }
         ],
-        "movedATrackerIssue": false,
         "stagesPlanned": true,
         "status": {
           "tag": "Running",
@@ -661,7 +655,6 @@
             ]
           }
         ],
-        "movedATrackerIssue": false,
         "stagesPlanned": true,
         "status": {
           "tag": "Running",
@@ -877,7 +870,6 @@
             ]
           }
         ],
-        "movedATrackerIssue": false,
         "stagesPlanned": true,
         "status": {
           "tag": "Running",
@@ -1125,7 +1117,6 @@
             ]
           }
         ],
-        "movedATrackerIssue": false,
         "stagesPlanned": true,
         "status": {
           "tag": "Running",
@@ -1376,7 +1367,6 @@
             ]
           }
         ],
-        "movedATrackerIssue": false,
         "stagesPlanned": true,
         "status": {
           "tag": "Running",
@@ -1653,7 +1643,6 @@
             ]
           }
         ],
-        "movedATrackerIssue": false,
         "stagesPlanned": true,
         "status": {
           "tag": "Running",
@@ -1930,7 +1919,6 @@
             ]
           }
         ],
-        "movedATrackerIssue": false,
         "stagesPlanned": true,
         "status": {
           "tag": "Running",

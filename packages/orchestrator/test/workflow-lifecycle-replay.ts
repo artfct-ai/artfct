@@ -130,7 +130,6 @@ export type SpecWorkflow = {
   status: (typeof WORKFLOW_STATUSES)[number];
   definition: number | null;
   stagesPlanned: boolean;
-  movedATrackerIssue: boolean;
   idleArmed: boolean;
   jobs: SpecJob[];
   calls: SpecCall[];
@@ -203,7 +202,6 @@ function specWorkflow(value: unknown): SpecWorkflow {
     status: itfOneOf(itfVariant(itfField(value, "status"))!.tag, WORKFLOW_STATUSES),
     definition: definition.tag === "Planned" ? itfInt(definition.value) : null,
     stagesPlanned: itfBool(itfField(value, "stagesPlanned")),
-    movedATrackerIssue: itfBool(itfField(value, "movedATrackerIssue")),
     idleArmed: itfBool(itfField(value, "idleArmed")),
     jobs: itfList(itfField(value, "jobs")).map(specJob),
     calls: itfList(itfField(value, "calls")).map((call) => ({
@@ -396,7 +394,6 @@ export class WorkflowLifecycleReplay {
       status: WORKFLOW_STATUS_OF[state.status],
       definition: state.definition === null ? null : state.definition === SECOND_DEFINITION ? 1 : 0,
       stagesPlanned: state.stages.length > 0,
-      movedATrackerIssue: this.world.steps.some((step) => step.issueUpdates > 0),
       idleArmed: workflow.alarmsFor("onIdle").length > 0,
       jobs: jobs.map((job) => {
         const artifact = store.artifact(job.job_id);
