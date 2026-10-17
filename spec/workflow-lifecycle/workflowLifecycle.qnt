@@ -544,11 +544,14 @@ module workflowLifecycle {
 
   /// `resumeTask` on a harness author queues the resume prompt and sends the head of the queue.
   /// The prompt waits while the bridge still runs the turn the pause cancelled. Without a bridge
-  /// it starts the next generation for it, also while a restart is closing the old container.
+  /// it starts the next generation for it, also while a restart is closing the old container. A
+  /// restart that an earlier resume overtook left that resume's generation running, so the
+  /// prompt waits for its turn.
   pure def resumeHarnessAuthor(flow: Workflow, id: int): Workflow = {
     val task = jobTask(flow, id)
     val closing = flow.calls.indices().exists(callId =>
-      flow.calls[callId].job == id and flow.calls[callId].kind == SandboxDestroy)
+      flow.calls[callId].job == id and flow.calls[callId].kind == SandboxDestroy and
+        flow.calls[callId].rest == RestartGoesOn)
     val waits = task.turnRunning and not(task.generationClosed) and not(closing)
     val calls = flow.calls.foldl(List(), (calls, call) => calls.append(
       if (call.job == id and call.rest == RestartGoesOn)
