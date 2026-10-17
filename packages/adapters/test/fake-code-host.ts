@@ -58,6 +58,8 @@ export type CodeHostAnswers = {
   commitAuthor?: CommitAuthor;
   /** Every call fails. */
   failing?: boolean;
+  /** Every `getPull` fails, so the host cannot say the head commit of a pull request. */
+  pullsUnreadable?: boolean;
   /** Milliseconds since the epoch, for the default token expiry. */
   now?: () => number;
 };
@@ -89,6 +91,9 @@ export class FakeCodeHost implements CodeHost {
 
   async getPull(repo: string, number: number): Promise<PullRequest> {
     this.log.record("getPull", repo, number);
+    if (this.answers.pullsUnreadable) {
+      throw new Error(`github GET /repos/${repo}/pulls/${number}: 502 Bad Gateway`);
+    }
     const pull = (this.answers.pulls ?? []).find((candidate) => candidate.number === number);
     if (!pull) throw new Error(`github GET /repos/${repo}/pulls/${number}: 404 Not Found`);
     return pull;

@@ -48,7 +48,9 @@
       "theAgentIsAskedForAPersonsRuling",
       "theInstanceRestarted",
       "aRulingCallIsLostWithTheInstance",
-      "aJudgeClosesWithoutAConclusion"
+      "aJudgeClosesWithoutAConclusion",
+      "aRefinerRunStartsAfterAnUnknownRevision",
+      "aRefinerRunStartsAfterAnUnknownHandover"
     ],
     "reviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -63,7 +65,10 @@
       "aRefinerRunFailsPastItsRestarts",
       "aRefinerRunStartsAfterAFailedOrCancelledOne",
       "aPolisherFinished",
-      "theInstanceRestarted"
+      "theInstanceRestarted",
+      "aReviewerRunsAgainOnAnUnknownRevision",
+      "aRefinerRunStartsAfterAnUnknownRevision",
+      "aRefinerRunStartsAfterAnUnknownHandover"
     ],
     "judgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",

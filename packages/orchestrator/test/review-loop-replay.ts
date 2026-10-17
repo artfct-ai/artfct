@@ -101,8 +101,8 @@ type SpecRun = {
   status: "Unfinished" | "Done" | "Cancelled" | "Failed";
   result:
     | { filed: "nothing" }
-    | { filed: "review"; revision: number; findings: boolean }
-    | { filed: "ruling"; ruling: "Approved" | "Rejected"; revision: number }
+    | { filed: "review"; revision: number | null; findings: boolean }
+    | { filed: "ruling"; ruling: "Approved" | "Rejected"; revision: number | null }
     | { filed: "ruling_asked" };
   restarts: number;
 };
@@ -136,7 +136,7 @@ export type SpecReview = {
     findingsFrom: number[];
   };
   artifact: {
-    status: { status: "Drafted" } | { status: "Ready"; deliveredRevision: number };
+    status: { status: "Drafted" } | { status: "Ready"; deliveredRevision: number | null };
     revision: number;
     refinerRun: number | null;
   };
@@ -214,7 +214,7 @@ function specReview(value: unknown): SpecReview {
         status.tag === "Ready"
           ? {
               status: "Ready",
-              deliveredRevision: itfInt(itfField(status.value, "deliveredRevision")),
+              deliveredRevision: filedRevision(itfField(status.value, "deliveredRevision")),
             }
           : { status: "Drafted" },
       revision: itfInt(itfField(artifact, "revision")),
@@ -264,6 +264,12 @@ function specPersonComment(value: unknown): SpecPersonComment {
   };
 }
 
+/** A revision a review, a ruling or a handover recorded. Null when the host could not say it. */
+function filedRevision(value: unknown): number | null {
+  const filed = itfVariant(value)!;
+  return filed.tag === "ReadRevision" ? itfInt(filed.value) : null;
+}
+
 function somePicks(picks: unknown): Record<string, unknown> {
   if (typeof picks !== "object" || picks === null) return {};
   return Object.fromEntries(
@@ -304,14 +310,14 @@ function specResult(result: { tag: string; value: unknown }): SpecRun["result"] 
     case "FiledReview":
       return {
         filed: "review",
-        revision: itfInt(itfField(result.value, "revision")),
+        revision: filedRevision(itfField(result.value, "revision")),
         findings: itfBool(itfField(result.value, "findings")),
       };
     case "FiledRuling":
       return {
         filed: "ruling",
         ruling: itfOneOf(itfVariant(itfField(result.value, "ruling"))!.tag, RULINGS),
-        revision: itfInt(itfField(result.value, "revision")),
+        revision: filedRevision(itfField(result.value, "revision")),
       };
     case "RulingAsked":
       return { filed: "ruling_asked" };
@@ -733,7 +739,7 @@ export class ReviewLoopReplay {
     this.heardSteps.push(heard);
     this.heardNow = heard;
     const notesBefore = this.world.workflow.notes.length;
-    await this.takeAction(step);
+    await this.whileRevisionLookupsGo(step, () => this.takeAction(step));
     for (const task of this.world.tasksAwaitingSandbox()) {
       await this.world.startSandboxOf(task.task_id);
     }
@@ -781,6 +787,15 @@ export class ReviewLoopReplay {
     } finally {
       heard.pending -= 1;
     }
+  }
+
+  /** Run `body` while the host gives the revision, or fails to, as the step picked. */
+  private async whileRevisionLookupsGo(step: TraceStep, body: () => Promise<void>): Promise<void> {
+    if (!("revisionLookup" in step.picks) || pickTag(step, "revisionLookup") === "RevisionKnown") {
+      return body();
+    }
+    if (this.revisions.kind !== "pull") throw new Error("only a pull request revision is unknown");
+    return this.world.whilePullRevisionsAreUnknown(body);
   }
 
   private async takeAction(step: TraceStep): Promise<void> {
@@ -857,7 +872,8 @@ export class ReviewLoopReplay {
     const atWork = taskAtWork(this.world.workflow, author);
     const queued = store.queue().filter((row) => row.task_id === author.task_id);
     const turnAsked = this.pageModel && atWork ? this.pageModel.heldUserText : null;
-    const revisionCount = (revision: string | null) => this.revisionCount(revision);
+    const revisionCount = (revision: string | null) =>
+      revision === null ? null : this.revisionCount(revision);
     return {
       author: {
         atWork,
@@ -872,10 +888,10 @@ export class ReviewLoopReplay {
       },
       artifact: {
         status:
-          artifact.status === "drafted" || delivered === null
+          artifact.status === "drafted"
             ? { status: "Drafted" }
             : { status: "Ready", deliveredRevision: revisionCount(delivered) },
-        revision: revisionCount(this.hostRevision()),
+        revision: this.revisionCount(this.hostRevision() ?? ""),
         refinerRun: pointer === -1 ? null : pointer,
       },
       refinerRuns: runs.map((run) => specRunOf(run, revisionCount)),
@@ -1312,8 +1328,8 @@ export class ReviewLoopReplay {
   }
 
   /** How often the artifact changed since the author opened it, as the spec counts revisions. */
-  private revisionCount(revision: string | null): number {
-    if (this.revisions.kind === "pull") return pushCountOf(revision ?? "");
+  private revisionCount(revision: string): number {
+    if (this.revisions.kind === "pull") return pushCountOf(revision);
     return Number(revision) - this.revisions.revisionAtOpen;
   }
 
@@ -1669,7 +1685,10 @@ function judgeCloses(run: TaskRow, conclusion: string): WorkflowAction {
   };
 }
 
-function specRunOf(run: RefinerRun, revisionCount: (revision: string | null) => number): SpecRun {
+function specRunOf(
+  run: RefinerRun,
+  revisionCount: (revision: string | null) => number | null,
+): SpecRun {
   return {
     refinerIndex: run.refiner_index ?? 0,
     status: SPEC_STATUSES[run.status],
@@ -1690,7 +1709,7 @@ const SPEC_STATUSES: Record<TaskStatus, SpecRun["status"]> = {
 
 function specResultOf(
   run: RefinerRun,
-  revisionCount: (revision: string | null) => number,
+  revisionCount: (revision: string | null) => number | null,
 ): SpecRun["result"] {
   if (run.review) {
     return {
