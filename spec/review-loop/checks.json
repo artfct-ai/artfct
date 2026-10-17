@@ -43,7 +43,8 @@
       "aPolisherFinished",
       "theAgentIsAskedForAPersonsRuling",
       "theInstanceRestarted",
-      "aRulingCallIsLostWithTheInstance"
+      "aRulingCallIsLostWithTheInstance",
+      "aJudgeClosesWithoutAConclusion"
     ],
     "reviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -72,7 +73,8 @@
       "aRefinerRunRestarted",
       "theAgentIsAskedForAPersonsRuling",
       "theInstanceRestarted",
-      "aRulingCallIsLostWithTheInstance"
+      "aRulingCallIsLostWithTheInstance",
+      "aJudgeClosesWithoutAConclusion"
     ],
     "modelCallAuthorWithTwoReviewers": [
       "aRefinerRunIsUnfinished",
@@ -153,7 +155,8 @@
       "theHostFailsARejection",
       "theAgentIsAskedForAPersonsRuling",
       "theInstanceRestarted",
-      "aRulingCallIsLostWithTheInstance"
+      "aRulingCallIsLostWithTheInstance",
+      "aJudgeClosesWithoutAConclusion"
     ]
   },
   "tlc": {
