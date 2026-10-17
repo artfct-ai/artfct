@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
-/** How far a model check explores: the pull request bounds or the larger nightly bounds. */
+/** How far a model check explores: the `pr` bounds each commit to main checks, or the larger nightly bounds. */
 export type TlcDepth = "pr" | "nightly";
 
 /** The cap on each counter val of a setup, by the val's name. */

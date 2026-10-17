@@ -88,4 +88,19 @@ describe("propertyFailureReport", () => {
       "PROPERTY_SEED=9 PROPERTY_RUNS=1250 bun test src/workflow/invariants.test.ts",
     );
   });
+
+  it("names the divided run count of a light run", () => {
+    process.env.PROPERTY_RUNS_DIVISOR = "4";
+    try {
+      const report = propertyFailureReport(PROPERTY_FILES.workflow, 9, {
+        outcome: "failed",
+        output: "",
+      });
+      expect(report).toContain(
+        "PROPERTY_SEED=9 PROPERTY_RUNS=313 bun test src/workflow/invariants.test.ts",
+      );
+    } finally {
+      delete process.env.PROPERTY_RUNS_DIVISOR;
+    }
+  });
 });

@@ -1,12 +1,12 @@
 import { join } from "node:path";
 
-/** A property test file and the runs each property in it takes per e2e property test shard. */
+/** A property test file and the runs each property in it takes per full e2e run. */
 export type PropertyFile = { title: string; path: string; runner: string[]; e2eRuns: number };
 
 /** The outcome of one property file run, with everything it printed. */
 export type PropertyRun = { outcome: "passed" | "failed" | "timed_out"; output: string };
 
-/** The property test files the e2e property test job shards and the nightly mutant run. */
+/** The property test files the CI property and replay jobs and the nightly mutant run use. */
 export const PROPERTY_FILES = {
   workflow: {
     title: "workflow properties",
@@ -63,9 +63,14 @@ export const PROPERTY_FILE_TIMEOUT_MINUTES = 20;
 
 const ORCHESTRATOR_DIR = join(import.meta.dirname, "../..");
 
+/** The runs each property of a file takes in an e2e run, divided by `PROPERTY_RUNS_DIVISOR` for a light run. */
+function e2eRunCount(file: PropertyFile): number {
+  return Math.ceil(file.e2eRuns / Number(process.env.PROPERTY_RUNS_DIVISOR ?? 1));
+}
+
 /** The command, run from the orchestrator package, that repeats an e2e run exactly. */
 export function propertyReplayCommand(file: PropertyFile, seed: number): string {
-  return `PROPERTY_SEED=${seed} PROPERTY_RUNS=${file.e2eRuns} ${[...file.runner, file.path].join(" ")}`;
+  return `PROPERTY_SEED=${seed} PROPERTY_RUNS=${e2eRunCount(file)} ${[...file.runner, file.path].join(" ")}`;
 }
 
 async function echoAndCollect(stream: ReadableStream<Uint8Array>, echo: NodeJS.WriteStream) {
@@ -85,7 +90,7 @@ export async function runPropertyFile(file: PropertyFile, seed: number): Promise
     env: {
       ...process.env,
       PROPERTY_SEED: String(seed),
-      PROPERTY_RUNS: String(file.e2eRuns),
+      PROPERTY_RUNS: String(e2eRunCount(file)),
       NO_COLOR: "1",
     },
     stdout: "pipe",
