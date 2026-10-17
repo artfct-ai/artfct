@@ -4,8 +4,8 @@
     "format-description": "https://apalache-mc.org/docs/adr/015adr-trace.html",
     "source": "../../spec/harness-session/harnessDefaultEffort.qnt",
     "status": "ok",
-    "description": "Created by Quint on Fri Oct 16 2026 16:34:38 GMT-0400 (Eastern Daylight Time)",
-    "timestamp": 1792182878633
+    "description": "Created by Quint on Fri Oct 16 2026 22:11:34 GMT-0400 (Eastern Daylight Time)",
+    "timestamp": 1792203094891
   },
   "vars": ["harnessDefaultEffort::harnessSession::world", "mbt::actionTaken", "mbt::nondetPicks"],
   "states": [
@@ -1739,7 +1739,7 @@
               {
                 "cancelled": false,
                 "id": {
-                  "#bigint": "1"
+                  "#bigint": "2"
                 },
                 "purpose": {
                   "tag": "SessionNew",
@@ -1836,7 +1836,7 @@
         "rpcs": [
           {
             "id": {
-              "#bigint": "1"
+              "#bigint": "2"
             },
             "purpose": {
               "tag": "SessionNew",
@@ -1965,7 +1965,7 @@
               {
                 "cancelled": false,
                 "id": {
-                  "#bigint": "1"
+                  "#bigint": "2"
                 },
                 "purpose": {
                   "tag": "SessionNew",
@@ -2062,7 +2062,7 @@
         "rpcs": [
           {
             "id": {
-              "#bigint": "1"
+              "#bigint": "2"
             },
             "purpose": {
               "tag": "SessionNew",
@@ -2191,7 +2191,7 @@
               {
                 "cancelled": false,
                 "id": {
-                  "#bigint": "1"
+                  "#bigint": "2"
                 },
                 "purpose": {
                   "tag": "SessionNew",
@@ -2294,7 +2294,7 @@
         "rpcs": [
           {
             "id": {
-              "#bigint": "1"
+              "#bigint": "2"
             },
             "purpose": {
               "tag": "SessionNew",
@@ -2460,7 +2460,7 @@
               {
                 "cancelled": false,
                 "id": {
-                  "#bigint": "1"
+                  "#bigint": "3"
                 },
                 "purpose": {
                   "tag": "Prompt",
@@ -2563,7 +2563,7 @@
         "rpcs": [
           {
             "id": {
-              "#bigint": "1"
+              "#bigint": "3"
             },
             "purpose": {
               "tag": "Prompt",
@@ -2726,7 +2726,7 @@
               {
                 "cancelled": false,
                 "id": {
-                  "#bigint": "1"
+                  "#bigint": "3"
                 },
                 "purpose": {
                   "tag": "Prompt",
@@ -2829,7 +2829,7 @@
         "rpcs": [
           {
             "id": {
-              "#bigint": "1"
+              "#bigint": "3"
             },
             "purpose": {
               "tag": "Prompt",
@@ -2992,7 +2992,7 @@
               {
                 "cancelled": false,
                 "id": {
-                  "#bigint": "1"
+                  "#bigint": "3"
                 },
                 "purpose": {
                   "tag": "Prompt",
@@ -3095,7 +3095,7 @@
         "rpcs": [
           {
             "id": {
-              "#bigint": "1"
+              "#bigint": "3"
             },
             "purpose": {
               "tag": "Prompt",
@@ -3258,7 +3258,7 @@
               {
                 "cancelled": false,
                 "id": {
-                  "#bigint": "1"
+                  "#bigint": "3"
                 },
                 "purpose": {
                   "tag": "Prompt",
@@ -3361,7 +3361,7 @@
         "rpcs": [
           {
             "id": {
-              "#bigint": "1"
+              "#bigint": "3"
             },
             "purpose": {
               "tag": "Prompt",

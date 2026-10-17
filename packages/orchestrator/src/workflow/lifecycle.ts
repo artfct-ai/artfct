@@ -469,9 +469,9 @@ export async function onIdle(workflow: WorkflowRuntime): Promise<void> {
 
 /**
  * Count the restart of a paused task without starting its sandbox, and stop the alarms of the
- * closed one. Its resume wakes the fresh sandbox, which resumes with the queued prompt.
+ * closed one. The task waits queued, so its resume starts a fresh sandbox with the queued prompt.
  */
 async function holdRestartForResume(workflow: WorkflowRuntime, task: TaskRow): Promise<void> {
-  workflow.store.updateTask(task.task_id, { restarts: task.restarts + 1 });
+  workflow.store.updateTask(task.task_id, { restarts: task.restarts + 1, status: "queued" });
   await clearTaskTimers(workflow, workflow.store.requireSandbox(task.task_id));
 }

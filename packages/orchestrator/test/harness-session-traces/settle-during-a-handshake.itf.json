@@ -4,8 +4,8 @@
     "format-description": "https://apalache-mc.org/docs/adr/015adr-trace.html",
     "source": "../../spec/harness-session/harnessDefaultEffort.qnt",
     "status": "violation",
-    "description": "Created by Quint on Fri Oct 16 2026 18:37:37 GMT-0400 (Eastern Daylight Time)",
-    "timestamp": 1792190257975
+    "description": "Created by Quint on Fri Oct 16 2026 22:11:36 GMT-0400 (Eastern Daylight Time)",
+    "timestamp": 1792203096219
   },
   "vars": ["harnessDefaultEffort::harnessSession::world", "mbt::actionTaken", "mbt::nondetPicks"],
   "states": [
@@ -1544,7 +1544,7 @@
               {
                 "cancelled": false,
                 "id": {
-                  "#bigint": "1"
+                  "#bigint": "2"
                 },
                 "purpose": {
                   "tag": "SessionNew",
@@ -1634,7 +1634,7 @@
         "rpcs": [
           {
             "id": {
-              "#bigint": "1"
+              "#bigint": "2"
             },
             "purpose": {
               "tag": "SessionNew",
@@ -1811,7 +1811,7 @@
               {
                 "cancelled": false,
                 "id": {
-                  "#bigint": "1"
+                  "#bigint": "3"
                 },
                 "purpose": {
                   "tag": "Prompt",
@@ -1901,7 +1901,7 @@
         "rpcs": [
           {
             "id": {
-              "#bigint": "1"
+              "#bigint": "3"
             },
             "purpose": {
               "tag": "Prompt",
@@ -2075,7 +2075,7 @@
               {
                 "cancelled": false,
                 "id": {
-                  "#bigint": "1"
+                  "#bigint": "3"
                 },
                 "purpose": {
                   "tag": "Prompt",
@@ -2165,7 +2165,7 @@
         "rpcs": [
           {
             "id": {
-              "#bigint": "1"
+              "#bigint": "3"
             },
             "purpose": {
               "tag": "Prompt",
@@ -2572,7 +2572,7 @@
               {
                 "cancelled": false,
                 "id": {
-                  "#bigint": "1"
+                  "#bigint": "4"
                 },
                 "purpose": {
                   "tag": "Prompt",
@@ -2662,7 +2662,7 @@
         "rpcs": [
           {
             "id": {
-              "#bigint": "1"
+              "#bigint": "4"
             },
             "purpose": {
               "tag": "Prompt",
@@ -3072,7 +3072,7 @@
               {
                 "cancelled": false,
                 "id": {
-                  "#bigint": "1"
+                  "#bigint": "5"
                 },
                 "purpose": {
                   "tag": "Prompt",
@@ -3162,7 +3162,7 @@
         "rpcs": [
           {
             "id": {
-              "#bigint": "1"
+              "#bigint": "5"
             },
             "purpose": {
               "tag": "Prompt",
@@ -3336,7 +3336,7 @@
               {
                 "cancelled": false,
                 "id": {
-                  "#bigint": "1"
+                  "#bigint": "5"
                 },
                 "purpose": {
                   "tag": "Prompt",
@@ -3426,7 +3426,7 @@
         "rpcs": [
           {
             "id": {
-              "#bigint": "1"
+              "#bigint": "5"
             },
             "purpose": {
               "tag": "Prompt",
@@ -5627,7 +5627,7 @@
               {
                 "cancelled": false,
                 "id": {
-                  "#bigint": "1"
+                  "#bigint": "6"
                 },
                 "purpose": {
                   "tag": "Initialize",
@@ -5762,7 +5762,7 @@
         "rpcs": [
           {
             "id": {
-              "#bigint": "1"
+              "#bigint": "6"
             },
             "purpose": {
               "tag": "Initialize",
@@ -5928,7 +5928,7 @@
               {
                 "cancelled": false,
                 "id": {
-                  "#bigint": "1"
+                  "#bigint": "7"
                 },
                 "purpose": {
                   "tag": "SessionNew",
@@ -6063,7 +6063,7 @@
         "rpcs": [
           {
             "id": {
-              "#bigint": "1"
+              "#bigint": "7"
             },
             "purpose": {
               "tag": "SessionNew",
@@ -6235,7 +6235,7 @@
               {
                 "cancelled": false,
                 "id": {
-                  "#bigint": "1"
+                  "#bigint": "7"
                 },
                 "purpose": {
                   "tag": "SessionNew",
@@ -6332,7 +6332,7 @@
         "rpcs": [
           {
             "id": {
-              "#bigint": "1"
+              "#bigint": "7"
             },
             "purpose": {
               "tag": "SessionNew",

@@ -17,7 +17,11 @@
     "aRunningTurnKeepsItsSandboxAwake",
     "aBridgeConnectsOnlyWithTheCurrentToken",
     "everyPermissionRequestIsAllowed",
-    "anAuthorInReviewRunsNoTurn"
+    "anAuthorInReviewRunsNoTurn",
+    "anAnswerReachesOnlyItsOwnRequest",
+    "stopEndsTheAuthorsTurn",
+    "aHarnessSessionRunsOneTurnAtATime",
+    "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn"
   ],
   "witnesses": {
     "harnessDefaultEffort": [

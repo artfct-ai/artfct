@@ -230,8 +230,8 @@ export const LOST_SANDBOX_TEXT =
 
 /**
  * The bridge socket closed. Remember when, so a queued prompt knows how long to wait. A close
- * under a prompt in flight recovers the turn at once when the bridge process is gone, and
- * otherwise arms the lost-turn alarm. A socket of an older generation is ignored.
+ * under a prompt in flight or a handshake recovers it at once when the bridge process is gone,
+ * and otherwise arms the lost-turn alarm. A socket of an older generation is ignored.
  */
 export async function onBridgeClosed(
   workflow: WorkflowRuntime,
@@ -245,7 +245,7 @@ export async function onBridgeClosed(
     bridge_closed_at: new Date(workflow.now()).toISOString(),
   });
   workflow.log(taskId, "bridge disconnected");
-  if (!sandbox.prompt_in_flight || isTaskFinished(task.status)) return;
+  if (!waitsOnTheBridge(workflow.store, sandbox) || isTaskFinished(task.status)) return;
   const alarm: GenerationAlarm = { task_id: taskId, generation: sandbox.generation };
   if (await bridgeProcessGone(workflow, task, sandbox.generation)) {
     return onBridgeLost(workflow, alarm);
@@ -275,8 +275,8 @@ export async function bridgeProcessGone(
 }
 
 /**
- * Alarm: the reconnect window closed on a bridge that carried a prompt. The turn is lost and
- * the sandbox restarts with it.
+ * Alarm: the reconnect window closed on a bridge that carried a prompt or a handshake. The turn
+ * is lost and the sandbox restarts with it.
  */
 export async function onBridgeLost(
   workflow: WorkflowRuntime,
@@ -285,19 +285,30 @@ export async function onBridgeLost(
   const task = workflow.store.task(alarm.task_id);
   const sandbox = workflow.store.sandbox(alarm.task_id);
   if (!task || !sandbox || sandbox.generation !== alarm.generation) return;
-  if (!sandbox.prompt_in_flight || isTaskFinished(task.status) || task.paused_at !== null) return;
+  if (!waitsOnTheBridge(workflow.store, sandbox)) return;
+  if (isTaskFinished(task.status) || task.paused_at !== null) return;
   if (workflow.connections(task.task_id).length > 0) return;
   await recoverLostTurn(workflow, task);
 }
 
+/** True while a prompt in flight or a handshake waits on the bridge, so its loss needs recovery. */
+function waitsOnTheBridge(store: WorkflowStore, sandbox: SandboxRow): boolean {
+  return sandbox.prompt_in_flight === 1 || store.handshakePending(sandbox.task_id);
+}
+
 /**
- * Forget the turn the dead sandbox was running and start the sandbox again. A prompt already
- * queued is what the harness resumes with.
+ * Forget the turn the dead sandbox was running and its harness session, and start the sandbox
+ * again. A bridge that still runs the turn cannot take the next prompt. A prompt already queued
+ * is what the harness resumes with.
  */
 export async function recoverLostTurn(workflow: WorkflowRuntime, task: TaskRow): Promise<void> {
   workflow.log(task.task_id, "bridge lost with a prompt in flight. restarting the sandbox.");
   workflow.store.clearRpc(task.task_id);
-  workflow.store.updateSandbox(task.task_id, { prompt_in_flight: 0, turn_text: "" });
+  workflow.store.updateSandbox(task.task_id, {
+    prompt_in_flight: 0,
+    turn_text: "",
+    session_id: null,
+  });
   if (!workflow.store.peekPrompt(task.task_id)) {
     workflow.store.enqueuePrompt(task.task_id, LOST_SANDBOX_TEXT);
   }

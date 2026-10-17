@@ -191,7 +191,11 @@ export async function onTurnEnd(
 ): Promise<void> {
   workflow.log(task.task_id, `turn ended: ${stopReason}`);
   const turnText = workflow.store.requireSandbox(task.task_id).turn_text;
-  workflow.store.updateSandbox(task.task_id, { prompt_in_flight: 0, turn_text: "" });
+  workflow.store.updateSandbox(task.task_id, {
+    prompt_in_flight: 0,
+    turn_text: "",
+    stopped_early: 0,
+  });
   workflow.store.updateTask(task.task_id, { summary: turnText.slice(-SUMMARY_CHARS) });
   if (task.role === "researcher") return endResearcherTurn(workflow, task, stopReason);
   if (task.role !== "author") return endRefinerTurn(workflow, task, stopReason, turnText);
@@ -203,8 +207,10 @@ export async function onTurnEnd(
       ? await authorTurnOutcome(workflow, workflow.store.requireTask(task.task_id))
       : null;
   if (workflow.store.requireSandbox(task.task_id).generation !== generation) return;
-  if (outcome === "blocked") {
-    await restartBlockedAuthor(workflow, task.task_id);
+  if (outcome === "stopped_early") {
+    workflow.store.updateSandbox(task.task_id, { stopped_early: 1 });
+  }
+  if (outcome === "blocked" && (await restartBlockedAuthor(workflow, task.task_id))) {
     return closeSessionFeed(workflow, task, null);
   }
   if (outcome === "stopped_early" && (await stalledAtTurnEnd(workflow, task)) === "restarted") {
@@ -224,14 +230,17 @@ export async function onTurnEnd(
 
 /**
  * A blocked author restarts and resumes with the gave-up wake text. It fails once its restarts
- * are used up. One whose task finished while the decisions model answered is left alone.
+ * are used up. One whose task finished while the decisions model answered is left alone. False
+ * when a prompt is in flight or queued, so that prompt is the author's next step.
  */
-async function restartBlockedAuthor(workflow: WorkflowRuntime, taskId: string): Promise<void> {
+async function restartBlockedAuthor(workflow: WorkflowRuntime, taskId: string): Promise<boolean> {
   const author = workflow.store.requireTask(taskId);
-  if (isTaskFinished(author.status)) return;
+  if (isTaskFinished(author.status)) return true;
+  if (authorHasAPrompt(workflow, taskId)) return false;
   workflow.store.enqueuePrompt(taskId, GAVE_UP_RESTART_TEXT);
   const reason = `The author gave up: ${clipHead(author.summary, GAVE_UP_CHARS)}`;
   await restartOrFailTask(workflow, author, reason);
+  return true;
 }
 
 /**
@@ -243,11 +252,16 @@ async function stalledAtTurnEnd(
   task: TaskRow,
 ): Promise<StallResponse | "has_next_step"> {
   const author = workflow.store.requireTask(task.task_id);
-  const sandbox = workflow.store.requireSandbox(task.task_id);
-  const prompted =
-    sandbox.prompt_in_flight === 1 || workflow.store.peekPrompt(task.task_id) !== null;
-  if (isTaskFinished(author.status) || prompted) return "has_next_step";
+  if (isTaskFinished(author.status) || authorHasAPrompt(workflow, task.task_id)) {
+    return "has_next_step";
+  }
   return nudgeOrRestartStalledTask(workflow, author);
+}
+
+/** True while a prompt of the author is in flight or queued. */
+function authorHasAPrompt(workflow: WorkflowRuntime, taskId: string): boolean {
+  const inFlight = workflow.store.requireSandbox(taskId).prompt_in_flight === 1;
+  return inFlight || workflow.store.peekPrompt(taskId) !== null;
 }
 
 /** A reopened artifact on a stage with no refiner goes back to the humans when the harness is idle. */
@@ -360,7 +374,8 @@ async function endBrokenRun(
 
 /**
  * An rpc the harness refused. A failed prompt gets no turn end, so the author settles here
- * the way a turn end would.
+ * the way a turn end would. A refused prompt of an author whose last turn stopped early counts
+ * as a stall.
  */
 export async function onRpcError(
   workflow: WorkflowRuntime,
@@ -386,6 +401,11 @@ export async function onRpcError(
   await workflow.post({ type: "progress", task_id: task.task_id, text: note });
   workflow.store.patchTodoRow(task.task_id, { note });
   if (task.role !== "author") return endBrokenRun(workflow, task, note);
+  const stoppedEarly = workflow.store.requireSandbox(task.task_id).stopped_early === 1;
+  if (stoppedEarly && (await stalledAtTurnEnd(workflow, task)) === "restarted") {
+    const failed = isTaskFinished(workflow.store.requireTask(task.task_id).status);
+    return closeSessionFeed(workflow, task, failed ? null : { kind: "error", text: note });
+  }
   const busy = await settleAndResumeAuthor(workflow, task.task_id);
   await closeSessionFeed(workflow, task, busy ? null : { kind: "error", text: note });
   if (busy) return;
