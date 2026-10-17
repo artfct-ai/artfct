@@ -376,7 +376,7 @@ function closingsAtTurnEnd(promptQueued: boolean): AuthorClosing[] {
 }
 
 /** How code fails to rule on a judge run, when the spec says it cannot rule. */
-const CANNOT_RULE_PATHS = ["unclear", "no_conclusion", "decisions_fail"] as const;
+const CANNOT_RULE_PATHS = ["unclear", "decisions_fail"] as const;
 
 /** How code reaches the ruling a trace gives a judge run: the decisions model reads one, or code cannot rule. */
 type RulingPath = "reads_a_ruling" | (typeof CANNOT_RULE_PATHS)[number];
@@ -407,9 +407,9 @@ function findingsReviewerEnds(
 }
 
 /**
- * A judge turn end that waits for the step that rules on it: on the ruling call the decisions
- * model holds, or on the note that asks the agent for a person's ruling. It keeps the judge run
- * and the path, so a ruling call that a new instance asks again is held the same way.
+ * A judge turn end that waits for the step that rules on it, on the ruling call the decisions
+ * model holds. It keeps the judge run and the path, so a ruling call that a new instance asks
+ * again is held the same way.
  */
 type HeldRuling = {
   taskId: string;
@@ -772,6 +772,7 @@ export class ReviewLoopReplay {
   private async takeAction(step: TraceStep): Promise<void> {
     const { action } = step;
     if (action === "judgeTurnEnds") return this.judgeTurnEnds();
+    if (action === "judgeClosesWithoutAConclusion") return this.judgeClosesWithoutAConclusion();
     if (action === "instanceRestarts") return this.instanceRestarts();
     if (isRulingAction(action)) return this.answerRuling(action, step);
     if (action === "theHostFailsAModelCallAuthorsWrite") {
@@ -1352,22 +1353,23 @@ export class ReviewLoopReplay {
     });
   }
 
-  /**
-   * The judge closes, and its turn end waits for the step that rules on it. The judge closes
-   * without a conclusion only when the trace says code cannot rule on the run.
-   */
+  /** The judge closes with its conclusion, and its turn end waits for the step that rules on it. */
   private async judgeTurnEnds(): Promise<void> {
     const run = this.world.refinerRunOf(this.author);
     if (!run) throw new Error("no refiner run is unfinished");
     const runId = this.runIdOf(run);
     const path = this.rulingPathOf(runId);
-    const held =
-      path === "no_conclusion"
-        ? await this.untilAskedForARuling(run)
-        : await this.untilRulingCall({ taskId: run.task_id, path }, () =>
-            this.world.apply(judgeCloses(run, JUDGE_CONCLUSION)),
-          );
+    const held = await this.untilRulingCall({ taskId: run.task_id, path }, () =>
+      this.world.apply(judgeCloses(run, JUDGE_CONCLUSION)),
+    );
     if (held) this.held.set(runId, held);
+  }
+
+  /** The judge closes without a conclusion, so its turn end asks the agent for a person's ruling. */
+  private async judgeClosesWithoutAConclusion(): Promise<void> {
+    const run = this.world.refinerRunOf(this.author);
+    if (!run) throw new Error("no refiner run is unfinished");
+    await this.untilModelCall(() => this.world.apply(judgeCloses(run, "")));
   }
 
   /**
@@ -1388,7 +1390,7 @@ export class ReviewLoopReplay {
       const settled = alarm.payload as TaskAlarm;
       const call = lost.find(({ held }) => held.taskId === settled.task_id);
       const path = call?.held.path;
-      if (!call || !path || path === "no_conclusion") {
+      if (!call || !path) {
         throw new Error(
           `the start step settles ${settled.task_id}, whose ruling call was not lost`,
         );
@@ -1413,17 +1415,12 @@ export class ReviewLoopReplay {
       .slice(this.step + 1)
       .find((later) => isRulingAction(later.action) && later.judgeRun === runId);
     if (ruling && ruling.action !== "decisionsModelCannotRule") return "reads_a_ruling";
-    const restarts = this.worldReplays.some((replay) =>
-      replay.trace.some((step) => step.action === "instanceRestarts"),
-    );
-    return this.pick(
-      restarts ? CANNOT_RULE_PATHS.filter((path) => path !== "no_conclusion") : CANNOT_RULE_PATHS,
-    );
+    return this.pick(CANNOT_RULE_PATHS);
   }
 
   /** Run `work` until the decisions model holds the ruling call of the judge run. */
   private async untilRulingCall(
-    ruling: { taskId: string; path: Exclude<RulingPath, "no_conclusion"> },
+    ruling: { taskId: string; path: RulingPath },
     work: () => Promise<unknown>,
   ): Promise<HeldRuling | null> {
     const gatewayBefore = this.world.workflow.gatewayInstance;
@@ -1448,35 +1445,6 @@ export class ReviewLoopReplay {
     if (outcome !== "held" || !answer) return null;
     const { taskId, path } = ruling;
     return { taskId, path, release: (action) => answer(rulingDecisions(action, path)), turnEnd };
-  }
-
-  /**
-   * The judge closes without a conclusion, so code cannot rule, and the note that asks the agent
-   * for a person's ruling waits.
-   */
-  private async untilAskedForARuling(run: TaskRow): Promise<HeldRuling | null> {
-    const { workflow } = this.world;
-    const tellAgent = workflow.tellAgent.bind(workflow);
-    const note: { resume: (() => void) | null } = { resume: null };
-    const asked = new Promise<"held">((askArrived) => {
-      workflow.tellAgent = async (text, wake, from) => {
-        const asksForRuling =
-          text.includes("needs a person's ruling") && text.includes(`job ${run.job_id}`);
-        if (!asksForRuling) return tellAgent(text, wake, from);
-        workflow.tellAgent = tellAgent;
-        askArrived("held");
-        await new Promise<void>((resumed) => {
-          note.resume = resumed;
-        });
-        return tellAgent(text, wake, from);
-      };
-    });
-    const turnEnd = this.world.apply(judgeCloses(run, ""));
-    const outcome = await Promise.race([asked, turnEnd.then(() => "ended" as const)]);
-    workflow.tellAgent = tellAgent;
-    const { resume } = note;
-    if (outcome !== "held" || !resume) return null;
-    return { taskId: run.task_id, path: "no_conclusion", release: () => resume(), turnEnd };
   }
 
   private async answerRuling(action: RulingAction, step: TraceStep): Promise<void> {

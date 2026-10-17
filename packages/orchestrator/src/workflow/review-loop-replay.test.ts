@@ -84,14 +84,26 @@ const PINNED_TRACES = join(
   "../../test/review-loop-traces",
 );
 
-async function replayPinnedTrace(name: string, setup: SpecSetup): Promise<void> {
+async function replayPinnedTrace(name: string, setup: SpecSetup, seed = 0): Promise<void> {
   const trace: unknown = JSON.parse(readFileSync(join(PINNED_TRACES, `${name}.itf.json`), "utf8"));
-  await replayTraces(setup, [traceSteps(setup, trace)], 0);
+  await replayTraces(setup, [traceSteps(setup, trace)], seed);
 }
 
 describe("review loop spec", () => {
   it("rules on a judge run whose ruling call a new instance lost", async () => {
     await replayPinnedTrace("ruling-call-lost-with-the-instance", "judgeThenPolisher");
+  });
+
+  it("holds the ruling call of a judge that closes after a cancelled run", async () => {
+    await replayPinnedTrace(
+      "judge-closes-after-a-cancelled-run",
+      "pageJudgeBetweenReviewers",
+      413067186,
+    );
+  });
+
+  it("holds the ruling call of a judge that closes after findings", async () => {
+    await replayPinnedTrace("judge-closes-after-findings", "pageJudgeBetweenReviewers", 413898815);
   });
 
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
