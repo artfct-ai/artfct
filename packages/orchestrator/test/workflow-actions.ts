@@ -246,6 +246,43 @@ export function refinerRunPromptFails(index: number): WorkflowAction {
   });
 }
 
+/** The harness of the author's unfinished refiner run exits while its turn runs. */
+export function refinerRunHarnessExits(index: number): WorkflowAction {
+  return authorAction(index, "harness of the refiner run exits", async (world, author) => {
+    const run = world.refinerRunOf(author);
+    const bridge = run ? await world.bridgeWithRunningTurn(run.task_id) : null;
+    await bridge?.exit(1);
+  });
+}
+
+/**
+ * The author's unfinished refiner run stalls: the nudge cancels its running turn and goes out in
+ * the same session, and the run stalls again before it shows progress.
+ */
+export function refinerRunStallsAfterItsNudge(index: number): WorkflowAction {
+  return authorAction(index, "refiner run stalls after its nudge", async (world, author) => {
+    const run = world.refinerRunOf(author);
+    const bridge = run ? await world.bridgeWithRunningTurn(run.task_id) : null;
+    if (!run || !bridge) return;
+    await noProgressFiresFor(world, run.task_id);
+    if (bridge.cancelRequested) await bridge.endTurn("cancelled");
+    await noProgressFiresFor(world, run.task_id);
+  });
+}
+
+/** The no-progress alarm of the current sandbox generation of a task fires. */
+async function noProgressFiresFor(world: WorkflowWorld, taskId: string): Promise<void> {
+  const { workflow } = world;
+  const { generation } = workflow.store.requireSandbox(taskId);
+  const alarm = workflow.alarmsFor("onNoProgress").find((armed) => {
+    const payload = armed.payload as GenerationAlarm;
+    return payload.task_id === taskId && payload.generation === generation;
+  });
+  if (!alarm) throw new Error(`${taskId} has no no-progress alarm armed`);
+  await workflow.cancelAlarm(alarm.id);
+  await onNoProgress(workflow, alarm.payload as GenerationAlarm);
+}
+
 /** The first artifact appears: the author prints its link, or the host says a pull request opened. */
 export function firstArtifactAppears(
   index: number,

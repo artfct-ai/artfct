@@ -30,6 +30,9 @@ import {
   personRules,
   refinerRunEnds,
   refinerRunFails,
+  refinerRunHarnessExits,
+  refinerRunPromptFails,
+  refinerRunStallsAfterItsNudge,
   timerFires,
   type AuthorClosing,
   type RefinerRunEnd,
@@ -343,14 +346,6 @@ const WORLD_ACTIONS: Record<string, (index: number) => WorkflowAction> = {
       closing: "reports_work",
     }),
   polisherPushesNothing,
-  refinerRunGivesUp: (index) =>
-    refinerRunEnds(index, {
-      ...TURN_END,
-      pageCommenting: "takes",
-      reviewer: "no_review",
-      polisher: "nothing_pushed",
-      closing: "gives_up",
-    }),
   agentRequestsReview: (index) => agentRoutes(index, "request_review"),
   agentFinishesReview: (index) => agentRoutes(index, "finish_review"),
   agentCancelsRefinerRun: (index) => agentCancels(index, "refiner_run"),
@@ -364,6 +359,25 @@ function polisherPushesNothing(index: number): WorkflowAction {
     reviewer: "no_review",
     polisher: "nothing_pushed",
     closing: "reports_work",
+  });
+}
+
+/** The stop reasons of a turn that ended before its work was complete. */
+const UNFINISHED_STOPS = ["max_tokens", "max_turn_requests", "refusal"] as const;
+
+/** The refiner run's turn ends with `closing` on `stopReason`, without a review or a push. */
+function refinerRunEndsUnfinished(
+  index: number,
+  closing: RefinerRunEnd["closing"],
+  stopReason: RefinerRunEnd["stopReason"],
+): WorkflowAction {
+  return refinerRunEnds(index, {
+    ...TURN_END,
+    stopReason,
+    pageCommenting: "takes",
+    reviewer: "no_review",
+    polisher: "nothing_pushed",
+    closing,
   });
 }
 
@@ -879,6 +893,9 @@ export class ReviewLoopReplay {
       return findingsReviewerEnds(index, reviewer, pickTag(step, "commenting"));
     }
     if (isAuthorTurnEnd(action)) return this.harnessAuthorTurnEnds(step, index);
+    if (action === "refinerRunHitsARecoverableFailure") {
+      return this.recoverableFailure(pickTag(step, "cause"), index);
+    }
     if (this.revisions.kind === "page" && action === "polisherPushes") {
       return this.afterPageEdit(pickTag(step, "part"), polisherPushesNothing(index));
     }
@@ -899,6 +916,24 @@ export class ReviewLoopReplay {
       return this.afterPageEdit(pickTag(step, "part"), authorTurnEnds(index, "same", closing));
     }
     return authorTurnEnds(index, changed ? "changed" : "same", closing);
+  }
+
+  /** The world action that makes the refiner run hit the failure `cause` names. */
+  private recoverableFailure(cause: string, index: number): WorkflowAction {
+    switch (cause) {
+      case "GivesUp":
+        return refinerRunEndsUnfinished(index, "gives_up", "end_turn");
+      case "UnfinishedStop":
+        return refinerRunEndsUnfinished(index, "reports_work", this.pick(UNFINISHED_STOPS));
+      case "Stalled":
+        return refinerRunStallsAfterItsNudge(index);
+      case "SandboxGone":
+        return refinerRunHarnessExits(index);
+      case "PromptFails":
+        return refinerRunPromptFails(index);
+      default:
+        throw new Error(`the trace has restart cause ${cause}`);
+    }
   }
 
   /** The option the seeded pick of the current step chooses. */

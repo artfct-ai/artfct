@@ -17,7 +17,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | T5 | The first bridge hello moves the task to `working`. | |
 | T6 | A model-call author is `working` only while its model turn is in flight, or after a stop ended its first turn before the page existed. | `aModelCallAuthorWorksOnlyWhileItsCallIsOut` |
 | T7 | An author moves to `in_review` only when its job has an artifact, a prompt is not in flight, and its handshake is not pending. It leaves `in_review` only for a prompt. | `inReviewTaskHasAnArtifact`, `workflowLifecycle::inReviewTaskHasAnArtifact`, `anAuthorInReviewWorksOnlyWithAPrompt` |
-| T8 | A finished task (`done`, `failed`, `cancelled`) never changes status again. A restart or a completion that finds the task finished when it reads it again leaves it finished. A stop writes its stopped state before it awaits the destroy, so a destroy that returns late writes nothing. | `finishedTaskKeepsItsStatus` |
+| T8 | A finished task (`done`, `failed`, `cancelled`) never changes status again. A restart or a completion that finds the task finished when it reads it again leaves it finished. A stop writes its stopped state before it awaits the destroy, so a destroy that returns late writes nothing. | `finishedTaskKeepsItsStatus`, `reviewLoop::aFinishedRefinerRunKeepsItsStatus` |
 | T9 | A failed author or researcher closes its review as blocked, posts `failed`, and wakes the agent. A failed reviewer or polisher hands the artifact over blocked. | |
 | T10 | A cancelled author or researcher closes its review as blocked, flushes the board, and tells the agent. | `finishedTaskKeepsItsStatus`, `endedWorkflowHasNoUnfinishedTask` |
 | T11 | Each usage update replaces a harness task's cost. A restart can lower the reported cost. | |
@@ -35,7 +35,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| T20 | A task restarts at most twice, whatever the cause, then fails. The count lives on the task and covers harness and model-call tasks. A restart writes the task `queued` with its restart counted before it destroys the old container, so a restart of the Durable Object during the destroy leaves the task queued for the start step. A paused task waits queued for its resume. A failure of a task already queued for a restart is dropped. A restart whose container closed after another restart counted, or after a newer generation began, is dropped. | `taskRestartsAtMostTwice`, `harnessSession::anUnpausedTaskWithWorkIsNeverStranded` |
+| T20 | A task restarts at most twice, whatever the cause, then fails. The count lives on the task and covers harness and model-call tasks. A restart writes the task `queued` with its restart counted before it destroys the old container, so a restart of the Durable Object during the destroy leaves the task queued for the start step. A paused task waits queued for its resume. A failure of a task already queued for a restart is dropped. A restart whose container closed after another restart counted, or after a newer generation began, is dropped. | `taskRestartsAtMostTwice`, `harnessSession::anUnpausedTaskWithWorkIsNeverStranded`, `reviewLoop::aRefinerRunRestartsAtMostTwice` |
 | T21 | Recovery of a lost harness turn starts a fresh sandbox without counting a restart. A sandbox that keeps dying mid-turn restarts without a limit. | |
 | T22 | A harness process exit counts a restart and starts a fresh sandbox. It does not close the container, write the board note, or tell the agent. | |
 | T23 | A sandbox start that throws restarts or fails. A spec error, a gateway error or a stage the definition stopped declaring fails at once. A start of an older generation that throws changes nothing, and so does one that throws on a task already queued for a restart. | `aFailedSandboxStartRestartsOrFails`, `taskRestartsAtMostTwice` |
@@ -161,7 +161,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | R13 | A cancelled judge run leaves the artifact drafted with its pointer until the agent routes it. A failed reviewer hands over blocked. A cancelled or failed polisher hands over blocked. | |
 | R14 | An author turn that ends on a ready artifact with a changed or unreadable revision reopens it to drafted and reruns the refiners. A stage without refiners posts `artifact_ready` again. | `artifactStatusMovesAreLegal`, `refinersRunAgainOnlyOnChangedRevision` |
 | R15 | A pull request review read that fails reads as if the reviewer did not file a review, and the segment advances as if clean. | |
-| R16 | A reviewer that failed or gave up restarts while it has restarts, then the artifact is handed over blocked. | `finishedTaskKeepsItsStatus` |
+| R16 | A reviewer that failed or gave up restarts while it has restarts, then the artifact is handed over blocked. | `finishedTaskKeepsItsStatus`, `reviewLoop::aRefinerRunRestartsAtMostTwice`, `reviewLoop::aFinishedRefinerRunKeepsItsStatus` |
 | R17 | An accepted artifact stays accepted, and a refiner run does not start on its job. Its job completes once. A second `complete_job` does not change a task or the artifact, and does not post. | `anAcceptedArtifactNeverMovesBack` |
 
 ### Polish and checks

@@ -24,6 +24,14 @@ module reviewLoopTypes {
     | FiledRuling({ ruling: Ruling, revision: int })
     | RulingAsked
 
+  /// Why a refiner run hits a failure it may recover from: its closing text says it gave up, its
+  /// turn stopped before the work was complete, it stalled again after its nudge, its harness
+  /// went away, or the harness refused its prompt.
+  type RestartCause = GivesUp | UnfinishedStop | Stalled | SandboxGone | PromptFails
+
+  /// The refiner run that hit a failure it may recover from in a step, and why, if one did.
+  type RecoverableFailure = NoRecoverableFailure | RefinerRunHit({ refinerRun: int, cause: RestartCause })
+
   /// One execution of a refiner on the artifact.
   type RefinerRun = { refinerIndex: int, status: RunStatus, result: RefinerResult, restarts: int }
 
@@ -161,13 +169,15 @@ module reviewLoopTypes {
 
   /// What an observer knows about the last step besides the reviews around it: the turn that
   /// ended, what happened on the document host, whether the host took a model-call author's
-  /// writes, what the agent read about page comments, and whether a new instance took over.
+  /// writes, what the agent read about page comments, whether a new instance took over, and the
+  /// refiner run that hit a failure it may recover from.
   type StepKind = {
     turnEnd: TurnEnd,
     page: PageFact,
     write: PageWrite,
     agentHeard: Set[AgentNote],
     instanceRestarted: bool,
+    recoverableFailure: RecoverableFailure,
   }
 
   /// One step: the review before it, the review after it, and what an observer knows of it.
@@ -189,6 +199,8 @@ module reviewLoopTypes {
     failedReplyLeavesThePage: bool,
     aJudgeRejectionPostsItsReasonOnce: bool,
     aModelCallAuthorFailsOnlyOnAHostError: bool,
+    aRefinerRunRestartsAtMostTwice: bool,
+    aFinishedRefinerRunKeepsItsStatus: bool,
   }
 
   /// Whether the last step reached each before-and-after witness, by the name of the witness. Only
@@ -222,6 +234,8 @@ module reviewLoopTypes {
     aModelCallTurnStartsOver: bool,
     aRulingCallIsLostWithTheInstance: bool,
     aJudgeClosesWithoutAConclusion: bool,
+    aRefinerRunFailsPastItsRestarts: bool,
+    aRefinerRunStartsAfterAFailedOrCancelledOne: bool,
   }
 
   /// A model-call author's turn end: the review after it and how the turn ended.
@@ -333,6 +347,8 @@ module reviewLoop {
 
   /// The passages of the findings of a page review with findings.
   pure val REVIEW_PASSAGES: Set[Passage] = Set(QuotesThePage, QuotesMissingText, WithoutPassage)
+
+  pure val RESTART_CAUSES: Set[RestartCause] = Set(GivesUp, UnfinishedStop, Stalled, SandboxGone, PromptFails)
 
   var review: ReviewLoop
   var lastStepKept: KeptRules
@@ -975,7 +991,14 @@ module reviewLoop {
   /// What an observer knows of a step that does not touch page comments or a model-call author's
   /// writes.
   pure def quietStep(turnEnd: TurnEnd): StepKind =
-    { turnEnd: turnEnd, page: NoPageFact, write: WritesLand, agentHeard: Set(), instanceRestarted: false }
+    {
+      turnEnd: turnEnd,
+      page: NoPageFact,
+      write: WritesLand,
+      agentHeard: Set(),
+      instanceRestarted: false,
+      recoverableFailure: NoRecoverableFailure,
+    }
 
   action moveWith(after: ReviewLoop, kind: StepKind): bool = {
     val step = { before: review, after: after, kind: kind }
@@ -1178,15 +1201,17 @@ module reviewLoop {
     move(refinerRunFailed(review, lastUnfinishedRun(review)), NoTurnEnd),
   }
 
-  /// The unfinished refiner run says it gave up. It restarts while it has restarts left.
-  action refinerRunGivesUp: bool = all {
+  /// The unfinished refiner run hits a failure it may recover from. It restarts while it has
+  /// restarts left, and fails after that.
+  action refinerRunHitsARecoverableFailure: bool = all {
     unfinishedRunIds(review).size() > 0,
+    nondet cause = RESTART_CAUSES.oneOf()
     val id = lastUnfinishedRun(review)
     val refinerRun = review.refinerRuns[id]
-    move(
+    moveWith(
       if (refinerRun.restarts < MAX_RESTARTS) withRun(review, id, { ...refinerRun, restarts: refinerRun.restarts + 1 })
       else refinerRunFailed(review, id),
-      NoTurnEnd,
+      { ...quietStep(NoTurnEnd), recoverableFailure: RefinerRunHit({ refinerRun: id, cause: cause }) },
     ),
   }
 
@@ -1281,7 +1306,7 @@ module reviewLoop {
     agentFinishesReview,
     agentCancelsRefinerRun,
     refinerRunFails,
-    refinerRunGivesUp,
+    refinerRunHitsARecoverableFailure,
     personCommentsOnThePage,
     personMentionsTheBot,
     personAsksForRevision,
@@ -1506,6 +1531,30 @@ module reviewLoop {
       | _ => true
     }
 
+  /// True when the refiner run `id` hit a failure it may recover from in the step.
+  pure def hitARecoverableFailure(step: Transition, id: int): bool =
+    match step.kind.recoverableFailure {
+      | RefinerRunHit(hit) => hit.refinerRun == id
+      | NoRecoverableFailure => false
+    }
+
+  /// A refiner run restarts only in a step where it hit a failure it may recover from, once per
+  /// such step while it has restarts left. Such a failure after that fails it.
+  pure def restartsOnlyWhileItHasRestarts(step: Transition): bool =
+    step.before.refinerRuns.indices().forall(id => {
+      val before = step.before.refinerRuns[id]
+      val after = step.after.refinerRuns[id]
+      if (not(hitARecoverableFailure(step, id))) after.restarts == before.restarts
+      else if (before.restarts < MAX_RESTARTS) after.restarts == before.restarts + 1 and after.status == Unfinished
+      else after.restarts == before.restarts and after.status == Failed
+    })
+
+  /// A refiner run that is done, cancelled or failed before a step keeps that status after it.
+  pure def keepsEveryFinishedStatus(step: Transition): bool =
+    step.before.refinerRuns.indices().forall(id =>
+      step.before.refinerRuns[id].status != Unfinished
+        implies step.after.refinerRuns[id].status == step.before.refinerRuns[id].status)
+
   /// Whether one step kept each before-and-after rule.
   pure def rulesKeptBy(step: Transition): KeptRules = {
     judgeRulesAtMostOnce: keepsEveryRuling(step),
@@ -1521,6 +1570,8 @@ module reviewLoop {
     failedReplyLeavesThePage: failedReplyLeavesItAsItWas(step),
     aJudgeRejectionPostsItsReasonOnce: postsTheRejectionOnce(step),
     aModelCallAuthorFailsOnlyOnAHostError: failsOnlyOnAHostError(step),
+    aRefinerRunRestartsAtMostTwice: restartsOnlyWhileItHasRestarts(step),
+    aFinishedRefinerRunKeepsItsStatus: keepsEveryFinishedStatus(step),
   }
 
   /// The held comments read in a step whose host marks them read, when some were held.
@@ -1630,6 +1681,14 @@ module reviewLoop {
         | RefinerTurnEnded(id) => step.after.refinerRuns[id].result == RulingAsked
         | _ => false
       },
+    aRefinerRunFailsPastItsRestarts:
+      step.before.refinerRuns.indices().exists(id => and {
+        hitARecoverableFailure(step, id),
+        step.before.refinerRuns[id].restarts == MAX_RESTARTS,
+      }),
+    aRefinerRunStartsAfterAFailedOrCancelledOne:
+      startedRuns(step).size() > 0 and step.before.refinerRuns.indices().exists(id =>
+        step.before.refinerRuns[id].status == Failed or step.before.refinerRuns[id].status == Cancelled),
   }
 
   /// An artifact has at most one unfinished refiner run, and the artifact is on it.
@@ -1741,6 +1800,15 @@ module reviewLoop {
       review.refinerRuns[id].result == RulingAsked,
     })
 
+  /// A refiner run restarts at most `MAX_RESTARTS` times. A failure after that fails it.
+  val aRefinerRunRestartsAtMostTwice: bool = and {
+    runIds(review).forall(id => review.refinerRuns[id].restarts <= MAX_RESTARTS),
+    lastStepKept.aRefinerRunRestartsAtMostTwice,
+  }
+
+  /// A refiner run that is done, cancelled or failed keeps that status.
+  val aFinishedRefinerRunKeepsItsStatus: bool = lastStepKept.aFinishedRefinerRunKeepsItsStatus
+
   /// Every invariant above, for one check of all of them.
   val invariants: bool = and {
     oneUnfinishedRefinerRunPerArtifact,
@@ -1762,6 +1830,8 @@ module reviewLoop {
     aHeldCommentStaysHeldUntilItReachesTheAuthor,
     aModelCallAuthorFailsOnlyOnAHostError,
     aRestartDoesNotStrandAJudgeRun,
+    aRefinerRunRestartsAtMostTwice,
+    aFinishedRefinerRunKeepsItsStatus,
   }
 
   /// The revisions of the artifact, a counter that model checking bounds.
@@ -1825,7 +1895,7 @@ module reviewLoop {
   /// A reviewer reached the review limit.
   val aReviewerReachedTheLimit: bool = runIds(review).exists(id => reviewLimitReached(review, id))
 
-  /// A refiner run restarted after it gave up.
+  /// Witness for `aRefinerRunRestartsAtMostTwice`: a refiner run restarted.
   val aRefinerRunRestarted: bool = runIds(review).exists(id => review.refinerRuns[id].restarts > 0)
 
   /// A polisher pushed and handed the artifact on.
@@ -1911,6 +1981,14 @@ module reviewLoop {
   /// Witness for `aRestartDoesNotStrandAJudgeRun`: the agent was asked to get a person's ruling.
   val theAgentIsAskedForAPersonsRuling: bool =
     runIds(review).exists(id => review.refinerRuns[id].result == RulingAsked)
+
+  /// Witness for `aRefinerRunRestartsAtMostTwice`: a refiner run whose restarts are used up hits a
+  /// failure it may recover from, and fails.
+  val aRefinerRunFailsPastItsRestarts: bool = lastStepReached.aRefinerRunFailsPastItsRestarts
+
+  /// Witness for `aFinishedRefinerRunKeepsItsStatus`: a refiner run starts after a failed or
+  /// cancelled one.
+  val aRefinerRunStartsAfterAFailedOrCancelledOne: bool = lastStepReached.aRefinerRunStartsAfterAFailedOrCancelledOne
 
   /// A new instance took over the workflow.
   val theInstanceRestarted: bool = instanceRestartCount > 0

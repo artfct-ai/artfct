@@ -24,6 +24,7 @@ import {
   AgentMethods,
   BridgeMethods,
   ClientMethods,
+  type BridgeExitParams,
   type BridgeHelloParams,
 } from "@artfct-ai/acp/methods";
 import { onBridgeMessage } from "../src/workflow/task/harness/bridge";
@@ -137,6 +138,13 @@ export class FakeBridge {
   /** The sandbox goes away and takes the socket with it. */
   drop(): void {
     this.socket.connection.close(1006, "the sandbox went away");
+  }
+
+  /** The harness process exits. The bridge reports its exit code, then closes its socket. */
+  async exit(code: number): Promise<void> {
+    const exited: BridgeExitParams = { code, signal: null };
+    await this.deliver(jsonRpcNotification(BridgeMethods.exit, exited));
+    this.drop();
   }
 
   /** The harness answers the running prompt with an error. False when no turn runs. */
