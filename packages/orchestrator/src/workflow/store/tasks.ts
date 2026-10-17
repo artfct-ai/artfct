@@ -1,8 +1,9 @@
 import { and, desc, eq, inArray, notInArray } from "drizzle-orm";
+import type { Review } from "../../artifact/types";
 import type { TaskRole } from "../task/events";
 import { TURN_PURPOSE } from "../../agent/model/usage";
 import { BoardStore } from "../board/board-store";
-import { jobs, modelUsage, promptQueue, rpc, sandboxes, tasks } from "./schema";
+import { jobs, modelUsage, promptQueue, reviews, rpc, rulings, sandboxes, tasks } from "./schema";
 import type { RpcPurpose } from "./schema";
 import { FINISHED_TASK_STATUSES, now } from "./state";
 
@@ -14,6 +15,40 @@ export type QueuedPrompt = Pick<typeof promptQueue.$inferSelect, "id" | "text">;
 export type PendingRpc = Pick<typeof rpc.$inferSelect, "purpose" | "method">;
 export type ModelUsageRow = typeof modelUsage.$inferSelect;
 export type NewModelUsage = Omit<ModelUsageRow, "id" | "at">;
+
+/** Where the ruling on a judge run stands: a person is asked for it, or the judge ruled on a revision. */
+export type RulingState =
+  | { status: "asked" }
+  | { status: "approved"; revision: string | null }
+  | { status: "rejected"; revision: string | null; reason: string };
+
+/** A refiner run with the review or the ruling it filed. */
+export type RefinerRun = TaskRow & { review: Review | null; ruling: RulingState | null };
+
+function reviewOf(row: typeof reviews.$inferSelect): Review {
+  return {
+    revision: row.revision,
+    blocking: row.blocking,
+    summary: row.summary,
+    findings: row.findings,
+  };
+}
+
+function rulingStateOf(row: typeof rulings.$inferSelect): RulingState {
+  switch (row.status) {
+    case "asked":
+      return { status: "asked" };
+    case "approved":
+      return { status: "approved", revision: row.revision };
+    case "rejected":
+      if (row.reason === null) throw new Error(`the rejection of ${row.task_id} has no reason`);
+      return { status: "rejected", revision: row.revision, reason: row.reason };
+    default: {
+      const unhandled: never = row.status;
+      throw new Error(`unknown ruling status ${String(unhandled)}`);
+    }
+  }
+}
 
 /**
  * Columns the caller sets when a job is created. Its researcher writes the research payload
@@ -92,14 +127,45 @@ export class WorkflowStore extends BoardStore {
       .all();
   }
 
-  /** Every refiner run ever started in one job, oldest first. */
-  refinerRunsOf(jobId: string): TaskRow[] {
+  /** Every refiner run ever started in one job, oldest first, with what each one filed. */
+  refinerRunsOf(jobId: string): RefinerRun[] {
     return this.db
-      .select()
+      .select({ task: tasks, review: reviews, ruling: rulings })
       .from(tasks)
+      .leftJoin(reviews, eq(reviews.task_id, tasks.task_id))
+      .leftJoin(rulings, eq(rulings.task_id, tasks.task_id))
       .where(and(eq(tasks.job_id, jobId), inArray(tasks.role, REFINER_ROLES)))
       .orderBy(tasks.started_at)
-      .all();
+      .all()
+      .map((row) => ({
+        ...row.task,
+        review: row.review && reviewOf(row.review),
+        ruling: row.ruling && rulingStateOf(row.ruling),
+      }));
+  }
+
+  /** File the review a findings reviewer run left on the host. */
+  fileReview(taskId: string, review: Review): void {
+    this.db
+      .insert(reviews)
+      .values({ task_id: taskId, ...review })
+      .run();
+  }
+
+  /** Where the ruling on a judge run stands. Null while it is not decided and no person is asked. */
+  ruling(taskId: string): RulingState | null {
+    const row = this.db.select().from(rulings).where(eq(rulings.task_id, taskId)).get();
+    return row ? rulingStateOf(row) : null;
+  }
+
+  /** Record where the ruling on a judge run stands. A ruling replaces the ask for a person's ruling. */
+  recordRuling(taskId: string, ruling: RulingState): void {
+    const row = { task_id: taskId, revision: null, reason: null, ...ruling };
+    this.db
+      .insert(rulings)
+      .values(row)
+      .onConflictDoUpdate({ target: rulings.task_id, set: row })
+      .run();
   }
 
   /** The author task of a job. Null while the job has not started one yet. */

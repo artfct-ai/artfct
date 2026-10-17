@@ -45,6 +45,7 @@ export type ScheduledMethod =
   | "keepSandboxAlive"
   | "retryQueue"
   | "settleIdleAuthor"
+  | "settleLostJudgeRuling"
   | "onBridgeLost"
   | "flushBoard"
   | "onIdle"

@@ -67,6 +67,7 @@ import { createWorkflow, eventRefusalOf, handleEvent } from "./workflow/inbound/
 import { onIdle } from "./workflow/lifecycle";
 import type { ChecksAlarm } from "./workflow/refiner/checks-gate";
 import { recheckChecks } from "./workflow/refiner/checks-recheck";
+import { settleLostJudgeRuling, settleLostJudgeRulings } from "./workflow/refiner/loop";
 import { retryQueue } from "./workflow/task/harness/prompt-queue";
 import { provision, provisionQueuedTasks } from "./workflow/task/sandbox/sandbox";
 import {
@@ -198,6 +199,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     await resumeLostTurn(this);
     await provisionQueuedTasks(this);
     await settleIdleAuthors(this);
+    await settleLostJudgeRulings(this);
   }
 
   async create(
@@ -281,6 +283,12 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
   settleIdleAuthor(alarm: GenerationAlarm): Promise<void> {
     return this.inSpan("alarm settleIdleAuthor", alarm.task_id, () =>
       settleIdleAuthor(this, alarm),
+    );
+  }
+
+  settleLostJudgeRuling(alarm: TaskAlarm): Promise<void> {
+    return this.inSpan("alarm settleLostJudgeRuling", alarm.task_id, () =>
+      settleLostJudgeRuling(this, alarm),
     );
   }
 

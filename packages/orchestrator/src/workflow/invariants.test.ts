@@ -121,6 +121,7 @@ import {
   type WorldSetup,
 } from "../../test/workflow-world";
 import { TEST_DEFINITION_NAME } from "../../test/test-config";
+import { judgeRuled } from "./refiner/stage-refiner";
 
 const RUNS = 200;
 const REQUEST_RUNS = 50;
@@ -1171,7 +1172,7 @@ describe("reviewers on a revision they reviewed", () => {
     ]);
     const rulings = world.workflow.store
       .refinerRunsOf(world.jobOf(world.authorAt(0)!).job_id)
-      .flatMap((run) => (run.result?.kind === "ruling" ? [run.result.ruling] : []));
+      .flatMap((run) => (judgeRuled(run.ruling) ? [run.ruling.status] : []));
     expect(rulings).toEqual(["rejected"]);
   });
 });

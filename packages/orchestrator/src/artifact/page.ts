@@ -138,7 +138,7 @@ async function fileReview(
     review: parsed,
     signature: input.signature,
   });
-  return { kind: "review", revision: await pageRevision(clients, ref), ...parsed };
+  return { revision: await pageRevision(clients, ref), ...parsed };
 }
 
 /**

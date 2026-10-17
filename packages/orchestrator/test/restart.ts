@@ -1,4 +1,5 @@
 import { resumeLostTurn } from "../src/agent/turn/watchdog";
+import { settleLostJudgeRulings } from "../src/workflow/refiner/loop";
 import { settleIdleAuthors } from "../src/workflow/task/harness/turn";
 import { provisionQueuedTasks } from "../src/workflow/task/sandbox/sandbox";
 import {
@@ -17,6 +18,7 @@ export async function runStartStep(restarted: FakeRuntime): Promise<void> {
   await resumeLostTurn(restarted);
   await provisionQueuedTasks(restarted);
   await settleIdleAuthors(restarted);
+  await settleLostJudgeRulings(restarted);
   const due = restarted.alarmsFor("onModelTurnDeadline").filter((alarm) => alarm.delay === 0);
   for (const alarm of due) {
     await restarted.cancelAlarm(alarm.id);

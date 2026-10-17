@@ -41,22 +41,12 @@ export type Finding = { location?: string; passage?: string; body: string };
  * the host could not say.
  */
 export type Review = {
-  kind: "review";
   revision: string | null;
   blocking: boolean;
   /** What the reviewer said about the artifact as a whole. Empty when it said nothing. */
   summary: string;
   findings: Finding[];
 };
-
-/**
- * What a refiner run filed on its artifact: a findings reviewer's review, or a judge's ruling.
- * Kept on the refiner run's row until its segment settles.
- */
-export type RefinerResult =
-  | Review
-  | { kind: "ruling"; revision: string | null; ruling: "approved" }
-  | { kind: "ruling"; revision: string | null; ruling: "rejected"; reason: string };
 
 /** A human message about an artifact, on its way to becoming a prompt for the author. */
 export type Feedback = {

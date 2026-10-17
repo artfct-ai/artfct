@@ -344,6 +344,13 @@ export const MUTANTS: Mutant[] = [
     replace: "",
   },
   {
+    id: "W45",
+    invariant: "reviewLoop::aRestartDoesNotStrandAJudgeRun",
+    path: "src/workflow/refiner/loop.ts",
+    find: '    await workflow.scheduleAlarm(0, "settleLostJudgeRuling", alarm);\n',
+    replace: "",
+  },
+  {
     id: "A1",
     invariant: "laterDecisionsCallsFallBackOnceOneFails",
     path: "src/decisions/ask.ts",

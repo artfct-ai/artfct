@@ -64,7 +64,6 @@ describe("agent review", () => {
         { since: "", turnText, signature: "" },
       ),
     ).toEqual({
-      kind: "review",
       revision: null,
       blocking: false,
       summary: "",

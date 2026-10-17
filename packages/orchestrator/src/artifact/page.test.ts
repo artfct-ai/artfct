@@ -206,7 +206,6 @@ describe("review", () => {
 
   it("reads the review the reviewer ended its turn with", async () => {
     expect(await build().review!.postedReview(ref, REVIEW_INPUT)).toEqual({
-      kind: "review",
       revision: "rev-2",
       blocking: false,
       summary: "The scope is wider than the request.",

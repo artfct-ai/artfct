@@ -31,7 +31,6 @@ const ISSUES_URL = "https://linear.app/acme/issue/ENG-42";
 
 function storedReview(summary: string, body: string, blocking: boolean) {
   return {
-    kind: "review" as const,
     revision: "abc123",
     blocking,
     summary,
@@ -198,10 +197,11 @@ describe("settle", () => {
       workflow.patchConfig({
         orchestrator: { ...workflow.config().orchestrator, max_review_runs: 1 },
       });
-      workflow.store.updateTask(reviewerOf(workflow).task_id, {
-        status: "done",
-        result: storedReview("Needs work.", "This drops the error.", true),
-      });
+      workflow.store.updateTask(reviewerOf(workflow).task_id, { status: "done" });
+      workflow.store.fileReview(
+        reviewerOf(workflow).task_id,
+        storedReview("Needs work.", "This drops the error.", true),
+      );
       await settleRefinersForAuthor(workflow, workflow.store.requireTask(TASK));
     });
 
@@ -539,9 +539,9 @@ describe("onReviewerFinished", () => {
         expect(workflow.store.artifact(JOB)?.refiner_task_id).toBe(reviewerOf(workflow).task_id);
       }));
 
-    it("stores the review on the refiner run's row", () =>
+    it("stores the review of the refiner run", () =>
       answered((workflow) => {
-        expect(reviewerOf(workflow).result).toMatchObject({
+        expect(workflow.store.refinerRunsOf(JOB).at(-1)?.review).toMatchObject({
           blocking: true,
           revision: "abc123",
         });
@@ -873,25 +873,19 @@ describe("a reviewer list with several entries", () => {
       patchStageReviewers(workflow, twoEntries);
       await settleRefinersForAuthor(workflow, seedPullRequestTask(workflow));
       const first = reviewerOf(workflow);
-      workflow.store.updateTask(first.task_id, {
-        result: {
-          kind: "review",
-          revision: "abc123",
-          blocking: false,
-          summary: "Fine at r1.",
-          findings: [],
-        },
+      workflow.store.fileReview(first.task_id, {
+        revision: "abc123",
+        blocking: false,
+        summary: "Fine at r1.",
+        findings: [],
       });
       await onReviewerFinished(workflow, first, "");
       const second = reviewerOf(workflow);
-      workflow.store.updateTask(second.task_id, {
-        result: {
-          kind: "review",
-          revision: "def456",
-          blocking: false,
-          summary: "Fine at r2.",
-          findings: [],
-        },
+      workflow.store.fileReview(second.task_id, {
+        revision: "def456",
+        blocking: false,
+        summary: "Fine at r2.",
+        findings: [],
       });
       workflow.codeHostInstance = new FakeCodeHost({
         pulls: [pullRequest({ number: 1, head: { ref: "artfct/wf_x-1-fix", sha: "def456" } })],
@@ -941,14 +935,10 @@ describe("a reviewer list with several entries", () => {
       patchStageReviewers(workflow, twoEntries);
       await settleRefinersForAuthor(workflow, seedPullRequestTask(workflow));
       const first = reviewerFor(workflow, 0);
-      workflow.store.updateTask(first.task_id, {
-        result: storedReview("Two loose ends.", "One", false),
-      });
+      workflow.store.fileReview(first.task_id, storedReview("Two loose ends.", "One", false));
       await onReviewerFinished(workflow, first, "");
       const second = reviewerFor(workflow, 1);
-      workflow.store.updateTask(second.task_id, {
-        result: storedReview("One more.", "Two", true),
-      });
+      workflow.store.fileReview(second.task_id, storedReview("One more.", "Two", true));
       await onReviewerFinished(workflow, second, "");
     });
 
@@ -990,27 +980,35 @@ describe("a reviewer list with several entries", () => {
       const firstRoundReview = reviewerOf(workflow);
       workflow.store.updateTask(firstRoundReview.task_id, {
         started_at: "2026-09-03T10:00:00.000Z",
-        result: storedReview("Run one review.", "stale finding", true),
       });
+      workflow.store.fileReview(
+        firstRoundReview.task_id,
+        storedReview("Run one review.", "stale finding", true),
+      );
       await onReviewerFinished(workflow, firstRoundReview, "");
       const firstRoundFinal = reviewerOf(workflow);
       workflow.store.updateTask(firstRoundFinal.task_id, {
         started_at: "2026-09-03T10:00:00.000Z",
-        result: storedReview("Run one final.", "stale too", true),
       });
+      workflow.store.fileReview(
+        firstRoundFinal.task_id,
+        storedReview("Run one final.", "stale too", true),
+      );
       await onReviewerFinished(workflow, firstRoundFinal, "");
       for (const row of workflow.store.queue()) workflow.store.dequeuePrompt(row.id);
       workflow.store.updateTask(TASK, { status: "in_review" });
       await startRefiner(workflow, workflow.store.requireTask(TASK), 0);
       const secondRoundReview = reviewerOf(workflow);
-      workflow.store.updateTask(secondRoundReview.task_id, {
-        result: storedReview("Run two review.", "fresh finding", true),
-      });
+      workflow.store.fileReview(
+        secondRoundReview.task_id,
+        storedReview("Run two review.", "fresh finding", true),
+      );
       await onReviewerFinished(workflow, secondRoundReview, "");
       const secondRoundFinal = reviewerOf(workflow);
-      workflow.store.updateTask(secondRoundFinal.task_id, {
-        result: storedReview("Run two final.", "fresh too", true),
-      });
+      workflow.store.fileReview(
+        secondRoundFinal.task_id,
+        storedReview("Run two final.", "fresh too", true),
+      );
       await onReviewerFinished(workflow, secondRoundFinal, "");
     });
 
@@ -1103,11 +1101,7 @@ describe("a judge entry", () => {
     it("keeps the entry open on the judge that rejected", () =>
       rejected((workflow) => {
         expect(workflow.store.artifact(JOB)?.refiner_task_id).toBe(judgeOf(workflow).task_id);
-        expect(judgeOf(workflow).result).toMatchObject({
-          kind: "ruling",
-          ruling: "rejected",
-          reason: REJECTION,
-        });
+        expect(judgeOf(workflow).ruling).toMatchObject({ status: "rejected", reason: REJECTION });
       }));
 
     it("starts no turn for the agent", () =>
@@ -1157,7 +1151,7 @@ describe("a judge entry", () => {
 
     it("stores the approval on the judge task", () =>
       approved((workflow) => {
-        expect(judgeOf(workflow).result).toMatchObject({ kind: "ruling", ruling: "approved" });
+        expect(judgeOf(workflow).ruling).toMatchObject({ status: "approved" });
       }));
 
     describe("and then the artifact reopens and the author's turn ends", () => {
@@ -1223,7 +1217,7 @@ describe("a judge entry", () => {
 
     it("has no review", () =>
       cancelled((workflow) => {
-        expect(judgeOf(workflow).result).toBeNull();
+        expect(judgeOf(workflow).ruling).toBeNull();
       }));
 
     it("runs the judge again when the refiners re-run from the top", () =>

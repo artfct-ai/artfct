@@ -612,9 +612,11 @@ describe("the phases on the checklist", () => {
 
     describe("when that reviewer's conclusion was ruled a rejection", () => {
       const rejected = scenario(aligning, async (workflow) => {
-        workflow.store.updateTask("wf_x.9", {
-          status: "done",
-          result: { kind: "ruling", revision: "abc123", ruling: "rejected", reason: "Rewrite it." },
+        workflow.store.updateTask("wf_x.9", { status: "done" });
+        workflow.store.recordRuling("wf_x.9", {
+          status: "rejected",
+          revision: "abc123",
+          reason: "Rewrite it.",
         });
         await onFlushBoard(workflow, { job_id: JOB });
       });
