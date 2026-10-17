@@ -1,7 +1,7 @@
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { noteMessage } from "../../agent/transcript/envelope";
-import { parseControl } from "./control-words";
-import { applyControlWord, stopAuthor, type StopOutcome } from "./controls";
+import { parseVerbalCommand } from "./verbal-command";
+import { applyVerbalCommand, stopAuthor, type StopOutcome } from "./controls";
 import { authorInSession, runningAuthorInSession } from "./job-session";
 import { promptTask } from "../task/harness/prompt-queue";
 import { applyArtifactEvent } from "../refiner/feedback";
@@ -9,7 +9,7 @@ import type { Applied, WorkflowRuntime } from "../types";
 
 /**
  * The deterministic layer. Records what the host says about an artifact and executes explicit
- * control words. Returns notes for the agent, or "handled" when no agent turn is needed.
+ * verbal commands. Returns notes for the agent, or "handled" when no agent turn is needed.
  */
 export async function applyEvent(
   workflow: WorkflowRuntime,
@@ -21,7 +21,7 @@ export async function applyEvent(
     case "stop":
       return stopSessionAuthor(workflow, event);
     case "control":
-      return executeControl(workflow, event);
+      return executeVerbalCommand(workflow, event);
     case "start":
     case "prompt":
       return onHumanText(workflow, event);
@@ -38,7 +38,7 @@ export async function applyEvent(
 
 /**
  * Text a person wrote. A reply in a job session whose author runs goes to that author. A leading
- * control word runs here when one job clearly owns it. Anything else goes to the agent. A start
+ * verbal command runs here when one job clearly owns it. Anything else goes to the agent. A start
  * with no actor is a tracker session to adopt. Any other text with no actor has no person behind
  * it and is dropped.
  */
@@ -55,11 +55,11 @@ async function onHumanText(
     const forwarded = await forwardToRunningAuthor(workflow, event);
     if (forwarded) return forwarded;
   }
-  const parsed = parseControl(event.text);
+  const parsed = parseVerbalCommand(event.text);
   if (!parsed) return { notes: [], wake: "message" };
   const active = workflow.store.activeAuthorAndResearcherTasks().length;
   if (parsed.control !== "cancel" && active !== 1) return { notes: [], wake: "message" };
-  return executeControl(workflow, {
+  return executeVerbalCommand(workflow, {
     ...event,
     kind: "control",
     control: parsed.control,
@@ -78,17 +78,17 @@ async function adoptSession(workflow: WorkflowRuntime, event: InboundEvent): Pro
 }
 
 /**
- * Run a control word and tell the agent. When it posted nothing for a person who waits for an
+ * Run a verbal command and tell the agent. When it posted nothing for a person who waits for an
  * answer, the agent gets a turn to answer them.
  */
-async function executeControl(
+async function executeVerbalCommand(
   workflow: WorkflowRuntime,
   event: InboundEvent,
 ): Promise<Applied | "handled"> {
   const postedBefore = workflow.store.postedCount();
-  const leftAlone = await applyControlWord(workflow, event);
+  const leftAlone = await applyVerbalCommand(workflow, event);
   const outcome = leftAlone ? `The system left it alone: ${leftAlone}.` : "The system executed it.";
-  const note = `${personName(event)} sent the control word "${event.control}". ${outcome}`;
+  const note = `${personName(event)} sent the verbal command "${event.control}". ${outcome}`;
   if (event.reply_to && workflow.store.postedCount() === postedBefore) {
     return { notes: [`${note} Nothing was posted about it. Answer them.`], wake: "message" };
   }

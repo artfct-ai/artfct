@@ -63,7 +63,7 @@ describe("bannedWordHits", () => {
 
   it("skips a use the allowlist names for its file or for every file", () => {
     const allowed = bannedWordHits(ROWS, files, [
-      { word: "cancel", paths: ["a.ts"], reason: "a control word" },
+      { word: "cancel", paths: ["a.ts"], reason: "a verbal command" },
       { word: "read token", paths: "everywhere", reason: "a different token" },
     ]);
     expect(allowed).toEqual([]);

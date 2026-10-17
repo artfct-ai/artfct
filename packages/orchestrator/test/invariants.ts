@@ -1,5 +1,5 @@
 import type { PostedComment } from "@artfct-ai/adapters/test/fake-documents";
-import type { Control, InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
+import type { InboundEvent, ReplyTarget, VerbalCommand } from "@artfct-ai/contracts/inbound";
 import type { ArtifactStatus, TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
 import { ASK_WHETHER_ACCEPTED, ASK_WHICH_OPTION } from "../src/agent/tools/start/start";
 import type { PlanEntry } from "@agentclientprotocol/sdk";
@@ -119,7 +119,7 @@ export type Step = {
     text: string;
     person: boolean;
     reply_to: ReplyTarget | null;
-    control: Control | null;
+    control: VerbalCommand | null;
   } | null;
   /** Every orchestrator post the step added to a tracker session, in order. */
   sessionPosts: Array<{ session_id: string; kind: string }>;
@@ -829,7 +829,7 @@ export function taskRestartsAtMostTwice(workflow: WorkflowRuntime): void {
   }
 }
 
-/** The workflow sends a paused task no prompt until it resumes. */
+/** A paused author or researcher does not get a prompt. */
 export function pausedAuthorGetsNoPrompt(workflow: WorkflowRuntime, step: Step): void {
   for (const { before, after } of stepParts(step)) {
     for (const was of before.tasks) {
@@ -983,25 +983,26 @@ export function aRestartDoesNotLoseAModelTurn(workflow: WorkflowRuntime, step: S
 }
 
 /**
- * A job starts only into a free slot: before the action that started it, the unfinished author
- * and researcher tasks were fewer than the slots. A refiner run takes no slot.
+ * A job start leaves at most the plan's number of job slots of jobs active. The unfinished author
+ * and researcher tasks count, and a refiner run takes no slot.
  */
 export function jobStartsOnlyIntoAFreeSlot(workflow: WorkflowRuntime, step: Step): void {
   for (const { before, after } of stepParts(step)) {
     const knownJobs = new Set(before.tasks.map((task) => task.job_id));
     const started = after.tasks.filter((task) => !knownJobs.has(task.job_id));
     if (started.length === 0) continue;
-    const unfinished = before.tasks.filter(
+    const activeBefore = before.tasks.filter(
       (task) => JOB_ROLES.includes(task.role) && !FINISHED.includes(task.status),
-    );
+    ).length;
+    const activeAfter = after.tasks.filter(
+      (task) => JOB_ROLES.includes(task.role) && !FINISHED.includes(task.status),
+    ).length;
     coverJobStarts();
-    if (unfinished.length > 0 && unfinished.length === workflow.state.concurrency - 1) {
-      coverLastSlot();
-    }
-    if (unfinished.length < workflow.state.concurrency) continue;
+    if (activeBefore > 0 && activeAfter === workflow.state.concurrency) coverLastSlot();
+    if (activeAfter <= workflow.state.concurrency) continue;
     violated(
       "jobStartsOnlyIntoAFreeSlot",
-      `${started.map((task) => task.job_id).join(", ")} started with ${unfinished.length} unfinished and ${workflow.state.concurrency} slots`,
+      `${started.map((task) => task.job_id).join(", ")} started and left ${activeAfter} jobs active in ${workflow.state.concurrency} job slots`,
     );
   }
 }

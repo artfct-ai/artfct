@@ -554,7 +554,7 @@ describe("finished workflows", () => {
           expect(await logOf(workflow)).toContain("ignored feedback: the workflow is failed");
         }));
 
-      it("logs that it ignored the control word", () =>
+      it("logs that it ignored the verbal command", () =>
         stillIgnored(async (workflow) => {
           expect(await logOf(workflow)).toContain("ignored control: the workflow is failed");
         }));

@@ -3,7 +3,7 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { claimBinding, listBindings } from "../../db/bindings";
 import { createDb } from "../../db/client";
-import { applyControlWord } from "./controls";
+import { applyVerbalCommand } from "./controls";
 import { type FakeRuntime, seedPullRequestTask, seedTask } from "../../../test/fake-runtime";
 import { freshDurableRuntime } from "../../../test/durable-runtime";
 import { type Scenario, scenario } from "../../../test/scenario";
@@ -53,7 +53,7 @@ function statuses(workflow: FakeRuntime): Array<[string, string]> {
 
 type Controlled = {
   workflow: FakeRuntime;
-  result: Awaited<ReturnType<typeof applyControlWord>>;
+  result: Awaited<ReturnType<typeof applyVerbalCommand>>;
 };
 
 function controlling(
@@ -63,15 +63,15 @@ function controlling(
   return (run) =>
     freshDurableRuntime(async (workflow) => {
       await arrange(workflow);
-      await run({ workflow, result: await applyControlWord(workflow, event) });
+      await run({ workflow, result: await applyVerbalCommand(workflow, event) });
     });
 }
 
 describe("control", () => {
-  describe("a control word from a person outside the team", () => {
+  describe("a verbal command from a person outside the team", () => {
     const refused = scenario(freshDurableRuntime, async (workflow) => {
       seedTask(workflow);
-      await applyControlWord(workflow, controlEvent("cancel", "", { actor: null }));
+      await applyVerbalCommand(workflow, controlEvent("cancel", "", { actor: null }));
     });
 
     it("says it is not authorized", () =>
@@ -96,7 +96,7 @@ describe("control", () => {
         seedTask(workflow, {}, { wall_schedule: "w1" });
         seedTask(workflow, { task_id: SECOND_TASK }, { keepalive_schedule: "k1" });
         seedTask(workflow, { task_id: "wf_x.3", status: "done" });
-        await applyControlWord(workflow, controlEvent("cancel"));
+        await applyVerbalCommand(workflow, controlEvent("cancel"));
       });
 
       it("cancels the active tasks and leaves the done one", () =>
@@ -336,7 +336,7 @@ describe("control", () => {
       const cancelled = scenario(freshDurableRuntime, async (workflow) => {
         seedTask(workflow);
         seedTask(workflow, { task_id: SECOND_TASK, role: "reviewer", job_id: JOB });
-        await applyControlWord(workflow, controlEvent("cancel"));
+        await applyVerbalCommand(workflow, controlEvent("cancel"));
       });
 
       it("reaches the review task", () =>
@@ -366,7 +366,7 @@ describe("control", () => {
           stage: "implement",
         });
         workflow.store.enqueuePrompt(TASK, "CI went red.");
-        await applyControlWord(workflow, controlEvent("cancel"));
+        await applyVerbalCommand(workflow, controlEvent("cancel"));
       });
 
       it("cancels the polisher", () =>
