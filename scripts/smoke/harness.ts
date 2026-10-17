@@ -430,16 +430,6 @@ export async function fetchMockSandboxState(): Promise<MockSandboxState> {
   return (await response.json()) as MockSandboxState;
 }
 
-/** Kills one task's bridge as a dying container would. The orchestrator only sees the socket close. */
-export async function killMockBridge(taskId: string): Promise<void> {
-  const response = await fetch(`${MOCK_SANDBOX_URL}/__kill`, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify({ sandbox_id: taskId }),
-  });
-  if (!response.ok) throw new Error(`mock sandbox /__kill ${response.status}`);
-}
-
 /**
  * Lets the mock reviewer of a pull request end its turn. It holds that turn from the start of
  * the run, so a step can read the artifact while the review still holds it back.

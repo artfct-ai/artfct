@@ -1,30 +1,45 @@
 /**
- * Step 10. The workflow's own issue moves to Canceled in Linear. The workflow ends, its task
- * is cancelled, the sandbox is destroyed, and the Linear session does not hear about it.
+ * Step 6. A new workflow's issue moves to Canceled in Linear. The workflow ends, its task is
+ * cancelled, the sandbox is destroyed, and the Linear session does not hear about it.
  */
 import { fetchWorkflowDebug, hasOutboxMessage, outboxText, taskById, waitUntil } from "../admin";
 import { assert } from "../assert";
-import type { CreatedWorkflow } from "../create";
+import { PAGE_PARENT_ID, REPO_FULL_NAME } from "../config";
+import { createWorkflowFromIssue } from "../create";
 import {
   issueStateChanged,
   LINEAR_CANCELED_STATE,
   LINEAR_TEAM_STATES,
   linearDev,
+  linearIssue,
+  linearSessionId,
 } from "../fixtures";
 import { assertStartsSince, startCountBaseline, waitForSandboxDestroyed } from "../sandbox";
 import { postLinearWebhook } from "../webhooks";
-import { THIRD_ISSUE } from "./bridge-loss";
 
-/** Runs step 10 on the workflow step 9 left running. */
-export async function runLinearCancel(options: CreatedWorkflow): Promise<void> {
-  const { workflowId, taskId } = options;
-  console.log("\n10. Linear issue canceled");
+/** The session and issue of the workflow this step cancels. */
+const CANCEL_SESSION = linearSessionId(2);
+const CANCEL_ISSUE = linearIssue(
+  2,
+  "ENG-43",
+  "Add a changelog",
+  `Keep a changelog. Repo: https://github.com/${REPO_FULL_NAME}\nPage parent: ${PAGE_PARENT_ID}`,
+);
+
+/** Runs step 6 on a workflow of its own. */
+export async function runLinearCancel(): Promise<void> {
+  console.log("\n6. Linear issue canceled");
+  const { workflowId, taskId } = await createWorkflowFromIssue({
+    sessionId: CANCEL_SESSION,
+    issue: CANCEL_ISSUE,
+    label: "second workflow",
+  });
   const startsBefore = await startCountBaseline(taskId);
   const startedState = LINEAR_TEAM_STATES.find((state) => state.type === "started")!;
 
   const reply = await postLinearWebhook(
     issueStateChanged({
-      issue: THIRD_ISSUE,
+      issue: CANCEL_ISSUE,
       from: startedState,
       to: LINEAR_CANCELED_STATE,
       actor: linearDev,

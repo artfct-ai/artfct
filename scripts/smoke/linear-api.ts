@@ -45,16 +45,6 @@ export async function resetMockLinear(): Promise<void> {
   if (!response.ok) throw new Error(`mock linear /__reset ${response.status}`);
 }
 
-/** Registers an issue so the mock Linear API can look it up. */
-export async function registerMockIssue(issue: LinearIssueFixture): Promise<void> {
-  const { id, identifier, title, url } = issue;
-  const response = await fetch(`${MOCK_LINEAR_URL}/__issues`, {
-    method: "POST",
-    body: JSON.stringify({ id, identifier, title, url }),
-  });
-  if (!response.ok) throw new Error(`mock linear /__issues ${response.status}`);
-}
-
 /** The bodies of the activities posted on one agent session, in order. */
 export function activityBodies(state: MockLinearState, sessionId: string): string[] {
   return state.calls

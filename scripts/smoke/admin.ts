@@ -90,11 +90,6 @@ export function countLogLines(debug: WorkflowDebug, prefix: string): number {
   return debug.log.filter((entry) => entry.line.startsWith(prefix)).length;
 }
 
-/** Number of orchestrator agent turns that started. Every one costs a model call. */
-export function countAgentTurns(debug: WorkflowDebug): number {
-  return countLogLines(debug, "agent turn started");
-}
-
 /**
  * The log lines between the first line that starts with `from` and the first later line that
  * starts with `to`, both excluded. Throws when either is missing.
@@ -143,22 +138,6 @@ export function jobById(debug: WorkflowDebug, jobId: string): WorkflowDebug["job
   return job;
 }
 
-/** The reviewer runs of one job, oldest first. */
-export function reviewersOf(
-  debug: WorkflowDebug,
-  jobId: string,
-): Array<WorkflowDebug["tasks"][number]> {
-  return debug.tasks.filter((task) => task.role === "reviewer" && task.job_id === jobId);
-}
-
-/** The polisher runs of one job, oldest first. */
-export function polishersOf(
-  debug: WorkflowDebug,
-  jobId: string,
-): Array<WorkflowDebug["tasks"][number]> {
-  return debug.tasks.filter((task) => task.role === "polisher" && task.job_id === jobId);
-}
-
 /**
  * Number of harness turns that have ended for the workflow, refiner runs excluded. Every turn
  * assertion in the smoke counts the work the stages did, not the refiners over that work.
@@ -170,43 +149,9 @@ export function countTurns(debug: WorkflowDebug): number {
   ).length;
 }
 
-/**
- * Waits until the agent has read every note that wakes it. A turn end queues a note and wakes
- * the agent. An event posted before that turn runs would be read together with the note.
- */
-export function waitForAgentIdle(workflowId: string): Promise<WorkflowDebug> {
-  return waitUntil({ label: "agent inbox drained" }, async () => {
-    const debug = await fetchWorkflowDebug(workflowId);
-    return debug.inbox.every((row) => row.wake === "none") ? debug : null;
-  });
-}
-
 /** The log line the workflow writes when it hands a job's artifact to the humans. */
 export function handedOverLine(jobId: string): string {
   return `the artifact of job ${jobId} is handed over`;
-}
-
-/**
- * Waits until the refiners handed the job's artifact to the humans after the author's latest
- * turn. An author turn on a released artifact makes it a draft again, and the refiners run and
- * hand it over once more.
- */
-export function waitForRefinersReleased(
-  workflowId: string,
-  taskId: string,
-): Promise<WorkflowDebug> {
-  return waitUntil(
-    { label: "the refiners released the artifact after the author's last turn" },
-    async () => {
-      const debug = await fetchWorkflowDebug(workflowId);
-      const jobId = taskById(debug, taskId).job_id;
-      const lastTurn = debug.log.findLastIndex(
-        (entry) => entry.task_id === taskId && entry.line.startsWith("turn ended"),
-      );
-      const handover = debug.log.findLastIndex((entry) => entry.line === handedOverLine(jobId));
-      return artifactOf(debug, jobId)?.status === "ready" && handover > lastTurn ? debug : null;
-    },
-  );
 }
 
 /**
@@ -274,16 +219,6 @@ export function countOutboxMessages(
   predicate: (message: WorkflowDebug["outbox"][number]) => boolean,
 ): number {
   return debug.outbox.filter(predicate).length;
-}
-
-const NOT_SESSION_POSTS = ["issue_update", "attach_chat_thread", "delivery_error"];
-
-/** Number of orchestrator posts on a tracker session. */
-export function countSessionPosts(debug: WorkflowDebug): number {
-  return countOutboxMessages(
-    debug,
-    (message) => message.channel === "tracker" && !NOT_SESSION_POSTS.includes(message.kind),
-  );
 }
 
 /** True when the outbox holds a message matching `predicate`. */

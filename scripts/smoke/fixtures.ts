@@ -205,96 +205,36 @@ export function checkSuiteEvent(
   };
 }
 
-/** A review App the repository installed. */
-export const reviewBotFixture: GithubAccount = {
-  login: "acme-review[bot]",
-  id: 3003,
-  node_id: "BOT_kgDOAAALuw",
-  type: "Bot",
-};
+/** GitHub's id for the one review the smoke submits. */
+const REVIEW_ID = 2_500_000_004;
 
-/**
- * GitHub's id per review the smoke submits. Its inline comments carry the same id, which is what
- * joins the webhooks of one review into one event.
- */
-export const REVIEW_IDS = {
-  changes_requested: 2_500_000_001,
-  commented: 2_500_000_002,
-  agent: 2_500_000_003,
-  approved: 2_500_000_004,
-};
-
-/** What a submitted `pull_request_review` needs. The reviewer is a repository member by default. */
+/** What a submitted `pull_request_review` by a repository member needs. */
 export type ReviewFixture = {
   pullRequest: PullRequestFixture;
   state: "approved" | "changes_requested" | "commented";
   body: string;
-  reviewer?: GithubAccount;
-  reviewId?: number;
 };
 
-/** A submitted `pull_request_review` event, by a repository member unless told otherwise. */
+/** A submitted `pull_request_review` event by a repository member. */
 export function reviewEvent(review: ReviewFixture): Record<string, unknown> {
-  const reviewer = review.reviewer ?? samFixture;
-  const reviewId = review.reviewId ?? REVIEW_IDS[review.state];
   return {
     action: "submitted",
     review: {
-      id: reviewId,
+      id: REVIEW_ID,
       node_id: "PRR_kwDOIvd0Bs6VAAAB",
-      user: reviewer,
+      user: samFixture,
       body: review.body,
       commit_id: review.pullRequest.head.sha,
       submitted_at: "2026-09-03T10:20:00Z",
       state: review.state,
-      html_url: `${review.pullRequest.html_url}#pullrequestreview-${reviewId}`,
-      author_association: associationOf(reviewer),
+      html_url: `${review.pullRequest.html_url}#pullrequestreview-${REVIEW_ID}`,
+      author_association: "MEMBER",
     },
     pull_request: review.pullRequest,
     repository: repositoryFixture,
-    sender: reviewer,
+    sender: samFixture,
     installation: installationFixture,
   };
-}
-
-/**
- * One inline comment of a review, as `pull_request_review_comment.created`. `reviewId` names the
- * review it belongs to, the commented one by default.
- */
-export function reviewCommentEvent(inline: {
-  pullRequest: PullRequestFixture;
-  comment: { path: string; line: number; body: string };
-  reviewer?: GithubAccount;
-  reviewId?: number;
-}): Record<string, unknown> {
-  const reviewer = inline.reviewer ?? samFixture;
-  return {
-    action: "created",
-    comment: {
-      id: 2_600_000_001,
-      node_id: "PRRC_kwDOIvd0Bs6VAAAB",
-      pull_request_review_id: inline.reviewId ?? REVIEW_IDS.commented,
-      user: reviewer,
-      body: inline.comment.body,
-      path: inline.comment.path,
-      line: inline.comment.line,
-      original_line: inline.comment.line,
-      side: "RIGHT",
-      commit_id: inline.pullRequest.head.sha,
-      created_at: "2026-09-03T10:20:00Z",
-      html_url: `${inline.pullRequest.html_url}#discussion_r2600000001`,
-      author_association: associationOf(reviewer),
-    },
-    pull_request: inline.pullRequest,
-    repository: repositoryFixture,
-    sender: reviewer,
-    installation: installationFixture,
-  };
-}
-
-/** What GitHub reports for the author: a member for a person, nobody for an App. */
-function associationOf(account: GithubAccount): string {
-  return account.type === "Bot" ? "NONE" : "MEMBER";
 }
 
 /** A `push` event to the default branch: someone else merged their work into `main`. */
@@ -351,14 +291,6 @@ export const linearDev: LinearUserFixture = {
   email: "dev@acme.test",
   avatarUrl: null,
   url: "https://linear.app/acme/profiles/dev",
-};
-
-export const linearPm: LinearUserFixture = {
-  id: "lin-u2",
-  name: "PM",
-  email: "pm@acme.test",
-  avatarUrl: null,
-  url: "https://linear.app/acme/profiles/pm",
 };
 
 /** The team every smoke issue belongs to. */

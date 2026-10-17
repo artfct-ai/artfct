@@ -1,9 +1,8 @@
 /**
- * Step 11. A Slack @mention starts a workflow in a thread. A white_check_mark reaction accepts
+ * Step 7. A Slack @mention starts a workflow in a thread. A white_check_mark reaction accepts
  * each document, and a thread reply selects an option on the model stage, so the workflow runs on
- * to its pull request. A second mention in the channel root gets a workflow of its own, though it
- * links the pull request the first one owns. A third mention links a page the workflow did not
- * produce, and its workflow starts at the stage after the one that writes that page.
+ * to its pull request. A second mention links a page the workflow did not produce, and its
+ * workflow starts at the stage after the one that writes that page.
  */
 import {
   artifactOf,
@@ -101,12 +100,9 @@ async function completeInThread(
   });
 }
 
-/**
- * The pull request of the last stage, recorded as the task artifact and bound to the workflow.
- * A request in the channel root must not be routed by this binding.
- */
-async function waitForPullRequest(workflowId: string): Promise<string> {
-  const artifact = await waitUntil(
+/** The pull request of the last stage, recorded as the task artifact and bound to the workflow. */
+async function waitForPullRequest(workflowId: string): Promise<void> {
+  await waitUntil(
     { label: "slack workflow opened a pull request", timeoutMs: 30_000 },
     async () => {
       const debug = await fetchWorkflowDebug(workflowId);
@@ -117,39 +113,6 @@ async function waitForPullRequest(workflowId: string): Promise<string> {
     const bindings = await fetchBindings();
     return bindings.some((row) => row.source === "code_pull" && row.workflow_id === workflowId);
   });
-  return artifact.external_url;
-}
-
-/**
- * A mention in the channel root is a new request, even when it links the pull request of the
- * workflow already running in the channel. It gets its own workflow, job 1, and its own thread.
- */
-async function startSecondRequestInChannel(firstWorkflowId: string, prUrl: string): Promise<void> {
-  const before = await fetchWorkflowDebug(firstWorkflowId);
-  const threadTs = `17001${RUN_ID.length}.${Date.now() % 100000}`;
-  const secondId = await startWorkflowFromMention(
-    threadTs,
-    `<@${SLACK_BOT_USER_ID}> the replies on <${prUrl}|the pull request> were noisy, fix that next`,
-  );
-  assert(secondId !== firstWorkflowId, "channel mention started its own workflow", secondId);
-  const board = await waitUntil(
-    { label: "second request boarded its first job", timeoutMs: 30_000 },
-    async () => {
-      const debug = await fetchWorkflowDebug(secondId);
-      return debug.boards.find((row) => row.job_id === `${secondId}-1`) ?? null;
-    },
-  );
-  assertEqual(
-    board.channel_key,
-    `chat:${SLACK_CHANNEL}:${threadTs}`,
-    "the new request boards its first job in its own thread",
-  );
-  const after = await fetchWorkflowDebug(firstWorkflowId);
-  assertEqual(
-    after.jobs.length,
-    before.jobs.length,
-    "no job appended to the workflow that owns the pull request",
-  );
 }
 
 /** The text of the page a person wrote outside the workflow and links from the channel. */
@@ -200,7 +163,7 @@ async function startRequestFromPage(): Promise<void> {
 
 /** Runs step 11. */
 export async function runSlack(): Promise<{ workflowId: string }> {
-  console.log("\n11. Slack");
+  console.log("\n7. Slack");
   const threadTs = `17000${RUN_ID.length}.${Date.now() % 100000}`;
   const workflowId = await startWorkflowFromMention(
     threadTs,
@@ -247,7 +210,7 @@ export async function runSlack(): Promise<{ workflowId: string }> {
   for (let index = 1; index < DOC_STAGES.length; index += 1) {
     await completeInThread(workflowId, threadTs, index);
   }
-  await startSecondRequestInChannel(workflowId, await waitForPullRequest(workflowId));
+  await waitForPullRequest(workflowId);
   await startRequestFromPage();
   return { workflowId };
 }

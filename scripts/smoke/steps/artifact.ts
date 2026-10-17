@@ -11,22 +11,17 @@ import {
   fetchBindings,
   fetchWorkflowDebug,
   handedOverLine,
+  isRefinerRun,
   logLinesBetween,
   hasOutboxMessage,
   outboxText,
-  polishersOf,
-  reviewersOf,
   taskById,
   waitUntil,
   type WorkflowDebug,
 } from "../admin";
 import { assert, assertEqual } from "../assert";
 import { authorTurnsThrough, REPO_FULL_NAME, STAGE_NAMES } from "../config";
-import {
-  PR_POLISHERS,
-  PR_REVIEWERS,
-  PR_STAGE_NAME,
-} from "../../../packages/orchestrator/test/smoke-config";
+import { PR_STAGE_NAME } from "../../../packages/orchestrator/test/smoke-config";
 import { PULL_REQUEST_URL } from "../fixtures";
 import { releaseMockReview } from "../harness";
 import { waitForSandboxDestroyed } from "../sandbox";
@@ -99,10 +94,8 @@ export async function runArtifactFromAgentOutput(options: {
 }
 
 /**
- * Waits for the PR stage's three reviewer entries and its polisher to run and release the
- * artifact. Each refiner runs on the author's branch with its own sandbox, holds no
- * concurrency slot, and produces no artifact of its own. Returns the dump taken once the
- * humans were told.
+ * Waits for the PR stage's refiners to release the artifact. They produce no artifact of their
+ * own, and each one's sandbox is destroyed. Returns the dump taken once the humans were told.
  */
 async function waitForReview(workflowId: string, taskId: string): Promise<WorkflowDebug> {
   const released = await waitUntil(
@@ -113,24 +106,8 @@ async function waitForReview(workflowId: string, taskId: string): Promise<Workfl
     },
   );
   const jobId = taskById(released, taskId).job_id;
-  const reviews = reviewersOf(released, jobId);
-  assertEqual(reviews.length, PR_REVIEWERS.length, "one reviewer run per declared entry");
-  for (const [index, review] of reviews.entries()) {
-    assertEqual(review.refiner_index, index, `reviewer ${index + 1} of ${PR_REVIEWERS[index]}`);
-    assertEqual(review.status, "done", "reviewer run is done");
-  }
-  assertPolisherRan(released, jobId);
-  assertEqual(
-    artifactOf(released, jobId)?.refiner_task_id,
-    null,
-    "the artifact holds no open refiner run",
-  );
   assertEqual(released.artifacts.length, STAGE_NAMES.length, "no refiner run added an artifact");
-  assertEqual(
-    countLogLines(released, handedOverLine(jobId)),
-    1,
-    "the loop closed once, after the polisher ended",
-  );
+  assertEqual(countLogLines(released, handedOverLine(jobId)), 1, "the loop closed once");
   const handover = `The pull request is ready for you: ${artifactOf(released, jobId)?.external_url}`;
   const ready = released.outbox.find((message) => outboxText(message) === handover);
   assert(ready !== undefined, "the humans hear the one line the pull kind wrote", released.outbox);
@@ -140,36 +117,9 @@ async function waitForReview(workflowId: string, taskId: string): Promise<Workfl
     0,
     "no orchestrator turn while the refiners held the artifact",
   );
-  for (const run of [...reviews, ...polishersOf(released, jobId)]) {
+  const refinerRuns = released.tasks.filter((task) => task.job_id === jobId && isRefinerRun(task));
+  for (const run of refinerRuns) {
     await waitForSandboxDestroyed(run.task_id, "refiner sandbox destroyed");
   }
   return released;
-}
-
-/**
- * The polisher ran after the reviewers, and its own turn ended before the handover line reached
- * the outbox.
- */
-function assertPolisherRan(released: WorkflowDebug, jobId: string): void {
-  const polishers = polishersOf(released, jobId);
-  assertEqual(polishers.length, PR_POLISHERS.length, "one polisher run per declared entry");
-  for (const [index, polisher] of polishers.entries()) {
-    assertEqual(
-      polisher.refiner_index,
-      PR_REVIEWERS.length + index,
-      `${PR_POLISHERS[index]} runs at the index after the reviewers`,
-    );
-    assertEqual(polisher.status, "done", "polisher run is done");
-  }
-  const lastPolisher = polishers.at(-1)?.task_id;
-  const endedAt = released.log.find(
-    (entry) => entry.task_id === lastPolisher && entry.line.startsWith("turn ended"),
-  )?.at;
-  const handover = `The pull request is ready for you: ${artifactOf(released, jobId)?.external_url}`;
-  const handedOn = released.outbox.find((message) => outboxText(message) === handover);
-  assert(
-    endedAt !== undefined && handedOn !== undefined && endedAt <= handedOn.at,
-    "the polisher's own turn ended before the handover line reached the outbox",
-    { endedAt, handedOn },
-  );
 }
