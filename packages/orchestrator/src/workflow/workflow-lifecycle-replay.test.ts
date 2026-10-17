@@ -82,6 +82,12 @@ describe("workflow lifecycle spec", () => {
     await replayTrace("pagesAfterResearch", traceSteps("pagesAfterResearch", trace));
   });
 
+  it("holds the prompt of a second resume for the turn the first resume woke while the restart destroy is out", async () => {
+    const path = join(PINNED_TRACES, "resume-again-while-the-restart-destroy-is-out.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("pagesWithAReviewer", traceSteps("pagesWithAReviewer", trace));
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,
