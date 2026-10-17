@@ -169,6 +169,7 @@ export type SpecTask = {
   session: boolean;
   promptInFlight: boolean;
   nudged: boolean;
+  stoppedEarly: boolean;
   bridgeClosedAt: (typeof STAMPS)[number];
   queue: PromptKind[];
   rpcs: { id: number; purpose: SpecPurpose }[];
@@ -255,6 +256,7 @@ function specTask(world: unknown): SpecTask {
     session: itfBool(itfField(world, "session")),
     promptInFlight: itfBool(itfField(world, "promptInFlight")),
     nudged: itfBool(itfField(world, "nudged")),
+    stoppedEarly: itfBool(itfField(world, "stoppedEarly")),
     bridgeClosedAt: itfOneOf(tagOf(itfField(world, "bridgeClosedAt")), STAMPS),
     queue: itfList(itfField(world, "queue")).map((kind) => itfOneOf(tagOf(kind), PROMPT_KINDS)),
     rpcs: itfList(itfField(world, "rpcs")).map((row) => ({
@@ -545,6 +547,7 @@ export class HarnessSessionReplay {
       session: sandbox.session_id !== null,
       promptInFlight: sandbox.prompt_in_flight === 1,
       nudged: sandbox.nudged === 1,
+      stoppedEarly: sandbox.stopped_early === 1,
       bridgeClosedAt:
         closedAt === null
           ? "Unset"

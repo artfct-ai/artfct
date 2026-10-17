@@ -50,9 +50,12 @@ const PINNED_TRACES = join(
   "../../../../test/harness-session-traces",
 );
 
-async function replayPinnedTrace(name: string): Promise<void> {
+async function replayPinnedTrace(
+  name: string,
+  setup: SpecSetup = "harnessDefaultEffort",
+): Promise<void> {
   const trace: unknown = JSON.parse(readFileSync(join(PINNED_TRACES, `${name}.itf.json`), "utf8"));
-  await replayTrace("harnessDefaultEffort", traceSteps("harnessDefaultEffort", trace));
+  await replayTrace(setup, traceSteps(setup, trace));
 }
 
 describe("harness session spec", () => {
@@ -78,6 +81,42 @@ describe("harness session spec", () => {
 
   it("keeps an author out of review while its handshake is pending", async () => {
     await replayPinnedTrace("settle-during-a-handshake");
+  });
+
+  it("drops the late answer to a request of an earlier dial", async () => {
+    await replayPinnedTrace("late-answer-after-a-redial");
+  });
+
+  it("holds the continue prompt of a resume until the cancelled turn ends", async () => {
+    await replayPinnedTrace("resume-during-a-cancelled-turn");
+  });
+
+  it("keeps a later prompt when the outcome of an earlier turn says blocked", async () => {
+    await replayPinnedTrace("blocked-outcome-with-a-later-prompt");
+  });
+
+  it("counts a refused prompt after a turn that stopped early as a stall", async () => {
+    await replayPinnedTrace("refused-prompt-after-a-stopped-early-turn");
+  });
+
+  it("closes the container on a stop whose cancel is lost", async () => {
+    await replayPinnedTrace("stop-after-the-bridge-died");
+  });
+
+  it("restarts the sandbox when the socket closes during the handshake", async () => {
+    await replayPinnedTrace("socket-closes-during-the-handshake");
+  });
+
+  it("leaves a paused restart queued so the resume starts the sandbox", async () => {
+    await replayPinnedTrace("restart-held-for-a-resume");
+  });
+
+  it("starts a fresh harness session after a lost turn", async () => {
+    await replayPinnedTrace("lost-turn-forgets-its-session");
+  });
+
+  it("holds a prompt until the effort handshake ends", async () => {
+    await replayPinnedTrace("prompt-during-the-effort-handshake", "stageAsksForEffort");
   });
 
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {

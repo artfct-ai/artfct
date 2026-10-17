@@ -114,7 +114,7 @@ async function forwardToRunningAuthor(
 }
 
 const STOP_NOTES: Record<StopOutcome, string> = {
-  cancelled: "Its prompt turn was cancelled.",
+  cancelled: "Its prompt turn was cancelled and its container closed.",
   ended: "The turn it was starting or resuming was ended.",
   idle: "No prompt turn ran.",
 };

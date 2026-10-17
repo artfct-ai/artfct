@@ -88,15 +88,11 @@ async function pressStop(workflowId: string, taskId: string): Promise<void> {
   const before = await forwardToAuthor(workflowId, taskId);
   const status = taskById(before, taskId).status;
   await writeInSession("Stop", "stop");
-  const stopped = await waitUntil({ label: "the author's turn ended on the stop" }, async () => {
+  const stopped = await waitUntil({ label: "the stop sent a cancel" }, async () => {
     const debug = await fetchWorkflowDebug(workflowId);
-    return countTaskLogLines(debug, taskId, "turn ended: cancelled") > 0 ? debug : null;
+    return hasLogLine(debug, "stop: cancelled") ? debug : null;
   });
-  assert(hasLogLine(stopped, "stop: cancelled"), "the stop sent a cancel");
-  assert(
-    countTaskLogLines(stopped, taskId, "bridge: session/cancel") > 0,
-    "session/cancel reached the harness",
-  );
+  await waitForSandboxDestroyed(taskId, "the stop closed the container");
   await waitForStoppedReplies(1, "the session feed ended with the stopped reply");
   await Bun.sleep(DROPPED_PROMPT_GRACE_MS);
   const settled = await fetchWorkflowDebug(workflowId);

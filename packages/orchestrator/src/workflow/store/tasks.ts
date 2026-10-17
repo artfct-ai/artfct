@@ -281,12 +281,14 @@ export class WorkflowStore extends BoardStore {
     return row?.input_tokens ?? 0;
   }
 
-  /** Allocate the next request id and remember why it was sent. */
+  /** Allocate a request id the store never gave before and remember why it was sent. */
   insertRpc(taskId: string, method: string, purpose: RpcPurpose): number {
-    const last = this.db.select({ id: rpc.id }).from(rpc).orderBy(desc(rpc.id)).limit(1).get();
-    const id = (last?.id ?? 0) + 1;
-    this.db.insert(rpc).values({ id, task_id: taskId, method, purpose, sent_at: now() }).run();
-    return id;
+    const inserted = this.db
+      .insert(rpc)
+      .values({ task_id: taskId, method, purpose, sent_at: now() })
+      .returning({ id: rpc.id })
+      .get();
+    return inserted.id;
   }
 
   /** Remove and return the pending request, or null if the id is unknown for this task. */

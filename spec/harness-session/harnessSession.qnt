@@ -25,7 +25,7 @@ module harnessSessionTypes {
   type RpcPurpose = Initialize | SessionNew | SetEffort | Prompt
 
   /// A request the orchestrator waits on. `serial` names the request itself, and the code does not
-  /// see it.
+  /// see it. The store never gives an rpc id twice, so the id is the serial plus one.
   type RpcRow = { id: int, purpose: RpcPurpose, serial: int }
 
   /// The alarm a schedule column points at.
@@ -109,6 +109,7 @@ module harnessSessionTypes {
     session: bool,
     promptInFlight: bool,
     nudged: bool,
+    stoppedEarly: bool,
     bridgeClosedAt: Stamp,
     lastProgressAt: Stamp,
     queue: List[PromptKind],
@@ -135,7 +136,6 @@ module harnessSessionTypes {
     stopsEnded: int,
     answersToOtherRequests: int,
     eventsThatThrew: int,
-    stoppedEarly: bool,
     personPrompts: int,
     faults: int,
     actions: int,
@@ -241,6 +241,7 @@ module harnessSession {
     session: false,
     promptInFlight: false,
     nudged: false,
+    stoppedEarly: false,
     bridgeClosedAt: Unset,
     lastProgressAt: Recent,
     queue: List(),
@@ -267,7 +268,6 @@ module harnessSession {
     stopsEnded: 0,
     answersToOtherRequests: 0,
     eventsThatThrew: 0,
-    stoppedEarly: false,
     personPrompts: 0,
     faults: 0,
     actions: 0,
@@ -360,7 +360,7 @@ module harnessSession {
 
   /// Write a request to every listed socket. Only a connected socket carries it to its bridge.
   pure def sendRequest(w: World, purpose: RpcPurpose): World = {
-    val id = w.rpcs.foldl(0, (highest, row) => if (row.id > highest) row.id else highest) + 1
+    val id = w.nextSerial + 1
     val stored = {
       ...w,
       rpcs: w.rpcs.append({ id: id, purpose: purpose, serial: w.nextSerial }),
@@ -450,7 +450,9 @@ module harnessSession {
     else if (w.restarts >= MAX_RESTARTS) failTask(w, rest)
     else closeContainer(w, List(RestartAfterClose({ generation: w.generation, restarts: w.restarts })).concat(rest))
 
-  pure def holdRestartForResume(w: World): World = clearTaskTimers({ ...w, restarts: w.restarts + 1 })
+  /// `holdRestartForResume`: the task waits queued, so its resume starts the sandbox.
+  pure def holdRestartForResume(w: World): World =
+    clearTaskTimers({ ...w, status: Queued, restarts: w.restarts + 1 })
 
   /// `sendPrompt`: the turn goes in flight and arms its timers.
   pure def sendPrompt(w: World): World =
@@ -483,8 +485,8 @@ module harnessSession {
     if (isFinished(w.status) or w.paused) w
     else if (w.promptInFlight) w
     else if (w.queue.length() == 0) w
-    else if (connected(w) and w.session) sendPrompt({ ...w, queue: w.queue.tail() })
     else if (w.status == Provisioning or handshakePending(w)) w
+    else if (connected(w) and w.session) sendPrompt({ ...w, queue: w.queue.tail() })
     else if (connected(w)) w
     else wakeOrWait(w, rest)
 
@@ -506,8 +508,16 @@ module harnessSession {
     if (issued(w, drained)) drained else markAuthorInReview(drained)
   }
 
+  /// `recoverLostTurn`: forget the lost turn and its harness session, so the queue wakes a fresh
+  /// sandbox instead of a bridge that may still run the turn.
   pure def recoverLostTurn(w: World, rest: List[Frame]): World = {
-    val cleared = { ...w, rpcs: List(), promptInFlight: false, lostTurnsRecovered: w.lostTurnsRecovered + 1 }
+    val cleared = {
+      ...w,
+      rpcs: List(),
+      promptInFlight: false,
+      session: false,
+      lostTurnsRecovered: w.lostTurnsRecovered + 1,
+    }
     val woken = if (cleared.queue.length() == 0) { ...cleared, queue: List(LostSandboxWake) } else cleared
     drainQueue(woken, rest)
   }
@@ -523,15 +533,18 @@ module harnessSession {
       }
     }
 
+  /// A prompt in flight or a handshake waits on the bridge. Its loss is recovered.
+  pure def waitsOnTheBridge(w: World): bool = w.promptInFlight or handshakePending(w)
+
   pure def onBridgeLostNow(w: World): World =
-    if (not(w.promptInFlight) or isFinished(w.status) or w.paused or connected(w)) w
+    if (not(waitsOnTheBridge(w)) or isFinished(w.status) or w.paused or connected(w)) w
     else recoverLostTurn(w, List())
 
   pure def onBridgeClosed(w: World, generation: int): World =
     if (generation != w.generation) w
     else {
       val closed = { ...w, bridgeClosedAt: Recent }
-      if (not(closed.promptInFlight) or isFinished(closed.status)) closed
+      if (not(waitsOnTheBridge(closed)) or isFinished(closed.status)) closed
       else if (bridgeProcessGone(closed)) onBridgeLostNow(closed)
       else arm(closed, BridgeLost(closed.generation))
     }
@@ -549,10 +562,12 @@ module harnessSession {
     if (ASKS_EFFORT) sendRequest(opened, SetEffort) else sendFirstPrompt(opened)
   }
 
+  /// A turn that ends forgets whether the turn before it stopped early. Its own outcome, when the
+  /// check returns, says whether it did.
   pure def onTurnEnd(w: World, stop: StopReason): World = {
-    val ended = { ...w, promptInFlight: false }
+    val ended = { ...w, promptInFlight: false, stoppedEarly: false }
     if (stop == EndTurn) issueCall(ended, OutcomeCheck({ promptsSent: ended.promptsSent, generation: ended.generation }), List())
-    else settleAndResumeAuthor({ ...ended, stoppedEarly: false }, List())
+    else settleAndResumeAuthor(ended, List())
   }
 
   /// The feed of an idle author closes on the stop reason of its turn. Without one the event throws.
@@ -567,11 +582,21 @@ module harnessSession {
     if (issued(ended, settled)) settled else closeFeedWithoutStopReason(settled)
   }
 
+  /// `stalledAtTurnEnd`: an author that stopped early stalled, unless a prompt is in flight or
+  /// queued or its task finished.
+  pure def settleStoppedEarlyAuthor(w: World): World =
+    if (isFinished(w.status) or w.promptInFlight or w.queue.length() > 0) settleAndResumeAuthor(w, List())
+    else if (w.nudged) restartOrFailTask(w, List())
+    else settleAndResumeAuthor(nudgeOrRestartStalledTask(w, List()), List())
+
+  /// A refused prompt of an author whose last turn stopped early counts as a stall.
   pure def onRpcError(w: World, purpose: RpcPurpose): World = match purpose {
     | Initialize => restartOrFailTask(w, List())
     | SessionNew => restartOrFailTask(w, List())
     | SetEffort => sendFirstPrompt(w)
-    | Prompt => settleAndResumeAuthor({ ...w, promptInFlight: false }, List())
+    | Prompt =>
+      val refused = { ...w, promptInFlight: false }
+      if (refused.stoppedEarly) settleStoppedEarlyAuthor(refused) else settleAndResumeAuthor(refused, List())
   }
 
   pure def onBridgeExit(w: World): World =
@@ -789,7 +814,7 @@ module harnessSession {
   pure def aLaterPromptSurvivesTheOutcomeOfAnEarlierTurnIn(step: Step): bool =
     step.kind == OutcomeStep({ laterPromptInFlight: true }) implies and {
       step.after.restarts == step.before.restarts,
-      step.after.status != Failed,
+      step.after.status == Failed implies step.before.status == Failed,
       not(issued(step.before, step.after)),
     }
 
@@ -920,24 +945,27 @@ module harnessSession {
     },
   }
 
-  /// The agent calls `resume_task` without a text. The tool refuses a finished task.
+  /// The agent calls `resume_task` without a text. The tool refuses a finished task. The continue
+  /// prompt waits for the answer to a turn the pause cancelled. A prompt or a handshake whose
+  /// bridge was lost during the pause is recovered.
   action agentResumesAuthor: bool = all {
     not(isFinished(world.status)),
     if (not(world.paused)) move(world, OtherStep)
-    else move(promptTask({ ...world, paused: false, promptInFlight: false }, ContinuePrompt, List()), OtherStep),
+    else move(onBridgeLostNow(promptTask({ ...world, paused: false }, ContinuePrompt, List())), OtherStep),
   }
 
   /// `endResumingTurn`: the stopped state is written before the container goes.
   pure def endStoppedTurn(w: World): World =
     { ...w, rpcs: List(), promptInFlight: false, status: Working, stopsEnded: w.stopsEnded + 1 }
 
-  /// A person presses Stop in the job session of the author.
+  /// A person presses Stop in the job session of the author. A running turn gets a cancel, and the
+  /// turn ends with the container even when the cancel is lost.
   action personStops: bool = {
     val cleared = { ...world, queue: List(), stoppedEarly: false }
-    if (connected(cleared) and cleared.session and cleared.promptInFlight) move(sendCancel(cleared), StopStep)
-    else if (not(isFinished(cleared.status)) and atWork(cleared))
-      move(closeContainer(endStoppedTurn(clearTaskTimers(cleared)), List()), StopStep)
-    else move(cleared, StopStep)
+    val cancelled = if (connected(cleared) and cleared.session and cleared.promptInFlight) sendCancel(cleared) else cleared
+    if (not(isFinished(cancelled.status)) and atWork(cancelled))
+      move(closeContainer(endStoppedTurn(clearTaskTimers(cancelled)), List()), StopStep)
+    else move(cancelled, StopStep)
   }
 
   /// The agent calls `cancel_job`. The tool refuses a finished task.
@@ -1136,17 +1164,15 @@ module harnessSession {
     move(runFrames(gone, restOf(world, callId)), OtherStep),
   }
 
+  /// A blocked author restarts, unless a prompt is in flight or queued or its task finished.
   pure def onOutcome(w: World, outcome: Outcome): World = {
     val recorded = { ...w, stoppedEarly: outcome == StoppedEarly }
     match outcome {
       | Blocked =>
         if (isFinished(recorded.status)) recorded
+        else if (recorded.promptInFlight or recorded.queue.length() > 0) settleAndResumeAuthor(recorded, List())
         else restartOrFailTask({ ...recorded, queue: recorded.queue.append(GaveUpWake) }, List())
-      | StoppedEarly =>
-        if (isFinished(recorded.status) or recorded.promptInFlight or recorded.queue.length() > 0)
-          settleAndResumeAuthor(recorded, List())
-        else if (recorded.nudged) restartOrFailTask(recorded, List())
-        else settleAndResumeAuthor(nudgeOrRestartStalledTask(recorded, List()), List())
+      | StoppedEarly => settleStoppedEarlyAuthor(recorded)
       | _ => settleAndResumeAuthor(recorded, List())
     }
   }
@@ -1452,21 +1478,21 @@ module harnessSession {
       | Provision => w.status == Queued
       | HelloTimeout(generation) => generation == w.generation and w.status == Provisioning
       | NoProgress(generation) => generation == w.generation and w.promptInFlight
-      | BridgeLost(generation) => generation == w.generation and w.promptInFlight
+      | BridgeLost(generation) => generation == w.generation and waitsOnTheBridge(w)
       | RetryQueue(generation) => generation == w.generation
       | WallClock => w.promptInFlight
       | KeepAlive(_) => false
     }).length() > 0
 
-  /// PROPOSED, T24 and T45. An unpaused task with work to do always has a way forward: a call out,
-  /// an alarm that acts on it, a bridge of its generation that can answer or dial in, or the close
-  /// of a socket under a prompt in flight.
+  /// PROPOSED, T24 and T45. An unpaused, unfinished task with work to do always has a way forward:
+  /// a call out, an alarm that acts on it, a bridge that can answer, or an open socket whose close
+  /// recovers a prompt in flight or an unfinished handshake.
   val anUnpausedTaskWithWorkIsNeverStranded: bool =
     (not(isFinished(world.status)) and not(world.paused) and (world.queue.length() > 0 or atWork(world))) implies or {
       not(noCallOut(world)),
       alarmMovesTheTask(world),
       bridgeCanMoveTheTask(world),
-      world.promptInFlight and world.sockets.length() > 0,
+      waitsOnTheBridge(world) and world.sockets.length() > 0,
     }
 
   /// PROPOSED, T29. A prompt the harness refuses is no longer in flight, unless the next prompt

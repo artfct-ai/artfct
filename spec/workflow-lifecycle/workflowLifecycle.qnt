@@ -538,10 +538,13 @@ module workflowLifecycle {
   }
 
   /// `resumeTask` on a harness author queues the resume prompt and sends the head of the queue.
-  /// Without a bridge it starts the next generation for it, also while a restart is closing the
-  /// old container.
+  /// The prompt waits while the bridge still runs the turn the pause cancelled. Without a bridge
+  /// it starts the next generation for it, also while a restart is closing the old container.
   pure def resumeHarnessAuthor(flow: Workflow, id: int): Workflow = {
     val task = jobTask(flow, id)
+    val closing = flow.calls.indices().exists(callId =>
+      flow.calls[callId].job == id and flow.calls[callId].kind == SandboxDestroy)
+    val waits = task.turnRunning and not(task.generationClosed) and not(closing)
     val calls = flow.calls.foldl(List(), (calls, call) => calls.append(
       if (call.job == id and call.rest == RestartGoesOn)
         { ...call, rest: RestartAfterWake }
@@ -550,7 +553,8 @@ module workflowLifecycle {
       ...task,
       paused: false,
       turnRunning: true,
-      promptsSent: task.promptsSent + 1,
+      promptsSent: if (waits) task.promptsSent else task.promptsSent + 1,
+      promptsQueued: if (waits) task.promptsQueued + 1 else task.promptsQueued,
       generationClosed: false,
       status: if (task.status == InReview) Busy else task.status,
     })
@@ -1078,8 +1082,8 @@ module workflowLifecycle {
   /// The prompts the workflow sent its tasks, a counter that model checking bounds.
   val promptsSent: int = promptsSentToTasks(workflow)
 
-  /// The prompts that wait for a turn, a counter that model checking bounds. Each resume of a
-  /// model-call author at work queues one more.
+  /// The prompts that wait for a turn, a counter that model checking bounds. Each resume of an
+  /// author at work queues one more.
   val promptsWaiting: int =
     jobIds(workflow).fold(0, (total, id) => total + jobTask(workflow, id).promptsQueued)
 

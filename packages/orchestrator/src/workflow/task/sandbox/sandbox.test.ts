@@ -59,6 +59,7 @@ const sandbox: SandboxRow = {
   token_schedule: null,
   credential_expires_at: null,
   nudged: 0,
+  stopped_early: 0,
 };
 
 function stage(name: string): ResolvedStage {

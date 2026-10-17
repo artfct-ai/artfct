@@ -7,7 +7,7 @@ import { closeSessionFeed, STOPPED_CLOSING } from "../feed/feed";
 import { cancelTask, endWorkflow, unbindCodeHost, workflowEnding } from "../lifecycle";
 import { promptTask } from "../task/harness/prompt-queue";
 import { taskAtWork } from "../task/at-work";
-import { sendNotification } from "../task/harness/bridge";
+import { onBridgeLost, sendNotification } from "../task/harness/bridge";
 import { clearTaskTimers, closeContainer } from "../task/sandbox/sandbox";
 import type { WorkflowRuntime } from "../types";
 import { isTaskFinished } from "../store/state";
@@ -133,22 +133,30 @@ export async function pauseTask(
 /** What a stop found the author doing. */
 export type StopOutcome = "cancelled" | "ended" | "idle";
 
-/** End the author's current turn and drop its queued prompts, so it waits for the person. */
+/**
+ * End the author's current turn and drop its queued prompts, so it waits for the person. A
+ * running turn gets a cancel, and its container goes too, since a cancel on a dropped socket is
+ * lost.
+ */
 export async function stopAuthor(workflow: WorkflowRuntime, author: TaskRow): Promise<StopOutcome> {
   workflow.store.clearPromptQueue(author.task_id);
+  if (workflow.store.sandbox(author.task_id)) {
+    workflow.store.updateSandbox(author.task_id, { stopped_early: 0 });
+  }
   const connected = workflow.connections(author.task_id).length > 0;
-  if (connected && cancelPromptTurn(workflow, author)) return "cancelled";
-  const resuming = !isTaskFinished(author.status) && taskAtWork(workflow, author);
-  if (resuming) await endResumingTurn(workflow, author);
+  const cancelled = connected && cancelPromptTurn(workflow, author);
+  const atWork = !isTaskFinished(author.status) && taskAtWork(workflow, author);
+  if (atWork) await endStoppedTurn(workflow, author);
   await closeSessionFeed(workflow, author, STOPPED_CLOSING);
-  return resuming ? "ended" : "idle";
+  if (cancelled) return "cancelled";
+  return atWork ? "ended" : "idle";
 }
 
 /**
- * End a turn the author is starting or resuming. A model-call author goes back in review when
- * its page is out, since it takes a prompt only there.
+ * End the turn of a stopped author, whether it runs, starts, or resumes. A model-call author goes
+ * back in review when its page is out, since it takes a prompt only there.
  */
-async function endResumingTurn(workflow: WorkflowRuntime, author: TaskRow): Promise<void> {
+async function endStoppedTurn(workflow: WorkflowRuntime, author: TaskRow): Promise<void> {
   const sandbox = workflow.store.sandbox(author.task_id);
   if (sandbox) {
     await clearTaskTimers(workflow, sandbox);
@@ -176,8 +184,9 @@ function cancelPromptTurn(workflow: WorkflowRuntime, task: TaskRow): boolean {
 }
 
 /**
- * Continue a paused task. Empty text becomes a generic continue prompt. The notice answers the
- * people who wrote from `answering`.
+ * Continue a paused task. Empty text becomes a generic continue prompt, which waits for the answer
+ * to a turn the pause cancelled. A turn whose bridge was lost during the pause is recovered. The
+ * notice answers the people who wrote from `answering`.
  */
 export async function resumeTask(
   workflow: WorkflowRuntime,
@@ -187,11 +196,12 @@ export async function resumeTask(
   const { text, answering } = resume;
   if (task.paused_at === null) return;
   workflow.store.updateTask(task.task_id, { paused_at: null });
-  if (workflow.store.sandbox(task.task_id)) {
-    workflow.store.updateSandbox(task.task_id, { prompt_in_flight: 0 });
-  }
   await flushBoards(workflow, task.job_id);
   await workflow.post({ type: "info", text: `Resumed ${task.task_id}.` }, { answering });
   const fresh = workflow.store.requireTask(task.task_id);
   await promptTask(workflow, fresh, text.trim() || "Continue where you left off.");
+  const sandbox = workflow.store.sandbox(task.task_id);
+  if (sandbox) {
+    await onBridgeLost(workflow, { task_id: task.task_id, generation: sandbox.generation });
+  }
 }

@@ -1358,8 +1358,7 @@ export function stopEndsTheAuthorsTurn(_workflow: WorkflowRuntime, step: Step): 
   if (after.queuedPrompts > 0) {
     violated("stopEndsTheAuthorsTurn", `${author.task_id} kept ${after.queuedPrompts} prompts`);
   }
-  if (author.turnRunning) {
-    if (after.cancelsSent > author.cancelsSent) return;
+  if (author.turnRunning && after.cancelsSent === author.cancelsSent) {
     violated("stopEndsTheAuthorsTurn", `${author.task_id} was not sent a cancel`);
   }
   const resumes =

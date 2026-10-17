@@ -36,6 +36,13 @@
       "when": 1792013932264,
       "tag": "0004_careful_doctor_spectrum",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1792202009560,
+      "tag": "0005_brainy_stranger",
+      "breakpoints": true
     }
   ]
 }

@@ -108,10 +108,34 @@ describe("control", () => {
   });
 
   describe("resume", () => {
-    describe("a paused task with a held prompt", () => {
+    describe("a paused task whose cancelled turn still runs", () => {
       let socket: FakeSocket;
       const resumed = scenario(freshRuntime, async (workflow) => {
         seedTask(workflow, { paused_at: PAUSED_AT }, { session_id: "s1", prompt_in_flight: 1 });
+        workflow.store.enqueuePrompt(TASK, "held");
+        socket = fakeConnection(TASK, 1);
+        workflow.sockets.push(socket.connection);
+        await applyControlWord(workflow, controlEvent("resume"));
+      });
+
+      it("waits for the cancelled turn to end", () =>
+        resumed(() => {
+          expect(promptTexts(socket)).toEqual([]);
+        }));
+
+      it("queues the nudge behind the held prompt", () =>
+        resumed((workflow) => {
+          expect(workflow.store.queue().map((row) => row.text)).toEqual([
+            "held",
+            "Continue where you left off.",
+          ]);
+        }));
+    });
+
+    describe("a paused task with a held prompt", () => {
+      let socket: FakeSocket;
+      const resumed = scenario(freshRuntime, async (workflow) => {
+        seedTask(workflow, { paused_at: PAUSED_AT }, { session_id: "s1" });
         workflow.store.enqueuePrompt(TASK, "held");
         socket = fakeConnection(TASK, 1);
         workflow.sockets.push(socket.connection);

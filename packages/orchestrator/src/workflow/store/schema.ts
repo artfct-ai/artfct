@@ -95,6 +95,8 @@ export const sandboxes = sqliteTable("sandboxes", {
   /** When the credential written into the sandbox stops working. Null without one. */
   credential_expires_at: text(),
   nudged: integer().notNull().default(0),
+  /** 1 while the outcome of the author's last turn says it stopped early. A turn end clears it. */
+  stopped_early: integer().notNull().default(0),
 });
 
 /** One model call the orchestrator made itself: an agent turn step or a named prompt. */
@@ -176,7 +178,8 @@ export const artifacts = sqliteTable("artifacts", {
 
 /** JSON-RPC requests sent to the harness that have no response yet. */
 export const rpc = sqliteTable("rpc", {
-  id: integer().primaryKey(),
+  /** Never given twice, so a late answer cannot reach a later request. */
+  id: integer().primaryKey({ autoIncrement: true }),
   task_id: text().notNull(),
   method: text().notNull(),
   purpose: text().$type<RpcPurpose>().notNull(),

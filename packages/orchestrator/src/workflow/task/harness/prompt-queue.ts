@@ -66,14 +66,14 @@ export async function drainQueue(workflow: WorkflowRuntime, task: TaskRow): Prom
   if (sandbox.prompt_in_flight) return false;
   const next = workflow.store.peekPrompt(task.task_id);
   if (!next) return false;
+  if (task.status === "provisioning" || workflow.store.handshakePending(task.task_id)) {
+    return false;
+  }
   const connected = workflow.connections(task.task_id).length > 0;
   if (connected && sandbox.session_id) {
     workflow.store.dequeuePrompt(next.id);
     await sendPrompt(workflow, task, next.text);
     return true;
-  }
-  if (task.status === "provisioning" || workflow.store.handshakePending(task.task_id)) {
-    return false;
   }
   if (connected) return false;
   await wakeOrWait(workflow, task, sandbox);
