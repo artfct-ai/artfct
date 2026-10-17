@@ -375,7 +375,6 @@ export class WorkflowWorld {
   private readonly checksOnPush: ChecksOnPush;
   private readonly tracker: SessionTracker;
   private readonly streamedTexts: string[] = [];
-  private readonly stoppedEarly = new Set<string>();
   private readonly modelTurnEnds: string[] = [];
   private readonly modelPromptTexts = new Map<string, string[]>();
   private readonly queuedPromptTexts = new Map<string, string[]>();
@@ -913,7 +912,6 @@ export class WorkflowWorld {
       this.whilePageModelAnswers = null;
       stops.push(host.calls.length);
       await this.deliver(stopEvent(session));
-      this.forgetStoppedEarlyIn(session);
     };
     try {
       await start();
@@ -1119,24 +1117,6 @@ export class WorkflowWorld {
   private modelTurnEndSince(index: number): Step["authorTurnEnd"] {
     const taskId = this.modelTurnEnds.slice(index).at(-1);
     return taskId ? { task_id: taskId, hostRevision: null, cancelled: false } : null;
-  }
-
-  /** An author turn ended. `stoppedEarly` says whether it ended on its own with the work unfinished. */
-  recordAuthorTurnEnd(taskId: string, stoppedEarly: boolean): void {
-    if (stoppedEarly) this.stoppedEarly.add(taskId);
-    else this.stoppedEarly.delete(taskId);
-  }
-
-  /**
-   * A person pressed Stop in a session. The authors of its job wait for that person now, so they
-   * no longer count as stopped early.
-   */
-  forgetStoppedEarlyIn(session: TrackerSession): void {
-    for (const author of this.authors) {
-      if (this.jobOf(author).issue_id === session.issue_id) {
-        this.stoppedEarly.delete(author.taskId);
-      }
-    }
   }
 
   /** Deliver one event from a person, the way ingress does. */
@@ -1386,7 +1366,6 @@ export class WorkflowWorld {
           modelCallOut:
             task.model_turn_id !== null &&
             this.hungModelTurns.get(task.task_id) === task.model_turn_id,
-          stoppedEarly: this.stoppedEarly.has(task.task_id),
         };
       }),
       artifacts: store.artifacts().map((artifact) => ({

@@ -109,7 +109,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W13",
-    invariant: "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone",
+    invariant: "harnessSession::anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone",
     path: "src/workflow/task/harness/turn.ts",
     find: "  if (isTaskFinished(author.status) || authorHasAPrompt(workflow, task.task_id)) {\n",
     replace:
@@ -284,7 +284,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W37",
-    invariant: "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone (refused prompt)",
+    invariant: "harnessSession::anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone (refused prompt)",
     path: "src/workflow/task/harness/turn.ts",
     find: '  if (stoppedEarly && (await stalledAtTurnEnd(workflow, task)) === "restarted") {',
     replace:
@@ -338,7 +338,7 @@ export const MUTANTS: Mutant[] = [
   {
     id: "W44",
     invariant:
-      "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone (outcome check lost with the instance)",
+      "harnessSession::anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone (outcome check lost with the instance)",
     path: "src/workflow/task/harness/turn.ts",
     find: '    await workflow.scheduleAlarm(0, "settleIdleAuthor", alarm);\n',
     replace: "",
