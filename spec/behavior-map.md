@@ -46,7 +46,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | T28 | A researcher's payload passes to its author. A missing or oversized payload restarts or fails the researcher. | `researchReadsCompleteOnceTheAuthorStarts` |
 | T29 | A prompt RPC error clears the prompt, writes a board note, and wakes the agent for an idle author. A researcher or refiner drains its queue or restarts. | |
 | T30 | A model-call author fails without a restart on a model error, an empty answer, a missing closing text, a comment reply that does not validate, or a page host error. A person's page edit during its model call does not fail it. The turn starts over on the page as it is now. | `reviewLoop::aModelCallAuthorFailsOnlyOnAHostError` |
-| T31 | A model turn that a restart or its deadline cut runs again as a restart. A revise keeps its prompt queued until it applies the answer. An author with its page out goes back in review and takes that prompt. One without its page produces it again. A paused author stays paused. Past the restart limit the task fails with a post to the person. | `aRestartDoesNotLoseAModelTurn` |
+| T31 | A model turn that a restart or its deadline cut runs again as a restart. A revise keeps its prompt queued until it applies the answer. An author with its page out goes back in review and takes that prompt. One without its page produces it again. A paused author stays paused. Past the restart limit the task fails with a post to the person. | `aRestartDoesNotLoseAModelTurn`, `workflowLifecycle::aRestartDoesNotLoseAModelTurn` |
 | T32 | A prompt queued for an unpaused model-call author reaches it. A model turn is in flight, the author is starting, or a polisher holds its page. | `aQueuedPromptReachesItsModelCallAuthor` |
 | T33 | A restart after the host wrote the page but before the store recorded it runs the turn again. A first turn creates a second page. A revise runs again on the revised text and can post its comment replies twice. | |
 
@@ -63,7 +63,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | T46 | The bridge lost alarm recovers the turn of a socket that closed with a prompt in flight and did not reconnect. | `staleAlarmIsIgnored` |
 | T47 | The token refresh alarm mints a new workflow repo token before expiry and retries every 60 seconds without a limit. A first mint that fails starts the sandbox without a token and does not arm a refresh. | |
 | T48 | The idle alarm posts the sleep message. | `sleepMessageOnlyDuringAWorkflow` |
-| T49 | The model turn deadline alarm fires 20 minutes after a model turn starts, and at once for every model turn in flight when the Durable Object starts. An alarm of an older turn does not act. | `staleAlarmIsIgnored`, `aRestartDoesNotLoseAModelTurn` |
+| T49 | The model turn deadline alarm fires 20 minutes after a model turn starts, and at once for every model turn in flight when the Durable Object starts. An alarm of an older turn does not act. | `staleAlarmIsIgnored`, `aRestartDoesNotLoseAModelTurn`, `workflowLifecycle::aRestartDoesNotLoseAModelTurn` |
 
 ### Task external calls
 

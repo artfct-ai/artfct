@@ -57,6 +57,12 @@ describe("workflow lifecycle spec", () => {
     await replayTrace("pagesWithoutRefiners", traceSteps("pagesWithoutRefiners", trace));
   });
 
+  it("cancels the author a researcher hands over to while the workflow ends", async () => {
+    const path = join(PINNED_TRACES, "author-after-research-while-the-workflow-ends.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("pagesAfterResearch", traceSteps("pagesAfterResearch", trace));
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,

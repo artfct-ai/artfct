@@ -387,8 +387,9 @@ export function workflowEnding(workflow: WorkflowRuntime): boolean {
 }
 
 /**
- * Cancel every active task, author and researcher tasks first, then set the final status. False
- * when the workflow already ended or another end runs, so the caller says nothing.
+ * Cancel every active task, author and researcher tasks first, then set the final status. Each
+ * cancel reads the active tasks again, so an author that starts after research meanwhile ends too.
+ * False when the workflow already ended or another end runs, so the caller says nothing.
  */
 export async function endWorkflow(
   workflow: WorkflowRuntime,
@@ -398,7 +399,8 @@ export async function endWorkflow(
   if (workflowEnding(workflow) || isWorkflowFinished(workflow.state.status)) return false;
   workflowsEnding.add(workflow);
   try {
-    for (const task of workflow.store.activeAuthorAndResearcherTasks()) {
+    const nextActive = () => workflow.store.activeAuthorAndResearcherTasks()[0];
+    for (let task = nextActive(); task; task = nextActive()) {
       await cancelTask(workflow, task, reason);
     }
     for (const task of workflow.store.activeRefinerRuns()) await cancelTask(workflow, task, reason);
