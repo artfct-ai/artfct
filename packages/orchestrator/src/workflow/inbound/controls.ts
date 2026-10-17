@@ -152,10 +152,10 @@ async function endResumingTurn(workflow: WorkflowRuntime, author: TaskRow): Prom
   const sandbox = workflow.store.sandbox(author.task_id);
   if (sandbox) {
     await clearTaskTimers(workflow, sandbox);
-    await closeContainer(workflow, author, "a person pressed Stop");
     workflow.store.clearRpc(author.task_id);
     workflow.store.updateSandbox(author.task_id, { prompt_in_flight: 0, turn_text: "" });
     workflow.store.updateTask(author.task_id, { status: "working" });
+    await closeContainer(workflow, author, "a person pressed Stop");
   } else {
     const pageOut = workflow.store.artifact(author.job_id) !== null;
     workflow.store.updateTask(author.task_id, {

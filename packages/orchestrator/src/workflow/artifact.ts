@@ -86,15 +86,16 @@ export function stageHasRefiners(stage: ResolvedStage): boolean {
 }
 
 /**
- * An unfinished author whose job has an artifact and that has no prompt in flight is idle with its
- * artifact out, so it is `in_review`. Mid-turn it stays `working` until its turn ends. A model-call
- * author has no prompt in flight once its model call returned.
+ * An unfinished author whose job has an artifact, with no prompt in flight and no handshake
+ * pending, is idle with its artifact out, so it is `in_review`. Mid-turn it stays `working` until its
+ * turn ends. A model-call author has no prompt in flight once its model call returned.
  */
 export function markAuthorInReview(workflow: WorkflowRuntime, taskId: string): void {
   const task = workflow.store.requireTask(taskId);
   if (task.status !== "working" && task.status !== "queued") return;
   if (!workflow.store.artifact(task.job_id)) return;
   if (workflow.store.sandbox(taskId)?.prompt_in_flight) return;
+  if (workflow.store.handshakePending(taskId)) return;
   workflow.store.updateTask(taskId, { status: "in_review" });
 }
 

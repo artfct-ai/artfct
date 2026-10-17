@@ -48,7 +48,7 @@ module workflowLifecycleTypes {
   type Caller = ToolOrEvent | WorkflowEnd({ endsAs: WorkflowStatus, remaining: List[int] })
 
   /// The rest of the step that runs when the call returns. `RestartAfterWake` is a restart whose
-  /// author a resume woke in a new generation while its old container went.
+  /// author a resume woke in a new generation while its old container went. It stops there.
   type Rest =
     | TeardownGoesOn({ teardown: Teardown, caller: Caller })
     | RestartGoesOn
@@ -281,15 +281,11 @@ module workflowLifecycle {
   /// finished. A paused author counts the restart and waits for its resume to start the next
   /// generation. Otherwise `restartSandbox` puts the task back to queued and counts the restart,
   /// then the sandbox comes up and the harness gets the queued prompt, or its first prompt.
-  pure def restartGoesOn(flow: Workflow, id: int, woken: bool): Workflow = {
+  pure def restartGoesOn(flow: Workflow, id: int): Workflow = {
     val author = flow.jobs[id].author
     if (isFinished(author.status)) flow
     else if (author.paused)
-      withAuthor(flow, id, {
-        ...author,
-        restarts: author.restarts + 1,
-        generationClosed: author.generationClosed or not(woken),
-      })
+      withAuthor(flow, id, { ...author, restarts: author.restarts + 1, generationClosed: true })
     else
       withAuthor(flow, id, {
         ...author,
@@ -315,8 +311,8 @@ module workflowLifecycle {
     val returned = withoutCall(flow, callId)
     match call.rest {
       | TeardownGoesOn(teardown) => teardownGoesOn(returned, call.job, teardown.caller)
-      | RestartGoesOn => restartGoesOn(returned, call.job, false)
-      | RestartAfterWake => restartGoesOn(returned, call.job, true)
+      | RestartGoesOn => restartGoesOn(returned, call.job)
+      | RestartAfterWake => returned
       | CompletionGoesOn => returned
     }
   }

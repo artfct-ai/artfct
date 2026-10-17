@@ -33,9 +33,28 @@
       "polisherTask",
       "verdict",
       "Verdict"
+    ],
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "regex": "^(@linear/sdk|@notionhq/client|@octokit/.+|@openrouter/sdk|@slack/.+|cloudflare(/.+)?)$",
+            "message": "Only a vendor directory under packages/adapters imports a vendor SDK."
+          },
+          {
+            "regex": "^@artfct-ai/adapters/[a-z]+/[a-z-]+/",
+            "message": "Import the capability interface from its types.ts. Only a clients.ts imports a vendor directory."
+          }
+        ]
+      }
     ]
   },
   "overrides": [
+    {
+      "files": ["**/clients.ts", "**/*.test.ts", "**/*.test.medium.ts", "**/test/**"],
+      "rules": { "no-restricted-imports": "off" }
+    },
     {
       // bun-types declares the `resolves` and `rejects` matchers as void, though they return promises.
       "files": ["**/*.test.ts"],

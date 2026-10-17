@@ -1,4 +1,18 @@
 {
   "$schema": "../../node_modules/oxlint/configuration_schema.json",
-  "extends": ["../../.oxlintrc.json"]
+  "extends": ["../../.oxlintrc.json"],
+  "rules": {
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "regex": ".",
+            "allowTypeImports": true,
+            "message": "contracts holds plain types. Use import type."
+          }
+        ]
+      }
+    ]
+  }
 }

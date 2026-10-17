@@ -44,6 +44,12 @@ export const PROPERTY_FILES = {
     runner: ["bun", "test"],
     e2eRuns: 1000,
   },
+  harness_session: {
+    title: "harness session spec replay",
+    path: "src/workflow/task/harness/harness-session-replay.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 3000,
+  },
   agent_turns: {
     title: "agent turns spec replay",
     path: "src/agent/turn/agent-turns-replay.test.medium.ts",
