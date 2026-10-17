@@ -30,14 +30,23 @@ export const WORKSPACE = "/workspace/repo";
 const HELLO_TIMEOUT_S = 90;
 
 /**
- * Tasks whose sandbox start is awaited now, per runtime. It dies with the isolate, which is
- * how a hello timeout tells a slow start from one a restart of the Durable Object cut off.
+ * The sandbox starts awaited now, per runtime, each keyed by its task and generation. It dies with
+ * the isolate, which is how a hello timeout tells a slow start from one a restart of the Durable
+ * Object cut off.
  */
 const startsInFlight = new WeakMap<WorkflowRuntime, Set<string>>();
 
-/** True while this instance awaits the start of the task's sandbox. */
-export function sandboxStartInFlight(workflow: WorkflowRuntime, taskId: string): boolean {
-  return startsInFlight.get(workflow)?.has(taskId) ?? false;
+function sandboxStartKey(taskId: string, generation: number): string {
+  return `${taskId}#${generation}`;
+}
+
+/** True while this instance awaits the start of the task's sandbox in `generation`. */
+export function sandboxStartInFlight(
+  workflow: WorkflowRuntime,
+  taskId: string,
+  generation: number,
+): boolean {
+  return startsInFlight.get(workflow)?.has(sandboxStartKey(taskId, generation)) ?? false;
 }
 
 /** Alarm handler: start a queued task. A task of a stage the workflow definition dropped fails instead. */
@@ -83,23 +92,25 @@ export async function startSandbox(
   task: TaskRow,
   resume: boolean,
 ): Promise<void> {
+  const fresh = await beginGeneration(workflow, task);
+  const { generation } = workflow.store.requireSandbox(fresh.task_id);
+  const key = sandboxStartKey(fresh.task_id, generation);
   const starting = startsInFlight.get(workflow) ?? new Set<string>();
   startsInFlight.set(workflow, starting);
-  starting.add(task.task_id);
+  starting.add(key);
   try {
-    await startGeneration(workflow, task, resume);
+    await startGeneration(workflow, fresh, resume);
   } finally {
-    starting.delete(task.task_id);
+    starting.delete(key);
   }
 }
 
 async function startGeneration(
   workflow: WorkflowRuntime,
-  task: TaskRow,
+  fresh: TaskRow,
   resume: boolean,
 ): Promise<void> {
   const config = workflow.config();
-  const fresh = await beginGeneration(workflow, task);
   await flushBoards(workflow, fresh.job_id);
   const sandbox = workflow.store.requireSandbox(fresh.task_id);
   const job = workflow.store.requireJob(fresh.job_id);

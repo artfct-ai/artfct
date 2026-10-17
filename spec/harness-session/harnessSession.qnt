@@ -73,9 +73,11 @@ module harnessSessionTypes {
   /// when the author is idle, because the feed closing reads a stop reason the answer lacked.
   /// `AlarmEnds` marks the end of an alarm's handler. The alarm stays scheduled until it runs.
   /// `RestartAfterClose` names the generation and the restart count that its restart began from.
+  /// `StartEnds` names the generation of its sandbox start. That start is out while a call that is
+  /// out carries the frame.
   type Frame =
     | RestartAfterClose({ generation: int, restarts: int })
-    | StartEnds
+    | StartEnds(int)
     | CloseFeedWithoutStopReason
     | AlarmEnds(Alarm)
 
@@ -122,7 +124,6 @@ module harnessSessionTypes {
     keepAliveSlot: Slot,
     alarms: List[Alarm],
     nextAlarm: int,
-    startTracked: bool,
     sockets: List[Socket],
     bridges: List[Bridge],
     calls: List[Call],
@@ -150,6 +151,7 @@ module harnessSessionTypes {
     | StaleAlarmStep
     | ExitStep
     | StartFailedStep(int)
+    | HelloTimeoutStep
     | PromptRefusedStep
     | ProvisionStep
     | WallClockStep
@@ -179,6 +181,7 @@ module harnessSessionTypes {
     wallClockFailsWithoutARestart: bool,
     aBridgeConnectsOnlyWithTheCurrentToken: bool,
     aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn: bool,
+    theHelloTimeoutWaitsWhileItsStartIsOut: bool,
   }
 
   /// For each witness that reads a step, whether the last step showed it. Each step writes it anew.
@@ -209,6 +212,7 @@ module harnessSessionTypes {
     theEffortIsSet: bool,
     aCallWasDropped: bool,
     anAlarmRunsAgainAfterARestart: bool,
+    aHelloTimeoutFiresWhileItsStartIsOut: bool,
   }
 }
 
@@ -254,7 +258,6 @@ module harnessSession {
     keepAliveSlot: Unarmed,
     alarms: List({ id: 0, kind: Provision }),
     nextAlarm: 1,
-    startTracked: false,
     sockets: List(),
     bridges: List(),
     calls: List(),
@@ -409,15 +412,33 @@ module harnessSession {
     }
   }
 
-  /// `startSandbox`: the start is out until `sandboxStartReturns`.
+  /// `startSandbox`: the call is out until `sandboxStartReturns`. The start of the generation stays
+  /// out until the event that awaited it ends.
   pure def startSandbox(w: World, rest: List[Frame]): World = {
-    val begun = beginGeneration({ ...w, startTracked: true })
+    val begun = beginGeneration(w)
     issueCall(
       begun,
       SandboxStart({ generation: begun.generation, token: begun.token, launched: false }),
-      List(StartEnds).concat(rest),
+      List(StartEnds(begun.generation)).concat(rest),
     )
   }
+
+  /// `sandboxStartInFlight`: the generations whose sandbox start this instance awaits. A restart
+  /// of the Durable Object drops the calls that carry them.
+  pure def startsOut(w: World): Set[int] =
+    w.calls.foldl(Set(), (generations, call) =>
+      if (call.state != Out) generations
+      else call.rest.foldl(generations, (named, frame) => match frame {
+        | StartEnds(generation) => named.union(Set(generation))
+        | _ => named
+      }))
+
+  /// True while the sandbox provider has not returned a start of `generation` this instance awaits.
+  pure def startCallOut(w: World, generation: int): bool =
+    w.calls.select(call => call.state == Out and match call.kind {
+      | SandboxStart(start) => start.generation == generation
+      | _ => false
+    }).length() > 0
 
   pure def restartSandbox(w: World, rest: List[Frame]): World =
     startSandbox({ ...w, status: Queued, restarts: w.restarts + 1 }, rest)
@@ -617,7 +638,7 @@ module harnessSession {
 
   /// One frame of the rest of an event after the call it waited on.
   pure def runFrame(w: World, frame: Frame, rest: List[Frame]): World = match frame {
-    | StartEnds => { ...w, startTracked: false }
+    | StartEnds(_) => w
     | CloseFeedWithoutStopReason => closeFeedWithoutStopReason(w)
     | AlarmEnds(_) => w
     | RestartAfterClose(began) =>
@@ -823,6 +844,17 @@ module harnessSession {
       not(issued(step.before, step.after)),
     }
 
+  /// PROPOSED, T43. The hello timeout of the current generation does not restart, fail or move the
+  /// task while the sandbox start of that generation is out. The end of an older start does not end
+  /// the wait.
+  pure def theHelloTimeoutWaitsWhileItsStartIsOutIn(step: Step): bool =
+    (step.kind == HelloTimeoutStep and startCallOut(step.before, step.before.generation)) implies and {
+      step.after.status == step.before.status,
+      step.after.restarts == step.before.restarts,
+      step.after.generation == step.before.generation,
+      not(issued(step.before, step.after)),
+    }
+
   /// Whether one step kept each before-and-after rule.
   pure def rulesKeptIn(step: Step): RulesKept = {
     finishedTaskKeepsItsStatus: finishedTaskKeepsItsStatusIn(step),
@@ -840,6 +872,7 @@ module harnessSession {
     wallClockFailsWithoutARestart: wallClockFailsWithoutARestartIn(step),
     aBridgeConnectsOnlyWithTheCurrentToken: aBridgeConnectsOnlyWithTheCurrentTokenIn(step),
     aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn: aLaterPromptSurvivesTheOutcomeOfAnEarlierTurnIn(step),
+    theHelloTimeoutWaitsWhileItsStartIsOut: theHelloTimeoutWaitsWhileItsStartIsOutIn(step),
   }
 
   /// Whether a sandbox start of the current generation, or of an older one, failed for an unfinished task.
@@ -912,6 +945,8 @@ module harnessSession {
     anAlarmRunsAgainAfterARestart:
       step.kind == DurableObjectRestartStep and
         step.before.calls.select(call => call.state == Out and alarmsAwaiting(call).length() > 0).length() > 0,
+    aHelloTimeoutFiresWhileItsStartIsOut:
+      step.kind == HelloTimeoutStep and step.before.status == Provisioning and startCallOut(step.before, step.before.generation),
   }
 
   /// Write the world after a step, and which rules and witnesses that step kept and showed.
@@ -995,7 +1030,7 @@ module harnessSession {
     | Provision => if (w.status == Queued) startSandbox(w, List()) else w
     | HelloTimeout(_) =>
       if (w.status != Provisioning) w
-      else if (w.startTracked) { ...arm(w, HelloTimeout(w.generation)), helloSlot: Armed(w.nextAlarm) }
+      else if (startsOut(w).contains(w.generation)) { ...arm(w, HelloTimeout(w.generation)), helloSlot: Armed(w.nextAlarm) }
       else restartOrFailTask(w, List())
     | NoProgress(_) =>
       if (not(w.promptInFlight) or isFinished(w.status) or w.paused) w
@@ -1017,6 +1052,7 @@ module harnessSession {
     else match kind {
       | Provision => ProvisionStep
       | WallClock => WallClockStep
+      | HelloTimeout(_) => HelloTimeoutStep
       | KeepAlive(_) => KeepAliveStep
       | _ => OtherStep
     }
@@ -1080,7 +1116,7 @@ module harnessSession {
   action durableObjectRestarts: bool = all {
     world.faults < MAX_FAULTS,
     world.calls.select(call => call.state == Out).length() > 0,
-    val lost = world.calls.foldl({ ...world, calls: List(), startTracked: false, faults: world.faults + 1 }, (restarted, call) =>
+    val lost = world.calls.foldl({ ...world, calls: List(), faults: world.faults + 1 }, (restarted, call) =>
       if (call.state != Out) { ...restarted, calls: restarted.calls.append(call) }
       else {
         val rescheduled = { ...restarted, alarms: restarted.alarms.concat(alarmsAwaiting(call)) }
@@ -1549,6 +1585,11 @@ module harnessSession {
   /// that turn ended is in flight.
   val aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn: bool = rulesKept.aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn
 
+  /// PROPOSED, T43. The hello timeout of the current generation does not restart, fail or move the
+  /// task while the sandbox start of that generation is out. The end of an older start does not end
+  /// the wait.
+  val theHelloTimeoutWaitsWhileItsStartIsOut: bool = rulesKept.theHelloTimeoutWaitsWhileItsStartIsOut
+
   /// PROPOSED. A harness answer reaches only the request it answers, never a later request that
   /// took the same rpc id.
   val anAnswerReachesOnlyItsOwnRequest: bool = world.answersToOtherRequests == 0
@@ -1583,6 +1624,7 @@ module harnessSession {
     anAuthorInReviewRunsNoTurn,
     aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn,
     anAnswerReachesOnlyItsOwnRequest,
+    theHelloTimeoutWaitsWhileItsStartIsOut,
   }
 
   /// Witness for `finishedTaskKeepsItsStatus`: a finished task is there before a step.
@@ -1687,6 +1729,10 @@ module harnessSession {
 
   /// A restart of the Durable Object cut an alarm's handler, and the alarm runs again.
   val anAlarmRunsAgainAfterARestart: bool = stepWitnesses.anAlarmRunsAgainAfterARestart
+
+  /// Witness for `theHelloTimeoutWaitsWhileItsStartIsOut`: the hello timeout fires on a
+  /// provisioning task while the start of its generation is out.
+  val aHelloTimeoutFiresWhileItsStartIsOut: bool = stepWitnesses.aHelloTimeoutFiresWhileItsStartIsOut
 
   /// The author was nudged.
   val theAuthorWasNudged: bool = world.nudged

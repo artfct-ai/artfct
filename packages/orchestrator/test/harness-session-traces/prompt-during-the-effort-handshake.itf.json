@@ -160,7 +160,6 @@
         "socketsClosed": {
           "#bigint": "0"
         },
-        "startTracked": false,
         "status": {
           "tag": "Queued",
           "value": {
@@ -291,7 +290,7 @@
               {
                 "tag": "StartEnds",
                 "value": {
-                  "#tup": []
+                  "#bigint": "1"
                 }
               }
             ],
@@ -383,7 +382,6 @@
         "socketsClosed": {
           "#bigint": "0"
         },
-        "startTracked": true,
         "status": {
           "tag": "Provisioning",
           "value": {
@@ -584,7 +582,6 @@
         "socketsClosed": {
           "#bigint": "0"
         },
-        "startTracked": false,
         "status": {
           "tag": "Provisioning",
           "value": {
@@ -822,7 +819,6 @@
         "socketsClosed": {
           "#bigint": "0"
         },
-        "startTracked": false,
         "status": {
           "tag": "Working",
           "value": {
@@ -1048,7 +1044,6 @@
         "socketsClosed": {
           "#bigint": "0"
         },
-        "startTracked": false,
         "status": {
           "tag": "Working",
           "value": {
@@ -1274,7 +1269,6 @@
         "socketsClosed": {
           "#bigint": "0"
         },
-        "startTracked": false,
         "status": {
           "tag": "Working",
           "value": {
@@ -1503,7 +1497,6 @@
         "socketsClosed": {
           "#bigint": "0"
         },
-        "startTracked": false,
         "status": {
           "tag": "Working",
           "value": {
@@ -1732,7 +1725,6 @@
         "socketsClosed": {
           "#bigint": "0"
         },
-        "startTracked": false,
         "status": {
           "tag": "Working",
           "value": {
@@ -1964,7 +1956,6 @@
         "socketsClosed": {
           "#bigint": "0"
         },
-        "startTracked": false,
         "status": {
           "tag": "Working",
           "value": {
@@ -2233,7 +2224,6 @@
         "socketsClosed": {
           "#bigint": "0"
         },
-        "startTracked": false,
         "status": {
           "tag": "Working",
           "value": {

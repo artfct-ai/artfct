@@ -23,7 +23,8 @@
     "aHarnessSessionRunsOneTurnAtATime",
     "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn",
     "anUnpausedTaskWithWorkIsNeverStranded",
-    "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone"
+    "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone",
+    "theHelloTimeoutWaitsWhileItsStartIsOut"
   ],
   "mainMinutes": {
     "harnessDefaultEffort": 9.4,
@@ -63,7 +64,8 @@
       "aCallWasDropped",
       "anAlarmRunsAgainAfterARestart",
       "theAuthorWasNudged",
-      "theTaskWasCancelled"
+      "theTaskWasCancelled",
+      "aHelloTimeoutFiresWhileItsStartIsOut"
     ],
     "stageAsksForEffort": [
       "aFinishedTaskIsInAStep",
@@ -97,7 +99,8 @@
       "anAlarmRunsAgainAfterARestart",
       "theAuthorWasNudged",
       "theTaskWasCancelled",
-      "theEffortIsSet"
+      "theEffortIsSet",
+      "aHelloTimeoutFiresWhileItsStartIsOut"
     ],
     "agentPausesRunningTurns": [
       "aFinishedTaskIsInAStep",
@@ -132,7 +135,8 @@
       "aCallWasDropped",
       "anAlarmRunsAgainAfterARestart",
       "theAuthorWasNudged",
-      "theTaskWasCancelled"
+      "theTaskWasCancelled",
+      "aHelloTimeoutFiresWhileItsStartIsOut"
     ]
   },
   "tlc": {
