@@ -279,15 +279,19 @@ async function announceReopenedDraft(workflow: WorkflowRuntime, jobId: string): 
 
 /**
  * The author harness went quiet. Settle its review, send what is queued, write the row and the
- * board. True when the harness is busy again.
+ * board. True when the harness is busy again. An author whose sandbox the drain woke is not idle,
+ * so it stays out of review whatever its start did.
  */
 async function settleAndResumeAuthor(workflow: WorkflowRuntime, taskId: string): Promise<boolean> {
   const { job_id: jobId } = workflow.store.requireTask(taskId);
   await reopenChangedArtifact(workflow, jobId);
   await settleRefinersForAuthor(workflow, workflow.store.requireTask(taskId));
+  const { generation } = workflow.store.requireSandbox(taskId);
   const sent = await drainQueue(workflow, workflow.store.requireTask(taskId));
-  const busy = sent || workflow.store.requireSandbox(taskId).prompt_in_flight === 1;
-  if (!busy) markAuthorInReview(workflow, taskId);
+  const sandbox = workflow.store.requireSandbox(taskId);
+  const busy = sent || sandbox.prompt_in_flight === 1;
+  const woke = sandbox.generation !== generation;
+  if (!busy && !woke) markAuthorInReview(workflow, taskId);
   await flushBoards(workflow, jobId);
   return busy;
 }

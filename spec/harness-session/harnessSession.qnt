@@ -75,7 +75,6 @@ module harnessSessionTypes {
   /// `RestartAfterClose` names the generation and the restart count that its restart began from.
   type Frame =
     | RestartAfterClose({ generation: int, restarts: int })
-    | SettleAfterDrain
     | StartEnds
     | CloseFeedWithoutStopReason
     | AlarmEnds(Alarm)
@@ -507,9 +506,10 @@ module harnessSession {
       { ...w, status: InReview }
     else w
 
-  /// `settleAndResumeAuthor`: send what is queued, else the author waits in review.
+  /// `settleAndResumeAuthor`: send what is queued, else the author waits in review. An author
+  /// whose sandbox the drain woke is not idle, so it stays out of review whatever its start does.
   pure def settleAndResumeAuthor(w: World, rest: List[Frame]): World = {
-    val drained = drainQueue(w, List(SettleAfterDrain).concat(rest))
+    val drained = drainQueue(w, rest)
     if (issued(w, drained)) drained else markAuthorInReview(drained)
   }
 
@@ -618,7 +618,6 @@ module harnessSession {
   /// One frame of the rest of an event after the call it waited on.
   pure def runFrame(w: World, frame: Frame, rest: List[Frame]): World = match frame {
     | StartEnds => { ...w, startTracked: false }
-    | SettleAfterDrain => markAuthorInReview(w)
     | CloseFeedWithoutStopReason => closeFeedWithoutStopReason(w)
     | AlarmEnds(_) => w
     | RestartAfterClose(began) =>
