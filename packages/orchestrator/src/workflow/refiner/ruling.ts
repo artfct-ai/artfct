@@ -66,7 +66,7 @@ export async function askPersonToRule(
 ): Promise<void> {
   const { author, reviewer, artifact, entry, conclusion } = input;
   await markBoardDirty(workflow, author.job_id);
-  workflow.store.updateTask(reviewer.task_id, { result: { kind: "ruling_asked" } });
+  workflow.store.recordRuling(reviewer.task_id, { status: "asked" });
   await workflow.tellAgent(
     noteMessage(
       [

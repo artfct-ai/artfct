@@ -11,7 +11,7 @@ import { findingText } from "../src/artifact/review-text";
 import { CLOSING_TEXT_MARKER, replyMarker } from "../src/prompts/model-author-prompt";
 import { rejectionHeadline } from "../src/prompts/review-prompt";
 import { sendHeldCommentsOnRevisionRequest } from "../src/workflow/refiner/held-comments";
-import type { TaskRow } from "../src/workflow/store/tasks";
+import type { RefinerRun, TaskRow } from "../src/workflow/store/tasks";
 import type { TaskAlarm } from "../src/workflow/task/harness/timers";
 import { taskAtWork } from "../src/workflow/task/at-work";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
@@ -1323,7 +1323,7 @@ export class ReviewLoopReplay {
   }
 
   /** The comments code posted on the page for refiner runs, oldest first. */
-  private reviewComments(runs: TaskRow[]): SpecReviewComment[] {
+  private reviewComments(runs: RefinerRun[]): SpecReviewComment[] {
     if (this.revisions.kind !== "page") return [];
     const { pageId } = this.revisions;
     return this.host().postedComments.flatMap((posted): SpecReviewComment[] => {
@@ -1344,9 +1344,8 @@ export class ReviewLoopReplay {
         const approves = posted.text.startsWith("Review: approved");
         return [{ kind: "outcome", run, findings, approves }];
       }
-      const result = runs[run]?.result;
-      const rejected = result?.kind === "ruling" && result.ruling === "rejected";
-      if (!rejected || !posted.text.startsWith(result.reason)) {
+      const ruling = runs[run]?.ruling;
+      if (ruling?.status !== "rejected" || !posted.text.startsWith(ruling.reason)) {
         throw new Error(`run ${run} posted a comment that is not its rejection:\n${posted.text}`);
       }
       return [{ kind: "rejection", run }];
@@ -1502,11 +1501,11 @@ export class ReviewLoopReplay {
     });
   }
 
-  private runsWhoseFindingsReachedTheAuthor(author: TaskRow, runs: TaskRow[]): number[] {
+  private runsWhoseFindingsReachedTheAuthor(author: TaskRow, runs: RefinerRun[]): number[] {
     const prompts = this.world.promptsQueuedFor(author.task_id);
     return runs.flatMap((run, runId) => {
-      if (run.result?.kind !== "review" || !run.result.findings.length) return [];
-      const reached = run.result.findings.every((finding) =>
+      if (!run.review?.findings.length) return [];
+      const reached = run.review.findings.every((finding) =>
         prompts.some((prompt) => prompt.includes(`- ${findingText(finding)}`)),
       );
       return reached ? [runId] : [];
@@ -1667,11 +1666,11 @@ function judgeCloses(run: TaskRow, conclusion: string): WorkflowAction {
   };
 }
 
-function specRunOf(run: TaskRow, revisionCount: (revision: string | null) => number): SpecRun {
+function specRunOf(run: RefinerRun, revisionCount: (revision: string | null) => number): SpecRun {
   return {
     refinerIndex: run.refiner_index ?? 0,
     status: SPEC_STATUSES[run.status],
-    result: specResultOf(run.result, revisionCount),
+    result: specResultOf(run, revisionCount),
     restarts: run.restarts,
   };
 }
@@ -1687,28 +1686,27 @@ const SPEC_STATUSES: Record<TaskStatus, SpecRun["status"]> = {
 };
 
 function specResultOf(
-  result: TaskRow["result"],
+  run: RefinerRun,
   revisionCount: (revision: string | null) => number,
 ): SpecRun["result"] {
-  if (!result) return { filed: "nothing" };
-  switch (result.kind) {
-    case "ruling":
-      return {
-        filed: "ruling",
-        ruling: result.ruling === "approved" ? "Approved" : "Rejected",
-        revision: revisionCount(result.revision),
-      };
-    case "ruling_asked":
+  if (run.review) {
+    return {
+      filed: "review",
+      revision: revisionCount(run.review.revision),
+      findings: run.review.blocking || run.review.findings.length > 0,
+    };
+  }
+  if (!run.ruling) return { filed: "nothing" };
+  switch (run.ruling.status) {
+    case "asked":
       return { filed: "ruling_asked" };
-    case "review":
-      return {
-        filed: "review",
-        revision: revisionCount(result.revision),
-        findings: result.blocking || result.findings.length > 0,
-      };
+    case "approved":
+      return { filed: "ruling", ruling: "Approved", revision: revisionCount(run.ruling.revision) };
+    case "rejected":
+      return { filed: "ruling", ruling: "Rejected", revision: revisionCount(run.ruling.revision) };
     default: {
-      const unhandled: never = result;
-      throw new Error(`unhandled refiner result ${JSON.stringify(unhandled)}`);
+      const unhandled: never = run.ruling;
+      throw new Error(`unhandled ruling ${JSON.stringify(unhandled)}`);
     }
   }
 }

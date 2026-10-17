@@ -9,7 +9,6 @@ const JOB = "wf_x-1";
 
 function review(findings: number) {
   return {
-    kind: "review" as const,
     revision: "abc123",
     blocking: false,
     summary: "",
@@ -25,9 +24,9 @@ async function finishedReviewerRun(workflow: FakeRuntime, findings: number): Pro
   const runs = workflow.store.refinerRunsOf(JOB);
   workflow.store.updateTask(runs.at(-1)!.task_id, {
     status: "done",
-    result: review(findings),
     started_at: new Date(Date.UTC(2026, 0, 1, runs.length)).toISOString(),
   });
+  workflow.store.fileReview(runs.at(-1)!.task_id, review(findings));
 }
 
 function lastRun(workflow: FakeRuntime) {

@@ -1,11 +1,6 @@
 import type { PlanEntry } from "@agentclientprotocol/sdk";
 import { sequenceFromJobId } from "../../ids";
-import {
-  judgeRejected,
-  refinerIndexOf,
-  refinerRunOf,
-  reviewerEntryOf,
-} from "../refiner/stage-refiner";
+import { refinerIndexOf, refinerRunOf, reviewerEntryOf } from "../refiner/stage-refiner";
 import { workflowName } from "../store/state";
 import type { ArtifactRow, JobRow, TaskRow } from "../store/tasks";
 import { authorBusy } from "../follow-up";
@@ -228,7 +223,10 @@ function refinerBoard(
         status: "in_progress",
         run: phaseRunOf(workflow, pointer),
         refiner_status: pointer.status,
-        ruling: reviewerEntryOf(workflow, pointer)?.mode === "judge" ? openRulingOf(pointer) : null,
+        ruling:
+          reviewerEntryOf(workflow, pointer)?.mode === "judge"
+            ? openRulingOf(workflow, pointer)
+            : null,
       };
     }),
     humans: past ? "completed" : "pending",
@@ -252,9 +250,9 @@ function phaseRunOf(workflow: WorkflowRuntime, run: TaskRow): number {
 }
 
 /** Where a judge reviewer's ruling stands while its entry is still open. Null while it runs. */
-function openRulingOf(judge: TaskRow): "awaited" | "rejected" | null {
+function openRulingOf(workflow: WorkflowRuntime, judge: TaskRow): "awaited" | "rejected" | null {
   if (judge.status !== "done") return null;
-  return judgeRejected(judge) ? "rejected" : "awaited";
+  return workflow.store.ruling(judge.task_id)?.status === "rejected" ? "rejected" : "awaited";
 }
 
 /**

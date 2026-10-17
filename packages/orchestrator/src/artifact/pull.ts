@@ -190,7 +190,6 @@ async function readReview(
     const comments = await host.reviewComments(ref.repo, ref.number, latest.id);
     const body = latest.body ?? "";
     return {
-      kind: "review",
       revision: latest.commit_id ?? (await host.getPull(ref.repo, ref.number)).head.sha,
       blocking: clients.review.blocking(latest.state, body),
       summary: body.trim(),

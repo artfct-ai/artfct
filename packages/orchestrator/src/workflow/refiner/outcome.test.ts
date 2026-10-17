@@ -14,7 +14,6 @@ const BOARD_THREAD = { source: "chat", channel: "C1", thread: "1.0" } as const;
 
 function review(patch: Partial<Review> = {}): Review {
   return {
-    kind: "review",
     revision: "abc123",
     blocking: true,
     summary: "Two things.",

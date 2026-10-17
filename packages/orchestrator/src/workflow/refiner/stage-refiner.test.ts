@@ -3,7 +3,7 @@ import type { Stage } from "../../config/stage";
 import { describe, expect, it } from "bun:test";
 import { JUDGE_ENTRY, seedPullRequestTask } from "../../../test/fake-runtime";
 import { freshRuntime } from "../../../test/fresh-runtime";
-import type { TaskRow } from "../store/tasks";
+import type { RefinerRun } from "../store/tasks";
 import {
   endsSegment,
   nextEntryToRun,
@@ -112,7 +112,7 @@ describe("segmentEndOf", () => {
   });
 });
 
-function withRuns(test: (runAt: (index: number, revision: string | null) => TaskRow) => void) {
+function withRuns(test: (runAt: (index: number, revision: string | null) => RefinerRun) => void) {
   return freshRuntime((workflow) => {
     seedPullRequestTask(workflow);
     const author = workflow.store.authorTaskOf("wf_x-1");
@@ -124,10 +124,8 @@ function withRuns(test: (runAt: (index: number, revision: string | null) => Task
         task_id: `wf_x.run-${sequence}`,
         role: "reviewer",
         refiner_index: index,
-        result:
-          revision === null
-            ? null
-            : { kind: "review", revision, blocking: false, summary: "", findings: [] },
+        review: revision === null ? null : { revision, blocking: false, summary: "", findings: [] },
+        ruling: null,
       };
     });
   });
@@ -162,9 +160,9 @@ describe("nextEntryToRun", () => {
 
   it("passes over a judge that ruled on any revision", () =>
     withRuns((runAt) => {
-      const ruled = {
+      const ruled: RefinerRun = {
         ...runAt(1, null),
-        result: { kind: "ruling" as const, revision: "a", ruling: "approved" as const },
+        ruling: { status: "approved", revision: "a" },
       };
       const runs = [runAt(0, "b"), ruled];
       expect(nextEntryToRun({ entries, runs, from: 0, revision: "b" })).toBe(2);

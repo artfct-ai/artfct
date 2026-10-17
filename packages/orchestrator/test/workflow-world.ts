@@ -32,7 +32,8 @@ import { plainText } from "../src/notify/messages";
 import { outbox } from "../src/workflow/store/schema";
 import { isTaskFinished, type Subject } from "../src/workflow/store/state";
 import { originSubject, setWorkflowSubject } from "../src/workflow/subject";
-import type { ArtifactRow, JobRow, TaskRow } from "../src/workflow/store/tasks";
+import type { ArtifactRow, JobRow, RulingState, TaskRow } from "../src/workflow/store/tasks";
+import { judgeRuled } from "../src/workflow/refiner/stage-refiner";
 import { onBridgeClosed, type ConnectionState } from "../src/workflow/task/harness/bridge";
 import { provision } from "../src/workflow/task/sandbox/sandbox";
 import { taskAtWork } from "../src/workflow/task/at-work";
@@ -348,6 +349,10 @@ const REFINER_LISTS: Record<
     polishers: [POLISHER],
   },
 };
+
+function decidedRulingOf(ruling: RulingState | null): string | null {
+  return judgeRuled(ruling) ? JSON.stringify(ruling) : null;
+}
 
 /**
  * One workflow with its author tasks, a code host, and the sandboxes of its tasks. Actions change
@@ -1355,7 +1360,7 @@ export class WorkflowWorld {
           status: task.status,
           job_id: task.job_id,
           refiner_index: task.refiner_index,
-          ruling: task.result?.kind === "ruling" ? JSON.stringify(task.result) : null,
+          ruling: decidedRulingOf(store.ruling(task.task_id)),
           quietSinceTurnEnd:
             this.promptsAtNormalTurnEnd.get(task.task_id) === this.promptsSentTo(task.task_id),
           turnRunning: promptInFlight && this.runningBridgeOf(task.task_id) !== null,

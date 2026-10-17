@@ -48,7 +48,7 @@ export function issuesArtifact(clients: IssuesClients): Artifact {
 /** The review the turn text of the reviewer carries. Null when it carries none. */
 function turnTextReview(turnText: string): Review | null {
   const parsed = parseTurnTextReview(turnText);
-  return parsed ? { kind: "review", revision: null, ...parsed } : null;
+  return parsed ? { revision: null, ...parsed } : null;
 }
 
 async function detect(clients: IssuesClients, text: string): Promise<ArtifactTarget | null> {

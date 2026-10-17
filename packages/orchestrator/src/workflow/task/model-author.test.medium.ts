@@ -46,15 +46,12 @@ async function reviseAfterReview(workflow: FakeRuntime, closingText: string): Pr
     sandbox: null,
     model: "mock",
   });
-  workflow.store.updateTask("wf_x.2", {
-    status: "done",
-    result: {
-      kind: "review",
-      revision: null,
-      blocking: true,
-      summary: "",
-      findings: [{ body: "Name the provider.", location: "Goal" }],
-    },
+  workflow.store.updateTask("wf_x.2", { status: "done" });
+  workflow.store.fileReview("wf_x.2", {
+    revision: null,
+    blocking: true,
+    summary: "",
+    findings: [{ body: "Name the provider.", location: "Goal" }],
   });
   workflow.store.setArtifactRefinerRun("wf_x-1", "wf_x.2");
   workflow.store.updateTask(author.task_id, { status: "in_review" });

@@ -14,6 +14,7 @@ import {
 import { MAX_RESTARTS, SLEEP_TEXT } from "../src/workflow/lifecycle";
 import type { TaskEvent, TaskRole } from "../src/workflow/task/events";
 import { taskAtWork } from "../src/workflow/task/at-work";
+import { judgeRuled } from "../src/workflow/refiner/stage-refiner";
 import type { Wake, WorkflowRuntime } from "../src/workflow/types";
 import { STOPPED_TEXT } from "../src/workflow/feed/feed";
 import type { Subject } from "../src/workflow/store/state";
@@ -456,10 +457,11 @@ export function judgeRulesAtMostOnce(workflow: WorkflowRuntime, step: Step): voi
       const headline = rejectionHeadline(entry.name);
       if (!author.promptTexts.some((text) => text.startsWith(headline))) return;
       coverRejectionSent();
-      const result = workflow.store
-        .refinerRunsOf(author.job_id)
-        .find((run) => run.refiner_index === index && run.result?.kind === "ruling")?.result;
-      const stored = result?.kind === "ruling" ? result.ruling : null;
+      const stored =
+        workflow.store
+          .refinerRunsOf(author.job_id)
+          .map((run) => (run.refiner_index === index ? run.ruling : null))
+          .find(judgeRuled)?.status ?? null;
       if (stored !== "rejected") {
         violated(
           "judgeRulesAtMostOnce",
@@ -1159,16 +1161,16 @@ export function aJudgeRejectionPostsItsReasonOnce(workflow: WorkflowRuntime, ste
     if (run.role !== "reviewer" || run.ruling === null || rulingBefore(step, run.task_id) != null) {
       continue;
     }
-    const result = workflow.store.requireTask(run.task_id).result;
+    const ruling = workflow.store.ruling(run.task_id);
     const ref = workflow.store.artifact(run.job_id)?.ref;
-    if (result?.kind !== "ruling" || result.ruling !== "rejected" || ref?.kind !== "page") continue;
+    if (ruling?.status !== "rejected" || ref?.kind !== "page") continue;
     coverJudgeRejectsPage();
     if (step.pageCommentsRefused) coverRejectionRefused();
     const posted = step.pageCommentsPosted.filter(
       (comment) =>
         comment.pageId === ref.page_id &&
         comment.passage === null &&
-        comment.text.startsWith(result.reason),
+        comment.text.startsWith(ruling.reason),
     ).length;
     const expected = step.pageCommentsRefused ? 0 : 1;
     if (posted !== expected) {

@@ -16,7 +16,7 @@ import type { WorkflowRuntime } from "../types";
 import { checksGate } from "./checks-gate";
 import { markArtifactReady, sendRejectionToAuthor, sendReviewToAuthor } from "./outcome";
 import {
-  judgeRejected,
+  judgeRuled,
   refinerIndexOf,
   refinerRunOf,
   refinerAt,
@@ -84,7 +84,7 @@ export async function settleRefinersForAuthor(
     }
     return askAgentToRoute(workflow, task, artifact, pointer);
   }
-  if (judgeRejected(pointer)) {
+  if (workflow.store.ruling(pointer.task_id)?.status === "rejected") {
     await runRefinersOnRevision(workflow, author, artifact, refinerIndexOf(pointer) + 1);
   }
 }
@@ -274,7 +274,7 @@ export async function onReviewerFinished(
   const review =
     !entry || entry.mode === "judge" ? null : await readReview(workflow, reviewer, entry, turnText);
   await finishRefinerRun(workflow, reviewer);
-  if (review) workflow.store.updateTask(reviewer.task_id, { result: review });
+  if (review) workflow.store.fileReview(reviewer.task_id, review);
   const author = workflow.store.authorTaskOf(reviewer.job_id);
   const artifact = workflow.store.artifact(reviewer.job_id);
   if (!artifact) return;
@@ -396,7 +396,8 @@ export async function settleLostJudgeRuling(
  * agent's ask for a person's ruling is recorded. Null otherwise.
  */
 function judgeEntryWithoutARulingAsked(workflow: WorkflowRuntime, run: TaskRow): JudgeEntry | null {
-  if (run.role !== "reviewer" || run.status !== "done" || run.result !== null) return null;
+  if (run.role !== "reviewer" || run.status !== "done") return null;
+  if (workflow.store.ruling(run.task_id)) return null;
   const entry = reviewerEntryOf(workflow, run);
   if (entry?.mode !== "judge") return null;
   return validateJudgeAwaitsRuling(workflow, run) ? null : entry;
@@ -408,10 +409,10 @@ type JudgeRuling = { ruling: "approved" } | { ruling: "rejected"; reason: string
  * Why a ruling on this judge run must not be applied now: the run already has a ruling, or the
  * artifact moved on from it. Null while the artifact still waits for the run's ruling.
  */
-function validateJudgeAwaitsRuling(workflow: WorkflowRuntime, reviewer: TaskRow): string | null {
-  const run = workflow.store.requireTask(reviewer.task_id);
-  if (run.result?.kind === "ruling") {
-    return `The judge ${run.task_id} of job ${run.job_id} already ruled ${run.result.ruling}.`;
+function validateJudgeAwaitsRuling(workflow: WorkflowRuntime, run: TaskRow): string | null {
+  const ruling = workflow.store.ruling(run.task_id);
+  if (judgeRuled(ruling)) {
+    return `The judge ${run.task_id} of job ${run.job_id} already ruled ${ruling.status}.`;
   }
   const artifact = workflow.store.artifact(run.job_id);
   if (!artifact || artifact.status !== "drafted") {
@@ -444,9 +445,7 @@ export async function applyJudgeRuling(
   const index = refinerIndexOf(reviewer);
   const { review } = segmentReview(workflow, author, index, revision);
   if (input.ruling === "approved") {
-    workflow.store.updateTask(reviewer.task_id, {
-      result: { kind: "ruling", revision, ruling: "approved" },
-    });
+    workflow.store.recordRuling(reviewer.task_id, { status: "approved", revision });
     if (!reviewAsksTheAuthor(review)) {
       return advanceArtifactPastEntry(workflow, author, index, revision);
     }
@@ -454,8 +453,10 @@ export async function applyJudgeRuling(
     await sendReviewToAuthor(workflow, author, artifact, review);
     return `The ${entry.name} judge approved. The author ${author.task_id} has the findings of the reviewers before it, and you route the artifact when its turn ends.`;
   }
-  workflow.store.updateTask(reviewer.task_id, {
-    result: { kind: "ruling", revision, ruling: "rejected", reason: input.reason },
+  workflow.store.recordRuling(reviewer.task_id, {
+    status: "rejected",
+    revision,
+    reason: input.reason,
   });
   const { reason } = input;
   const signedReason = `${reason}\n\n${reviewerSignature(workflow, entry, reviewer)}`;
@@ -530,7 +531,6 @@ function mergeReviews(entries: ReviewerEntry[], reviews: FiledReview[]): Review 
     .map((entry) => ({ name: entries[entry.refiner_index]?.name ?? "", review: entry.review }));
   if (!filed.length) return null;
   return {
-    kind: "review",
     revision: filed.at(-1)!.review.revision,
     blocking: filed.some((entry) => entry.review.blocking),
     summary: filed
