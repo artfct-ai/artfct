@@ -159,10 +159,13 @@ const REVIEW_AGAIN_DECISIONS = ["ReviewAgain", "NoReviewAgain", "AgentRoutes"] a
 type ReviewAgainDecision = (typeof REVIEW_AGAIN_DECISIONS)[number];
 
 /** Run the spec of one setup for `count` traces from `seed`, each checked against its invariants. */
-export function generateTraces(setup: SpecSetup, count: number, seed: number): TraceStep[][] {
-  return quintTraces({ spec: "review-loop", setup, count, steps: TRACE_STEPS, seed }).map((trace) =>
-    traceSteps(setup, trace),
-  );
+export async function generateTraces(
+  setup: SpecSetup,
+  count: number,
+  seed: number,
+): Promise<TraceStep[][]> {
+  const traces = await quintTraces({ spec: "review-loop", setup, count, steps: TRACE_STEPS, seed });
+  return traces.map((trace) => traceSteps(setup, trace));
 }
 
 function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
