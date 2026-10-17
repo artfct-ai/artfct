@@ -1422,13 +1422,24 @@ module reviewLoop {
         step.before.personComments[id].gone or step.after.personComments[id].answered) or
       step.after.artifact.revision == step.before.artifact.revision
 
+  /// The refiner runs whose rejection landed in a step.
+  pure def rejectedIn(step: Transition): Set[int] =
+    step.before.refinerRuns.indices().filter(id => and {
+      not(isRuling(step.before.refinerRuns[id].result)),
+      isRejection(step.after.refinerRuns[id].result),
+    })
+
   /// A judge rejection on a page posts its reason once when the host takes it, and reaches the
-  /// author either way.
+  /// author either way: a prompt for the author carries the rejection of that judge entry.
   pure def postsTheRejectionOnce(step: Transition): bool =
     match step.kind.page {
       | RejectionPosted(post) => and {
         countOf(postedIn(step), isRejectionComment) == (if (post == HostTakes) 1 else 0),
-        step.after.author.rejectedBy.size() > step.before.author.rejectedBy.size(),
+        rejectedIn(step).size() > 0,
+        rejectedIn(step).forall(id => {
+          val index = step.after.refinerRuns[id].refinerIndex
+          not(step.before.author.rejectedBy.contains(index)) and step.after.author.rejectedBy.contains(index)
+        }),
       }
       | _ => true
     }
