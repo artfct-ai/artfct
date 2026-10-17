@@ -9,9 +9,7 @@ An orchestrator agent that runs a control loop for software development agents o
 
 ## Tools and commands
 
-- bun workspaces, turborepo, TypeScript 7, oxlint/oxfmt.
-- Small tests run on `bun test`. Medium tests run on vitest with `@cloudflare/vitest-plugin`.
-- The type-aware lint is the type gate. CI does not run `tsc`. `deploy` depends on `bun run check`.
+- The type-aware lint is the type gate. Do not run `tsc`.
 - `scripts/test-near <file-or-dir>...` runs nearby tests in seconds. Use it while you work.
 - `bun run check` runs the CI checks. `bun run fmt` formats. `bun run smoke` must print `SMOKE PASSED`.
 - `wrangler types` generates each app's `worker-configuration.d.ts`. Never add `@cloudflare/workers-types` to an app.
@@ -20,17 +18,9 @@ An orchestrator agent that runs a control loop for software development agents o
 
 ## Boundaries
 
-- Lint and the `scripts/entrypoints` test enforce these import rules:
-  - Ingress never imports the orchestrator.
-  - Only vendor directories import vendor SDKs.
-  - Only a `clients.ts` or an ingress route imports a vendor directory.
-  - Vendor directories never import each other.
-  - `@artfct-ai/contracts` imports only types.
-  - `index.ts` is only a Worker entrypoint.
-- Import the module that defines a symbol, such as `@artfct-ai/contracts/sources`. Use `import type` for types.
+- Lint and the `scripts/entrypoints` test enforce the import boundaries.
 - Import a large vendor SDK lazily in the first method that needs it, and cache the promise. Every medium test boots the Worker, so the import graph sets its speed.
-- Take ACP protocol types from `@agentclientprotocol/sdk`. Do not hand-write them.
-- `@artfct-ai/contracts` is the contract between ingress and the orchestrator. It holds only plain types. Do not add functions, zod, or helpers. Each app owns its schemas and helpers. A contract field needs a reader in the other app.
+- `@artfct-ai/contracts` is the contract between ingress and the orchestrator. It holds only plain types. Each app owns its schemas and helpers. A contract field needs a reader in the other app.
 - Ingress and the orchestrator name capabilities: `code`, `tracker`, `chat`, `documents`. A vendor's URL shapes, id formats, header names, signing schemes, and payload types go in its directory under its capability, such as `chat/slack/`.
 - Ingress never touches storage. It calls the orchestrator through the service binding typed by `OrchestratorRpc`. An ingress route verifies the webhook with the vendor adapter's function, maps the payload with the vendor's mapper, and delivers one `InboundEvent`.
 - `packages/adapters`:
@@ -41,7 +31,7 @@ An orchestrator agent that runs a control loop for software development agents o
   - Never hand-roll an API client when an SDK exists. Every SDK gets its fetch through `workerdFetch`.
   - Each adapter has a workerd test that validates its requests.
 - Skills:
-  - Harness prompts are skills in `template/orchestrator/skills/<skill-name>/SKILL.md`. Each harness adapter owns its install path and execution.
+  - Harness prompts are skills in `template/orchestrator/skills/`.
   - `SKILL.md` frontmatter uses only [Agent Skills standard](https://agentskills.io/specification) keys. The structure of the work, such as its sections, their order, and other skills to apply, goes in the instructions. The orchestrator never reads it from frontmatter.
   - A harness session gets every skill, so a skill applies another by naming it. A model call reads only its own skill and its activity's `preload_skills`.
 - A workflow definition in `orchestrator/workflows/<name>.yaml` may define any stages, with any names, in any order. Code, schemas, prompts, and tests never assume today's stages. What belongs to a kind of work, such as a document's sections and which comes first, lives in that work's skill, not in the stage.
@@ -127,7 +117,7 @@ Judge a change by the complexity it leaves behind, not by its size. An interface
 ## Code style
 
 - Prefer the plainest conventional solution. Check for a standard convention before you build a script, generator, or abstraction.
-- Do not use single-letter or cryptic identifiers, including loop and callback parameters. Use names such as `request`, `payload`, `event`, and `index`.
+- Do not use single-letter or cryptic identifiers, including loop and callback parameters.
 - A name reads at the call site without opening its module, such as `settleReviewForAuthor`, not `settle`. An export from a protocol or vendor module carries that prefix, such as `jsonRpcRequest` or `linearAuthorizeUrl`.
 - Never group functions into a namespace object. Name each function fully and import it directly.
 - Rename only when the current name fails at a call site.
@@ -139,11 +129,11 @@ Judge a change by the complexity it leaves behind, not by its size. An interface
 - Do not write comments inside function bodies or in test files, JSDoc included. Rationale goes in the PR description.
 - Write prose in plain technical English, in short sentences. Do not use semicolons or em dashes.
 - Tests:
-  - Colocate tests. Small tests are `*.test.ts` on `bun:test`. Medium tests are `*.test.medium.ts` on vitest, only for code that needs a Durable Object, D1, or a module that imports `cloudflare:workers`.
-  - Test logic over `WorkflowRuntime` with `freshRuntime` and `freshStore`, which run on in-memory `bun:sqlite` without a Durable Object.
+  - Write a small test (`*.test.ts`) unless the code needs a Durable Object, D1, or `cloudflare:workers`. Then write a medium test (`*.test.medium.ts`).
+  - Test logic over `WorkflowRuntime` with `freshRuntime` and `freshStore`, which do not need a Durable Object.
   - Test helpers live in `<package>/test/`, never in `src/`. A fake, mock, or scripted stand-in that only tests, smoke, or `bun run dev` use is a test helper, even when a Worker entry wires it in.
-  - Production code never checks for a mock mode or a mock name. The test Worker entries in `packages/orchestrator/test/` swap fakes in through `WorkflowServices`.
-  - Build fully typed fixtures. Never cast with `as unknown as`.
+  - Production code never checks for a mock mode or a mock name.
+  - Build fully typed fixtures.
 
 ## Done means
 
