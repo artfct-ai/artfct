@@ -23,6 +23,12 @@
       },
       "mbt::actionTaken": "init",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -204,6 +210,12 @@
       },
       "mbt::actionTaken": "personCommentsOnThePage",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -402,6 +414,12 @@
       },
       "mbt::actionTaken": "authorTurnEndsOnANewRevision",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -624,6 +642,12 @@
       },
       "mbt::actionTaken": "findingsReviewerLeavesFindings",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "Some",
           "value": {
@@ -904,8 +928,17 @@
       "#meta": {
         "index": 4
       },
-      "mbt::actionTaken": "refinerRunGivesUp",
+      "mbt::actionTaken": "refinerRunHitsARecoverableFailure",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "Some",
+          "value": {
+            "tag": "GivesUp",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -1183,8 +1216,17 @@
       "#meta": {
         "index": 5
       },
-      "mbt::actionTaken": "refinerRunGivesUp",
+      "mbt::actionTaken": "refinerRunHitsARecoverableFailure",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "Some",
+          "value": {
+            "tag": "GivesUp",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -1464,6 +1506,12 @@
       },
       "mbt::actionTaken": "personCommentsOnThePage",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -1760,6 +1808,12 @@
       },
       "mbt::actionTaken": "judgeTurnEnds",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -2057,6 +2111,12 @@
       },
       "mbt::actionTaken": "personAsksForRevision",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -2360,6 +2420,12 @@
       },
       "mbt::actionTaken": "personCommentsOnThePage",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -2674,6 +2740,12 @@
       },
       "mbt::actionTaken": "personRejects",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -3014,6 +3086,12 @@
       },
       "mbt::actionTaken": "decisionsModelCannotRule",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -3347,6 +3425,12 @@
       },
       "mbt::actionTaken": "personAsksForRevision",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -3693,6 +3777,12 @@
       },
       "mbt::actionTaken": "agentPromptsAuthor",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -4042,6 +4132,12 @@
       },
       "mbt::actionTaken": "personEditsThePage",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -4381,6 +4477,12 @@
       },
       "mbt::actionTaken": "personMentionsTheBot",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -4750,6 +4852,12 @@
       },
       "mbt::actionTaken": "agentPromptsAuthor",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -5130,6 +5238,12 @@
       },
       "mbt::actionTaken": "personEditsThePage",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -5500,6 +5614,12 @@
       },
       "mbt::actionTaken": "authorTurnEndsOnANewRevision",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -5870,6 +5990,12 @@
       },
       "mbt::actionTaken": "personEditsThePage",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -6237,6 +6363,12 @@
       },
       "mbt::actionTaken": "personEditsThePage",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -6604,6 +6736,12 @@
       },
       "mbt::actionTaken": "authorTurnEndsOnTheSameRevision",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -6968,6 +7106,12 @@
       },
       "mbt::actionTaken": "authorTurnEndsOnANewRevision",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -7331,6 +7475,12 @@
       },
       "mbt::actionTaken": "personEditsThePage",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -7691,6 +7841,12 @@
       },
       "mbt::actionTaken": "authorTurnEndsOnTheSameRevision",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
@@ -8071,6 +8227,12 @@
       },
       "mbt::actionTaken": "refinerRunFails",
       "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "commenting": {
           "tag": "None",
           "value": {
