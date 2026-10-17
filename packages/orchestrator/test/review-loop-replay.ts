@@ -1,4 +1,5 @@
 import { setSystemTime } from "bun:test";
+import fc from "fast-check";
 import type { Decisions } from "@artfct-ai/adapters/gateway/types";
 import type { TaskStatus } from "@artfct-ai/contracts/types";
 import { FakeDecisions, type FakeAnswers } from "@artfct-ai/adapters/test/fake-decisions";
@@ -22,17 +23,21 @@ import {
   agentCancels,
   agentPromptsAuthor,
   agentRoutes,
+  agentStartsTask,
   authorTurnEnds,
   firstArtifactAppears,
   personRules,
   refinerRunEnds,
   refinerRunFails,
+  type AuthorClosing,
   type RefinerRunEnd,
 } from "./workflow-actions";
 import {
   HELD_COMMENT,
+  MAX_AUTHORS,
   PAGE_OPTION,
   pushCountOf,
+  REQUEST_TEXTS,
   WorkflowWorld,
   type RefinerSetup,
   type WorkflowAction,
@@ -43,18 +48,38 @@ import {
 /** Who writes the artifact of a setup, and where. */
 type SetupAuthor = "pull_harness" | "page_harness" | "page_model";
 
-/** The setup modules of the review loop spec, with the refiner list and the author of each. */
+/**
+ * The setup modules of the review loop spec, with the refiner list and the author of each, and
+ * how many authors replay a trace each side by side in one world. Page authors share the held
+ * comments of the fake host and every revision request, so each one gets a world of its own.
+ */
 export const SPEC_SETUPS = {
-  judgeThenPolisher: { refiners: "judge_then_polisher", author: "pull_harness" },
-  reviewerThenPolisher: { refiners: "reviewer_then_polisher", author: "pull_harness" },
-  judgeBetweenReviewers: { refiners: "judge_between_reviewers", author: "pull_harness" },
-  pageReviewerThenPolisher: { refiners: "reviewer_then_polisher", author: "page_harness" },
-  pageJudgeBetweenReviewers: { refiners: "judge_between_reviewers", author: "page_harness" },
+  judgeThenPolisher: { refiners: "judge_then_polisher", author: "pull_harness", authors: 2 },
+  reviewerThenPolisher: { refiners: "reviewer_then_polisher", author: "pull_harness", authors: 2 },
+  judgeBetweenReviewers: {
+    refiners: "judge_between_reviewers",
+    author: "pull_harness",
+    authors: 2,
+  },
+  pageReviewerThenPolisher: {
+    refiners: "reviewer_then_polisher",
+    author: "page_harness",
+    authors: 1,
+  },
+  pageJudgeBetweenReviewers: {
+    refiners: "judge_between_reviewers",
+    author: "page_harness",
+    authors: 1,
+  },
   modelCallAuthorWithTwoReviewers: {
     refiners: "two_reviewers_then_polisher",
     author: "page_model",
+    authors: 1,
   },
-} as const satisfies Record<string, { refiners: RefinerSetup; author: SetupAuthor }>;
+} as const satisfies Record<
+  string,
+  { refiners: RefinerSetup; author: SetupAuthor; authors: 1 | 2 }
+>;
 
 /** The name of one setup module of the spec. */
 export type SpecSetup = keyof typeof SPEC_SETUPS;
@@ -298,35 +323,54 @@ const TURN_END: Omit<RefinerRunEnd, "reviewer" | "polisher" | "closing" | "pageC
   stopReason: "end_turn",
 };
 
-const WORLD_ACTIONS: Record<string, WorkflowAction> = {
-  authorTurnEndsOnANewRevision: authorTurnEnds(0, "changed", "finished"),
-  authorTurnEndsOnTheSameRevision: authorTurnEnds(0, "same", "finished"),
-  polisherPushes: refinerRunEnds(0, {
-    ...TURN_END,
-    pageCommenting: "takes",
-    reviewer: "no_review",
-    polisher: "pushed",
-    closing: "reports_work",
-  }),
-  polisherPushesNothing: refinerRunEnds(0, {
-    ...TURN_END,
-    pageCommenting: "takes",
-    reviewer: "no_review",
-    polisher: "nothing_pushed",
-    closing: "reports_work",
-  }),
-  refinerRunGivesUp: refinerRunEnds(0, {
-    ...TURN_END,
-    pageCommenting: "takes",
-    reviewer: "no_review",
-    polisher: "nothing_pushed",
-    closing: "gives_up",
-  }),
-  agentRequestsReview: agentRoutes(0, "request_review"),
-  agentFinishesReview: agentRoutes(0, "finish_review"),
-  agentCancelsRefinerRun: agentCancels(0, "refiner_run"),
-  refinerRunFails: refinerRunFails(0),
+/** The world action of each spec action that needs no pick, for the author at `index`. */
+const WORLD_ACTIONS: Record<string, (index: number) => WorkflowAction> = {
+  polisherPushes: (index) =>
+    refinerRunEnds(index, {
+      ...TURN_END,
+      pageCommenting: "takes",
+      reviewer: "no_review",
+      polisher: "pushed",
+      closing: "reports_work",
+    }),
+  polisherPushesNothing,
+  refinerRunGivesUp: (index) =>
+    refinerRunEnds(index, {
+      ...TURN_END,
+      pageCommenting: "takes",
+      reviewer: "no_review",
+      polisher: "nothing_pushed",
+      closing: "gives_up",
+    }),
+  agentRequestsReview: (index) => agentRoutes(index, "request_review"),
+  agentFinishesReview: (index) => agentRoutes(index, "finish_review"),
+  agentCancelsRefinerRun: (index) => agentCancels(index, "refiner_run"),
+  refinerRunFails: (index) => refinerRunFails(index),
 };
+
+function polisherPushesNothing(index: number): WorkflowAction {
+  return refinerRunEnds(index, {
+    ...TURN_END,
+    pageCommenting: "takes",
+    reviewer: "no_review",
+    polisher: "nothing_pushed",
+    closing: "reports_work",
+  });
+}
+
+/**
+ * The closings a harness author's turn end rotates over where the spec ends the turn the same
+ * way. A stopped early author with a prompt queued takes that prompt, as a finished one does.
+ */
+function closingsAtTurnEnd(promptQueued: boolean): AuthorClosing[] {
+  return promptQueued ? ["finished", "silent", "stopped_early"] : ["finished", "silent"];
+}
+
+/** How code fails to rule on a judge run, when the spec says it cannot rule. */
+const CANNOT_RULE_PATHS = ["unclear", "no_conclusion", "decisions_fail"] as const;
+
+/** How code reaches the ruling a trace gives a judge run: the decisions model reads one, or code cannot rule. */
+type RulingPath = "reads_a_ruling" | (typeof CANNOT_RULE_PATHS)[number];
 
 /** How the fake host takes the comments of a page review, for each spec commenting. */
 const PAGE_COMMENTING: Record<string, DocumentsCommenting> = {
@@ -338,12 +382,13 @@ const PAGE_COMMENTING: Record<string, DocumentsCommenting> = {
 
 /** A findings reviewer files `reviewer` on a host that takes comments the way `commenting` says. */
 function findingsReviewerEnds(
+  index: number,
   reviewer: "findings" | "approved",
   commenting: string,
 ): WorkflowAction {
   const pageCommenting = PAGE_COMMENTING[commenting];
   if (!pageCommenting) throw new Error(`the trace has commenting ${commenting}`);
-  return refinerRunEnds(0, {
+  return refinerRunEnds(index, {
     ...TURN_END,
     pageCommenting,
     reviewer,
@@ -352,8 +397,11 @@ function findingsReviewerEnds(
   });
 }
 
-/** A ruling call the decisions model holds, and the judge turn end that waits on it. */
-type HeldRuling = { answer: (decisions: Decisions) => void; turnEnd: Promise<unknown> };
+/**
+ * A judge turn end that waits for the step that rules on it: on the ruling call the decisions
+ * model holds, or on the note that asks the agent for a person's ruling.
+ */
+type HeldRuling = { release: (action: RulingAction) => void; turnEnd: Promise<unknown> };
 
 /** How the replay reads the revisions of the artifact. */
 type ArtifactRevisions =
@@ -449,15 +497,19 @@ const COMMENT_HELD_AT_OPEN: ReplayComment = {
 };
 
 /**
- * Replays spec traces through a workflow world with one author. Each spec action maps to one
- * world action. A judge turn end stays open while the decisions model holds its ruling call,
- * until a later spec step answers it. A model-call author's turn stays open while the page model
- * holds its call, until a later spec step ends the turn. People comment on the page and edit it
- * on the fake host, and a step that the spec says the host fails swaps the failing host methods
- * in for that step.
+ * Replays one spec trace through the author it opens in a workflow world. Two replays of pull
+ * request setups can share one world, each with its own author in its own job slot. Each spec
+ * action maps to one world action, and seeded picks choose among the code paths that reach the
+ * same spec step. A judge turn end stays open while the decisions model holds its ruling call,
+ * or while the note that asks for a person's ruling waits, until a later spec step rules. A
+ * model-call author's turn stays open while the page model holds its call, until a later spec
+ * step ends the turn. People comment on the page and edit it on the fake host, and a step that
+ * the spec says the host fails swaps the failing host methods in for that step.
  */
 export class ReviewLoopReplay {
   readonly world: WorkflowWorld;
+  private readonly trace: TraceStep[];
+  private readonly picks: number[];
   private readonly author: WorldAuthor;
   private readonly revisions: ArtifactRevisions;
   private readonly pageModel: HeldPageModel | null;
@@ -473,12 +525,16 @@ export class ReviewLoopReplay {
 
   private constructor(options: {
     world: WorkflowWorld;
+    trace: TraceStep[];
+    seed: number;
     author: WorldAuthor;
     revisions: ArtifactRevisions;
     pageModel: HeldPageModel | null;
     modelTurn: OpenModelTurn | null;
   }) {
     this.world = options.world;
+    this.trace = options.trace;
+    this.picks = fc.sample(fc.nat(), { seed: options.seed, numRuns: options.trace.length });
     this.author = options.author;
     this.revisions = options.revisions;
     this.pageModel = options.pageModel;
@@ -489,17 +545,18 @@ export class ReviewLoopReplay {
     this.noteModelCall();
   }
 
-  /** A world on the refiner list of `setup` whose author opened its artifact. */
-  static async open(setup: SpecSetup): Promise<ReviewLoopReplay> {
+  /** A world on the refiner list of `setup` whose author opened its artifact, to replay `trace`. */
+  static async open(setup: SpecSetup, trace: TraceStep[], seed: number): Promise<ReviewLoopReplay> {
     setSystemTime(new Date(REPLAY_START));
     const { refiners, author } = SPEC_SETUPS[setup];
+    const replayed = { trace, seed };
     switch (author) {
       case "pull_harness":
-        return ReviewLoopReplay.openPull(refiners);
+        return ReviewLoopReplay.openPull(refiners, replayed);
       case "page_harness":
-        return ReviewLoopReplay.openHarnessPage(refiners);
+        return ReviewLoopReplay.openHarnessPage(refiners, replayed);
       case "page_model":
-        return ReviewLoopReplay.openModelPage(refiners);
+        return ReviewLoopReplay.openModelPage(refiners, replayed);
       default: {
         const unreachable: never = author;
         throw new Error(`unhandled author ${String(unreachable)}`);
@@ -507,10 +564,43 @@ export class ReviewLoopReplay {
     }
   }
 
-  private static async openPull(refiners: RefinerSetup): Promise<ReviewLoopReplay> {
+  /**
+   * A second author in the world of `first`, in a job slot of its own, opens its own pull
+   * request to replay `trace`.
+   */
+  static async openBeside(
+    first: ReviewLoopReplay,
+    trace: TraceStep[],
+    seed: number,
+  ): Promise<ReviewLoopReplay> {
+    if (first.revisions.kind !== "pull") throw new Error("only pull request authors share a world");
+    const { world } = first;
+    const authorsBefore = world.authors.length;
+    const started = await world.apply(agentStartsTask("pull", "no_issue", REQUEST_TEXTS[1]));
+    const author = world.authors[authorsBefore];
+    if (started.start?.refused || !author)
+      throw new Error("the agent could not start a second job");
+    await world.startSandboxOf(author.taskId);
+    await world.apply(firstArtifactAppears(authorIndexOf(world, author), "host_event"));
+    return new ReviewLoopReplay({
+      world,
+      trace,
+      seed,
+      author,
+      revisions: { kind: "pull" },
+      pageModel: null,
+      modelTurn: null,
+    });
+  }
+
+  private static async openPull(
+    refiners: RefinerSetup,
+    replayed: { trace: TraceStep[]; seed: number },
+  ): Promise<ReviewLoopReplay> {
     const world = await WorkflowWorld.open({ ...WORLD_SETUP, refiners });
     await world.apply(firstArtifactAppears(0, "host_event"));
     return new ReviewLoopReplay({
+      ...replayed,
       world,
       author: firstAuthorOf(world),
       revisions: { kind: "pull" },
@@ -519,19 +609,32 @@ export class ReviewLoopReplay {
     });
   }
 
-  private static async openHarnessPage(refiners: RefinerSetup): Promise<ReviewLoopReplay> {
+  private static async openHarnessPage(
+    refiners: RefinerSetup,
+    replayed: { trace: TraceStep[]; seed: number },
+  ): Promise<ReviewLoopReplay> {
     const world = await WorkflowWorld.open({ ...WORLD_SETUP, refiners, artifact: "page" });
     await world.apply(firstArtifactAppears(0, "author_text"));
     const author = firstAuthorOf(world);
     const revisions = pageRevisionsOf(world, author);
-    return new ReviewLoopReplay({ world, author, revisions, pageModel: null, modelTurn: null });
+    return new ReviewLoopReplay({
+      ...replayed,
+      world,
+      author,
+      revisions,
+      pageModel: null,
+      modelTurn: null,
+    });
   }
 
   /**
    * The model-call author produces its page while the agent queues a prompt for it, so its first
    * revise turn is in flight on the page, the way the spec starts.
    */
-  private static async openModelPage(refiners: RefinerSetup): Promise<ReviewLoopReplay> {
+  private static async openModelPage(
+    refiners: RefinerSetup,
+    replayed: { trace: TraceStep[]; seed: number },
+  ): Promise<ReviewLoopReplay> {
     const world = await WorkflowWorld.open({
       ...WORLD_SETUP,
       refiners,
@@ -549,13 +652,26 @@ export class ReviewLoopReplay {
       await produceTurn?.work;
     });
     const revisions = pageRevisionsOf(world, author);
-    return new ReviewLoopReplay({ world, author, revisions, pageModel, modelTurn });
+    return new ReviewLoopReplay({ ...replayed, world, author, revisions, pageModel, modelTurn });
   }
 
-  /** Take one spec action, then bring up every sandbox that waits. */
-  async take(step: TraceStep): Promise<void> {
+  /** The step of the trace the replay stands on. */
+  get current(): TraceStep {
+    const step = this.trace[this.step];
+    if (!step) throw new Error(`the trace has no step ${this.step}`);
+    return step;
+  }
+
+  /** How many steps of the trace are left to take. */
+  get stepsLeft(): number {
+    return this.trace.length - 1 - this.step;
+  }
+
+  /** Take the next spec action of the trace, then bring up every sandbox that waits. */
+  async take(): Promise<TraceStep> {
     this.step += 1;
-    setSystemTime(new Date(REPLAY_START + this.step * STEP_MS));
+    const step = this.current;
+    setSystemTime(new Date(Date.now() + STEP_MS));
     this.world.workflow.gatewayInstance = new FakeGateway();
     const heard: HeardInStep = {
       step: this.step,
@@ -586,19 +702,23 @@ export class ReviewLoopReplay {
       .map((note) => note.text)
       .filter((note) => !otherMentions.some((mention) => note.includes(mention)));
     heard.texts.push(...notes);
+    return step;
   }
 
   /**
    * What the agent read about page comments in each step whose tool results and events have all
-   * come back since the last call, as the spec names it. A step that prompts an idle model-call
-   * author gets its tool result once the author's model call answers.
+   * come back since the last call, as the spec names it, beside what the trace says it read. A
+   * step that prompts an idle model-call author gets its tool result once the author's model
+   * call answers.
    */
-  settledHeard(): Array<{ step: number; agentHeard: string[] }> {
+  settledHeard(): Array<{ step: TraceStep; agentHeard: string[] }> {
     return this.heardSteps
       .filter((heard) => !heard.reported && heard.pending === 0)
       .map((heard) => {
         heard.reported = true;
-        return { step: heard.step, agentHeard: agentHeardOf(heard.texts.join("\n"), heard) };
+        const step = this.trace[heard.step];
+        if (!step) throw new Error(`the replay took step ${heard.step} the trace lacks`);
+        return { step, agentHeard: agentHeardOf(heard.texts.join("\n"), heard) };
       });
   }
 
@@ -653,7 +773,7 @@ export class ReviewLoopReplay {
         return this.untilModelCall(() =>
           this.world.apply(
             personRules(
-              0,
+              this.authorIndex(),
               action === "personApproves" ? "approve" : "reject",
               pickTag(step, "post") === "HostTakes" ? "takes" : "down",
             ),
@@ -666,10 +786,10 @@ export class ReviewLoopReplay {
     }
   }
 
-  /** Answer every held ruling call and model call, and put the clock back. */
+  /** Release every held judge turn end and model call, and put the clock back. */
   async close(): Promise<void> {
     for (const held of this.held.values()) {
-      held.answer(new FakeDecisions(rulingAnswers(RULING_PROBABILITIES.decisionsModelCannotRule)));
+      held.release("decisionsModelCannotRule");
       await held.turnEnd;
     }
     this.held.clear();
@@ -721,22 +841,46 @@ export class ReviewLoopReplay {
 
   private worldActionFor(step: TraceStep): WorkflowAction {
     const { action } = step;
+    const index = this.authorIndex();
     if (action === "findingsReviewerLeavesFindings" || action === "findingsReviewerApproves") {
       const reviewer = action === "findingsReviewerLeavesFindings" ? "findings" : "approved";
-      return findingsReviewerEnds(reviewer, pickTag(step, "commenting"));
+      return findingsReviewerEnds(index, reviewer, pickTag(step, "commenting"));
     }
-    if (this.revisions.kind === "page" && action === "authorTurnEndsOnANewRevision") {
-      return this.afterPageEdit(
-        pickTag(step, "part"),
-        WORLD_ACTIONS.authorTurnEndsOnTheSameRevision!,
-      );
-    }
+    if (isAuthorTurnEnd(action)) return this.harnessAuthorTurnEnds(step, index);
     if (this.revisions.kind === "page" && action === "polisherPushes") {
-      return this.afterPageEdit(pickTag(step, "part"), WORLD_ACTIONS.polisherPushesNothing!);
+      return this.afterPageEdit(pickTag(step, "part"), polisherPushesNothing(index));
     }
     const mapped = WORLD_ACTIONS[action];
     if (!mapped) throw new Error(`no world action for spec action ${action}`);
-    return mapped;
+    return mapped(index);
+  }
+
+  /**
+   * A harness author's turn ends with a closing the seeded pick rotates over. On a page, the
+   * author rewrites the part the spec picks on the host first.
+   */
+  private harnessAuthorTurnEnds(step: TraceStep, index: number): WorkflowAction {
+    const promptQueued = this.world.workflow.store.peekPrompt(this.author.taskId) !== null;
+    const closing = this.pick(closingsAtTurnEnd(promptQueued));
+    const changed = step.action === "authorTurnEndsOnANewRevision";
+    if (this.revisions.kind === "page" && changed) {
+      return this.afterPageEdit(pickTag(step, "part"), authorTurnEnds(index, "same", closing));
+    }
+    return authorTurnEnds(index, changed ? "changed" : "same", closing);
+  }
+
+  /** The option the seeded pick of the current step chooses. */
+  private pick<T>(options: readonly T[]): T {
+    const picked = this.picks[this.step];
+    const option = picked === undefined ? undefined : options[picked % options.length];
+    if (option === undefined)
+      throw new Error(`step ${this.step} has no pick among ${options.length} options`);
+    return option;
+  }
+
+  /** The index the world actions name this replay's author by. */
+  private authorIndex(): number {
+    return authorIndexOf(this.world, this.author);
   }
 
   /** The author or a polisher rewrites one part of the page on the host, then `action` runs. */
@@ -1169,16 +1313,50 @@ export class ReviewLoopReplay {
         const approves = posted.text.startsWith("Review: approved");
         return [{ kind: "outcome", run, findings, approves }];
       }
+      const result = runs[run]?.result;
+      const rejected = result?.kind === "ruling" && result.ruling === "rejected";
+      if (!rejected || !posted.text.startsWith(result.reason)) {
+        throw new Error(`run ${run} posted a comment that is not its rejection:\n${posted.text}`);
+      }
       return [{ kind: "rejection", run }];
     });
   }
 
+  /**
+   * The judge closes, and its turn end waits for the step that rules on it. The judge closes
+   * without a conclusion only when the trace says code cannot rule on the run.
+   */
   private async judgeTurnEnds(): Promise<void> {
     const run = this.world.refinerRunOf(this.author);
     if (!run) throw new Error("no refiner run is unfinished");
     const runId = this.runIdOf(run);
+    const path = this.rulingPathOf(runId);
+    const held =
+      path === "no_conclusion"
+        ? await this.untilAskedForARuling(run)
+        : await this.untilRulingCall(run, path);
+    if (held) this.held.set(runId, held);
+  }
+
+  /**
+   * How code reaches the ruling of the judge run `runId`: the decisions model reads the ruling
+   * a later step gives, or a seeded pick of the ways code cannot rule.
+   */
+  private rulingPathOf(runId: number): RulingPath {
+    const ruling = this.trace
+      .slice(this.step + 1)
+      .find((later) => isRulingAction(later.action) && later.judgeRun === runId);
+    if (ruling && ruling.action !== "decisionsModelCannotRule") return "reads_a_ruling";
+    return this.pick(CANNOT_RULE_PATHS);
+  }
+
+  /** The judge closes with its conclusion, and the decisions model holds the ruling call. */
+  private async untilRulingCall(
+    run: TaskRow,
+    path: Exclude<RulingPath, "no_conclusion">,
+  ): Promise<HeldRuling | null> {
     const gatewayBefore = this.world.workflow.gatewayInstance;
-    let answer: ((decisions: Decisions) => void) | null = null;
+    const call: { answer: ((decisions: Decisions) => void) | null } = { answer: null };
     const callOut = new Promise<"held">((callArrived) => {
       const holdRuling = new InterleavedDecisions(
         new FakeDecisions(rulingAnswers(0)),
@@ -1186,27 +1364,58 @@ export class ReviewLoopReplay {
           if (!("rejects" in questions.yesNo)) return null;
           callArrived("held");
           return new Promise<Decisions>((release) => {
-            answer = release;
+            call.answer = release;
           });
         },
       );
       this.world.workflow.gatewayInstance = new FakeGateway({ decisions: holdRuling });
     });
-    const turnEnd = this.world.apply(judgeClosesWithItsConclusion(run));
+    const turnEnd = this.world.apply(judgeCloses(run, JUDGE_CONCLUSION));
     const outcome = await Promise.race([callOut, turnEnd.then(() => "ended" as const)]);
     this.world.workflow.gatewayInstance = gatewayBefore;
-    if (outcome === "held" && answer) this.held.set(runId, { answer, turnEnd });
+    const { answer } = call;
+    if (outcome !== "held" || !answer) return null;
+    return { release: (action) => answer(rulingDecisions(action, path)), turnEnd };
+  }
+
+  /**
+   * The judge closes without a conclusion, so code cannot rule, and the note that asks the agent
+   * for a person's ruling waits.
+   */
+  private async untilAskedForARuling(run: TaskRow): Promise<HeldRuling | null> {
+    const { workflow } = this.world;
+    const tellAgent = workflow.tellAgent.bind(workflow);
+    const note: { resume: (() => void) | null } = { resume: null };
+    const asked = new Promise<"held">((askArrived) => {
+      workflow.tellAgent = async (text, wake, from) => {
+        const asksForRuling =
+          text.includes("needs a person's ruling") && text.includes(`job ${run.job_id}`);
+        if (!asksForRuling) return tellAgent(text, wake, from);
+        workflow.tellAgent = tellAgent;
+        askArrived("held");
+        await new Promise<void>((resumed) => {
+          note.resume = resumed;
+        });
+        return tellAgent(text, wake, from);
+      };
+    });
+    const turnEnd = this.world.apply(judgeCloses(run, ""));
+    const outcome = await Promise.race([asked, turnEnd.then(() => "ended" as const)]);
+    workflow.tellAgent = tellAgent;
+    const { resume } = note;
+    if (outcome !== "held" || !resume) return null;
+    return { release: () => resume(), turnEnd };
   }
 
   private async answerRuling(action: RulingAction, step: TraceStep): Promise<void> {
     const { judgeRun } = step;
     const held = judgeRun === null ? undefined : this.held.get(judgeRun);
-    if (judgeRun === null || !held) throw new Error(`no ruling call is out for ${judgeRun}`);
+    if (judgeRun === null || !held) throw new Error(`no ruling is held for ${judgeRun}`);
     this.held.delete(judgeRun);
     const post = action === "decisionsModelCannotRule" ? "HostTakes" : pickTag(step, "post");
     await this.whileRejectionPosts(post, () =>
       this.untilModelCall(async () => {
-        held.answer(new FakeDecisions(rulingAnswers(RULING_PROBABILITIES[action])));
+        held.release(action);
         await held.turnEnd;
       }),
     );
@@ -1351,13 +1560,34 @@ function isAuthorTurnEnd(action: string): boolean {
   return action === "authorTurnEndsOnANewRevision" || action === "authorTurnEndsOnTheSameRevision";
 }
 
-function judgeClosesWithItsConclusion(run: TaskRow): WorkflowAction {
+/**
+ * The decisions model's answer to a held ruling call for the step `action`. A step that cannot
+ * rule gets an unclear answer, or a call that fails, as `path` says.
+ */
+function rulingDecisions(action: RulingAction, path: RulingPath): FakeDecisions {
+  if (action === "decisionsModelCannotRule" && path === "decisions_fail") {
+    return new FakeDecisions(new Error("the decisions model is down"));
+  }
+  return new FakeDecisions(rulingAnswers(RULING_PROBABILITIES[action]));
+}
+
+/** The index the world actions name `author` by, counted round the authors the world holds. */
+function authorIndexOf(world: WorkflowWorld, author: WorldAuthor): number {
+  for (let index = 0; index < MAX_AUTHORS; index += 1) {
+    if (world.authorAt(index)?.taskId === author.taskId) return index;
+  }
+  throw new Error(`no index of the world names the author ${author.taskId}`);
+}
+
+/** The judge closes with `conclusion`, or with no text when it is empty. */
+function judgeCloses(run: TaskRow, conclusion: string): WorkflowAction {
+  const said = conclusion ? "its conclusion" : "no conclusion";
   return {
-    toString: () => `judge ${run.task_id} closes with its conclusion`,
+    toString: () => `judge ${run.task_id} closes with ${said}`,
     run: async (world) => {
       const bridge = await world.bridgeWithRunningTurn(run.task_id);
       if (!bridge) throw new Error(`judge ${run.task_id} has no running turn`);
-      await bridge.say(JUDGE_CONCLUSION);
+      if (conclusion) await bridge.say(conclusion);
       await bridge.endTurn("end_turn");
       return { refinerTurnEnd: { task_id: run.task_id } };
     },

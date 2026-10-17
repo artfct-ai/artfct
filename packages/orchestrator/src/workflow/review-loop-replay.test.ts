@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it } from "bun:test";
+import fc from "fast-check";
 import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/property-runs";
 import {
   generateTraces,
@@ -10,35 +11,68 @@ import {
 
 const TRACES_PER_SETUP = 20;
 
-let replay: ReviewLoopReplay | null = null;
+let replays: ReviewLoopReplay[] = [];
 
 afterEach(async () => {
-  await replay?.close();
-  replay = null;
+  for (const replay of replays) await replay.close();
+  replays = [];
 });
 
-async function replayTrace(setup: SpecSetup, trace: TraceStep[]): Promise<void> {
-  const [initial, ...steps] = trace;
-  if (!initial) throw new Error(`${setup} produced an empty trace`);
-  replay = await ReviewLoopReplay.open(setup);
+function seededShuffle<T>(items: T[], seed: number): T[] {
+  const [shuffled] = fc.sample(fc.shuffledSubarray(items, { minLength: items.length }), {
+    seed,
+    numRuns: 1,
+  });
+  if (!shuffled) throw new Error("the shuffle sampled nothing");
+  return shuffled;
+}
+
+async function openReplays(
+  setup: SpecSetup,
+  traces: TraceStep[][],
+  seed: number,
+): Promise<ReviewLoopReplay[]> {
+  const [first, ...others] = traces;
+  if (!first) throw new Error(`${setup} produced no trace`);
+  const opened = [await ReviewLoopReplay.open(setup, first, seed)];
+  replays = opened;
+  for (const [index, trace] of others.entries()) {
+    opened.push(await ReviewLoopReplay.openBeside(opened[0]!, trace, seed + index + 1));
+  }
+  return opened;
+}
+
+async function replayTraces(setup: SpecSetup, traces: TraceStep[][], seed: number): Promise<void> {
+  const opened = await openReplays(setup, traces, seed);
   const taken = ["init"];
-  const divergence = (step: TraceStep) =>
-    `${setup} diverged after ${taken.join(" -> ")}\nspec state: ${JSON.stringify(step.review)}`;
-  expect(replay.project(), divergence(initial)).toEqual(initial.review);
-  for (const step of steps) {
-    taken.push(`${step.action}${JSON.stringify(step.picks)}`);
-    await replay.take(step);
-    expect(replay.project(), divergence(step)).toEqual(step.review);
-    for (const { step: heardAt, agentHeard } of replay.settledHeard()) {
-      const expected = steps[heardAt - 1];
-      if (!expected) throw new Error(`the replay took step ${heardAt} the trace lacks`);
-      expect(agentHeard, `${divergence(expected)}\nagent read at step ${heardAt}`).toEqual(
-        expected.agentHeard,
-      );
+  const divergence = (replay: ReviewLoopReplay, step: TraceStep) =>
+    `${setup} seed ${seed} diverged on author ${opened.indexOf(replay)} after ${taken.join(" -> ")}\nspec state: ${JSON.stringify(step.review)}`;
+  for (const replay of opened) {
+    expect(replay.project(), divergence(replay, replay.current)).toEqual(replay.current.review);
+  }
+  const turns = seededShuffle(
+    opened.flatMap((replay, index) => Array.from({ length: replay.stepsLeft }, () => index)),
+    seed,
+  );
+  for (const turn of turns) {
+    const replay = opened[turn]!;
+    const step = await replay.take();
+    taken.push(`${turn}:${step.action}${JSON.stringify(step.picks)}`);
+    for (const each of opened) {
+      expect(each.project(), divergence(each, each.current)).toEqual(each.current.review);
+      for (const { step: heardAt, agentHeard } of each.settledHeard()) {
+        expect(agentHeard, `${divergence(each, heardAt)}\nagent read at ${heardAt.action}`).toEqual(
+          heardAt.agentHeard,
+        );
+      }
     }
   }
-  await replay.close();
-  replay = null;
+}
+
+function inWorlds(traces: TraceStep[][], authors: number): TraceStep[][][] {
+  return Array.from({ length: Math.ceil(traces.length / authors) }, (_unused, world) =>
+    traces.slice(world * authors, world * authors + authors),
+  );
 }
 
 describe("review loop spec", () => {
@@ -47,7 +81,12 @@ describe("review loop spec", () => {
       `replays its traces through the workflow on ${setup}`,
       async () => {
         const { numRuns, seed } = propertyRuns(`review loop replay ${setup}`, TRACES_PER_SETUP);
-        for (const trace of generateTraces(setup, numRuns, seed)) await replayTrace(setup, trace);
+        const traces = generateTraces(setup, numRuns, seed);
+        for (const [world, traced] of inWorlds(traces, SPEC_SETUPS[setup].authors).entries()) {
+          await replayTraces(setup, traced, seed + world * traced.length);
+          for (const replay of replays) await replay.close();
+          replays = [];
+        }
       },
       propertyTimeoutMs(60_000, TRACES_PER_SETUP),
     );
