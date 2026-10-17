@@ -4,7 +4,7 @@ This file lists each effect a person sees or the system relies on, and the invar
 
 Effects use the terms of the glossary. A guard is the exact function name of an invariant. A guard written `module::name` is an invariant of that Quint spec module. A row with an empty guard list is unguarded.
 
-The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The agent turn invariants live in `packages/orchestrator/test/agent-invariants.ts`. The router, chat acknowledgement and page revision invariants live beside them. The router binding invariants live in the Quint spec at `spec/router-bindings/routerBindings.qnt`. The review loop invariants live in the Quint spec at `spec/review-loop/reviewLoop.qnt`, the workflow lifecycle invariants in `spec/workflow-lifecycle/workflowLifecycle.qnt`, the harness session invariants in `spec/harness-session/harnessSession.qnt`, and the agent turns invariants in `spec/agent-turns/agentTurns.qnt`. The webhook invariants live in `packages/ingress/test/webhook-invariants.ts`, and the inbound mapper invariants in `packages/adapters/test/inbound-invariants.ts`.
+The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The agent turn invariants live in `packages/orchestrator/test/agent-invariants.ts`. The router and page revision invariants live beside them. The router binding invariants live in the Quint spec at `spec/router-bindings/routerBindings.qnt`. The review loop invariants live in the Quint spec at `spec/review-loop/reviewLoop.qnt`, the workflow lifecycle invariants in `spec/workflow-lifecycle/workflowLifecycle.qnt`, the harness session invariants in `spec/harness-session/harnessSession.qnt`, the agent turns invariants in `spec/agent-turns/agentTurns.qnt`, and the chat acknowledgement invariants in `spec/chat-acknowledgement/chatAcknowledgement.qnt`. The webhook invariants live in `packages/ingress/test/webhook-invariants.ts`, and the inbound mapper invariants in `packages/adapters/test/inbound-invariants.ts`.
 
 ## Workflow, tasks and statuses
 
@@ -226,7 +226,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | C15 | A finished workflow posts "Done." with the result. | |
 | C16 | Controls post "Cancelled.", "Paused", "Resumed" or "Not authorized.". | |
 | C17 | A reply target on a document page gets a page comment. | |
-| C18 | The chat eyes reaction marks a delivery slower than 3 seconds and comes off when it settles. The caller gets what the delivery gave. | `eyesNeverOutliveTheDelivery`, `eyesMarkOnlyASlowChatDelivery`, `theCallerGetsWhatTheDeliveryGave` |
+| C18 | The chat eyes reaction marks a delivery slower than 3 seconds and comes off when it settles. The caller gets what the delivery gave. | `chatAcknowledgement::eyesNeverOutliveTheDelivery`, `chatAcknowledgement::eyesMarkOnlyASlowChatDelivery`, `chatAcknowledgement::theCallerGetsWhatTheDeliveryGave` |
 | C19 | A received chat message sets the thread to its working status. | |
 
 ## Tracker output
