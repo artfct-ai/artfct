@@ -346,10 +346,14 @@ module workflowLifecycle {
     })
   }
 
-  /// `resumeTask` queues the resume prompt and sends the head of the queue. Without a bridge it
-  /// starts the next generation for it, also while a restart is closing the old container.
+  /// `resumeTask` queues the resume prompt and sends the head of the queue. The prompt waits while
+  /// the bridge still runs the turn the pause cancelled. Without a bridge it starts the next
+  /// generation for it, also while a restart is closing the old container.
   pure def resumeAuthor(flow: Workflow, id: int): Workflow = {
     val author = flow.jobs[id].author
+    val closing = flow.calls.indices().exists(callId =>
+      flow.calls[callId].job == id and flow.calls[callId].kind == SandboxDestroy)
+    val waits = author.turnRunning and not(author.generationClosed) and not(closing)
     val calls = flow.calls.foldl(List(), (calls, call) => calls.append(
       if (call.job == id and call.rest == RestartGoesOn)
         { ...call, rest: RestartAfterWake }
@@ -358,7 +362,8 @@ module workflowLifecycle {
       ...author,
       paused: false,
       turnRunning: true,
-      promptsSent: author.promptsSent + 1,
+      promptsSent: if (waits) author.promptsSent else author.promptsSent + 1,
+      promptsQueued: if (waits) author.promptsQueued + 1 else author.promptsQueued,
       generationClosed: false,
       status: if (author.status == InReview) Busy else author.status,
     })

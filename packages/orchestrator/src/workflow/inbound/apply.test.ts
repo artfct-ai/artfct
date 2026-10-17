@@ -638,9 +638,14 @@ describe("applyEvent", () => {
         expect(workflow.store.queue()).toEqual([]);
       }));
 
-    it("leaves the stopped reply to the end of the cancelled turn", () =>
+    it("ends the session feed with the stopped reply", () =>
       stopped(({ workflow }) => {
-        expect(feedPostsOf(workflow)).toEqual([]);
+        expect(feedPostsOf(workflow)).toEqual([{ type: "response", body: STOPPED_TEXT }]);
+      }));
+
+    it("closes the socket that carried the cancel", () =>
+      stopped(() => {
+        expect(socket.closes).toEqual([{ code: 1000, reason: "a person pressed Stop" }]);
       }));
 
     it("keeps the task working and unpaused", () =>
