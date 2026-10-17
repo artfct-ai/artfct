@@ -1,10 +1,12 @@
 /// The lifecycle of one workflow and its jobs, from the request to the end of the workflow.
 /// Each action is one step of the orchestrator that runs to its end before the next event lands.
-/// Two calls split a step: the destroy of an author's sandbox, and the acceptance check of
-/// `complete_job`. One action sends the call and a later action returns it. A restart of the
-/// Durable Object drops every call that is out, with the rest of its step.
-/// The world answers every other await at once, so the model folds those into the step.
-/// A refiner run is modelled only as running or finished.
+/// Three calls split a step: the destroy of a harness author's sandbox, the acceptance check of
+/// `complete_job`, and the model call of a model-call author. One action sends the call and a
+/// later action returns it. A restart of the Durable Object drops every call that is out, with the
+/// rest of its step. The world answers every other await at once, so the model folds those into
+/// the step. The start of a task folds into the step that queues it: a harness gets its first
+/// prompt, and a model-call author sends its model call. A refiner run is modelled only as running
+/// or finished.
 module workflowLifecycleTypes {
   type WorkflowStatus = New | Running | WaitingInput | Done | Failed | Cancelled
 
@@ -14,12 +16,20 @@ module workflowLifecycleTypes {
   /// `Busy` covers queued, provisioning and working. `InReview` is an author whose page is out.
   type TaskStatus = Busy | InReview | TaskDone | TaskCancelled | TaskFailed
 
-  /// The author task of a job. `turnRunning` holds while a prompt is in flight, also after the task
-  /// finished. `promptsSent` counts the prompts the workflow sent its harness. `promptsQueued`
-  /// counts the prompts that wait for the turn to end. `generationClosed` holds while a restart
-  /// closed the container of the author's generation and did not start the next one, because a
-  /// restart of the Durable Object dropped the rest or because the author is paused.
-  type Author = {
+  /// The role of a job task: the researcher that runs before the author, or the author.
+  type Role = Researcher | Author
+
+  /// A researcher or author task. `turnRunning` holds while a prompt is in flight in its harness,
+  /// also after the task finished. `promptsSent` counts the prompts the workflow sent the task:
+  /// those its harness got, and for a model-call author those a model turn started on.
+  /// `promptsQueued` counts the prompts that wait for a turn. `generationClosed` holds while a
+  /// restart closed the container of the task's generation and did not start the next one,
+  /// because a restart of the Durable Object dropped the rest or because the task is paused.
+  /// `startOrder` is the place of the task among the researchers and authors of the workflow, in
+  /// the order they started.
+  type Task = {
+    role: Role,
+    startOrder: int,
     status: TaskStatus,
     restarts: int,
     paused: bool,
@@ -36,39 +46,52 @@ module workflowLifecycleTypes {
   /// What a job works from: the text of a request, or the artifact of an earlier job.
   type Input = FromRequest(int) | FromArtifactOf(int)
 
-  type Job = { input: Input, author: Author, artifact: ArtifactStatus, refinerRun: RefinerRunStatus }
+  /// A job with its tasks in the order they started. The last one is the job's task now.
+  type Job = { input: Input, tasks: List[Task], artifact: ArtifactStatus, refinerRun: RefinerRunStatus }
 
-  type CallKind = SandboxDestroy | AcceptanceCheck
+  type CallKind = SandboxDestroy | AcceptanceCheck | ModelCall
 
-  /// The end of an author task that sent the sandbox destroy.
+  /// The end of a task that went on after its teardown.
   type Teardown = AfterCancel | AfterFail | AfterComplete
 
-  /// Who ended the author: a tool call or an event, or the end of the workflow with the jobs it
-  /// still has to cancel.
-  type Caller = ToolOrEvent | WorkflowEnd({ endsAs: WorkflowStatus, remaining: List[int] })
+  /// Who ended the task: a tool call or an event, or the end of the workflow with the status it
+  /// ends as.
+  type Caller = ToolOrEvent | WorkflowEnd(WorkflowStatus)
 
   /// The rest of the step that runs when the call returns. `RestartAfterWake` is a restart whose
   /// author a resume woke in a new generation while its old container went. It stops there.
+  /// `ModelTurnGoesOn` is the model turn that applies the answer of its model call.
   type Rest =
     | TeardownGoesOn({ teardown: Teardown, caller: Caller })
     | RestartGoesOn
     | RestartAfterWake
     | CompletionGoesOn
+    | ModelTurnGoesOn
 
   /// A call that is out. It leaves the list when it returns, or when a restart of the Durable
   /// Object drops it.
   type Call = { kind: CallKind, job: int, rest: Rest }
 
+  /// `failuresPosted` counts the posts that tell the person a researcher or author failed.
   type Workflow = {
     status: WorkflowStatus,
     definition: PlanDefinition,
     idleArmed: bool,
     jobs: List[Job],
     calls: List[Call],
+    failuresPosted: int,
   }
 
-  /// What an observer knows about the last step besides the states around it.
-  type StepKind = OtherStep | PlanStep(int) | EventStep | StaleAlarmStep | SleepStep | RestartStep
+  /// What an observer knows about the last step besides the states around it. `DeadlineStep` is
+  /// the deadline alarm of the model turn of a job.
+  type StepKind =
+    | OtherStep
+    | PlanStep(int)
+    | EventStep
+    | StaleAlarmStep
+    | SleepStep
+    | RestartStep
+    | DeadlineStep(int)
 
   /// One step: the workflow before it, the workflow after it, and what an observer knows of it.
   type Transition = { before: Workflow, after: Workflow, kind: StepKind }
@@ -86,6 +109,7 @@ module workflowLifecycleTypes {
     finishedWorkflowKeepsItsStatus: bool,
     pausedAuthorGetsNoPrompt: bool,
     workflowWaitsOnlyWhileNoAuthorWorks: bool,
+    aRestartDoesNotLoseAModelTurn: bool,
   }
 
   /// Whether the last step reached each before-and-after witness, by the name of the witness. Only
@@ -94,6 +118,7 @@ module workflowLifecycleTypes {
     aPlanStartsTheWorkflow: bool,
     aPlanLandsOnAStartedWorkflow: bool,
     aJobStartsIntoTheLastSlot: bool,
+    aJobStartsBesideAResearcher: bool,
     aFinishedTaskIsInAStep: bool,
     anEventLandsOnAFinishedWorkflow: bool,
     aStaleAlarmFires: bool,
@@ -101,17 +126,30 @@ module workflowLifecycleTypes {
     aMessageWakesTheWorkflow: bool,
     aPausedAuthorResumes: bool,
     aCallWasDropped: bool,
+    aRestartCutsAModelTurn: bool,
+    aModelTurnOutlivesItsDeadline: bool,
+    aReviseTurnIsCut: bool,
+    aPausedAuthorLosesAModelTurn: bool,
+    anAuthorFailsOnALostModelTurn: bool,
   }
 
   type Ending = PersonCancels | AgentFails | AgentFinishes
 }
 
-/// The lifecycle of a workflow whose jobs each write a page with a harness author.
+/// The lifecycle of a workflow whose jobs each write a page with an author, after a researcher
+/// when the stage runs one.
 module workflowLifecycle {
   import workflowLifecycleTypes.*
 
   /// True when the stage runs a reviewer on the page of each job.
   const REFINER: bool
+
+  /// True when the author of each job runs as model calls, without a sandbox. Such a stage runs
+  /// no refiners, so the humans get the page as its author leaves it.
+  const MODEL_AUTHOR: bool
+
+  /// True when a researcher runs before the author of each job.
+  const RESEARCH: bool
 
   /// The task slots of the workflow.
   pure val SLOTS: int = 2
@@ -134,6 +172,7 @@ module workflowLifecycle {
     idleArmed: true,
     jobs: List(),
     calls: List(),
+    failuresPosted: 0,
   }
 
   var workflow: Workflow
@@ -148,11 +187,15 @@ module workflowLifecycle {
 
   pure def jobIds(flow: Workflow): Set[int] = flow.jobs.indices()
 
-  pure def unfinishedJobIds(flow: Workflow): List[int] =
-    range(0, MAX_JOBS).select(id => id < flow.jobs.length() and not(isFinished(flow.jobs[id].author.status)))
+  /// The task of the job now: its author once the researcher handed over, else its first task.
+  pure def jobTask(flow: Workflow, id: int): Task =
+    flow.jobs[id].tasks[flow.jobs[id].tasks.length() - 1]
 
-  pure def busyAuthors(flow: Workflow): Set[int] =
-    jobIds(flow).filter(id => flow.jobs[id].author.status == Busy)
+  pure def unfinishedJobIds(flow: Workflow): List[int] =
+    range(0, MAX_JOBS).select(id => id < flow.jobs.length() and not(isFinished(jobTask(flow, id).status)))
+
+  pure def busyJobs(flow: Workflow): Set[int] =
+    jobIds(flow).filter(id => jobTask(flow, id).status == Busy)
 
   pure def outCalls(flow: Workflow, kind: CallKind): Set[int] =
     flow.calls.indices().filter(id => flow.calls[id].kind == kind)
@@ -160,8 +203,10 @@ module workflowLifecycle {
   pure def withJob(flow: Workflow, id: int, job: Job): Workflow =
     { ...flow, jobs: flow.jobs.replaceAt(id, job) }
 
-  pure def withAuthor(flow: Workflow, id: int, author: Author): Workflow =
-    withJob(flow, id, { ...flow.jobs[id], author: author })
+  pure def withTask(flow: Workflow, id: int, task: Task): Workflow = {
+    val job = flow.jobs[id]
+    withJob(flow, id, { ...job, tasks: job.tasks.replaceAt(job.tasks.length() - 1, task) })
+  }
 
   pure def withoutCall(flow: Workflow, id: int): Workflow =
     { ...flow, calls: flow.calls.slice(0, id).concat(flow.calls.slice(id + 1, flow.calls.length())) }
@@ -169,11 +214,53 @@ module workflowLifecycle {
   pure def sendCall(flow: Workflow, kind: CallKind, id: int, rest: Rest): Workflow =
     { ...flow, calls: flow.calls.append({ kind: kind, job: id, rest: rest }) }
 
-  /// The status an author takes from `finishTask`. The status is written before the sandbox goes.
-  /// A prompt in flight stays in flight on the finished task.
-  pure def finishAuthor(flow: Workflow, id: int, status: TaskStatus): Workflow =
-    withAuthor(flow, id, {
-      ...flow.jobs[id].author,
+  /// True for a model-call author, which runs without a sandbox.
+  pure def runsAsModelCalls(task: Task): bool = MODEL_AUTHOR and task.role == Author
+
+  /// True when the destroy of the task's sandbox is a call: the destroy of a harness author's.
+  pure def destroyIsACall(task: Task): bool = task.role == Author and not(MODEL_AUTHOR)
+
+  /// True while the model turn of the job's unfinished model-call author is in flight.
+  pure def modelTurnInFlight(flow: Workflow, id: int): bool = and {
+    not(isFinished(jobTask(flow, id).status)),
+    flow.calls.indices().exists(callId =>
+      flow.calls[callId].kind == ModelCall and flow.calls[callId].job == id),
+  }
+
+  pure def modelTurnsInFlight(flow: Workflow): Set[int] =
+    jobIds(flow).filter(id => modelTurnInFlight(flow, id))
+
+  /// The researchers and authors the workflow started.
+  pure def tasksStarted(flow: Workflow): int =
+    flow.jobs.foldl(0, (count, job) => count + job.tasks.length())
+
+  /// A task as it starts. A harness gets its first prompt. A model-call author sends its model call
+  /// to produce the page, which takes no prompt.
+  pure def newTask(flow: Workflow, role: Role): Task = {
+    val harness = not(MODEL_AUTHOR and role == Author)
+    {
+      role: role,
+      startOrder: tasksStarted(flow),
+      status: Busy,
+      restarts: 0,
+      paused: false,
+      turnRunning: harness,
+      promptsSent: if (harness) 1 else 0,
+      promptsQueued: 0,
+      generationClosed: false,
+    }
+  }
+
+  /// The model call a task sends as it starts, when it is a model-call author.
+  pure def sendFirstModelCall(flow: Workflow, id: int): Workflow =
+    if (runsAsModelCalls(jobTask(flow, id))) sendCall(flow, ModelCall, id, ModelTurnGoesOn) else flow
+
+  /// The status a task takes from `finishTask`. The status is written before the sandbox goes.
+  /// A prompt in flight stays in flight on the finished task. The model turn of a model-call
+  /// author ends with it.
+  pure def finishTask(flow: Workflow, id: int, status: TaskStatus): Workflow =
+    withTask(flow, id, {
+      ...jobTask(flow, id),
       status: status,
       promptsQueued: 0,
       generationClosed: false,
@@ -183,20 +270,20 @@ module workflowLifecycle {
   /// or the request.
   pure def inputFor(flow: Workflow, request: int): Input = {
     val builtOn = jobIds(flow).filter(id =>
-      flow.jobs[id].author.status == TaskDone and flow.jobs[id].artifact == Ready)
+      jobTask(flow, id).status == TaskDone and flow.jobs[id].artifact == Ready)
     if (builtOn.size() == 0) FromRequest(request)
     else FromArtifactOf(builtOn.fold(0, (latest, id) => if (id > latest) id else latest))
   }
 
-  /// A job holds its input while its author is unfinished, and after that while its output exists.
+  /// A job holds its input while its task is unfinished, and after that while its output exists.
   pure def holdsItsInput(job: Job): bool =
-    not(isFinished(job.author.status)) or job.artifact != NoArtifact
+    not(isFinished(job.tasks[job.tasks.length() - 1].status)) or job.artifact != NoArtifact
 
   pure def inputHeld(flow: Workflow, input: Input): bool =
     jobIds(flow).exists(id => flow.jobs[id].input == input and holdsItsInput(flow.jobs[id]))
 
-  /// True while the loop of a workflow end cancels its authors. Only this instance knows it, so a
-  /// restart of the Durable Object forgets it with the calls it drops.
+  /// True while the loop of a workflow end waits on the destroy of an author's sandbox. Only this
+  /// instance knows it, so a restart of the Durable Object forgets it with the calls it drops.
   pure def workflowEnding(flow: Workflow): bool =
     flow.calls.indices().exists(callId => match flow.calls[callId].rest {
       | TeardownGoesOn(teardown) => match teardown.caller {
@@ -214,18 +301,23 @@ module workflowLifecycle {
     not(inputHeld(flow, input)),
   }
 
+  /// `startJob`: the job starts with its researcher when the stage runs one, else with its author.
   pure def startedJob(flow: Workflow, input: Input): Workflow = {
-    val author = {
-      status: Busy,
-      restarts: 0,
-      paused: false,
-      turnRunning: true,
-      promptsSent: 1,
-      promptsQueued: 0,
-      generationClosed: false,
-    }
-    val job = { input: input, author: author, artifact: NoArtifact, refinerRun: NoRefinerRun }
-    { ...flow, jobs: flow.jobs.append(job), status: Running }
+    val task = newTask(flow, if (RESEARCH) Researcher else Author)
+    val job = { input: input, tasks: List(task), artifact: NoArtifact, refinerRun: NoRefinerRun }
+    sendFirstModelCall({ ...flow, jobs: flow.jobs.append(job), status: Running }, flow.jobs.length())
+  }
+
+  /// `startAuthorAfterResearch`: the researcher finishes done once its turn ended with the research
+  /// payload, and the author of its job starts.
+  pure def researchHandedOver(flow: Workflow, id: int): Workflow = {
+    val done = finishTask(
+      withTask(flow, id, { ...jobTask(flow, id), turnRunning: false }),
+      id,
+      TaskDone,
+    )
+    val job = done.jobs[id]
+    sendFirstModelCall(withJob(done, id, { ...job, tasks: job.tasks.append(newTask(done, Author)) }), id)
   }
 
   /// `endReviewAndBoard`: the refiner run of the job is cancelled and the humans get the artifact.
@@ -249,161 +341,272 @@ module workflowLifecycle {
     { ...flow, jobs: stopped, status: endsAs }
   }
 
-  /// The loop of a workflow end cancels the next author of the list it read when it began. It reads
-  /// each author again, so an author that finished meanwhile keeps its status.
-  pure def continueWorkflowEnd(flow: Workflow, endsAs: WorkflowStatus, remaining: List[int]): Workflow = {
-    val left = remaining.select(id => not(isFinished(flow.jobs[id].author.status)))
-    if (left.length() == 0) finishWorkflowEnd(flow, endsAs)
+  /// The jobs whose task is unfinished, in the order their tasks started.
+  pure def unfinishedJobsInStartOrder(flow: Workflow): List[int] =
+    range(0, 2 * MAX_JOBS).foldl(List(), (order, place) =>
+      order.concat(unfinishedJobIds(flow).select(id => jobTask(flow, id).startOrder == place)))
+
+  /// The loop of a workflow end reads the unfinished researchers and authors again before each
+  /// cancel and cancels the one that started first. A task without a sandbox destroy to wait on
+  /// ends at once. The loop waits on the destroy of a harness author's sandbox.
+  pure def continueWorkflowEnd(flow: Workflow, endsAs: WorkflowStatus): Workflow = {
+    val left = unfinishedJobsInStartOrder(flow)
+    val awaited = range(0, MAX_JOBS).select(index =>
+      index < left.length() and destroyIsACall(jobTask(flow, left[index])))
+    val firstAwaited = if (awaited.length() > 0) awaited.head() else left.length()
+    val endedAtOnce = range(0, MAX_JOBS).select(index => index < firstAwaited).foldl(flow, (ending, index) =>
+      endReview(finishTask(ending, left[index], TaskCancelled), left[index]))
+    if (firstAwaited == left.length()) finishWorkflowEnd(endedAtOnce, endsAs)
     else {
-      val id = left.head()
-      val caller = WorkflowEnd({ endsAs: endsAs, remaining: left.tail() })
+      val id = left[firstAwaited]
       sendCall(
-        finishAuthor(flow, id, TaskCancelled),
+        finishTask(endedAtOnce, id, TaskCancelled),
         SandboxDestroy,
         id,
-        TeardownGoesOn({ teardown: AfterCancel, caller: caller }),
+        TeardownGoesOn({ teardown: AfterCancel, caller: WorkflowEnd(endsAs) }),
       )
     }
   }
 
-  pure def startWorkflowEnd(flow: Workflow, endsAs: WorkflowStatus): Workflow =
-    continueWorkflowEnd(flow, endsAs, unfinishedJobIds(flow))
 
-  pure def teardownGoesOn(flow: Workflow, id: int, caller: Caller): Workflow = {
+  /// The end of a task goes on once its sandbox is gone: the review of its job ends, and a failed
+  /// task posts its failure to the person.
+  pure def teardownGoesOn(flow: Workflow, id: int, teardown: Teardown, caller: Caller): Workflow = {
     val reviewed = endReview(flow, id)
+    val told =
+      if (teardown == AfterFail) { ...reviewed, failuresPosted: reviewed.failuresPosted + 1 }
+      else reviewed
     match caller {
-      | ToolOrEvent => reviewed
-      | WorkflowEnd(end) => continueWorkflowEnd(reviewed, end.endsAs, end.remaining)
+      | ToolOrEvent => told
+      | WorkflowEnd(endsAs) => continueWorkflowEnd(told, endsAs)
     }
   }
 
-  /// The restart reads the author again once its old container went. A finished author stays
-  /// finished. A paused author counts the restart and waits for its resume to start the next
+  /// `failTask`, `cancelTask` or `completeJob` ends a task. A harness author's end waits on the
+  /// destroy of its sandbox. Any other end goes on at once.
+  pure def endTask(flow: Workflow, id: int, status: TaskStatus, teardown: Teardown): Workflow = {
+    val ended = finishTask(flow, id, status)
+    if (destroyIsACall(jobTask(flow, id)))
+      sendCall(ended, SandboxDestroy, id, TeardownGoesOn({ teardown: teardown, caller: ToolOrEvent }))
+    else teardownGoesOn(ended, id, teardown, ToolOrEvent)
+  }
+
+  /// True when the first prompt of a new generation of the task takes its oldest queued prompt.
+  /// An author resumes with it. A researcher starts over on its research prompt and leaves the
+  /// queue as it is.
+  pure def wakesWithAQueuedPrompt(task: Task): bool = task.role == Author
+
+  /// The restart reads the task again once its old container went. A finished task stays
+  /// finished. A paused task counts the restart and waits for its resume to start the next
   /// generation. Otherwise `restartSandbox` puts the task back to queued and counts the restart,
-  /// then the sandbox comes up and the harness gets the queued prompt, or its first prompt.
+  /// then the sandbox comes up and the harness gets its first prompt.
   pure def restartGoesOn(flow: Workflow, id: int): Workflow = {
-    val author = flow.jobs[id].author
-    if (isFinished(author.status)) flow
-    else if (author.paused)
-      withAuthor(flow, id, { ...author, restarts: author.restarts + 1, generationClosed: true })
+    val task = jobTask(flow, id)
+    if (isFinished(task.status)) flow
+    else if (task.paused)
+      withTask(flow, id, { ...task, restarts: task.restarts + 1, generationClosed: true })
     else
-      withAuthor(flow, id, {
-        ...author,
+      withTask(flow, id, {
+        ...task,
         status: Busy,
-        restarts: author.restarts + 1,
+        restarts: task.restarts + 1,
         turnRunning: true,
-        promptsSent: author.promptsSent + 1,
-        promptsQueued: if (author.promptsQueued > 0) author.promptsQueued - 1 else 0,
+        promptsSent: task.promptsSent + 1,
+        promptsQueued:
+          if (wakesWithAQueuedPrompt(task) and task.promptsQueued > 0) task.promptsQueued - 1
+          else task.promptsQueued,
       })
   }
 
   /// `completeJob` ends the author done with the row it read before the check.
   pure def completeAuthor(flow: Workflow, id: int): Workflow =
-    sendCall(
-      finishAuthor(flow, id, TaskDone),
-      SandboxDestroy,
-      id,
-      TeardownGoesOn({ teardown: AfterComplete, caller: ToolOrEvent }),
-    )
+    endTask(flow, id, TaskDone, AfterComplete)
+
+  /// `drainModelAuthor` on a model-call author that is not at work. An unpaused author in review
+  /// starts a revise turn on its next prompt. An author without its page waits for its provision
+  /// alarm to produce it.
+  pure def takeNextModelTurn(flow: Workflow, id: int): Workflow = {
+    val task = jobTask(flow, id)
+    if (task.paused or task.status != InReview or task.promptsQueued == 0) flow
+    else
+      sendCall(
+        withTask(flow, id, {
+          ...task,
+          status: Busy,
+          promptsSent: task.promptsSent + 1,
+          promptsQueued: task.promptsQueued - 1,
+        }),
+        ModelCall,
+        id,
+        ModelTurnGoesOn,
+      )
+  }
+
+  /// True for a model-call author queued to produce its page.
+  pure def waitsToProduce(flow: Workflow, id: int): bool = and {
+    runsAsModelCalls(jobTask(flow, id)),
+    jobTask(flow, id).status == Busy,
+    not(jobTask(flow, id).paused),
+    flow.jobs[id].artifact == NoArtifact,
+    not(modelTurnInFlight(flow, id)),
+  }
+
+  /// The provision alarm of each model-call author queued to produce its page sends its model call.
+  pure def startQueuedModelAuthors(flow: Workflow): Workflow =
+    range(0, MAX_JOBS).select(id => id < flow.jobs.length()).foldl(flow, (starting, id) =>
+      if (waitsToProduce(starting, id)) sendCall(starting, ModelCall, id, ModelTurnGoesOn)
+      else starting)
+
+  /// `resumeLostModelTurn`: past its restarts the author fails. Otherwise the restart counts, the
+  /// prompt of a lost revise turn waits again, and the author takes its next turn.
+  pure def resumeLostModelTurn(flow: Workflow, id: int): Workflow = {
+    val task = jobTask(flow, id)
+    val pageOut = flow.jobs[id].artifact != NoArtifact
+    if (task.restarts >= MAX_RESTARTS) endTask(flow, id, TaskFailed, AfterFail)
+    else
+      takeNextModelTurn(
+        withTask(flow, id, {
+          ...task,
+          restarts: task.restarts + 1,
+          status: if (pageOut) InReview else Busy,
+          promptsQueued: if (pageOut) task.promptsQueued + 1 else task.promptsQueued,
+        }),
+        id,
+      )
+  }
+
+  /// The humans get the page of the job, and the idle clock starts over.
+  pure def handOverPage(flow: Workflow, id: int): Workflow =
+    { ...withJob(flow, id, { ...flow.jobs[id], artifact: Ready }), idleArmed: true }
+
+  /// The model call returns and its model turn applies the answer. A finished author drops it. A
+  /// produce turn creates the page and hands it to the humans. A revise turn rewrites the page,
+  /// which is a draft again until the author takes no further prompt.
+  pure def modelTurnEnds(flow: Workflow, id: int): Workflow = {
+    val task = jobTask(flow, id)
+    val inReview = withTask(flow, id, { ...task, status: InReview })
+    if (isFinished(task.status)) flow
+    else if (flow.jobs[id].artifact == NoArtifact) takeNextModelTurn(handOverPage(inReview, id), id)
+    else {
+      val drained = takeNextModelTurn(withJob(inReview, id, { ...inReview.jobs[id], artifact: Drafted }), id)
+      if (modelTurnInFlight(drained, id)) drained else handOverPage(drained, id)
+    }
+  }
 
   pure def returnCall(flow: Workflow, callId: int): Workflow = {
     val call = flow.calls[callId]
     val returned = withoutCall(flow, callId)
     match call.rest {
-      | TeardownGoesOn(teardown) => teardownGoesOn(returned, call.job, teardown.caller)
+      | TeardownGoesOn(teardown) => teardownGoesOn(returned, call.job, teardown.teardown, teardown.caller)
       | RestartGoesOn => restartGoesOn(returned, call.job)
       | RestartAfterWake => returned
       | CompletionGoesOn => returned
+      | ModelTurnGoesOn => modelTurnEnds(returned, call.job)
     }
   }
 
-  /// A restart of the Durable Object drops every call that is out. An author whose restart it
+  /// A restart of the Durable Object drops every call that is out. A task whose restart it
   /// dropped keeps its task while its generation is closed.
   pure def dropCalls(flow: Workflow): Workflow = {
     val stranded = flow.calls.indices().filter(callId =>
       flow.calls[callId].rest == RestartGoesOn and
-      not(isFinished(flow.jobs[flow.calls[callId].job].author.status)))
-    val jobs = range(0, MAX_JOBS).select(id => id < flow.jobs.length()).foldl(List(), (jobs, id) => jobs.append({
-      ...flow.jobs[id],
-      author: {
-        ...flow.jobs[id].author,
-        generationClosed: flow.jobs[id].author.generationClosed or
-          stranded.exists(callId => flow.calls[callId].job == id),
-      },
-    }))
-    { ...flow, jobs: jobs, calls: List() }
+      not(isFinished(jobTask(flow, flow.calls[callId].job).status))).map(callId => flow.calls[callId].job)
+    val closed = range(0, MAX_JOBS).select(id => stranded.contains(id)).foldl(flow, (closing, id) =>
+      withTask(closing, id, { ...jobTask(closing, id), generationClosed: true }))
+    { ...closed, calls: List() }
   }
 
-  /// A stalled author whose generation is closed gets the next one, and its harness the queued
+  /// A restart of the Durable Object drops every call that is out. The start step runs each model
+  /// turn it cut again, in the order of the jobs, then the provision alarms that queues fire.
+  pure def restartWorkflow(flow: Workflow): Workflow = {
+    val cut = modelTurnsInFlight(flow)
+    val resumed = range(0, MAX_JOBS).select(id => cut.contains(id)).foldl(dropCalls(flow), (resuming, id) =>
+      resumeLostModelTurn(resuming, id))
+    startQueuedModelAuthors(resumed)
+  }
+
+  /// A stalled task whose generation is closed gets the next one, and its harness the queued
   /// prompt or a wake text. This does not count as a restart.
   pure def recoverLostTurn(flow: Workflow, id: int): Workflow = {
-    val author = flow.jobs[id].author
-    withAuthor(flow, id, {
-      ...author,
+    val task = jobTask(flow, id)
+    withTask(flow, id, {
+      ...task,
       generationClosed: false,
-      promptsSent: author.promptsSent + 1,
-      promptsQueued: if (author.promptsQueued > 0) author.promptsQueued - 1 else 0,
+      promptsSent: task.promptsSent + 1,
+      promptsQueued: if (task.promptsQueued > 0) task.promptsQueued - 1 else 0,
     })
   }
 
-  /// `resumeTask` queues the resume prompt and sends the head of the queue. Without a bridge it
-  /// starts the next generation for it, also while a restart is closing the old container.
-  pure def resumeAuthor(flow: Workflow, id: int): Workflow = {
-    val author = flow.jobs[id].author
+  /// `resumeTask` on a harness author queues the resume prompt and sends the head of the queue.
+  /// Without a bridge it starts the next generation for it, also while a restart is closing the
+  /// old container.
+  pure def resumeHarnessAuthor(flow: Workflow, id: int): Workflow = {
+    val task = jobTask(flow, id)
     val calls = flow.calls.foldl(List(), (calls, call) => calls.append(
       if (call.job == id and call.rest == RestartGoesOn)
         { ...call, rest: RestartAfterWake }
       else call))
-    withAuthor({ ...flow, calls: calls }, id, {
-      ...author,
+    withTask({ ...flow, calls: calls }, id, {
+      ...task,
       paused: false,
       turnRunning: true,
-      promptsSent: author.promptsSent + 1,
+      promptsSent: task.promptsSent + 1,
       generationClosed: false,
-      status: if (author.status == InReview) Busy else author.status,
+      status: if (task.status == InReview) Busy else task.status,
     })
+  }
+
+  /// `resumeTask` on a model-call author queues the resume prompt. An author at work takes it
+  /// after its turn. Otherwise the author takes its next turn, or produces its page first.
+  pure def resumeModelAuthor(flow: Workflow, id: int): Workflow = {
+    val task = jobTask(flow, id)
+    val resumed = withTask(flow, id, { ...task, paused: false, promptsQueued: task.promptsQueued + 1 })
+    if (modelTurnInFlight(flow, id)) resumed
+    else startQueuedModelAuthors(takeNextModelTurn(resumed, id))
   }
 
   /// The turn that wrote the page ends. A queued prompt goes out at once, and the refiners wait
   /// for the author to be quiet. Without refiners the humans get the page at once.
   pure def pageWritten(flow: Workflow, id: int): Workflow = {
     val job = flow.jobs[id]
-    val queued = job.author.promptsQueued > 0
-    val author =
+    val author = jobTask(flow, id)
+    val queued = author.promptsQueued > 0
+    val wrote =
       if (queued)
-        {
-          ...job.author,
-          promptsSent: job.author.promptsSent + 1,
-          promptsQueued: job.author.promptsQueued - 1,
-        }
-      else { ...job.author, status: InReview, turnRunning: false }
-    if (not(REFINER)) { ...withJob(flow, id, { ...job, author: author, artifact: Ready }), idleArmed: true }
-    else if (queued) withJob(flow, id, { ...job, author: author, artifact: Drafted })
-    else withJob(flow, id, { ...job, author: author, artifact: Drafted, refinerRun: RefinerRunning })
+        withTask(flow, id, {
+          ...author,
+          promptsSent: author.promptsSent + 1,
+          promptsQueued: author.promptsQueued - 1,
+        })
+      else withTask(flow, id, { ...author, status: InReview, turnRunning: false })
+    val tasks = wrote.jobs[id].tasks
+    if (not(REFINER)) { ...withJob(wrote, id, { ...job, tasks: tasks, artifact: Ready }), idleArmed: true }
+    else if (queued) withJob(wrote, id, { ...job, tasks: tasks, artifact: Drafted })
+    else withJob(wrote, id, { ...job, tasks: tasks, artifact: Drafted, refinerRun: RefinerRunning })
   }
 
   /// The reviewer approves. The humans get the page only while the author is quiet.
   pure def refinerRunFinished(flow: Workflow, id: int): Workflow = {
     val job = flow.jobs[id]
-    val handedOver = job.artifact == Drafted and not(job.author.turnRunning)
+    val handedOver = job.artifact == Drafted and not(jobTask(flow, id).turnRunning)
     val finished = { ...job, refinerRun: RefinerRunFinished, artifact: if (handedOver) Ready else job.artifact }
     { ...withJob(flow, id, finished), idleArmed: flow.idleArmed or handedOver }
   }
 
-  /// True when the author's harness is on a turn the agent did not pause, in a generation that runs.
-  pure def authorWorks(flow: Workflow, id: int): bool =
-    authorStuck(flow, id) and not(flow.jobs[id].author.generationClosed)
+  /// True when the task's harness is on a turn the agent did not pause, in a generation that runs.
+  pure def taskWorks(flow: Workflow, id: int): bool =
+    taskStuck(flow, id) and not(jobTask(flow, id).generationClosed)
 
-  /// True when the author's turn runs unpaused and its sandbox is not on its way out.
-  pure def authorStuck(flow: Workflow, id: int): bool = and {
-    flow.jobs[id].author.status == Busy,
-    flow.jobs[id].author.turnRunning,
-    not(flow.jobs[id].author.paused),
+  /// True when the task's harness turn runs unpaused and its sandbox is not on its way out.
+  pure def taskStuck(flow: Workflow, id: int): bool = and {
+    jobTask(flow, id).status == Busy,
+    jobTask(flow, id).turnRunning,
+    not(jobTask(flow, id).paused),
     not(flow.calls.indices().exists(callId =>
       flow.calls[callId].job == id and flow.calls[callId].kind == SandboxDestroy)),
   }
 
-  pure def sleeps(flow: Workflow): bool = flow.status == Running and busyAuthors(flow).size() == 0
+  pure def sleeps(flow: Workflow): bool = flow.status == Running and busyJobs(flow).size() == 0
 
   action move(after: Workflow, kind: StepKind): bool = {
     val step = { before: workflow, after: after, kind: kind }
@@ -460,9 +663,19 @@ module workflowLifecycle {
     move(if (canStartJob(workflow, input)) startedJob(workflow, input) else workflow, OtherStep),
   }
 
-  /// The author writes its page and its turn ends.
+  /// The researcher's turn ends with its research payload written.
+  action researcherHandsOver: bool = onJobWhere(
+    id => taskWorks(workflow, id) and jobTask(workflow, id).role == Researcher,
+    id => move(researchHandedOver(workflow, id), OtherStep),
+  )
+
+  /// The harness author writes its page and its turn ends.
   action authorWritesItsPage: bool = onJobWhere(
-    id => authorWorks(workflow, id) and workflow.jobs[id].artifact == NoArtifact,
+    id => and {
+      taskWorks(workflow, id),
+      jobTask(workflow, id).role == Author,
+      workflow.jobs[id].artifact == NoArtifact,
+    },
     id => move(pageWritten(workflow, id), OtherStep),
   )
 
@@ -472,62 +685,54 @@ module workflowLifecycle {
     id => move(refinerRunFinished(workflow, id), OtherStep),
   )
 
-  /// The agent calls `pause_task` on the author. A finished or paused author is left alone.
+  /// The agent calls `pause_task` on the job's task. A researcher is refused, and a finished or
+  /// paused author is left alone.
   action agentPausesAuthor: bool = onJob(id => {
-    val author = workflow.jobs[id].author
-    val pauses = not(isFinished(author.status)) and not(author.paused)
-    move(if (pauses) withAuthor(workflow, id, { ...author, paused: true }) else workflow, OtherStep)
+    val task = jobTask(workflow, id)
+    val pauses = task.role == Author and not(isFinished(task.status)) and not(task.paused)
+    move(if (pauses) withTask(workflow, id, { ...task, paused: true }) else workflow, OtherStep)
   })
 
-  /// The agent calls `resume_task` on the author. Its harness gets a prompt to go on.
+  /// The agent calls `resume_task` on the job's task. A researcher is refused. A paused author
+  /// gets a prompt to go on.
   action agentResumesAuthor: bool = onJob(id => {
-    val author = workflow.jobs[id].author
-    val resumes = not(isFinished(author.status)) and author.paused
-    move(if (resumes) resumeAuthor(workflow, id) else workflow, OtherStep)
+    val task = jobTask(workflow, id)
+    val resumes = task.role == Author and not(isFinished(task.status)) and task.paused
+    move(
+      if (not(resumes)) workflow
+      else if (runsAsModelCalls(task)) resumeModelAuthor(workflow, id)
+      else resumeHarnessAuthor(workflow, id),
+      OtherStep,
+    )
   })
 
-  /// The no progress alarm finds the author's turn stalled after a nudge. The author restarts in a
-  /// fresh sandbox once its container is destroyed, or fails once its restarts are used up.
-  action authorStalls: bool = onJobWhere(id => authorStuck(workflow, id), id => {
-    val author = workflow.jobs[id].author
-    all {
-      move(
-        if (author.generationClosed) recoverLostTurn(workflow, id)
-        else if (author.restarts < MAX_RESTARTS)
-          sendCall(
-            withAuthor(workflow, id, { ...author, promptsQueued: author.promptsQueued + 1 }),
-            SandboxDestroy,
-            id,
-            RestartGoesOn,
-          )
-        else
-          sendCall(
-            finishAuthor(workflow, id, TaskFailed),
-            SandboxDestroy,
-            id,
-            TeardownGoesOn({ teardown: AfterFail, caller: ToolOrEvent }),
-          ),
-        OtherStep,
-      ),
-    }
+  /// The no progress alarm finds the harness turn of the job's task stalled after a nudge. The
+  /// task restarts in a fresh sandbox once its container is destroyed, or fails once its restarts
+  /// are used up.
+  action taskStalls: bool = onJobWhere(id => taskStuck(workflow, id), id => {
+    val task = jobTask(workflow, id)
+    val queued = withTask(workflow, id, { ...task, promptsQueued: task.promptsQueued + 1 })
+    move(
+      if (task.generationClosed) recoverLostTurn(workflow, id)
+      else if (task.restarts >= MAX_RESTARTS) endTask(workflow, id, TaskFailed, AfterFail)
+      else if (destroyIsACall(task)) sendCall(queued, SandboxDestroy, id, RestartGoesOn)
+      else restartGoesOn(queued, id),
+      OtherStep,
+    )
   })
 
   /// The agent calls `cancel_job`. A finished job is left alone.
   action agentCancelsJob: bool = onJob(id => move(
-    if (isFinished(workflow.jobs[id].author.status)) workflow
-    else sendCall(
-      finishAuthor(workflow, id, TaskCancelled),
-      SandboxDestroy,
-      id,
-      TeardownGoesOn({ teardown: AfterCancel, caller: ToolOrEvent }),
-    ),
+    if (isFinished(jobTask(workflow, id).status)) workflow
+    else endTask(workflow, id, TaskCancelled, AfterCancel),
     OtherStep,
   ))
 
-  /// The agent calls `complete_job` in a turn where the person accepted the page. A job without a
-  /// page completes at once. Otherwise the decisions model checks the acceptance first.
+  /// The agent calls `complete_job` in a turn where the person accepted the page. It is refused
+  /// while the researcher runs. A job without a page completes at once. Otherwise the decisions
+  /// model checks the acceptance first.
   action agentCompletesJob: bool = onJob(id => move(
-    if (isFinished(workflow.jobs[id].author.status)) workflow
+    if (isFinished(jobTask(workflow, id).status) or jobTask(workflow, id).role == Researcher) workflow
     else if (workflow.jobs[id].artifact == NoArtifact) completeAuthor(workflow, id)
     else sendCall(workflow, AcceptanceCheck, id, CompletionGoesOn),
     OtherStep,
@@ -542,7 +747,7 @@ module workflowLifecycle {
     nondet accepted = Set(true, false).oneOf()
     val returned = withoutCall(workflow, callId)
     val id = workflow.calls[callId].job
-    val completes = accepted and not(isFinished(workflow.jobs[id].author.status))
+    val completes = accepted and not(isFinished(jobTask(workflow, id).status))
     move(if (completes) completeAuthor(returned, id) else returned, OtherStep),
   }
 
@@ -551,6 +756,29 @@ module workflowLifecycle {
     outCalls(workflow, SandboxDestroy).size() > 0,
     nondet callId = outCalls(workflow, SandboxDestroy).oneOf()
     move(returnCall(workflow, callId), OtherStep),
+  }
+
+  /// The page model answers the model call of a model-call author.
+  action modelCallReturns: bool = all {
+    outCalls(workflow, ModelCall).size() > 0,
+    nondet callId = outCalls(workflow, ModelCall).oneOf()
+    move(returnCall(workflow, callId), OtherStep),
+  }
+
+  /// The deadline alarm of a model turn in flight fires, because its page write hangs. The turn is
+  /// lost, and the answer of its model call changes nothing.
+  action modelTurnOutlivesItsDeadline: bool = {
+    val inFlight = outCalls(workflow, ModelCall).filter(callId =>
+      not(isFinished(jobTask(workflow, workflow.calls[callId].job).status)))
+    all {
+      inFlight.size() > 0,
+      nondet callId = inFlight.oneOf()
+      val id = workflow.calls[callId].job
+      move(
+        startQueuedModelAuthors(resumeLostModelTurn(withoutCall(workflow, callId), id)),
+        DeadlineStep(id),
+      ),
+    }
   }
 
   /// A person writes a message in the chat thread. It wakes a sleeping workflow.
@@ -562,7 +790,7 @@ module workflowLifecycle {
 
   /// The workflow ends once a job started. A person sends the cancel control word from the chat
   /// thread, the agent calls `fail_workflow`, or the agent calls `finish_workflow`, which is refused
-  /// while an author is unfinished. Each is refused while another end runs. The cancel word may
+  /// while a task is unfinished. Each is refused while another end runs. The cancel word may
   /// land on a workflow that already ended.
   action workflowEnds: bool = all {
     workflow.jobs.length() > 0,
@@ -570,10 +798,10 @@ module workflowLifecycle {
     val refused = hasEnded(workflow.status) or workflowEnding(workflow)
     match ending {
       | PersonCancels =>
-        move(if (refused) workflow else startWorkflowEnd(workflow, Cancelled), EventStep)
+        move(if (refused) workflow else continueWorkflowEnd(workflow, Cancelled), EventStep)
       | AgentFails => all {
         not(hasEnded(workflow.status)),
-        move(if (refused) workflow else startWorkflowEnd(workflow, Failed), OtherStep),
+        move(if (refused) workflow else continueWorkflowEnd(workflow, Failed), OtherStep),
       }
       | AgentFinishes => all {
         not(hasEnded(workflow.status)),
@@ -586,7 +814,7 @@ module workflowLifecycle {
     },
   }
 
-  /// The idle alarm fires. A running workflow whose authors are not busy goes to sleep.
+  /// The idle alarm fires. A running workflow whose tasks are not busy goes to sleep.
   action idleAlarmFires: bool = all {
     workflow.idleArmed,
     val disarmed = { ...workflow, idleArmed: false }
@@ -603,45 +831,58 @@ module workflowLifecycle {
   /// The Durable Object restarts while a call is out. Every call that is out is lost with its isolate.
   action workflowRestarts: bool = all {
     workflow.calls.length() > 0,
-    move(dropCalls(workflow), RestartStep),
+    move(restartWorkflow(workflow), RestartStep),
   }
 
   action step: bool = any {
     agentSetsPlan,
     agentStartsJob,
-    authorWritesItsPage,
+    aTaskEndsItsTurn,
     refinerRunEnds,
     theAgentSteersAnAuthor,
-    authorStalls,
+    taskStalls,
     theAgentEndsAJob,
     acceptanceCheckReturns,
     sandboxDestroyReturns,
+    aModelTurnEnds,
     workflowEnds,
     anOutsideEventLands,
     workflowRestarts,
   }
 
-  /// The agent pauses or resumes an author.
+  /// The researcher hands over to the author, or the harness author writes its page.
+  action aTaskEndsItsTurn: bool = any { researcherHandsOver, authorWritesItsPage }
+
+  /// The agent pauses or resumes a task.
   action theAgentSteersAnAuthor: bool = any { agentPausesAuthor, agentResumesAuthor }
 
   /// The agent cancels or completes a job.
   action theAgentEndsAJob: bool = any { agentCancelsJob, agentCompletesJob }
+
+  /// The page model answers a model call, or the deadline of its model turn passes first.
+  action aModelTurnEnds: bool = any { modelCallReturns, modelTurnOutlivesItsDeadline }
 
   /// A message or an alarm reaches the workflow.
   action anOutsideEventLands: bool = any { personWrites, idleAlarmFires, staleAlarmFires }
 
   pure def unfinishedCount(flow: Workflow): int = unfinishedJobIds(flow).length()
 
-  pure def promptsSentToAuthors(flow: Workflow): int =
-    flow.jobs.foldl(0, (total, job) => total + job.author.promptsSent)
+  pure def promptsSentToTasks(flow: Workflow): int =
+    flow.jobs.foldl(0, (total, job) => job.tasks.foldl(total, (sum, task) => sum + task.promptsSent))
+
+  /// True when a task of the job matches.
+  pure def anyTaskOf(job: Job, matches: Task => bool): bool =
+    job.tasks.indices().exists(index => matches(job.tasks[index]))
 
   pure def hasUnfinishedTask(flow: Workflow): bool =
-    jobIds(flow).exists(id => not(isFinished(flow.jobs[id].author.status)) or flow.jobs[id].refinerRun == RefinerRunning)
+    jobIds(flow).exists(id =>
+      anyTaskOf(flow.jobs[id], task => not(isFinished(task.status))) or
+      flow.jobs[id].refinerRun == RefinerRunning)
 
   pure def startedIn(before: Workflow, after: Workflow): bool = after.jobs.length() > before.jobs.length()
 
-  /// A job starts only into a free slot: before the step that started it, the unfinished authors
-  /// were fewer than the slots. A refiner run takes no slot.
+  /// A job starts only into a free slot: before the step that started it, the unfinished
+  /// researchers and authors were fewer than the slots. A refiner run takes no slot.
   pure def startsOnlyIntoAFreeSlot(step: Transition): bool =
     startedIn(step.before, step.after) implies unfinishedCount(step.before) < SLOTS
 
@@ -659,8 +900,9 @@ module workflowLifecycle {
   /// A finished task never changes status again.
   pure def keepsFinishedTasks(step: Transition): bool =
     step.before.jobs.indices().forall(id => and {
-      isFinished(step.before.jobs[id].author.status) implies
-        step.after.jobs[id].author.status == step.before.jobs[id].author.status,
+      step.before.jobs[id].tasks.indices().forall(index =>
+        isFinished(step.before.jobs[id].tasks[index].status) implies
+          step.after.jobs[id].tasks[index].status == step.before.jobs[id].tasks[index].status),
       step.before.jobs[id].refinerRun == RefinerRunFinished implies
         step.after.jobs[id].refinerRun == RefinerRunFinished,
     })
@@ -670,7 +912,7 @@ module workflowLifecycle {
     (step.kind == EventStep and hasEnded(step.before.status)) implies and {
       step.after.status == step.before.status,
       step.after.jobs.length() == step.before.jobs.length(),
-      promptsSentToAuthors(step.after) == promptsSentToAuthors(step.before),
+      promptsSentToTasks(step.after) == promptsSentToTasks(step.before),
     }
 
   /// An alarm of an older sandbox generation changes nothing.
@@ -685,16 +927,45 @@ module workflowLifecycle {
   pure def keepsAFinishedStatus(step: Transition): bool =
     hasEnded(step.before.status) implies step.after.status == step.before.status
 
-  /// The workflow sends a paused author no prompt until it resumes.
-  pure def sendsAPausedAuthorNoPrompt(step: Transition): bool =
+  /// The workflow sends a paused task no prompt until it resumes.
+  pure def sendsAPausedTaskNoPrompt(step: Transition): bool =
     step.before.jobs.indices().forall(id =>
-      (step.before.jobs[id].author.paused and step.after.jobs[id].author.paused) implies
-        step.after.jobs[id].author.promptsSent == step.before.jobs[id].author.promptsSent)
+      step.before.jobs[id].tasks.indices().forall(index => {
+        val was = step.before.jobs[id].tasks[index]
+        val now = step.after.jobs[id].tasks[index]
+        (was.paused and now.paused) implies now.promptsSent == was.promptsSent
+      }))
 
-  /// The workflow moves to waiting for input only in a step that leaves no author busy.
+  /// The workflow moves to waiting for input only in a step that leaves no researcher or author busy.
   pure def waitsOnlyWhileNoAuthorWorks(step: Transition): bool =
     (step.after.status == WaitingInput and step.before.status != WaitingInput) implies
-      busyAuthors(step.after).size() == 0
+      busyJobs(step.after).size() == 0
+
+  /// The jobs whose model turn the step cut: every model turn in flight at a restart of the
+  /// Durable Object, or the one whose deadline passed.
+  pure def modelTurnsCutIn(step: Transition): Set[int] = match step.kind {
+    | RestartStep => modelTurnsInFlight(step.before)
+    | DeadlineStep(id) => Set(id)
+    | _ => Set()
+  }
+
+  /// A restart or the deadline does not lose a model turn. The author whose turn was cut asks the
+  /// page model again, is back in review with the prompt of its turn taken, waits paused, or
+  /// failed with a post to the person. The start of a turn folds into the step, so an author that
+  /// is starting has its model call out. The prompt of a revise turn counts as sent while its turn
+  /// is in flight, so it is taken unless it waits again after the cut.
+  pure def resumesEveryCutModelTurn(step: Transition): bool =
+    modelTurnsCutIn(step).forall(id => {
+      val before = jobTask(step.before, id)
+      val after = jobTask(step.after, id)
+      val revised = step.before.jobs[id].artifact != NoArtifact
+      or {
+        modelTurnInFlight(step.after, id),
+        after.status == InReview and not(revised and after.promptsQueued > before.promptsQueued),
+        after.paused,
+        after.status == TaskFailed and step.after.failuresPosted > step.before.failuresPosted,
+      }
+    })
 
   /// Whether one step kept each before-and-after rule.
   pure def rulesKeptBy(step: Transition): KeptRules = {
@@ -706,29 +977,44 @@ module workflowLifecycle {
     staleAlarmIsIgnored: ignoresAStaleAlarm(step),
     sleepMessageOnlyDuringAWorkflow: sleepsOnlyDuringAWorkflow(step),
     finishedWorkflowKeepsItsStatus: keepsAFinishedStatus(step),
-    pausedAuthorGetsNoPrompt: sendsAPausedAuthorNoPrompt(step),
+    pausedAuthorGetsNoPrompt: sendsAPausedTaskNoPrompt(step),
     workflowWaitsOnlyWhileNoAuthorWorks: waitsOnlyWhileNoAuthorWorks(step),
+    aRestartDoesNotLoseAModelTurn: resumesEveryCutModelTurn(step),
   }
 
   /// Whether one step reached each before-and-after witness.
   pure def witnessesReachedBy(step: Transition): ReachedWitnesses = {
-    aPlanStartsTheWorkflow: step.before.definition == Unplanned and step.after.definition != Unplanned,
-    aPlanLandsOnAStartedWorkflow: match step.kind {
-      | PlanStep(_) => step.before.definition != Unplanned
-      | _ => false
-    },
-    aJobStartsIntoTheLastSlot:
-      startedIn(step.before, step.after) and unfinishedCount(step.before) == SLOTS - 1,
-    aFinishedTaskIsInAStep:
-      step.before.jobs.indices().exists(id => isFinished(step.before.jobs[id].author.status)),
-    anEventLandsOnAFinishedWorkflow: step.kind == EventStep and hasEnded(step.before.status),
-    aStaleAlarmFires: step.kind == StaleAlarmStep,
-    theSleepMessagePosts: step.kind == SleepStep,
-    aMessageWakesTheWorkflow:
-      step.kind == EventStep and step.before.status == WaitingInput and step.after.status == Running,
-    aPausedAuthorResumes: step.before.jobs.indices().exists(id =>
-      step.before.jobs[id].author.paused and not(step.after.jobs[id].author.paused)),
-    aCallWasDropped: step.kind == RestartStep,
+    val cut = modelTurnsCutIn(step)
+    {
+      aPlanStartsTheWorkflow: step.before.definition == Unplanned and step.after.definition != Unplanned,
+      aPlanLandsOnAStartedWorkflow: match step.kind {
+        | PlanStep(_) => step.before.definition != Unplanned
+        | _ => false
+      },
+      aJobStartsIntoTheLastSlot:
+        startedIn(step.before, step.after) and unfinishedCount(step.before) == SLOTS - 1,
+      aJobStartsBesideAResearcher: startedIn(step.before, step.after) and
+        jobIds(step.before).exists(id =>
+          jobTask(step.before, id).role == Researcher and not(isFinished(jobTask(step.before, id).status))),
+      aFinishedTaskIsInAStep: jobIds(step.before).exists(id =>
+        anyTaskOf(step.before.jobs[id], task => isFinished(task.status))),
+      anEventLandsOnAFinishedWorkflow: step.kind == EventStep and hasEnded(step.before.status),
+      aStaleAlarmFires: step.kind == StaleAlarmStep,
+      theSleepMessagePosts: step.kind == SleepStep,
+      aMessageWakesTheWorkflow:
+        step.kind == EventStep and step.before.status == WaitingInput and step.after.status == Running,
+      aPausedAuthorResumes: jobIds(step.before).exists(id =>
+        jobTask(step.before, id).paused and not(jobTask(step.after, id).paused)),
+      aCallWasDropped: step.kind == RestartStep,
+      aRestartCutsAModelTurn: step.kind == RestartStep and cut.size() > 0,
+      aModelTurnOutlivesItsDeadline: match step.kind {
+        | DeadlineStep(_) => true
+        | _ => false
+      },
+      aReviseTurnIsCut: cut.exists(id => step.before.jobs[id].artifact != NoArtifact),
+      aPausedAuthorLosesAModelTurn: cut.exists(id => jobTask(step.before, id).paused),
+      anAuthorFailsOnALostModelTurn: cut.exists(id => jobTask(step.after, id).status == TaskFailed),
+    }
   }
 
   /// A job starts only into a free slot.
@@ -778,16 +1064,24 @@ module workflowLifecycle {
 
   /// A task restarts at most `MAX_RESTARTS` times, whatever the cause.
   val taskRestartsAtMostTwice: bool =
-    jobIds(workflow).forall(id => workflow.jobs[id].author.restarts <= MAX_RESTARTS)
+    jobIds(workflow).forall(id => not(anyTaskOf(workflow.jobs[id], task => task.restarts > MAX_RESTARTS)))
 
-  /// The workflow sends a paused author no prompt until it resumes.
+  /// The workflow sends a paused task no prompt until it resumes.
   val pausedAuthorGetsNoPrompt: bool = lastStepKept.pausedAuthorGetsNoPrompt
 
-  /// The workflow moves to waiting for input only in a step that leaves no author busy.
+  /// The workflow moves to waiting for input only in a step that leaves no researcher or author busy.
   val workflowWaitsOnlyWhileNoAuthorWorks: bool = lastStepKept.workflowWaitsOnlyWhileNoAuthorWorks
 
-  /// The prompts the workflow sent its authors, a counter that model checking bounds.
-  val promptsSent: int = promptsSentToAuthors(workflow)
+  /// A restart or the deadline does not lose a model turn.
+  val aRestartDoesNotLoseAModelTurn: bool = lastStepKept.aRestartDoesNotLoseAModelTurn
+
+  /// The prompts the workflow sent its tasks, a counter that model checking bounds.
+  val promptsSent: int = promptsSentToTasks(workflow)
+
+  /// The prompts that wait for a turn, a counter that model checking bounds. Each resume of a
+  /// model-call author at work queues one more.
+  val promptsWaiting: int =
+    jobIds(workflow).fold(0, (total, id) => total + jobTask(workflow, id).promptsQueued)
 
   /// The calls that are out, a counter that model checking bounds.
   val callsOut: int = workflow.calls.length()
@@ -803,6 +1097,9 @@ module workflowLifecycle {
 
   /// Witness for `jobStartsOnlyIntoAFreeSlot`: a job starts into the last slot.
   val aJobStartsIntoTheLastSlot: bool = lastStepReached.aJobStartsIntoTheLastSlot
+
+  /// Witness for `jobStartsOnlyIntoAFreeSlot`: a job starts while a researcher holds a slot.
+  val aJobStartsBesideAResearcher: bool = lastStepReached.aJobStartsBesideAResearcher
 
   /// Witness for `oneLiveJobPerInputArtifact`: two jobs share an input.
   val twoJobsShareAnInput: bool =
@@ -832,37 +1129,65 @@ module workflowLifecycle {
   val aMessageWakesTheWorkflow: bool = lastStepReached.aMessageWakesTheWorkflow
 
   /// An author restarted.
-  val anAuthorRestarted: bool = jobIds(workflow).exists(id => workflow.jobs[id].author.restarts > 0)
+  val anAuthorRestarted: bool = jobIds(workflow).exists(id =>
+    anyTaskOf(workflow.jobs[id], task => task.role == Author and task.restarts > 0))
 
-  /// A restart closed the generation of an author and did not start the next one.
+  /// A researcher restarted.
+  val aResearcherRestarted: bool = jobIds(workflow).exists(id =>
+    anyTaskOf(workflow.jobs[id], task => task.role == Researcher and task.restarts > 0))
+
+  /// A researcher handed over to the author of its job.
+  val aResearcherHandedOver: bool = jobIds(workflow).exists(id => workflow.jobs[id].tasks.length() > 1)
+
+  /// A restart closed the generation of a task and did not start the next one.
   val aRestartClosedAGeneration: bool =
-    jobIds(workflow).exists(id => workflow.jobs[id].author.generationClosed)
+    jobIds(workflow).exists(id => jobTask(workflow, id).generationClosed)
 
-  /// A paused author restarted and waits for its resume to start the next generation.
+  /// A paused task restarted and waits for its resume to start the next generation.
   val aPausedAuthorWaitsToRestart: bool =
-    jobIds(workflow).exists(id =>
-      workflow.jobs[id].author.paused and workflow.jobs[id].author.generationClosed)
+    jobIds(workflow).exists(id => jobTask(workflow, id).paused and jobTask(workflow, id).generationClosed)
 
   /// The workflow ends while its loop waits on the destroy of an author's sandbox.
   val theWorkflowIsEnding: bool = workflowEnding(workflow)
 
-  /// A prompt waits for the turn of an author to end.
-  val aPromptWaits: bool = jobIds(workflow).exists(id => workflow.jobs[id].author.promptsQueued > 0)
+  /// A prompt waits for the turn of a task to end.
+  val aPromptWaits: bool = jobIds(workflow).exists(id => jobTask(workflow, id).promptsQueued > 0)
 
   /// An author failed once its restarts were used up.
-  val anAuthorFailed: bool = jobIds(workflow).exists(id => workflow.jobs[id].author.status == TaskFailed)
+  val anAuthorFailed: bool = jobIds(workflow).exists(id =>
+    anyTaskOf(workflow.jobs[id], task => task.role == Author and task.status == TaskFailed))
 
-  /// A paused author resumes.
+  /// A paused task resumes.
   val aPausedAuthorResumes: bool = lastStepReached.aPausedAuthorResumes
 
   /// A job completes.
-  val aJobCompletes: bool = jobIds(workflow).exists(id => workflow.jobs[id].author.status == TaskDone)
+  val aJobCompletes: bool = jobIds(workflow).exists(id =>
+    anyTaskOf(workflow.jobs[id], task => task.role == Author and task.status == TaskDone))
 
   /// The acceptance check of a completion is out.
   val anAcceptanceCheckIsOut: bool = outCalls(workflow, AcceptanceCheck).size() > 0
 
   /// A restart of the Durable Object dropped a call.
   val aCallWasDropped: bool = lastStepReached.aCallWasDropped
+
+  /// Witness for `aRestartDoesNotLoseAModelTurn`: a restart of the Durable Object cuts a model turn.
+  val aRestartCutsAModelTurn: bool = lastStepReached.aRestartCutsAModelTurn
+
+  /// Witness for `aRestartDoesNotLoseAModelTurn`: the deadline of a model turn in flight passes.
+  val aModelTurnOutlivesItsDeadline: bool = lastStepReached.aModelTurnOutlivesItsDeadline
+
+  /// Witness for `aRestartDoesNotLoseAModelTurn`: a revise turn is cut.
+  val aReviseTurnIsCut: bool = lastStepReached.aReviseTurnIsCut
+
+  /// Witness for `aRestartDoesNotLoseAModelTurn`: a paused author loses its model turn.
+  val aPausedAuthorLosesAModelTurn: bool = lastStepReached.aPausedAuthorLosesAModelTurn
+
+  /// Witness for `aRestartDoesNotLoseAModelTurn`: an author with no restarts left loses its model turn.
+  val anAuthorFailsOnALostModelTurn: bool = lastStepReached.anAuthorFailsOnALostModelTurn
+
+  /// A revise turn of a model-call author is in flight.
+  val aReviseTurnIsInFlight: bool =
+    modelTurnsInFlight(workflow).exists(id => workflow.jobs[id].artifact != NoArtifact)
 
   /// The reviewer of a page finished.
   val aRefinerRunFinished: bool =

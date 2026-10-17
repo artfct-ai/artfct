@@ -12,7 +12,8 @@
     "finishedWorkflowKeepsItsStatus",
     "taskRestartsAtMostTwice",
     "pausedAuthorGetsNoPrompt",
-    "workflowWaitsOnlyWhileNoAuthorWorks"
+    "workflowWaitsOnlyWhileNoAuthorWorks",
+    "aRestartDoesNotLoseAModelTurn"
   ],
   "witnesses": {
     "pagesWithAReviewer": [
@@ -67,6 +68,54 @@
       "theHumansHaveAPage",
       "theWorkflowIsDone",
       "theWorkflowFailed"
+    ],
+    "pagesAfterResearch": [
+      "aPlanStartsTheWorkflow",
+      "aJobStartsIntoTheLastSlot",
+      "aJobStartsBesideAResearcher",
+      "aFinishedTaskIsInAStep",
+      "aWorkflowEndedWithJobs",
+      "anEventLandsOnAFinishedWorkflow",
+      "theSleepMessagePosts",
+      "aResearcherHandedOver",
+      "aResearcherRestarted",
+      "anAuthorRestarted",
+      "aRestartClosedAGeneration",
+      "theWorkflowIsEnding",
+      "aPromptWaits",
+      "aPausedAuthorResumes",
+      "aJobCompletes",
+      "aCallWasDropped",
+      "theHumansHaveAPage",
+      "theWorkflowIsDone",
+      "theWorkflowFailed"
+    ],
+    "pagesFromModelCalls": [
+      "aPlanStartsTheWorkflow",
+      "aJobStartsIntoTheLastSlot",
+      "twoJobsShareAnInput",
+      "aJobBuildsOnAnArtifact",
+      "aFinishedTaskIsInAStep",
+      "aWorkflowEndedWithJobs",
+      "anEventLandsOnAFinishedWorkflow",
+      "theSleepMessagePosts",
+      "aMessageWakesTheWorkflow",
+      "anAuthorRestarted",
+      "aPromptWaits",
+      "anAuthorFailed",
+      "aPausedAuthorResumes",
+      "aJobCompletes",
+      "anAcceptanceCheckIsOut",
+      "aCallWasDropped",
+      "aRestartCutsAModelTurn",
+      "aModelTurnOutlivesItsDeadline",
+      "aReviseTurnIsInFlight",
+      "aReviseTurnIsCut",
+      "aPausedAuthorLosesAModelTurn",
+      "anAuthorFailsOnALostModelTurn",
+      "theHumansHaveAPage",
+      "theWorkflowIsDone",
+      "theWorkflowFailed"
     ]
   },
   "tlc": {
@@ -94,6 +143,32 @@
           "jobsStarted": 2,
           "callsOut": 2,
           "promptsSent": 4
+        }
+      },
+      "pagesAfterResearch": {
+        "pr": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 4
+        },
+        "nightly": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 5
+        }
+      },
+      "pagesFromModelCalls": {
+        "pr": {
+          "jobsStarted": 1,
+          "callsOut": 3,
+          "promptsSent": 3,
+          "promptsWaiting": 2
+        },
+        "nightly": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 2,
+          "promptsWaiting": 1
         }
       }
     }
