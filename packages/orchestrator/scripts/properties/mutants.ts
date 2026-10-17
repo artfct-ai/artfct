@@ -52,8 +52,8 @@ export const MUTANTS: Mutant[] = [
     id: "W5",
     invariant: "stopEndsTheAuthorsTurn (cancel)",
     path: "src/workflow/inbound/controls.ts",
-    find: 'if (connected && cancelPromptTurn(workflow, author)) return "cancelled";',
-    replace: 'if (connected && false) return "cancelled";',
+    find: "  const cancelled = connected && cancelPromptTurn(workflow, author);",
+    replace: "  const cancelled = false;",
   },
   {
     id: "W6",
@@ -111,9 +111,9 @@ export const MUTANTS: Mutant[] = [
     id: "W13",
     invariant: "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone",
     path: "src/workflow/task/harness/turn.ts",
-    find: '  if (isTaskFinished(author.status) || prompted) return "has_next_step";\n  return nudgeOrRestartStalledTask(workflow, author);',
+    find: "  if (isTaskFinished(author.status) || authorHasAPrompt(workflow, task.task_id)) {\n",
     replace:
-      '  if (isTaskFinished(author.status) || prompted || author.status === "working") return "has_next_step";\n  return nudgeOrRestartStalledTask(workflow, author);',
+      '  if (isTaskFinished(author.status) || authorHasAPrompt(workflow, task.task_id) || author.status === "working") {\n',
   },
   {
     id: "W14",
@@ -156,8 +156,8 @@ export const MUTANTS: Mutant[] = [
     id: "W19",
     invariant: "finishedTaskKeepsItsStatus (restart)",
     path: "src/workflow/lifecycle.ts",
-    find: "  const closed = workflow.store.requireTask(task.task_id);\n  if (isTaskFinished(closed.status)) return;\n",
-    replace: "  const closed = workflow.store.requireTask(task.task_id);\n",
+    find: "  if (isTaskFinished(closed.status) || closed.restarts !== current.restarts) return;",
+    replace: "  if (closed.restarts !== current.restarts) return;",
   },
   {
     id: "W20",
@@ -260,6 +260,72 @@ export const MUTANTS: Mutant[] = [
     replace: "",
   },
   {
+    id: "W34",
+    invariant: "anAnswerReachesOnlyItsOwnRequest (rpc id given twice)",
+    path: "src/workflow/store/tasks.ts",
+    find: "      .values({ task_id: taskId, method, purpose, sent_at: now() })\n",
+    replace:
+      "      .values({ id: (this.db.select({ id: rpc.id }).from(rpc).orderBy(desc(rpc.id)).limit(1).get()?.id ?? 0) + 1, task_id: taskId, method, purpose, sent_at: now() })\n",
+  },
+  {
+    id: "W35",
+    invariant: "aHarnessSessionRunsOneTurnAtATime (resume)",
+    path: "src/workflow/inbound/controls.ts",
+    find: "  workflow.store.updateTask(task.task_id, { paused_at: null });\n",
+    replace:
+      "  workflow.store.updateTask(task.task_id, { paused_at: null });\n  if (workflow.store.sandbox(task.task_id)) workflow.store.updateSandbox(task.task_id, { prompt_in_flight: 0 });\n",
+  },
+  {
+    id: "W36",
+    invariant: "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn (blocked)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: "  if (authorHasAPrompt(workflow, taskId)) return false;\n",
+    replace: "",
+  },
+  {
+    id: "W37",
+    invariant: "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone (refused prompt)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: '  if (stoppedEarly && (await stalledAtTurnEnd(workflow, task)) === "restarted") {',
+    replace: '  if (false && stoppedEarly && (await stalledAtTurnEnd(workflow, task)) === "restarted") {',
+  },
+  {
+    id: "W38",
+    invariant: "stopEndsTheAuthorsTurn (lost cancel)",
+    path: "src/workflow/inbound/controls.ts",
+    find: "  if (atWork) await endStoppedTurn(workflow, author);\n",
+    replace: '  if (cancelled) return "cancelled";\n  if (atWork) await endStoppedTurn(workflow, author);\n',
+  },
+  {
+    id: "W39",
+    invariant: "anUnpausedTaskWithWorkIsNeverStranded (handshake close)",
+    path: "src/workflow/task/harness/bridge.ts",
+    find: "  return sandbox.prompt_in_flight === 1 || store.handshakePending(sandbox.task_id);",
+    replace: "  return sandbox.prompt_in_flight === 1;",
+  },
+  {
+    id: "W40",
+    invariant: "anUnpausedTaskWithWorkIsNeverStranded (paused restart)",
+    path: "src/workflow/lifecycle.ts",
+    find: '  workflow.store.updateTask(task.task_id, { restarts: task.restarts + 1, status: "queued" });',
+    replace: "  workflow.store.updateTask(task.task_id, { restarts: task.restarts + 1 });",
+  },
+  {
+    id: "W41",
+    invariant: "aHarnessSessionRunsOneTurnAtATime (lost turn)",
+    path: "src/workflow/task/harness/bridge.ts",
+    find: "    session_id: null,\n",
+    replace: "",
+  },
+  {
+    id: "W42",
+    invariant: "aHarnessSessionRunsOneTurnAtATime (effort handshake)",
+    path: "src/workflow/task/harness/prompt-queue.ts",
+    find: '  if (task.status === "provisioning" || workflow.store.handshakePending(task.task_id)) {\n    return false;\n  }\n  const connected = workflow.connections(task.task_id).length > 0;\n  if (connected && sandbox.session_id) {\n    workflow.store.dequeuePrompt(next.id);\n    await sendPrompt(workflow, task, next.text);\n    return true;\n  }\n',
+    replace:
+      '  const connected = workflow.connections(task.task_id).length > 0;\n  if (connected && sandbox.session_id) {\n    workflow.store.dequeuePrompt(next.id);\n    await sendPrompt(workflow, task, next.text);\n    return true;\n  }\n  if (task.status === "provisioning" || workflow.store.handshakePending(task.task_id)) {\n    return false;\n  }\n',
+  },
+  {
     id: "A1",
     invariant: "laterDecisionsCallsFallBackOnceOneFails",
     path: "src/decisions/ask.ts",
@@ -292,9 +358,9 @@ export const MUTANTS: Mutant[] = [
     id: "A5",
     invariant: "sessionMessageWithoutAnAuthorIsAnswered",
     path: "src/agent/tools/channel.ts",
-    find: '              { answering },\n            );\n            return "Acknowledged.";',
+    find: '            await workflow.post({ type: "info", text: reply.text }, { answering });\n            return "Acknowledged.";',
     replace:
-      '              { answering: workflow.transcript.answering() },\n            );\n            return "Acknowledged.";',
+      '            await workflow.post({ type: "info", text: reply.text }, { answering: workflow.transcript.answering() });\n            return "Acknowledged.";',
   },
   {
     id: "A6",
