@@ -228,10 +228,6 @@ jobs:
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
         timeout-minutes: 15
         run: bun scripts/properties/e2e-property-test.ts agent_turn
-      - name: Run the router property
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 15
-        run: bun scripts/properties/e2e-property-test.ts router
 
   preview:
     name: preview

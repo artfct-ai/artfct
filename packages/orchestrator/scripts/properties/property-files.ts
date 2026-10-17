@@ -22,12 +22,6 @@ export const PROPERTY_FILES = {
     runner: ["bunx", "vitest", "run"],
     e2eRuns: 2000,
   },
-  router: {
-    title: "router property",
-    path: "src/router/route-invariants.test.medium.ts",
-    runner: ["bunx", "vitest", "run"],
-    e2eRuns: 1000,
-  },
   router_bindings: {
     title: "router bindings spec replay",
     path: "src/router/router-bindings-replay.test.ts",

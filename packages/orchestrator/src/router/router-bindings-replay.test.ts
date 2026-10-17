@@ -24,10 +24,14 @@ function stepName(step: TraceStep): string {
   return picked.length ? `${step.action}(${picked.join(", ")})` : step.action;
 }
 
-async function replayTrace(setup: SpecSetup, trace: TraceStep[]): Promise<void> {
+async function replayTrace(
+  setup: SpecSetup,
+  trace: TraceStep[],
+  firstEndedStatus: number,
+): Promise<void> {
   const [initial, ...steps] = trace;
   if (!initial) throw new Error(`${setup} produced an empty trace`);
-  replay = new RouterBindingsReplay();
+  replay = new RouterBindingsReplay(firstEndedStatus);
   const taken = ["init"];
   const divergence = (step: TraceStep) =>
     `${setup} diverged after ${taken.join(" -> ")}\nspec state: ${JSON.stringify(step.view)}`;
@@ -47,8 +51,8 @@ describe("router bindings spec", () => {
       `replays its traces through the router on ${setup}`,
       async () => {
         const { numRuns, seed } = propertyRuns(`router bindings replay ${setup}`, TRACES_PER_SETUP);
-        for (const trace of await generateTraces(setup, numRuns, seed))
-          await replayTrace(setup, trace);
+        const traces = await generateTraces(setup, numRuns, seed);
+        for (const [index, trace] of traces.entries()) await replayTrace(setup, trace, index);
       },
       propertyTimeoutMs(60_000, TRACES_PER_SETUP),
     );
