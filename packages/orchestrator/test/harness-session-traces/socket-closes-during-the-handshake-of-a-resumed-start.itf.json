@@ -7,11 +7,7 @@
     "description": "Created by Quint on Sat Oct 17 2026 12:42:24 GMT-0400 (Eastern Daylight Time)",
     "timestamp": 1792255344159
   },
-  "vars": [
-    "harnessDefaultEffort::harnessSession::world",
-    "mbt::actionTaken",
-    "mbt::nondetPicks"
-  ],
+  "vars": ["harnessDefaultEffort::harnessSession::world", "mbt::actionTaken", "mbt::nondetPicks"],
   "states": [
     {
       "#meta": {
