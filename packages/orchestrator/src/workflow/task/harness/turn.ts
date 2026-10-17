@@ -212,8 +212,10 @@ export async function onTurnEnd(
       ? await authorTurnOutcome(workflow, workflow.store.requireTask(task.task_id))
       : null;
   if (workflow.store.requireSandbox(task.task_id).generation !== generation) return;
-  if (outcome === "stopped_early") {
-    workflow.store.updateSandbox(task.task_id, { stopped_early: 1 });
+  if (outcome !== null) {
+    workflow.store.updateSandbox(task.task_id, {
+      stopped_early: outcome === "stopped_early" ? 1 : 0,
+    });
   }
   if (outcome === "blocked" && (await restartBlockedAuthor(workflow, task.task_id))) {
     return closeSessionFeed(workflow, task, null);
