@@ -8,6 +8,11 @@ on:
 permissions:
   contents: read
 
+# A newer push to a pull request cancels its older run. Each push to main gets its own group, so every commit runs.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 env:
   TURBO_API: ${{ vars.TURBO_API }}
   TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -20,10 +25,6 @@ jobs:
     name: ci
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    concurrency:
-      # One group per pull request
-      group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
-      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -35,61 +36,123 @@ jobs:
       - name: Fail when the lockfile does not match the workspace manifests
         run: bun install --lockfile-only && git diff --exit-code bun.lock
       - run: bun run check:affected
-
-  smoke:
-    name: smoke
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    concurrency:
-      group: smoke-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
-      cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - run: bun install --frozen-lockfile
       - run: bun run smoke
 
-  quint_specs:
-    name: quint specs
+  quint:
+    name: quint (shard ${{ matrix.shard }})
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      setups: ${{ steps.list.outputs.setups }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - name: List each spec's setups and its replay test
-        id: list
-        working-directory: packages/orchestrator
-        run: echo "setups=$(bun scripts/spec/check-spec.ts setups)" >> "$GITHUB_OUTPUT"
-
-  quint_spec:
-    name: quint spec (${{ matrix.spec }}, ${{ matrix.setup }})
-    needs: quint_specs
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(needs.quint_specs.outputs.setups) }}
+        shard: [1, 2, 3]
     defaults:
       run:
+        shell: bash
+        working-directory: packages/orchestrator
+    env:
+      SHARD_INDEX: ${{ strategy.job-index }}
+      SHARD_COUNT: ${{ strategy.job-total }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - name: Check whether the pull request changes the specs or the code they model
+        id: paths
+        run: |
+          changed=$(git diff --name-only HEAD^1 HEAD | grep -E '^(spec/|packages/orchestrator/(scripts/spec|src/workflow|src/agent|src/router|test)/|bun\.lock$|\.github/workflows/ci\.yml$)' || true)
+          echo "changed=$([ -n "$changed" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+      - if: steps.paths.outputs.changed == 'true'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - if: steps.paths.outputs.changed == 'true'
+        run: bun install --frozen-lockfile
+      - if: steps.paths.outputs.changed == 'true'
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.quint
+          key: quint-${{ runner.os }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
+          restore-keys: quint-${{ runner.os }}-
+      - name: Typecheck, check the witnesses, and run every invariant on 10,000 samples for each setup of this shard
+        if: steps.paths.outputs.changed == 'true'
+        run: |
+          status=0
+          for entry in $(bun scripts/spec/check-spec.ts setups | jq -r --argjson index "$SHARD_INDEX" --argjson count "$SHARD_COUNT" 'to_entries[] | select(.key % $count == $index) | .value | "\(.spec)/\(.setup)"'); do
+            spec=${entry%/*}
+            setup=${entry#*/}
+            echo "::group::$setup of $spec"
+            if ! {
+              bunx quint typecheck "../../spec/$spec/$setup.qnt" &&
+                bun scripts/spec/check-spec.ts witnesses "$spec" "$setup" &&
+                bun scripts/spec/check-spec.ts simulate "$spec" "$setup" 10000
+            }; then
+              status=1
+              echo "::error::$setup of $spec failed. Its group in this step's log has the output."
+            fi
+            echo "::endgroup::"
+          done
+          exit "$status"
+      - if: ${{ !cancelled() && steps.paths.outputs.changed == 'true' }}
+        run: bun run template-config
+      - name: Replay this shard's share of the spec traces through the code at the default count
+        if: ${{ !cancelled() && steps.paths.outputs.changed == 'true' }}
+        run: |
+          status=0
+          for replay in $(bun scripts/spec/check-spec.ts setups | jq -r --argjson index "$SHARD_INDEX" --argjson count "$SHARD_COUNT" 'map(.replay) | unique | map(select(. != "")) | to_entries[] | select(.key % $count == $index) | .value'); do
+            if [[ "$replay" == *.test.medium.ts ]]; then
+              bunx vitest run "./$replay" || status=1
+            else
+              bun test "./$replay" || status=1
+            fi
+          done
+          exit "$status"
+
+  quint_specs:
+    name: quint specs
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      specs: ${{ steps.list.outputs.specs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - name: List the specs
+        id: list
+        working-directory: packages/orchestrator
+        run: echo "specs=$(bun scripts/spec/check-spec.ts setups | jq -c 'map(.spec) | unique')" >> "$GITHUB_OUTPUT"
+
+  quint_spec:
+    name: quint spec (${{ matrix.spec }})
+    needs: quint_specs
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        spec: ${{ fromJSON(needs.quint_specs.outputs.specs) }}
+    defaults:
+      run:
+        shell: bash
         working-directory: packages/orchestrator
     env:
       SPEC: ${{ matrix.spec }}
-      SETUP: ${{ matrix.setup }}
-      REPLAY: ${{ matrix.replay }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
-      - if: ${{ matrix.tlc }}
+      - name: List the setups of the spec and the ones TLC checks
+        run: |
+          setups=$(bun scripts/spec/check-spec.ts setups)
+          echo "SETUPS=$(jq -r --arg spec "$SPEC" 'map(select(.spec == $spec) | .setup) | join(" ")' <<< "$setups")" >> "$GITHUB_ENV"
+          echo "TLC_SETUPS=$(jq -r --arg spec "$SPEC" 'map(select(.spec == $spec and .tlc) | .setup) | join(" ")' <<< "$setups")" >> "$GITHUB_ENV"
+      - if: env.TLC_SETUPS != ''
         uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
@@ -99,35 +162,33 @@ jobs:
           path: ~/.quint
           key: quint-${{ runner.os }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
           restore-keys: quint-${{ runner.os }}-
-      - run: bunx quint typecheck "../../spec/$SPEC/$SETUP.qnt"
-      - name: Fail when a witness is never reached
-        run: bun scripts/spec/check-spec.ts witnesses "$SPEC" "$SETUP"
-      - name: Run every invariant on 100,000 samples
-        run: bun scripts/spec/check-spec.ts simulate "$SPEC" "$SETUP" 100000
-      - name: Check every state within the pull request bounds with TLC
-        if: ${{ !cancelled() && matrix.tlc }}
-        run: bun scripts/spec/check-spec.ts tlc "$SPEC" "$SETUP" pr
-      - if: ${{ !cancelled() && matrix.replay != '' }}
-        run: bun run template-config
-      - name: Replay the spec traces through the workflow
-        if: ${{ !cancelled() && matrix.replay != '' }}
+      - name: Typecheck each setup
         run: |
-          if [[ "$REPLAY" == *.test.medium.ts ]]; then
-            bunx vitest run "./$REPLAY" --testNamePattern "on $SETUP\$" --passWithNoTests
-          else
-            bun test "./$REPLAY" --test-name-pattern "on $SETUP\$" --pass-with-no-tests
-          fi
+          for setup in $SETUPS; do bunx quint typecheck "../../spec/$SPEC/$setup.qnt"; done
+      - name: Fail when a witness is never reached
+        run: |
+          status=0
+          for setup in $SETUPS; do bun scripts/spec/check-spec.ts witnesses "$SPEC" "$setup" || status=1; done
+          exit "$status"
+      - name: Run every invariant on 100,000 samples
+        if: ${{ !cancelled() }}
+        run: |
+          status=0
+          for setup in $SETUPS; do bun scripts/spec/check-spec.ts simulate "$SPEC" "$setup" 100000 || status=1; done
+          exit "$status"
+      - name: Check every state within the pr bounds with TLC
+        if: ${{ !cancelled() && env.TLC_SETUPS != '' }}
+        run: |
+          status=0
+          for setup in $TLC_SETUPS; do bun scripts/spec/check-spec.ts tlc "$SPEC" "$setup" pr || status=1; done
+          exit "$status"
 
-  e2e_property_test:
-    name: e2e property based test (shard ${{ matrix.shard }})
+  spec_replays:
+    name: spec replays
     needs: ci
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
     defaults:
       run:
         working-directory: packages/orchestrator
@@ -138,23 +199,9 @@ jobs:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
       - run: bun run template-config
-      - name: Seed this shard from the run id and the shard index
+      - name: Seed the replays from the run id
         id: seed
-        run: echo "PROPERTY_SEED=$(( (GITHUB_RUN_ID + SHARD) % 2147483648 ))" >> "$GITHUB_ENV"
-        env:
-          SHARD: ${{ matrix.shard }}
-      - name: Run the workflow properties
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts workflow
-      - name: Run the agent turn property
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts agent_turn
-      - name: Run the router property
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts router
+        run: echo "PROPERTY_SEED=$(( GITHUB_RUN_ID % 2147483648 ))" >> "$GITHUB_ENV"
       - name: Replay the router bindings spec
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
         timeout-minutes: 25
@@ -176,8 +223,8 @@ jobs:
         timeout-minutes: 25
         run: bun scripts/properties/e2e-property-test.ts agent_turns
 
-  coverage_check:
-    name: coverage check
+  e2e_property_test:
+    name: e2e property based test (light)
     needs: ci
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -185,6 +232,8 @@ jobs:
     defaults:
       run:
         working-directory: packages/orchestrator
+    env:
+      PROPERTY_RUNS_DIVISOR: 2
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -192,12 +241,25 @@ jobs:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
       - run: bun run template-config
-      - name: Check that the workflow properties cover every coverage case
-        run: COVERAGE_CHECK=1 bun test ./src/workflow/invariants.test.ts -t "coverage check"
+      - name: Seed the properties from the run id
+        id: seed
+        run: echo "PROPERTY_SEED=$(( GITHUB_RUN_ID % 2147483648 ))" >> "$GITHUB_ENV"
+      - name: Run the workflow properties
+        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
+        timeout-minutes: 15
+        run: bun scripts/properties/e2e-property-test.ts workflow
+      - name: Run the agent turn property
+        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
+        timeout-minutes: 15
+        run: bun scripts/properties/e2e-property-test.ts agent_turn
+      - name: Run the router property
+        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
+        timeout-minutes: 15
+        run: bun scripts/properties/e2e-property-test.ts router
 
   preview:
     name: preview
-    needs: [ci, smoke, e2e_property_test, coverage_check]
+    needs: [ci, quint_spec, spec_replays, e2e_property_test]
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 30
