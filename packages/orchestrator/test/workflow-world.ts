@@ -1296,7 +1296,12 @@ export class WorkflowWorld {
   }
 
   private lastOutboxId(): number {
-    return this.db.select({ id: max(outbox.id) }).from(outbox).get()?.id ?? 0;
+    return (
+      this.db
+        .select({ id: max(outbox.id) })
+        .from(outbox)
+        .get()?.id ?? 0
+    );
   }
 
   private outboxRowsAfter(id: number): OutboxRow[] {
@@ -1363,7 +1368,8 @@ export class WorkflowWorld {
           ],
           promptsQueued: this.promptsQueuedFor(task.task_id),
           promptsSent:
-            this.promptsSentTo(task.task_id) + (this.modelPromptTexts.get(task.task_id)?.length ?? 0),
+            this.promptsSentTo(task.task_id) +
+            (this.modelPromptTexts.get(task.task_id)?.length ?? 0),
           paused: task.paused_at !== null,
           cancelsSent: this.bridges
             .filter((bridge) => bridge.taskId === task.task_id)
