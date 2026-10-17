@@ -10,6 +10,7 @@ export type TlcBounds = Record<string, number>;
 /** What a spec folder's `checks.json` declares. */
 export type SpecChecks = {
   invariants: string[];
+  mainMinutes: Record<string, number>;
   witnesses: Record<string, string[]>;
   tlc?: {
     ignoredVariables: string[];

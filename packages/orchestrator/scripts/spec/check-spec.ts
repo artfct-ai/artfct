@@ -3,6 +3,7 @@
  * Runs the checks that each spec folder's `checks.json` declares, for CI and the nightly run.
  * Usage, from the orchestrator package:
  *   bun scripts/spec/check-spec.ts setups
+ *   bun scripts/spec/check-spec.ts main-shard <index> <count>
  *   bun scripts/spec/check-spec.ts witnesses <spec> <setup>
  *   bun scripts/spec/check-spec.ts simulate <spec> <setup> <samples>
  *   bun scripts/spec/check-spec.ts tlc <spec> <setup> <pr|nightly>
@@ -19,11 +20,13 @@ import {
   tlcModel,
 } from "./tlc-model";
 import { installTlcTools } from "./tlc-tools";
+import { mainQuintShards } from "./main-shards";
 
 const ORCHESTRATOR_DIR = join(import.meta.dirname, "../..");
 const MAX_STEPS = 25;
 const USAGE = [
   "usage: bun scripts/spec/check-spec.ts setups",
+  "       bun scripts/spec/check-spec.ts main-shard <index> <count>",
   "       bun scripts/spec/check-spec.ts witnesses <spec> <setup>",
   "       bun scripts/spec/check-spec.ts simulate <spec> <setup> <samples>",
   "       bun scripts/spec/check-spec.ts tlc <spec> <setup> <pr|nightly>",
@@ -50,8 +53,15 @@ function setupFile(spec: string, setup: string): string {
   return join(specDir(spec), `${setup}.qnt`);
 }
 
-function listSetups(): void {
-  const setups = listSpecSetups().map(({ spec, setup }) => {
+function checkedSetups() {
+  return listSpecSetups().map(({ spec, setup }) => {
+    const checks = readSpecChecks(spec);
+    const minutes = checks.mainMinutes[setup];
+    if (minutes === undefined) {
+      throw new Error(
+        `Add the minutes ${setup} takes on main under mainMinutes in ${spec}/checks.json.`,
+      );
+    }
     const replay = [
       ...new Bun.Glob(`src/**/${spec}-replay.test{,.medium}.ts`).scanSync(ORCHESTRATOR_DIR),
     ];
@@ -59,10 +69,20 @@ function listSetups(): void {
       spec,
       setup,
       replay: replay[0] ?? "",
-      tlc: Boolean(readSpecChecks(spec).tlc?.bounds[setup]),
+      tlc: Boolean(checks.tlc?.bounds[setup]),
+      minutes,
     };
   });
-  console.log(JSON.stringify(setups));
+}
+
+function listMainShard(index: number, count: number): number {
+  const shard = mainQuintShards(checkedSetups(), count)[index];
+  if (!shard) {
+    console.error(USAGE);
+    return 2;
+  }
+  console.log(JSON.stringify(shard));
+  return 0;
 }
 
 async function checkWitnesses(spec: string, setup: string): Promise<number> {
@@ -183,8 +203,12 @@ function isTlcDepth(value: string | undefined): value is TlcDepth {
 async function main(args: string[]): Promise<number> {
   const [command, spec, setup, detail] = args;
   if (command === "setups") {
-    listSetups();
+    console.log(JSON.stringify(checkedSetups()));
     return 0;
+  }
+  if (command === "main-shard") {
+    const [, shardIndex, shardCount] = args;
+    return listMainShard(Number(shardIndex), Number(shardCount));
   }
   if (command === "witnesses" && spec && setup) return checkWitnesses(spec, setup);
   if (command === "simulate" && spec && setup && detail) return simulate(spec, setup, detail);

@@ -19,6 +19,14 @@
     "aHeldCommentStaysHeldUntilItReachesTheAuthor",
     "aModelCallAuthorFailsOnlyOnAHostError"
   ],
+  "mainMinutes": {
+    "judgeThenPolisher": 3.2,
+    "reviewerThenPolisher": 3.1,
+    "judgeBetweenReviewers": 2.1,
+    "modelCallAuthorWithTwoReviewers": 4.9,
+    "pageReviewerThenPolisher": 3.6,
+    "pageJudgeBetweenReviewers": 3.0
+  },
   "witnesses": {
     "judgeThenPolisher": [
       "aRefinerRunIsUnfinished",

@@ -25,6 +25,11 @@
     "anUnpausedTaskWithWorkIsNeverStranded",
     "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone"
   ],
+  "mainMinutes": {
+    "harnessDefaultEffort": 9.4,
+    "stageAsksForEffort": 10.1,
+    "agentPausesRunningTurns": 10.3
+  },
   "witnesses": {
     "harnessDefaultEffort": [
       "aFinishedTaskIsInAStep",

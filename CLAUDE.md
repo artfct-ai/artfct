@@ -106,7 +106,7 @@ Judge a change by the complexity it leaves behind, not by its size. An interface
 
 - A folder under `spec/` holds one Quint spec, one file per setup, and `checks.json`. Only `packages/orchestrator/scripts/spec/check-spec.ts` reads `checks.json`. CI calls it for every setup, so a new spec needs no workflow change.
 - Write every rule as a state invariant, so simulation and TLC both check it.
-- Give each list or number that grows a counter val. Cap it per setup under `tlc.bounds` in `checks.json`, at `pr` and `nightly` depth. Main runs TLC at the `pr` bounds. Keep each spec's main quint job shorter than the main spec replay job.
+- Give each list or number that grows a counter val. Cap it per setup under `tlc.bounds` in `checks.json`, at `pr` and `nightly` depth. Main runs TLC at the `pr` bounds. Keep each main quint job shorter than the main spec replay job. Record each setup's minutes on main under `mainMinutes` in `checks.json`. The main quint shards balance on them.
 - Remove a call from the state once it returns. A restart drops every call that is out.
 - Write a before-and-after rule as a pure def over one step: the state before, the state after, and the kind of step. Each step records whether it kept each rule in a record variable, and the invariant reads that field. Do not store the state before the step.
 - Record a witness that needs the step in its own record variable, and list that variable under `tlc.ignoredVariables`.

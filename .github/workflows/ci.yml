@@ -109,47 +109,29 @@ jobs:
           done
           exit "$status"
 
-  quint_specs:
-    name: quint specs
+  quint_spec:
+    name: quint spec (shard ${{ matrix.shard }})
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      setups: ${{ steps.list.outputs.setups }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - name: List the setups of every spec
-        id: list
-        working-directory: packages/orchestrator
-        run: echo "setups=$(bun scripts/spec/check-spec.ts setups)" >> "$GITHUB_OUTPUT"
-
-  quint_spec:
-    name: quint spec (${{ matrix.spec }} ${{ matrix.setup }})
-    needs: quint_specs
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
-        include: ${{ fromJSON(needs.quint_specs.outputs.setups) }}
+        shard: [1, 2, 3, 4, 5, 6, 7, 8]
     defaults:
       run:
         shell: bash
         working-directory: packages/orchestrator
     env:
-      SPEC: ${{ matrix.spec }}
-      SETUP: ${{ matrix.setup }}
+      SHARD_INDEX: ${{ strategy.job-index }}
+      SHARD_COUNT: ${{ strategy.job-total }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
-      - if: matrix.tlc
-        uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
+      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
         with:
           distribution: temurin
           java-version: "21.0.12+8"
@@ -158,16 +140,24 @@ jobs:
           path: ~/.quint
           key: quint-${{ runner.os }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
           restore-keys: quint-${{ runner.os }}-
-      - name: Typecheck the setup
-        run: bunx quint typecheck "../../spec/$SPEC/$SETUP.qnt"
-      - name: Fail when a witness is never reached
-        run: bun scripts/spec/check-spec.ts witnesses "$SPEC" "$SETUP"
-      - name: Run every invariant on 100,000 samples
-        if: ${{ !cancelled() }}
-        run: bun scripts/spec/check-spec.ts simulate "$SPEC" "$SETUP" 100000
-      - name: Check every state within the pr bounds with TLC
-        if: ${{ !cancelled() && matrix.tlc }}
-        run: bun scripts/spec/check-spec.ts tlc "$SPEC" "$SETUP" pr
+      - name: Typecheck, check the witnesses, run every invariant on 100,000 samples, and check every state within the pr bounds with TLC for each setup of this shard
+        run: |
+          status=0
+          for entry in $(bun scripts/spec/check-spec.ts main-shard "$SHARD_INDEX" "$SHARD_COUNT" | jq -r '.[] | "\(.spec)/\(.setup)/\(.tlc)"'); do
+            IFS=/ read -r spec setup tlc <<< "$entry"
+            echo "::group::$setup of $spec"
+            if ! {
+              bunx quint typecheck "../../spec/$spec/$setup.qnt" &&
+                bun scripts/spec/check-spec.ts witnesses "$spec" "$setup" &&
+                bun scripts/spec/check-spec.ts simulate "$spec" "$setup" 100000 &&
+                { [ "$tlc" = false ] || bun scripts/spec/check-spec.ts tlc "$spec" "$setup" pr; }
+            }; then
+              status=1
+              echo "::error::$setup of $spec failed. Its group in this step's log has the output."
+            fi
+            echo "::endgroup::"
+          done
+          exit "$status"
 
   spec_replays:
     name: spec replays
