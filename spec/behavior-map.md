@@ -16,8 +16,8 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | T4 | A sandbox start moves the task to `provisioning` with a new generation and bridge token, and clears the session state. | |
 | T5 | The first bridge hello moves the task to `working`. | |
 | T6 | A model-call author is `working` only while its model turn is in flight, or after a stop ended its first turn before the page existed. | `aModelCallAuthorWorksOnlyWhileItsCallIsOut` |
-| T7 | An author moves to `in_review` only when its job has an artifact and a prompt is not in flight. | `inReviewTaskHasAnArtifact` |
-| T8 | A finished task (`done`, `failed`, `cancelled`) never changes status again. A restart or a completion that finds the task finished when it reads it again leaves it finished. | `finishedTaskKeepsItsStatus` |
+| T7 | An author moves to `in_review` only when its job has an artifact, a prompt is not in flight, and its handshake is not pending. It leaves `in_review` only for a prompt. | `inReviewTaskHasAnArtifact`, `anAuthorInReviewWorksOnlyWithAPrompt` |
+| T8 | A finished task (`done`, `failed`, `cancelled`) never changes status again. A restart or a completion that finds the task finished when it reads it again leaves it finished. A stop writes its stopped state before it awaits the destroy, so a destroy that returns late writes nothing. | `finishedTaskKeepsItsStatus` |
 | T9 | A failed author or researcher closes its review as blocked, posts `failed`, and wakes the agent. A failed reviewer or polisher hands the artifact over blocked. | |
 | T10 | A cancelled author or researcher closes its review as blocked, flushes the board, and tells the agent. | `finishedTaskKeepsItsStatus`, `endedWorkflowHasNoUnfinishedTask` |
 | T11 | Each usage update replaces a harness task's cost. A restart can lower the reported cost. | |
@@ -35,13 +35,13 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| T20 | A task restarts at most twice, whatever the cause, then fails. The count lives on the task and covers harness and model-call tasks. | `taskRestartsAtMostTwice` |
+| T20 | A task restarts at most twice, whatever the cause, then fails. The count lives on the task and covers harness and model-call tasks. A restart whose container closed after another restart counted, or after a newer generation began, is dropped. | `taskRestartsAtMostTwice` |
 | T21 | Recovery of a lost harness turn starts a fresh sandbox without counting a restart. A sandbox that keeps dying mid-turn restarts without a limit. | |
 | T22 | A harness process exit counts a restart and starts a fresh sandbox. It does not close the container, write the board note, or tell the agent. | |
-| T23 | A sandbox start that throws restarts or fails. A spec error, a gateway error or a stage the definition stopped declaring fails at once. | |
+| T23 | A sandbox start that throws restarts or fails. A spec error, a gateway error or a stage the definition stopped declaring fails at once. A start of an older generation that throws changes nothing. | `aFailedSandboxStartRestartsOrFails`, `taskRestartsAtMostTwice` |
 | T24 | After the hello, the handshake runs without a timer. An `initialize` or `session/new` that never answers leaves the task `working` without an alarm until the socket closes. | |
 | T25 | A stalled author gets one nudge. A second stall restarts it. | `anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone` |
-| T26 | An author turn the decisions model reads as blocked queues the gave up text and restarts or fails. A failed decisions call falls back to a heuristic. | `anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone` |
+| T26 | An author turn the decisions model reads as blocked queues the gave up text and restarts or fails. A failed decisions call falls back to a heuristic. The outcome of a turn of an older generation is dropped. | `anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone`, `anAuthorInReviewRunsNoTurn` |
 | T27 | A researcher or refiner turn that gave up or stopped on a limit restarts or fails. | |
 | T28 | A researcher's payload passes to its author. A missing or oversized payload restarts or fails the researcher. | `researchReadsCompleteOnceTheAuthorStarts` |
 | T29 | A prompt RPC error clears the prompt, writes a board note, and wakes the agent for an idle author. A researcher or refiner drains its queue or restarts. | |
@@ -58,7 +58,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | T41 | The `no_progress` alarm ignores a stale generation, an idle, finished or paused task. Without a socket it recovers the lost turn. Otherwise it nudges or restarts. | `staleAlarmIsIgnored`, `anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone` |
 | T42 | The wall clock alarm fails a task whose turn ran past the limit, without a restart. It belongs to the task, not to a generation. | |
 | T43 | The hello timeout restarts or fails a task that never said hello. While the start is still awaited in this isolate it rearms without a limit. | `staleAlarmIsIgnored` |
-| T44 | The keep alive chain keeps an active sandbox awake and stops when the task is idle or finished. | `staleAlarmIsIgnored` |
+| T44 | The keep alive chain keeps an active sandbox awake and stops when the task is idle or finished. A restart that another restart made stale does not stop it. | `staleAlarmIsIgnored`, `aRunningTurnKeepsItsSandboxAwake` |
 | T45 | The queue retry alarm drains a prompt queued while the bridge was briefly closed. | `staleAlarmIsIgnored` |
 | T46 | The bridge lost alarm recovers the turn of a socket that closed with a prompt in flight and did not reconnect. | `staleAlarmIsIgnored` |
 | T47 | The token refresh alarm mints a new workflow repo token before expiry and retries every 60 seconds without a limit. A first mint that fails starts the sandbox without a token and does not arm a refresh. | |

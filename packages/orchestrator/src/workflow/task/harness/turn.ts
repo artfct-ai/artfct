@@ -197,10 +197,12 @@ export async function onTurnEnd(
   if (task.role !== "author") return endRefinerTurn(workflow, task, stopReason, turnText);
   const text = turnText.trim();
   const recordedNow = await findArtifact(workflow, task, text);
+  const { generation } = workflow.store.requireSandbox(task.task_id);
   const outcome =
     stopReason === "end_turn"
       ? await authorTurnOutcome(workflow, workflow.store.requireTask(task.task_id))
       : null;
+  if (workflow.store.requireSandbox(task.task_id).generation !== generation) return;
   if (outcome === "blocked") {
     await restartBlockedAuthor(workflow, task.task_id);
     return closeSessionFeed(workflow, task, null);

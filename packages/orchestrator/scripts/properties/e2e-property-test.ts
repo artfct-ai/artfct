@@ -2,7 +2,7 @@
 /**
  * Runs one property file at its e2e run count on `PROPERTY_SEED`, for the e2e property test job.
  * A failure or a hang writes the invariant, seed, path, and replay command to the step summary.
- * Usage: bun scripts/properties/e2e-property-test.ts <workflow|agent_turn|router|router_bindings|review_loop|workflow_lifecycle>
+ * Usage: bun scripts/properties/e2e-property-test.ts <workflow|agent_turn|router|router_bindings|review_loop|workflow_lifecycle|harness_session>
  */
 import { appendFileSync } from "node:fs";
 import { propertyFailureReport } from "./failure-report";

@@ -1,0 +1,156 @@
+{
+  "invariants": [
+    "finishedTaskKeepsItsStatus",
+    "taskRestartsAtMostTwice",
+    "pausedAuthorGetsNoPrompt",
+    "inReviewTaskHasAnArtifact",
+    "staleAlarmIsIgnored",
+    "aSandboxStartBeginsAFreshGeneration",
+    "aStartingTaskWorksOnlyAfterItsHello",
+    "anAuthorInReviewWorksOnlyWithAPrompt",
+    "aLostTurnIsRecoveredWithoutARestart",
+    "aHarnessExitCountsOneRestart",
+    "aFailedSandboxStartRestartsOrFails",
+    "aRefusedPromptLeavesTheTurn",
+    "provisionStartsOnlyAQueuedTask",
+    "wallClockFailsWithoutARestart",
+    "aRunningTurnKeepsItsSandboxAwake",
+    "aBridgeConnectsOnlyWithTheCurrentToken",
+    "everyPermissionRequestIsAllowed",
+    "anAuthorInReviewRunsNoTurn"
+  ],
+  "witnesses": {
+    "harnessDefaultEffort": [
+      "aFinishedTaskIsInAStep",
+      "theTaskRestartedTwice",
+      "aPausedAuthorStaysPaused",
+      "theAuthorWaitsInReview",
+      "aStaleAlarmFires",
+      "anAuthorStoppedEarlyAndIsIdle",
+      "aStopLandsDuringATurn",
+      "aStopEndsAStartingTurn",
+      "aLaterGenerationBegins",
+      "aHelloMovesTheTaskToWorking",
+      "anAuthorInReviewTakesAPrompt",
+      "aLostTurnIsRecovered",
+      "aHarnessExitRestartsTheTask",
+      "aSandboxStartFails",
+      "aStaleSandboxStartFails",
+      "aStaleRestartIsDropped",
+      "aStaleOutcomeCheckIsDropped",
+      "theHandshakeWaitsOnTheHarness",
+      "theHarnessRefusesAPrompt",
+      "theProvisionAlarmFires",
+      "theWallClockFailsATurn",
+      "theKeepAliveFiresOnATurn",
+      "aDialIsRefused",
+      "aSocketIsReplaced",
+      "aPermissionIsAllowed",
+      "aTurnRuns",
+      "aPromptGoesOutDuringAnOutcomeCheck",
+      "anAnswerArrivesAfterItsRowWasCleared",
+      "aCallWasDropped",
+      "anAlarmRunsAgainAfterARestart",
+      "theAuthorWasNudged",
+      "theTaskWasCancelled"
+    ],
+    "stageAsksForEffort": [
+      "aFinishedTaskIsInAStep",
+      "theTaskRestartedTwice",
+      "aPausedAuthorStaysPaused",
+      "theAuthorWaitsInReview",
+      "aStaleAlarmFires",
+      "anAuthorStoppedEarlyAndIsIdle",
+      "aStopLandsDuringATurn",
+      "aStopEndsAStartingTurn",
+      "aLaterGenerationBegins",
+      "aHelloMovesTheTaskToWorking",
+      "anAuthorInReviewTakesAPrompt",
+      "aLostTurnIsRecovered",
+      "aHarnessExitRestartsTheTask",
+      "aSandboxStartFails",
+      "aStaleSandboxStartFails",
+      "aStaleRestartIsDropped",
+      "theHandshakeWaitsOnTheHarness",
+      "theHarnessRefusesAPrompt",
+      "theProvisionAlarmFires",
+      "theWallClockFailsATurn",
+      "theKeepAliveFiresOnATurn",
+      "aDialIsRefused",
+      "aSocketIsReplaced",
+      "aPermissionIsAllowed",
+      "aTurnRuns",
+      "aPromptGoesOutDuringAnOutcomeCheck",
+      "anAnswerArrivesAfterItsRowWasCleared",
+      "aCallWasDropped",
+      "anAlarmRunsAgainAfterARestart",
+      "theAuthorWasNudged",
+      "theTaskWasCancelled",
+      "theEffortIsSet"
+    ],
+    "agentPausesRunningTurns": [
+      "aFinishedTaskIsInAStep",
+      "theTaskRestartedTwice",
+      "aPausedAuthorStaysPaused",
+      "theAuthorWaitsInReview",
+      "aStaleAlarmFires",
+      "anAuthorStoppedEarlyAndIsIdle",
+      "aStopLandsDuringATurn",
+      "aStopEndsAStartingTurn",
+      "aLaterGenerationBegins",
+      "aHelloMovesTheTaskToWorking",
+      "anAuthorInReviewTakesAPrompt",
+      "aLostTurnIsRecovered",
+      "aHarnessExitRestartsTheTask",
+      "aSandboxStartFails",
+      "aStaleSandboxStartFails",
+      "aStaleRestartIsDropped",
+      "aStaleOutcomeCheckIsDropped",
+      "theHandshakeWaitsOnTheHarness",
+      "theHarnessRefusesAPrompt",
+      "theProvisionAlarmFires",
+      "theWallClockFailsATurn",
+      "theKeepAliveFiresOnATurn",
+      "aDialIsRefused",
+      "aSocketIsReplaced",
+      "aPermissionIsAllowed",
+      "aTurnRuns",
+      "aResumeLandsDuringACancelledTurn",
+      "aPromptGoesOutDuringAnOutcomeCheck",
+      "anAnswerArrivesAfterItsRowWasCleared",
+      "aCallWasDropped",
+      "anAlarmRunsAgainAfterARestart",
+      "theAuthorWasNudged",
+      "theTaskWasCancelled"
+    ]
+  },
+  "tlc": {
+    "ignoredVariables": ["stepWitnesses"],
+    "bounds": {
+      "harnessDefaultEffort": {
+        "pr": {
+          "actionsTaken": 9
+        },
+        "nightly": {
+          "actionsTaken": 10
+        }
+      },
+      "stageAsksForEffort": {
+        "pr": {
+          "actionsTaken": 9
+        },
+        "nightly": {
+          "actionsTaken": 10
+        }
+      },
+      "agentPausesRunningTurns": {
+        "pr": {
+          "actionsTaken": 9
+        },
+        "nightly": {
+          "actionsTaken": 10
+        }
+      }
+    }
+  }
+}
