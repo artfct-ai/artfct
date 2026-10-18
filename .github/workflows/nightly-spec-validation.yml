@@ -310,7 +310,8 @@ jobs:
 
   nightly_issue:
     name: nightly spec issue
-    needs: [quint_nightly, tlc_nightly, spec_validation, e2e_property_test, spec_replays, coverage_check]
+    needs:
+      [quint_nightly, tlc_nightly, spec_validation, e2e_property_test, spec_replays, coverage_check]
     if: ${{ !cancelled() && !inputs.commit }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
