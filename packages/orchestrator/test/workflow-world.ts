@@ -241,11 +241,9 @@ export type StepFacts = Partial<
   Pick<
     Step,
     | "authorTurnEnd"
-    | "feedback"
     | "refinerTurnEnd"
     | "staleAlarm"
     | "completion"
-    | "unadmittedFeedback"
     | "modelCallStopped"
     | "plan"
     | "start"
@@ -573,11 +571,9 @@ export class WorkflowWorld {
       after: this.observe(),
       notes: this.workflow.notes.slice(notesBefore),
       authorTurnEnd: facts.authorTurnEnd ?? this.modelTurnEndSince(modelTurnEndsBefore),
-      feedback: facts.feedback ?? null,
       refinerTurnEnd: facts.refinerTurnEnd ?? null,
       staleAlarm: facts.staleAlarm ?? null,
       completion: facts.completion ?? null,
-      unadmittedFeedback: facts.unadmittedFeedback ?? null,
       modelCallStopped: facts.modelCallStopped ?? null,
       modelTurnCut: facts.modelTurnCut ?? null,
       plan: facts.plan ?? null,

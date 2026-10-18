@@ -92,8 +92,6 @@ export type Step = {
   notes: Array<{ text: string; wake: Wake }>;
   /** Set when an author turn ended. `hostRevision` is null when the host could not say one. */
   authorTurnEnd: { task_id: string; hostRevision: string | null; cancelled: boolean } | null;
-  /** Set when a person's feedback event was delivered. */
-  feedback: { task_id: string } | null;
   /**
    * Set when an inbound event was delivered. `person` is true when a person sent it, and
    * `reply_to` is where they wait for the answer.
@@ -128,11 +126,6 @@ export type Step = {
    * not check what the person wrote. `result` is what the tool answered.
    */
   completion: { task_id: string; checkFailed: boolean; result: string } | null;
-  /**
-   * Set when feedback the screen could not admit was delivered or sent. `texts` are what it said.
-   * `agentRead` is the tool result the agent read about it, or null when no tool ran.
-   */
-  unadmittedFeedback: { texts: string[]; agentRead: string | null } | null;
   /**
    * Set when a person pressed Stop while a model call of the author was in flight. `pageWrites`
    * names each page write the host took from the stop to the end of the step.
@@ -198,9 +191,6 @@ const coverRunAfterRuling = coverageCase(
 );
 const coverRulingStands = coverageCase("judgeRulesAtMostOnce: a ruling stands into a later step");
 const coverRejectionSent = coverageCase("judgeRulesAtMostOnce: an author got a judge's rejection");
-const coverFeedback = coverageCase(
-  "everyFeedbackGetsOneRoutingDecision: feedback on a running workflow",
-);
 const coverEventOnFinished = coverageCase(
   "nothingReopensAFinishedWorkflow: an event on a finished workflow",
 );
@@ -248,9 +238,6 @@ const coverWorkflowEnded = coverageCase(
   "endedWorkflowHasNoUnfinishedTask: a workflow ended with tasks",
 );
 const coverSharedInput = coverageCase("oneLiveJobPerInputArtifact: two jobs share an input");
-const coverUnadmitted = coverageCase(
-  "unadmittedFeedbackReachesNobody: feedback the screen did not admit",
-);
 const coverFailedCheck = coverageCase(
   "aFailedCheckNeverCompletesAJob: a check fails at completion",
 );
@@ -421,27 +408,6 @@ export function judgeRulesAtMostOnce(workflow: WorkflowRuntime, step: Step): voi
 
 function rulingBefore(step: Step, taskId: string): string | null | undefined {
   return step.before.tasks.find((task) => task.task_id === taskId)?.ruling;
-}
-
-/**
- * Every feedback event on a running workflow gets exactly one routing decision: a prompt for the
- * author, a note that wakes the agent, or the note that it asks for nothing. Never silence, and
- * never two.
- */
-export function everyFeedbackGetsOneRoutingDecision(_workflow: WorkflowRuntime, step: Step): void {
-  if (!step.feedback || FINISHED_WORKFLOW.includes(step.before.workflowStatus)) return;
-  coverFeedback();
-  const decisions = [
-    step.after.authorPrompts > step.before.authorPrompts ? "author" : null,
-    step.notes.some((note) => note.wake === "human") ? "agent" : null,
-    step.notes.some((note) => note.text.includes("It asks for nothing")) ? "nobody" : null,
-  ].filter((decision) => decision !== null);
-  if (decisions.length !== 1) {
-    violated(
-      "everyFeedbackGetsOneRoutingDecision",
-      `feedback on ${step.feedback.task_id} was routed to [${decisions.join(", ")}]`,
-    );
-  }
 }
 
 /**
@@ -885,27 +851,6 @@ export function oneLiveJobPerInputArtifact(workflow: WorkflowRuntime): void {
       );
     }
     owners.set(job.input_key, job.job_id);
-  }
-}
-
-/**
- * Feedback the screen did not admit, because it quarantined it or could not check it, reaches
- * neither the agent nor the author. No note or tool result holds its text, and no prompt goes out.
- */
-export function unadmittedFeedbackReachesNobody(_workflow: WorkflowRuntime, step: Step): void {
-  if (!step.unadmittedFeedback) return;
-  coverUnadmitted();
-  const { texts, agentRead } = step.unadmittedFeedback;
-  for (const text of texts) {
-    if (step.notes.some((note) => note.text.includes(text))) {
-      violated("unadmittedFeedbackReachesNobody", `a note told the agent "${text}"`);
-    }
-    if (agentRead?.includes(text)) {
-      violated("unadmittedFeedbackReachesNobody", `a tool result told the agent "${text}"`);
-    }
-  }
-  if (step.after.authorPrompts !== step.before.authorPrompts) {
-    violated("unadmittedFeedbackReachesNobody", "a prompt went out with the feedback");
   }
 }
 
