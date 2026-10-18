@@ -2,5 +2,5 @@
 /// author leaves it.
 module pagesAfterResearch {
   import workflowLifecycleTypes.* from "./workflowLifecycle"
-  import workflowLifecycle(REFINER = NoRefiner, MODEL_AUTHOR = false, RESEARCH = true, SLOT_COUNTS = Set(2)).* from "./workflowLifecycle"
+  import workflowLifecycle(WORK = PagesForAChatRequest, REFINER = NoRefiner, MODEL_AUTHOR = false, RESEARCH = true, SLOT_COUNTS = Set(2)).* from "./workflowLifecycle"
 }
