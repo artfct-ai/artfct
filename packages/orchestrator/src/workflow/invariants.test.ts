@@ -7,7 +7,6 @@ import {
   subjectNeverChanges,
   aFailedCheckNeverAsksThePersonAgain,
   aFailedCheckNeverCompletesAJob,
-  anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone,
   artifactStatusMovesAreLegal,
   boardsLiveOnlyInChat,
   chatWorkflowNeverSetsASessionPlan,
@@ -173,7 +172,6 @@ const STEP_INVARIANTS = [
   feedActivityPostsOnce,
   sleepMessageOnlyDuringAWorkflow,
   workflowStartsOnlyFromAPlan,
-  anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone,
   aJobWorksOnlyOnIssuesOfItsSubject,
   subjectNeverChanges,
   aSingleIssueWorkflowIsDoneWithItsSubjectsJob,
@@ -991,7 +989,7 @@ const CORPUS_EXAMPLES = WORKFLOW_CORPUS.map((replayed): [ReplayedSequence] => [r
 
 describe("the workflow invariants", () => {
   it("are every state and step invariant", () => {
-    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(45);
+    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(44);
   });
 
   for (const property of PROPERTIES) {
