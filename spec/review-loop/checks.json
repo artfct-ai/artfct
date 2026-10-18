@@ -35,7 +35,8 @@
     "pageReviewerThenPolisher": 5.5,
     "pageJudgeBetweenReviewers": 6.8,
     "pausedModelCallAuthor": 4.6,
-    "checksOnAPolishedPull": 2.2
+    "checksOnAPolishedPull": 2.2,
+    "modelCallJudgeThenPolisher": 5.0
   },
   "witnesses": {
     "judgeThenPolisher": [
@@ -250,7 +251,13 @@
       "aDraftWasDeliveredBefore",
       "theHostFailsTheReadAfterAModelCall",
       "aModelCallAnswerSkipsAReply",
-      "aModelCallAnswerRepliesToAnUnsentComment"
+      "aModelCallAnswerRepliesToAnUnsentComment",
+      "theInstanceRestarted",
+      "aModelTurnIsLostWithTheInstance",
+      "aPageWriteIsLostWithTheInstance",
+      "aPageTextChangeLandsBeforeTheInstanceRestarts",
+      "aModelCallAuthorFailsOnALostTurn",
+      "aPausedAuthorsModelTurnIsLost"
     ],
     "checksOnAPolishedPull": [
       "aRefinerRunIsUnfinished",
@@ -279,6 +286,53 @@
       "checksGoBackToTheAuthor",
       "anUnknownRevisionOpensTheGate",
       "aDraftWasDeliveredBefore"
+    ],
+    "modelCallJudgeThenPolisher": [
+      "aRefinerRunIsUnfinished",
+      "aPromptWaitsWhileAPolisherRuns",
+      "aModelCallAuthorHasAQueuedPrompt",
+      "aRulingLandsOnARuledJudgeRun",
+      "theAuthorGotARejection",
+      "aRejectionLandsOnThePage",
+      "theHostFailsARejection",
+      "aRefinerRunEndsDone",
+      "aRefinerRunStartsAfterAHandover",
+      "aReviewerRunsAgainOnANewRevision",
+      "theHumansHaveTheArtifact",
+      "aRefinerRunRestarted",
+      "aRefinerRunFailsPastItsRestarts",
+      "aRefinerRunStartsAfterAFailedOrCancelledOne",
+      "aPolisherFinished",
+      "theAgentIsAskedForAPersonsRuling",
+      "aRulingCallIsLostWithTheInstance",
+      "aRulingCallReturnsAfterTheAuthorEnded",
+      "aJudgeClosesWithoutAConclusion",
+      "heldCommentsGoToThePageAuthor",
+      "heldCommentsStayHeld",
+      "theHostKeepsHeldCommentsHeld",
+      "theScreenKeepsHeldComments",
+      "aMentionRoutedAwayLeavesHeldComments",
+      "aPersonRepliesWhileTheScreenReads",
+      "aHeldCommentReachesTheAuthor",
+      "theAuthorRepliesToAComment",
+      "aCommentReplyFails",
+      "theHostFailsAModelCallAuthor",
+      "theHostFailsTheReadAfterAModelCall",
+      "aModelCallAnswerSkipsAReply",
+      "aModelCallAnswerRepliesToAnUnsentComment",
+      "aPersonEditsDuringAModelCallTurn",
+      "aModelCallTurnStartsOver",
+      "theAuthorEnded",
+      "anAuthorEndsWhileARefinerRunIsUnfinished",
+      "anAuthorEndsOnAReadyArtifact",
+      "aPolisherRunStopsOnADraftedArtifact",
+      "aReviewerRunFailsOnADraftedArtifact",
+      "aDraftWasDeliveredBefore",
+      "theInstanceRestarted",
+      "aModelTurnIsLostWithTheInstance",
+      "aPageWriteIsLostWithTheInstance",
+      "aPageTextChangeLandsBeforeTheInstanceRestarts",
+      "aModelCallAuthorFailsOnALostTurn"
     ]
   },
   "tlc": {
@@ -404,14 +458,16 @@
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 0,
           "personCommentsLeft": 1,
-          "promptsQueued": 1
+          "promptsQueued": 1,
+          "instanceRestartCount": 1
         },
         "nightly": {
           "revisions": 2,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 0,
           "personCommentsLeft": 2,
-          "promptsQueued": 2
+          "promptsQueued": 2,
+          "instanceRestartCount": 2
         }
       },
       "checksOnAPolishedPull": {
@@ -432,6 +488,26 @@
           "promptsQueued": 2,
           "authorRestartCount": 1,
           "checksReports": 3
+        }
+      },
+      "modelCallJudgeThenPolisher": {
+        "pr": {
+          "revisions": 1,
+          "refinerRunsStarted": 2,
+          "reviewCommentsPosted": 1,
+          "personCommentsLeft": 1,
+          "promptsQueued": 1,
+          "instanceRestartCount": 1,
+          "authorRestartCount": 1
+        },
+        "nightly": {
+          "revisions": 2,
+          "refinerRunsStarted": 3,
+          "reviewCommentsPosted": 2,
+          "personCommentsLeft": 2,
+          "promptsQueued": 1,
+          "instanceRestartCount": 2,
+          "authorRestartCount": 2
         }
       }
     }
