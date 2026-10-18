@@ -17,10 +17,10 @@
     "aRestartDoesNotLoseAModelTurn"
   ],
   "mainMinutes": {
-    "pagesWithAReviewer": 2.6,
-    "pagesWithoutRefiners": 3.0,
-    "pagesAfterResearch": 4.5,
-    "pagesFromModelCalls": 2.1
+    "pagesWithAReviewer": 2.5,
+    "pagesWithoutRefiners": 3.7,
+    "pagesAfterResearch": 7.7,
+    "pagesFromModelCalls": 3.1
   },
   "witnesses": {
     "pagesWithAReviewer": [
