@@ -949,6 +949,7 @@ export class WorkflowLifecycleReplay {
             ),
         );
       case "aPersonEndsAnIssue":
+      case "aPersonEndsAnIssueAfterAnAcceptance":
         return worldAction(`a person ends issue ${picks.issue}`, (world) =>
           this.runStep(() => this.personEndsIssue(world, required(picks.issue))),
         );

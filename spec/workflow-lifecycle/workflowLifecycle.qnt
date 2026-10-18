@@ -1453,6 +1453,18 @@ module workflowLifecycle {
     id => move(untold(refinerRunFailed(workflow, id)), OtherStep),
   )
 
+  /// The agent prompts an author, or a refiner run fails, while a refiner run reads the page of a
+  /// model-call author. A step picks it as often as any other kind of step, so a refiner run fails
+  /// during a revise turn.
+  action aRefinerRunMeetsAModelTurn: bool = all {
+    jobIds(workflow).exists(id => and {
+      refinerRunning(workflow.jobs[id]),
+      runsAsModelCalls(jobTask(workflow, id)),
+      not(isFinished(jobTask(workflow, id).status)),
+    }),
+    any { agentPromptsAuthor, refinerRunFails },
+  }
+
   /// The agent calls `pause_task` on the job's task. A researcher is refused, and a finished or
   /// paused author is left alone.
   action agentPausesAuthor: bool = onJob(id => move(
@@ -1735,6 +1747,13 @@ module workflowLifecycle {
     move(eventHandled(workflow, issueEnded(workflow, issue)), IssueEndStep(issue)),
   }
 
+  /// A person ends an issue while the host has accepted an artifact. A step picks it as often as
+  /// any other kind of step, so an issue end lands before the workflow ends on its accepted pull.
+  action aPersonEndsAnIssueAfterAnAcceptance: bool = all {
+    jobIds(workflow).exists(id => workflow.jobs[id].artifact == Accepted),
+    aPersonEndsAnIssue,
+  }
+
   /// The idle alarm fires. A running workflow whose tasks are not busy goes to sleep.
   action idleAlarmFires: bool = all {
     workflow.idleArmed,
@@ -1781,6 +1800,7 @@ module workflowLifecycle {
     aJobStarts,
     aTaskEndsItsTurn,
     aRefinerRunEnds,
+    aRefinerRunMeetsAModelTurn,
     theAgentSteersAnAuthor,
     taskStalls,
     theAgentEndsAJob,
@@ -1789,6 +1809,7 @@ module workflowLifecycle {
     aModelTurnEnds,
     workflowEnds,
     anOutsideEventLands,
+    aPersonEndsAnIssueAfterAnAcceptance,
     workflowRestarts,
   }
 

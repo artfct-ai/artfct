@@ -262,9 +262,7 @@
       "anAuthorIsInReview",
       "theHumansHaveAPage",
       "theWorkflowIsDone",
-      "theWorkflowFailed",
-      "anAcceptanceCheckFails",
-      "theAgentIsToldToAskAgain"
+      "theWorkflowFailed"
     ],
     "modelCallPagesWithAReviewer": [
       "aPlanStartsTheWorkflow",
@@ -311,9 +309,7 @@
       "anAuthorIsInReview",
       "theHumansHaveAPage",
       "theWorkflowIsDone",
-      "theWorkflowFailed",
-      "anAcceptanceCheckFails",
-      "theAgentIsToldToAskAgain"
+      "theWorkflowFailed"
     ],
     "modelCallPagesAfterResearch": [
       "aPlanStartsTheWorkflow",
@@ -337,12 +333,10 @@
       "aPromptWaitsForATurn",
       "aVerbalCommandFindsSeveralJobs",
       "aJobCompletes",
-      "anAcceptanceCheckIsOut",
       "aCallWasDropped",
       "aRestartCutsAModelTurn",
       "aModelTurnOutlivesItsDeadline",
       "aReviseTurnIsInFlight",
-      "aReviseTurnIsCut",
       "aPausedAuthorLosesAModelTurn",
       "anAuthorFailsOnALostModelTurn",
       "aPageWriteIsOut",
