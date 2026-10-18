@@ -1,3 +1,4 @@
+import { DECISIONS_MODEL_BUDGET_MS } from "@artfct-ai/adapters/gateway/models-in-order";
 import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -236,11 +237,19 @@ describe("access", () => {
 });
 
 describe("the template artfct.yaml", () => {
+  const text = readFileSync(
+    join(import.meta.dirname, "../../../../template/orchestrator/artfct.yaml"),
+    "utf8",
+  );
+
   it("parses", () => {
-    const text = readFileSync(
-      join(import.meta.dirname, "../../../../template/orchestrator/artfct.yaml"),
-      "utf8",
-    );
     expect(loadConfig(text).adapters.code.provider).toBe("github");
+  });
+
+  it("lets every decisions model use its whole budget within the turn timeout", () => {
+    const { orchestrator } = loadConfig(text);
+    expect(DECISIONS_MODEL_BUDGET_MS * orchestrator.decisions_model.length).toBeLessThan(
+      orchestrator.turn_timeout_minutes * 60_000,
+    );
   });
 });

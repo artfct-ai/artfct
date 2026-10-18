@@ -9,6 +9,7 @@
   },
   "vars": [
     "pagesAfterResearch::workflowLifecycle::workflow",
+    "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent",
     "mbt::actionTaken",
     "mbt::nondetPicks"
   ],
@@ -25,10 +26,16 @@
             "#tup": []
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [],
         "stagePlan": {
           "tag": "NoStages",
@@ -43,6 +50,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "init",
       "mbt::nondetPicks": {
         "accepted": {
@@ -75,13 +83,31 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
           "tag": "None",
           "value": {
             "#tup": []
           }
         },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -125,10 +151,16 @@
             "#bigint": "0"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [],
         "stagePlan": {
           "tag": "StagesPlanned",
@@ -143,6 +175,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
         "accepted": {
@@ -175,7 +208,19 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -185,6 +230,12 @@
           "tag": "Some",
           "value": {
             "#bigint": "2"
+          }
+        },
+        "landed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "request": {
@@ -223,10 +274,16 @@
             "#bigint": "0"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [],
         "stagePlan": {
           "tag": "StagesPlanned",
@@ -241,6 +298,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
         "accepted": {
@@ -273,7 +331,19 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -283,6 +353,12 @@
           "tag": "Some",
           "value": {
             "#bigint": "2"
+          }
+        },
+        "landed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "request": {
@@ -321,10 +397,16 @@
             "#bigint": "0"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [],
         "stagePlan": {
           "tag": "StagesPlanned",
@@ -339,6 +421,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": true,
       "mbt::actionTaken": "personWrites",
       "mbt::nondetPicks": {
         "accepted": {
@@ -371,13 +454,31 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
           "tag": "None",
           "value": {
             "#tup": []
           }
         },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -421,10 +522,16 @@
             "#bigint": "0"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [],
         "stagePlan": {
           "tag": "StagesPlanned",
@@ -439,6 +546,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
         "accepted": {
@@ -471,7 +579,19 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -481,6 +601,12 @@
           "tag": "Some",
           "value": {
             "#bigint": "2"
+          }
+        },
+        "landed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "request": {
@@ -519,10 +645,16 @@
             "#bigint": "0"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [
           {
             "artifact": {
@@ -535,12 +667,6 @@
               "tag": "FromRequest",
               "value": {
                 "#bigint": "0"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
               }
             },
             "tasks": [
@@ -573,7 +699,14 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "stagePlan": {
@@ -589,6 +722,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "agentStartsJob",
       "mbt::nondetPicks": {
         "accepted": {
@@ -621,13 +755,31 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
           "tag": "None",
           "value": {
             "#tup": []
           }
         },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -671,10 +823,16 @@
             "#bigint": "0"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [
           {
             "artifact": {
@@ -687,12 +845,6 @@
               "tag": "FromRequest",
               "value": {
                 "#bigint": "0"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
               }
             },
             "tasks": [
@@ -754,7 +906,14 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "stagePlan": {
@@ -770,6 +929,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "researcherHandsOver",
       "mbt::nondetPicks": {
         "accepted": {
@@ -802,13 +962,31 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
           "tag": "Some",
           "value": {
             "#bigint": "0"
           }
         },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -852,10 +1030,16 @@
             "#bigint": "0"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [
           {
             "artifact": {
@@ -868,12 +1052,6 @@
               "tag": "FromRequest",
               "value": {
                 "#bigint": "0"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
               }
             },
             "tasks": [
@@ -935,7 +1113,14 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           },
           {
             "artifact": {
@@ -948,12 +1133,6 @@
               "tag": "FromRequest",
               "value": {
                 "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
               }
             },
             "tasks": [
@@ -986,7 +1165,14 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "stagePlan": {
@@ -1002,6 +1188,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "agentStartsJob",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1034,13 +1221,31 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
           "tag": "None",
           "value": {
             "#tup": []
           }
         },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1116,10 +1321,16 @@
             "#bigint": "0"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [
           {
             "artifact": {
@@ -1132,12 +1343,6 @@
               "tag": "FromRequest",
               "value": {
                 "#bigint": "0"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
               }
             },
             "tasks": [
@@ -1199,7 +1404,14 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           },
           {
             "artifact": {
@@ -1212,12 +1424,6 @@
               "tag": "FromRequest",
               "value": {
                 "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
               }
             },
             "tasks": [
@@ -1250,7 +1456,14 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "stagePlan": {
@@ -1266,6 +1479,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "workflowEnds",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1301,13 +1515,31 @@
             }
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
           "tag": "None",
           "value": {
             "#tup": []
           }
         },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1383,10 +1615,16 @@
             "#bigint": "0"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": false,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [
           {
             "artifact": {
@@ -1399,12 +1637,6 @@
               "tag": "FromRequest",
               "value": {
                 "#bigint": "0"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
               }
             },
             "tasks": [
@@ -1466,7 +1698,14 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           },
           {
             "artifact": {
@@ -1479,12 +1718,6 @@
               "tag": "FromRequest",
               "value": {
                 "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
               }
             },
             "tasks": [
@@ -1517,7 +1750,14 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "stagePlan": {
@@ -1533,6 +1773,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "idleAlarmFires",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1565,13 +1806,31 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
           "tag": "None",
           "value": {
             "#tup": []
           }
         },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1647,10 +1906,16 @@
             "#bigint": "0"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": false,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [
           {
             "artifact": {
@@ -1663,12 +1928,6 @@
               "tag": "FromRequest",
               "value": {
                 "#bigint": "0"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
               }
             },
             "tasks": [
@@ -1730,7 +1989,14 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           },
           {
             "artifact": {
@@ -1743,12 +2009,6 @@
               "tag": "FromRequest",
               "value": {
                 "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
               }
             },
             "tasks": [
@@ -1810,7 +2070,14 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "stagePlan": {
@@ -1826,6 +2093,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "researcherHandsOver",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1858,13 +2126,31 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
           "tag": "Some",
           "value": {
             "#bigint": "1"
           }
         },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1940,10 +2226,16 @@
             "#bigint": "0"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": false,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [
           {
             "artifact": {
@@ -1956,12 +2248,6 @@
               "tag": "FromRequest",
               "value": {
                 "#bigint": "0"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
               }
             },
             "tasks": [
@@ -2023,7 +2309,14 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           },
           {
             "artifact": {
@@ -2036,12 +2329,6 @@
               "tag": "FromRequest",
               "value": {
                 "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
               }
             },
             "tasks": [
@@ -2103,7 +2390,14 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "stagePlan": {
@@ -2119,6 +2413,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": true,
       "mbt::actionTaken": "sandboxDestroyReturns",
       "mbt::nondetPicks": {
         "accepted": {
@@ -2151,13 +2446,31 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
           "tag": "None",
           "value": {
             "#tup": []
           }
         },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
           "tag": "None",
           "value": {
             "#tup": []

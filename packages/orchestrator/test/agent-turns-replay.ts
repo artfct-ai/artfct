@@ -130,6 +130,7 @@ export type TurnsView = {
   posts: string[];
   pagesFetched: number;
   messagesRead: number;
+  decisionsAnsweredBy: number[];
 };
 
 /** One state of a trace: the action that led to it, what it picked, and the view after it. */
@@ -251,7 +252,14 @@ function specView(workflow: unknown): TurnsView {
     ),
     pagesFetched: itfInt(itfField(store, "pagesFetched")),
     messagesRead: itfInt(itfField(store, "messagesRead")),
+    decisionsAnsweredBy: specAnsweredBy(itfField(itfField(workflow, "isolate"), "turn")),
   };
+}
+
+function specAnsweredBy(slot: unknown): number[] {
+  const turn = itfVariant(slot)!;
+  if (turn.tag === "NoTurn") return [];
+  return itfList(itfField(itfField(turn.value, "record"), "answeredBy")).map(itfInt);
 }
 
 function specTurn(slot: unknown): string {
@@ -331,11 +339,14 @@ type Deadline = { fire: () => void; cleared: boolean };
 
 /**
  * What the replay keeps across restarts of the Durable Object: the held call, the spec ids of the
- * inbox rows and the turn start times, and what the fakes counted.
+ * inbox rows and the turn start times, and what the fakes counted. `deadlineFired` holds from the
+ * turn deadline until that turn ends, and a timer that fires meanwhile is a failure.
  */
 class ReplayLedger {
   held: HeldCall | null = null;
   firingAlarm = false;
+  deadlineFired = false;
+  usageAtTurnStart = 0;
   clock = REPLAY_START;
   pagesFetched = 0;
   messagesRead = 0;
@@ -346,8 +357,11 @@ class ReplayLedger {
   readonly inboxIds = new Map<number, number>();
   readonly takenRows = new Map<number, number[]>();
   readonly startNumbers = new Map<string, number>();
+  readonly decisionsModels: readonly string[];
 
-  constructor(readonly models: readonly [ModelSays, ...ModelSays[]]) {}
+  constructor(readonly models: readonly [ModelSays, ...ModelSays[]]) {
+    this.decisionsModels = new ConfiguredModelsDecisions(models, {}).models;
+  }
 
   hold(call: HeldCall): void {
     if (this.held) this.failures.push(`${call.phase} was held while ${this.held.phase} waited`);
@@ -581,10 +595,12 @@ class ReplayRuntime extends FakeRuntime {
 
   private async agentTurn(): Promise<void> {
     this.turnActive = true;
+    this.ledger.usageAtTurnStart = this.store.modelUsage().length;
     try {
       await runAgentTurn(this);
     } finally {
       this.turnActive = false;
+      this.ledger.deadlineFired = false;
     }
   }
 }
@@ -1000,12 +1016,23 @@ export class AgentTurnsReplay {
       posts: [...ledger.posts],
       pagesFetched: ledger.pagesFetched,
       messagesRead: ledger.messagesRead,
+      decisionsAnsweredBy: this.decisionsAnsweredBy(),
     };
   }
 
   /** What went wrong outside the view: a turn that threw, or two calls held at once. */
   failures(): string[] {
     return [...this.ledger.failures];
+  }
+
+  private decisionsAnsweredBy(): number[] {
+    const { runtime, ledger } = this;
+    if (!ledger.held && !runtime.turnActive) return [];
+    return runtime.store
+      .modelUsage()
+      .slice(ledger.usageAtTurnStart)
+      .map((row) => ledger.decisionsModels.indexOf(row.model))
+      .filter((index) => index >= 0);
   }
 
   private armedStart(alarmId: string | null): number | null {
@@ -1047,6 +1074,7 @@ export class AgentTurnsReplay {
     const deadline = this.ledger.deadlines.findLast((armed) => !armed.cleared);
     if (!deadline) throw new Error("the trace fires the deadline, but no turn deadline runs");
     deadline.cleared = true;
+    this.ledger.deadlineFired = true;
     deadline.fire();
   }
 
@@ -1074,6 +1102,7 @@ export class AgentTurnsReplay {
 
   private async restart(): Promise<void> {
     this.ledger.held = null;
+    this.ledger.deadlineFired = false;
     for (const deadline of this.ledger.deadlines) deadline.cleared = true;
     this.runtime = this.runtime.restarted();
     this.ledger.firingAlarm = true;
@@ -1123,11 +1152,20 @@ function startedAtOf(payload: unknown): string {
 
 function capturingSetTimeout(ledger: ReplayLedger, real: typeof setTimeout): typeof setTimeout {
   const capturing = (handler: unknown, delay?: number, ...args: unknown[]): number => {
-    if (delay === TURN_TIMEOUT_MS && typeof handler === "function") {
+    if (typeof handler !== "function") {
+      return Number(Reflect.apply(real, globalThis, [handler, delay, ...args]));
+    }
+    if (delay === TURN_TIMEOUT_MS) {
       ledger.deadlines.push({ fire: () => handler(), cleared: false });
       return -ledger.deadlines.length;
     }
-    return Number(Reflect.apply(real, globalThis, [handler, delay, ...args]));
+    const timed = (...timerArgs: unknown[]): unknown => {
+      if (ledger.deadlineFired) {
+        ledger.failures.push(`a ${String(delay)} ms timer fired after the turn deadline`);
+      }
+      return Reflect.apply(handler, globalThis, timerArgs);
+    };
+    return Number(Reflect.apply(real, globalThis, [timed, delay, ...args]));
   };
   return Object.assign(capturing, real);
 }
