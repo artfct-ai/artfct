@@ -69,6 +69,20 @@ module workflowLifecycleTypes {
   /// The refiner of the stage. A judge runs as a reviewer does here.
   type Refiner = NoRefiner | AReviewer | APolisher
 
+  /// How the stage of each job ends. On a choice ending, `complete_job` checks the option a person
+  /// selects from those its page lists, so it refuses a job that does not have a page yet.
+  type StageEnding = AcceptanceEnding | ChoiceEnding
+
+  /// What the acceptance check reads: the person accepts or selects, or the host merged the pull,
+  /// it does not, or the decisions call failed.
+  type CheckAnswer = CheckPasses | CheckDoesNotPass | CheckUnavailable
+
+  /// What `complete_job` told the agent in a step. `NotAnswered` is a step in which it did not
+  /// answer. `AsksAgain` tells the agent to ask the person again. `SaysUnavailable` tells it to
+  /// tell the person the check is unavailable. `Refuses` is any other answer that leaves the job
+  /// open.
+  type CompletionAnswer = NotAnswered | Completes | AsksAgain | SaysUnavailable | Refuses
+
   /// A refiner run of a job. The reviewer approves it done, the end of its review cancels it,
   /// and its sandbox dying fails it.
   type RefinerRunStatus = RefinerRunning | RefinerDone | RefinerCancelled | RefinerFailed
@@ -152,6 +166,7 @@ module workflowLifecycleTypes {
   /// `finish_workflow`. `SubjectCompletionStep` runs `complete_job` on the job of the subject issue
   /// up to its end or its next call, and so does the return of each call it waits on.
   /// `IssueEndStep` is a person moving the issue to a canceled or completed state.
+  /// `FailedCheckStep` is the return of the acceptance check of the job when the check failed.
   type StepKind =
     | OtherStep
     | PlanStep({ definition: int, subject: Subject })
@@ -167,13 +182,20 @@ module workflowLifecycleTypes {
     | FinishStep
     | SubjectCompletionStep
     | IssueEndStep(int)
+    | FailedCheckStep(int)
 
   /// The timers whose alarms are about one sandbox generation.
   type GenerationTimer = HelloTimeout | NoProgress | KeepAlive | BridgeLost | QueueRetry | SettleIdleAuthor
 
-  /// One step: the workflow before it, the workflow after it, what an observer knows of it, and
-  /// whether it told the agent.
-  type Transition = { before: Workflow, after: Workflow, kind: StepKind, toldTheAgent: bool }
+  /// One step: the workflow before it, the workflow after it, what an observer knows of it,
+  /// whether it told the agent, and what `complete_job` answered in it.
+  type Transition = {
+    before: Workflow,
+    after: Workflow,
+    kind: StepKind,
+    toldTheAgent: bool,
+    answered: CompletionAnswer,
+  }
 
   /// The workflow after part of a step, and whether that part told the agent.
   type Outcome = { flow: Workflow, told: bool }
@@ -198,6 +220,8 @@ module workflowLifecycleTypes {
     aSingleIssueWorkflowIsDoneWithItsSubjectsJob: bool,
     subjectNeverChanges: bool,
     aStartOutsideTheSubjectStartsNoJob: bool,
+    aFailedCheckNeverCompletesAJob: bool,
+    aFailedCheckNeverAsksThePersonAgain: bool,
   }
 
   /// Whether the last step reached each before-and-after witness, by the name of the witness. Only
@@ -242,6 +266,8 @@ module workflowLifecycleTypes {
     aPlanNamesAnotherSubject: bool,
     anOutputSetsTheSubject: bool,
     anOutputNamesAnotherSubject: bool,
+    anAcceptanceCheckFails: bool,
+    aCheckFailsAfterItsAuthorEnded: bool,
   }
 
   type Ending = PersonCancels | AgentFails | AgentFinishes
@@ -265,6 +291,9 @@ module workflowLifecycle {
   /// True when a researcher runs before the author of each job.
   const RESEARCH: bool
 
+  /// How the stage of each job ends. Only a stage that writes pages ends on a choice.
+  const STAGE_ENDING: StageEnding
+
   /// The numbers of job slots a plan can set.
   const SLOT_COUNTS: Set[int]
 
@@ -279,6 +308,12 @@ module workflowLifecycle {
 
   /// True when the jobs open pulls for tracker issues.
   pure val WORKS_ON_PULLS: bool = WORK != PagesForAChatRequest and WORK != IssuesForAChatRequest
+
+  /// What the acceptance check can read. The host's merge lookup on a pull reads a failure as not
+  /// merged, so only the decisions call of a page or issues fails.
+  pure val CHECK_ANSWERS: Set[CheckAnswer] =
+    if (WORKS_ON_PULLS) Set(CheckPasses, CheckDoesNotPass)
+    else Set(CheckPasses, CheckDoesNotPass, CheckUnavailable)
 
   /// True when the jobs of the breakdown stage end their turns with the link of the issues they
   /// wrote.
@@ -358,6 +393,10 @@ module workflowLifecycle {
   /// True when the last step told the agent. Only the replay reads it, so model checking leaves it
   /// out of the state.
   var lastStepToldTheAgent: bool
+
+  /// What `complete_job` told the agent in the last step. Only the replay reads it, so model
+  /// checking leaves it out of the state.
+  var lastStepAnswered: CompletionAnswer
 
   pure def isFinished(status: TaskStatus): bool =
     status == TaskDone or status == TaskCancelled or status == TaskFailed
@@ -1144,13 +1183,17 @@ module workflowLifecycle {
     { ...handled, told: not(hasEnded(before.status)) and (handled.told or not(waits)) }
   }
 
-  action move(after: Outcome, kind: StepKind): bool = {
-    val step = { before: workflow, after: after.flow, kind: kind, toldTheAgent: after.told }
+  action move(after: Outcome, kind: StepKind): bool = moveAnswering(after, kind, NotAnswered)
+
+  /// A step in which `complete_job` told the agent `answered`.
+  action moveAnswering(after: Outcome, kind: StepKind, answered: CompletionAnswer): bool = {
+    val step = { before: workflow, after: after.flow, kind: kind, toldTheAgent: after.told, answered: answered }
     all {
       workflow' = after.flow,
       lastStepKept' = rulesKeptBy(step),
       lastStepReached' = witnessesReachedBy(step),
       lastStepToldTheAgent' = after.told,
+      lastStepAnswered' = answered,
     }
   }
 
@@ -1170,12 +1213,19 @@ module workflowLifecycle {
   }
 
   action init: bool = {
-    val step = { before: INITIAL_WORKFLOW, after: INITIAL_WORKFLOW, kind: OtherStep, toldTheAgent: false }
+    val step = {
+      before: INITIAL_WORKFLOW,
+      after: INITIAL_WORKFLOW,
+      kind: OtherStep,
+      toldTheAgent: false,
+      answered: NotAnswered,
+    }
     all {
       workflow' = INITIAL_WORKFLOW,
       lastStepKept' = rulesKeptBy(step),
       lastStepReached' = witnessesReachedBy(step),
       lastStepToldTheAgent' = false,
+      lastStepAnswered' = NotAnswered,
     }
   }
 
@@ -1396,41 +1446,80 @@ module workflowLifecycle {
   pure def completionStepKind(flow: Workflow, id: int, completes: bool): StepKind =
     if (completes and completesTheWorkflow(flow, id)) SubjectCompletionStep else OtherStep
 
-  /// The agent calls `complete_job` in a turn where the person accepted the artifact. It is
-  /// refused while the researcher runs. A job without an artifact, or with one the host accepted,
-  /// completes at once. Otherwise the acceptance is checked first.
+  /// True while `complete_job` on the job waits on a call: the destroy of the sandbox of its
+  /// author, or a destroy of the workflow end it started on the subject issue's job.
+  pure def completionGoesOn(flow: Workflow, id: int): bool =
+    flow.calls.indices().exists(callId => match flow.calls[callId].rest {
+      | TeardownGoesOn(teardown) => or {
+        flow.calls[callId].job == id and teardown.teardown == AfterComplete,
+        teardown.caller == WorkflowEnd(Done) and worksOnTheSingleSubjectIssue(flow, id),
+      }
+      | _ => false
+    })
+
+  /// What `complete_job` tells the agent in the step that ended the author of the job done: that
+  /// the job is done, unless it still waits on a call.
+  pure def answerOnceCompleted(flow: Workflow, id: int): CompletionAnswer =
+    if (completionGoesOn(flow, id)) NotAnswered else Completes
+
+  /// The agent calls `complete_job` in a turn where the person accepted the artifact, or selected
+  /// an option it lists. It is refused while the researcher runs, and on a choice ending while the
+  /// job does not have a page. On an acceptance ending, a job without an artifact, or with one the
+  /// host accepted, completes at once. Otherwise the acceptance or the selection is checked first.
   action agentCompletesJob: bool = onJob(id => {
     val artifact = workflow.jobs[id].artifact
-    val refused = isFinished(jobTask(workflow, id).status) or jobTask(workflow, id).role == Researcher
-    val atOnce = not(refused) and (artifact == NoArtifact or artifact == Accepted)
-    move(
+    val refused = or {
+      isFinished(jobTask(workflow, id).status),
+      jobTask(workflow, id).role == Researcher,
+      STAGE_ENDING == ChoiceEnding and artifact == NoArtifact,
+    }
+    val atOnce = and {
+      not(refused),
+      STAGE_ENDING == AcceptanceEnding,
+      artifact == NoArtifact or artifact == Accepted,
+    }
+    val after =
       if (refused) untold(workflow)
       else if (atOnce) completeAuthor(workflow, id)
-      else untold(sendCall(workflow, AcceptanceCheck, id, CompletionGoesOn)),
-      completionStepKind(workflow, id, atOnce),
-    )
+      else untold(sendCall(workflow, AcceptanceCheck, id, CompletionGoesOn))
+    val answered =
+      if (refused) Refuses
+      else if (atOnce) answerOnceCompleted(after.flow, id)
+      else NotAnswered
+    moveAnswering(after, completionStepKind(workflow, id, atOnce), answered)
   })
 
   /// The acceptance check returns. For a page or issues, the decisions model reads an acceptance
-  /// in the person's message or does not. For a pull, the host says whether it merged the pull, which
-  /// it may have done without an event the workflow heard. A merged pull records the artifact
-  /// accepted. `complete_job` reads the author again after the check, so an author that finished
+  /// or a selection in the person's message, does not, or fails. For a pull, the host says whether
+  /// it merged the pull, which it may have done without an event the workflow heard. A merged pull
+  /// records the artifact accepted. A failed check tells the agent the check is unavailable before
+  /// anything else. A check that does not pass on a page or issues has the agent ask the person
+  /// again. `complete_job` reads the author again after the check, so an author that finished
   /// meanwhile keeps its status.
   action acceptanceCheckReturns: bool = all {
     outCalls(workflow, AcceptanceCheck).size() > 0,
     nondet callId = outCalls(workflow, AcceptanceCheck).oneOf()
-    nondet accepted = Set(true, false).oneOf()
+    nondet answer = CHECK_ANSWERS.oneOf()
     val returned = withoutCall(workflow, callId)
     val id = workflow.calls[callId].job
     val opener = pullOpenerOf(workflow, id)
     val host = workflow.jobs[opener].pullOnHost
-    val merged = host == PullMerged or (host == PullOpen and accepted)
+    val merged = host == PullMerged or (host == PullOpen and answer == CheckPasses)
     val checked =
       if (not(WORKS_ON_PULLS) or not(merged)) returned
       else advanceArtifact(withPullOnHost(returned, opener, PullMerged), id, Accepted)
-    val passes = if (WORKS_ON_PULLS) merged else accepted
+    val passes = if (WORKS_ON_PULLS) merged else answer == CheckPasses
     val completes = passes and not(isFinished(jobTask(workflow, id).status))
-    move(if (completes) completeAuthor(checked, id) else untold(checked), completionStepKind(workflow, id, completes)),
+    val after = if (completes) completeAuthor(checked, id) else untold(checked)
+    val answered =
+      if (answer == CheckUnavailable) SaysUnavailable
+      else if (completes) answerOnceCompleted(after.flow, id)
+      else if (passes or WORKS_ON_PULLS) Refuses
+      else AsksAgain
+    val stepKind =
+      if (answer == CheckUnavailable) FailedCheckStep(id)
+      else completionStepKind(workflow, id, completes)
+    moveAnswering(after, stepKind, answered),
   }
 
   /// True when the call goes on toward the end of the workflow that `complete_job` on the job of
@@ -1440,13 +1529,24 @@ module workflowLifecycle {
     | _ => false
   }
 
-  /// The sandbox provider returns from the destroy of an author's sandbox.
+  /// The sandbox provider returns from the destroy of an author's sandbox. `complete_job` answers
+  /// once the destroy of its author's sandbox returned, or the last destroy of the workflow end it
+  /// started.
   action sandboxDestroyReturns: bool = all {
     outCalls(workflow, SandboxDestroy).size() > 0,
     nondet callId = outCalls(workflow, SandboxDestroy).oneOf()
-    val completing = completesTheSubjectsJob(workflow.calls[callId]) and workflow.stagePlan != NoStages
+    val call = workflow.calls[callId]
+    val completing = completesTheSubjectsJob(call) and workflow.stagePlan != NoStages
     val stepKind = if (completing) SubjectCompletionStep else OtherStep
-    move(returnCall(workflow, callId), stepKind),
+    val after = returnCall(workflow, callId)
+    val answered = match call.rest {
+      | TeardownGoesOn(teardown) =>
+        if (teardown.teardown == AfterComplete) answerOnceCompleted(after.flow, call.job)
+        else if (teardown.caller == WorkflowEnd(Done) and not(callOutFor(after.flow, WorkflowEnd(Done)))) Completes
+        else NotAnswered
+      | _ => NotAnswered
+    }
+    moveAnswering(after, stepKind, answered),
   }
 
   /// The page model answers the model call of a model-call author.
@@ -1844,6 +1944,21 @@ module workflowLifecycle {
     }
   }
 
+  /// A check that fails does not complete the job unless its artifact was already accepted.
+  pure def leavesTheJobOpenOnAFailedCheck(step: Transition): bool = match step.kind {
+    | FailedCheckStep(id) => or {
+      step.before.jobs[id].artifact == Accepted,
+      jobTask(step.after, id).status == TaskDone implies jobTask(step.before, id).status == TaskDone,
+    }
+    | _ => true
+  }
+
+  /// After a check fails, `complete_job` does not tell the agent to ask the person again.
+  pure def doesNotAskAgainOnAFailedCheck(step: Transition): bool = match step.kind {
+    | FailedCheckStep(_) => step.answered != AsksAgain
+    | _ => true
+  }
+
   /// Whether one step kept each before-and-after rule.
   pure def rulesKeptBy(step: Transition): KeptRules = {
     jobStartsOnlyIntoAFreeSlot: startsOnlyIntoAFreeSlot(step),
@@ -1863,6 +1978,8 @@ module workflowLifecycle {
     aSingleIssueWorkflowIsDoneWithItsSubjectsJob: isDoneWithTheSubjectsJob(step),
     subjectNeverChanges: keepsTheSubject(step),
     aStartOutsideTheSubjectStartsNoJob: startsNoJobOutsideTheSubject(step),
+    aFailedCheckNeverCompletesAJob: leavesTheJobOpenOnAFailedCheck(step),
+    aFailedCheckNeverAsksThePersonAgain: doesNotAskAgainOnAFailedCheck(step),
   }
 
   /// Whether one step reached each before-and-after witness.
@@ -2022,6 +2139,14 @@ module workflowLifecycle {
         | OutputStep(link) => step.before.subject != NoSubject and link != step.before.subject
         | _ => false
       },
+      anAcceptanceCheckFails: match step.kind {
+        | FailedCheckStep(_) => true
+        | _ => false
+      },
+      aCheckFailsAfterItsAuthorEnded: match step.kind {
+        | FailedCheckStep(id) => isFinished(jobTask(step.before, id).status)
+        | _ => false
+      },
     }
   }
 
@@ -2070,6 +2195,13 @@ module workflowLifecycle {
 
   /// Once set, the subject does not change.
   val subjectNeverChanges: bool = lastStepKept.subjectNeverChanges
+
+  /// An acceptance or selection check that fails does not complete the job unless the artifact was
+  /// already accepted.
+  val aFailedCheckNeverCompletesAJob: bool = lastStepKept.aFailedCheckNeverCompletesAJob
+
+  /// After a check fails, the agent is not told to ask the person again.
+  val aFailedCheckNeverAsksThePersonAgain: bool = lastStepKept.aFailedCheckNeverAsksThePersonAgain
 
   /// Only one live job works from each input. An unfinished job holds its input. A finished job
   /// holds it while its output exists, unless that output is the input itself.
@@ -2281,6 +2413,17 @@ module workflowLifecycle {
 
   /// A restart of the Durable Object dropped a call.
   val aCallWasDropped: bool = lastStepReached.aCallWasDropped
+
+  /// Witness for `aFailedCheckNeverCompletesAJob`: the acceptance check of a job fails.
+  val anAcceptanceCheckFails: bool = lastStepReached.anAcceptanceCheckFails
+
+  /// Witness for `aFailedCheckNeverCompletesAJob`: the acceptance check of a job fails after its
+  /// author ended.
+  val aCheckFailsAfterItsAuthorEnded: bool = lastStepReached.aCheckFailsAfterItsAuthorEnded
+
+  /// Witness for `aFailedCheckNeverAsksThePersonAgain`: `complete_job` tells the agent to ask the
+  /// person again.
+  val theAgentIsToldToAskAgain: bool = lastStepAnswered == AsksAgain
 
   /// Witness for `aRestartDoesNotLoseAModelTurn`: a restart of the Durable Object cuts a model turn.
   val aRestartCutsAModelTurn: bool = lastStepReached.aRestartCutsAModelTurn

@@ -57,6 +57,7 @@ async function replayTrace(setup: SpecSetup, trace: TraceStep[]): Promise<void> 
     expect(sleepPosted, divergence(step)).toBe(idleAlarmSleeps(before, step));
     const toldTheAgent = worldSteps.some((worldStep) => worldStep.notes.length > 0);
     expect(toldTheAgent, divergence(step)).toBe(step.toldTheAgent);
+    expect(replay.answered(), divergence(step)).toBe(step.answered);
     before = step;
   }
   await replay.close();

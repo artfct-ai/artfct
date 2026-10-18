@@ -21,12 +21,15 @@
     "anAcceptedArtifactNeverMovesBack",
     "aSingleIssueWorkflowIsDoneWithItsSubjectsJob",
     "aJobWorksOnlyOnIssuesOfItsSubject",
-    "subjectNeverChanges"
+    "subjectNeverChanges",
+    "aFailedCheckNeverCompletesAJob",
+    "aFailedCheckNeverAsksThePersonAgain"
   ],
   "mainMinutes": {
     "pagesWithAReviewer": 2.5,
     "pagesWithAPolisher": 2.8,
     "pagesWithoutRefiners": 3.7,
+    "pagesWithAChoice": 3.4,
     "issuesForAChatRequest": 5.3,
     "pagesAfterResearch": 7.7,
     "pagesFromModelCalls": 3.1,
@@ -73,7 +76,10 @@
       "anAuthorIsInReview",
       "theHumansHaveAPage",
       "theWorkflowIsDone",
-      "theWorkflowFailed"
+      "theWorkflowFailed",
+      "anAcceptanceCheckFails",
+      "aCheckFailsAfterItsAuthorEnded",
+      "theAgentIsToldToAskAgain"
     ],
     "pagesWithAPolisher": [
       "aPlanStartsTheWorkflow",
@@ -112,7 +118,10 @@
       "anAuthorIsInReview",
       "theHumansHaveAPage",
       "theWorkflowIsDone",
-      "theWorkflowFailed"
+      "theWorkflowFailed",
+      "anAcceptanceCheckFails",
+      "aCheckFailsAfterItsAuthorEnded",
+      "theAgentIsToldToAskAgain"
     ],
     "pagesWithoutRefiners": [
       "aPlanStartsTheWorkflow",
@@ -144,7 +153,45 @@
       "anAuthorIsInReview",
       "theHumansHaveAPage",
       "theWorkflowIsDone",
-      "theWorkflowFailed"
+      "theWorkflowFailed",
+      "anAcceptanceCheckFails",
+      "aCheckFailsAfterItsAuthorEnded",
+      "theAgentIsToldToAskAgain"
+    ],
+    "pagesWithAChoice": [
+      "aPlanStartsTheWorkflow",
+      "anUndeclaredPlanLands",
+      "theWorkflowWaitsForItsStages",
+      "aPlanLandsOnAStartedWorkflow",
+      "aJobStartsIntoTheLastSlot",
+      "twoJobsShareAnInput",
+      "aJobBuildsOnAnArtifact",
+      "aFinishedTaskIsInAStep",
+      "aWorkflowEndedWithJobs",
+      "anEventLandsOnAFinishedWorkflow",
+      "aStaleAlarmFires",
+      "theSleepMessagePosts",
+      "aMessageWakesTheWorkflow",
+      "anAuthorRestarted",
+      "aRestartClosedAGeneration",
+      "aPausedAuthorWaitsToRestart",
+      "theWorkflowIsEnding",
+      "aPromptWaits",
+      "anAuthorFailed",
+      "aPausedAuthorResumes",
+      "aPromptWaitsForAPausedTask",
+      "aPromptWaitsForATurn",
+      "aVerbalCommandFindsSeveralJobs",
+      "aJobCompletes",
+      "anAcceptanceCheckIsOut",
+      "aCallWasDropped",
+      "anAuthorIsInReview",
+      "theHumansHaveAPage",
+      "theWorkflowIsDone",
+      "theWorkflowFailed",
+      "anAcceptanceCheckFails",
+      "aCheckFailsAfterItsAuthorEnded",
+      "theAgentIsToldToAskAgain"
     ],
     "pagesAfterResearch": [
       "aPlanStartsTheWorkflow",
@@ -213,7 +260,9 @@
       "anAuthorIsInReview",
       "theHumansHaveAPage",
       "theWorkflowIsDone",
-      "theWorkflowFailed"
+      "theWorkflowFailed",
+      "anAcceptanceCheckFails",
+      "theAgentIsToldToAskAgain"
     ],
     "modelCallPagesWithAReviewer": [
       "aPlanStartsTheWorkflow",
@@ -260,7 +309,9 @@
       "anAuthorIsInReview",
       "theHumansHaveAPage",
       "theWorkflowIsDone",
-      "theWorkflowFailed"
+      "theWorkflowFailed",
+      "anAcceptanceCheckFails",
+      "theAgentIsToldToAskAgain"
     ],
     "modelCallPagesAfterResearch": [
       "aPlanStartsTheWorkflow",
@@ -495,11 +546,14 @@
       "aPlanNamesAnotherSubject",
       "anOutputSetsTheSubject",
       "anOutputNamesAnotherSubject",
-      "anOutputIsItsInput"
+      "anOutputIsItsInput",
+      "anAcceptanceCheckFails",
+      "aCheckFailsAfterItsAuthorEnded",
+      "theAgentIsToldToAskAgain"
     ]
   },
   "tlc": {
-    "ignoredVariables": ["lastStepReached", "lastStepToldTheAgent"],
+    "ignoredVariables": ["lastStepReached", "lastStepToldTheAgent", "lastStepAnswered"],
     "bounds": {
       "pagesWithAReviewer": {
         "pr": {
@@ -666,6 +720,20 @@
           "jobsStarted": 2,
           "callsOut": 2,
           "promptsSent": 3,
+          "promptsWaiting": 2
+        }
+      },
+      "pagesWithAChoice": {
+        "pr": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 2,
+          "promptsWaiting": 2
+        },
+        "nightly": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 4,
           "promptsWaiting": 2
         }
       }

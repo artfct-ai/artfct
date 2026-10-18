@@ -2,5 +2,5 @@
 /// continues one, and the host merges, closes and reopens pulls.
 module pullsTheHostMoves {
   import workflowLifecycleTypes.* from "./workflowLifecycle"
-  import workflowLifecycle(WORK = PullsTheHostMoves, REFINER = NoRefiner, MODEL_AUTHOR = false, RESEARCH = false, SLOT_COUNTS = Set(2)).* from "./workflowLifecycle"
+  import workflowLifecycle(WORK = PullsTheHostMoves, REFINER = NoRefiner, MODEL_AUTHOR = false, RESEARCH = false, SLOT_COUNTS = Set(2), STAGE_ENDING = AcceptanceEnding).* from "./workflowLifecycle"
 }

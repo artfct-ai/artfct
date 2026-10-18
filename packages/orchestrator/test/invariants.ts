@@ -1,7 +1,6 @@
 import type { PostedComment } from "@artfct-ai/adapters/test/fake-documents";
 import type { InboundEvent, ReplyTarget, VerbalCommand } from "@artfct-ai/contracts/inbound";
 import type { ArtifactStatus, TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
-import { ASK_WHETHER_ACCEPTED, ASK_WHICH_OPTION } from "../src/agent/tools/start/start";
 import { rejectionHeadline } from "../src/prompts/review-prompt";
 import { MAX_RESTARTS, SLEEP_TEXT } from "../src/workflow/lifecycle";
 import type { TaskEvent, TaskRole } from "../src/workflow/task/events";
@@ -120,11 +119,8 @@ export type Step = {
   refinerTurnEnd: { task_id: string } | null;
   /** Set when the alarm that fired was armed for an older generation of its task. */
   staleAlarm: { task_id: string } | null;
-  /**
-   * Set when the agent called complete_job. `checkFailed` is true when the decisions model could
-   * not check what the person wrote. `result` is what the tool answered.
-   */
-  completion: { task_id: string; checkFailed: boolean; result: string } | null;
+  /** Set when the agent called complete_job. */
+  completion: { task_id: string } | null;
   /**
    * Set when a person pressed Stop while a model call of the author was in flight. `pageWrites`
    * names each page write the host took from the stop to the end of the step.
@@ -237,12 +233,6 @@ const coverWorkflowEnded = coverageCase(
   "endedWorkflowHasNoUnfinishedTask: a workflow ended with tasks",
 );
 const coverSharedInput = coverageCase("oneLiveJobPerInputArtifact: two jobs share an input");
-const coverFailedCheck = coverageCase(
-  "aFailedCheckNeverCompletesAJob: a check fails at completion",
-);
-const coverFailedCheckAsk = coverageCase(
-  "aFailedCheckNeverAsksThePersonAgain: a check fails at completion",
-);
 const coverStaleAlarm = coverageCase("staleAlarmIsIgnored: a stale alarm fires");
 const coverTrackerPost = coverageCase(
   "linearOnlyAsksReachTheStartingSession: a workflow without a chat thread posts",
@@ -817,41 +807,6 @@ export function oneLiveJobPerInputArtifact(workflow: WorkflowRuntime): void {
       );
     }
     owners.set(job.input_key, job.job_id);
-  }
-}
-
-/**
- * A job completes only on a person's accept or select, or on its host's accept. When the
- * decisions model could not check what the person wrote, the job stays open.
- */
-export function aFailedCheckNeverCompletesAJob(_workflow: WorkflowRuntime, step: Step): void {
-  const completion = step.completion;
-  if (!completion?.checkFailed) return;
-  coverFailedCheck();
-  const before = step.before.tasks.find((task) => task.task_id === completion.task_id);
-  const after = step.after.tasks.find((task) => task.task_id === completion.task_id);
-  if (!after || after.status !== "done" || before?.status === "done") return;
-  const artifactBefore = artifactIn(step.before, after.job_id);
-  if (artifactBefore === null || artifactBefore.status === "accepted") return;
-  if (artifactIn(step.after, after.job_id)?.status === "accepted") return;
-  violated(
-    "aFailedCheckNeverCompletesAJob",
-    `job ${after.job_id} completed although its check failed`,
-  );
-}
-
-/** A check the decisions model could not make never has the agent ask the person again. */
-export function aFailedCheckNeverAsksThePersonAgain(_workflow: WorkflowRuntime, step: Step): void {
-  const completion = step.completion;
-  if (!completion?.checkFailed) return;
-  coverFailedCheckAsk();
-  for (const askAgain of [ASK_WHETHER_ACCEPTED, ASK_WHICH_OPTION]) {
-    if (completion.result.includes(askAgain)) {
-      violated(
-        "aFailedCheckNeverAsksThePersonAgain",
-        `the agent was told "${askAgain}" after a failed check`,
-      );
-    }
   }
 }
 

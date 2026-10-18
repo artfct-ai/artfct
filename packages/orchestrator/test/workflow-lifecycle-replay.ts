@@ -10,7 +10,13 @@ import type { TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { planTools } from "../src/agent/tools/plan";
-import { startTools } from "../src/agent/tools/start/start";
+import {
+  ASK_WHETHER_ACCEPTED,
+  ASK_WHICH_OPTION,
+  jobDoneText,
+  startTools,
+  TELL_THE_CHECK_IS_UNAVAILABLE,
+} from "../src/agent/tools/start/start";
 import { labeledPageCommentIds } from "../src/artifact/page-comment-label";
 import { CLOSING_TEXT_MARKER, replyMarker } from "../src/prompts/model-author-prompt";
 import { taskTools } from "../src/agent/tools/task";
@@ -26,6 +32,7 @@ import { onModelTurnDeadline, type ModelTurnAlarm } from "../src/workflow/task/m
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
 import { strayIssueKey, SUBJECT_ISSUE_KEY, subIssueKey } from "./world-tracker";
 import { quintTraces } from "./quint-traces";
+import { toolText } from "./tool-result";
 import { EchoModel } from "./fake-model";
 import { FakeRuntime, fakeDocumentsOf, MODEL_AUTHOR_MODEL, PAGE_PARENT } from "./fake-runtime";
 import { FakeSandboxProvider } from "./fake-sandbox";
@@ -45,6 +52,7 @@ import {
   workflowRestarts,
 } from "./workflow-actions";
 import {
+  PAGE_OPTION,
   REPO,
   REQUEST_TEXTS,
   SECOND_DEFINITION,
@@ -69,6 +77,7 @@ export const SPEC_SETUPS = {
     research: false,
     artifact: "page",
     origin: "chat",
+    pageEnding: "acceptance",
   },
   pagesWithAJudge: {
     module: "pagesWithAReviewer",
@@ -77,6 +86,7 @@ export const SPEC_SETUPS = {
     research: false,
     artifact: "page",
     origin: "chat",
+    pageEnding: "acceptance",
   },
   pagesWithAPolisher: {
     module: "pagesWithAPolisher",
@@ -85,6 +95,7 @@ export const SPEC_SETUPS = {
     research: false,
     artifact: "page",
     origin: "chat",
+    pageEnding: "acceptance",
   },
   pagesWithoutRefiners: {
     module: "pagesWithoutRefiners",
@@ -93,6 +104,16 @@ export const SPEC_SETUPS = {
     research: false,
     artifact: "page",
     origin: "chat",
+    pageEnding: "acceptance",
+  },
+  pagesWithAChoice: {
+    module: "pagesWithAChoice",
+    refiners: "none",
+    pageAuthor: "harness",
+    research: false,
+    artifact: "page",
+    origin: "chat",
+    pageEnding: "choice",
   },
   issuesForAChatRequest: {
     module: "issuesForAChatRequest",
@@ -101,6 +122,7 @@ export const SPEC_SETUPS = {
     research: false,
     artifact: "issues",
     origin: "chat",
+    pageEnding: "acceptance",
   },
   pagesAfterResearch: {
     module: "pagesAfterResearch",
@@ -109,6 +131,7 @@ export const SPEC_SETUPS = {
     research: true,
     artifact: "page",
     origin: "chat",
+    pageEnding: "acceptance",
   },
   pagesFromModelCalls: {
     module: "pagesFromModelCalls",
@@ -117,6 +140,7 @@ export const SPEC_SETUPS = {
     research: false,
     artifact: "page",
     origin: "chat",
+    pageEnding: "acceptance",
   },
   modelCallPagesWithAReviewer: {
     module: "modelCallPagesWithAReviewer",
@@ -125,6 +149,7 @@ export const SPEC_SETUPS = {
     research: false,
     artifact: "page",
     origin: "chat",
+    pageEnding: "acceptance",
   },
   modelCallPagesWithAJudge: {
     module: "modelCallPagesWithAReviewer",
@@ -133,6 +158,7 @@ export const SPEC_SETUPS = {
     research: false,
     artifact: "page",
     origin: "chat",
+    pageEnding: "acceptance",
   },
   modelCallPagesAfterResearch: {
     module: "modelCallPagesAfterResearch",
@@ -141,6 +167,7 @@ export const SPEC_SETUPS = {
     research: true,
     artifact: "page",
     origin: "chat",
+    pageEnding: "acceptance",
   },
   pullsTheHostMoves: {
     module: "pullsTheHostMoves",
@@ -149,6 +176,7 @@ export const SPEC_SETUPS = {
     research: false,
     artifact: "pull",
     origin: "tracker",
+    pageEnding: "acceptance",
   },
   pullsForAnEndedSubject: {
     module: "pullsForAnEndedSubject",
@@ -157,6 +185,7 @@ export const SPEC_SETUPS = {
     research: false,
     artifact: "pull",
     origin: "tracker",
+    pageEnding: "acceptance",
   },
   pullsForAnEndedSubIssue: {
     module: "pullsForAnEndedSubIssue",
@@ -165,6 +194,7 @@ export const SPEC_SETUPS = {
     research: false,
     artifact: "pull",
     origin: "tracker",
+    pageEnding: "acceptance",
   },
   pullsForTwoIssues: {
     module: "pullsForTwoIssues",
@@ -173,12 +203,13 @@ export const SPEC_SETUPS = {
     research: false,
     artifact: "pull",
     origin: "tracker",
+    pageEnding: "acceptance",
   },
 } as const satisfies Record<
   string,
   { module: string } & Pick<
     WorldSetup,
-    "refiners" | "pageAuthor" | "research" | "artifact" | "origin"
+    "refiners" | "pageAuthor" | "research" | "artifact" | "origin" | "pageEnding"
   >
 >;
 
@@ -210,6 +241,14 @@ const REFINER_RUN_STATUSES = [
   "RefinerFailed",
 ] as const;
 const CALL_KINDS = ["SandboxDestroy", "AcceptanceCheck", "ModelCall", "PageWrite"] as const;
+const CHECK_ANSWERS = ["CheckPasses", "CheckDoesNotPass", "CheckUnavailable"] as const;
+const COMPLETION_ANSWERS = [
+  "NotAnswered",
+  "Completes",
+  "AsksAgain",
+  "SaysUnavailable",
+  "Refuses",
+] as const;
 const ROLES = ["Researcher", "Author"] as const;
 const JOB_ROLES: readonly TaskRow["role"][] = ["researcher", "author"];
 const ENDINGS = ["PersonCancels", "AgentFails", "AgentFinishes"] as const;
@@ -237,6 +276,10 @@ const SPEC_TIMERS = Object.keys(GENERATION_TIMER_OF) as (keyof typeof GENERATION
 const UNDECLARED_DEFINITION = "triage";
 
 type CallKind = (typeof CALL_KINDS)[number];
+type CheckAnswer = (typeof CHECK_ANSWERS)[number];
+
+/** What `complete_job` told the agent in one step, as the spec names it. */
+export type CompletionAnswer = (typeof COMPLETION_ANSWERS)[number];
 type Ending = (typeof ENDINGS)[number];
 type VerbalCommand = (typeof VERBAL_COMMANDS)[number];
 type GenerationTimer = (typeof GENERATION_TIMERS)[number];
@@ -306,7 +349,7 @@ type SpecPicks = {
   request: number | null;
   id: number | null;
   callId: number | null;
-  accepted: boolean | null;
+  checkAnswer: CheckAnswer | null;
   ending: Ending | null;
   command: VerbalCommand | null;
   landed: boolean | null;
@@ -317,14 +360,15 @@ type SpecPicks = {
 };
 
 /**
- * One state of a trace: the action that led to it, its picks, the workflow, and whether the step
- * told the agent.
+ * One state of a trace: the action that led to it, its picks, the workflow, whether the step told
+ * the agent, and what `complete_job` answered in it.
  */
 export type TraceStep = {
   action: string;
   picks: SpecPicks;
   workflow: SpecWorkflow;
   toldTheAgent: boolean;
+  answered: CompletionAnswer;
 };
 
 /** Run the spec of one setup for `count` traces from `seed`. */
@@ -353,7 +397,7 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
     };
     const ending = picked("ending");
     const command = picked("command");
-    const accepted = picked("accepted");
+    const checkAnswer = picked("answer");
     const withStages = picked("withStages");
     const timer = picked("timer");
     const landed = picked("landed");
@@ -374,7 +418,8 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
         request: optionalInt(picked("request")),
         id: optionalInt(picked("id")),
         callId: optionalInt(picked("callId")),
-        accepted: accepted === null ? null : itfBool(accepted),
+        checkAnswer:
+          checkAnswer === null ? null : itfOneOf(itfVariant(checkAnswer)!.tag, CHECK_ANSWERS),
         ending: ending === null ? null : itfOneOf(itfVariant(ending)!.tag, ENDINGS),
         command: command === null ? null : itfOneOf(itfVariant(command)!.tag, VERBAL_COMMANDS),
         landed: landed === null ? null : itfBool(landed),
@@ -388,6 +433,12 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
       ),
       toldTheAgent: itfBool(
         itfField(state, `${SPEC_SETUPS[setup].module}::workflowLifecycle::lastStepToldTheAgent`),
+      ),
+      answered: itfOneOf(
+        itfVariant(
+          itfField(state, `${SPEC_SETUPS[setup].module}::workflowLifecycle::lastStepAnswered`),
+        )!.tag,
+        COMPLETION_ANSWERS,
       ),
     };
   });
@@ -548,6 +599,25 @@ const TOOL_CALL = { toolCallId: "call-1", messages: [], context: {} };
 const ANSWERS = { for_author: 0, beyond_author: 0, rejects: 0 };
 const ACCEPTANCE = ["Looks good, ship it."];
 
+/** What the decisions model answers when the acceptance check passes or does not. */
+const CHECK_DECISIONS = {
+  CheckPasses: () =>
+    new FakeDecisions(
+      { ...ANSWERS, accepts: 0.9 },
+      { selected: { option: PAGE_OPTION, probability: 0.9 } },
+    ),
+  CheckDoesNotPass: () => new FakeDecisions({ ...ANSWERS, accepts: 0.1 }),
+  CheckUnavailable: () => new FakeDecisions(new Error("the decisions model is down")),
+} as const satisfies Record<CheckAnswer, () => Decisions>;
+
+/** The kind of what `complete_job` told the agent about job `jobId`, read by its constants. */
+function completionAnswerOf(jobId: string, text: string): CompletionAnswer {
+  if (text.startsWith(jobDoneText(jobId))) return "Completes";
+  if (text.includes(ASK_WHETHER_ACCEPTED) || text.includes(ASK_WHICH_OPTION)) return "AsksAgain";
+  if (text.includes(TELL_THE_CHECK_IS_UNAVAILABLE)) return "SaysUnavailable";
+  return "Refuses";
+}
+
 /** The turn end of a refiner run that approves: a reviewer's review, a judge's ruling, a polish. */
 const REFINER_APPROVES: RefinerRunEnd = {
   reviewer: "approved",
@@ -560,11 +630,10 @@ const REFINER_APPROVES: RefinerRunEnd = {
 };
 const WORLD_SETUP: Omit<
   WorldSetup,
-  "refiners" | "pageAuthor" | "research" | "artifact" | "origin"
+  "refiners" | "pageAuthor" | "research" | "artifact" | "origin" | "pageEnding"
 > = {
   opening: "request",
   checksOnPush: "passed",
-  pageEnding: "acceptance",
   firstInput: "request",
   subject: "none",
   sandboxStart: "at_task_start",
@@ -593,17 +662,19 @@ export class WorkflowLifecycleReplay {
   private pagesWritten = 0;
   private answeredModelCall: HeldCall | null = null;
   private readonly endedIssues = new Set<number>();
+  private completionAnswer: CompletionAnswer = "NotAnswered";
 
   private constructor(
     readonly world: WorkflowWorld,
     private readonly modelAuthor: boolean,
     private readonly stage: string,
+    private readonly selects: boolean,
   ) {}
 
   /** A world on the stage of `setup`, before the plan. */
   static async open(setup: SpecSetup): Promise<WorkflowLifecycleReplay> {
     setSystemTime(new Date(REPLAY_START));
-    const { refiners, pageAuthor, research, artifact, origin } = SPEC_SETUPS[setup];
+    const { refiners, pageAuthor, research, artifact, origin, pageEnding } = SPEC_SETUPS[setup];
     const world = await WorkflowWorld.open({
       ...WORLD_SETUP,
       refiners,
@@ -611,9 +682,15 @@ export class WorkflowLifecycleReplay {
       research,
       artifact,
       origin,
+      pageEnding,
     });
     const modelAuthor = pageAuthor === "model";
-    const replay = new WorkflowLifecycleReplay(world, modelAuthor, STAGE_OF[artifact]);
+    const replay = new WorkflowLifecycleReplay(
+      world,
+      modelAuthor,
+      STAGE_OF[artifact],
+      pageEnding === "choice",
+    );
     world.workflow.sandboxProvider = new HoldingSandboxProvider((taskId) =>
       replay.holdDestroy(taskId),
     );
@@ -641,10 +718,13 @@ export class WorkflowLifecycleReplay {
    */
   async take(step: TraceStep): Promise<Step[]> {
     this.taken += 1;
+    this.completionAnswer = "NotAnswered";
     setSystemTime(new Date(REPLAY_START + this.taken * STEP_MS));
     this.world.workflow.gatewayInstance = new FakeGateway({
       decisions: new InterleavedDecisions(new FakeDecisions(ANSWERS), (questions) =>
-        Object.hasOwn(questions.yesNo, "accepts") ? this.holdAcceptance() : null,
+        Object.hasOwn(questions.yesNo, "accepts") || Object.hasOwn(questions.choices, "selected")
+          ? this.holdAcceptance()
+          : null,
       ),
     });
     const acted = await this.world.apply(this.actionFor(step));
@@ -673,6 +753,11 @@ export class WorkflowLifecycleReplay {
   async close(): Promise<void> {
     for (const call of this.calls.splice(0)) call.answer(new FakeDecisions(ANSWERS));
     setSystemTime();
+  }
+
+  /** What `complete_job` told the agent in the last spec action taken. */
+  answered(): CompletionAnswer {
+    return this.completionAnswer;
   }
 
   /** The store as the spec sees it. */
@@ -932,33 +1017,35 @@ export class WorkflowLifecycleReplay {
         return worldAction(`agent completes job ${picks.id}`, (world) =>
           this.runStep(async () => {
             const { complete_job } = startTools(world.workflow, ACCEPTANCE);
-            this.completingJobId = this.jobOf(required(picks.id)).job_id;
-            await complete_job.execute(
-              { job_id: this.completingJobId, result: "Done." },
+            const jobId = this.jobOf(required(picks.id)).job_id;
+            this.completingJobId = jobId;
+            const option = this.selects ? { option: PAGE_OPTION } : {};
+            const answer = await complete_job.execute(
+              { job_id: jobId, result: "Done.", ...option },
               TOOL_CALL,
             );
+            this.completionAnswer = completionAnswerOf(jobId, toolText(answer));
           }),
         );
-      case "acceptanceCheckReturns":
-        return worldAction(
-          `acceptance check ${picks.callId} returns ${picks.accepted}`,
-          (world) => {
-            const callId = required(picks.callId);
-            if (required(picks.accepted)) this.mergeWithoutAnEvent(world, callId);
-            return this.returnCall(callId, required(picks.accepted) ? 0.9 : 0.1);
-          },
-        );
+      case "acceptanceCheckReturns": {
+        const checkAnswer = required(picks.checkAnswer);
+        return worldAction(`acceptance check ${picks.callId} returns ${checkAnswer}`, (world) => {
+          const callId = required(picks.callId);
+          if (checkAnswer === "CheckPasses") this.mergeWithoutAnEvent(world, callId);
+          return this.returnCall(callId, CHECK_DECISIONS[checkAnswer]());
+        });
+      }
       case "sandboxDestroyReturns":
         return worldAction(`sandbox destroy ${picks.callId} returns`, () =>
-          this.returnCall(required(picks.callId), 0),
+          this.returnCall(required(picks.callId), new FakeDecisions(ANSWERS)),
         );
       case "modelCallReturns":
         return worldAction(`model call ${picks.callId} returns`, () =>
-          this.returnCall(required(picks.callId), 0),
+          this.returnCall(required(picks.callId), new FakeDecisions(ANSWERS)),
         );
       case "pageWriteReturns":
         return worldAction(`page write ${picks.callId} returns`, () =>
-          this.returnCall(required(picks.callId), 0),
+          this.returnCall(required(picks.callId), new FakeDecisions(ANSWERS)),
         );
       case "modelTurnOutlivesItsDeadline":
         return worldAction(`the deadline of model call ${picks.callId} passes`, (world) =>
@@ -1202,13 +1289,13 @@ export class WorkflowLifecycleReplay {
     this.stepOut = null;
   }
 
-  private async returnCall(callId: number, accepts: number): Promise<void> {
+  private async returnCall(callId: number, decisions: Decisions): Promise<void> {
     const [call] = this.calls.splice(callId, 1);
     if (!call) throw new Error(`no call ${callId} is out`);
     const rest = call.step;
     this.answeredModelCall = call.kind === "ModelCall" ? call : null;
     await this.runStep(async () => {
-      call.answer(new FakeDecisions({ ...ANSWERS, accepts }));
+      call.answer(decisions);
       await rest;
     });
     this.answeredModelCall = null;

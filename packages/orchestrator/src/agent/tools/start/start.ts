@@ -545,7 +545,7 @@ async function complete(
   const outcome = await completeJob(workflow, checked, result);
   if (jobCompletesSingleIssueWorkflow(workflow, job)) {
     await completeWorkflow(workflow, result);
-    return `Job ${jobId} done. It completed the last planned stage on the subject issue, so the workflow is done.`;
+    return `${jobDoneText(jobId)} It completed the last planned stage on the subject issue, so the workflow is done.`;
   }
   return whatIsNext(workflow, job, outcome);
 }
@@ -566,9 +566,18 @@ export const ASK_WHETHER_ACCEPTED = "Ask them whether it is accepted.";
 /** The instruction that asks the person again when their message does not clearly select. */
 export const ASK_WHICH_OPTION = "Ask them which option they choose.";
 
+/** The instruction that has the agent tell the person the check is unavailable. */
+export const TELL_THE_CHECK_IS_UNAVAILABLE =
+  "Tell the person the check is unavailable. Do not ask them again.";
+
 /** What the agent reads when the decisions model could not check what the person wrote. */
 function checkUnavailableText(checked: string): string {
-  return `The check of ${checked} is unavailable right now, so the job stays open. Tell the person the check is unavailable. Do not ask them again.`;
+  return `The check of ${checked} is unavailable right now, so the job stays open. ${TELL_THE_CHECK_IS_UNAVAILABLE}`;
+}
+
+/** The first sentence of what `complete_job` tells the agent once the job is done. */
+export function jobDoneText(jobId: string): string {
+  return `Job ${jobId} done.`;
 }
 
 /** Why a job cannot complete yet: its host has not accepted its artifact. Asks the host. */
@@ -681,7 +690,7 @@ async function checkSelection(
 
 /** What the plan suggests after this job. A job on an issue leaves its stage open. */
 function whatIsNext(workflow: WorkflowRuntime, job: JobRow, outcome: CompleteOutcome): string {
-  const done = `Job ${job.job_id} done.`;
+  const done = jobDoneText(job.job_id);
   if (job.issue_id || outcome.running > 0) {
     return `${done} Stage ${job.stage} stays open with ${outcome.running} running and ${outcome.slots} free slots. Start the next ready issues, or move on when the tracker shows none left.`;
   }

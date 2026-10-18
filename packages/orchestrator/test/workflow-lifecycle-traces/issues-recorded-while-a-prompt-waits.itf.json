@@ -10,6 +10,7 @@
   "vars": [
     "issuesForAChatRequest::workflowLifecycle::workflow",
     "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent",
+    "issuesForAChatRequest::workflowLifecycle::lastStepAnswered",
     "mbt::actionTaken",
     "mbt::nondetPicks"
   ],
@@ -57,6 +58,12 @@
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
+      "issuesForAChatRequest::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "init",
       "mbt::nondetPicks": {
         "accepted": {
@@ -200,6 +207,12 @@
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
+      "issuesForAChatRequest::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentStartsJob",
       "mbt::nondetPicks": {
         "accepted": {
@@ -343,6 +356,12 @@
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
+      "issuesForAChatRequest::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentStartsJobOnAnIssue",
       "mbt::nondetPicks": {
         "accepted": {
@@ -486,6 +505,12 @@
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
+      "issuesForAChatRequest::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
         "accepted": {
@@ -683,6 +708,12 @@
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
+      "issuesForAChatRequest::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentStartsJob",
       "mbt::nondetPicks": {
         "accepted": {
@@ -879,6 +910,12 @@
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
+      "issuesForAChatRequest::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1076,6 +1113,12 @@
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
+      "issuesForAChatRequest::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentPromptsAuthor",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1272,6 +1315,12 @@
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
+      "issuesForAChatRequest::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentStartsJob",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1468,6 +1517,12 @@
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
+      "issuesForAChatRequest::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentStartsJobOnAnIssue",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1664,6 +1719,12 @@
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
+      "issuesForAChatRequest::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentResumesAuthor",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1860,6 +1921,12 @@
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": true,
+      "issuesForAChatRequest::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "authorLinksItsIssues",
       "mbt::nondetPicks": {
         "accepted": {

@@ -10,6 +10,7 @@
   "vars": [
     "pagesAfterResearch::workflowLifecycle::workflow",
     "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent",
+    "pagesAfterResearch::workflowLifecycle::lastStepAnswered",
     "mbt::actionTaken",
     "mbt::nondetPicks"
   ],
@@ -57,6 +58,12 @@
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesAfterResearch::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "init",
       "mbt::nondetPicks": {
         "accepted": {
@@ -200,6 +207,12 @@
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesAfterResearch::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
         "accepted": {
@@ -344,6 +357,12 @@
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesAfterResearch::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
         "accepted": {
@@ -488,6 +507,12 @@
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": true,
+      "pagesAfterResearch::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "personWrites",
       "mbt::nondetPicks": {
         "accepted": {
@@ -631,6 +656,12 @@
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesAfterResearch::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
         "accepted": {
@@ -828,6 +859,12 @@
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesAfterResearch::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentStartsJob",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1053,6 +1090,12 @@
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesAfterResearch::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "researcherHandsOver",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1330,6 +1373,12 @@
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesAfterResearch::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentStartsJob",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1639,6 +1688,12 @@
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesAfterResearch::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "workflowEnds",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1951,6 +2006,12 @@
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesAfterResearch::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "idleAlarmFires",
       "mbt::nondetPicks": {
         "accepted": {
@@ -2289,6 +2350,12 @@
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesAfterResearch::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "researcherHandsOver",
       "mbt::nondetPicks": {
         "accepted": {
@@ -2627,6 +2694,12 @@
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": true,
+      "pagesAfterResearch::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "sandboxDestroyReturns",
       "mbt::nondetPicks": {
         "accepted": {
