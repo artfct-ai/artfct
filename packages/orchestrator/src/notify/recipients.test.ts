@@ -11,6 +11,7 @@ const PAGE: ReplyTarget = { source: "documents", page_id: "page-1" };
 const INFO: TaskEvent = { type: "info", text: "Working on it." };
 const QUESTION: TaskEvent = { type: "question", text: "Which repo?" };
 const FAILED: TaskEvent = { type: "workflow_failed", reason: "broke" };
+const TURN_FAILED: TaskEvent = { type: "turn_failed", text: "Timed out." };
 
 function audience(origin: ReplyTarget | null, replyTargets: ReplyTarget[]): Audience {
   return { origin, reply_targets: replyTargets };
@@ -56,6 +57,13 @@ describe("recipientsOf", () => {
 
     it("sends a failure notice to the starting session", () => {
       expect(recipientsOf(linearOnly, FAILED, { answering: [] })).toEqual([STARTING]);
+    });
+
+    it("sends the text of a failed turn to the starting session and the session the person wrote in", () => {
+      expect(recipientsOf(linearOnly, TURN_FAILED, { answering: [JOB_SESSION] })).toEqual([
+        STARTING,
+        JOB_SESSION,
+      ]);
     });
 
     it("keeps other posts out of every session", () => {

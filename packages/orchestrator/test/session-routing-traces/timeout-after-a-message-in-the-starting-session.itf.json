@@ -1,0 +1,195 @@
+{
+  "#meta": {
+    "format": "ITF",
+    "format-description": "https://apalache-mc.org/docs/adr/015adr-trace.html",
+    "source": "../../spec/session-routing/trackerOnly.qnt",
+    "status": "violation",
+    "description": "Created by Quint on Sun Oct 18 2026 04:52:22 GMT-0400 (Eastern Daylight Time)",
+    "timestamp": 1792313542977
+  },
+  "vars": [
+    "trackerOnly::sessionRouting::routing",
+    "trackerOnly::sessionRouting::lastStepKept",
+    "trackerOnly::sessionRouting::lastStep",
+    "mbt::actionTaken",
+    "mbt::nondetPicks"
+  ],
+  "states": [
+    {
+      "#meta": { "index": 0 },
+      "mbt::actionTaken": "init",
+      "mbt::nondetPicks": {
+        "ending": { "tag": "None", "value": { "#tup": [] } },
+        "health": { "tag": "None", "value": { "#tup": [] } },
+        "id": { "tag": "None", "value": { "#tup": [] } },
+        "issue": { "tag": "None", "value": { "#tup": [] } },
+        "outcome": { "tag": "None", "value": { "#tup": [] } },
+        "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "text": { "tag": "None", "value": { "#tup": [] } },
+        "todos": { "tag": "None", "value": { "#tup": [] } },
+        "turnEnding": { "tag": "None", "value": { "#tup": [] } }
+      },
+      "trackerOnly::sessionRouting::lastStep": {
+        "answered": { "#set": [] },
+        "cancelled": { "#set": [] },
+        "feed": [],
+        "health": { "tag": "TrackerUp", "value": { "#tup": [] } },
+        "plans": [],
+        "posts": [],
+        "stoppedIn": { "#set": [] },
+        "turnEnded": { "#set": [] },
+        "woke": false,
+        "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
+      },
+      "trackerOnly::sessionRouting::lastStepKept": {
+        "aStopAnswersOnlyInTheFeed": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "trackerOnly::sessionRouting::routing": {
+        "boards": { "#set": [] },
+        "ended": false,
+        "jobs": [],
+        "links": [],
+        "replyTargets": {
+          "#set": [
+            { "tag": "Session", "value": { "tag": "SubjectIssue", "value": { "#tup": [] } } }
+          ]
+        },
+        "waiting": { "#set": [] },
+        "waitsForInput": false
+      }
+    },
+    {
+      "#meta": { "index": 1 },
+      "mbt::actionTaken": "personWritesInSession",
+      "mbt::nondetPicks": {
+        "ending": { "tag": "None", "value": { "#tup": [] } },
+        "health": { "tag": "None", "value": { "#tup": [] } },
+        "id": { "tag": "None", "value": { "#tup": [] } },
+        "issue": { "tag": "Some", "value": { "tag": "SubjectIssue", "value": { "#tup": [] } } },
+        "outcome": { "tag": "None", "value": { "#tup": [] } },
+        "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "text": { "tag": "Some", "value": { "tag": "Question", "value": { "#tup": [] } } },
+        "todos": { "tag": "None", "value": { "#tup": [] } },
+        "turnEnding": { "tag": "None", "value": { "#tup": [] } }
+      },
+      "trackerOnly::sessionRouting::lastStep": {
+        "answered": { "#set": [] },
+        "cancelled": { "#set": [] },
+        "feed": [],
+        "health": { "tag": "TrackerUp", "value": { "#tup": [] } },
+        "plans": [],
+        "posts": [],
+        "stoppedIn": { "#set": [] },
+        "turnEnded": { "#set": [] },
+        "woke": true,
+        "wrote": {
+          "tag": "WroteIn",
+          "value": {
+            "issue": { "tag": "SubjectIssue", "value": { "#tup": [] } },
+            "text": { "tag": "Question", "value": { "#tup": [] } }
+          }
+        }
+      },
+      "trackerOnly::sessionRouting::lastStepKept": {
+        "aStopAnswersOnlyInTheFeed": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "trackerOnly::sessionRouting::routing": {
+        "boards": { "#set": [] },
+        "ended": false,
+        "jobs": [],
+        "links": [],
+        "replyTargets": {
+          "#set": [
+            { "tag": "Session", "value": { "tag": "SubjectIssue", "value": { "#tup": [] } } }
+          ]
+        },
+        "waiting": {
+          "#set": [
+            { "tag": "Session", "value": { "tag": "SubjectIssue", "value": { "#tup": [] } } }
+          ]
+        },
+        "waitsForInput": false
+      }
+    },
+    {
+      "#meta": { "index": 2 },
+      "mbt::actionTaken": "agentTurnEnds",
+      "mbt::nondetPicks": {
+        "ending": { "tag": "None", "value": { "#tup": [] } },
+        "health": { "tag": "None", "value": { "#tup": [] } },
+        "id": { "tag": "None", "value": { "#tup": [] } },
+        "issue": { "tag": "None", "value": { "#tup": [] } },
+        "outcome": { "tag": "Some", "value": { "tag": "TimesOut", "value": { "#tup": [] } } },
+        "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "text": { "tag": "None", "value": { "#tup": [] } },
+        "todos": { "tag": "None", "value": { "#tup": [] } },
+        "turnEnding": { "tag": "None", "value": { "#tup": [] } }
+      },
+      "trackerOnly::sessionRouting::lastStep": {
+        "answered": {
+          "#set": [
+            { "tag": "Session", "value": { "tag": "SubjectIssue", "value": { "#tup": [] } } }
+          ]
+        },
+        "cancelled": { "#set": [] },
+        "feed": [],
+        "health": { "tag": "TrackerUp", "value": { "#tup": [] } },
+        "plans": [],
+        "posts": [
+          {
+            "kind": { "tag": "TurnFailedPost", "value": { "#tup": [] } },
+            "targets": {
+              "#set": [
+                { "tag": "Session", "value": { "tag": "SubjectIssue", "value": { "#tup": [] } } }
+              ]
+            }
+          }
+        ],
+        "stoppedIn": { "#set": [] },
+        "turnEnded": { "#set": [] },
+        "woke": false,
+        "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
+      },
+      "trackerOnly::sessionRouting::lastStepKept": {
+        "aStopAnswersOnlyInTheFeed": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "trackerOnly::sessionRouting::routing": {
+        "boards": { "#set": [] },
+        "ended": false,
+        "jobs": [],
+        "links": [],
+        "replyTargets": {
+          "#set": [
+            { "tag": "Session", "value": { "tag": "SubjectIssue", "value": { "#tup": [] } } }
+          ]
+        },
+        "waiting": { "#set": [] },
+        "waitsForInput": false
+      }
+    }
+  ]
+}

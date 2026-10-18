@@ -54,13 +54,19 @@ function tlaNameOf(names: string[], quintName: string): string {
   return match;
 }
 
-/** The model that checks every invariant of a module within its bound, ignoring some variables. */
+/**
+ * The model that checks every invariant of a module within its bound, ignoring some variables.
+ * Each ignored variable enters the view as a comparison with itself. The comparison is always
+ * true, and it makes TLC normalize the variable's variants before it writes the state to disk.
+ */
 export function tlcModel(checked: TypecheckedModule, ignoredVariables: string[]): TlcModel {
   const bound = tlaNameOf(checked.invariants, TLC_BOUND_VAL);
   const ignored = ignoredVariables.map((variable) => tlaNameOf(checked.variables, variable));
   const viewed = checked.variables.filter((variable) => !ignored.includes(variable));
   const invariants = checked.invariants.filter((invariant) => invariant !== bound);
-  const view = ignored.length > 0 ? [`View == <<${viewed.join(", ")}>>`, ""] : [];
+  const normalized = ignored.map((variable) => `${variable} = ${variable}`);
+  const view =
+    ignored.length > 0 ? [`View == <<${[...viewed, ...normalized].join(", ")}>>`, ""] : [];
   const module = [
     `---- MODULE ${TLC_MODEL_MODULE} ----`,
     `EXTENDS ${checked.name}`,

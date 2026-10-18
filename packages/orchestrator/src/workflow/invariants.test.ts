@@ -8,13 +8,10 @@ import {
   aFailedCheckNeverAsksThePersonAgain,
   aFailedCheckNeverCompletesAJob,
   artifactStatusMovesAreLegal,
-  boardsLiveOnlyInChat,
-  chatWorkflowNeverSetsASessionPlan,
   deliveredToHumansIsNeverCleared,
   eachIssueLinksTheChatThreadOnce,
   endedWorkflowHasNoUnfinishedTask,
   everyFeedbackGetsOneRoutingDecision,
-  feedActivityPostsOnce,
   nothingReopensAFinishedWorkflow,
   refinerRunIsDoneOnlyAfterItsTurnEnded,
   finishedTaskKeepsItsStatus,
@@ -23,10 +20,8 @@ import {
   judgeRulesAtMostOnce,
   linearOnlyAsksReachTheStartingSession,
   oneLiveJobPerInputArtifact,
-  orchestratorStaysOutOfSessionsWhenChatExists,
   pausedAuthorGetsNoPrompt,
   refinersRunAgainOnlyOnChangedRevision,
-  researchReadsCompleteOnceTheAuthorStarts,
   sessionMessageReachesItsRunningAuthorSilently,
   sessionMessageWithoutAnAuthorIsAnswered,
   sessionFeedEndsWhenItsAuthorIdles,
@@ -34,7 +29,6 @@ import {
   stoppedModelCallLeavesThePage,
   staleAlarmIsIgnored,
   taskRestartsAtMostTwice,
-  todoListIsFixedAfterFirstArtifact,
   sleepMessageOnlyDuringAWorkflow,
   unadmittedFeedbackReachesNobody,
   workflowStartsOnlyFromAPlan,
@@ -136,9 +130,7 @@ const STATE_INVARIANTS = [
   oneLiveJobPerInputArtifact,
   endedWorkflowHasNoUnfinishedTask,
   taskRestartsAtMostTwice,
-  boardsLiveOnlyInChat,
   eachIssueLinksTheChatThreadOnce,
-  researchReadsCompleteOnceTheAuthorStarts,
 ];
 
 const STEP_INVARIANTS = [
@@ -152,21 +144,17 @@ const STEP_INVARIANTS = [
   pausedAuthorGetsNoPrompt,
   workflowWaitsOnlyWhileNoAuthorWorks,
   artifactStatusMovesAreLegal,
-  todoListIsFixedAfterFirstArtifact,
   staleAlarmIsIgnored,
   jobStartsOnlyIntoAFreeSlot,
   unadmittedFeedbackReachesNobody,
   aFailedCheckNeverCompletesAJob,
   aFailedCheckNeverAsksThePersonAgain,
-  orchestratorStaysOutOfSessionsWhenChatExists,
   linearOnlyAsksReachTheStartingSession,
   sessionMessageReachesItsRunningAuthorSilently,
   sessionMessageWithoutAnAuthorIsAnswered,
   stopEndsTheAuthorsTurn,
   stoppedModelCallLeavesThePage,
-  chatWorkflowNeverSetsASessionPlan,
   sessionFeedEndsWhenItsAuthorIdles,
-  feedActivityPostsOnce,
   sleepMessageOnlyDuringAWorkflow,
   workflowStartsOnlyFromAPlan,
   aJobWorksOnlyOnIssuesOfItsSubject,
@@ -985,7 +973,7 @@ const CORPUS_EXAMPLES = WORKFLOW_CORPUS.map((replayed): [ReplayedSequence] => [r
 
 describe("the workflow invariants", () => {
   it("are every state and step invariant", () => {
-    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(42);
+    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(36);
   });
 
   for (const property of PROPERTIES) {

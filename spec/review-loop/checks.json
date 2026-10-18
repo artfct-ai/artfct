@@ -22,7 +22,9 @@
     "aRefinerRunRestartsAtMostTwice",
     "aFinishedRefinerRunKeepsItsStatus",
     "anEndedAuthorEndsItsReview",
-    "aStoppedRefinerRunHandsOverBlocked"
+    "aStoppedRefinerRunHandsOverBlocked",
+    "aPolisherEndsDoneOnlyWhenItsChecksOpen",
+    "checksGoBackOncePerRevision"
   ],
   "mainMinutes": {
     "judgeThenPolisher": 6.8,
@@ -30,7 +32,9 @@
     "judgeBetweenReviewers": 6.2,
     "modelCallAuthorWithTwoReviewers": 6.4,
     "pageReviewerThenPolisher": 5.5,
-    "pageJudgeBetweenReviewers": 6.8
+    "pageJudgeBetweenReviewers": 6.8,
+    "pausedModelCallAuthor": 4.6,
+    "checksOnAPolishedPull": 2.2
   },
   "witnesses": {
     "judgeThenPolisher": [
@@ -205,6 +209,54 @@
       "aRulingCallIsLostWithTheInstance",
       "aJudgeClosesWithoutAConclusion",
       "aReviewerRunFailsOnADraftedArtifact"
+    ],
+    "pausedModelCallAuthor": [
+      "aRefinerRunIsUnfinished",
+      "aPromptWaitsWhileAPolisherRuns",
+      "aModelCallAuthorHasAQueuedPrompt",
+      "aRefinerRunEndsDone",
+      "aRefinerRunStartsAfterAHandover",
+      "theHumansHaveTheArtifact",
+      "aPolisherFinished",
+      "heldCommentsGoToThePageAuthor",
+      "aHeldCommentReachesTheAuthor",
+      "theAuthorRepliesToAComment",
+      "aRefinerRunStartsAfterAnUnknownRevision",
+      "aRefinerRunStartsAfterAnUnknownHandover",
+      "aPolisherRunStopsOnADraftedArtifact",
+      "aPromptWaitsForAPausedAuthor",
+      "aPausedModelCallAuthorRunsItsTurn",
+      "aPausedAuthorResumesItsWork",
+      "anAuthorResumesWhileAPolisherRuns",
+      "aPersonInstructsWhileAPolisherRuns",
+      "heldCommentsQueueForAPausedAuthor"
+    ],
+    "checksOnAPolishedPull": [
+      "aRefinerRunIsUnfinished",
+      "aPromptWaitsWhileAPolisherRuns",
+      "aRefinerRunEndsDone",
+      "aRefinerRunStartsAfterAHandover",
+      "theHumansHaveTheArtifact",
+      "aRefinerRunRestarted",
+      "aRefinerRunFailsPastItsRestarts",
+      "aRefinerRunStartsAfterAFailedOrCancelledOne",
+      "aPolisherFinished",
+      "aRefinerRunStartsAfterAnUnknownRevision",
+      "aRefinerRunStartsAfterAnUnknownHandover",
+      "theAuthorEnded",
+      "anAuthorEndsWhileARefinerRunIsUnfinished",
+      "anAuthorEndsOnAReadyArtifact",
+      "anAuthorRestartsWhileAPolisherRuns",
+      "anAuthorFailsPastItsRestarts",
+      "aPolisherRunStopsOnADraftedArtifact",
+      "aPolisherWaitsOnChecks",
+      "aWaitingPolisherEndsDone",
+      "theChecksGateBlocksTheHandover",
+      "theGateBlocksARevisionItSentBack",
+      "checksGoBackToThePolisherAtItsTurnEnd",
+      "checksGoBackToAWaitingPolisher",
+      "checksGoBackToTheAuthor",
+      "anUnknownRevisionOpensTheGate"
     ]
   },
   "tlc": {
@@ -320,6 +372,42 @@
           "personCommentsLeft": 2,
           "promptsQueued": 1,
           "instanceRestartCount": 2
+        }
+      },
+      "pausedModelCallAuthor": {
+        "pr": {
+          "revisions": 1,
+          "refinerRunsStarted": 2,
+          "reviewCommentsPosted": 0,
+          "personCommentsLeft": 1,
+          "promptsQueued": 1
+        },
+        "nightly": {
+          "revisions": 2,
+          "refinerRunsStarted": 2,
+          "reviewCommentsPosted": 0,
+          "personCommentsLeft": 2,
+          "promptsQueued": 2
+        }
+      },
+      "checksOnAPolishedPull": {
+        "pr": {
+          "revisions": 2,
+          "refinerRunsStarted": 2,
+          "reviewCommentsPosted": 0,
+          "personCommentsLeft": 1,
+          "promptsQueued": 1,
+          "authorRestartCount": 0,
+          "checksReports": 2
+        },
+        "nightly": {
+          "revisions": 3,
+          "refinerRunsStarted": 3,
+          "reviewCommentsPosted": 0,
+          "personCommentsLeft": 1,
+          "promptsQueued": 2,
+          "authorRestartCount": 1,
+          "checksReports": 3
         }
       }
     }
