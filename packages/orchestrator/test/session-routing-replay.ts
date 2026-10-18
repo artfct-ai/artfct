@@ -195,14 +195,16 @@ export async function generateTraces(
   count: number,
   seed: number,
 ): Promise<TraceStep[][]> {
-  const traces = await quintTraces({
-    spec: "session-routing",
-    setup,
-    count,
-    steps: TRACE_STEPS,
-    seed,
-  });
-  return traces.map((trace) => traceSteps(setup, trace));
+  return quintTraces(
+    {
+      spec: "session-routing",
+      setup,
+      count,
+      steps: TRACE_STEPS,
+      seed,
+    },
+    (trace) => traceSteps(setup, trace),
+  );
 }
 
 /** The steps of one spec trace, given as its ITF JSON, run on one setup. */
@@ -440,7 +442,7 @@ export class SessionRoutingReplay {
   /** Take one spec action, then bring up every sandbox that waits. Returns what the step sent. */
   async take(step: TraceStep): Promise<SpecOutput> {
     const deliveriesBefore = this.world.workflow.deliveries.length;
-    const outboxBefore = this.world.workflow.store.outbox().length;
+    const outboxBefore = this.world.lastOutboxId();
     this.world.setTrackerHealth(TRACKER_HEALTH[step.picks.health ?? "TrackerUp"]);
     await this.world.apply(this.actionFor(step));
     this.world.setTrackerHealth("up");
@@ -450,7 +452,7 @@ export class SessionRoutingReplay {
       }),
     );
     const deliveries = this.world.workflow.deliveries.slice(deliveriesBefore);
-    const rows = this.world.workflow.store.outbox().slice(outboxBefore);
+    const rows = this.world.outboxRowsAfter(outboxBefore);
     return {
       posts: deliveries.map(({ event, targets }) => {
         const kind = POST_KIND_OF[event.type];

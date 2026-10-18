@@ -4,6 +4,7 @@ import { getTableName, is } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { SQLiteTable } from "drizzle-orm/sqlite-core";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import type { Logger } from "drizzle-orm/logger";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import * as schema from "../src/workflow/store/schema";
 
@@ -42,12 +43,12 @@ export type MemoryDb = BunSQLiteDatabase<typeof schema> & { $client: Database };
 
 /**
  * The workflow schema on a fresh in-memory `bun:sqlite` database, with the same generated
- * migrations the Durable Object applies.
+ * migrations the Durable Object applies. A `logger` hears every statement the store runs.
  */
-export function openMemoryDb(): MemoryDb {
+export function openMemoryDb(logger?: Logger): MemoryDb {
   const database = Database.deserialize(migratedDatabaseImage());
   reuseCompiledStatements(database);
-  return drizzle(database, { schema });
+  return drizzle(database, { schema, logger });
 }
 
 /** Every row of every table of the store, by table name. */

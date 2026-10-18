@@ -90,14 +90,16 @@ export async function generateTraces(
   count: number,
   seed: number,
 ): Promise<TraceStep[][]> {
-  const traces = await quintTraces({
-    spec: "router-bindings",
-    setup,
-    count,
-    steps: TRACE_STEPS,
-    seed,
-  });
-  return traces.map((trace) => traceSteps(trace));
+  return quintTraces(
+    {
+      spec: "router-bindings",
+      setup,
+      count,
+      steps: TRACE_STEPS,
+      seed,
+    },
+    (trace) => traceSteps(trace),
+  );
 }
 
 function traceSteps(trace: unknown): TraceStep[] {

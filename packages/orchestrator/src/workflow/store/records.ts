@@ -1,5 +1,5 @@
 import type { ArtifactStatus } from "@artfct-ai/contracts/types";
-import { and, count, desc, eq, getTableColumns, inArray, ne, notInArray } from "drizzle-orm";
+import { and, count, desc, eq, getTableColumns, inArray, ne, notInArray, sql } from "drizzle-orm";
 import type { WorkflowDb } from "./db";
 import { artifactRefKey } from "./input-key";
 import { artifacts, DELIVERY_ERROR, events, jobs, log, outbox, tasks } from "./schema";
@@ -29,14 +29,37 @@ export type OutboxEntry = Pick<
 
 /** Queries over the record tables: artifacts, outbox, events, and log. */
 export class RecordStore {
-  constructor(protected db: WorkflowDb) {}
+  private readonly artifactOfJob;
+  private readonly allArtifacts;
+  private readonly allOutbox;
+  private readonly postedRows;
+
+  constructor(protected db: WorkflowDb) {
+    this.artifactOfJob = db
+      .select()
+      .from(artifacts)
+      .where(eq(artifacts.job_id, sql.placeholder("jobId")))
+      .prepare();
+    this.allArtifacts = db.select().from(artifacts).prepare();
+    this.allOutbox = db.select().from(outbox).orderBy(outbox.id).prepare();
+    this.postedRows = db
+      .select({ total: count() })
+      .from(outbox)
+      .where(
+        and(
+          inArray(outbox.channel, [...HUMAN_CHANNELS]),
+          notInArray(outbox.kind, [...SILENT_KINDS]),
+        ),
+      )
+      .prepare();
+  }
 
   artifact(jobId: string): ArtifactRow | null {
-    return this.db.select().from(artifacts).where(eq(artifacts.job_id, jobId)).get() ?? null;
+    return this.artifactOfJob.get({ jobId }) ?? null;
   }
 
   artifacts(): ArtifactRow[] {
-    return this.db.select().from(artifacts).all();
+    return this.allArtifacts.all();
   }
 
   /** The artifact that is this pull request, if any job produced it. */
@@ -146,23 +169,12 @@ export class RecordStore {
   }
 
   outbox(): (typeof outbox.$inferSelect)[] {
-    return this.db.select().from(outbox).orderBy(outbox.id).all();
+    return this.allOutbox.all();
   }
 
   /** How many outbox rows a person can read. Compare two readings to see whether anything posted. */
   postedCount(): number {
-    return (
-      this.db
-        .select({ total: count() })
-        .from(outbox)
-        .where(
-          and(
-            inArray(outbox.channel, [...HUMAN_CHANNELS]),
-            notInArray(outbox.kind, [...SILENT_KINDS]),
-          ),
-        )
-        .get()?.total ?? 0
-    );
+    return this.postedRows.get()?.total ?? 0;
   }
 
   /** Record the event id. False when it was seen before. */

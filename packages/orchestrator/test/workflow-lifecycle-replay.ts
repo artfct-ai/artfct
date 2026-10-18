@@ -387,14 +387,16 @@ export async function generateTraces(
   count: number,
   seed: number,
 ): Promise<TraceStep[][]> {
-  const traces = await quintTraces({
-    spec: "workflow-lifecycle",
-    setup: SPEC_SETUPS[setup].module,
-    count,
-    steps: TRACE_STEPS,
-    seed,
-  });
-  return traces.map((trace) => traceSteps(setup, trace));
+  return quintTraces(
+    {
+      spec: "workflow-lifecycle",
+      setup: SPEC_SETUPS[setup].module,
+      count,
+      steps: TRACE_STEPS,
+      seed,
+    },
+    (trace) => traceSteps(setup, trace),
+  );
 }
 
 /** The steps of one spec trace, given as its ITF JSON, run on one setup. */

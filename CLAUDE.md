@@ -122,7 +122,7 @@ Judge the model by these rules:
 
 - A folder under `spec/` holds one Quint spec, one file per setup, and `checks.json`. Only `packages/orchestrator/scripts/spec/check-spec.ts` reads `checks.json`. CI calls it for every setup, so a new spec needs no workflow change.
 - Write every rule as a state invariant, so simulation and TLC both check it.
-- Give each list or number that grows a counter val. Cap it per setup under `tlc.bounds` in `checks.json`, at `pr` and `nightly` depth. Main runs TLC at the `pr` bounds. Keep each main quint shard under 12 minutes. Record each setup's minutes on main under `mainMinutes` in `checks.json`. The main quint shards balance on them.
+- Give each list or number that grows a counter val. Cap it per setup under `tlc.bounds` in `checks.json`, at `pr` and `nightly` depth. Only the nightly run checks TLC, at the `nightly` bounds. Use the `pr` bounds to check a setup with TLC locally. Keep each main quint shard under 12 minutes. Record each setup's minutes on main under `mainMinutes` in `checks.json`. The main quint shards balance on them.
 - Remove a call from the state once it returns. A restart drops every call that is out.
 - Write a before-and-after rule as a pure def over one step: the state before, the state after, and the kind of step. Each step records whether it kept each rule in a record variable, and the invariant reads that field. Do not store the state before the step.
 - Record a witness that needs the step in its own record variable, and list that variable under `tlc.ignoredVariables`.
@@ -158,8 +158,8 @@ Judge the model by these rules:
 - Push early and open a draft PR. Do not stop at a local commit, and do not ask first.
 - Do not repeat CI runs locally. CI runs these:
   - Pull request: `bun run check` then smoke in one job, and a light quint run in 3 shards when spec or workflow code changes.
-  - Main: full quint with TLC at the `pr` bounds, the spec replays, and the properties at reduced counts.
-  - Nightly: deep quint, the full property counts, and the mutants. To bisect a failure, start the nightly workflow by hand with a commit.
+  - Main: witnesses and 100,000 quint samples per setup, the spec replays, and the properties at reduced counts.
+  - Nightly: deep quint, TLC at the `nightly` bounds, the full property counts, and the mutants. To bisect a failure, start the nightly workflow by hand with a commit.
 - CI does not run on a fork's PR until a maintainer approves it. A fork runs `bun run check` and `bun run smoke` locally before it pushes.
 - Run `gh pr checks <number> --watch --fail-fast`. Fix what fails and push until every check is green.
 - Never leave a lint warning or a failing test because it was already there. Fix it in the same change and mention the fix in one line.

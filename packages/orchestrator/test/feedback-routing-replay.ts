@@ -99,14 +99,16 @@ export async function generateTraces(
   count: number,
   seed: number,
 ): Promise<TraceStep[][]> {
-  const traces = await quintTraces({
-    spec: "feedback-routing",
-    setup,
-    count,
-    steps: TRACE_STEPS,
-    seed,
-  });
-  return traces.map((trace) => itfList(itfField(trace, "states")).map((state) => traceStep(state)));
+  return quintTraces(
+    {
+      spec: "feedback-routing",
+      setup,
+      count,
+      steps: TRACE_STEPS,
+      seed,
+    },
+    (trace) => itfList(itfField(trace, "states")).map((state) => traceStep(state)),
+  );
 }
 
 function traceStep(state: unknown): TraceStep {

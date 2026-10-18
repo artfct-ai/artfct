@@ -23,7 +23,16 @@ export type TranscriptRow = { id: number; at: string; message: ModelMessage };
  * next turn and what the running turn took. `transcript` is the conversation the model sees.
  */
 export class TranscriptStore {
-  constructor(private db: WorkflowDb) {}
+  private readonly waitingRows;
+
+  constructor(private db: WorkflowDb) {
+    this.waitingRows = db
+      .select()
+      .from(agentInbox)
+      .where(eq(agentInbox.taken, false))
+      .orderBy(asc(agentInbox.id))
+      .prepare();
+  }
 
   /** Queue text for the next turn. `from` says where the person who wrote it wrote from. */
   enqueue(text: string, wake: Wake, from: WroteFrom = {}): void {
@@ -41,12 +50,7 @@ export class TranscriptStore {
 
   /** The rows that wait for the next turn. */
   inbox(): InboxRow[] {
-    return this.db
-      .select()
-      .from(agentInbox)
-      .where(eq(agentInbox.taken, false))
-      .orderBy(asc(agentInbox.id))
-      .all();
+    return this.waitingRows.all();
   }
 
   /** The rows the running turn took, or a lost turn left for its resume. */
