@@ -155,29 +155,6 @@ jobs:
           done
           exit "$status"
 
-  measure_replays:
-    name: measure replays (temporary)
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
-    defaults:
-      run:
-        working-directory: packages/orchestrator
-    env:
-      PROPERTY_SEED: "489055579"
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - run: bun install --frozen-lockfile
-      - run: bun run template-config
-      - name: Replay the workflow lifecycle spec
-        run: bun scripts/properties/e2e-property-test.ts workflow_lifecycle
-      - name: Replay the session routing spec
-        if: ${{ !cancelled() }}
-        run: bun scripts/properties/e2e-property-test.ts session_routing
-
   spec_replays:
     name: spec replays
     needs: ci
