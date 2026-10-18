@@ -24,6 +24,7 @@ import {
   authorTurnEnds,
   chatThreadJoins,
   firstArtifactAppears,
+  personStopsModelCall,
   researcherReportsTodos,
   researcherTurnEnds,
   type AuthorClosing,
@@ -618,6 +619,11 @@ export class SessionRoutingReplay {
         return worldAction(`a person presses Stop in the session on ${picks.issue}`, (world) =>
           world.deliver(stopEvent(this.sessionOn(world, required(picks.issue)))),
         );
+      case "personStopsAModelCall":
+        return worldAction(
+          `a person presses Stop while the model call of the author of job ${picks.id} is out`,
+          (world) => this.personStopsAModelCall(world, required(picks.id)),
+        );
       case "workflowRestarts":
         return worldAction("the workflow restarts", (world) => world.restart());
       case "researcherReportsTodos":
@@ -723,6 +729,15 @@ export class SessionRoutingReplay {
       return;
     }
     await authorTurnEnds(index, "same", CLOSING_OF[ending]).run(world);
+  }
+
+  private async personStopsAModelCall(world: WorkflowWorld, jobIndex: number): Promise<void> {
+    const facts = await personStopsModelCall(this.unfinishedIndexOf(jobIndex), "agent_prompts").run(
+      world,
+    );
+    if (!facts?.modelCallStopped) {
+      throw new Error(`the stop did not land while the model call of job ${jobIndex} was out`);
+    }
   }
 
   private async researcherHandsOver(world: WorkflowWorld, jobIndex: number): Promise<void> {

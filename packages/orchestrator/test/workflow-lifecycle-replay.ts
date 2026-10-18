@@ -675,6 +675,7 @@ export class WorkflowLifecycleReplay {
   private answeredModelCall: HeldCall | null = null;
   private readonly endedIssues = new Set<number>();
   private completionAnswer: CompletionAnswer = "NotAnswered";
+  private storeAtStaleAlarm: string | null = null;
 
   private constructor(
     readonly world: WorkflowWorld,
@@ -731,6 +732,7 @@ export class WorkflowLifecycleReplay {
   async take(step: TraceStep): Promise<Step[]> {
     this.taken += 1;
     this.completionAnswer = "NotAnswered";
+    this.storeAtStaleAlarm = null;
     setSystemTime(new Date(REPLAY_START + this.taken * STEP_MS));
     this.world.workflow.gatewayInstance = new FakeGateway({
       decisions: new InterleavedDecisions(new FakeDecisions(ANSWERS), (questions) =>
@@ -765,6 +767,11 @@ export class WorkflowLifecycleReplay {
   async close(): Promise<void> {
     for (const call of this.calls.splice(0)) call.answer(new FakeDecisions(ANSWERS));
     setSystemTime();
+  }
+
+  /** The store as a stale alarm of the last spec action found it, or null without one. */
+  storeBeforeStaleAlarm(): string | null {
+    return this.storeAtStaleAlarm;
   }
 
   /** What `complete_job` told the agent in the last spec action taken. */
@@ -1076,8 +1083,17 @@ export class WorkflowLifecycleReplay {
         );
       case "idleAlarmFires":
         return timerFires("idle", 0);
-      case "staleAlarmFires":
-        return staleAlarmFires(required(picks.timer), required(picks.sandbox));
+      case "staleAlarmFires": {
+        const stale = staleAlarmFires(required(picks.timer), required(picks.sandbox));
+        return worldAction(String(stale), (world) => {
+          this.storeAtStaleAlarm = world.storeSnapshot();
+          return stale.run(world);
+        });
+      }
+      case "aStaleModelTurnDeadlineFires":
+        return worldAction(`a stale model turn deadline of job ${picks.id} fires`, (world) =>
+          this.staleModelTurnDeadlineFires(world, required(picks.id)),
+        );
       case "workflowRestarts":
         return worldAction(
           `the workflow restarts, and a page write out ${picks.landed ? "landed" : "did not land"}`,
@@ -1292,6 +1308,22 @@ export class WorkflowLifecycleReplay {
     await this.runStep(() =>
       onModelTurnDeadline(world.workflow, deadline.payload as ModelTurnAlarm),
     );
+  }
+
+  /**
+   * The deadline alarm of a model turn of the job that already ended fires. The alarm leaves the
+   * list before it runs, as an alarm the platform delivers does.
+   */
+  private async staleModelTurnDeadlineFires(world: WorkflowWorld, jobIndex: number): Promise<void> {
+    const task = this.taskOf(jobIndex);
+    const stale = world.workflow.alarmsFor("onModelTurnDeadline").find((alarm) => {
+      const { task_id, turn_id } = alarm.payload as ModelTurnAlarm;
+      return task_id === task.task_id && turn_id !== task.model_turn_id;
+    });
+    if (!stale) throw new Error(`job ${jobIndex} has no deadline armed for a turn that ended`);
+    await world.workflow.cancelAlarm(stale.id);
+    this.storeAtStaleAlarm = world.storeSnapshot();
+    await onModelTurnDeadline(world.workflow, stale.payload as ModelTurnAlarm);
   }
 
   /** Run a step until it ends or a call it makes is held. */
