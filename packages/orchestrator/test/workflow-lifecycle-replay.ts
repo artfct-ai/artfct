@@ -16,6 +16,7 @@ import { CLOSING_TEXT_MARKER, replyMarker } from "../src/prompts/model-author-pr
 import { taskTools } from "../src/agent/tools/task";
 import type { SandboxRef } from "../src/sandbox/spec";
 import { jobInputKey } from "../src/workflow/store/input-key";
+import { failTask } from "../src/workflow/lifecycle";
 import { isTaskFinished } from "../src/workflow/store/state";
 import type { JobRow, TaskRow } from "../src/workflow/store/tasks";
 import type { ConnectionState } from "../src/workflow/task/harness/bridge";
@@ -33,8 +34,10 @@ import {
   firstArtifactAppears,
   GENERATION_TIMERS,
   personCancels,
+  endRefinerRunTurn,
   personWrites,
   researcherTurnEnds,
+  type RefinerRunEnd,
   staleAlarmFires,
   timerFires,
   workflowRestarts,
@@ -47,18 +50,57 @@ import {
   WorkflowWorld,
   type StepFacts,
   type WorkflowAction,
+  type WorldAuthor,
   type WorldSetup,
 } from "./workflow-world";
 
-/** The setup modules of the workflow lifecycle spec, and the stage each one runs. */
+/**
+ * The setups the replay runs, each on the traces of one setup module of the workflow lifecycle
+ * spec, and the stage each one runs. A judge runs on the traces of the reviewer.
+ */
 export const SPEC_SETUPS = {
-  pagesWithAReviewer: { refiners: "reviewer", pageAuthor: "harness", research: false },
-  pagesWithoutRefiners: { refiners: "none", pageAuthor: "harness", research: false },
-  pagesAfterResearch: { refiners: "none", pageAuthor: "harness", research: true },
-  pagesFromModelCalls: { refiners: "none", pageAuthor: "model", research: false },
-} as const satisfies Record<string, Pick<WorldSetup, "refiners" | "pageAuthor" | "research">>;
+  pagesWithAReviewer: {
+    module: "pagesWithAReviewer",
+    refiners: "reviewer",
+    pageAuthor: "harness",
+    research: false,
+  },
+  pagesWithAJudge: {
+    module: "pagesWithAReviewer",
+    refiners: "judge",
+    pageAuthor: "harness",
+    research: false,
+  },
+  pagesWithAPolisher: {
+    module: "pagesWithAPolisher",
+    refiners: "polisher",
+    pageAuthor: "harness",
+    research: false,
+  },
+  pagesWithoutRefiners: {
+    module: "pagesWithoutRefiners",
+    refiners: "none",
+    pageAuthor: "harness",
+    research: false,
+  },
+  pagesAfterResearch: {
+    module: "pagesAfterResearch",
+    refiners: "none",
+    pageAuthor: "harness",
+    research: true,
+  },
+  pagesFromModelCalls: {
+    module: "pagesFromModelCalls",
+    refiners: "none",
+    pageAuthor: "model",
+    research: false,
+  },
+} as const satisfies Record<
+  string,
+  { module: string } & Pick<WorldSetup, "refiners" | "pageAuthor" | "research">
+>;
 
-/** The name of one setup module of the spec. */
+/** The name of one setup the replay runs. */
 export type SpecSetup = keyof typeof SPEC_SETUPS;
 
 /** The most steps a generated trace takes after its initial state. */
@@ -77,7 +119,13 @@ const WORKFLOW_STATUSES = [
   "Cancelled",
 ] as const;
 const ARTIFACT_STATUSES = ["NoArtifact", "Drafted", "Ready"] as const;
-const REFINER_RUN_STATUSES = ["NoRefinerRun", "RefinerRunning", "RefinerRunFinished"] as const;
+const REFINER_RUN_STATUSES = [
+  "NoRefinerRun",
+  "RefinerRunning",
+  "RefinerDone",
+  "RefinerCancelled",
+  "RefinerFailed",
+] as const;
 const CALL_KINDS = ["SandboxDestroy", "AcceptanceCheck", "ModelCall"] as const;
 const ROLES = ["Researcher", "Author"] as const;
 const JOB_ROLES: readonly TaskRow["role"][] = ["researcher", "author"];
@@ -171,7 +219,7 @@ export async function generateTraces(
 ): Promise<TraceStep[][]> {
   const traces = await quintTraces({
     spec: "workflow-lifecycle",
-    setup,
+    setup: SPEC_SETUPS[setup].module,
     count,
     steps: TRACE_STEPS,
     seed,
@@ -210,7 +258,9 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
         ending: ending === null ? null : itfOneOf(itfVariant(ending)!.tag, ENDINGS),
         command: command === null ? null : itfOneOf(itfVariant(command)!.tag, VERBAL_COMMANDS),
       },
-      workflow: specWorkflow(itfField(state, `${setup}::workflowLifecycle::workflow`)),
+      workflow: specWorkflow(
+        itfField(state, `${SPEC_SETUPS[setup].module}::workflowLifecycle::workflow`),
+      ),
     };
   });
 }
@@ -316,7 +366,17 @@ class HoldingPageModel implements LanguageModelV4 {
 const TOOL_CALL = { toolCallId: "call-1", messages: [], context: {} };
 const ANSWERS = { for_author: 0, beyond_author: 0, rejects: 0 };
 const ACCEPTANCE = ["Looks good, ship it."];
-const PAGE_APPROVED = "Review: approved\nReady as it stands.";
+
+/** The turn end of a refiner run that approves: a reviewer's review, a judge's ruling, a polish. */
+const REFINER_APPROVES: RefinerRunEnd = {
+  reviewer: "approved",
+  pageCommenting: "takes",
+  judge: "approves",
+  whileRuled: "nothing",
+  polisher: "nothing_pushed",
+  stopReason: "end_turn",
+  closing: "reports_work",
+};
 const STAGE = STAGE_OF.page;
 
 const WORLD_SETUP: Omit<WorldSetup, "refiners" | "pageAuthor" | "research"> = {
@@ -360,7 +420,8 @@ export class WorkflowLifecycleReplay {
   /** A world on the stage of `setup`, before the plan. */
   static async open(setup: SpecSetup): Promise<WorkflowLifecycleReplay> {
     setSystemTime(new Date(REPLAY_START));
-    const world = await WorkflowWorld.open({ ...WORLD_SETUP, ...SPEC_SETUPS[setup] });
+    const { refiners, pageAuthor, research } = SPEC_SETUPS[setup];
+    const world = await WorkflowWorld.open({ ...WORLD_SETUP, refiners, pageAuthor, research });
     const modelAuthor = SPEC_SETUPS[setup].pageAuthor === "model";
     const replay = new WorkflowLifecycleReplay(world, modelAuthor);
     world.workflow.sandboxProvider = new HoldingSandboxProvider((taskId) =>
@@ -464,12 +525,7 @@ export class WorkflowLifecycleReplay {
               };
             }),
           artifact: !artifact ? "NoArtifact" : artifact.status === "drafted" ? "Drafted" : "Ready",
-          refinerRun:
-            runs.length === 0
-              ? "NoRefinerRun"
-              : runs.some((run) => !isTaskFinished(run.status))
-                ? "RefinerRunning"
-                : "RefinerRunFinished",
+          refinerRun: REFINER_RUN_STATUS_OF[runs.at(-1)?.status ?? "none"],
         };
       }),
       calls: this.calls.map((call) => ({
@@ -542,8 +598,14 @@ export class WorkflowLifecycleReplay {
           await authorTurnEnds(index, "same", "finished").run(world);
         });
       case "refinerRunEnds":
-        return worldAction(`reviewer of job ${picks.id} approves`, (world) =>
-          this.reviewerApproves(world, required(picks.id)),
+        return worldAction(`refiner run of job ${picks.id} approves`, (world) =>
+          endRefinerRunTurn(world, this.worldAuthorOf(required(picks.id)), REFINER_APPROVES, 0),
+        );
+      case "refinerRunFails":
+        return worldAction(`refiner run of job ${picks.id} fails`, (world) =>
+          this.runStep(() =>
+            failTask(world.workflow, this.refinerRunOf(required(picks.id)), "the sandbox died"),
+          ),
         );
       case "agentPausesAuthor":
       case "agentResumesAuthor":
@@ -689,17 +751,6 @@ export class WorkflowLifecycleReplay {
     }
   }
 
-  private async reviewerApproves(world: WorkflowWorld, jobIndex: number): Promise<void> {
-    const run = world.workflow.store
-      .refinerRunsOf(this.jobOf(jobIndex).job_id)
-      .findLast((candidate) => !isTaskFinished(candidate.status));
-    const bridge = run ? await world.bridgeWithRunningTurn(run.task_id) : null;
-    if (!bridge) throw new Error(`the reviewer of job ${jobIndex} has no running turn`);
-    world.answerDecisionsWith(ANSWERS);
-    await bridge.say(PAGE_APPROVED);
-    await bridge.endTurn("end_turn");
-  }
-
   private async taskStalls(world: WorkflowWorld, jobIndex: number): Promise<void> {
     const task = this.taskOf(jobIndex);
     const sandbox = world.workflow.store.requireSandbox(task.task_id);
@@ -765,9 +816,14 @@ export class WorkflowLifecycleReplay {
     });
   }
 
+  /**
+   * Hold the destroy of the sandbox of an author that ended or restarts. A polisher closes the
+   * container of an author as it starts, and the spec folds that destroy into the step.
+   */
   private holdDestroy(taskId: string): Promise<void> | null {
     const task = this.world.workflow.store.task(taskId);
     if (task?.role !== "author") return null;
+    if (!isTaskFinished(task.status) && task.status !== "queued") return null;
     return new Promise<void>((release) => {
       this.hold({
         kind: "SandboxDestroy",
@@ -823,6 +879,25 @@ export class WorkflowLifecycleReplay {
     return job;
   }
 
+  /** The world author of the job. */
+  private worldAuthorOf(jobIndex: number): WorldAuthor {
+    const jobId = this.jobOf(jobIndex).job_id;
+    const author = this.world.authors.find(
+      (candidate) => this.world.taskOf(candidate).job_id === jobId,
+    );
+    if (!author) throw new Error(`job ${jobIndex} has no author`);
+    return author;
+  }
+
+  /** The unfinished refiner run of the job. */
+  private refinerRunOf(jobIndex: number): TaskRow {
+    const run = this.world.workflow.store
+      .refinerRunsOf(this.jobOf(jobIndex).job_id)
+      .findLast((candidate) => !isTaskFinished(candidate.status));
+    if (!run) throw new Error(`job ${jobIndex} has no unfinished refiner run`);
+    return run;
+  }
+
   /** The task of the job now: its author once the researcher handed over, else its researcher. */
   private taskOf(jobIndex: number): TaskRow {
     return this.world.workflow.store.authorOrResearcherTaskOf(this.jobOf(jobIndex).job_id);
@@ -859,6 +934,18 @@ const SPEC_TASK_STATUS: Record<TaskStatus, SpecTask["status"]> = {
   done: "TaskDone",
   cancelled: "TaskCancelled",
   failed: "TaskFailed",
+};
+
+/** The spec status of the latest refiner run of a job, or "none" when the job has none. */
+const REFINER_RUN_STATUS_OF: Record<TaskStatus | "none", SpecJob["refinerRun"]> = {
+  none: "NoRefinerRun",
+  queued: "RefinerRunning",
+  provisioning: "RefinerRunning",
+  working: "RefinerRunning",
+  in_review: "RefinerRunning",
+  done: "RefinerDone",
+  cancelled: "RefinerCancelled",
+  failed: "RefinerFailed",
 };
 
 const WORKFLOW_STATUS_OF: Record<WorkflowStatus, SpecWorkflow["status"]> = {
