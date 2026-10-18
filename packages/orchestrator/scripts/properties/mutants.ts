@@ -347,8 +347,8 @@ export const MUTANTS: Mutant[] = [
   {
     id: "W45",
     invariant: "reviewLoop::aRestartDoesNotStrandAJudgeRun",
-    path: "src/workflow/refiner/loop.ts",
-    find: '    await workflow.scheduleAlarm(0, "settleLostJudgeRuling", alarm);\n',
+    path: "src/workflow/restart.ts",
+    find: '    await workflow.scheduleAlarm(0, "settleLostJudgeRuling", run);\n',
     replace: "",
   },
   {
@@ -567,6 +567,15 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/board/board.ts",
     find: '    if (target.source !== "chat") continue;\n    const channel = { source: target.source',
     replace: "    const channel = { source: target.source",
+  },
+  {
+    id: "W51",
+    invariant:
+      "reviewLoop::aRestartDoesNotStrandAJudgeRun (rulings asked before the lost model turns)",
+    path: "src/workflow/restart.ts",
+    find: "  await resumeLostModelTurns(workflow, alarm.model_turns);\n",
+    replace:
+      '  const { settleLostJudgeRuling } = await import("./refiner/loop");\n  for (const run of alarm.judge_runs) await settleLostJudgeRuling(workflow, run);\n  await resumeLostModelTurns(workflow, alarm.model_turns);\n',
   },
 ];
 

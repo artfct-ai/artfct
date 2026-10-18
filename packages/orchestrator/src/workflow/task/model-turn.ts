@@ -1,8 +1,8 @@
 import { failTask, MAX_RESTARTS } from "../lifecycle";
 import { isTaskFinished } from "../store/state";
-import type { TaskRow } from "../store/tasks";
 import type { WorkflowRuntime } from "../types";
 import { drainQueue } from "./harness/prompt-queue";
+import type { TaskAlarm } from "./harness/timers";
 
 /**
  * Seconds after its start that a model turn counts as lost. It lies past the bound of the model
@@ -46,35 +46,40 @@ export async function startModelTurn(
 }
 
 /**
- * Arm the deadline of every model turn the store holds in flight to fire now. A new instance runs
- * none of them, since a turn dies with the instance that ran it.
+ * The model turns the store holds in flight. A new instance runs none of them, since a turn dies
+ * with the instance that ran it.
  */
-export async function resumeLostModelTurns(workflow: WorkflowRuntime): Promise<void> {
-  for (const task of workflow.store.tasks()) {
-    if (task.model_turn_id === null || isTaskFinished(task.status)) continue;
-    const alarm: ModelTurnAlarm = { task_id: task.task_id, turn_id: task.model_turn_id };
-    await workflow.scheduleAlarm(0, "onModelTurnDeadline", alarm);
-  }
+export function lostModelTurns(workflow: WorkflowRuntime): ModelTurnAlarm[] {
+  return workflow.store.tasks().flatMap((task) => {
+    if (task.model_turn_id === null || isTaskFinished(task.status)) return [];
+    return [{ task_id: task.task_id, turn_id: task.model_turn_id }];
+  });
 }
 
-/** A model turn outlived its deadline or a restart. An alarm of an older turn changes nothing. */
+/** A model turn outlived its deadline. An alarm of an older turn changes nothing. */
 export async function onModelTurnDeadline(
   workflow: WorkflowRuntime,
   alarm: ModelTurnAlarm,
 ): Promise<void> {
-  const task = workflow.store.task(alarm.task_id);
-  if (!task || task.model_turn_id !== alarm.turn_id) return;
-  await resumeLostModelTurn(workflow, task);
+  if (!(await restartLostModelTurn(workflow, alarm))) return;
+  await drainQueue(workflow, workflow.store.requireTask(alarm.task_id));
 }
 
 /**
- * Run a lost model turn again, as a restart of its task. An author with its page out goes back
- * in review and takes the prompt it kept. One without its page queues to produce it.
+ * Restart the task of a lost model turn, or fail it once its restarts are used up. An author with
+ * its page out goes back in review and keeps its prompt. One without its page produces it again.
+ * True when the task restarted. A turn the task no longer holds changes nothing.
  */
-async function resumeLostModelTurn(workflow: WorkflowRuntime, task: TaskRow): Promise<void> {
+async function restartLostModelTurn(
+  workflow: WorkflowRuntime,
+  turn: ModelTurnAlarm,
+): Promise<boolean> {
+  const task = workflow.store.task(turn.task_id);
+  if (!task || task.model_turn_id !== turn.turn_id) return false;
   workflow.log(task.task_id, `model turn ${task.model_turn_id} was lost`);
   if (task.restarts >= MAX_RESTARTS) {
-    return failTask(workflow, task, "its model turn was lost with no restarts left");
+    await failTask(workflow, task, "its model turn was lost with no restarts left");
+    return false;
   }
   const pageOut = workflow.store.artifact(task.job_id) !== null;
   workflow.store.updateTask(task.task_id, {
@@ -82,5 +87,29 @@ async function resumeLostModelTurn(workflow: WorkflowRuntime, task: TaskRow): Pr
     restarts: task.restarts + 1,
     status: pageOut ? "in_review" : "working",
   });
-  await drainQueue(workflow, workflow.store.requireTask(task.task_id));
+  return true;
+}
+
+/**
+ * Restart or fail the task of each lost model turn, without starting a model call. Arm one alarm
+ * due now for each restarted author, so each one runs its turn again in its own alarm.
+ */
+export async function resumeLostModelTurns(
+  workflow: WorkflowRuntime,
+  turns: ModelTurnAlarm[],
+): Promise<void> {
+  for (const turn of turns) {
+    if (!(await restartLostModelTurn(workflow, turn))) continue;
+    const author: TaskAlarm = { task_id: turn.task_id };
+    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", author);
+  }
+}
+
+/** Alarm: a restarted model-call author runs its lost model turn again from its queue. */
+export async function runLostModelTurnAgain(
+  workflow: WorkflowRuntime,
+  alarm: TaskAlarm,
+): Promise<void> {
+  const task = workflow.store.task(alarm.task_id);
+  if (task) await drainQueue(workflow, task);
 }

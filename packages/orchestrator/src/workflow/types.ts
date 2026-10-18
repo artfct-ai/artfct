@@ -50,7 +50,9 @@ export type ScheduledMethod =
   | "flushBoard"
   | "onIdle"
   | "recheckChecks"
-  | "onModelTurnDeadline";
+  | "onModelTurnDeadline"
+  | "resumeLostCalls"
+  | "runLostModelTurnAgain";
 
 /**
  * Why the orchestrator model is needed now. Every caller of `tellAgent` declares one.

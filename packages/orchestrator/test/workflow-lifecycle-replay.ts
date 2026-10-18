@@ -27,8 +27,12 @@ import { failTask } from "../src/workflow/lifecycle";
 import { isTaskFinished, type Subject } from "../src/workflow/store/state";
 import type { JobRow, TaskRow } from "../src/workflow/store/tasks";
 import type { ConnectionState } from "../src/workflow/task/harness/bridge";
-import { onNoProgress } from "../src/workflow/task/harness/timers";
-import { onModelTurnDeadline, type ModelTurnAlarm } from "../src/workflow/task/model-turn";
+import { onNoProgress, type TaskAlarm } from "../src/workflow/task/harness/timers";
+import {
+  onModelTurnDeadline,
+  runLostModelTurnAgain,
+  type ModelTurnAlarm,
+} from "../src/workflow/task/model-turn";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
 import { strayIssueKey, SUBJECT_ISSUE_KEY, subIssueKey } from "./world-tracker";
 import { quintTraces } from "./quint-traces";
@@ -1277,8 +1281,8 @@ export class WorkflowLifecycleReplay {
 
   /**
    * The Durable Object restarts and every held call is lost. A page write that landed changes
-   * the page on the host first. Each model turn the start step arms for now resumes in its own
-   * step, so a resumed turn whose model call is held does not hold the next one back.
+   * the page on the host first. Each lost model turn the restart alarm runs again resumes in its
+   * own step, so a resumed turn whose model call is held does not hold the next one back.
    */
   private async restart(world: WorkflowWorld, landed: boolean): Promise<void> {
     const lost = this.calls.splice(0);
@@ -1286,14 +1290,9 @@ export class WorkflowLifecycleReplay {
       for (const call of lost) await call.land?.();
     }
     await this.runStep(() => workflowRestarts().run(world));
-    const due = world.workflow
-      .alarmsFor("onModelTurnDeadline")
-      .filter((alarm) => alarm.delay === 0);
-    for (const alarm of due) {
+    for (const alarm of world.workflow.alarmsFor("runLostModelTurnAgain")) {
       await world.workflow.cancelAlarm(alarm.id);
-      await this.runStep(() =>
-        onModelTurnDeadline(world.workflow, alarm.payload as ModelTurnAlarm),
-      );
+      await this.runStep(() => runLostModelTurnAgain(world.workflow, alarm.payload as TaskAlarm));
     }
   }
 
