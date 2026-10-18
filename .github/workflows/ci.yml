@@ -178,7 +178,7 @@ jobs:
           exit "$status"
 
   spec_replays:
-    name: spec replays (${{ matrix.replay }})
+    name: spec replays (${{ matrix.name }})
     needs: ci
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
@@ -186,20 +186,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        replay:
-          - router_bindings
-          - review_loop
-          - workflow_lifecycle
-          - harness_session
-          - agent_turns
-          - chat_acknowledgement
-          - session_routing
-          - feedback_routing
+        include:
+          - name: workflow lifecycle
+            replays: workflow_lifecycle
+          - name: session routing
+            replays: session_routing
+          - name: the rest
+            replays: router_bindings review_loop harness_session agent_turns chat_acknowledgement feedback_routing
     defaults:
       run:
+        shell: bash
         working-directory: packages/orchestrator
     env:
-      REPLAY: ${{ matrix.replay }}
+      REPLAYS: ${{ matrix.replays }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -209,9 +208,14 @@ jobs:
       - run: bun run template-config
       - name: Seed the replay from the run id
         run: echo "PROPERTY_SEED=$(( GITHUB_RUN_ID % 2147483648 ))" >> "$GITHUB_ENV"
-      - name: Replay the spec
+      - name: Replay the specs
         timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts "$REPLAY"
+        run: |
+          status=0
+          for replay in $REPLAYS; do
+            bun scripts/properties/e2e-property-test.ts "$replay" || status=1
+          done
+          exit "$status"
 
   e2e_property_test:
     name: e2e property based test (light)
