@@ -30,7 +30,8 @@
     "judgeBetweenReviewers": 2.5,
     "modelCallAuthorWithTwoReviewers": 5.1,
     "pageReviewerThenPolisher": 4.5,
-    "pageJudgeBetweenReviewers": 3.0
+    "pageJudgeBetweenReviewers": 3.0,
+    "pausedModelCallAuthor": 4.6
   },
   "witnesses": {
     "judgeThenPolisher": [
@@ -205,6 +206,27 @@
       "aRulingCallIsLostWithTheInstance",
       "aJudgeClosesWithoutAConclusion",
       "aReviewerRunFailsOnADraftedArtifact"
+    ],
+    "pausedModelCallAuthor": [
+      "aRefinerRunIsUnfinished",
+      "aPromptWaitsWhileAPolisherRuns",
+      "aModelCallAuthorHasAQueuedPrompt",
+      "aRefinerRunEndsDone",
+      "aRefinerRunStartsAfterAHandover",
+      "theHumansHaveTheArtifact",
+      "aPolisherFinished",
+      "heldCommentsGoToThePageAuthor",
+      "aHeldCommentReachesTheAuthor",
+      "theAuthorRepliesToAComment",
+      "aRefinerRunStartsAfterAnUnknownRevision",
+      "aRefinerRunStartsAfterAnUnknownHandover",
+      "aPolisherRunStopsOnADraftedArtifact",
+      "aPromptWaitsForAPausedAuthor",
+      "aPausedModelCallAuthorRunsItsTurn",
+      "aPausedAuthorResumesItsWork",
+      "anAuthorResumesWhileAPolisherRuns",
+      "aPersonInstructsWhileAPolisherRuns",
+      "heldCommentsQueueForAPausedAuthor"
     ]
   },
   "tlc": {
@@ -320,6 +342,22 @@
           "personCommentsLeft": 2,
           "promptsQueued": 1,
           "instanceRestartCount": 2
+        }
+      },
+      "pausedModelCallAuthor": {
+        "pr": {
+          "revisions": 1,
+          "refinerRunsStarted": 2,
+          "reviewCommentsPosted": 0,
+          "personCommentsLeft": 1,
+          "promptsQueued": 1
+        },
+        "nightly": {
+          "revisions": 2,
+          "refinerRunsStarted": 2,
+          "reviewCommentsPosted": 0,
+          "personCommentsLeft": 2,
+          "promptsQueued": 2
         }
       }
     }

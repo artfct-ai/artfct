@@ -180,6 +180,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -386,6 +387,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -612,6 +614,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -856,6 +859,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -1166,6 +1170,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -1476,6 +1481,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -1783,6 +1789,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -2101,6 +2108,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -2429,6 +2437,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -2754,6 +2763,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -3100,6 +3110,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -3465,6 +3476,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -3839,6 +3851,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -4213,6 +4226,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -4580,6 +4594,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -4963,6 +4978,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -5354,6 +5370,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -5752,6 +5769,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -6156,6 +6174,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -6551,6 +6570,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -6946,6 +6966,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -7344,6 +7365,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -7742,6 +7764,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": [
@@ -8130,6 +8153,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": [
@@ -8521,6 +8545,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": [
@@ -8940,6 +8965,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": [

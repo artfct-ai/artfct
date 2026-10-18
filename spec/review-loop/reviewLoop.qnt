@@ -71,12 +71,14 @@ module reviewLoopTypes {
   /// it, or the workflow ends.
   type AuthorEnding = TheAgentCancelsTheJob | TheAuthorFails | TheWorkflowEnds
 
-  /// The author task: where it stands, how often it restarted, the prompts that wait for it with
-  /// the person comments each carries, the comments the prompt of a model-call author's turn
-  /// carries, the parts of the page a person rewrote since that turn read it, the judge entries
-  /// whose rejection it got, and the refiner runs whose findings it got in a prompt.
+  /// The author task: where it stands, whether it is paused, how often it restarted, the prompts
+  /// that wait for it with the person comments each carries, the comments the prompt of a
+  /// model-call author's turn carries, the parts of the page a person rewrote since that turn read
+  /// it, the judge entries whose rejection it got, and the refiner runs whose findings it got in a
+  /// prompt.
   type Author = {
     status: AuthorStatus,
+    paused: bool,
     restarts: int,
     queuedPrompts: List[Set[int]],
     turnComments: Set[int],
@@ -272,6 +274,10 @@ module reviewLoopTypes {
     anAuthorFailsPastItsRestarts: bool,
     aPolisherRunStopsOnADraftedArtifact: bool,
     aReviewerRunFailsOnADraftedArtifact: bool,
+    aPausedAuthorResumesItsWork: bool,
+    anAuthorResumesWhileAPolisherRuns: bool,
+    aPersonInstructsWhileAPolisherRuns: bool,
+    heldCommentsQueueForAPausedAuthor: bool,
   }
 
   /// A model-call author's turn end: the review after it and how the turn ended.
@@ -311,6 +317,10 @@ module reviewLoop {
 
   /// True when the author can be cancelled, fail, or restart, and the workflow can end.
   const AUTHOR_LIFECYCLE: bool
+
+  /// True when a person or the agent can pause and resume the author, and a person can instruct
+  /// it.
+  const PAUSE_AND_RESUME: bool
 
   /// How often one reviewer runs on one artifact. The config default.
   pure val MAX_REVIEW_RUNS: int = 3
@@ -352,6 +362,7 @@ module reviewLoop {
   pure val INITIAL_REVIEW: ReviewLoop = {
     author: {
       status: AtWork,
+      paused: false,
       restarts: 0,
       queuedPrompts: List(),
       turnComments: Set(),
@@ -664,10 +675,15 @@ module reviewLoop {
     else edited
   }
 
-  /// Send the oldest queued prompt when the author can take it. A model-call author's turn reads
-  /// the page as it starts.
+  /// Send the oldest queued prompt when the author can take it. A paused author does not take
+  /// one. A model-call author's turn reads the page as it starts.
   pure def drainQueue(loop: ReviewLoop): ReviewLoop =
-    if (loop.author.status == InReview and loop.author.queuedPrompts.length() > 0 and not(polisherRunning(loop)))
+    if (and {
+      loop.author.status == InReview,
+      not(loop.author.paused),
+      loop.author.queuedPrompts.length() > 0,
+      not(polisherRunning(loop)),
+    })
       {
         ...loop,
         author: {
@@ -1460,6 +1476,34 @@ module reviewLoop {
     ),
   }
 
+  /// A person or the agent pauses the author. A model call in flight runs to its end, and the
+  /// prompts that wait for the author stay queued.
+  action authorPaused: bool = all {
+    PAUSE_AND_RESUME,
+    authorLive(review),
+    not(review.author.paused),
+    move({ ...review, author: { ...review.author, paused: true } }, NoTurnEnd),
+  }
+
+  /// A person or the agent resumes the paused author with a prompt to continue. The prompt carries
+  /// no page comment.
+  action authorResumed: bool = all {
+    PAUSE_AND_RESUME,
+    authorLive(review),
+    review.author.paused,
+    roomForAPrompt(review),
+    move(promptAuthor({ ...review, author: { ...review.author, paused: false } }), NoTurnEnd),
+  }
+
+  /// A person tells the author what to do. The prompt carries no page comment, and it waits while
+  /// the author is paused or a polisher runs.
+  action personInstructs: bool = all {
+    PAUSE_AND_RESUME,
+    authorLive(review),
+    roomForAPrompt(review),
+    move(promptAuthor(review), NoTurnEnd),
+  }
+
   action step: bool = any {
     agentPromptsAuthor,
     authorTurnEndsOnANewRevision,
@@ -1488,6 +1532,9 @@ module reviewLoop {
     instanceRestarts,
     authorEnds,
     authorRestarts,
+    authorPaused,
+    authorResumed,
+    personInstructs,
   }
 
   /// True when an author turn ended on a revision other than `delivered`. An unknown revision
@@ -1823,6 +1870,13 @@ module reviewLoop {
       | _ => false
     }
 
+  /// True when the author was paused before a step and is not after it.
+  pure def resumesTheAuthor(step: Transition): bool = step.before.author.paused and not(step.after.author.paused)
+
+  /// True when a step leaves more prompts waiting for the author than it found.
+  pure def queuesAPrompt(step: Transition): bool =
+    step.after.author.queuedPrompts.length() > step.before.author.queuedPrompts.length()
+
   /// Whether one step reached each before-and-after witness.
   pure def witnessesReachedBy(step: Transition): ReachedWitnesses = {
     aRulingLandsOnARuledJudgeRun:
@@ -1952,6 +2006,17 @@ module reviewLoop {
       step.kind.recoverableFailure == AuthorHit and step.before.author.restarts == MAX_RESTARTS,
     aPolisherRunStopsOnADraftedArtifact: stopsTheRunOfADraft(step) and heldRunIsAPolisher(step.before),
     aReviewerRunFailsOnADraftedArtifact: stopsTheRunOfADraft(step) and not(heldRunIsAPolisher(step.before)),
+    aPausedAuthorResumesItsWork: resumesTheAuthor(step) and not(atWork(step.before)) and atWork(step.after),
+    anAuthorResumesWhileAPolisherRuns: resumesTheAuthor(step) and polisherRunning(step.before),
+    aPersonInstructsWhileAPolisherRuns: and {
+      polisherRunning(step.before),
+      queuesAPrompt(step),
+      step.kind.page == NoPageFact,
+      step.kind.recoverableFailure == NoRecoverableFailure,
+      step.before.author.paused == step.after.author.paused,
+    },
+    heldCommentsQueueForAPausedAuthor:
+      heldCommentsAskedFor(step, asked => asked.carried.size() > 0) and step.after.author.paused and queuesAPrompt(step),
   }
 
   /// An artifact has at most one unfinished refiner run, and the artifact is on it.
@@ -1997,11 +2062,13 @@ module reviewLoop {
   val authorGetsEveryPageFinding: bool = lastStepKept.authorGetsEveryPageFinding
 
   /// A prompt queued for a model-call author reaches it. A model-call author with a queued
-  /// prompt has a model turn in flight, or a polisher holds its page.
+  /// prompt has a model turn in flight, or a polisher holds its page. A paused author keeps its
+  /// queued prompts until it resumes.
   val aQueuedPromptReachesItsModelCallAuthor: bool = or {
     not(MODEL_CALL_AUTHOR),
     review.author.queuedPrompts.length() == 0,
     atWork(review),
+    review.author.paused,
     unfinishedRunIds(review).exists(id => refinerOf(review.refinerRuns[id]) == Polisher),
   }
 
@@ -2309,4 +2376,27 @@ module reviewLoop {
   /// Witness for `aStoppedRefinerRunHandsOverBlocked`: a findings reviewer or judge run the drafted
   /// artifact is on fails.
   val aReviewerRunFailsOnADraftedArtifact: bool = lastStepReached.aReviewerRunFailsOnADraftedArtifact
+
+  /// Witness for `aQueuedPromptReachesItsModelCallAuthor`: a prompt waits for the author while it
+  /// is paused in review.
+  val aPromptWaitsForAPausedAuthor: bool =
+    review.author.paused and review.author.status == InReview and review.author.queuedPrompts.length() > 0
+
+  /// Witness for `aQueuedPromptReachesItsModelCallAuthor`: a model call runs on for an author paused
+  /// during its turn.
+  val aPausedModelCallAuthorRunsItsTurn: bool = review.author.paused and atWork(review)
+
+  /// Witness for `aQueuedPromptReachesItsModelCallAuthor`: a paused author resumes and takes a prompt.
+  val aPausedAuthorResumesItsWork: bool = lastStepReached.aPausedAuthorResumesItsWork
+
+  /// Witness for `authorIsIdleWhileAPolisherRuns`: the author resumes while a polisher runs.
+  val anAuthorResumesWhileAPolisherRuns: bool = lastStepReached.anAuthorResumesWhileAPolisherRuns
+
+  /// Witness for `authorIsIdleWhileAPolisherRuns`: a person instructs the author while a polisher
+  /// runs.
+  val aPersonInstructsWhileAPolisherRuns: bool = lastStepReached.aPersonInstructsWhileAPolisherRuns
+
+  /// Witness for `aHeldCommentStaysHeldUntilItReachesTheAuthor`: held comments queue for a paused
+  /// author.
+  val heldCommentsQueueForAPausedAuthor: bool = lastStepReached.heldCommentsQueueForAPausedAuthor
 }

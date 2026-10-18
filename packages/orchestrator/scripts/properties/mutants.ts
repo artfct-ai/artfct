@@ -80,7 +80,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W9",
-    invariant: "authorIsIdleWhileAPolisherRuns",
+    invariant: "reviewLoop::authorIsIdleWhileAPolisherRuns",
     path: "src/workflow/refiner/loop.ts",
     find: "  if (taskAtWork(workflow, task)) return false;\n  return !workflow.store.queue()",
     replace: "  return !workflow.store.queue()",
@@ -117,7 +117,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W14",
-    invariant: "aPromptToAPageAuthorCarriesItsHeldComments",
+    invariant: "reviewLoop::aPromptToAPageAuthorCarriesItsHeldComments",
     path: "src/workflow/refiner/held-comments.ts",
     find: "  const unmarked = await workflow\n    .artifact(artifact.kind)\n    .acknowledge(heldCommentHandles(comments), artifact.ref);",
     replace: "  const unmarked: FeedbackHandle[] = [];",
@@ -156,8 +156,8 @@ export const MUTANTS: Mutant[] = [
     id: "W19",
     invariant: "finishedTaskKeepsItsStatus (restart)",
     path: "src/workflow/lifecycle.ts",
-    find: "  if (isTaskFinished(closed.status) || closed.restarts !== current.restarts) return;",
-    replace: "  if (closed.restarts !== current.restarts) return;",
+    find: "  if (isTaskFinished(closed.status) || closed.restarts !== restarts) return;",
+    replace: "  if (closed.restarts !== restarts) return;",
   },
   {
     id: "W20",
@@ -168,7 +168,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W21",
-    invariant: "pausedAuthorGetsNoPrompt, authorIsIdleWhileAPolisherRuns",
+    invariant: "pausedAuthorGetsNoPrompt, reviewLoop::authorIsIdleWhileAPolisherRuns",
     path: "src/workflow/task/harness/prompt-queue.ts",
     find: "  if (!promptsWait(workflow, task)) return sendPrompt(workflow, task, text);",
     replace: "  return sendPrompt(workflow, task, text);",
@@ -177,19 +177,19 @@ export const MUTANTS: Mutant[] = [
     id: "W22",
     invariant: "pausedAuthorGetsNoPrompt (restart)",
     path: "src/workflow/lifecycle.ts",
-    find: "  if (closed.paused_at === null) await restartSandbox(workflow, closed);",
-    replace: "  if (true || closed.paused_at === null) await restartSandbox(workflow, closed);",
+    find: "  if (closed.paused_at === null) await startSandbox(workflow, closed, true);",
+    replace: "  if (true || closed.paused_at === null) await startSandbox(workflow, closed, true);",
   },
   {
     id: "W23",
-    invariant: "aPromptToAPageAuthorCarriesItsHeldComments (unmarked)",
+    invariant: "reviewLoop::aPromptToAPageAuthorCarriesItsHeldComments (unmarked)",
     path: "src/workflow/refiner/held-comments.ts",
     find: "  return comments.filter((comment) => !unmarkedIds.has(comment.id));",
     replace: "  return comments;",
   },
   {
     id: "W24",
-    invariant: "aHeldCommentStaysHeldUntilItReachesTheAuthor",
+    invariant: "reviewLoop::aHeldCommentStaysHeldUntilItReachesTheAuthor",
     path: "src/workflow/refiner/feedback.ts",
     find: "    ? await workflow.artifact(artifact.kind).acknowledge(feedback.handles, artifact.ref)",
     replace:
@@ -227,14 +227,14 @@ export const MUTANTS: Mutant[] = [
     id: "W29",
     invariant: "aRunningTurnKeepsItsSandboxAwake (stale restart)",
     path: "src/workflow/lifecycle.ts",
-    find: "  if (workflow.store.requireSandbox(task.task_id).generation !== generation) return;\n",
+    find: "  if (sandbox.generation !== generation) return;\n",
     replace: "",
   },
   {
     id: "W30",
     invariant: "taskRestartsAtMostTwice (counted restart)",
     path: "src/workflow/lifecycle.ts",
-    find: "  if (isTaskFinished(closed.status) || closed.restarts !== current.restarts) return;",
+    find: "  if (isTaskFinished(closed.status) || closed.restarts !== restarts) return;",
     replace: "  if (isTaskFinished(closed.status)) return;",
   },
   {
