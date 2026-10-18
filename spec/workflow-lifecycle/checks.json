@@ -18,6 +18,7 @@
   ],
   "mainMinutes": {
     "pagesWithAReviewer": 2.5,
+    "pagesWithAPolisher": 2.8,
     "pagesWithoutRefiners": 3.7,
     "pagesAfterResearch": 7.7,
     "pagesFromModelCalls": 3.1
@@ -50,7 +51,50 @@
       "aJobCompletes",
       "anAcceptanceCheckIsOut",
       "aCallWasDropped",
-      "aRefinerRunFinished",
+      "aRefinerRunIsDone",
+      "aRefinerRunIsCancelled",
+      "aRefinerRunFailed",
+      "aRefinerRunFailsWhileItsAuthorWorks",
+      "aWorkflowEndCancelsARefinerRun",
+      "anAuthorIsInReview",
+      "theHumansHaveAPage",
+      "theWorkflowIsDone",
+      "theWorkflowFailed"
+    ],
+    "pagesWithAPolisher": [
+      "aPlanStartsTheWorkflow",
+      "anUndeclaredPlanLands",
+      "theWorkflowWaitsForItsStages",
+      "aPlanLandsOnAStartedWorkflow",
+      "aJobStartsIntoTheLastSlot",
+      "twoJobsShareAnInput",
+      "aJobBuildsOnAnArtifact",
+      "aFinishedTaskIsInAStep",
+      "aWorkflowEndedWithJobs",
+      "anEventLandsOnAFinishedWorkflow",
+      "aStaleAlarmFires",
+      "theSleepMessagePosts",
+      "aMessageWakesTheWorkflow",
+      "anAuthorRestarted",
+      "aRestartClosedAGeneration",
+      "aPausedAuthorWaitsToRestart",
+      "theWorkflowIsEnding",
+      "aPromptWaits",
+      "anAuthorFailed",
+      "aPausedAuthorResumes",
+      "aPromptWaitsForAPausedTask",
+      "aPromptWaitsForATurn",
+      "aVerbalCommandFindsSeveralJobs",
+      "aJobCompletes",
+      "anAcceptanceCheckIsOut",
+      "aCallWasDropped",
+      "aRefinerRunIsDone",
+      "aRefinerRunIsCancelled",
+      "aRefinerRunFailed",
+      "aWorkflowEndCancelsARefinerRun",
+      "aPolisherClosedTheAuthorsContainer",
+      "aPolisherHoldsAPrompt",
+      "anAuthorTakesAPromptAfterItsPolisher",
       "anAuthorIsInReview",
       "theHumansHaveAPage",
       "theWorkflowIsDone",
@@ -157,6 +201,20 @@
     "ignoredVariables": ["lastStepReached"],
     "bounds": {
       "pagesWithAReviewer": {
+        "pr": {
+          "jobsStarted": 1,
+          "callsOut": 2,
+          "promptsSent": 4,
+          "promptsWaiting": 2
+        },
+        "nightly": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 4,
+          "promptsWaiting": 2
+        }
+      },
+      "pagesWithAPolisher": {
         "pr": {
           "jobsStarted": 1,
           "callsOut": 2,

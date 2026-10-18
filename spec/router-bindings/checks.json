@@ -20,6 +20,7 @@
       "aDeliveryReachesAWorkflowBeforeItsCreate",
       "aDeliveryReachesAnEndedWorkflow",
       "aMessageAfterEndStartedTheNextWorkflow",
+      "aRetryAfterAFailedCreateFindsTheEndedWorkflow",
       "aWorkflowWasAbandoned",
       "aWorkflowEnded",
       "aPersonWroteAfterAnEnd"
@@ -35,7 +36,9 @@
       "aRunningWorkflowHasAJobOnTheIssue",
       "aJobStartFindsTheIssueBoundElsewhere",
       "aJobStartFindsTheIssueBindingMoved",
-      "aPersonWroteAfterAnEnd"
+      "aPersonWroteAfterAnEnd",
+      "aStartWithoutAPersonRebinds",
+      "threeDeliveriesOverlapOnOneSurface"
     ],
     "sessionWithPullRequest": [
       "aWorkflowStarted",
@@ -47,7 +50,8 @@
       "aWorkflowEnded",
       "aRunningWorkflowHasAJobOnTheIssue",
       "thePullRequestIsBound",
-      "aPersonWroteAfterAnEnd"
+      "aPersonWroteAfterAnEnd",
+      "aStartWithoutAPersonRebinds"
     ]
   },
   "tlc": {

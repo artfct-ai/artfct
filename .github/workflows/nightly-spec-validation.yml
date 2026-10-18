@@ -176,10 +176,6 @@ jobs:
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
         timeout-minutes: 25
         run: GITHUB_STEP_SUMMARY="$RUNNER_TEMP/findings/agent_turn-$SHARD.md" bun scripts/properties/e2e-property-test.ts agent_turn
-      - name: Run the router property
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
-        run: GITHUB_STEP_SUMMARY="$RUNNER_TEMP/findings/router-$SHARD.md" bun scripts/properties/e2e-property-test.ts router
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

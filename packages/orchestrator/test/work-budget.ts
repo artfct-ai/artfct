@@ -1,9 +1,9 @@
-/** The most store statements one action may run. A settled action runs a few hundred at most. */
+/** The most store statements one step of the workflow world may run. A settled step runs a few hundred at most. */
 export const ACTION_WORK_BUDGET = 5_000;
 
-/** Stop an action that ran past its work budget, as a violation of the budget invariant. */
+/** Stop a step of the workflow world that ran past its work budget. */
 export function exceededWorkBudget(action: string, work: number): never {
   throw new Error(
-    `everyActionSettlesWithinItsWorkBudget: ${action} ran ${work} store statements, past the budget of ${ACTION_WORK_BUDGET}`,
+    `work budget: ${action} ran ${work} store statements, past the budget of ${ACTION_WORK_BUDGET}`,
   );
 }
