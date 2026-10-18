@@ -112,6 +112,12 @@ describe("workflow lifecycle spec", () => {
     await replayTrace("modelCallPagesForAnIssue", traceSteps("modelCallPagesForAnIssue", trace));
   });
 
+  it("keeps a prompt queued until the page create a stop reached returns", async () => {
+    const path = join(PINNED_TRACES, "a-prompt-waits-for-a-stopped-page-create.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("modelCallPagesForAnIssue", traceSteps("modelCallPagesForAnIssue", trace));
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,

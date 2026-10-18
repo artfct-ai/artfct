@@ -5,6 +5,7 @@ import { EchoModel, GatedModel, ScriptedFailure } from "../../../test/fake-model
 import {
   PAGE_PARENT,
   fakeDocumentsOf,
+  GatedPageWrites,
   patchModelExecution,
   patchNestingHost,
   seedModelAuthor,
@@ -679,6 +680,83 @@ describe("stopAuthor on a model-call author", () => {
     it("puts the author back in review", () =>
       stopped((workflow) => {
         expect(workflow.store.requireTask("wf_x.1").status).toBe("in_review");
+      }));
+  });
+
+  describe("while the page create of its first turn runs, then a prompt", () => {
+    let outcome: StopOutcome | null = null;
+    let queuedBeforeTheCreate: string[] = [];
+    let mostOut = 0;
+    const stopped = scenario(runtimeWithD1, async (workflow) => {
+      patchModelExecution(workflow);
+      const author = seedModelAuthor(workflow);
+      workflow.modelInstance = new EchoModel(REVISE_ANSWER);
+      const writes = new GatedPageWrites(fakeDocumentsOf(workflow));
+      const turn = runModelAuthorTurn(workflow, author);
+      await writes.waiting;
+      outcome = await stopAuthor(workflow, workflow.store.requireTask(author.task_id));
+      await promptTask(workflow, workflow.store.requireTask(author.task_id), FEEDBACK);
+      queuedBeforeTheCreate = workflow.store.queue().map((row) => row.text);
+      writes.release();
+      await turn;
+      mostOut = writes.mostOut;
+    });
+
+    it("leaves the turn in flight until the create returns", () =>
+      stopped(() => {
+        expect(outcome).toBe("writing");
+      }));
+
+    it("keeps the prompt queued while the create is out", () =>
+      stopped(() => {
+        expect(queuedBeforeTheCreate).toEqual([FEEDBACK]);
+      }));
+
+    it("creates one page and records it", () =>
+      stopped((workflow) => {
+        expect(fakeDocumentsOf(workflow).argsOf("createPage")).toHaveLength(1);
+        expect(workflow.store.artifact("wf_x-1")).not.toBeNull();
+      }));
+
+    it("revises the page with the prompt once the create returns", () =>
+      stopped((workflow) => {
+        expect(fakeDocumentsOf(workflow).argsOf("updatePageContent")).toHaveLength(1);
+        expect(mostOut).toBe(1);
+        expect(workflow.store.queue()).toEqual([]);
+      }));
+  });
+
+  describe("while the page update of a revise runs, then a prompt", () => {
+    let outcome: StopOutcome | null = null;
+    let mostOut = 0;
+    const stopped = scenario(runtimeWithD1, async (workflow) => {
+      const author = await seedPageWithHumans(workflow);
+      workflow.modelInstance = new EchoModel(REVISE_ANSWER);
+      const writes = new GatedPageWrites(fakeDocumentsOf(workflow));
+      const revise = promptTask(workflow, author, FEEDBACK);
+      await writes.waiting;
+      outcome = await stopAuthor(workflow, workflow.store.requireTask(author.task_id));
+      await promptTask(workflow, workflow.store.requireTask(author.task_id), FEEDBACK);
+      writes.release();
+      await revise;
+      mostOut = writes.mostOut;
+    });
+
+    it("leaves the turn in flight until the update returns", () =>
+      stopped(() => {
+        expect(outcome).toBe("writing");
+      }));
+
+    it("runs one page update at a time", () =>
+      stopped((workflow) => {
+        expect(fakeDocumentsOf(workflow).argsOf("updatePageContent")).toHaveLength(2);
+        expect(mostOut).toBe(1);
+      }));
+
+    it("puts the author back in review with its queue empty", () =>
+      stopped((workflow) => {
+        expect(workflow.store.requireTask("wf_x.1").status).toBe("in_review");
+        expect(workflow.store.queue()).toEqual([]);
       }));
   });
 

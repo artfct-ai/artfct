@@ -77,7 +77,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | T51 | Every harness permission request is allowed. Other agent requests get method not found. | |
 | T52 | A sandbox destroy that fails is logged and ignored. A bridge process check that fails reads as running. | |
 | T53 | A token mint that fails starts the sandbox without the token. A failed all-repos read token only narrows access. | |
-| T54 | A model call of a model-call author has a 13 minute deadline. A stop or a finished task before the answer leaves the page as it was. A page write that returns after the task finished does not make the page the job's artifact. | `workflowLifecycle::stoppedModelCallLeavesThePage`, `workflowLifecycle::aModelCallAuthorWorksOnlyWhileItsCallIsOut`, `workflowLifecycle::oneLiveJobPerInputArtifact` |
+| T54 | A model call of a model-call author has a 13 minute deadline. A stop or a finished task before the answer leaves the page as it was. A stop during the page write ends the turn once the write returns, and a prompt meanwhile waits in the queue, so the author has at most one page write out. A page write that returns after the task finished does not make the page the job's artifact. | `workflowLifecycle::stoppedModelCallLeavesThePage`, `workflowLifecycle::aModelCallAuthorWorksOnlyWhileItsCallIsOut`, `workflowLifecycle::oneLiveJobPerInputArtifact`, `workflowLifecycle::aModelCallAuthorHasAtMostOnePageWriteOut` |
 | T55 | A page model answer that is blank or throws fails the task. | |
 
 ## Orchestrator agent turn

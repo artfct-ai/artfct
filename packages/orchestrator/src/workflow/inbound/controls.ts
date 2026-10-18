@@ -130,13 +130,14 @@ export async function pauseTask(
   );
 }
 
-/** What a stop found the author doing. */
-export type StopOutcome = "cancelled" | "ended" | "idle";
+/** What a stop found the author doing. `writing` is a model turn whose page write is out. */
+export type StopOutcome = "cancelled" | "ended" | "writing" | "idle";
 
 /**
  * End the author's current turn and drop its queued prompts, so it waits for the person. A
  * running turn gets a cancel, and its container goes too, since a cancel on a dropped socket is
- * lost.
+ * lost. A model turn whose page write is out ends once the write returns, so the author does not
+ * start a second write beside it.
  */
 export async function stopAuthor(workflow: WorkflowRuntime, author: TaskRow): Promise<StopOutcome> {
   workflow.store.clearPromptQueue(author.task_id);
@@ -146,9 +147,12 @@ export async function stopAuthor(workflow: WorkflowRuntime, author: TaskRow): Pr
   const connected = workflow.connections(author.task_id).length > 0;
   const cancelled = connected && cancelPromptTurn(workflow, author);
   const atWork = !isTaskFinished(author.status) && taskAtWork(workflow, author);
-  if (atWork) await endStoppedTurn(workflow, author);
+  const turnId = workflow.store.requireTask(author.task_id).model_turn_id;
+  const writing = atWork && turnId !== null && workflow.pageWritesOut.has(turnId);
+  if (atWork && !writing) await endStoppedTurn(workflow, author);
   await closeSessionFeed(workflow, author, STOPPED_CLOSING);
   if (cancelled) return "cancelled";
+  if (writing) return "writing";
   return atWork ? "ended" : "idle";
 }
 

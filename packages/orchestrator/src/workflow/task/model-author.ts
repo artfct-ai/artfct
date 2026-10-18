@@ -28,7 +28,7 @@ import { isTaskFinished, workflowName } from "../store/state";
 import type { JobRow, TaskRow } from "../store/tasks";
 import type { Wake, WorkflowRuntime } from "../types";
 import { taskAtWork } from "./at-work";
-import { startModelTurn } from "./model-turn";
+import { startModelTurn, type ModelTurn } from "./model-turn";
 import { drainQueue, taskContext } from "./harness/prompt-queue";
 import { digestFor, LOGGED_ERROR_CHARS, loggedFailureReason, SUMMARY_CHARS } from "./harness/turn";
 
@@ -56,17 +56,16 @@ export async function runModelAuthorTurn(workflow: WorkflowRuntime, task: TaskRo
   }
   const turn = await startModelTurn(workflow, task.task_id);
   await flushBoards(workflow, task.job_id);
-  const outcome = await producePage(workflow, task, {
-    documents,
-    parent,
-    turnEnded: turn.ended,
-  }).catch((error: unknown) => {
-    workflow.log(
-      task.task_id,
-      `model call or page create failed: ${String(error).slice(0, LOGGED_ERROR_CHARS)}`,
-    );
-    return { failure: loggedFailureReason(task.task_id, "The model call or the page create") };
-  });
+  const outcome = await producePage(workflow, task, { documents, parent, turn }).catch(
+    (error: unknown) => {
+      workflow.log(
+        task.task_id,
+        `model call or page create failed: ${String(error).slice(0, LOGGED_ERROR_CHARS)}`,
+      );
+      return { failure: loggedFailureReason(task.task_id, "The model call or the page create") };
+    },
+  );
+  workflow.pageWritesOut.delete(turn.id);
   if ("failure" in outcome) {
     return failTask(workflow, workflow.store.requireTask(task.task_id), outcome.failure);
   }
@@ -108,7 +107,7 @@ async function reviseModelAuthorPage(workflow: WorkflowRuntime, task: TaskRow): 
   const outcome = await revisePage(workflow, task, {
     findings: next.text,
     promptId: next.id,
-    turnEnded: turn.ended,
+    turn,
   }).catch((error: unknown) => {
     workflow.log(
       task.task_id,
@@ -116,6 +115,7 @@ async function reviseModelAuthorPage(workflow: WorkflowRuntime, task: TaskRow): 
     );
     return { failure: loggedFailureReason(task.task_id, "The model call or the page update") };
   });
+  workflow.pageWritesOut.delete(turn.id);
   if ("failure" in outcome) {
     await failTask(workflow, workflow.store.requireTask(task.task_id), outcome.failure);
     return true;
@@ -170,8 +170,8 @@ function finishedDuringPageWrite(workflow: WorkflowRuntime, taskId: string): boo
   return true;
 }
 
-/** Where the page goes, and whether a stop ended the turn. */
-type PageHost = { documents: Documents; parent: string; turnEnded: () => boolean };
+/** Where the page goes, and the model turn that writes it. */
+type PageHost = { documents: Documents; parent: string; turn: ModelTurn };
 
 /**
  * Produce the page and create it on the host. The root page stage instead fills the root page
@@ -193,7 +193,7 @@ async function producePage(
     model: call.model,
     system: call.system,
     prompt: producePagePrompt(call.subject),
-    turnEnded: host.turnEnded,
+    turn: host.turn,
   });
   if (text === null) return { target: null };
   if (!text) return { failure: "The model answered with no document text." };
@@ -229,9 +229,9 @@ async function producePage(
 async function revisePage(
   workflow: WorkflowRuntime,
   task: TaskRow,
-  turn: { findings: string; promptId: number; turnEnded: () => boolean },
+  request: { findings: string; promptId: number; turn: ModelTurn },
 ): Promise<{ closingText: string | null } | { startOver: true } | { failure: string }> {
-  const { findings, turnEnded } = turn;
+  const { findings, turn } = request;
   const documents = await workflow.documents();
   const ref = workflow.store.artifact(task.job_id)?.ref;
   if (!documents || ref?.kind !== "page") {
@@ -251,7 +251,7 @@ async function revisePage(
     model: await activityModel(workflow, revise.model, revise.effort),
     system: modelSystemPrompt(revise),
     prompt,
-    turnEnded,
+    turn,
   });
   if (text === null) return { closingText: null };
   if ((await documents.readPageContent(ref.page_id)) !== pageText) return { startOver: true };
@@ -276,7 +276,7 @@ async function revisePage(
     documents,
     pageId: ref.page_id,
     change,
-    promptId: turn.promptId,
+    promptId: request.promptId,
   });
   await documents.updatePageContent(ref.page_id, change);
   workflow.store.updateTask(task.task_id, { summary: revision.closingText.slice(-SUMMARY_CHARS) });
@@ -319,19 +319,20 @@ async function replyToQueuedCommentsOnRemovedLines(
 
 /**
  * One gateway call, counted on the task. Null when the task finished or a stop ended the turn
- * first, even when the call failed. Throws past `MODEL_AUTHOR_CALL_TIMEOUT_MS`.
+ * first, even when the call failed. Throws past `MODEL_AUTHOR_CALL_TIMEOUT_MS`. From its answer on,
+ * the page write of the turn is out.
  */
 async function callAuthorModel(
   workflow: WorkflowRuntime,
   task: TaskRow,
-  request: { model: LanguageModel; system: string; prompt: string; turnEnded: () => boolean },
+  request: { model: LanguageModel; system: string; prompt: string; turn: ModelTurn },
 ): Promise<string | null> {
   const { generateText } = await import("ai");
-  const { turnEnded, ...call } = request;
+  const { turn, ...call } = request;
   const bounded = await runUnderDeadline(MODEL_AUTHOR_CALL_TIMEOUT_MS, (abortSignal) =>
     generateText({ ...call, abortSignal }),
   ).catch((error: unknown) => ({ kind: "failed" as const, error }));
-  if (bounded.kind !== "done" && turnEnded()) {
+  if (bounded.kind !== "done" && turn.ended()) {
     workflow.log(task.task_id, "model call failed after a stop ended its turn. no change.");
     return null;
   }
@@ -347,10 +348,11 @@ async function callAuthorModel(
     workflow.log(task.task_id, `model call ended after the task was ${counted.status}. no change.`);
     return null;
   }
-  if (turnEnded()) {
+  if (turn.ended()) {
     workflow.log(task.task_id, "model call ended after a stop ended its turn. no change.");
     return null;
   }
+  workflow.pageWritesOut.add(turn.id);
   return result.text.trim();
 }
 

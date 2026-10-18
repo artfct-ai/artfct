@@ -165,6 +165,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
   notifier!: Notifier;
   transcript!: TranscriptStore;
   readonly sessionFeeds = new Map<string, AuthorFeed>();
+  readonly pageWritesOut = new Set<string>();
   /** The chat the notifier posts through, kept so the agent can read back through it. */
   private chatClient: Chat | null = null;
   private turns = new TurnCoalescer();
