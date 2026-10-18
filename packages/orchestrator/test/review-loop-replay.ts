@@ -11,6 +11,7 @@ import { findingText } from "../src/artifact/review-text";
 import { CLOSING_TEXT_MARKER, replyMarker } from "../src/prompts/model-author-prompt";
 import { rejectionHeadline } from "../src/prompts/review-prompt";
 import { sendHeldCommentsOnRevisionRequest } from "../src/workflow/refiner/held-comments";
+import { isTaskFinished } from "../src/workflow/store/state";
 import type { RefinerRun, TaskRow } from "../src/workflow/store/tasks";
 import type { TaskAlarm } from "../src/workflow/task/harness/timers";
 import { taskAtWork } from "../src/workflow/task/at-work";
@@ -23,6 +24,7 @@ import { toolText } from "./tool-result";
 import {
   agentCancels,
   agentFailsWorkflow,
+  agentHoldsAuthor,
   agentPromptsAuthor,
   agentRoutes,
   agentStartsTask,
@@ -34,6 +36,7 @@ import {
   firstArtifactAppears,
   personCancels,
   personRules,
+  personSendsControl,
   refinerRunEnds,
   refinerRunFails,
   refinerRunHarnessExits,
@@ -87,6 +90,7 @@ export const SPEC_SETUPS = {
     author: "page_model",
     authors: 1,
   },
+  pausedModelCallAuthor: { refiners: "polisher", author: "page_model", authors: 1 },
 } as const satisfies Record<
   string,
   { refiners: RefinerSetup; author: SetupAuthor; authors: 1 | 2 }
@@ -144,6 +148,7 @@ type SpecClose = (typeof ARTIFACT_CLOSES)[number];
 export type SpecReview = {
   author: {
     status: SpecAuthorStatus;
+    paused: boolean;
     restarts: number;
     queuedPrompts: number[][];
     turnComments: number[];
@@ -220,6 +225,7 @@ function specReview(value: unknown): SpecReview {
   return {
     author: {
       status: itfOneOf(itfVariant(itfField(author, "status"))!.tag, AUTHOR_STATUSES),
+      paused: itfBool(itfField(author, "paused")),
       restarts: itfInt(itfField(author, "restarts")),
       queuedPrompts: itfList(itfField(author, "queuedPrompts")).map(sortedInts),
       turnComments: sortedInts(itfField(author, "turnComments")),
@@ -413,6 +419,12 @@ function refinerRunEndsUnfinished(
 function closingsAtTurnEnd(promptQueued: boolean): AuthorClosing[] {
   return promptQueued ? ["finished", "silent", "stopped_early"] : ["finished", "silent"];
 }
+
+/**
+ * When a new instance takes over: between steps, or while the agent's prompt to the author of a
+ * page waits on the host's read of its held comments.
+ */
+const RESTART_MOMENTS = ["between_steps", "while_held_comments_are_read"] as const;
 
 /** How code fails to rule on a judge run, when the spec says it cannot rule. */
 const CANNOT_RULE_PATHS = ["unclear", "decisions_fail"] as const;
@@ -917,6 +929,7 @@ export class ReviewLoopReplay {
     return {
       author: {
         status: specAuthorStatusOf(author, atWork),
+        paused: author.paused_at !== null,
         restarts: author.restarts,
         queuedPrompts: (this.pageModel && atWork ? queued.slice(1) : queued).map((row) =>
           this.specCommentIdsIn(row.text),
@@ -964,6 +977,16 @@ export class ReviewLoopReplay {
     if (isAuthorTurnEnd(action)) return this.harnessAuthorTurnEnds(step, index);
     if (action === "authorEnds") return this.authorEnds(pickTag(step, "ending"), index);
     if (action === "authorRestarts") return authorHitsARecoverableFailure(index);
+    if (action === "authorPaused") {
+      return this.pick([personSendsControl(index, "pause"), agentHoldsAuthor(index, "pause_task")]);
+    }
+    if (action === "authorResumed") {
+      return this.pick([
+        personSendsControl(index, "resume"),
+        agentHoldsAuthor(index, "resume_task"),
+      ]);
+    }
+    if (action === "personInstructs") return personSendsControl(index, "instruct");
     if (action === "refinerRunHitsARecoverableFailure") {
       return this.recoverableFailure(pickTag(step, "cause"), index);
     }
@@ -1544,6 +1567,9 @@ export class ReviewLoopReplay {
       replay.held.clear();
       return calls;
     });
+    if (this.pick(RESTART_MOMENTS) === "while_held_comments_are_read") {
+      await this.untilHeldCommentsAreRead();
+    }
     await this.world.restart();
     for (const alarm of this.world.workflow.alarmsFor("settleLostJudgeRuling")) {
       const settled = alarm.payload as TaskAlarm;
@@ -1563,6 +1589,28 @@ export class ReviewLoopReplay {
       if (replay === this || replay.held.has(runId)) continue;
       replay.held.set(runId, { ...held, release: () => {}, turnEnd: Promise.resolve() });
     }
+  }
+
+  /**
+   * The agent prompts a running author of a page, and the host never answers the read of the
+   * comments held on it. An author that finished, or a page that is not out, has none to read.
+   */
+  private async untilHeldCommentsAreRead(): Promise<void> {
+    const store = this.world.workflow.store;
+    const author = store.requireTask(this.author.taskId);
+    if (isTaskFinished(author.status) || store.artifact(author.job_id)?.ref.kind !== "page") return;
+    const host = this.host();
+    const read = host.heldComments.bind(host);
+    const readOut = new Promise<void>((reached) => {
+      host.heldComments = () => {
+        reached();
+        return new Promise(() => {});
+      };
+    });
+    const { prompt_task } = taskTools(this.world.workflow);
+    void prompt_task.execute({ task_id: author.task_id, text: "Add a test for it." }, TOOL_CALL);
+    await readOut;
+    host.heldComments = read;
   }
 
   /**
