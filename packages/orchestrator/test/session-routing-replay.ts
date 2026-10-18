@@ -8,7 +8,7 @@ import { armTurnWatchdog, onTurnTimeout } from "../src/agent/turn/watchdog";
 import { flushBoards } from "../src/workflow/board/board";
 import { onIdle } from "../src/workflow/lifecycle";
 import { DONE_TEXT, STOPPED_TEXT } from "../src/workflow/feed/feed";
-import { isTaskFinished, isWorkflowFinished } from "../src/workflow/store/state";
+import { isTaskFinished, isWorkflowFinished, type Subject } from "../src/workflow/store/state";
 import type { TaskRow } from "../src/workflow/store/tasks";
 import { onWallClock } from "../src/workflow/task/harness/timers";
 import type { TaskEvent } from "../src/workflow/task/events";
@@ -37,7 +37,7 @@ import {
   type WorkflowAction,
   type WorldSetup,
 } from "./workflow-world";
-import { SUBJECT_ISSUE_KEY, subIssueKey, worldIssueUrl } from "./world-tracker";
+import { SUBJECT_ISSUE_KEY, subIssueKey, WORLD_PROJECT, worldIssueUrl } from "./world-tracker";
 
 /** The setup modules of the session routing spec: where each workflow starts, and who authors. */
 export const SPEC_SETUPS = {
@@ -54,6 +54,7 @@ export type SpecSetup = keyof typeof SPEC_SETUPS;
 const TRACE_STEPS = 25;
 
 const ISSUES = ["SubjectIssue", "SubIssue"] as const;
+const SUBJECTS = ["NoSubject", "IssueSubject", "ProjectSubject"] as const;
 const AUTHOR_STATUSES = ["NotStarted", "InTurn", "Idle", "InReview", "Finished"] as const;
 const RESEARCH_STATES = [
   "NoResearch",
@@ -94,6 +95,7 @@ const STREAMED = ["Message", "ToolCall"] as const;
 const HEALTHS = ["TrackerUp", "FailsBeforeStoring", "FailsAfterStoring"] as const;
 
 type Issue = (typeof ISSUES)[number];
+type SpecSubject = (typeof SUBJECTS)[number];
 type PostKind = (typeof POST_KINDS)[number];
 type FeedKind = (typeof FEED_KINDS)[number];
 type SessionText = (typeof SESSION_TEXTS)[number];
@@ -107,6 +109,12 @@ type Health = (typeof HEALTHS)[number];
 const ISSUE_KEY: Record<Issue, string> = {
   SubjectIssue: SUBJECT_ISSUE_KEY,
   SubIssue: subIssueKey(0),
+};
+
+/** The link a plan names for each subject of the spec that a plan can name. */
+const SUBJECT_LINK: Record<Exclude<SpecSubject, "NoSubject">, string> = {
+  IssueSubject: worldIssueUrl(SUBJECT_ISSUE_KEY),
+  ProjectSubject: WORLD_PROJECT.url,
 };
 
 /** The chat channel of each chat thread of the spec, by number. */
@@ -159,6 +167,7 @@ export type SpecOutput = { posts: SpecPost[]; feed: SpecFeedPost[]; plans: Issue
 
 /** The workflow as the spec sees it. Targets go by their spec names, and sets are sorted. */
 export type SpecRouting = {
+  subject: SpecSubject;
   replyTargets: string[];
   jobs: SpecJob[];
   waiting: string[];
@@ -170,6 +179,7 @@ export type SpecRouting = {
 
 /** The values the spec picked for one action. */
 type SpecPicks = {
+  subject: SpecSubject | null;
   issue: Issue | null;
   text: SessionText | null;
   outcome: Outcome | null;
@@ -195,14 +205,16 @@ export async function generateTraces(
   count: number,
   seed: number,
 ): Promise<TraceStep[][]> {
-  const traces = await quintTraces({
-    spec: "session-routing",
-    setup,
-    count,
-    steps: TRACE_STEPS,
-    seed,
-  });
-  return traces.map((trace) => traceSteps(setup, trace));
+  return quintTraces(
+    {
+      spec: "session-routing",
+      setup,
+      count,
+      steps: TRACE_STEPS,
+      seed,
+    },
+    (trace) => traceSteps(setup, trace),
+  );
 }
 
 /** The steps of one spec trace, given as its ITF JSON, run on one setup. */
@@ -223,6 +235,7 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
     return {
       action: itfText(itfField(state, "mbt::actionTaken")),
       picks: {
+        subject: picked("subject", SUBJECTS),
         issue: picked("issue", ISSUES),
         text: picked("text", SESSION_TEXTS),
         outcome: picked("outcome", OUTCOMES),
@@ -271,6 +284,7 @@ function specTargetName(value: unknown): string {
 
 function specRouting(value: unknown): SpecRouting {
   return {
+    subject: itfOneOf(itfVariant(itfField(value, "subject"))!.tag, SUBJECTS),
     replyTargets: itfSet(itfField(value, "replyTargets")).map(specTargetName).toSorted(),
     jobs: itfList(itfField(value, "jobs")).map((job) => ({
       issue: itfOneOf(itfVariant(itfField(job, "issue"))!.tag, ISSUES),
@@ -406,7 +420,7 @@ function todosOf(workflow: WorkflowRuntime, task: TaskRow | null): SpecTodos {
 export class SessionRoutingReplay {
   private constructor(readonly world: WorkflowWorld) {}
 
-  /** A started world of `setup`. A chat workflow's plan names the subject issue. */
+  /** A started world of `setup`. A chat workflow's plan does not name a subject yet. */
   static async open(setup: SpecSetup): Promise<SessionRoutingReplay> {
     const world = await WorkflowWorld.open({ ...WORLD_SETUP, ...SPEC_SETUPS[setup] });
     const { workflow } = world;
@@ -416,31 +430,14 @@ export class SessionRoutingReplay {
       await recordNote(text, wake, from);
     };
     const replay = new SessionRoutingReplay(world);
-    const chat = SPEC_SETUPS[setup].origin === "chat";
-    await world.apply(
-      worldAction("the agent sets the plan", async () => {
-        await planTools(workflow).set_plan.execute(
-          {
-            name: "Fix login",
-            definition: workflow.workflowDefinitions()[0]?.name ?? "",
-            reason: "the request asks for a design",
-            stages: [STAGE],
-            repo: REPO,
-            page_parent: workflow.state.page_parent,
-            concurrency: ISSUES.length,
-            ...(chat ? { subject: worldIssueUrl(SUBJECT_ISSUE_KEY) } : {}),
-          },
-          TOOL_CALL,
-        );
-      }),
-    );
+    await world.apply(worldAction("the agent sets the plan", () => setPlan(workflow, {})));
     return replay;
   }
 
   /** Take one spec action, then bring up every sandbox that waits. Returns what the step sent. */
   async take(step: TraceStep): Promise<SpecOutput> {
     const deliveriesBefore = this.world.workflow.deliveries.length;
-    const outboxBefore = this.world.workflow.store.outbox().length;
+    const outboxBefore = this.world.lastOutboxId();
     this.world.setTrackerHealth(TRACKER_HEALTH[step.picks.health ?? "TrackerUp"]);
     await this.world.apply(this.actionFor(step));
     this.world.setTrackerHealth("up");
@@ -450,7 +447,7 @@ export class SessionRoutingReplay {
       }),
     );
     const deliveries = this.world.workflow.deliveries.slice(deliveriesBefore);
-    const rows = this.world.workflow.store.outbox().slice(outboxBefore);
+    const rows = this.world.outboxRowsAfter(outboxBefore);
     return {
       posts: deliveries.map(({ event, targets }) => {
         const kind = POST_KIND_OF[event.type];
@@ -475,6 +472,7 @@ export class SessionRoutingReplay {
     const { store, state, transcript } = workflow;
     const jobs = store.jobs();
     return {
+      subject: specSubjectOf(state.subject ?? null),
       replyTargets: state.reply_targets.map(targetName).toSorted(),
       jobs: jobs.map((job) => {
         const author = store.authorTask(job.job_id);
@@ -575,6 +573,13 @@ export class SessionRoutingReplay {
             TOOL_CALL,
           );
         });
+      case "agentNamesTheSubject": {
+        const subject = required(picks.subject);
+        if (subject === "NoSubject") throw new Error("a plan cannot name no subject");
+        return worldAction(`the agent's plan names the subject ${subject}`, (world) =>
+          setPlan(world.workflow, { subject: SUBJECT_LINK[subject] }),
+        );
+      }
       case "trackerOpensSession":
         return worldAction(`the tracker opens a session on ${picks.issue}`, (world) => {
           const issue = ISSUE_KEY[required(picks.issue)];
@@ -776,6 +781,32 @@ export class SessionRoutingReplay {
       .filter((task) => task.role === "researcher" && !isTaskFinished(task.status))
       .findIndex((task) => task.task_id === researcher.task_id);
   }
+}
+
+/** The agent sets the plan of the one stage, and names `subject` when given. */
+async function setPlan(workflow: WorkflowRuntime, named: { subject?: string }): Promise<void> {
+  await planTools(workflow).set_plan.execute(
+    {
+      name: "Fix login",
+      definition: workflow.workflowDefinitions()[0]?.name ?? "",
+      reason: "the request asks for a design",
+      stages: [STAGE],
+      repo: REPO,
+      page_parent: workflow.state.page_parent,
+      concurrency: ISSUES.length,
+      ...named,
+    },
+    TOOL_CALL,
+  );
+}
+
+function specSubjectOf(subject: Subject | null): SpecSubject {
+  if (!subject) return "NoSubject";
+  if (subject.kind === "project") return "ProjectSubject";
+  if (issueOfKey(subject.issue_id) !== "SubjectIssue") {
+    throw new Error(`the spec has no subject issue ${subject.issue_id}`);
+  }
+  return "IssueSubject";
 }
 
 function taskIdOfAlarm(payload: unknown): string | null {

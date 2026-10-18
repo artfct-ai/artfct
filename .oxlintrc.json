@@ -52,12 +52,19 @@
   },
   "overrides": [
     {
-      "files": ["**/clients.ts", "**/*.test.ts", "**/*.test.medium.ts", "**/test/**"],
+      "files": [
+        "**/clients.ts",
+        "**/*.test.ts",
+        "**/*.test.medium.ts",
+        "**/*.replay.ts",
+        "**/*.replay.medium.ts",
+        "**/test/**"
+      ],
       "rules": { "no-restricted-imports": "off" }
     },
     {
       // bun-types declares the `resolves` and `rejects` matchers as void, though they return promises.
-      "files": ["**/*.test.ts"],
+      "files": ["**/*.test.ts", "**/*.replay.ts"],
       "rules": { "typescript/await-thenable": "off" }
     }
   ],

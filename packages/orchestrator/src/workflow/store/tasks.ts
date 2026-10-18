@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, notInArray } from "drizzle-orm";
+import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import type { Review } from "../../artifact/types";
 import type { TaskRole } from "../task/events";
 import { TURN_PURPOSE } from "../../agent/model/usage";
@@ -87,8 +87,59 @@ const HANDSHAKE_PURPOSES: RpcPurpose[] = ["initialize", "session_new", "set_effo
 
 /** Typed access to the workflow's task, model usage, rpc, and prompt queue tables. */
 export class WorkflowStore extends BoardStore {
+  private readonly taskById = this.db
+    .select()
+    .from(tasks)
+    .where(eq(tasks.task_id, sql.placeholder("taskId")))
+    .prepare();
+  private readonly allTasks = this.db.select().from(tasks).orderBy(tasks.started_at).prepare();
+  private readonly activeJobTasks = this.db
+    .select()
+    .from(tasks)
+    .where(and(notInArray(tasks.status, FINISHED_TASK_STATUSES), inArray(tasks.role, JOB_ROLES)))
+    .orderBy(tasks.started_at)
+    .prepare();
+  private readonly refinerRunsOfJob = this.db
+    .select({ task: tasks, review: reviews, ruling: rulings })
+    .from(tasks)
+    .leftJoin(reviews, eq(reviews.task_id, tasks.task_id))
+    .leftJoin(rulings, eq(rulings.task_id, tasks.task_id))
+    .where(and(eq(tasks.job_id, sql.placeholder("jobId")), inArray(tasks.role, REFINER_ROLES)))
+    .orderBy(tasks.started_at)
+    .prepare();
+  private readonly rulingOfTask = this.db
+    .select()
+    .from(rulings)
+    .where(eq(rulings.task_id, sql.placeholder("taskId")))
+    .prepare();
+  private readonly taskOfJobInRole = this.db
+    .select()
+    .from(tasks)
+    .where(and(eq(tasks.job_id, sql.placeholder("jobId")), eq(tasks.role, sql.placeholder("role"))))
+    .prepare();
+  private readonly jobById = this.db
+    .select()
+    .from(jobs)
+    .where(eq(jobs.job_id, sql.placeholder("jobId")))
+    .prepare();
+  private readonly allJobs = this.db.select().from(jobs).orderBy(jobs.created_at).prepare();
+  private readonly sandboxOfTask = this.db
+    .select()
+    .from(sandboxes)
+    .where(eq(sandboxes.task_id, sql.placeholder("taskId")))
+    .prepare();
+  private readonly handshakeOfTask = this.db
+    .select({ id: rpc.id })
+    .from(rpc)
+    .where(
+      and(eq(rpc.task_id, sql.placeholder("taskId")), inArray(rpc.purpose, HANDSHAKE_PURPOSES)),
+    )
+    .limit(1)
+    .prepare();
+  private readonly allQueued = this.db.select().from(promptQueue).orderBy(promptQueue.id).prepare();
+
   task(taskId: string): TaskRow | null {
-    return this.db.select().from(tasks).where(eq(tasks.task_id, taskId)).get() ?? null;
+    return this.taskById.get({ taskId }) ?? null;
   }
 
   /** The task, or throw. For code paths that just wrote the row. */
@@ -99,7 +150,7 @@ export class WorkflowStore extends BoardStore {
   }
 
   tasks(): TaskRow[] {
-    return this.db.select().from(tasks).orderBy(tasks.started_at).all();
+    return this.allTasks.all();
   }
 
   /**
@@ -107,12 +158,7 @@ export class WorkflowStore extends BoardStore {
    * Refiner runs are left out.
    */
   activeAuthorAndResearcherTasks(): TaskRow[] {
-    return this.db
-      .select()
-      .from(tasks)
-      .where(and(notInArray(tasks.status, FINISHED_TASK_STATUSES), inArray(tasks.role, JOB_ROLES)))
-      .orderBy(tasks.started_at)
-      .all();
+    return this.activeJobTasks.all();
   }
 
   /** Reviewer and polisher runs that have not finished, oldest first. */
@@ -129,19 +175,11 @@ export class WorkflowStore extends BoardStore {
 
   /** Every refiner run ever started in one job, oldest first, with what each one filed. */
   refinerRunsOf(jobId: string): RefinerRun[] {
-    return this.db
-      .select({ task: tasks, review: reviews, ruling: rulings })
-      .from(tasks)
-      .leftJoin(reviews, eq(reviews.task_id, tasks.task_id))
-      .leftJoin(rulings, eq(rulings.task_id, tasks.task_id))
-      .where(and(eq(tasks.job_id, jobId), inArray(tasks.role, REFINER_ROLES)))
-      .orderBy(tasks.started_at)
-      .all()
-      .map((row) => ({
-        ...row.task,
-        review: row.review && reviewOf(row.review),
-        ruling: row.ruling && rulingStateOf(row.ruling),
-      }));
+    return this.refinerRunsOfJob.all({ jobId }).map((row) => ({
+      ...row.task,
+      review: row.review && reviewOf(row.review),
+      ruling: row.ruling && rulingStateOf(row.ruling),
+    }));
   }
 
   /** File the review a findings reviewer run left on the host. */
@@ -154,7 +192,7 @@ export class WorkflowStore extends BoardStore {
 
   /** Where the ruling on a judge run stands. Null while it is not decided and no person is asked. */
   ruling(taskId: string): RulingState | null {
-    const row = this.db.select().from(rulings).where(eq(rulings.task_id, taskId)).get();
+    const row = this.rulingOfTask.get({ taskId });
     return row ? rulingStateOf(row) : null;
   }
 
@@ -170,13 +208,7 @@ export class WorkflowStore extends BoardStore {
 
   /** The author task of a job. Null while the job has not started one yet. */
   authorTask(jobId: string): TaskRow | null {
-    return (
-      this.db
-        .select()
-        .from(tasks)
-        .where(and(eq(tasks.job_id, jobId), eq(tasks.role, "author")))
-        .get() ?? null
-    );
+    return this.taskOfJobInRole.get({ jobId, role: "author" }) ?? null;
   }
 
   /** The author task, or throw. For a job that has an artifact or a refiner run. */
@@ -198,17 +230,11 @@ export class WorkflowStore extends BoardStore {
 
   /** The researcher task of a job. Null on a stage without research. */
   researcherTask(jobId: string): TaskRow | null {
-    return (
-      this.db
-        .select()
-        .from(tasks)
-        .where(and(eq(tasks.job_id, jobId), eq(tasks.role, "researcher")))
-        .get() ?? null
-    );
+    return this.taskOfJobInRole.get({ jobId, role: "researcher" }) ?? null;
   }
 
   job(jobId: string): JobRow | null {
-    return this.db.select().from(jobs).where(eq(jobs.job_id, jobId)).get() ?? null;
+    return this.jobById.get({ jobId }) ?? null;
   }
 
   /** The job, or throw. For a job id read from a task row. */
@@ -219,7 +245,7 @@ export class WorkflowStore extends BoardStore {
   }
 
   jobs(): JobRow[] {
-    return this.db.select().from(jobs).orderBy(jobs.created_at).all();
+    return this.allJobs.all();
   }
 
   /** The job whose pull request lives on this branch, if any. */
@@ -286,7 +312,7 @@ export class WorkflowStore extends BoardStore {
 
   /** The sandbox row of a task. Null for a model-call task. */
   sandbox(taskId: string): SandboxRow | null {
-    return this.db.select().from(sandboxes).where(eq(sandboxes.task_id, taskId)).get() ?? null;
+    return this.sandboxOfTask.get({ taskId }) ?? null;
   }
 
   /** The sandbox row of a task, or throw. For code paths that act on a harness task. */
@@ -375,13 +401,7 @@ export class WorkflowStore extends BoardStore {
 
   /** True while a request sent before the first prompt awaits its response. */
   handshakePending(taskId: string): boolean {
-    const pending = this.db
-      .select({ id: rpc.id })
-      .from(rpc)
-      .where(and(eq(rpc.task_id, taskId), inArray(rpc.purpose, HANDSHAKE_PURPOSES)))
-      .limit(1)
-      .get();
-    return pending !== undefined;
+    return this.handshakeOfTask.get({ taskId }) !== undefined;
   }
 
   enqueuePrompt(taskId: string, text: string): void {
@@ -422,6 +442,6 @@ export class WorkflowStore extends BoardStore {
   }
 
   queue(): (typeof promptQueue.$inferSelect)[] {
-    return this.db.select().from(promptQueue).orderBy(promptQueue.id).all();
+    return this.allQueued.all();
   }
 }

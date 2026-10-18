@@ -1,4 +1,4 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { RecordStore } from "../store/records";
 import { boards, taskTodos, tasks } from "../store/schema";
 import { now } from "../store/state";
@@ -12,8 +12,29 @@ const MAX_FAILED_TOOLS = 5;
 
 /** Queries over the board tables: one board row per job and channel, one todo row per task. */
 export class BoardStore extends RecordStore {
+  private readonly boardsOfJob = this.db
+    .select()
+    .from(boards)
+    .where(eq(boards.job_id, sql.placeholder("jobId")))
+    .prepare();
+  private readonly boardOfChannel = this.db
+    .select()
+    .from(boards)
+    .where(
+      and(
+        eq(boards.job_id, sql.placeholder("jobId")),
+        eq(boards.channel_key, sql.placeholder("channelKey")),
+      ),
+    )
+    .prepare();
+  private readonly todoRowOfTask = this.db
+    .select()
+    .from(taskTodos)
+    .where(eq(taskTodos.task_id, sql.placeholder("taskId")))
+    .prepare();
+
   boards(jobId: string): BoardRow[] {
-    return this.db.select().from(boards).where(eq(boards.job_id, jobId)).all();
+    return this.boardsOfJob.all({ jobId });
   }
 
   allBoards(): BoardRow[] {
@@ -21,13 +42,7 @@ export class BoardStore extends RecordStore {
   }
 
   board(jobId: string, channelKey: string): BoardRow | null {
-    return (
-      this.db
-        .select()
-        .from(boards)
-        .where(and(eq(boards.job_id, jobId), eq(boards.channel_key, channelKey)))
-        .get() ?? null
-    );
+    return this.boardOfChannel.get({ jobId, channelKey }) ?? null;
   }
 
   insertBoard(jobId: string, channelKey: string, channel: BoardChannel): BoardRow {
@@ -57,7 +72,7 @@ export class BoardStore extends RecordStore {
   }
 
   todoRow(taskId: string): TodoRow | null {
-    return this.db.select().from(taskTodos).where(eq(taskTodos.task_id, taskId)).get() ?? null;
+    return this.todoRowOfTask.get({ taskId }) ?? null;
   }
 
   allTodoRows(): TodoRow[] {

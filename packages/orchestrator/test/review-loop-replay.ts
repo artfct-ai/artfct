@@ -206,8 +206,9 @@ export async function generateTraces(
   count: number,
   seed: number,
 ): Promise<TraceStep[][]> {
-  const traces = await quintTraces({ spec: "review-loop", setup, count, steps: TRACE_STEPS, seed });
-  return traces.map((trace) => traceSteps(setup, trace));
+  return quintTraces({ spec: "review-loop", setup, count, steps: TRACE_STEPS, seed }, (trace) =>
+    traceSteps(setup, trace),
+  );
 }
 
 /** The steps of one ITF trace of a setup, such as a pinned trace. */
