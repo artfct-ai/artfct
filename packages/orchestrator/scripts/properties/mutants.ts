@@ -568,13 +568,13 @@ export const MUTANTS: Mutant[] = [
     replace: "    const channel = { source: target.source",
   },
   {
-    id: "W50",
+    id: "W51",
     invariant:
       "reviewLoop::aRestartDoesNotStrandAJudgeRun (rulings asked before the lost model turns)",
     path: "src/workflow/restart.ts",
-    find: "  for (const turn of alarm.model_turns) {\n",
+    find: "  await resumeLostModelTurns(workflow, alarm.model_turns);\n",
     replace:
-      '  const { settleLostJudgeRuling } = await import("./refiner/loop");\n  for (const run of alarm.judge_runs) await settleLostJudgeRuling(workflow, run);\n  for (const turn of alarm.model_turns) {\n',
+      '  const { settleLostJudgeRuling } = await import("./refiner/loop");\n  for (const run of alarm.judge_runs) await settleLostJudgeRuling(workflow, run);\n  await resumeLostModelTurns(workflow, alarm.model_turns);\n',
   },
 ];
 

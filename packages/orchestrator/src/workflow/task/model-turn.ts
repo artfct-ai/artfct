@@ -70,7 +70,7 @@ export async function onModelTurnDeadline(
  * its page out goes back in review and keeps its prompt. One without its page produces it again.
  * True when the task restarted. A turn the task no longer holds changes nothing.
  */
-export async function restartLostModelTurn(
+async function restartLostModelTurn(
   workflow: WorkflowRuntime,
   turn: ModelTurnAlarm,
 ): Promise<boolean> {
@@ -88,6 +88,21 @@ export async function restartLostModelTurn(
     status: pageOut ? "in_review" : "working",
   });
   return true;
+}
+
+/**
+ * Restart or fail the task of each lost model turn, without starting a model call. Arm one alarm
+ * due now for each restarted author, so each one runs its turn again in its own alarm.
+ */
+export async function resumeLostModelTurns(
+  workflow: WorkflowRuntime,
+  turns: ModelTurnAlarm[],
+): Promise<void> {
+  for (const turn of turns) {
+    if (!(await restartLostModelTurn(workflow, turn))) continue;
+    const author: TaskAlarm = { task_id: turn.task_id };
+    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", author);
+  }
 }
 
 /** Alarm: a restarted model-call author runs its lost model turn again from its queue. */

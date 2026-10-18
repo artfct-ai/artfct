@@ -1,6 +1,6 @@
 import { lostJudgeRulings } from "./refiner/loop";
 import type { TaskAlarm } from "./task/harness/timers";
-import { lostModelTurns, restartLostModelTurn, type ModelTurnAlarm } from "./task/model-turn";
+import { lostModelTurns, resumeLostModelTurns, type ModelTurnAlarm } from "./task/model-turn";
 import type { WorkflowRuntime } from "./types";
 
 /** The payload of the restart alarm: the calls the old instance had out when it was lost. */
@@ -25,10 +25,7 @@ export async function resumeLostCalls(
   workflow: WorkflowRuntime,
   alarm: LostCallsAlarm,
 ): Promise<void> {
-  for (const turn of alarm.model_turns) {
-    if (!(await restartLostModelTurn(workflow, turn))) continue;
-    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", { task_id: turn.task_id });
-  }
+  await resumeLostModelTurns(workflow, alarm.model_turns);
   for (const run of alarm.judge_runs) {
     await workflow.scheduleAlarm(0, "settleLostJudgeRuling", run);
   }
