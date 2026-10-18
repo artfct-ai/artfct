@@ -77,6 +77,8 @@ export interface WorkflowRuntime {
   readonly transcript: TranscriptStore;
   /** The in-memory session feed of each author's running turn, by task id. */
   readonly sessionFeeds: Map<string, AuthorFeed>;
+  /** The model turns of this instance whose page write is out, by turn id. A stop leaves them in flight. */
+  readonly pageWritesOut: Set<string>;
   patchState(patch: Partial<WorkflowState>): void;
   config(): Config;
   /** The workflow definitions of the deployment. A plan names one of them. */

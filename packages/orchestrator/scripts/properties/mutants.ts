@@ -294,9 +294,9 @@ export const MUTANTS: Mutant[] = [
     id: "W38",
     invariant: "sessionRouting::aStopAnswersOnlyInTheFeed (lost cancel)",
     path: "src/workflow/inbound/controls.ts",
-    find: "  if (atWork) await endStoppedTurn(workflow, author);\n",
+    find: "  if (atWork && !writing) await endStoppedTurn(workflow, author);\n",
     replace:
-      '  if (cancelled) return "cancelled";\n  if (atWork) await endStoppedTurn(workflow, author);\n',
+      '  if (cancelled) return "cancelled";\n  if (atWork && !writing) await endStoppedTurn(workflow, author);\n',
   },
   {
     id: "W39",
@@ -376,8 +376,15 @@ export const MUTANTS: Mutant[] = [
     id: "W49",
     invariant: "workflowLifecycle::stoppedModelCallLeavesThePage",
     path: "src/workflow/task/model-author.ts",
-    find: '  if (turnEnded()) {\n    workflow.log(task.task_id, "model call ended after a stop ended its turn. no change.");\n    return null;\n  }\n',
+    find: '  if (turn.ended()) {\n    workflow.log(task.task_id, "model call ended after a stop ended its turn. no change.");\n    return null;\n  }\n',
     replace: "",
+  },
+  {
+    id: "W50",
+    invariant: "workflowLifecycle::aModelCallAuthorHasAtMostOnePageWriteOut",
+    path: "src/workflow/inbound/controls.ts",
+    find: "  const writing = atWork && turnId !== null && workflow.pageWritesOut.has(turnId);\n",
+    replace: "  const writing = false;\n",
   },
   {
     id: "A1",
