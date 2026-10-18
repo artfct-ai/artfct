@@ -14,7 +14,6 @@ import {
   sessionMessageReachesItsRunningAuthorSilently,
   sessionFeedEndsWhenItsAuthorIdles,
   stopEndsTheAuthorsTurn,
-  stoppedModelCallLeavesThePage,
   staleAlarmIsIgnored,
   taskRestartsAtMostTwice,
   sleepMessageOnlyDuringAWorkflow,
@@ -128,7 +127,6 @@ const STEP_INVARIANTS = [
   jobStartsOnlyIntoAFreeSlot,
   sessionMessageReachesItsRunningAuthorSilently,
   stopEndsTheAuthorsTurn,
-  stoppedModelCallLeavesThePage,
   sessionFeedEndsWhenItsAuthorIdles,
   sleepMessageOnlyDuringAWorkflow,
   workflowStartsOnlyFromAPlan,
@@ -945,7 +943,7 @@ const CORPUS_EXAMPLES = WORKFLOW_CORPUS.map((replayed): [ReplayedSequence] => [r
 
 describe("the workflow invariants", () => {
   it("are every state and step invariant", () => {
-    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(22);
+    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(21);
   });
 
   for (const property of PROPERTIES) {

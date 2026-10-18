@@ -373,6 +373,13 @@ export const MUTANTS: Mutant[] = [
     replace: "  if (unanswered && false) return",
   },
   {
+    id: "W49",
+    invariant: "workflowLifecycle::stoppedModelCallLeavesThePage",
+    path: "src/workflow/task/model-author.ts",
+    find: '  if (turnEnded()) {\n    workflow.log(task.task_id, "model call ended after a stop ended its turn. no change.");\n    return null;\n  }\n',
+    replace: "",
+  },
+  {
     id: "A1",
     invariant: "agentTurns::laterDecisionsCallsFallBackOnceOneFails",
     path: "src/decisions/ask.ts",
