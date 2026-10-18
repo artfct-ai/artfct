@@ -23,8 +23,8 @@
     "aFinishedRefinerRunKeepsItsStatus"
   ],
   "mainMinutes": {
-    "judgeThenPolisher": 3.2,
-    "reviewerThenPolisher": 3.1,
+    "judgeThenPolisher": 3.5,
+    "reviewerThenPolisher": 3.4,
     "judgeBetweenReviewers": 2.1,
     "modelCallAuthorWithTwoReviewers": 4.9,
     "pageReviewerThenPolisher": 3.6,
