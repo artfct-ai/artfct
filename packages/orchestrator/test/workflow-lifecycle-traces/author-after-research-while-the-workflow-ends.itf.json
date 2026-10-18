@@ -87,6 +87,12 @@
             "#tup": []
           }
         },
+        "landed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "request": {
           "tag": "None",
           "value": {
@@ -187,6 +193,12 @@
             "#bigint": "2"
           }
         },
+        "landed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "request": {
           "tag": "None",
           "value": {
@@ -285,6 +297,12 @@
             "#bigint": "2"
           }
         },
+        "landed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "request": {
           "tag": "None",
           "value": {
@@ -378,6 +396,12 @@
           }
         },
         "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -483,6 +507,12 @@
             "#bigint": "2"
           }
         },
+        "landed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "request": {
           "tag": "None",
           "value": {
@@ -537,12 +567,6 @@
                 "#bigint": "0"
               }
             },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
             "tasks": [
               {
                 "generationClosed": false,
@@ -573,7 +597,8 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": []
           }
         ],
         "stagePlan": {
@@ -628,6 +653,12 @@
           }
         },
         "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -689,12 +720,6 @@
                 "#bigint": "0"
               }
             },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
             "tasks": [
               {
                 "generationClosed": false,
@@ -754,7 +779,8 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": []
           }
         ],
         "stagePlan": {
@@ -809,6 +835,12 @@
           }
         },
         "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -870,12 +902,6 @@
                 "#bigint": "0"
               }
             },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
             "tasks": [
               {
                 "generationClosed": false,
@@ -935,7 +961,8 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": []
           },
           {
             "artifact": {
@@ -948,12 +975,6 @@
               "tag": "FromRequest",
               "value": {
                 "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
               }
             },
             "tasks": [
@@ -986,7 +1007,8 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": []
           }
         ],
         "stagePlan": {
@@ -1041,6 +1063,12 @@
           }
         },
         "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1134,12 +1162,6 @@
                 "#bigint": "0"
               }
             },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
             "tasks": [
               {
                 "generationClosed": false,
@@ -1199,7 +1221,8 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": []
           },
           {
             "artifact": {
@@ -1212,12 +1235,6 @@
               "tag": "FromRequest",
               "value": {
                 "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
               }
             },
             "tasks": [
@@ -1250,7 +1267,8 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": []
           }
         ],
         "stagePlan": {
@@ -1308,6 +1326,12 @@
           }
         },
         "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1401,12 +1425,6 @@
                 "#bigint": "0"
               }
             },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
             "tasks": [
               {
                 "generationClosed": false,
@@ -1466,7 +1484,8 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": []
           },
           {
             "artifact": {
@@ -1479,12 +1498,6 @@
               "tag": "FromRequest",
               "value": {
                 "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
               }
             },
             "tasks": [
@@ -1517,7 +1530,8 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": []
           }
         ],
         "stagePlan": {
@@ -1572,6 +1586,12 @@
           }
         },
         "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1665,12 +1685,6 @@
                 "#bigint": "0"
               }
             },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
             "tasks": [
               {
                 "generationClosed": false,
@@ -1730,7 +1744,8 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": []
           },
           {
             "artifact": {
@@ -1743,12 +1758,6 @@
               "tag": "FromRequest",
               "value": {
                 "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
               }
             },
             "tasks": [
@@ -1810,7 +1819,8 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": []
           }
         ],
         "stagePlan": {
@@ -1865,6 +1875,12 @@
           }
         },
         "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1958,12 +1974,6 @@
                 "#bigint": "0"
               }
             },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
-              }
-            },
             "tasks": [
               {
                 "generationClosed": false,
@@ -2023,7 +2033,8 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": []
           },
           {
             "artifact": {
@@ -2036,12 +2047,6 @@
               "tag": "FromRequest",
               "value": {
                 "#bigint": "1"
-              }
-            },
-            "refinerRun": {
-              "tag": "NoRefinerRun",
-              "value": {
-                "#tup": []
               }
             },
             "tasks": [
@@ -2103,7 +2108,8 @@
                 },
                 "turnRunning": true
               }
-            ]
+            ],
+            "refinerRuns": []
           }
         ],
         "stagePlan": {
@@ -2158,6 +2164,12 @@
           }
         },
         "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
           "tag": "None",
           "value": {
             "#tup": []
