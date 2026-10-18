@@ -174,6 +174,7 @@ const ASKS_AND_FAILURES: TaskEvent["type"][] = [
   "artifact_ready",
   "failed",
   "workflow_failed",
+  "turn_failed",
 ];
 
 const SESSION_MESSAGES: InboundEvent["kind"][] = ["prompt", "status"];

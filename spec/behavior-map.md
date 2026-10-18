@@ -4,7 +4,7 @@ This file lists each effect a person sees or the system relies on, and the invar
 
 Effects use the terms of the glossary. A guard is the exact function name of an invariant. A guard written `module::name` is an invariant of that Quint spec module. A guard written `world::name` is a check the workflow world in `packages/orchestrator/test/workflow-world.ts` makes on every step, so every property test and replay that drives the world makes it. A guard written `tests::path` names the example tests in that test file. A row with an empty guard list is unguarded.
 
-The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The page revision invariants live beside them. The router binding invariants live in the Quint spec at `spec/router-bindings/routerBindings.qnt`. The review loop invariants live in the Quint spec at `spec/review-loop/reviewLoop.qnt`, the workflow lifecycle invariants in `spec/workflow-lifecycle/workflowLifecycle.qnt`, the harness session invariants in `spec/harness-session/harnessSession.qnt`, the agent turns invariants in `spec/agent-turns/agentTurns.qnt`, and the chat acknowledgement invariants in `spec/chat-acknowledgement/chatAcknowledgement.qnt`. The webhook invariants live in `packages/ingress/test/webhook-invariants.ts`, and the inbound mapper invariants in `packages/adapters/test/inbound-invariants.ts`.
+The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The page revision invariants live beside them. The router binding invariants live in the Quint spec at `spec/router-bindings/routerBindings.qnt`. The review loop invariants live in the Quint spec at `spec/review-loop/reviewLoop.qnt`, the workflow lifecycle invariants in `spec/workflow-lifecycle/workflowLifecycle.qnt`, the harness session invariants in `spec/harness-session/harnessSession.qnt`, the agent turns invariants in `spec/agent-turns/agentTurns.qnt`, the chat acknowledgement invariants in `spec/chat-acknowledgement/chatAcknowledgement.qnt`, and the session routing invariants in `spec/session-routing/sessionRouting.qnt`. The webhook invariants live in `packages/ingress/test/webhook-invariants.ts`, and the inbound mapper invariants in `packages/adapters/test/inbound-invariants.ts`.
 
 ## Workflow, tasks and statuses
 
@@ -91,8 +91,8 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | A7 | The chat thread shows a working status per step and leaves it when the turn ends. A turn the watchdog already answered releases the thread when it ends. | `agentTurns::theWorkingStatusNeverOutlivesItsTurn` |
 | A8 | A person's turn that left them without a reply runs the model once more with a note that says so. | `agentTurns::aPersonsTurnNeverEndsUnanswered` |
 | A9 | Closing text posts only as the answer to a person who wrote, once, and is withheld when the board change was the reply. A resumed turn keeps the board change of the lost turn on a person's message. | `agentTurns::closingTextAnswersOnlyAPersonWhoWrote` |
-| A10 | A model that fails twice posts the stuck text. The post goes to the workflow audience with an empty answer list, so in a workflow without a chat thread the session the person wrote from does not get it. | |
-| A11 | The turn deadline aborts the attempt and posts the timeout text. The same empty answer list applies. | `agentTurns::aWaitingPersonHearsBackByTheTimeout` |
+| A10 | A model that fails twice posts the stuck text. It goes to the chat threads. Without a chat thread, it goes to the starting session and to each session a person wrote from. | `agentTurns::sessionMessageWithoutAnAuthorIsAnswered` |
+| A11 | The turn deadline aborts the attempt and posts the timeout text, or the watchdog posts it first. It reaches the same people as the stuck text. | `agentTurns::aWaitingPersonHearsBackByTheTimeout`, `agentTurns::sessionMessageWithoutAnAuthorIsAnswered`, `sessionRouting::linearOnlyAsksReachTheStartingSession`, `sessionRouting::sessionMessageWithoutAnAuthorIsAnswered` |
 | A12 | A turn lost with its Durable Object resumes, posts the restart notice in chat, keeps the lost turn's board change, and answers what the lost turn owed. | `agentTurns::aResumedTurnAnswersWhatItsLostTurnOwed`, `agentTurns::closingTextAnswersOnlyAPersonWhoWrote` |
 | A13 | Tool results from MCP, `fetch_url`, `read_artifact` and `ready_issues` pass the screen. Fixed text replaces a quarantined or unchecked result. | `agentTurns::quarantinedTextNeverEntersTheTranscript` |
 | A14 | `read_channel` screens each message. A flagged message does not remove another from the read. | `agentTurns::aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead`, `agentTurns::quarantinedTextNeverEntersTheTranscript` |
@@ -116,7 +116,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | ID | Effect | Guarded by |
 |---|---|---|
 | A30 | `acknowledge` puts a thumbs-up on each taken chat message, or posts one line to the people who wrote. A failed reaction partway leaves some messages without it. | `agentTurns::aPersonHearsBackBeforeAnyWork`, `agentTurns::aPersonsTurnNeverEndsUnanswered` |
-| A31 | `ask` posts a question, and sets the workflow `waiting_input` when every author and researcher is idle. | `linearOnlyAsksReachTheStartingSession` |
+| A31 | `ask` posts a question, and sets the workflow `waiting_input` when every author and researcher is idle. | `linearOnlyAsksReachTheStartingSession`, `sessionRouting::linearOnlyAsksReachTheStartingSession`, `sessionRouting::orchestratorStaysOutOfSessionsWhenChatExists` |
 | A32 | `tell` posts info to the people who wrote, and `stay_silent` stays quiet. Both end the turn. | `agentTurns::closingTextAnswersOnlyAPersonWhoWrote`, `agentTurns::aPersonsTurnNeverEndsUnanswered` |
 | A33 | `set_plan` sets the definition, stages, number of job slots, repository, page parent and root page. A later plan can set fewer job slots than the jobs that run, and no job starts until one finishes. It sets the workflow `running`, moves the origin issue to started, and can create the root page on the document host. | `workflowStartsOnlyFromAPlan`, `workflowLifecycle::workflowStartsOnlyFromAPlan`, `workflowLifecycle::workflowKeepsItsDefinition`, `workflowLifecycle::jobStartsOnlyIntoAFreeSlot` |
 | A34 | `start_job` inserts the job and task, binds the issue and branch in the router, claims the issue, links the chat thread, schedules the provision alarm, and links the input page from the root page. | `jobStartsOnlyIntoAFreeSlot`, `workflowLifecycle::jobStartsOnlyIntoAFreeSlot`, `oneLiveJobPerInputArtifact`, `eachIssueLinksTheChatThreadOnce`, `workflowStartsOnlyFromAPlan` |
@@ -129,7 +129,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | A41 | `request_review` starts the reviewer segment from its first entry. `finish_review` moves past the open entry to the next refiner or the handover. | `refinersRunAgainOnlyOnChangedRevision`, `reviewLoop::oneUnfinishedRefinerRunPerArtifact`, `reviewLoop::authorIsIdleWhileAPolisherRuns` |
 | A42 | `rule_on_review` with approve moves on, or first sends the author the findings of the judge's segment. With reject it posts the signed reason on the artifact host and sends it to the author with those findings. | `judgeRulesAtMostOnce`, `reviewLoop::authorGetsEveryPullFinding` |
 | A43 | `finish_workflow` sets `done`, posts the done event, moves tracker issues to completed, and removes code host bindings. It refuses while an author or researcher is active. | `endedWorkflowHasNoUnfinishedTask`, `nothingReopensAFinishedWorkflow`, `workflowLifecycle::nothingReopensAFinishedWorkflow` |
-| A44 | `fail_workflow` cancels every active task and refiner run, sets `failed`, posts the failure, and removes code host bindings. | `endedWorkflowHasNoUnfinishedTask`, `linearOnlyAsksReachTheStartingSession` |
+| A44 | `fail_workflow` cancels every active task and refiner run, sets `failed`, posts the failure, and removes code host bindings. | `endedWorkflowHasNoUnfinishedTask`, `linearOnlyAsksReachTheStartingSession`, `sessionRouting::linearOnlyAsksReachTheStartingSession` |
 | A45 | `move_into_root_page` moves a page under the root page on the document host and drops its link. | |
 | A46 | The MCP tracker tools write to the tracker under prompt rules only. A result the screen does not admit reads to the model as not given, though the write happened. | |
 | A47 | The read tools only read, and they screen text that comes from outside. | `agentTurns::quarantinedTextNeverEntersTheTranscript` |
@@ -210,7 +210,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| C1 | Each job gets one board in each chat thread the workflow replies to. A tracker session never holds one. | `boardsLiveOnlyInChat` |
+| C1 | Each job gets one board in each chat thread the workflow replies to. A chat thread that joins later gets the board at the job's next board flush. A tracker session never holds one. | `boardsLiveOnlyInChat`, `sessionRouting::boardsLiveOnlyInChat` |
 | C2 | The rendered board shows each researcher and author as its todo list or its work line. | `tests::packages/orchestrator/src/workflow/board/board-tasks.test.ts`, `tests::packages/orchestrator/src/workflow/board/render.test.ts` |
 | C3 | A researcher's todo list reads complete once the author of its job exists. | `researchReadsCompleteOnceTheAuthorStarts` |
 | C4 | A board post or edit that fails is retried only on the next flush, and the flush is not scheduled. The chat can hold a stale or missing board until something else changes on the job. | |
@@ -219,7 +219,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | C7 | A follow-up moves the board to the end of the thread. It posts a new board, then deletes the old one or edits it to a pointer. | |
 | C8 | The `board_flush` alarm coalesces changes into one edit per 10 seconds. Edits happen only when the body hash changes. | |
 | C9 | A board note shows a restart reason or a prompt error until the turn ends. | |
-| C10 | With a chat thread, every post goes to the chat threads and does not reach a tracker session. | `orchestratorStaysOutOfSessionsWhenChatExists`, `sessionMessageWithoutAnAuthorIsAnswered` |
+| C10 | With a chat thread, every post goes to the chat threads and does not reach a tracker session. | `orchestratorStaysOutOfSessionsWhenChatExists`, `sessionMessageWithoutAnAuthorIsAnswered`, `sessionRouting::orchestratorStaysOutOfSessionsWhenChatExists`, `sessionRouting::sessionMessageWithoutAnAuthorIsAnswered` |
 | C11 | A chat post that fails writes a delivery error row and is not retried. The post still counts as posted, so the thread may not be released. | |
 | C12 | After a chat post outside a turn, the thread status goes to active, or closed when the workflow finished. | |
 | C13 | The sleep message posts after the idle hours while the workflow runs and every author and researcher is idle. The workflow moves to `waiting_input`. | `sleepMessageOnlyDuringAWorkflow` |
@@ -234,7 +234,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| K1 | Without a chat thread, the starting session gets every ask and failure and only those. A session gets an answer only where a person wrote. | `linearOnlyAsksReachTheStartingSession` |
+| K1 | Without a chat thread, the starting session gets every ask and failure, the stuck text and the timeout text included. A session gets any other post only where a person wrote. | `linearOnlyAsksReachTheStartingSession`, `sessionRouting::linearOnlyAsksReachTheStartingSession` |
 | K2 | The author's completed tool calls post to its job session as activities, once each. | `feedActivityPostsOnce` |
 | K3 | A turn that leaves its author idle ends the session feed with a reply or an error. A stop ends it with "Stopped.". | `sessionFeedEndsWhenItsAuthorIdles`, `stopEndsTheAuthorsTurn` |
 | K4 | A feed post retries three times with the same activity id, then is dropped. | `feedActivityPostsOnce` |
@@ -242,9 +242,9 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | K6 | The router posts "On it. Reading the issue." when a tracker session starts work. | |
 | K7 | A start without an authorized actor gets "No workflow is working on this issue. Delegate it to me or mention me to start one.", after the starting thought. | |
 | K8 | A job start claims its issue: started state and delegation to the app user. The plan moves the origin issue to started. A done workflow moves tracker issues to completed. A failed or cancelled workflow does not move them. | |
-| K9 | A chat workflow links each worked issue to its chat thread once. | `eachIssueLinksTheChatThreadOnce` |
-| K10 | A session message to a running author goes to that author as a prompt, does not post, and does not wake a turn. A prompt queued for an unpaused model-call author waits on an author at work. | `sessionMessageReachesItsRunningAuthorSilently` |
-| K11 | A session message without a running author gets an agent turn or a reply. | `sessionMessageWithoutAnAuthorIsAnswered` |
+| K9 | A chat workflow links its subject issue and each issue a job works on to its chat thread once. A tracker workflow does not link any. | `eachIssueLinksTheChatThreadOnce`, `sessionRouting::eachIssueLinksTheChatThreadOnce` |
+| K10 | A session message to a running author goes to that author as a prompt, does not post, and does not wake a turn. A prompt queued for an unpaused model-call author waits on an author at work. | `sessionMessageReachesItsRunningAuthorSilently`, `sessionRouting::sessionMessageReachesItsRunningAuthorSilently` |
+| K11 | A session message without a running author wakes an agent turn, and the turn's answer, question or timeout text reaches that session or the chat threads. A finished workflow replies at once. | `sessionMessageWithoutAnAuthorIsAnswered`, `sessionRouting::sessionMessageWithoutAnAuthorIsAnswered` |
 
 ## Router, identity and install
 

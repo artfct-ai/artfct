@@ -20,6 +20,7 @@ export function destinationFor(event: TaskEvent): Destination {
     case "artifact_ready":
     case "failed":
     case "workflow_failed":
+    case "turn_failed":
     case "done":
     case "status":
     case "info":

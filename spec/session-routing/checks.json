@@ -1,0 +1,55 @@
+{
+  "invariants": [
+    "orchestratorStaysOutOfSessionsWhenChatExists",
+    "linearOnlyAsksReachTheStartingSession",
+    "sessionMessageReachesItsRunningAuthorSilently",
+    "sessionMessageWithoutAnAuthorIsAnswered",
+    "eachIssueLinksTheChatThreadOnce",
+    "boardsLiveOnlyInChat"
+  ],
+  "mainMinutes": {
+    "chatThread": 1,
+    "trackerOnly": 1
+  },
+  "witnesses": {
+    "chatThread": [
+      "aMessageReachesARunningAuthor",
+      "aMessageWakesTheAgent",
+      "anAgentTurnAnswersASession",
+      "aFinishedWorkflowReplies",
+      "aPostLandsBesideASession",
+      "aChatThreadJoinsLater",
+      "aBoardFollowsTheJoinedThread",
+      "aSubIssueGetsItsLink",
+      "aJobStartsAgainOnItsIssue",
+      "aSessionOpensOnTheSubIssue"
+    ],
+    "trackerOnly": [
+      "aMessageReachesARunningAuthor",
+      "aMessageWakesTheAgent",
+      "anAgentTurnAnswersASession",
+      "aFinishedWorkflowReplies",
+      "anAskReachesTheStartingSession",
+      "theTimeoutTextReachesTheStartingSession",
+      "theTimeoutTextReachesASubIssueSession",
+      "aPostLandsBesideASession",
+      "aChatThreadJoinsLater",
+      "aBoardFollowsTheJoinedThread",
+      "aJobStartsAgainOnItsIssue",
+      "aSessionOpensOnTheSubIssue"
+    ]
+  },
+  "tlc": {
+    "ignoredVariables": [],
+    "bounds": {
+      "chatThread": {
+        "pr": { "jobsStarted": 3, "promptsWaiting": 3 },
+        "nightly": { "jobsStarted": 3, "promptsWaiting": 5 }
+      },
+      "trackerOnly": {
+        "pr": { "jobsStarted": 3, "promptsWaiting": 3 },
+        "nightly": { "jobsStarted": 3, "promptsWaiting": 5 }
+      }
+    }
+  }
+}

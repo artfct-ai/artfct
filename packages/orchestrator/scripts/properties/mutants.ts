@@ -460,6 +460,48 @@ export const MUTANTS: Mutant[] = [
     find: "      await chat.removeReaction(",
     replace: "      void chat.removeReaction(",
   },
+  {
+    id: "SR1",
+    invariant: "sessionRouting::orchestratorStaysOutOfSessionsWhenChatExists",
+    path: "src/notify/recipients.ts",
+    find: '    if (target.source !== "tracker" || chatThreads.length === 0) return [target];',
+    replace: "    return [target];",
+  },
+  {
+    id: "SR2",
+    invariant: "sessionRouting::linearOnlyAsksReachTheStartingSession",
+    path: "src/notify/recipients.ts",
+    find: '    case "workflow_failed":\n    case "turn_failed":\n      return true;',
+    replace: '    case "workflow_failed":\n      return true;',
+  },
+  {
+    id: "SR3",
+    invariant: "sessionRouting::sessionMessageReachesItsRunningAuthorSilently",
+    path: "src/workflow/inbound/apply.ts",
+    find: '  return { notes: [note], wake: "none" };\n}\n\nconst STOP_NOTES',
+    replace: '  return { notes: [note], wake: "message" };\n}\n\nconst STOP_NOTES',
+  },
+  {
+    id: "SR4",
+    invariant: "sessionRouting::sessionMessageWithoutAnAuthorIsAnswered",
+    path: "src/agent/turn/watchdog.ts",
+    find: '  await workflow.post({ type: "turn_failed", text: turnTimeoutText(minutes) }, { answering });',
+    replace: '  await workflow.post({ type: "turn_failed", text: turnTimeoutText(minutes) });',
+  },
+  {
+    id: "SR5",
+    invariant: "sessionRouting::eachIssueLinksTheChatThreadOnce",
+    path: "src/workflow/lifecycle.ts",
+    find: '    if (origin?.source === "chat" && !issueLinked && !syncedAsSubject) {',
+    replace: '    if (origin?.source === "chat" && !syncedAsSubject) {',
+  },
+  {
+    id: "SR6",
+    invariant: "sessionRouting::boardsLiveOnlyInChat",
+    path: "src/workflow/board/board.ts",
+    find: '    if (target.source !== "chat") continue;\n    const channel = { source: target.source',
+    replace: "    const channel = { source: target.source",
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */

@@ -119,31 +119,39 @@ export async function runAgentTurn(workflow: WorkflowRuntime): Promise<void> {
     turn_first_row: firstRow,
     turn_board_changed: lostFirstRow !== null && workflow.state.turn_board_changed === true,
   });
+  const answering = workflow.transcript.answering();
   const outcome = await boundedAttempt(workflow, {
     rows: workflow.transcript.all(),
     firstRow,
     messages,
     requestText: prompts.join("\n"),
-    answering: workflow.transcript.answering(),
+    answering,
   });
   const owesTheReply = await disarmTurnWatchdog(workflow, startedAt);
   if (!owesTheReply) return workflow.release();
-  await conclude(workflow, outcome);
+  await conclude(workflow, outcome, answering);
 }
 
-/** Post what the outcome calls for. A turn with nothing to say always releases its reply targets. */
-async function conclude(workflow: WorkflowRuntime, outcome: Outcome): Promise<void> {
+/**
+ * Post what the outcome calls for. A turn with nothing to say always releases its reply targets.
+ * A turn that ended without its reply tells the people it answers, and the starting session.
+ */
+async function conclude(
+  workflow: WorkflowRuntime,
+  outcome: Outcome,
+  answering: ReplyTarget[],
+): Promise<void> {
   switch (outcome) {
     case "replied":
       return;
     case "silent":
       return workflow.release();
     case "failed":
-      return workflow.post({ type: "info", text: STUCK_TEXT });
+      return workflow.post({ type: "turn_failed", text: STUCK_TEXT }, { answering });
     case "timed_out": {
       const minutes = workflow.config().orchestrator.turn_timeout_minutes;
       workflow.log(null, `agent turn timed out after ${minutes} minutes`);
-      return workflow.post({ type: "info", text: turnTimeoutText(minutes) });
+      return workflow.post({ type: "turn_failed", text: turnTimeoutText(minutes) }, { answering });
     }
   }
 }

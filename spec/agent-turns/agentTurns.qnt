@@ -304,7 +304,8 @@ module agentTurns {
   pure def awaitingThumbsUp(store: Store): List[InboxRow] =
     store.inbox.select(row => row.taken and row.from == Person(ChatThread) and not(row.reacted))
 
-  /// `recipientsOf` for a post to the people a turn answers. `asks` for a question.
+  /// `recipientsOf` for a post to the people a turn answers. `asks` for a question, the stuck
+  /// text and the timeout text, which the starting session also gets.
   pure def answeringTargets(asks: bool, answering: Set[Origin]): Set[Target] =
     if (HAS_CHAT_THREAD) Set(ToChatThread)
     else answering.filter(isSessionOrigin).map(origin => ToSession(origin))
@@ -466,14 +467,14 @@ module agentTurns {
         firstRow: NoFirstRow,
         inbox: store.inbox.select(row => not(row.taken)),
       }
-      val nobody = answeringTargets(false, Set())
+      val told = answeringTargets(true, turnRun.answering)
       match outcome {
         | Replied => endTurn(disarmed, turnRun, rerun, said)
         | Silent => withTurnKeepingRerun(disarmed, { ...turnRun, phase: Concluding(Releases) }, rerun)
-        | Failed => withTurnKeepingRerun(disarmed, { ...turnRun, phase: Concluding(PostsStuckText(nobody)) }, rerun)
+        | Failed => withTurnKeepingRerun(disarmed, { ...turnRun, phase: Concluding(PostsStuckText(told)) }, rerun)
         | TimedOut => withTurnKeepingRerun(
             disarmed,
-            { ...turnRun, phase: Concluding(PostsTimeoutText(nobody)), record: { ...turnRun.record, timedOut: true } },
+            { ...turnRun, phase: Concluding(PostsTimeoutText(told)), record: { ...turnRun.record, timedOut: true } },
             rerun,
           )
       }
@@ -827,7 +828,7 @@ module agentTurns {
     workflow.store.watchdog == ArmedFor(turnRun.startedAt),
     workflow.store.startedAt == StartedAt(turnRun.startedAt),
     val store = workflow.store
-    val nobody = answeringTargets(false, Set())
+    val told = answeringTargets(true, answeringNow(store))
     val cleared = { ...store,
       startedAt: NotRunning,
       watchdog: NoAlarm,
@@ -836,8 +837,8 @@ module agentTurns {
       inbox: store.inbox.select(row => not(row.taken)),
     }
     move(withTurnKeepingRerun(
-      landPost(cleared, TimeoutText, nobody, false),
-      { ...turnRun, record: { ...recordPost(turnRun.record, TimeoutText, nobody), timedOut: true } },
+      landPost(cleared, TimeoutText, told, false),
+      { ...turnRun, record: { ...recordPost(turnRun.record, TimeoutText, told), timedOut: true } },
       workflow.isolate.rerun,
     )),
   })
@@ -904,6 +905,12 @@ module agentTurns {
 
   pure def holdsForTheEndedTurn(turnEnd: TurnEnd, rule: TurnRecord => bool): bool =
     match turnEnd { | TurnEnded(ended) => rule(ended.record) | NoTurnEnd => true }
+
+  /// True for the stuck text and the timeout text of a turn that ended without its reply.
+  pure def isTurnFailedPost(post: Post): bool = Set(StuckText, TimeoutText).contains(post.text)
+
+  /// True for a post the starting session gets as well as the sessions of the people it answers.
+  pure def asksTheStartingSession(post: Post): bool = post.text == QuestionText or isTurnFailedPost(post)
 
   pure def isAnswerPost(post: Post): bool =
     not(Set(HeadsUpText, LostPlaceText, StuckText, TimeoutText).contains(post.text))
@@ -1031,7 +1038,8 @@ module agentTurns {
 
   /// With a chat thread, a turn's posts reach no session, and its answers reach the thread.
   /// Without one, a session gets a post only when a person wrote there, or as the starting
-  /// session of a question, and every answer reaches every session a person wrote from.
+  /// session of a question or a failed turn. Every answer and every failed turn's text reaches
+  /// every session a person wrote from, and the failed turn's text reaches the starting session.
   val sessionMessageWithoutAnAuthorIsAnswered: bool = holdsForTheEndedTurn(lastTurnEnd, record =>
     record.posts.foldl(true, (holds, post) => holds and {
       val sessions = sessionsOf(post.targets)
@@ -1041,8 +1049,10 @@ module agentTurns {
       }
       else and {
         sessions.forall(session => post.answering.contains(session)
-          or (post.text == QuestionText and STARTED_FROM_A_SESSION and session == StartingSession)),
+          or (asksTheStartingSession(post) and STARTED_FROM_A_SESSION and session == StartingSession)),
         isAnswerPost(post) implies post.answering.subseteq(sessions),
+        isTurnFailedPost(post) implies post.answering.subseteq(sessions),
+        (isTurnFailedPost(post) and STARTED_FROM_A_SESSION) implies sessions.contains(StartingSession),
       }
     }))
 

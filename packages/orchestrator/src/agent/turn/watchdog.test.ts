@@ -100,7 +100,9 @@ describe("turn watchdog", () => {
       it("reports the lost turn", () =>
         fired((workflow) => {
           const minutes = workflow.config().orchestrator.turn_timeout_minutes;
-          expect(workflow.posted).toEqual([{ type: "info", text: turnTimeoutText(minutes) }]);
+          expect(workflow.posted).toEqual([
+            { type: "turn_failed", text: turnTimeoutText(minutes) },
+          ]);
         }));
 
       it("forgets the turn", () =>
