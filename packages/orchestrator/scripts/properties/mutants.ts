@@ -42,7 +42,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W4",
-    invariant: "stopEndsTheAuthorsTurn (queued prompts)",
+    invariant: "harnessSession::stopEndsTheAuthorsTurn (queued prompts)",
     path: "src/workflow/inbound/controls.ts",
     find: "export async function stopAuthor(workflow: WorkflowRuntime, author: TaskRow): Promise<StopOutcome> {\n  workflow.store.clearPromptQueue(author.task_id);",
     replace:
@@ -50,7 +50,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W5",
-    invariant: "stopEndsTheAuthorsTurn (cancel)",
+    invariant: "harnessSession::stopEndsTheAuthorsTurn (cancel)",
     path: "src/workflow/inbound/controls.ts",
     find: "  const cancelled = connected && cancelPromptTurn(workflow, author);",
     replace: "  const cancelled = false;",
@@ -94,7 +94,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W11",
-    invariant: "sessionFeedEndsWhenItsAuthorIdles",
+    invariant: "sessionRouting::sessionFeedEndsWhenItsAuthorIdles",
     path: "src/workflow/task/harness/turn.ts",
     find: "  await closeSessionFeed(workflow, task, busy ? null : feedClosingOf(stopReason));\n  if (!busy)",
     replace: "  if (!busy)",
@@ -292,7 +292,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W38",
-    invariant: "stopEndsTheAuthorsTurn (lost cancel)",
+    invariant: "sessionRouting::aStopAnswersOnlyInTheFeed (lost cancel)",
     path: "src/workflow/inbound/controls.ts",
     find: "  if (atWork) await endStoppedTurn(workflow, author);\n",
     replace:

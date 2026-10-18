@@ -9,13 +9,11 @@ import {
   aFailedCheckNeverCompletesAJob,
   artifactStatusMovesAreLegal,
   boardsLiveOnlyInChat,
-  chatWorkflowNeverSetsASessionPlan,
   deliveredToHumansIsNeverCleared,
   eachIssueLinksTheChatThreadOnce,
   endedWorkflowHasNoUnfinishedTask,
   everyFeedbackGetsOneRoutingDecision,
   everyJobTaskIsOnItsBoard,
-  feedActivityPostsOnce,
   nothingReopensAFinishedWorkflow,
   refinerRunIsDoneOnlyAfterItsTurnEnded,
   finishedTaskKeepsItsStatus,
@@ -27,7 +25,6 @@ import {
   orchestratorStaysOutOfSessionsWhenChatExists,
   pausedAuthorGetsNoPrompt,
   refinersRunAgainOnlyOnChangedRevision,
-  researchReadsCompleteOnceTheAuthorStarts,
   sessionMessageReachesItsRunningAuthorSilently,
   sessionMessageWithoutAnAuthorIsAnswered,
   sessionFeedEndsWhenItsAuthorIdles,
@@ -35,7 +32,6 @@ import {
   stoppedModelCallLeavesThePage,
   staleAlarmIsIgnored,
   taskRestartsAtMostTwice,
-  todoListIsFixedAfterFirstArtifact,
   sleepMessageOnlyDuringAWorkflow,
   unadmittedFeedbackReachesNobody,
   workflowStartsOnlyFromAPlan,
@@ -141,7 +137,6 @@ const STATE_INVARIANTS = [
   boardsLiveOnlyInChat,
   eachIssueLinksTheChatThreadOnce,
   everyJobTaskIsOnItsBoard,
-  researchReadsCompleteOnceTheAuthorStarts,
 ];
 
 const STEP_INVARIANTS = [
@@ -155,7 +150,6 @@ const STEP_INVARIANTS = [
   pausedAuthorGetsNoPrompt,
   workflowWaitsOnlyWhileNoAuthorWorks,
   artifactStatusMovesAreLegal,
-  todoListIsFixedAfterFirstArtifact,
   staleAlarmIsIgnored,
   jobStartsOnlyIntoAFreeSlot,
   unadmittedFeedbackReachesNobody,
@@ -167,9 +161,7 @@ const STEP_INVARIANTS = [
   sessionMessageWithoutAnAuthorIsAnswered,
   stopEndsTheAuthorsTurn,
   stoppedModelCallLeavesThePage,
-  chatWorkflowNeverSetsASessionPlan,
   sessionFeedEndsWhenItsAuthorIdles,
-  feedActivityPostsOnce,
   sleepMessageOnlyDuringAWorkflow,
   workflowStartsOnlyFromAPlan,
   aJobWorksOnlyOnIssuesOfItsSubject,
@@ -989,7 +981,7 @@ const CORPUS_EXAMPLES = WORKFLOW_CORPUS.map((replayed): [ReplayedSequence] => [r
 
 describe("the workflow invariants", () => {
   it("are every state and step invariant", () => {
-    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(44);
+    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(40);
   });
 
   for (const property of PROPERTIES) {

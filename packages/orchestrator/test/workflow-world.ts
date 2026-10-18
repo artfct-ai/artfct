@@ -374,8 +374,8 @@ export class WorkflowWorld {
   private landed: Observation[] = [];
   private chatThreadsJoined = 0;
   private readonly checksOnPush: ChecksOnPush;
-  private readonly tracker: SessionTracker;
-  private readonly streamedTexts: string[] = [];
+  readonly tracker: SessionTracker;
+  private streamedTextCount = 0;
   private readonly modelTurnEnds: string[] = [];
   private readonly modelPromptTexts = new Map<string, string[]>();
   private readonly queuedPromptTexts = new Map<string, string[]>();
@@ -573,9 +573,6 @@ export class WorkflowWorld {
       sessionPosts: sessionPostsOf(rows),
       postedTypes: this.workflow.posted.slice(postedBefore).map((event) => event.type),
       feedPosts: feedPostsOf(rows),
-      planPosts: planPostsOf(rows),
-      storedActivities: this.tracker.stored.map((activity) => activityText(activity.content)),
-      streamedTexts: [...this.streamedTexts],
       postedTexts: this.workflow.posted.slice(postedBefore).map(plainText),
       pageCommentsPosted: this.pageHost.postedComments.slice(pageCommentsBefore),
       pageCommentsRefused: facts.pageCommentsRefused ?? false,
@@ -747,9 +744,8 @@ export class WorkflowWorld {
   }
 
   nextStreamedText(): string {
-    const text = `[[${this.streamedTexts.length + 1}]]`;
-    this.streamedTexts.push(text);
-    return text;
+    this.streamedTextCount += 1;
+    return `[[${this.streamedTextCount}]]`;
   }
 
   setTrackerHealth(health: TrackerHealth): void {
@@ -1389,9 +1385,6 @@ export class WorkflowWorld {
         delivered_to_humans_at: artifact.delivered_to_humans_at,
         delivered_revision: artifact.delivered_revision,
       })),
-      todos: Object.fromEntries(
-        store.allTodoRows().map((row) => [row.task_id, JSON.stringify(row.todos)]),
-      ),
       authorPrompts: queued + sent,
     };
   }
@@ -1445,14 +1438,6 @@ function feedPostsOf(rows: OutboxRow[]): Step["feedPosts"] {
   });
 }
 
-function planPostsOf(rows: OutboxRow[]): string[] {
-  return rows.flatMap((row) =>
-    row.channel === "feed" && row.kind === "plan"
-      ? [(row.target as TrackerSession).session_id]
-      : [],
-  );
-}
-
 function kindOfStage(stage: string): ArtifactKind {
   const kinds = Object.keys(STAGE_OF) as ArtifactKind[];
   const kind = kinds.find((candidate) => STAGE_OF[candidate] === stage);
@@ -1460,7 +1445,8 @@ function kindOfStage(stage: string): ArtifactKind {
   return kind;
 }
 
-function pageUrl(number: number): string {
+/** The URL of the world's document page numbered `number`. */
+export function pageUrl(number: number): string {
   return `https://www.notion.so/acme/page-${number}`;
 }
 

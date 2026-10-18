@@ -1,31 +1,49 @@
 import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { TaskStatus } from "@artfct-ai/contracts/types";
+import type { AgentActivityContent } from "@artfct-ai/adapters/tracker/types";
 import { channelTools } from "../src/agent/tools/channel";
 import { planTools } from "../src/agent/tools/plan";
 import { startTools } from "../src/agent/tools/start/start";
 import { armTurnWatchdog, onTurnTimeout } from "../src/agent/turn/watchdog";
 import { flushBoards } from "../src/workflow/board/board";
+import { DONE_TEXT, STOPPED_TEXT } from "../src/workflow/feed/feed";
 import { isTaskFinished, isWorkflowFinished } from "../src/workflow/store/state";
 import type { TaskRow } from "../src/workflow/store/tasks";
 import { onWallClock } from "../src/workflow/task/harness/timers";
 import type { TaskEvent } from "../src/workflow/task/events";
+import type { WorkflowRuntime } from "../src/workflow/types";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
 import { quintTraces } from "./quint-traces";
-import { authorTurnEnds, chatThreadJoins, firstArtifactAppears } from "./workflow-actions";
+import type { TrackerHealth } from "./session-tracker";
 import {
+  authorPromptFails,
+  authorReportsTodos,
+  authorStreams,
+  authorTurnEnds,
+  chatThreadJoins,
+  firstArtifactAppears,
+  researcherReportsTodos,
+  researcherTurnEnds,
+  type AuthorClosing,
+} from "./workflow-actions";
+import {
+  pageUrl,
   REPO,
   STAGE_OF,
+  stopEvent,
   WorkflowWorld,
   type WorkflowAction,
   type WorldSetup,
 } from "./workflow-world";
 import { SUBJECT_ISSUE_KEY, subIssueKey, worldIssueUrl } from "./world-tracker";
 
-/** The setup modules of the session routing spec, and where each workflow starts. */
+/** The setup modules of the session routing spec: where each workflow starts, and who authors. */
 export const SPEC_SETUPS = {
-  chatThread: { origin: "chat" },
-  trackerOnly: { origin: "tracker" },
-} as const satisfies Record<string, Pick<WorldSetup, "origin">>;
+  chatThread: { origin: "chat", research: false, pageAuthor: "harness" },
+  trackerOnly: { origin: "tracker", research: false, pageAuthor: "harness" },
+  trackerResearch: { origin: "tracker", research: true, pageAuthor: "harness" },
+  trackerModelCall: { origin: "tracker", research: false, pageAuthor: "model" },
+} as const satisfies Record<string, Pick<WorldSetup, "origin" | "research" | "pageAuthor">>;
 
 /** The name of one setup module of the spec. */
 export type SpecSetup = keyof typeof SPEC_SETUPS;
@@ -33,7 +51,8 @@ export type SpecSetup = keyof typeof SPEC_SETUPS;
 const TRACE_STEPS = 25;
 
 const ISSUES = ["SubjectIssue", "SubIssue"] as const;
-const AUTHOR_STATUSES = ["Running", "InReview", "Finished"] as const;
+const AUTHOR_STATUSES = ["NotStarted", "InTurn", "Idle", "InReview", "Finished"] as const;
+const RESEARCH_STATES = ["NoResearch", "Researching", "Researched", "ResearchCancelled"] as const;
 const POST_KINDS = [
   "QuestionPost",
   "ArtifactReadyPost",
@@ -44,15 +63,29 @@ const POST_KINDS = [
   "InfoPost",
   "TurnFailedPost",
 ] as const;
+const FEED_KINDS = [
+  "ActionActivity",
+  "ReplyActivity",
+  "DoneActivity",
+  "StoppedActivity",
+  "ErrorActivity",
+] as const;
 const SESSION_TEXTS = ["Question", "StatusRequest"] as const;
 const OUTCOMES = ["Answers", "Asks", "TimesOut"] as const;
 const ENDINGS = ["Finishes", "Fails"] as const;
+const TURN_ENDINGS = ["Replies", "EndsSilently", "StopsEarly", "GivesUp", "PromptFails"] as const;
+const STREAMED = ["Message", "ToolCall"] as const;
+const HEALTHS = ["TrackerUp", "FailsBeforeStoring", "FailsAfterStoring"] as const;
 
 type Issue = (typeof ISSUES)[number];
 type PostKind = (typeof POST_KINDS)[number];
+type FeedKind = (typeof FEED_KINDS)[number];
 type SessionText = (typeof SESSION_TEXTS)[number];
 type Outcome = (typeof OUTCOMES)[number];
 type Ending = (typeof ENDINGS)[number];
+type TurnEnding = (typeof TURN_ENDINGS)[number];
+type Streamed = (typeof STREAMED)[number];
+type Health = (typeof HEALTHS)[number];
 
 /** The tracker issue key of each issue of the spec. */
 const ISSUE_KEY: Record<Issue, string> = {
@@ -63,16 +96,47 @@ const ISSUE_KEY: Record<Issue, string> = {
 /** The chat channel of each chat thread of the spec, by number. */
 const CHAT_CHANNELS = ["C1", "C2"];
 
+/** How the world's tracker answers for each tracker health of the spec. */
+const TRACKER_HEALTH: Record<Health, TrackerHealth> = {
+  TrackerUp: "up",
+  FailsBeforeStoring: "fails_before_storing",
+  FailsAfterStoring: "fails_after_storing",
+};
+
+/** The closing text the author's turn ends with for each turn ending of the spec that is a turn end. */
+const CLOSING_OF: Record<Exclude<TurnEnding, "PromptFails">, AuthorClosing> = {
+  Replies: "finished",
+  EndsSilently: "silent",
+  StopsEarly: "stopped_early",
+  GivesUp: "blocked",
+};
+
+/** A todo list by how many of its entries are complete. Null when none was reported. */
+type SpecTodos = number | null;
+
 /** One job as the spec sees it. */
 type SpecJob = {
   issue: Issue;
   author: (typeof AUTHOR_STATUSES)[number];
   queued: number;
   handedOver: boolean;
+  buffered: boolean;
+  todos: SpecTodos;
+  restarts: number;
+  stoppedEarly: boolean;
+  containerClosed: boolean;
+  research: (typeof RESEARCH_STATES)[number];
+  researcherTodos: SpecTodos;
 };
 
 /** One post and the reply targets it reached, each target by its spec name. */
-export type SpecPost = { kind: PostKind; targets: string[] };
+type SpecPost = { kind: PostKind; targets: string[] };
+
+/** One feed activity: the job it belongs to, its kind, and how many the tracker stored. */
+export type SpecFeedPost = { job: number; kind: FeedKind; stored: number };
+
+/** What one step sent out: its posts, its feed activities by job, and the sessions of its plans. */
+export type SpecOutput = { posts: SpecPost[]; feed: SpecFeedPost[]; plans: Issue[] };
 
 /** The workflow as the spec sees it. Targets go by their spec names, and sets are sorted. */
 export type SpecRouting = {
@@ -81,6 +145,7 @@ export type SpecRouting = {
   waiting: string[];
   links: Issue[];
   boards: string[];
+  waitsForInput: boolean;
   ended: boolean;
 };
 
@@ -89,15 +154,19 @@ type SpecPicks = {
   issue: Issue | null;
   text: SessionText | null;
   outcome: Outcome | null;
-  job: number | null;
+  id: number | null;
   ending: Ending | null;
+  turnEnding: TurnEnding | null;
+  streamed: Streamed | null;
+  health: Health | null;
+  todos: number | null;
 };
 
-/** One state of a trace: the action that led to it, its picks, the posts of its step, and the workflow. */
+/** One state of a trace: the action that led to it, its picks, what its step sent, and the workflow. */
 export type TraceStep = {
   action: string;
   picks: SpecPicks;
-  posts: SpecPost[];
+  output: SpecOutput;
   routing: SpecRouting;
 };
 
@@ -121,29 +190,58 @@ export async function generateTraces(
 export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
   return itfList(itfField(trace, "states")).map((state) => {
     const picks = itfField(state, "mbt::nondetPicks");
-    const picked = (name: string, names: readonly string[]) => {
+    const pickOf = (name: string) => {
       const pick = itfVariant(itfField(picks, name, true));
-      if (pick?.tag !== "Some") return null;
-      return itfOneOf(itfVariant(pick.value)!.tag, names);
+      return pick?.tag === "Some" ? pick.value : null;
     };
-    const job = itfVariant(itfField(picks, "job", true));
+    const picked = <Name extends string>(name: string, names: readonly Name[]) => {
+      const value = pickOf(name);
+      return value === null ? null : itfOneOf(itfVariant(value)!.tag, names);
+    };
+    const id = pickOf("id");
+    const todos = pickOf("todos");
     const facts = itfField(state, `${setup}::sessionRouting::lastStep`);
     return {
       action: itfText(itfField(state, "mbt::actionTaken")),
       picks: {
-        issue: picked("issue", ISSUES) as Issue | null,
-        text: picked("text", SESSION_TEXTS) as SessionText | null,
-        outcome: picked("outcome", OUTCOMES) as Outcome | null,
-        job: job?.tag === "Some" ? itfInt(job.value) : null,
-        ending: picked("ending", ENDINGS) as Ending | null,
+        issue: picked("issue", ISSUES),
+        text: picked("text", SESSION_TEXTS),
+        outcome: picked("outcome", OUTCOMES),
+        id: id === null ? null : itfInt(id),
+        ending: picked("ending", ENDINGS),
+        turnEnding: picked("turnEnding", TURN_ENDINGS),
+        streamed: picked("streamed", STREAMED),
+        health: picked("health", HEALTHS),
+        todos: todos === null ? null : specTodos(todos),
       },
-      posts: itfList(itfField(facts, "posts")).map((post) => ({
-        kind: itfOneOf(itfVariant(itfField(post, "kind"))!.tag, POST_KINDS),
-        targets: itfSet(itfField(post, "targets")).map(specTargetName).toSorted(),
-      })),
+      output: {
+        posts: itfList(itfField(facts, "posts")).map((post) => ({
+          kind: itfOneOf(itfVariant(itfField(post, "kind"))!.tag, POST_KINDS),
+          targets: itfSet(itfField(post, "targets")).map(specTargetName).toSorted(),
+        })),
+        feed: byJob(
+          itfList(itfField(facts, "feed")).map((posted) => ({
+            job: itfInt(itfField(posted, "job")),
+            kind: itfOneOf(itfVariant(itfField(posted, "kind"))!.tag, FEED_KINDS),
+            stored: itfInt(itfField(posted, "stored")),
+          })),
+        ),
+        plans: itfList(itfField(facts, "plans"))
+          .map((issue) => itfOneOf(itfVariant(issue)!.tag, ISSUES))
+          .toSorted(),
+      },
       routing: specRouting(itfField(state, `${setup}::sessionRouting::routing`)),
     };
   });
+}
+
+function byJob(feed: SpecFeedPost[]): SpecFeedPost[] {
+  return feed.toSorted((left, right) => left.job - right.job);
+}
+
+function specTodos(value: unknown): SpecTodos {
+  const list = itfVariant(value)!;
+  return list.tag === "Todos" ? itfInt(list.value) : null;
 }
 
 function specTargetName(value: unknown): string {
@@ -160,6 +258,13 @@ function specRouting(value: unknown): SpecRouting {
       author: itfOneOf(itfVariant(itfField(job, "author"))!.tag, AUTHOR_STATUSES),
       queued: itfInt(itfField(job, "queued")),
       handedOver: itfBool(itfField(job, "handedOver")),
+      buffered: itfBool(itfField(job, "buffered")),
+      todos: specTodos(itfField(job, "todos")),
+      restarts: itfInt(itfField(job, "restarts")),
+      stoppedEarly: itfBool(itfField(job, "stoppedEarly")),
+      containerClosed: itfBool(itfField(job, "containerClosed")),
+      research: itfOneOf(itfVariant(itfField(job, "research"))!.tag, RESEARCH_STATES),
+      researcherTodos: specTodos(itfField(job, "researcherTodos")),
     })),
     waiting: itfSet(itfField(value, "waiting")).map(specTargetName).toSorted(),
     links: itfList(itfField(value, "links")).map((issue) =>
@@ -168,6 +273,7 @@ function specRouting(value: unknown): SpecRouting {
     boards: itfSet(itfField(value, "boards"))
       .map((board) => `${itfInt(itfField(board, "job"))}@${itfInt(itfField(board, "thread"))}`)
       .toSorted(),
+    waitsForInput: itfBool(itfField(value, "waitsForInput")),
     ended: itfBool(itfField(value, "ended")),
   };
 }
@@ -176,12 +282,10 @@ const TOOL_CALL = { toolCallId: "call-1", messages: [], context: {} };
 const REQUEST_TEXT = "Fix the login redirect.";
 const STAGE = STAGE_OF.page;
 
-const WORLD_SETUP: Omit<WorldSetup, "origin"> = {
+const WORLD_SETUP: Omit<WorldSetup, "origin" | "research" | "pageAuthor"> = {
   opening: "request",
   artifact: "page",
   refiners: "none",
-  research: false,
-  pageAuthor: "harness",
   checksOnPush: "passed",
   pageEnding: "acceptance",
   firstInput: "request",
@@ -206,15 +310,17 @@ const POST_KIND_OF: Partial<Record<TaskEvent["type"], PostKind>> = {
   turn_failed: "TurnFailedPost",
 };
 
-const AUTHOR_STATUS_OF: Record<TaskStatus, SpecJob["author"]> = {
-  queued: "Running",
-  provisioning: "Running",
-  working: "Running",
-  in_review: "InReview",
-  done: "Finished",
-  cancelled: "Finished",
-  failed: "Finished",
+const RESEARCH_OF: Record<TaskStatus, SpecJob["research"]> = {
+  queued: "Researching",
+  provisioning: "Researching",
+  working: "Researching",
+  in_review: "Researching",
+  done: "Researched",
+  cancelled: "ResearchCancelled",
+  failed: "ResearchCancelled",
 };
+
+const NOT_FEED_ACTIVITIES = ["plan", "delivery_error"];
 
 function worldAction(label: string, run: (world: WorkflowWorld) => Promise<void>): WorkflowAction {
   return { run, toString: () => label };
@@ -240,9 +346,33 @@ function threadOfBoardKey(key: string): number {
   return thread;
 }
 
-function issueKeyOfLink(target: unknown): string | null {
+function issueKeyOfTarget(target: unknown): string | null {
   if (typeof target !== "object" || target === null || !("issue_id" in target)) return null;
   return typeof target.issue_id === "string" ? target.issue_id : null;
+}
+
+function feedKindOf(content: AgentActivityContent): FeedKind {
+  if (content.type === "action") return "ActionActivity";
+  if (content.type === "error") return "ErrorActivity";
+  if (content.type !== "response") throw new Error(`the spec has no feed kind ${content.type}`);
+  if (content.body === STOPPED_TEXT) return "StoppedActivity";
+  if (content.body === DONE_TEXT) return "DoneActivity";
+  return "ReplyActivity";
+}
+
+/** The fields of a feed row the notifier wrote: its task, its activity id, and its content. */
+type FeedPayload = { task_id: string; id: string; content: AgentActivityContent };
+
+function feedPayloadOf(payload: unknown): FeedPayload {
+  if (typeof payload !== "object" || payload === null) throw new Error("a feed row has no payload");
+  return payload as FeedPayload;
+}
+
+function todosOf(workflow: WorkflowRuntime, task: TaskRow | null): SpecTodos {
+  if (!task) return null;
+  const entries = workflow.store.todoRow(task.task_id)?.todos?.entries ?? [];
+  if (!entries.length) return null;
+  return entries.filter((entry) => entry.status === "completed").length;
 }
 
 /**
@@ -251,8 +381,6 @@ function issueKeyOfLink(target: unknown): string | null {
  * runs as its tools and its watchdog would: it takes the inbox, posts, and deletes what it took.
  */
 export class SessionRoutingReplay {
-  private postsBefore = 0;
-
   private constructor(readonly world: WorkflowWorld) {}
 
   /** A started world of `setup`. A chat workflow's plan names the subject issue. */
@@ -275,7 +403,7 @@ export class SessionRoutingReplay {
             reason: "the request asks for a design",
             stages: [STAGE],
             repo: REPO,
-            page_parent: null,
+            page_parent: workflow.state.page_parent,
             concurrency: ISSUES.length,
             ...(chat ? { subject: worldIssueUrl(SUBJECT_ISSUE_KEY) } : {}),
           },
@@ -283,46 +411,65 @@ export class SessionRoutingReplay {
         );
       }),
     );
-    replay.postsBefore = workflow.deliveries.length;
     return replay;
   }
 
-  /** Take one spec action, then bring up every sandbox that waits. Returns the posts it made. */
-  async take(step: TraceStep): Promise<SpecPost[]> {
-    this.postsBefore = this.world.workflow.deliveries.length;
+  /** Take one spec action, then bring up every sandbox that waits. Returns what the step sent. */
+  async take(step: TraceStep): Promise<SpecOutput> {
+    const deliveriesBefore = this.world.workflow.deliveries.length;
+    const outboxBefore = this.world.workflow.store.outbox().length;
+    this.world.setTrackerHealth(TRACKER_HEALTH[step.picks.health ?? "TrackerUp"]);
     await this.world.apply(this.actionFor(step));
+    this.world.setTrackerHealth("up");
     await this.world.apply(
       worldAction("sandboxes come up", async (world) => {
         for (const task of world.tasksAwaitingSandbox()) await world.startSandboxOf(task.task_id);
       }),
     );
-    return this.posts();
-  }
-
-  /** The posts since the last action, as the spec sees them. */
-  posts(): SpecPost[] {
-    return this.world.workflow.deliveries.slice(this.postsBefore).map(({ event, targets }) => {
-      const kind = POST_KIND_OF[event.type];
-      if (!kind) throw new Error(`the spec has no post kind for ${event.type}`);
-      return { kind, targets: targets.map(targetName).toSorted() };
-    });
+    const deliveries = this.world.workflow.deliveries.slice(deliveriesBefore);
+    const rows = this.world.workflow.store.outbox().slice(outboxBefore);
+    return {
+      posts: deliveries.map(({ event, targets }) => {
+        const kind = POST_KIND_OF[event.type];
+        if (!kind) throw new Error(`the spec has no post kind for ${event.type}`);
+        return { kind, targets: targets.map(targetName).toSorted() };
+      }),
+      feed: byJob(
+        rows
+          .filter((row) => row.channel === "feed" && !NOT_FEED_ACTIVITIES.includes(row.kind))
+          .map((row) => this.feedPostOf(feedPayloadOf(row.payload))),
+      ),
+      plans: rows
+        .filter((row) => row.channel === "feed" && row.kind === "plan")
+        .map((row) => issueOfKey(issueKeyOfTarget(row.target)))
+        .toSorted(),
+    };
   }
 
   /** The workflow as the spec sees it. */
   project(): SpecRouting {
-    const { store, state, transcript } = this.world.workflow;
+    const { workflow } = this.world;
+    const { store, state, transcript } = workflow;
     const jobs = store.jobs();
     return {
       replyTargets: state.reply_targets.map(targetName).toSorted(),
       jobs: jobs.map((job) => {
-        const author = this.authorOf(job.job_id);
+        const author = store.authorTask(job.job_id);
+        const researcher = store.researcherTask(job.job_id);
+        const sandbox = author ? store.sandbox(author.task_id) : null;
+        const status = author ? this.authorStatusOf(author) : "NotStarted";
         return {
           issue: issueOfKey(job.issue_id),
-          author: AUTHOR_STATUS_OF[author.status],
-          queued: store.queue().filter((row) => row.task_id === author.task_id).length,
-          handedOver: this.world.workflow.posted.some(
-            (event) => event.type === "artifact_ready" && event.job_id === job.job_id,
-          ),
+          author: status,
+          queued: author ? store.queue().filter((row) => row.task_id === author.task_id).length : 0,
+          handedOver: Boolean(store.artifact(job.job_id)?.delivered_to_humans_at),
+          buffered: Boolean(author && workflow.sessionFeeds.get(author.task_id)?.message),
+          todos: todosOf(workflow, author),
+          restarts: author?.restarts ?? 0,
+          stoppedEarly: Boolean(sandbox?.stopped_early),
+          containerClosed: status === "Idle" && Boolean(sandbox) && !sandbox?.session_id,
+          research: researcher ? RESEARCH_OF[researcher.status] : "NoResearch",
+          researcherTodos: todosOf(workflow, researcher),
         };
       }),
       waiting: transcript
@@ -335,7 +482,7 @@ export class SessionRoutingReplay {
       links: store
         .outbox()
         .filter((row) => row.kind === "attach_chat_thread")
-        .map((row) => issueOfKey(issueKeyOfLink(row.target))),
+        .map((row) => issueOfKey(issueKeyOfTarget(row.target))),
       boards: jobs
         .flatMap((job, index) =>
           store
@@ -344,8 +491,39 @@ export class SessionRoutingReplay {
         )
         .filter((name, index, names) => names.indexOf(name) === index)
         .toSorted(),
+      waitsForInput: state.status === "waiting_input",
       ended: isWorkflowFinished(state.status),
     };
+  }
+
+  private authorStatusOf(author: TaskRow): SpecJob["author"] {
+    switch (author.status) {
+      case "queued":
+      case "provisioning":
+        return "InTurn";
+      case "working":
+        return this.world.workflow.store.sandbox(author.task_id)?.prompt_in_flight
+          ? "InTurn"
+          : "Idle";
+      case "in_review":
+        return "InReview";
+      case "done":
+      case "cancelled":
+      case "failed":
+        return "Finished";
+      default: {
+        const unreachable: never = author.status;
+        throw new Error(`unhandled task status ${String(unreachable)}`);
+      }
+    }
+  }
+
+  private feedPostOf(payload: FeedPayload): SpecFeedPost {
+    const { store } = this.world.workflow;
+    const task = store.requireTask(payload.task_id);
+    const job = store.jobs().findIndex((row) => row.job_id === task.job_id);
+    const stored = this.world.tracker.stored.filter((activity) => activity.id === payload.id);
+    return { job, kind: feedKindOf(payload.content), stored: stored.length };
   }
 
   private actionFor(step: TraceStep): WorkflowAction {
@@ -381,19 +559,45 @@ export class SessionRoutingReplay {
         });
       case "chatThreadJoins":
         return chatThreadJoins();
-      case "authorHandsOver":
-        return worldAction(`the author of job ${picks.job} hands over`, async (world) => {
-          const index = this.unfinishedIndexOf(required(picks.job));
-          await firstArtifactAppears(index, "author_text").run(world);
-          await authorTurnEnds(index, "same", "finished").run(world);
-        });
+      case "authorStreams":
+        return authorStreams(
+          this.unfinishedIndexOf(required(picks.id)),
+          required(picks.streamed) === "Message" ? "message" : "tool",
+        );
+      case "authorReportsTodos":
+        return authorReportsTodos(
+          this.unfinishedIndexOf(required(picks.id)),
+          required(picks.todos),
+        );
+      case "authorRecordsArtifact":
+        return firstArtifactAppears(this.unfinishedIndexOf(required(picks.id)), "author_text");
+      case "authorTurnEnds":
+        return worldAction(
+          `the turn of the author of job ${picks.id} ends: ${picks.turnEnding}`,
+          (world) => this.authorTurnEnds(world, required(picks.id), required(picks.turnEnding)),
+        );
       case "authorFails":
-        return worldAction(`the author of job ${picks.job} passes the wall clock`, (world) =>
-          this.wallClockFires(world, required(picks.job)),
+        return worldAction(`the author of job ${picks.id} passes the wall clock`, (world) =>
+          this.wallClockFires(world, required(picks.id)),
+        );
+      case "personStops":
+        return worldAction(`a person presses Stop in the session on ${picks.issue}`, (world) =>
+          world.deliver(stopEvent(this.sessionOn(world, required(picks.issue)))),
+        );
+      case "workflowRestarts":
+        return worldAction("the workflow restarts", (world) => world.restart());
+      case "researcherReportsTodos":
+        return researcherReportsTodos(
+          this.researcherIndexOf(required(picks.id)),
+          required(picks.todos),
+        );
+      case "researcherHandsOver":
+        return worldAction(`the researcher of job ${picks.id} hands over`, (world) =>
+          this.researcherHandsOver(world, required(picks.id)),
         );
       case "boardFlushes":
-        return worldAction(`the board of job ${picks.job} flushes`, (world) =>
-          flushBoards(world.workflow, this.jobIdOf(required(picks.job))),
+        return worldAction(`the board of job ${picks.id} flushes`, (world) =>
+          flushBoards(world.workflow, this.jobIdOf(required(picks.id))),
         );
       case "agentEndsWorkflow":
         return worldAction(`the agent ends the workflow: ${picks.ending}`, (world) =>
@@ -404,16 +608,24 @@ export class SessionRoutingReplay {
     }
   }
 
-  private async personWritesInSession(
+  private sessionOn(
     world: WorkflowWorld,
     issue: Issue,
-    said: SessionText,
-  ): Promise<void> {
+  ): Extract<ReplyTarget, { source: "tracker" }> {
     const session = world.workflow.state.reply_targets.find(
       (target): target is Extract<ReplyTarget, { source: "tracker" }> =>
         target.source === "tracker" && target.issue_id === ISSUE_KEY[issue],
     );
     if (!session) throw new Error(`the workflow has no session on ${issue}`);
+    return session;
+  }
+
+  private async personWritesInSession(
+    world: WorkflowWorld,
+    issue: Issue,
+    said: SessionText,
+  ): Promise<void> {
+    const session = this.sessionOn(world, issue);
     await world.deliver({
       ...SESSION_EVENTS[said],
       reply_to: session,
@@ -454,6 +666,27 @@ export class SessionRoutingReplay {
     }
   }
 
+  private async authorTurnEnds(
+    world: WorkflowWorld,
+    jobIndex: number,
+    ending: TurnEnding,
+  ): Promise<void> {
+    const index = this.unfinishedIndexOf(jobIndex);
+    if (ending === "PromptFails") {
+      await authorPromptFails(index, "same").run(world);
+      return;
+    }
+    await authorTurnEnds(index, "same", CLOSING_OF[ending]).run(world);
+  }
+
+  private async researcherHandsOver(world: WorkflowWorld, jobIndex: number): Promise<void> {
+    const researcher = this.world.workflow.store.researcherTask(this.jobIdOf(jobIndex));
+    const bridge = researcher ? world.runningBridgeOf(researcher.task_id) : null;
+    if (!bridge) throw new Error(`the researcher of job ${jobIndex} has no running turn`);
+    await bridge.say(`I opened ${pageUrl(1)} for this.`);
+    await researcherTurnEnds(this.researcherIndexOf(jobIndex), "written").run(world);
+  }
+
   private async wallClockFires(world: WorkflowWorld, jobIndex: number): Promise<void> {
     const { task_id } = this.authorOf(this.jobIdOf(jobIndex));
     const alarm = world.workflow
@@ -480,9 +713,7 @@ export class SessionRoutingReplay {
   }
 
   private authorOf(jobId: string): TaskRow {
-    const author = this.world.workflow.store
-      .tasks()
-      .findLast((task) => task.job_id === jobId && task.role === "author");
+    const author = this.world.workflow.store.authorTask(jobId);
     if (!author) throw new Error(`job ${jobId} has no author`);
     return author;
   }
@@ -493,6 +724,16 @@ export class SessionRoutingReplay {
     return this.world.authors
       .filter((author) => !isTaskFinished(this.world.taskOf(author).status))
       .findIndex((author) => author.taskId === taskId);
+  }
+
+  /** The index `researcherAt` counts the researcher of the job by, among the unfinished ones. */
+  private researcherIndexOf(jobIndex: number): number {
+    const researcher = this.world.workflow.store.researcherTask(this.jobIdOf(jobIndex));
+    if (!researcher) throw new Error(`job ${jobIndex} has no researcher`);
+    return this.world.workflow.store
+      .tasks()
+      .filter((task) => task.role === "researcher" && !isTaskFinished(task.status))
+      .findIndex((task) => task.task_id === researcher.task_id);
   }
 }
 
