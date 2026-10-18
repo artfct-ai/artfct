@@ -9,6 +9,7 @@
   },
   "vars": [
     "pagesWithoutRefiners::workflowLifecycle::workflow",
+    "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent",
     "mbt::actionTaken",
     "mbt::nondetPicks"
   ],
@@ -49,6 +50,7 @@
           }
         }
       },
+      "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "init",
       "mbt::nondetPicks": {
         "accepted": {
@@ -173,6 +175,7 @@
           }
         }
       },
+      "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "idleAlarmFires",
       "mbt::nondetPicks": {
         "accepted": {
@@ -297,6 +300,7 @@
           }
         }
       },
+      "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
         "accepted": {
@@ -472,6 +476,7 @@
           }
         }
       },
+      "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "agentStartsJob",
       "mbt::nondetPicks": {
         "accepted": {
@@ -649,6 +654,7 @@
           }
         }
       },
+      "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": true,
       "mbt::actionTaken": "authorWritesItsPage",
       "mbt::nondetPicks": {
         "accepted": {
@@ -826,6 +832,7 @@
           }
         }
       },
+      "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "agentPausesAuthor",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1003,6 +1010,7 @@
           }
         }
       },
+      "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "agentResumesAuthor",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1198,6 +1206,7 @@
           }
         }
       },
+      "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": true,
       "mbt::actionTaken": "taskStalls",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1393,6 +1402,7 @@
           }
         }
       },
+      "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1586,6 +1596,7 @@
           }
         }
       },
+      "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1779,6 +1790,7 @@
           }
         }
       },
+      "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "agentPausesAuthor",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1956,6 +1968,7 @@
           }
         }
       },
+      "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "workflowRestarts",
       "mbt::nondetPicks": {
         "accepted": {
@@ -2131,6 +2144,7 @@
           }
         }
       },
+      "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
         "accepted": {
@@ -2324,6 +2338,7 @@
           }
         }
       },
+      "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "agentCompletesJob",
       "mbt::nondetPicks": {
         "accepted": {
