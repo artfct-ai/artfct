@@ -33,12 +33,12 @@ async function replayTrace(setup: SpecSetup, trace: TraceStep[]): Promise<void> 
   replay = await SessionRoutingReplay.open(setup);
   const taken = ["init"];
   const divergence = (step: TraceStep) =>
-    `${setup} diverged after ${taken.join(" -> ")}\nspec state: ${JSON.stringify(step.routing)}\nspec posts: ${JSON.stringify(step.posts)}`;
+    `${setup} diverged after ${taken.join(" -> ")}\nspec state: ${JSON.stringify(step.routing)}\nspec output: ${JSON.stringify(step.output)}`;
   expect(replay.project(), divergence(initial)).toEqual(initial.routing);
   for (const step of steps) {
     taken.push(stepName(step));
-    const posts = await replay.take(step);
-    expect(posts, divergence(step)).toEqual(step.posts);
+    const output = await replay.take(step);
+    expect(output, divergence(step)).toEqual(step.output);
     expect(replay.project(), divergence(step)).toEqual(step.routing);
   }
   replay = null;
@@ -61,6 +61,12 @@ describe("session routing spec", () => {
       PINNED_TRACES,
       "timeout-in-a-sub-issue-session-after-its-author-failed.itf.json",
     );
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("trackerOnly", traceSteps("trackerOnly", trace));
+  });
+
+  it("ends the feed of an author that gives up after its restarts on the error", async () => {
+    const path = join(PINNED_TRACES, "an-author-fails-on-an-error-after-its-restarts.itf.json");
     const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
     await replayTrace("trackerOnly", traceSteps("trackerOnly", trace));
   });

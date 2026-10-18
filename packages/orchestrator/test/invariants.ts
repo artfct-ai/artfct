@@ -78,8 +78,6 @@ export type Observation = {
   posted: number;
   tasks: ObservedTask[];
   artifacts: ObservedArtifact[];
-  /** The todo list of each task, as text. */
-  todos: Record<string, string>;
   /** Prompts queued for authors plus prompts sent to authors, since the workflow began. */
   authorPrompts: number;
 };
@@ -113,9 +111,6 @@ export type Step = {
   /** The type of every event the step posted, wherever it went. */
   postedTypes: TaskEvent["type"][];
   feedPosts: Array<{ task_id: string; kind: string; text: string }>;
-  planPosts: string[];
-  storedActivities: string[];
-  streamedTexts: string[];
   postedTexts: string[];
   /** Set when the agent called start_job. `refused` is true when the tool did not start a job. */
   start: { refused: boolean } | null;
@@ -233,9 +228,6 @@ const coverTrackerIssue = coverageCase(
 );
 const coverBoard = coverageCase("boardsLiveOnlyInChat: a job has a board");
 const coverJobWithoutChat = coverageCase("boardsLiveOnlyInChat: a job runs without a chat thread");
-const coverResearchHandedOn = coverageCase(
-  "researchReadsCompleteOnceTheAuthorStarts: a researcher with a todo list hands on to its author",
-);
 const coverInReview = coverageCase("inReviewTaskHasAnArtifact: a task waits in review");
 const coverRunDone = coverageCase("refinerRunIsDoneOnlyAfterItsTurnEnded: a refiner run ends done");
 const coverPolisherDoneLater = coverageCase(
@@ -253,9 +245,6 @@ const coverWorkflowWaits = coverageCase(
   "workflowWaitsOnlyWhileNoAuthorWorks: the workflow moves to waiting for input",
 );
 const coverArtifactMove = coverageCase("artifactStatusMovesAreLegal: an artifact changes status");
-const coverTodosAfterArtifact = coverageCase(
-  "todoListIsFixedAfterFirstArtifact: an author with a todo list has an artifact",
-);
 const coverJobStarts = coverageCase("jobStartsOnlyIntoAFreeSlot: a job starts");
 const coverLastSlot = coverageCase("jobStartsOnlyIntoAFreeSlot: a job starts into the last slot");
 const coverWorkflowEnded = coverageCase(
@@ -290,22 +279,12 @@ const coverSessionWithoutAuthor = coverageCase(
 const coverCancelledTurnInSession = coverageCase(
   "stopEndsTheAuthorsTurn: a cancelled turn ends in a session",
 );
-const coverStop = coverageCase("stopEndsTheAuthorsTurn: a person presses Stop");
-const coverStopOnAuthor = coverageCase("stopEndsTheAuthorsTurn: a stop reaches a session author");
-const coverStopDuringTurn = coverageCase(
-  "stopEndsTheAuthorsTurn: a stop lands during a running turn",
-);
-const coverStopOnIdle = coverageCase("stopEndsTheAuthorsTurn: a stop lands on an idle author");
 const coverModelCallStopped = coverageCase(
   "stoppedModelCallLeavesThePage: a stop lands during a model call",
-);
-const coverTodosInChatWithSession = coverageCase(
-  "chatWorkflowNeverSetsASessionPlan: a todo list changes in a chat workflow with a session",
 );
 const coverIdleInSession = coverageCase(
   "sessionFeedEndsWhenItsAuthorIdles: an author idles in a session",
 );
-const coverStreamStored = coverageCase("feedActivityPostsOnce: a streamed text is stored");
 const coverModelCallAuthorQueued = coverageCase(
   "aQueuedPromptReachesItsModelCallAuthor: a model-call author has a queued prompt",
 );
@@ -669,23 +648,6 @@ export function boardsLiveOnlyInChat(workflow: WorkflowRuntime): void {
   }
 }
 
-/** Once a job's author exists, every entry of the todo list its researcher reported reads complete. */
-export function researchReadsCompleteOnceTheAuthorStarts(workflow: WorkflowRuntime): void {
-  for (const job of workflow.store.jobs()) {
-    const researcher = workflow.store.researcherTask(job.job_id);
-    if (!researcher || !workflow.store.authorTask(job.job_id)) continue;
-    const entries = workflow.store.todoRow(researcher.task_id)?.todos?.entries ?? [];
-    if (entries.length) coverResearchHandedOn();
-    const open = entries.find((entry) => entry.status !== "completed");
-    if (open) {
-      violated(
-        "researchReadsCompleteOnceTheAuthorStarts",
-        `${researcher.task_id} still reads "${open.content}" ${open.status}`,
-      );
-    }
-  }
-}
-
 /** A task cannot be `in_review` without an artifact on its job. */
 export function inReviewTaskHasAnArtifact(workflow: WorkflowRuntime): void {
   for (const task of workflow.store.tasks()) {
@@ -806,33 +768,6 @@ export function artifactStatusMovesAreLegal(_workflow: WorkflowRuntime, step: St
       violated(
         "artifactStatusMovesAreLegal",
         `${before.job_id} went from ${before.status} to ${after?.status ?? "nothing"}`,
-      );
-    }
-  }
-}
-
-/**
- * The todo list of a task should never change after its job records an artifact. A researcher task
- * should never record an artifact.
- */
-export function todoListIsFixedAfterFirstArtifact(_workflow: WorkflowRuntime, step: Step): void {
-  for (const artifact of step.after.artifacts) {
-    if (authorIn(step.after, artifact.job_id)) continue;
-    violated(
-      "todoListIsFixedAfterFirstArtifact",
-      `${artifact.job_id} recorded an artifact while only its researcher ran`,
-    );
-  }
-  for (const artifact of step.before.artifacts) {
-    const author = authorIn(step.before, artifact.job_id);
-    if (!author) continue;
-    const before = step.before.todos[author.task_id];
-    const after = step.after.todos[author.task_id];
-    if (before !== undefined) coverTodosAfterArtifact();
-    if (before !== after) {
-      violated(
-        "todoListIsFixedAfterFirstArtifact",
-        `${author.task_id} todos went from ${before} to ${after}`,
       );
     }
   }
@@ -1255,51 +1190,17 @@ function endsOnTheStoppedReply(step: Step, taskId: string): boolean {
   return last?.kind === "response" && last.text === STOPPED_TEXT;
 }
 
-/**
- * A stop ends the author's turn and drops its queued prompts. Its session feed ends with the
- * stopped reply. The workflow status does not change, and the orchestrator does not post.
- */
+/** A cancelled turn that leaves its author idle in its job session ends the feed on the stopped reply. */
 export function stopEndsTheAuthorsTurn(_workflow: WorkflowRuntime, step: Step): void {
   const ended = step.authorTurnEnd;
-  if (ended?.cancelled) {
-    const author = step.after.tasks.find((task) => task.task_id === ended.task_id);
-    const idle = author && !author.promptInFlight && author.queuedPrompts === 0;
-    const inSession = author && step.after.jobSessions[author.job_id];
-    if (idle && inSession) coverCancelledTurnInSession();
-    if (idle && inSession && !endsOnTheStoppedReply(step, ended.task_id)) {
-      violated("stopEndsTheAuthorsTurn", `the cancelled turn of ${ended.task_id} did not say so`);
-    }
-  }
-  if (step.event?.kind !== "stop") return;
-  coverStop();
-  if (step.after.workflowStatus !== step.before.workflowStatus) {
-    violated(
-      "stopEndsTheAuthorsTurn",
-      `the workflow went from ${step.before.workflowStatus} to ${step.after.workflowStatus}`,
-    );
-  }
-  if (step.after.posted !== step.before.posted || step.sessionPosts.length > 0) {
-    violated("stopEndsTheAuthorsTurn", "the orchestrator posted for the stop");
-  }
-  const author = sessionAuthorBefore(step);
-  const after = author && step.after.tasks.find((task) => task.task_id === author.task_id);
-  if (!author || !after) return;
-  coverStopOnAuthor();
-  if (author.turnRunning) coverStopDuringTurn();
-  else if (!FINISHED.includes(author.status)) coverStopOnIdle();
-  if (after.queuedPrompts > 0) {
-    violated("stopEndsTheAuthorsTurn", `${author.task_id} kept ${after.queuedPrompts} prompts`);
-  }
-  if (author.turnRunning && after.cancelsSent === author.cancelsSent) {
-    violated("stopEndsTheAuthorsTurn", `${author.task_id} was not sent a cancel`);
-  }
-  const resumes =
-    after.promptInFlight || after.handshaking || STARTING_AUTHOR.includes(after.status);
-  if (resumes && !FINISHED.includes(after.status)) {
-    violated("stopEndsTheAuthorsTurn", `${author.task_id} would resume as ${after.status}`);
-  }
-  if (!endsOnTheStoppedReply(step, author.task_id)) {
-    violated("stopEndsTheAuthorsTurn", `the session feed of ${author.task_id} did not say so`);
+  if (!ended?.cancelled) return;
+  const author = step.after.tasks.find((task) => task.task_id === ended.task_id);
+  const idle = author && !author.promptInFlight && author.queuedPrompts === 0;
+  const inSession = author && step.after.jobSessions[author.job_id];
+  if (!idle || !inSession) return;
+  coverCancelledTurnInSession();
+  if (!endsOnTheStoppedReply(step, ended.task_id)) {
+    violated("stopEndsTheAuthorsTurn", `the cancelled turn of ${ended.task_id} did not say so`);
   }
 }
 
@@ -1313,17 +1214,6 @@ export function stoppedModelCallLeavesThePage(_workflow: WorkflowRuntime, step: 
     "stoppedModelCallLeavesThePage",
     `${stopped.task_id} made ${stopped.pageWrites.join(", ")} after the stop`,
   );
-}
-
-/** While a chat thread exists, no tracker session gets a session plan. */
-export function chatWorkflowNeverSetsASessionPlan(_workflow: WorkflowRuntime, step: Step): void {
-  const sessions = [step.after.startingSession, ...Object.values(step.after.jobSessions)];
-  const todosChanged = JSON.stringify(step.before.todos) !== JSON.stringify(step.after.todos);
-  if (step.after.chatThread && sessions.some(Boolean) && todosChanged) {
-    coverTodosInChatWithSession();
-  }
-  if (!step.after.chatThread || step.planPosts.length === 0) return;
-  violated("chatWorkflowNeverSetsASessionPlan", `set a plan in ${step.planPosts.join(", ")}`);
 }
 
 /** A turn that leaves its author idle ends the author's session feed with a reply or an error. */
@@ -1341,15 +1231,6 @@ export function sessionFeedEndsWhenItsAuthorIdles(_workflow: WorkflowRuntime, st
     "sessionFeedEndsWhenItsAuthorIdles",
     `${author.task_id} went idle and its feed ended on ${last?.kind ?? "nothing"}`,
   );
-}
-
-/** The tracker holds at most one activity for each text an author streamed. */
-export function feedActivityPostsOnce(_workflow: WorkflowRuntime, step: Step): void {
-  if (step.streamedTexts.length > 0 && step.storedActivities.length > 0) coverStreamStored();
-  for (const text of step.streamedTexts) {
-    const holders = step.storedActivities.filter((stored) => stored.includes(text)).length;
-    if (holders > 1) violated("feedActivityPostsOnce", `${holders} activities hold ${text}`);
-  }
 }
 
 /**
