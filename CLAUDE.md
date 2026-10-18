@@ -106,7 +106,7 @@ Judge the model by these rules:
 - Every invariant has a property test on random sequences. A new invariant ships with generator actions that reach it, including failures, hangs, restarts, and concurrent events. An invariant that no sequence reaches is not tested.
 - When a change would let an invariant pass without testing anything, such as a new post that satisfies a reply check, propose the tightened invariant with the design.
 - Workflow invariants live in `packages/orchestrator/test/invariants.ts`. `packages/orchestrator/src/workflow/invariants.test.ts` checks them after every action.
-- Agent turn invariants live in `packages/orchestrator/test/agent-invariants.ts`. `packages/orchestrator/src/agent/turn/turn-invariants.test.medium.ts` checks them after every turn.
+- Agent turn invariants live in the Quint spec in `spec/agent-turns/`. Its replay, `packages/orchestrator/test/agent-turns-replay.ts`, runs the code on the spec's traces.
 - Code outside the workflow and the agent turn, such as the router or ingress, follows the same rule. Add a missing property test in the same change.
 - Only the repository owner adds, changes, or removes an invariant. The PR lists each approved invariant and its property test in its description.
 - When a property test fails, never weaken an invariant, an action, or a generator. Stop and report the shrunk sequence and the seed.
