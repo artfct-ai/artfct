@@ -120,7 +120,7 @@ export type Step = {
    * Set when a person pressed Stop while a model call of the author was in flight. `pageWrites`
    * names each page write the host took from the stop to the end of the step.
    */
-  modelCallStopped: { task_id: string; pageWrites: string[] } | null;
+  modelCallStopped: { task_id: string } | null;
   /**
    * Set when a restart or the deadline cut a model turn of the author. `prompt_id` is the queued
    * prompt a revise turn ran on, and null for a turn that produces the page.
@@ -228,9 +228,6 @@ const coverSessionWithoutAuthor = coverageCase(
 );
 const coverStoppedModelCallInSession = coverageCase(
   "stopEndsTheAuthorsTurn: a stop ends a model call in a session",
-);
-const coverModelCallStopped = coverageCase(
-  "stoppedModelCallLeavesThePage: a stop lands during a model call",
 );
 const coverIdleInSession = coverageCase(
   "sessionFeedEndsWhenItsAuthorIdles: an author idles in a session",
@@ -884,18 +881,6 @@ export function stopEndsTheAuthorsTurn(_workflow: WorkflowRuntime, step: Step): 
       `the stopped model call of ${stopped.task_id} did not say so`,
     );
   }
-}
-
-/** A model call in flight when a person presses Stop does not change the page. */
-export function stoppedModelCallLeavesThePage(_workflow: WorkflowRuntime, step: Step): void {
-  const stopped = step.modelCallStopped;
-  if (!stopped) return;
-  coverModelCallStopped();
-  if (stopped.pageWrites.length === 0) return;
-  violated(
-    "stoppedModelCallLeavesThePage",
-    `${stopped.task_id} made ${stopped.pageWrites.join(", ")} after the stop`,
-  );
 }
 
 /** A turn that leaves its author idle ends the author's session feed with a reply or an error. */

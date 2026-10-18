@@ -1,6 +1,8 @@
 import { Database, type Statement } from "bun:sqlite";
 import { join } from "node:path";
+import { getTableName, is } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sqlite";
+import { SQLiteTable } from "drizzle-orm/sqlite-core";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import * as schema from "../src/workflow/store/schema";
@@ -46,4 +48,13 @@ export function openMemoryDb(): MemoryDb {
   const database = Database.deserialize(migratedDatabaseImage());
   reuseCompiledStatements(database);
   return drizzle(database, { schema });
+}
+
+/** Every row of every table of the store, by table name. */
+export function storeRowsOf(db: MemoryDb): Record<string, unknown[]> {
+  return Object.fromEntries(
+    Object.values(schema)
+      .filter((table) => is(table, SQLiteTable))
+      .map((table) => [getTableName(table), db.select().from(table).all()]),
+  );
 }

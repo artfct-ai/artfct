@@ -7,9 +7,9 @@
 /// those into the step. The start of a task folds into the step that queues it: a harness gets its
 /// first prompt, and a model-call author sends its model call. A refiner run is modelled only as
 /// running, done, cancelled or failed. The review loop spec holds the rules of the run itself.
-/// A setup works pages for a chat request, issues for a chat request, or pulls for a tracker issue.
-/// The host and the tracker of a setup with pulls change outside the workflow, and the workflow
-/// hears of it as events.
+/// A setup works pages for a chat request, issues for a chat request, pages for a tracker issue,
+/// or pulls for a tracker issue. The host and the tracker of a setup with pulls change outside the
+/// workflow, and the workflow hears of it as events.
 module workflowLifecycleTypes {
   type WorkflowStatus = New | Running | WaitingInput | Done | Failed | Cancelled
 
@@ -47,13 +47,15 @@ module workflowLifecycleTypes {
   type ArtifactStatus = NoArtifact | Drafted | Ready | Accepted | Removed
 
   /// What the jobs of a setup work on: pages for a request in a chat thread, the issues the
-  /// breakdown stage writes for a request in a chat thread, or pulls for tracker issues under the
-  /// issue the workflow started from, with one stage that ends a single-issue workflow. A pull
-  /// setup has the host move pulls on the subject issue, a person end the subject issue or a
-  /// sub-issue, or jobs on both issues without moves from outside.
+  /// breakdown stage writes for a request in a chat thread, pages for the tracker issue the
+  /// workflow started from, or pulls for tracker issues under the issue the workflow started from.
+  /// A setup on a tracker issue has one stage that ends a single-issue workflow. A pull setup has
+  /// the host move pulls on the subject issue, a person end the subject issue or a sub-issue, or
+  /// jobs on both issues without moves from outside.
   type Work =
     | PagesForAChatRequest
     | IssuesForAChatRequest
+    | PagesForAnIssue
     | PullsTheHostMoves
     | PullsForAnEndedSubject
     | PullsForAnEndedSubIssue
@@ -115,6 +117,8 @@ module workflowLifecycleTypes {
   /// author a resume woke in a new generation while its old container went. It stops there.
   /// `PageWriteStarts` is the model turn that writes the answer of its model call to the page.
   /// `ModelTurnGoesOn` is the model turn that goes on once its page write landed.
+  /// `ModelCallStopped` is the model call of a model turn that a stop ended. Its answer changes
+  /// nothing.
   type Rest =
     | TeardownGoesOn({ teardown: Teardown, caller: Caller })
     | RestartGoesOn
@@ -122,6 +126,7 @@ module workflowLifecycleTypes {
     | CompletionGoesOn
     | PageWriteStarts(ModelTurn)
     | ModelTurnGoesOn(ModelTurn)
+    | ModelCallStopped(ModelTurn)
 
   /// A model turn in flight. `eventWaits` is true when a person's event started it with a prompt
   /// and waits for the turn to end before it tells the agent.
@@ -167,6 +172,8 @@ module workflowLifecycleTypes {
   /// up to its end or its next call, and so does the return of each call it waits on.
   /// `IssueEndStep` is a person moving the issue to a canceled or completed state.
   /// `FailedCheckStep` is the return of the acceptance check of the job when the check failed.
+  /// `StopStep` is a person pressing Stop in the session of the subject issue.
+  /// `StoppedCallReturnStep` is the return of the model call of the job that a stop ended.
   type StepKind =
     | OtherStep
     | PlanStep({ definition: int, subject: Subject })
@@ -183,6 +190,8 @@ module workflowLifecycleTypes {
     | SubjectCompletionStep
     | IssueEndStep(int)
     | FailedCheckStep(int)
+    | StopStep
+    | StoppedCallReturnStep(int)
 
   /// The timers whose alarms are about one sandbox generation.
   type GenerationTimer = HelloTimeout | NoProgress | KeepAlive | BridgeLost | QueueRetry | SettleIdleAuthor
@@ -222,6 +231,7 @@ module workflowLifecycleTypes {
     aStartOutsideTheSubjectStartsNoJob: bool,
     aFailedCheckNeverCompletesAJob: bool,
     aFailedCheckNeverAsksThePersonAgain: bool,
+    stoppedModelCallLeavesThePage: bool,
   }
 
   /// Whether the last step reached each before-and-after witness, by the name of the witness. Only
@@ -268,6 +278,8 @@ module workflowLifecycleTypes {
     anOutputNamesAnotherSubject: bool,
     anAcceptanceCheckFails: bool,
     aCheckFailsAfterItsAuthorEnded: bool,
+    aStopEndsAModelCall: bool,
+    aStoppedModelCallReturns: bool,
   }
 
   type Ending = PersonCancels | AgentFails | AgentFinishes
@@ -307,7 +319,7 @@ module workflowLifecycle {
   pure val REQUESTS: Set[int] = if (WRITES_ISSUES) Set(0) else 0.to(1)
 
   /// True when the jobs open pulls for tracker issues.
-  pure val WORKS_ON_PULLS: bool = WORK != PagesForAChatRequest and WORK != IssuesForAChatRequest
+  pure val WORKS_ON_PULLS: bool = not(WRITES_PAGES or WRITES_ISSUES)
 
   /// What the acceptance check can read. The host's merge lookup on a pull reads a failure as not
   /// merged, so only the decisions call of a page or issues fails.
@@ -322,9 +334,12 @@ module workflowLifecycle {
   /// True when the agent may start a job on a tracker issue.
   pure val STARTS_ON_ISSUES: bool = WORK != PagesForAChatRequest
 
+  /// True when the jobs write pages.
+  pure val WRITES_PAGES: bool = WORK == PagesForAChatRequest or WORK == PagesForAnIssue
+
   /// True when the workflow started from the session of a tracker issue, which sets the subject
-  /// as the workflow opens. A setup with pulls does.
-  pure val TRACKER_ORIGIN: bool = WORKS_ON_PULLS
+  /// as the workflow opens. A setup with pulls does, and so does one with pages for an issue.
+  pure val TRACKER_ORIGIN: bool = WORKS_ON_PULLS or WORK == PagesForAnIssue
 
   /// The issue a tracker origin starts the workflow from, and a plan or an output may name.
   pure val SUBJECT_ISSUE: int = 0
@@ -353,6 +368,10 @@ module workflowLifecycle {
   /// that starts jobs on issues names one.
   pure val PLAN_SUBJECTS: Set[Subject] =
     if (STARTS_ON_ISSUES) TRACKER_LINKS.union(Set(NoSubject)) else Set(NoSubject)
+
+  /// True when a person presses Stop in the session of the subject issue. The spec has a stop only
+  /// for a model-call author.
+  pure val A_PERSON_STOPS: bool = TRACKER_ORIGIN and MODEL_AUTHOR
 
   /// True when a person ends issues on the tracker.
   pure val A_PERSON_ENDS_ISSUES: bool = WORK == PullsForAnEndedSubject or WORK == PullsForAnEndedSubIssue
@@ -457,20 +476,38 @@ module workflowLifecycle {
   /// True when the destroy of the task's sandbox is a call: the destroy of a harness author's.
   pure def destroyIsACall(task: Task): bool = task.role == Author and not(MODEL_AUTHOR)
 
-  /// True for the calls of a model turn: its model call and its page write.
-  pure def isModelTurnCall(kind: CallKind): bool = kind == ModelCall or kind == PageWrite
+  /// True for the calls of a model turn the task holds: its model call and its page write. The
+  /// model call of a turn that a stop ended is not one.
+  pure def isModelTurnCall(call: Call): bool = match call.rest {
+    | PageWriteStarts(_) => true
+    | ModelTurnGoesOn(_) => true
+    | _ => false
+  }
+
+  /// True for the model call of a model turn that a stop ended.
+  pure def isStoppedModelCall(call: Call): bool = match call.rest {
+    | ModelCallStopped(_) => true
+    | _ => false
+  }
 
   /// True while the model turn of the job's unfinished model-call author is in flight: its model
   /// call or its page write is out.
   pure def modelTurnInFlight(flow: Workflow, id: int): bool = and {
     not(isFinished(jobTask(flow, id).status)),
     flow.calls.indices().exists(callId =>
-      isModelTurnCall(flow.calls[callId].kind) and flow.calls[callId].job == id),
+      isModelTurnCall(flow.calls[callId]) and flow.calls[callId].job == id),
   }
 
   /// True while the page write of the job's model turn is out.
-  pure def pageWriteOut(flow: Workflow, id: int): bool =
-    flow.calls.indices().exists(callId => flow.calls[callId].kind == PageWrite and flow.calls[callId].job == id)
+  pure def pageWriteOut(flow: Workflow, id: int): bool = pageWritesOut(flow, id) > 0
+
+  /// The page writes of the job that are out.
+  pure def pageWritesOut(flow: Workflow, id: int): int =
+    flow.calls.indices().filter(callId => flow.calls[callId].kind == PageWrite and flow.calls[callId].job == id).size()
+
+  /// The model calls out whose model turn a stop ended.
+  pure def stoppedModelCallsOut(flow: Workflow): int =
+    flow.calls.indices().filter(callId => isStoppedModelCall(flow.calls[callId])).size()
 
   pure def modelTurnsInFlight(flow: Workflow): Set[int] =
     jobIds(flow).filter(id => modelTurnInFlight(flow, id))
@@ -588,7 +625,7 @@ module workflowLifecycle {
   /// The job slots of the workflow: those the plan set with the stages. Before that, a page
   /// stage does not have any, and any other stage has those the workflow opened with.
   pure def jobSlotsOf(flow: Workflow): int = match flow.stagePlan {
-    | NoStages => if (WORK == PagesForAChatRequest) 0 else UNPLANNED_SLOTS
+    | NoStages => if (WRITES_PAGES) 0 else UNPLANNED_SLOTS
     | StagesPlanned(jobSlots) => jobSlots
   }
 
@@ -737,8 +774,7 @@ module workflowLifecycle {
   }
 
   /// True when `complete_job` on the job ends the workflow: the job works on the subject issue at
-  /// the last planned stage of a single-issue workflow. A plan with stages plans the one pull
-  /// stage.
+  /// the last planned stage of a single-issue workflow. A plan with stages plans the one stage.
   pure def completesTheWorkflow(flow: Workflow, id: int): bool =
     worksOnTheSingleSubjectIssue(flow, id) and flow.stagePlan != NoStages
 
@@ -768,7 +804,7 @@ module workflowLifecycle {
       )
   }
 
-  /// True for a model-call author queued to produce its page.
+  /// True for a model-call author queued to produce its page, once the step queued it.
   pure def waitsToProduce(flow: Workflow, id: int): bool = and {
     runsAsModelCalls(jobTask(flow, id)),
     jobTask(flow, id).status == Busy,
@@ -777,11 +813,13 @@ module workflowLifecycle {
     not(modelTurnInFlight(flow, id)),
   }
 
-  /// The provision alarm of each model-call author queued to produce its page sends its model
-  /// call, in the order the authors started.
-  pure def startQueuedModelAuthors(flow: Workflow): Workflow =
+  /// The provision alarm of each model-call author of the jobs that `drainModelAuthor` queued to
+  /// produce its page sends its model call, in the order the authors started. An author that a
+  /// stop ended before its page existed is not queued until its next prompt.
+  pure def startQueuedModelAuthors(flow: Workflow, drained: Set[int]): Workflow =
     unfinishedJobsInStartOrder(flow).foldl(flow, (starting, id) =>
-      if (waitsToProduce(starting, id)) sendCall(starting, ModelCall, id, PageWriteStarts({ eventWaits: false }))
+      if (drained.contains(id) and waitsToProduce(starting, id))
+        sendCall(starting, ModelCall, id, PageWriteStarts({ eventWaits: false }))
       else starting)
 
   /// `resumeLostModelTurn`: past its restarts the author fails. Otherwise the restart counts, the
@@ -862,6 +900,7 @@ module workflowLifecycle {
       | CompletionGoesOn => untold(returned)
       | PageWriteStarts(turn) => modelCallAnswered(returned, call.job, turn)
       | ModelTurnGoesOn(turn) => modelTurnEnds(returned, call.job, turn)
+      | ModelCallStopped(turn) => { flow: returned, told: turn.eventWaits }
     }
   }
 
@@ -886,7 +925,7 @@ module workflowLifecycle {
       val lost = resumeLostModelTurn(resuming.flow, id)
       { ...lost, told: resuming.told or lost.told }
     })
-    { ...resumed, flow: startQueuedModelAuthors(resumed.flow) }
+    { ...resumed, flow: startQueuedModelAuthors(resumed.flow, cut) }
   }
 
   /// `resumeTask` on a harness task queues the resume prompt and sends the head of the queue.
@@ -935,7 +974,7 @@ module workflowLifecycle {
     else if (task.paused or polisherHoldsPrompts(flow, id)) queued
     else if (runsAsModelCalls(task)) {
       if (modelTurnInFlight(flow, id)) queued
-      else startQueuedModelAuthors(takeNextModelTurn(queued, id, eventWaits))
+      else startQueuedModelAuthors(takeNextModelTurn(queued, id, eventWaits), Set(id))
     }
     else if (task.turnRunning) queued
     else
@@ -1152,17 +1191,37 @@ module workflowLifecycle {
     }
   }
 
-  /// `runningAuthorInSession` on the session of the subject issue: the unfinished author of a job
-  /// on the subject issue, else the author of the last one, while it runs. A person's text there
-  /// goes to it as a prompt.
-  pure def runningSessionAuthor(flow: Workflow): List[int] = {
-    val onSubject = jobsOnIssue(flow, SUBJECT_ISSUE)
+  /// `authorInSession` on the session of the subject issue: the unfinished author of a job on the
+  /// subject issue, else the author of the last one. A job whose researcher runs has no author yet.
+  pure def sessionAuthor(flow: Workflow): List[int] = {
+    val onSubject = jobsOnIssue(flow, SUBJECT_ISSUE).select(id => jobTask(flow, id).role == Author)
     val unfinished = onSubject.select(id => not(isFinished(jobTask(flow, id).status)))
-    val author =
-      if (unfinished.length() > 0) List(unfinished[0])
-      else if (onSubject.length() > 0) List(onSubject[onSubject.length() - 1])
-      else List()
-    author.select(id => jobTask(flow, id).status == Busy)
+    if (unfinished.length() > 0) List(unfinished[0])
+    else if (onSubject.length() > 0) List(onSubject[onSubject.length() - 1])
+    else List()
+  }
+
+  /// `runningAuthorInSession` on the session of the subject issue: its author while it runs. A
+  /// person's text there goes to it as a prompt.
+  pure def runningSessionAuthor(flow: Workflow): List[int] =
+    sessionAuthor(flow).select(id => jobTask(flow, id).status == Busy)
+
+  /// `stopAuthor` on the author of the job: its queued prompts go. A model turn whose model call
+  /// is out ends, and the answer of that call changes nothing. The author goes back in review when
+  /// its page is out, and otherwise waits busy for its next prompt.
+  pure def stopAuthor(flow: Workflow, id: int): Workflow = {
+    val task = jobTask(flow, id)
+    val stoppedCalls = flow.calls.foldl(List(), (calls, call) => calls.append(match call.rest {
+      | PageWriteStarts(turn) => if (call.job == id) { ...call, rest: ModelCallStopped(turn) } else call
+      | _ => call
+    }))
+    if (not(modelTurnInFlight(flow, id))) withTask(flow, id, { ...task, promptsQueued: 0 })
+    else
+      withTask({ ...flow, calls: stoppedCalls }, id, {
+        ...task,
+        promptsQueued: 0,
+        status: if (flow.jobs[id].artifact == NoArtifact) Busy else InReview,
+      })
   }
 
   /// True for a call whose return the event that sent it waits on: a sandbox destroy, or a model
@@ -1264,9 +1323,10 @@ module workflowLifecycle {
     move(untold(if (refused) workflow else planned), PlanStep({ definition: definition, subject: subjectLink }))
   }
 
-  /// The agent calls `start_job` for the stage in a turn a request woke. It may be refused.
+  /// The agent calls `start_job` for the stage in a turn a request woke. It may be refused. A
+  /// workflow from a tracker origin starts its jobs on issues here.
   action agentStartsJob: bool = all {
-    not(WORKS_ON_PULLS),
+    not(TRACKER_ORIGIN),
     workflow.jobs.length() < MAX_JOBS,
     nondet request = REQUESTS.oneOf()
     val input = inputFor(workflow, request)
@@ -1549,11 +1609,14 @@ module workflowLifecycle {
     moveAnswering(after, stepKind, answered),
   }
 
-  /// The page model answers the model call of a model-call author.
+  /// The page model answers the model call of a model-call author, also one whose model turn a
+  /// stop ended.
   action modelCallReturns: bool = all {
     outCalls(workflow, ModelCall).size() > 0,
     nondet callId = outCalls(workflow, ModelCall).oneOf()
-    move(returnCall(workflow, callId), OtherStep),
+    val call = workflow.calls[callId]
+    val stepKind = if (isStoppedModelCall(call)) StoppedCallReturnStep(call.job) else OtherStep
+    move(returnCall(workflow, callId), stepKind),
   }
 
   /// The document host returns from the page write of a model-call author.
@@ -1568,7 +1631,7 @@ module workflowLifecycle {
   /// step long before the deadline.
   action modelTurnOutlivesItsDeadline: bool = {
     val inFlight = workflow.calls.indices().filter(callId => and {
-      isModelTurnCall(workflow.calls[callId].kind),
+      isModelTurnCall(workflow.calls[callId]),
       not(isFinished(jobTask(workflow, workflow.calls[callId].job).status)),
     })
     all {
@@ -1576,7 +1639,7 @@ module workflowLifecycle {
       nondet callId = inFlight.oneOf()
       val id = workflow.calls[callId].job
       val resumed = resumeLostModelTurn(withoutCall(workflow, callId), id)
-      move({ ...resumed, flow: startQueuedModelAuthors(resumed.flow) }, DeadlineStep(id)),
+      move({ ...resumed, flow: startQueuedModelAuthors(resumed.flow, Set(id)) }, DeadlineStep(id)),
     }
   }
 
@@ -1680,6 +1743,21 @@ module workflowLifecycle {
     else move(untold(disarmed), OtherStep),
   }
 
+  /// A person presses Stop in the session of the subject issue. On a workflow that has not ended,
+  /// the stop reaches the author of the session and tells the agent. A session without an author
+  /// ignores it. The spec leaves out a stop while the page write of the author is out, after which
+  /// the turn goes on and writes the page.
+  action aPersonPressesStop: bool = {
+    val author = sessionAuthor(workflow)
+    val stops = not(hasEnded(workflow.status)) and author.length() > 0
+    val stopped = if (stops) author.foldl(workflow, (flow, id) => stopAuthor(flow, id)) else workflow
+    all {
+      A_PERSON_STOPS,
+      author.select(id => modelTurnInFlight(workflow, id) and pageWriteOut(workflow, id)).length() == 0,
+      move({ flow: stopped, told: stops }, StopStep),
+    }
+  }
+
   /// An alarm of a sandbox generation before the current one fires. The timer and the sandbox it
   /// is about change nothing here. Only the replay reads them.
   action staleAlarmFires: bool = all {
@@ -1734,7 +1812,7 @@ module workflowLifecycle {
   /// its model turn passes first.
   action aModelTurnEnds: bool = any { modelCallReturns, pageWriteReturns, modelTurnOutlivesItsDeadline }
 
-  /// A message, an alarm, or a move on the host or the tracker reaches the workflow.
+  /// A message, an alarm, a stop, or a move on the host or the tracker reaches the workflow.
   action anOutsideEventLands: bool = any {
     personWrites,
     personSendsAVerbalCommand,
@@ -1742,6 +1820,7 @@ module workflowLifecycle {
     staleAlarmFires,
     theHostMovesAPull,
     aPersonEndsAnIssue,
+    aPersonPressesStop,
   }
 
   pure def unfinishedCount(flow: Workflow): int = unfinishedJobIds(flow).length()
@@ -1768,12 +1847,13 @@ module workflowLifecycle {
   pure def startsOnlyIntoAFreeSlot(step: Transition): bool =
     startedIn(step.before, step.after) implies leavesAtMostTheJobSlots(step.after)
 
-  /// True for an event from outside: a person's message, a verbal command, the cancel, or a move
-  /// on the host or the tracker.
+  /// True for an event from outside: a person's message, a verbal command, the cancel, a stop, or
+  /// a move on the host or the tracker.
   pure def isEventStep(kind: StepKind): bool = match kind {
     | EventStep => true
     | VerbalCommandStep(_) => true
     | IssueEndStep(_) => true
+    | StopStep => true
     | _ => false
   }
 
@@ -1959,6 +2039,16 @@ module workflowLifecycle {
     | _ => true
   }
 
+  /// The return of a model call that a stop ended before it answered does not write the page: the
+  /// artifact of its job keeps its status, and the step does not send a page write for the job.
+  pure def leavesThePageOnAStoppedCall(step: Transition): bool = match step.kind {
+    | StoppedCallReturnStep(id) => and {
+      step.after.jobs[id].artifact == step.before.jobs[id].artifact,
+      pageWritesOut(step.after, id) <= pageWritesOut(step.before, id),
+    }
+    | _ => true
+  }
+
   /// Whether one step kept each before-and-after rule.
   pure def rulesKeptBy(step: Transition): KeptRules = {
     jobStartsOnlyIntoAFreeSlot: startsOnlyIntoAFreeSlot(step),
@@ -1980,6 +2070,7 @@ module workflowLifecycle {
     aStartOutsideTheSubjectStartsNoJob: startsNoJobOutsideTheSubject(step),
     aFailedCheckNeverCompletesAJob: leavesTheJobOpenOnAFailedCheck(step),
     aFailedCheckNeverAsksThePersonAgain: doesNotAskAgainOnAFailedCheck(step),
+    stoppedModelCallLeavesThePage: leavesThePageOnAStoppedCall(step),
   }
 
   /// Whether one step reached each before-and-after witness.
@@ -2147,6 +2238,11 @@ module workflowLifecycle {
         | FailedCheckStep(id) => isFinished(jobTask(step.before, id).status)
         | _ => false
       },
+      aStopEndsAModelCall: step.kind == StopStep and stoppedModelCallsOut(step.after) > stoppedModelCallsOut(step.before),
+      aStoppedModelCallReturns: match step.kind {
+        | StoppedCallReturnStep(_) => true
+        | _ => false
+      },
     }
   }
 
@@ -2202,6 +2298,9 @@ module workflowLifecycle {
 
   /// After a check fails, the agent is not told to ask the person again.
   val aFailedCheckNeverAsksThePersonAgain: bool = lastStepKept.aFailedCheckNeverAsksThePersonAgain
+
+  /// A model call that a stop ended before it answered does not write the page.
+  val stoppedModelCallLeavesThePage: bool = lastStepKept.stoppedModelCallLeavesThePage
 
   /// Only one live job works from each input. An unfinished job holds its input. A finished job
   /// holds it while its output exists, unless that output is the input itself.
@@ -2267,14 +2366,16 @@ module workflowLifecycle {
       waiting implies modelTurnInFlight(workflow, id)
     })
 
-  /// A model-call author is working only while its model call or its page write is out. `Busy`
-  /// covers starting, which folds into the step that sends the model call. A paused task does not
-  /// work, as `taskWorks` reads it, so a paused author whose produce turn was lost waits busy until
-  /// its resume.
+  /// A model-call author is working only while its model call or its page write is out, or after
+  /// a stop ended its turn before its page existed. `Busy` covers starting, which folds into the
+  /// step that sends the model call. A paused task does not work, as `taskWorks` reads it, so a
+  /// paused author whose produce turn was lost waits busy until its resume. An author that a stop
+  /// ended before its page existed waits busy for its next prompt.
   val aModelCallAuthorWorksOnlyWhileItsCallIsOut: bool =
     jobIds(workflow).forall(id => {
       val task = jobTask(workflow, id)
-      (runsAsModelCalls(task) and task.status == Busy and not(task.paused)) implies modelTurnInFlight(workflow, id)
+      (runsAsModelCalls(task) and task.status == Busy and not(task.paused)) implies
+        (modelTurnInFlight(workflow, id) or (A_PERSON_STOPS and workflow.jobs[id].artifact == NoArtifact))
     })
 
   /// The prompts the workflow sent its tasks, a counter that model checking bounds.
@@ -2472,6 +2573,22 @@ module workflowLifecycle {
     runsAsModelCalls(jobTask(workflow, id)),
     jobTask(workflow, id).status == Busy,
     jobTask(workflow, id).paused,
+    not(modelTurnInFlight(workflow, id)),
+  })
+
+  /// Witness for `stoppedModelCallLeavesThePage`: a stop ends a model turn whose model call is out.
+  val aStopEndsAModelCall: bool = lastStepReached.aStopEndsAModelCall
+
+  /// Witness for `stoppedModelCallLeavesThePage`: the model call of a turn that a stop ended
+  /// returns.
+  val aStoppedModelCallReturns: bool = lastStepReached.aStoppedModelCallReturns
+
+  /// Witness for `aModelCallAuthorWorksOnlyWhileItsCallIsOut`: an unpaused model-call author that a
+  /// stop ended before its page existed waits busy for its next prompt.
+  val aStoppedAuthorWaitsForItsPage: bool = jobIds(workflow).exists(id => and {
+    runsAsModelCalls(jobTask(workflow, id)),
+    jobTask(workflow, id).status == Busy,
+    not(jobTask(workflow, id).paused),
     not(modelTurnInFlight(workflow, id)),
   })
 

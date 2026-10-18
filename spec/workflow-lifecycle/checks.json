@@ -11,6 +11,7 @@
     "endedWorkflowHasNoUnfinishedTask",
     "nothingReopensAFinishedWorkflow",
     "staleAlarmIsIgnored",
+    "stoppedModelCallLeavesThePage",
     "sleepMessageOnlyDuringAWorkflow",
     "finishedWorkflowKeepsItsStatus",
     "taskRestartsAtMostTwice",
@@ -35,6 +36,7 @@
     "pagesFromModelCalls": 3.1,
     "modelCallPagesWithAReviewer": 3.1,
     "modelCallPagesAfterResearch": 2.1,
+    "modelCallPagesForAnIssue": 3.1,
     "pullsTheHostMoves": 4.0,
     "pullsForAnEndedSubject": 3.6,
     "pullsForAnEndedSubIssue": 4.0,
@@ -357,6 +359,51 @@
       "theWorkflowIsDone",
       "theWorkflowFailed"
     ],
+    "modelCallPagesForAnIssue": [
+      "aPlanStartsTheWorkflow",
+      "anUndeclaredPlanLands",
+      "theWorkflowWaitsForItsStages",
+      "twoJobsShareAnInput",
+      "aFinishedTaskIsInAStep",
+      "aWorkflowEndedWithJobs",
+      "anEventLandsOnAFinishedWorkflow",
+      "aStaleAlarmFires",
+      "theSleepMessagePosts",
+      "aMessageWakesTheWorkflow",
+      "anAuthorRestarted",
+      "aPromptWaits",
+      "anAuthorFailed",
+      "aPausedAuthorResumes",
+      "aPromptWaitsForAPausedTask",
+      "aPromptWaitsForATurn",
+      "aJobCompletes",
+      "anAcceptanceCheckIsOut",
+      "aCallWasDropped",
+      "aRestartCutsAModelTurn",
+      "aModelTurnOutlivesItsDeadline",
+      "aReviseTurnIsInFlight",
+      "aReviseTurnIsCut",
+      "aPausedAuthorLosesAModelTurn",
+      "anAuthorFailsOnALostModelTurn",
+      "aPageWriteIsOut",
+      "aPageWriteOutlivesItsAuthor",
+      "aRestartCutsAPageWrite",
+      "aDeadlinePassesDuringAPageWrite",
+      "aPromptWaitsForAModelCallAuthor",
+      "aPausedModelCallAuthorWaitsBusy",
+      "aStopEndsAModelCall",
+      "aStoppedModelCallReturns",
+      "aStoppedAuthorWaitsForItsPage",
+      "aSubjectsJobEndsTheWorkflow",
+      "aCancelWordReachesTheSubjectsAuthor",
+      "theWorkflowMovedAnIssue",
+      "aStartOutsideTheSubjectIsRefused",
+      "aPlanNamesAnotherSubject",
+      "anAuthorIsInReview",
+      "theHumansHaveAPage",
+      "theWorkflowIsDone",
+      "theWorkflowFailed"
+    ],
     "pullsTheHostMoves": [
       "aPlanStartsTheWorkflow",
       "anUndeclaredPlanLands",
@@ -651,6 +698,20 @@
           "callsOut": 2,
           "promptsSent": 2,
           "promptsWaiting": 2
+        }
+      },
+      "modelCallPagesForAnIssue": {
+        "pr": {
+          "jobsStarted": 1,
+          "callsOut": 2,
+          "promptsSent": 2,
+          "promptsWaiting": 1
+        },
+        "nightly": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 2,
+          "promptsWaiting": 1
         }
       },
       "pullsTheHostMoves": {
