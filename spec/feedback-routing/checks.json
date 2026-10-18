@@ -1,8 +1,8 @@
 {
   "invariants": ["everyFeedbackGetsOneRoutingDecision", "unadmittedFeedbackReachesNobody"],
   "mainMinutes": {
-    "pullRequestFeedback": 0.4,
-    "pageFeedback": 0.4
+    "pullRequestFeedback": 0.2,
+    "pageFeedback": 0.2
   },
   "witnesses": {
     "pullRequestFeedback": [
