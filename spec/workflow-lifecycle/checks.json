@@ -17,10 +17,10 @@
     "aRestartDoesNotLoseAModelTurn"
   ],
   "mainMinutes": {
-    "pagesWithAReviewer": 1.7,
-    "pagesWithoutRefiners": 2.1,
-    "pagesAfterResearch": 2.9,
-    "pagesFromModelCalls": 1.3
+    "pagesWithAReviewer": 2.6,
+    "pagesWithoutRefiners": 3.0,
+    "pagesAfterResearch": 4.5,
+    "pagesFromModelCalls": 2.1
   },
   "witnesses": {
     "pagesWithAReviewer": [
@@ -44,6 +44,9 @@
       "aPromptWaits",
       "anAuthorFailed",
       "aPausedAuthorResumes",
+      "aPromptWaitsForAPausedTask",
+      "aPromptWaitsForATurn",
+      "aVerbalCommandFindsSeveralJobs",
       "aJobCompletes",
       "anAcceptanceCheckIsOut",
       "aCallWasDropped",
@@ -74,6 +77,9 @@
       "aPromptWaits",
       "anAuthorFailed",
       "aPausedAuthorResumes",
+      "aPromptWaitsForAPausedTask",
+      "aPromptWaitsForATurn",
+      "aVerbalCommandFindsSeveralJobs",
       "aJobCompletes",
       "anAcceptanceCheckIsOut",
       "aCallWasDropped",
@@ -100,6 +106,10 @@
       "theWorkflowIsEnding",
       "aPromptWaits",
       "aPausedAuthorResumes",
+      "aPersonPausesAResearcher",
+      "aPromptWaitsForAPausedTask",
+      "aPromptWaitsForATurn",
+      "aVerbalCommandFindsSeveralJobs",
       "aJobCompletes",
       "aCallWasDropped",
       "anAuthorIsInReview",
@@ -111,6 +121,7 @@
       "aPlanStartsTheWorkflow",
       "anUndeclaredPlanLands",
       "theWorkflowWaitsForItsStages",
+      "aPlanLeavesFewerSlotsThanJobs",
       "aJobStartsIntoTheLastSlot",
       "twoJobsShareAnInput",
       "aJobBuildsOnAnArtifact",
@@ -124,6 +135,9 @@
       "aPromptWaits",
       "anAuthorFailed",
       "aPausedAuthorResumes",
+      "aPromptWaitsForAPausedTask",
+      "aPromptWaitsForATurn",
+      "aVerbalCommandFindsSeveralJobs",
       "aJobCompletes",
       "anAcceptanceCheckIsOut",
       "aCallWasDropped",

@@ -10,6 +10,12 @@ export type PropertyRun = { outcome: "passed" | "failed" | "timed_out"; output: 
 
 /** The property test files the CI property and replay jobs and the nightly mutant run use. */
 export const PROPERTY_FILES = {
+  chat_acknowledgement: {
+    title: "chat acknowledgement spec replay",
+    path: "src/router/chat-acknowledgement-replay.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 3000,
+  },
   workflow: {
     title: "workflow properties",
     path: "src/workflow/invariants.test.ts",

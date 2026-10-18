@@ -15,7 +15,9 @@ A code name is one type, table, column, or function. A code name that needs a co
 | workflow definition | A named set of stages in config. A deployment may hold several. A workflow runs the one its plan names. | `WorkflowDefinition`, `workflows/<name>.yaml`, `set_plan` `definition` | |
 | stage | One step of a workflow. It produces one artifact. Config declares it. | `Stage` | |
 | job | The execution of one stage. Its tasks belong to it, and it holds what they produce. | `jobs` row | |
+| job slot | One job a workflow may run at a time. The plan sets the number of job slots. | `WorkflowState.concurrency`, `set_plan` `concurrency` | task slot, concurrency slot |
 | task | One execution of a role in a job. | `tasks` row | |
+| paused task | A task held by a person or the agent. It keeps its queued prompts and takes none until it resumes. | `tasks.paused_at`, `pauseTask`, `resumeTask` | |
 | model-call task | A task that runs as model calls through the gateway, with no sandbox and no harness session. Its task status is `working` from the start of a turn until its page waits in review. A model turn is in flight while it is `working`, except after a stop ended its first turn before the page existed. | `AuthorActivity.execution "model"`, no sandboxes row | |
 | model turn | One turn of a model-call task: its model call and the page write that applies the answer. It is in flight from its start until the task records the answer, drops it, or loses it. The task stores the id of the turn in flight. | `tasks.model_turn_id`, `startModelTurn` | |
 | author | The task that produces and revises the artifact of its job. | `TaskRole "author"` | |
@@ -50,7 +52,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | artifact | A pull request, page, issue, or tracker project. A job works from one and produces one. | `ArtifactRef`, `artifacts` row | |
 | input artifact | The artifact a task works from. | `jobs.issue_id` when the input is an issue, `jobs.input_ref` when the input is an artifact no job of the workflow produced | |
 | output artifact | The artifact a task produces. The refiners run on it, and the handover delivers it. | `artifacts` row | |
-| revision | The identifier the host gives the current content of an artifact. Null when the host cannot say. | `ReviewSupport.revision` | version |
+| revision | The ID that the code host or document host gives the current content of an artifact: the head commit of a pull request or the revision of a page. It is unknown when the lookup fails, and always unknown for an issue. | `ReviewSupport.revision` | version |
 | handover | The artifact reaches the humans. A changed revision is handed over again. | `markArtifactReady`, `delivered_to_humans_at` | review loop closed |
 | follow-up | Work the author does on an artifact after its first handover, at the request of the humans or the host. It starts when a prompt reaches the idle author while the humans hold the artifact. | `startFollowUp`, `delivered_to_humans_at` | revision round |
 | feedback | Anything anyone posts on an artifact that the system must route. A review or a comment. | `Feedback` | |
@@ -99,6 +101,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | session feed | The author's tool calls and its closing reply, posted to its job session as tracker activities. Thoughts are not posted. Only the author streams, and the orchestrator posts none of it. | `streamToSessionFeed` | transcript, mirror, log |
 | session plan | The author's todo list as the plan of its job session. Set only when the workflow has no chat thread. | `publishSessionPlan` | board, checklist |
 | stop | A person's request in a job session to end the current prompt turn of the job's author. The orchestrator sends the author's harness session a cancel. For a model-call author, the stop ends the turn that is starting or in flight, and the answer of its model call does not change the page. The task, the job, and the workflow keep running, and its session feed ends with "Stopped." | `EventKind "stop"`, `stopAuthor` | cancel, interrupt, pause |
+| verbal command | A person's message in chat or a tracker session that is a whole command verb after the bot mention: cancel (or stop), pause, resume (or continue, retry), or instruct followed by text. It acts on the one active job. | `VerbalCommand`, `parseVerbalCommand` | control word, stop (the verbal command stop is a cancel and not the stop that ends a turn) |
 | synced thread | The chat thread that the tracker mirrors as the comment thread of one issue, both ways. It is the subject issue, or the first issue a job works on when the subject is a project. Every later issue gets a link to the thread. | `Tracker.syncChatThread` | mirror, bridge |
 | acknowledgement | How a chat thread shows a person that their message arrived. The thread enters its working status when the workflow takes the message. When that takes longer than a few seconds, the message gets the eyes reaction until the working status appears. | `Acknowledge`, `Notifier.acknowledge`, `deliverWithChatAck` | receipt |
 | binding | A code host, tracker or chat key that routes events to one workflow, such as a pull request, an issue, a session or a chat thread. | `bindings` row, `Binding` | |
