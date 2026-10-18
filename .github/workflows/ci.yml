@@ -178,14 +178,28 @@ jobs:
           exit "$status"
 
   spec_replays:
-    name: spec replays
+    name: spec replays (${{ matrix.replay }})
     needs: ci
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        replay:
+          - router_bindings
+          - review_loop
+          - workflow_lifecycle
+          - harness_session
+          - agent_turns
+          - chat_acknowledgement
+          - session_routing
+          - feedback_routing
     defaults:
       run:
         working-directory: packages/orchestrator
+    env:
+      REPLAY: ${{ matrix.replay }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -193,41 +207,11 @@ jobs:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
       - run: bun run template-config
-      - name: Seed the replays from the run id
-        id: seed
+      - name: Seed the replay from the run id
         run: echo "PROPERTY_SEED=$(( GITHUB_RUN_ID % 2147483648 ))" >> "$GITHUB_ENV"
-      - name: Replay the router bindings spec
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
+      - name: Replay the spec
         timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts router_bindings
-      - name: Replay the review loop spec
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts review_loop
-      - name: Replay the workflow lifecycle spec
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts workflow_lifecycle
-      - name: Replay the harness session spec
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts harness_session
-      - name: Replay the agent turns spec
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts agent_turns
-      - name: Replay the chat acknowledgement spec
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts chat_acknowledgement
-      - name: Replay the session routing spec
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts session_routing
-      - name: Replay the feedback routing spec
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts feedback_routing
+        run: bun scripts/properties/e2e-property-test.ts "$REPLAY"
 
   e2e_property_test:
     name: e2e property based test (light)
