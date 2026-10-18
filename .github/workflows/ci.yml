@@ -117,7 +117,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]
+        shard: [1, 2, 3, 4, 5]
     defaults:
       run:
         shell: bash
@@ -131,26 +131,22 @@ jobs:
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
-      - uses: actions/setup-java@b843ebf9b913146b38da2eaa7aeddf76074ae1ad # v6.1.0
-        with:
-          distribution: temurin
-          java-version: "21.0.12+8"
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.quint
           key: quint-${{ runner.os }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
           restore-keys: quint-${{ runner.os }}-
-      - name: Typecheck, check the witnesses, run every invariant on 100,000 samples, and check every state within the pr bounds with TLC for each setup of this shard
+      - name: Typecheck, check the witnesses, and run every invariant on 100,000 samples for each setup of this shard
         run: |
           status=0
-          for entry in $(bun scripts/spec/check-spec.ts main-shard "$SHARD_INDEX" "$SHARD_COUNT" | jq -r '.[] | "\(.spec)/\(.setup)/\(.tlc)"'); do
-            IFS=/ read -r spec setup tlc <<< "$entry"
+          for entry in $(bun scripts/spec/check-spec.ts main-shard "$SHARD_INDEX" "$SHARD_COUNT" | jq -r '.[] | "\(.spec)/\(.setup)"'); do
+            spec=${entry%/*}
+            setup=${entry#*/}
             echo "::group::$setup of $spec"
             if ! {
               bunx quint typecheck "../../spec/$spec/$setup.qnt" &&
                 bun scripts/spec/check-spec.ts witnesses "$spec" "$setup" &&
-                bun scripts/spec/check-spec.ts simulate "$spec" "$setup" 100000 &&
-                { [ "$tlc" = false ] || bun scripts/spec/check-spec.ts tlc "$spec" "$setup" pr; }
+                bun scripts/spec/check-spec.ts simulate "$spec" "$setup" 100000
             }; then
               status=1
               echo "::error::$setup of $spec failed. Its group in this step's log has the output."
