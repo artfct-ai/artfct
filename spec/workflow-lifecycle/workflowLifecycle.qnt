@@ -5,8 +5,8 @@
 /// later action returns it. A restart of the Durable Object drops every call that is out, with the
 /// rest of its step. The world answers every other await at once, so the model folds those into
 /// the step. The start of a task folds into the step that queues it: a harness gets its first
-/// prompt, and a model-call author sends its model call. A refiner run is modelled only as running
-/// or finished.
+/// prompt, and a model-call author sends its model call. A refiner run is modelled only as running,
+/// done, cancelled or failed. The review loop spec holds the rules of the run itself.
 module workflowLifecycleTypes {
   type WorkflowStatus = New | Running | WaitingInput | Done | Failed | Cancelled
 
@@ -22,9 +22,9 @@ module workflowLifecycleTypes {
   /// A researcher or author task. `turnRunning` holds while a prompt is in flight in its harness,
   /// also after the task finished. `promptsSent` counts the prompts the workflow sent the task:
   /// those its harness got, and for a model-call author those a model turn started on.
-  /// `promptsQueued` counts the prompts that wait for a turn. `generationClosed` holds while a
-  /// restart closed the container of a paused task's generation, and the task waits for its
-  /// resume to start the next one.
+  /// `promptsQueued` counts the prompts that wait for a turn. `generationClosed` holds while the
+  /// container of the task's generation is closed and the task waits for a prompt to start the
+  /// next one. A restart of a paused task closes it, and so does a polisher as it starts.
   /// `startOrder` is the place of the task among the researchers and authors of the workflow, in
   /// the order they started.
   type Task = {
@@ -41,7 +41,12 @@ module workflowLifecycleTypes {
 
   type ArtifactStatus = NoArtifact | Drafted | Ready
 
-  type RefinerRunStatus = NoRefinerRun | RefinerRunning | RefinerRunFinished
+  /// The refiner run of a job. The reviewer approves it done, the end of its review cancels it,
+  /// and its sandbox dying fails it.
+  /// The refiner of the stage. A judge runs as a reviewer does here.
+  type Refiner = NoRefiner | AReviewer | APolisher
+
+  type RefinerRunStatus = NoRefinerRun | RefinerRunning | RefinerDone | RefinerCancelled | RefinerFailed
 
   /// What a job works from: the text of a request, or the artifact of an earlier job.
   type Input = FromRequest(int) | FromArtifactOf(int)
@@ -145,6 +150,8 @@ module workflowLifecycleTypes {
     aPromptWaitsForAPausedTask: bool,
     aPromptWaitsForATurn: bool,
     aVerbalCommandFindsSeveralJobs: bool,
+    anAuthorTakesAPromptAfterItsPolisher: bool,
+    aWorkflowEndCancelsARefinerRun: bool,
     aCallWasDropped: bool,
     aRestartCutsAModelTurn: bool,
     aModelTurnOutlivesItsDeadline: bool,
@@ -161,8 +168,8 @@ module workflowLifecycleTypes {
 module workflowLifecycle {
   import workflowLifecycleTypes.*
 
-  /// True when the stage runs a reviewer on the page of each job.
-  const REFINER: bool
+  /// The refiner the stage runs on the page of each job.
+  const REFINER: Refiner
 
   /// True when the author of each job runs as model calls, without a sandbox. Such a stage runs
   /// no refiners, so the humans get the page as its author leaves it.
@@ -212,6 +219,9 @@ module workflowLifecycle {
 
   pure def isFinished(status: TaskStatus): bool =
     status == TaskDone or status == TaskCancelled or status == TaskFailed
+
+  pure def refinerRunHasFinished(status: RefinerRunStatus): bool =
+    status == RefinerDone or status == RefinerCancelled or status == RefinerFailed
 
   pure def hasEnded(status: WorkflowStatus): bool =
     status == Done or status == Failed or status == Cancelled
@@ -362,19 +372,22 @@ module workflowLifecycle {
     val handedOver = job.artifact == Drafted
     val ended = {
       ...job,
-      refinerRun: if (job.refinerRun == RefinerRunning) RefinerRunFinished else job.refinerRun,
+      refinerRun: if (job.refinerRun == RefinerRunning) RefinerCancelled else job.refinerRun,
       artifact: if (handedOver) Ready else job.artifact,
     }
     { ...withJob(flow, id, ended), idleArmed: flow.idleArmed or handedOver }
   }
 
-  /// The loop of a workflow end cancels the unfinished refiner runs and sets the status last.
+  /// The loop of a workflow end cancels the unfinished refiner runs and sets the status last. A
+  /// cancelled polisher hands the page it holds to the humans blocked.
   pure def finishWorkflowEnd(flow: Workflow, endsAs: WorkflowStatus): Workflow = {
-    val stopped = flow.jobs.foldl(List(), (jobs, job) => jobs.append({
-      ...job,
-      refinerRun: if (job.refinerRun == RefinerRunning) RefinerRunFinished else job.refinerRun,
-    }))
-    { ...flow, jobs: stopped, status: endsAs }
+    val stopped = range(0, MAX_JOBS).select(id => id < flow.jobs.length()).foldl(flow, (ending, id) =>
+      if (ending.jobs[id].refinerRun != RefinerRunning) ending
+      else {
+        val cancelled = withJob(ending, id, { ...ending.jobs[id], refinerRun: RefinerCancelled })
+        if (REFINER == APolisher) handOverPage(cancelled, id) else cancelled
+      })
+    { ...stopped, status: endsAs }
   }
 
   /// The jobs whose task is unfinished, in the order their tasks started.
@@ -586,19 +599,50 @@ module workflowLifecycle {
     })
   }
 
-  /// `promptTask` queues a prompt for the job's task. A paused task keeps it. An unpaused harness
-  /// task gets it at once when no turn runs, and a model-call author that is not at work takes
-  /// its next turn, or produces its page first.
+  /// True while a polisher runs on the page of the job's author and holds the author's prompts.
+  pure def polisherHoldsPrompts(flow: Workflow, id: int): bool = and {
+    REFINER == APolisher,
+    jobTask(flow, id).role == Author,
+    flow.jobs[id].refinerRun == RefinerRunning,
+  }
+
+  /// `promptTask` queues a prompt for the job's task. A paused task keeps it, and so does an
+  /// author whose page a polisher holds. An unpaused harness task gets it at once when no turn
+  /// runs, in a new generation when its container is closed. A model-call author that is not at
+  /// work takes its next turn, or produces its page first.
   pure def promptTask(flow: Workflow, id: int): Workflow = {
     val task = jobTask(flow, id)
     val queued = withTask(flow, id, { ...task, promptsQueued: task.promptsQueued + 1 })
     if (isFinished(task.status)) flow
-    else if (task.paused) queued
+    else if (task.paused or polisherHoldsPrompts(flow, id)) queued
     else if (runsAsModelCalls(task)) {
       if (modelTurnInFlight(flow, id)) queued else startQueuedModelAuthors(takeNextModelTurn(queued, id))
     }
     else if (task.turnRunning) queued
-    else withTask(flow, id, { ...task, status: Busy, turnRunning: true, promptsSent: task.promptsSent + 1 })
+    else
+      withTask(flow, id, {
+        ...task,
+        status: Busy,
+        turnRunning: true,
+        promptsSent: task.promptsSent + 1,
+        generationClosed: false,
+      })
+  }
+
+  /// The author whose page a polisher held takes its oldest queued prompt once the polisher ends,
+  /// in a new generation.
+  pure def takePromptAfterPolisher(flow: Workflow, id: int): Workflow = {
+    val task = jobTask(flow, id)
+    if (REFINER != APolisher or isFinished(task.status) or task.paused or task.promptsQueued == 0) flow
+    else
+      withTask(flow, id, {
+        ...task,
+        status: Busy,
+        turnRunning: true,
+        promptsSent: task.promptsSent + 1,
+        promptsQueued: task.promptsQueued - 1,
+        generationClosed: false,
+      })
   }
 
   /// `pauseTask`: an unfinished task that is not paused holds its prompts from now on.
@@ -608,11 +652,12 @@ module workflowLifecycle {
   }
 
   /// `resumeTask`: a paused task goes on with the resume prompt. A model-call author takes it as
-  /// any prompt.
+  /// any prompt, and an author whose page a polisher holds queues it.
   pure def resumeTask(flow: Workflow, id: int): Workflow = {
     val task = jobTask(flow, id)
+    val unpaused = withTask(flow, id, { ...task, paused: false })
     if (isFinished(task.status) or not(task.paused)) flow
-    else if (runsAsModelCalls(task)) promptTask(withTask(flow, id, { ...task, paused: false }), id)
+    else if (runsAsModelCalls(task) or polisherHoldsPrompts(flow, id)) promptTask(unpaused, id)
     else resumeHarnessTask(flow, id)
   }
 
@@ -633,7 +678,8 @@ module workflowLifecycle {
   }
 
   /// The turn that wrote the page ends. A queued prompt goes out at once, and the refiners wait
-  /// for the author to be quiet. Without refiners the humans get the page at once.
+  /// for the author to be quiet. Without refiners the humans get the page at once. A polisher
+  /// closes the author's container as it starts.
   pure def pageWritten(flow: Workflow, id: int): Workflow = {
     val job = flow.jobs[id]
     val author = jobTask(flow, id)
@@ -647,18 +693,32 @@ module workflowLifecycle {
         })
       else withTask(flow, id, { ...author, status: InReview, turnRunning: false })
     val tasks = wrote.jobs[id].tasks
-    if (not(REFINER)) { ...withJob(wrote, id, { ...job, tasks: tasks, artifact: Ready }), idleArmed: true }
+    if (REFINER == NoRefiner) { ...withJob(wrote, id, { ...job, tasks: tasks, artifact: Ready }), idleArmed: true }
     else if (queued) withJob(wrote, id, { ...job, tasks: tasks, artifact: Drafted })
-    else withJob(wrote, id, { ...job, tasks: tasks, artifact: Drafted, refinerRun: RefinerRunning })
+    else {
+      val reviewed = withJob(wrote, id, { ...job, tasks: tasks, artifact: Drafted, refinerRun: RefinerRunning })
+      if (REFINER == APolisher) withTask(reviewed, id, { ...jobTask(reviewed, id), generationClosed: true })
+      else reviewed
+    }
   }
 
-  /// The reviewer approves. The humans get the page only while the author is quiet.
+  /// True when the author of the job does not run a turn and no prompt waits for it.
+  pure def authorQuiet(flow: Workflow, id: int): bool =
+    not(jobTask(flow, id).turnRunning) and jobTask(flow, id).promptsQueued == 0
+
+  /// The refiner run approves. The humans get the page only while the author is quiet. The author
+  /// takes a prompt that waited for the polisher.
   pure def refinerRunFinished(flow: Workflow, id: int): Workflow = {
     val job = flow.jobs[id]
-    val handedOver = job.artifact == Drafted and not(jobTask(flow, id).turnRunning)
-    val finished = { ...job, refinerRun: RefinerRunFinished, artifact: if (handedOver) Ready else job.artifact }
-    { ...withJob(flow, id, finished), idleArmed: flow.idleArmed or handedOver }
+    val handedOver = job.artifact == Drafted and authorQuiet(flow, id)
+    val finished = { ...job, refinerRun: RefinerDone, artifact: if (handedOver) Ready else job.artifact }
+    takePromptAfterPolisher({ ...withJob(flow, id, finished), idleArmed: flow.idleArmed or handedOver }, id)
   }
+
+  /// The refiner run fails, and the humans get the page blocked, also while the author works. The
+  /// author takes a prompt that waited for the polisher.
+  pure def refinerRunFailed(flow: Workflow, id: int): Workflow =
+    takePromptAfterPolisher(handOverPage(withJob(flow, id, { ...flow.jobs[id], refinerRun: RefinerFailed }), id), id)
 
   /// True when the task's harness is on a turn the agent did not pause, in a generation that runs.
   pure def taskWorks(flow: Workflow, id: int): bool =
@@ -759,6 +819,12 @@ module workflowLifecycle {
   action refinerRunEnds: bool = onJobWhere(
     id => workflow.jobs[id].refinerRun == RefinerRunning,
     id => move(refinerRunFinished(workflow, id), OtherStep),
+  )
+
+  /// The sandbox of the refiner run dies.
+  action refinerRunFails: bool = onJobWhere(
+    id => workflow.jobs[id].refinerRun == RefinerRunning,
+    id => move(refinerRunFailed(workflow, id), OtherStep),
   )
 
   /// The agent calls `pause_task` on the job's task. A researcher is refused, and a finished or
@@ -927,7 +993,7 @@ module workflowLifecycle {
     agentSetsPlan,
     agentStartsJob,
     aTaskEndsItsTurn,
-    refinerRunEnds,
+    aRefinerRunEnds,
     theAgentSteersAnAuthor,
     taskStalls,
     theAgentEndsAJob,
@@ -941,6 +1007,9 @@ module workflowLifecycle {
 
   /// The researcher hands over to the author, or the harness author writes its page.
   action aTaskEndsItsTurn: bool = any { researcherHandsOver, authorWritesItsPage }
+
+  /// The refiner run of a job approves or fails.
+  action aRefinerRunEnds: bool = any { refinerRunEnds, refinerRunFails }
 
   /// The agent pauses, resumes or prompts a task.
   action theAgentSteersAnAuthor: bool = any { agentPausesAuthor, agentResumesAuthor, agentPromptsAuthor }
@@ -1014,14 +1083,14 @@ module workflowLifecycle {
   pure def keepsTheDefinition(step: Transition): bool =
     step.before.definition != Unplanned implies step.after.definition == step.before.definition
 
-  /// A finished task never changes status again.
+  /// A finished task never changes status again, and a finished refiner run does not run again.
   pure def keepsFinishedTasks(step: Transition): bool =
     step.before.jobs.indices().forall(id => and {
       step.before.jobs[id].tasks.indices().forall(index =>
         isFinished(step.before.jobs[id].tasks[index].status) implies
           step.after.jobs[id].tasks[index].status == step.before.jobs[id].tasks[index].status),
-      step.before.jobs[id].refinerRun == RefinerRunFinished implies
-        step.after.jobs[id].refinerRun == RefinerRunFinished,
+      refinerRunHasFinished(step.before.jobs[id].refinerRun) implies
+        refinerRunHasFinished(step.after.jobs[id].refinerRun),
     })
 
   /// On a finished workflow, no event changes the status, the tasks, or the prompts.
@@ -1157,6 +1226,17 @@ module workflowLifecycle {
         | VerbalCommandStep(_) => not(hasEnded(step.before.status)) and unfinishedCount(step.before) > 1
         | _ => false
       },
+      anAuthorTakesAPromptAfterItsPolisher: jobIds(step.before).exists(id => and {
+        polisherHoldsPrompts(step.before, id),
+        not(polisherHoldsPrompts(step.after, id)),
+        jobTask(step.after, id).promptsSent > jobTask(step.before, id).promptsSent,
+      }),
+      aWorkflowEndCancelsARefinerRun: and {
+        not(hasEnded(step.before.status)),
+        hasEnded(step.after.status),
+        jobIds(step.before).exists(id =>
+          step.before.jobs[id].refinerRun == RefinerRunning and step.after.jobs[id].refinerRun == RefinerCancelled),
+      },
       aCallWasDropped: step.kind == RestartStep,
       aRestartCutsAModelTurn: step.kind == RestartStep and cut.size() > 0,
       aModelTurnOutlivesItsDeadline: match step.kind {
@@ -1197,7 +1277,7 @@ module workflowLifecycle {
       holdsItsInput(workflow.jobs[id]),
     } implies not(holdsItsInput(workflow.jobs[other]))))
 
-  /// A finished task never changes status again.
+  /// A finished task never changes status again, and a finished refiner run does not run again.
   val finishedTaskKeepsItsStatus: bool = lastStepKept.finishedTaskKeepsItsStatus
 
   /// An author or researcher in review has an artifact on its job.
@@ -1312,8 +1392,10 @@ module workflowLifecycle {
   val aResearcherHandedOver: bool = jobIds(workflow).exists(id => workflow.jobs[id].tasks.length() > 1)
 
   /// A restart closed the generation of a task and did not start the next one.
-  val aRestartClosedAGeneration: bool =
-    jobIds(workflow).exists(id => jobTask(workflow, id).generationClosed)
+  val aRestartClosedAGeneration: bool = jobIds(workflow).exists(id => and {
+    jobTask(workflow, id).generationClosed,
+    REFINER != APolisher or workflow.jobs[id].refinerRun == NoRefinerRun,
+  })
 
   /// A paused task restarted and waits for its resume to start the next generation.
   val aPausedAuthorWaitsToRestart: bool =
@@ -1344,6 +1426,23 @@ module workflowLifecycle {
   /// A verbal command finds several active jobs and goes to the agent.
   val aVerbalCommandFindsSeveralJobs: bool = lastStepReached.aVerbalCommandFindsSeveralJobs
 
+  /// A polisher holds a prompt for its unpaused author.
+  val aPolisherHoldsAPrompt: bool = jobIds(workflow).exists(id => and {
+    polisherHoldsPrompts(workflow, id),
+    not(jobTask(workflow, id).paused),
+    jobTask(workflow, id).promptsQueued > 0,
+  })
+
+  /// The polisher ends and its author takes a prompt that waited for it, in a new generation.
+  val anAuthorTakesAPromptAfterItsPolisher: bool = lastStepReached.anAuthorTakesAPromptAfterItsPolisher
+
+  /// A polisher runs while the container of its author is closed.
+  val aPolisherClosedTheAuthorsContainer: bool = jobIds(workflow).exists(id =>
+    polisherHoldsPrompts(workflow, id) and jobTask(workflow, id).generationClosed)
+
+  /// Witness for `endedWorkflowHasNoUnfinishedTask`: the end of the workflow cancels a refiner run.
+  val aWorkflowEndCancelsARefinerRun: bool = lastStepReached.aWorkflowEndCancelsARefinerRun
+
   /// A job completes.
   val aJobCompletes: bool = jobIds(workflow).exists(id =>
     anyTaskOf(workflow.jobs[id], task => task.role == Author and task.status == TaskDone))
@@ -1373,9 +1472,23 @@ module workflowLifecycle {
   val aReviseTurnIsInFlight: bool =
     modelTurnsInFlight(workflow).exists(id => workflow.jobs[id].artifact != NoArtifact)
 
-  /// The reviewer of a page finished.
-  val aRefinerRunFinished: bool =
-    jobIds(workflow).exists(id => workflow.jobs[id].refinerRun == RefinerRunFinished)
+  /// The reviewer of a page approved it.
+  val aRefinerRunIsDone: bool = jobIds(workflow).exists(id => workflow.jobs[id].refinerRun == RefinerDone)
+
+  /// The end of a review cancelled the reviewer of a page.
+  val aRefinerRunIsCancelled: bool =
+    jobIds(workflow).exists(id => workflow.jobs[id].refinerRun == RefinerCancelled)
+
+  /// The reviewer of a page failed.
+  val aRefinerRunFailed: bool = jobIds(workflow).exists(id => workflow.jobs[id].refinerRun == RefinerFailed)
+
+  /// The reviewer of a page failed while its author works, and the humans have the page.
+  val aRefinerRunFailsWhileItsAuthorWorks: bool = jobIds(workflow).exists(id => and {
+    workflow.jobs[id].refinerRun == RefinerFailed,
+    workflow.jobs[id].artifact == Ready,
+    jobTask(workflow, id).turnRunning,
+    not(isFinished(jobTask(workflow, id).status)),
+  })
 
   /// Witness for `inReviewTaskHasAnArtifact`: an author waits in review.
   val anAuthorIsInReview: bool = jobIds(workflow).exists(id => jobTask(workflow, id).status == InReview)

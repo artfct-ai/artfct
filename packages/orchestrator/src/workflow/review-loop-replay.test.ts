@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 import fc from "fast-check";
 import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/property-runs";
 import {
+  endsTheWorkflow,
   generateTraces,
   ReviewLoopReplay,
   SPEC_SETUPS,
@@ -74,9 +75,12 @@ async function replayTraces(setup: SpecSetup, traces: TraceStep[][], seed: numbe
 }
 
 function inWorlds(traces: TraceStep[][], authors: number): TraceStep[][][] {
-  return Array.from({ length: Math.ceil(traces.length / authors) }, (_unused, world) =>
-    traces.slice(world * authors, world * authors + authors),
+  const alone = traces.filter(endsTheWorkflow).map((trace) => [trace]);
+  const sharing = traces.filter((trace) => !endsTheWorkflow(trace));
+  const shared = Array.from({ length: Math.ceil(sharing.length / authors) }, (_unused, world) =>
+    sharing.slice(world * authors, world * authors + authors),
   );
+  return [...alone, ...shared];
 }
 
 const PINNED_TRACES = join(

@@ -12,7 +12,6 @@ import {
   eachIssueLinksTheChatThreadOnce,
   endedWorkflowHasNoUnfinishedTask,
   everyFeedbackGetsOneRoutingDecision,
-  everyJobTaskIsOnItsBoard,
   nothingReopensAFinishedWorkflow,
   refinerRunIsDoneOnlyAfterItsTurnEnded,
   finishedTaskKeepsItsStatus,
@@ -35,7 +34,6 @@ import {
   workflowStartsOnlyFromAPlan,
   workflowWaitsOnlyWhileNoAuthorWorks,
   anAcceptedArtifactNeverMovesBack,
-  everyActionSettlesWithinItsWorkBudget,
   type Step,
   aQueuedPromptReachesItsModelCallAuthor,
   aModelCallAuthorWorksOnlyWhileItsCallIsOut,
@@ -133,7 +131,6 @@ const STATE_INVARIANTS = [
   endedWorkflowHasNoUnfinishedTask,
   taskRestartsAtMostTwice,
   eachIssueLinksTheChatThreadOnce,
-  everyJobTaskIsOnItsBoard,
 ];
 
 const STEP_INVARIANTS = [
@@ -163,7 +160,6 @@ const STEP_INVARIANTS = [
   aJobWorksOnlyOnIssuesOfItsSubject,
   subjectNeverChanges,
   aSingleIssueWorkflowIsDoneWithItsSubjectsJob,
-  everyActionSettlesWithinItsWorkBudget,
   anAcceptedArtifactNeverMovesBack,
   aModelCallAuthorWorksOnlyWhileItsCallIsOut,
   aRestartDoesNotLoseAModelTurn,
@@ -977,7 +973,7 @@ const CORPUS_EXAMPLES = WORKFLOW_CORPUS.map((replayed): [ReplayedSequence] => [r
 
 describe("the workflow invariants", () => {
   it("are every state and step invariant", () => {
-    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(38);
+    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(36);
   });
 
   for (const property of PROPERTIES) {

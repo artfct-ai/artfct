@@ -8,8 +8,9 @@ import type { ArtifactTarget } from "../src/artifact/types";
 import type { Env } from "../src/env";
 import { deliver } from "../src/router/deliver";
 import { recordArtifact } from "../src/workflow/artifact";
+import { applyVerbalCommand } from "../src/workflow/inbound/controls";
 import { eventRefusalOf } from "../src/workflow/inbound/events";
-import { failWorkflow, type JobInput } from "../src/workflow/lifecycle";
+import { completeWorkflow, failWorkflow, type JobInput } from "../src/workflow/lifecycle";
 import { isWorkflowFinished } from "../src/workflow/store/state";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfText, itfVariant } from "./itf";
 import { quintTraces } from "./quint-traces";
@@ -39,12 +40,17 @@ const SURFACES = ["ThreadSurface", "SessionASurface", "SessionBSurface", "PullSu
 
 type SurfaceName = (typeof SURFACES)[number];
 
-const EVENT_KINDS = ["Start", "PersonsMessage", "OtherEvent"] as const;
+const EVENT_KINDS = ["Start", "StartWithoutAPerson", "PersonsMessage", "OtherEvent"] as const;
 
 type EventKindName = (typeof EVENT_KINDS)[number];
 
 /** Work a workflow does against the router's tables: its end, a job start on the issue, or a pull request it records. */
 export type WorkflowWork = "end" | "job_on_issue" | "pull_request";
+
+/** The statuses a workflow ends with. The spec reads each one as ended. */
+const ENDED_STATUSES = ["done", "failed", "cancelled"] as const;
+
+type EndedStatus = (typeof ENDED_STATUSES)[number];
 
 /** What the Durable Object of one workflow knows, as the spec sees it. */
 type ObjectView = {
@@ -419,7 +425,8 @@ const call = { toolCallId: "call-1", messages: [], context: {} };
 
 /**
  * Replays spec traces through the router's deliveries and the workflows' own binding writes.
- * Every D1 statement and Durable Object call waits until a spec step lets it land.
+ * Every D1 statement and Durable Object call waits until a spec step lets it land. Each workflow
+ * end takes the next ended status in turn, from the one `firstEndedStatus` picks.
  */
 export class RouterBindingsReplay {
   private readonly gate = new CallGate();
@@ -432,8 +439,10 @@ export class RouterBindingsReplay {
   private nextDelivery = 0;
   private nextOperation = 0;
   private nextEvent = 0;
+  private nextEndedStatus: number;
 
-  constructor() {
+  constructor(firstEndedStatus = 0) {
+    this.nextEndedStatus = firstEndedStatus;
     const namespace: object = {
       getByName: (name: string) => ({
         create: () =>
@@ -588,8 +597,37 @@ export class RouterBindingsReplay {
   }
 
   private async endWorkflow(runtime: FakeRuntime): Promise<void> {
-    await failWorkflow(runtime, "the replay ends it");
+    const status = ENDED_STATUSES[this.nextEndedStatus % ENDED_STATUSES.length]!;
+    this.nextEndedStatus += 1;
+    await this.endWorkflowWith(runtime, status);
     this.unbound.add(runtime.state.workflow_id);
+  }
+
+  private async endWorkflowWith(runtime: FakeRuntime, status: EndedStatus): Promise<void> {
+    switch (status) {
+      case "done":
+        return completeWorkflow(runtime, "the replay finishes it");
+      case "failed":
+        return failWorkflow(runtime, "the replay ends it");
+      case "cancelled": {
+        this.nextEvent += 1;
+        const cancel: InboundEvent = {
+          id: `evt-${this.nextEvent}`,
+          kind: "control",
+          control: "cancel",
+          actor: PERSON,
+          bindings: [],
+          links: [],
+          text: "",
+        };
+        await applyVerbalCommand(runtime, cancel);
+        return;
+      }
+      default: {
+        const unreachable: never = status;
+        throw new Error(`unhandled ended status ${String(unreachable)}`);
+      }
+    }
   }
 
   private async startJobOnTheIssue(runtime: FakeRuntime): Promise<void> {
@@ -697,6 +735,8 @@ function eventKindOf(
   switch (kind) {
     case "Start":
       return { kind: "start", actor: PERSON };
+    case "StartWithoutAPerson":
+      return { kind: "start", actor: null };
     case "PersonsMessage":
       return { kind: "prompt", actor: PERSON };
     case "OtherEvent":
