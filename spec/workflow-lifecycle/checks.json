@@ -26,8 +26,8 @@
     "pagesWithAPolisher": 2.8,
     "pagesWithoutRefiners": 3.0,
     "pagesAfterResearch": 4.5,
-    "pagesFromModelCalls": 2.5,
-    "modelCallPagesWithAReviewer": 2.6,
+    "pagesFromModelCalls": 3.2,
+    "modelCallPagesWithAReviewer": 3.1,
     "modelCallPagesAfterResearch": 2.1,
     "pullsTheHostMoves": 4.0,
     "pullsForAnEndedSubject": 3.6,
@@ -453,7 +453,7 @@
     ]
   },
   "tlc": {
-    "ignoredVariables": ["lastStepReached"],
+    "ignoredVariables": ["lastStepReached", "lastStepToldTheAgent"],
     "bounds": {
       "pagesWithAReviewer": {
         "pr": {

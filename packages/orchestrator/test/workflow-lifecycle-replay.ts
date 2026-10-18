@@ -298,8 +298,16 @@ type SpecPicks = {
   hostMove: HostMove | null;
 };
 
-/** One state of a trace: the action that led to it, its picks, and the workflow. */
-export type TraceStep = { action: string; picks: SpecPicks; workflow: SpecWorkflow };
+/**
+ * One state of a trace: the action that led to it, its picks, the workflow, and whether the step
+ * told the agent.
+ */
+export type TraceStep = {
+  action: string;
+  picks: SpecPicks;
+  workflow: SpecWorkflow;
+  toldTheAgent: boolean;
+};
 
 /** Run the spec of one setup for `count` traces from `seed`. */
 export async function generateTraces(
@@ -355,6 +363,9 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
       },
       workflow: specWorkflow(
         itfField(state, `${SPEC_SETUPS[setup].module}::workflowLifecycle::workflow`),
+      ),
+      toldTheAgent: itfBool(
+        itfField(state, `${SPEC_SETUPS[setup].module}::workflowLifecycle::lastStepToldTheAgent`),
       ),
     };
   });

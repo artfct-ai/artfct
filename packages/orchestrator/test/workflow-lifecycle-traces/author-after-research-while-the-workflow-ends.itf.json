@@ -9,6 +9,7 @@
   },
   "vars": [
     "pagesAfterResearch::workflowLifecycle::workflow",
+    "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent",
     "mbt::actionTaken",
     "mbt::nondetPicks"
   ],
@@ -49,6 +50,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "init",
       "mbt::nondetPicks": {
         "accepted": {
@@ -173,6 +175,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
         "accepted": {
@@ -295,6 +298,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
         "accepted": {
@@ -417,6 +421,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": true,
       "mbt::actionTaken": "personWrites",
       "mbt::nondetPicks": {
         "accepted": {
@@ -541,6 +546,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
         "accepted": {
@@ -716,6 +722,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "agentStartsJob",
       "mbt::nondetPicks": {
         "accepted": {
@@ -922,6 +929,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "researcherHandsOver",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1180,6 +1188,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "agentStartsJob",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1470,6 +1479,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "workflowEnds",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1763,6 +1773,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "idleAlarmFires",
       "mbt::nondetPicks": {
         "accepted": {
@@ -2082,6 +2093,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "mbt::actionTaken": "researcherHandsOver",
       "mbt::nondetPicks": {
         "accepted": {
@@ -2401,6 +2413,7 @@
           }
         }
       },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": true,
       "mbt::actionTaken": "sandboxDestroyReturns",
       "mbt::nondetPicks": {
         "accepted": {
