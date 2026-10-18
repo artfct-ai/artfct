@@ -16,6 +16,7 @@
     "replyGoesOnlyToASentComment",
     "failedReplyLeavesThePage",
     "aJudgeRejectionPostsItsReasonOnce",
+    "deliveredToHumansIsNeverCleared",
     "aHeldCommentStaysHeldUntilItReachesTheAuthor",
     "aModelCallAuthorFailsOnlyOnAHostError",
     "aRestartDoesNotStrandAJudgeRun",
@@ -63,7 +64,9 @@
       "anAuthorRestartsWhileAPolisherRuns",
       "anAuthorFailsPastItsRestarts",
       "aPolisherRunStopsOnADraftedArtifact",
-      "aReviewerRunFailsOnADraftedArtifact"
+      "aReviewerRunFailsOnADraftedArtifact",
+      "aDraftWasDeliveredBefore",
+      "aRulingCallReturnsAfterTheAuthorEnded"
     ],
     "reviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -88,7 +91,8 @@
       "anAuthorRestartsWhileAPolisherRuns",
       "anAuthorFailsPastItsRestarts",
       "aPolisherRunStopsOnADraftedArtifact",
-      "aReviewerRunFailsOnADraftedArtifact"
+      "aReviewerRunFailsOnADraftedArtifact",
+      "aDraftWasDeliveredBefore"
     ],
     "judgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -112,7 +116,9 @@
       "anAuthorEndsWhileARefinerRunIsUnfinished",
       "anAuthorEndsOnAReadyArtifact",
       "anAuthorFailsPastItsRestarts",
-      "aReviewerRunFailsOnADraftedArtifact"
+      "aReviewerRunFailsOnADraftedArtifact",
+      "aDraftWasDeliveredBefore",
+      "aRulingCallReturnsAfterTheAuthorEnded"
     ],
     "modelCallAuthorWithTwoReviewers": [
       "aRefinerRunIsUnfinished",
@@ -147,7 +153,11 @@
       "aPersonEditsDuringAModelCallTurn",
       "aModelCallTurnStartsOver",
       "aPolisherRunStopsOnADraftedArtifact",
-      "aReviewerRunFailsOnADraftedArtifact"
+      "aReviewerRunFailsOnADraftedArtifact",
+      "aDraftWasDeliveredBefore",
+      "theHostFailsTheReadAfterAModelCall",
+      "aModelCallAnswerSkipsAReply",
+      "aModelCallAnswerRepliesToAnUnsentComment"
     ],
     "pageReviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -177,7 +187,8 @@
       "aRefinerRunStartsAfterAnUnknownRevision",
       "aRefinerRunStartsAfterAnUnknownHandover",
       "aPolisherRunStopsOnADraftedArtifact",
-      "aReviewerRunFailsOnADraftedArtifact"
+      "aReviewerRunFailsOnADraftedArtifact",
+      "aDraftWasDeliveredBefore"
     ],
     "pageJudgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -208,7 +219,13 @@
       "theInstanceRestarted",
       "aRulingCallIsLostWithTheInstance",
       "aJudgeClosesWithoutAConclusion",
-      "aReviewerRunFailsOnADraftedArtifact"
+      "aReviewerRunFailsOnADraftedArtifact",
+      "aDraftWasDeliveredBefore",
+      "aRulingCallReturnsAfterTheAuthorEnded",
+      "theAuthorEnded",
+      "anAuthorEndsWhileARefinerRunIsUnfinished",
+      "anAuthorEndsOnAReadyArtifact",
+      "anAuthorFailsPastItsRestarts"
     ],
     "pausedModelCallAuthor": [
       "aRefinerRunIsUnfinished",
@@ -229,7 +246,11 @@
       "aPausedAuthorResumesItsWork",
       "anAuthorResumesWhileAPolisherRuns",
       "aPersonInstructsWhileAPolisherRuns",
-      "heldCommentsQueueForAPausedAuthor"
+      "heldCommentsQueueForAPausedAuthor",
+      "aDraftWasDeliveredBefore",
+      "theHostFailsTheReadAfterAModelCall",
+      "aModelCallAnswerSkipsAReply",
+      "aModelCallAnswerRepliesToAnUnsentComment"
     ],
     "checksOnAPolishedPull": [
       "aRefinerRunIsUnfinished",
@@ -256,7 +277,8 @@
       "checksGoBackToThePolisherAtItsTurnEnd",
       "checksGoBackToAWaitingPolisher",
       "checksGoBackToTheAuthor",
-      "anUnknownRevisionOpensTheGate"
+      "anUnknownRevisionOpensTheGate",
+      "aDraftWasDeliveredBefore"
     ]
   },
   "tlc": {
@@ -363,7 +385,8 @@
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
           "promptsQueued": 1,
-          "instanceRestartCount": 1
+          "instanceRestartCount": 1,
+          "authorRestartCount": 0
         },
         "nightly": {
           "revisions": 2,
@@ -371,7 +394,8 @@
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 2,
           "promptsQueued": 1,
-          "instanceRestartCount": 2
+          "instanceRestartCount": 2,
+          "authorRestartCount": 1
         }
       },
       "pausedModelCallAuthor": {

@@ -61,9 +61,11 @@ module reviewLoopTypes {
   /// The latest revision whose failed checks or conflict went back to its submitter, if any.
   type SentBack = NotSentBack | SentBackOn(int)
 
-  /// The output artifact. A revision is a number here. The host gives it a name.
+  /// The output artifact. A revision is a number here. The host gives it a name. It is delivered to
+  /// the humans from its first handover on, also while it is a draft again.
   type Artifact = {
     status: ArtifactStatus,
+    deliveredToHumans: bool,
     revision: int,
     refinerRun: RefinerRunOfArtifact,
     sentBack: SentBack,
@@ -157,15 +159,21 @@ module reviewLoopTypes {
   /// Whether the host says that a new comment mentions the bot.
   type MentionLookup = TheHostSays | TheHostCannotSay
 
-  /// How the host fails a write of a model-call author's revise turn: its first comment reply, the
-  /// page text change before it lands, or the answer after the change landed.
-  type HostFailure = RepliesFail | UpdateFails | UpdateLandsThenFails
+  /// How the host fails a model-call author's revise turn: the read of the page after the model
+  /// call, its first comment reply, the page text change before it lands, or the answer after the
+  /// change landed.
+  type HostFailure = PageReadFails | RepliesFail | UpdateFails | UpdateLandsThenFails
 
-  /// Whether the host takes the writes of a model-call author's revise turn.
-  type PageWrite = WritesLand | WriteFails(HostFailure)
+  /// How the model's answer to a revise turn fails to validate: it skips the reply to a comment
+  /// the prompt carries, or it replies to a comment the prompt does not carry.
+  type AnswerFlaw = SkipsAReply | RepliesToAStrayComment
+
+  /// Whether the host takes the writes of a model-call author's revise turn, or the turn writes
+  /// nothing because the model's answer does not validate.
+  type PageWrite = WritesLand | WriteFails(HostFailure) | AnswerDoesNotValidate(AnswerFlaw)
 
   /// Why a model-call author's revise turn failed.
-  type TurnFailure = ReplyRefused | UpdateRefused | UpdateLandedThenFailed
+  type TurnFailure = PageReadRefused | AnswerInvalid | ReplyRefused | UpdateRefused | UpdateLandedThenFailed
 
   /// Who asked for the held comments to go to the author.
   type Asker = TheAgent | APersonsRevisionRequest | AMention
@@ -246,6 +254,7 @@ module reviewLoopTypes {
     sentCommentIsAnsweredBeforeItsLineGoes: bool,
     failedReplyLeavesThePage: bool,
     aJudgeRejectionPostsItsReasonOnce: bool,
+    deliveredToHumansIsNeverCleared: bool,
     aModelCallAuthorFailsOnlyOnAHostError: bool,
     aRefinerRunRestartsAtMostTwice: bool,
     aFinishedRefinerRunKeepsItsStatus: bool,
@@ -282,9 +291,13 @@ module reviewLoopTypes {
     aRejectionLandsOnThePage: bool,
     theHostFailsARejection: bool,
     theHostFailsAModelCallAuthor: bool,
+    theHostFailsTheReadAfterAModelCall: bool,
+    aModelCallAnswerSkipsAReply: bool,
+    aModelCallAnswerRepliesToAnUnsentComment: bool,
     aPersonEditsDuringAModelCallTurn: bool,
     aModelCallTurnStartsOver: bool,
     aRulingCallIsLostWithTheInstance: bool,
+    aRulingCallReturnsAfterTheAuthorEnded: bool,
     aJudgeClosesWithoutAConclusion: bool,
     aRefinerRunFailsPastItsRestarts: bool,
     aRefinerRunStartsAfterAFailedOrCancelledOne: bool,
@@ -404,7 +417,13 @@ module reviewLoop {
       rejectedBy: Set(),
       findingsFrom: Set(),
     },
-    artifact: { status: Drafted, revision: 0, refinerRun: NoRefinerRun, sentBack: NotSentBack },
+    artifact: {
+      status: Drafted,
+      deliveredToHumans: false,
+      revision: 0,
+      refinerRun: NoRefinerRun,
+      sentBack: NotSentBack,
+    },
     refinerRuns: List(),
     judgeRunsCodeRulesOn: Set(),
     reviewComments: List(),
@@ -442,7 +461,12 @@ module reviewLoop {
 
   pure val RESTART_CAUSES: Set[RestartCause] = Set(GivesUp, UnfinishedStop, Stalled, SandboxGone, PromptFails)
 
-  pure val AUTHOR_ENDINGS: Set[AuthorEnding] = Set(TheAgentCancelsTheJob, TheAuthorFails, TheWorkflowEnds)
+  /// How the author can end. On a page, the end of the workflow also keeps a later mention from
+  /// the agent, which the review loop does not model, so the author ends there by a cancel or a
+  /// failure.
+  pure val AUTHOR_ENDINGS: Set[AuthorEnding] =
+    if (ON_A_PAGE) Set(TheAgentCancelsTheJob, TheAuthorFails)
+    else Set(TheAgentCancelsTheJob, TheAuthorFails, TheWorkflowEnds)
 
   pure val REVISION_LOOKUPS: Set[RevisionLookup] =
     if (UNREADABLE_REVISIONS) Set(RevisionKnown, RevisionUnknown) else Set(RevisionKnown)
@@ -625,7 +649,7 @@ module reviewLoop {
       | Drafted => Ready({ deliveredRevision: hostRevision(loop, lookup), close: close })
       | Ready(handed) => Ready(handed)
     }
-    { ...loop, artifact: { ...loop.artifact, status: status, refinerRun: NoRefinerRun } }
+    { ...loop, artifact: { ...loop.artifact, status: status, deliveredToHumans: true, refinerRun: NoRefinerRun } }
   }
 
   pure def startRefiner(loop: ReviewLoop, index: int): ReviewLoop = {
@@ -904,13 +928,22 @@ module reviewLoop {
     loop.author.turnComments.union(rewritten).filter(id => not(loop.personComments[id].gone))
   }
 
+  /// True when the model's answer to a revise turn does not validate.
+  pure def isAnswerFlaw(write: PageWrite): bool =
+    match write {
+      | AnswerDoesNotValidate(_) => true
+      | _ => false
+    }
+
   /// The turn runs again on the current page: it keeps its prompt and drops what it read.
   pure def startOver(loop: ReviewLoop): ModelCallTurnEnd =
     { loop: { ...loop, author: { ...loop.author, pageEditsDuringTurn: Set() } }, turnEnd: AuthorTurnStartsOver }
 
-  /// A model-call author's revise turn ends. When a person changed the page text while its model
-  /// call ran, it starts over on the current page without a write. Otherwise it posts its comment
-  /// replies and stops at the first the host does not take. Then it writes the page text change.
+  /// A model-call author's revise turn ends. It reads the page again, and fails when the host
+  /// cannot be read. When a person changed the page text while its model call ran, it starts over
+  /// on the current page without a write. It fails without a write when the answer does not
+  /// validate. Otherwise it posts its comment replies and stops at the first the host does not
+  /// take. Then it writes the page text change.
   pure def modelCallTurnEnds(
     loop: ReviewLoop,
     changed: bool,
@@ -921,7 +954,9 @@ module reviewLoop {
     val lookup = answers.lookup
     val replies = turnReplies(loop, changed, part)
     val replied = markAnswered(loop, replies)
-    if (pageTextEditedDuringTurn(loop)) startOver(loop)
+    if (write == WriteFails(PageReadFails)) turnFailed(loop, PageReadRefused, lookup)
+    else if (pageTextEditedDuringTurn(loop)) startOver(loop)
+    else if (isAnswerFlaw(write)) turnFailed(loop, AnswerInvalid, lookup)
     else if (write == WriteFails(RepliesFail) and replies.size() > 0) turnFailed(loop, ReplyRefused, lookup)
     else if (not(changed)) turnEnded(replied, answers.decision, lookup)
     else if (write == WriteFails(UpdateFails)) turnFailed(replied, UpdateRefused, lookup)
@@ -1322,13 +1357,28 @@ module reviewLoop {
     atWork(review),
     nondet part = REVISION_PARTS.oneOf()
     val failures =
-      if (turnReplies(review, true, part).size() > 0) Set(RepliesFail, UpdateFails, UpdateLandsThenFails)
-      else Set(UpdateFails, UpdateLandsThenFails)
+      if (turnReplies(review, true, part).size() > 0) Set(PageReadFails, RepliesFail, UpdateFails, UpdateLandsThenFails)
+      else Set(PageReadFails, UpdateFails, UpdateLandsThenFails)
     nondet failure = failures.oneOf()
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val answers = { write: WriteFails(failure), decision: AgentRoutes, lookup: revisionLookup }
     val ended = modelCallTurnEnds(review, true, part, answers)
     moveWith(ended.loop, { ...quietStep(ended.turnEnd), write: WriteFails(failure), revisionLookup: revisionLookup }),
+  }
+
+  /// The model call of a model-call author's turn answers, and its answer skips the reply to a
+  /// comment the prompt carries or replies to a comment the prompt does not carry.
+  action aModelCallAnswerDoesNotValidate: bool = all {
+    MODEL_CALL_AUTHOR,
+    atWork(review),
+    val flaws =
+      if (review.author.turnComments.size() > 0) Set(SkipsAReply, RepliesToAStrayComment)
+      else Set(RepliesToAStrayComment)
+    nondet flaw = flaws.oneOf()
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
+    val answers = { write: AnswerDoesNotValidate(flaw), decision: AgentRoutes, lookup: revisionLookup }
+    val ended = modelCallTurnEnds(review, true, Body, answers)
+    moveWith(ended.loop, { ...quietStep(ended.turnEnd), write: AnswerDoesNotValidate(flaw), revisionLookup: revisionLookup }),
   }
 
   /// A findings reviewer files a review with findings, and its turn ends.
@@ -1650,6 +1700,7 @@ module reviewLoop {
     authorTurnEndsOnANewRevision,
     authorTurnEndsOnTheSameRevision,
     theHostFailsAModelCallAuthorsWrite,
+    aModelCallAnswerDoesNotValidate,
     findingsReviewerLeavesFindings,
     findingsReviewerApproves,
     judgeTurnEnds,
@@ -1961,7 +2012,8 @@ module reviewLoop {
       | _ => true
     }
 
-  /// A model-call author's turn fails only in a step where the host did not take a write.
+  /// A model-call author's turn fails only in a step where the host did not take a write, or the
+  /// model's answer did not validate.
   pure def failsOnlyOnAHostError(step: Transition): bool =
     match step.kind.turnEnd {
       | AuthorTurnFailed(_) => step.kind.write != WritesLand
@@ -1993,6 +2045,10 @@ module reviewLoop {
       | Drafted => false
       | Ready(handed) => handed.deliveredRevision == revision
     }
+
+  /// The record that the humans got the artifact stays once a handover set it.
+  pure def keepsTheFirstHandover(step: Transition): bool =
+    step.before.artifact.deliveredToHumans implies step.after.artifact.deliveredToHumans
 
   /// True when the author was live before a step and is cancelled or failed after it.
   pure def endsTheAuthor(step: Transition): bool = authorLive(step.before) and not(authorLive(step.after))
@@ -2048,6 +2104,7 @@ module reviewLoop {
     sentCommentIsAnsweredBeforeItsLineGoes: answersBeforeTheLineGoes(step),
     failedReplyLeavesThePage: failedReplyLeavesItAsItWas(step),
     aJudgeRejectionPostsItsReasonOnce: postsTheRejectionOnce(step),
+    deliveredToHumansIsNeverCleared: keepsTheFirstHandover(step),
     aModelCallAuthorFailsOnlyOnAHostError: failsOnlyOnAHostError(step),
     aRefinerRunRestartsAtMostTwice: restartsOnlyWhileItHasRestarts(step),
     aFinishedRefinerRunKeepsItsStatus: keepsEveryFinishedStatus(step),
@@ -2161,11 +2218,22 @@ module reviewLoop {
     theHostFailsARejection: step.kind.page == RejectionPosted(HostFails),
     theHostFailsAModelCallAuthor:
       step.kind.turnEnd == AuthorTurnFailed(UpdateRefused) or step.kind.turnEnd == AuthorTurnFailed(UpdateLandedThenFailed),
+    theHostFailsTheReadAfterAModelCall: step.kind.turnEnd == AuthorTurnFailed(PageReadRefused),
+    aModelCallAnswerSkipsAReply:
+      step.kind.write == AnswerDoesNotValidate(SkipsAReply) and step.kind.turnEnd == AuthorTurnFailed(AnswerInvalid),
+    aModelCallAnswerRepliesToAnUnsentComment: and {
+      step.kind.write == AnswerDoesNotValidate(RepliesToAStrayComment),
+      step.kind.turnEnd == AuthorTurnFailed(AnswerInvalid),
+      personCommentIds(step.before).exists(id => not(step.before.personComments[id].sent)),
+    },
     aPersonEditsDuringAModelCallTurn:
       step.kind.page == APersonEditedThePage and step.after.author.pageEditsDuringTurn.size() > 0,
     aModelCallTurnStartsOver: step.kind.turnEnd == AuthorTurnStartsOver,
     aRulingCallIsLostWithTheInstance:
       step.kind.instanceRestarted and step.before.judgeRunsCodeRulesOn.exists(id => isOnRun(step.before, id)),
+    aRulingCallReturnsAfterTheAuthorEnded:
+      not(authorLive(step.before)) and
+        step.before.judgeRunsCodeRulesOn.exists(id => not(step.after.judgeRunsCodeRulesOn.contains(id))),
     aJudgeClosesWithoutAConclusion:
       match step.kind.turnEnd {
         | RefinerTurnEnded(id) => step.after.refinerRuns[id].result == RulingAsked
@@ -2317,6 +2385,13 @@ module reviewLoop {
   /// author gets the rejection whether the post landed or not.
   val aJudgeRejectionPostsItsReasonOnce: bool = lastStepKept.aJudgeRejectionPostsItsReasonOnce
 
+  /// The first handover records that the humans got the artifact. A later step does not clear
+  /// that record, and an artifact the humans hold has it.
+  val deliveredToHumansIsNeverCleared: bool = and {
+    drafted(review) or review.artifact.deliveredToHumans,
+    lastStepKept.deliveredToHumansIsNeverCleared,
+  }
+
   /// A person comment that does not mention the bot is marked read on the page only once a prompt
   /// that carries it is queued for the author. Until then it stays held.
   val aHeldCommentStaysHeldUntilItReachesTheAuthor: bool =
@@ -2324,9 +2399,9 @@ module reviewLoop {
       (review.personComments[id].acknowledged and not(review.personComments[id].mentions))
         implies review.personComments[id].sent)
 
-  /// A model-call author's revise turn fails only when the document host refuses or loses one of
-  /// its writes. An edit to the page by a person, a polisher, or an earlier revision does not
-  /// fail it.
+  /// A model-call author's revise turn fails only when the document host fails the read of the page
+  /// or refuses or loses one of its writes, or when the model's answer skips or adds a comment
+  /// reply. An edit to the page by a person, a polisher, or an earlier revision does not fail it.
   val aModelCallAuthorFailsOnlyOnAHostError: bool = lastStepKept.aModelCallAuthorFailsOnlyOnAHostError
 
   /// A done judge run that the artifact points at without a ruling has a ruling call out, or the
@@ -2393,6 +2468,7 @@ module reviewLoop {
     replyGoesOnlyToASentComment,
     failedReplyLeavesThePage,
     aJudgeRejectionPostsItsReasonOnce,
+    deliveredToHumansIsNeverCleared,
     aHeldCommentStaysHeldUntilItReachesTheAuthor,
     aModelCallAuthorFailsOnlyOnAHostError,
     aRestartDoesNotStrandAJudgeRun,
@@ -2538,6 +2614,18 @@ module reviewLoop {
   /// Witness for `aModelCallAuthorFailsOnlyOnAHostError`: the host fails a model-call author's write.
   val theHostFailsAModelCallAuthor: bool = lastStepReached.theHostFailsAModelCallAuthor
 
+  /// Witness for `aModelCallAuthorFailsOnlyOnAHostError`: the host fails the read of the page after
+  /// a model call.
+  val theHostFailsTheReadAfterAModelCall: bool = lastStepReached.theHostFailsTheReadAfterAModelCall
+
+  /// Witness for `failedReplyLeavesThePage`: the model's answer skips the reply to a comment its
+  /// prompt carries, and the turn fails without a write.
+  val aModelCallAnswerSkipsAReply: bool = lastStepReached.aModelCallAnswerSkipsAReply
+
+  /// Witness for `replyGoesOnlyToASentComment`: the model's answer replies to a comment the author
+  /// was not sent, and the turn fails without a reply.
+  val aModelCallAnswerRepliesToAnUnsentComment: bool = lastStepReached.aModelCallAnswerRepliesToAnUnsentComment
+
   /// Witness for `aModelCallAuthorFailsOnlyOnAHostError`: a person edits the page while a
   /// model-call author's turn runs.
   val aPersonEditsDuringAModelCallTurn: bool = lastStepReached.aPersonEditsDuringAModelCallTurn
@@ -2549,6 +2637,14 @@ module reviewLoop {
   /// Witness for `aRestartDoesNotStrandAJudgeRun`: a new instance takes over while the ruling call
   /// of the judge run the artifact is on is out.
   val aRulingCallIsLostWithTheInstance: bool = lastStepReached.aRulingCallIsLostWithTheInstance
+
+  /// Witness for `aJudgeRejectionPostsItsReasonOnce`: a ruling call returns after the author
+  /// ended, so its ruling does not land.
+  val aRulingCallReturnsAfterTheAuthorEnded: bool = lastStepReached.aRulingCallReturnsAfterTheAuthorEnded
+
+  /// Witness for `deliveredToHumansIsNeverCleared`: the humans got the artifact once, and it is a
+  /// draft again.
+  val aDraftWasDeliveredBefore: bool = drafted(review) and review.artifact.deliveredToHumans
 
   /// Witness for `aRestartDoesNotStrandAJudgeRun`: a judge closes without a conclusion, and the
   /// agent is asked for a person's ruling at its turn end.

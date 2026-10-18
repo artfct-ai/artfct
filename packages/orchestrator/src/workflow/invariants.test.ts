@@ -4,7 +4,6 @@ import fc from "fast-check";
 import {
   aSingleIssueWorkflowIsDoneWithItsSubjectsJob,
   artifactStatusMovesAreLegal,
-  deliveredToHumansIsNeverCleared,
   endedWorkflowHasNoUnfinishedTask,
   nothingReopensAFinishedWorkflow,
   finishedTaskKeepsItsStatus,
@@ -25,7 +24,6 @@ import {
   aQueuedPromptReachesItsModelCallAuthor,
   aModelCallAuthorWorksOnlyWhileItsCallIsOut,
   aRestartDoesNotLoseAModelTurn,
-  aJudgeRejectionPostsItsReasonOnce,
 } from "../../test/invariants";
 import { declaredCoverageCases, takeCoveredCases } from "../../test/coverage";
 import { WORKFLOW_CORPUS, type ReplayedSequence } from "../../test/workflow-corpus";
@@ -120,7 +118,6 @@ const STATE_INVARIANTS = [
 ];
 
 const STEP_INVARIANTS = [
-  deliveredToHumansIsNeverCleared,
   nothingReopensAFinishedWorkflow,
   finishedTaskKeepsItsStatus,
   pausedAuthorGetsNoPrompt,
@@ -137,7 +134,6 @@ const STEP_INVARIANTS = [
   anAcceptedArtifactNeverMovesBack,
   aModelCallAuthorWorksOnlyWhileItsCallIsOut,
   aRestartDoesNotLoseAModelTurn,
-  aJudgeRejectionPostsItsReasonOnce,
 ];
 
 const research = fc.constantFrom(false, false, false, true);
@@ -947,7 +943,7 @@ const CORPUS_EXAMPLES = WORKFLOW_CORPUS.map((replayed): [ReplayedSequence] => [r
 
 describe("the workflow invariants", () => {
   it("are every state and step invariant", () => {
-    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(23);
+    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(21);
   });
 
   for (const property of PROPERTIES) {

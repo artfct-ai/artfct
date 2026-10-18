@@ -108,6 +108,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -140,6 +141,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -151,6 +153,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -318,6 +321,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -350,6 +354,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -361,6 +366,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -546,6 +552,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -578,6 +585,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -589,6 +597,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -785,6 +794,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -817,6 +827,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -828,6 +839,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -1024,6 +1036,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -1056,6 +1069,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -1067,6 +1081,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -1263,6 +1278,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -1295,6 +1311,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -1306,6 +1323,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -1511,6 +1529,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -1543,6 +1562,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -1554,6 +1574,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -1764,6 +1785,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -1796,6 +1818,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -1807,6 +1830,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -2017,6 +2041,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -2049,6 +2074,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -2060,6 +2086,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -2294,6 +2321,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -2326,6 +2354,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -2337,6 +2366,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -2564,6 +2594,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -2596,6 +2627,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": true,
@@ -2607,6 +2639,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -2834,6 +2867,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -2866,6 +2900,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -2877,6 +2912,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -3126,6 +3162,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -3158,6 +3195,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -3169,6 +3207,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -3416,6 +3455,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -3448,6 +3488,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -3459,6 +3500,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -3706,6 +3748,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -3738,6 +3781,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -3749,6 +3793,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -3996,6 +4041,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -4028,6 +4074,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -4039,6 +4086,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -4309,6 +4357,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -4341,6 +4390,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -4352,6 +4402,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -4616,6 +4667,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -4648,6 +4700,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -4659,6 +4712,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -4930,6 +4984,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -4962,6 +5017,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -4973,6 +5029,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -5247,6 +5304,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -5279,6 +5337,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -5290,6 +5349,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -5561,6 +5621,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -5593,6 +5654,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -5604,6 +5666,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -5895,6 +5958,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -5927,6 +5991,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -5938,6 +6003,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -6226,6 +6292,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -6258,6 +6325,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -6269,6 +6337,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -6585,6 +6654,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -6617,6 +6687,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -6628,6 +6699,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -6955,6 +7027,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -6987,6 +7060,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -6998,6 +7072,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -7339,6 +7414,7 @@
         "aPromptToAPageAuthorCarriesItsHeldComments": true,
         "authorGetsEveryPageFinding": true,
         "authorGetsEveryPullFinding": true,
+        "deliveredToHumansIsNeverCleared": true,
         "failedReplyLeavesThePage": true,
         "judgeRulesAtMostOnce": true,
         "pageReviewPostsEachFindingOnce": true,
@@ -7371,6 +7447,7 @@
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
+        "aRulingCallReturnsAfterTheAuthorEnded": false,
         "aRulingLandsOnARuledJudgeRun": false,
         "aStaleReviewRunsTheSegmentAgain": false,
         "heldCommentsGoToThePageAuthor": false,
@@ -7382,6 +7459,7 @@
       },
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
+          "deliveredToHumans": true,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {

@@ -464,14 +464,13 @@ export async function endRefinerRunTurn(
   author: WorldAuthor,
   end: RefinerRunEnd,
   index: number,
-): Promise<StepFacts | undefined> {
+): Promise<void> {
   const run = world.refinerRunOf(author);
   const bridge = run ? await world.bridgeWithRunningTurn(run.task_id) : null;
-  if (!run || !bridge) return undefined;
+  if (!run || !bridge) return;
   const mode = world.reviewerEntryOf(run)?.mode ?? "polisher";
-  const reviewsPage = mode === "findings" && author.kind === "page";
-  const judgesPage = mode === "judge" && author.kind === "page";
-  if (reviewsPage || judgesPage) world.pageHost.commenting = end.pageCommenting;
+  const refinesPage = author.kind === "page" && (mode === "findings" || mode === "judge");
+  if (refinesPage) world.pageHost.commenting = end.pageCommenting;
   if (mode === "findings") await fileFindingsReview(world, author, bridge, end.reviewer);
   if (mode === "judge") await closeJudgeTurn(world, bridge, end, index);
   if (mode === "polisher" && end.polisher === "pushed") world.changeRevision(author);
@@ -481,7 +480,6 @@ export async function endRefinerRunTurn(
   }
   await bridge.endTurn(end.stopReason);
   world.pageHost.commenting = "takes";
-  return { pageCommentsRefused: judgesPage && end.pageCommenting === "down" };
 }
 
 async function fileFindingsReview(
@@ -1372,7 +1370,6 @@ export function personRules(
     } finally {
       world.pageHost.commenting = commentingBefore;
     }
-    return { pageCommentsRefused: author.kind === "page" && pageCommenting === "down" };
   });
 }
 
