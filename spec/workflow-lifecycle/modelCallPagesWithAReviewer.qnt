@@ -3,5 +3,5 @@
 /// traces too.
 module modelCallPagesWithAReviewer {
   import workflowLifecycleTypes.* from "./workflowLifecycle"
-  import workflowLifecycle(REFINER = AReviewer, MODEL_AUTHOR = true, RESEARCH = false, SLOT_COUNTS = Set(2)).* from "./workflowLifecycle"
+  import workflowLifecycle(WORK = PagesForAChatRequest, REFINER = AReviewer, MODEL_AUTHOR = true, RESEARCH = false, SLOT_COUNTS = Set(2)).* from "./workflowLifecycle"
 }
