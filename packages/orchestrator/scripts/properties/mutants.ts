@@ -197,21 +197,21 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W25",
-    invariant: "sentCommentIsAnsweredBeforeItsLineGoes (queued)",
+    invariant: "reviewLoop::sentCommentIsAnsweredBeforeItsLineGoes (queued)",
     path: "src/workflow/task/model-author.ts",
     find: "  if (!queuedCommentIds.length) return;",
     replace: "  if (queuedCommentIds.length || true) return;",
   },
   {
     id: "W26",
-    invariant: "aModelCallAuthorFailsOnlyOnAHostError",
+    invariant: "reviewLoop::aModelCallAuthorFailsOnlyOnAHostError",
     path: "src/workflow/task/model-author.ts",
     find: "  if ((await documents.readPageContent(ref.page_id)) !== pageText) return { startOver: true };\n",
     replace: "",
   },
   {
     id: "W27",
-    invariant: "aModelCallAuthorFailsOnlyOnAHostError (gone comment)",
+    invariant: "reviewLoop::aModelCallAuthorFailsOnlyOnAHostError (gone comment)",
     path: "src/workflow/task/model-author.ts",
     find: "    if (!(await documents.fetchComment(reply.comment_id))) {",
     replace: "    if (false) {",
@@ -357,6 +357,20 @@ export const MUTANTS: Mutant[] = [
     find: "  if (!claimChecksSendBack(workflow, artifact, conflict.revision)) return false;\n",
     replace:
       "  if (!claimChecksSendBack(workflow, artifact, `${conflict.revision}:conflict`)) return false;\n",
+  },
+  {
+    id: "W47",
+    invariant: "reviewLoop::replyGoesOnlyToASentComment",
+    path: "src/prompts/model-author-prompt.ts",
+    find: "  if (stray)\n",
+    replace: "  if (stray && false)\n",
+  },
+  {
+    id: "W48",
+    invariant: "reviewLoop::failedReplyLeavesThePage (skipped reply)",
+    path: "src/prompts/model-author-prompt.ts",
+    find: "  if (unanswered) return",
+    replace: "  if (unanswered && false) return",
   },
   {
     id: "A1",

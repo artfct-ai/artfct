@@ -154,7 +154,10 @@
       "aModelCallTurnStartsOver",
       "aPolisherRunStopsOnADraftedArtifact",
       "aReviewerRunFailsOnADraftedArtifact",
-      "aDraftWasDeliveredBefore"
+      "aDraftWasDeliveredBefore",
+      "theHostFailsTheReadAfterAModelCall",
+      "aModelCallAnswerSkipsAReply",
+      "aModelCallAnswerRepliesToAnUnsentComment"
     ],
     "pageReviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -244,7 +247,10 @@
       "anAuthorResumesWhileAPolisherRuns",
       "aPersonInstructsWhileAPolisherRuns",
       "heldCommentsQueueForAPausedAuthor",
-      "aDraftWasDeliveredBefore"
+      "aDraftWasDeliveredBefore",
+      "theHostFailsTheReadAfterAModelCall",
+      "aModelCallAnswerSkipsAReply",
+      "aModelCallAnswerRepliesToAnUnsentComment"
     ],
     "checksOnAPolishedPull": [
       "aRefinerRunIsUnfinished",
