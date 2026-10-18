@@ -3,7 +3,7 @@
  * Runs the checks that each spec folder's `checks.json` declares, for CI and the nightly run.
  * Usage, from the orchestrator package:
  *   bun scripts/spec/check-spec.ts setups
- *   bun scripts/spec/check-spec.ts main-shard <index> <count>
+ *   bun scripts/spec/check-spec.ts shard <index> <count>
  *   bun scripts/spec/check-spec.ts witnesses <spec> <setup>
  *   bun scripts/spec/check-spec.ts simulate <spec> <setup> <samples>
  *   bun scripts/spec/check-spec.ts tlc <spec> <setup> <pr|nightly>
@@ -20,13 +20,13 @@ import {
   tlcModel,
 } from "./tlc-model";
 import { installTlcTools } from "./tlc-tools";
-import { mainQuintShards } from "./main-shards";
+import { quintShards } from "./quint-shards";
 
 const ORCHESTRATOR_DIR = join(import.meta.dirname, "../..");
 const MAX_STEPS = 25;
 const USAGE = [
   "usage: bun scripts/spec/check-spec.ts setups",
-  "       bun scripts/spec/check-spec.ts main-shard <index> <count>",
+  "       bun scripts/spec/check-spec.ts shard <index> <count>",
   "       bun scripts/spec/check-spec.ts witnesses <spec> <setup>",
   "       bun scripts/spec/check-spec.ts simulate <spec> <setup> <samples>",
   "       bun scripts/spec/check-spec.ts tlc <spec> <setup> <pr|nightly>",
@@ -81,8 +81,8 @@ function checkedSetups() {
   });
 }
 
-function listMainShard(index: number, count: number): number {
-  const shard = mainQuintShards(checkedSetups(), count)[index];
+function listQuintShard(index: number, count: number): number {
+  const shard = quintShards(checkedSetups(), count)[index];
   if (!shard) {
     console.error(USAGE);
     return 2;
@@ -216,9 +216,9 @@ async function main(args: string[]): Promise<number> {
     console.log(JSON.stringify(checkedSetups()));
     return 0;
   }
-  if (command === "main-shard") {
+  if (command === "shard") {
     const [, shardIndex, shardCount] = args;
-    return listMainShard(Number(shardIndex), Number(shardCount));
+    return listQuintShard(Number(shardIndex), Number(shardCount));
   }
   if (command === "witnesses" && spec && setup) return checkWitnesses(spec, setup);
   if (command === "simulate" && spec && setup && detail) return simulate(spec, setup, detail);

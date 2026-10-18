@@ -38,9 +38,27 @@ jobs:
       - run: bun run check:affected
       - run: bun run smoke
 
+  spec_changes:
+    name: spec changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      changed: ${{ steps.paths.outputs.changed }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - name: Check whether the pull request changes the specs or the code they model
+        id: paths
+        run: |
+          changed=$(git diff --name-only HEAD^1 HEAD | grep -E '^(spec/|packages/orchestrator/(scripts/spec|src/workflow|src/agent|src/router|test)/|bun\.lock$|\.github/workflows/ci\.yml$)' || true)
+          echo "changed=$([ -n "$changed" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
   quint:
     name: quint (shard ${{ matrix.shard }})
-    if: github.event_name == 'pull_request'
+    needs: spec_changes
+    if: needs.spec_changes.outputs.changed == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -56,30 +74,19 @@ jobs:
       SHARD_COUNT: ${{ strategy.job-total }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 2
-      - name: Check whether the pull request changes the specs or the code they model
-        id: paths
-        run: |
-          changed=$(git diff --name-only HEAD^1 HEAD | grep -E '^(spec/|packages/orchestrator/(scripts/spec|src/workflow|src/agent|src/router|test)/|bun\.lock$|\.github/workflows/ci\.yml$)' || true)
-          echo "changed=$([ -n "$changed" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-      - if: steps.paths.outputs.changed == 'true'
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
-      - if: steps.paths.outputs.changed == 'true'
-        run: bun install --frozen-lockfile
-      - if: steps.paths.outputs.changed == 'true'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - run: bun install --frozen-lockfile
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.quint
           key: quint-${{ runner.os }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
           restore-keys: quint-${{ runner.os }}-
       - name: Typecheck, check the witnesses, and run every invariant on 10,000 samples for each setup of this shard
-        if: steps.paths.outputs.changed == 'true'
         run: |
           status=0
-          for entry in $(bun scripts/spec/check-spec.ts setups | jq -r --argjson index "$SHARD_INDEX" --argjson count "$SHARD_COUNT" 'to_entries[] | select(.key % $count == $index) | .value | "\(.spec)/\(.setup)"'); do
+          for entry in $(bun scripts/spec/check-spec.ts shard "$SHARD_INDEX" "$SHARD_COUNT" | jq -r '.[] | "\(.spec)/\(.setup)"'); do
             spec=${entry%/*}
             setup=${entry#*/}
             echo "::group::$setup of $spec"
@@ -94,13 +101,28 @@ jobs:
             echo "::endgroup::"
           done
           exit "$status"
-      - if: ${{ !cancelled() && steps.paths.outputs.changed == 'true' }}
-        run: bun run template-config
-      - name: Replay this shard's share of the spec traces through the code at the default count
-        if: ${{ !cancelled() && steps.paths.outputs.changed == 'true' }}
+
+  quint_replays:
+    name: quint replays
+    needs: spec_changes
+    if: needs.spec_changes.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+        working-directory: packages/orchestrator
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun run template-config
+      - name: Replay the spec traces through the code at the default count
         run: |
           status=0
-          for replay in $(bun scripts/spec/check-spec.ts setups | jq -r --argjson index "$SHARD_INDEX" --argjson count "$SHARD_COUNT" 'map(.replay) | unique | map(select(. != "")) | to_entries[] | select(.key % $count == $index) | .value'); do
+          for replay in $(bun scripts/spec/check-spec.ts setups | jq -r 'map(.replay) | unique | map(select(. != "")) | .[]'); do
             if [[ "$replay" == *.test.medium.ts ]]; then
               bunx vitest run "./$replay" || status=1
             else
@@ -139,7 +161,7 @@ jobs:
       - name: Typecheck, check the witnesses, and run every invariant on 100,000 samples for each setup of this shard
         run: |
           status=0
-          for entry in $(bun scripts/spec/check-spec.ts main-shard "$SHARD_INDEX" "$SHARD_COUNT" | jq -r '.[] | "\(.spec)/\(.setup)"'); do
+          for entry in $(bun scripts/spec/check-spec.ts shard "$SHARD_INDEX" "$SHARD_COUNT" | jq -r '.[] | "\(.spec)/\(.setup)"'); do
             spec=${entry%/*}
             setup=${entry#*/}
             echo "::group::$setup of $spec"
