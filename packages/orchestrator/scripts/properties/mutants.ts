@@ -352,14 +352,14 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "A1",
-    invariant: "laterDecisionsCallsFallBackOnceOneFails",
+    invariant: "agentTurns::laterDecisionsCallsFallBackOnceOneFails",
     path: "src/decisions/ask.ts",
     find: "    if (turn) turn.failed = true;\n",
     replace: "",
   },
   {
     id: "A2b",
-    invariant: "aPersonHearsBackBeforeAnyWork",
+    invariant: "agentTurns::aPersonHearsBackBeforeAnyWork",
     path: "src/agent/turn/turn.ts",
     find: "  const awaitingFirstReply = () => turn.personWrote && !progress.firstReplied;",
     replace:
@@ -367,21 +367,21 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "A3",
-    invariant: "theWorkingStatusNeverOutlivesItsTurn",
+    invariant: "agentTurns::theWorkingStatusNeverOutlivesItsTurn",
     path: "src/agent/turn/turn.ts",
     find: "  if (!owesTheReply) return workflow.release();",
     replace: "  if (!owesTheReply) return;",
   },
   {
     id: "A4",
-    invariant: "aWaitingInboxRowHasATurnComing",
+    invariant: "agentTurns::aWaitingInboxRowHasATurnComing",
     path: "src/agent/turn/watchdog.ts",
     find: '    if (waking) await workflow.scheduleAlarm(0, "runAgent", {});\n',
     replace: "",
   },
   {
     id: "A5",
-    invariant: "sessionMessageWithoutAnAuthorIsAnswered",
+    invariant: "agentTurns::sessionMessageWithoutAnAuthorIsAnswered",
     path: "src/agent/tools/channel.ts",
     find: '            await workflow.post({ type: "info", text: reply.text }, { answering });\n            return "Acknowledged.";',
     replace:
@@ -389,10 +389,18 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "A6",
-    invariant: "closingTextAnswersOnlyAPersonWhoWrote",
+    invariant: "agentTurns::closingTextAnswersOnlyAPersonWhoWrote",
     path: "src/agent/turn/turn.ts",
     find: "    turn_board_changed: lostFirstRow !== null && workflow.state.turn_board_changed === true,",
     replace: "    turn_board_changed: false,",
+  },
+  {
+    id: "A7",
+    invariant: "agentTurns::aWaitingPersonHearsBackByTheTimeout (waits after the deadline)",
+    path: "src/agent/turn/turn.ts",
+    find: '    if (signal.aborted) return "timed_out";\n  }\n  try {',
+    replace:
+      '    if (signal.aborted) {\n      await new Promise((resolve) => setTimeout(resolve, 5));\n      return "timed_out";\n    }\n  }\n  try {',
   },
   {
     id: "R1",

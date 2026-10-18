@@ -4,7 +4,7 @@ This file lists each effect a person sees or the system relies on, and the invar
 
 Effects use the terms of the glossary. A guard is the exact function name of an invariant. A guard written `module::name` is an invariant of that Quint spec module. A row with an empty guard list is unguarded.
 
-The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The agent turn invariants live in `packages/orchestrator/test/agent-invariants.ts`. The router, chat acknowledgement and page revision invariants live beside them. The router binding invariants live in the Quint spec at `spec/router-bindings/routerBindings.qnt`. The review loop invariants live in the Quint spec at `spec/review-loop/reviewLoop.qnt`, the workflow lifecycle invariants in `spec/workflow-lifecycle/workflowLifecycle.qnt`, the harness session invariants in `spec/harness-session/harnessSession.qnt`, and the agent turns invariants in `spec/agent-turns/agentTurns.qnt`. The webhook invariants live in `packages/ingress/test/webhook-invariants.ts`, and the inbound mapper invariants in `packages/adapters/test/inbound-invariants.ts`.
+The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The router, chat acknowledgement and page revision invariants live beside them. The router binding invariants live in the Quint spec at `spec/router-bindings/routerBindings.qnt`. The review loop invariants live in the Quint spec at `spec/review-loop/reviewLoop.qnt`, the workflow lifecycle invariants in `spec/workflow-lifecycle/workflowLifecycle.qnt`, the harness session invariants in `spec/harness-session/harnessSession.qnt`, and the agent turns invariants in `spec/agent-turns/agentTurns.qnt`. The webhook invariants live in `packages/ingress/test/webhook-invariants.ts`, and the inbound mapper invariants in `packages/adapters/test/inbound-invariants.ts`.
 
 ## Workflow, tasks and statuses
 
@@ -82,7 +82,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | ID | Effect | Guarded by |
 |---|---|---|
 | A1 | Every inbox row a turn takes moves into the transcript once and leaves the inbox, also when the model fails or the turn times out. | `agentTurns::everyInboxRowReachesTheTranscriptOnce` |
-| A2 | The decisions model reads a person's message: owed reply, requests work, asks for a revision, requested runtime, input artifact. A failed call falls back to an unread message, and every later decisions call of the turn falls back too. | `agentTurns::laterDecisionsCallsFallBackOnceOneFails`, `aDecisionsCallFallsBackOnlyAfterEveryModelFailed`, `aPersonGetsTheAnswerDuringADecisionsOutage` |
+| A2 | The decisions model reads a person's message: owed reply, requests work, asks for a revision, requested runtime, input artifact. A failed call falls back to an unread message, and every later decisions call of the turn falls back too. | `agentTurns::laterDecisionsCallsFallBackOnceOneFails`, `agentTurns::aDecisionsCallFallsBackOnlyAfterEveryModelFailed`, `agentTurns::aPersonGetsTheAnswerDuringADecisionsOutage` |
 | A3 | A message that asks for a revision sends the held comments of every running page author before the model runs. Unreadable or unadmitted comments stay held, and the agent is told. | `reviewLoop::aPromptToAPageAuthorCarriesItsHeldComments` |
 | A4 | Compaction replaces the rows before the turn with one recap. A failed summarization leaves the transcript whole. | `agentTurns::compactionReplacesOnlyEarlierRows` |
 | A5 | Every tool call in the transcript keeps its result. | `agentTurns::everyToolCallKeepsItsResult` |
@@ -91,7 +91,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | A8 | A person's turn that left them without a reply runs the model once more with a note that says so. | `agentTurns::aPersonsTurnNeverEndsUnanswered` |
 | A9 | Closing text posts only as the answer to a person who wrote, once, and is withheld when the board change was the reply. A resumed turn keeps the board change of the lost turn on a person's message. | `agentTurns::closingTextAnswersOnlyAPersonWhoWrote` |
 | A10 | A model that fails twice posts the stuck text. The post goes to the workflow audience with an empty answer list, so in a workflow without a chat thread the session the person wrote from does not get it. | |
-| A11 | The turn deadline aborts the attempt and posts the timeout text. The same empty answer list applies. | `aWaitingPersonHearsBackByTheTimeout` |
+| A11 | The turn deadline aborts the attempt and posts the timeout text. The same empty answer list applies. | `agentTurns::aWaitingPersonHearsBackByTheTimeout` |
 | A12 | A turn lost with its Durable Object resumes, posts the restart notice in chat, keeps the lost turn's board change, and answers what the lost turn owed. | `agentTurns::aResumedTurnAnswersWhatItsLostTurnOwed`, `agentTurns::closingTextAnswersOnlyAPersonWhoWrote` |
 | A13 | Tool results from MCP, `fetch_url`, `read_artifact` and `ready_issues` pass the screen. Fixed text replaces a quarantined or unchecked result. | `agentTurns::quarantinedTextNeverEntersTheTranscript` |
 | A14 | `read_channel` screens each message. A flagged message does not remove another from the read. | `agentTurns::aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead`, `agentTurns::quarantinedTextNeverEntersTheTranscript` |
@@ -104,7 +104,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | ID | Effect | Guarded by |
 |---|---|---|
 | A20 | The heads-up alarm at 60 seconds posts the heads-up in chat and keeps the thread working, when a person's message was taken and the turn it was armed for still runs. | |
-| A21 | The watchdog alarm at the turn timeout records that no turn runs, deletes taken rows and posts the timeout text. The hung turn keeps running, its tools keep acting, its closing text can still post, and it releases the threads when it ends. | `agentTurns::oneTurnRunsAtATime`, `aWaitingPersonHearsBackByTheTimeout`, `agentTurns::theWorkingStatusNeverOutlivesItsTurn` |
+| A21 | The watchdog alarm at the turn timeout records that no turn runs, deletes taken rows and posts the timeout text. The hung turn keeps running, its tools keep acting, its closing text can still post, and it releases the threads when it ends. | `agentTurns::oneTurnRunsAtATime`, `agentTurns::aWaitingPersonHearsBackByTheTimeout`, `agentTurns::theWorkingStatusNeverOutlivesItsTurn` |
 | A22 | The start step of a Durable Object with a turn still marked as running resumes the lost turn. With no lost turn, inbox rows that wait to wake the agent get a `runAgent` alarm. A finished workflow only releases its threads. | `agentTurns::aResumedTurnAnswersWhatItsLostTurnOwed`, `agentTurns::aWaitingInboxRowHasATurnComing` |
 | A23 | A `runAgent` alarm runs a turn when none runs. `tellAgent` arms one and cancels it once its call to the turn loop returns, which is at once when a turn already runs. | `agentTurns::aWaitingInboxRowHasATurnComing` |
 | A24 | A stale heads-up or watchdog alarm, armed for a turn that no longer runs, does not act. | |
@@ -137,7 +137,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| A50 | The main model request retries once per turn and fails into the stuck text. A hang ends at the turn deadline. | `agentTurns::aPersonsTurnNeverEndsUnanswered`, `aWaitingPersonHearsBackByTheTimeout` |
+| A50 | The main model request retries once per turn and fails into the stuck text. A hang ends at the turn deadline. | `agentTurns::aPersonsTurnNeverEndsUnanswered`, `agentTurns::aWaitingPersonHearsBackByTheTimeout` |
 | A51 | A decisions call that fails, hangs or lacks a gateway returns its site's fallback. The fallback of the acceptance and selection checks keeps the job open. | `agentTurns::laterDecisionsCallsFallBackOnceOneFails`, `aFailedCheckNeverCompletesAJob` |
 | A52 | A failed model list for a requested runtime reads to the person as "matched none clearly". | |
 | A53 | A host acceptance lookup that throws reads as "not accepted". | |

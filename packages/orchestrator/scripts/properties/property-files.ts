@@ -16,12 +16,6 @@ export const PROPERTY_FILES = {
     runner: ["bun", "test"],
     e2eRuns: 1250,
   },
-  agent_turn: {
-    title: "agent turn property",
-    path: "src/agent/turn/turn-invariants.test.medium.ts",
-    runner: ["bunx", "vitest", "run"],
-    e2eRuns: 2000,
-  },
   router: {
     title: "router property",
     path: "src/router/route-invariants.test.medium.ts",
