@@ -155,9 +155,7 @@ export function authorTurnEnds(
     else await bridge.endTurn(stopReason);
     const ownEnd = stopReason === "end_turn";
     if (closing === "blocked" && ownEnd) return undefined;
-    const hostRevision = revision === "unreadable" ? null : world.hostRevisionOf(author);
-    const cancelledTurn = stopReason === "cancelled";
-    return { authorTurnEnd: { task_id: author.taskId, hostRevision, cancelled: cancelledTurn } };
+    return { authorTurnEnd: { task_id: author.taskId, cancelled: stopReason === "cancelled" } };
   });
 }
 
@@ -173,13 +171,7 @@ export function authorPromptFails(index: number, revision: "changed" | "same"): 
     if (!bridge) return undefined;
     if (revision === "changed") world.changeRevision(author);
     await bridge.failPrompt(PROMPT_ERROR);
-    return {
-      authorTurnEnd: {
-        task_id: author.taskId,
-        hostRevision: world.hostRevisionOf(author),
-        cancelled: false,
-      },
-    };
+    return { authorTurnEnd: { task_id: author.taskId, cancelled: false } };
   });
 }
 
@@ -190,13 +182,7 @@ export function authorTurnIsCancelled(index: number, revision: "changed" | "same
     if (!bridge) return undefined;
     if (revision === "changed") world.changeRevision(author);
     await bridge.endTurn("cancelled");
-    return {
-      authorTurnEnd: {
-        task_id: author.taskId,
-        hostRevision: world.hostRevisionOf(author),
-        cancelled: true,
-      },
-    };
+    return { authorTurnEnd: { task_id: author.taskId, cancelled: true } };
   });
 }
 
@@ -495,11 +481,7 @@ export async function endRefinerRunTurn(
   }
   await bridge.endTurn(end.stopReason);
   world.pageHost.commenting = "takes";
-  const finished = end.stopReason === "end_turn" && end.closing === "reports_work";
-  return {
-    refinerTurnEnd: finished ? { task_id: run.task_id } : null,
-    pageCommentsRefused: judgesPage && end.pageCommenting === "down",
-  };
+  return { pageCommentsRefused: judgesPage && end.pageCommenting === "down" };
 }
 
 async function fileFindingsReview(

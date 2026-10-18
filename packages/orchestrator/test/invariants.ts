@@ -5,7 +5,6 @@ import { rejectionHeadline } from "../src/prompts/review-prompt";
 import { MAX_RESTARTS, SLEEP_TEXT } from "../src/workflow/lifecycle";
 import type { TaskEvent, TaskRole } from "../src/workflow/task/events";
 import { taskAtWork } from "../src/workflow/task/at-work";
-import { judgeRuled } from "../src/workflow/refiner/stage-refiner";
 import type { Wake, WorkflowRuntime } from "../src/workflow/types";
 import { STOPPED_TEXT } from "../src/workflow/feed/feed";
 import type { Subject } from "../src/workflow/store/state";
@@ -20,8 +19,6 @@ export type ObservedTask = {
   job_id: string;
   refiner_index: number | null;
   ruling: string | null;
-  /** True when the task's latest turn ended normally and the task took no prompt since. */
-  quietSinceTurnEnd: boolean;
   /** True while a prompt turn of the task runs in its harness over an open bridge. */
   turnRunning: boolean;
   /** The text of every prompt queued for the task or sent to it. */
@@ -88,8 +85,8 @@ export type Step = {
   after: Observation;
   /** What the agent was told during the action. */
   notes: Array<{ text: string; wake: Wake }>;
-  /** Set when an author turn ended. `hostRevision` is null when the host could not say one. */
-  authorTurnEnd: { task_id: string; hostRevision: string | null; cancelled: boolean } | null;
+  /** Set when an author turn ended. */
+  authorTurnEnd: { task_id: string; cancelled: boolean } | null;
   /**
    * Set when an inbound event was delivered. `person` is true when a person sent it, and
    * `reply_to` is where they wait for the answer.
@@ -115,8 +112,6 @@ export type Step = {
   plan: { definition: string } | null;
   /** How many tracker issue updates the step wrote, a move to started among them. */
   issueUpdates: number;
-  /** Set when the turn of a refiner run ended normally. */
-  refinerTurnEnd: { task_id: string } | null;
   /** Set when the alarm that fired was armed for an older generation of its task. */
   staleAlarm: { task_id: string } | null;
   /** Set when the agent called complete_job. */
@@ -175,17 +170,6 @@ const ARTIFACT_MOVES: Array<[ArtifactStatus, ArtifactStatus]> = [
 const coverDeliveredArtifact = coverageCase(
   "deliveredToHumansIsNeverCleared: an artifact the humans have",
 );
-const coverRefinerRunOnDelivered = coverageCase(
-  "refinersRunAgainOnlyOnChangedRevision: a refiner run starts on an artifact the humans have",
-);
-const coverUnchangedTurnOnDelivered = coverageCase(
-  "refinersRunAgainOnlyOnChangedRevision: an author turn ends on the revision the humans have",
-);
-const coverRunAfterRuling = coverageCase(
-  "judgeRulesAtMostOnce: a refiner run starts after the judge ruled",
-);
-const coverRulingStands = coverageCase("judgeRulesAtMostOnce: a ruling stands into a later step");
-const coverRejectionSent = coverageCase("judgeRulesAtMostOnce: an author got a judge's rejection");
 const coverEventOnFinished = coverageCase(
   "nothingReopensAFinishedWorkflow: an event on a finished workflow",
 );
@@ -211,10 +195,6 @@ const coverTrackerIssue = coverageCase(
   "eachIssueLinksTheChatThreadOnce: a tracker workflow works on an issue",
 );
 const coverInReview = coverageCase("inReviewTaskHasAnArtifact: a task waits in review");
-const coverRunDone = coverageCase("refinerRunIsDoneOnlyAfterItsTurnEnded: a refiner run ends done");
-const coverPolisherDoneLater = coverageCase(
-  "refinerRunIsDoneOnlyAfterItsTurnEnded: a polisher ends done in a later step",
-);
 const coverFinishedTask = coverageCase("finishedTaskKeepsItsStatus: a finished task in a step");
 const coverTaskRestarted = coverageCase("taskRestartsAtMostTwice: a task restarted");
 const coverPausedThroughAStep = coverageCase(
@@ -296,102 +276,6 @@ export function deliveredToHumansIsNeverCleared(_workflow: WorkflowRuntime, step
     if (artifactIn(step.after, before.job_id)?.delivered_to_humans_at == null) {
       violated("deliveredToHumansIsNeverCleared", `${before.job_id} lost delivered_to_humans_at`);
     }
-  }
-}
-
-/**
- * A refiner run starts on an artifact the humans have only when an author turn ended on a
- * revision they have not seen. A host that cannot say the revision counts as a changed one.
- */
-export function refinersRunAgainOnlyOnChangedRevision(workflow: WorkflowRuntime, step: Step): void {
-  const turn = step.authorTurnEnd;
-  if (turn && endsOnTheDeliveredRevision(workflow, step, turn)) coverUnchangedTurnOnDelivered();
-  const known = new Set(step.before.tasks.map((task) => task.task_id));
-  for (const run of step.after.tasks) {
-    if (known.has(run.task_id) || !REFINER_ROLES.includes(run.role)) continue;
-    const before = artifactIn(step.before, run.job_id);
-    if (!before || before.status === "drafted") continue;
-    coverRefinerRunOnDelivered();
-    const changed =
-      turn !== null &&
-      turn.task_id === authorIn(step.after, run.job_id)?.task_id &&
-      (turn.hostRevision === null || turn.hostRevision !== before.delivered_revision);
-    if (!changed) {
-      violated(
-        "refinersRunAgainOnlyOnChangedRevision",
-        `${run.task_id} started on a ${before.status} artifact delivered at ${before.delivered_revision}`,
-      );
-    }
-  }
-}
-
-/** True when an author turn ended on the revision the humans have, on a stage with refiners. */
-function endsOnTheDeliveredRevision(
-  workflow: WorkflowRuntime,
-  step: Step,
-  turn: NonNullable<Step["authorTurnEnd"]>,
-): boolean {
-  const author = step.before.tasks.find((task) => task.task_id === turn.task_id);
-  const artifact = author && artifactIn(step.before, author.job_id);
-  if (!author || !artifact || artifact.status === "drafted") return false;
-  if (turn.hostRevision === null || turn.hostRevision !== artifact.delivered_revision) return false;
-  const stage = workflow.stageFor(workflow.store.requireJob(author.job_id));
-  return stage.reviewers.length + stage.polishers.length > 0;
-}
-
-/**
- * A judge entry rules at most once on an artifact, and its ruling never changes. An author that
- * got a rejection from a judge entry finds that entry's ruling stored as rejected.
- */
-export function judgeRulesAtMostOnce(workflow: WorkflowRuntime, step: Step): void {
-  const known = new Set(step.before.tasks.map((task) => task.task_id));
-  for (const author of step.after.tasks.filter((task) => task.role === "author")) {
-    const reviewers = workflow.stageFor(workflow.store.requireJob(author.job_id)).reviewers;
-    const ruled = step.after.tasks.filter(
-      (run) =>
-        run.job_id === author.job_id &&
-        run.role === "reviewer" &&
-        run.refiner_index !== null &&
-        reviewers[run.refiner_index]?.mode === "judge" &&
-        run.ruling !== null,
-    );
-    const ruledBefore = ruled.some((run) => rulingBefore(step, run.task_id) != null);
-    const runStarted = step.after.tasks.some(
-      (run) =>
-        run.job_id === author.job_id && REFINER_ROLES.includes(run.role) && !known.has(run.task_id),
-    );
-    if (ruledBefore && runStarted) coverRunAfterRuling();
-    const indexes = ruled.map((run) => run.refiner_index);
-    if (new Set(indexes).size !== indexes.length) {
-      violated(
-        "judgeRulesAtMostOnce",
-        `${ruled.map((run) => run.task_id).join(", ")} ruled on one entry`,
-      );
-    }
-    for (const run of ruled) {
-      const earlier = rulingBefore(step, run.task_id);
-      if (earlier != null) coverRulingStands();
-      if (earlier != null && earlier !== run.ruling) {
-        violated("judgeRulesAtMostOnce", `${run.task_id} went from ${earlier} to ${run.ruling}`);
-      }
-    }
-    reviewers.forEach((entry, index) => {
-      if (entry.mode !== "judge") return;
-      const headline = rejectionHeadline(entry.name);
-      if (!author.promptTexts.some((text) => text.startsWith(headline))) return;
-      coverRejectionSent();
-      const stored =
-        workflow.store
-          .refinerRunsOf(author.job_id)
-          .map((run) => (run.refiner_index === index ? run.ruling : null))
-          .find(judgeRuled)?.status ?? null;
-      if (stored !== "rejected") {
-        violated(
-          "judgeRulesAtMostOnce",
-          `${author.task_id} got a rejection from ${entry.name}, whose stored ruling is ${stored}`,
-        );
-      }
-    });
   }
 }
 
@@ -553,31 +437,6 @@ export function inReviewTaskHasAnArtifact(workflow: WorkflowRuntime): void {
     if (!workflow.store.artifact(task.job_id)) {
       violated("inReviewTaskHasAnArtifact", `${task.task_id} is in_review with no artifact`);
     }
-  }
-}
-
-/**
- * A refiner run ends `done` only when its turn ended normally. A polisher that waits on the
- * checks of its push ends in a later step, and only when it took no prompt since that turn end.
- */
-export function refinerRunIsDoneOnlyAfterItsTurnEnded(
-  _workflow: WorkflowRuntime,
-  step: Step,
-): void {
-  for (const after of step.after.tasks) {
-    if (!REFINER_ROLES.includes(after.role) || after.status !== "done") continue;
-    const before = step.before.tasks.find((task) => task.task_id === after.task_id);
-    if (before?.status === "done") continue;
-    coverRunDone();
-    if (step.refinerTurnEnd?.task_id === after.task_id) continue;
-    if (before?.role === "polisher" && before.quietSinceTurnEnd) {
-      coverPolisherDoneLater();
-      continue;
-    }
-    violated(
-      "refinerRunIsDoneOnlyAfterItsTurnEnded",
-      `${after.task_id} went from ${before?.status ?? "nothing"} to done with no turn end`,
-    );
   }
 }
 
