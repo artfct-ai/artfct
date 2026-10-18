@@ -14,11 +14,11 @@ import type {
 import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
 import type { Choice, Decisions } from "@artfct-ai/adapters/gateway/types";
 import type { HeldComment } from "@artfct-ai/adapters/documents/types";
-import type { AgentActivityContent } from "@artfct-ai/adapters/tracker/types";
 import { FakeDecisions, HangingDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
+import type { ArtifactStatus, TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
 import type { Binding } from "@artfct-ai/contracts/sources";
 import { OPTIONS_HEADING } from "../src/artifact/options";
 import { labeledPageCommentIds } from "../src/artifact/page-comment-label";
@@ -26,7 +26,6 @@ import type { RefinerEntry, ReviewerEntry } from "../src/config/refiner";
 import { Notifier } from "../src/notify/notifier";
 import { startJob, type JobIssue } from "../src/workflow/lifecycle";
 import { createWorkflow, handleEvent } from "../src/workflow/inbound/events";
-import { parseVerbalCommand } from "../src/workflow/inbound/verbal-command";
 import { plainText } from "../src/notify/messages";
 import { outbox } from "../src/workflow/store/schema";
 import { isTaskFinished, type Subject } from "../src/workflow/store/state";
@@ -36,6 +35,8 @@ import { judgeRuled } from "../src/workflow/refiner/stage-refiner";
 import { onBridgeClosed, type ConnectionState } from "../src/workflow/task/harness/bridge";
 import { provision } from "../src/workflow/task/sandbox/sandbox";
 import { taskAtWork } from "../src/workflow/task/at-work";
+import type { TaskRole } from "../src/workflow/task/events";
+import type { Wake } from "../src/workflow/types";
 import { onModelTurnDeadline, type ModelTurnAlarm } from "../src/workflow/task/model-turn";
 import { runStartStep } from "./restart";
 import { sqliteD1 } from "./sqlite-d1";
@@ -53,10 +54,9 @@ import {
   patchStageResearch,
   patchStageReviewers,
 } from "./fake-runtime";
-import type { Observation, Step } from "./invariants";
 import { openMemoryDb, storeRowsOf, type MemoryDb } from "./memory-db";
 import { WorkBudget } from "./work-budget";
-import { activityText, SessionTracker, type TrackerHealth } from "./session-tracker";
+import { SessionTracker, type TrackerHealth } from "./session-tracker";
 import { testEnv } from "./test-env";
 import {
   strayIssueKey,
@@ -67,8 +67,85 @@ import {
   worldIssueUrl,
 } from "./world-tracker";
 
+/** One task row as an observer saw it. `ruling` is the stored ruling as text, or null. */
+export type ObservedTask = {
+  task_id: string;
+  role: TaskRole;
+  status: TaskStatus;
+  job_id: string;
+  refiner_index: number | null;
+  ruling: string | null;
+  /** True while a prompt turn of the task runs in its harness over an open bridge. */
+  turnRunning: boolean;
+  /** The text of every prompt queued for the task or sent to it. */
+  promptTexts: string[];
+  /** The text of every prompt ever queued for the task, also one a stop or a cancel cleared. */
+  promptsQueued: string[];
+  /** How many prompts its harness sessions and its model turns took since the workflow began. */
+  promptsSent: number;
+  paused: boolean;
+  /** How many cancels its harness session was sent. */
+  cancelsSent: number;
+  promptInFlight: boolean;
+  queuedPrompts: number;
+  handshaking: boolean;
+  /** True while the task's turn runs or is about to start, as the workflow reads it. */
+  atWork: boolean;
+  /** True while a page model call of this instance is out for the model turn the task holds. */
+  modelCallOut: boolean;
+};
+
+/** One artifact row as an observer saw it. */
+type ObservedArtifact = {
+  job_id: string;
+  status: ArtifactStatus;
+  delivered_to_humans_at: string | null;
+  delivered_revision: string | null;
+};
+
+/** A job of the workflow: the issue it works on, if any, and its stage. */
+type ObservedJob = { job_id: string; issue_id: string | null; stage: string };
+
+/** What an observer saw of the workflow between two actions. */
+export type Observation = {
+  /** The one issue or tracker project the workflow works on, or null before it has one. */
+  subject: Subject | null;
+  /** The last stage of the plan, or null before a plan with stages. */
+  lastStage: string | null;
+  /** True when a planned stage produces issues. */
+  plansIssues: boolean;
+  jobs: ObservedJob[];
+  workflowStatus: WorkflowStatus;
+  /** The workflow definition the workflow runs, or null before the plan that starts it. */
+  definition: string | null;
+  /** The job session of each job, by job id. Null for a job without one. */
+  jobSessions: Record<string, string | null>;
+  /** How many outbox rows a person can read. */
+  posted: number;
+  tasks: ObservedTask[];
+  artifacts: ObservedArtifact[];
+  /** Prompts queued for authors plus prompts sent to authors, since the workflow began. */
+  authorPrompts: number;
+};
+
+/** One action and what an observer saw around it. */
+export type Step = {
+  action: string;
+  before: Observation;
+  after: Observation;
+  /** What the agent was told during the action. */
+  notes: Array<{ text: string; wake: Wake }>;
+  postedTexts: string[];
+  /** Set when the agent called start_job. `refused` is true when the tool did not start a job. */
+  start: { refused: boolean } | null;
+  /** How many tracker issue updates the step wrote, a move to started among them. */
+  issueUpdates: number;
+  /** Set when a person pressed Stop while a model call of the author was in flight. */
+  modelCallStopped: { task_id: string } | null;
+};
+
 /** The refiner lists a world can declare on its stages. */
-export const REFINER_SETUPS = [
+const REFINER_SETUPS = [
   "none",
   "reviewer",
   "judge",
@@ -160,7 +237,7 @@ type PageEnding = "acceptance" | "choice";
  * What the checks say about a revision the moment it is pushed: they already passed, or nothing
  * has reported yet and a later report says how they went.
  */
-export type ChecksOnPush = "passed" | "reported_later";
+type ChecksOnPush = "passed" | "reported_later";
 
 /** What the host's checks say about the head revision of a pull request. */
 export type ChecksReport =
@@ -236,19 +313,7 @@ export const SECOND_DEFINITION = "incident";
 export const REPO = "acme/app";
 
 /** What an action tells the world about itself, for the step record. */
-export type StepFacts = Partial<
-  Pick<
-    Step,
-    | "authorTurnEnd"
-    | "staleAlarm"
-    | "completion"
-    | "modelCallStopped"
-    | "plan"
-    | "start"
-    | "finishedByAgent"
-    | "modelTurnCut"
-  >
->;
+export type StepFacts = Partial<Pick<Step, "modelCallStopped" | "start">>;
 
 /** One thing that happens to a workflow. It picks its target from the world and may do nothing. */
 export type WorkflowAction = {
@@ -278,9 +343,6 @@ export type DecisionAnswers =
  * pull request shares its number with the author that opened it. Every other author has its own.
  */
 export type WorldAuthor = { taskId: string; kind: ArtifactKind; pullNumber: number };
-
-/** A pull request in the workflow's repository that no task of the workflow opened. */
-export const UNOWNED_PULL = { repo: REPO, number: 99, branch: "someone/else" };
 
 const PERSON = { person_id: "p1", email: "dev@acme.test", display_name: "Dev" };
 
@@ -359,8 +421,6 @@ export class WorkflowWorld {
   private hostReviewComments: Record<number, PullRequestReviewComment[]> = {};
   private reviewNumber = 0;
   private eventNumber = 0;
-  private delivered: Step["event"] = null;
-  private landed: Observation[] = [];
   private chatThreadsJoined = 0;
   private readonly checksOnPush: ChecksOnPush;
   readonly tracker: SessionTracker;
@@ -523,11 +583,8 @@ export class WorkflowWorld {
   async apply(action: WorkflowAction): Promise<Step> {
     const before = this.steps.at(-1)?.after ?? this.observe();
     const notesBefore = this.workflow.notes.length;
-    const modelTurnEndsBefore = this.modelTurnEnds.length;
     const outboxBefore = this.lastOutboxId();
     const postedBefore = this.workflow.posted.length;
-    this.delivered = null;
-    this.landed = [];
     const facts = await this.workBudget.within(String(action), async () => {
       const ran = (await action.run(this)) ?? {};
       this.adoptNewAuthors();
@@ -538,21 +595,11 @@ export class WorkflowWorld {
     const step: Step = {
       action: String(action),
       before,
-      landed: this.landed,
       after: this.observe(),
       notes: this.workflow.notes.slice(notesBefore),
-      authorTurnEnd: facts.authorTurnEnd ?? this.modelTurnEndSince(modelTurnEndsBefore),
-      staleAlarm: facts.staleAlarm ?? null,
-      completion: facts.completion ?? null,
       modelCallStopped: facts.modelCallStopped ?? null,
-      modelTurnCut: facts.modelTurnCut ?? null,
-      plan: facts.plan ?? null,
       issueUpdates: rows.filter((row) => row.kind === "issue_update").length,
       start: facts.start ?? null,
-      finishedByAgent: facts.finishedByAgent ?? false,
-      event: this.delivered,
-      postedTypes: this.workflow.posted.slice(postedBefore).map((event) => event.type),
-      feedPosts: feedPostsOf(rows),
       postedTexts: this.workflow.posted.slice(postedBefore).map(plainText),
     };
     this.steps.push(step);
@@ -808,11 +855,9 @@ export class WorkflowWorld {
     this.installHost();
   }
 
-  /** Run an event that lands in the middle of the running action, and observe the world after it. */
+  /** Run an event that lands in the middle of the running action. */
   async land(meanwhile: WorkflowAction): Promise<StepFacts> {
-    const facts = (await meanwhile.run(this)) ?? {};
-    this.landed.push(this.observe());
-    return facts;
+    return (await meanwhile.run(this)) ?? {};
   }
 
   /**
@@ -904,10 +949,7 @@ export class WorkflowWorld {
       this.whilePageModelAnswers = null;
     }
     if (!stop.pressed) return {};
-    return {
-      authorTurnEnd: { task_id: author.taskId, cancelled: true },
-      modelCallStopped: { task_id: author.taskId },
-    };
+    return { modelCallStopped: { task_id: author.taskId } };
   }
 
   /**
@@ -951,18 +993,12 @@ export class WorkflowWorld {
     await runStartStep(this.workflow);
   }
 
-  /**
-   * Run `start`, and restart the workflow while the first page model call of `author` is out.
-   * The step records the cut turn.
-   */
+  /** Run `start`, and restart the workflow while the first page model call of `author` is out. */
   async restartWhilePageModelAnswers(
     author: WorldAuthor,
     start: () => Promise<void>,
-  ): Promise<StepFacts> {
-    const cut = await this.hangPageModelCall(author, start);
-    if (!cut) return {};
-    await this.restart();
-    return { modelTurnCut: cut };
+  ): Promise<void> {
+    if (await this.hangPageModelCall(author, start)) await this.restart();
   }
 
   /**
@@ -974,11 +1010,10 @@ export class WorkflowWorld {
     author: WorldAuthor,
     start: () => Promise<void>,
     applied: "before" | "after",
-  ): Promise<StepFacts> {
+  ): Promise<void> {
     const host = fakeDocumentsOf(this.workflow);
     const createPage = host.createPage.bind(host);
     const updatePageContent = host.updatePageContent.bind(host);
-    const turnPrompt = this.turnPromptOf(author);
     const modelTurnEndsBefore = this.modelTurnEnds.length;
     let cutTurn: (() => void) | null = null;
     const cut = new Promise<"cut">((resolve) => {
@@ -997,14 +1032,12 @@ export class WorkflowWorld {
     host.updatePageContent = (pageId, change) => hang(() => updatePageContent(pageId, change));
     try {
       const outcome = await Promise.race([cut, start().then(() => "ended" as const)]);
-      if (outcome !== "cut") return {};
+      if (outcome !== "cut") return;
     } finally {
       host.createPage = createPage;
       host.updatePageContent = updatePageContent;
     }
-    if (this.modelTurnEnds.at(-1) === author.taskId) this.modelTurnEnds.pop();
     await this.restart();
-    return { modelTurnCut: { task_id: author.taskId, prompt_id: turnPrompt } };
   }
 
   /**
@@ -1014,54 +1047,43 @@ export class WorkflowWorld {
   async modelCallOutlivesItsDeadline(
     author: WorldAuthor,
     start: () => Promise<void>,
-  ): Promise<StepFacts> {
-    const cut = await this.hangPageModelCall(author, start);
-    if (!cut) return {};
+  ): Promise<void> {
+    if (!(await this.hangPageModelCall(author, start))) return;
     const turnId = this.taskOf(author).model_turn_id;
     const deadline = this.workflow
       .alarmsFor("onModelTurnDeadline")
       .find((alarm) => (alarm.payload as ModelTurnAlarm).turn_id === turnId);
-    if (!deadline) return {};
+    if (!deadline) return;
     await this.workflow.cancelAlarm(deadline.id);
     await onModelTurnDeadline(this.workflow, deadline.payload as ModelTurnAlarm);
-    return { modelTurnCut: cut };
   }
 
   /**
    * Run `start` until the first page model call of `author` goes out, and hang that call in this
-   * instance. Null when no call went out.
+   * instance. False when no call went out.
    */
   private async hangPageModelCall(
     author: WorldAuthor,
     start: () => Promise<void>,
-  ): Promise<{ task_id: string; prompt_id: number | null } | null> {
+  ): Promise<boolean> {
     let cutTurn: (() => void) | null = null;
     const cut = new Promise<"cut">((resolve) => {
       cutTurn = () => resolve("cut");
     });
-    let turnPrompt: number | null = null;
     this.whilePageModelAnswers = async (taskId) => {
       if (taskId !== author.taskId) return;
       this.whilePageModelAnswers = null;
-      this.modelTurnEnds.pop();
-      turnPrompt = this.turnPromptOf(author);
       this.hungModelTurns.set(taskId, this.taskOf(author).model_turn_id);
       cutTurn?.();
       await new Promise<never>(() => {});
     };
     try {
       const outcome = await Promise.race([cut, start().then(() => "ended" as const)]);
-      if (outcome !== "cut") return null;
+      if (outcome !== "cut") return false;
     } finally {
       this.whilePageModelAnswers = null;
     }
-    return { task_id: author.taskId, prompt_id: turnPrompt };
-  }
-
-  /** The queued prompt a revise turn of `author` runs on now. Null before its page is out. */
-  private turnPromptOf(author: WorldAuthor): number | null {
-    if (!this.artifactOf(author)) return null;
-    return this.workflow.store.peekPrompt(author.taskId)?.id ?? null;
+    return true;
   }
 
   /** The tracker session of the author's job, or null when its job has none. */
@@ -1093,12 +1115,6 @@ export class WorkflowWorld {
     await this.whilePageModelAnswers?.(author.task_id);
   }
 
-  /** The last model-call author turn that ended since `index`, as the step records it. */
-  private modelTurnEndSince(index: number): Step["authorTurnEnd"] {
-    const taskId = this.modelTurnEnds.slice(index).at(-1);
-    return taskId ? { task_id: taskId, cancelled: false } : null;
-  }
-
   /** Deliver one event from a person, the way ingress does. */
   async deliver(event: Pick<InboundEvent, "kind" | "text"> & Partial<InboundEvent>): Promise<void> {
     this.eventNumber += 1;
@@ -1108,13 +1124,6 @@ export class WorkflowWorld {
       bindings: [],
       links: [],
       ...event,
-    };
-    this.delivered = {
-      kind: delivered.kind,
-      text: delivered.text,
-      person: delivered.actor !== null,
-      reply_to: delivered.reply_to ?? null,
-      control: delivered.control ?? parseVerbalCommand(delivered.text)?.control ?? null,
     };
     await handleEvent(this.workflow, delivered);
   }
@@ -1388,16 +1397,6 @@ export function stopEvent(
 }
 
 type OutboxRow = { channel: string; kind: string; target: unknown; payload: unknown };
-
-const NOT_FEED_POSTS = ["plan", "delivery_error"];
-
-function feedPostsOf(rows: OutboxRow[]): Step["feedPosts"] {
-  return rows.flatMap((row) => {
-    if (row.channel !== "feed" || NOT_FEED_POSTS.includes(row.kind)) return [];
-    const post = row.payload as { task_id: string; content: AgentActivityContent };
-    return [{ task_id: post.task_id, kind: row.kind, text: activityText(post.content) }];
-  });
-}
 
 function kindOfStage(stage: string): ArtifactKind {
   const kinds = Object.keys(STAGE_OF) as ArtifactKind[];

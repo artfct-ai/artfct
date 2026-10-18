@@ -37,7 +37,6 @@ import { EchoModel } from "./fake-model";
 import { FakeRuntime, fakeDocumentsOf, MODEL_AUTHOR_MODEL, PAGE_PARENT } from "./fake-runtime";
 import { FakeSandboxProvider } from "./fake-sandbox";
 import { InterleavedDecisions } from "./interleaved-decisions";
-import type { Step } from "./invariants";
 import {
   authorTurnEnds,
   firstArtifactAppears,
@@ -59,6 +58,7 @@ import {
   SECOND_DEFINITION,
   STAGE_OF,
   WorkflowWorld,
+  type Step,
   type StepFacts,
   type TrackerLink,
   type WorkflowAction,
@@ -1112,7 +1112,7 @@ export class WorkflowLifecycleReplay {
       jobSlots,
       subject,
     }: { definition: number; withStages: boolean; jobSlots: number; subject: TrackerLink | null },
-  ): Promise<StepFacts> {
+  ): Promise<void> {
     const name =
       definition === 2
         ? UNDECLARED_DEFINITION
@@ -1136,7 +1136,6 @@ export class WorkflowLifecycleReplay {
       },
       TOOL_CALL,
     );
-    return { plan: { definition: name } };
   }
 
   private async endWorkflow(world: WorkflowWorld, ending: Ending): Promise<void> {

@@ -8,7 +8,7 @@ export type PropertyFile = { title: string; path: string; runner: string[]; e2eR
 /** The outcome of one property file run, with everything it printed. */
 export type PropertyRun = { outcome: "passed" | "failed" | "timed_out"; output: string };
 
-/** The spec replay files, which the `spec:replay` task and the CI replay jobs run. */
+/** The spec replay files, which the `spec:replay` task, the CI replay jobs and the mutant run use. */
 export const SPEC_REPLAY_FILES = {
   chat_acknowledgement: {
     title: "chat acknowledgement spec replay",
@@ -58,17 +58,6 @@ export const SPEC_REPLAY_FILES = {
     runner: ["bun", "test"],
     e2eRuns: 3000,
   },
-} satisfies Record<string, PropertyFile>;
-
-/** The property test files the CI property and replay jobs and the nightly mutant run use. */
-export const PROPERTY_FILES = {
-  workflow: {
-    title: "workflow properties",
-    path: "src/workflow/invariants.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 1250,
-  },
-  ...SPEC_REPLAY_FILES,
 } satisfies Record<string, PropertyFile>;
 
 /** A property file run past this is a hang, reported with its seed. */

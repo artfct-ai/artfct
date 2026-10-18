@@ -284,6 +284,7 @@ module workflowLifecycleTypes {
     aRestartCutsAProduceTurn: bool,
     aDeadlinePassesDuringAProduceTurn: bool,
     aRestartCutsARerunModelTurn: bool,
+    aSessionMessageReachesAModelCallAuthorAtWork: bool,
   }
 
   type Ending = PersonCancels | AgentFails | AgentFinishes
@@ -2298,6 +2299,13 @@ module workflowLifecycle {
       },
       aRestartCutsARerunModelTurn: step.kind == RestartStep and
         cut.exists(id => jobTask(step.before, id).restarts > 0),
+      aSessionMessageReachesAModelCallAuthorAtWork: match step.kind {
+        | VerbalCommandStep(_) => and {
+          not(hasEnded(step.before.status)),
+          forwardedToTheSessionAuthor(step.before).select(id => runsAsModelCalls(jobTask(step.before, id))).length() > 0,
+        }
+        | _ => false
+      },
     }
   }
 
@@ -2619,6 +2627,11 @@ module workflowLifecycle {
   /// Witness for `aRestartDoesNotLoseAModelTurn`: a restart of the Durable Object cuts a model turn
   /// that runs again after a deadline or an earlier restart lost one.
   val aRestartCutsARerunModelTurn: bool = lastStepReached.aRestartCutsARerunModelTurn
+
+  /// Witness for `aQueuedPromptReachesItsModelCallAuthor`: a person's message in the session of the
+  /// subject issue goes to its model-call author while that author runs.
+  val aSessionMessageReachesAModelCallAuthorAtWork: bool =
+    lastStepReached.aSessionMessageReachesAModelCallAuthorAtWork
 
   /// Witness for `aModelCallAuthorWorksOnlyWhileItsCallIsOut`: the page write of a model turn is out.
   val aPageWriteIsOut: bool = outCalls(workflow, PageWrite).size() > 0

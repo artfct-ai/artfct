@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { propertyFailureReport, propertyFailures } from "./failure-report";
-import { PROPERTY_FILES } from "./property-files";
+import { SPEC_REPLAY_FILES } from "./property-files";
 
 const BUN_OUTPUT = `src/workflow/invariants.test.ts:
 error: Property failed after 19 tests
@@ -63,7 +63,7 @@ describe("propertyFailures", () => {
 
 describe("propertyFailureReport", () => {
   it("names the invariant, seed, path, and replay command of a failure", () => {
-    const report = propertyFailureReport(PROPERTY_FILES.agent_turns, -42, {
+    const report = propertyFailureReport(SPEC_REPLAY_FILES.agent_turns, -42, {
       outcome: "failed",
       output: VITEST_OUTPUT,
     });
@@ -77,26 +77,28 @@ describe("propertyFailureReport", () => {
   });
 
   it("names the seed and replay command of a hang", () => {
-    const report = propertyFailureReport(PROPERTY_FILES.workflow, 9, {
+    const report = propertyFailureReport(SPEC_REPLAY_FILES.workflow_lifecycle, 9, {
       outcome: "timed_out",
       output: "",
     });
-    expect(report).toContain("### The workflow properties timed out after 20 minutes on seed 9");
+    expect(report).toContain(
+      "### The workflow lifecycle spec replay timed out after 20 minutes on seed 9",
+    );
     expect(report).toContain("fast-check did not report a counterexample. Read the step log.");
     expect(report).toContain(
-      "PROPERTY_SEED=9 PROPERTY_RUNS=1250 bun test src/workflow/invariants.test.ts",
+      "PROPERTY_SEED=9 PROPERTY_RUNS=1000 bun test ./src/workflow/workflow-lifecycle.replay.ts",
     );
   });
 
   it("names the divided run count of a light run", () => {
-    process.env.PROPERTY_RUNS_DIVISOR = "4";
+    process.env.PROPERTY_RUNS_DIVISOR = "3";
     try {
-      const report = propertyFailureReport(PROPERTY_FILES.workflow, 9, {
+      const report = propertyFailureReport(SPEC_REPLAY_FILES.workflow_lifecycle, 9, {
         outcome: "failed",
         output: "",
       });
       expect(report).toContain(
-        "PROPERTY_SEED=9 PROPERTY_RUNS=313 bun test src/workflow/invariants.test.ts",
+        "PROPERTY_SEED=9 PROPERTY_RUNS=334 bun test ./src/workflow/workflow-lifecycle.replay.ts",
       );
     } finally {
       delete process.env.PROPERTY_RUNS_DIVISOR;

@@ -35,8 +35,3 @@ export class SessionTracker extends FakeTracker {
     await super.setSessionPlan(sessionId, plan);
   }
 }
-
-export function activityText(content: AgentActivityContent): string {
-  if (content.type !== "action") return content.body;
-  return [content.action, content.parameter, content.result ?? ""].join(" ");
-}

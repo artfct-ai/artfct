@@ -32,7 +32,6 @@ import {
 } from "../src/workflow/task/harness/timers";
 import type { ScheduledMethod, WorkflowRuntime } from "../src/workflow/types";
 import type { FakeBridge } from "./fake-bridge";
-import type { TrackerHealth } from "./session-tracker";
 import { toolText } from "./tool-result";
 import { fakeDocumentsOf, JUDGE_CONCLUSION } from "./fake-runtime";
 import { strayIssueKey, subIssueKey, SUBJECT_ISSUE_KEY } from "./world-tracker";
@@ -42,12 +41,10 @@ import {
   REPO,
   REQUEST_TEXTS,
   STAGE_OF,
-  UNOWNED_PULL,
   type ArtifactKind,
   type ChecksReport,
   type DecisionAnswers,
   type Mergeability,
-  type PageModelAnswer,
   stopEvent,
   type StepFacts,
   type TrackerLink,
@@ -143,7 +140,7 @@ export function authorTurnEnds(
   const label = `turn ends, revision ${revision}, ${closing}, meanwhile ${meanwhile}`;
   return authorAction(index, label, async (world, author) => {
     const bridge = world.runningBridgeOf(author.taskId);
-    if (!bridge) return undefined;
+    if (!bridge) return;
     if (revision === "changed") world.changeRevision(author);
     const cancelled = world.taskOf(author).paused_at !== null || bridge.cancelRequested;
     const stopReason = cancelled ? "cancelled" : "end_turn";
@@ -153,9 +150,6 @@ export function authorTurnEnds(
     if (closingText) await bridge.say(closingText);
     if (revision === "unreadable") await world.whileHostIsDown(() => bridge.endTurn(stopReason));
     else await bridge.endTurn(stopReason);
-    const ownEnd = stopReason === "end_turn";
-    if (closing === "blocked" && ownEnd) return undefined;
-    return { authorTurnEnd: { task_id: author.taskId, cancelled: stopReason === "cancelled" } };
   });
 }
 
@@ -168,10 +162,9 @@ const PROMPT_ERROR = "the model provider is down";
 export function authorPromptFails(index: number, revision: "changed" | "same"): WorkflowAction {
   return authorAction(index, `prompt fails, revision ${revision}`, async (world, author) => {
     const bridge = world.runningBridgeOf(author.taskId);
-    if (!bridge) return undefined;
+    if (!bridge) return;
     if (revision === "changed") world.changeRevision(author);
     await bridge.failPrompt(PROMPT_ERROR);
-    return { authorTurnEnd: { task_id: author.taskId, cancelled: false } };
   });
 }
 
@@ -179,10 +172,9 @@ export function authorPromptFails(index: number, revision: "changed" | "same"): 
 export function authorTurnIsCancelled(index: number, revision: "changed" | "same"): WorkflowAction {
   return authorAction(index, `turn is cancelled, revision ${revision}`, async (world, author) => {
     const bridge = world.runningBridgeOf(author.taskId);
-    if (!bridge) return undefined;
+    if (!bridge) return;
     if (revision === "changed") world.changeRevision(author);
     await bridge.endTurn("cancelled");
-    return { authorTurnEnd: { task_id: author.taskId, cancelled: true } };
   });
 }
 
@@ -216,13 +208,6 @@ export function researcherReportsTodos(index: number, completed: number): Workfl
         status: entry < completed ? "completed" : "pending",
       })),
     );
-  });
-}
-
-/** The model of a model-call page author answers every call this way from now on. */
-export function pageModelAnswers(answer: PageModelAnswer): WorkflowAction {
-  return action(`the page model answers ${answer}`, async (world) => {
-    world.answerPageModelWith(answer);
   });
 }
 
@@ -358,12 +343,6 @@ export function authorStreams(index: number, streamed: Streamed): WorkflowAction
 
 export function workflowRestarts(): WorkflowAction {
   return action("the workflow restarts", (world) => world.restart());
-}
-
-export function trackerTurns(health: TrackerHealth): WorkflowAction {
-  return action(`the tracker turns ${health}`, async (world) => {
-    world.setTrackerHealth(health);
-  });
 }
 
 /** What a findings reviewer run leaves behind when its turn ends. */
@@ -525,7 +504,7 @@ export function refinerRunFails(index: number): WorkflowAction {
 }
 
 /** Where the decisions model says a person's feedback goes, or why it cannot say. */
-export type FeedbackRouting = "for_author" | "beyond_author" | "asks_nothing" | "unsure" | "fails";
+type FeedbackRouting = "for_author" | "beyond_author" | "asks_nothing" | "unsure" | "fails";
 
 const ROUTING_ANSWERS: Record<FeedbackRouting, DecisionAnswers> = {
   for_author: { for_author: 0.95, beyond_author: 0.05, rejects: 0 },
@@ -534,123 +513,6 @@ const ROUTING_ANSWERS: Record<FeedbackRouting, DecisionAnswers> = {
   unsure: { for_author: 0.5, beyond_author: 0.05, rejects: 0 },
   fails: "fails",
 };
-
-const FEEDBACK_TEXT = "Why does the redirect skip the check?";
-
-type PullOfEvent = { repo: string; number: number; branch?: string };
-
-/**
- * How feedback lands on a pull request: a person's whole review, one inline comment, or a
- * comment, or a review by an app, which the screen checks first.
- */
-export type FeedbackForm = "review" | "review_comment" | "comment" | "app_review";
-
-const INLINE_COMMENT = { id: 7, path: "src/login.ts", line: 12, body: "Rename this." };
-
-function feedbackDetail(form: FeedbackForm, pull: PullOfEvent) {
-  switch (form) {
-    case "review":
-      return { ...pull, action: "review" as const, comments: [INLINE_COMMENT] };
-    case "app_review":
-      return {
-        ...pull,
-        action: "review" as const,
-        comments: [INLINE_COMMENT],
-        reviewer_is_app: true,
-      };
-    case "review_comment":
-      return {
-        ...pull,
-        action: "review_comment" as const,
-        review_id: 500,
-        comments: [INLINE_COMMENT],
-      };
-    case "comment":
-      return { ...pull, action: "comment" as const, comment_id: 42 };
-    default: {
-      const unreachable: never = form;
-      throw new Error(`unhandled feedback form ${String(unreachable)}`);
-    }
-  }
-}
-
-/**
- * A person posts a review or a comment on the author's pull request. The pull request may be one
- * the author opened and has not reported, so the task has no artifact yet.
- */
-export function personPostsFeedback(
-  index: number,
-  form: FeedbackForm,
-  routing: FeedbackRouting,
-): WorkflowAction {
-  const label = `a person posts a ${form}, decisions say ${routing}`;
-  return authorAction(index, label, async (world, author) => {
-    if (author.kind !== "pull") return;
-    if (!world.artifactOf(author)) world.openPull(author);
-    world.answerDecisionsWith(ROUTING_ANSWERS[routing]);
-    const pull = feedbackDetail(form, world.pullDetailOf(author));
-    await world.deliver({ kind: "feedback", text: FEEDBACK_TEXT, pull });
-  });
-}
-
-/**
- * A person posts on a pull request of the repository that no task of the workflow opened. It is
- * not an artifact of the workflow.
- */
-export function personPostsOnUnownedPull(form: FeedbackForm): WorkflowAction {
-  return action(`a person posts a ${form} on a pull request no task owns`, (world) =>
-    world.deliver({
-      kind: "feedback",
-      text: FEEDBACK_TEXT,
-      pull: feedbackDetail(form, UNOWNED_PULL),
-    }),
-  );
-}
-
-/** What the host says happened to the pull request. */
-export type HostWord = "merged" | "closed_unmerged" | "marked_ready" | "reopened";
-
-/**
- * The host accepts the artifact, closes it without accepting it, reopens a closed one, or a
- * human marks it ready there.
- */
-export function hostSays(index: number, word: HostWord): WorkflowAction {
-  return authorAction(index, `host says ${word}`, async (world, author) => {
-    if (!world.artifactOf(author) || author.kind !== "pull") return;
-    const detail = world.pullDetailOf(author);
-    switch (word) {
-      case "marked_ready":
-        return world.deliver({
-          kind: "pr_event",
-          text: "",
-          pull: { ...detail, action: "ready_for_review" },
-        });
-      case "reopened":
-        if (!world.pullIs(author, "closed")) return;
-        world.movePull(author, "open");
-        return world.deliver({
-          kind: "pr_event",
-          text: "",
-          pull: { ...detail, action: "reopened" },
-        });
-      case "merged":
-      case "closed_unmerged": {
-        if (!world.pullIs(author, "open")) return;
-        const merged = word === "merged";
-        world.movePull(author, merged ? "merged" : "closed");
-        return world.deliver({
-          kind: "pr_event",
-          text: "",
-          pull: { ...detail, action: "closed", merged },
-        });
-      }
-      default: {
-        const unreachable: never = word;
-        throw new Error(`unhandled host word ${String(unreachable)}`);
-      }
-    }
-  });
-}
 
 /** Whether the host's webhook for a change reaches the workflow. */
 export type Webhook = "delivered" | "missed";
@@ -712,13 +574,6 @@ export function baseMoves(
   });
 }
 
-/** Time passes with nothing else happening. Only timers and host reads notice it. */
-export function timePasses(minutes: number): WorkflowAction {
-  return action(`${minutes} minutes pass`, async (world) => {
-    world.advanceClock(minutes * 60_000);
-  });
-}
-
 /**
  * A person sends a verbal command from the author's tracker issue, or from the chat thread for
  * a task without one. A cancel from the chat thread cancels the whole workflow.
@@ -750,35 +605,6 @@ export function personCancels(via: "control" | "word"): WorkflowAction {
     if (via === "control")
       return world.deliver({ kind: "control", control: "cancel", text: "", reply_to });
     return world.deliver({ kind: "prompt", text: "cancel", reply_to });
-  });
-}
-
-/** What a person types in a tracker session: a question, a status request, or a verbal command. */
-export type SessionText = "question" | "status" | "pause" | "cancel";
-
-const SESSION_TEXTS: Record<SessionText, { kind: "prompt" | "status"; text: string }> = {
-  question: { kind: "prompt", text: "Why does the redirect skip the check?" },
-  status: { kind: "status", text: "status?" },
-  pause: { kind: "prompt", text: "pause" },
-  cancel: { kind: "prompt", text: "cancel" },
-};
-
-/**
- * A person types in one of the workflow's tracker sessions, picked by `index`. The session's
- * author may run, wait in review, or be finished by then.
- */
-export function personWritesInSession(index: number, said: SessionText): WorkflowAction {
-  return action(`a person says ${said} in session ${index}`, async (world) => {
-    const session = world.trackerSessionAt(index);
-    if (!session) return;
-    await world.deliver({
-      ...SESSION_TEXTS[said],
-      reply_to: session,
-      bindings: [
-        { source: "tracker_issue", external_id: session.issue_id },
-        { source: "tracker_session", external_id: session.session_id },
-      ],
-    });
   });
 }
 
@@ -866,21 +692,6 @@ export function workflowRestartsDuringModelCall(
 }
 
 /**
- * A model call of a model-call author starts and answers, and the workflow restarts while the
- * host writes the page, before or after the host applies the write.
- */
-export function workflowRestartsWhileHostWritesPage(
-  index: number,
-  start: ModelCallStart,
-  applied: "before" | "after",
-): WorkflowAction {
-  const label = `the workflow restarts while the host writes the page, ${applied} it applies, after ${start}`;
-  return authorAction(index, label, (world, author) =>
-    world.restartWhileHostWritesPage(author, () => startModelCall(world, author, start), applied),
-  );
-}
-
-/**
  * A model call of a model-call author starts and never answers, and the deadline alarm of its
  * model turn fires.
  */
@@ -896,25 +707,6 @@ export function chatThreadJoins(): WorkflowAction {
   return action("a chat thread joins", (world) =>
     world.deliver({ kind: "start", text: "Pick this up here.", reply_to: world.nextChatThread() }),
   );
-}
-
-/**
- * The tracker opens an agent session on the issue of an author's job, the way a self-delegation
- * does. The session becomes a reply target of the workflow.
- */
-export function trackerOpensSession(index: number): WorkflowAction {
-  return action(`the tracker opens a session on the issue of author ${index}`, async (world) => {
-    const author = world.authorAt(index);
-    const issue = author ? world.jobOf(author).issue_id : null;
-    if (!author || !issue) return;
-    await world.deliver({
-      kind: "start",
-      text: "",
-      actor: null,
-      bindings: world.issueBindingsOf(author),
-      reply_to: { source: "tracker", session_id: `session-${issue}`, issue_id: issue },
-    });
-  });
 }
 
 /**
@@ -996,37 +788,12 @@ export function agentStartsTaskOnArtifact(
   });
 }
 
-/**
- * The agent sets the plan: the workflow definition it names, its stages, and how many jobs may
- * run at once. Without stages, the call only starts the workflow.
- */
-export function agentSetsPlan(
-  definition: string,
-  stages: string[] | null,
-  concurrency: number,
-  subject: TrackerLink | null = null,
-): WorkflowAction {
-  const route = stages ? stages.join(" -> ") : "without stages";
-  const label = `agent sets the plan ${route} of ${definition} with ${concurrency} slots, subject ${subject ?? "unnamed"}`;
-  return action(label, async (world) => {
-    const { set_plan } = planTools(world.workflow);
-    const planned = stages ? { stages, repo: REPO, page_parent: null, concurrency } : {};
-    const named = subject ? { subject: world.trackerLinkUrl(subject, 0) } : {};
-    await set_plan.execute(
-      { name: "Fix login", definition, reason: "the request changed", ...planned, ...named },
-      TOOL_CALL,
-    );
-    return { plan: { definition } };
-  });
-}
-
 /** The agent's turn calls finish_workflow when the turn offers it. */
-export function agentFinishesWorkflow(): WorkflowAction {
+function agentFinishesWorkflow(): WorkflowAction {
   return action("agent finishes the workflow", async (world) => {
-    if (!offeredToTheAgent(world, FINISH_WORKFLOW)) return {};
+    if (!offeredToTheAgent(world, FINISH_WORKFLOW)) return;
     const { finish_workflow } = planTools(world.workflow);
     await finish_workflow.execute({ result: "The login redirect is fixed." }, TOOL_CALL);
-    return { finishedByAgent: true };
   });
 }
 
@@ -1284,55 +1051,12 @@ export function agentCompletes(
       toolCallFor(decisions),
     );
     if (decisions === "hangs") world.answerDecisionsWith("fails");
-    return { completion: { task_id: author.taskId } };
-  });
-}
-
-/**
- * The agent completes the author task with the option the person selected, in whatever state it
- * is. Only a stage with a choice ending reads the option.
- */
-export function agentCompletesWithSelection(
-  index: number,
-  person: PersonAtCompletion,
-  decisions: DecisionsAtCompletion,
-): WorkflowAction {
-  const label = `agent completes the task with a selection, the person ${person}, decisions ${decisions}`;
-  return authorAction(index, label, async (world, author) => {
-    const selected = { option: person === "accepts" ? PAGE_OPTION : "none", probability: 0.9 };
-    world.answerDecisionsWith(
-      decisions === "answers"
-        ? { for_author: 0, beyond_author: 0, rejects: 0, selected }
-        : decisions,
-    );
-    const { complete_job } = startTools(world.workflow, PERSON_MESSAGES[person]);
-    await complete_job.execute(
-      { job_id: world.jobOf(author).job_id, result: "Done.", option: PAGE_OPTION },
-      toolCallFor(decisions),
-    );
-    if (decisions === "hangs") world.answerDecisionsWith("fails");
-    return { completion: { task_id: author.taskId } };
   });
 }
 
 function toolCallFor(decisions: DecisionsAtCompletion) {
   if (decisions !== "hangs") return TOOL_CALL;
   return { ...TOOL_CALL, abortSignal: AbortSignal.timeout(TURN_DEADLINE_MS) };
-}
-
-/**
- * A person accepted an artifact, and the agent starts the next stage with no issue. Once a job is
- * complete with its artifact accepted, the next job builds on that artifact.
- */
-export function agentAdvancesStage(next: ArtifactKind): WorkflowAction {
-  return action(`agent starts a ${next} task for the next stage`, async (world) => {
-    if (world.authors.length >= MAX_AUTHORS) return;
-    const { start_job } = startTools(world.workflow, PERSON_MESSAGES.accepts);
-    await start_job.execute(
-      { stage: STAGE_OF[next], brief: "Build on the accepted artifact." },
-      TOOL_CALL,
-    );
-  });
 }
 
 /** The agent routes the artifact after a reviewer segment left findings. */
@@ -1393,19 +1117,8 @@ export function taskSandboxComesUp(taskId: string): WorkflowAction {
   );
 }
 
-/**
- * The sandbox of the author, or of its refiner run, goes away. The bridge socket closes, and only
- * the bridge loss timer or the next prompt brings a sandbox back.
- */
-export function sandboxGoesAway(index: number, target: "author" | "refiner_run"): WorkflowAction {
-  return authorAction(index, `sandbox of the ${target} goes away`, async (world, author) => {
-    const taskId = target === "author" ? author.taskId : world.refinerRunOf(author)?.task_id;
-    if (taskId) world.openBridgeOf(taskId)?.drop();
-  });
-}
-
 /** The timers a workflow arms that need no agent turn. */
-export const TIMERS = [
+const TIMERS = [
   "board_flush",
   "wall_clock",
   "hello_timeout",
@@ -1473,18 +1186,6 @@ const TIMER_ALARMS: Record<
   },
 };
 
-function staleAlarmOf(world: WorkflowWorld, payload: unknown): { task_id: string } | null {
-  if (typeof payload !== "object" || payload === null) return null;
-  if ("turn_id" in payload) {
-    const { task_id, turn_id } = payload as ModelTurnAlarm;
-    return world.workflow.store.task(task_id)?.model_turn_id === turn_id ? null : { task_id };
-  }
-  if (!("generation" in payload)) return null;
-  const { task_id, generation } = payload as GenerationAlarm;
-  const sandbox = world.workflow.store.sandbox(task_id);
-  return sandbox && generation < sandbox.generation ? { task_id } : null;
-}
-
 /**
  * One armed alarm of a timer fires. `pick` counts round the alarms of that timer. A repeating
  * alarm stays armed.
@@ -1494,11 +1195,9 @@ export function timerFires(timer: Timer, pick: number): WorkflowAction {
     const { method, fire } = TIMER_ALARMS[timer];
     const armed = world.workflow.alarmsFor(method);
     const alarm = armed[pick % armed.length];
-    if (!alarm) return undefined;
-    const stale = staleAlarmOf(world, alarm.payload);
+    if (!alarm) return;
     if (!alarm.repeats) await world.workflow.cancelAlarm(alarm.id);
     await fire(world.workflow, alarm.payload);
-    return { staleAlarm: stale };
   });
 }
 
@@ -1524,10 +1223,9 @@ export function staleAlarmFires(
       .flatMap((task) => store.sandbox(task.task_id) ?? [])
       .filter((sandbox) => sandbox.generation > 0);
     const sandbox = sandboxes[pick % sandboxes.length];
-    if (!sandbox) return undefined;
+    if (!sandbox) return;
     const alarm: GenerationAlarm = { task_id: sandbox.task_id, generation: sandbox.generation - 1 };
     await TIMER_ALARMS[timer].fire(world.workflow, alarm);
-    return { staleAlarm: { task_id: sandbox.task_id } };
   });
 }
 

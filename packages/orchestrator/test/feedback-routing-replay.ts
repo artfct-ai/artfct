@@ -4,7 +4,6 @@ import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { taskTools } from "../src/agent/tools/task";
 import { isTaskFinished, isWorkflowFinished } from "../src/workflow/store/state";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
-import type { Step } from "./invariants";
 import { quintTraces } from "./quint-traces";
 import {
   agentCancels,
@@ -15,6 +14,7 @@ import {
 import {
   HELD_COMMENT,
   WorkflowWorld,
+  type Step,
   type WorkflowAction,
   type WorldAuthor,
   type WorldSetup,

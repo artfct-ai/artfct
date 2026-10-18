@@ -399,6 +399,7 @@
       "aRestartCutsAProduceTurn",
       "aDeadlinePassesDuringAProduceTurn",
       "aRestartCutsARerunModelTurn",
+      "aSessionMessageReachesAModelCallAuthorAtWork",
       "aPromptWaitsForAModelCallAuthor",
       "aPausedModelCallAuthorWaitsBusy",
       "aStopEndsAModelCall",

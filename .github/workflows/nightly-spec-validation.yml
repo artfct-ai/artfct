@@ -175,44 +175,6 @@ jobs:
           path: ${{ runner.temp }}/findings
           if-no-files-found: ignore
 
-  e2e_property_test:
-    name: e2e property based test (shard ${{ matrix.shard }})
-    runs-on: ubuntu-latest
-    timeout-minutes: 90
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [0, 1, 2, 3, 4, 5, 6, 7]
-    defaults:
-      run:
-        working-directory: packages/orchestrator
-    env:
-      SHARD: ${{ matrix.shard }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.commit }}
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - run: bun install --frozen-lockfile
-      - run: bun run template-config
-      - name: Seed this shard from the run id and the shard index
-        id: seed
-        run: |
-          echo "PROPERTY_SEED=$(( (GITHUB_RUN_ID + SHARD) % 2147483648 ))" >> "$GITHUB_ENV"
-          mkdir -p "$RUNNER_TEMP/findings"
-      - name: Run the workflow properties
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
-        run: GITHUB_STEP_SUMMARY="$RUNNER_TEMP/findings/workflow-$SHARD.md" bun scripts/properties/e2e-property-test.ts workflow
-      - if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: nightly-findings-properties-${{ matrix.shard }}
-          path: ${{ runner.temp }}/findings
-          if-no-files-found: ignore
-
   spec_replays:
     name: spec replays
     runs-on: ubuntu-latest
@@ -273,45 +235,9 @@ jobs:
           path: ${{ runner.temp }}/findings
           if-no-files-found: ignore
 
-  coverage_check:
-    name: coverage check
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    defaults:
-      run:
-        shell: bash
-        working-directory: packages/orchestrator
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          ref: ${{ inputs.commit }}
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - run: bun install --frozen-lockfile
-      - run: bun run template-config
-      - name: Check that the workflow properties cover every coverage case
-        id: coverage
-        run: COVERAGE_CHECK=1 bun test ./src/workflow/invariants.test.ts -t "coverage check" 2>&1 | tee "$RUNNER_TEMP/coverage.log"
-      - name: Write the finding
-        if: ${{ !cancelled() && steps.coverage.outcome == 'failure' }}
-        run: |
-          mkdir -p "$RUNNER_TEMP/findings"
-          {
-            printf '## Coverage check\n\nThe workflow properties did not cover every coverage case in enough runs.\n\n```\n'
-            tail -n 60 "$RUNNER_TEMP/coverage.log"
-            printf '```\n\n'
-          } > "$RUNNER_TEMP/findings/coverage.md"
-      - if: ${{ !cancelled() && steps.coverage.outcome == 'failure' }}
-        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
-        with:
-          name: nightly-findings-coverage
-          path: ${{ runner.temp }}/findings
-
   nightly_issue:
     name: nightly spec issue
-    needs:
-      [quint_nightly, tlc_nightly, spec_validation, e2e_property_test, spec_replays, coverage_check]
+    needs: [quint_nightly, tlc_nightly, spec_validation, spec_replays]
     if: ${{ !cancelled() && !inputs.commit }}
     runs-on: ubuntu-latest
     timeout-minutes: 10

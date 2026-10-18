@@ -1,22 +1,21 @@
 #!/usr/bin/env bun
 /**
- * Applies each hand-written mutant to the orchestrator source, one at a time, and runs the
- * property files of the e2e property test job against it on `PROPERTY_SEED`. A mutant that every property
- * file passes survives. When a mutant survives or no longer applies, the report goes to the
- * path in the first argument.
+ * Applies each hand-written mutant to the orchestrator source, one at a time, and runs the spec
+ * replays against it on `PROPERTY_SEED`. A mutant that every spec replay passes survives. When a
+ * mutant survives or no longer applies, the report goes to the path in the first argument.
  * Usage: PROPERTY_SEED=<integer> bun scripts/properties/mutants.ts <report-path>
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { PROPERTY_FILES, runPropertyFile } from "./property-files";
+import { SPEC_REPLAY_FILES, runPropertyFile } from "./property-files";
 
 /** A one-place change to the source that breaks the invariant it names. */
 export type Mutant = { id: string; invariant: string; path: string; find: string; replace: string };
 
-/** What the property files did to a mutant. */
+/** What the spec replays did to a mutant. */
 export type MutantResult = { mutant: Mutant; status: "killed" | "survived" | "not_applied" };
 
-/** The hand-written mutants. Each one breaks a rule that a property test is meant to catch. */
+/** The hand-written mutants. Each one breaks the spec rule it names, which its spec replay is meant to catch. */
 export const MUTANTS: Mutant[] = [
   {
     id: "W1",
@@ -27,14 +26,14 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W2",
-    invariant: "jobStartsOnlyIntoAFreeSlot",
+    invariant: "workflowLifecycle::jobStartsOnlyIntoAFreeSlot",
     path: "src/agent/tools/start/start.ts",
     find: "if (active.length < state.concurrency) return null;",
     replace: "if (active.length <= state.concurrency) return null;",
   },
   {
     id: "W3",
-    invariant: "nothingReopensAFinishedWorkflow",
+    invariant: "workflowLifecycle::nothingReopensAFinishedWorkflow",
     path: "src/workflow/inbound/events.ts",
     find: "  if (isWorkflowFinished(workflow.state.status)) {\n    await replyFinished",
     replace:
@@ -65,7 +64,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W7",
-    invariant: "oneLiveJobPerInputArtifact",
+    invariant: "workflowLifecycle::oneLiveJobPerInputArtifact",
     path: "src/agent/tools/start/start.ts",
     find: "    if (isTaskFinished(task.status)) continue;\n    return `Job ${job.job_id} already works on",
     replace:
@@ -124,7 +123,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W15",
-    invariant: "workflowStartsOnlyFromAPlan",
+    invariant: "workflowLifecycle::workflowStartsOnlyFromAPlan",
     path: "src/agent/tools/start/start.ts",
     find: "        const notStarted = validateWorkflowStarted(workflow);",
     replace: "        const notStarted: string | null = null;",
@@ -139,14 +138,14 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W17",
-    invariant: "reviewerRunsOnlyOnAnUnreviewedRevision",
+    invariant: "reviewLoop::reviewerRunsOnlyOnAnUnreviewedRevision",
     path: "src/workflow/refiner/stage-refiner.ts",
     find: "  if (entryReviewedRevision(runs, index, revision)) return true;\n",
     replace: "",
   },
   {
     id: "W18",
-    invariant: "authorGetsEveryPullFinding",
+    invariant: "reviewLoop::authorGetsEveryPullFinding",
     path: "src/workflow/refiner/loop.ts",
     find: "    if (!reviewAsksTheAuthor(review)) {\n      return advanceArtifactPastEntry(workflow, author, index, revision);",
     replace:
@@ -161,7 +160,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W20",
-    invariant: "endedWorkflowHasNoUnfinishedTask",
+    invariant: "workflowLifecycle::endedWorkflowHasNoUnfinishedTask",
     path: "src/agent/tools/plan.ts",
     find: '  if (workflowEnding(workflow)) return "The workflow is ending. A workflow that ends stays ended.";\n',
     replace: "",
@@ -225,7 +224,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W29",
-    invariant: "aRunningTurnKeepsItsSandboxAwake (stale restart)",
+    invariant: "harnessSession::aRunningTurnKeepsItsSandboxAwake (stale restart)",
     path: "src/workflow/lifecycle.ts",
     find: "  if (sandbox.generation !== generation) return;\n",
     replace: "",
@@ -239,7 +238,8 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W31",
-    invariant: "finishedTaskKeepsItsStatus, anAuthorInReviewWorksOnlyWithAPrompt (stop)",
+    invariant:
+      "finishedTaskKeepsItsStatus, harnessSession::anAuthorInReviewWorksOnlyWithAPrompt (stop)",
     path: "src/workflow/inbound/controls.ts",
     find: '    workflow.store.updateTask(author.task_id, { status: "working" });\n    await closeContainer(workflow, author, "a person pressed Stop");\n',
     replace:
@@ -247,21 +247,21 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W32",
-    invariant: "anAuthorInReviewRunsNoTurn (stale outcome)",
+    invariant: "harnessSession::anAuthorInReviewRunsNoTurn (stale outcome)",
     path: "src/workflow/task/harness/turn.ts",
     find: "  if (workflow.store.requireSandbox(task.task_id).generation !== generation) return;\n",
     replace: "",
   },
   {
     id: "W33",
-    invariant: "anAuthorInReviewRunsNoTurn (handshake)",
+    invariant: "harnessSession::anAuthorInReviewRunsNoTurn (handshake)",
     path: "src/workflow/artifact.ts",
     find: "  if (workflow.store.handshakePending(taskId)) return;\n",
     replace: "",
   },
   {
     id: "W34",
-    invariant: "anAnswerReachesOnlyItsOwnRequest (rpc id given twice)",
+    invariant: "harnessSession::anAnswerReachesOnlyItsOwnRequest (rpc id given twice)",
     path: "src/workflow/store/tasks.ts",
     find: "      .values({ task_id: taskId, method, purpose, sent_at: now() })\n",
     replace:
@@ -269,7 +269,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W35",
-    invariant: "aHarnessSessionRunsOneTurnAtATime (resume)",
+    invariant: "harnessSession::aHarnessSessionRunsOneTurnAtATime (resume)",
     path: "src/workflow/inbound/controls.ts",
     find: "  workflow.store.updateTask(task.task_id, { paused_at: null });\n",
     replace:
@@ -277,7 +277,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W36",
-    invariant: "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn (blocked)",
+    invariant: "harnessSession::aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn (blocked)",
     path: "src/workflow/task/harness/turn.ts",
     find: "  if (authorHasAPrompt(workflow, taskId)) return false;\n",
     replace: "",
@@ -300,28 +300,28 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W39",
-    invariant: "anUnpausedTaskWithWorkIsNeverStranded (handshake close)",
+    invariant: "harnessSession::anUnpausedTaskWithWorkIsNeverStranded (handshake close)",
     path: "src/workflow/task/harness/bridge.ts",
     find: "  return sandbox.prompt_in_flight === 1 || store.handshakePending(sandbox.task_id);",
     replace: "  return sandbox.prompt_in_flight === 1;",
   },
   {
     id: "W40",
-    invariant: "anUnpausedTaskWithWorkIsNeverStranded (paused restart)",
+    invariant: "harnessSession::anUnpausedTaskWithWorkIsNeverStranded (paused restart)",
     path: "src/workflow/lifecycle.ts",
     find: '  workflow.store.updateTask(task.task_id, { status: "queued", restarts });',
     replace: "  workflow.store.updateTask(task.task_id, { restarts });",
   },
   {
     id: "W41",
-    invariant: "aHarnessSessionRunsOneTurnAtATime (lost turn)",
+    invariant: "harnessSession::aHarnessSessionRunsOneTurnAtATime (lost turn)",
     path: "src/workflow/task/harness/bridge.ts",
     find: "    session_id: null,\n",
     replace: "",
   },
   {
     id: "W42",
-    invariant: "aHarnessSessionRunsOneTurnAtATime (effort handshake)",
+    invariant: "harnessSession::aHarnessSessionRunsOneTurnAtATime (effort handshake)",
     path: "src/workflow/task/harness/prompt-queue.ts",
     find: '  if (task.status === "provisioning" || workflow.store.handshakePending(task.task_id)) {\n    return false;\n  }\n  const connected = workflow.connections(task.task_id).length > 0;\n  if (connected && sandbox.session_id) {\n    workflow.store.dequeuePrompt(next.id);\n    await sendPrompt(workflow, task, next.text);\n    return true;\n  }\n',
     replace:
@@ -329,7 +329,8 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W43",
-    invariant: "anUnpausedTaskWithWorkIsNeverStranded (restart lost with the instance)",
+    invariant:
+      "harnessSession::anUnpausedTaskWithWorkIsNeverStranded (restart lost with the instance)",
     path: "src/workflow/lifecycle.ts",
     find: '  workflow.store.updateTask(task.task_id, { status: "queued", restarts });\n  workflow.store.patchTodoRow(task.task_id, { note: `Restarted in a fresh sandbox: ${reason}` });\n  await workflow.tellAgent(\n    noteMessage(\n      `The ${task.role} ${task.task_id} of job ${task.job_id} restarted in a fresh sandbox on its branch (${reason}).`,\n    ),\n    "none",\n  );\n  const { generation } = workflow.store.requireSandbox(task.task_id);\n  await closeContainer(workflow, task, "the task restarts");\n',
     replace:
@@ -449,21 +450,21 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "R3",
-    invariant: "aDeliveryLeavesTheBindingsOfARunningWorkflow",
+    invariant: "routerBindings::aDeliveryLeavesTheBindingsOfARunningWorkflow",
     path: "src/router/deliver.ts",
     find: "    const previous = bound.workflowId;",
     replace: "    const previous = await findBinding(db, bound.binding);",
   },
   {
     id: "R4",
-    invariant: "oneRunningWorkflowHasAJobOnAnIssue (moved binding)",
+    invariant: "routerBindings::oneRunningWorkflowHasAJobOnAnIssue (moved binding)",
     path: "src/agent/tools/start/start.ts",
     find: "  return bound\n    ? null",
     replace: "  return bound || true\n    ? null",
   },
   {
     id: "R5",
-    invariant: "oneRunningWorkflowHasAJobOnAnIssue (running workflow)",
+    invariant: "routerBindings::oneRunningWorkflowHasAJobOnAnIssue (running workflow)",
     path: "src/agent/tools/start/start.ts",
     find: "    if (!row || !isWorkflowFinished(row.status)) {",
     replace: "    if (!row) {",
@@ -579,15 +580,15 @@ export function mutantReport(results: MutantResult[], seed: number): string | nu
   );
   return [
     "## Surviving mutants",
-    `The nightly mutant run on seed ${seed} found mutants the property tests did not kill.`,
+    `The nightly mutant run on seed ${seed} found mutants the spec replays did not kill.`,
     ["| Mutant | Invariant | File | Result |", "| --- | --- | --- | --- |", ...rows].join("\n"),
     "A surviving mutant shows a rule the generators do not reach. Update a mutant that no longer applies in `packages/orchestrator/scripts/properties/mutants.ts`.",
     "",
   ].join("\n\n");
 }
 
-async function killedByAPropertyFile(seed: number): Promise<boolean> {
-  for (const file of Object.values(PROPERTY_FILES)) {
+async function killedByASpecReplay(seed: number): Promise<boolean> {
+  for (const file of Object.values(SPEC_REPLAY_FILES)) {
     const run = await runPropertyFile(file, seed);
     if (run.outcome !== "passed") return true;
   }
@@ -601,7 +602,7 @@ async function runMutant(mutant: Mutant, seed: number): Promise<MutantResult> {
   if (mutated === null) return { mutant, status: "not_applied" };
   writeFileSync(path, mutated);
   try {
-    return { mutant, status: (await killedByAPropertyFile(seed)) ? "killed" : "survived" };
+    return { mutant, status: (await killedByASpecReplay(seed)) ? "killed" : "survived" };
   } finally {
     writeFileSync(path, original);
   }
