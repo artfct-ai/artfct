@@ -351,6 +351,14 @@ export const MUTANTS: Mutant[] = [
     replace: "",
   },
   {
+    id: "W46",
+    invariant: "reviewLoop::checksGoBackOncePerRevision",
+    path: "src/workflow/refiner/checks-gate.ts",
+    find: "  if (!claimChecksSendBack(workflow, artifact, conflict.revision)) return false;\n",
+    replace:
+      "  if (!claimChecksSendBack(workflow, artifact, `${conflict.revision}:conflict`)) return false;\n",
+  },
+  {
     id: "A1",
     invariant: "agentTurns::laterDecisionsCallsFallBackOnceOneFails",
     path: "src/decisions/ask.ts",
