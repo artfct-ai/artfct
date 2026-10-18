@@ -431,6 +431,27 @@ export const MUTANTS: Mutant[] = [
     find: "    if (!row || !isWorkflowFinished(row.status)) {",
     replace: "    if (!row) {",
   },
+  {
+    id: "C1",
+    invariant: "chatAcknowledgement::eyesNeverOutliveTheDelivery",
+    path: "src/router/chat-ack.ts",
+    find: "    clearTimeout(timer);\n",
+    replace: "",
+  },
+  {
+    id: "C2",
+    invariant: "chatAcknowledgement::eyesNeverOutliveTheDelivery (eyes still out)",
+    path: "src/router/chat-ack.ts",
+    find: "if (eyes.added && (await eyes.added)) {",
+    replace: "if (eyes.added) {",
+  },
+  {
+    id: "C3",
+    invariant: "chatAcknowledgement::theCallerGetsWhatTheDeliveryGave",
+    path: "src/router/chat-ack.ts",
+    find: "      await chat.removeReaction(",
+    replace: "      void chat.removeReaction(",
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */
