@@ -27,9 +27,9 @@
     "theHelloTimeoutWaitsWhileItsStartIsOut"
   ],
   "mainMinutes": {
-    "harnessDefaultEffort": 9.4,
+    "harnessDefaultEffort": 10.4,
     "stageAsksForEffort": 10.1,
-    "agentPausesRunningTurns": 10.3
+    "agentPausesRunningTurns": 10.4
   },
   "witnesses": {
     "harnessDefaultEffort": [

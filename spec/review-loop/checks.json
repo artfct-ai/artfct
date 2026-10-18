@@ -27,12 +27,12 @@
     "checksGoBackOncePerRevision"
   ],
   "mainMinutes": {
-    "judgeThenPolisher": 3.9,
-    "reviewerThenPolisher": 3.7,
-    "judgeBetweenReviewers": 2.5,
-    "modelCallAuthorWithTwoReviewers": 5.1,
-    "pageReviewerThenPolisher": 4.5,
-    "pageJudgeBetweenReviewers": 3.0,
+    "judgeThenPolisher": 6.8,
+    "reviewerThenPolisher": 6.7,
+    "judgeBetweenReviewers": 6.2,
+    "modelCallAuthorWithTwoReviewers": 6.4,
+    "pageReviewerThenPolisher": 5.5,
+    "pageJudgeBetweenReviewers": 6.8,
     "pausedModelCallAuthor": 4.6,
     "checksOnAPolishedPull": 2.2
   },

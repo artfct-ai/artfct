@@ -24,12 +24,12 @@
     "subjectNeverChanges"
   ],
   "mainMinutes": {
-    "pagesWithAReviewer": 2.8,
+    "pagesWithAReviewer": 2.5,
     "pagesWithAPolisher": 2.8,
-    "pagesWithoutRefiners": 3.0,
+    "pagesWithoutRefiners": 3.7,
     "issuesForAChatRequest": 5.3,
-    "pagesAfterResearch": 4.5,
-    "pagesFromModelCalls": 3.2,
+    "pagesAfterResearch": 7.7,
+    "pagesFromModelCalls": 3.1,
     "modelCallPagesWithAReviewer": 3.1,
     "modelCallPagesAfterResearch": 2.1,
     "pullsTheHostMoves": 4.0,

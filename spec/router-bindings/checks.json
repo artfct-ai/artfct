@@ -10,8 +10,8 @@
   ],
   "mainMinutes": {
     "chatThread": 1.4,
-    "twoSessionsOnOneIssue": 0.7,
-    "sessionWithPullRequest": 1.2
+    "twoSessionsOnOneIssue": 1.1,
+    "sessionWithPullRequest": 1.3
   },
   "witnesses": {
     "chatThread": [
