@@ -15,7 +15,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | T3 | A job start on an issue points the issue's binding at its workflow before it writes the job. A job start writes the job and its task before the router's status and branch binding writes. A failed router write leaves a `queued` task without a provision alarm. | |
 | T4 | A sandbox start moves the task to `provisioning` with a new generation and bridge token, and clears the session state. | |
 | T5 | The first bridge hello moves the task to `working`. | |
-| T6 | A model-call author is `working` only while its model turn is in flight, or after a stop ended its first turn before the page existed. | `aModelCallAuthorWorksOnlyWhileItsCallIsOut` |
+| T6 | A model-call author is `working` only while its model turn is in flight, or after a stop ended its first turn before the page existed. | `aModelCallAuthorWorksOnlyWhileItsCallIsOut`, `workflowLifecycle::aModelCallAuthorWorksOnlyWhileItsCallIsOut` |
 | T7 | An author moves to `in_review` only when its job has an artifact, a prompt is not in flight, and its handshake is not pending. It leaves `in_review` only for a prompt. | `inReviewTaskHasAnArtifact`, `workflowLifecycle::inReviewTaskHasAnArtifact`, `anAuthorInReviewWorksOnlyWithAPrompt` |
 | T8 | A finished task (`done`, `failed`, `cancelled`) never changes status again. A restart or a completion that finds the task finished when it reads it again leaves it finished. A stop writes its stopped state before it awaits the destroy, so a destroy that returns late writes nothing. | `finishedTaskKeepsItsStatus`, `reviewLoop::aFinishedRefinerRunKeepsItsStatus` |
 | T9 | A failed author or researcher closes its review as blocked, posts `failed`, and wakes the agent. A failed reviewer or polisher hands the artifact over blocked. | `reviewLoop::anEndedAuthorEndsItsReview`, `reviewLoop::aStoppedRefinerRunHandsOverBlocked` |
@@ -47,7 +47,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | T29 | A prompt RPC error clears the prompt, writes a board note, and wakes the agent for an idle author. A refused prompt of an author whose last turn stopped early counts as a stall and nudges or restarts it. A researcher or refiner drains its queue or restarts. An RPC id is never given twice, so a late answer cannot reach a later request. | `harnessSession::anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone`, `harnessSession::anAnswerReachesOnlyItsOwnRequest` |
 | T30 | A model-call author fails without a restart on a model error, an empty answer, a missing closing text, a comment reply that does not validate, or a page host error. A person's page edit during its model call does not fail it. The turn starts over on the page as it is now. | `reviewLoop::aModelCallAuthorFailsOnlyOnAHostError` |
 | T31 | A model turn that a restart or its deadline cut runs again as a restart. A revise keeps its prompt queued until it applies the answer. An author with its page out goes back in review and takes that prompt. One without its page produces it again. A paused author stays paused. Past the restart limit the task fails with a post to the person. | `aRestartDoesNotLoseAModelTurn`, `workflowLifecycle::aRestartDoesNotLoseAModelTurn` |
-| T32 | A prompt queued for an unpaused model-call author reaches it. A model turn is in flight, the author is starting, or a polisher holds its page. | `aQueuedPromptReachesItsModelCallAuthor` |
+| T32 | A prompt queued for an unpaused model-call author reaches it. A model turn is in flight, the author is starting, or a polisher holds its page. | `aQueuedPromptReachesItsModelCallAuthor`, `workflowLifecycle::aQueuedPromptReachesItsModelCallAuthor` |
 | T33 | A restart after the host wrote the page but before the store recorded it runs the turn again. A first turn creates a second page. A revise runs again on the revised text and can post its comment replies twice. | |
 
 ### Task alarms
@@ -74,7 +74,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | T51 | Every harness permission request is allowed. Other agent requests get method not found. | |
 | T52 | A sandbox destroy that fails is logged and ignored. A bridge process check that fails reads as running. | |
 | T53 | A token mint that fails starts the sandbox without the token. A failed all-repos read token only narrows access. | |
-| T54 | A model call of a model-call author has a 13 minute deadline. A stop or a finished task before the answer leaves the page as it was. | `stoppedModelCallLeavesThePage` |
+| T54 | A model call of a model-call author has a 13 minute deadline. A stop or a finished task before the answer leaves the page as it was. A page write that returns after the task finished does not make the page the job's artifact. | `stoppedModelCallLeavesThePage`, `workflowLifecycle::aModelCallAuthorWorksOnlyWhileItsCallIsOut`, `workflowLifecycle::oneLiveJobPerInputArtifact` |
 | T55 | A page model answer that is blank or throws fails the task. | |
 
 ## Orchestrator agent turn

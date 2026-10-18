@@ -25,7 +25,7 @@ import { onModelTurnDeadline, type ModelTurnAlarm } from "../src/workflow/task/m
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfText, itfVariant } from "./itf";
 import { quintTraces } from "./quint-traces";
 import { EchoModel } from "./fake-model";
-import { MODEL_AUTHOR_MODEL, PAGE_PARENT } from "./fake-runtime";
+import { fakeDocumentsOf, MODEL_AUTHOR_MODEL, PAGE_PARENT } from "./fake-runtime";
 import { FakeSandboxProvider } from "./fake-sandbox";
 import { InterleavedDecisions } from "./interleaved-decisions";
 import type { Step } from "./invariants";
@@ -95,6 +95,24 @@ export const SPEC_SETUPS = {
     pageAuthor: "model",
     research: false,
   },
+  modelCallPagesWithAReviewer: {
+    module: "modelCallPagesWithAReviewer",
+    refiners: "reviewer",
+    pageAuthor: "model",
+    research: false,
+  },
+  modelCallPagesWithAJudge: {
+    module: "modelCallPagesWithAReviewer",
+    refiners: "judge",
+    pageAuthor: "model",
+    research: false,
+  },
+  modelCallPagesAfterResearch: {
+    module: "modelCallPagesAfterResearch",
+    refiners: "none",
+    pageAuthor: "model",
+    research: true,
+  },
 } as const satisfies Record<
   string,
   { module: string } & Pick<WorldSetup, "refiners" | "pageAuthor" | "research">
@@ -120,13 +138,12 @@ const WORKFLOW_STATUSES = [
 ] as const;
 const ARTIFACT_STATUSES = ["NoArtifact", "Drafted", "Ready"] as const;
 const REFINER_RUN_STATUSES = [
-  "NoRefinerRun",
   "RefinerRunning",
   "RefinerDone",
   "RefinerCancelled",
   "RefinerFailed",
 ] as const;
-const CALL_KINDS = ["SandboxDestroy", "AcceptanceCheck", "ModelCall"] as const;
+const CALL_KINDS = ["SandboxDestroy", "AcceptanceCheck", "ModelCall", "PageWrite"] as const;
 const ROLES = ["Researcher", "Author"] as const;
 const JOB_ROLES: readonly TaskRow["role"][] = ["researcher", "author"];
 const ENDINGS = ["PersonCancels", "AgentFails", "AgentFinishes"] as const;
@@ -176,7 +193,7 @@ export type SpecJob = {
   input: { from: "request"; request: number } | { from: "artifact"; job: number };
   tasks: SpecTask[];
   artifact: (typeof ARTIFACT_STATUSES)[number];
-  refinerRun: (typeof REFINER_RUN_STATUSES)[number];
+  refinerRuns: (typeof REFINER_RUN_STATUSES)[number][];
 };
 
 /** One held call as the spec sees it, without the rest of the step that runs when it returns. */
@@ -206,6 +223,7 @@ type SpecPicks = {
   accepted: boolean | null;
   ending: Ending | null;
   command: VerbalCommand | null;
+  landed: boolean | null;
 };
 
 /** One state of a trace: the action that led to it, its picks, and the workflow. */
@@ -240,6 +258,7 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
     const accepted = picked("accepted");
     const withStages = picked("withStages");
     const timer = picked("timer");
+    const landed = picked("landed");
     return {
       action: itfText(itfField(state, "mbt::actionTaken")),
       picks: {
@@ -257,6 +276,7 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
         accepted: accepted === null ? null : itfBool(accepted),
         ending: ending === null ? null : itfOneOf(itfVariant(ending)!.tag, ENDINGS),
         command: command === null ? null : itfOneOf(itfVariant(command)!.tag, VERBAL_COMMANDS),
+        landed: landed === null ? null : itfBool(landed),
       },
       workflow: specWorkflow(
         itfField(state, `${SPEC_SETUPS[setup].module}::workflowLifecycle::workflow`),
@@ -305,13 +325,16 @@ function specJob(value: unknown): SpecJob {
       generationClosed: itfBool(itfField(task, "generationClosed")),
     })),
     artifact: itfOneOf(itfVariant(itfField(value, "artifact"))!.tag, ARTIFACT_STATUSES),
-    refinerRun: itfOneOf(itfVariant(itfField(value, "refinerRun"))!.tag, REFINER_RUN_STATUSES),
+    refinerRuns: itfList(itfField(value, "refinerRuns")).map((run) =>
+      itfOneOf(itfVariant(run)!.tag, REFINER_RUN_STATUSES),
+    ),
   };
 }
 
 /**
- * One call the replay holds, with the step that waits on it. A model call names the model turn
- * that made it, and the task when that turn revises its page.
+ * One call the replay holds, with the step that waits on it. A model call and a page write name
+ * the model turn that made them, and the task when that turn revises its page. A page write can
+ * land on the host without returning.
  */
 type HeldCall = {
   kind: CallKind;
@@ -320,6 +343,7 @@ type HeldCall = {
   step: Promise<unknown> | null;
   turnId: string | null;
   revisedBy: string | null;
+  land: (() => Promise<void>) | null;
 };
 
 /** A sandbox provider that holds the destroy of every author sandbox until the replay returns it. */
@@ -411,6 +435,7 @@ export class WorkflowLifecycleReplay {
   private readonly heldTurns = new Set<string>();
   private readonly reviseTurns = new Map<string, number>();
   private pagesWritten = 0;
+  private answeredModelCall: HeldCall | null = null;
 
   private constructor(
     readonly world: WorkflowWorld,
@@ -431,6 +456,13 @@ export class WorkflowLifecycleReplay {
       world.workflow.modelsByName[MODEL_AUTHOR_MODEL] = new HoldingPageModel(() =>
         replay.holdModelCall(),
       );
+      const host = fakeDocumentsOf(world.workflow);
+      const createPage = host.createPage.bind(host);
+      const updatePageContent = host.updatePageContent.bind(host);
+      host.createPage = (title, text, parent) =>
+        replay.holdPageWrite(() => createPage(title, text, parent));
+      host.updatePageContent = (pageId, change) =>
+        replay.holdPageWrite(() => updatePageContent(pageId, change));
     }
     return replay;
   }
@@ -525,7 +557,7 @@ export class WorkflowLifecycleReplay {
               };
             }),
           artifact: !artifact ? "NoArtifact" : artifact.status === "drafted" ? "Drafted" : "Ready",
-          refinerRun: REFINER_RUN_STATUS_OF[runs.at(-1)?.status ?? "none"],
+          refinerRuns: runs.map((run) => REFINER_RUN_STATUS_OF[run.status]),
         };
       }),
       calls: this.calls.map((call) => ({
@@ -548,7 +580,11 @@ export class WorkflowLifecycleReplay {
       .filter((row) => row.task_id === task.task_id).length;
     const revising =
       !isTaskFinished(task.status) &&
-      this.calls.some((call) => call.kind === "ModelCall" && call.revisedBy === task.task_id);
+      this.calls.some(
+        (call) =>
+          (call.kind === "ModelCall" || call.kind === "PageWrite") &&
+          call.revisedBy === task.task_id,
+      );
     return {
       turnRunning: false,
       promptsSent: this.reviseTurns.get(task.task_id) ?? 0,
@@ -673,6 +709,10 @@ export class WorkflowLifecycleReplay {
         return worldAction(`model call ${picks.callId} returns`, () =>
           this.returnCall(required(picks.callId), 0),
         );
+      case "pageWriteReturns":
+        return worldAction(`page write ${picks.callId} returns`, () =>
+          this.returnCall(required(picks.callId), 0),
+        );
       case "modelTurnOutlivesItsDeadline":
         return worldAction(`the deadline of model call ${picks.callId} passes`, (world) =>
           this.modelTurnOutlivesItsDeadline(world, required(picks.callId)),
@@ -688,7 +728,10 @@ export class WorkflowLifecycleReplay {
       case "staleAlarmFires":
         return staleAlarmFires(required(picks.timer), required(picks.sandbox));
       case "workflowRestarts":
-        return worldAction("the workflow restarts", (world) => this.restart(world));
+        return worldAction(
+          `the workflow restarts, and a page write out ${picks.landed ? "landed" : "did not land"}`,
+          (world) => this.restart(world, required(picks.landed)),
+        );
       default:
         throw new Error(`no world action for spec action ${step.action}`);
     }
@@ -760,12 +803,15 @@ export class WorkflowLifecycleReplay {
   }
 
   /**
-   * The Durable Object restarts and every held call is lost. Each model turn the start step arms
-   * for now resumes in its own step, so a resumed turn whose model call is held does not hold
-   * the next one back.
+   * The Durable Object restarts and every held call is lost. A page write that landed changes
+   * the page on the host first. Each model turn the start step arms for now resumes in its own
+   * step, so a resumed turn whose model call is held does not hold the next one back.
    */
-  private async restart(world: WorkflowWorld): Promise<void> {
-    this.calls.length = 0;
+  private async restart(world: WorkflowWorld, landed: boolean): Promise<void> {
+    const lost = this.calls.splice(0);
+    if (landed) {
+      for (const call of lost) await call.land?.();
+    }
     await this.runStep(() => workflowRestarts().run(world));
     const due = world.workflow
       .alarmsFor("onModelTurnDeadline")
@@ -778,10 +824,10 @@ export class WorkflowLifecycleReplay {
     }
   }
 
-  /** The deadline of a held model call fires first. The call never answers. */
+  /** The deadline of a held model call or page write fires first. The call never returns. */
   private async modelTurnOutlivesItsDeadline(world: WorkflowWorld, callId: number): Promise<void> {
     const [call] = this.calls.splice(callId, 1);
-    if (!call?.turnId) throw new Error(`no model call ${callId} is out`);
+    if (!call?.turnId) throw new Error(`no model turn call ${callId} is out`);
     const deadline = world.workflow
       .alarmsFor("onModelTurnDeadline")
       .find((alarm) => (alarm.payload as ModelTurnAlarm).turn_id === call.turnId);
@@ -810,10 +856,12 @@ export class WorkflowLifecycleReplay {
     const [call] = this.calls.splice(callId, 1);
     if (!call) throw new Error(`no call ${callId} is out`);
     const rest = call.step;
+    this.answeredModelCall = call.kind === "ModelCall" ? call : null;
     await this.runStep(async () => {
       call.answer(new FakeDecisions({ ...ANSWERS, accepts }));
       await rest;
     });
+    this.answeredModelCall = null;
   }
 
   /**
@@ -831,6 +879,7 @@ export class WorkflowLifecycleReplay {
         answer: () => release(),
         turnId: null,
         revisedBy: null,
+        land: null,
       });
     });
   }
@@ -838,7 +887,14 @@ export class WorkflowLifecycleReplay {
   private holdAcceptance(): Promise<Decisions | null> {
     const jobId = this.completingJobId;
     return new Promise<Decisions | null>((release) => {
-      this.hold({ kind: "AcceptanceCheck", jobId, answer: release, turnId: null, revisedBy: null });
+      this.hold({
+        kind: "AcceptanceCheck",
+        jobId,
+        answer: release,
+        turnId: null,
+        revisedBy: null,
+        land: null,
+      });
     });
   }
 
@@ -864,6 +920,31 @@ export class WorkflowLifecycleReplay {
         answer: () => release(page),
         turnId: task.model_turn_id,
         revisedBy: revises ? task.task_id : null,
+        land: null,
+      });
+    });
+  }
+
+  /**
+   * Hold the page write of the model turn whose model call just returned, until the replay
+   * returns it. Any other write to the host goes through at once.
+   */
+  private holdPageWrite<Result>(write: () => Promise<Result>): Promise<Result> {
+    const modelCall = this.answeredModelCall;
+    if (!modelCall) return write();
+    this.answeredModelCall = null;
+    return new Promise<Result>((resolve, reject) => {
+      this.hold({
+        kind: "PageWrite",
+        jobId: modelCall.jobId,
+        answer: () => {
+          write().then(resolve, reject);
+        },
+        turnId: modelCall.turnId,
+        revisedBy: modelCall.revisedBy,
+        land: async () => {
+          await write();
+        },
       });
     });
   }
@@ -936,9 +1017,8 @@ const SPEC_TASK_STATUS: Record<TaskStatus, SpecTask["status"]> = {
   failed: "TaskFailed",
 };
 
-/** The spec status of the latest refiner run of a job, or "none" when the job has none. */
-const REFINER_RUN_STATUS_OF: Record<TaskStatus | "none", SpecJob["refinerRun"]> = {
-  none: "NoRefinerRun",
+/** The spec status of a refiner run. */
+const REFINER_RUN_STATUS_OF: Record<TaskStatus, SpecJob["refinerRuns"][number]> = {
   queued: "RefinerRunning",
   provisioning: "RefinerRunning",
   working: "RefinerRunning",
