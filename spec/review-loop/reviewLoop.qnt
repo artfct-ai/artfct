@@ -307,6 +307,7 @@ module reviewLoopTypes {
     aPageWriteIsLostWithTheInstance: bool,
     aPageTextChangeLandsBeforeTheInstanceRestarts: bool,
     aModelCallAuthorFailsOnALostTurn: bool,
+    anAuthorTurnEndsOnTheDeliveredRevision: bool,
     aJudgeClosesWithoutAConclusion: bool,
     aRefinerRunFailsPastItsRestarts: bool,
     aRefinerRunStartsAfterAFailedOrCancelledOne: bool,
@@ -2309,6 +2310,10 @@ module reviewLoop {
         step.after.artifact.revision > step.before.artifact.revision,
     aModelCallAuthorFailsOnALostTurn:
       step.kind.instanceRestarted and aModelTurnIsOut(step.before) and step.after.author.status == AuthorFailed,
+    anAuthorTurnEndsOnTheDeliveredRevision: and {
+      step.kind.turnEnd == AuthorTurnEnded({ revision: ReadRevision(step.before.artifact.revision) }),
+      deliveredAt(step.before, ReadRevision(step.before.artifact.revision)),
+    },
     aRulingCallReturnsAfterTheAuthorEnded:
       not(authorLive(step.before)) and
         step.before.judgeRunsCodeRulesOn.exists(id => not(step.after.judgeRunsCodeRulesOn.contains(id))),
@@ -2740,6 +2745,10 @@ module reviewLoop {
   /// Witness for `anEndedAuthorEndsItsReview`: a model-call author fails on a lost revise turn
   /// once its restarts are used up.
   val aModelCallAuthorFailsOnALostTurn: bool = lastStepReached.aModelCallAuthorFailsOnALostTurn
+
+  /// Witness for `refinersRunAgainOnlyOnChangedRevision`: an author turn ends on the revision the
+  /// humans have, and the host says so.
+  val anAuthorTurnEndsOnTheDeliveredRevision: bool = lastStepReached.anAuthorTurnEndsOnTheDeliveredRevision
 
   /// Witness for `deliveredToHumansIsNeverCleared`: the humans got the artifact once, and it is a
   /// draft again.

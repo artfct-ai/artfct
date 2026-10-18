@@ -67,7 +67,8 @@
       "aPolisherRunStopsOnADraftedArtifact",
       "aReviewerRunFailsOnADraftedArtifact",
       "aDraftWasDeliveredBefore",
-      "aRulingCallReturnsAfterTheAuthorEnded"
+      "aRulingCallReturnsAfterTheAuthorEnded",
+      "anAuthorTurnEndsOnTheDeliveredRevision"
     ],
     "reviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -93,7 +94,8 @@
       "anAuthorFailsPastItsRestarts",
       "aPolisherRunStopsOnADraftedArtifact",
       "aReviewerRunFailsOnADraftedArtifact",
-      "aDraftWasDeliveredBefore"
+      "aDraftWasDeliveredBefore",
+      "anAuthorTurnEndsOnTheDeliveredRevision"
     ],
     "judgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -119,7 +121,8 @@
       "anAuthorFailsPastItsRestarts",
       "aReviewerRunFailsOnADraftedArtifact",
       "aDraftWasDeliveredBefore",
-      "aRulingCallReturnsAfterTheAuthorEnded"
+      "aRulingCallReturnsAfterTheAuthorEnded",
+      "anAuthorTurnEndsOnTheDeliveredRevision"
     ],
     "modelCallAuthorWithTwoReviewers": [
       "aRefinerRunIsUnfinished",
@@ -158,7 +161,8 @@
       "aDraftWasDeliveredBefore",
       "theHostFailsTheReadAfterAModelCall",
       "aModelCallAnswerSkipsAReply",
-      "aModelCallAnswerRepliesToAnUnsentComment"
+      "aModelCallAnswerRepliesToAnUnsentComment",
+      "anAuthorTurnEndsOnTheDeliveredRevision"
     ],
     "pageReviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -189,7 +193,8 @@
       "aRefinerRunStartsAfterAnUnknownHandover",
       "aPolisherRunStopsOnADraftedArtifact",
       "aReviewerRunFailsOnADraftedArtifact",
-      "aDraftWasDeliveredBefore"
+      "aDraftWasDeliveredBefore",
+      "anAuthorTurnEndsOnTheDeliveredRevision"
     ],
     "pageJudgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -226,7 +231,8 @@
       "theAuthorEnded",
       "anAuthorEndsWhileARefinerRunIsUnfinished",
       "anAuthorEndsOnAReadyArtifact",
-      "anAuthorFailsPastItsRestarts"
+      "anAuthorFailsPastItsRestarts",
+      "anAuthorTurnEndsOnTheDeliveredRevision"
     ],
     "pausedModelCallAuthor": [
       "aRefinerRunIsUnfinished",
@@ -257,7 +263,8 @@
       "aPageWriteIsLostWithTheInstance",
       "aPageTextChangeLandsBeforeTheInstanceRestarts",
       "aModelCallAuthorFailsOnALostTurn",
-      "aPausedAuthorsModelTurnIsLost"
+      "aPausedAuthorsModelTurnIsLost",
+      "anAuthorTurnEndsOnTheDeliveredRevision"
     ],
     "checksOnAPolishedPull": [
       "aRefinerRunIsUnfinished",
@@ -285,7 +292,8 @@
       "checksGoBackToAWaitingPolisher",
       "checksGoBackToTheAuthor",
       "anUnknownRevisionOpensTheGate",
-      "aDraftWasDeliveredBefore"
+      "aDraftWasDeliveredBefore",
+      "anAuthorTurnEndsOnTheDeliveredRevision"
     ],
     "modelCallJudgeThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -332,7 +340,8 @@
       "aModelTurnIsLostWithTheInstance",
       "aPageWriteIsLostWithTheInstance",
       "aPageTextChangeLandsBeforeTheInstanceRestarts",
-      "aModelCallAuthorFailsOnALostTurn"
+      "aModelCallAuthorFailsOnALostTurn",
+      "anAuthorTurnEndsOnTheDeliveredRevision"
     ]
   },
   "tlc": {
