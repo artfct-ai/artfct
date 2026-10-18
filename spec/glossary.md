@@ -52,7 +52,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | artifact | A pull request, page, issue, or tracker project. A job works from one and produces one. | `ArtifactRef`, `artifacts` row | |
 | input artifact | The artifact a task works from. | `jobs.issue_id` when the input is an issue, `jobs.input_ref` when the input is an artifact no job of the workflow produced | |
 | output artifact | The artifact a task produces. The refiners run on it, and the handover delivers it. | `artifacts` row | |
-| revision | The identifier the host gives the current content of an artifact. Null when the host cannot say. | `ReviewSupport.revision` | version |
+| revision | The ID that the code host or document host gives the current content of an artifact: the head commit of a pull request or the revision of a page. It is unknown when the lookup fails, and always unknown for an issue. | `ReviewSupport.revision` | version |
 | handover | The artifact reaches the humans. A changed revision is handed over again. | `markArtifactReady`, `delivered_to_humans_at` | review loop closed |
 | follow-up | Work the author does on an artifact after its first handover, at the request of the humans or the host. It starts when a prompt reaches the idle author while the humans hold the artifact. | `startFollowUp`, `delivered_to_humans_at` | revision round |
 | feedback | Anything anyone posts on an artifact that the system must route. A review or a comment. | `Feedback` | |

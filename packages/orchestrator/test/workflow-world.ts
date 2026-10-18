@@ -366,6 +366,7 @@ export class WorkflowWorld {
   private readonly bridges: FakeBridge[] = [];
   private readonly promptsAtNormalTurnEnd = new Map<string, number>();
   private hostReadable = true;
+  private pullsReadable = true;
   private hostReviewComments: Record<number, PullRequestReviewComment[]> = {};
   private reviewNumber = 0;
   private eventNumber = 0;
@@ -659,7 +660,8 @@ export class WorkflowWorld {
   /** What the host says the author's artifact is now. Null when it cannot say. */
   hostRevisionOf(author: WorldAuthor): string | null {
     const pull = this.pullOf(author);
-    if (author.kind !== "pull" || pull.state === "unopened" || !this.hostReadable) return null;
+    if (author.kind !== "pull" || pull.state === "unopened") return null;
+    if (!this.hostReadable || !this.pullsReadable) return null;
     return revisionOf(pull);
   }
 
@@ -792,6 +794,18 @@ export class WorkflowWorld {
       return await body();
     } finally {
       this.hostReadable = true;
+      this.installHost();
+    }
+  }
+
+  /** Run `body` while the host cannot say the head commit of any pull request. */
+  async whilePullRevisionsAreUnknown<Result>(body: () => Promise<Result>): Promise<Result> {
+    this.pullsReadable = false;
+    this.installHost();
+    try {
+      return await body();
+    } finally {
+      this.pullsReadable = true;
       this.installHost();
     }
   }
@@ -1258,6 +1272,7 @@ export class WorkflowWorld {
       reviews: Object.fromEntries(onHost.map((pull) => [pull.number, pull.reviews])),
       reviewComments: this.hostReviewComments,
       failing: !this.hostReadable,
+      pullsUnreadable: !this.pullsReadable,
       now: () => this.workflow.now(),
     });
   }
