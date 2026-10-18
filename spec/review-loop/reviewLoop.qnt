@@ -172,6 +172,10 @@ module reviewLoopTypes {
   /// nothing because the model's answer does not validate.
   type PageWrite = WritesLand | WriteFails(HostFailure) | AnswerDoesNotValidate(AnswerFlaw)
 
+  /// What of a model-call author's revise turn landed before a new instance took over in the
+  /// middle of its page write: its comment replies, or its replies and its page text change.
+  type WriteCut = RepliesLanded | UpdateLanded
+
   /// Why a model-call author's revise turn failed.
   type TurnFailure = PageReadRefused | AnswerInvalid | ReplyRefused | UpdateRefused | UpdateLandedThenFailed
 
@@ -298,6 +302,12 @@ module reviewLoopTypes {
     aModelCallTurnStartsOver: bool,
     aRulingCallIsLostWithTheInstance: bool,
     aRulingCallReturnsAfterTheAuthorEnded: bool,
+    aModelTurnIsLostWithTheInstance: bool,
+    aPausedAuthorsModelTurnIsLost: bool,
+    aPageWriteIsLostWithTheInstance: bool,
+    aPageTextChangeLandsBeforeTheInstanceRestarts: bool,
+    aModelCallAuthorFailsOnALostTurn: bool,
+    anAuthorTurnEndsOnTheDeliveredRevision: bool,
     aJudgeClosesWithoutAConclusion: bool,
     aRefinerRunFailsPastItsRestarts: bool,
     aRefinerRunStartsAfterAFailedOrCancelledOne: bool,
@@ -1633,14 +1643,67 @@ module reviewLoop {
       loop.refinerRuns[id].result == NoResult,
     })
 
-  /// A new Durable Object instance takes over the workflow with the store. The ruling calls in
-  /// flight are lost, and the start step asks the decisions model again for each done judge run
-  /// the artifact waits on. Queued prompts and harness refiner runs stay.
+  /// The start step of a new instance runs a model-call author's lost revise turn again, as a
+  /// restart of the author. The turn keeps its prompt and reads the page again. A paused author
+  /// takes the prompt back at the head of its queue instead. The author fails once its restarts
+  /// are used up.
+  pure def runTheLostModelTurnAgain(loop: ReviewLoop, lookup: RevisionLookup): ReviewLoop = {
+    val restarted = { ...loop.author, restarts: loop.author.restarts + 1, pageEditsDuringTurn: Set() }
+    if (loop.author.restarts >= MAX_RESTARTS) endAuthor(loop, AuthorFailed, lookup)
+    else if (loop.author.paused) {
+      ...loop,
+      author: {
+        ...restarted,
+        status: InReview,
+        queuedPrompts: List(loop.author.turnComments).concat(loop.author.queuedPrompts),
+        turnComments: Set(),
+      },
+    }
+    else { ...loop, author: restarted }
+  }
+
+  /// True when a new instance would cut a model-call author's revise turn.
+  pure def aModelTurnIsOut(loop: ReviewLoop): bool = MODEL_CALL_AUTHOR and atWork(loop)
+
+  /// A new instance takes over and loses the ruling calls in flight. A model-call author's lost
+  /// revise turn runs again first. Then the start step asks the decisions model again for each
+  /// done judge run the artifact still waits on.
+  pure def instanceTakesOver(loop: ReviewLoop, lookup: RevisionLookup): ReviewLoop = {
+    val turnRunAgain = if (aModelTurnIsOut(loop)) runTheLostModelTurnAgain(loop, lookup) else loop
+    { ...turnRunAgain, judgeRunsCodeRulesOn: judgeRunsWithoutARulingAsked(turnRunAgain) }
+  }
+
+  /// The revision lookups a new instance can meet. Only an author that fails on the restart asks
+  /// the host for the revision.
+  pure def restartLookups(loop: ReviewLoop): Set[RevisionLookup] =
+    if (aModelTurnIsOut(loop) and loop.author.restarts >= MAX_RESTARTS) REVISION_LOOKUPS else Set(RevisionKnown)
+
+  /// A new Durable Object instance takes over the workflow with the store, while a model-call
+  /// author's model call is out if its revise turn runs. Queued prompts and harness refiner runs
+  /// stay.
   action instanceRestarts: bool = all {
     INSTANCE_RESTARTS,
+    nondet revisionLookup = restartLookups(review).oneOf()
     moveWith(
-      { ...review, judgeRunsCodeRulesOn: judgeRunsWithoutARulingAsked(review) },
-      { ...quietStep(NoTurnEnd), instanceRestarted: true },
+      instanceTakesOver(review, revisionLookup),
+      { ...quietStep(NoTurnEnd), instanceRestarted: true, revisionLookup: revisionLookup },
+    ),
+  }
+
+  /// A new instance takes over while a model-call author's revise turn writes the page. The turn's
+  /// comment replies landed, and its page text change landed too or was still out.
+  action instanceRestartsWhileThePageIsWritten: bool = all {
+    INSTANCE_RESTARTS,
+    aModelTurnIsOut(review),
+    not(pageTextEditedDuringTurn(review)),
+    nondet part = REVISION_PARTS.oneOf()
+    nondet cut = Set(RepliesLanded, UpdateLanded).oneOf()
+    nondet revisionLookup = restartLookups(review).oneOf()
+    val replied = markAnswered(review, turnReplies(review, true, part))
+    val written = if (cut == UpdateLanded) pageChanged(replied, part) else replied
+    moveWith(
+      instanceTakesOver(written, revisionLookup),
+      { ...quietStep(NoTurnEnd), instanceRestarted: true, revisionLookup: revisionLookup },
     ),
   }
 
@@ -1722,6 +1785,7 @@ module reviewLoop {
     personAsksForRevision,
     personEditsThePage,
     instanceRestarts,
+    instanceRestartsWhileThePageIsWritten,
     authorEnds,
     authorRestarts,
     authorPaused,
@@ -2231,6 +2295,25 @@ module reviewLoop {
     aModelCallTurnStartsOver: step.kind.turnEnd == AuthorTurnStartsOver,
     aRulingCallIsLostWithTheInstance:
       step.kind.instanceRestarted and step.before.judgeRunsCodeRulesOn.exists(id => isOnRun(step.before, id)),
+    aModelTurnIsLostWithTheInstance: step.kind.instanceRestarted and aModelTurnIsOut(step.before),
+    aPausedAuthorsModelTurnIsLost:
+      step.kind.instanceRestarted and aModelTurnIsOut(step.before) and step.before.author.paused,
+    aPageWriteIsLostWithTheInstance:
+      step.kind.instanceRestarted and aModelTurnIsOut(step.before) and
+        personCommentIds(step.after).exists(id => and {
+          id < step.before.personComments.length(),
+          not(step.before.personComments[id].answered),
+          step.after.personComments[id].answered,
+        }),
+    aPageTextChangeLandsBeforeTheInstanceRestarts:
+      step.kind.instanceRestarted and aModelTurnIsOut(step.before) and
+        step.after.artifact.revision > step.before.artifact.revision,
+    aModelCallAuthorFailsOnALostTurn:
+      step.kind.instanceRestarted and aModelTurnIsOut(step.before) and step.after.author.status == AuthorFailed,
+    anAuthorTurnEndsOnTheDeliveredRevision: and {
+      step.kind.turnEnd == AuthorTurnEnded({ revision: ReadRevision(step.before.artifact.revision) }),
+      deliveredAt(step.before, ReadRevision(step.before.artifact.revision)),
+    },
     aRulingCallReturnsAfterTheAuthorEnded:
       not(authorLive(step.before)) and
         step.before.judgeRunsCodeRulesOn.exists(id => not(step.after.judgeRunsCodeRulesOn.contains(id))),
@@ -2641,6 +2724,31 @@ module reviewLoop {
   /// Witness for `aJudgeRejectionPostsItsReasonOnce`: a ruling call returns after the author
   /// ended, so its ruling does not land.
   val aRulingCallReturnsAfterTheAuthorEnded: bool = lastStepReached.aRulingCallReturnsAfterTheAuthorEnded
+
+  /// Witness for `aRestartDoesNotStrandAJudgeRun`: a new instance takes over while a model-call
+  /// author's revise turn runs.
+  val aModelTurnIsLostWithTheInstance: bool = lastStepReached.aModelTurnIsLostWithTheInstance
+
+  /// Witness for `aQueuedPromptReachesItsModelCallAuthor`: a new instance takes over while a paused
+  /// model-call author's revise turn runs, and the author keeps the prompt in its queue.
+  val aPausedAuthorsModelTurnIsLost: bool = lastStepReached.aPausedAuthorsModelTurnIsLost
+
+  /// Witness for `sentCommentIsAnsweredBeforeItsLineGoes`: a new instance takes over after a
+  /// model-call author's comment replies landed.
+  val aPageWriteIsLostWithTheInstance: bool = lastStepReached.aPageWriteIsLostWithTheInstance
+
+  /// Witness for `sentCommentIsAnsweredBeforeItsLineGoes`: a new instance takes over after a
+  /// model-call author's page text change landed.
+  val aPageTextChangeLandsBeforeTheInstanceRestarts: bool =
+    lastStepReached.aPageTextChangeLandsBeforeTheInstanceRestarts
+
+  /// Witness for `anEndedAuthorEndsItsReview`: a model-call author fails on a lost revise turn
+  /// once its restarts are used up.
+  val aModelCallAuthorFailsOnALostTurn: bool = lastStepReached.aModelCallAuthorFailsOnALostTurn
+
+  /// Witness for `refinersRunAgainOnlyOnChangedRevision`: an author turn ends on the revision the
+  /// humans have, and the host says so.
+  val anAuthorTurnEndsOnTheDeliveredRevision: bool = lastStepReached.anAuthorTurnEndsOnTheDeliveredRevision
 
   /// Witness for `deliveredToHumansIsNeverCleared`: the humans got the artifact once, and it is a
   /// draft again.

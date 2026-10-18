@@ -96,6 +96,11 @@ export const SPEC_SETUPS = {
     authors: 1,
   },
   pausedModelCallAuthor: { refiners: "polisher", author: "page_model", authors: 1 },
+  modelCallJudgeThenPolisher: {
+    refiners: "judge_then_polisher",
+    author: "page_model",
+    authors: 1,
+  },
   checksOnAPolishedPull: { refiners: "polisher", author: "pull_harness", authors: 1 },
 } as const satisfies Record<
   string,
@@ -501,9 +506,13 @@ function closingsAtTurnEnd(promptQueued: boolean): AuthorClosing[] {
 
 /**
  * When a new instance takes over: between steps, or while the agent's prompt to the author of a
- * page waits on the host's read of its held comments.
+ * page waits on the host's read of its held comments or on the screen of them.
  */
-const RESTART_MOMENTS = ["between_steps", "while_held_comments_are_read"] as const;
+const RESTART_MOMENTS = [
+  "between_steps",
+  "while_held_comments_are_read",
+  "while_the_screen_reads",
+] as const;
 
 /** How code fails to rule on a judge run, when the spec says it cannot rule. */
 const CANNOT_RULE_PATHS = ["unclear", "decisions_fail"] as const;
@@ -933,7 +942,14 @@ export class ReviewLoopReplay {
     const { action } = step;
     if (action === "judgeTurnEnds") return this.judgeTurnEnds();
     if (action === "judgeClosesWithoutAConclusion") return this.judgeClosesWithoutAConclusion();
-    if (action === "instanceRestarts") return this.instanceRestarts();
+    if (action === "instanceRestarts") {
+      return this.instanceRestarts(() => this.untilTheRestartMoment());
+    }
+    if (action === "instanceRestartsWhileThePageIsWritten") {
+      return this.instanceRestarts(() =>
+        this.untilThePageIsWritten(pickTag(step, "part"), pickTag(step, "cut")),
+      );
+    }
     if (isRulingAction(action)) return this.answerRuling(action, step);
     if (action === "theHostFailsAModelCallAuthorsWrite") {
       return this.modelTurnEnds({
@@ -1630,10 +1646,8 @@ export class ReviewLoopReplay {
   }
 
   /**
-   * The model-call author's revise call answers with the page it read, with `part` rewritten when
-   * it changed the page, and one comment reply per comment its prompt carries, in spec order. A
-   * `flaw` skips the first reply or adds a reply to a comment the prompt does not carry. The host
-   * takes its writes, or fails the one `failure` names.
+   * The model-call author's revise call answers, and the turn ends with `decision`. The host takes
+   * its writes, or fails the one `failure` names.
    */
   private async modelTurnEnds(turnEnd: {
     part: string | null;
@@ -1641,31 +1655,38 @@ export class ReviewLoopReplay {
     failure: string | null;
     flaw: string | null;
   }): Promise<void> {
+    if (!turnEnd.decision)
+      throw new Error("the spec ended a model-call author's turn without a decision");
+    const answer = this.revisedAnswer(turnEnd);
+    const gatewayBefore = this.world.workflow.gatewayInstance;
+    this.world.workflow.gatewayInstance = reviewAgainGateway(turnEnd.decision);
+    const restore = this.hostFailing(turnEnd.failure);
+    try {
+      await this.answerModelCall(answer);
+    } finally {
+      restore();
+    }
+    this.world.workflow.gatewayInstance = gatewayBefore;
+  }
+
+  /**
+   * The answer to the open revise call: the page it read, with `part` rewritten when it changed
+   * the page, and one comment reply per comment its prompt carries, in spec order. A `flaw` skips
+   * the first reply or adds a reply to a comment the prompt does not carry.
+   */
+  private revisedAnswer(answer: { part: string | null; flaw: string | null }): string {
     const asked = this.pageModel?.heldUserText ?? null;
     const pageText = this.pageTextAtCall;
     if (asked === null || pageText === null) {
       throw new Error("the model-call author has no turn in flight");
     }
-    if (!turnEnd.decision)
-      throw new Error("the spec ended a model-call author's turn without a decision");
-    const revised =
-      turnEnd.part === null ? pageText : this.withPartRewritten(pageText, turnEnd.part);
+    const revised = answer.part === null ? pageText : this.withPartRewritten(pageText, answer.part);
     const carried = this.specCommentIdsIn(asked);
-    const answered = turnEnd.flaw === "SkipsAReply" ? carried.slice(1) : carried;
+    const answered = answer.flaw === "SkipsAReply" ? carried.slice(1) : carried;
     const repliedTo = answered.map((specId) => this.comments[specId]!.hostId);
-    if (turnEnd.flaw === "RepliesToAStrayComment") repliedTo.push(this.strayCommentHostId(carried));
+    if (answer.flaw === "RepliesToAStrayComment") repliedTo.push(this.strayCommentHostId(carried));
     const replies = repliedTo.flatMap((hostId) => [replyMarker(hostId), "Answered on the page."]);
-    const gatewayBefore = this.world.workflow.gatewayInstance;
-    this.world.workflow.gatewayInstance = reviewAgainGateway(turnEnd.decision);
-    const restore = this.hostFailing(turnEnd.failure);
-    try {
-      await this.answerModelCall(
-        [revised, "", CLOSING_TEXT_MARKER, "Revised the page.", ...replies].join("\n"),
-      );
-    } finally {
-      restore();
-    }
-    this.world.workflow.gatewayInstance = gatewayBefore;
+    return [revised, "", CLOSING_TEXT_MARKER, "Revised the page.", ...replies].join("\n");
   }
 
   /** A comment the prompt does not carry: one the author was not sent, when the page holds one. */
@@ -1818,16 +1839,27 @@ export class ReviewLoopReplay {
    * does not restart, so a lost call it does not get again stays held with an answer that does
    * not land, as the spec says of a ruling on a run that ruled or that the artifact left.
    */
-  private async instanceRestarts(): Promise<void> {
+  /**
+   * A new instance takes over once `until` reached its moment. The ruling calls in flight are
+   * lost. A model call of a revise turn is lost too, and the call the start step makes again is
+   * the open one.
+   */
+  private async instanceRestarts(until: () => Promise<void>): Promise<void> {
     const lost = this.worldReplays.flatMap((replay) => {
       const calls = [...replay.held.entries()].map(([runId, held]) => ({ replay, runId, held }));
       replay.held.clear();
       return calls;
     });
-    if (this.pick(RESTART_MOMENTS) === "while_held_comments_are_read") {
-      await this.untilHeldCommentsAreRead();
+    const modelTurnLost = this.pageModel !== null && this.pageModel.heldUserText !== null;
+    await until();
+    this.world.workflow.gatewayInstance = new FakeGateway();
+    if (modelTurnLost && this.pageModel) {
+      this.pageModel.drop();
+      this.modelTurn = null;
+      await this.untilModelCall(() => this.world.restart());
+    } else {
+      await this.world.restart();
     }
-    await this.world.restart();
     for (const alarm of this.world.workflow.alarmsFor("settleLostJudgeRuling")) {
       const settled = alarm.payload as TaskAlarm;
       const call = lost.find(({ held }) => held.taskId === settled.task_id);
@@ -1846,6 +1878,59 @@ export class ReviewLoopReplay {
       if (replay === this || replay.held.has(runId)) continue;
       replay.held.set(runId, { ...held, release: () => {}, turnEnd: Promise.resolve() });
     }
+  }
+
+  /** Reach the moment of a restart between steps that the seeded pick chooses. */
+  private async untilTheRestartMoment(): Promise<void> {
+    const moment = this.pick(RESTART_MOMENTS);
+    if (moment === "while_held_comments_are_read") await this.untilHeldCommentsAreRead();
+    if (moment === "while_the_screen_reads") await this.untilTheScreenReads();
+  }
+
+  /**
+   * The agent prompts a running author of a page that holds comments, and the screen of them
+   * never answers. A page without held comments does not screen any.
+   */
+  private async untilTheScreenReads(): Promise<void> {
+    const store = this.world.workflow.store;
+    const author = store.requireTask(this.author.taskId);
+    if (isTaskFinished(author.status) || store.artifact(author.job_id)?.ref.kind !== "page") return;
+    if (this.host().heldNow().length === 0) return;
+    const screenOut = new Promise<void>((reached) => {
+      const screen: Decisions = {
+        decide: () => {
+          reached();
+          return new Promise(() => {});
+        },
+      };
+      this.world.workflow.gatewayInstance = new FakeGateway({ decisions: screen });
+    });
+    const { prompt_task } = taskTools(this.world.workflow);
+    void prompt_task.execute({ task_id: author.task_id, text: "Add a test for it." }, TOOL_CALL);
+    await screenOut;
+  }
+
+  /**
+   * The open model call of a revise turn answers with a change to `part`. The host takes the
+   * comment replies and holds the page text change, after it applied it when `cut` says so.
+   */
+  private async untilThePageIsWritten(part: string, cut: string): Promise<void> {
+    const pageModel = this.pageModel;
+    if (!pageModel) throw new Error("the page write of a harness author is not a model turn");
+    const host = this.host();
+    const update = host.updatePageContent.bind(host);
+    const writeOut = new Promise<void>((reached) => {
+      host.updatePageContent = async (pageId, change) => {
+        host.updatePageContent = update;
+        if (cut === "UpdateLanded") await update(pageId, change);
+        reached();
+        return new Promise<never>(() => {});
+      };
+    });
+    const answer = this.revisedAnswer({ part, flaw: null });
+    this.modelTurn = null;
+    pageModel.answer(answer);
+    await writeOut;
   }
 
   /**

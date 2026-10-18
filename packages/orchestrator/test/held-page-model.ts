@@ -35,6 +35,11 @@ export class HeldPageModel implements LanguageModelV4 {
     return this.held?.userText ?? null;
   }
 
+  /** Forget the call that waits, as a restart loses it. It never answers. */
+  drop(): void {
+    this.held = null;
+  }
+
   /** Answer the call that waits with `text`. */
   answer(text: string): void {
     const held = this.held;

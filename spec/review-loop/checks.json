@@ -35,7 +35,8 @@
     "pageReviewerThenPolisher": 2.8,
     "pageJudgeBetweenReviewers": 2.8,
     "pausedModelCallAuthor": 2.4,
-    "checksOnAPolishedPull": 2.2
+    "checksOnAPolishedPull": 2.2,
+    "modelCallJudgeThenPolisher": 2.6
   },
   "witnesses": {
     "judgeThenPolisher": [
@@ -66,7 +67,8 @@
       "aPolisherRunStopsOnADraftedArtifact",
       "aReviewerRunFailsOnADraftedArtifact",
       "aDraftWasDeliveredBefore",
-      "aRulingCallReturnsAfterTheAuthorEnded"
+      "aRulingCallReturnsAfterTheAuthorEnded",
+      "anAuthorTurnEndsOnTheDeliveredRevision"
     ],
     "reviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -92,7 +94,8 @@
       "anAuthorFailsPastItsRestarts",
       "aPolisherRunStopsOnADraftedArtifact",
       "aReviewerRunFailsOnADraftedArtifact",
-      "aDraftWasDeliveredBefore"
+      "aDraftWasDeliveredBefore",
+      "anAuthorTurnEndsOnTheDeliveredRevision"
     ],
     "judgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -118,7 +121,8 @@
       "anAuthorFailsPastItsRestarts",
       "aReviewerRunFailsOnADraftedArtifact",
       "aDraftWasDeliveredBefore",
-      "aRulingCallReturnsAfterTheAuthorEnded"
+      "aRulingCallReturnsAfterTheAuthorEnded",
+      "anAuthorTurnEndsOnTheDeliveredRevision"
     ],
     "modelCallAuthorWithTwoReviewers": [
       "aRefinerRunIsUnfinished",
@@ -157,7 +161,8 @@
       "aDraftWasDeliveredBefore",
       "theHostFailsTheReadAfterAModelCall",
       "aModelCallAnswerSkipsAReply",
-      "aModelCallAnswerRepliesToAnUnsentComment"
+      "aModelCallAnswerRepliesToAnUnsentComment",
+      "anAuthorTurnEndsOnTheDeliveredRevision"
     ],
     "pageReviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -188,7 +193,8 @@
       "aRefinerRunStartsAfterAnUnknownHandover",
       "aPolisherRunStopsOnADraftedArtifact",
       "aReviewerRunFailsOnADraftedArtifact",
-      "aDraftWasDeliveredBefore"
+      "aDraftWasDeliveredBefore",
+      "anAuthorTurnEndsOnTheDeliveredRevision"
     ],
     "pageJudgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -225,7 +231,8 @@
       "theAuthorEnded",
       "anAuthorEndsWhileARefinerRunIsUnfinished",
       "anAuthorEndsOnAReadyArtifact",
-      "anAuthorFailsPastItsRestarts"
+      "anAuthorFailsPastItsRestarts",
+      "anAuthorTurnEndsOnTheDeliveredRevision"
     ],
     "pausedModelCallAuthor": [
       "aRefinerRunIsUnfinished",
@@ -250,7 +257,14 @@
       "aDraftWasDeliveredBefore",
       "theHostFailsTheReadAfterAModelCall",
       "aModelCallAnswerSkipsAReply",
-      "aModelCallAnswerRepliesToAnUnsentComment"
+      "aModelCallAnswerRepliesToAnUnsentComment",
+      "theInstanceRestarted",
+      "aModelTurnIsLostWithTheInstance",
+      "aPageWriteIsLostWithTheInstance",
+      "aPageTextChangeLandsBeforeTheInstanceRestarts",
+      "aModelCallAuthorFailsOnALostTurn",
+      "aPausedAuthorsModelTurnIsLost",
+      "anAuthorTurnEndsOnTheDeliveredRevision"
     ],
     "checksOnAPolishedPull": [
       "aRefinerRunIsUnfinished",
@@ -278,7 +292,56 @@
       "checksGoBackToAWaitingPolisher",
       "checksGoBackToTheAuthor",
       "anUnknownRevisionOpensTheGate",
-      "aDraftWasDeliveredBefore"
+      "aDraftWasDeliveredBefore",
+      "anAuthorTurnEndsOnTheDeliveredRevision"
+    ],
+    "modelCallJudgeThenPolisher": [
+      "aRefinerRunIsUnfinished",
+      "aPromptWaitsWhileAPolisherRuns",
+      "aModelCallAuthorHasAQueuedPrompt",
+      "aRulingLandsOnARuledJudgeRun",
+      "theAuthorGotARejection",
+      "aRejectionLandsOnThePage",
+      "theHostFailsARejection",
+      "aRefinerRunEndsDone",
+      "aRefinerRunStartsAfterAHandover",
+      "aReviewerRunsAgainOnANewRevision",
+      "theHumansHaveTheArtifact",
+      "aRefinerRunRestarted",
+      "aRefinerRunFailsPastItsRestarts",
+      "aRefinerRunStartsAfterAFailedOrCancelledOne",
+      "aPolisherFinished",
+      "theAgentIsAskedForAPersonsRuling",
+      "aRulingCallIsLostWithTheInstance",
+      "aRulingCallReturnsAfterTheAuthorEnded",
+      "aJudgeClosesWithoutAConclusion",
+      "heldCommentsGoToThePageAuthor",
+      "heldCommentsStayHeld",
+      "theHostKeepsHeldCommentsHeld",
+      "theScreenKeepsHeldComments",
+      "aMentionRoutedAwayLeavesHeldComments",
+      "aPersonRepliesWhileTheScreenReads",
+      "aHeldCommentReachesTheAuthor",
+      "theAuthorRepliesToAComment",
+      "aCommentReplyFails",
+      "theHostFailsAModelCallAuthor",
+      "theHostFailsTheReadAfterAModelCall",
+      "aModelCallAnswerSkipsAReply",
+      "aModelCallAnswerRepliesToAnUnsentComment",
+      "aPersonEditsDuringAModelCallTurn",
+      "aModelCallTurnStartsOver",
+      "theAuthorEnded",
+      "anAuthorEndsWhileARefinerRunIsUnfinished",
+      "anAuthorEndsOnAReadyArtifact",
+      "aPolisherRunStopsOnADraftedArtifact",
+      "aReviewerRunFailsOnADraftedArtifact",
+      "aDraftWasDeliveredBefore",
+      "theInstanceRestarted",
+      "aModelTurnIsLostWithTheInstance",
+      "aPageWriteIsLostWithTheInstance",
+      "aPageTextChangeLandsBeforeTheInstanceRestarts",
+      "aModelCallAuthorFailsOnALostTurn",
+      "anAuthorTurnEndsOnTheDeliveredRevision"
     ]
   },
   "tlc": {
@@ -404,14 +467,16 @@
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 0,
           "personCommentsLeft": 1,
-          "promptsQueued": 1
+          "promptsQueued": 1,
+          "instanceRestartCount": 1
         },
         "nightly": {
           "revisions": 2,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 0,
           "personCommentsLeft": 2,
-          "promptsQueued": 2
+          "promptsQueued": 2,
+          "instanceRestartCount": 2
         }
       },
       "checksOnAPolishedPull": {
@@ -432,6 +497,26 @@
           "promptsQueued": 2,
           "authorRestartCount": 1,
           "checksReports": 3
+        }
+      },
+      "modelCallJudgeThenPolisher": {
+        "pr": {
+          "revisions": 1,
+          "refinerRunsStarted": 2,
+          "reviewCommentsPosted": 1,
+          "personCommentsLeft": 1,
+          "promptsQueued": 1,
+          "instanceRestartCount": 1,
+          "authorRestartCount": 1
+        },
+        "nightly": {
+          "revisions": 2,
+          "refinerRunsStarted": 3,
+          "reviewCommentsPosted": 2,
+          "personCommentsLeft": 2,
+          "promptsQueued": 1,
+          "instanceRestartCount": 2,
+          "authorRestartCount": 2
         }
       }
     }
