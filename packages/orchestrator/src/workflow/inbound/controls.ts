@@ -15,10 +15,10 @@ import type { TaskRow } from "../store/tasks";
 import { jobByIssueBinding, jobForEvent } from "./lookup";
 
 /**
- * Run a human control word: cancel, pause, resume, instruct. Only team members may use them.
+ * Run a verbal command from a person: cancel, pause, resume, instruct. Only team members may use them.
  * Returns the reason the word was left alone, or null when it was executed.
  */
-export async function applyControlWord(
+export async function applyVerbalCommand(
   workflow: WorkflowRuntime,
   event: InboundEvent,
 ): Promise<string | null> {

@@ -703,7 +703,7 @@ export function timePasses(minutes: number): WorkflowAction {
 }
 
 /**
- * A person sends a control word from the author's tracker issue, or from the chat thread for
+ * A person sends a verbal command from the author's tracker issue, or from the chat thread for
  * a task without one. A cancel from the chat thread cancels the whole workflow.
  */
 export function personSendsControl(
@@ -736,7 +736,7 @@ export function personCancels(via: "control" | "word"): WorkflowAction {
   });
 }
 
-/** What a person types in a tracker session: a question, a status request, or a control word. */
+/** What a person types in a tracker session: a question, a status request, or a verbal command. */
 export type SessionText = "question" | "status" | "pause" | "cancel";
 
 const SESSION_TEXTS: Record<SessionText, { kind: "prompt" | "status"; text: string }> = {

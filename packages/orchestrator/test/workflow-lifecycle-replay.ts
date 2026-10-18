@@ -11,7 +11,8 @@ import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { planTools } from "../src/agent/tools/plan";
 import { startTools } from "../src/agent/tools/start/start";
-import { CLOSING_TEXT_MARKER } from "../src/prompts/model-author-prompt";
+import { labeledPageCommentIds } from "../src/artifact/page-comment-label";
+import { CLOSING_TEXT_MARKER, replyMarker } from "../src/prompts/model-author-prompt";
 import { taskTools } from "../src/agent/tools/task";
 import type { SandboxRef } from "../src/sandbox/spec";
 import { jobInputKey } from "../src/workflow/store/input-key";
@@ -42,7 +43,6 @@ import {
   REPO,
   REQUEST_TEXTS,
   SECOND_DEFINITION,
-  SLOTS,
   STAGE_OF,
   WorkflowWorld,
   type StepFacts,
@@ -82,6 +82,14 @@ const CALL_KINDS = ["SandboxDestroy", "AcceptanceCheck", "ModelCall"] as const;
 const ROLES = ["Researcher", "Author"] as const;
 const JOB_ROLES: readonly TaskRow["role"][] = ["researcher", "author"];
 const ENDINGS = ["PersonCancels", "AgentFails", "AgentFinishes"] as const;
+const VERBAL_COMMANDS = ["Pause", "Resume", "Instruct"] as const;
+
+/** The chat message a person writes for each verbal command of the spec. */
+const VERBAL_COMMAND_TEXT = {
+  Pause: "pause",
+  Resume: "resume",
+  Instruct: "instruct Use the session cookie.",
+} as const satisfies Record<(typeof VERBAL_COMMANDS)[number], string>;
 
 /** The world timer of each generation timer of the spec. */
 const GENERATION_TIMER_OF = {
@@ -99,6 +107,7 @@ const UNDECLARED_DEFINITION = "triage";
 
 type CallKind = (typeof CALL_KINDS)[number];
 type Ending = (typeof ENDINGS)[number];
+type VerbalCommand = (typeof VERBAL_COMMANDS)[number];
 type GenerationTimer = (typeof GENERATION_TIMERS)[number];
 
 /** A researcher or author task of one job as the spec sees it. */
@@ -125,11 +134,11 @@ export type SpecJob = {
 /** One held call as the spec sees it, without the rest of the step that runs when it returns. */
 type SpecCall = { kind: CallKind; job: number };
 
-/** The workflow as the spec sees it. */
+/** The workflow as the spec sees it. `jobSlots` is null until a plan sets the stages. */
 export type SpecWorkflow = {
   status: (typeof WORKFLOW_STATUSES)[number];
   definition: number | null;
-  stagesPlanned: boolean;
+  jobSlots: number | null;
   idleArmed: boolean;
   jobs: SpecJob[];
   calls: SpecCall[];
@@ -140,6 +149,7 @@ export type SpecWorkflow = {
 type SpecPicks = {
   definition: number | null;
   withStages: boolean | null;
+  jobSlots: number | null;
   timer: GenerationTimer | null;
   sandbox: number | null;
   request: number | null;
@@ -147,6 +157,7 @@ type SpecPicks = {
   callId: number | null;
   accepted: boolean | null;
   ending: Ending | null;
+  command: VerbalCommand | null;
 };
 
 /** One state of a trace: the action that led to it, its picks, and the workflow. */
@@ -177,6 +188,7 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
       return pick?.tag === "Some" ? pick.value : null;
     };
     const ending = picked("ending");
+    const command = picked("command");
     const accepted = picked("accepted");
     const withStages = picked("withStages");
     const timer = picked("timer");
@@ -185,6 +197,7 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
       picks: {
         definition: optionalInt(picked("definition")),
         withStages: withStages === null ? null : itfBool(withStages),
+        jobSlots: optionalInt(picked("jobSlots")),
         timer:
           timer === null
             ? null
@@ -195,6 +208,7 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
         callId: optionalInt(picked("callId")),
         accepted: accepted === null ? null : itfBool(accepted),
         ending: ending === null ? null : itfOneOf(itfVariant(ending)!.tag, ENDINGS),
+        command: command === null ? null : itfOneOf(itfVariant(command)!.tag, VERBAL_COMMANDS),
       },
       workflow: specWorkflow(itfField(state, `${setup}::workflowLifecycle::workflow`)),
     };
@@ -207,10 +221,11 @@ function optionalInt(value: unknown): number | null {
 
 function specWorkflow(value: unknown): SpecWorkflow {
   const definition = itfVariant(itfField(value, "definition"))!;
+  const stagePlan = itfVariant(itfField(value, "stagePlan"))!;
   return {
     status: itfOneOf(itfVariant(itfField(value, "status"))!.tag, WORKFLOW_STATUSES),
     definition: definition.tag === "Planned" ? itfInt(definition.value) : null,
-    stagesPlanned: itfBool(itfField(value, "stagesPlanned")),
+    jobSlots: stagePlan.tag === "StagesPlanned" ? itfInt(stagePlan.value) : null,
     idleArmed: itfBool(itfField(value, "idleArmed")),
     jobs: itfList(itfField(value, "jobs")).map(specJob),
     calls: itfList(itfField(value, "calls")).map((call) => ({
@@ -269,7 +284,10 @@ class HoldingSandboxProvider extends FakeSandboxProvider {
   }
 }
 
-/** A page model that holds each call until the replay returns it, then answers with a new page. */
+/**
+ * A page model that holds each call until the replay returns it, then answers with a new page and
+ * a reply to each page comment its prompt carries.
+ */
 class HoldingPageModel implements LanguageModelV4 {
   readonly specificationVersion = "v4" as const;
   readonly provider = "test";
@@ -279,7 +297,15 @@ class HoldingPageModel implements LanguageModelV4 {
   constructor(private readonly hold: () => Promise<string>) {}
 
   async doGenerate(options: LanguageModelV4CallOptions): Promise<LanguageModelV4GenerateResult> {
-    return new EchoModel(await this.hold()).doGenerate(options);
+    const promptText = options.prompt
+      .flatMap((message) => (message.role === "user" ? message.content : []))
+      .map((part) => (part.type === "text" ? part.text : ""))
+      .join("");
+    const replies = labeledPageCommentIds(promptText).flatMap((commentId) => [
+      replyMarker(commentId),
+      "Answered on the page.",
+    ]);
+    return new EchoModel([await this.hold(), ...replies].join("\n")).doGenerate(options);
   }
 
   async doStream(_options: LanguageModelV4CallOptions): Promise<LanguageModelV4StreamResult> {
@@ -402,7 +428,7 @@ export class WorkflowLifecycleReplay {
     return {
       status: WORKFLOW_STATUS_OF[state.status],
       definition: state.definition === null ? null : state.definition === SECOND_DEFINITION ? 1 : 0,
-      stagesPlanned: state.stages.length > 0,
+      jobSlots: state.stages.length > 0 ? state.concurrency : null,
       idleArmed: workflow.alarmsFor("onIdle").length > 0,
       jobs: jobs.map((job) => {
         const artifact = store.artifact(job.job_id);
@@ -490,7 +516,12 @@ export class WorkflowLifecycleReplay {
       case "agentSetsPlan":
         return worldAction(
           `agent sets the plan of definition ${picks.definition}, with stages ${picks.withStages}`,
-          (world) => this.setPlan(world, required(picks.definition), required(picks.withStages)),
+          (world) =>
+            this.setPlan(world, {
+              definition: required(picks.definition),
+              withStages: required(picks.withStages),
+              jobSlots: required(picks.jobSlots),
+            }),
         );
       case "agentStartsJob":
         return worldAction(`agent starts a job on request ${picks.request}`, async (world) => {
@@ -523,6 +554,28 @@ export class WorkflowLifecycleReplay {
             await taskTools(world.workflow)[call].execute({ task_id: task.task_id }, TOOL_CALL);
           }),
         );
+      case "agentPromptsAuthor":
+        return worldAction(`agent prompts the task of job ${picks.id}`, (world) =>
+          this.runStep(async () => {
+            const task = this.taskOf(required(picks.id));
+            await taskTools(world.workflow).prompt_task.execute(
+              { task_id: task.task_id, text: "Add a test for it." },
+              TOOL_CALL,
+            );
+          }),
+        );
+      case "personSendsAVerbalCommand": {
+        const command = required(picks.command);
+        return worldAction(`a person says ${command}`, (world) =>
+          this.runStep(() =>
+            world.deliver({
+              kind: "prompt",
+              text: VERBAL_COMMAND_TEXT[command],
+              reply_to: world.workflow.state.origin ?? undefined,
+            }),
+          ),
+        );
+      }
       case "taskStalls":
         return worldAction(`task of job ${picks.id} stalls`, (world) =>
           this.taskStalls(world, required(picks.id)),
@@ -581,8 +634,11 @@ export class WorkflowLifecycleReplay {
 
   private async setPlan(
     world: WorkflowWorld,
-    definition: number,
-    withStages: boolean,
+    {
+      definition,
+      withStages,
+      jobSlots,
+    }: { definition: number; withStages: boolean; jobSlots: number },
   ): Promise<StepFacts> {
     const name =
       definition === 2
@@ -594,7 +650,7 @@ export class WorkflowLifecycleReplay {
       stages: [STAGE],
       repo: REPO,
       page_parent: this.modelAuthor ? PAGE_PARENT : null,
-      concurrency: SLOTS,
+      concurrency: jobSlots,
     };
     const { set_plan } = planTools(world.workflow);
     await set_plan.execute(

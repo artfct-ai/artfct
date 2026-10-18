@@ -27,7 +27,7 @@ import type { RefinerEntry, ReviewerEntry } from "../src/config/refiner";
 import { Notifier } from "../src/notify/notifier";
 import { startJob, type JobIssue } from "../src/workflow/lifecycle";
 import { createWorkflow, handleEvent } from "../src/workflow/inbound/events";
-import { parseControl } from "../src/workflow/inbound/control-words";
+import { parseVerbalCommand } from "../src/workflow/inbound/verbal-command";
 import { plainText } from "../src/notify/messages";
 import { outbox } from "../src/workflow/store/schema";
 import { isTaskFinished, type Subject } from "../src/workflow/store/state";
@@ -224,8 +224,8 @@ export const MAX_AUTHORS = 4;
 /** The most pages a world's authors can number. Each author numbers its artifact by its place. */
 const MAX_PAGES = 20;
 
-/** The task slots of the workflow of a world. */
-export const SLOTS = 2;
+/** The job slots of the workflow of a world. */
+const SLOTS = 2;
 
 /** The texts a person asks for ad hoc work with. The first one started the world's first job. */
 export const REQUEST_TEXTS = ["Fix the login redirect.", "Add a logout link."] as const;
@@ -1134,7 +1134,7 @@ export class WorkflowWorld {
       text: delivered.text,
       person: delivered.actor !== null,
       reply_to: delivered.reply_to ?? null,
-      control: delivered.control ?? parseControl(delivered.text)?.control ?? null,
+      control: delivered.control ?? parseVerbalCommand(delivered.text)?.control ?? null,
     };
     await handleEvent(this.workflow, delivered);
   }
