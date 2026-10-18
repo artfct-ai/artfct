@@ -380,9 +380,9 @@
           "promptsWaiting": 2
         },
         "nightly": {
-          "jobsStarted": 2,
+          "jobsStarted": 1,
           "callsOut": 2,
-          "promptsSent": 2,
+          "promptsSent": 3,
           "promptsWaiting": 2
         }
       },
