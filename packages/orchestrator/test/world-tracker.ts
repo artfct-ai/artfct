@@ -1,5 +1,4 @@
 import type { TrackerIssue, TrackerProject } from "@artfct-ai/adapters/tracker/types";
-import type { Subject } from "../src/workflow/store/state";
 
 /** The issue a tracker-origin world starts from, and the subject issue of every world that has one. */
 export const SUBJECT_ISSUE_KEY = "ENG-100";
@@ -62,11 +61,3 @@ export const WORLD_PROJECTS: Record<string, TrackerProject> = {
   [WORLD_PROJECT.id]: WORLD_PROJECT,
   [PROJECT_SLUG]: WORLD_PROJECT,
 };
-
-/** True when the world's tracker places the issue inside the subject. */
-export function worldIssueInSubject(subject: Subject, issueId: string): boolean {
-  const issue = WORLD_ISSUES.find((candidate) => candidate.id === issueId);
-  if (!issue) return false;
-  if (subject.kind === "project") return issue.project_id === subject.project_id;
-  return issue.id === subject.issue_id || issue.parent_id === subject.issue_id;
-}

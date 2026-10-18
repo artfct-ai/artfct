@@ -2,9 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/property-runs";
 import fc from "fast-check";
 import {
-  aJobWorksOnlyOnIssuesOfItsSubject,
   aSingleIssueWorkflowIsDoneWithItsSubjectsJob,
-  subjectNeverChanges,
   aFailedCheckNeverAsksThePersonAgain,
   aFailedCheckNeverCompletesAJob,
   artifactStatusMovesAreLegal,
@@ -169,8 +167,6 @@ const STEP_INVARIANTS = [
   feedActivityPostsOnce,
   sleepMessageOnlyDuringAWorkflow,
   workflowStartsOnlyFromAPlan,
-  aJobWorksOnlyOnIssuesOfItsSubject,
-  subjectNeverChanges,
   aSingleIssueWorkflowIsDoneWithItsSubjectsJob,
   anAcceptedArtifactNeverMovesBack,
   aModelCallAuthorWorksOnlyWhileItsCallIsOut,
@@ -985,7 +981,7 @@ const CORPUS_EXAMPLES = WORKFLOW_CORPUS.map((replayed): [ReplayedSequence] => [r
 
 describe("the workflow invariants", () => {
   it("are every state and step invariant", () => {
-    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(42);
+    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(40);
   });
 
   for (const property of PROPERTIES) {

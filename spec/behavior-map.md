@@ -31,6 +31,8 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | T19 | A harness author moves to `working` only when a prompt goes out for it. | |
 | T56 | Every event, alarm and tool call settles within a bounded amount of store work. A loop that never settles does not hang the workflow. | `world::withinWorkBudget` |
 | T58 | A single-issue workflow ends done when complete_job completes the job on its subject issue at the last planned stage. | `aSingleIssueWorkflowIsDoneWithItsSubjectsJob`, `workflowLifecycle::aSingleIssueWorkflowIsDoneWithItsSubjectsJob` |
+| T59 | A job on an issue works on the subject issue or an issue inside the subject. A start outside the subject, or before the workflow has one, is refused and does not start a job. | `workflowLifecycle::aJobWorksOnlyOnIssuesOfItsSubject` |
+| T60 | A tracker origin, the plan, or a recorded tracker output sets the subject once. A plan or an output that names another subject is refused, and the subject does not change. | `workflowLifecycle::subjectNeverChanges` |
 
 ### Restart, nudge, give up and fail
 

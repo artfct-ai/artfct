@@ -225,6 +225,7 @@ export async function onTurnEnd(
     return closeSessionFeed(workflow, task, failed ? null : feedClosingOf(stopReason));
   }
   workflow.store.patchTodoRow(task.task_id, { note: null });
+  if (!recordedNow) await reopenChangedArtifact(workflow, task.job_id);
   const busy = await settleAndResumeAuthor(workflow, task.task_id);
   await closeSessionFeed(workflow, task, busy ? null : feedClosingOf(stopReason));
   if (!busy) await announceReopenedDraft(workflow, task.job_id);
@@ -284,7 +285,6 @@ async function announceReopenedDraft(workflow: WorkflowRuntime, jobId: string): 
  */
 async function settleAndResumeAuthor(workflow: WorkflowRuntime, taskId: string): Promise<boolean> {
   const { job_id: jobId } = workflow.store.requireTask(taskId);
-  await reopenChangedArtifact(workflow, jobId);
   await settleRefinersForAuthor(workflow, workflow.store.requireTask(taskId));
   const { generation } = workflow.store.requireSandbox(taskId);
   const sent = await drainQueue(workflow, workflow.store.requireTask(taskId));
@@ -320,6 +320,7 @@ export async function settleIdleAuthor(
   const sandbox = workflow.store.sandbox(alarm.task_id);
   if (!task || !sandbox || sandbox.generation !== alarm.generation) return;
   if (task.status !== "working" || sandbox.prompt_in_flight === 1) return;
+  await reopenChangedArtifact(workflow, task.job_id);
   await settleAndResumeAuthor(workflow, task.task_id);
 }
 
@@ -444,6 +445,7 @@ export async function onRpcError(
     const failed = isTaskFinished(workflow.store.requireTask(task.task_id).status);
     return closeSessionFeed(workflow, task, failed ? null : { kind: "error", text: note });
   }
+  await reopenChangedArtifact(workflow, task.job_id);
   const busy = await settleAndResumeAuthor(workflow, task.task_id);
   await closeSessionFeed(workflow, task, busy ? null : { kind: "error", text: note });
   if (busy) return;

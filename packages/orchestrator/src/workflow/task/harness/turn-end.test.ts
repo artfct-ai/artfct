@@ -25,10 +25,24 @@ import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-ho
 import type { Decisions } from "@artfct-ai/adapters/gateway/types";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
+import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
+import type { TrackerIssue } from "@artfct-ai/adapters/tracker/types";
 import { markArtifactReady } from "../../refiner/outcome";
 
 const TASK = "wf_x.1";
 const JOB = "wf_x-1";
+const BREAKDOWN_ISSUE: TrackerIssue = {
+  id: "i42",
+  identifier: "ENG-42",
+  title: "Fix login",
+  url: "https://linear.app/acme/issue/ENG-42/fix-login",
+  state: { type: "unstarted", name: "Todo" },
+  team_id: null,
+  parent_id: null,
+  project_id: null,
+  labels: [],
+  blockers: [],
+};
 
 function hostAt(sha: string): FakeCodeHost {
   return new FakeCodeHost({
@@ -533,6 +547,32 @@ describe("onTurnEnd", () => {
             url: "https://linear.app/acme/issue/ENG-42",
           }),
         );
+      }));
+  });
+
+  describe("an author turn that records its issues, in a stage with no reviewers", () => {
+    const recorded = scenario(freshRuntime, (workflow) => {
+      const stages = workflow
+        .workflowDefinition()
+        .stages.map((stage) => ({ ...stage, reviewers: [] }));
+      workflow.patchWorkflowDefinition({ stages });
+      workflow.trackerInstance = new FakeTracker({ issues: [BREAKDOWN_ISSUE] });
+      const task = seedTask(workflow, { stage: "breakdown" });
+      workflow.store.updateSandbox(TASK, {
+        prompt_in_flight: 1,
+        turn_text: `I wrote the issues under ${BREAKDOWN_ISSUE.url} for this.`,
+      });
+      return onTurnEnd(workflow, task, "end_turn");
+    });
+
+    it("gives the issues to the humans", () =>
+      recorded((workflow) => {
+        expect(workflow.store.artifact(JOB)?.status).toBe("ready");
+      }));
+
+    it("announces them once", () =>
+      recorded((workflow) => {
+        expect(workflow.posted.filter((event) => event.type === "artifact_ready")).toHaveLength(1);
       }));
   });
 

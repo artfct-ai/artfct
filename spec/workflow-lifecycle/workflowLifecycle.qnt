@@ -7,8 +7,9 @@
 /// those into the step. The start of a task folds into the step that queues it: a harness gets its
 /// first prompt, and a model-call author sends its model call. A refiner run is modelled only as
 /// running, done, cancelled or failed. The review loop spec holds the rules of the run itself.
-/// A setup works pages for a chat request, or pulls for a tracker issue. The host and the tracker
-/// of a setup with pulls change outside the workflow, and the workflow hears of it as events.
+/// A setup works pages for a chat request, issues for a chat request, or pulls for a tracker issue.
+/// The host and the tracker of a setup with pulls change outside the workflow, and the workflow
+/// hears of it as events.
 module workflowLifecycleTypes {
   type WorkflowStatus = New | Running | WaitingInput | Done | Failed | Cancelled
 
@@ -45,12 +46,14 @@ module workflowLifecycleTypes {
   /// there here.
   type ArtifactStatus = NoArtifact | Drafted | Ready | Accepted | Removed
 
-  /// What the jobs of a setup work on: pages for a request in a chat thread, or pulls for tracker
-  /// issues under the issue the workflow started from, with one stage that ends a single-issue
-  /// workflow. A pull setup has the host move pulls on the subject issue, a person end the subject
-  /// issue or a sub-issue, or jobs on both issues without moves from outside.
+  /// What the jobs of a setup work on: pages for a request in a chat thread, the issues the
+  /// breakdown stage writes for a request in a chat thread, or pulls for tracker issues under the
+  /// issue the workflow started from, with one stage that ends a single-issue workflow. A pull
+  /// setup has the host move pulls on the subject issue, a person end the subject issue or a
+  /// sub-issue, or jobs on both issues without moves from outside.
   type Work =
     | PagesForAChatRequest
+    | IssuesForAChatRequest
     | PullsTheHostMoves
     | PullsForAnEndedSubject
     | PullsForAnEndedSubIssue
@@ -118,6 +121,10 @@ module workflowLifecycleTypes {
   /// stages only starts the workflow.
   type StagePlan = NoStages | StagesPlanned(int)
 
+  /// The one issue or tracker project the workflow works on, once a tracker origin, the plan or
+  /// a recorded tracker output set it. `SubjectIssue` names the issue by its number.
+  type Subject = NoSubject | SubjectIssue(int) | SubjectProject
+
   /// `failuresPosted` counts the posts that tell the person a researcher or author failed.
   /// `issueMoves` counts the moves of a tracker issue the workflow made. `endedIssues` holds the
   /// issues a person moved to a canceled or completed state on the tracker.
@@ -125,6 +132,7 @@ module workflowLifecycleTypes {
     status: WorkflowStatus,
     definition: PlanDefinition,
     stagePlan: StagePlan,
+    subject: Subject,
     idleArmed: bool,
     jobs: List[Job],
     calls: List[Call],
@@ -136,14 +144,19 @@ module workflowLifecycleTypes {
   /// A verbal command that acts on a job. The cancel ends the workflow, so it is an `Ending`.
   type VerbalCommand = Pause | Resume | Instruct
 
-  /// What an observer knows about the last step besides the states around it. `DeadlineStep` is
-  /// the deadline alarm of the model turn of a job. `PromptStep` is the agent's prompt to a task.
-  /// `FinishStep` is `finish_workflow`. `SubjectCompletionStep` runs `complete_job` on the job of
-  /// the subject issue up to its end or its next call, and so does the return of each call it
-  /// waits on. `IssueEndStep` is a person moving the issue to a canceled or completed state.
+  /// What an observer knows about the last step besides the states around it. `PlanStep` is a
+  /// plan with its workflow definition and the subject it names, `NoSubject` when it leaves the
+  /// subject out. `IssueStartStep` is `start_job` on the issue. `OutputStep` is the turn end of a
+  /// breakdown author with the subject its output names. `DeadlineStep` is the deadline alarm of
+  /// the model turn of a job. `PromptStep` is the agent's prompt to a task. `FinishStep` is
+  /// `finish_workflow`. `SubjectCompletionStep` runs `complete_job` on the job of the subject issue
+  /// up to its end or its next call, and so does the return of each call it waits on.
+  /// `IssueEndStep` is a person moving the issue to a canceled or completed state.
   type StepKind =
     | OtherStep
-    | PlanStep(int)
+    | PlanStep({ definition: int, subject: Subject })
+    | IssueStartStep(int)
+    | OutputStep(Subject)
     | EventStep
     | VerbalCommandStep(VerbalCommand)
     | PromptStep
@@ -183,6 +196,8 @@ module workflowLifecycleTypes {
     artifactStatusMovesAreLegal: bool,
     anAcceptedArtifactNeverMovesBack: bool,
     aSingleIssueWorkflowIsDoneWithItsSubjectsJob: bool,
+    subjectNeverChanges: bool,
+    aStartOutsideTheSubjectStartsNoJob: bool,
   }
 
   /// Whether the last step reached each before-and-after witness, by the name of the witness. Only
@@ -221,6 +236,12 @@ module workflowLifecycleTypes {
     theSubjectIssueEndCancelsTheWorkflow: bool,
     anIssueEndFindsAnAcceptedArtifact: bool,
     aCancelWordReachesTheSubjectsAuthor: bool,
+    aStartBeforeTheSubjectIsRefused: bool,
+    aStartOutsideTheSubjectIsRefused: bool,
+    aPlanSetsTheSubject: bool,
+    aPlanNamesAnotherSubject: bool,
+    anOutputSetsTheSubject: bool,
+    anOutputNamesAnotherSubject: bool,
   }
 
   type Ending = PersonCancels | AgentFails | AgentFinishes
@@ -254,23 +275,49 @@ module workflowLifecycle {
   pure val MAX_JOBS: int = 3
 
   /// The request texts a job can work from.
-  pure val REQUESTS: Set[int] = 0.to(1)
+  pure val REQUESTS: Set[int] = if (WRITES_ISSUES) Set(0) else 0.to(1)
 
   /// True when the jobs open pulls for tracker issues.
-  pure val WORKS_ON_PULLS: bool = WORK != PagesForAChatRequest
+  pure val WORKS_ON_PULLS: bool = WORK != PagesForAChatRequest and WORK != IssuesForAChatRequest
 
-  /// The issue the workflow started from, which is its subject.
+  /// True when the jobs of the breakdown stage end their turns with the link of the issues they
+  /// wrote.
+  pure val WRITES_ISSUES: bool = WORK == IssuesForAChatRequest
+
+  /// True when the agent may start a job on a tracker issue.
+  pure val STARTS_ON_ISSUES: bool = WORK != PagesForAChatRequest
+
+  /// True when the workflow started from the session of a tracker issue, which sets the subject
+  /// as the workflow opens. A setup with pulls does.
+  pure val TRACKER_ORIGIN: bool = WORKS_ON_PULLS
+
+  /// The issue a tracker origin starts the workflow from, and a plan or an output may name.
   pure val SUBJECT_ISSUE: int = 0
 
   /// A sub-issue of the subject issue.
   pure val SUB_ISSUE: int = 1
 
-  /// The tracker issues a job can work from.
+  /// An issue that is not a sub-issue of the subject issue and not in the project.
+  pure val STRAY_ISSUE: int = 2
+
+  /// The issues of the tracker project: the subject issue and its sub-issue.
+  pure val PROJECT_ISSUES: Set[int] = Set(SUBJECT_ISSUE, SUB_ISSUE)
+
+  /// The tracker issues a job can work from, also one outside the subject.
   pure val ISSUES: Set[int] = match WORK {
-    | PullsForAnEndedSubIssue => Set(SUB_ISSUE)
-    | PullsForTwoIssues => Set(SUBJECT_ISSUE, SUB_ISSUE)
-    | _ => Set(SUBJECT_ISSUE)
+    | PullsForAnEndedSubIssue => Set(SUB_ISSUE, STRAY_ISSUE)
+    | PullsForTwoIssues => Set(SUBJECT_ISSUE, SUB_ISSUE, STRAY_ISSUE)
+    | IssuesForAChatRequest => Set(SUBJECT_ISSUE, SUB_ISSUE, STRAY_ISSUE)
+    | _ => Set(SUBJECT_ISSUE, STRAY_ISSUE)
   }
+
+  /// The subjects a plan or an output can name: the subject issue and the project.
+  pure val TRACKER_LINKS: Set[Subject] = Set(SubjectIssue(SUBJECT_ISSUE), SubjectProject)
+
+  /// The subjects a plan can name, or `NoSubject` when it leaves the subject out. Only a setup
+  /// that starts jobs on issues names one.
+  pure val PLAN_SUBJECTS: Set[Subject] =
+    if (STARTS_ON_ISSUES) TRACKER_LINKS.union(Set(NoSubject)) else Set(NoSubject)
 
   /// True when a person ends issues on the tracker.
   pure val A_PERSON_ENDS_ISSUES: bool = WORK == PullsForAnEndedSubject or WORK == PullsForAnEndedSubIssue
@@ -295,6 +342,7 @@ module workflowLifecycle {
     status: New,
     definition: Unplanned,
     stagePlan: NoStages,
+    subject: if (TRACKER_ORIGIN) SubjectIssue(SUBJECT_ISSUE) else NoSubject,
     idleArmed: true,
     jobs: List(),
     calls: List(),
@@ -441,15 +489,44 @@ module workflowLifecycle {
   pure def continuesAPull(job: Job): bool =
     WORKS_ON_PULLS and match job.input { | FromArtifactOf(_) => true | _ => false }
 
+  /// True when the issue is in the subject: the subject issue and its sub-issue, or an issue of
+  /// the project. An issue is not in the subject of a workflow that does not have one yet.
+  pure def issueInSubject(subject: Subject, issue: int): bool = match subject {
+    | NoSubject => false
+    | SubjectIssue(subjectIssue) => issue == subjectIssue or (subjectIssue == SUBJECT_ISSUE and issue == SUB_ISSUE)
+    | SubjectProject => PROJECT_ISSUES.contains(issue)
+  }
+
+  /// True when the output of the job is its input: a breakdown job on the subject issue whose
+  /// output names it. A recorded output names the subject, since the output sets a missing
+  /// subject and another one is refused.
+  pure def outputIsItsInput(flow: Workflow, id: int): bool = and {
+    WRITES_ISSUES,
+    flow.jobs[id].artifact != NoArtifact,
+    match flow.subject {
+      | SubjectIssue(issue) => flow.jobs[id].input == FromIssue(issue)
+      | _ => false
+    },
+  }
+
   /// A job holds its input while its task is unfinished, and after that while its output exists
-  /// and the host has not removed it. A job that continues a pull does not hold it once finished.
-  pure def holdsItsInput(job: Job): bool = or {
-    not(isFinished(job.tasks[job.tasks.length() - 1].status)),
-    job.artifact != NoArtifact and job.artifact != Removed and not(continuesAPull(job)),
+  /// and the host has not removed it. A job that continues a pull does not hold it once finished,
+  /// and neither does a job whose output is its input.
+  pure def holdsItsInput(flow: Workflow, id: int): bool = {
+    val job = flow.jobs[id]
+    or {
+      not(isFinished(job.tasks[job.tasks.length() - 1].status)),
+      and {
+        job.artifact != NoArtifact,
+        job.artifact != Removed,
+        not(continuesAPull(job)),
+        not(outputIsItsInput(flow, id)),
+      },
+    }
   }
 
   pure def inputHeld(flow: Workflow, input: Input): bool =
-    jobIds(flow).exists(id => flow.jobs[id].input == input and holdsItsInput(flow.jobs[id]))
+    jobIds(flow).exists(id => flow.jobs[id].input == input and holdsItsInput(flow, id))
 
   /// True while the loop of a workflow end waits on the destroy of an author's sandbox. Only this
   /// instance knows it, so a restart of the Durable Object forgets it with the calls it drops.
@@ -470,21 +547,14 @@ module workflowLifecycle {
     })
 
   /// The job slots of the workflow: those the plan set with the stages. Before that, a page
-  /// stage has none, and a pull stage has those the workflow opened with.
+  /// stage does not have any, and any other stage has those the workflow opened with.
   pure def jobSlotsOf(flow: Workflow): int = match flow.stagePlan {
-    | NoStages => if (WORKS_ON_PULLS) UNPLANNED_SLOTS else 0
+    | NoStages => if (WORK == PagesForAChatRequest) 0 else UNPLANNED_SLOTS
     | StagesPlanned(jobSlots) => jobSlots
   }
 
   /// True when a job slot is free. A refiner run takes no slot.
   pure def hasAFreeJobSlot(flow: Workflow): bool = unfinishedJobIds(flow).length() < jobSlotsOf(flow)
-
-  pure def canStartJob(flow: Workflow, input: Input): bool = and {
-    not(hasEnded(flow.status)),
-    not(workflowEnding(flow)),
-    hasAFreeJobSlot(flow),
-    not(inputHeld(flow, input)),
-  }
 
   /// `startJob`: the job starts with its researcher when the stage runs one, else with its author.
   pure def startedJob(flow: Workflow, input: Input): Workflow = {
@@ -518,7 +588,7 @@ module workflowLifecycle {
 
   /// The loop of a workflow end cancels the unfinished refiner runs and sets the status last. A
   /// cancelled polisher hands the page it holds to the humans blocked. A workflow from a tracker
-  /// issue that ends done moves that issue to completed.
+  /// origin that ends done moves its issue to completed.
   pure def finishWorkflowEnd(flow: Workflow, endsAs: WorkflowStatus): Workflow = {
     val stopped = range(0, MAX_JOBS).select(id => id < flow.jobs.length()).foldl(flow, (ending, id) =>
       if (not(refinerRunning(ending.jobs[id]))) ending
@@ -526,7 +596,7 @@ module workflowLifecycle {
         val cancelled = withJob(ending, id, endLastRefinerRun(ending.jobs[id], RefinerCancelled))
         if (REFINER == APolisher) handOverPage(cancelled, id) else cancelled
       })
-    val movesTheIssue = endsAs == Done and WORKS_ON_PULLS
+    val movesTheIssue = endsAs == Done and TRACKER_ORIGIN
     {
       ...stopped,
       status: endsAs,
@@ -617,15 +687,25 @@ module workflowLifecycle {
       })
   }
 
+  /// True when the job works on the subject issue of a single-issue workflow. A plan that holds
+  /// the breakdown stage plans issues, so its workflow is not single-issue.
+  pure def worksOnTheSingleSubjectIssue(flow: Workflow, id: int): bool = and {
+    not(WRITES_ISSUES),
+    match flow.subject {
+      | SubjectIssue(issue) => flow.jobs[id].input == FromIssue(issue)
+      | _ => false
+    },
+  }
+
   /// True when `complete_job` on the job ends the workflow: the job works on the subject issue at
   /// the last planned stage of a single-issue workflow. A plan with stages plans the one pull
   /// stage.
   pure def completesTheWorkflow(flow: Workflow, id: int): bool =
-    flow.jobs[id].input == FromIssue(SUBJECT_ISSUE) and flow.stagePlan != NoStages
+    worksOnTheSingleSubjectIssue(flow, id) and flow.stagePlan != NoStages
 
   /// `completeJob` ends the author done with the row it read before the check.
   pure def completeAuthor(flow: Workflow, id: int): Outcome = {
-    val caller = if (flow.jobs[id].input == FromIssue(SUBJECT_ISSUE)) SubjectJobCompletes else ToolOrEvent
+    val caller = if (worksOnTheSingleSubjectIssue(flow, id)) SubjectJobCompletes else ToolOrEvent
     endTask(flow, id, TaskDone, AfterComplete, caller)
   }
 
@@ -968,7 +1048,7 @@ module workflowLifecycle {
 
   /// `validateEarlierOutputRemoved` on the finished jobs on the issue, in the order they started.
   /// A pull the host closed unmerged is recorded removed. The first artifact the host still holds
-  /// refuses the start, and the removals recorded before it stay.
+  /// refuses the start, unless it is the job's input, and the removals recorded before it stay.
   pure def recordEarlierPullsRemoved(flow: Workflow, issue: int): { flow: Workflow, clear: bool } =
     range(0, MAX_JOBS).foldl({ flow: flow, clear: true }, (checked, id) => {
       val earlier = and {
@@ -979,7 +1059,7 @@ module workflowLifecycle {
       if (not(checked.clear) or not(earlier)) checked
       else {
         val artifact = checked.flow.jobs[id].artifact
-        if (artifact == NoArtifact or artifact == Removed) checked
+        if (artifact == NoArtifact or artifact == Removed or outputIsItsInput(checked.flow, id)) checked
         else if (artifact != Accepted and checked.flow.jobs[id].pullOnHost == PullClosed)
           { ...checked, flow: advanceArtifact(checked.flow, id, Removed) }
         else { ...checked, clear: false }
@@ -1017,8 +1097,8 @@ module workflowLifecycle {
 
   /// A person moves the issue to a canceled or completed state, and the tracker shows it ended.
   /// The newest job on the issue owns the cancel. An accepted artifact of the owner keeps the
-  /// workflow as it is. The owner on a sub-issue is cancelled alone, unless it is over. Any other
-  /// cancel ends the workflow.
+  /// workflow as it is. The owner on an issue other than the subject issue is cancelled alone,
+  /// unless it is over. Any other cancel ends the workflow.
   pure def issueEnded(flow: Workflow, issue: int): Outcome = {
     val ended = { ...flow, endedIssues: flow.endedIssues.union(Set(issue)) }
     val owners = jobsOnIssue(flow, issue)
@@ -1027,7 +1107,7 @@ module workflowLifecycle {
     else {
       val owner = owners[owners.length() - 1]
       if (flow.jobs[owner].artifact == Accepted) untold(ended)
-      else if (issue == SUBJECT_ISSUE) cancelUnlessEnding(ended)
+      else if (flow.subject == SubjectIssue(issue)) cancelUnlessEnding(ended)
       else if (isFinished(jobTask(flow, owner).status)) untold(ended)
       else endTask(ended, owner, TaskCancelled, AfterCancel, ToolOrEvent)
     }
@@ -1101,37 +1181,47 @@ module workflowLifecycle {
 
   /// The agent calls `set_plan` with a workflow definition while the workflow has not ended. The
   /// call that starts the workflow may leave out the stages. A plan with stages sets the number of
-  /// job slots, also below the jobs that run. A plan is refused while the workflow ends, when it
-  /// names a workflow definition the deployment does not hold or another one than the workflow
-  /// started from, and when it leaves out the stages on a started workflow. The plan that starts a
-  /// workflow from a tracker issue moves that issue to started.
+  /// job slots, also below the jobs that run. A plan may name the subject, which it sets when the
+  /// workflow does not have one. A plan is refused while the workflow ends, when it names a workflow
+  /// definition the deployment does not hold or another one than the workflow started from, when
+  /// it names another subject than the workflow has, and when it leaves out the stages on a
+  /// started workflow. The plan that starts a workflow from a tracker origin moves its issue to
+  /// started.
   action agentSetsPlan: bool = all {
     not(hasEnded(workflow.status)),
     nondet definition = NAMED_DEFINITIONS.oneOf()
     nondet withStages = Set(true, false).oneOf()
     nondet jobSlots = SLOT_COUNTS.oneOf()
+    nondet subjectLink = PLAN_SUBJECTS.oneOf()
     val undeclared = not(DEFINITIONS.contains(definition))
     val otherDefinition = workflow.definition != Unplanned and workflow.definition != Planned(definition)
+    val otherSubject = and {
+      subjectLink != NoSubject,
+      workflow.subject != NoSubject,
+      subjectLink != workflow.subject,
+    }
     val stagesLeftOut = not(withStages) and workflow.definition != Unplanned
-    val refused = workflowEnding(workflow) or undeclared or otherDefinition or stagesLeftOut
-    val movesTheIssue = workflow.definition == Unplanned and WORKS_ON_PULLS
+    val refused = workflowEnding(workflow) or undeclared or otherDefinition or otherSubject or stagesLeftOut
+    val movesTheIssue = workflow.definition == Unplanned and TRACKER_ORIGIN
     val planned = {
       ...workflow,
       definition: Planned(definition),
       status: Running,
       stagePlan: if (withStages) StagesPlanned(jobSlots) else workflow.stagePlan,
+      subject: if (workflow.subject == NoSubject) subjectLink else workflow.subject,
       issueMoves: if (movesTheIssue) workflow.issueMoves + 1 else workflow.issueMoves,
     }
-    move(untold(if (refused) workflow else planned), PlanStep(definition))
+    move(untold(if (refused) workflow else planned), PlanStep({ definition: definition, subject: subjectLink }))
   }
 
-  /// The agent calls `start_job` for the page stage in a turn a request woke. It may be refused.
+  /// The agent calls `start_job` for the stage in a turn a request woke. It may be refused.
   action agentStartsJob: bool = all {
-    WORK == PagesForAChatRequest,
+    not(WORKS_ON_PULLS),
     workflow.jobs.length() < MAX_JOBS,
     nondet request = REQUESTS.oneOf()
     val input = inputFor(workflow, request)
-    move(untold(if (canStartJob(workflow, input)) startedJob(workflow, input) else workflow), OtherStep),
+    val refused = not(startAllowed(workflow)) or inputHeld(workflow, input)
+    move(untold(if (refused) workflow else startedJob(workflow, input)), OtherStep),
   }
 
   /// True while a job can start: a plan started the workflow, it has not ended, no end runs, and
@@ -1143,24 +1233,30 @@ module workflowLifecycle {
     hasAFreeJobSlot(flow),
   }
 
-  /// The agent calls `start_job` for the pull stage on the subject issue or its sub-issue, also
-  /// one an earlier job took. The tracker refuses an issue a person ended. An earlier artifact the
-  /// host still holds refuses it, and so does an unfinished job on the issue. The start claims the
-  /// issue, which moves it to started.
+  /// The agent calls `start_job` for the stage on the subject issue, its sub-issue, or an issue
+  /// outside the subject, also one an earlier job took. An issue outside the subject is refused,
+  /// and so is any issue before the workflow has a subject. The tracker refuses an issue a person
+  /// ended. An earlier artifact the host still holds refuses it, and so does an unfinished job on
+  /// the issue. The start claims the issue, which moves it to started.
   action agentStartsJobOnAnIssue: bool = all {
-    WORKS_ON_PULLS,
+    STARTS_ON_ISSUES,
     workflow.jobs.length() < MAX_JOBS,
     nondet issue = ISSUES.oneOf()
     val input = FromIssue(issue)
     val earlier = recordEarlierPullsRemoved(workflow, issue)
     val started = startedJob(earlier.flow, input)
+    val refusedAtOnce = or {
+      not(startAllowed(workflow)),
+      not(issueInSubject(workflow.subject, issue)),
+      workflow.endedIssues.contains(issue),
+    }
     move(
       untold(
-        if (not(startAllowed(workflow)) or workflow.endedIssues.contains(issue)) workflow
+        if (refusedAtOnce) workflow
         else if (not(earlier.clear) or inputInWork(workflow, input)) earlier.flow
         else { ...started, issueMoves: started.issueMoves + 1 },
       ),
-      OtherStep,
+      IssueStartStep(issue),
     ),
   }
 
@@ -1191,6 +1287,7 @@ module workflowLifecycle {
   /// prompt goes out or the stage runs refiners.
   action authorWritesItsPage: bool = onJobWhere(
     id => and {
+      not(WRITES_ISSUES),
       taskWorks(workflow, id),
       jobTask(workflow, id).role == Author,
       workflow.jobs[id].artifact == NoArtifact,
@@ -1204,6 +1301,32 @@ module workflowLifecycle {
           told: REFINER == NoRefiner and jobTask(workflow, id).promptsQueued == 0,
         },
         OtherStep,
+      )
+    },
+  )
+
+  /// The breakdown author ends its turn with the link of the issues it wrote: the subject issue or
+  /// the project. An output that names the subject is recorded as a page is, and it sets the
+  /// subject of a workflow that does not have one. An output that names another subject is not recorded.
+  /// The author gets the reason as its next prompt, its turn goes on, and the agent is not told.
+  /// A recorded output is a task result, so it tells the agent even when a prompt waits.
+  action authorLinksItsIssues: bool = onJobWhere(
+    id => and {
+      WRITES_ISSUES,
+      taskWorks(workflow, id),
+      jobTask(workflow, id).role == Author,
+      workflow.jobs[id].artifact == NoArtifact,
+    },
+    id => {
+      nondet outputLink = TRACKER_LINKS.oneOf()
+      val author = jobTask(workflow, id)
+      val otherSubject = workflow.subject != NoSubject and outputLink != workflow.subject
+      val refused = withTask(workflow, id, { ...author, promptsSent: author.promptsSent + 1 })
+      val recorded = { ...pageWritten(workflow, id), subject: outputLink }
+      move(
+        if (otherSubject) untold(refused)
+        else { flow: recorded, told: REFINER == NoRefiner },
+        OutputStep(outputLink),
       )
     },
   )
@@ -1288,8 +1411,8 @@ module workflowLifecycle {
     )
   })
 
-  /// The acceptance check returns. For a page, the decisions model reads an acceptance in the
-  /// person's message or does not. For a pull, the host says whether it merged the pull, which
+  /// The acceptance check returns. For a page or issues, the decisions model reads an acceptance
+  /// in the person's message or does not. For a pull, the host says whether it merged the pull, which
   /// it may have done without an event the workflow heard. A merged pull records the artifact
   /// accepted. `complete_job` reads the author again after the check, so an author that finished
   /// meanwhile keeps its status.
@@ -1303,9 +1426,9 @@ module workflowLifecycle {
     val host = workflow.jobs[opener].pullOnHost
     val merged = host == PullMerged or (host == PullOpen and accepted)
     val checked =
-      if (WORK == PagesForAChatRequest or not(merged)) returned
+      if (not(WORKS_ON_PULLS) or not(merged)) returned
       else advanceArtifact(withPullOnHost(returned, opener, PullMerged), id, Accepted)
-    val passes = if (WORK == PagesForAChatRequest) accepted else merged
+    val passes = if (WORKS_ON_PULLS) merged else accepted
     val completes = passes and not(isFinished(jobTask(workflow, id).status))
     move(if (completes) completeAuthor(checked, id) else untold(checked), completionStepKind(workflow, id, completes)),
   }
@@ -1362,9 +1485,9 @@ module workflowLifecycle {
     move(eventHandled(workflow, untold(if (hasEnded(workflow.status)) workflow else messageWakes(workflow))), EventStep)
 
   /// A person's message in the session of the subject issue goes to its author as a prompt while
-  /// the author runs. Only a workflow from a tracker issue has that session.
+  /// the author runs. Only a workflow from a tracker origin has that session.
   pure def forwardedToTheSessionAuthor(flow: Workflow): List[int] =
-    if (WORKS_ON_PULLS) runningSessionAuthor(flow) else List()
+    if (TRACKER_ORIGIN) runningSessionAuthor(flow) else List()
 
   /// A person sends a verbal command where the request came from: pause, resume, or instruct with
   /// its text. The message wakes a sleeping workflow. In the session of the subject issue it goes
@@ -1404,7 +1527,7 @@ module workflowLifecycle {
           eventHandled(
             workflow,
             if (hasEnded(workflow.status)) untold(workflow)
-            else if (WORKS_ON_PULLS) cancelWordInTheSession(workflow)
+            else if (TRACKER_ORIGIN) cancelWordInTheSession(workflow)
             else cancelUnlessEnding(workflow),
           ),
           EventStep,
@@ -1494,8 +1617,9 @@ module workflowLifecycle {
   /// The agent starts a job on a request, on an issue, or on a pull to continue.
   action aJobStarts: bool = any { agentStartsJob, agentStartsJobOnAnIssue, agentContinuesAPull }
 
-  /// The researcher hands over to the author, or the harness author writes its page.
-  action aTaskEndsItsTurn: bool = any { researcherHandsOver, authorWritesItsPage }
+  /// The researcher hands over to the author, or the harness author writes its page or links its
+  /// issues.
+  action aTaskEndsItsTurn: bool = any { researcherHandsOver, authorWritesItsPage, authorLinksItsIssues }
 
   /// The refiner run of a job approves or fails.
   action aRefinerRunEnds: bool = any { refinerRunEnds, refinerRunFails }
@@ -1564,13 +1688,37 @@ module workflowLifecycle {
   /// the deployment.
   pure def onlyAPlanStarts(step: Transition): bool =
     (step.before.definition == Unplanned and step.after.definition != Unplanned) implies
-      DEFINITIONS.exists(definition =>
-        step.after.definition == Planned(definition) and step.kind == PlanStep(definition))
+      DEFINITIONS.exists(definition => and {
+        step.after.definition == Planned(definition),
+        match step.kind {
+          | PlanStep(plan) => plan.definition == definition
+          | _ => false
+        },
+      })
 
   /// A plan that names a workflow definition the deployment does not hold changes nothing.
   pure def ignoresAnUndeclaredPlan(step: Transition): bool = match step.kind {
-    | PlanStep(definition) => not(DEFINITIONS.contains(definition)) implies step.after == step.before
+    | PlanStep(plan) => not(DEFINITIONS.contains(plan.definition)) implies step.after == step.before
     | _ => true
+  }
+
+  /// Once set, the subject does not change.
+  pure def keepsTheSubject(step: Transition): bool =
+    step.before.subject != NoSubject implies step.after.subject == step.before.subject
+
+  /// A start on an issue outside the subject, or before the workflow has one, does not start a
+  /// job.
+  pure def startsNoJobOutsideTheSubject(step: Transition): bool = match step.kind {
+    | IssueStartStep(issue) =>
+      not(issueInSubject(step.before.subject, issue)) implies step.after.jobs.length() == step.before.jobs.length()
+    | _ => true
+  }
+
+  /// True when `start_job` on an issue lands while a job may start, so only the issue can refuse
+  /// it.
+  pure def issueStartMayStart(step: Transition): bool = match step.kind {
+    | IssueStartStep(_) => startAllowed(step.before)
+    | _ => false
   }
 
   /// A later plan cannot change the workflow definition a workflow started with.
@@ -1713,6 +1861,8 @@ module workflowLifecycle {
     artifactStatusMovesAreLegal: movesArtifactsLegally(step),
     anAcceptedArtifactNeverMovesBack: keepsAnAcceptedArtifact(step),
     aSingleIssueWorkflowIsDoneWithItsSubjectsJob: isDoneWithTheSubjectsJob(step),
+    subjectNeverChanges: keepsTheSubject(step),
+    aStartOutsideTheSubjectStartsNoJob: startsNoJobOutsideTheSubject(step),
   }
 
   /// Whether one step reached each before-and-after witness.
@@ -1725,7 +1875,7 @@ module workflowLifecycle {
         | _ => false
       },
       anUndeclaredPlanLands: match step.kind {
-        | PlanStep(definition) => not(DEFINITIONS.contains(definition))
+        | PlanStep(plan) => not(DEFINITIONS.contains(plan.definition))
         | _ => false
       },
       aPlanLeavesFewerSlotsThanJobs: match step.kind {
@@ -1842,6 +1992,36 @@ module workflowLifecycle {
         jobTask(step.after, id).promptsSent + jobTask(step.after, id).promptsQueued >
           jobTask(step.before, id).promptsSent + jobTask(step.before, id).promptsQueued,
       }),
+      aStartBeforeTheSubjectIsRefused: issueStartMayStart(step) and step.before.subject == NoSubject,
+      aStartOutsideTheSubjectIsRefused: match step.kind {
+        | IssueStartStep(issue) => and {
+          issueStartMayStart(step),
+          step.before.subject != NoSubject,
+          not(issueInSubject(step.before.subject, issue)),
+        }
+        | _ => false
+      },
+      aPlanSetsTheSubject: match step.kind {
+        | PlanStep(_) => step.before.subject == NoSubject and step.after.subject != NoSubject
+        | _ => false
+      },
+      aPlanNamesAnotherSubject: match step.kind {
+        | PlanStep(plan) => and {
+          not(workflowEnding(step.before)),
+          step.before.subject != NoSubject,
+          plan.subject != NoSubject,
+          plan.subject != step.before.subject,
+        }
+        | _ => false
+      },
+      anOutputSetsTheSubject: match step.kind {
+        | OutputStep(_) => step.before.subject == NoSubject and step.after.subject != NoSubject
+        | _ => false
+      },
+      anOutputNamesAnotherSubject: match step.kind {
+        | OutputStep(link) => step.before.subject != NoSubject and link != step.before.subject
+        | _ => false
+      },
     }
   }
 
@@ -1878,14 +2058,27 @@ module workflowLifecycle {
   /// on finish_workflow.
   val aSingleIssueWorkflowIsDoneWithItsSubjectsJob: bool = lastStepKept.aSingleIssueWorkflowIsDoneWithItsSubjectsJob
 
+  /// Every job on an issue works on the subject issue or an issue inside the subject. A start
+  /// outside the subject, or before it is set, does not start a job.
+  val aJobWorksOnlyOnIssuesOfItsSubject: bool = and {
+    lastStepKept.aStartOutsideTheSubjectStartsNoJob,
+    jobIds(workflow).forall(id => match workflow.jobs[id].input {
+      | FromIssue(issue) => issueInSubject(workflow.subject, issue)
+      | _ => true
+    }),
+  }
+
+  /// Once set, the subject does not change.
+  val subjectNeverChanges: bool = lastStepKept.subjectNeverChanges
+
   /// Only one live job works from each input. An unfinished job holds its input. A finished job
-  /// holds it while its output exists.
+  /// holds it while its output exists, unless that output is the input itself.
   val oneLiveJobPerInputArtifact: bool =
     jobIds(workflow).forall(id => jobIds(workflow).forall(other => and {
       id != other,
       workflow.jobs[id].input == workflow.jobs[other].input,
-      holdsItsInput(workflow.jobs[id]),
-    } implies not(holdsItsInput(workflow.jobs[other]))))
+      holdsItsInput(workflow, id),
+    } implies not(holdsItsInput(workflow, other))))
 
   /// A finished task never changes status again, and a finished refiner run does not run again.
   val finishedTaskKeepsItsStatus: bool = lastStepKept.finishedTaskKeepsItsStatus
@@ -2221,4 +2414,47 @@ module workflowLifecycle {
 
   /// Witness for `workflowStartsOnlyFromAPlan`: the workflow moved a tracker issue.
   val theWorkflowMovedAnIssue: bool = workflow.issueMoves > 0
+
+  /// Witness for `aJobWorksOnlyOnIssuesOfItsSubject`: `start_job` names an issue before the
+  /// workflow has a subject.
+  val aStartBeforeTheSubjectIsRefused: bool = lastStepReached.aStartBeforeTheSubjectIsRefused
+
+  /// Witness for `aJobWorksOnlyOnIssuesOfItsSubject`: `start_job` names an issue outside the
+  /// subject.
+  val aStartOutsideTheSubjectIsRefused: bool = lastStepReached.aStartOutsideTheSubjectIsRefused
+
+  /// Witness for `aJobWorksOnlyOnIssuesOfItsSubject`: a job works on the sub-issue of the subject
+  /// issue.
+  val aJobWorksOnASubIssue: bool = and {
+    workflow.subject == SubjectIssue(SUBJECT_ISSUE),
+    jobIds(workflow).exists(id => workflow.jobs[id].input == FromIssue(SUB_ISSUE)),
+  }
+
+  /// Witness for `aJobWorksOnlyOnIssuesOfItsSubject`: a job works on an issue of the subject
+  /// project.
+  val aJobWorksOnAnIssueOfTheProject: bool = and {
+    workflow.subject == SubjectProject,
+    jobIds(workflow).exists(id => match workflow.jobs[id].input {
+      | FromIssue(_) => true
+      | _ => false
+    }),
+  }
+
+  /// Witness for `subjectNeverChanges`: a plan sets the subject.
+  val aPlanSetsTheSubject: bool = lastStepReached.aPlanSetsTheSubject
+
+  /// Witness for `subjectNeverChanges`: a plan names another subject than the workflow has.
+  val aPlanNamesAnotherSubject: bool = lastStepReached.aPlanNamesAnotherSubject
+
+  /// Witness for `subjectNeverChanges`: the output of a breakdown author sets the subject.
+  val anOutputSetsTheSubject: bool = lastStepReached.anOutputSetsTheSubject
+
+  /// Witness for `subjectNeverChanges`: the output of a breakdown author names another subject
+  /// than the workflow has.
+  val anOutputNamesAnotherSubject: bool = lastStepReached.anOutputNamesAnotherSubject
+
+  /// Witness for `oneLiveJobPerInputArtifact`: a breakdown job on the subject issue finished with
+  /// an output that names it, so it does not hold the issue.
+  val anOutputIsItsInput: bool = jobIds(workflow).exists(id =>
+    outputIsItsInput(workflow, id) and isFinished(jobTask(workflow, id).status))
 }
