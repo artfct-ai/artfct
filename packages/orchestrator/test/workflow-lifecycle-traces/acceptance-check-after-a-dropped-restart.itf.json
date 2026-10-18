@@ -25,10 +25,16 @@
             "#tup": []
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [],
         "stagePlan": {
           "tag": "NoStages",
@@ -75,7 +81,19 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -131,10 +149,16 @@
             "#tup": []
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": false,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [],
         "stagePlan": {
           "tag": "NoStages",
@@ -181,7 +205,19 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -237,10 +273,16 @@
             "#bigint": "1"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": false,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [],
         "stagePlan": {
           "tag": "StagesPlanned",
@@ -287,7 +329,19 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -341,10 +395,16 @@
             "#bigint": "1"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": false,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [
           {
             "artifact": {
@@ -390,7 +450,13 @@
                 "turnRunning": true
               }
             ],
-            "refinerRuns": []
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "stagePlan": {
@@ -438,7 +504,19 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -494,10 +572,16 @@
             "#bigint": "1"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [
           {
             "artifact": {
@@ -543,7 +627,13 @@
                 "turnRunning": false
               }
             ],
-            "refinerRuns": []
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "stagePlan": {
@@ -591,10 +681,22 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
           "tag": "Some",
           "value": {
             "#bigint": "0"
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "jobSlots": {
@@ -647,10 +749,16 @@
             "#bigint": "1"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [
           {
             "artifact": {
@@ -696,7 +804,13 @@
                 "turnRunning": false
               }
             ],
-            "refinerRuns": []
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "stagePlan": {
@@ -744,10 +858,22 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
           "tag": "Some",
           "value": {
             "#bigint": "0"
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "jobSlots": {
@@ -800,10 +926,16 @@
             "#bigint": "1"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [
           {
             "artifact": {
@@ -849,7 +981,13 @@
                 "turnRunning": true
               }
             ],
-            "refinerRuns": []
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "stagePlan": {
@@ -897,10 +1035,22 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
           "tag": "Some",
           "value": {
             "#bigint": "0"
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "jobSlots": {
@@ -971,10 +1121,16 @@
             "#bigint": "1"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [
           {
             "artifact": {
@@ -1020,7 +1176,13 @@
                 "turnRunning": true
               }
             ],
-            "refinerRuns": []
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "stagePlan": {
@@ -1068,10 +1230,22 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
           "tag": "Some",
           "value": {
             "#bigint": "0"
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "jobSlots": {
@@ -1142,10 +1316,16 @@
             "#bigint": "1"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [
           {
             "artifact": {
@@ -1191,7 +1371,13 @@
                 "turnRunning": true
               }
             ],
-            "refinerRuns": []
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "stagePlan": {
@@ -1239,7 +1425,19 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1311,10 +1509,16 @@
             "#bigint": "1"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [
           {
             "artifact": {
@@ -1360,7 +1564,13 @@
                 "turnRunning": true
               }
             ],
-            "refinerRuns": []
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "stagePlan": {
@@ -1408,7 +1618,19 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1480,10 +1702,16 @@
             "#bigint": "1"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [
           {
             "artifact": {
@@ -1529,7 +1757,13 @@
                 "turnRunning": true
               }
             ],
-            "refinerRuns": []
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "stagePlan": {
@@ -1577,10 +1811,22 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
           "tag": "Some",
           "value": {
             "#bigint": "0"
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "jobSlots": {
@@ -1633,10 +1879,16 @@
             "#bigint": "1"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [
           {
             "artifact": {
@@ -1682,7 +1934,13 @@
                 "turnRunning": true
               }
             ],
-            "refinerRuns": []
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "stagePlan": {
@@ -1730,7 +1988,19 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1784,10 +2054,16 @@
             "#bigint": "1"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [
           {
             "artifact": {
@@ -1833,7 +2109,13 @@
                 "turnRunning": true
               }
             ],
-            "refinerRuns": []
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "stagePlan": {
@@ -1881,7 +2163,19 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1953,10 +2247,16 @@
             "#bigint": "1"
           }
         },
+        "endedIssues": {
+          "#set": []
+        },
         "failuresPosted": {
           "#bigint": "0"
         },
         "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
         "jobs": [
           {
             "artifact": {
@@ -2002,7 +2302,13 @@
                 "turnRunning": true
               }
             ],
-            "refinerRuns": []
+            "refinerRuns": [],
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            }
           }
         ],
         "stagePlan": {
@@ -2050,10 +2356,22 @@
             "#tup": []
           }
         },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "id": {
           "tag": "Some",
           "value": {
             "#bigint": "0"
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "jobSlots": {

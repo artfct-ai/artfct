@@ -15,17 +15,19 @@ import { labeledPageCommentIds } from "../src/artifact/page-comment-label";
 import { CLOSING_TEXT_MARKER, replyMarker } from "../src/prompts/model-author-prompt";
 import { taskTools } from "../src/agent/tools/task";
 import type { SandboxRef } from "../src/sandbox/spec";
-import { jobInputKey } from "../src/workflow/store/input-key";
+import { artifactRefKey, jobInputKey } from "../src/workflow/store/input-key";
+import type { ArtifactRow } from "../src/workflow/store/records";
 import { failTask } from "../src/workflow/lifecycle";
 import { isTaskFinished } from "../src/workflow/store/state";
 import type { JobRow, TaskRow } from "../src/workflow/store/tasks";
 import type { ConnectionState } from "../src/workflow/task/harness/bridge";
 import { onNoProgress } from "../src/workflow/task/harness/timers";
 import { onModelTurnDeadline, type ModelTurnAlarm } from "../src/workflow/task/model-turn";
-import { itfBool, itfField, itfInt, itfList, itfOneOf, itfText, itfVariant } from "./itf";
+import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
+import { SUBJECT_ISSUE_KEY, subIssueKey } from "./world-tracker";
 import { quintTraces } from "./quint-traces";
 import { EchoModel } from "./fake-model";
-import { fakeDocumentsOf, MODEL_AUTHOR_MODEL, PAGE_PARENT } from "./fake-runtime";
+import { FakeRuntime, fakeDocumentsOf, MODEL_AUTHOR_MODEL, PAGE_PARENT } from "./fake-runtime";
 import { FakeSandboxProvider } from "./fake-sandbox";
 import { InterleavedDecisions } from "./interleaved-decisions";
 import type { Step } from "./invariants";
@@ -64,58 +66,111 @@ export const SPEC_SETUPS = {
     refiners: "reviewer",
     pageAuthor: "harness",
     research: false,
+    artifact: "page",
+    origin: "chat",
   },
   pagesWithAJudge: {
     module: "pagesWithAReviewer",
     refiners: "judge",
     pageAuthor: "harness",
     research: false,
+    artifact: "page",
+    origin: "chat",
   },
   pagesWithAPolisher: {
     module: "pagesWithAPolisher",
     refiners: "polisher",
     pageAuthor: "harness",
     research: false,
+    artifact: "page",
+    origin: "chat",
   },
   pagesWithoutRefiners: {
     module: "pagesWithoutRefiners",
     refiners: "none",
     pageAuthor: "harness",
     research: false,
+    artifact: "page",
+    origin: "chat",
   },
   pagesAfterResearch: {
     module: "pagesAfterResearch",
     refiners: "none",
     pageAuthor: "harness",
     research: true,
+    artifact: "page",
+    origin: "chat",
   },
   pagesFromModelCalls: {
     module: "pagesFromModelCalls",
     refiners: "none",
     pageAuthor: "model",
     research: false,
+    artifact: "page",
+    origin: "chat",
   },
   modelCallPagesWithAReviewer: {
     module: "modelCallPagesWithAReviewer",
     refiners: "reviewer",
     pageAuthor: "model",
     research: false,
+    artifact: "page",
+    origin: "chat",
   },
   modelCallPagesWithAJudge: {
     module: "modelCallPagesWithAReviewer",
     refiners: "judge",
     pageAuthor: "model",
     research: false,
+    artifact: "page",
+    origin: "chat",
   },
   modelCallPagesAfterResearch: {
     module: "modelCallPagesAfterResearch",
     refiners: "none",
     pageAuthor: "model",
     research: true,
+    artifact: "page",
+    origin: "chat",
+  },
+  pullsTheHostMoves: {
+    module: "pullsTheHostMoves",
+    refiners: "none",
+    pageAuthor: "harness",
+    research: false,
+    artifact: "pull",
+    origin: "tracker",
+  },
+  pullsForAnEndedSubject: {
+    module: "pullsForAnEndedSubject",
+    refiners: "none",
+    pageAuthor: "harness",
+    research: false,
+    artifact: "pull",
+    origin: "tracker",
+  },
+  pullsForAnEndedSubIssue: {
+    module: "pullsForAnEndedSubIssue",
+    refiners: "none",
+    pageAuthor: "harness",
+    research: false,
+    artifact: "pull",
+    origin: "tracker",
+  },
+  pullsForTwoIssues: {
+    module: "pullsForTwoIssues",
+    refiners: "none",
+    pageAuthor: "harness",
+    research: false,
+    artifact: "pull",
+    origin: "tracker",
   },
 } as const satisfies Record<
   string,
-  { module: string } & Pick<WorldSetup, "refiners" | "pageAuthor" | "research">
+  { module: string } & Pick<
+    WorldSetup,
+    "refiners" | "pageAuthor" | "research" | "artifact" | "origin"
+  >
 >;
 
 /** The name of one setup the replay runs. */
@@ -136,7 +191,9 @@ const WORKFLOW_STATUSES = [
   "Failed",
   "Cancelled",
 ] as const;
-const ARTIFACT_STATUSES = ["NoArtifact", "Drafted", "Ready"] as const;
+const ARTIFACT_STATUSES = ["NoArtifact", "Drafted", "Ready", "Accepted", "Removed"] as const;
+const PULLS_ON_HOST = ["NoPull", "PullOpen", "PullMerged", "PullClosed"] as const;
+const HOST_MOVES = ["Merged", "ClosedUnmerged", "Reopened"] as const;
 const REFINER_RUN_STATUSES = [
   "RefinerRunning",
   "RefinerDone",
@@ -174,6 +231,13 @@ type CallKind = (typeof CALL_KINDS)[number];
 type Ending = (typeof ENDINGS)[number];
 type VerbalCommand = (typeof VERBAL_COMMANDS)[number];
 type GenerationTimer = (typeof GENERATION_TIMERS)[number];
+type HostMove = (typeof HOST_MOVES)[number];
+
+/** The tracker issue the spec names by each number: the subject issue, then a sub-issue of it. */
+const ISSUE_KEYS = [SUBJECT_ISSUE_KEY, subIssueKey(0)] as const;
+
+/** The state the tracker shows for an issue a person ended. */
+const CANCELED_STATE = { type: "canceled", name: "Canceled" } as const;
 
 /** A researcher or author task of one job as the spec sees it. */
 type SpecTask = {
@@ -190,10 +254,14 @@ type SpecTask = {
 
 /** One job as the spec sees it. */
 export type SpecJob = {
-  input: { from: "request"; request: number } | { from: "artifact"; job: number };
+  input:
+    | { from: "request"; request: number }
+    | { from: "artifact"; job: number }
+    | { from: "issue"; issue: number };
   tasks: SpecTask[];
   artifact: (typeof ARTIFACT_STATUSES)[number];
   refinerRuns: (typeof REFINER_RUN_STATUSES)[number][];
+  pullOnHost: (typeof PULLS_ON_HOST)[number];
 };
 
 /** One held call as the spec sees it, without the rest of the step that runs when it returns. */
@@ -208,6 +276,8 @@ export type SpecWorkflow = {
   jobs: SpecJob[];
   calls: SpecCall[];
   failuresPosted: number;
+  issueMoves: number;
+  endedIssues: number[];
 };
 
 /** The values the spec picked for one action. */
@@ -224,6 +294,8 @@ type SpecPicks = {
   ending: Ending | null;
   command: VerbalCommand | null;
   landed: boolean | null;
+  issue: number | null;
+  hostMove: HostMove | null;
 };
 
 /** One state of a trace: the action that led to it, its picks, and the workflow. */
@@ -259,6 +331,7 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
     const withStages = picked("withStages");
     const timer = picked("timer");
     const landed = picked("landed");
+    const hostMove = picked("hostMove");
     return {
       action: itfText(itfField(state, "mbt::actionTaken")),
       picks: {
@@ -277,6 +350,8 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
         ending: ending === null ? null : itfOneOf(itfVariant(ending)!.tag, ENDINGS),
         command: command === null ? null : itfOneOf(itfVariant(command)!.tag, VERBAL_COMMANDS),
         landed: landed === null ? null : itfBool(landed),
+        issue: optionalInt(picked("issue")),
+        hostMove: hostMove === null ? null : itfOneOf(itfVariant(hostMove)!.tag, HOST_MOVES),
       },
       workflow: specWorkflow(
         itfField(state, `${SPEC_SETUPS[setup].module}::workflowLifecycle::workflow`),
@@ -303,16 +378,30 @@ function specWorkflow(value: unknown): SpecWorkflow {
       job: itfInt(itfField(call, "job")),
     })),
     failuresPosted: itfInt(itfField(value, "failuresPosted")),
+    issueMoves: itfInt(itfField(value, "issueMoves")),
+    endedIssues: itfSet(itfField(value, "endedIssues"))
+      .map(itfInt)
+      .toSorted((left, right) => left - right),
   };
 }
 
+function specInput(value: unknown): SpecJob["input"] {
+  const input = itfVariant(value)!;
+  switch (input.tag) {
+    case "FromRequest":
+      return { from: "request", request: itfInt(input.value) };
+    case "FromArtifactOf":
+      return { from: "artifact", job: itfInt(input.value) };
+    case "FromIssue":
+      return { from: "issue", issue: itfInt(input.value) };
+    default:
+      throw new Error(`unknown spec input ${input.tag}`);
+  }
+}
+
 function specJob(value: unknown): SpecJob {
-  const input = itfVariant(itfField(value, "input"))!;
   return {
-    input:
-      input.tag === "FromRequest"
-        ? { from: "request", request: itfInt(input.value) }
-        : { from: "artifact", job: itfInt(input.value) },
+    input: specInput(itfField(value, "input")),
     tasks: itfList(itfField(value, "tasks")).map((task) => ({
       role: itfOneOf(itfVariant(itfField(task, "role"))!.tag, ROLES),
       startOrder: itfInt(itfField(task, "startOrder")),
@@ -328,6 +417,7 @@ function specJob(value: unknown): SpecJob {
     refinerRuns: itfList(itfField(value, "refinerRuns")).map((run) =>
       itfOneOf(itfVariant(run)!.tag, REFINER_RUN_STATUSES),
     ),
+    pullOnHost: itfOneOf(itfVariant(itfField(value, "pullOnHost"))!.tag, PULLS_ON_HOST),
   };
 }
 
@@ -401,14 +491,13 @@ const REFINER_APPROVES: RefinerRunEnd = {
   stopReason: "end_turn",
   closing: "reports_work",
 };
-const STAGE = STAGE_OF.page;
-
-const WORLD_SETUP: Omit<WorldSetup, "refiners" | "pageAuthor" | "research"> = {
+const WORLD_SETUP: Omit<
+  WorldSetup,
+  "refiners" | "pageAuthor" | "research" | "artifact" | "origin"
+> = {
   opening: "request",
-  artifact: "page",
   checksOnPush: "passed",
   pageEnding: "acceptance",
-  origin: "chat",
   firstInput: "request",
   subject: "none",
   sandboxStart: "at_task_start",
@@ -436,22 +525,33 @@ export class WorkflowLifecycleReplay {
   private readonly reviseTurns = new Map<string, number>();
   private pagesWritten = 0;
   private answeredModelCall: HeldCall | null = null;
+  private readonly endedIssues = new Set<number>();
 
   private constructor(
     readonly world: WorkflowWorld,
     private readonly modelAuthor: boolean,
+    private readonly stage: string,
   ) {}
 
   /** A world on the stage of `setup`, before the plan. */
   static async open(setup: SpecSetup): Promise<WorkflowLifecycleReplay> {
     setSystemTime(new Date(REPLAY_START));
-    const { refiners, pageAuthor, research } = SPEC_SETUPS[setup];
-    const world = await WorkflowWorld.open({ ...WORLD_SETUP, refiners, pageAuthor, research });
-    const modelAuthor = SPEC_SETUPS[setup].pageAuthor === "model";
-    const replay = new WorkflowLifecycleReplay(world, modelAuthor);
+    const { refiners, pageAuthor, research, artifact, origin } = SPEC_SETUPS[setup];
+    const world = await WorkflowWorld.open({
+      ...WORLD_SETUP,
+      refiners,
+      pageAuthor,
+      research,
+      artifact,
+      origin,
+    });
+    const modelAuthor = pageAuthor === "model";
+    const replay = new WorkflowLifecycleReplay(world, modelAuthor, STAGE_OF[artifact]);
     world.workflow.sandboxProvider = new HoldingSandboxProvider((taskId) =>
       replay.holdDestroy(taskId),
     );
+    replay.holdPullAcceptance();
+    replay.showEndedIssues();
     if (modelAuthor) {
       world.workflow.modelsByName[MODEL_AUTHOR_MODEL] = new HoldingPageModel(() =>
         replay.holdModelCall(),
@@ -523,11 +623,12 @@ export class WorkflowLifecycleReplay {
       definition: state.definition === null ? null : state.definition === SECOND_DEFINITION ? 1 : 0,
       jobSlots: state.stages.length > 0 ? state.concurrency : null,
       idleArmed: workflow.alarmsFor("onIdle").length > 0,
-      jobs: jobs.map((job) => {
+      jobs: jobs.map((job, index) => {
         const artifact = store.artifact(job.job_id);
         const runs = store.refinerRunsOf(job.job_id);
+        const input = this.inputOf(job, jobs);
         return {
-          input: this.inputOf(job, jobs),
+          input,
           tasks: store
             .tasks()
             .filter((task) => task.job_id === job.job_id && JOB_ROLES.includes(task.role))
@@ -556,8 +657,9 @@ export class WorkflowLifecycleReplay {
                   ),
               };
             }),
-          artifact: !artifact ? "NoArtifact" : artifact.status === "drafted" ? "Drafted" : "Ready",
+          artifact: artifact ? ARTIFACT_STATUS_OF[artifact.status] : "NoArtifact",
           refinerRuns: runs.map((run) => REFINER_RUN_STATUS_OF[run.status]),
+          pullOnHost: input.from === "issue" ? this.pullOnHostOf(index) : "NoPull",
         };
       }),
       calls: this.calls.map((call) => ({
@@ -565,7 +667,23 @@ export class WorkflowLifecycleReplay {
         job: jobs.findIndex((job) => job.job_id === call.jobId),
       })),
       failuresPosted: workflow.posted.filter((event) => event.type === "failed").length,
+      issueMoves: this.world.steps.reduce((total, step) => total + step.issueUpdates, 0),
+      endedIssues: [...this.endedIssues].toSorted((left, right) => left - right),
     };
+  }
+
+  /** Where the pull the author of the job opened stands on the host. */
+  private pullOnHostOf(jobIndex: number): SpecJob["pullOnHost"] {
+    const jobId = this.jobOf(jobIndex).job_id;
+    const author = this.world.authors.find(
+      (candidate) =>
+        this.world.taskOf(candidate).job_id === jobId && !this.world.continuesPull(candidate),
+    );
+    if (!author) return "NoPull";
+    if (this.world.pullIs(author, "open")) return "PullOpen";
+    if (this.world.pullIs(author, "merged")) return "PullMerged";
+    if (this.world.pullIs(author, "closed")) return "PullClosed";
+    return "NoPull";
   }
 
   /**
@@ -596,6 +714,16 @@ export class WorkflowLifecycleReplay {
   private inputOf(job: JobRow, jobs: JobRow[]): SpecJob["input"] {
     const built = jobs.findIndex((earlier) => job.input_key === `artifact:${earlier.job_id}`);
     if (built !== -1) return { from: "artifact", job: built };
+    const continued = jobs.findIndex((earlier) => {
+      const artifact = this.world.workflow.store.artifact(earlier.job_id);
+      return (
+        artifact !== null &&
+        artifactRefKey({ ref: artifact.ref, url: artifact.external_url }) === job.input_key
+      );
+    });
+    if (continued !== -1) return { from: "artifact", job: continued };
+    const issue = ISSUE_KEYS.findIndex((key) => key === job.input_key);
+    if (issue !== -1) return { from: "issue", issue };
     const request = REQUEST_TEXTS.findIndex(
       (requestText) => jobInputKey({ kind: "request", text: requestText }) === job.input_key,
     );
@@ -619,8 +747,45 @@ export class WorkflowLifecycleReplay {
         return worldAction(`agent starts a job on request ${picks.request}`, async (world) => {
           const requestText = REQUEST_TEXTS[required(picks.request)] ?? REQUEST_TEXTS[0];
           const { start_job } = startTools(world.workflow, [requestText]);
-          await start_job.execute({ stage: STAGE, brief: "Write the design." }, TOOL_CALL);
+          await start_job.execute({ stage: this.stage, brief: "Write the design." }, TOOL_CALL);
         });
+      case "agentStartsJobOnAnIssue":
+        return worldAction(`agent starts a job on issue ${picks.issue}`, (world) =>
+          this.runStep(async () => {
+            const { start_job } = startTools(world.workflow, [REQUEST_TEXTS[0]]);
+            await start_job.execute(
+              {
+                stage: this.stage,
+                brief: "Fix the login redirect.",
+                issue: ISSUE_KEYS[required(picks.issue)],
+              },
+              TOOL_CALL,
+            );
+          }),
+        );
+      case "agentContinuesAPull":
+        return worldAction(`agent continues the pull of job ${picks.id}`, (world) =>
+          this.runStep(async () => {
+            const { start_job } = startTools(world.workflow, [REQUEST_TEXTS[0]]);
+            const url = world.artifactUrlOf(this.worldAuthorOf(required(picks.id)));
+            await start_job.execute(
+              { stage: this.stage, brief: "Address the review.", artifact: url },
+              TOOL_CALL,
+            );
+          }),
+        );
+      case "theHostMovesAPull":
+        return worldAction(
+          `the host moves the pull of job ${picks.id}: ${picks.hostMove}`,
+          (world) =>
+            this.runStep(() =>
+              this.hostMovesPull(world, required(picks.id), required(picks.hostMove)),
+            ),
+        );
+      case "aPersonEndsAnIssue":
+        return worldAction(`a person ends issue ${picks.issue}`, (world) =>
+          this.runStep(() => this.personEndsIssue(world, required(picks.issue))),
+        );
       case "researcherHandsOver":
         return worldAction(`researcher of job ${picks.id} hands over`, (world) =>
           researcherTurnEnds(this.unfinishedResearcherIndexOf(required(picks.id)), "written").run(
@@ -698,8 +863,13 @@ export class WorkflowLifecycleReplay {
           }),
         );
       case "acceptanceCheckReturns":
-        return worldAction(`acceptance check ${picks.callId} returns ${picks.accepted}`, () =>
-          this.returnCall(required(picks.callId), required(picks.accepted) ? 0.9 : 0.1),
+        return worldAction(
+          `acceptance check ${picks.callId} returns ${picks.accepted}`,
+          (world) => {
+            const callId = required(picks.callId);
+            if (required(picks.accepted)) this.mergeWithoutAnEvent(world, callId);
+            return this.returnCall(callId, required(picks.accepted) ? 0.9 : 0.1);
+          },
         );
       case "sandboxDestroyReturns":
         return worldAction(`sandbox destroy ${picks.callId} returns`, () =>
@@ -752,7 +922,7 @@ export class WorkflowLifecycleReplay {
           ? SECOND_DEFINITION
           : (world.workflow.workflowDefinitions()[0]?.name ?? "");
     const stages = {
-      stages: [STAGE],
+      stages: [this.stage],
       repo: REPO,
       page_parent: this.modelAuthor ? PAGE_PARENT : null,
       concurrency: jobSlots,
@@ -773,7 +943,7 @@ export class WorkflowLifecycleReplay {
   private async endWorkflow(world: WorkflowWorld, ending: Ending): Promise<void> {
     switch (ending) {
       case "PersonCancels":
-        await personCancels("control").run(world);
+        await personCancels(this.stage === STAGE_OF.pull ? "word" : "control").run(world);
         return;
       case "AgentFails":
         await planTools(world.workflow).fail_workflow.execute(
@@ -792,6 +962,107 @@ export class WorkflowLifecycleReplay {
         throw new Error(`unhandled ending ${String(unreachable)}`);
       }
     }
+  }
+
+  /** A person moves the pull of the job on the host, and the host tells the workflow. */
+  private async hostMovesPull(
+    world: WorkflowWorld,
+    jobIndex: number,
+    hostMove: HostMove,
+  ): Promise<void> {
+    const author = this.worldAuthorOf(jobIndex);
+    const detail = world.pullDetailOf(author);
+    switch (hostMove) {
+      case "Merged":
+      case "ClosedUnmerged": {
+        const merged = hostMove === "Merged";
+        world.movePull(author, merged ? "merged" : "closed");
+        await world.deliver({
+          kind: "pr_event",
+          text: "",
+          pull: { ...detail, action: "closed", merged },
+        });
+        return;
+      }
+      case "Reopened":
+        world.movePull(author, "open");
+        await world.deliver({
+          kind: "pr_event",
+          text: "",
+          pull: { ...detail, action: "reopened" },
+        });
+        return;
+      default: {
+        const unreachable: never = hostMove;
+        throw new Error(`unhandled host move ${String(unreachable)}`);
+      }
+    }
+  }
+
+  /** A person moves the issue to canceled on the tracker, and the tracker tells the workflow. */
+  private async personEndsIssue(world: WorkflowWorld, issue: number): Promise<void> {
+    this.endedIssues.add(issue);
+    const key = ISSUE_KEYS[issue];
+    if (!key) throw new Error(`the spec names no issue ${issue}`);
+    await world.deliver({
+      kind: "control",
+      control: "cancel",
+      text: `Issue moved to ${CANCELED_STATE.name}`,
+      bindings: [{ source: "tracker_issue", external_id: key }],
+    });
+  }
+
+  /**
+   * A pick that accepts the check on an open pull means the host merged it, and its event did not
+   * reach the workflow.
+   */
+  private mergeWithoutAnEvent(world: WorkflowWorld, callId: number): void {
+    const call = this.calls[callId];
+    if (call?.kind !== "AcceptanceCheck" || this.stage !== STAGE_OF.pull) return;
+    const artifact = world.workflow.store.artifact(call.jobId);
+    if (artifact?.ref.kind !== "pull") return;
+    const number = artifact.ref.number;
+    const opener = world.authors.find((author) => author.pullNumber === number);
+    if (opener && world.pullIs(opener, "open")) world.movePull(opener, "merged");
+  }
+
+  /** Hold the host's answer to whether it merged a pull, which `complete_job` asks. */
+  private holdPullAcceptance(): void {
+    this.world.workflow.artifact = (kind) => {
+      const built = FakeRuntime.prototype.artifact.call(this.world.workflow, kind);
+      const accepted = built.accepted?.bind(built);
+      if (!accepted) return built;
+      return {
+        ...built,
+        accepted: (ref) => {
+          const jobId = this.completingJobId;
+          return new Promise<boolean>((resolve, reject) => {
+            this.hold({
+              kind: "AcceptanceCheck",
+              jobId,
+              answer: () => {
+                accepted(ref).then(resolve, reject);
+              },
+              turnId: null,
+              revisedBy: null,
+              land: null,
+            });
+          });
+        },
+      };
+    };
+  }
+
+  /** The tracker shows each issue a person ended as canceled. */
+  private showEndedIssues(): void {
+    const tracker = this.world.workflow.trackerInstance;
+    if (!tracker) return;
+    const read = tracker.issue.bind(tracker);
+    tracker.issue = async (idOrKey) => {
+      const issue = await read(idOrKey);
+      const ended = [...this.endedIssues].some((index) => ISSUE_KEYS[index] === issue?.id);
+      return issue && ended ? { ...issue, state: CANCELED_STATE } : issue;
+    };
   }
 
   private async taskStalls(world: WorkflowWorld, jobIndex: number): Promise<void> {
@@ -1026,6 +1297,13 @@ const REFINER_RUN_STATUS_OF: Record<TaskStatus, SpecJob["refinerRuns"][number]> 
   done: "RefinerDone",
   cancelled: "RefinerCancelled",
   failed: "RefinerFailed",
+};
+
+const ARTIFACT_STATUS_OF: Record<ArtifactRow["status"], SpecJob["artifact"]> = {
+  drafted: "Drafted",
+  ready: "Ready",
+  accepted: "Accepted",
+  removed: "Removed",
 };
 
 const WORKFLOW_STATUS_OF: Record<WorkflowStatus, SpecWorkflow["status"]> = {

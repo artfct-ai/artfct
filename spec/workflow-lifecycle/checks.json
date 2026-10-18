@@ -16,7 +16,10 @@
     "taskRestartsAtMostTwice",
     "pausedAuthorGetsNoPrompt",
     "workflowWaitsOnlyWhileNoAuthorWorks",
-    "aRestartDoesNotLoseAModelTurn"
+    "aRestartDoesNotLoseAModelTurn",
+    "artifactStatusMovesAreLegal",
+    "anAcceptedArtifactNeverMovesBack",
+    "aSingleIssueWorkflowIsDoneWithItsSubjectsJob"
   ],
   "mainMinutes": {
     "pagesWithAReviewer": 2.8,
@@ -25,7 +28,11 @@
     "pagesAfterResearch": 4.5,
     "pagesFromModelCalls": 2.5,
     "modelCallPagesWithAReviewer": 2.6,
-    "modelCallPagesAfterResearch": 2.1
+    "modelCallPagesAfterResearch": 2.1,
+    "pullsTheHostMoves": 4.0,
+    "pullsForAnEndedSubject": 3.6,
+    "pullsForAnEndedSubIssue": 4.0,
+    "pullsForTwoIssues": 4.6
   },
   "witnesses": {
     "pagesWithAReviewer": [
@@ -297,6 +304,152 @@
       "theHumansHaveAPage",
       "theWorkflowIsDone",
       "theWorkflowFailed"
+    ],
+    "pullsTheHostMoves": [
+      "aPlanStartsTheWorkflow",
+      "anUndeclaredPlanLands",
+      "theWorkflowWaitsForItsStages",
+      "aPlanLandsOnAStartedWorkflow",
+      "twoJobsShareAnInput",
+      "aJobBuildsOnAnArtifact",
+      "aFinishedTaskIsInAStep",
+      "aWorkflowEndedWithJobs",
+      "anEventLandsOnAFinishedWorkflow",
+      "aStaleAlarmFires",
+      "theSleepMessagePosts",
+      "aMessageWakesTheWorkflow",
+      "anAuthorRestarted",
+      "aRestartClosedAGeneration",
+      "aPausedAuthorWaitsToRestart",
+      "theWorkflowIsEnding",
+      "aPromptWaits",
+      "anAuthorFailed",
+      "aPausedAuthorResumes",
+      "aPromptWaitsForAPausedTask",
+      "aPromptWaitsForATurn",
+      "aJobCompletes",
+      "anAcceptanceCheckIsOut",
+      "aCallWasDropped",
+      "anAuthorIsInReview",
+      "theHumansHaveAPage",
+      "theWorkflowIsDone",
+      "theWorkflowFailed",
+      "aSubjectsJobEndsTheWorkflow",
+      "theAcceptanceCheckCompletesTheSubjectsJob",
+      "aCancelWordReachesTheSubjectsAuthor",
+      "anArtifactIsAccepted",
+      "theWorkflowMovedAnIssue",
+      "anArtifactIsRemoved",
+      "aRemovedPullIsOpenAgain"
+    ],
+    "pullsForAnEndedSubject": [
+      "aPlanStartsTheWorkflow",
+      "anUndeclaredPlanLands",
+      "theWorkflowWaitsForItsStages",
+      "aPlanLandsOnAStartedWorkflow",
+      "twoJobsShareAnInput",
+      "aJobBuildsOnAnArtifact",
+      "aFinishedTaskIsInAStep",
+      "aWorkflowEndedWithJobs",
+      "anEventLandsOnAFinishedWorkflow",
+      "aStaleAlarmFires",
+      "theSleepMessagePosts",
+      "aMessageWakesTheWorkflow",
+      "anAuthorRestarted",
+      "aRestartClosedAGeneration",
+      "aPausedAuthorWaitsToRestart",
+      "theWorkflowIsEnding",
+      "aPromptWaits",
+      "anAuthorFailed",
+      "aPausedAuthorResumes",
+      "aPromptWaitsForAPausedTask",
+      "aPromptWaitsForATurn",
+      "aJobCompletes",
+      "anAcceptanceCheckIsOut",
+      "aCallWasDropped",
+      "anAuthorIsInReview",
+      "theHumansHaveAPage",
+      "theWorkflowIsDone",
+      "theWorkflowFailed",
+      "aSubjectsJobEndsTheWorkflow",
+      "theAcceptanceCheckCompletesTheSubjectsJob",
+      "aCancelWordReachesTheSubjectsAuthor",
+      "anArtifactIsAccepted",
+      "theWorkflowMovedAnIssue",
+      "theSubjectIssueEndCancelsTheWorkflow",
+      "anIssueEndFindsAnAcceptedArtifact"
+    ],
+    "pullsForAnEndedSubIssue": [
+      "aPlanStartsTheWorkflow",
+      "anUndeclaredPlanLands",
+      "theWorkflowWaitsForItsStages",
+      "aPlanLandsOnAStartedWorkflow",
+      "twoJobsShareAnInput",
+      "aJobBuildsOnAnArtifact",
+      "aFinishedTaskIsInAStep",
+      "aWorkflowEndedWithJobs",
+      "anEventLandsOnAFinishedWorkflow",
+      "aStaleAlarmFires",
+      "theSleepMessagePosts",
+      "aMessageWakesTheWorkflow",
+      "anAuthorRestarted",
+      "aRestartClosedAGeneration",
+      "aPausedAuthorWaitsToRestart",
+      "theWorkflowIsEnding",
+      "aPromptWaits",
+      "anAuthorFailed",
+      "aPausedAuthorResumes",
+      "aPromptWaitsForAPausedTask",
+      "aPromptWaitsForATurn",
+      "aJobCompletes",
+      "anAcceptanceCheckIsOut",
+      "aCallWasDropped",
+      "anAuthorIsInReview",
+      "theHumansHaveAPage",
+      "theWorkflowIsDone",
+      "theWorkflowFailed",
+      "anArtifactIsAccepted",
+      "theWorkflowMovedAnIssue",
+      "aSubIssueEndCancelsItsJob",
+      "theSubjectIssueEndCancelsTheWorkflow",
+      "anIssueEndFindsAnAcceptedArtifact"
+    ],
+    "pullsForTwoIssues": [
+      "aPlanStartsTheWorkflow",
+      "anUndeclaredPlanLands",
+      "theWorkflowWaitsForItsStages",
+      "aPlanLandsOnAStartedWorkflow",
+      "aJobStartsIntoTheLastSlot",
+      "twoJobsShareAnInput",
+      "aJobBuildsOnAnArtifact",
+      "aFinishedTaskIsInAStep",
+      "aWorkflowEndedWithJobs",
+      "anEventLandsOnAFinishedWorkflow",
+      "aStaleAlarmFires",
+      "theSleepMessagePosts",
+      "aMessageWakesTheWorkflow",
+      "anAuthorRestarted",
+      "aRestartClosedAGeneration",
+      "aPausedAuthorWaitsToRestart",
+      "theWorkflowIsEnding",
+      "aPromptWaits",
+      "anAuthorFailed",
+      "aPausedAuthorResumes",
+      "aPromptWaitsForAPausedTask",
+      "aPromptWaitsForATurn",
+      "aVerbalCommandFindsSeveralJobs",
+      "aJobCompletes",
+      "anAcceptanceCheckIsOut",
+      "aCallWasDropped",
+      "anAuthorIsInReview",
+      "theHumansHaveAPage",
+      "theWorkflowIsDone",
+      "theWorkflowFailed",
+      "aSubjectsJobEndsTheWorkflow",
+      "theAcceptanceCheckCompletesTheSubjectsJob",
+      "aCancelWordReachesTheSubjectsAuthor",
+      "anArtifactIsAccepted",
+      "theWorkflowMovedAnIssue"
     ]
   },
   "tlc": {
@@ -397,6 +550,62 @@
           "jobsStarted": 2,
           "callsOut": 2,
           "promptsSent": 2,
+          "promptsWaiting": 2
+        }
+      },
+      "pullsTheHostMoves": {
+        "pr": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 2,
+          "promptsWaiting": 1
+        },
+        "nightly": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 3,
+          "promptsWaiting": 2
+        }
+      },
+      "pullsForAnEndedSubject": {
+        "pr": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 2,
+          "promptsWaiting": 1
+        },
+        "nightly": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 3,
+          "promptsWaiting": 2
+        }
+      },
+      "pullsForAnEndedSubIssue": {
+        "pr": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 2,
+          "promptsWaiting": 1
+        },
+        "nightly": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 3,
+          "promptsWaiting": 2
+        }
+      },
+      "pullsForTwoIssues": {
+        "pr": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 2,
+          "promptsWaiting": 1
+        },
+        "nightly": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 3,
           "promptsWaiting": 2
         }
       }
