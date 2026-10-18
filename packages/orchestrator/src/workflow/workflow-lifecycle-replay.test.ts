@@ -52,12 +52,8 @@ async function replayTrace(setup: SpecSetup, trace: TraceStep[]): Promise<void> 
     expect(replay.project(), divergence(step)).toEqual(step.workflow);
     const sleepPosted = worldSteps.some((worldStep) => worldStep.postedTexts.includes(SLEEP_TEXT));
     expect(sleepPosted, divergence(step)).toBe(idleAlarmSleeps(before, step));
-    if (step.action === "staleAlarmFires") {
-      expect(
-        worldSteps.flatMap((worldStep) => worldStep.notes),
-        divergence(step),
-      ).toEqual([]);
-    }
+    const toldTheAgent = worldSteps.some((worldStep) => worldStep.notes.length > 0);
+    expect(toldTheAgent, divergence(step)).toBe(step.toldTheAgent);
     before = step;
   }
   await replay.close();
@@ -86,6 +82,15 @@ describe("workflow lifecycle spec", () => {
     const path = join(PINNED_TRACES, "resume-again-while-the-restart-destroy-is-out.itf.json");
     const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
     await replayTrace("pagesWithAReviewer", traceSteps("pagesWithAReviewer", trace));
+  });
+
+  it("tells the agent of a person's instruct once the revise turn it starts ends", async () => {
+    const path = join(PINNED_TRACES, "instruct-waits-for-the-revise-turn.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace(
+      "modelCallPagesWithAReviewer",
+      traceSteps("modelCallPagesWithAReviewer", trace),
+    );
   });
 
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {

@@ -70,7 +70,7 @@ export async function runModelAuthorTurn(workflow: WorkflowRuntime, task: TaskRo
   if ("failure" in outcome) {
     return failTask(workflow, workflow.store.requireTask(task.task_id), outcome.failure);
   }
-  if (outcome.target === null) return;
+  if (outcome.target === null || finishedDuringPageWrite(workflow, task.task_id)) return;
   turn.finish();
   await recordArtifact(workflow, workflow.store.requireTask(task.task_id), outcome.target);
   await resumeModelAuthor(workflow, task.task_id, "task_result", "");
@@ -129,7 +129,7 @@ export async function reviseModelAuthorPage(
     markAuthorInReview(workflow, task.task_id);
     return reviseModelAuthorPage(workflow, workflow.store.requireTask(task.task_id));
   }
-  if (outcome.closingText === null) return true;
+  if (outcome.closingText === null || finishedDuringPageWrite(workflow, task.task_id)) return true;
   workflow.store.dequeuePrompt(next.id);
   turn.finish();
   markAuthorInReview(workflow, task.task_id);
@@ -160,6 +160,17 @@ async function resumeModelAuthor(
   if (artifact && heldForReview(workflow, artifact)) return;
   const digest = await digestFor(workflow, taskId, closingText);
   await workflow.tellAgent(noteMessage(`Model call ended.\n${digest}`), wake);
+}
+
+/**
+ * True when the task finished while the host wrote its page. The page does not become the
+ * artifact of a finished task, so a cancelled job does not hold its input again.
+ */
+function finishedDuringPageWrite(workflow: WorkflowRuntime, taskId: string): boolean {
+  const { status } = workflow.store.requireTask(taskId);
+  if (!isTaskFinished(status)) return false;
+  workflow.log(taskId, `page written after the task was ${status}. no change.`);
+  return true;
 }
 
 /** Where the page goes, and whether a stop ended the turn. */
