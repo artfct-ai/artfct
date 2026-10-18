@@ -2,6 +2,7 @@ import { Database, type Statement } from "bun:sqlite";
 import { join } from "node:path";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import type { BunSQLiteDatabase } from "drizzle-orm/bun-sqlite";
+import type { Logger } from "drizzle-orm/logger";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import * as schema from "../src/workflow/store/schema";
 
@@ -40,10 +41,10 @@ export type MemoryDb = BunSQLiteDatabase<typeof schema> & { $client: Database };
 
 /**
  * The workflow schema on a fresh in-memory `bun:sqlite` database, with the same generated
- * migrations the Durable Object applies.
+ * migrations the Durable Object applies. A `logger` hears every statement the store runs.
  */
-export function openMemoryDb(): MemoryDb {
+export function openMemoryDb(logger?: Logger): MemoryDb {
   const database = Database.deserialize(migratedDatabaseImage());
   reuseCompiledStatements(database);
-  return drizzle(database, { schema });
+  return drizzle(database, { schema, logger });
 }

@@ -18,21 +18,25 @@ const SPEC_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../spec")
 const QUINT_CLI = createRequire(import.meta.url).resolve("@informalsystems/quint/dist/src/cli.js");
 
 /**
- * Sample traces of one spec setup with `quint run --mbt`. Each trace is its ITF JSON. The run
- * never blocks the event loop, so the vitest process keeps serving workerd while quint samples.
+ * Sample traces of one spec setup with `quint run --mbt`, and read each trace's ITF JSON with
+ * `readTrace`. Traces are read one at a time, so only one ITF document is in memory at once. The
+ * run never blocks the event loop, so the vitest process keeps serving workerd while quint samples.
  */
-export async function quintTraces(request: QuintTraceRequest): Promise<unknown[]> {
+export async function quintTraces<Trace>(
+  request: QuintTraceRequest,
+  readTrace: (itf: unknown) => Trace,
+): Promise<Trace[]> {
   const directory = await mkdtemp(join(tmpdir(), `${request.spec}-`));
   try {
     await runQuint(request, directory);
     const files = (await readdir(directory)).toSorted(
       (left, right) => traceNumber(left) - traceNumber(right),
     );
-    return await Promise.all(
-      files.map(async (file): Promise<unknown> =>
-        JSON.parse(await readFile(join(directory, file), "utf8")),
-      ),
-    );
+    const traces: Trace[] = [];
+    for (const file of files) {
+      traces.push(readTrace(JSON.parse(await readFile(join(directory, file), "utf8"))));
+    }
+    return traces;
   } finally {
     await rm(directory, { recursive: true, force: true });
   }
@@ -66,7 +70,7 @@ function runQuint(
 /** Answer a replay test in workerd, which cannot run quint, with the traces its request names. */
 export async function quintTracesService(request: Request): Promise<Response> {
   const sample: QuintTraceRequest = await request.json();
-  return Response.json(await quintTraces(sample));
+  return Response.json(await quintTraces(sample, (itf) => itf));
 }
 
 function traceNumber(file: string): number {
