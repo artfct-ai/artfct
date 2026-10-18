@@ -25,7 +25,10 @@ afterEach(async () => {
 function stepName(step: TraceStep): string {
   const picked = Object.entries(step.picks)
     .filter(([, value]) => value !== null)
-    .map(([name, value]) => `${name}=${String(value)}`);
+    .map(
+      ([name, value]) =>
+        `${name}=${typeof value === "object" ? JSON.stringify(value) : String(value)}`,
+    );
   return picked.length ? `${step.action}(${picked.join(", ")})` : step.action;
 }
 
@@ -91,6 +94,12 @@ describe("workflow lifecycle spec", () => {
       "modelCallPagesWithAReviewer",
       traceSteps("modelCallPagesWithAReviewer", trace),
     );
+  });
+
+  it("leaves issues a turn records with the humans while the author takes a waiting prompt", async () => {
+    const path = join(PINNED_TRACES, "issues-recorded-while-a-prompt-waits.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("issuesForAChatRequest", traceSteps("issuesForAChatRequest", trace));
   });
 
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {

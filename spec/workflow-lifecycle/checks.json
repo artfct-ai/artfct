@@ -19,12 +19,15 @@
     "aRestartDoesNotLoseAModelTurn",
     "artifactStatusMovesAreLegal",
     "anAcceptedArtifactNeverMovesBack",
-    "aSingleIssueWorkflowIsDoneWithItsSubjectsJob"
+    "aSingleIssueWorkflowIsDoneWithItsSubjectsJob",
+    "aJobWorksOnlyOnIssuesOfItsSubject",
+    "subjectNeverChanges"
   ],
   "mainMinutes": {
     "pagesWithAReviewer": 2.8,
     "pagesWithAPolisher": 2.8,
     "pagesWithoutRefiners": 3.0,
+    "issuesForAChatRequest": 5.3,
     "pagesAfterResearch": 4.5,
     "pagesFromModelCalls": 3.2,
     "modelCallPagesWithAReviewer": 3.1,
@@ -338,7 +341,9 @@
       "anArtifactIsAccepted",
       "theWorkflowMovedAnIssue",
       "anArtifactIsRemoved",
-      "aRemovedPullIsOpenAgain"
+      "aRemovedPullIsOpenAgain",
+      "aStartOutsideTheSubjectIsRefused",
+      "aPlanNamesAnotherSubject"
     ],
     "pullsForAnEndedSubject": [
       "aPlanStartsTheWorkflow",
@@ -375,7 +380,9 @@
       "anArtifactIsAccepted",
       "theWorkflowMovedAnIssue",
       "theSubjectIssueEndCancelsTheWorkflow",
-      "anIssueEndFindsAnAcceptedArtifact"
+      "anIssueEndFindsAnAcceptedArtifact",
+      "aStartOutsideTheSubjectIsRefused",
+      "aPlanNamesAnotherSubject"
     ],
     "pullsForAnEndedSubIssue": [
       "aPlanStartsTheWorkflow",
@@ -410,7 +417,10 @@
       "theWorkflowMovedAnIssue",
       "aSubIssueEndCancelsItsJob",
       "theSubjectIssueEndCancelsTheWorkflow",
-      "anIssueEndFindsAnAcceptedArtifact"
+      "anIssueEndFindsAnAcceptedArtifact",
+      "aStartOutsideTheSubjectIsRefused",
+      "aPlanNamesAnotherSubject",
+      "aJobWorksOnASubIssue"
     ],
     "pullsForTwoIssues": [
       "aPlanStartsTheWorkflow",
@@ -447,7 +457,45 @@
       "theAcceptanceCheckCompletesTheSubjectsJob",
       "aCancelWordReachesTheSubjectsAuthor",
       "anArtifactIsAccepted",
-      "theWorkflowMovedAnIssue"
+      "theWorkflowMovedAnIssue",
+      "aStartOutsideTheSubjectIsRefused",
+      "aPlanNamesAnotherSubject",
+      "aJobWorksOnASubIssue"
+    ],
+    "issuesForAChatRequest": [
+      "aPlanStartsTheWorkflow",
+      "anUndeclaredPlanLands",
+      "theWorkflowWaitsForItsStages",
+      "aPlanLandsOnAStartedWorkflow",
+      "aJobStartsIntoTheLastSlot",
+      "twoJobsShareAnInput",
+      "aJobBuildsOnAnArtifact",
+      "aFinishedTaskIsInAStep",
+      "aWorkflowEndedWithJobs",
+      "anEventLandsOnAFinishedWorkflow",
+      "theSleepMessagePosts",
+      "aMessageWakesTheWorkflow",
+      "anAuthorRestarted",
+      "theWorkflowIsEnding",
+      "aPromptWaits",
+      "aPausedAuthorResumes",
+      "aVerbalCommandFindsSeveralJobs",
+      "aJobCompletes",
+      "anAcceptanceCheckIsOut",
+      "aCallWasDropped",
+      "anAuthorIsInReview",
+      "theHumansHaveAPage",
+      "theWorkflowIsDone",
+      "theWorkflowMovedAnIssue",
+      "aStartBeforeTheSubjectIsRefused",
+      "aStartOutsideTheSubjectIsRefused",
+      "aJobWorksOnASubIssue",
+      "aJobWorksOnAnIssueOfTheProject",
+      "aPlanSetsTheSubject",
+      "aPlanNamesAnotherSubject",
+      "anOutputSetsTheSubject",
+      "anOutputNamesAnotherSubject",
+      "anOutputIsItsInput"
     ]
   },
   "tlc": {
@@ -597,6 +645,20 @@
         "pr": {
           "jobsStarted": 2,
           "callsOut": 2,
+          "promptsSent": 2,
+          "promptsWaiting": 1
+        },
+        "nightly": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 3,
+          "promptsWaiting": 2
+        }
+      },
+      "issuesForAChatRequest": {
+        "pr": {
+          "jobsStarted": 2,
+          "callsOut": 1,
           "promptsSent": 2,
           "promptsWaiting": 1
         },

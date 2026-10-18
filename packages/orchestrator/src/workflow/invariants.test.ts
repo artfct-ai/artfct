@@ -2,9 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/property-runs";
 import fc from "fast-check";
 import {
-  aJobWorksOnlyOnIssuesOfItsSubject,
   aSingleIssueWorkflowIsDoneWithItsSubjectsJob,
-  subjectNeverChanges,
   aFailedCheckNeverAsksThePersonAgain,
   aFailedCheckNeverCompletesAJob,
   artifactStatusMovesAreLegal,
@@ -153,8 +151,6 @@ const STEP_INVARIANTS = [
   sessionFeedEndsWhenItsAuthorIdles,
   sleepMessageOnlyDuringAWorkflow,
   workflowStartsOnlyFromAPlan,
-  aJobWorksOnlyOnIssuesOfItsSubject,
-  subjectNeverChanges,
   aSingleIssueWorkflowIsDoneWithItsSubjectsJob,
   anAcceptedArtifactNeverMovesBack,
   aModelCallAuthorWorksOnlyWhileItsCallIsOut,

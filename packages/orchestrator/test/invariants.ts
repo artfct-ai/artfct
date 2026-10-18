@@ -12,7 +12,6 @@ import { STOPPED_TEXT } from "../src/workflow/feed/feed";
 import type { Subject } from "../src/workflow/store/state";
 import { artifactRefKey } from "../src/workflow/store/input-key";
 import { coverageCase } from "./coverage";
-import { worldIssueInSubject } from "./world-tracker";
 
 /** One task row as an observer saw it. `ruling` is the stored ruling as text, or null. */
 export type ObservedTask = {
@@ -482,34 +481,6 @@ export function workflowStartsOnlyFromAPlan(workflow: WorkflowRuntime, step: Ste
 }
 
 /**
- * A job whose input is an issue names the subject issue or an issue in its scope. A start the tool
- * refused leaves the jobs unchanged.
- */
-export function aJobWorksOnlyOnIssuesOfItsSubject(_workflow: WorkflowRuntime, step: Step): void {
-  const { subject, jobs } = step.after;
-  for (const job of jobs) {
-    if (!job.issue_id || (subject && worldIssueInSubject(subject, job.issue_id))) continue;
-    violated(
-      "aJobWorksOnlyOnIssuesOfItsSubject",
-      `after ${step.action}, ${job.job_id} works on ${job.issue_id} outside the subject ${describeSubject(subject)}`,
-    );
-  }
-  if (step.start?.refused && jobs.length !== step.before.jobs.length) {
-    violated("aJobWorksOnlyOnIssuesOfItsSubject", `${step.action} was refused and added a job`);
-  }
-}
-
-/** The subject never changes once set. */
-export function subjectNeverChanges(_workflow: WorkflowRuntime, step: Step): void {
-  const { subject } = step.before;
-  if (!subject || describeSubject(step.after.subject) === describeSubject(subject)) return;
-  violated(
-    "subjectNeverChanges",
-    `${step.action} moved the subject from ${describeSubject(subject)} to ${describeSubject(step.after.subject)}`,
-  );
-}
-
-/**
  * A single-issue workflow is done in the same step that a complete_job call completes the job on
  * its subject issue at the last planned stage. A workflow becomes done in no other step, except
  * one where the agent called finish_workflow, so a cancel or a failure of that job does not
@@ -545,11 +516,6 @@ function completedSubjectJobAtLastStage(step: Step): boolean {
   if (!after || after.status !== "done" || before?.status === "done") return false;
   const job = step.after.jobs.find((candidate) => candidate.job_id === after.job_id);
   return job?.issue_id === subject.issue_id && job.stage === step.after.lastStage;
-}
-
-function describeSubject(subject: Subject | null): string {
-  if (!subject) return "none";
-  return subject.kind === "issue" ? `issue ${subject.issue_id}` : `project ${subject.project_id}`;
 }
 
 /**
