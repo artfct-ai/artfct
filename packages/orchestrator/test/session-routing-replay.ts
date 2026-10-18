@@ -6,6 +6,7 @@ import { planTools } from "../src/agent/tools/plan";
 import { startTools } from "../src/agent/tools/start/start";
 import { armTurnWatchdog, onTurnTimeout } from "../src/agent/turn/watchdog";
 import { flushBoards } from "../src/workflow/board/board";
+import { onIdle } from "../src/workflow/lifecycle";
 import { DONE_TEXT, STOPPED_TEXT } from "../src/workflow/feed/feed";
 import { isTaskFinished, isWorkflowFinished } from "../src/workflow/store/state";
 import type { TaskRow } from "../src/workflow/store/tasks";
@@ -16,6 +17,7 @@ import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVaria
 import { quintTraces } from "./quint-traces";
 import type { TrackerHealth } from "./session-tracker";
 import {
+  agentHoldsAuthor,
   authorPromptFails,
   authorReportsTodos,
   authorStreams,
@@ -43,6 +45,7 @@ export const SPEC_SETUPS = {
   trackerOnly: { origin: "tracker", research: false, pageAuthor: "harness" },
   trackerResearch: { origin: "tracker", research: true, pageAuthor: "harness" },
   trackerModelCall: { origin: "tracker", research: false, pageAuthor: "model" },
+  trackerPause: { origin: "tracker", research: false, pageAuthor: "harness" },
 } as const satisfies Record<string, Pick<WorldSetup, "origin" | "research" | "pageAuthor">>;
 
 /** The name of one setup module of the spec. */
@@ -52,7 +55,13 @@ const TRACE_STEPS = 25;
 
 const ISSUES = ["SubjectIssue", "SubIssue"] as const;
 const AUTHOR_STATUSES = ["NotStarted", "InTurn", "Idle", "InReview", "Finished"] as const;
-const RESEARCH_STATES = ["NoResearch", "Researching", "Researched", "ResearchCancelled"] as const;
+const RESEARCH_STATES = [
+  "NoResearch",
+  "Researching",
+  "Researched",
+  "ResearchCancelled",
+  "ResearchFailed",
+] as const;
 const POST_KINDS = [
   "QuestionPost",
   "ArtifactReadyPost",
@@ -70,10 +79,17 @@ const FEED_KINDS = [
   "StoppedActivity",
   "ErrorActivity",
 ] as const;
-const SESSION_TEXTS = ["Question", "StatusRequest"] as const;
+const SESSION_TEXTS = ["Question", "StatusRequest", "PauseCommand", "CancelCommand"] as const;
 const OUTCOMES = ["Answers", "Asks", "TimesOut"] as const;
 const ENDINGS = ["Finishes", "Fails"] as const;
-const TURN_ENDINGS = ["Replies", "EndsSilently", "StopsEarly", "GivesUp", "PromptFails"] as const;
+const TURN_ENDINGS = [
+  "Replies",
+  "EndsSilently",
+  "StopsEarly",
+  "GivesUp",
+  "PromptFails",
+  "Cancelled",
+] as const;
 const STREAMED = ["Message", "ToolCall"] as const;
 const HEALTHS = ["TrackerUp", "FailsBeforeStoring", "FailsAfterStoring"] as const;
 
@@ -109,6 +125,7 @@ const CLOSING_OF: Record<Exclude<TurnEnding, "PromptFails">, AuthorClosing> = {
   EndsSilently: "silent",
   StopsEarly: "stopped_early",
   GivesUp: "blocked",
+  Cancelled: "finished",
 };
 
 /** A todo list by how many of its entries are complete. Null when none was reported. */
@@ -125,6 +142,8 @@ type SpecJob = {
   restarts: number;
   stoppedEarly: boolean;
   containerClosed: boolean;
+  paused: boolean;
+  cancelSent: boolean;
   research: (typeof RESEARCH_STATES)[number];
   researcherTodos: SpecTodos;
 };
@@ -263,6 +282,8 @@ function specRouting(value: unknown): SpecRouting {
       restarts: itfInt(itfField(job, "restarts")),
       stoppedEarly: itfBool(itfField(job, "stoppedEarly")),
       containerClosed: itfBool(itfField(job, "containerClosed")),
+      paused: itfBool(itfField(job, "paused")),
+      cancelSent: itfBool(itfField(job, "cancelSent")),
       research: itfOneOf(itfVariant(itfField(job, "research"))!.tag, RESEARCH_STATES),
       researcherTodos: specTodos(itfField(job, "researcherTodos")),
     })),
@@ -297,6 +318,8 @@ const WORLD_SETUP: Omit<WorldSetup, "origin" | "research" | "pageAuthor"> = {
 const SESSION_EVENTS: Record<SessionText, { kind: "prompt" | "status"; text: string }> = {
   Question: { kind: "prompt", text: "Why does the redirect skip the check?" },
   StatusRequest: { kind: "status", text: "status?" },
+  PauseCommand: { kind: "prompt", text: "pause" },
+  CancelCommand: { kind: "prompt", text: "cancel" },
 };
 
 const POST_KIND_OF: Partial<Record<TaskEvent["type"], PostKind>> = {
@@ -317,7 +340,7 @@ const RESEARCH_OF: Record<TaskStatus, SpecJob["research"]> = {
   in_review: "Researching",
   done: "Researched",
   cancelled: "ResearchCancelled",
-  failed: "ResearchCancelled",
+  failed: "ResearchFailed",
 };
 
 const NOT_FEED_ACTIVITIES = ["plan", "delivery_error"];
@@ -465,9 +488,15 @@ export class SessionRoutingReplay {
           handedOver: Boolean(store.artifact(job.job_id)?.delivered_to_humans_at),
           buffered: Boolean(author && workflow.sessionFeeds.get(author.task_id)?.message),
           todos: todosOf(workflow, author),
-          restarts: author?.restarts ?? 0,
+          restarts: (author ?? researcher)?.restarts ?? 0,
           stoppedEarly: Boolean(sandbox?.stopped_early),
           containerClosed: status === "Idle" && Boolean(sandbox) && !sandbox?.session_id,
+          paused: Boolean(author && author.paused_at !== null),
+          cancelSent: Boolean(
+            author &&
+            !isTaskFinished(author.status) &&
+            this.world.runningBridgeOf(author.task_id)?.cancelRequested,
+          ),
           research: researcher ? RESEARCH_OF[researcher.status] : "NoResearch",
           researcherTodos: todosOf(workflow, researcher),
         };
@@ -595,6 +624,18 @@ export class SessionRoutingReplay {
         return worldAction(`the researcher of job ${picks.id} hands over`, (world) =>
           this.researcherHandsOver(world, required(picks.id)),
         );
+      case "researcherLeavesNoPayload":
+        return researcherTurnEnds(this.researcherIndexOf(required(picks.id)), "missing");
+      case "agentPausesAuthor":
+        return agentHoldsAuthor(this.unfinishedIndexOf(required(picks.id)), "pause_task");
+      case "agentResumesAuthor":
+        return agentHoldsAuthor(this.unfinishedIndexOf(required(picks.id)), "resume_task");
+      case "idleClockFires":
+        return worldAction("the idle clock fires", async (world) => {
+          const { workflow } = world;
+          if (workflow.state.idle_alarm) await workflow.cancelAlarm(workflow.state.idle_alarm);
+          await onIdle(workflow);
+        });
       case "boardFlushes":
         return worldAction(`the board of job ${picks.id} flushes`, (world) =>
           flushBoards(world.workflow, this.jobIdOf(required(picks.id))),

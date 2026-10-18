@@ -25,14 +25,16 @@ module sessionRoutingTypes {
   type TodoList = NoTodos | Todos(int)
 
   /// The researcher of a job, in a workflow whose stage researches first.
-  type Research = NoResearch | Researching | Researched | ResearchCancelled
+  type Research = NoResearch | Researching | Researched | ResearchCancelled | ResearchFailed
 
   /// A job on one issue. `queued` counts the prompts that wait for the author's next turn.
   /// `handedOver` holds once its artifact went to the humans. `buffered` holds while the session
   /// feed keeps a message of the author's turn for the closing reply. `nudged` and `stoppedEarly`
-  /// are the stall marks of the author's sandbox, and `restarts` counts its fresh sandboxes.
-  /// `containerClosed` holds while an idle author waits without a container, since a stop during
-  /// its turn closed it.
+  /// are the stall marks of the author's sandbox. `restarts` counts the fresh sandboxes of the
+  /// job's current task: its researcher, then its author. `containerClosed` holds while an idle
+  /// author waits without a container, since a stop during its turn closed it. `paused` holds while
+  /// the author is paused, so its prompts wait for its resume. `cancelSent` holds while the
+  /// author's turn runs after a pause sent the harness a cancel.
   type Job = {
     issue: Issue,
     author: AuthorStatus,
@@ -44,6 +46,8 @@ module sessionRoutingTypes {
     nudged: bool,
     stoppedEarly: bool,
     containerClosed: bool,
+    paused: bool,
+    cancelSent: bool,
     research: Research,
     researcherTodos: TodoList,
   }
@@ -76,8 +80,9 @@ module sessionRoutingTypes {
   /// it and then fails.
   type TrackerHealth = TrackerUp | FailsBeforeStoring | FailsAfterStoring
 
-  /// What a person types in a session: a question, or a status request.
-  type SessionText = Question | StatusRequest
+  /// What a person types in a session: a question, a status request, or the verbal command
+  /// "pause" or "cancel".
+  type SessionText = Question | StatusRequest | PauseCommand | CancelCommand
 
   /// How an agent turn ends: closing text that answers, a question, or the watchdog's timeout text.
   type TurnOutcome = Answers | Asks | TimesOut
@@ -87,8 +92,9 @@ module sessionRoutingTypes {
 
   /// How an author's turn ends. The first four end the turn on its own, with closing text that the
   /// decisions model reads as finished, without a word, as stopped early, or as giving up.
-  /// `PromptFails` is a harness error answer to the prompt.
-  type TurnEnding = Replies | EndsSilently | StopsEarly | GivesUp | PromptFails
+  /// `PromptFails` is a harness error answer to the prompt. `Cancelled` is the harness answer to
+  /// the cancel a pause sent.
+  type TurnEnding = Replies | EndsSilently | StopsEarly | GivesUp | PromptFails | Cancelled
 
   /// How the agent ends the workflow.
   type Ending = Finishes | Fails
@@ -116,8 +122,9 @@ module sessionRoutingTypes {
   /// What one step did. `answered` holds where the people its agent turn answers wrote from.
   /// `woke` holds when a person's message waits for an agent turn. `feed` holds the feed
   /// activities in order, and `plans` the session of each session plan set. `turnEnded` holds the
-  /// jobs whose author's turn ended, and `stoppedIn` the issue of a session where a person pressed
-  /// Stop. `health` is how the tracker answered the step's feed activities.
+  /// jobs whose author's turn ended, and `cancelled` those whose turn ended on a cancel.
+  /// `stoppedIn` holds the issue of a session where a person pressed Stop. `health` is how the
+  /// tracker answered the step's feed activities.
   type StepFacts = {
     wrote: Wrote,
     answered: Set[Target],
@@ -126,6 +133,7 @@ module sessionRoutingTypes {
     feed: List[FeedPost],
     plans: List[Issue],
     turnEnded: Set[int],
+    cancelled: Set[int],
     stoppedIn: Set[Issue],
     health: TrackerHealth,
   }
@@ -143,8 +151,11 @@ module sessionRoutingTypes {
     aStopAnswersOnlyInTheFeed: bool,
   }
 
-  /// The state of one step and the facts of the step that led to it.
+  /// The state of one step and the feed activities and posts of the turn end that led to it.
   type TurnEnd = { state: Routing, feed: List[FeedPost], posts: List[Post] }
+
+  /// The state after one step and the facts of that step.
+  type StepResult = { state: Routing, facts: StepFacts }
 }
 
 /// Routing in a workflow that starts from a chat thread or from a tracker session.
@@ -188,6 +199,12 @@ module sessionRouting {
 
   pure val HEALTHS: Set[TrackerHealth] = Set(TrackerUp, FailsBeforeStoring, FailsAfterStoring)
 
+  /// What a person types in a session. The spec does not pause a researcher or a model-call
+  /// author, so those setups do not take "pause".
+  pure val SESSION_TEXTS: Set[SessionText] =
+    if (RESEARCH or MODEL_AUTHOR) Set(Question, StatusRequest, CancelCommand)
+    else Set(Question, StatusRequest, PauseCommand, CancelCommand)
+
   /// The todo lists a step reports: one with an open entry, and one that reads complete.
   pure val REPORTED_TODOS: Set[TodoList] = Set(Todos(1), Todos(TODO_ENTRIES))
 
@@ -212,6 +229,7 @@ module sessionRouting {
     feed: List(),
     plans: List(),
     turnEnded: Set(),
+    cancelled: Set(),
     stoppedIn: Set(),
     health: TrackerUp,
   }
@@ -268,9 +286,12 @@ module sessionRouting {
   pure def isAuthorUnfinished(job: Job): bool =
     job.author == InTurn or job.author == Idle or job.author == InReview
 
-  /// A job is over once its author finished, or once its researcher was cancelled before the
-  /// author existed.
+  /// A job is over once its author finished, or once its researcher was cancelled or failed
+  /// before the author existed.
   pure def isUnfinished(job: Job): bool = isAuthorUnfinished(job) or job.research == Researching
+
+  /// The `BUSY` statuses of `onIdle`: an author that runs, or a researcher.
+  pure def isBusy(job: Job): bool = job.author == InTurn or job.author == Idle or job.research == Researching
 
   pure def hasAuthor(job: Job): bool = job.author != NotStarted
 
@@ -288,6 +309,14 @@ module sessionRouting {
   pure def jobIds(state: Routing): Set[int] = JOB_SLOTS.filter(id => id < state.jobs.length())
 
   pure def jobsOn(state: Routing, issue: Issue): Set[int] = jobIds(state).filter(id => state.jobs[id].issue == issue)
+
+  /// `jobByIssue`: the last job on the issue, if any.
+  pure def lastJobOn(state: Routing, issue: Issue): Set[int] = {
+    val onIssue = jobsOn(state, issue)
+    onIssue.filter(id => onIssue.forall(other => other <= id))
+  }
+
+  pure def unfinishedJobs(state: Routing): Set[int] = jobIds(state).filter(id => isUnfinished(state.jobs[id]))
 
   /// `authorInSession`: among the jobs on the session's issue that have an author, the one whose
   /// author is unfinished, else the last one.
@@ -384,14 +413,14 @@ module sessionRouting {
     })
 
   /// A person's message in the job session of a running author is a prompt for that author: it
-  /// is queued during a turn, and it starts the next turn of an idle author. The step posts
-  /// nothing and does not wake the agent.
+  /// is queued during a turn or while the author is paused, and it starts the next turn of any
+  /// other idle author. The step posts nothing and does not wake the agent.
   pure def reachesRunningAuthorSilently(before: Routing, after: Routing, facts: StepFacts): bool =
     match facts.wrote {
       | WroteIn(wrote) =>
           runningSessionJob(before, wrote.issue).forall(id => and {
             not(before.ended),
-            if (before.jobs[id].author == Idle) after.jobs[id].author == InTurn
+            if (before.jobs[id].author == Idle and not(before.jobs[id].paused)) after.jobs[id].author == InTurn
             else after.jobs[id].queued == before.jobs[id].queued + 1,
             facts.posts.length() == 0,
             not(facts.woke),
@@ -404,14 +433,21 @@ module sessionRouting {
     else targets.contains(wrote)
 
   /// A person's message in a session without a running author waits for an agent turn, or gets
-  /// a reply when the workflow ended. An agent turn's post reaches each session it answers, or
-  /// the chat threads.
+  /// a reply when the workflow ended. A verbal command gets its reply, or waits for an agent turn
+  /// when it did not run. An agent turn's post reaches each session it answers, or the chat
+  /// threads.
   pure def withoutAnAuthorIsAnswered(before: Routing, after: Routing, facts: StepFacts): bool = and {
     match facts.wrote {
       | WroteIn(wrote) =>
           runningSessionJob(before, wrote.issue).size() == 0 implies {
-            if (before.ended) postsOf(facts).exists(posted => reaches(after, posted.targets, Session(wrote.issue)))
-            else facts.woke and after.waiting.contains(Session(wrote.issue))
+            val replied = postsOf(facts).exists(posted => reaches(after, posted.targets, Session(wrote.issue)))
+            val waits = facts.woke and after.waiting.contains(Session(wrote.issue))
+            if (before.ended) replied
+            else match wrote.text {
+              | PauseCommand => replied or waits
+              | CancelCommand => replied or waits
+              | _ => waits
+            }
           }
       | NobodyWrote => true
     },
@@ -442,14 +478,21 @@ module sessionRouting {
   }
 
   /// A stop keeps the workflow status, posts nothing, and ends the feed of the session's author
-  /// on the stopped reply.
-  pure def stopAnswersOnlyInTheFeed(before: Routing, after: Routing, facts: StepFacts): bool =
+  /// on the stopped reply. A cancelled turn that leaves its author idle in its job session ends
+  /// the feed the same way.
+  pure def stopAnswersOnlyInTheFeed(before: Routing, after: Routing, facts: StepFacts): bool = and {
     facts.stoppedIn.forall(issue => and {
       after.ended == before.ended,
       after.waitsForInput == before.waitsForInput,
       facts.posts.length() == 0,
       sessionJob(before, issue).forall(id => lastFeedIs(facts, id, kind => kind == StoppedActivity)),
-    })
+    }),
+    facts.cancelled.forall(id => {
+      val job = after.jobs[id]
+      val idlesInSession = (job.author == Idle or job.author == InReview) and hasSession(after, job.issue)
+      idlesInSession implies lastFeedIs(facts, id, kind => kind == StoppedActivity)
+    }),
+  }
 
   pure def rulesKeptBy(before: Routing, after: Routing, facts: StepFacts): KeptRules = {
     orchestratorStaysOutOfSessionsWhenChatExists: staysOutOfSessions(after, facts),
@@ -476,10 +519,10 @@ module sessionRouting {
   }
 
   /// `settleAndResumeAuthor` and the feed closing after it. The next queued prompt goes out, and
-  /// the feed closes without a post. Without one, the author idles, or waits in review once its
-  /// artifact is out, and the feed closes on `closing`.
+  /// the feed closes without a post. Without one, or while the author is paused, the author idles,
+  /// or waits in review once its artifact is out, and the feed closes on `closing`.
   pure def settleAuthor(state: Routing, id: int, closing: FeedKind): TurnEnd =
-    if (state.jobs[id].queued > 0)
+    if (state.jobs[id].queued > 0 and not(state.jobs[id].paused))
       { state: withJob(state, id, job => { ...forgetMessage(job), queued: job.queued - 1 }), feed: List(), posts: List() }
     else {
       val idle = withJob(state, id, job => { ...forgetMessage(job), author: if (job.handedOver) InReview else Idle })
@@ -493,7 +536,7 @@ module sessionRouting {
 
   /// `failTask`: the author fails, and the workflow's audience hears it.
   pure def failAuthor(state: Routing, id: int): TurnEnd =
-    { state: withJob(state, id, job => { ...forgetMessage(job), author: Finished, queued: 0 }), feed: List(), posts: List(post(state, FailedPost, Set())) }
+    { state: withJob(state, id, job => { ...forgetMessage(job), author: Finished, queued: 0, cancelSent: false }), feed: List(), posts: List(post(state, FailedPost, Set())) }
 
   /// `nudgeOrRestartStalledTask` on a stall with nothing queued. A first stall queues the nudge,
   /// which goes out at once. A stall after the nudge restarts the author, whose feed closes on
@@ -542,37 +585,114 @@ module sessionRouting {
           if (job.stoppedEarly and job.queued == 0) stall(state, id, ErrorActivity)
           else settleAuthor(state, id, ErrorActivity)
         }
+      | Cancelled =>
+          settleAuthor(withJob(state, id, job => { ...job, stoppedEarly: false, cancelSent: false }), id, StoppedActivity)
     }
 
+  /// `promptTask` for an author. A paused author or one in its turn queues the prompt. Any other
+  /// author takes it as its next turn, and one without a container starts a fresh one, whose start
+  /// flushes the board. A prompt to an author in review starts a follow-up, which flushes the board.
+  pure def promptAuthor(state: Routing, id: int): Routing = {
+    val job = state.jobs[id]
+    val takes = not(job.paused) and job.author != InTurn
+    val prompted = withJob(state, id, author =>
+      if (takes) { ...author, author: InTurn, containerClosed: false }
+      else { ...author, queued: author.queued + 1 })
+    if (job.author == InReview or (takes and job.containerClosed)) flushBoard(prompted, id) else prompted
+  }
+
+  /// `pauseTask` for an author: it is paused, its board flushes, and a turn it runs gets a cancel.
+  pure def pauseAuthor(state: Routing, id: int): Routing =
+    flushBoard(withJob(state, id, job => { ...job, paused: true, cancelSent: job.cancelSent or job.author == InTurn }), id)
+
+  /// `cancelTask` for the job's author or researcher. The feed of an author with a prompt in flight
+  /// or queued ends on the stopped reply, and the job's board flushes.
+  pure def cancelJob(state: Routing, id: int): { state: Routing, feed: List[FeedPost] } = {
+    val job = state.jobs[id]
+    val abandoned = job.author == InTurn or job.queued > 0
+    val cancelled = withJob(state, id, current =>
+      if (current.research == Researching) { ...current, research: ResearchCancelled }
+      else { ...forgetMessage(current), author: Finished, queued: 0, containerClosed: false, cancelSent: false })
+    {
+      state: flushBoard(cancelled, id),
+      feed: if (abandoned) feedOf(state, id, StoppedActivity, TrackerUp) else List(),
+    }
+  }
+
+  /// `endWorkflow`: every unfinished author and researcher is cancelled, and the workflow ends.
+  pure def cancelEveryJob(state: Routing): { state: Routing, feed: List[FeedPost] } = {
+    val ended = jobIds(state).fold({ state: state, feed: List() }, (sofar, id) =>
+      if (isUnfinished(sofar.state.jobs[id])) {
+        val cancelled = cancelJob(sofar.state, id)
+        { state: cancelled.state, feed: sofar.feed.concat(cancelled.feed) }
+      }
+      else sofar)
+    { ...ended, state: { ...ended.state, ended: true, waitsForInput: false } }
+  }
+
+  /// A person's message waits for the agent's next turn.
+  pure def wakeTheAgent(state: Routing, issue: Issue, wrote: Wrote): StepResult =
+    { state: { ...state, waiting: state.waiting.union(Set(Session(issue))) }, facts: { ...NO_FACTS, wrote: wrote, woke: true } }
+
+  /// "pause" in a session without a running author. With one unfinished job, the author of the
+  /// session's last job, or of that unfinished job, is paused, and the reply answers the person.
+  /// Without a pause, nothing is posted and the agent answers.
+  pure def verbalPauseIn(state: Routing, issue: Issue, wrote: Wrote): StepResult = {
+    val unfinished = unfinishedJobs(state)
+    val owner = if (lastJobOn(state, issue).size() > 0) lastJobOn(state, issue) else unfinished
+    val pausable = owner.filter(id => isAuthorUnfinished(state.jobs[id]) and not(state.jobs[id].paused))
+    if (unfinished.size() == 1 and pausable.size() > 0)
+      { state: pausable.fold(state, (paused, id) => pauseAuthor(paused, id)), facts: { ...NO_FACTS, wrote: wrote, posts: List(post(state, InfoPost, Set(Session(issue)))) } }
+    else wakeTheAgent(state, issue, wrote)
+  }
+
+  /// "cancel" in a session without a running author. On the sub-issue it cancels the last job
+  /// there, unless that job is over, when the agent answers. Anywhere else it cancels the
+  /// workflow. The reply answers the person.
+  pure def verbalCancelIn(state: Routing, issue: Issue, wrote: Wrote): StepResult = {
+    val owner = lastJobOn(state, issue)
+    val reply = List(post(state, InfoPost, Set(Session(issue))))
+    if (owner.size() > 0 and issue != SubjectIssue) {
+      if (owner.exists(id => isUnfinished(state.jobs[id]))) {
+        val cancelled = owner.fold({ state: state, feed: List() }, (sofar, id) => {
+          val one = cancelJob(sofar.state, id)
+          { state: one.state, feed: sofar.feed.concat(one.feed) }
+        })
+        { state: cancelled.state, facts: { ...NO_FACTS, wrote: wrote, posts: reply, feed: cancelled.feed } }
+      }
+      else wakeTheAgent(state, issue, wrote)
+    } else {
+      val cancelled = cancelEveryJob(state)
+      { state: cancelled.state, facts: { ...NO_FACTS, wrote: wrote, posts: reply, feed: cancelled.feed } }
+    }
+  }
+
   /// A person writes in one of the workflow's tracker sessions. In the job session of a running
-  /// author, the message is a prompt for that author. It is queued while the author is in its
-  /// turn, and it starts the next turn of an idle author. An idle author without a container
-  /// starts a fresh one, whose start flushes the board. Anywhere else it wakes the agent. A
-  /// question wakes a sleeping workflow. A finished workflow answers the person at once.
+  /// author, the message is a prompt for that author, a verbal command too. Anywhere else a verbal
+  /// command runs, and any other message wakes the agent. A message other than a status request
+  /// wakes a sleeping workflow. A finished workflow answers the person at once.
   action personWritesInSession: bool = {
     nondet issue = ISSUES.oneOf()
-    nondet text = Set(Question, StatusRequest).oneOf()
+    nondet text = SESSION_TEXTS.oneOf()
     val session = Session(issue)
     val wrote = WroteIn({ issue: issue, text: text })
     val running = runningSessionJob(routing, issue)
-    val woken = { ...routing, waitsForInput: routing.waitsForInput and text != Question }
+    val woken = { ...routing, waitsForInput: routing.waitsForInput and text == StatusRequest }
     all {
       routing.replyTargets.contains(session),
       if (routing.ended) {
-        val kind = if (text == Question) InfoPost else StatusPost
+        val kind = if (text == StatusRequest) StatusPost else InfoPost
         val reply = { kind: kind, targets: replyTargetsOf(routing, session) }
         move(routing, { ...NO_FACTS, wrote: wrote, posts: List(reply) })
       } else if (running.size() > 0) {
-        val prompted = running.fold(woken, (state, id) => {
-          val job = state.jobs[id]
-          val sent = withJob(state, id, author =>
-            if (author.author == Idle) { ...author, author: InTurn, containerClosed: false }
-            else { ...author, queued: author.queued + 1 })
-          if (job.containerClosed) flushBoard(sent, id) else sent
-        })
-        move(prompted, { ...NO_FACTS, wrote: wrote })
+        move(running.fold(woken, (prompted, id) => promptAuthor(prompted, id)), { ...NO_FACTS, wrote: wrote })
       } else {
-        move({ ...woken, waiting: routing.waiting.union(Set(session)) }, { ...NO_FACTS, wrote: wrote, woke: true })
+        val answered = match text {
+          | PauseCommand => verbalPauseIn(woken, issue, wrote)
+          | CancelCommand => verbalCancelIn(woken, issue, wrote)
+          | _ => wakeTheAgent(woken, issue, wrote)
+        }
+        move(answered.state, answered.facts)
       },
     }
   }
@@ -619,6 +739,8 @@ module sessionRouting {
       nudged: false,
       stoppedEarly: false,
       containerClosed: false,
+      paused: false,
+      cancelSent: false,
       research: if (RESEARCH) Researching else NoResearch,
       researcherTodos: NoTodos,
     }
@@ -719,26 +841,34 @@ module sessionRouting {
     }
   }
 
-  /// An author's turn ends, and its board flushes.
+  /// An author's turn ends, and its board flushes. A turn that got a cancel ends cancelled.
   action authorTurnEnds: bool = {
     nondet id = JOB_SLOTS.oneOf()
-    nondet turnEnding = Set(Replies, EndsSilently, StopsEarly, GivesUp, PromptFails).oneOf()
+    nondet turnEnding = Set(Replies, EndsSilently, StopsEarly, GivesUp, PromptFails, Cancelled).oneOf()
     all {
       inTurn(routing, id),
+      routing.jobs[id].cancelSent iff turnEnding == Cancelled,
       val ended = turnEndOf(routing, id, turnEnding)
       move(
         flushBoard(ended.state, id),
-        { ...NO_FACTS, posts: ended.posts, feed: ended.feed, turnEnded: Set(id) },
+        {
+          ...NO_FACTS,
+          posts: ended.posts,
+          feed: ended.feed,
+          turnEnded: Set(id),
+          cancelled: if (turnEnding == Cancelled) Set(id) else Set(),
+        },
       ),
     }
   }
 
   /// An author's turn passes the wall clock limit, and the author fails. Its feed ends on the
-  /// error.
+  /// error. The wall clock does not fail a paused author.
   action authorFails: bool = {
     nondet id = JOB_SLOTS.oneOf()
     all {
       inTurn(routing, id),
+      not(routing.jobs[id].paused),
       val failed = failAuthor(routing, id)
       move(
         flushBoard(failed.state, id),
@@ -757,7 +887,7 @@ module sessionRouting {
     val chosen = sessionJob(routing, issue)
     val stopped = chosen.fold(routing, (state, id) => {
       val ended = withJob(state, id, job =>
-        if (job.author == InTurn) { ...forgetMessage(job), queued: 0, stoppedEarly: false, nudged: false, author: Idle, containerClosed: true }
+        if (job.author == InTurn) { ...forgetMessage(job), queued: 0, stoppedEarly: false, nudged: false, author: Idle, containerClosed: true, cancelSent: false }
         else { ...forgetMessage(job), queued: 0, stoppedEarly: false })
       if (state.jobs[id].author == InTurn) flushBoard(ended, id) else ended
     })
@@ -792,9 +922,68 @@ module sessionRouting {
       id < routing.jobs.length(),
       routing.jobs[id].research == Researching,
       val handed = withJob(routing, id, job =>
-        { ...job, research: Researched, researcherTodos: completed(job.researcherTodos), author: InTurn })
+        { ...job, research: Researched, researcherTodos: completed(job.researcherTodos), author: InTurn, restarts: 0 })
       move(flushBoard(handed, id), NO_FACTS),
     }
+  }
+
+  /// A researcher's turn ends without its payload. It restarts in a fresh sandbox, or fails once
+  /// its restarts are used up, and the workflow's audience hears it. Its board flushes.
+  action researcherLeavesNoPayload: bool = {
+    nondet id = JOB_SLOTS.oneOf()
+    all {
+      id < routing.jobs.length(),
+      routing.jobs[id].research == Researching,
+      if (routing.jobs[id].restarts < MAX_RESTARTS)
+        move(flushBoard(withJob(routing, id, job => { ...job, restarts: job.restarts + 1 }), id), NO_FACTS)
+      else
+        move(
+          flushBoard(withJob(routing, id, job => { ...job, research: ResearchFailed }), id),
+          { ...NO_FACTS, posts: List(post(routing, FailedPost, Set())) },
+        ),
+    }
+  }
+
+  /// The agent pauses an author. The reply goes to the workflow's audience. A paused author stays
+  /// as it is, and nothing is posted.
+  action agentPausesAuthor: bool = {
+    nondet id = JOB_SLOTS.oneOf()
+    all {
+      not(MODEL_AUTHOR),
+      not(routing.ended),
+      id < routing.jobs.length(),
+      isAuthorUnfinished(routing.jobs[id]),
+      if (routing.jobs[id].paused) move(routing, NO_FACTS)
+      else move(pauseAuthor(routing, id), { ...NO_FACTS, posts: List(post(routing, InfoPost, Set())) }),
+    }
+  }
+
+  /// The agent resumes an author. A paused author's board flushes, the reply goes to the
+  /// workflow's audience, and the author gets the continue prompt. Any other author stays as it is,
+  /// and nothing is posted.
+  action agentResumesAuthor: bool = {
+    nondet id = JOB_SLOTS.oneOf()
+    all {
+      not(MODEL_AUTHOR),
+      not(routing.ended),
+      id < routing.jobs.length(),
+      isAuthorUnfinished(routing.jobs[id]),
+      if (routing.jobs[id].paused) {
+        val resumed = flushBoard(withJob(routing, id, job => { ...job, paused: false }), id)
+        move(promptAuthor(resumed, id), { ...NO_FACTS, posts: List(post(routing, InfoPost, Set())) })
+      }
+      else move(routing, NO_FACTS),
+    }
+  }
+
+  /// `onIdle`: the idle clock fires. While the workflow runs and no author runs and no researcher
+  /// works, the workflow sleeps, and the sleep text goes to the workflow's audience. Otherwise
+  /// nothing changes.
+  action idleClockFires: bool = all {
+    not(routing.ended),
+    val sleeps = not(routing.waitsForInput) and routing.jobs.foldl(true, (idle, job) => idle and not(isBusy(job)))
+    if (sleeps) move({ ...routing, waitsForInput: true }, { ...NO_FACTS, posts: List(post(routing, InfoPost, Set())) })
+    else move(routing, NO_FACTS),
   }
 
   /// A board flush of one job.
@@ -807,23 +996,16 @@ module sessionRouting {
   }
 
   /// The agent finishes the workflow once every job is over, or fails it. Every unfinished author
-  /// and researcher is cancelled, and its board flushes. The feed of an author in its turn ends on
-  /// the stopped reply.
+  /// and researcher is cancelled, and its board flushes. The feed of an author with a prompt in
+  /// flight or queued ends on the stopped reply.
   action agentEndsWorkflow: bool = {
     nondet ending = Set(Finishes, Fails).oneOf()
     val kind = if (ending == Finishes) DonePost else WorkflowFailedPost
-    val cancelled = jobIds(routing).fold(routing, (state, id) =>
-      if (isUnfinished(state.jobs[id]))
-        flushBoard(withJob(state, id, job =>
-          if (job.research == Researching) { ...job, research: ResearchCancelled }
-          else { ...forgetMessage(job), author: Finished, queued: 0, containerClosed: false }), id)
-      else state)
-    val feed = jobIds(routing).fold(List(), (posts, id) =>
-      if (routing.jobs[id].author == InTurn) posts.concat(feedOf(routing, id, StoppedActivity, TrackerUp)) else posts)
+    val cancelled = cancelEveryJob(routing)
     all {
       not(routing.ended),
       ending == Finishes implies routing.jobs.foldl(true, (over, job) => over and not(isUnfinished(job))),
-      move({ ...cancelled, ended: true, waitsForInput: false }, { ...NO_FACTS, posts: List(post(routing, kind, Set())), feed: feed }),
+      move(cancelled.state, { ...NO_FACTS, posts: List(post(routing, kind, Set())), feed: cancelled.feed }),
     }
   }
 
@@ -842,6 +1024,10 @@ module sessionRouting {
     workflowRestarts,
     researcherReportsTodos,
     researcherHandsOver,
+    researcherLeavesNoPayload,
+    agentPausesAuthor,
+    agentResumesAuthor,
+    idleClockFires,
     boardFlushes,
     agentEndsWorkflow,
   }
@@ -855,12 +1041,14 @@ module sessionRouting {
   val linearOnlyAsksReachTheStartingSession: bool = lastStepKept.linearOnlyAsksReachTheStartingSession
 
   /// A person's message in the job session of a running author reaches that author as a prompt.
-  /// The orchestrator does not post and does not wake the agent.
+  /// A paused author holds it in its queue. The orchestrator does not post and does not wake the
+  /// agent.
   val sessionMessageReachesItsRunningAuthorSilently: bool =
     lastStepKept.sessionMessageReachesItsRunningAuthorSilently
 
   /// A person's message in a session without a running author wakes the agent, and the answer
-  /// reaches that session or the chat thread.
+  /// reaches that session or the chat thread. A verbal command that runs answers the person
+  /// itself.
   val sessionMessageWithoutAnAuthorIsAnswered: bool = lastStepKept.sessionMessageWithoutAnAuthorIsAnswered
 
   /// When an author's turn ends and it idles unfinished in its job session, its feed's last post
@@ -878,7 +1066,8 @@ module sessionRouting {
   val todoListIsFixedAfterFirstArtifact: bool = lastStepKept.todoListIsFixedAfterFirstArtifact
 
   /// A stop leaves the workflow status as it was, the orchestrator does not post, and the author's
-  /// feed ends on the stopped reply, on a finished workflow too.
+  /// feed ends on the stopped reply, on a finished workflow too. A cancelled turn that leaves its
+  /// author idle in its job session ends the feed the same way.
   val aStopAnswersOnlyInTheFeed: bool = lastStepKept.aStopAnswersOnlyInTheFeed
 
   /// Once a job's author exists, every entry of its researcher's todo list reads complete.
@@ -902,15 +1091,18 @@ module sessionRouting {
   /// The prompts that wait for an author, which model checking bounds.
   val promptsWaiting: int = routing.jobs.foldl(0, (total, job) => total + job.queued)
 
-  /// The fresh sandboxes the authors took, which model checking bounds.
+  /// The fresh sandboxes the current tasks of the jobs took, which model checking bounds.
   val restartsTaken: int = routing.jobs.foldl(0, (total, job) => total + job.restarts)
 
   pure def hasFeedState(job: Job): bool =
-    job.buffered or job.todos != NoTodos or job.restarts > 0 or job.nudged or job.stoppedEarly
+    job.buffered or job.todos != NoTodos or job.restarts > 0 or job.nudged or job.stoppedEarly or job.paused or job.cancelSent
 
-  /// The authors whose feed, todo list or stall marks moved from where they started, which model
-  /// checking bounds.
+  /// The authors whose feed, todo list, stall marks or pause moved from where they started, which
+  /// model checking bounds.
   val authorsWithFeedState: int = routing.jobs.foldl(0, (total, job) => if (hasFeedState(job)) total + 1 else total)
+
+  /// The authors paused or with a cancel out, which model checking bounds.
+  val pausedAuthors: int = routing.jobs.foldl(0, (total, job) => if (job.paused or job.cancelSent) total + 1 else total)
 
   pure def wroteIn(facts: StepFacts): Set[Issue] = match facts.wrote {
     | WroteIn(wrote) => Set(wrote.issue)
@@ -1017,4 +1209,40 @@ module sessionRouting {
 
   /// Witness for `sessionFeedEndsWhenItsAuthorIdles`: a model-call author's first turn ends its feed.
   val aModelCallAuthorEndsItsFeed: bool = MODEL_AUTHOR and feedHas(lastStep, DoneActivity)
+
+  pure def wroteText(facts: StepFacts, text: SessionText): bool = match facts.wrote {
+    | WroteIn(wrote) => wrote.text == text
+    | NobodyWrote => false
+  }
+
+  /// Witness for `aStopAnswersOnlyInTheFeed`: a pause cancels a turn, and the author idles on the stopped reply.
+  val aPauseCancelsATurn: bool =
+    lastStep.cancelled.exists(id => routing.jobs[id].paused) and feedHas(lastStep, StoppedActivity)
+
+  /// Witness for `aStopAnswersOnlyInTheFeed`: a turn that a pause cancelled ends after the resume, and the author goes on.
+  val aResumedAuthorGoesOnAfterTheCancel: bool =
+    lastStep.cancelled.exists(id => not(routing.jobs[id].paused) and routing.jobs[id].author == InTurn)
+
+  /// Witness for `sessionMessageReachesItsRunningAuthorSilently`: a message waits in the queue of a paused author.
+  val aMessageWaitsForAPausedAuthor: bool = wroteIn(lastStep).exists(issue =>
+    runningSessionJob(routing, issue).exists(id => routing.jobs[id].paused and routing.jobs[id].queued > 0))
+
+  /// Witness for `sessionMessageWithoutAnAuthorIsAnswered`: "pause" in a session pauses an author and answers the person.
+  val aVerbalPausePausesAnAuthor: bool =
+    wroteText(lastStep, PauseCommand) and not(routing.ended) and lastStep.posts.length() > 0 and jobIds(routing).exists(id => routing.jobs[id].paused)
+
+  /// Witness for `sessionMessageWithoutAnAuthorIsAnswered`: "cancel" in a session cancels a job and answers the person.
+  val aVerbalCancelCancelsAJob: bool = wroteText(lastStep, CancelCommand) and lastStep.posts.length() > 0 and not(routing.ended)
+
+  /// Witness for `sessionMessageWithoutAnAuthorIsAnswered`: "cancel" in a session cancels the workflow and answers the person.
+  val aVerbalCancelCancelsTheWorkflow: bool =
+    wroteText(lastStep, CancelCommand) and lastStep.posts.length() > 0 and routing.ended and feedHas(lastStep, StoppedActivity)
+
+  /// Witness for `orchestratorStaysOutOfSessionsWhenChatExists`: the workflow goes to sleep and says so.
+  val theWorkflowSleeps: bool =
+    routing.waitsForInput and lastStep.posts.length() > 0 and wroteIn(lastStep).size() == 0 and lastStep.answered.size() == 0
+
+  /// Witness for `linearOnlyAsksReachTheStartingSession`: a researcher fails and the starting session hears it.
+  val aResearcherFails: bool =
+    jobIds(routing).exists(id => routing.jobs[id].research == ResearchFailed) and anAskReachesTheStartingSession
 }
