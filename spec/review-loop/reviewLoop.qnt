@@ -61,9 +61,11 @@ module reviewLoopTypes {
   /// The latest revision whose failed checks or conflict went back to its submitter, if any.
   type SentBack = NotSentBack | SentBackOn(int)
 
-  /// The output artifact. A revision is a number here. The host gives it a name.
+  /// The output artifact. A revision is a number here. The host gives it a name. It is delivered to
+  /// the humans from its first handover on, also while it is a draft again.
   type Artifact = {
     status: ArtifactStatus,
+    deliveredToHumans: bool,
     revision: int,
     refinerRun: RefinerRunOfArtifact,
     sentBack: SentBack,
@@ -246,6 +248,7 @@ module reviewLoopTypes {
     sentCommentIsAnsweredBeforeItsLineGoes: bool,
     failedReplyLeavesThePage: bool,
     aJudgeRejectionPostsItsReasonOnce: bool,
+    deliveredToHumansIsNeverCleared: bool,
     aModelCallAuthorFailsOnlyOnAHostError: bool,
     aRefinerRunRestartsAtMostTwice: bool,
     aFinishedRefinerRunKeepsItsStatus: bool,
@@ -285,6 +288,7 @@ module reviewLoopTypes {
     aPersonEditsDuringAModelCallTurn: bool,
     aModelCallTurnStartsOver: bool,
     aRulingCallIsLostWithTheInstance: bool,
+    aRulingCallReturnsAfterTheAuthorEnded: bool,
     aJudgeClosesWithoutAConclusion: bool,
     aRefinerRunFailsPastItsRestarts: bool,
     aRefinerRunStartsAfterAFailedOrCancelledOne: bool,
@@ -404,7 +408,13 @@ module reviewLoop {
       rejectedBy: Set(),
       findingsFrom: Set(),
     },
-    artifact: { status: Drafted, revision: 0, refinerRun: NoRefinerRun, sentBack: NotSentBack },
+    artifact: {
+      status: Drafted,
+      deliveredToHumans: false,
+      revision: 0,
+      refinerRun: NoRefinerRun,
+      sentBack: NotSentBack,
+    },
     refinerRuns: List(),
     judgeRunsCodeRulesOn: Set(),
     reviewComments: List(),
@@ -442,7 +452,12 @@ module reviewLoop {
 
   pure val RESTART_CAUSES: Set[RestartCause] = Set(GivesUp, UnfinishedStop, Stalled, SandboxGone, PromptFails)
 
-  pure val AUTHOR_ENDINGS: Set[AuthorEnding] = Set(TheAgentCancelsTheJob, TheAuthorFails, TheWorkflowEnds)
+  /// How the author can end. On a page, the end of the workflow also keeps a later mention from
+  /// the agent, which the review loop does not model, so the author ends there by a cancel or a
+  /// failure.
+  pure val AUTHOR_ENDINGS: Set[AuthorEnding] =
+    if (ON_A_PAGE) Set(TheAgentCancelsTheJob, TheAuthorFails)
+    else Set(TheAgentCancelsTheJob, TheAuthorFails, TheWorkflowEnds)
 
   pure val REVISION_LOOKUPS: Set[RevisionLookup] =
     if (UNREADABLE_REVISIONS) Set(RevisionKnown, RevisionUnknown) else Set(RevisionKnown)
@@ -625,7 +640,7 @@ module reviewLoop {
       | Drafted => Ready({ deliveredRevision: hostRevision(loop, lookup), close: close })
       | Ready(handed) => Ready(handed)
     }
-    { ...loop, artifact: { ...loop.artifact, status: status, refinerRun: NoRefinerRun } }
+    { ...loop, artifact: { ...loop.artifact, status: status, deliveredToHumans: true, refinerRun: NoRefinerRun } }
   }
 
   pure def startRefiner(loop: ReviewLoop, index: int): ReviewLoop = {
@@ -1994,6 +2009,10 @@ module reviewLoop {
       | Ready(handed) => handed.deliveredRevision == revision
     }
 
+  /// The record that the humans got the artifact stays once a handover set it.
+  pure def keepsTheFirstHandover(step: Transition): bool =
+    step.before.artifact.deliveredToHumans implies step.after.artifact.deliveredToHumans
+
   /// True when the author was live before a step and is cancelled or failed after it.
   pure def endsTheAuthor(step: Transition): bool = authorLive(step.before) and not(authorLive(step.after))
 
@@ -2048,6 +2067,7 @@ module reviewLoop {
     sentCommentIsAnsweredBeforeItsLineGoes: answersBeforeTheLineGoes(step),
     failedReplyLeavesThePage: failedReplyLeavesItAsItWas(step),
     aJudgeRejectionPostsItsReasonOnce: postsTheRejectionOnce(step),
+    deliveredToHumansIsNeverCleared: keepsTheFirstHandover(step),
     aModelCallAuthorFailsOnlyOnAHostError: failsOnlyOnAHostError(step),
     aRefinerRunRestartsAtMostTwice: restartsOnlyWhileItHasRestarts(step),
     aFinishedRefinerRunKeepsItsStatus: keepsEveryFinishedStatus(step),
@@ -2166,6 +2186,9 @@ module reviewLoop {
     aModelCallTurnStartsOver: step.kind.turnEnd == AuthorTurnStartsOver,
     aRulingCallIsLostWithTheInstance:
       step.kind.instanceRestarted and step.before.judgeRunsCodeRulesOn.exists(id => isOnRun(step.before, id)),
+    aRulingCallReturnsAfterTheAuthorEnded:
+      not(authorLive(step.before)) and
+        step.before.judgeRunsCodeRulesOn.exists(id => not(step.after.judgeRunsCodeRulesOn.contains(id))),
     aJudgeClosesWithoutAConclusion:
       match step.kind.turnEnd {
         | RefinerTurnEnded(id) => step.after.refinerRuns[id].result == RulingAsked
@@ -2317,6 +2340,13 @@ module reviewLoop {
   /// author gets the rejection whether the post landed or not.
   val aJudgeRejectionPostsItsReasonOnce: bool = lastStepKept.aJudgeRejectionPostsItsReasonOnce
 
+  /// The first handover records that the humans got the artifact. A later step does not clear
+  /// that record, and an artifact the humans hold has it.
+  val deliveredToHumansIsNeverCleared: bool = and {
+    drafted(review) or review.artifact.deliveredToHumans,
+    lastStepKept.deliveredToHumansIsNeverCleared,
+  }
+
   /// A person comment that does not mention the bot is marked read on the page only once a prompt
   /// that carries it is queued for the author. Until then it stays held.
   val aHeldCommentStaysHeldUntilItReachesTheAuthor: bool =
@@ -2393,6 +2423,7 @@ module reviewLoop {
     replyGoesOnlyToASentComment,
     failedReplyLeavesThePage,
     aJudgeRejectionPostsItsReasonOnce,
+    deliveredToHumansIsNeverCleared,
     aHeldCommentStaysHeldUntilItReachesTheAuthor,
     aModelCallAuthorFailsOnlyOnAHostError,
     aRestartDoesNotStrandAJudgeRun,
@@ -2549,6 +2580,14 @@ module reviewLoop {
   /// Witness for `aRestartDoesNotStrandAJudgeRun`: a new instance takes over while the ruling call
   /// of the judge run the artifact is on is out.
   val aRulingCallIsLostWithTheInstance: bool = lastStepReached.aRulingCallIsLostWithTheInstance
+
+  /// Witness for `aJudgeRejectionPostsItsReasonOnce`: a ruling call returns after the author
+  /// ended, so its ruling does not land.
+  val aRulingCallReturnsAfterTheAuthorEnded: bool = lastStepReached.aRulingCallReturnsAfterTheAuthorEnded
+
+  /// Witness for `deliveredToHumansIsNeverCleared`: the humans got the artifact once, and it is a
+  /// draft again.
+  val aDraftWasDeliveredBefore: bool = drafted(review) and review.artifact.deliveredToHumans
 
   /// Witness for `aRestartDoesNotStrandAJudgeRun`: a judge closes without a conclusion, and the
   /// agent is asked for a person's ruling at its turn end.

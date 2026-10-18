@@ -248,7 +248,6 @@ export type StepFacts = Partial<
     | "start"
     | "finishedByAgent"
     | "modelTurnCut"
-    | "pageCommentsRefused"
   >
 >;
 
@@ -548,7 +547,6 @@ export class WorkflowWorld {
     const modelTurnEndsBefore = this.modelTurnEnds.length;
     const outboxBefore = this.lastOutboxId();
     const postedBefore = this.workflow.posted.length;
-    const pageCommentsBefore = this.pageHost.postedComments.length;
     this.delivered = null;
     this.landed = [];
     const facts = await this.withinWorkBudget(String(action), async () => {
@@ -578,8 +576,6 @@ export class WorkflowWorld {
       postedTypes: this.workflow.posted.slice(postedBefore).map((event) => event.type),
       feedPosts: feedPostsOf(rows),
       postedTexts: this.workflow.posted.slice(postedBefore).map(plainText),
-      pageCommentsPosted: this.pageHost.postedComments.slice(pageCommentsBefore),
-      pageCommentsRefused: facts.pageCommentsRefused ?? false,
     };
     this.steps.push(step);
     return step;

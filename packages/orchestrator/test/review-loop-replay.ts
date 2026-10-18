@@ -166,6 +166,7 @@ export type SpecReview = {
     status:
       | { status: "Drafted" }
       | { status: "Ready"; deliveredRevision: number | null; close: SpecClose };
+    deliveredToHumans: boolean;
     revision: number;
     refinerRun: number | null;
     sentBack: number | null;
@@ -250,6 +251,7 @@ function specReview(value: unknown): SpecReview {
               close: itfOneOf(itfVariant(itfField(status.value, "close"))!.tag, ARTIFACT_CLOSES),
             }
           : { status: "Drafted" },
+      deliveredToHumans: itfBool(itfField(artifact, "deliveredToHumans")),
       revision: itfInt(itfField(artifact, "revision")),
       refinerRun: refinerRun.tag === "OnRefinerRun" ? itfInt(refinerRun.value) : null,
       sentBack: sentBack.tag === "SentBackOn" ? itfInt(sentBack.value) : null,
@@ -1024,6 +1026,7 @@ export class ReviewLoopReplay {
                 deliveredRevision: revisionCount(delivered),
                 close: this.handoverClose(author.job_id),
               },
+        deliveredToHumans: artifact.delivered_to_humans_at !== null,
         revision: this.revisionCount(this.hostRevision() ?? ""),
         refinerRun: pointer === -1 ? null : pointer,
         sentBack: this.sentBackRevision(author.job_id),

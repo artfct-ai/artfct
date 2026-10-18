@@ -1,7 +1,5 @@
-import type { PostedComment } from "@artfct-ai/adapters/test/fake-documents";
 import type { InboundEvent, ReplyTarget, VerbalCommand } from "@artfct-ai/contracts/inbound";
 import type { ArtifactStatus, TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
-import { rejectionHeadline } from "../src/prompts/review-prompt";
 import { MAX_RESTARTS, SLEEP_TEXT } from "../src/workflow/lifecycle";
 import type { TaskEvent, TaskRole } from "../src/workflow/task/events";
 import { taskAtWork } from "../src/workflow/task/at-work";
@@ -126,10 +124,6 @@ export type Step = {
    * prompt a revise turn ran on, and null for a turn that produces the page.
    */
   modelTurnCut: { task_id: string; prompt_id: number | null } | null;
-  /** Every comment the document host took during the step, oldest first. */
-  pageCommentsPosted: PostedComment[];
-  /** True when the document host refused every comment while a ruling landed on a page. */
-  pageCommentsRefused: boolean;
 };
 
 const FINISHED: TaskStatus[] = ["done", "failed", "cancelled"];
@@ -167,9 +161,6 @@ const ARTIFACT_MOVES: Array<[ArtifactStatus, ArtifactStatus]> = [
   ["ready", "removed"],
 ];
 
-const coverDeliveredArtifact = coverageCase(
-  "deliveredToHumansIsNeverCleared: an artifact the humans have",
-);
 const coverEventOnFinished = coverageCase(
   "nothingReopensAFinishedWorkflow: an event on a finished workflow",
 );
@@ -242,12 +233,6 @@ const coverModelCallAuthorWorking = coverageCase(
   "aModelCallAuthorWorksOnlyWhileItsCallIsOut: a model-call author works with no call out",
 );
 const coverModelTurnCut = coverageCase("aRestartDoesNotLoseAModelTurn: a model turn is cut");
-const coverJudgeRejectsPage = coverageCase(
-  "aJudgeRejectionPostsItsReasonOnce: a judge rejects a page",
-);
-const coverRejectionRefused = coverageCase(
-  "aJudgeRejectionPostsItsReasonOnce: the host refuses the rejection comment",
-);
 const coverAccepted = coverageCase("anAcceptedArtifactNeverMovesBack: an artifact is accepted");
 const coverTurnOnAccepted = coverageCase(
   "anAcceptedArtifactNeverMovesBack: an author turn ends on an accepted artifact",
@@ -262,25 +247,6 @@ function violated(rule: string, detail: string): never {
 
 function artifactIn(observation: Observation, jobId: string): ObservedArtifact | null {
   return observation.artifacts.find((artifact) => artifact.job_id === jobId) ?? null;
-}
-
-function authorIn(observation: Observation, jobId: string): ObservedTask | null {
-  return observation.tasks.find((task) => task.role === "author" && task.job_id === jobId) ?? null;
-}
-
-/** `delivered_to_humans_at` is never cleared once it is set. */
-export function deliveredToHumansIsNeverCleared(_workflow: WorkflowRuntime, step: Step): void {
-  for (const before of step.before.artifacts) {
-    if (before.delivered_to_humans_at === null) continue;
-    coverDeliveredArtifact();
-    if (artifactIn(step.after, before.job_id)?.delivered_to_humans_at == null) {
-      violated("deliveredToHumansIsNeverCleared", `${before.job_id} lost delivered_to_humans_at`);
-    }
-  }
-}
-
-function rulingBefore(step: Step, taskId: string): string | null | undefined {
-  return step.before.tasks.find((task) => task.task_id === taskId)?.ruling;
 }
 
 /**
@@ -715,52 +681,6 @@ function queuedTextsOf(workflow: WorkflowRuntime, taskId: string): string[] {
 
 function occurrences(texts: string[], text: string): number {
   return texts.filter((candidate) => candidate === text).length;
-}
-
-/**
- * A judge rejection on a page posts its reason in one comment when the host takes it, and the
- * author gets the rejection whether the post landed or not.
- */
-export function aJudgeRejectionPostsItsReasonOnce(workflow: WorkflowRuntime, step: Step): void {
-  for (const run of step.after.tasks) {
-    if (run.role !== "reviewer" || run.ruling === null || rulingBefore(step, run.task_id) != null) {
-      continue;
-    }
-    const ruling = workflow.store.ruling(run.task_id);
-    const ref = workflow.store.artifact(run.job_id)?.ref;
-    if (ruling?.status !== "rejected" || ref?.kind !== "page") continue;
-    coverJudgeRejectsPage();
-    if (step.pageCommentsRefused) coverRejectionRefused();
-    const posted = step.pageCommentsPosted.filter(
-      (comment) =>
-        comment.pageId === ref.page_id &&
-        comment.passage === null &&
-        comment.text.startsWith(ruling.reason),
-    ).length;
-    const expected = step.pageCommentsRefused ? 0 : 1;
-    if (posted !== expected) {
-      violated(
-        "aJudgeRejectionPostsItsReasonOnce",
-        `the rejection by ${run.task_id} posted ${posted} comments, not ${expected}`,
-      );
-    }
-    const author = authorIn(step.after, run.job_id);
-    if (!author || FINISHED.includes(author.status) || run.refiner_index === null) continue;
-    const entry = workflow.stageFor(workflow.store.requireJob(run.job_id)).reviewers[
-      run.refiner_index
-    ];
-    const headline = rejectionHeadline(entry?.name ?? "");
-    const rejectionsBefore = (authorIn(step.before, run.job_id)?.promptsQueued ?? []).filter(
-      (text) => text.startsWith(headline),
-    ).length;
-    const rejectionsAfter = author.promptsQueued.filter((text) => text.startsWith(headline)).length;
-    if (rejectionsAfter <= rejectionsBefore) {
-      violated(
-        "aJudgeRejectionPostsItsReasonOnce",
-        `${author.task_id} did not get the rejection by ${run.task_id}`,
-      );
-    }
-  }
 }
 
 /**
