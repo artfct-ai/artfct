@@ -11,6 +11,7 @@
     "endedWorkflowHasNoUnfinishedTask",
     "nothingReopensAFinishedWorkflow",
     "staleAlarmIsIgnored",
+    "stoppedModelCallLeavesThePage",
     "sleepMessageOnlyDuringAWorkflow",
     "finishedWorkflowKeepsItsStatus",
     "taskRestartsAtMostTwice",
@@ -35,6 +36,7 @@
     "pagesFromModelCalls": 1.7,
     "modelCallPagesWithAReviewer": 1.7,
     "modelCallPagesAfterResearch": 1.7,
+    "modelCallPagesForAnIssue": 1.7,
     "pullsTheHostMoves": 1.7,
     "pullsForAnEndedSubject": 1.7,
     "pullsForAnEndedSubIssue": 1.7,
@@ -260,9 +262,7 @@
       "anAuthorIsInReview",
       "theHumansHaveAPage",
       "theWorkflowIsDone",
-      "theWorkflowFailed",
-      "anAcceptanceCheckFails",
-      "theAgentIsToldToAskAgain"
+      "theWorkflowFailed"
     ],
     "modelCallPagesWithAReviewer": [
       "aPlanStartsTheWorkflow",
@@ -309,9 +309,7 @@
       "anAuthorIsInReview",
       "theHumansHaveAPage",
       "theWorkflowIsDone",
-      "theWorkflowFailed",
-      "anAcceptanceCheckFails",
-      "theAgentIsToldToAskAgain"
+      "theWorkflowFailed"
     ],
     "modelCallPagesAfterResearch": [
       "aPlanStartsTheWorkflow",
@@ -335,6 +333,44 @@
       "aPromptWaitsForATurn",
       "aVerbalCommandFindsSeveralJobs",
       "aJobCompletes",
+      "aCallWasDropped",
+      "aRestartCutsAModelTurn",
+      "aModelTurnOutlivesItsDeadline",
+      "aReviseTurnIsInFlight",
+      "aPausedAuthorLosesAModelTurn",
+      "anAuthorFailsOnALostModelTurn",
+      "aPageWriteIsOut",
+      "aPageWriteOutlivesItsAuthor",
+      "aRestartCutsAPageWrite",
+      "aDeadlinePassesDuringAPageWrite",
+      "aPromptWaitsForAModelCallAuthor",
+      "aPausedModelCallAuthorWaitsBusy",
+      "aResearcherHandedOver",
+      "aResearcherRestarted",
+      "aPersonPausesAResearcher",
+      "anAuthorIsInReview",
+      "theHumansHaveAPage",
+      "theWorkflowIsDone",
+      "theWorkflowFailed"
+    ],
+    "modelCallPagesForAnIssue": [
+      "aPlanStartsTheWorkflow",
+      "anUndeclaredPlanLands",
+      "theWorkflowWaitsForItsStages",
+      "twoJobsShareAnInput",
+      "aFinishedTaskIsInAStep",
+      "aWorkflowEndedWithJobs",
+      "anEventLandsOnAFinishedWorkflow",
+      "aStaleAlarmFires",
+      "theSleepMessagePosts",
+      "aMessageWakesTheWorkflow",
+      "anAuthorRestarted",
+      "aPromptWaits",
+      "anAuthorFailed",
+      "aPausedAuthorResumes",
+      "aPromptWaitsForAPausedTask",
+      "aPromptWaitsForATurn",
+      "aJobCompletes",
       "anAcceptanceCheckIsOut",
       "aCallWasDropped",
       "aRestartCutsAModelTurn",
@@ -349,9 +385,14 @@
       "aDeadlinePassesDuringAPageWrite",
       "aPromptWaitsForAModelCallAuthor",
       "aPausedModelCallAuthorWaitsBusy",
-      "aResearcherHandedOver",
-      "aResearcherRestarted",
-      "aPersonPausesAResearcher",
+      "aStopEndsAModelCall",
+      "aStoppedModelCallReturns",
+      "aStoppedAuthorWaitsForItsPage",
+      "aSubjectsJobEndsTheWorkflow",
+      "aCancelWordReachesTheSubjectsAuthor",
+      "theWorkflowMovedAnIssue",
+      "aStartOutsideTheSubjectIsRefused",
+      "aPlanNamesAnotherSubject",
       "anAuthorIsInReview",
       "theHumansHaveAPage",
       "theWorkflowIsDone",
@@ -651,6 +692,20 @@
           "callsOut": 2,
           "promptsSent": 2,
           "promptsWaiting": 2
+        }
+      },
+      "modelCallPagesForAnIssue": {
+        "pr": {
+          "jobsStarted": 1,
+          "callsOut": 2,
+          "promptsSent": 2,
+          "promptsWaiting": 1
+        },
+        "nightly": {
+          "jobsStarted": 2,
+          "callsOut": 2,
+          "promptsSent": 2,
+          "promptsWaiting": 1
         }
       },
       "pullsTheHostMoves": {

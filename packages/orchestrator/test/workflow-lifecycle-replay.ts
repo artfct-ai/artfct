@@ -44,6 +44,7 @@ import {
   GENERATION_TIMERS,
   personCancels,
   endRefinerRunTurn,
+  personPressesStop,
   personWrites,
   researcherTurnEnds,
   type RefinerRunEnd,
@@ -167,6 +168,15 @@ export const SPEC_SETUPS = {
     research: true,
     artifact: "page",
     origin: "chat",
+    pageEnding: "acceptance",
+  },
+  modelCallPagesForAnIssue: {
+    module: "modelCallPagesForAnIssue",
+    refiners: "none",
+    pageAuthor: "model",
+    research: false,
+    artifact: "page",
+    origin: "tracker",
     pageEnding: "acceptance",
   },
   pullsTheHostMoves: {
@@ -843,7 +853,8 @@ export class WorkflowLifecycleReplay {
 
   /**
    * The prompts of a model-call author as the spec counts them. A revise turn sends its prompt
-   * as it starts, and that prompt stays queued until the turn applies its revision.
+   * as it starts, and that prompt stays queued until the turn applies its revision. A stop ends
+   * the turn and drops the queue, while its model call stays out.
    */
   private modelTurnsOf(
     task: TaskRow,
@@ -856,7 +867,8 @@ export class WorkflowLifecycleReplay {
       this.calls.some(
         (call) =>
           (call.kind === "ModelCall" || call.kind === "PageWrite") &&
-          call.revisedBy === task.task_id,
+          call.revisedBy === task.task_id &&
+          call.turnId === task.model_turn_id,
       );
     return {
       turnRunning: false,
@@ -939,6 +951,7 @@ export class WorkflowLifecycleReplay {
             ),
         );
       case "aPersonEndsAnIssue":
+      case "aPersonEndsAnIssueAfterAnAcceptance":
         return worldAction(`a person ends issue ${picks.issue}`, (world) =>
           this.runStep(() => this.personEndsIssue(world, required(picks.issue))),
         );
@@ -1055,6 +1068,8 @@ export class WorkflowLifecycleReplay {
         );
       case "personWrites":
         return personWrites("prompt");
+      case "aPersonPressesStop":
+        return personPressesStop(0);
       case "workflowEnds":
         return worldAction(`the workflow ends: ${picks.ending}`, (world) =>
           this.runStep(() => this.endWorkflow(world, required(picks.ending))),
@@ -1111,7 +1126,9 @@ export class WorkflowLifecycleReplay {
   private async endWorkflow(world: WorkflowWorld, ending: Ending): Promise<void> {
     switch (ending) {
       case "PersonCancels":
-        await personCancels(this.stage === STAGE_OF.pull ? "word" : "control").run(world);
+        await personCancels(
+          world.workflow.state.origin?.source === "tracker" ? "word" : "control",
+        ).run(world);
         return;
       case "AgentFails":
         await planTools(world.workflow).fail_workflow.execute(
