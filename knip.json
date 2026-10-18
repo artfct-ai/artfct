@@ -14,7 +14,8 @@
     "packages/orchestrator": {
       "entry": [
         "src/**/*.test.medium.ts",
-        "vitest.{config,setup}.ts",
+        "src/**/*.replay{,.medium}.ts",
+        "vitest.{config,replay.config,setup}.ts",
         "drizzle.*.config.ts",
         "migrations/workflow/migrations.d.ts",
         "scripts/**/*.ts",

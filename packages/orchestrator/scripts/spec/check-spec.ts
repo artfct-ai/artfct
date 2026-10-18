@@ -3,7 +3,7 @@
  * Runs the checks that each spec folder's `checks.json` declares, for CI and the nightly run.
  * Usage, from the orchestrator package:
  *   bun scripts/spec/check-spec.ts setups
- *   bun scripts/spec/check-spec.ts shard <index> <count> <samples>
+ *   bun scripts/spec/check-spec.ts shard <index> <count> <samples> [spec...]
  *   bun scripts/spec/check-spec.ts witnesses <spec> <setup>
  *   bun scripts/spec/check-spec.ts simulate <spec> <setup> <samples>
  *   bun scripts/spec/check-spec.ts tlc <spec> <setup> <pr|nightly>
@@ -26,7 +26,7 @@ const ORCHESTRATOR_DIR = join(import.meta.dirname, "../..");
 const MAX_STEPS = 25;
 const USAGE = [
   "usage: bun scripts/spec/check-spec.ts setups",
-  "       bun scripts/spec/check-spec.ts shard <index> <count> <samples>",
+  "       bun scripts/spec/check-spec.ts shard <index> <count> <samples> [spec...]",
   "       bun scripts/spec/check-spec.ts witnesses <spec> <setup>",
   "       bun scripts/spec/check-spec.ts simulate <spec> <setup> <samples>",
   "       bun scripts/spec/check-spec.ts tlc <spec> <setup> <pr|nightly>",
@@ -68,21 +68,26 @@ function checkedSetups() {
         `Add the minutes ${setup} takes on main under mainMinutes in ${spec}/checks.json.`,
       );
     }
-    const replay = [
-      ...new Bun.Glob(`src/**/${spec}-replay.test{,.medium}.ts`).scanSync(ORCHESTRATOR_DIR),
-    ];
+    const [replay] = new Bun.Glob(`src/**/${spec}.replay{,.medium}.ts`).scanSync(ORCHESTRATOR_DIR);
     return {
       spec,
       setup,
-      replay: replay[0] ?? "",
+      replay: replay ? `./${replay}` : "",
       tlc: Boolean(checks.tlc?.bounds[setup]),
       minutes,
     };
   });
 }
 
-async function checkQuintShard(index: number, count: number, samples: string): Promise<number> {
-  const shard = quintShards(checkedSetups(), count)[index];
+async function checkQuintShard(options: {
+  index: number;
+  count: number;
+  samples: string;
+  specs: string[];
+}): Promise<number> {
+  const { index, count, samples, specs } = options;
+  const setups = checkedSetups().filter(({ spec }) => !specs.length || specs.includes(spec));
+  const shard = quintShards(setups, count)[index];
   if (!shard) {
     console.error(USAGE);
     return 2;
@@ -230,8 +235,14 @@ async function main(args: string[]): Promise<number> {
     return 0;
   }
   if (command === "shard") {
-    const [, shardIndex, shardCount, samples] = args;
-    if (samples) return checkQuintShard(Number(shardIndex), Number(shardCount), samples);
+    const [, shardIndex, shardCount, samples, ...specs] = args;
+    if (samples)
+      return checkQuintShard({
+        index: Number(shardIndex),
+        count: Number(shardCount),
+        samples,
+        specs,
+      });
   }
   if (command === "witnesses" && spec && setup) return checkWitnesses(spec, setup);
   if (command === "simulate" && spec && setup && detail) return simulate(spec, setup, detail);

@@ -146,6 +146,7 @@ Judge the model by these rules:
 - Write prose in plain technical English, in short sentences. Do not use semicolons or em dashes.
 - Tests:
   - Write a small test (`*.test.ts`) unless the code needs a Durable Object, D1, or `cloudflare:workers`. Then write a medium test (`*.test.medium.ts`).
+  - Name a spec replay `<spec>.replay.ts`, or `<spec>.replay.medium.ts` when it needs workerd. The test runs skip it. `bun run spec:replay` in the orchestrator runs every replay.
   - Test logic over `WorkflowRuntime` with `freshRuntime` and `freshStore`, which do not need a Durable Object.
   - Test helpers live in `<package>/test/`, never in `src/`. A fake, mock, or scripted stand-in that only tests, smoke, or `bun run dev` use is a test helper, even when a Worker entry wires it in.
   - Production code never checks for a mock mode or a mock name.
@@ -157,7 +158,7 @@ Judge the model by these rules:
 - While you work, run `scripts/test-near` on the files you change. Before you push, `bun run lint` passes with zero warnings and the nearby tests pass.
 - Push early and open a draft PR. Do not stop at a local commit, and do not ask first.
 - Do not repeat CI runs locally. CI runs these:
-  - Pull request: `bun run check` then smoke in one job. The check runs the spec replays at their default count. A light quint run in 3 shards runs through turbo, which caches it on the specs and their scripts.
+  - Pull request: `bun run check` then smoke in one job. The spec replays run at their default count in their own job, through turbo, which caches them on the orchestrator and the spec folders. A light quint run in 3 shards checks the specs that changed. It checks every spec when the spec scripts, the quint version, or the CI workflow change.
   - Main: witnesses and 100,000 quint samples per setup, the spec replays, and the properties at reduced counts.
   - Nightly: deep quint, TLC at the `nightly` bounds, the full property counts, and the mutants. To bisect a failure, start the nightly workflow by hand with a commit.
 - CI does not run on a fork's PR until a maintainer approves it. A fork runs `bun run check` and `bun run smoke` locally before it pushes.

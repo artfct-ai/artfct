@@ -19,7 +19,7 @@
     "test": "bun test",
     "test:medium": "vitest run",
     "lint": "oxlint",
-    "spec:quint": "bun scripts/spec/check-spec.ts shard"
+    "spec:replay": "bun scripts/properties/spec-replays.ts"
   },
   "dependencies": {
     "@agentclientprotocol/sdk": "^1.8.0",

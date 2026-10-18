@@ -13,6 +13,9 @@
     "transit": {
       "dependsOn": ["^transit"]
     },
+    "@artfct-ai/spec#transit": {
+      "inputs": ["package.json"]
+    },
     "types": {
       "inputs": ["wrangler.jsonc", "wrangler.test.jsonc"],
       "outputs": ["worker-configuration.d.ts"]
@@ -69,16 +72,9 @@
     "test": {
       "dependsOn": ["transit", "types", "template-config"]
     },
-    "@artfct-ai/orchestrator#test": {
+    "@artfct-ai/orchestrator#spec:replay": {
       "dependsOn": ["transit", "types", "template-config"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/spec/**"]
-    },
-    "@artfct-ai/orchestrator#test:medium": {
-      "dependsOn": ["transit", "types", "template-config"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/spec/**"]
-    },
-    "@artfct-ai/orchestrator#spec:quint": {
-      "inputs": ["scripts/spec/**", "$TURBO_ROOT$/spec/**"]
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/spec/*/**/*"]
     },
     "test:medium": {
       "dependsOn": ["transit", "types", "template-config"]

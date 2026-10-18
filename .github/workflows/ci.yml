@@ -38,9 +38,52 @@ jobs:
       - run: bun run check:affected
       - run: bun run smoke
 
+  spec_replays_affected:
+    name: spec replays
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - name: Replay the specs at their default count when the orchestrator, a package it depends on, or a spec changed, unless turbo has the result cached
+        run: bunx turbo run spec:replay --affected
+
+  spec_changes:
+    name: spec changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      specs: ${{ steps.specs.outputs.specs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - name: List the specs whose folders changed, or every spec when the spec scripts, the quint version, or this workflow changed
+        id: specs
+        shell: bash
+        run: |
+          changed=$(git diff --name-only HEAD^1 HEAD)
+          quint_version=$(git diff HEAD^1 HEAD -- bun.lock | grep -E '^[-+].*@informalsystems/quint' || true)
+          specs=""
+          for checks in spec/*/checks.json; do
+            spec=$(basename "$(dirname "$checks")")
+            if [ -n "$quint_version" ] || grep -qE "^(spec/$spec/|packages/orchestrator/scripts/spec/|\.github/workflows/ci\.yml$)" <<<"$changed"; then
+              specs="$specs $spec"
+            fi
+          done
+          echo "specs=${specs# }" | tee -a "$GITHUB_OUTPUT"
+
   quint:
     name: quint (shard ${{ matrix.shard }})
-    if: github.event_name == 'pull_request'
+    needs: spec_changes
+    if: needs.spec_changes.outputs.specs != ''
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -54,6 +97,7 @@ jobs:
     env:
       SHARD_INDEX: ${{ strategy.job-index }}
       SHARD_COUNT: ${{ strategy.job-total }}
+      SPECS: ${{ needs.spec_changes.outputs.specs }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -65,8 +109,8 @@ jobs:
           path: ~/.quint
           key: quint-${{ runner.os }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
           restore-keys: quint-${{ runner.os }}-
-      - name: Typecheck, check the witnesses, and run every invariant on 10,000 samples for each setup of this shard, unless turbo has the result cached
-        run: bunx turbo run spec:quint --filter=@artfct-ai/orchestrator --log-prefix=none -- "$SHARD_INDEX" "$SHARD_COUNT" 10000
+      - name: Typecheck, check the witnesses, and run every invariant on 10,000 samples for each setup of the changed specs in this shard
+        run: bun scripts/spec/check-spec.ts shard "$SHARD_INDEX" "$SHARD_COUNT" 10000 $SPECS
 
   quint_spec:
     name: quint spec (shard ${{ matrix.shard }})
