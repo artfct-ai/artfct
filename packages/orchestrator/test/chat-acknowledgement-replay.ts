@@ -242,6 +242,8 @@ export class ChatAcknowledgementReplay {
       case "removeReturns":
         this.answer(required(picks.id, "id"), "removes", required(picks.accepted, "accepted"));
         break;
+      case "finished":
+        break;
       default:
         throw new Error(`no replay for spec action ${step.action}`);
     }

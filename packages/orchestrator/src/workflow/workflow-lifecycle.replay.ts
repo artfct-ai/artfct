@@ -118,6 +118,12 @@ describe("workflow lifecycle spec", () => {
     await replayTrace("modelCallPagesForAnIssue", traceSteps("modelCallPagesForAnIssue", trace));
   });
 
+  it("keeps a prompt queued until the page create a stop reached returns", async () => {
+    const path = join(PINNED_TRACES, "a-prompt-waits-for-a-stopped-page-create.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("modelCallPagesForAnIssue", traceSteps("modelCallPagesForAnIssue", trace));
+  });
+
   it("leaves the store as it was when the deadline of the turn that produced the page fires", async () => {
     const path = join(PINNED_TRACES, "stale-deadline-of-the-produce-turn.itf.json");
     const trace: unknown = JSON.parse(readFileSync(path, "utf8"));

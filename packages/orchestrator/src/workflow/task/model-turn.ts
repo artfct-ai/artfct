@@ -15,6 +15,8 @@ export type ModelTurnAlarm = { task_id: string; turn_id: string };
 
 /** A model turn in flight, as the code that runs it sees it. */
 export type ModelTurn = {
+  /** The id the task stores while the turn is in flight. */
+  id: string;
   /** True once the task no longer holds this turn in flight, so its answer changes nothing. */
   ended: () => boolean;
   /** End the turn in the same synchronous step that records its answer. */
@@ -35,6 +37,7 @@ export async function startModelTurn(
   await workflow.scheduleAlarm(MODEL_TURN_DEADLINE_SECONDS, "onModelTurnDeadline", alarm);
   const current = () => workflow.store.task(taskId)?.model_turn_id === turnId;
   return {
+    id: turnId,
     ended: () => !current(),
     finish: () => {
       if (current()) workflow.store.updateTask(taskId, { model_turn_id: null });

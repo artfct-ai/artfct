@@ -122,6 +122,7 @@ Judge the model by these rules:
 
 - A folder under `spec/` holds one Quint spec, one file per setup, and `checks.json`. Only `packages/orchestrator/scripts/spec/check-spec.ts` reads `checks.json`. CI calls it for every setup, so a new spec needs no workflow change.
 - Write every rule as a state invariant, so simulation and TLC both check it.
+- TLC fails a state where every step is blocked. When a setup has a natural end, add a step that is enabled only at that end and changes no variable.
 - Give each list or number that grows a counter val. Cap it per setup under `tlc.bounds` in `checks.json`, at `pr` and `nightly` depth. Only the nightly run checks TLC, at the `nightly` bounds. Use the `pr` bounds to check a setup with TLC locally. Keep each main quint shard under 12 minutes. Record each setup's minutes on main under `mainMinutes` in `checks.json`. The quint shards on main and on pull requests balance on them.
 - Remove a call from the state once it returns. A restart drops every call that is out.
 - Write a before-and-after rule as a pure def over one step: the state before, the state after, and the kind of step. Each step records whether it kept each rule in a record variable, and the invariant reads that field. Do not store the state before the step.

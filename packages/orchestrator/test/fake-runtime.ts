@@ -119,6 +119,7 @@ export class FakeRuntime implements WorkflowRuntime {
   notifier: Notifier;
   readonly transcript: TranscriptStore;
   readonly sessionFeeds = new Map<string, AuthorFeed>();
+  readonly pageWritesOut = new Set<string>();
   sandboxProvider: FakeSandboxProvider = new FakeSandboxProvider();
   alarms: FakeAlarm[] = [];
   cancelled: string[] = [];
@@ -171,12 +172,12 @@ export class FakeRuntime implements WorkflowRuntime {
 
   /**
    * The same Durable Object after a restart. The store, the alarms, and the fakes stay. The
-   * session feeds and every turn the old instance held in memory are gone.
+   * session feeds, the page writes out, and every turn the old instance held in memory are gone.
    */
   restarted(): FakeRuntime {
     const next = new FakeRuntime(this.db, this.env);
-    const { sessionFeeds } = next;
-    Object.assign(next, this, { sessionFeeds, turnRunning: false });
+    const { sessionFeeds, pageWritesOut } = next;
+    Object.assign(next, this, { sessionFeeds, pageWritesOut, turnRunning: false });
     return next;
   }
 
@@ -613,6 +614,48 @@ export function patchNestingHost(
   const host = new FakeDocuments({ ...answers, nests: true });
   workflow.documentsInstance = host;
   return host;
+}
+
+/** Holds each page create and update of a fake host until `release`, and counts the most out at once. */
+export class GatedPageWrites {
+  private openGate: () => void = () => {};
+  private markWaiting: () => void = () => {};
+  private readonly gate = new Promise<void>((resolve) => {
+    this.openGate = resolve;
+  });
+  private out = 0;
+  /** The most page writes that were out at once. */
+  mostOut = 0;
+  /** Resolves once a page write waits at the gate. */
+  readonly waiting = new Promise<void>((resolve) => {
+    this.markWaiting = resolve;
+  });
+
+  constructor(documents: FakeDocuments) {
+    const createPage = documents.createPage.bind(documents);
+    const updatePageContent = documents.updatePageContent.bind(documents);
+    documents.createPage = (title, text, parent) =>
+      this.held(() => createPage(title, text, parent));
+    documents.updatePageContent = (pageId, change) =>
+      this.held(() => updatePageContent(pageId, change));
+  }
+
+  /** Let every waiting and later page write go to the host. */
+  release(): void {
+    this.openGate();
+  }
+
+  private async held<Result>(write: () => Promise<Result>): Promise<Result> {
+    this.out += 1;
+    this.mostOut = Math.max(this.mostOut, this.out);
+    this.markWaiting();
+    await this.gate;
+    try {
+      return await write();
+    } finally {
+      this.out -= 1;
+    }
+  }
 }
 
 /** The fake document host the runtime holds. */

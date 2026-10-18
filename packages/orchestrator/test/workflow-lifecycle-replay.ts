@@ -553,8 +553,8 @@ function specJob(value: unknown): SpecJob {
 
 /**
  * One call the replay holds, with the step that waits on it. A model call and a page write name
- * the model turn that made them, and the task when that turn revises its page. A page write can
- * land on the host without returning.
+ * the model turn that made them, and the task and the queued prompt when that turn revises its
+ * page. A page write can land on the host without returning.
  */
 type HeldCall = {
   kind: CallKind;
@@ -562,7 +562,7 @@ type HeldCall = {
   answer: (decisions: Decisions) => void;
   step: Promise<unknown> | null;
   turnId: string | null;
-  revisedBy: string | null;
+  revises: { taskId: string; promptId: number } | null;
   land: (() => Promise<void>) | null;
 };
 
@@ -860,27 +860,27 @@ export class WorkflowLifecycleReplay {
 
   /**
    * The prompts of a model-call author as the spec counts them. A revise turn sends its prompt
-   * as it starts, and that prompt stays queued until the turn applies its revision. A stop ends
-   * the turn and drops the queue, while its model call stays out.
+   * as it starts, and that prompt stays queued until the turn applies its revision. A stop drops
+   * the queue. It ends a turn whose model call is out, and leaves one whose page write is out in
+   * flight without its prompt.
    */
   private modelTurnsOf(
     task: TaskRow,
   ): Pick<SpecTask, "turnRunning" | "promptsSent" | "promptsQueued" | "generationClosed"> {
-    const queued = this.world.workflow.store
-      .queue()
-      .filter((row) => row.task_id === task.task_id).length;
+    const queued = this.world.workflow.store.queue().filter((row) => row.task_id === task.task_id);
     const revising =
       !isTaskFinished(task.status) &&
       this.calls.some(
         (call) =>
           (call.kind === "ModelCall" || call.kind === "PageWrite") &&
-          call.revisedBy === task.task_id &&
-          call.turnId === task.model_turn_id,
+          call.revises?.taskId === task.task_id &&
+          call.turnId === task.model_turn_id &&
+          queued.some((row) => row.id === call.revises?.promptId),
       );
     return {
       turnRunning: false,
       promptsSent: this.reviseTurns.get(task.task_id) ?? 0,
-      promptsQueued: revising ? queued - 1 : queued,
+      promptsQueued: revising ? queued.length - 1 : queued.length,
       generationClosed: false,
     };
   }
@@ -1011,7 +1011,8 @@ export class WorkflowLifecycleReplay {
             );
           }),
         );
-      case "personSendsAVerbalCommand": {
+      case "personSendsAVerbalCommand":
+      case "aPersonWritesDuringAStoppedPageWrite": {
         const command = required(picks.command);
         return worldAction(`a person says ${command}`, (world) =>
           this.runStep(() =>
@@ -1076,6 +1077,7 @@ export class WorkflowLifecycleReplay {
       case "personWrites":
         return personWrites("prompt");
       case "aPersonPressesStop":
+      case "aPersonPressesStopDuringAPageWrite":
         return personPressesStop(0);
       case "workflowEnds":
         return worldAction(`the workflow ends: ${picks.ending}`, (world) =>
@@ -1244,7 +1246,7 @@ export class WorkflowLifecycleReplay {
                 accepted(ref).then(resolve, reject);
               },
               turnId: null,
-              revisedBy: null,
+              revises: null,
               land: null,
             });
           });
@@ -1365,7 +1367,7 @@ export class WorkflowLifecycleReplay {
         jobId: task.job_id,
         answer: () => release(),
         turnId: null,
-        revisedBy: null,
+        revises: null,
         land: null,
       });
     });
@@ -1379,7 +1381,7 @@ export class WorkflowLifecycleReplay {
         jobId,
         answer: release,
         turnId: null,
-        revisedBy: null,
+        revises: null,
         land: null,
       });
     });
@@ -1396,8 +1398,8 @@ export class WorkflowLifecycleReplay {
       .find((candidate) => candidate.model_turn_id && !this.heldTurns.has(candidate.model_turn_id));
     if (!task?.model_turn_id) throw new Error("a page model call went out without a model turn");
     this.heldTurns.add(task.model_turn_id);
-    const revises = store.artifact(task.job_id) !== null;
-    if (revises) this.reviseTurns.set(task.task_id, (this.reviseTurns.get(task.task_id) ?? 0) + 1);
+    const prompt = store.artifact(task.job_id) === null ? null : store.peekPrompt(task.task_id);
+    if (prompt) this.reviseTurns.set(task.task_id, (this.reviseTurns.get(task.task_id) ?? 0) + 1);
     this.pagesWritten += 1;
     const page = `# Sessions\n\nVersion ${this.pagesWritten} of the page.\n\n${CLOSING_TEXT_MARKER}\nRevised the page.`;
     return new Promise<string>((release) => {
@@ -1406,7 +1408,7 @@ export class WorkflowLifecycleReplay {
         jobId: task.job_id,
         answer: () => release(page),
         turnId: task.model_turn_id,
-        revisedBy: revises ? task.task_id : null,
+        revises: prompt ? { taskId: task.task_id, promptId: prompt.id } : null,
         land: null,
       });
     });
@@ -1428,7 +1430,7 @@ export class WorkflowLifecycleReplay {
           write().then(resolve, reject);
         },
         turnId: modelCall.turnId,
-        revisedBy: modelCall.revisedBy,
+        revises: modelCall.revises,
         land: async () => {
           await write();
         },

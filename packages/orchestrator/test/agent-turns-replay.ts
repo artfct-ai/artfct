@@ -546,8 +546,14 @@ class ReplayRuntime extends FakeRuntime {
 
   override restarted(): ReplayRuntime {
     const next = new ReplayRuntime(this.database, this.env, this.ledger);
-    const { sessionFeeds, transcript, turns } = next;
-    Object.assign(next, this, { sessionFeeds, transcript, turns, turnRunning: false });
+    const { sessionFeeds, pageWritesOut, transcript, turns } = next;
+    Object.assign(next, this, {
+      sessionFeeds,
+      pageWritesOut,
+      transcript,
+      turns,
+      turnRunning: false,
+    });
     next.turnActive = false;
     return next;
   }
