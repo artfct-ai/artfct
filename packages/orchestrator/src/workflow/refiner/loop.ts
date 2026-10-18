@@ -368,15 +368,14 @@ async function settleJudgeEntry(
 }
 
 /**
- * Start step: a new instance lost the ruling calls the old one had out. Arm a settle of each done
- * judge run the artifact waits on that neither has a ruling nor asked a person for one.
+ * The judge runs whose ruling call a new instance lost: each done judge run the artifact waits on
+ * that neither has a ruling nor asked a person for one.
  */
-export async function settleLostJudgeRulings(workflow: WorkflowRuntime): Promise<void> {
-  for (const run of workflow.store.tasks()) {
-    if (!judgeEntryWithoutARulingAsked(workflow, run)) continue;
-    const alarm: TaskAlarm = { task_id: run.task_id };
-    await workflow.scheduleAlarm(0, "settleLostJudgeRuling", alarm);
-  }
+export function lostJudgeRulings(workflow: WorkflowRuntime): TaskAlarm[] {
+  return workflow.store
+    .tasks()
+    .filter((run) => judgeEntryWithoutARulingAsked(workflow, run))
+    .map((run) => ({ task_id: run.task_id }));
 }
 
 /** Alarm: rule on a done judge run whose ruling call a lost instance had out. */

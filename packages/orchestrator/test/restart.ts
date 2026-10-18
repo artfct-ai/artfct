@@ -1,27 +1,26 @@
 import { resumeLostTurn } from "../src/agent/turn/watchdog";
-import { settleLostJudgeRulings } from "../src/workflow/refiner/loop";
+import { armLostCallsAlarm, resumeLostCalls, type LostCallsAlarm } from "../src/workflow/restart";
+import type { TaskAlarm } from "../src/workflow/task/harness/timers";
 import { settleIdleAuthors } from "../src/workflow/task/harness/turn";
+import { runLostModelTurnAgain } from "../src/workflow/task/model-turn";
 import { provisionQueuedTasks } from "../src/workflow/task/sandbox/sandbox";
-import {
-  onModelTurnDeadline,
-  resumeLostModelTurns,
-  type ModelTurnAlarm,
-} from "../src/workflow/task/model-turn";
 import type { FakeRuntime } from "./fake-runtime";
 
 /**
- * Run the start step of an instance the Durable Object restarted as, and fire the alarms it arms
- * for now, as the platform does.
+ * Run the start step of an instance the Durable Object restarted as. Fire the restart alarm and
+ * each lost model turn it runs again, as the platform does. The settles of lost rulings stay armed.
  */
 export async function runStartStep(restarted: FakeRuntime): Promise<void> {
-  await resumeLostModelTurns(restarted);
+  await armLostCallsAlarm(restarted);
   await resumeLostTurn(restarted);
   await provisionQueuedTasks(restarted);
   await settleIdleAuthors(restarted);
-  await settleLostJudgeRulings(restarted);
-  const due = restarted.alarmsFor("onModelTurnDeadline").filter((alarm) => alarm.delay === 0);
-  for (const alarm of due) {
+  for (const alarm of restarted.alarmsFor("resumeLostCalls")) {
     await restarted.cancelAlarm(alarm.id);
-    await onModelTurnDeadline(restarted, alarm.payload as ModelTurnAlarm);
+    await resumeLostCalls(restarted, alarm.payload as LostCallsAlarm);
+  }
+  for (const alarm of restarted.alarmsFor("runLostModelTurnAgain")) {
+    await restarted.cancelAlarm(alarm.id);
+    await runLostModelTurnAgain(restarted, alarm.payload as TaskAlarm);
   }
 }

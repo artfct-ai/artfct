@@ -67,14 +67,15 @@ import { createWorkflow, eventRefusalOf, handleEvent } from "./workflow/inbound/
 import { onIdle } from "./workflow/lifecycle";
 import type { ChecksAlarm } from "./workflow/refiner/checks-gate";
 import { recheckChecks } from "./workflow/refiner/checks-recheck";
-import { settleLostJudgeRuling, settleLostJudgeRulings } from "./workflow/refiner/loop";
+import { settleLostJudgeRuling } from "./workflow/refiner/loop";
 import { retryQueue } from "./workflow/task/harness/prompt-queue";
 import { provision, provisionQueuedTasks } from "./workflow/task/sandbox/sandbox";
 import {
   onModelTurnDeadline,
-  resumeLostModelTurns,
+  runLostModelTurnAgain,
   type ModelTurnAlarm,
 } from "./workflow/task/model-turn";
+import { armLostCallsAlarm, resumeLostCalls, type LostCallsAlarm } from "./workflow/restart";
 import { settleIdleAuthor, settleIdleAuthors, TurnCoalescer } from "./workflow/task/harness/turn";
 import type {
   EventRefusal,
@@ -196,11 +197,10 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
       { tracker: () => this.tracker(), chat: this.chatClient, documents: () => this.documents() },
       (entry) => this.store.writeOutbox(entry),
     );
-    await resumeLostModelTurns(this);
+    await armLostCallsAlarm(this);
     await resumeLostTurn(this);
     await provisionQueuedTasks(this);
     await settleIdleAuthors(this);
-    await settleLostJudgeRulings(this);
   }
 
   async create(
@@ -307,6 +307,16 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
 
   recheckChecks(alarm: ChecksAlarm): Promise<void> {
     return this.inSpan("alarm recheckChecks", null, () => recheckChecks(this, alarm));
+  }
+
+  resumeLostCalls(alarm: LostCallsAlarm): Promise<void> {
+    return this.inSpan("alarm resumeLostCalls", null, () => resumeLostCalls(this, alarm));
+  }
+
+  runLostModelTurnAgain(alarm: TaskAlarm): Promise<void> {
+    return this.inSpan("alarm runLostModelTurnAgain", alarm.task_id, () =>
+      runLostModelTurnAgain(this, alarm),
+    );
   }
 
   onModelTurnDeadline(alarm: ModelTurnAlarm): Promise<void> {
