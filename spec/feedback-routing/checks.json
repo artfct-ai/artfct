@@ -1,0 +1,54 @@
+{
+  "invariants": ["everyFeedbackGetsOneRoutingDecision", "unadmittedFeedbackReachesNobody"],
+  "mainMinutes": {
+    "pullRequestFeedback": 0.4,
+    "pageFeedback": 0.4
+  },
+  "witnesses": {
+    "pullRequestFeedback": [
+      "aFeedbackGoesToTheAuthor",
+      "aFeedbackAsksForNothing",
+      "aFeedbackGoesToTheAgent",
+      "aFailedRouteCallGoesToTheAgent",
+      "aFailedAcknowledgeStillRoutes",
+      "anUnadmittedPullReview",
+      "anUncheckedAppReview",
+      "anAdmittedAppReviewGoesToTheAuthor",
+      "aRunningAuthorQueuesIt",
+      "anIdleAuthorTakesIt",
+      "aPausedAuthorHoldsIt",
+      "aFinishedAuthorGetsNothing",
+      "anEndedWorkflowIgnoresIt",
+      "anUnrecordedPullRequestGetsIt"
+    ],
+    "pageFeedback": [
+      "aFeedbackGoesToTheAuthor",
+      "aFeedbackAsksForNothing",
+      "aFeedbackGoesToTheAgent",
+      "aFailedRouteCallGoesToTheAgent",
+      "aFailedAcknowledgeLeavesItUnsent",
+      "aRunningAuthorQueuesIt",
+      "anIdleAuthorTakesIt",
+      "aPausedAuthorHoldsIt",
+      "aFinishedAuthorGetsNothing",
+      "anEndedWorkflowIgnoresIt",
+      "unadmittedHeldCommentsStayOut",
+      "heldCommentsCannotBeRead",
+      "aMentionCarriesTheHeldComments",
+      "aMentionWithNothingHeldIsNotScreened"
+    ]
+  },
+  "tlc": {
+    "ignoredVariables": ["lastFeedback", "stepWitnesses"],
+    "bounds": {
+      "pullRequestFeedback": {
+        "pr": { "feedbacksArrived": 3 },
+        "nightly": { "feedbacksArrived": 4 }
+      },
+      "pageFeedback": {
+        "pr": { "feedbacksArrived": 3 },
+        "nightly": { "feedbacksArrived": 4 }
+      }
+    }
+  }
+}

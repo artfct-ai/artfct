@@ -101,7 +101,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W12",
-    invariant: "everyFeedbackGetsOneRoutingDecision",
+    invariant: "feedbackRouting::everyFeedbackGetsOneRoutingDecision",
     path: "src/workflow/refiner/feedback.ts",
     find: '      return { notes: [`${reviewed} and sent it to nobody.${stayHeld}`, said], wake: "human" };',
     replace:
@@ -430,6 +430,35 @@ export const MUTANTS: Mutant[] = [
     path: "src/agent/tools/start/start.ts",
     find: "    if (!row || !isWorkflowFinished(row.status)) {",
     replace: "    if (!row) {",
+  },
+  {
+    id: "F1",
+    invariant: "feedbackRouting::unadmittedFeedbackReachesNobody",
+    path: "src/workflow/refiner/feedback.ts",
+    find: '      return { notes: [unadmittedFeedbackNote(wrote, screened)], wake: "human" };',
+    replace:
+      '      return { notes: [unadmittedFeedbackNote(wrote, screened), said], wake: "human" };',
+  },
+  {
+    id: "F2",
+    invariant: "feedbackRouting::unadmittedFeedbackReachesNobody (unchecked app review)",
+    path: "src/workflow/refiner/feedback.ts",
+    find: "  if (feedback.unchecked || held.length) {",
+    replace: "  if (held.length) {",
+  },
+  {
+    id: "F3",
+    invariant: "feedbackRouting::unadmittedFeedbackReachesNobody (app review text)",
+    path: "src/workflow/inbound/events.ts",
+    find: '  const told = pullDetailOf(event)?.reviewer_is_app ? { ...event, text: "" } : event;',
+    replace: "  const told = event;",
+  },
+  {
+    id: "F4",
+    invariant: "feedbackRouting::everyFeedbackGetsOneRoutingDecision (finished author)",
+    path: "src/workflow/refiner/feedback.ts",
+    find: "  if (isTaskFinished(task.status)) {",
+    replace: "  if (false) {",
   },
 ];
 

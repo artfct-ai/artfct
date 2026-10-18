@@ -4,7 +4,7 @@ This file lists each effect a person sees or the system relies on, and the invar
 
 Effects use the terms of the glossary. A guard is the exact function name of an invariant. A guard written `module::name` is an invariant of that Quint spec module. A row with an empty guard list is unguarded.
 
-The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The agent turn invariants live in `packages/orchestrator/test/agent-invariants.ts`. The router, chat acknowledgement and page revision invariants live beside them. The router binding invariants live in the Quint spec at `spec/router-bindings/routerBindings.qnt`. The review loop invariants live in the Quint spec at `spec/review-loop/reviewLoop.qnt`, the workflow lifecycle invariants in `spec/workflow-lifecycle/workflowLifecycle.qnt`, the harness session invariants in `spec/harness-session/harnessSession.qnt`, and the agent turns invariants in `spec/agent-turns/agentTurns.qnt`. The webhook invariants live in `packages/ingress/test/webhook-invariants.ts`, and the inbound mapper invariants in `packages/adapters/test/inbound-invariants.ts`.
+The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The agent turn invariants live in `packages/orchestrator/test/agent-invariants.ts`. The router, chat acknowledgement and page revision invariants live beside them. The router binding invariants live in the Quint spec at `spec/router-bindings/routerBindings.qnt`. The review loop invariants live in the Quint spec at `spec/review-loop/reviewLoop.qnt`, the workflow lifecycle invariants in `spec/workflow-lifecycle/workflowLifecycle.qnt`, the harness session invariants in `spec/harness-session/harnessSession.qnt`, the agent turns invariants in `spec/agent-turns/agentTurns.qnt`, and the feedback routing invariants in `spec/feedback-routing/feedbackRouting.qnt`. The webhook invariants live in `packages/ingress/test/webhook-invariants.ts`, and the inbound mapper invariants in `packages/adapters/test/inbound-invariants.ts`.
 
 ## Workflow, tasks and statuses
 
@@ -192,8 +192,8 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| E1 | Every feedback event on a running workflow gets one routing decision: author, agent, or `nobody`. A failed decisions call routes to the agent. | `everyFeedbackGetsOneRoutingDecision` |
-| E2 | Feedback the screen does not admit reaches neither the agent nor the author. | `unadmittedFeedbackReachesNobody` |
+| E1 | Every feedback event on a running workflow gets one routing decision: author, agent, or `nobody`. A failed decisions call routes to the agent. | `feedbackRouting::everyFeedbackGetsOneRoutingDecision` |
+| E2 | Feedback the screen does not admit reaches neither the agent nor the author. | `feedbackRouting::unadmittedFeedbackReachesNobody`, `reviewLoop::unadmittedFeedbackReachesNobody` |
 | E3 | A pull request review claims its review id only when the host read succeeds. On a failed read, the review and its comments can each prompt the author. | |
 | E4 | A page comment that does not mention the bot stays held. A mention screens every held comment with it. When the decisions model routes it to the author, the held comments the host marks read go with it as one feedback. On any other route they stay held. | `reviewLoop::aPromptToAPageAuthorCarriesItsHeldComments`, `reviewLoop::aHeldCommentStaysHeldUntilItReachesTheAuthor` |
 | E5 | A finished workflow ignores events. It refuses a person's message, and the router starts the next workflow with it. A stop still stops the author, a status gets the summary, and anything else gets "This workflow is X". | `nothingReopensAFinishedWorkflow`, `endedWorkflowHasNoUnfinishedTask`, `aPersonsMessageNeverReachesAnEndedWorkflow` |

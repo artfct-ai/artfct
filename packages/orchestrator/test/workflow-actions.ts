@@ -574,24 +574,17 @@ export function personPostsFeedback(
 ): WorkflowAction {
   const label = `a person posts a ${form}, decisions say ${routing}`;
   return authorAction(index, label, async (world, author) => {
-    if (author.kind !== "pull") return undefined;
+    if (author.kind !== "pull") return;
     if (!world.artifactOf(author)) world.openPull(author);
     world.answerDecisionsWith(ROUTING_ANSWERS[routing]);
     const pull = feedbackDetail(form, world.pullDetailOf(author));
     await world.deliver({ kind: "feedback", text: FEEDBACK_TEXT, pull });
-    const unchecked = form === "app_review" && routing === "fails";
-    return {
-      feedback: { task_id: author.taskId },
-      unadmittedFeedback: unchecked
-        ? { texts: [FEEDBACK_TEXT, INLINE_COMMENT.body], agentRead: null }
-        : null,
-    };
   });
 }
 
 /**
  * A person posts on a pull request of the repository that no task of the workflow opened. It is
- * no artifact of the workflow, so the step carries no feedback fact.
+ * not an artifact of the workflow.
  */
 export function personPostsOnUnownedPull(form: FeedbackForm): WorkflowAction {
   return action(`a person posts a ${form} on a pull request no task owns`, (world) =>
@@ -1115,18 +1108,6 @@ async function readingHeldComments<Result>(
   return result;
 }
 
-function heldCommentsExpected(read: HeldCommentsRead): "sent" | "kept" {
-  return read.host === "readable" && read.decisions === "answers" ? "sent" : "kept";
-}
-
-function runningPageAuthors(world: WorkflowWorld): string[] {
-  const { store } = world.workflow;
-  return store
-    .activeAuthorAndResearcherTasks()
-    .filter((task) => task.role === "author" && store.artifact(task.job_id)?.ref.kind === "page")
-    .map((task) => task.task_id);
-}
-
 /**
  * The agent sends the author a prompt of its own. A prompt to the author of a page carries the
  * comments held on it. Without `read`, the action lands inside another one and keeps its
@@ -1156,25 +1137,12 @@ export function agentPromptsAuthor(index: number, read?: HeldCommentsRead): Work
 
 /**
  * A person tells the agent they finished reviewing, and the turn sends the comments held on the
- * page of every running author. Comments the screen does not admit reach nobody. A cancel that
- * lands meanwhile drops queued prompts, so the step claims that only without one.
+ * page of every running author.
  */
 export function personAsksForRevision(index: number, read: HeldCommentsRead): WorkflowAction {
   return action(`a person asks for a revision, ${heldCommentsLabel(read)}`, async (world) => {
-    const authors = runningPageAuthors(world);
-    const held = fakeDocumentsOf(world.workflow)
-      .heldNow()
-      .map((comment) => comment.text);
     answerScreenWith(world, index, read);
-    const sent = await readingHeldComments(world, read, () =>
-      sendHeldCommentsOnRevisionRequest(world.workflow),
-    );
-    const agentRead = sent.notes.join(" ");
-    const expected = heldCommentsExpected(read);
-    const screenAdmitted = read.host === "refuses_acknowledgement" && read.decisions === "answers";
-    const keptWithoutCancel =
-      authors.length && expected === "kept" && !screenAdmitted && read.meanwhile === "nothing";
-    return { unadmittedFeedback: keptWithoutCancel ? { texts: held, agentRead } : null };
+    await readingHeldComments(world, read, () => sendHeldCommentsOnRevisionRequest(world.workflow));
   });
 }
 
