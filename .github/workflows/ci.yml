@@ -38,27 +38,9 @@ jobs:
       - run: bun run check:affected
       - run: bun run smoke
 
-  spec_changes:
-    name: spec changes
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    outputs:
-      changed: ${{ steps.paths.outputs.changed }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 2
-      - name: Check whether the pull request changes the specs or the scripts that check them
-        id: paths
-        run: |
-          changed=$(git diff --name-only HEAD^1 HEAD | grep -E '^(spec/|packages/orchestrator/scripts/spec/|bun\.lock$|\.github/workflows/ci\.yml$)' || true)
-          echo "changed=$([ -n "$changed" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-
   quint:
     name: quint (shard ${{ matrix.shard }})
-    needs: spec_changes
-    if: needs.spec_changes.outputs.changed == 'true'
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -83,52 +65,8 @@ jobs:
           path: ~/.quint
           key: quint-${{ runner.os }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
           restore-keys: quint-${{ runner.os }}-
-      - name: Typecheck, check the witnesses, and run every invariant on 10,000 samples for each setup of this shard
-        run: |
-          status=0
-          for entry in $(bun scripts/spec/check-spec.ts shard "$SHARD_INDEX" "$SHARD_COUNT" | jq -r '.[] | "\(.spec)/\(.setup)"'); do
-            spec=${entry%/*}
-            setup=${entry#*/}
-            echo "::group::$setup of $spec"
-            if ! {
-              bunx quint typecheck "../../spec/$spec/$setup.qnt" &&
-                bun scripts/spec/check-spec.ts witnesses "$spec" "$setup" &&
-                bun scripts/spec/check-spec.ts simulate "$spec" "$setup" 10000
-            }; then
-              status=1
-              echo "::error::$setup of $spec failed. Its group in this step's log has the output."
-            fi
-            echo "::endgroup::"
-          done
-          exit "$status"
-
-  quint_replays:
-    name: spec replays
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    defaults:
-      run:
-        shell: bash
-        working-directory: packages/orchestrator
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - run: bun install --frozen-lockfile
-      - run: bun run template-config
-      - name: Replay the spec traces through the code at the default count
-        run: |
-          status=0
-          for replay in $(bun scripts/spec/check-spec.ts setups | jq -r 'map(.replay) | unique | map(select(. != "")) | .[]'); do
-            if [[ "$replay" == *.test.medium.ts ]]; then
-              bunx vitest run "./$replay" || status=1
-            else
-              bun test "./$replay" || status=1
-            fi
-          done
-          exit "$status"
+      - name: Typecheck, check the witnesses, and run every invariant on 10,000 samples for each setup of this shard, unless turbo has the result cached
+        run: bunx turbo run spec:quint --filter=@artfct-ai/orchestrator --log-prefix=none -- "$SHARD_INDEX" "$SHARD_COUNT" 10000
 
   quint_spec:
     name: quint spec (shard ${{ matrix.shard }})
@@ -158,23 +96,7 @@ jobs:
           key: quint-${{ runner.os }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
           restore-keys: quint-${{ runner.os }}-
       - name: Typecheck, check the witnesses, and run every invariant on 100,000 samples for each setup of this shard
-        run: |
-          status=0
-          for entry in $(bun scripts/spec/check-spec.ts shard "$SHARD_INDEX" "$SHARD_COUNT" | jq -r '.[] | "\(.spec)/\(.setup)"'); do
-            spec=${entry%/*}
-            setup=${entry#*/}
-            echo "::group::$setup of $spec"
-            if ! {
-              bunx quint typecheck "../../spec/$spec/$setup.qnt" &&
-                bun scripts/spec/check-spec.ts witnesses "$spec" "$setup" &&
-                bun scripts/spec/check-spec.ts simulate "$spec" "$setup" 100000
-            }; then
-              status=1
-              echo "::error::$setup of $spec failed. Its group in this step's log has the output."
-            fi
-            echo "::endgroup::"
-          done
-          exit "$status"
+        run: bun scripts/spec/check-spec.ts shard "$SHARD_INDEX" "$SHARD_COUNT" 100000
 
   spec_replays:
     name: spec replays (${{ matrix.name }})

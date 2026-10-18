@@ -21,7 +21,12 @@
         "test/{dev,smoke}-worker.ts"
       ],
       "wrangler": { "config": ["wrangler.test.jsonc"] },
-      "ignoreDependencies": ["cloudflare", "@ai-sdk/provider-utils", "@informalsystems/quint"]
+      "ignoreDependencies": [
+        "cloudflare",
+        "@ai-sdk/provider-utils",
+        "@informalsystems/quint",
+        "@artfct-ai/spec"
+      ]
     },
     "packages/core": {
       "entry": [

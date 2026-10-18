@@ -3,7 +3,7 @@
  * Runs the checks that each spec folder's `checks.json` declares, for CI and the nightly run.
  * Usage, from the orchestrator package:
  *   bun scripts/spec/check-spec.ts setups
- *   bun scripts/spec/check-spec.ts shard <index> <count>
+ *   bun scripts/spec/check-spec.ts shard <index> <count> <samples>
  *   bun scripts/spec/check-spec.ts witnesses <spec> <setup>
  *   bun scripts/spec/check-spec.ts simulate <spec> <setup> <samples>
  *   bun scripts/spec/check-spec.ts tlc <spec> <setup> <pr|nightly>
@@ -26,7 +26,7 @@ const ORCHESTRATOR_DIR = join(import.meta.dirname, "../..");
 const MAX_STEPS = 25;
 const USAGE = [
   "usage: bun scripts/spec/check-spec.ts setups",
-  "       bun scripts/spec/check-spec.ts shard <index> <count>",
+  "       bun scripts/spec/check-spec.ts shard <index> <count> <samples>",
   "       bun scripts/spec/check-spec.ts witnesses <spec> <setup>",
   "       bun scripts/spec/check-spec.ts simulate <spec> <setup> <samples>",
   "       bun scripts/spec/check-spec.ts tlc <spec> <setup> <pr|nightly>",
@@ -81,14 +81,27 @@ function checkedSetups() {
   });
 }
 
-function listQuintShard(index: number, count: number): number {
+async function checkQuintShard(index: number, count: number, samples: string): Promise<number> {
   const shard = quintShards(checkedSetups(), count)[index];
   if (!shard) {
     console.error(USAGE);
     return 2;
   }
-  console.log(JSON.stringify(shard));
-  return 0;
+  let status = 0;
+  for (const { spec, setup } of shard) {
+    console.log(`::group::${setup} of ${spec}`);
+    const typecheck = await run(["bunx", "quint", "typecheck", setupFile(spec, setup)]);
+    const exitCode =
+      typecheck.exitCode ||
+      (await checkWitnesses(spec, setup)) ||
+      (await simulate(spec, setup, samples));
+    console.log("::endgroup::");
+    if (exitCode !== 0) {
+      status = 1;
+      console.error(`::error::${setup} of ${spec} failed. Its group in this log has the output.`);
+    }
+  }
+  return status;
 }
 
 async function checkWitnesses(spec: string, setup: string): Promise<number> {
@@ -217,8 +230,8 @@ async function main(args: string[]): Promise<number> {
     return 0;
   }
   if (command === "shard") {
-    const [, shardIndex, shardCount] = args;
-    return listQuintShard(Number(shardIndex), Number(shardCount));
+    const [, shardIndex, shardCount, samples] = args;
+    if (samples) return checkQuintShard(Number(shardIndex), Number(shardCount), samples);
   }
   if (command === "witnesses" && spec && setup) return checkWitnesses(spec, setup);
   if (command === "simulate" && spec && setup && detail) return simulate(spec, setup, detail);

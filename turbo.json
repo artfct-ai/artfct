@@ -71,7 +71,14 @@
     },
     "@artfct-ai/orchestrator#test": {
       "dependsOn": ["transit", "types", "template-config"],
-      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/spec/review-loop/**"]
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/spec/**"]
+    },
+    "@artfct-ai/orchestrator#test:medium": {
+      "dependsOn": ["transit", "types", "template-config"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/spec/**"]
+    },
+    "@artfct-ai/orchestrator#spec:quint": {
+      "inputs": ["scripts/spec/**", "$TURBO_ROOT$/spec/**"]
     },
     "test:medium": {
       "dependsOn": ["transit", "types", "template-config"]
