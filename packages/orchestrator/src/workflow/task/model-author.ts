@@ -99,7 +99,7 @@ export const QUEUED_COMMENT_REPLY =
  * a lost turn runs again on it. A turn on a page a person edited during the model call starts
  * over on the page as it is now. True when it took a prompt.
  */
-export async function reviseModelAuthorPage(
+async function reviseModelAuthorPage(
   workflow: WorkflowRuntime,
   task: TaskRow,
 ): Promise<boolean> {
