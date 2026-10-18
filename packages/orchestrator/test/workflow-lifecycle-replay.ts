@@ -676,6 +676,7 @@ export class WorkflowLifecycleReplay {
   private readonly endedIssues = new Set<number>();
   private completionAnswer: CompletionAnswer = "NotAnswered";
   private storeAtStaleAlarm: string | null = null;
+  private readonly firedStaleDeadlines = new Map<string, ModelTurnAlarm>();
 
   private constructor(
     readonly world: WorkflowWorld,
@@ -1313,7 +1314,8 @@ export class WorkflowLifecycleReplay {
 
   /**
    * The deadline alarm of a model turn of the job that already ended fires. The alarm leaves the
-   * list before it runs, as an alarm the platform delivers does.
+   * list before it runs, as an alarm the platform delivers does. Once that alarm fired, the
+   * platform delivers it again, as it may deliver an alarm twice.
    */
   private async staleModelTurnDeadlineFires(world: WorkflowWorld, jobIndex: number): Promise<void> {
     const task = this.taskOf(jobIndex);
@@ -1321,10 +1323,14 @@ export class WorkflowLifecycleReplay {
       const { task_id, turn_id } = alarm.payload as ModelTurnAlarm;
       return task_id === task.task_id && turn_id !== task.model_turn_id;
     });
-    if (!stale) throw new Error(`job ${jobIndex} has no deadline armed for a turn that ended`);
-    await world.workflow.cancelAlarm(stale.id);
+    if (stale) await world.workflow.cancelAlarm(stale.id);
+    const payload = stale
+      ? (stale.payload as ModelTurnAlarm)
+      : this.firedStaleDeadlines.get(task.task_id);
+    if (!payload) throw new Error(`job ${jobIndex} has no deadline armed for a turn that ended`);
+    this.firedStaleDeadlines.set(task.task_id, payload);
     this.storeAtStaleAlarm = world.storeSnapshot();
-    await onModelTurnDeadline(world.workflow, stale.payload as ModelTurnAlarm);
+    await onModelTurnDeadline(world.workflow, payload);
   }
 
   /** Run a step until it ends or a call it makes is held. */
