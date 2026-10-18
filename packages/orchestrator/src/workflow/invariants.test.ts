@@ -8,7 +8,6 @@ import {
   aFailedCheckNeverAsksThePersonAgain,
   aFailedCheckNeverCompletesAJob,
   artifactStatusMovesAreLegal,
-  boardsLiveOnlyInChat,
   deliveredToHumansIsNeverCleared,
   eachIssueLinksTheChatThreadOnce,
   endedWorkflowHasNoUnfinishedTask,
@@ -21,7 +20,6 @@ import {
   judgeRulesAtMostOnce,
   linearOnlyAsksReachTheStartingSession,
   oneLiveJobPerInputArtifact,
-  orchestratorStaysOutOfSessionsWhenChatExists,
   pausedAuthorGetsNoPrompt,
   refinersRunAgainOnlyOnChangedRevision,
   sessionMessageReachesItsRunningAuthorSilently,
@@ -132,7 +130,6 @@ const STATE_INVARIANTS = [
   oneLiveJobPerInputArtifact,
   endedWorkflowHasNoUnfinishedTask,
   taskRestartsAtMostTwice,
-  boardsLiveOnlyInChat,
   eachIssueLinksTheChatThreadOnce,
 ];
 
@@ -152,7 +149,6 @@ const STEP_INVARIANTS = [
   unadmittedFeedbackReachesNobody,
   aFailedCheckNeverCompletesAJob,
   aFailedCheckNeverAsksThePersonAgain,
-  orchestratorStaysOutOfSessionsWhenChatExists,
   linearOnlyAsksReachTheStartingSession,
   sessionMessageReachesItsRunningAuthorSilently,
   sessionMessageWithoutAnAuthorIsAnswered,
@@ -977,7 +973,7 @@ const CORPUS_EXAMPLES = WORKFLOW_CORPUS.map((replayed): [ReplayedSequence] => [r
 
 describe("the workflow invariants", () => {
   it("are every state and step invariant", () => {
-    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(38);
+    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(36);
   });
 
   for (const property of PROPERTIES) {

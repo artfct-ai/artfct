@@ -14,10 +14,11 @@
     "researchReadsCompleteOnceTheAuthorStarts"
   ],
   "mainMinutes": {
-    "chatThread": 1.5,
-    "trackerOnly": 1.5,
-    "trackerResearch": 0.6,
-    "trackerModelCall": 0.4
+    "chatThread": 1.8,
+    "trackerOnly": 1.8,
+    "trackerResearch": 0.7,
+    "trackerModelCall": 0.4,
+    "trackerPause": 0.6
   },
   "witnesses": {
     "chatThread": [
@@ -41,7 +42,11 @@
       "aChatWorkflowReportsTodosBesideASession",
       "anArtifactCompletesTheTodoList",
       "aStopEndsATurn",
-      "aStopReachesAFinishedWorkflow"
+      "aStopReachesAFinishedWorkflow",
+      "aPauseCancelsATurn",
+      "aResumedAuthorGoesOnAfterTheCancel",
+      "aMessageWaitsForAPausedAuthor",
+      "theWorkflowSleeps"
     ],
     "trackerOnly": [
       "aMessageReachesARunningAuthor",
@@ -51,7 +56,6 @@
       "aFinishedWorkflowReplies",
       "anAskReachesTheStartingSession",
       "theTimeoutTextReachesTheStartingSession",
-      "theTimeoutTextReachesASubIssueSession",
       "aPostLandsBesideASession",
       "aChatThreadJoinsLater",
       "aBoardFollowsTheJoinedThread",
@@ -68,7 +72,13 @@
       "anArtifactCompletesTheTodoList",
       "aStopEndsATurn",
       "aStopReachesAFinishedWorkflow",
-      "aStopLandsWhileTheWorkflowSleeps"
+      "aStopLandsWhileTheWorkflowSleeps",
+      "aPauseCancelsATurn",
+      "aResumedAuthorGoesOnAfterTheCancel",
+      "aMessageWaitsForAPausedAuthor",
+      "aVerbalPausePausesAnAuthor",
+      "aVerbalCancelCancelsTheWorkflow",
+      "theWorkflowSleeps"
     ],
     "trackerResearch": [
       "aMessageWakesTheAgent",
@@ -78,14 +88,26 @@
       "aResearcherHandsOver",
       "anAuthorRepliesInItsSession",
       "aSessionGetsAPlan",
-      "aStopEndsATurn"
+      "aStopEndsATurn",
+      "aResearcherFails",
+      "aVerbalCancelCancelsAJob",
+      "theWorkflowSleeps"
     ],
     "trackerModelCall": [
       "aMessageWakesTheAgent",
       "aModelCallAuthorEndsItsFeed",
       "aFinishedWorkflowReplies",
       "aStopEndsATurn",
-      "aStopReachesAFinishedWorkflow"
+      "aStopReachesAFinishedWorkflow",
+      "theWorkflowSleeps"
+    ],
+    "trackerPause": [
+      "aPauseCancelsATurn",
+      "aResumedAuthorGoesOnAfterTheCancel",
+      "aMessageWaitsForAPausedAuthor",
+      "aVerbalPausePausesAnAuthor",
+      "aVerbalCancelCancelsTheWorkflow",
+      "theWorkflowSleeps"
     ]
   },
   "tlc": {
@@ -96,13 +118,15 @@
           "jobsStarted": 2,
           "promptsWaiting": 1,
           "restartsTaken": 0,
-          "authorsWithFeedState": 1
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 0
         },
         "nightly": {
           "jobsStarted": 3,
           "promptsWaiting": 2,
           "restartsTaken": 2,
-          "authorsWithFeedState": 1
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 0
         }
       },
       "trackerOnly": {
@@ -110,13 +134,15 @@
           "jobsStarted": 2,
           "promptsWaiting": 1,
           "restartsTaken": 0,
-          "authorsWithFeedState": 1
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 0
         },
         "nightly": {
           "jobsStarted": 3,
           "promptsWaiting": 2,
           "restartsTaken": 2,
-          "authorsWithFeedState": 1
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 0
         }
       },
       "trackerResearch": {
@@ -124,13 +150,15 @@
           "jobsStarted": 1,
           "promptsWaiting": 1,
           "restartsTaken": 2,
-          "authorsWithFeedState": 1
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 0
         },
         "nightly": {
           "jobsStarted": 2,
           "promptsWaiting": 2,
           "restartsTaken": 2,
-          "authorsWithFeedState": 1
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 0
         }
       },
       "trackerModelCall": {
@@ -138,13 +166,31 @@
           "jobsStarted": 3,
           "promptsWaiting": 1,
           "restartsTaken": 0,
-          "authorsWithFeedState": 1
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 0
         },
         "nightly": {
           "jobsStarted": 3,
           "promptsWaiting": 3,
           "restartsTaken": 0,
-          "authorsWithFeedState": 1
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 0
+        }
+      },
+      "trackerPause": {
+        "pr": {
+          "jobsStarted": 1,
+          "promptsWaiting": 1,
+          "restartsTaken": 0,
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 1
+        },
+        "nightly": {
+          "jobsStarted": 2,
+          "promptsWaiting": 1,
+          "restartsTaken": 0,
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 1
         }
       }
     }

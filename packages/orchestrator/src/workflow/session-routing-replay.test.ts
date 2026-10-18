@@ -49,27 +49,63 @@ const PINNED_TRACES = join(
   "../../test/session-routing-traces",
 );
 
+const PINNED: { name: string; setup: SpecSetup; file: string }[] = [
+  {
+    name: "tells a person in the starting session that the agent turn timed out",
+    setup: "trackerOnly",
+    file: "timeout-after-a-message-in-the-starting-session",
+  },
+  {
+    name: "tells a person in a sub-issue session whose author failed that the agent turn timed out",
+    setup: "trackerOnly",
+    file: "timeout-in-a-sub-issue-session-after-its-author-failed",
+  },
+  {
+    name: "ends the feed of an author that gives up after its restarts on the error",
+    setup: "trackerOnly",
+    file: "an-author-fails-on-an-error-after-its-restarts",
+  },
+  {
+    name: "cancels the job of a sub-issue session on a verbal cancel and answers the person",
+    setup: "trackerOnly",
+    file: "cancel-in-a-sub-issue-session-cancels-its-job",
+  },
+  {
+    name: "cancels the workflow on a verbal cancel in the starting session and stops the running author",
+    setup: "trackerOnly",
+    file: "cancel-in-the-starting-session-cancels-the-workflow",
+  },
+  {
+    name: "pauses the author on a verbal pause in a session of a chat workflow and answers in chat",
+    setup: "chatThread",
+    file: "pause-in-a-session-of-a-chat-workflow",
+  },
+  {
+    name: "wakes the agent on a verbal pause while two jobs run",
+    setup: "trackerOnly",
+    file: "pause-in-a-session-while-two-jobs-run",
+  },
+  {
+    name: "sends the resumed author its prompt once the turn the pause cancelled ends",
+    setup: "trackerPause",
+    file: "a-resumed-author-goes-on-after-the-cancel",
+  },
+  {
+    name: "tells the starting session that a researcher failed after its restarts",
+    setup: "trackerResearch",
+    file: "a-researcher-fails-after-its-restarts",
+  },
+];
+
 describe("session routing spec", () => {
-  it("tells a person in the starting session that the agent turn timed out", async () => {
-    const path = join(PINNED_TRACES, "timeout-after-a-message-in-the-starting-session.itf.json");
-    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
-    await replayTrace("trackerOnly", traceSteps("trackerOnly", trace));
-  });
-
-  it("tells a person in a sub-issue session whose author failed that the agent turn timed out", async () => {
-    const path = join(
-      PINNED_TRACES,
-      "timeout-in-a-sub-issue-session-after-its-author-failed.itf.json",
-    );
-    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
-    await replayTrace("trackerOnly", traceSteps("trackerOnly", trace));
-  });
-
-  it("ends the feed of an author that gives up after its restarts on the error", async () => {
-    const path = join(PINNED_TRACES, "an-author-fails-on-an-error-after-its-restarts.itf.json");
-    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
-    await replayTrace("trackerOnly", traceSteps("trackerOnly", trace));
-  });
+  for (const { name, setup, file } of PINNED) {
+    it(name, async () => {
+      const trace: unknown = JSON.parse(
+        readFileSync(join(PINNED_TRACES, `${file}.itf.json`), "utf8"),
+      );
+      await replayTrace(setup, traceSteps(setup, trace));
+    });
+  }
 
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(

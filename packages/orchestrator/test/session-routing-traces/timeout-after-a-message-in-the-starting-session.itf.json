@@ -4,8 +4,8 @@
     "format-description": "https://apalache-mc.org/docs/adr/015adr-trace.html",
     "source": "../../spec/session-routing/trackerOnly.qnt",
     "status": "violation",
-    "description": "Created by Quint on Sun Oct 18 2026 02:41:02 GMT-0400 (Eastern Daylight Time)",
-    "timestamp": 1792305662295
+    "description": "Created by Quint on Sun Oct 18 2026 04:52:22 GMT-0400 (Eastern Daylight Time)",
+    "timestamp": 1792313542977
   },
   "vars": [
     "trackerOnly::sessionRouting::routing",
@@ -31,6 +31,7 @@
       },
       "trackerOnly::sessionRouting::lastStep": {
         "answered": { "#set": [] },
+        "cancelled": { "#set": [] },
         "feed": [],
         "health": { "tag": "TrackerUp", "value": { "#tup": [] } },
         "plans": [],
@@ -81,6 +82,7 @@
       },
       "trackerOnly::sessionRouting::lastStep": {
         "answered": { "#set": [] },
+        "cancelled": { "#set": [] },
         "feed": [],
         "health": { "tag": "TrackerUp", "value": { "#tup": [] } },
         "plans": [],
@@ -145,6 +147,7 @@
             { "tag": "Session", "value": { "tag": "SubjectIssue", "value": { "#tup": [] } } }
           ]
         },
+        "cancelled": { "#set": [] },
         "feed": [],
         "health": { "tag": "TrackerUp", "value": { "#tup": [] } },
         "plans": [],
