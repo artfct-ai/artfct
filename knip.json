@@ -14,14 +14,20 @@
     "packages/orchestrator": {
       "entry": [
         "src/**/*.test.medium.ts",
-        "vitest.{config,setup}.ts",
+        "src/**/*.replay{,.medium}.ts",
+        "vitest.{config,replay.config,setup}.ts",
         "drizzle.*.config.ts",
         "migrations/workflow/migrations.d.ts",
         "scripts/**/*.ts",
         "test/{dev,smoke}-worker.ts"
       ],
       "wrangler": { "config": ["wrangler.test.jsonc"] },
-      "ignoreDependencies": ["cloudflare", "@ai-sdk/provider-utils", "@informalsystems/quint"]
+      "ignoreDependencies": [
+        "cloudflare",
+        "@ai-sdk/provider-utils",
+        "@informalsystems/quint",
+        "@artfct-ai/spec"
+      ]
     },
     "packages/core": {
       "entry": [

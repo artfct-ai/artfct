@@ -12,5 +12,10 @@
     "packages/contracts/src",
     "packages/acp/src"
   ],
-  "exclude": ["packages/*/src/**/*.test.ts", "packages/*/src/**/*.test.medium.ts"]
+  "exclude": [
+    "packages/*/src/**/*.test.ts",
+    "packages/*/src/**/*.test.medium.ts",
+    "packages/*/src/**/*.replay.ts",
+    "packages/*/src/**/*.replay.medium.ts"
+  ]
 }

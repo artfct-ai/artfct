@@ -553,7 +553,6 @@ export class WorkflowWorld {
       start: facts.start ?? null,
       finishedByAgent: facts.finishedByAgent ?? false,
       event: this.delivered,
-      sessionPosts: sessionPostsOf(rows),
       postedTypes: this.workflow.posted.slice(postedBefore).map((event) => event.type),
       feedPosts: feedPostsOf(rows),
       postedTexts: this.workflow.posted.slice(postedBefore).map(plainText),
@@ -1293,11 +1292,10 @@ export class WorkflowWorld {
     const sent = this.bridges
       .filter((bridge) => authors.has(bridge.taskId))
       .reduce((total, bridge) => total + bridge.promptsSent, 0);
-    const { reply_targets: replyTargets, origin } = this.workflow.state;
+    const { reply_targets: replyTargets } = this.workflow.state;
     const sessions = replyTargets.filter(
       (target): target is TrackerSession => target.source === "tracker",
     );
-    const startingSession = origin?.source === "tracker" ? origin.session_id : null;
     const { stages, definition } = this.workflow.state;
     const declared = definition ? this.workflow.workflowDefinition().stages : [];
     const issueStages = declared
@@ -1315,8 +1313,6 @@ export class WorkflowWorld {
       })),
       workflowStatus: this.workflow.state.status,
       definition: this.workflow.state.definition,
-      chatThread: replyTargets.some((target) => target.source === "chat"),
-      startingSession,
       jobSessions: Object.fromEntries(
         jobs.map((job) => {
           const onIssue = sessions.find((session) => session.issue_id === job.issue_id);
@@ -1380,8 +1376,6 @@ function openingSubject(setup: WorldSetup): Subject | null {
   return null;
 }
 
-const NOT_SESSION_POSTS = ["issue_update", "attach_chat_thread", "delivery_error"];
-
 /** A person presses Stop in a tracker session. */
 export function stopEvent(
   session: TrackerSession,
@@ -1395,14 +1389,6 @@ export function stopEvent(
       { source: "tracker_session", external_id: session.session_id },
     ],
   };
-}
-
-function sessionPostsOf(rows: Array<{ channel: string; kind: string; target: unknown }>) {
-  return rows.flatMap((row) => {
-    if (row.channel !== "tracker" || NOT_SESSION_POSTS.includes(row.kind)) return [];
-    const target = row.target as { session_id?: string };
-    return target.session_id ? [{ session_id: target.session_id, kind: row.kind }] : [];
-  });
 }
 
 type OutboxRow = { channel: string; kind: string; target: unknown; payload: unknown };

@@ -1,13 +1,13 @@
 import { describe, expect, it } from "bun:test";
-import { mainQuintShards } from "./main-shards";
+import { quintShards } from "./quint-shards";
 
 const setup = (name: string, minutes: number) => ({ name, minutes });
 const names = (shards: Array<Array<{ name: string }>>) =>
   shards.map((shard) => shard.map(({ name }) => name));
 
-describe("mainQuintShards", () => {
+describe("quintShards", () => {
   it("gives each long setup its own shard", () => {
-    const shards = mainQuintShards(
+    const shards = quintShards(
       [setup("a", 1), setup("long1", 10), setup("b", 1), setup("long2", 9), setup("long3", 10)],
       4,
     );
@@ -15,7 +15,7 @@ describe("mainQuintShards", () => {
   });
 
   it("balances the short setups by their minutes", () => {
-    const shards = mainQuintShards(
+    const shards = quintShards(
       [setup("a", 4), setup("b", 3), setup("c", 3), setup("d", 2), setup("e", 2)],
       2,
     );
@@ -27,7 +27,7 @@ describe("mainQuintShards", () => {
 
   it("assigns every setup once", () => {
     const setups = Array.from({ length: 19 }, (_, index) => setup(`s${index}`, (index * 7) % 11));
-    const assigned = mainQuintShards(setups, 7).flat();
+    const assigned = quintShards(setups, 7).flat();
     expect(assigned.map(({ name }) => name).toSorted()).toEqual(
       setups.map(({ name }) => name).toSorted(),
     );

@@ -8,7 +8,8 @@ const REPO_ROOT = join(import.meta.dirname, "../..");
 /** The glossary every check reads. */
 const GLOSSARY_PATH = "spec/glossary.md";
 
-const IGNORED = /(^|\/)(node_modules|dist|\.wrangler|test)\/|\.test(\.medium)?\.ts$|\.d\.ts$/;
+const IGNORED =
+  /(^|\/)(node_modules|dist|\.wrangler|test)\/|\.(test|replay)(\.medium)?\.ts$|\.d\.ts$/;
 
 function filesMatching(patterns: string[]): SourceFile[] {
   return patterns.flatMap((pattern) =>

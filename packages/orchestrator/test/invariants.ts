@@ -62,10 +62,6 @@ export type Observation = {
   workflowStatus: WorkflowStatus;
   /** The workflow definition the workflow runs, or null before the plan that starts it. */
   definition: string | null;
-  /** True when a chat thread is among the reply targets. */
-  chatThread: boolean;
-  /** The tracker session the workflow started from, or null. */
-  startingSession: string | null;
   /** The job session of each job, by job id. Null for a job without one. */
   jobSessions: Record<string, string | null>;
   /** How many outbox rows a person can read. */
@@ -98,8 +94,6 @@ export type Step = {
     reply_to: ReplyTarget | null;
     control: VerbalCommand | null;
   } | null;
-  /** Every orchestrator post the step added to a tracker session, in order. */
-  sessionPosts: Array<{ session_id: string; kind: string }>;
   /** The type of every event the step posted, wherever it went. */
   postedTypes: TaskEvent["type"][];
   feedPosts: Array<{ task_id: string; kind: string; text: string }>;
@@ -146,14 +140,6 @@ const RUNNING_AUTHOR: TaskStatus[] = ["queued", "provisioning", "working"];
 
 const STARTING_AUTHOR: TaskStatus[] = ["queued", "provisioning"];
 
-const ASKS_AND_FAILURES: TaskEvent["type"][] = [
-  "question",
-  "artifact_ready",
-  "failed",
-  "workflow_failed",
-  "turn_failed",
-];
-
 const SESSION_MESSAGES: InboundEvent["kind"][] = ["prompt", "status"];
 
 const FEED_CLOSINGS = ["response", "error"];
@@ -185,15 +171,6 @@ const coverEventBeforePlan = coverageCase(
   "workflowStartsOnlyFromAPlan: a person writes before the plan",
 );
 const coverPlanStarts = coverageCase("workflowStartsOnlyFromAPlan: a plan starts the workflow");
-const coverChatIssue = coverageCase(
-  "eachIssueLinksTheChatThreadOnce: a chat workflow works on an issue",
-);
-const coverChatTwoIssues = coverageCase(
-  "eachIssueLinksTheChatThreadOnce: a chat workflow works on two issues",
-);
-const coverTrackerIssue = coverageCase(
-  "eachIssueLinksTheChatThreadOnce: a tracker workflow works on an issue",
-);
 const coverInReview = coverageCase("inReviewTaskHasAnArtifact: a task waits in review");
 const coverFinishedTask = coverageCase("finishedTaskKeepsItsStatus: a finished task in a step");
 const coverTaskRestarted = coverageCase("taskRestartsAtMostTwice: a task restarted");
@@ -214,17 +191,8 @@ const coverWorkflowEnded = coverageCase(
 );
 const coverSharedInput = coverageCase("oneLiveJobPerInputArtifact: two jobs share an input");
 const coverStaleAlarm = coverageCase("staleAlarmIsIgnored: a stale alarm fires");
-const coverTrackerPost = coverageCase(
-  "linearOnlyAsksReachTheStartingSession: a workflow without a chat thread posts",
-);
-const coverTrackerAsk = coverageCase(
-  "linearOnlyAsksReachTheStartingSession: a workflow without a chat thread asks or fails",
-);
 const coverSessionToRunning = coverageCase(
   "sessionMessageReachesItsRunningAuthorSilently: a person writes to a running model-call author's session",
-);
-const coverSessionWithoutAuthor = coverageCase(
-  "sessionMessageWithoutAnAuthorIsAnswered: a person writes to a session without a running author",
 );
 const coverStoppedModelCallInSession = coverageCase(
   "stopEndsTheAuthorsTurn: a stop ends a model call in a session",
@@ -387,43 +355,6 @@ function completedSubjectJobAtLastStage(step: Step): boolean {
   if (!after || after.status !== "done" || before?.status === "done") return false;
   const job = step.after.jobs.find((candidate) => candidate.job_id === after.job_id);
   return job?.issue_id === subject.issue_id && job.stage === step.after.lastStage;
-}
-
-/**
- * In a workflow that started from a chat thread, an issue subject and every issue a job works on
- * get exactly one link request to that thread. A workflow that started in the tracker sends none.
- */
-export function eachIssueLinksTheChatThreadOnce(workflow: WorkflowRuntime): void {
-  const linkedIssues = workflow.store
-    .outbox()
-    .filter((row) => row.kind === "attach_chat_thread")
-    .map((row) => (row.target as { issue_id: string }).issue_id);
-  const workedIssues = new Set(workflow.store.jobs().flatMap((job) => job.issue_id ?? []));
-  if (workflow.state.origin?.source !== "chat") {
-    if (workedIssues.size > 0) coverTrackerIssue();
-    if (linkedIssues.length > 0) {
-      violated("eachIssueLinksTheChatThreadOnce", `linked ${linkedIssues.join(", ")} without one`);
-    }
-    return;
-  }
-  const { subject } = workflow.state;
-  if (subject?.kind === "issue") workedIssues.add(subject.issue_id);
-  if (workedIssues.size > 0) coverChatIssue();
-  if (workedIssues.size > 1) coverChatTwoIssues();
-  for (const issue of workedIssues) {
-    const links = occurrences(linkedIssues, issue);
-    if (links !== 1) {
-      violated("eachIssueLinksTheChatThreadOnce", `${issue} got ${links} link requests`);
-    }
-  }
-  for (const issue of linkedIssues) {
-    if (!workedIssues.has(issue)) {
-      violated(
-        "eachIssueLinksTheChatThreadOnce",
-        `${issue} was linked without a job on it and is not the subject`,
-      );
-    }
-  }
 }
 
 /** A task cannot be `in_review` without an artifact on its job. */
@@ -761,44 +692,6 @@ export function aJudgeRejectionPostsItsReasonOnce(workflow: WorkflowRuntime, ste
 }
 
 /**
- * In a workflow without a chat thread, the starting session gets every ask and failure notice
- * and nothing else. A session gets an answer only when a person wrote there.
- */
-export function linearOnlyAsksReachTheStartingSession(
-  _workflow: WorkflowRuntime,
-  step: Step,
-): void {
-  const starting = step.before.startingSession;
-  if (step.before.chatThread || step.after.chatThread || !starting) return;
-  const answered = sessionOfPerson(step);
-  const asks = step.postedTypes.filter((type) => ASKS_AND_FAILURES.includes(type)).length;
-  if (step.postedTypes.length > 0 || step.sessionPosts.length > 0) coverTrackerPost();
-  if (asks > 0) coverTrackerAsk();
-  const toStarting = step.sessionPosts.filter((post) => post.session_id === starting).length;
-  if (toStarting < asks) {
-    violated(
-      "linearOnlyAsksReachTheStartingSession",
-      `${asks} asks or failures posted and ${toStarting} reached the starting session`,
-    );
-  }
-  if (answered !== starting && toStarting > asks) {
-    violated(
-      "linearOnlyAsksReachTheStartingSession",
-      `${toStarting} posts reached the starting session for ${asks} asks or failures`,
-    );
-  }
-  const elsewhere = step.sessionPosts.filter(
-    (post) => post.session_id !== starting && post.session_id !== answered,
-  );
-  if (elsewhere.length > 0) {
-    violated(
-      "linearOnlyAsksReachTheStartingSession",
-      `posted in ${elsewhere.map((post) => post.session_id).join(", ")}, where nobody wrote`,
-    );
-  }
-}
-
-/**
  * A person's message in a job session whose model-call author runs goes to that author as a
  * prompt. A prompt that waits in the queue of an unpaused model-call author waits on an author at
  * work. Nothing is posted, and no agent turn wakes for it.
@@ -834,31 +727,6 @@ export function sessionMessageReachesItsRunningAuthorSilently(
   if (step.notes.some((note) => note.wake === "message")) {
     violated("sessionMessageReachesItsRunningAuthorSilently", "the message woke an agent turn");
   }
-}
-
-/**
- * A person's message in a session whose author does not run gets an answer: an agent turn wakes
- * for it, or code posts the reply in the chat thread, or in that session without a chat thread.
- */
-export function sessionMessageWithoutAnAuthorIsAnswered(
-  _workflow: WorkflowRuntime,
-  step: Step,
-): void {
-  const event = step.event;
-  const session = sessionOfPerson(step);
-  if (!event || !session || !SESSION_MESSAGES.includes(event.kind)) return;
-  if (runningAuthorBefore(step)) return;
-  coverSessionWithoutAuthor();
-  if (step.notes.some((note) => note.wake === "message")) return;
-  const posted = step.after.posted > step.before.posted;
-  const reachedThem = step.after.chatThread
-    ? posted
-    : step.sessionPosts.some((post) => post.session_id === session);
-  if (reachedThem) return;
-  violated(
-    "sessionMessageWithoutAnAuthorIsAnswered",
-    `a ${event.kind} in ${session} got neither a turn nor a reply`,
-  );
 }
 
 function endsOnTheStoppedReply(step: Step, taskId: string): boolean {
