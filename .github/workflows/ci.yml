@@ -49,10 +49,10 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
-      - name: Check whether the pull request changes the specs or the code they model
+      - name: Check whether the pull request changes the specs or the scripts that check them
         id: paths
         run: |
-          changed=$(git diff --name-only HEAD^1 HEAD | grep -E '^(spec/|packages/orchestrator/(scripts/spec|src/workflow|src/agent|src/router|test)/|bun\.lock$|\.github/workflows/ci\.yml$)' || true)
+          changed=$(git diff --name-only HEAD^1 HEAD | grep -E '^(spec/|packages/orchestrator/scripts/spec/|bun\.lock$|\.github/workflows/ci\.yml$)' || true)
           echo "changed=$([ -n "$changed" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
   quint:
@@ -103,9 +103,8 @@ jobs:
           exit "$status"
 
   quint_replays:
-    name: quint replays
-    needs: spec_changes
-    if: needs.spec_changes.outputs.changed == 'true'
+    name: spec replays
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     defaults:
