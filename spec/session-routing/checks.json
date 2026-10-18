@@ -1,0 +1,198 @@
+{
+  "invariants": [
+    "orchestratorStaysOutOfSessionsWhenChatExists",
+    "linearOnlyAsksReachTheStartingSession",
+    "sessionMessageReachesItsRunningAuthorSilently",
+    "sessionMessageWithoutAnAuthorIsAnswered",
+    "eachIssueLinksTheChatThreadOnce",
+    "boardsLiveOnlyInChat",
+    "sessionFeedEndsWhenItsAuthorIdles",
+    "feedActivityPostsOnce",
+    "chatWorkflowNeverSetsASessionPlan",
+    "todoListIsFixedAfterFirstArtifact",
+    "aStopAnswersOnlyInTheFeed",
+    "researchReadsCompleteOnceTheAuthorStarts"
+  ],
+  "mainMinutes": {
+    "chatThread": 1.8,
+    "trackerOnly": 1.8,
+    "trackerResearch": 0.7,
+    "trackerModelCall": 0.4,
+    "trackerPause": 0.6
+  },
+  "witnesses": {
+    "chatThread": [
+      "aMessageReachesARunningAuthor",
+      "aMessageStartsAnIdleAuthorsTurn",
+      "aMessageWakesTheAgent",
+      "anAgentTurnAnswersASession",
+      "aFinishedWorkflowReplies",
+      "aPostLandsBesideASession",
+      "aChatThreadJoinsLater",
+      "aBoardFollowsTheJoinedThread",
+      "aSubIssueGetsItsLink",
+      "aJobStartsAgainOnItsIssue",
+      "aSessionOpensOnTheSubIssue",
+      "anAuthorRepliesInItsSession",
+      "anAuthorIdlesOnDone",
+      "aFailedPromptEndsTheFeed",
+      "aQueuedPromptKeepsTheFeedOpen",
+      "aRetriedActivityIsStoredOnce",
+      "aToolCallReachesTheFeed",
+      "aChatWorkflowReportsTodosBesideASession",
+      "anArtifactCompletesTheTodoList",
+      "aStopEndsATurn",
+      "aStopReachesAFinishedWorkflow",
+      "aPauseCancelsATurn",
+      "aResumedAuthorGoesOnAfterTheCancel",
+      "aMessageWaitsForAPausedAuthor",
+      "theWorkflowSleeps"
+    ],
+    "trackerOnly": [
+      "aMessageReachesARunningAuthor",
+      "aMessageStartsAnIdleAuthorsTurn",
+      "aMessageWakesTheAgent",
+      "anAgentTurnAnswersASession",
+      "aFinishedWorkflowReplies",
+      "anAskReachesTheStartingSession",
+      "theTimeoutTextReachesTheStartingSession",
+      "aPostLandsBesideASession",
+      "aChatThreadJoinsLater",
+      "aBoardFollowsTheJoinedThread",
+      "aJobStartsAgainOnItsIssue",
+      "aSessionOpensOnTheSubIssue",
+      "anAuthorRepliesInItsSession",
+      "anAuthorIdlesOnDone",
+      "aFailedPromptEndsTheFeed",
+      "aQueuedPromptKeepsTheFeedOpen",
+      "aStalledAuthorRestarts",
+      "aRetriedActivityIsStoredOnce",
+      "aToolCallReachesTheFeed",
+      "aSessionGetsAPlan",
+      "anArtifactCompletesTheTodoList",
+      "aStopEndsATurn",
+      "aStopReachesAFinishedWorkflow",
+      "aStopLandsWhileTheWorkflowSleeps",
+      "aPauseCancelsATurn",
+      "aResumedAuthorGoesOnAfterTheCancel",
+      "aMessageWaitsForAPausedAuthor",
+      "aVerbalPausePausesAnAuthor",
+      "aVerbalCancelCancelsTheWorkflow",
+      "theWorkflowSleeps"
+    ],
+    "trackerResearch": [
+      "aMessageWakesTheAgent",
+      "aMessageReachesARunningAuthor",
+      "anAskReachesTheStartingSession",
+      "aResearcherHasOpenTodos",
+      "aResearcherHandsOver",
+      "anAuthorRepliesInItsSession",
+      "aSessionGetsAPlan",
+      "aStopEndsATurn",
+      "aResearcherFails",
+      "aVerbalCancelCancelsAJob",
+      "theWorkflowSleeps"
+    ],
+    "trackerModelCall": [
+      "aMessageWakesTheAgent",
+      "aModelCallAuthorEndsItsFeed",
+      "aFinishedWorkflowReplies",
+      "aStopEndsATurn",
+      "aStopReachesAFinishedWorkflow",
+      "theWorkflowSleeps"
+    ],
+    "trackerPause": [
+      "aPauseCancelsATurn",
+      "aResumedAuthorGoesOnAfterTheCancel",
+      "aMessageWaitsForAPausedAuthor",
+      "aVerbalPausePausesAnAuthor",
+      "aVerbalCancelCancelsTheWorkflow",
+      "theWorkflowSleeps"
+    ]
+  },
+  "tlc": {
+    "ignoredVariables": ["lastStep"],
+    "bounds": {
+      "chatThread": {
+        "pr": {
+          "jobsStarted": 2,
+          "promptsWaiting": 1,
+          "restartsTaken": 0,
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 0
+        },
+        "nightly": {
+          "jobsStarted": 3,
+          "promptsWaiting": 2,
+          "restartsTaken": 2,
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 0
+        }
+      },
+      "trackerOnly": {
+        "pr": {
+          "jobsStarted": 2,
+          "promptsWaiting": 1,
+          "restartsTaken": 0,
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 0
+        },
+        "nightly": {
+          "jobsStarted": 3,
+          "promptsWaiting": 2,
+          "restartsTaken": 2,
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 0
+        }
+      },
+      "trackerResearch": {
+        "pr": {
+          "jobsStarted": 1,
+          "promptsWaiting": 1,
+          "restartsTaken": 2,
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 0
+        },
+        "nightly": {
+          "jobsStarted": 2,
+          "promptsWaiting": 2,
+          "restartsTaken": 2,
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 0
+        }
+      },
+      "trackerModelCall": {
+        "pr": {
+          "jobsStarted": 3,
+          "promptsWaiting": 1,
+          "restartsTaken": 0,
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 0
+        },
+        "nightly": {
+          "jobsStarted": 3,
+          "promptsWaiting": 3,
+          "restartsTaken": 0,
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 0
+        }
+      },
+      "trackerPause": {
+        "pr": {
+          "jobsStarted": 1,
+          "promptsWaiting": 1,
+          "restartsTaken": 0,
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 1
+        },
+        "nightly": {
+          "jobsStarted": 2,
+          "promptsWaiting": 1,
+          "restartsTaken": 0,
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 1
+        }
+      }
+    }
+  }
+}

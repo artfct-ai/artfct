@@ -364,7 +364,7 @@ async function onChecks(workflow: WorkflowRuntime, task: TaskRow): Promise<Appli
   await settleChecks(workflow, task.job_id);
   return {
     notes: [
-      `A check reported on the artifact of job ${task.job_id}, or its base branch moved. The system reads the checks and the merge, and sends a failure or a conflict to the task that pushed the revision. Nothing to do.`,
+      `A check reported on the artifact of job ${task.job_id}, or its base branch moved. The system reads the checks and the merge, and sends a failure or a conflict to the submitter of the revision. Nothing to do.`,
     ],
     wake: "none",
   };

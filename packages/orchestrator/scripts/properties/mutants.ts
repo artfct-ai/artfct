@@ -42,7 +42,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W4",
-    invariant: "stopEndsTheAuthorsTurn (queued prompts)",
+    invariant: "harnessSession::stopEndsTheAuthorsTurn (queued prompts)",
     path: "src/workflow/inbound/controls.ts",
     find: "export async function stopAuthor(workflow: WorkflowRuntime, author: TaskRow): Promise<StopOutcome> {\n  workflow.store.clearPromptQueue(author.task_id);",
     replace:
@@ -50,7 +50,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W5",
-    invariant: "stopEndsTheAuthorsTurn (cancel)",
+    invariant: "harnessSession::stopEndsTheAuthorsTurn (cancel)",
     path: "src/workflow/inbound/controls.ts",
     find: "  const cancelled = connected && cancelPromptTurn(workflow, author);",
     replace: "  const cancelled = false;",
@@ -80,7 +80,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W9",
-    invariant: "authorIsIdleWhileAPolisherRuns",
+    invariant: "reviewLoop::authorIsIdleWhileAPolisherRuns",
     path: "src/workflow/refiner/loop.ts",
     find: "  if (taskAtWork(workflow, task)) return false;\n  return !workflow.store.queue()",
     replace: "  return !workflow.store.queue()",
@@ -94,7 +94,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W11",
-    invariant: "sessionFeedEndsWhenItsAuthorIdles",
+    invariant: "sessionRouting::sessionFeedEndsWhenItsAuthorIdles",
     path: "src/workflow/task/harness/turn.ts",
     find: "  await closeSessionFeed(workflow, task, busy ? null : feedClosingOf(stopReason));\n  if (!busy)",
     replace: "  if (!busy)",
@@ -117,7 +117,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W14",
-    invariant: "aPromptToAPageAuthorCarriesItsHeldComments",
+    invariant: "reviewLoop::aPromptToAPageAuthorCarriesItsHeldComments",
     path: "src/workflow/refiner/held-comments.ts",
     find: "  const unmarked = await workflow\n    .artifact(artifact.kind)\n    .acknowledge(heldCommentHandles(comments), artifact.ref);",
     replace: "  const unmarked: FeedbackHandle[] = [];",
@@ -156,8 +156,8 @@ export const MUTANTS: Mutant[] = [
     id: "W19",
     invariant: "finishedTaskKeepsItsStatus (restart)",
     path: "src/workflow/lifecycle.ts",
-    find: "  if (isTaskFinished(closed.status) || closed.restarts !== current.restarts) return;",
-    replace: "  if (closed.restarts !== current.restarts) return;",
+    find: "  if (isTaskFinished(closed.status) || closed.restarts !== restarts) return;",
+    replace: "  if (closed.restarts !== restarts) return;",
   },
   {
     id: "W20",
@@ -168,7 +168,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W21",
-    invariant: "pausedAuthorGetsNoPrompt, authorIsIdleWhileAPolisherRuns",
+    invariant: "pausedAuthorGetsNoPrompt, reviewLoop::authorIsIdleWhileAPolisherRuns",
     path: "src/workflow/task/harness/prompt-queue.ts",
     find: "  if (!promptsWait(workflow, task)) return sendPrompt(workflow, task, text);",
     replace: "  return sendPrompt(workflow, task, text);",
@@ -177,19 +177,19 @@ export const MUTANTS: Mutant[] = [
     id: "W22",
     invariant: "pausedAuthorGetsNoPrompt (restart)",
     path: "src/workflow/lifecycle.ts",
-    find: "  if (closed.paused_at === null) await restartSandbox(workflow, closed);",
-    replace: "  if (true || closed.paused_at === null) await restartSandbox(workflow, closed);",
+    find: "  if (closed.paused_at === null) await startSandbox(workflow, closed, true);",
+    replace: "  if (true || closed.paused_at === null) await startSandbox(workflow, closed, true);",
   },
   {
     id: "W23",
-    invariant: "aPromptToAPageAuthorCarriesItsHeldComments (unmarked)",
+    invariant: "reviewLoop::aPromptToAPageAuthorCarriesItsHeldComments (unmarked)",
     path: "src/workflow/refiner/held-comments.ts",
     find: "  return comments.filter((comment) => !unmarkedIds.has(comment.id));",
     replace: "  return comments;",
   },
   {
     id: "W24",
-    invariant: "aHeldCommentStaysHeldUntilItReachesTheAuthor",
+    invariant: "reviewLoop::aHeldCommentStaysHeldUntilItReachesTheAuthor",
     path: "src/workflow/refiner/feedback.ts",
     find: "    ? await workflow.artifact(artifact.kind).acknowledge(feedback.handles, artifact.ref)",
     replace:
@@ -227,14 +227,14 @@ export const MUTANTS: Mutant[] = [
     id: "W29",
     invariant: "aRunningTurnKeepsItsSandboxAwake (stale restart)",
     path: "src/workflow/lifecycle.ts",
-    find: "  if (workflow.store.requireSandbox(task.task_id).generation !== generation) return;\n",
+    find: "  if (sandbox.generation !== generation) return;\n",
     replace: "",
   },
   {
     id: "W30",
     invariant: "taskRestartsAtMostTwice (counted restart)",
     path: "src/workflow/lifecycle.ts",
-    find: "  if (isTaskFinished(closed.status) || closed.restarts !== current.restarts) return;",
+    find: "  if (isTaskFinished(closed.status) || closed.restarts !== restarts) return;",
     replace: "  if (isTaskFinished(closed.status)) return;",
   },
   {
@@ -292,7 +292,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W38",
-    invariant: "stopEndsTheAuthorsTurn (lost cancel)",
+    invariant: "sessionRouting::aStopAnswersOnlyInTheFeed (lost cancel)",
     path: "src/workflow/inbound/controls.ts",
     find: "  if (atWork) await endStoppedTurn(workflow, author);\n",
     replace:
@@ -349,6 +349,14 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/refiner/loop.ts",
     find: '    await workflow.scheduleAlarm(0, "settleLostJudgeRuling", alarm);\n',
     replace: "",
+  },
+  {
+    id: "W46",
+    invariant: "reviewLoop::checksGoBackOncePerRevision",
+    path: "src/workflow/refiner/checks-gate.ts",
+    find: "  if (!claimChecksSendBack(workflow, artifact, conflict.revision)) return false;\n",
+    replace:
+      "  if (!claimChecksSendBack(workflow, artifact, `${conflict.revision}:conflict`)) return false;\n",
   },
   {
     id: "A1",
@@ -488,6 +496,48 @@ export const MUTANTS: Mutant[] = [
     path: "src/router/chat-ack.ts",
     find: "      await chat.removeReaction(",
     replace: "      void chat.removeReaction(",
+  },
+  {
+    id: "SR1",
+    invariant: "sessionRouting::orchestratorStaysOutOfSessionsWhenChatExists",
+    path: "src/notify/recipients.ts",
+    find: '    if (target.source !== "tracker" || chatThreads.length === 0) return [target];',
+    replace: "    return [target];",
+  },
+  {
+    id: "SR2",
+    invariant: "sessionRouting::linearOnlyAsksReachTheStartingSession",
+    path: "src/notify/recipients.ts",
+    find: '    case "workflow_failed":\n    case "turn_failed":\n      return true;',
+    replace: '    case "workflow_failed":\n      return true;',
+  },
+  {
+    id: "SR3",
+    invariant: "sessionRouting::sessionMessageReachesItsRunningAuthorSilently",
+    path: "src/workflow/inbound/apply.ts",
+    find: '  return { notes: [note], wake: "none" };\n}\n\nconst STOP_NOTES',
+    replace: '  return { notes: [note], wake: "message" };\n}\n\nconst STOP_NOTES',
+  },
+  {
+    id: "SR4",
+    invariant: "sessionRouting::sessionMessageWithoutAnAuthorIsAnswered",
+    path: "src/agent/turn/watchdog.ts",
+    find: '  await workflow.post({ type: "turn_failed", text: turnTimeoutText(minutes) }, { answering });',
+    replace: '  await workflow.post({ type: "turn_failed", text: turnTimeoutText(minutes) });',
+  },
+  {
+    id: "SR5",
+    invariant: "sessionRouting::eachIssueLinksTheChatThreadOnce",
+    path: "src/workflow/lifecycle.ts",
+    find: '    if (origin?.source === "chat" && !issueLinked && !syncedAsSubject) {',
+    replace: '    if (origin?.source === "chat" && !syncedAsSubject) {',
+  },
+  {
+    id: "SR6",
+    invariant: "sessionRouting::boardsLiveOnlyInChat",
+    path: "src/workflow/board/board.ts",
+    find: '    if (target.source !== "chat") continue;\n    const channel = { source: target.source',
+    replace: "    const channel = { source: target.source",
   },
 ];
 

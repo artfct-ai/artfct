@@ -19,6 +19,8 @@ export function trackerContent(event: TaskEvent) {
       return { type: "response", body: event.text } as const;
     case "failed":
       return { type: "error", body: event.reason } as const;
+    case "turn_failed":
+      return { type: "error", body: event.text } as const;
     case "workflow_failed":
       return { type: "error", body: `${event.reason}\n\n${TAG_TO_START_AGAIN}` } as const;
     case "done":
@@ -42,6 +44,7 @@ export function plainText(event: TaskEvent): string {
     case "question":
     case "status":
     case "info":
+    case "turn_failed":
     case "artifact_ready":
       return event.text;
     case "failed":

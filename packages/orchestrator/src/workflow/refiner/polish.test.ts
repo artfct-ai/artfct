@@ -185,7 +185,9 @@ describe("a polisher whose turn ended", () => {
 describe("a polisher that went quiet on a revision whose checks failed", () => {
   const failures = [{ name: "unit", conclusion: "failure", detail: "", url: null }];
 
-  function polisherOnFailedChecks(setup: (workflow: FakeRuntime) => void): Scenario<FakeRuntime> {
+  function polisherOnFailedChecks(
+    setup: (workflow: FakeRuntime) => Promise<void> | void,
+  ): Scenario<FakeRuntime> {
     return scenario(stageWithPolishers([comments]), async (workflow) => {
       workflow.codeHostInstance = new FakeCodeHost({
         pulls: [pullRequest({ number: 1, head: { ref: "artfct/wf_x-1-fix", sha: "abc123" } })],
@@ -194,7 +196,7 @@ describe("a polisher that went quiet on a revision whose checks failed", () => {
       const author = seedPullRequestTask(workflow, { status: "in_review" });
       await startRefiner(workflow, author, 1);
       workflow.store.updateTask(currentRunOf(workflow).task_id, { status: "working" });
-      setup(workflow);
+      await setup(workflow);
       await settlePolisherTurn(workflow, currentRunOf(workflow));
     });
   }
@@ -219,8 +221,10 @@ describe("a polisher that went quiet on a revision whose checks failed", () => {
   });
 
   describe("after it already answered them", () => {
-    const stillFailing = polisherOnFailedChecks((workflow) => {
-      workflow.store.markEventSeen({ id: `checks_failed:${JOB}:abc123`, kind: "ci_event" });
+    const stillFailing = polisherOnFailedChecks(async (workflow) => {
+      await settlePolisherTurn(workflow, currentRunOf(workflow));
+      for (const prompt of workflow.store.queue()) workflow.store.dequeuePrompt(prompt.id);
+      workflow.store.updateTask(currentRunOf(workflow).task_id, { status: "working" });
     });
 
     it("ends the lists and gives the humans the artifact with the reason", () =>

@@ -52,6 +52,12 @@ export const PROPERTY_FILES = {
     runner: ["bunx", "vitest", "run"],
     e2eRuns: 300,
   },
+  session_routing: {
+    title: "session routing spec replay",
+    path: "src/workflow/session-routing-replay.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 3000,
+  },
   feedback_routing: {
     title: "feedback routing spec replay",
     path: "src/workflow/refiner/feedback-routing-replay.test.ts",

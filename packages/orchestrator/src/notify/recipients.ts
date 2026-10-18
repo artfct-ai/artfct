@@ -22,6 +22,7 @@ function isAskOrFailure(event: TaskEvent): boolean {
     case "artifact_ready":
     case "failed":
     case "workflow_failed":
+    case "turn_failed":
       return true;
     default:
       return false;

@@ -110,6 +110,14 @@ describe("review loop spec", () => {
     await replayPinnedTrace("judge-closes-after-findings", "pageJudgeBetweenReviewers", 413898815);
   });
 
+  it("blocks a conflict on a revision whose failed checks went back", async () => {
+    await replayPinnedTrace(
+      "conflict-after-failed-checks-on-one-revision",
+      "checksOnAPolishedPull",
+      315,
+    );
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,
