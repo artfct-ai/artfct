@@ -54,7 +54,7 @@ import {
   patchStageReviewers,
 } from "./fake-runtime";
 import type { Observation, Step } from "./invariants";
-import { openMemoryDb, type MemoryDb } from "./memory-db";
+import { openMemoryDb, storeRowsOf, type MemoryDb } from "./memory-db";
 import { WorkBudget } from "./work-budget";
 import { activityText, SessionTracker, type TrackerHealth } from "./session-tracker";
 import { testEnv } from "./test-env";
@@ -251,8 +251,6 @@ export type StepFacts = Partial<
   >
 >;
 
-const PAGE_WRITES: readonly string[] = ["createPage", "updatePageContent", "renamePage"];
-
 /** One thing that happens to a workflow. It picks its target from the world and may do nothing. */
 export type WorkflowAction = {
   run(world: WorkflowWorld): Promise<StepFacts | void>;
@@ -376,6 +374,7 @@ export class WorkflowWorld {
 
   /** The document host every page of the world lives on. */
   readonly pageHost: FakeDocuments;
+  private readonly db: MemoryDb;
   private readonly lastOutboxRow;
   private readonly outboxRowsAfterId;
   /** Counts the store statements of each step, and stops a step past its budget. */
@@ -390,6 +389,7 @@ export class WorkflowWorld {
     pageHost: FakeDocuments;
   }) {
     this.workflow = options.workflow;
+    this.db = options.db;
     this.lastOutboxRow = options.db
       .select({ id: max(outbox.id) })
       .from(outbox)
@@ -887,8 +887,7 @@ export class WorkflowWorld {
 
   /**
    * Run `start`, and let a person press Stop in the session of `author`'s job while the first
-   * page model call of that author is out. The step records the stopped call and every page write
-   * from the stop on.
+   * page model call of that author is out. The step records the stopped call.
    */
   async stopWhilePageModelAnswers(
     author: WorldAuthor,
@@ -896,12 +895,11 @@ export class WorkflowWorld {
   ): Promise<StepFacts> {
     const session = this.jobSessionOf(author);
     if (!session) return {};
-    const host = fakeDocumentsOf(this.workflow);
-    const stops: number[] = [];
+    const stop = { pressed: false };
     this.whilePageModelAnswers = async (taskId) => {
       if (taskId !== author.taskId) return;
       this.whilePageModelAnswers = null;
-      stops.push(host.calls.length);
+      stop.pressed = true;
       await this.deliver(stopEvent(session));
     };
     try {
@@ -909,15 +907,10 @@ export class WorkflowWorld {
     } finally {
       this.whilePageModelAnswers = null;
     }
-    const [callsAtStop] = stops;
-    if (callsAtStop === undefined) return {};
-    const pageWrites = host.calls
-      .slice(callsAtStop)
-      .map((call) => call.method)
-      .filter((method) => PAGE_WRITES.includes(method));
+    if (!stop.pressed) return {};
     return {
       authorTurnEnd: { task_id: author.taskId, cancelled: true },
-      modelCallStopped: { task_id: author.taskId, pageWrites },
+      modelCallStopped: { task_id: author.taskId },
     };
   }
 
@@ -1280,6 +1273,15 @@ export class WorkflowWorld {
   /** The outbox rows written after the row with this id, oldest first. */
   outboxRowsAfter(id: number): OutboxRow[] {
     return this.outboxRowsAfterId.all({ id });
+  }
+
+  /** The store rows, the workflow state, and the armed alarms, to compare two moments by. */
+  storeSnapshot(): string {
+    return JSON.stringify({
+      rows: storeRowsOf(this.db),
+      state: this.workflow.state,
+      alarms: this.workflow.alarms,
+    });
   }
 
   private observe(): Observation {

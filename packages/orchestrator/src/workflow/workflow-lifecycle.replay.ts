@@ -51,8 +51,11 @@ async function replayTrace(setup: SpecSetup, trace: TraceStep[]): Promise<void> 
   let before = initial;
   for (const step of steps) {
     taken.push(stepName(step));
+    const storeBefore = step.action === "staleAlarmFires" ? replay.world.storeSnapshot() : null;
     const worldSteps = await replay.take(step);
     expect(replay.project(), divergence(step)).toEqual(step.workflow);
+    if (storeBefore !== null)
+      expect(replay.world.storeSnapshot(), divergence(step)).toBe(storeBefore);
     const sleepPosted = worldSteps.some((worldStep) => worldStep.postedTexts.includes(SLEEP_TEXT));
     expect(sleepPosted, divergence(step)).toBe(idleAlarmSleeps(before, step));
     const toldTheAgent = worldSteps.some((worldStep) => worldStep.notes.length > 0);
@@ -101,6 +104,12 @@ describe("workflow lifecycle spec", () => {
     const path = join(PINNED_TRACES, "issues-recorded-while-a-prompt-waits.itf.json");
     const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
     await replayTrace("issuesForAChatRequest", traceSteps("issuesForAChatRequest", trace));
+  });
+
+  it("does not write the page when the model call a stop ended returns", async () => {
+    const path = join(PINNED_TRACES, "stop-ends-a-produce-model-call.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("modelCallPagesForAnIssue", traceSteps("modelCallPagesForAnIssue", trace));
   });
 
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {

@@ -359,6 +359,13 @@ export const MUTANTS: Mutant[] = [
       "  if (!claimChecksSendBack(workflow, artifact, `${conflict.revision}:conflict`)) return false;\n",
   },
   {
+    id: "W49",
+    invariant: "workflowLifecycle::stoppedModelCallLeavesThePage",
+    path: "src/workflow/task/model-author.ts",
+    find: '  if (turnEnded()) {\n    workflow.log(task.task_id, "model call ended after a stop ended its turn. no change.");\n    return null;\n  }\n',
+    replace: "",
+  },
+  {
     id: "A1",
     invariant: "agentTurns::laterDecisionsCallsFallBackOnceOneFails",
     path: "src/decisions/ask.ts",
