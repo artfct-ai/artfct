@@ -125,6 +125,6 @@ describe("a turn whose model request outlasts request_timeout_minutes", () => {
 
   it("drops each request and says the model did not answer", () =>
     silent((workflow) => {
-      expect(workflow.posted).toEqual([{ type: "info", text: STUCK_TEXT }]);
+      expect(workflow.posted).toEqual([{ type: "turn_failed", text: STUCK_TEXT }]);
     }));
 });

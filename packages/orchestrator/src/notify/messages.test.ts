@@ -67,6 +67,18 @@ describe("channel messages", () => {
     });
   });
 
+  describe("an agent turn that ended without its reply", () => {
+    const event = { type: "turn_failed", text: "The agent timed out." } as const;
+
+    it("shows the tracker the text as an error", () => {
+      expect(trackerContent(event)).toEqual({ type: "error", body: "The agent timed out." });
+    });
+
+    it("tells the chat the text alone", () => {
+      expect(plainText(event)).toBe("The agent timed out.");
+    });
+  });
+
   describe("a failed job in a running workflow", () => {
     const event = { type: "failed", job_id: "wf_x-1", reason: "The author stopped." } as const;
 

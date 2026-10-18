@@ -23,6 +23,8 @@ export type TaskEvent =
     }
   | { type: "failed"; job_id: string; reason: string }
   | { type: "workflow_failed"; reason: string }
+  /** The stuck or timeout text of an agent turn that ended without its reply. */
+  | { type: "turn_failed"; text: string }
   | { type: "done"; result: string }
   | { type: "status"; text: string }
   | { type: "info"; text: string };

@@ -70,8 +70,9 @@ export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm)
 }
 
 /**
- * Alarm: the turn armed with this start time never ended. Tell the humans and let go of it. On a
- * finished workflow, only take the threads out of their working status.
+ * Alarm: the turn armed with this start time never ended. Tell the people it answers and the
+ * starting session, and let go of it. On a finished workflow, only take the threads out of their
+ * working status.
  */
 export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {
   if (workflow.state.turn_started_at !== alarm.started_at) return;
@@ -82,12 +83,13 @@ export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm)
     turn_heads_up: null,
     turn_first_row: null,
   });
+  const answering = workflow.transcript.answering();
   workflow.transcript.deleteTaken();
   if (headsUp) await workflow.cancelAlarm(headsUp);
   if (isWorkflowFinished(workflow.state.status)) return workflow.release();
   const minutes = workflow.config().orchestrator.turn_timeout_minutes;
   workflow.log(null, `agent turn timed out after ${minutes} minutes`);
-  await workflow.post({ type: "info", text: turnTimeoutText(minutes) });
+  await workflow.post({ type: "turn_failed", text: turnTimeoutText(minutes) }, { answering });
 }
 
 /** Queued for the agent when a new instance picks up a turn its predecessor lost. */

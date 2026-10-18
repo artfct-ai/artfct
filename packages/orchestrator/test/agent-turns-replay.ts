@@ -590,8 +590,8 @@ class ReplayRuntime extends FakeRuntime {
 }
 
 function heldPostPhase(event: TaskEvent): string | null {
-  if (event.type !== "info") return null;
-  if (event.text === SCRIPTED_CLOSING_TEXT) return "PostingClosing";
+  if (event.type === "info" && event.text === SCRIPTED_CLOSING_TEXT) return "PostingClosing";
+  if (event.type !== "turn_failed") return null;
   if (event.text === STUCK_TEXT) return "Concluding(PostsStuckText)";
   if (event.text === turnTimeoutText(TURN_TIMEOUT_MINUTES)) return "Concluding(PostsTimeoutText)";
   return null;
@@ -599,6 +599,7 @@ function heldPostPhase(event: TaskEvent): string | null {
 
 function postText(event: TaskEvent): string {
   if (event.type === "question") return "QuestionText";
+  if (event.type === "turn_failed") return turnFailedText(event.text);
   if (event.type !== "info") return `Other(${event.type})`;
   switch (event.text) {
     case ACKNOWLEDGE_TEXT:
@@ -611,12 +612,19 @@ function postText(event: TaskEvent): string {
       return "HeadsUpText";
     case LOST_PLACE_TEXT:
       return "LostPlaceText";
+    default:
+      return `Other(${event.text.slice(0, 60)})`;
+  }
+}
+
+function turnFailedText(text: string): string {
+  switch (text) {
     case STUCK_TEXT:
       return "StuckText";
     case turnTimeoutText(TURN_TIMEOUT_MINUTES):
       return "TimeoutText";
     default:
-      return `Other(${event.text.slice(0, 60)})`;
+      return `Other(${text.slice(0, 60)})`;
   }
 }
 
