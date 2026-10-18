@@ -18,14 +18,13 @@ error: Property failed after 7 tests
 error: nothingReopensAFinishedWorkflow: a prompt event changed the agent notes of a failed workflow
 `;
 
-const VITEST_OUTPUT = ` FAIL  src/router/route-invariants.test.medium.ts > the router invariants > hold after every delivery
+const VITEST_OUTPUT = ` FAIL  src/agent/turn/agent-turns-replay.test.medium.ts > agent turns spec > replays its traces
 Error: Property failed after 24 tests
 { seed: -42, path: "23:5:8", endOnFailure: true }
 Counterexample: [[{"type":"workflow_ends","surface":"session_b","status":"done"}]]
 Shrunk 6 time(s)
 
 Caused by: Error: messageAfterEndStartsNextWorkflow: 2 workflows started after wf_1 ended | twice
- ❯ violated test/router-invariants.ts:12:9
 `;
 
 describe("propertyFailures", () => {
@@ -64,16 +63,16 @@ describe("propertyFailures", () => {
 
 describe("propertyFailureReport", () => {
   it("names the invariant, seed, path, and replay command of a failure", () => {
-    const report = propertyFailureReport(PROPERTY_FILES.router, -42, {
+    const report = propertyFailureReport(PROPERTY_FILES.agent_turns, -42, {
       outcome: "failed",
       output: VITEST_OUTPUT,
     });
-    expect(report).toContain("### The router property failed on seed -42");
+    expect(report).toContain("### The agent turns spec replay failed on seed -42");
     expect(report).toContain(
       "| messageAfterEndStartsNextWorkflow: 2 workflows started after wf_1 ended \\| twice | -42 | `23:5:8` |",
     );
     expect(report).toContain(
-      "PROPERTY_SEED=-42 PROPERTY_RUNS=1000 bunx vitest run src/router/route-invariants.test.medium.ts",
+      "PROPERTY_SEED=-42 PROPERTY_RUNS=300 bunx vitest run src/agent/turn/agent-turns-replay.test.medium.ts",
     );
   });
 

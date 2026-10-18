@@ -2,9 +2,9 @@
 
 This file lists each effect a person sees or the system relies on, and the invariants that guard it. A scheduled audit compares the code against it.
 
-Effects use the terms of the glossary. A guard is the exact function name of an invariant. A guard written `module::name` is an invariant of that Quint spec module. A row with an empty guard list is unguarded.
+Effects use the terms of the glossary. A guard is the exact function name of an invariant. A guard written `module::name` is an invariant of that Quint spec module. A guard written `world::name` is a check the workflow world in `packages/orchestrator/test/workflow-world.ts` makes on every step, so every property test and replay that drives the world makes it. A guard written `tests::path` names the example tests in that test file. A row with an empty guard list is unguarded.
 
-The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The agent turn invariants live in `packages/orchestrator/test/agent-invariants.ts`. The router and page revision invariants live beside them. The router binding invariants live in the Quint spec at `spec/router-bindings/routerBindings.qnt`. The review loop invariants live in the Quint spec at `spec/review-loop/reviewLoop.qnt`, the workflow lifecycle invariants in `spec/workflow-lifecycle/workflowLifecycle.qnt`, the harness session invariants in `spec/harness-session/harnessSession.qnt`, the agent turns invariants in `spec/agent-turns/agentTurns.qnt`, the chat acknowledgement invariants in `spec/chat-acknowledgement/chatAcknowledgement.qnt`, and the session routing invariants in `spec/session-routing/sessionRouting.qnt`. The webhook invariants live in `packages/ingress/test/webhook-invariants.ts`, and the inbound mapper invariants in `packages/adapters/test/inbound-invariants.ts`.
+The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The agent turn invariants live in `packages/orchestrator/test/agent-invariants.ts`. The page revision invariants live beside them. The router binding invariants live in the Quint spec at `spec/router-bindings/routerBindings.qnt`. The review loop invariants live in the Quint spec at `spec/review-loop/reviewLoop.qnt`, the workflow lifecycle invariants in `spec/workflow-lifecycle/workflowLifecycle.qnt`, the harness session invariants in `spec/harness-session/harnessSession.qnt`, the agent turns invariants in `spec/agent-turns/agentTurns.qnt`, the chat acknowledgement invariants in `spec/chat-acknowledgement/chatAcknowledgement.qnt`, and the session routing invariants in `spec/session-routing/sessionRouting.qnt`. The webhook invariants live in `packages/ingress/test/webhook-invariants.ts`, and the inbound mapper invariants in `packages/adapters/test/inbound-invariants.ts`.
 
 ## Workflow, tasks and statuses
 
@@ -29,7 +29,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | T17 | An artifact status moves only along the legal moves, and `accepted` and `removed` are final. | `artifactStatusMovesAreLegal`, `anAcceptedArtifactNeverMovesBack` |
 | T18 | The first handover sets the time the humans got the artifact, and it is never cleared. | `deliveredToHumansIsNeverCleared` |
 | T19 | A harness author moves to `working` only when a prompt goes out for it. | |
-| T56 | Every event, alarm and tool call settles within a bounded amount of store work. A loop that never settles does not hang the workflow. | `everyActionSettlesWithinItsWorkBudget` |
+| T56 | Every event, alarm and tool call settles within a bounded amount of store work. A loop that never settles does not hang the workflow. | `world::withinWorkBudget` |
 
 ### Restart, nudge, give up and fail
 
@@ -153,7 +153,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | R5 | A findings reviewer entry runs at most `max_review_runs` times on one artifact. The limit adds the unreviewed revision note at handover. A stale segment restart does not count against the limit. | |
 | R6 | A judge rules at most once on an artifact, and its ruling never changes. Later runs skip judge entries that ruled. A ruling that lands while the decisions model or the host is asked stands, and the later one is dropped. An instance restart that loses the ruling call of the judge run the artifact waits on asks the decisions model again, unless the agent was already asked for a person's ruling. | `judgeRulesAtMostOnce`, `reviewLoop::aRestartDoesNotStrandAJudgeRun` |
 | R7 | The decisions model rules a judge conclusion. A missing conclusion, a failed call or a middle probability asks a person to rule. | |
-| R8 | A refiner run ends `done` only after its turn ended normally. A polisher waiting on the checks of its push ends later, only if it did not take a prompt since. | `refinerRunIsDoneOnlyAfterItsTurnEnded` |
+| R8 | A refiner run ends `done` only after its turn ended normally. A polisher waiting on the checks of its push ends later, only if it did not take a prompt since. | `refinerRunIsDoneOnlyAfterItsTurnEnded`, `tests::packages/orchestrator/src/workflow/refiner/polish.test.ts` |
 | R9 | The review again decision reads a model-call author's closing text. An answer of yes reruns the segment from its first entry that did not review the revision, and an answer of no advances. A failed call asks the agent to route. | |
 | R10 | The agent routes a harness author's review with `request_review` or `finish_review`. The agent is told again on every settle until it routes. | |
 | R11 | A segment merges the latest reviews of its entries and sends the merged review to the author when it holds findings or blocks. A segment that ends with a judge sends it once the judge rules: with the rejection, or on its own after an approval. A clean or empty segment advances. | `reviewLoop::authorGetsEveryPullFinding` |
@@ -185,7 +185,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | R33 | Person feedback on a pull request gets the eyes reaction per comment, or "Relayed to the author." when it lacks comment handles, before routing. One failure skips the rest. | |
 | R34 | A page comment is acknowledged with the eyes reply before it is sent to the author, and only the comments the host marked read are sent. The host marks only the earliest held comment of a comment thread, so a reply posted while the screen reads stays held. A comment the host does not mark stays held, and the agent is told. | `reviewLoop::aPromptToAPageAuthorCarriesItsHeldComments`, `reviewLoop::aHeldCommentStaysHeldUntilItReachesTheAuthor` |
 | R35 | A model-call author's revise posts one comment reply per handled comment still on the page before it writes the page. It also replies to each comment a queued prompt carries on a line the write removes, saying the author reads it next. A failed reply fails the task, and replies already posted stay. | `sentCommentIsAnsweredBeforeItsLineGoes`, `replyGoesOnlyToASentComment`, `failedReplyLeavesThePage`, `reviewLoop::aModelCallAuthorFailsOnlyOnAHostError` |
-| R36 | A page text change keeps the identity of every line the answer left alone. | `untouchedLinesKeepTheirIdentity` |
+| R36 | A page text change keeps the identity of every line the answer left alone. | `tests::packages/adapters/src/documents/page-text-update.test.ts`, `tests::packages/orchestrator/src/workflow/task/model-author.test.ts` |
 | R37 | The root page holds a resources section that code writes: a heading, one link line per linked page, and the link removed when a page moves under the root page. The author text goes above it. | |
 
 ### Inbound events in the workflow
@@ -210,7 +210,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | ID | Effect | Guarded by |
 |---|---|---|
 | C1 | Each job gets one board in each chat thread the workflow replies to. A chat thread that joins later gets the board at the job's next board flush. A tracker session never holds one. | `boardsLiveOnlyInChat`, `sessionRouting::boardsLiveOnlyInChat` |
-| C2 | The rendered board shows each researcher and author as its todo list or its work line. | `everyJobTaskIsOnItsBoard` |
+| C2 | The rendered board shows each researcher and author as its todo list or its work line. | `tests::packages/orchestrator/src/workflow/board/board-tasks.test.ts`, `tests::packages/orchestrator/src/workflow/board/render.test.ts` |
 | C3 | A researcher's todo list reads complete once the author of its job exists. | `researchReadsCompleteOnceTheAuthorStarts` |
 | C4 | A board post or edit that fails is retried only on the next flush, and the flush is not scheduled. The chat can hold a stale or missing board until something else changes on the job. | |
 | C5 | A board is created once per job and thread. An isolate lost between the post and the row update posts a second board on the next flush. | |
@@ -250,8 +250,8 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | ID | Effect | Guarded by |
 |---|---|---|
 | O1 | An event joins the first running workflow bound to one of its bindings. A workflow whose create has not returned refuses every event, and the router drops it. | `aWorkflowGetsEventsOnlyOnceCreated` |
-| O2 | A start event that a running workflow took moves to it each binding it carries that was unbound or whose workflow ended. A binding that points at another running workflow keeps pointing at it. A new workflow takes a binding only while it still points where the delivery read it. | `aDeliveryLeavesTheBindingsOfARunningWorkflow` |
-| O3 | A person's message on a binding whose workflow ended starts exactly one new workflow, and the binding moves to it. This holds when the Durable Object ended before the router's status did. Other events on an ended workflow are dropped. | `messageAfterEndStartsNextWorkflow`, `aPersonsMessageNeverReachesAnEndedWorkflow` |
+| O2 | A start event that a running workflow took, from a person or not, moves to it each binding it carries that was unbound or whose workflow ended. A binding that points at another running workflow keeps pointing at it. A new workflow takes a binding only while it still points where the delivery read it. | `aDeliveryLeavesTheBindingsOfARunningWorkflow` |
+| O3 | A person's message on a binding whose workflow ended starts exactly one new workflow, and the binding moves to it. This holds when the Durable Object ended before the router's status did. Other events on an ended workflow are dropped. A start without a person does not start a workflow. | `routerBindings::messageAfterEndStartsNextWorkflow`, `aPersonsMessageNeverReachesAnEndedWorkflow` |
 | O4 | A failed Durable Object create removes the bindings the new workflow took, points each back at the workflow it pointed at unless another delivery bound it since, and marks the workflow failed. | `anAbandonedWorkflowKeepsNoBinding` |
 | O5 | A push to a base branch fans out to every workflow with a pull request in the repository. A failed delivery stops the rest. | |
 | O6 | The router's workflow status mirrors the Durable Object status. The router reads it to decide whether a workflow ended. | |
