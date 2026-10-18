@@ -391,6 +391,24 @@ module feedbackRouting {
     ),
   }
 
+  /// Every feedback arrived, the workflow ended and finished the author, and a page holds a
+  /// comment. These negate the guards of every other step, so each of them is blocked here.
+  val theRoutingEnds: bool = and {
+    world.arrivals == FEEDBACKS,
+    world.workflow == WorkflowEnded,
+    world.author.status == Finished,
+    KIND == Page implies world.heldOnPage,
+  }
+
+  /// The model stays in its end state, so TLC does not report the end as a deadlock.
+  action finished: bool = all {
+    theRoutingEnds,
+    world' = world,
+    lastFeedback' = lastFeedback,
+    rulesKept' = rulesKept,
+    stepWitnesses' = stepWitnesses,
+  }
+
   action step: bool = any {
     personPostsFeedback,
     personLeavesAPageComment,
@@ -399,6 +417,7 @@ module feedbackRouting {
     agentPausesAuthor,
     agentCancelsJob,
     workflowEnds,
+    finished,
   }
 
   /// Each feedback on a running workflow ends in exactly one of: a prompt to its author, a note
