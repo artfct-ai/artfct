@@ -166,6 +166,12 @@
           "revision": {
             "#bigint": "0"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -180,6 +186,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -372,6 +379,12 @@
           "revision": {
             "#bigint": "0"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -386,6 +399,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -598,6 +612,12 @@
           "revision": {
             "#bigint": "1"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -612,6 +632,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -677,7 +698,7 @@
               }
             },
             "status": {
-              "tag": "Unfinished",
+              "tag": "Running",
               "value": {
                 "#tup": []
               }
@@ -842,6 +863,12 @@
           "revision": {
             "#bigint": "1"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -856,6 +883,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -947,7 +975,7 @@
               }
             },
             "status": {
-              "tag": "Unfinished",
+              "tag": "Running",
               "value": {
                 "#tup": []
               }
@@ -1152,6 +1180,12 @@
           "revision": {
             "#bigint": "1"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -1166,6 +1200,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -1257,7 +1292,7 @@
               }
             },
             "status": {
-              "tag": "Unfinished",
+              "tag": "Running",
               "value": {
                 "#tup": []
               }
@@ -1462,6 +1497,12 @@
           "revision": {
             "#bigint": "1"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -1476,6 +1517,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -1567,7 +1609,7 @@
               }
             },
             "status": {
-              "tag": "Unfinished",
+              "tag": "Running",
               "value": {
                 "#tup": []
               }
@@ -1769,6 +1811,12 @@
           "revision": {
             "#bigint": "1"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -1783,6 +1831,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -1888,7 +1937,7 @@
               }
             },
             "status": {
-              "tag": "Unfinished",
+              "tag": "Running",
               "value": {
                 "#tup": []
               }
@@ -2087,6 +2136,12 @@
           "revision": {
             "#bigint": "1"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -2101,6 +2156,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -2415,6 +2471,12 @@
           "revision": {
             "#bigint": "1"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -2429,6 +2491,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -2740,6 +2803,12 @@
           "revision": {
             "#bigint": "1"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -2754,6 +2823,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
@@ -3082,6 +3152,12 @@
           "revision": {
             "#bigint": "1"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -3100,6 +3176,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -3447,6 +3524,12 @@
           "revision": {
             "#bigint": "1"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -3465,6 +3548,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -3821,6 +3905,12 @@
           "revision": {
             "#bigint": "1"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -3839,6 +3929,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -4195,6 +4286,12 @@
           "revision": {
             "#bigint": "1"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -4213,6 +4310,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -4562,6 +4660,12 @@
           "revision": {
             "#bigint": "2"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -4580,6 +4684,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -4945,6 +5050,12 @@
           "revision": {
             "#bigint": "2"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -4963,6 +5074,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -5336,6 +5448,12 @@
           "revision": {
             "#bigint": "2"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -5354,6 +5472,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -5734,6 +5853,12 @@
           "revision": {
             "#bigint": "3"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -5752,6 +5877,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -6138,6 +6264,12 @@
           "revision": {
             "#bigint": "4"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -6156,6 +6288,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -6533,6 +6666,12 @@
           "revision": {
             "#bigint": "5"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -6551,6 +6690,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -6928,6 +7068,12 @@
           "revision": {
             "#bigint": "6"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -6946,6 +7092,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -7326,6 +7473,12 @@
           "revision": {
             "#bigint": "6"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -7344,6 +7497,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [
             {
               "#set": []
@@ -7724,6 +7878,12 @@
           "revision": {
             "#bigint": "7"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -7742,6 +7902,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": [
@@ -8112,6 +8273,12 @@
           "revision": {
             "#bigint": "8"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -8130,6 +8297,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": [
@@ -8503,6 +8671,12 @@
           "revision": {
             "#bigint": "8"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Drafted",
             "value": {
@@ -8521,6 +8695,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": [
@@ -8703,7 +8878,7 @@
               }
             },
             "status": {
-              "tag": "Unfinished",
+              "tag": "Running",
               "value": {
                 "#tup": []
               }
@@ -8911,6 +9086,12 @@
           "revision": {
             "#bigint": "8"
           },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
           "status": {
             "tag": "Ready",
             "value": {
@@ -8940,6 +9121,7 @@
           "pageEditsDuringTurn": {
             "#set": []
           },
+          "paused": false,
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": [

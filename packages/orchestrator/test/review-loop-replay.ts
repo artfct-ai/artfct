@@ -10,7 +10,10 @@ import { labeledPageCommentIds } from "../src/artifact/page-comment-label";
 import { findingText } from "../src/artifact/review-text";
 import { CLOSING_TEXT_MARKER, replyMarker } from "../src/prompts/model-author-prompt";
 import { rejectionHeadline } from "../src/prompts/review-prompt";
+import { CHECKS_GRACE_MS, CHECKS_LIMIT_MS } from "../src/workflow/refiner/checks-gate";
 import { sendHeldCommentsOnRevisionRequest } from "../src/workflow/refiner/held-comments";
+import { taskQuiet } from "../src/workflow/refiner/loop";
+import { isTaskFinished } from "../src/workflow/store/state";
 import type { RefinerRun, TaskRow } from "../src/workflow/store/tasks";
 import type { TaskAlarm } from "../src/workflow/task/harness/timers";
 import { taskAtWork } from "../src/workflow/task/at-work";
@@ -23,6 +26,9 @@ import { toolText } from "./tool-result";
 import {
   agentCancels,
   agentFailsWorkflow,
+  baseMoves,
+  checksReport,
+  agentHoldsAuthor,
   agentPromptsAuthor,
   agentRoutes,
   agentStartsTask,
@@ -34,6 +40,7 @@ import {
   firstArtifactAppears,
   personCancels,
   personRules,
+  personSendsControl,
   refinerRunEnds,
   refinerRunFails,
   refinerRunHarnessExits,
@@ -43,6 +50,7 @@ import {
   type AuthorClosing,
   type RefinerRunEnd,
 } from "./workflow-actions";
+import type { ChecksReport, Mergeability } from "./workflow-world";
 import {
   HELD_COMMENT,
   MAX_AUTHORS,
@@ -87,6 +95,8 @@ export const SPEC_SETUPS = {
     author: "page_model",
     authors: 1,
   },
+  pausedModelCallAuthor: { refiners: "polisher", author: "page_model", authors: 1 },
+  checksOnAPolishedPull: { refiners: "polisher", author: "pull_harness", authors: 1 },
 } as const satisfies Record<
   string,
   { refiners: RefinerSetup; author: SetupAuthor; authors: 1 | 2 }
@@ -104,7 +114,7 @@ const REPLAY_START = Date.parse("2026-01-01T00:00:00.000Z");
 /** One refiner run as the spec sees it. */
 type SpecRun = {
   refinerIndex: number;
-  status: "Unfinished" | "Done" | "Cancelled" | "Failed";
+  status: (typeof RUN_STATUSES)[number];
   result:
     | { filed: "nothing" }
     | { filed: "review"; revision: number | null; findings: boolean }
@@ -144,6 +154,7 @@ type SpecClose = (typeof ARTIFACT_CLOSES)[number];
 export type SpecReview = {
   author: {
     status: SpecAuthorStatus;
+    paused: boolean;
     restarts: number;
     queuedPrompts: number[][];
     turnComments: number[];
@@ -157,6 +168,7 @@ export type SpecReview = {
       | { status: "Ready"; deliveredRevision: number | null; close: SpecClose };
     revision: number;
     refinerRun: number | null;
+    sentBack: number | null;
   };
   refinerRuns: SpecRun[];
   judgeRunsCodeRulesOn: number[];
@@ -217,9 +229,11 @@ function specReview(value: unknown): SpecReview {
   const artifact = itfField(value, "artifact");
   const status = itfVariant(itfField(artifact, "status"))!;
   const refinerRun = itfVariant(itfField(artifact, "refinerRun"))!;
+  const sentBack = itfVariant(itfField(artifact, "sentBack"))!;
   return {
     author: {
       status: itfOneOf(itfVariant(itfField(author, "status"))!.tag, AUTHOR_STATUSES),
+      paused: itfBool(itfField(author, "paused")),
       restarts: itfInt(itfField(author, "restarts")),
       queuedPrompts: itfList(itfField(author, "queuedPrompts")).map(sortedInts),
       turnComments: sortedInts(itfField(author, "turnComments")),
@@ -238,6 +252,7 @@ function specReview(value: unknown): SpecReview {
           : { status: "Drafted" },
       revision: itfInt(itfField(artifact, "revision")),
       refinerRun: refinerRun.tag === "OnRefinerRun" ? itfInt(refinerRun.value) : null,
+      sentBack: sentBack.tag === "SentBackOn" ? itfInt(sentBack.value) : null,
     },
     refinerRuns: itfList(itfField(value, "refinerRuns")).map(specRun),
     judgeRunsCodeRulesOn: sortedInts(itfField(value, "judgeRunsCodeRulesOn")),
@@ -321,7 +336,7 @@ function specRun(value: unknown): SpecRun {
   };
 }
 
-const RUN_STATUSES = ["Unfinished", "Done", "Cancelled", "Failed"] as const;
+const RUN_STATUSES = ["Running", "WaitsOnChecks", "Done", "Cancelled", "Failed"] as const;
 const RULINGS = ["Approved", "Rejected"] as const;
 
 function specResult(result: { tag: string; value: unknown }): SpecRun["result"] {
@@ -362,15 +377,6 @@ const TURN_END: Omit<RefinerRunEnd, "reviewer" | "polisher" | "closing" | "pageC
 
 /** The world action of each spec action that needs no pick, for the author at `index`. */
 const WORLD_ACTIONS: Record<string, (index: number) => WorkflowAction> = {
-  polisherPushes: (index) =>
-    refinerRunEnds(index, {
-      ...TURN_END,
-      pageCommenting: "takes",
-      reviewer: "no_review",
-      polisher: "pushed",
-      closing: "reports_work",
-    }),
-  polisherPushesNothing,
   agentRequestsReview: (index) => agentRoutes(index, "request_review"),
   agentFinishesReview: (index) => agentRoutes(index, "finish_review"),
   agentCancelsRefinerRun: (index) => agentCancels(index, "refiner_run"),
@@ -386,6 +392,82 @@ function polisherPushesNothing(index: number): WorkflowAction {
     closing: "reports_work",
   });
 }
+
+/** What the host says about the head of a pull request: its checks, and whether it merges. */
+type HostChecks = { report: ChecksReport; mergeability: Mergeability };
+
+const PASSED_AND_CLEAN: HostChecks = { report: "passed_long_ago", mergeability: "clean" };
+const FAILED: HostChecks = { report: "failed", mergeability: "clean" };
+const CONFLICTED: HostChecks = { report: "passed_long_ago", mergeability: "conflicted" };
+const STOPPED: HostChecks = { report: "stopped", mergeability: "clean" };
+const UNREPORTED: HostChecks = { report: "unreported", mergeability: "clean" };
+const RUNNING: HostChecks = { report: "running", mergeability: "clean" };
+const PASSED_JUST_NOW: HostChecks = { report: "passed_just_now", mergeability: "clean" };
+const MERGE_UNKNOWN: HostChecks = { report: "passed_long_ago", mergeability: "unknown" };
+
+/** How code hears that the checks may have changed: a check webhook, a base webhook, or the recheck alarm. */
+type ChecksDelivery = "check_webhook" | "base_webhook" | "recheck";
+
+/**
+ * What the host can say about a revision whose polisher last showed work `quietMs` ago, for
+ * each gate outcome the spec picks. Unreported checks open the gate once the grace period is
+ * over, and checks that still run block it once the limit is reached. A revision that went
+ * back already blocks on failed checks or a conflict too.
+ */
+function hostChecksFor(outcome: string, sentBackAlready: boolean, quietMs: number): HostChecks[] {
+  const inGrace = quietMs < CHECKS_GRACE_MS;
+  const inLimit = quietMs < CHECKS_LIMIT_MS;
+  switch (outcome) {
+    case "GateOpens":
+      return inGrace ? [PASSED_AND_CLEAN] : [PASSED_AND_CLEAN, UNREPORTED];
+    case "GateWaits":
+      return [
+        PASSED_JUST_NOW,
+        ...(inGrace ? [UNREPORTED] : []),
+        ...(inLimit ? [RUNNING, MERGE_UNKNOWN] : []),
+      ];
+    case "GateSendsBack":
+      return [FAILED, CONFLICTED];
+    case "GateBlocks":
+      return [
+        STOPPED,
+        ...(inLimit ? [] : [RUNNING]),
+        ...(sentBackAlready ? [FAILED, CONFLICTED] : []),
+      ];
+    default:
+      throw new Error(`the trace has gate outcome ${outcome}`);
+  }
+}
+
+/** The ways code can hear of `checks`. A check webhook needs a finished check suite. */
+function deliveriesOf(checks: HostChecks, recheckArmed: boolean): ChecksDelivery[] {
+  const finished = checks.report !== "unreported" && checks.report !== "running";
+  return [
+    ...(finished ? ["check_webhook" as const] : []),
+    "base_webhook",
+    ...(recheckArmed ? ["recheck" as const] : []),
+  ];
+}
+
+/** True when the checks gate holds a polisher run in a spec state. */
+function polisherWaitsIn(review: SpecReview): boolean {
+  const held = review.artifact.refinerRun;
+  return held !== null && review.refinerRuns[held]?.status === "WaitsOnChecks";
+}
+
+/** True when a polisher run holds the artifact in a spec state and its turn runs. */
+function polisherWorksIn(review: SpecReview): boolean {
+  const held = review.artifact.refinerRun;
+  return held !== null && review.refinerRuns[held]?.status === "Running";
+}
+
+/** True when the current revision went back to its submitter in a spec state. */
+function sentBackOnTheRevision(review: SpecReview): boolean {
+  return review.artifact.sentBack === review.artifact.revision;
+}
+
+const CHECKS_FAILED_LINE = /^the checks failed on (\S+):/;
+const CONFLICT_LINE = /^(\S+) conflicts with /;
 
 /** The stop reasons of a turn that ended before its work was complete. */
 const UNFINISHED_STOPS = ["max_tokens", "max_turn_requests", "refusal"] as const;
@@ -413,6 +495,12 @@ function refinerRunEndsUnfinished(
 function closingsAtTurnEnd(promptQueued: boolean): AuthorClosing[] {
   return promptQueued ? ["finished", "silent", "stopped_early"] : ["finished", "silent"];
 }
+
+/**
+ * When a new instance takes over: between steps, or while the agent's prompt to the author of a
+ * page waits on the host's read of its held comments.
+ */
+const RESTART_MOMENTS = ["between_steps", "while_held_comments_are_read"] as const;
 
 /** How code fails to rule on a judge run, when the spec says it cannot rule. */
 const CANNOT_RULE_PATHS = ["unclear", "decisions_fail"] as const;
@@ -917,6 +1005,7 @@ export class ReviewLoopReplay {
     return {
       author: {
         status: specAuthorStatusOf(author, atWork),
+        paused: author.paused_at !== null,
         restarts: author.restarts,
         queuedPrompts: (this.pageModel && atWork ? queued.slice(1) : queued).map((row) =>
           this.specCommentIdsIn(row.text),
@@ -937,12 +1026,36 @@ export class ReviewLoopReplay {
               },
         revision: this.revisionCount(this.hostRevision() ?? ""),
         refinerRun: pointer === -1 ? null : pointer,
+        sentBack: this.sentBackRevision(author.job_id),
       },
-      refinerRuns: runs.map((run) => specRunOf(run, revisionCount)),
+      refinerRuns: runs.map((run) =>
+        specRunOf(run, revisionCount, taskQuiet(this.world.workflow, run)),
+      ),
       judgeRunsCodeRulesOn: [...this.held.keys()].toSorted((left, right) => left - right),
       reviewComments: this.reviewComments(runs),
       personComments: this.comments.map((comment) => this.specPersonCommentOf(comment, author)),
     };
+  }
+
+  /**
+   * The revision whose failed checks or conflict went back to its submitter last, as the spec
+   * counts revisions. Code logs each send-back on the submitter, an ended one too.
+   */
+  private sentBackRevision(jobId: string): number | null {
+    const { store } = this.world.workflow;
+    const jobTasks = new Set(
+      store
+        .tasks()
+        .filter((task) => task.job_id === jobId)
+        .map((task) => task.task_id),
+    );
+    const sent = store.logLines().flatMap(({ task_id, line }) => {
+      if (task_id === null || !jobTasks.has(task_id)) return [];
+      const revision = (CHECKS_FAILED_LINE.exec(line) ?? CONFLICT_LINE.exec(line))?.[1];
+      return revision ? [revision] : [];
+    });
+    const last = sent.at(-1);
+    return last === undefined ? null : this.revisionCount(last);
   }
 
   /** How the last handover of the job closed. A healthy one starts with the ready line of its kind. */
@@ -964,15 +1077,124 @@ export class ReviewLoopReplay {
     if (isAuthorTurnEnd(action)) return this.harnessAuthorTurnEnds(step, index);
     if (action === "authorEnds") return this.authorEnds(pickTag(step, "ending"), index);
     if (action === "authorRestarts") return authorHitsARecoverableFailure(index);
+    if (action === "authorPaused") {
+      return this.pick([personSendsControl(index, "pause"), agentHoldsAuthor(index, "pause_task")]);
+    }
+    if (action === "authorResumed") {
+      return this.pick([
+        personSendsControl(index, "resume"),
+        agentHoldsAuthor(index, "resume_task"),
+      ]);
+    }
+    if (action === "personInstructs") return personSendsControl(index, "instruct");
     if (action === "refinerRunHitsARecoverableFailure") {
       return this.recoverableFailure(pickTag(step, "cause"), index);
     }
-    if (this.revisions.kind === "page" && action === "polisherPushes") {
-      return this.afterPageEdit(pickTag(step, "part"), polisherPushesNothing(index));
+    if (action === "polisherPushes" || action === "polisherPushesNothing") {
+      const pushed = action === "polisherPushes";
+      if (this.revisions.kind === "pull") return this.polisherTurnEndsOnAPull(step, index, pushed);
+      const turnEnd = polisherPushesNothing(index);
+      return pushed ? this.afterPageEdit(pickTag(step, "part"), turnEnd) : turnEnd;
     }
+
+    if (action === "checksReport") return this.checksReported(step, index);
     const mapped = WORLD_ACTIONS[action];
     if (!mapped) throw new Error(`no world action for spec action ${action}`);
     return mapped(index);
+  }
+
+  /**
+   * A polisher's turn on a pull request ends after it pushed or not, and the host then says
+   * what the seeded pick rotates over among the checks that give the gate outcome the spec
+   * picks.
+   */
+  private polisherTurnEndsOnAPull(step: TraceStep, index: number, pushed: boolean): WorkflowAction {
+    const outcome = pickTag(step, "outcome");
+    const sentBackAlready = sentBackOnTheRevision(step.review);
+    const turnEnd = polisherPushesNothing(index);
+    return {
+      toString: () =>
+        `${pushed ? "the polisher pushes" : "the polisher pushes nothing"}, the host says what gives ${outcome}, then ${String(turnEnd)}`,
+      run: async (world) => {
+        if (pushed) world.changeRevision(this.author);
+        this.hostSays(this.pick(hostChecksFor(outcome, sentBackAlready, this.polisherQuietMs())));
+        return turnEnd.run(world);
+      },
+    };
+  }
+
+  /**
+   * The host reports checks. A polisher the gate holds settles on checks that give the outcome
+   * the spec picks, and code hears of them by a webhook or the recheck alarm. Failed checks or a
+   * conflict reach an idle author by a webhook. A report the spec says changes nothing either
+   * misses its webhook, or reaches a polisher at work.
+   */
+  private checksReported(step: TraceStep, index: number): WorkflowAction {
+    const before = this.trace[this.step - 1]?.review;
+    if (!before) throw new Error("a checks report needs the state before it");
+    const outcome = pickTag(step, "outcome");
+    if (polisherWaitsIn(before)) {
+      const options = hostChecksFor(
+        outcome,
+        sentBackOnTheRevision(before),
+        this.polisherQuietMs(),
+      ).flatMap((checks) => deliveriesOf(checks, true).map((delivery) => ({ checks, delivery })));
+      const { checks, delivery } = this.pick(options);
+      return this.hostReports(checks, delivery, index);
+    }
+    if (step.review.artifact.sentBack !== before.artifact.sentBack) {
+      const options = [FAILED, CONFLICTED].flatMap((checks) =>
+        deliveriesOf(checks, false).map((delivery) => ({ checks, delivery })),
+      );
+      const { checks, delivery } = this.pick(options);
+      return this.hostReports(checks, delivery, index);
+    }
+    const missed: WorkflowAction = {
+      toString: () => "the host reports checks, and the webhook is missed",
+      run: async () => undefined,
+    };
+    if (!polisherWorksIn(before)) return missed;
+    return this.pick([missed, baseMoves(index, "clean", "delivered")]);
+  }
+
+  /** The host says `checks` about the head of the pull request, and code hears of it by `delivery`. */
+  private hostReports(checks: HostChecks, delivery: ChecksDelivery, index: number): WorkflowAction {
+    const heard = (): WorkflowAction => {
+      switch (delivery) {
+        case "check_webhook":
+          return checksReport(index, checks.report, "delivered");
+        case "base_webhook":
+          return baseMoves(index, checks.mergeability, "delivered");
+        case "recheck":
+          return timerFires("recheck", 0);
+        default: {
+          const unreachable: never = delivery;
+          throw new Error(`unhandled delivery ${String(unreachable)}`);
+        }
+      }
+    };
+    const action = heard();
+    return {
+      toString: () =>
+        `the host says ${checks.report} and ${checks.mergeability}, then ${String(action)}`,
+      run: async (world) => {
+        this.hostSays(checks);
+        return action.run(world);
+      },
+    };
+  }
+
+  private hostSays(checks: HostChecks): void {
+    this.world.reportChecks(this.author, checks.report);
+    this.world.setMergeability(this.author, checks.mergeability);
+  }
+
+  /** How long ago the polisher that holds the artifact last showed work. */
+  private polisherQuietMs(): number {
+    const run = this.world.refinerRunOf(this.author);
+    if (!run) throw new Error("no polisher holds the artifact");
+    const sandbox = this.world.workflow.store.sandbox(run.task_id);
+    return this.world.workflow.now() - Date.parse(sandbox?.last_progress_at ?? run.started_at);
   }
 
   /**
@@ -984,7 +1206,22 @@ export class ReviewLoopReplay {
     const onPage = this.revisions.kind === "page";
     const revision = changed && !onPage ? "changed" : "same";
     const ending = this.pick(this.authorTurnEndings(step, index, revision));
-    return onPage && changed ? this.afterPageEdit(pickTag(step, "part"), ending) : ending;
+    if (onPage) return changed ? this.afterPageEdit(pickTag(step, "part"), ending) : ending;
+    return this.afterChecksPass(ending);
+  }
+
+  /**
+   * The checks of the author's revision pass and it merges, then `action` runs. The spec does
+   * not model the checks gate on the author, so the gate opens on every revision it leaves.
+   */
+  private afterChecksPass(action: WorkflowAction): WorkflowAction {
+    return {
+      toString: () => `the checks pass, then ${String(action)}`,
+      run: async (world) => {
+        this.hostSays(PASSED_AND_CLEAN);
+        return action.run(world);
+      },
+    };
   }
 
   /**
@@ -1544,6 +1781,9 @@ export class ReviewLoopReplay {
       replay.held.clear();
       return calls;
     });
+    if (this.pick(RESTART_MOMENTS) === "while_held_comments_are_read") {
+      await this.untilHeldCommentsAreRead();
+    }
     await this.world.restart();
     for (const alarm of this.world.workflow.alarmsFor("settleLostJudgeRuling")) {
       const settled = alarm.payload as TaskAlarm;
@@ -1563,6 +1803,28 @@ export class ReviewLoopReplay {
       if (replay === this || replay.held.has(runId)) continue;
       replay.held.set(runId, { ...held, release: () => {}, turnEnd: Promise.resolve() });
     }
+  }
+
+  /**
+   * The agent prompts a running author of a page, and the host never answers the read of the
+   * comments held on it. An author that finished, or a page that is not out, has none to read.
+   */
+  private async untilHeldCommentsAreRead(): Promise<void> {
+    const store = this.world.workflow.store;
+    const author = store.requireTask(this.author.taskId);
+    if (isTaskFinished(author.status) || store.artifact(author.job_id)?.ref.kind !== "page") return;
+    const host = this.host();
+    const read = host.heldComments.bind(host);
+    const readOut = new Promise<void>((reached) => {
+      host.heldComments = () => {
+        reached();
+        return new Promise(() => {});
+      };
+    });
+    const { prompt_task } = taskTools(this.world.workflow);
+    void prompt_task.execute({ task_id: author.task_id, text: "Add a test for it." }, TOOL_CALL);
+    await readOut;
+    host.heldComments = read;
   }
 
   /**
@@ -1793,13 +2055,17 @@ function judgeCloses(run: TaskRow, conclusion: string): WorkflowAction {
   };
 }
 
+/** A refiner run as the spec sees it. A quiet polisher that has not finished waits on its checks. */
 function specRunOf(
   run: RefinerRun,
   revisionCount: (revision: string | null) => number | null,
+  quiet: boolean,
 ): SpecRun {
+  const status = SPEC_STATUSES[run.status];
+  const waits = status === "Running" && run.role === "polisher" && quiet;
   return {
     refinerIndex: run.refiner_index ?? 0,
-    status: SPEC_STATUSES[run.status],
+    status: waits ? "WaitsOnChecks" : status,
     result: specResultOf(run, revisionCount),
     restarts: run.restarts,
   };
@@ -1819,10 +2085,11 @@ export function endsTheWorkflow(trace: TraceStep[]): boolean {
 }
 
 const SPEC_STATUSES: Record<TaskStatus, SpecRun["status"]> = {
-  queued: "Unfinished",
-  provisioning: "Unfinished",
-  working: "Unfinished",
-  in_review: "Unfinished",
+  queued: "Running",
+  provisioning: "Running",
+  working: "Running",
+  in_review: "Running",
+
   done: "Done",
   cancelled: "Cancelled",
   failed: "Failed",

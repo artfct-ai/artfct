@@ -224,6 +224,10 @@ jobs:
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
         timeout-minutes: 25
         run: GITHUB_STEP_SUMMARY="$RUNNER_TEMP/findings/chat_acknowledgement.md" bun scripts/properties/e2e-property-test.ts chat_acknowledgement
+      - name: Replay the session routing spec
+        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
+        timeout-minutes: 25
+        run: GITHUB_STEP_SUMMARY="$RUNNER_TEMP/findings/session_routing.md" bun scripts/properties/e2e-property-test.ts session_routing
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:

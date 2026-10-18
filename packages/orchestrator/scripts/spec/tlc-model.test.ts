@@ -74,7 +74,7 @@ describe("tlcModel", () => {
   it("checks each invariant within the bound and leaves ignored variables out of the view", () => {
     const model = tlcModel(readTypecheckedModule(TYPECHECKED), ["lastStepReached"]);
     expect(model.module).toBe(
-      "---- MODULE MC ----\nEXTENDS counter_tc\n\nInit ==\n  counter_spec_count := 0\n    /\\ counter_spec_lastStepReached := [reached |-> FALSE]\n\nView == <<counter_spec_count>>\n\n====\n",
+      "---- MODULE MC ----\nEXTENDS counter_tc\n\nInit ==\n  counter_spec_count := 0\n    /\\ counter_spec_lastStepReached := [reached |-> FALSE]\n\nView == <<counter_spec_count, counter_spec_lastStepReached = counter_spec_lastStepReached>>\n\n====\n",
     );
     expect(model.config).toBe(
       "INIT Init\nNEXT q_step\nINVARIANT counter_spec_countStaysSmall\nCONSTRAINT counter_spec_modelCheckingBound\nVIEW View\n",

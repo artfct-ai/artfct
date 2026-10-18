@@ -13,8 +13,10 @@ module reviewLoopTypes {
   /// What a judge files on the artifact.
   type Ruling = Approved | Rejected
 
-  /// Where a refiner run stands. Every status but `Unfinished` is final.
-  type RunStatus = Unfinished | Done | Cancelled | Failed
+  /// Where a refiner run stands. `Running` while its turn runs or starts. `WaitsOnChecks` once a
+  /// polisher's turn ended and the checks gate holds the revision. `Done`, `Cancelled` and
+  /// `Failed` are final.
+  type RunStatus = Running | WaitsOnChecks | Done | Cancelled | Failed
 
   /// How the lookups of the revision on the host go in one step: they give it, or they fail.
   type RevisionLookup = RevisionKnown | RevisionUnknown
@@ -56,8 +58,16 @@ module reviewLoopTypes {
   /// The refiner run the artifact is on, or the last one that ran.
   type RefinerRunOfArtifact = NoRefinerRun | OnRefinerRun(int)
 
+  /// The latest revision whose failed checks or conflict went back to its submitter, if any.
+  type SentBack = NotSentBack | SentBackOn(int)
+
   /// The output artifact. A revision is a number here. The host gives it a name.
-  type Artifact = { status: ArtifactStatus, revision: int, refinerRun: RefinerRunOfArtifact }
+  type Artifact = {
+    status: ArtifactStatus,
+    revision: int,
+    refinerRun: RefinerRunOfArtifact,
+    sentBack: SentBack,
+  }
 
   /// A part of the page an edit rewrites. A person comment on a block sits on `TheBlock`. No edit
   /// rewrites the block that holds the passage a review quotes.
@@ -71,12 +81,14 @@ module reviewLoopTypes {
   /// it, or the workflow ends.
   type AuthorEnding = TheAgentCancelsTheJob | TheAuthorFails | TheWorkflowEnds
 
-  /// The author task: where it stands, how often it restarted, the prompts that wait for it with
-  /// the person comments each carries, the comments the prompt of a model-call author's turn
-  /// carries, the parts of the page a person rewrote since that turn read it, the judge entries
-  /// whose rejection it got, and the refiner runs whose findings it got in a prompt.
+  /// The author task: where it stands, whether it is paused, how often it restarted, the prompts
+  /// that wait for it with the person comments each carries, the comments the prompt of a
+  /// model-call author's turn carries, the parts of the page a person rewrote since that turn read
+  /// it, the judge entries whose rejection it got, and the refiner runs whose findings it got in a
+  /// prompt.
   type Author = {
     status: AuthorStatus,
+    paused: bool,
     restarts: int,
     queuedPrompts: List[Set[int]],
     turnComments: Set[int],
@@ -181,6 +193,14 @@ module reviewLoopTypes {
     personComments: List[PersonComment],
   }
 
+  /// What the checks gate makes of a polisher's revision: the gate opens, waits, sends failed
+  /// checks or a conflict back to the polisher, or blocks the handover.
+  type GateOutcome = GateOpens | GateWaits | GateSendsBack | GateBlocks
+
+  /// What a read of the checks did in a step: none ran, the gate settled the polisher that holds
+  /// the artifact, or failed checks or a conflict went to the idle author as a follow-up.
+  type ChecksRead = ChecksNotRead | GateSettles(GateOutcome) | AuthorFollowedUp
+
   /// The turn that ended in a step, if one did, with the revision the host gave at an author's
   /// turn end. A model-call author's turn starts over when a person changed the page text while
   /// its model call ran.
@@ -194,7 +214,8 @@ module reviewLoopTypes {
   /// What an observer knows about the last step besides the reviews around it: the turn that
   /// ended, what happened on the document host, whether the host took a model-call author's
   /// writes, what the agent read about page comments, whether a new instance took over, the
-  /// refiner run that hit a failure it may recover from, and how the lookups of the revision went.
+  /// refiner run that hit a failure it may recover from, how the lookups of the revision went,
+  /// what a read of the checks did, and whether the host reported checks.
   type StepKind = {
     turnEnd: TurnEnd,
     page: PageFact,
@@ -203,6 +224,8 @@ module reviewLoopTypes {
     instanceRestarted: bool,
     recoverableFailure: RecoverableFailure,
     revisionLookup: RevisionLookup,
+    checks: ChecksRead,
+    checksReported: bool,
   }
 
   /// One step: the review before it, the review after it, and what an observer knows of it.
@@ -228,6 +251,8 @@ module reviewLoopTypes {
     aFinishedRefinerRunKeepsItsStatus: bool,
     anEndedAuthorEndsItsReview: bool,
     aStoppedRefinerRunHandsOverBlocked: bool,
+    aPolisherEndsDoneOnlyWhenItsChecksOpen: bool,
+    checksGoBackOncePerRevision: bool,
   }
 
   /// Whether the last step reached each before-and-after witness, by the name of the witness. Only
@@ -272,6 +297,17 @@ module reviewLoopTypes {
     anAuthorFailsPastItsRestarts: bool,
     aPolisherRunStopsOnADraftedArtifact: bool,
     aReviewerRunFailsOnADraftedArtifact: bool,
+    aPausedAuthorResumesItsWork: bool,
+    anAuthorResumesWhileAPolisherRuns: bool,
+    aPersonInstructsWhileAPolisherRuns: bool,
+    heldCommentsQueueForAPausedAuthor: bool,
+    aWaitingPolisherEndsDone: bool,
+    theChecksGateBlocksTheHandover: bool,
+    theGateBlocksARevisionItSentBack: bool,
+    checksGoBackToThePolisherAtItsTurnEnd: bool,
+    checksGoBackToAWaitingPolisher: bool,
+    checksGoBackToTheAuthor: bool,
+    anUnknownRevisionOpensTheGate: bool,
   }
 
   /// A model-call author's turn end: the review after it and how the turn ended.
@@ -311,6 +347,14 @@ module reviewLoop {
 
   /// True when the author can be cancelled, fail, or restart, and the workflow can end.
   const AUTHOR_LIFECYCLE: bool
+
+  /// True when a person or the agent can pause and resume the author, and a person can instruct
+  /// it.
+  const PAUSE_AND_RESUME: bool
+
+  /// True when the host runs checks on the pull request after a polisher pushes, so the checks
+  /// gate can hold the polisher past its turn end. Otherwise the checks passed long ago.
+  const CHECKS: bool
 
   /// How often one reviewer runs on one artifact. The config default.
   pure val MAX_REVIEW_RUNS: int = 3
@@ -352,6 +396,7 @@ module reviewLoop {
   pure val INITIAL_REVIEW: ReviewLoop = {
     author: {
       status: AtWork,
+      paused: false,
       restarts: 0,
       queuedPrompts: List(),
       turnComments: Set(),
@@ -359,7 +404,7 @@ module reviewLoop {
       rejectedBy: Set(),
       findingsFrom: Set(),
     },
-    artifact: { status: Drafted, revision: 0, refinerRun: NoRefinerRun },
+    artifact: { status: Drafted, revision: 0, refinerRun: NoRefinerRun, sentBack: NotSentBack },
     refinerRuns: List(),
     judgeRunsCodeRulesOn: Set(),
     reviewComments: List(),
@@ -410,6 +455,8 @@ module reviewLoop {
   var agentHeard: Set[AgentNote]
   /// How often a new instance took over the workflow, a counter that model checking bounds.
   var instanceRestartCount: int
+  /// How often the host reported checks, a counter that model checking bounds.
+  var checksReportCount: int
 
   pure def larger(left: int, right: int): int = if (left > right) left else right
 
@@ -458,17 +505,25 @@ module reviewLoop {
   pure def hostRevision(loop: ReviewLoop, lookup: RevisionLookup): FiledRevision =
     if (lookup == RevisionKnown) ReadRevision(loop.artifact.revision) else UnknownRevision
 
+  /// True while a refiner run has not ended: its turn runs, or the checks gate holds it.
+  pure def isUnfinished(status: RunStatus): bool = status == Running or status == WaitsOnChecks
+
   pure def unfinishedRunIds(loop: ReviewLoop): Set[int] =
-    runIds(loop).filter(id => loop.refinerRuns[id].status == Unfinished)
+    runIds(loop).filter(id => isUnfinished(loop.refinerRuns[id].status))
 
   /// The unfinished refiner run the agent and the sandboxes act on. Only defined while one exists.
   pure def lastUnfinishedRun(loop: ReviewLoop): int = largest(unfinishedRunIds(loop), 0)
 
-  /// True when an unfinished refiner run of `refiner` is the one the sandboxes act on.
-  pure def unfinishedRunIs(loop: ReviewLoop, refiner: Refiner): bool = and {
+  /// True when the unfinished refiner run is one of `refiner` whose turn runs.
+  pure def runningRunIs(loop: ReviewLoop, refiner: Refiner): bool = and {
     unfinishedRunIds(loop).size() > 0,
     refinerOf(loop.refinerRuns[lastUnfinishedRun(loop)]) == refiner,
+    loop.refinerRuns[lastUnfinishedRun(loop)].status == Running,
   }
+
+  /// True when the unfinished refiner run has a turn that runs.
+  pure def aRunningRunExists(loop: ReviewLoop): bool =
+    unfinishedRunIds(loop).exists(id => loop.refinerRuns[id].status == Running)
 
   pure def isOnRun(loop: ReviewLoop, id: int): bool =
     loop.artifact.refinerRun == OnRefinerRun(id)
@@ -492,15 +547,21 @@ module reviewLoop {
   pure def refinerInFlight(loop: ReviewLoop): bool =
     match loop.artifact.refinerRun {
       | NoRefinerRun => false
-      | OnRefinerRun(id) => loop.refinerRuns[id].status == Unfinished
+      | OnRefinerRun(id) => isUnfinished(loop.refinerRuns[id].status)
     }
 
+  /// True while a polisher run holds the artifact, whether its turn runs or the checks gate
+  /// holds it.
   pure def polisherRunning(loop: ReviewLoop): bool =
     match loop.artifact.refinerRun {
       | NoRefinerRun => false
       | OnRefinerRun(id) =>
-        refinerOf(loop.refinerRuns[id]) == Polisher and loop.refinerRuns[id].status == Unfinished
+        refinerOf(loop.refinerRuns[id]) == Polisher and isUnfinished(loop.refinerRuns[id].status)
     }
+
+  /// True while the checks gate holds a polisher run whose turn ended.
+  pure def polisherWaitsOnChecks(loop: ReviewLoop): bool =
+    holdsARun(loop) and loop.refinerRuns[heldRun(loop)].status == WaitsOnChecks
 
   pure def judgeRuledOn(loop: ReviewLoop, index: int): bool = and {
     index < REVIEWER_COUNT,
@@ -568,7 +629,7 @@ module reviewLoop {
   }
 
   pure def startRefiner(loop: ReviewLoop, index: int): ReviewLoop = {
-    val refinerRun = { refinerIndex: index, status: Unfinished, result: NoResult, restarts: 0 }
+    val refinerRun = { refinerIndex: index, status: Running, result: NoResult, restarts: 0 }
     {
       ...loop,
       refinerRuns: loop.refinerRuns.append(refinerRun),
@@ -664,10 +725,15 @@ module reviewLoop {
     else edited
   }
 
-  /// Send the oldest queued prompt when the author can take it. A model-call author's turn reads
-  /// the page as it starts.
+  /// Send the oldest queued prompt when the author can take it. A paused author does not take
+  /// one. A model-call author's turn reads the page as it starts.
   pure def drainQueue(loop: ReviewLoop): ReviewLoop =
-    if (loop.author.status == InReview and loop.author.queuedPrompts.length() > 0 and not(polisherRunning(loop)))
+    if (and {
+      loop.author.status == InReview,
+      not(loop.author.paused),
+      loop.author.queuedPrompts.length() > 0,
+      not(polisherRunning(loop)),
+    })
       {
         ...loop,
         author: {
@@ -980,24 +1046,93 @@ module reviewLoop {
   pure def canPersonRuleOn(loop: ReviewLoop, id: int): bool = and {
     drafted(loop),
     refinerOf(loop.refinerRuns[id]) == Judge,
-    loop.refinerRuns[id].status != Unfinished,
+    not(isUnfinished(loop.refinerRuns[id].status)),
     not(isRuling(loop.refinerRuns[id].result)),
   }
 
+  /// True when the checks gate reads the checks for the polisher run `id`: the drafted artifact
+  /// is on it, and the host runs checks and gives the revision.
+  pure def gateReadsChecks(loop: ReviewLoop, id: int, lookup: RevisionLookup): bool =
+    CHECKS and isOnRun(loop, id) and drafted(loop) and lookup == RevisionKnown
+
+  pure def sentBackOnTheRevision(loop: ReviewLoop): bool =
+    loop.artifact.sentBack == SentBackOn(loop.artifact.revision)
+
+  /// What the checks gate can make of the revision for the polisher run `id`. It opens when it
+  /// does not read the checks. Failed checks or a conflict go back once per revision, so a
+  /// revision that went back already waits, opens or blocks.
+  pure def gateOutcomes(loop: ReviewLoop, id: int, lookup: RevisionLookup): Set[GateOutcome] =
+    if (not(gateReadsChecks(loop, id, lookup))) Set(GateOpens)
+    else if (sentBackOnTheRevision(loop)) Set(GateOpens, GateWaits, GateBlocks)
+    else Set(GateOpens, GateWaits, GateSendsBack, GateBlocks)
+
+  /// The checks gate settles the polisher run `id`. It ends done and hands the artifact on once
+  /// the gate opens, and ends done with a blocked handover once it blocks. It waits on the
+  /// checks, or gets failed checks or a conflict back and works on them.
+  pure def settlePolisher(loop: ReviewLoop, id: int, outcome: GateOutcome, lookup: RevisionLookup): ReviewLoop = {
+    val done = withStatus(loop, id, Done)
+    val settled = match outcome {
+      | GateOpens =>
+        if (isOnRun(done, id) and drafted(done)) advancePastEntry(done, loop.refinerRuns[id].refinerIndex, lookup)
+        else done
+      | GateBlocks => handOver(done, ClosedBlocked, lookup)
+      | GateWaits => withStatus(loop, id, WaitsOnChecks)
+      | GateSendsBack => {
+        val running = withStatus(loop, id, Running)
+        { ...running, artifact: { ...running.artifact, sentBack: SentBackOn(loop.artifact.revision) } }
+      }
+    }
+    drainQueue(settled)
+  }
+
+  /// A polisher's turn ends after it changed `part` of the artifact or without a change, and the
+  /// checks gate settles it.
   pure def polisherFinished(
     loop: ReviewLoop,
     id: int,
     pushed: bool,
     part: PagePart,
+    outcome: GateOutcome,
     lookup: RevisionLookup,
-  ): ReviewLoop = {
-    val changed = if (pushed) pageChanged(loop, part) else loop
-    val done = withStatus(changed, id, Done)
-    val handedOn =
-      if (isOnRun(done, id) and drafted(done)) advancePastEntry(done, loop.refinerRuns[id].refinerIndex, lookup)
-      else done
-    drainQueue(handedOn)
+  ): ReviewLoop =
+    settlePolisher(if (pushed) pageChanged(loop, part) else loop, id, outcome, lookup)
+
+  /// True when failed checks or a conflict can go to the idle author as a follow-up: the humans
+  /// hold the artifact or a reviewer reads it, and the revision did not go back yet. An ended
+  /// author does not take a follow-up.
+  pure def authorCanBeFollowedUp(loop: ReviewLoop, lookup: RevisionLookup): bool = and {
+    CHECKS,
+    not(drafted(loop)) or (refinerInFlight(loop) and not(polisherRunning(loop))),
+    authorLive(loop),
+    authorQuiet(loop),
+    lookup == RevisionKnown,
+    not(sentBackOnTheRevision(loop)),
   }
+
+  /// Failed checks or a conflict go to the author once per revision.
+  pure def followUpWithTheAuthor(loop: ReviewLoop): ReviewLoop =
+    promptAuthor({ ...loop, artifact: { ...loop.artifact, sentBack: SentBackOn(loop.artifact.revision) } })
+
+  /// What a checks report can lead to: the outcomes of the gate on a polisher it holds, a
+  /// follow-up with the idle author or none, or nothing.
+  pure def reportOutcomes(loop: ReviewLoop, lookup: RevisionLookup): Set[GateOutcome] =
+    if (polisherWaitsOnChecks(loop)) gateOutcomes(loop, heldRun(loop), lookup)
+    else if (authorCanBeFollowedUp(loop, lookup)) Set(GateOpens, GateSendsBack)
+    else Set(GateOpens)
+
+  /// The host reports checks, or the recheck alarm reads them. A polisher the gate holds settles.
+  /// Otherwise, failed checks or a conflict go to an idle author as a follow-up. A polisher at
+  /// work settles at its turn end, so the report changes nothing then.
+  pure def checksReported(
+    loop: ReviewLoop,
+    outcome: GateOutcome,
+    lookup: RevisionLookup,
+  ): { loop: ReviewLoop, checks: ChecksRead } =
+    if (polisherWaitsOnChecks(loop))
+      { loop: settlePolisher(loop, heldRun(loop), outcome, lookup), checks: GateSettles(outcome) }
+    else if (authorCanBeFollowedUp(loop, lookup) and outcome == GateSendsBack)
+      { loop: followUpWithTheAuthor(loop), checks: AuthorFollowedUp }
+    else { loop: loop, checks: ChecksNotRead }
 
   /// A polisher that stops early gives the artifact to the humans with what it pushed.
   pure def polisherStopped(loop: ReviewLoop, id: int, lookup: RevisionLookup): ReviewLoop =
@@ -1110,6 +1245,8 @@ module reviewLoop {
       instanceRestarted: false,
       recoverableFailure: NoRecoverableFailure,
       revisionLookup: RevisionKnown,
+      checks: ChecksNotRead,
+      checksReported: false,
     }
 
   action moveWith(after: ReviewLoop, kind: StepKind): bool = {
@@ -1120,6 +1257,7 @@ module reviewLoop {
       lastStepReached' = witnessesReachedBy(step),
       agentHeard' = kind.agentHeard,
       instanceRestartCount' = if (kind.instanceRestarted) instanceRestartCount + 1 else instanceRestartCount,
+      checksReportCount' = if (kind.checksReported) checksReportCount + 1 else checksReportCount,
     }
   }
 
@@ -1141,6 +1279,7 @@ module reviewLoop {
       lastStepReached' = witnessesReachedBy(step),
       agentHeard' = Set(),
       instanceRestartCount' = 0,
+      checksReportCount' = 0,
     }
   }
 
@@ -1194,7 +1333,7 @@ module reviewLoop {
 
   /// A findings reviewer files a review with findings, and its turn ends.
   action findingsReviewerLeavesFindings: bool = all {
-    unfinishedRunIs(review, FindingsReviewer),
+    runningRunIs(review, FindingsReviewer),
     nondet commenting = COMMENTINGS.oneOf()
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val id = lastUnfinishedRun(review)
@@ -1207,7 +1346,7 @@ module reviewLoop {
 
   /// A findings reviewer files an approving review, and its turn ends.
   action findingsReviewerApproves: bool = all {
-    unfinishedRunIs(review, FindingsReviewer),
+    runningRunIs(review, FindingsReviewer),
     nondet commenting = COMMENTINGS.oneOf()
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val id = lastUnfinishedRun(review)
@@ -1220,7 +1359,7 @@ module reviewLoop {
 
   /// A judge closes with its conclusion. The decisions model starts to read it.
   action judgeTurnEnds: bool = all {
-    unfinishedRunIs(review, Judge),
+    runningRunIs(review, Judge),
     val id = lastUnfinishedRun(review)
     move(judgeFinished(review, id), RefinerTurnEnded(id)),
   }
@@ -1228,7 +1367,7 @@ module reviewLoop {
   /// A judge closes without a conclusion. Code does not call the decisions model, and the agent
   /// is asked to get a person's ruling in the same step.
   action judgeClosesWithoutAConclusion: bool = all {
-    unfinishedRunIs(review, Judge),
+    runningRunIs(review, Judge),
     val id = lastUnfinishedRun(review)
     move(decisionsModelCannotRuleOn(judgeFinished(review, id), id), RefinerTurnEnded(id)),
   }
@@ -1284,21 +1423,39 @@ module reviewLoop {
   /// A person rejects the judge run the artifact is on, through the agent.
   action personRejects: bool = personRules(Rejected)
 
-  /// A polisher changes the artifact, and its turn ends.
-  action polisherPushes: bool = all {
-    unfinishedRunIs(review, Polisher),
-    nondet part = REVISION_PARTS.oneOf()
+  /// A polisher's turn ends, after it changed `part` of the artifact or without a change, and the
+  /// checks gate settles it.
+  action polisherTurnEnds(pushed: bool, part: PagePart): bool = all {
+    runningRunIs(review, Polisher),
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val id = lastUnfinishedRun(review)
-    moveOnLookup(polisherFinished(review, id, true, part, revisionLookup), RefinerTurnEnded(id), revisionLookup),
+    val left = if (pushed) pageChanged(review, part) else review
+    nondet outcome = gateOutcomes(left, id, revisionLookup).oneOf()
+    moveWith(
+      polisherFinished(review, id, pushed, part, outcome, revisionLookup),
+      { ...quietStep(RefinerTurnEnded(id)), revisionLookup: revisionLookup, checks: GateSettles(outcome) },
+    ),
+  }
+
+  /// A polisher changes the artifact, and its turn ends.
+  action polisherPushes: bool = {
+    nondet part = REVISION_PARTS.oneOf()
+    polisherTurnEnds(true, part)
   }
 
   /// A polisher's turn ends without a change.
-  action polisherPushesNothing: bool = all {
-    unfinishedRunIs(review, Polisher),
+  action polisherPushesNothing: bool = polisherTurnEnds(false, Body)
+
+  /// The host reports checks on the pull request, or the recheck alarm reads them again.
+  action checksReport: bool = all {
+    CHECKS,
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
-    val id = lastUnfinishedRun(review)
-    moveOnLookup(polisherFinished(review, id, false, Body, revisionLookup), RefinerTurnEnded(id), revisionLookup),
+    nondet outcome = reportOutcomes(review, revisionLookup).oneOf()
+    val reported = checksReported(review, outcome, revisionLookup)
+    moveWith(
+      reported.loop,
+      { ...quietStep(NoTurnEnd), revisionLookup: revisionLookup, checks: reported.checks, checksReported: true },
+    ),
   }
 
   /// The agent runs the open segment again from its first entry that still has a say on the revision.
@@ -1350,7 +1507,7 @@ module reviewLoop {
   /// The unfinished refiner run hits a failure it may recover from. It restarts while it has
   /// restarts left, and fails after that.
   action refinerRunHitsARecoverableFailure: bool = all {
-    unfinishedRunIds(review).size() > 0,
+    aRunningRunExists(review),
     nondet cause = RESTART_CAUSES.oneOf()
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val id = lastUnfinishedRun(review)
@@ -1460,6 +1617,34 @@ module reviewLoop {
     ),
   }
 
+  /// A person or the agent pauses the author. A model call in flight runs to its end, and the
+  /// prompts that wait for the author stay queued.
+  action authorPaused: bool = all {
+    PAUSE_AND_RESUME,
+    authorLive(review),
+    not(review.author.paused),
+    move({ ...review, author: { ...review.author, paused: true } }, NoTurnEnd),
+  }
+
+  /// A person or the agent resumes the paused author with a prompt to continue. The prompt carries
+  /// no page comment.
+  action authorResumed: bool = all {
+    PAUSE_AND_RESUME,
+    authorLive(review),
+    review.author.paused,
+    roomForAPrompt(review),
+    move(promptAuthor({ ...review, author: { ...review.author, paused: false } }), NoTurnEnd),
+  }
+
+  /// A person tells the author what to do. The prompt carries no page comment, and it waits while
+  /// the author is paused or a polisher runs.
+  action personInstructs: bool = all {
+    PAUSE_AND_RESUME,
+    authorLive(review),
+    roomForAPrompt(review),
+    move(promptAuthor(review), NoTurnEnd),
+  }
+
   action step: bool = any {
     agentPromptsAuthor,
     authorTurnEndsOnANewRevision,
@@ -1488,7 +1673,12 @@ module reviewLoop {
     instanceRestarts,
     authorEnds,
     authorRestarts,
+    authorPaused,
+    authorResumed,
+    personInstructs,
+    checksReport,
   }
+
 
   /// True when an author turn ended on a revision other than `delivered`. An unknown revision
   /// counts as another one.
@@ -1583,13 +1773,62 @@ module reviewLoop {
       isRuling(step.before.refinerRuns[id].result)
         implies step.after.refinerRuns[id].result == step.before.refinerRuns[id].result)
 
-  /// A refiner run ends `Done` only in the step its turn ended, or it was already done.
+  /// True when the checks gate settled the polisher that holds the artifact in a step.
+  pure def gateSettled(step: Transition): bool =
+    match step.kind.checks { | GateSettles(_) => true | _ => false }
+
+  /// True when the refiner run `id` was in the review before a step with status `status`.
+  pure def hadStatus(step: Transition, id: int, status: RunStatus): bool =
+    id < step.before.refinerRuns.length() and step.before.refinerRuns[id].status == status
+
+  /// A refiner run ends `Done` only in the step its turn ended, or it was already done. A
+  /// polisher the checks gate held since its turn end ends in the step the gate settles it.
   pure def endsDoneOnlyWithItsTurn(step: Transition): bool =
     runIds(step.after).forall(id =>
       step.after.refinerRuns[id].status == Done implies or {
-        id < step.before.refinerRuns.length() and step.before.refinerRuns[id].status == Done,
+        hadStatus(step, id, Done),
         step.kind.turnEnd == RefinerTurnEnded(id),
+        hadStatus(step, id, WaitsOnChecks) and gateSettled(step),
       })
+
+  /// True when a refiner run of a polisher ends `Done` in a step.
+  pure def endsAPolisherDone(step: Transition): bool =
+    runIds(step.after).exists(id => and {
+      refinerOf(step.after.refinerRuns[id]) == Polisher,
+      step.after.refinerRuns[id].status == Done,
+      not(hadStatus(step, id, Done)),
+    })
+
+  /// A polisher run ends `Done` only in a step where the checks gate opens or blocks on the
+  /// revision. A gate that blocks hands the artifact over blocked.
+  pure def endsDoneThroughTheGate(step: Transition): bool = and {
+    endsAPolisherDone(step) implies
+      (step.kind.checks == GateSettles(GateOpens) or step.kind.checks == GateSettles(GateBlocks)),
+    step.kind.checks == GateSettles(GateBlocks) implies handedOverBlocked(step.after),
+  }
+
+  /// True when failed checks or a conflict went back to the submitter in a step.
+  pure def sendsChecksBack(step: Transition): bool =
+    step.kind.checks == GateSettles(GateSendsBack) or step.kind.checks == AuthorFollowedUp
+
+  /// True when the submitter of a send-back took it: the polisher works on it, or the author got
+  /// it in a prompt.
+  pure def theSubmitterTookThem(step: Transition): bool =
+    if (step.kind.checks == AuthorFollowedUp) atWork(step.after) or queuesAPrompt(step)
+    else holdsARun(step.after) and step.after.refinerRuns[heldRun(step.after)].status == Running
+
+
+  /// A send-back records the revision it sent back, which did not go back before, and reaches
+  /// the submitter. Every other step keeps the record.
+  pure def sendsBackOncePerRevision(step: Transition): bool = {
+    val sentNow = SentBackOn(step.after.artifact.revision)
+    if (sendsChecksBack(step)) and {
+      step.before.artifact.sentBack != sentNow,
+      step.after.artifact.sentBack == sentNow,
+      theSubmitterTookThem(step),
+    }
+    else step.after.artifact.sentBack == step.before.artifact.sentBack
+  }
 
   /// A refiner run starts on an artifact the humans hold only after an author turn ended on a
   /// changed revision. An unknown revision counts as changed.
@@ -1744,7 +1983,7 @@ module reviewLoop {
       val before = step.before.refinerRuns[id]
       val after = step.after.refinerRuns[id]
       if (not(hitARecoverableFailure(step, id))) after.restarts == before.restarts
-      else if (before.restarts < MAX_RESTARTS) after.restarts == before.restarts + 1 and after.status == Unfinished
+      else if (before.restarts < MAX_RESTARTS) after.restarts == before.restarts + 1 and after.status == Running
       else after.restarts == before.restarts and after.status == Failed
     })
 
@@ -1778,7 +2017,7 @@ module reviewLoop {
     if (drafted(step.before) and holdsARun(step.before)) {
       val before = step.before.refinerRuns[heldRun(step.before)]
       val after = step.after.refinerRuns[heldRun(step.before)]
-      before.status == Unfinished and or {
+      isUnfinished(before.status) and or {
         after.status == Failed,
         after.status == Cancelled and refinerOf(before) == Polisher,
       }
@@ -1792,7 +2031,7 @@ module reviewLoop {
   /// A refiner run that is done, cancelled or failed before a step keeps that status after it.
   pure def keepsEveryFinishedStatus(step: Transition): bool =
     step.before.refinerRuns.indices().forall(id =>
-      step.before.refinerRuns[id].status != Unfinished
+      not(isUnfinished(step.before.refinerRuns[id].status))
         implies step.after.refinerRuns[id].status == step.before.refinerRuns[id].status)
 
   /// Whether one step kept each before-and-after rule.
@@ -1814,6 +2053,8 @@ module reviewLoop {
     aFinishedRefinerRunKeepsItsStatus: keepsEveryFinishedStatus(step),
     anEndedAuthorEndsItsReview: handsOverBlockedOnTheAuthorsEnd(step),
     aStoppedRefinerRunHandsOverBlocked: handsOverBlockedWhenItsRunStops(step),
+    aPolisherEndsDoneOnlyWhenItsChecksOpen: endsDoneThroughTheGate(step),
+    checksGoBackOncePerRevision: sendsBackOncePerRevision(step),
   }
 
   /// The held comments read in a step whose host marks them read, when some were held.
@@ -1822,6 +2063,13 @@ module reviewLoop {
       | HeldCommentsAsked(asked) => heldCommentIds(step.before).size() > 0 and matches(asked)
       | _ => false
     }
+
+  /// True when the author was paused before a step and is not after it.
+  pure def resumesTheAuthor(step: Transition): bool = step.before.author.paused and not(step.after.author.paused)
+
+  /// True when a step leaves more prompts waiting for the author than it found.
+  pure def queuesAPrompt(step: Transition): bool =
+    step.after.author.queuedPrompts.length() > step.before.author.queuedPrompts.length()
 
   /// Whether one step reached each before-and-after witness.
   pure def witnessesReachedBy(step: Transition): ReachedWitnesses = {
@@ -1952,6 +2200,33 @@ module reviewLoop {
       step.kind.recoverableFailure == AuthorHit and step.before.author.restarts == MAX_RESTARTS,
     aPolisherRunStopsOnADraftedArtifact: stopsTheRunOfADraft(step) and heldRunIsAPolisher(step.before),
     aReviewerRunFailsOnADraftedArtifact: stopsTheRunOfADraft(step) and not(heldRunIsAPolisher(step.before)),
+    aPausedAuthorResumesItsWork: resumesTheAuthor(step) and not(atWork(step.before)) and atWork(step.after),
+    anAuthorResumesWhileAPolisherRuns: resumesTheAuthor(step) and polisherRunning(step.before),
+    aPersonInstructsWhileAPolisherRuns: and {
+      polisherRunning(step.before),
+      queuesAPrompt(step),
+      step.kind.page == NoPageFact,
+      step.kind.recoverableFailure == NoRecoverableFailure,
+      step.before.author.paused == step.after.author.paused,
+    },
+    heldCommentsQueueForAPausedAuthor:
+      heldCommentsAskedFor(step, asked => asked.carried.size() > 0) and step.after.author.paused and queuesAPrompt(step),
+    aWaitingPolisherEndsDone:
+      runIds(step.after).exists(id => hadStatus(step, id, WaitsOnChecks) and step.after.refinerRuns[id].status == Done),
+    theChecksGateBlocksTheHandover: step.kind.checks == GateSettles(GateBlocks),
+    theGateBlocksARevisionItSentBack:
+      step.kind.checks == GateSettles(GateBlocks) and sentBackOnTheRevision(step.after),
+    checksGoBackToThePolisherAtItsTurnEnd:
+      step.kind.checks == GateSettles(GateSendsBack) and step.kind.turnEnd != NoTurnEnd,
+    checksGoBackToAWaitingPolisher:
+      step.kind.checks == GateSettles(GateSendsBack) and step.kind.turnEnd == NoTurnEnd,
+    checksGoBackToTheAuthor: step.kind.checks == AuthorFollowedUp,
+    anUnknownRevisionOpensTheGate: and {
+      step.kind.checks == GateSettles(GateOpens),
+      step.kind.revisionLookup == RevisionUnknown,
+      drafted(step.before),
+      polisherRunning(step.before),
+    },
   }
 
   /// An artifact has at most one unfinished refiner run, and the artifact is on it.
@@ -1976,7 +2251,8 @@ module reviewLoop {
       review.refinerRuns[id].refinerIndex == index and isRejection(review.refinerRuns[id].result))),
   }
 
-  /// A refiner run ends `Done` only in the step its turn ended, or it was already done.
+  /// A refiner run ends `Done` only in the step its turn ended, or it was already done. A
+  /// polisher the checks gate held since its turn end, without a prompt since, ends later.
   val refinerRunIsDoneOnlyAfterItsTurnEnded: bool = lastStepKept.refinerRunIsDoneOnlyAfterItsTurnEnded
 
   /// A refiner run starts on an artifact the humans hold only after an author turn ended on a
@@ -1997,11 +2273,13 @@ module reviewLoop {
   val authorGetsEveryPageFinding: bool = lastStepKept.authorGetsEveryPageFinding
 
   /// A prompt queued for a model-call author reaches it. A model-call author with a queued
-  /// prompt has a model turn in flight, or a polisher holds its page.
+  /// prompt has a model turn in flight, or a polisher holds its page. A paused author keeps its
+  /// queued prompts until it resumes.
   val aQueuedPromptReachesItsModelCallAuthor: bool = or {
     not(MODEL_CALL_AUTHOR),
     review.author.queuedPrompts.length() == 0,
     atWork(review),
+    review.author.paused,
     unfinishedRunIds(review).exists(id => refinerOf(review.refinerRuns[id]) == Polisher),
   }
 
@@ -2084,6 +2362,19 @@ module reviewLoop {
   /// while the drafted artifact is on it, hands the artifact over blocked.
   val aStoppedRefinerRunHandsOverBlocked: bool = lastStepKept.aStoppedRefinerRunHandsOverBlocked
 
+  /// A polisher run ends done only after the checks gate opens or blocks on the revision it left.
+  /// A blocked gate hands the artifact over blocked.
+  val aPolisherEndsDoneOnlyWhenItsChecksOpen: bool = lastStepKept.aPolisherEndsDoneOnlyWhenItsChecksOpen
+
+  /// Failed checks or a conflict go back to the submitter at most once per revision.
+  val checksGoBackOncePerRevision: bool = and {
+    match review.artifact.sentBack {
+      | SentBackOn(revision) => revision <= review.artifact.revision
+      | NotSentBack => true
+    },
+    lastStepKept.checksGoBackOncePerRevision,
+  }
+
   /// Every invariant above, for one check of all of them.
   val invariants: bool = and {
     oneUnfinishedRefinerRunPerArtifact,
@@ -2109,6 +2400,8 @@ module reviewLoop {
     aFinishedRefinerRunKeepsItsStatus,
     anEndedAuthorEndsItsReview,
     aStoppedRefinerRunHandsOverBlocked,
+    aPolisherEndsDoneOnlyWhenItsChecksOpen,
+    checksGoBackOncePerRevision,
   }
 
   /// The revisions of the artifact, a counter that model checking bounds.
@@ -2128,6 +2421,9 @@ module reviewLoop {
 
   /// How often the author restarted, a counter that model checking bounds.
   val authorRestartCount: int = review.author.restarts
+
+  /// How often the host reported checks, a counter that model checking bounds.
+  val checksReports: int = checksReportCount
 
   /// Witness for `oneUnfinishedRefinerRunPerArtifact`: a refiner run is unfinished.
   val aRefinerRunIsUnfinished: bool = unfinishedRunIds(review).size() > 0
@@ -2309,4 +2605,57 @@ module reviewLoop {
   /// Witness for `aStoppedRefinerRunHandsOverBlocked`: a findings reviewer or judge run the drafted
   /// artifact is on fails.
   val aReviewerRunFailsOnADraftedArtifact: bool = lastStepReached.aReviewerRunFailsOnADraftedArtifact
+
+  /// Witness for `aQueuedPromptReachesItsModelCallAuthor`: a prompt waits for the author while it
+  /// is paused in review.
+  val aPromptWaitsForAPausedAuthor: bool =
+    review.author.paused and review.author.status == InReview and review.author.queuedPrompts.length() > 0
+
+  /// Witness for `aQueuedPromptReachesItsModelCallAuthor`: a model call runs on for an author paused
+  /// during its turn.
+  val aPausedModelCallAuthorRunsItsTurn: bool = review.author.paused and atWork(review)
+
+  /// Witness for `aQueuedPromptReachesItsModelCallAuthor`: a paused author resumes and takes a prompt.
+  val aPausedAuthorResumesItsWork: bool = lastStepReached.aPausedAuthorResumesItsWork
+
+  /// Witness for `authorIsIdleWhileAPolisherRuns`: the author resumes while a polisher runs.
+  val anAuthorResumesWhileAPolisherRuns: bool = lastStepReached.anAuthorResumesWhileAPolisherRuns
+
+  /// Witness for `authorIsIdleWhileAPolisherRuns`: a person instructs the author while a polisher
+  /// runs.
+  val aPersonInstructsWhileAPolisherRuns: bool = lastStepReached.aPersonInstructsWhileAPolisherRuns
+
+  /// Witness for `aHeldCommentStaysHeldUntilItReachesTheAuthor`: held comments queue for a paused
+  /// author.
+  val heldCommentsQueueForAPausedAuthor: bool = lastStepReached.heldCommentsQueueForAPausedAuthor
+
+  /// Witness for `aPolisherEndsDoneOnlyWhenItsChecksOpen`: the checks gate holds a polisher past
+  /// its turn end.
+  val aPolisherWaitsOnChecks: bool = runIds(review).exists(id => review.refinerRuns[id].status == WaitsOnChecks)
+
+  /// Witness for `refinerRunIsDoneOnlyAfterItsTurnEnded`: a polisher the checks gate held ends
+  /// done in a later step.
+  val aWaitingPolisherEndsDone: bool = lastStepReached.aWaitingPolisherEndsDone
+
+  /// Witness for `aPolisherEndsDoneOnlyWhenItsChecksOpen`: the checks gate blocks the handover.
+  val theChecksGateBlocksTheHandover: bool = lastStepReached.theChecksGateBlocksTheHandover
+
+  /// Witness for `checksGoBackOncePerRevision`: the gate blocks a revision that went back already.
+  val theGateBlocksARevisionItSentBack: bool = lastStepReached.theGateBlocksARevisionItSentBack
+
+  /// Witness for `checksGoBackOncePerRevision`: failed checks or a conflict go back to the polisher
+  /// at its turn end.
+  val checksGoBackToThePolisherAtItsTurnEnd: bool = lastStepReached.checksGoBackToThePolisherAtItsTurnEnd
+
+  /// Witness for `checksGoBackOncePerRevision`: failed checks or a conflict go back to a polisher
+  /// the gate held.
+  val checksGoBackToAWaitingPolisher: bool = lastStepReached.checksGoBackToAWaitingPolisher
+
+  /// Witness for `checksGoBackOncePerRevision`: failed checks or a conflict go to the idle author
+  /// as a follow-up.
+  val checksGoBackToTheAuthor: bool = lastStepReached.checksGoBackToTheAuthor
+
+  /// Witness for `aPolisherEndsDoneOnlyWhenItsChecksOpen`: an unknown revision opens the gate.
+  val anUnknownRevisionOpensTheGate: bool = lastStepReached.anUnknownRevisionOpensTheGate
+
 }
