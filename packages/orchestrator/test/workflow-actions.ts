@@ -183,6 +183,37 @@ export function authorPromptFails(index: number, revision: "changed" | "same"): 
   });
 }
 
+/** The harness ends the author's running turn as cancelled. Code settles it without a decisions read. */
+export function authorTurnIsCancelled(index: number, revision: "changed" | "same"): WorkflowAction {
+  return authorAction(index, `turn is cancelled, revision ${revision}`, async (world, author) => {
+    const bridge = world.runningBridgeOf(author.taskId);
+    if (!bridge) return undefined;
+    if (revision === "changed") world.changeRevision(author);
+    await bridge.endTurn("cancelled");
+    return {
+      authorTurnEnd: {
+        task_id: author.taskId,
+        hostRevision: world.hostRevisionOf(author),
+        cancelled: true,
+      },
+    };
+  });
+}
+
+/** The author dies, the way a dead sandbox fails it. */
+export function authorFails(index: number): WorkflowAction {
+  return authorAction(index, "fails", async (world, author) => {
+    await failTask(world.workflow, world.taskOf(author), "the sandbox died");
+  });
+}
+
+/** The author hits a failure it may recover from, so it restarts or fails. */
+export function authorHitsARecoverableFailure(index: number): WorkflowAction {
+  return authorAction(index, "hits a recoverable failure", async (world, author) => {
+    await restartOrFailTask(world.workflow, world.taskOf(author), "The sandbox start failed.");
+  });
+}
+
 /** What a researcher left at the research payload path when its turn ends. */
 export type PayloadAtTurnEnd = "written" | "missing" | "oversized";
 

@@ -36,15 +36,22 @@ module reviewLoopTypes {
   /// went away, or the harness refused its prompt.
   type RestartCause = GivesUp | UnfinishedStop | Stalled | SandboxGone | PromptFails
 
-  /// The refiner run that hit a failure it may recover from in a step, and why, if one did.
-  type RecoverableFailure = NoRecoverableFailure | RefinerRunHit({ refinerRun: int, cause: RestartCause })
+  /// The refiner run that hit a failure it may recover from in a step, and why, or the author
+  /// that hit one, if either did.
+  type RecoverableFailure =
+    | NoRecoverableFailure
+    | RefinerRunHit({ refinerRun: int, cause: RestartCause })
+    | AuthorHit
 
   /// One execution of a refiner on the artifact.
   type RefinerRun = { refinerIndex: int, status: RunStatus, result: RefinerResult, restarts: int }
 
+  /// How a handover closes the agent review: ready, or blocked by what stopped it.
+  type ArtifactClose = ClosedReady | ClosedBlocked
+
   /// `Drafted` while the refiners hold the artifact. `Ready` once the humans have it, with the
-  /// revision the handover recorded.
-  type ArtifactStatus = Drafted | Ready({ deliveredRevision: FiledRevision })
+  /// revision the handover recorded and how it closed the agent review.
+  type ArtifactStatus = Drafted | Ready({ deliveredRevision: FiledRevision, close: ArtifactClose })
 
   /// The refiner run the artifact is on, or the last one that ran.
   type RefinerRunOfArtifact = NoRefinerRun | OnRefinerRun(int)
@@ -56,13 +63,21 @@ module reviewLoopTypes {
   /// rewrites the block that holds the passage a review quotes.
   type PagePart = Title | Body | TheBlock
 
-  /// The author task: whether a turn runs or starts, whether it failed, the prompts that wait for
-  /// it with the person comments each carries, the comments the prompt of a model-call author's
-  /// turn carries, the parts of the page a person rewrote since that turn read it, the judge
-  /// entries whose rejection it got, and the refiner runs whose findings it got in a prompt.
+  /// Where the author task stands: a turn runs or starts, it is idle in review, or it ended
+  /// cancelled or failed.
+  type AuthorStatus = AtWork | InReview | AuthorCancelled | AuthorFailed
+
+  /// How the author ends: the agent cancels its job, it fails the way a sandbox that died fails
+  /// it, or the workflow ends.
+  type AuthorEnding = TheAgentCancelsTheJob | TheAuthorFails | TheWorkflowEnds
+
+  /// The author task: where it stands, how often it restarted, the prompts that wait for it with
+  /// the person comments each carries, the comments the prompt of a model-call author's turn
+  /// carries, the parts of the page a person rewrote since that turn read it, the judge entries
+  /// whose rejection it got, and the refiner runs whose findings it got in a prompt.
   type Author = {
-    atWork: bool,
-    failed: bool,
+    status: AuthorStatus,
+    restarts: int,
     queuedPrompts: List[Set[int]],
     turnComments: Set[int],
     pageEditsDuringTurn: Set[PagePart],
@@ -211,6 +226,8 @@ module reviewLoopTypes {
     aModelCallAuthorFailsOnlyOnAHostError: bool,
     aRefinerRunRestartsAtMostTwice: bool,
     aFinishedRefinerRunKeepsItsStatus: bool,
+    anEndedAuthorEndsItsReview: bool,
+    aStoppedRefinerRunHandsOverBlocked: bool,
   }
 
   /// Whether the last step reached each before-and-after witness, by the name of the witness. Only
@@ -249,6 +266,12 @@ module reviewLoopTypes {
     aReviewerRunsAgainOnAnUnknownRevision: bool,
     aRefinerRunStartsAfterAnUnknownRevision: bool,
     aRefinerRunStartsAfterAnUnknownHandover: bool,
+    anAuthorEndsWhileARefinerRunIsUnfinished: bool,
+    anAuthorEndsOnAReadyArtifact: bool,
+    anAuthorRestartsWhileAPolisherRuns: bool,
+    anAuthorFailsPastItsRestarts: bool,
+    aPolisherRunStopsOnADraftedArtifact: bool,
+    aReviewerRunFailsOnADraftedArtifact: bool,
   }
 
   /// A model-call author's turn end: the review after it and how the turn ended.
@@ -286,10 +309,14 @@ module reviewLoop {
   /// True when a lookup of the revision on the host can fail.
   const UNREADABLE_REVISIONS: bool
 
+  /// True when the author can be cancelled, fail, or restart, and the workflow can end.
+  const AUTHOR_LIFECYCLE: bool
+
   /// How often one reviewer runs on one artifact. The config default.
   pure val MAX_REVIEW_RUNS: int = 3
 
-  /// How often a refiner run starts over after it gave up. The next time it fails.
+  /// How often a refiner run or the author starts over after a failure it may recover from. The
+  /// next time it fails.
   pure val MAX_RESTARTS: int = 2
 
   /// How many person comments a page holds at most, so an exhaustive check ends.
@@ -324,8 +351,8 @@ module reviewLoop {
 
   pure val INITIAL_REVIEW: ReviewLoop = {
     author: {
-      atWork: true,
-      failed: false,
+      status: AtWork,
+      restarts: 0,
       queuedPrompts: List(),
       turnComments: Set(),
       pageEditsDuringTurn: Set(),
@@ -369,6 +396,8 @@ module reviewLoop {
   pure val REVIEW_PASSAGES: Set[Passage] = Set(QuotesThePage, QuotesMissingText, WithoutPassage)
 
   pure val RESTART_CAUSES: Set[RestartCause] = Set(GivesUp, UnfinishedStop, Stalled, SandboxGone, PromptFails)
+
+  pure val AUTHOR_ENDINGS: Set[AuthorEnding] = Set(TheAgentCancelsTheJob, TheAuthorFails, TheWorkflowEnds)
 
   pure val REVISION_LOOKUPS: Set[RevisionLookup] =
     if (UNREADABLE_REVISIONS) Set(RevisionKnown, RevisionUnknown) else Set(RevisionKnown)
@@ -452,8 +481,13 @@ module reviewLoop {
 
   pure def drafted(loop: ReviewLoop): bool = loop.artifact.status == Drafted
 
+  pure def atWork(loop: ReviewLoop): bool = loop.author.status == AtWork
+
+  /// True while the author is neither cancelled nor failed.
+  pure def authorLive(loop: ReviewLoop): bool = loop.author.status == AtWork or loop.author.status == InReview
+
   pure def authorQuiet(loop: ReviewLoop): bool =
-    not(loop.author.atWork) and loop.author.queuedPrompts.length() == 0
+    not(atWork(loop)) and loop.author.queuedPrompts.length() == 0
 
   pure def refinerInFlight(loop: ReviewLoop): bool =
     match loop.artifact.refinerRun {
@@ -523,11 +557,11 @@ module reviewLoop {
   pure def withoutRefinerRun(loop: ReviewLoop): ReviewLoop =
     { ...loop, artifact: { ...loop.artifact, refinerRun: NoRefinerRun } }
 
-  /// The humans get the artifact, and the handover records the revision the host gives. A ready
-  /// artifact keeps the revision they already have.
-  pure def handOver(loop: ReviewLoop, lookup: RevisionLookup): ReviewLoop = {
+  /// The humans get the artifact, and the handover records the revision the host gives and how it
+  /// closes. A ready artifact keeps the handover they already have.
+  pure def handOver(loop: ReviewLoop, close: ArtifactClose, lookup: RevisionLookup): ReviewLoop = {
     val status = match loop.artifact.status {
-      | Drafted => Ready({ deliveredRevision: hostRevision(loop, lookup) })
+      | Drafted => Ready({ deliveredRevision: hostRevision(loop, lookup), close: close })
       | Ready(handed) => Ready(handed)
     }
     { ...loop, artifact: { ...loop.artifact, status: status, refinerRun: NoRefinerRun } }
@@ -548,7 +582,7 @@ module reviewLoop {
       ENTRIES.indices().filter(candidate => candidate >= index and hasASay(loop, candidate, lookup)),
       REFINER_COUNT,
     )
-    if (nextIndex >= REFINER_COUNT) handOver(loop, lookup) else startRefiner(loop, nextIndex)
+    if (nextIndex >= REFINER_COUNT) handOver(loop, ClosedReady, lookup) else startRefiner(loop, nextIndex)
   }
 
   /// Change every person comment with `change`, which reads the comment's id.
@@ -633,12 +667,12 @@ module reviewLoop {
   /// Send the oldest queued prompt when the author can take it. A model-call author's turn reads
   /// the page as it starts.
   pure def drainQueue(loop: ReviewLoop): ReviewLoop =
-    if (not(loop.author.atWork) and loop.author.queuedPrompts.length() > 0 and not(polisherRunning(loop)))
+    if (loop.author.status == InReview and loop.author.queuedPrompts.length() > 0 and not(polisherRunning(loop)))
       {
         ...loop,
         author: {
           ...loop.author,
-          atWork: true,
+          status: AtWork,
           queuedPrompts: loop.author.queuedPrompts.tail(),
           turnComments: if (MODEL_CALL_AUTHOR) loop.author.queuedPrompts.head() else Set(),
           pageEditsDuringTurn: Set(),
@@ -742,30 +776,43 @@ module reviewLoop {
   pure def authorTurnEnded(loop: ReviewLoop, decision: ReviewAgainDecision, lookup: RevisionLookup): ReviewLoop = {
     val ended = {
       ...loop,
-      author: { ...loop.author, atWork: false, turnComments: Set(), pageEditsDuringTurn: Set() },
+      author: { ...loop.author, status: InReview, turnComments: Set(), pageEditsDuringTurn: Set() },
     }
     drainQueue(settleRefiners(reopenChangedArtifact(ended, lookup), decision, lookup))
   }
 
-  /// The author fails. Its queued prompts go, its unfinished refiner run is cancelled, and the
-  /// humans get the artifact.
-  pure def failAuthor(loop: ReviewLoop, lookup: RevisionLookup): ReviewLoop = {
+  /// The author ends with the status `ending`, cancelled or failed. Its queued prompts go, its
+  /// unfinished refiner run is cancelled, and the humans get the artifact blocked.
+  pure def endAuthor(loop: ReviewLoop, ending: AuthorStatus, lookup: RevisionLookup): ReviewLoop = {
     val stopped = {
       ...loop,
       author: {
         ...loop.author,
-        atWork: false,
-        failed: true,
+        status: ending,
         queuedPrompts: List(),
         turnComments: Set(),
         pageEditsDuringTurn: Set(),
       },
     }
-    handOver(if (refinerInFlight(stopped)) withStatus(stopped, heldRun(stopped), Cancelled) else stopped, lookup)
+    val cancelled = if (refinerInFlight(stopped)) withStatus(stopped, heldRun(stopped), Cancelled) else stopped
+    handOver(cancelled, ClosedBlocked, lookup)
+  }
+
+  /// The author starts over in a fresh sandbox with a resume prompt that takes the oldest queued
+  /// prompt in. While a polisher runs, the resume prompt waits at the head of the queue. The
+  /// author fails once its restarts are used up.
+  pure def restartAuthor(loop: ReviewLoop, lookup: RevisionLookup): ReviewLoop = {
+    val queued = loop.author.queuedPrompts
+    val restarted = { ...loop.author, restarts: loop.author.restarts + 1, turnComments: Set(), pageEditsDuringTurn: Set() }
+    if (loop.author.restarts >= MAX_RESTARTS) endAuthor(loop, AuthorFailed, lookup)
+    else if (polisherRunning(loop))
+      { ...loop, author: { ...restarted, status: InReview, queuedPrompts: if (queued.length() == 0) List(Set()) else queued } }
+    else
+      { ...loop, author: { ...restarted, status: AtWork, queuedPrompts: if (queued.length() == 0) queued else queued.tail() } }
   }
 
   pure def turnFailed(loop: ReviewLoop, failure: TurnFailure, lookup: RevisionLookup): ModelCallTurnEnd =
-    { loop: failAuthor(loop, lookup), turnEnd: AuthorTurnFailed(failure) }
+    { loop: endAuthor(loop, AuthorFailed, lookup), turnEnd: AuthorTurnFailed(failure) }
 
   pure def turnEnded(loop: ReviewLoop, decision: ReviewAgainDecision, lookup: RevisionLookup): ModelCallTurnEnd = {
     val ended = authorTurnEnded(loop, decision, lookup)
@@ -954,11 +1001,11 @@ module reviewLoop {
 
   /// A polisher that stops early gives the artifact to the humans with what it pushed.
   pure def polisherStopped(loop: ReviewLoop, id: int, lookup: RevisionLookup): ReviewLoop =
-    drainQueue(if (isOnRun(loop, id)) handOver(loop, lookup) else loop)
+    drainQueue(if (isOnRun(loop, id)) handOver(loop, ClosedBlocked, lookup) else loop)
 
   pure def reviewerFailed(loop: ReviewLoop, id: int, lookup: RevisionLookup): ReviewLoop =
     if (not(isOnRun(loop, id))) loop
-    else if (drafted(loop)) handOver(loop, lookup)
+    else if (drafted(loop)) handOver(loop, ClosedBlocked, lookup)
     else withoutRefinerRun(loop)
 
   pure def refinerRunFailed(loop: ReviewLoop, id: int, lookup: RevisionLookup): ReviewLoop = {
@@ -1031,7 +1078,7 @@ module reviewLoop {
     val refused = screened and read == ScreenRefuses
     val readHeld = if (read == ScreenRefuses and not(screened)) AdmittedAndAcknowledged else read
     val marks = readHeld == AdmittedAndAcknowledged
-    val toTheAuthor = route == ToTheAuthor and not(loop.author.failed)
+    val toTheAuthor = route == ToTheAuthor and authorLive(loop)
     val carried = if (marks and toTheAuthor) held.union(Set(mention)) else Set()
     val acknowledged = acknowledge(during, if (marks) carried.union(Set(mention)) else Set())
     val stayHeld = screened and not(marks and toTheAuthor)
@@ -1099,7 +1146,7 @@ module reviewLoop {
 
   /// The agent sends the author a prompt of its own. On a page, it carries the held comments.
   action agentPromptsAuthor: bool = all {
-    not(review.author.failed),
+    authorLive(review),
     roomForComments(review, 1),
     roomForAPrompt(review),
     nondet read = HELD_READS.oneOf()
@@ -1112,7 +1159,7 @@ module reviewLoop {
 
   /// The author's turn ends after it changed the artifact.
   action authorTurnEndsOnANewRevision: bool = all {
-    review.author.atWork,
+    atWork(review),
     nondet decision = REVIEW_AGAIN_DECISIONS.oneOf()
     nondet part = REVISION_PARTS.oneOf()
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
@@ -1122,7 +1169,7 @@ module reviewLoop {
 
   /// The author's turn ends without a change.
   action authorTurnEndsOnTheSameRevision: bool = all {
-    review.author.atWork,
+    atWork(review),
     nondet decision = REVIEW_AGAIN_DECISIONS.oneOf()
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val ended = authorTurnEnds(review, false, Body, { write: WritesLand, decision: decision, lookup: revisionLookup })
@@ -1133,7 +1180,7 @@ module reviewLoop {
   /// one of its writes.
   action theHostFailsAModelCallAuthorsWrite: bool = all {
     MODEL_CALL_AUTHOR,
-    review.author.atWork,
+    atWork(review),
     nondet part = REVISION_PARTS.oneOf()
     val failures =
       if (turnReplies(review, true, part).size() > 0) Set(RepliesFail, UpdateFails, UpdateLandsThenFails)
@@ -1347,7 +1394,7 @@ module reviewLoop {
     roomForAPrompt(review),
     nondet read = HELD_READS.oneOf()
     nondet meanwhile = WHILE_SCREENED.oneOf()
-    if (review.author.failed) move(review, NoTurnEnd)
+    if (not(authorLive(review))) move(review, NoTurnEnd)
     else {
       val sent = sendHeldComments(review, read, meanwhile, false)
       val page = HeldCommentsAsked({ by: APersonsRevisionRequest, read: read, carried: sent.carried })
@@ -1362,7 +1409,7 @@ module reviewLoop {
     nondet part = PERSON_EDIT_PARTS.oneOf()
     val edited = pageChanged(review, part)
     val noted =
-      if (MODEL_CALL_AUTHOR and review.author.atWork)
+      if (MODEL_CALL_AUTHOR and atWork(review))
         { ...edited, author: { ...edited.author, pageEditsDuringTurn: edited.author.pageEditsDuringTurn.union(Set(part)) } }
       else edited
     moveOnThePage(noted, APersonEditedThePage, Set()),
@@ -1387,6 +1434,29 @@ module reviewLoop {
     moveWith(
       { ...review, judgeRunsCodeRulesOn: judgeRunsWithoutARulingAsked(review) },
       { ...quietStep(NoTurnEnd), instanceRestarted: true },
+    ),
+  }
+
+  /// The author ends: the agent cancels its job, it fails, or the workflow ends. The end of the
+  /// workflow cancels the author, and with it the unfinished refiner run, the only one there is.
+  action authorEnds: bool = all {
+    AUTHOR_LIFECYCLE,
+    authorLive(review),
+    nondet ending = AUTHOR_ENDINGS.oneOf()
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
+    val status = if (ending == TheAuthorFails) AuthorFailed else AuthorCancelled
+    moveOnLookup(endAuthor(review, status, revisionLookup), NoTurnEnd, revisionLookup),
+  }
+
+  /// The author hits a failure it may recover from. It restarts while it has restarts left, and
+  /// fails after that.
+  action authorRestarts: bool = all {
+    AUTHOR_LIFECYCLE,
+    authorLive(review),
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
+    moveWith(
+      restartAuthor(review, revisionLookup),
+      { ...quietStep(NoTurnEnd), recoverableFailure: AuthorHit, revisionLookup: revisionLookup },
     ),
   }
 
@@ -1416,6 +1486,8 @@ module reviewLoop {
     personAsksForRevision,
     personEditsThePage,
     instanceRestarts,
+    authorEnds,
+    authorRestarts,
   }
 
   /// True when an author turn ended on a revision other than `delivered`. An unknown revision
@@ -1584,7 +1656,7 @@ module reviewLoop {
         val heldBefore = heldCommentIds(step.before)
         or {
           asked.by == AMention,
-          step.after.author.failed,
+          not(authorLive(step.after)),
           heldBefore.size() == 0,
           if (asked.read == AdmittedAndAcknowledged)
             heldBefore.forall(id => asked.carried.contains(id) and not(isHeld(step.after.personComments[id])))
@@ -1605,7 +1677,7 @@ module reviewLoop {
       | HeldCommentsAsked(asked) =>
         (asked.by != TheAgent and not(admits(asked.read))) implies and {
           step.after.author.queuedPrompts == step.before.author.queuedPrompts,
-          step.after.author.atWork == step.before.author.atWork,
+          atWork(step.after) == atWork(step.before),
           not(step.kind.agentHeard.contains(HeldCommentText)),
         }
       | _ => true
@@ -1662,6 +1734,7 @@ module reviewLoop {
     match step.kind.recoverableFailure {
       | RefinerRunHit(hit) => hit.refinerRun == id
       | NoRecoverableFailure => false
+      | AuthorHit => false
     }
 
   /// A refiner run restarts only in a step where it hit a failure it may recover from, once per
@@ -1674,6 +1747,47 @@ module reviewLoop {
       else if (before.restarts < MAX_RESTARTS) after.restarts == before.restarts + 1 and after.status == Unfinished
       else after.restarts == before.restarts and after.status == Failed
     })
+
+  /// True when the humans have the artifact, handed over at `revision`.
+  pure def deliveredAt(loop: ReviewLoop, revision: FiledRevision): bool =
+    match loop.artifact.status {
+      | Drafted => false
+      | Ready(handed) => handed.deliveredRevision == revision
+    }
+
+  /// True when the author was live before a step and is cancelled or failed after it.
+  pure def endsTheAuthor(step: Transition): bool = authorLive(step.before) and not(authorLive(step.after))
+
+  /// True when the humans have the artifact from a handover that closed blocked.
+  pure def handedOverBlocked(loop: ReviewLoop): bool =
+    match loop.artifact.status {
+      | Drafted => false
+      | Ready(handed) => handed.close == ClosedBlocked
+    }
+
+  /// A step that ends the author while the refiners hold the artifact hands it over blocked.
+  pure def handsOverBlockedOnTheAuthorsEnd(step: Transition): bool =
+    (endsTheAuthor(step) and drafted(step.before)) implies handedOverBlocked(step.after)
+
+  /// True when the drafted artifact is on a run of a polisher.
+  pure def heldRunIsAPolisher(loop: ReviewLoop): bool = refinerOf(loop.refinerRuns[heldRun(loop)]) == Polisher
+
+  /// True when the unfinished refiner run a drafted artifact is on fails in the step, or is
+  /// cancelled in it and is a polisher run.
+  pure def stopsTheRunOfADraft(step: Transition): bool =
+    if (drafted(step.before) and holdsARun(step.before)) {
+      val before = step.before.refinerRuns[heldRun(step.before)]
+      val after = step.after.refinerRuns[heldRun(step.before)]
+      before.status == Unfinished and or {
+        after.status == Failed,
+        after.status == Cancelled and refinerOf(before) == Polisher,
+      }
+    } else false
+
+  /// A step that fails the run a drafted artifact is on, or cancels its polisher run, hands the
+  /// artifact over blocked.
+  pure def handsOverBlockedWhenItsRunStops(step: Transition): bool =
+    stopsTheRunOfADraft(step) implies handedOverBlocked(step.after)
 
   /// A refiner run that is done, cancelled or failed before a step keeps that status after it.
   pure def keepsEveryFinishedStatus(step: Transition): bool =
@@ -1698,6 +1812,8 @@ module reviewLoop {
     aModelCallAuthorFailsOnlyOnAHostError: failsOnlyOnAHostError(step),
     aRefinerRunRestartsAtMostTwice: restartsOnlyWhileItHasRestarts(step),
     aFinishedRefinerRunKeepsItsStatus: keepsEveryFinishedStatus(step),
+    anEndedAuthorEndsItsReview: handsOverBlockedOnTheAuthorsEnd(step),
+    aStoppedRefinerRunHandsOverBlocked: handsOverBlockedWhenItsRunStops(step),
   }
 
   /// The held comments read in a step whose host marks them read, when some were held.
@@ -1822,10 +1938,20 @@ module reviewLoop {
       }),
     aRefinerRunStartsAfterAnUnknownRevision:
       startedRuns(step).size() > 0 and step.kind.turnEnd == AuthorTurnEnded({ revision: UnknownRevision }) and
-        step.before.artifact.status == Ready({ deliveredRevision: ReadRevision(step.before.artifact.revision) }),
+        deliveredAt(step.before, ReadRevision(step.before.artifact.revision)),
     aRefinerRunStartsAfterAnUnknownHandover:
       startedRuns(step).size() > 0 and step.kind.turnEnd != AuthorTurnEnded({ revision: UnknownRevision }) and
-        step.before.artifact.status == Ready({ deliveredRevision: UnknownRevision }),
+        deliveredAt(step.before, UnknownRevision),
+    anAuthorEndsWhileARefinerRunIsUnfinished:
+      endsTheAuthor(step) and unfinishedRunIds(step.before).size() > 0,
+    anAuthorEndsOnAReadyArtifact:
+      endsTheAuthor(step) and not(drafted(step.before)),
+    anAuthorRestartsWhileAPolisherRuns:
+      step.after.author.restarts > step.before.author.restarts and polisherRunning(step.before),
+    anAuthorFailsPastItsRestarts:
+      step.kind.recoverableFailure == AuthorHit and step.before.author.restarts == MAX_RESTARTS,
+    aPolisherRunStopsOnADraftedArtifact: stopsTheRunOfADraft(step) and heldRunIsAPolisher(step.before),
+    aReviewerRunFailsOnADraftedArtifact: stopsTheRunOfADraft(step) and not(heldRunIsAPolisher(step.before)),
   }
 
   /// An artifact has at most one unfinished refiner run, and the artifact is on it.
@@ -1837,7 +1963,7 @@ module reviewLoop {
   /// The author does not have a turn running or starting while a polisher run is unfinished.
   val authorIsIdleWhileAPolisherRuns: bool =
     unfinishedRunIds(review).forall(id =>
-      refinerOf(review.refinerRuns[id]) == Polisher implies not(review.author.atWork))
+      refinerOf(review.refinerRuns[id]) == Polisher implies not(atWork(review)))
 
   /// A judge entry rules at most once on an artifact, and its ruling never changes. An author that
   /// got a rejection from a judge entry finds that entry's ruling stored as rejected.
@@ -1875,7 +2001,7 @@ module reviewLoop {
   val aQueuedPromptReachesItsModelCallAuthor: bool = or {
     not(MODEL_CALL_AUTHOR),
     review.author.queuedPrompts.length() == 0,
-    review.author.atWork,
+    atWork(review),
     unfinishedRunIds(review).exists(id => refinerOf(review.refinerRuns[id]) == Polisher),
   }
 
@@ -1947,6 +2073,17 @@ module reviewLoop {
   /// A refiner run that is done, cancelled or failed keeps that status.
   val aFinishedRefinerRunKeepsItsStatus: bool = lastStepKept.aFinishedRefinerRunKeepsItsStatus
 
+  /// Once the author is cancelled or failed, or the workflow ends, the artifact does not hold an
+  /// unfinished refiner run. A drafted artifact is handed over blocked.
+  val anEndedAuthorEndsItsReview: bool = and {
+    authorLive(review) or (unfinishedRunIds(review).size() == 0 and not(drafted(review))),
+    lastStepKept.anEndedAuthorEndsItsReview,
+  }
+
+  /// A findings reviewer or judge run that fails, or a polisher run that is cancelled or fails,
+  /// while the drafted artifact is on it, hands the artifact over blocked.
+  val aStoppedRefinerRunHandsOverBlocked: bool = lastStepKept.aStoppedRefinerRunHandsOverBlocked
+
   /// Every invariant above, for one check of all of them.
   val invariants: bool = and {
     oneUnfinishedRefinerRunPerArtifact,
@@ -1970,6 +2107,8 @@ module reviewLoop {
     aRestartDoesNotStrandAJudgeRun,
     aRefinerRunRestartsAtMostTwice,
     aFinishedRefinerRunKeepsItsStatus,
+    anEndedAuthorEndsItsReview,
+    aStoppedRefinerRunHandsOverBlocked,
   }
 
   /// The revisions of the artifact, a counter that model checking bounds.
@@ -1986,6 +2125,9 @@ module reviewLoop {
 
   /// The prompts waiting for the author, a counter that model checking bounds.
   val promptsQueued: int = review.author.queuedPrompts.length()
+
+  /// How often the author restarted, a counter that model checking bounds.
+  val authorRestartCount: int = review.author.restarts
 
   /// Witness for `oneUnfinishedRefinerRunPerArtifact`: a refiner run is unfinished.
   val aRefinerRunIsUnfinished: bool = unfinishedRunIds(review).size() > 0
@@ -2142,4 +2284,29 @@ module reviewLoop {
 
   /// A new instance took over the workflow.
   val theInstanceRestarted: bool = instanceRestartCount > 0
+
+  /// Witness for `anEndedAuthorEndsItsReview`: the author is cancelled or failed.
+  val theAuthorEnded: bool = not(authorLive(review))
+
+  /// Witness for `anEndedAuthorEndsItsReview`: the author ends while a refiner run is unfinished.
+  val anAuthorEndsWhileARefinerRunIsUnfinished: bool = lastStepReached.anAuthorEndsWhileARefinerRunIsUnfinished
+
+  /// Witness for `anEndedAuthorEndsItsReview`: the author ends while the humans have the artifact,
+  /// so they keep the handover they have.
+  val anAuthorEndsOnAReadyArtifact: bool = lastStepReached.anAuthorEndsOnAReadyArtifact
+
+  /// Witness for `authorIsIdleWhileAPolisherRuns`: the author restarts while a polisher runs, so
+  /// its resume prompt waits.
+  val anAuthorRestartsWhileAPolisherRuns: bool = lastStepReached.anAuthorRestartsWhileAPolisherRuns
+
+  /// Witness for `anEndedAuthorEndsItsReview`: the author fails on a failure after its last restart.
+  val anAuthorFailsPastItsRestarts: bool = lastStepReached.anAuthorFailsPastItsRestarts
+
+  /// Witness for `aStoppedRefinerRunHandsOverBlocked`: a polisher run the drafted artifact is on
+  /// is cancelled or fails.
+  val aPolisherRunStopsOnADraftedArtifact: bool = lastStepReached.aPolisherRunStopsOnADraftedArtifact
+
+  /// Witness for `aStoppedRefinerRunHandsOverBlocked`: a findings reviewer or judge run the drafted
+  /// artifact is on fails.
+  val aReviewerRunFailsOnADraftedArtifact: bool = lastStepReached.aReviewerRunFailsOnADraftedArtifact
 }
