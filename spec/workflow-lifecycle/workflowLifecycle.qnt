@@ -72,25 +72,32 @@ module workflowLifecycleTypes {
   /// Object drops it.
   type Call = { kind: CallKind, job: int, rest: Rest }
 
+  /// The stages a plan set, with the number of job slots it gave the workflow. A plan without
+  /// stages only starts the workflow.
+  type StagePlan = NoStages | StagesPlanned(int)
+
   /// `failuresPosted` counts the posts that tell the person a researcher or author failed.
-  /// `stagesPlanned` holds once a plan set the stages. A plan without stages only starts the
-  /// workflow.
   type Workflow = {
     status: WorkflowStatus,
     definition: PlanDefinition,
-    stagesPlanned: bool,
+    stagePlan: StagePlan,
     idleArmed: bool,
     jobs: List[Job],
     calls: List[Call],
     failuresPosted: int,
   }
 
+  /// A verbal command that acts on a job. The cancel ends the workflow, so it is an `Ending`.
+  type VerbalCommand = Pause | Resume | Instruct
+
   /// What an observer knows about the last step besides the states around it. `DeadlineStep` is
-  /// the deadline alarm of the model turn of a job.
+  /// the deadline alarm of the model turn of a job. `PromptStep` is the agent's prompt to a task.
   type StepKind =
     | OtherStep
     | PlanStep(int)
     | EventStep
+    | VerbalCommandStep(VerbalCommand)
+    | PromptStep
     | StaleAlarmStep
     | SleepStep
     | RestartStep
@@ -125,6 +132,7 @@ module workflowLifecycleTypes {
     aPlanStartsTheWorkflow: bool,
     aPlanLandsOnAStartedWorkflow: bool,
     anUndeclaredPlanLands: bool,
+    aPlanLeavesFewerSlotsThanJobs: bool,
     aJobStartsIntoTheLastSlot: bool,
     aJobStartsBesideAResearcher: bool,
     aFinishedTaskIsInAStep: bool,
@@ -133,6 +141,10 @@ module workflowLifecycleTypes {
     theSleepMessagePosts: bool,
     aMessageWakesTheWorkflow: bool,
     aPausedAuthorResumes: bool,
+    aPersonPausesAResearcher: bool,
+    aPromptWaitsForAPausedTask: bool,
+    aPromptWaitsForATurn: bool,
+    aVerbalCommandFindsSeveralJobs: bool,
     aCallWasDropped: bool,
     aRestartCutsAModelTurn: bool,
     aModelTurnOutlivesItsDeadline: bool,
@@ -159,8 +171,8 @@ module workflowLifecycle {
   /// True when a researcher runs before the author of each job.
   const RESEARCH: bool
 
-  /// The task slots of the workflow.
-  pure val SLOTS: int = 2
+  /// The numbers of job slots a plan can set.
+  const SLOT_COUNTS: Set[int]
 
   /// How often a task restarts before it fails.
   pure val MAX_RESTARTS: int = 2
@@ -187,7 +199,7 @@ module workflowLifecycle {
   pure val INITIAL_WORKFLOW: Workflow = {
     status: New,
     definition: Unplanned,
-    stagesPlanned: false,
+    stagePlan: NoStages,
     idleArmed: true,
     jobs: List(),
     calls: List(),
@@ -312,11 +324,16 @@ module workflowLifecycle {
       | _ => false
     })
 
+  /// True when the plan set the stages and a job slot is free. A refiner run takes no slot.
+  pure def hasAFreeJobSlot(flow: Workflow): bool = match flow.stagePlan {
+    | NoStages => false
+    | StagesPlanned(jobSlots) => unfinishedJobIds(flow).length() < jobSlots
+  }
+
   pure def canStartJob(flow: Workflow, input: Input): bool = and {
     not(hasEnded(flow.status)),
     not(workflowEnding(flow)),
-    flow.stagesPlanned,
-    unfinishedJobIds(flow).length() < SLOTS,
+    hasAFreeJobSlot(flow),
     not(inputHeld(flow, input)),
   }
 
@@ -542,12 +559,13 @@ module workflowLifecycle {
     startQueuedModelAuthors(resumed)
   }
 
-  /// `resumeTask` on a harness author queues the resume prompt and sends the head of the queue.
+  /// `resumeTask` on a harness task queues the resume prompt and sends the head of the queue.
   /// The prompt waits while the bridge still runs the turn the pause cancelled. Without a bridge
   /// it starts the next generation for it, also while a restart is closing the old container. A
   /// restart that an earlier resume overtook left that resume's generation running, so the
-  /// prompt waits for its turn.
-  pure def resumeHarnessAuthor(flow: Workflow, id: int): Workflow = {
+  /// prompt waits for its turn. A researcher's turn runs until it hands over, so its resume
+  /// prompt waits.
+  pure def resumeHarnessTask(flow: Workflow, id: int): Workflow = {
     val task = jobTask(flow, id)
     val closing = flow.calls.indices().exists(callId =>
       flow.calls[callId].job == id and flow.calls[callId].kind == SandboxDestroy and
@@ -568,13 +586,50 @@ module workflowLifecycle {
     })
   }
 
-  /// `resumeTask` on a model-call author queues the resume prompt. An author at work takes it
-  /// after its turn. Otherwise the author takes its next turn, or produces its page first.
-  pure def resumeModelAuthor(flow: Workflow, id: int): Workflow = {
+  /// `promptTask` queues a prompt for the job's task. A paused task keeps it. An unpaused harness
+  /// task gets it at once when no turn runs, and a model-call author that is not at work takes
+  /// its next turn, or produces its page first.
+  pure def promptTask(flow: Workflow, id: int): Workflow = {
     val task = jobTask(flow, id)
-    val resumed = withTask(flow, id, { ...task, paused: false, promptsQueued: task.promptsQueued + 1 })
-    if (modelTurnInFlight(flow, id)) resumed
-    else startQueuedModelAuthors(takeNextModelTurn(resumed, id))
+    val queued = withTask(flow, id, { ...task, promptsQueued: task.promptsQueued + 1 })
+    if (isFinished(task.status)) flow
+    else if (task.paused) queued
+    else if (runsAsModelCalls(task)) {
+      if (modelTurnInFlight(flow, id)) queued else startQueuedModelAuthors(takeNextModelTurn(queued, id))
+    }
+    else if (task.turnRunning) queued
+    else withTask(flow, id, { ...task, status: Busy, turnRunning: true, promptsSent: task.promptsSent + 1 })
+  }
+
+  /// `pauseTask`: an unfinished task that is not paused holds its prompts from now on.
+  pure def pauseTask(flow: Workflow, id: int): Workflow = {
+    val task = jobTask(flow, id)
+    if (isFinished(task.status) or task.paused) flow else withTask(flow, id, { ...task, paused: true })
+  }
+
+  /// `resumeTask`: a paused task goes on with the resume prompt. A model-call author takes it as
+  /// any prompt.
+  pure def resumeTask(flow: Workflow, id: int): Workflow = {
+    val task = jobTask(flow, id)
+    if (isFinished(task.status) or not(task.paused)) flow
+    else if (runsAsModelCalls(task)) promptTask(withTask(flow, id, { ...task, paused: false }), id)
+    else resumeHarnessTask(flow, id)
+  }
+
+  /// A person's message wakes a sleeping workflow and starts the idle clock over.
+  pure def messageWakes(flow: Workflow): Workflow =
+    { ...flow, idleArmed: true, status: if (flow.status == WaitingInput) Running else flow.status }
+
+  /// A verbal command acts on the task of the one active job. With none or several, it goes to
+  /// the agent.
+  pure def verbalCommandActs(flow: Workflow, command: VerbalCommand): Workflow = {
+    val active = unfinishedJobIds(flow)
+    if (active.length() != 1) flow
+    else match command {
+      | Pause => pauseTask(flow, active[0])
+      | Resume => resumeTask(flow, active[0])
+      | Instruct => promptTask(flow, active[0])
+    }
   }
 
   /// The turn that wrote the page ends. A queued prompt goes out at once, and the refiners wait
@@ -654,13 +709,15 @@ module workflowLifecycle {
   }
 
   /// The agent calls `set_plan` with a workflow definition while the workflow has not ended. The
-  /// call that starts the workflow may leave out the stages. A plan is refused while the workflow
-  /// ends, when it names a workflow definition the deployment does not hold or another one than
-  /// the workflow started from, and when it leaves out the stages on a started workflow.
+  /// call that starts the workflow may leave out the stages. A plan with stages sets the number of
+  /// job slots, also below the jobs that run. A plan is refused while the workflow ends, when it
+  /// names a workflow definition the deployment does not hold or another one than the workflow
+  /// started from, and when it leaves out the stages on a started workflow.
   action agentSetsPlan: bool = all {
     not(hasEnded(workflow.status)),
     nondet definition = NAMED_DEFINITIONS.oneOf()
     nondet withStages = Set(true, false).oneOf()
+    nondet jobSlots = SLOT_COUNTS.oneOf()
     val undeclared = not(DEFINITIONS.contains(definition))
     val otherDefinition = workflow.definition != Unplanned and workflow.definition != Planned(definition)
     val stagesLeftOut = not(withStages) and workflow.definition != Unplanned
@@ -669,7 +726,7 @@ module workflowLifecycle {
       ...workflow,
       definition: Planned(definition),
       status: Running,
-      stagesPlanned: workflow.stagesPlanned or withStages,
+      stagePlan: if (withStages) StagesPlanned(jobSlots) else workflow.stagePlan,
     }
     move(if (refused) workflow else planned, PlanStep(definition))
   }
@@ -706,24 +763,24 @@ module workflowLifecycle {
 
   /// The agent calls `pause_task` on the job's task. A researcher is refused, and a finished or
   /// paused author is left alone.
-  action agentPausesAuthor: bool = onJob(id => {
-    val task = jobTask(workflow, id)
-    val pauses = task.role == Author and not(isFinished(task.status)) and not(task.paused)
-    move(if (pauses) withTask(workflow, id, { ...task, paused: true }) else workflow, OtherStep)
-  })
+  action agentPausesAuthor: bool = onJob(id => move(
+    if (jobTask(workflow, id).role == Author) pauseTask(workflow, id) else workflow,
+    OtherStep,
+  ))
 
   /// The agent calls `resume_task` on the job's task. A researcher is refused. A paused author
   /// gets a prompt to go on.
-  action agentResumesAuthor: bool = onJob(id => {
-    val task = jobTask(workflow, id)
-    val resumes = task.role == Author and not(isFinished(task.status)) and task.paused
-    move(
-      if (not(resumes)) workflow
-      else if (runsAsModelCalls(task)) resumeModelAuthor(workflow, id)
-      else resumeHarnessAuthor(workflow, id),
-      OtherStep,
-    )
-  })
+  action agentResumesAuthor: bool = onJob(id => move(
+    if (jobTask(workflow, id).role == Author) resumeTask(workflow, id) else workflow,
+    OtherStep,
+  ))
+
+  /// The agent calls `prompt_task` on the job's task. A researcher and a finished author are
+  /// refused.
+  action agentPromptsAuthor: bool = onJob(id => move(
+    if (jobTask(workflow, id).role == Author) promptTask(workflow, id) else workflow,
+    PromptStep,
+  ))
 
   /// The no progress alarm finds the harness turn of the job's task stalled after a nudge. The
   /// task restarts in a fresh sandbox once its container is destroyed, or fails once its restarts
@@ -803,13 +860,21 @@ module workflowLifecycle {
   }
 
   /// A person writes a message in the chat thread. It wakes a sleeping workflow.
-  action personWrites: bool = move(
-    if (hasEnded(workflow.status)) workflow
-    else { ...workflow, idleArmed: true, status: if (workflow.status == WaitingInput) Running else workflow.status },
-    EventStep,
-  )
+  action personWrites: bool =
+    move(if (hasEnded(workflow.status)) workflow else messageWakes(workflow), EventStep)
 
-  /// The workflow ends once a job started. A person sends the cancel control word from the chat
+  /// A person sends a verbal command in the chat thread: pause, resume, or instruct with its
+  /// text. The message wakes a sleeping workflow. The command acts on the task of the one active
+  /// job, a researcher too.
+  action personSendsAVerbalCommand: bool = {
+    nondet command = Set(Pause, Resume, Instruct).oneOf()
+    move(
+      if (hasEnded(workflow.status)) workflow else verbalCommandActs(messageWakes(workflow), command),
+      VerbalCommandStep(command),
+    )
+  }
+
+  /// The workflow ends once a job started. A person sends the cancel verbal command from the chat
   /// thread, the agent calls `fail_workflow`, or the agent calls `finish_workflow`, which is refused
   /// while a task is unfinished. Each is refused while another end runs. The cancel word may
   /// land on a workflow that already ended.
@@ -877,8 +942,8 @@ module workflowLifecycle {
   /// The researcher hands over to the author, or the harness author writes its page.
   action aTaskEndsItsTurn: bool = any { researcherHandsOver, authorWritesItsPage }
 
-  /// The agent pauses or resumes a task.
-  action theAgentSteersAnAuthor: bool = any { agentPausesAuthor, agentResumesAuthor }
+  /// The agent pauses, resumes or prompts a task.
+  action theAgentSteersAnAuthor: bool = any { agentPausesAuthor, agentResumesAuthor, agentPromptsAuthor }
 
   /// The agent cancels or completes a job.
   action theAgentEndsAJob: bool = any { agentCancelsJob, agentCompletesJob }
@@ -887,7 +952,8 @@ module workflowLifecycle {
   action aModelTurnEnds: bool = any { modelCallReturns, modelTurnOutlivesItsDeadline }
 
   /// A message or an alarm reaches the workflow.
-  action anOutsideEventLands: bool = any { personWrites, idleAlarmFires, staleAlarmFires }
+  action anOutsideEventLands: bool =
+    any { personWrites, personSendsAVerbalCommand, idleAlarmFires, staleAlarmFires }
 
   pure def unfinishedCount(flow: Workflow): int = unfinishedJobIds(flow).length()
 
@@ -905,10 +971,31 @@ module workflowLifecycle {
 
   pure def startedIn(before: Workflow, after: Workflow): bool = after.jobs.length() > before.jobs.length()
 
-  /// A job starts only into a free slot: before the step that started it, the unfinished
-  /// researchers and authors were fewer than the slots. A refiner run takes no slot.
+  /// True when the plan set the stages and the unfinished researchers and authors fit its job
+  /// slots.
+  pure def leavesAtMostTheJobSlots(flow: Workflow): bool = match flow.stagePlan {
+    | NoStages => false
+    | StagesPlanned(jobSlots) => unfinishedCount(flow) <= jobSlots
+  }
+
+  /// A job start leaves at most the plan's number of job slots of researchers and authors
+  /// unfinished. A refiner run takes no slot.
   pure def startsOnlyIntoAFreeSlot(step: Transition): bool =
-    startedIn(step.before, step.after) implies unfinishedCount(step.before) < SLOTS
+    startedIn(step.before, step.after) implies leavesAtMostTheJobSlots(step.after)
+
+  /// True for a person's message: a chat message, a verbal command, or the cancel.
+  pure def isEventStep(kind: StepKind): bool = match kind {
+    | EventStep => true
+    | VerbalCommandStep(_) => true
+    | _ => false
+  }
+
+  /// True for a step that sends the job's task a prompt: the agent's prompt or an instruct.
+  pure def isPromptStep(kind: StepKind): bool = match kind {
+    | PromptStep => true
+    | VerbalCommandStep(command) => command == Instruct
+    | _ => false
+  }
 
   /// A step that gives the workflow its definition is a plan that names a workflow definition of
   /// the deployment.
@@ -939,7 +1026,7 @@ module workflowLifecycle {
 
   /// On a finished workflow, no event changes the status, the tasks, or the prompts.
   pure def leavesAFinishedWorkflow(step: Transition): bool =
-    (step.kind == EventStep and hasEnded(step.before.status)) implies and {
+    (isEventStep(step.kind) and hasEnded(step.before.status)) implies and {
       step.after.status == step.before.status,
       step.after.jobs.length() == step.before.jobs.length(),
       promptsSentToTasks(step.after) == promptsSentToTasks(step.before),
@@ -957,7 +1044,7 @@ module workflowLifecycle {
   pure def keepsAFinishedStatus(step: Transition): bool =
     hasEnded(step.before.status) implies step.after.status == step.before.status
 
-  /// The workflow sends a paused task no prompt until it resumes.
+  /// A paused author or researcher does not get a prompt.
   pure def sendsAPausedTaskNoPrompt(step: Transition): bool =
     step.before.jobs.indices().forall(id =>
       step.before.jobs[id].tasks.indices().forall(index => {
@@ -1026,20 +1113,50 @@ module workflowLifecycle {
         | PlanStep(definition) => not(DEFINITIONS.contains(definition))
         | _ => false
       },
-      aJobStartsIntoTheLastSlot:
-        startedIn(step.before, step.after) and unfinishedCount(step.before) == SLOTS - 1,
+      aPlanLeavesFewerSlotsThanJobs: match step.kind {
+        | PlanStep(_) => match step.after.stagePlan {
+          | StagesPlanned(jobSlots) => unfinishedCount(step.after) > jobSlots
+          | NoStages => false
+        }
+        | _ => false
+      },
+      aJobStartsIntoTheLastSlot: and {
+        startedIn(step.before, step.after),
+        unfinishedCount(step.before) > 0,
+        step.after.stagePlan == StagesPlanned(unfinishedCount(step.after)),
+      },
       aJobStartsBesideAResearcher: startedIn(step.before, step.after) and
         jobIds(step.before).exists(id =>
           jobTask(step.before, id).role == Researcher and not(isFinished(jobTask(step.before, id).status))),
       aFinishedTaskIsInAStep: jobIds(step.before).exists(id =>
         anyTaskOf(step.before.jobs[id], task => isFinished(task.status))),
-      anEventLandsOnAFinishedWorkflow: step.kind == EventStep and hasEnded(step.before.status),
+      anEventLandsOnAFinishedWorkflow: isEventStep(step.kind) and hasEnded(step.before.status),
       aStaleAlarmFires: step.kind == StaleAlarmStep,
       theSleepMessagePosts: step.kind == SleepStep,
-      aMessageWakesTheWorkflow:
-        step.kind == EventStep and step.before.status == WaitingInput and step.after.status == Running,
+      aMessageWakesTheWorkflow: and {
+        isEventStep(step.kind),
+        step.before.status == WaitingInput,
+        step.after.status == Running,
+      },
       aPausedAuthorResumes: jobIds(step.before).exists(id =>
         jobTask(step.before, id).paused and not(jobTask(step.after, id).paused)),
+      aPersonPausesAResearcher: step.kind == VerbalCommandStep(Pause) and jobIds(step.before).exists(id => and {
+        jobTask(step.before, id).role == Researcher,
+        not(jobTask(step.before, id).paused),
+        jobTask(step.after, id).paused,
+      }),
+      aPromptWaitsForAPausedTask: isPromptStep(step.kind) and jobIds(step.before).exists(id => and {
+        jobTask(step.after, id).paused,
+        jobTask(step.after, id).promptsQueued > jobTask(step.before, id).promptsQueued,
+      }),
+      aPromptWaitsForATurn: isPromptStep(step.kind) and jobIds(step.before).exists(id => and {
+        not(jobTask(step.after, id).paused),
+        jobTask(step.after, id).promptsQueued > jobTask(step.before, id).promptsQueued,
+      }),
+      aVerbalCommandFindsSeveralJobs: match step.kind {
+        | VerbalCommandStep(_) => not(hasEnded(step.before.status)) and unfinishedCount(step.before) > 1
+        | _ => false
+      },
       aCallWasDropped: step.kind == RestartStep,
       aRestartCutsAModelTurn: step.kind == RestartStep and cut.size() > 0,
       aModelTurnOutlivesItsDeadline: match step.kind {
@@ -1052,7 +1169,7 @@ module workflowLifecycle {
     }
   }
 
-  /// A job starts only into a free slot.
+  /// A job start leaves at most the plan's number of job slots of jobs active.
   val jobStartsOnlyIntoAFreeSlot: bool = lastStepKept.jobStartsOnlyIntoAFreeSlot
 
   /// A workflow starts only from a plan that names a workflow definition of the deployment. Before
@@ -1110,7 +1227,7 @@ module workflowLifecycle {
   val taskRestartsAtMostTwice: bool =
     jobIds(workflow).forall(id => not(anyTaskOf(workflow.jobs[id], task => task.restarts > MAX_RESTARTS)))
 
-  /// The workflow sends a paused task no prompt until it resumes.
+  /// A paused author or researcher does not get a prompt.
   val pausedAuthorGetsNoPrompt: bool = lastStepKept.pausedAuthorGetsNoPrompt
 
   /// The workflow moves to waiting for input only in a step that leaves no researcher or author busy.
@@ -1144,7 +1261,11 @@ module workflowLifecycle {
   val anUndeclaredPlanLands: bool = lastStepReached.anUndeclaredPlanLands
 
   /// A plan without stages started the workflow, and the stages are not planned yet.
-  val theWorkflowWaitsForItsStages: bool = workflow.definition != Unplanned and not(workflow.stagesPlanned)
+  val theWorkflowWaitsForItsStages: bool = workflow.definition != Unplanned and workflow.stagePlan == NoStages
+
+  /// Witness for `jobStartsOnlyIntoAFreeSlot`: a later plan sets fewer job slots than the jobs
+  /// that run.
+  val aPlanLeavesFewerSlotsThanJobs: bool = lastStepReached.aPlanLeavesFewerSlotsThanJobs
 
   /// Witness for `jobStartsOnlyIntoAFreeSlot`: a job starts into the last slot.
   val aJobStartsIntoTheLastSlot: bool = lastStepReached.aJobStartsIntoTheLastSlot
@@ -1210,6 +1331,18 @@ module workflowLifecycle {
 
   /// A paused task resumes.
   val aPausedAuthorResumes: bool = lastStepReached.aPausedAuthorResumes
+
+  /// Witness for `pausedAuthorGetsNoPrompt`: a person's verbal command pauses a researcher.
+  val aPersonPausesAResearcher: bool = lastStepReached.aPersonPausesAResearcher
+
+  /// Witness for `pausedAuthorGetsNoPrompt`: a prompt waits for a paused task.
+  val aPromptWaitsForAPausedTask: bool = lastStepReached.aPromptWaitsForAPausedTask
+
+  /// A prompt waits for the turn of an unpaused task to end.
+  val aPromptWaitsForATurn: bool = lastStepReached.aPromptWaitsForATurn
+
+  /// A verbal command finds several active jobs and goes to the agent.
+  val aVerbalCommandFindsSeveralJobs: bool = lastStepReached.aVerbalCommandFindsSeveralJobs
 
   /// A job completes.
   val aJobCompletes: bool = jobIds(workflow).exists(id =>

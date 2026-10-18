@@ -11,7 +11,6 @@ import type { ChecksAlarm } from "../src/workflow/refiner/checks-gate";
 import { recheckChecks } from "../src/workflow/refiner/checks-recheck";
 import { failTask, onIdle, restartOrFailTask } from "../src/workflow/lifecycle";
 import { isTaskFinished } from "../src/workflow/store/state";
-import { openEntryCount } from "../src/workflow/board/render";
 import type { AuthorTurnOutcome } from "../src/workflow/task/author-turn";
 import { onBridgeLost } from "../src/workflow/task/harness/bridge";
 import { sendHeldCommentsOnRevisionRequest } from "../src/workflow/refiner/held-comments";
@@ -130,15 +129,6 @@ function authorClosingAnswers(closing: AuthorClosing): DecisionAnswers {
   return { ...REPORTS_WORK_ANSWERS, outcome: { option: closing, probability: 0.9 } };
 }
 
-/** True when the author's turn ended stopped early, by the decisions model or by its fallback. */
-function endedStoppedEarly(world: WorkflowWorld, author: WorldAuthor, closing: AuthorClosing) {
-  if (closing !== "decisions_fail" && closing !== "decisions_hang" && closing !== "silent") {
-    return closing === "stopped_early";
-  }
-  const todos = world.workflow.store.todoRow(author.taskId)?.todos ?? null;
-  return openEntryCount(todos) > 0 && world.artifactOf(author) === null;
-}
-
 /**
  * The author's running turn ends with its closing text. A paused author's turn, or one the
  * workflow sent a cancel, ends cancelled, as the harness would. `meanwhile` lands while the
@@ -164,8 +154,6 @@ export function authorTurnEnds(
     if (revision === "unreadable") await world.whileHostIsDown(() => bridge.endTurn(stopReason));
     else await bridge.endTurn(stopReason);
     const ownEnd = stopReason === "end_turn";
-    const stoppedEarly = ownEnd && endedStoppedEarly(world, author, closing);
-    world.recordAuthorTurnEnd(author.taskId, stoppedEarly);
     if (closing === "blocked" && ownEnd) return undefined;
     const hostRevision = revision === "unreadable" ? null : world.hostRevisionOf(author);
     const cancelledTurn = stopReason === "cancelled";
@@ -185,7 +173,6 @@ export function authorPromptFails(index: number, revision: "changed" | "same"): 
     if (!bridge) return undefined;
     if (revision === "changed") world.changeRevision(author);
     await bridge.failPrompt(PROMPT_ERROR);
-    world.recordAuthorTurnEnd(author.taskId, false);
     return {
       authorTurnEnd: {
         task_id: author.taskId,
@@ -716,7 +703,7 @@ export function timePasses(minutes: number): WorkflowAction {
 }
 
 /**
- * A person sends a control word from the author's tracker issue, or from the chat thread for
+ * A person sends a verbal command from the author's tracker issue, or from the chat thread for
  * a task without one. A cancel from the chat thread cancels the whole workflow.
  */
 export function personSendsControl(
@@ -749,7 +736,7 @@ export function personCancels(via: "control" | "word"): WorkflowAction {
   });
 }
 
-/** What a person types in a tracker session: a question, a status request, or a control word. */
+/** What a person types in a tracker session: a question, a status request, or a verbal command. */
 export type SessionText = "question" | "status" | "pause" | "cancel";
 
 const SESSION_TEXTS: Record<SessionText, { kind: "prompt" | "status"; text: string }> = {
@@ -784,7 +771,6 @@ export function personPressesStop(index: number): WorkflowAction {
     const session = world.trackerSessionAt(index);
     if (!session) return;
     await world.deliver(stopEvent(session));
-    world.forgetStoppedEarlyIn(session);
   });
 }
 

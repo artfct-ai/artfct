@@ -1,0 +1,42 @@
+{
+  "invariants": [
+    "eyesNeverOutliveTheDelivery",
+    "eyesMarkOnlyASlowChatDelivery",
+    "theCallerGetsWhatTheDeliveryGave"
+  ],
+  "mainMinutes": {
+    "twoMessages": 0.4,
+    "threeMessages": 0.4
+  },
+  "witnesses": {
+    "twoMessages": [
+      "aMessageSettlesWhileTheEyesAreOut",
+      "theEyesComeOff",
+      "anEyesAddIsRefused",
+      "anEyesRemovalIsRefused",
+      "aTrackerMessageOutlivesTheDelay",
+      "aChatMessageSettlesBeforeTheDelay"
+    ],
+    "threeMessages": [
+      "aMessageSettlesWhileTheEyesAreOut",
+      "theEyesComeOff",
+      "anEyesAddIsRefused",
+      "anEyesRemovalIsRefused",
+      "aTrackerMessageOutlivesTheDelay",
+      "aChatMessageSettlesBeforeTheDelay"
+    ]
+  },
+  "tlc": {
+    "ignoredVariables": [],
+    "bounds": {
+      "twoMessages": {
+        "pr": { "messagesArrived": 2 },
+        "nightly": { "messagesArrived": 2 }
+      },
+      "threeMessages": {
+        "pr": { "messagesArrived": 3 },
+        "nightly": { "messagesArrived": 3 }
+      }
+    }
+  }
+}

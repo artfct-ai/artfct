@@ -83,6 +83,12 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -124,10 +130,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -267,6 +276,15 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "Some",
+          "value": {
+            "tag": "RevisionKnown",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -308,10 +326,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -469,6 +490,15 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "Some",
+          "value": {
+            "tag": "RevisionKnown",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -510,10 +540,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -541,7 +574,10 @@
             "tag": "Ready",
             "value": {
               "deliveredRevision": {
-                "#bigint": "0"
+                "tag": "ReadRevision",
+                "value": {
+                  "#bigint": "0"
+                }
               }
             }
           }
@@ -676,6 +712,12 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -717,10 +759,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -748,7 +793,10 @@
             "tag": "Ready",
             "value": {
               "deliveredRevision": {
-                "#bigint": "0"
+                "tag": "ReadRevision",
+                "value": {
+                  "#bigint": "0"
+                }
               }
             }
           }
@@ -883,6 +931,12 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -924,10 +978,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -955,7 +1012,10 @@
             "tag": "Ready",
             "value": {
               "deliveredRevision": {
-                "#bigint": "0"
+                "tag": "ReadRevision",
+                "value": {
+                  "#bigint": "0"
+                }
               }
             }
           }
@@ -1090,6 +1150,12 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -1131,10 +1197,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -1162,7 +1231,10 @@
             "tag": "Ready",
             "value": {
               "deliveredRevision": {
-                "#bigint": "0"
+                "tag": "ReadRevision",
+                "value": {
+                  "#bigint": "0"
+                }
               }
             }
           }
@@ -1303,6 +1375,12 @@
             }
           }
         },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "route": {
           "tag": "Some",
           "value": {
@@ -1347,10 +1425,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -1378,7 +1459,10 @@
             "tag": "Ready",
             "value": {
               "deliveredRevision": {
-                "#bigint": "0"
+                "tag": "ReadRevision",
+                "value": {
+                  "#bigint": "0"
+                }
               }
             }
           }
@@ -1527,6 +1611,12 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -1568,10 +1658,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -1599,7 +1692,10 @@
             "tag": "Ready",
             "value": {
               "deliveredRevision": {
-                "#bigint": "0"
+                "tag": "ReadRevision",
+                "value": {
+                  "#bigint": "0"
+                }
               }
             }
           }
@@ -1748,6 +1844,12 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -1789,10 +1891,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -1820,7 +1925,10 @@
             "tag": "Ready",
             "value": {
               "deliveredRevision": {
-                "#bigint": "0"
+                "tag": "ReadRevision",
+                "value": {
+                  "#bigint": "0"
+                }
               }
             }
           }
@@ -1986,6 +2094,12 @@
             }
           }
         },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -2034,10 +2148,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -2065,7 +2182,10 @@
             "tag": "Ready",
             "value": {
               "deliveredRevision": {
-                "#bigint": "0"
+                "tag": "ReadRevision",
+                "value": {
+                  "#bigint": "0"
+                }
               }
             }
           }
@@ -2231,6 +2351,12 @@
             }
           }
         },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -2272,10 +2398,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -2303,7 +2432,10 @@
             "tag": "Ready",
             "value": {
               "deliveredRevision": {
-                "#bigint": "0"
+                "tag": "ReadRevision",
+                "value": {
+                  "#bigint": "0"
+                }
               }
             }
           }
@@ -2466,6 +2598,15 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "Some",
+          "value": {
+            "tag": "RevisionKnown",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -2507,10 +2648,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": true,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": true,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -2725,6 +2869,12 @@
             }
           }
         },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "route": {
           "tag": "Some",
           "value": {
@@ -2776,10 +2926,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -3002,6 +3155,12 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -3043,10 +3202,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -3266,6 +3428,15 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "Some",
+          "value": {
+            "tag": "RevisionKnown",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -3307,10 +3478,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -3530,6 +3704,15 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "Some",
+          "value": {
+            "tag": "RevisionKnown",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -3571,10 +3754,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -3820,6 +4006,12 @@
             }
           }
         },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -3861,10 +4053,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -4104,6 +4299,12 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -4145,10 +4346,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": true,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -4395,6 +4599,12 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -4436,10 +4646,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -4689,6 +4902,12 @@
             }
           }
         },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -4730,10 +4949,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -4980,6 +5202,12 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -5021,10 +5249,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -5288,6 +5519,15 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "Some",
+          "value": {
+            "tag": "RevisionKnown",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -5329,10 +5569,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -5593,6 +5836,15 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "Some",
+          "value": {
+            "tag": "RevisionKnown",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -5634,10 +5886,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -5816,7 +6071,10 @@
               "tag": "FiledRuling",
               "value": {
                 "revision": {
-                  "#bigint": "7"
+                  "tag": "ReadRevision",
+                  "value": {
+                    "#bigint": "7"
+                  }
                 },
                 "ruling": {
                   "tag": "Approved",
@@ -5923,6 +6181,15 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "Some",
+          "value": {
+            "tag": "RevisionKnown",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -5964,10 +6231,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -5995,7 +6265,10 @@
             "tag": "Ready",
             "value": {
               "deliveredRevision": {
-                "#bigint": "7"
+                "tag": "ReadRevision",
+                "value": {
+                  "#bigint": "7"
+                }
               }
             }
           }
@@ -6148,7 +6421,10 @@
               "tag": "FiledRuling",
               "value": {
                 "revision": {
-                  "#bigint": "7"
+                  "tag": "ReadRevision",
+                  "value": {
+                    "#bigint": "7"
+                  }
                 },
                 "ruling": {
                   "tag": "Approved",
@@ -6258,6 +6534,12 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -6299,10 +6581,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -6330,7 +6615,10 @@
             "tag": "Ready",
             "value": {
               "deliveredRevision": {
-                "#bigint": "7"
+                "tag": "ReadRevision",
+                "value": {
+                  "#bigint": "7"
+                }
               }
             }
           }
@@ -6497,7 +6785,10 @@
               "tag": "FiledRuling",
               "value": {
                 "revision": {
-                  "#bigint": "7"
+                  "tag": "ReadRevision",
+                  "value": {
+                    "#bigint": "7"
+                  }
                 },
                 "ruling": {
                   "tag": "Approved",
@@ -6607,6 +6898,12 @@
             "#tup": []
           }
         },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "route": {
           "tag": "None",
           "value": {
@@ -6648,10 +6945,13 @@
         "aPersonRepliesWhileTheScreenReads": false,
         "aRefinerRunEndsDone": false,
         "aRefinerRunStartsAfterAHandover": false,
+        "aRefinerRunStartsAfterAnUnknownHandover": false,
+        "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
         "aRejectionLandsOnThePage": false,
         "aReviewerRunsAgainOnANewRevision": false,
+        "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
         "aRevisionRewritesTheBlockOfAnAnsweredComment": false,
         "aRulingCallIsLostWithTheInstance": false,
@@ -6679,7 +6979,10 @@
             "tag": "Ready",
             "value": {
               "deliveredRevision": {
-                "#bigint": "7"
+                "tag": "ReadRevision",
+                "value": {
+                  "#bigint": "7"
+                }
               }
             }
           }
@@ -6846,7 +7149,10 @@
               "tag": "FiledRuling",
               "value": {
                 "revision": {
-                  "#bigint": "7"
+                  "tag": "ReadRevision",
+                  "value": {
+                    "#bigint": "7"
+                  }
                 },
                 "ruling": {
                   "tag": "Approved",

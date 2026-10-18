@@ -1,6 +1,7 @@
-import type { Control } from "@artfct-ai/contracts/inbound";
+import type { VerbalCommand } from "@artfct-ai/contracts/inbound";
 
-export type ParsedControl = { control: Control; rest: string };
+/** A verbal command read from a person's message, with the text an `instruct` carries. */
+export type ParsedVerbalCommand = { control: VerbalCommand; rest: string };
 
 /** A leading bot mention: a Slack `<@U123>` or a plain `@name`. */
 const MENTION = /^\s*(?:<@[A-Z0-9]+>|@[\w.-]+)?\s*/i;
@@ -10,20 +11,20 @@ const BARE_VERB = /^(cancel|stop|pause|resume|continue|retry)\s*[.!?]*$/i;
 const INSTRUCT = /^instruct\b[:\s]*/i;
 
 /**
- * Read a control word from a human message. A control verb counts only when it is the whole
+ * Read a verbal command from a person's message. A command verb counts only when it is the whole
  * message after a bot mention, so "Stop using mocks" is guidance, not a cancel. `instruct`
  * takes the rest of the message as its text.
  */
-export function parseControl(text: string): ParsedControl | null {
+export function parseVerbalCommand(text: string): ParsedVerbalCommand | null {
   const body = text.replace(MENTION, "");
   const verb = BARE_VERB.exec(body.trimEnd());
-  if (verb?.[1]) return { control: controlFor(verb[1].toLowerCase()), rest: "" };
+  if (verb?.[1]) return { control: verbalCommandFor(verb[1].toLowerCase()), rest: "" };
   const instruct = INSTRUCT.exec(body);
   if (instruct) return { control: "instruct", rest: body.slice(instruct[0].length).trim() };
   return null;
 }
 
-function controlFor(word: string): Control {
+function verbalCommandFor(word: string): VerbalCommand {
   switch (word) {
     case "cancel":
     case "stop":

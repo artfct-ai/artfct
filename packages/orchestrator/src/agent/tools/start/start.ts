@@ -47,7 +47,7 @@ export const TASK_RULES = `## Job & Stage Execution Protocol
 ### Tracker Issue Ingestion
 * **Query** the issues of the workflow's subject using \`ready_issues\`. A job may name only an issue of the subject: the subject issue and its direct sub-issues, or the issues of the subject project.
 * **Dispatch** ready issues 1:1 via \`start_job(issue, brief)\`.
-* **Throttle** job execution strictly to available concurrency slots.
+* **Throttle** job execution strictly to free job slots.
 * **Fill** released slots immediately with the next ready issues.
 * **Advance** stage only after the tracker confirms zero open issues remain.
 

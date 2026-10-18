@@ -1,7 +1,7 @@
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { describe, expect, it } from "bun:test";
 import { freshRuntime } from "../../../test/fresh-runtime";
-import { applyControlWord } from "./controls";
+import { applyVerbalCommand } from "./controls";
 import { type FakeSocket, fakeConnection, seedTask, sentMethods } from "../../../test/fake-runtime";
 import { scenario } from "../../../test/scenario";
 
@@ -41,7 +41,7 @@ describe("control", () => {
     describe("a job whose researcher still works", () => {
       const paused = scenario(freshRuntime, async (workflow) => {
         seedTask(workflow, { role: "researcher" });
-        await applyControlWord(workflow, controlEvent("pause"));
+        await applyVerbalCommand(workflow, controlEvent("pause"));
       });
 
       it("holds the researcher", () =>
@@ -56,7 +56,7 @@ describe("control", () => {
         seedTask(workflow, {}, { session_id: "s1", prompt_in_flight: 1 });
         socket = fakeConnection(TASK, 1);
         workflow.sockets.push(socket.connection);
-        await applyControlWord(workflow, controlEvent("pause"));
+        await applyVerbalCommand(workflow, controlEvent("pause"));
       });
 
       it("stops the current turn", () =>
@@ -80,7 +80,7 @@ describe("control", () => {
 
       describe("and an instruction arrives while it is paused", () => {
         const instructed = scenario(paused, async (workflow) => {
-          await applyControlWord(workflow, controlEvent("instruct", "also add docs"));
+          await applyVerbalCommand(workflow, controlEvent("instruct", "also add docs"));
         });
 
         it("holds the text for later", () =>
@@ -95,7 +95,7 @@ describe("control", () => {
 
         describe("and a second pause arrives", () => {
           const pausedAgain = scenario(instructed, async (workflow) => {
-            await applyControlWord(workflow, controlEvent("pause"));
+            await applyVerbalCommand(workflow, controlEvent("pause"));
           });
 
           it("says nothing a second time", () =>
@@ -115,7 +115,7 @@ describe("control", () => {
         workflow.store.enqueuePrompt(TASK, "held");
         socket = fakeConnection(TASK, 1);
         workflow.sockets.push(socket.connection);
-        await applyControlWord(workflow, controlEvent("resume"));
+        await applyVerbalCommand(workflow, controlEvent("resume"));
       });
 
       it("waits for the cancelled turn to end", () =>
@@ -139,7 +139,7 @@ describe("control", () => {
         workflow.store.enqueuePrompt(TASK, "held");
         socket = fakeConnection(TASK, 1);
         workflow.sockets.push(socket.connection);
-        await applyControlWord(workflow, controlEvent("resume"));
+        await applyVerbalCommand(workflow, controlEvent("resume"));
       });
 
       it("says the task is resumed", () =>
@@ -175,7 +175,7 @@ describe("control", () => {
         seedTask(workflow, { status: "in_review", paused_at: PAUSED_AT }, { session_id: "s1" });
         socket = fakeConnection(TASK, 1);
         workflow.sockets.push(socket.connection);
-        await applyControlWord(workflow, controlEvent("resume", " fix the lint errors "));
+        await applyVerbalCommand(workflow, controlEvent("resume", " fix the lint errors "));
       });
 
       it("sends the trimmed reply text as the prompt", () =>
@@ -192,8 +192,8 @@ describe("control", () => {
     describe("a task paused while it was provisioning", () => {
       const resumed = scenario(freshRuntime, async (workflow) => {
         seedTask(workflow, { status: "provisioning" });
-        await applyControlWord(workflow, controlEvent("pause"));
-        await applyControlWord(workflow, controlEvent("resume"));
+        await applyVerbalCommand(workflow, controlEvent("pause"));
+        await applyVerbalCommand(workflow, controlEvent("resume"));
       });
 
       it("comes back as provisioning", () =>
@@ -208,7 +208,7 @@ describe("control", () => {
     describe("a task that is not paused", () => {
       const resumed = scenario(freshRuntime, async (workflow) => {
         seedTask(workflow);
-        await applyControlWord(workflow, controlEvent("resume"));
+        await applyVerbalCommand(workflow, controlEvent("resume"));
       });
 
       it("posts nothing", () =>
@@ -227,7 +227,7 @@ describe("control", () => {
     describe("a task that is still provisioning", () => {
       const instructed = scenario(freshRuntime, async (workflow) => {
         seedTask(workflow, { status: "provisioning" });
-        await applyControlWord(workflow, controlEvent("instruct", "run the tests"));
+        await applyVerbalCommand(workflow, controlEvent("instruct", "run the tests"));
       });
 
       it("queues the text", () =>
@@ -244,8 +244,8 @@ describe("control", () => {
 
   describe("a workflow with no task to control", () => {
     const controlled = scenario(freshRuntime, async (workflow) => {
-      await applyControlWord(workflow, controlEvent("pause"));
-      await applyControlWord(workflow, controlEvent("instruct", "hello"));
+      await applyVerbalCommand(workflow, controlEvent("pause"));
+      await applyVerbalCommand(workflow, controlEvent("instruct", "hello"));
     });
 
     it("posts nothing", () =>

@@ -16,12 +16,19 @@ module reviewLoopTypes {
   /// Where a refiner run stands. Every status but `Unfinished` is final.
   type RunStatus = Unfinished | Done | Cancelled | Failed
 
+  /// How the lookups of the revision on the host go in one step: they give it, or they fail.
+  type RevisionLookup = RevisionKnown | RevisionUnknown
+
+  /// A revision as a review, a ruling or a handover recorded it: the one the host gave, or
+  /// unknown when the lookup failed.
+  type FiledRevision = ReadRevision(int) | UnknownRevision
+
   /// What a refiner run filed: a review of one revision, a ruling on one, or the agent's ask for
   /// a person's ruling on a judge run.
   type RefinerResult =
     | NoResult
-    | FiledReview({ revision: int, findings: bool })
-    | FiledRuling({ ruling: Ruling, revision: int })
+    | FiledReview({ revision: FiledRevision, findings: bool })
+    | FiledRuling({ ruling: Ruling, revision: FiledRevision })
     | RulingAsked
 
   /// Why a refiner run hits a failure it may recover from: its closing text says it gave up, its
@@ -35,8 +42,9 @@ module reviewLoopTypes {
   /// One execution of a refiner on the artifact.
   type RefinerRun = { refinerIndex: int, status: RunStatus, result: RefinerResult, restarts: int }
 
-  /// `Drafted` while the refiners hold the artifact. `Ready` once the humans have it.
-  type ArtifactStatus = Drafted | Ready({ deliveredRevision: int })
+  /// `Drafted` while the refiners hold the artifact. `Ready` once the humans have it, with the
+  /// revision the handover recorded.
+  type ArtifactStatus = Drafted | Ready({ deliveredRevision: FiledRevision })
 
   /// The refiner run the artifact is on, or the last one that ran.
   type RefinerRunOfArtifact = NoRefinerRun | OnRefinerRun(int)
@@ -158,19 +166,20 @@ module reviewLoopTypes {
     personComments: List[PersonComment],
   }
 
-  /// The turn that ended in a step, if one did. A model-call author's turn starts over when a
-  /// person changed the page text while its model call ran.
+  /// The turn that ended in a step, if one did, with the revision the host gave at an author's
+  /// turn end. A model-call author's turn starts over when a person changed the page text while
+  /// its model call ran.
   type TurnEnd =
     | NoTurnEnd
-    | AuthorTurnEnded({ revision: int })
+    | AuthorTurnEnded({ revision: FiledRevision })
     | AuthorTurnFailed(TurnFailure)
     | AuthorTurnStartsOver
     | RefinerTurnEnded(int)
 
   /// What an observer knows about the last step besides the reviews around it: the turn that
   /// ended, what happened on the document host, whether the host took a model-call author's
-  /// writes, what the agent read about page comments, whether a new instance took over, and the
-  /// refiner run that hit a failure it may recover from.
+  /// writes, what the agent read about page comments, whether a new instance took over, the
+  /// refiner run that hit a failure it may recover from, and how the lookups of the revision went.
   type StepKind = {
     turnEnd: TurnEnd,
     page: PageFact,
@@ -178,6 +187,7 @@ module reviewLoopTypes {
     agentHeard: Set[AgentNote],
     instanceRestarted: bool,
     recoverableFailure: RecoverableFailure,
+    revisionLookup: RevisionLookup,
   }
 
   /// One step: the review before it, the review after it, and what an observer knows of it.
@@ -236,10 +246,17 @@ module reviewLoopTypes {
     aJudgeClosesWithoutAConclusion: bool,
     aRefinerRunFailsPastItsRestarts: bool,
     aRefinerRunStartsAfterAFailedOrCancelledOne: bool,
+    aReviewerRunsAgainOnAnUnknownRevision: bool,
+    aRefinerRunStartsAfterAnUnknownRevision: bool,
+    aRefinerRunStartsAfterAnUnknownHandover: bool,
   }
 
   /// A model-call author's turn end: the review after it and how the turn ended.
   type ModelCallTurnEnd = { loop: ReviewLoop, turnEnd: TurnEnd }
+
+  /// What an author's turn end meets: whether the host takes a model-call author's writes, the
+  /// review again decision, and how the lookups of the revision go.
+  type TurnEndAnswers = { write: PageWrite, decision: ReviewAgainDecision, lookup: RevisionLookup }
 
   /// What a read of the held comments did: the review after it, the comments a prompt carried, and
   /// what the agent read.
@@ -265,6 +282,9 @@ module reviewLoop {
 
   /// True when a new Durable Object instance can take over the workflow.
   const INSTANCE_RESTARTS: bool
+
+  /// True when a lookup of the revision on the host can fail.
+  const UNREADABLE_REVISIONS: bool
 
   /// How often one reviewer runs on one artifact. The config default.
   pure val MAX_REVIEW_RUNS: int = 3
@@ -350,6 +370,9 @@ module reviewLoop {
 
   pure val RESTART_CAUSES: Set[RestartCause] = Set(GivesUp, UnfinishedStop, Stalled, SandboxGone, PromptFails)
 
+  pure val REVISION_LOOKUPS: Set[RevisionLookup] =
+    if (UNREADABLE_REVISIONS) Set(RevisionKnown, RevisionUnknown) else Set(RevisionKnown)
+
   var review: ReviewLoop
   var lastStepKept: KeptRules
   var lastStepReached: ReachedWitnesses
@@ -383,7 +406,7 @@ module reviewLoop {
   pure def isRejection(result: RefinerResult): bool =
     match result { | FiledRuling(filed) => filed.ruling == Rejected | _ => false }
 
-  pure def filedOnRevision(result: RefinerResult, revision: int): bool =
+  pure def filedOnRevision(result: RefinerResult, revision: FiledRevision): bool =
     match result {
       | FiledReview(filed) => filed.revision == revision
       | FiledRuling(filed) => filed.revision == revision
@@ -397,10 +420,14 @@ module reviewLoop {
   pure def reviewHasFindings(result: RefinerResult): bool =
     match result { | FiledReview(filed) => filed.findings | _ => false }
 
-  pure def reviewedRevisionIsNot(result: RefinerResult, revision: int): bool =
+  pure def reviewedRevisionIsNot(result: RefinerResult, revision: FiledRevision): bool =
     match result { | FiledReview(filed) => filed.revision != revision | _ => false }
 
   pure def runIds(loop: ReviewLoop): Set[int] = loop.refinerRuns.indices()
+
+  /// What the host gives as the revision of the artifact when its lookups go `lookup`.
+  pure def hostRevision(loop: ReviewLoop, lookup: RevisionLookup): FiledRevision =
+    if (lookup == RevisionKnown) ReadRevision(loop.artifact.revision) else UnknownRevision
 
   pure def unfinishedRunIds(loop: ReviewLoop): Set[int] =
     runIds(loop).filter(id => loop.refinerRuns[id].status == Unfinished)
@@ -449,10 +476,11 @@ module reviewLoop {
   }
 
   /// True when a run of the entry at `index` filed a review or a ruling of the current revision.
-  pure def entryReadRevision(loop: ReviewLoop, index: int): bool =
-    runIds(loop).exists(id =>
+  /// No entry read an unknown revision.
+  pure def entryReadRevision(loop: ReviewLoop, index: int, lookup: RevisionLookup): bool =
+    lookup == RevisionKnown and runIds(loop).exists(id =>
       loop.refinerRuns[id].refinerIndex == index and
-      filedOnRevision(loop.refinerRuns[id].result, loop.artifact.revision))
+      filedOnRevision(loop.refinerRuns[id].result, hostRevision(loop, lookup)))
 
   /// The entry that ends the segment `index` sits in.
   pure def segmentEndOf(index: int): int =
@@ -460,16 +488,16 @@ module reviewLoop {
 
   /// True when the entry at `index` still has a say on the revision. An entry that reviewed or
   /// ruled on it has not, and neither has a judge entry that ruled on any revision.
-  pure def hasASay(loop: ReviewLoop, index: int): bool =
-    not(judgeRuledOn(loop, index)) and not(entryReadRevision(loop, index))
+  pure def hasASay(loop: ReviewLoop, index: int, lookup: RevisionLookup): bool =
+    not(judgeRuledOn(loop, index)) and not(entryReadRevision(loop, index, lookup))
 
   /// The entries from `from` to the end of its segment that still have a say on the revision.
-  pure def unreviewedEntriesFrom(loop: ReviewLoop, from: int): Set[int] =
+  pure def unreviewedEntriesFrom(loop: ReviewLoop, from: int, lookup: RevisionLookup): Set[int] =
     ENTRIES.indices().filter(index => and {
       index >= from,
       index < REVIEWER_COUNT,
       index <= segmentEndOf(from),
-      hasASay(loop, index),
+      hasASay(loop, index, lookup),
     })
 
   /// The latest run of the entry at `index`. Only defined while the entry has one.
@@ -495,10 +523,11 @@ module reviewLoop {
   pure def withoutRefinerRun(loop: ReviewLoop): ReviewLoop =
     { ...loop, artifact: { ...loop.artifact, refinerRun: NoRefinerRun } }
 
-  /// The humans get the artifact. A ready artifact keeps the revision they already have.
-  pure def handOver(loop: ReviewLoop): ReviewLoop = {
+  /// The humans get the artifact, and the handover records the revision the host gives. A ready
+  /// artifact keeps the revision they already have.
+  pure def handOver(loop: ReviewLoop, lookup: RevisionLookup): ReviewLoop = {
     val status = match loop.artifact.status {
-      | Drafted => Ready({ deliveredRevision: loop.artifact.revision })
+      | Drafted => Ready({ deliveredRevision: hostRevision(loop, lookup) })
       | Ready(handed) => Ready(handed)
     }
     { ...loop, artifact: { ...loop.artifact, status: status, refinerRun: NoRefinerRun } }
@@ -514,12 +543,12 @@ module reviewLoop {
   }
 
   /// Run the first entry at or after `index` that still has a say, or hand the artifact over.
-  pure def runRefinersFrom(loop: ReviewLoop, index: int): ReviewLoop = {
+  pure def runRefinersFrom(loop: ReviewLoop, index: int, lookup: RevisionLookup): ReviewLoop = {
     val nextIndex = smallest(
-      ENTRIES.indices().filter(candidate => candidate >= index and hasASay(loop, candidate)),
+      ENTRIES.indices().filter(candidate => candidate >= index and hasASay(loop, candidate, lookup)),
       REFINER_COUNT,
     )
-    if (nextIndex >= REFINER_COUNT) handOver(loop) else startRefiner(loop, nextIndex)
+    if (nextIndex >= REFINER_COUNT) handOver(loop, lookup) else startRefiner(loop, nextIndex)
   }
 
   /// Change every person comment with `change`, which reads the comment's id.
@@ -651,64 +680,76 @@ module reviewLoop {
   }
 
   /// A working author stops the refiners. They run again once its turn ends.
-  pure def advancePastEntry(loop: ReviewLoop, index: int): ReviewLoop =
-    if (authorQuiet(loop)) runRefinersFrom(loop, index + 1) else withoutRefinerRun(loop)
+  pure def advancePastEntry(loop: ReviewLoop, index: int, lookup: RevisionLookup): ReviewLoop =
+    if (authorQuiet(loop)) runRefinersFrom(loop, index + 1, lookup) else withoutRefinerRun(loop)
 
   /// Run the open segment again from its first entry that still has a say on the revision. Hand the
   /// artifact on when no entry of it still has a say.
-  pure def reviewSegmentAgain(loop: ReviewLoop, index: int): ReviewLoop = {
-    val unreviewed = unreviewedEntriesFrom(loop, segmentStartOf(index))
-    if (unreviewed.size() == 0) advancePastEntry(loop, index)
+  pure def reviewSegmentAgain(loop: ReviewLoop, index: int, lookup: RevisionLookup): ReviewLoop = {
+    val unreviewed = unreviewedEntriesFrom(loop, segmentStartOf(index), lookup)
+    if (unreviewed.size() == 0) advancePastEntry(loop, index, lookup)
     else startRefiner(loop, smallest(unreviewed, REFINER_COUNT))
   }
 
   /// A findings reviewer's artifact goes where the review again decision says. Without one, the
   /// agent routes it.
-  pure def routeFindingsReviewer(loop: ReviewLoop, index: int, decision: ReviewAgainDecision): ReviewLoop =
+  pure def routeFindingsReviewer(
+    loop: ReviewLoop,
+    index: int,
+    decision: ReviewAgainDecision,
+    lookup: RevisionLookup,
+  ): ReviewLoop =
     match decision {
-      | ReviewAgain => reviewSegmentAgain(loop, index)
-      | NoReviewAgain => advancePastEntry(loop, index)
+      | ReviewAgain => reviewSegmentAgain(loop, index, lookup)
+      | NoReviewAgain => advancePastEntry(loop, index, lookup)
       | AgentRoutes => loop
     }
 
-  pure def settleHeldRun(loop: ReviewLoop, id: int, decision: ReviewAgainDecision): ReviewLoop = {
+  pure def settleHeldRun(
+    loop: ReviewLoop,
+    id: int,
+    decision: ReviewAgainDecision,
+    lookup: RevisionLookup,
+  ): ReviewLoop = {
     val refinerRun = loop.refinerRuns[id]
-    if (refinerOf(refinerRun) == Polisher) runRefinersFrom(withoutRefinerRun(loop), 0)
+    if (refinerOf(refinerRun) == Polisher) runRefinersFrom(withoutRefinerRun(loop), 0, lookup)
     else if (refinerOf(refinerRun) == FindingsReviewer)
-      (if (reviewLimitReached(loop, id)) advancePastEntry(loop, refinerRun.refinerIndex)
-       else routeFindingsReviewer(loop, refinerRun.refinerIndex, decision))
-    else if (isRejection(refinerRun.result)) runRefinersFrom(loop, refinerRun.refinerIndex + 1)
+      (if (reviewLimitReached(loop, id)) advancePastEntry(loop, refinerRun.refinerIndex, lookup)
+       else routeFindingsReviewer(loop, refinerRun.refinerIndex, decision, lookup))
+    else if (isRejection(refinerRun.result)) runRefinersFrom(loop, refinerRun.refinerIndex + 1, lookup)
     else loop
   }
 
   /// The refiners settle once the author is quiet.
-  pure def settleRefiners(loop: ReviewLoop, decision: ReviewAgainDecision): ReviewLoop =
+  pure def settleRefiners(loop: ReviewLoop, decision: ReviewAgainDecision, lookup: RevisionLookup): ReviewLoop =
     if (not(drafted(loop)) or refinerInFlight(loop) or not(authorQuiet(loop))) loop
     else match loop.artifact.refinerRun {
-      | NoRefinerRun => runRefinersFrom(loop, 0)
-      | OnRefinerRun(id) => settleHeldRun(loop, id, decision)
+      | NoRefinerRun => runRefinersFrom(loop, 0, lookup)
+      | OnRefinerRun(id) => settleHeldRun(loop, id, decision, lookup)
     }
 
-  pure def reopenChangedArtifact(loop: ReviewLoop): ReviewLoop =
+  /// A ready artifact stays with the humans only when the host gives the revision they have. A
+  /// changed or unknown revision makes it a draft again.
+  pure def reopenChangedArtifact(loop: ReviewLoop, lookup: RevisionLookup): ReviewLoop =
     match loop.artifact.status {
       | Drafted => loop
       | Ready(handed) =>
-        if (handed.deliveredRevision == loop.artifact.revision) loop
+        if (lookup == RevisionKnown and handed.deliveredRevision == hostRevision(loop, lookup)) loop
         else { ...loop, artifact: { ...loop.artifact, status: Drafted, refinerRun: NoRefinerRun } }
     }
 
   /// The author's turn ends on the revision `loop` holds.
-  pure def authorTurnEnded(loop: ReviewLoop, decision: ReviewAgainDecision): ReviewLoop = {
+  pure def authorTurnEnded(loop: ReviewLoop, decision: ReviewAgainDecision, lookup: RevisionLookup): ReviewLoop = {
     val ended = {
       ...loop,
       author: { ...loop.author, atWork: false, turnComments: Set(), pageEditsDuringTurn: Set() },
     }
-    drainQueue(settleRefiners(reopenChangedArtifact(ended), decision))
+    drainQueue(settleRefiners(reopenChangedArtifact(ended, lookup), decision, lookup))
   }
 
   /// The author fails. Its queued prompts go, its unfinished refiner run is cancelled, and the
   /// humans get the artifact.
-  pure def failAuthor(loop: ReviewLoop): ReviewLoop = {
+  pure def failAuthor(loop: ReviewLoop, lookup: RevisionLookup): ReviewLoop = {
     val stopped = {
       ...loop,
       author: {
@@ -720,15 +761,15 @@ module reviewLoop {
         pageEditsDuringTurn: Set(),
       },
     }
-    handOver(if (refinerInFlight(stopped)) withStatus(stopped, heldRun(stopped), Cancelled) else stopped)
+    handOver(if (refinerInFlight(stopped)) withStatus(stopped, heldRun(stopped), Cancelled) else stopped, lookup)
   }
 
-  pure def turnFailed(loop: ReviewLoop, failure: TurnFailure): ModelCallTurnEnd =
-    { loop: failAuthor(loop), turnEnd: AuthorTurnFailed(failure) }
+  pure def turnFailed(loop: ReviewLoop, failure: TurnFailure, lookup: RevisionLookup): ModelCallTurnEnd =
+    { loop: failAuthor(loop, lookup), turnEnd: AuthorTurnFailed(failure) }
 
-  pure def turnEnded(loop: ReviewLoop, decision: ReviewAgainDecision): ModelCallTurnEnd = {
-    val ended = authorTurnEnded(loop, decision)
-    { loop: ended, turnEnd: AuthorTurnEnded({ revision: ended.artifact.revision }) }
+  pure def turnEnded(loop: ReviewLoop, decision: ReviewAgainDecision, lookup: RevisionLookup): ModelCallTurnEnd = {
+    val ended = authorTurnEnded(loop, decision, lookup)
+    { loop: ended, turnEnd: AuthorTurnEnded({ revision: hostRevision(ended, lookup) }) }
   }
 
   /// The person comments the prompts that wait for the author carry.
@@ -761,37 +802,39 @@ module reviewLoop {
     loop: ReviewLoop,
     changed: bool,
     part: PagePart,
-    write: PageWrite,
-    decision: ReviewAgainDecision,
+    answers: TurnEndAnswers,
   ): ModelCallTurnEnd = {
+    val write = answers.write
+    val lookup = answers.lookup
     val replies = turnReplies(loop, changed, part)
     val replied = markAnswered(loop, replies)
     if (pageTextEditedDuringTurn(loop)) startOver(loop)
-    else if (write == WriteFails(RepliesFail) and replies.size() > 0) turnFailed(loop, ReplyRefused)
-    else if (not(changed)) turnEnded(replied, decision)
-    else if (write == WriteFails(UpdateFails)) turnFailed(replied, UpdateRefused)
-    else if (write == WriteFails(UpdateLandsThenFails)) turnFailed(pageChanged(replied, part), UpdateLandedThenFailed)
-    else turnEnded(pageChanged(replied, part), decision)
+    else if (write == WriteFails(RepliesFail) and replies.size() > 0) turnFailed(loop, ReplyRefused, lookup)
+    else if (not(changed)) turnEnded(replied, answers.decision, lookup)
+    else if (write == WriteFails(UpdateFails)) turnFailed(replied, UpdateRefused, lookup)
+    else if (write == WriteFails(UpdateLandsThenFails))
+      turnFailed(pageChanged(replied, part), UpdateLandedThenFailed, lookup)
+    else turnEnded(pageChanged(replied, part), answers.decision, lookup)
   }
 
   /// The author's turn ends, after it changed `part` of the artifact or without a change.
-  pure def authorTurnEnds(
-    loop: ReviewLoop,
-    changed: bool,
-    part: PagePart,
-    write: PageWrite,
-    decision: ReviewAgainDecision,
-  ): ModelCallTurnEnd =
-    if (MODEL_CALL_AUTHOR) modelCallTurnEnds(loop, changed, part, write, decision)
-    else turnEnded(if (changed) pageChanged(loop, part) else loop, decision)
+  pure def authorTurnEnds(loop: ReviewLoop, changed: bool, part: PagePart, answers: TurnEndAnswers): ModelCallTurnEnd =
+    if (MODEL_CALL_AUTHOR) modelCallTurnEnds(loop, changed, part, answers)
+    else turnEnded(if (changed) pageChanged(loop, part) else loop, answers.decision, answers.lookup)
 
   /// A ruling settles the judge's segment. A rejection posts its reason on a page when the host
   /// takes it, and reaches the author with the findings of the reviewers before the judge. An
   /// approval sends those findings on their own, or moves on.
-  pure def applyJudgeRuling(loop: ReviewLoop, id: int, ruling: Ruling, post: HostWrite): ReviewLoop = {
+  pure def applyJudgeRuling(
+    loop: ReviewLoop,
+    id: int,
+    ruling: Ruling,
+    post: HostWrite,
+    lookup: RevisionLookup,
+  ): ReviewLoop = {
     val refinerRun = loop.refinerRuns[id]
     val index = refinerRun.refinerIndex
-    val filed = FiledRuling({ ruling: ruling, revision: loop.artifact.revision })
+    val filed = FiledRuling({ ruling: ruling, revision: hostRevision(loop, lookup) })
     val ruled = withRun(loop, id, { ...refinerRun, result: filed })
     val reviewRuns = segmentReviewRuns(ruled, index)
     val findingsBeforeJudge = reviewRuns.exists(reviewRun => reviewHasFindings(ruled.refinerRuns[reviewRun].result))
@@ -803,21 +846,22 @@ module reviewLoop {
       sendFindingsToAuthor({ ...ruled, reviewComments: posted, author: { ...ruled.author, rejectedBy: rejectedBy } }, reviewRuns)
     }
     else if (findingsBeforeJudge) sendFindingsToAuthor(pointAtLastReviewerOfSegment(ruled, index), reviewRuns)
-    else advancePastEntry(ruled, index)
+    else advancePastEntry(ruled, index, lookup)
   }
 
   /// A segment settles on the review of the latest run of each entry. A stale review runs the
-  /// list again from the segment's first entry that still has a say on the revision.
-  pure def settleSegment(loop: ReviewLoop, end: int): ReviewLoop = {
+  /// list again from the segment's first entry that still has a say on the revision. No review is
+  /// stale against an unknown revision.
+  pure def settleSegment(loop: ReviewLoop, end: int, lookup: RevisionLookup): ReviewLoop = {
     val start = segmentStartOf(end)
     val filed = segmentReviewRuns(loop, end)
-    val stale = filed.exists(id =>
-      reviewedRevisionIsNot(loop.refinerRuns[id].result, loop.artifact.revision))
-    if (filed.size() == 0) advancePastEntry(loop, end)
-    else if (stale and not(authorQuiet(loop))) settleRefiners(loop, AgentRoutes)
-    else if (stale) runRefinersFrom(loop, start)
+    val stale = lookup == RevisionKnown and filed.exists(id =>
+      reviewedRevisionIsNot(loop.refinerRuns[id].result, hostRevision(loop, lookup)))
+    if (filed.size() == 0) advancePastEntry(loop, end, lookup)
+    else if (stale and not(authorQuiet(loop))) settleRefiners(loop, AgentRoutes, lookup)
+    else if (stale) runRefinersFrom(loop, start, lookup)
     else if (filed.exists(id => reviewHasFindings(loop.refinerRuns[id].result))) sendFindingsToAuthor(loop, filed)
-    else advancePastEntry(loop, end)
+    else advancePastEntry(loop, end, lookup)
   }
 
   /// The comments a page review posts: each finding that quotes a passage the page holds on its
@@ -835,20 +879,28 @@ module reviewLoop {
 
   /// A finished reviewer posts its review on a page first. Then it hands on while a later entry of
   /// its segment still has a say. Otherwise the segment settles, on the last findings entry of
-  /// it. A judge that ruled has no say.
-  pure def findingsReviewerFinished(loop: ReviewLoop, id: int, findings: bool, commenting: Commenting): ReviewLoop = {
+  /// it. A judge that ruled has no say. A pull request review names the commit it read. A page
+  /// review reads the revision from the host after its post.
+  pure def findingsReviewerFinished(
+    loop: ReviewLoop,
+    id: int,
+    findings: bool,
+    commenting: Commenting,
+    lookup: RevisionLookup,
+  ): ReviewLoop = {
     val refinerRun = loop.refinerRuns[id]
     val index = refinerRun.refinerIndex
-    val filed = FiledReview({ revision: loop.artifact.revision, findings: findings })
+    val reviewed = if (ON_A_PAGE) hostRevision(loop, lookup) else ReadRevision(loop.artifact.revision)
+    val filed = FiledReview({ revision: reviewed, findings: findings })
     val posted =
       if (ON_A_PAGE) loop.reviewComments.concat(pageReviewComments(id, findings, commenting))
       else loop.reviewComments
     val done = withRun({ ...loop, reviewComments: posted }, id, { ...refinerRun, status: Done, result: filed })
     val end = segmentEndOf(index)
-    val handsOn = index != end and unreviewedEntriesFrom(done, index + 1).size() > 0
+    val handsOn = index != end and unreviewedEntriesFrom(done, index + 1, lookup).size() > 0
     if (not(isOnRun(loop, id)) or not(drafted(loop))) done
-    else if (handsOn) advancePastEntry(done, index)
-    else settleSegment(pointAtLastReviewerOfSegment(done, end), end)
+    else if (handsOn) advancePastEntry(done, index, lookup)
+    else settleSegment(pointAtLastReviewerOfSegment(done, end), end, lookup)
   }
 
   pure def judgeFinished(loop: ReviewLoop, id: int): ReviewLoop = {
@@ -863,12 +915,18 @@ module reviewLoop {
     isOnRun(loop, id) and drafted(loop) and not(isRuling(loop.refinerRuns[id].result))
 
   /// A ruling lands only on the judge run the artifact is still on, and only once.
-  pure def decisionsModelRuled(loop: ReviewLoop, id: int, ruling: Ruling, post: HostWrite): ReviewLoop = {
+  pure def decisionsModelRuled(
+    loop: ReviewLoop,
+    id: int,
+    ruling: Ruling,
+    post: HostWrite,
+    lookup: RevisionLookup,
+  ): ReviewLoop = {
     val answered = {
       ...loop,
       judgeRunsCodeRulesOn: loop.judgeRunsCodeRulesOn.exclude(Set(id)),
     }
-    if (rulingLands(answered, id)) applyJudgeRuling(answered, id, ruling, post)
+    if (rulingLands(answered, id)) applyJudgeRuling(answered, id, ruling, post, lookup)
     else answered
   }
 
@@ -879,35 +937,41 @@ module reviewLoop {
     not(isRuling(loop.refinerRuns[id].result)),
   }
 
-  pure def polisherFinished(loop: ReviewLoop, id: int, pushed: bool, part: PagePart): ReviewLoop = {
+  pure def polisherFinished(
+    loop: ReviewLoop,
+    id: int,
+    pushed: bool,
+    part: PagePart,
+    lookup: RevisionLookup,
+  ): ReviewLoop = {
     val changed = if (pushed) pageChanged(loop, part) else loop
     val done = withStatus(changed, id, Done)
     val handedOn =
-      if (isOnRun(done, id) and drafted(done)) advancePastEntry(done, loop.refinerRuns[id].refinerIndex)
+      if (isOnRun(done, id) and drafted(done)) advancePastEntry(done, loop.refinerRuns[id].refinerIndex, lookup)
       else done
     drainQueue(handedOn)
   }
 
   /// A polisher that stops early gives the artifact to the humans with what it pushed.
-  pure def polisherStopped(loop: ReviewLoop, id: int): ReviewLoop =
-    drainQueue(if (isOnRun(loop, id)) handOver(loop) else loop)
+  pure def polisherStopped(loop: ReviewLoop, id: int, lookup: RevisionLookup): ReviewLoop =
+    drainQueue(if (isOnRun(loop, id)) handOver(loop, lookup) else loop)
 
-  pure def reviewerFailed(loop: ReviewLoop, id: int): ReviewLoop =
+  pure def reviewerFailed(loop: ReviewLoop, id: int, lookup: RevisionLookup): ReviewLoop =
     if (not(isOnRun(loop, id))) loop
-    else if (drafted(loop)) handOver(loop)
+    else if (drafted(loop)) handOver(loop, lookup)
     else withoutRefinerRun(loop)
 
-  pure def refinerRunFailed(loop: ReviewLoop, id: int): ReviewLoop = {
+  pure def refinerRunFailed(loop: ReviewLoop, id: int, lookup: RevisionLookup): ReviewLoop = {
     val failed = withStatus(loop, id, Failed)
-    if (refinerOf(loop.refinerRuns[id]) == Polisher) polisherStopped(failed, id)
-    else reviewerFailed(failed, id)
+    if (refinerOf(loop.refinerRuns[id]) == Polisher) polisherStopped(failed, id, lookup)
+    else reviewerFailed(failed, id, lookup)
   }
 
-  pure def canRequestReviewOn(loop: ReviewLoop, id: int): bool = and {
+  pure def canRequestReviewOn(loop: ReviewLoop, id: int, lookup: RevisionLookup): bool = and {
     loop.refinerRuns[id].refinerIndex < REVIEWER_COUNT,
     refinerOf(loop.refinerRuns[id]) != Judge or loop.refinerRuns[id].status == Cancelled,
     not(reviewLimitReached(loop, id)),
-    unreviewedEntriesFrom(loop, segmentStartOf(loop.refinerRuns[id].refinerIndex)).size() > 0,
+    unreviewedEntriesFrom(loop, segmentStartOf(loop.refinerRuns[id].refinerIndex), lookup).size() > 0,
   }
 
   pure def agentCanRoute(loop: ReviewLoop): bool = and {
@@ -998,6 +1062,7 @@ module reviewLoop {
       agentHeard: Set(),
       instanceRestarted: false,
       recoverableFailure: NoRecoverableFailure,
+      revisionLookup: RevisionKnown,
     }
 
   action moveWith(after: ReviewLoop, kind: StepKind): bool = {
@@ -1012,6 +1077,10 @@ module reviewLoop {
   }
 
   action move(after: ReviewLoop, turnEnd: TurnEnd): bool = moveWith(after, quietStep(turnEnd))
+
+  /// A step whose lookups of the revision go `lookup`.
+  action moveOnLookup(after: ReviewLoop, turnEnd: TurnEnd, lookup: RevisionLookup): bool =
+    moveWith(after, { ...quietStep(turnEnd), revisionLookup: lookup })
 
   /// A step on the page: what happened on the host and what the agent read.
   action moveOnThePage(after: ReviewLoop, page: PageFact, heard: Set[AgentNote]): bool =
@@ -1046,16 +1115,18 @@ module reviewLoop {
     review.author.atWork,
     nondet decision = REVIEW_AGAIN_DECISIONS.oneOf()
     nondet part = REVISION_PARTS.oneOf()
-    val ended = authorTurnEnds(review, true, part, WritesLand, decision)
-    move(ended.loop, ended.turnEnd),
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
+    val ended = authorTurnEnds(review, true, part, { write: WritesLand, decision: decision, lookup: revisionLookup })
+    moveOnLookup(ended.loop, ended.turnEnd, revisionLookup),
   }
 
   /// The author's turn ends without a change.
   action authorTurnEndsOnTheSameRevision: bool = all {
     review.author.atWork,
     nondet decision = REVIEW_AGAIN_DECISIONS.oneOf()
-    val ended = authorTurnEnds(review, false, Body, WritesLand, decision)
-    move(ended.loop, ended.turnEnd),
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
+    val ended = authorTurnEnds(review, false, Body, { write: WritesLand, decision: decision, lookup: revisionLookup })
+    moveOnLookup(ended.loop, ended.turnEnd, revisionLookup),
   }
 
   /// The model call of a model-call author's turn answers with a changed page, and the host fails
@@ -1068,26 +1139,36 @@ module reviewLoop {
       if (turnReplies(review, true, part).size() > 0) Set(RepliesFail, UpdateFails, UpdateLandsThenFails)
       else Set(UpdateFails, UpdateLandsThenFails)
     nondet failure = failures.oneOf()
-    val ended = modelCallTurnEnds(review, true, part, WriteFails(failure), AgentRoutes)
-    moveWith(ended.loop, { ...quietStep(ended.turnEnd), write: WriteFails(failure) }),
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
+    val answers = { write: WriteFails(failure), decision: AgentRoutes, lookup: revisionLookup }
+    val ended = modelCallTurnEnds(review, true, part, answers)
+    moveWith(ended.loop, { ...quietStep(ended.turnEnd), write: WriteFails(failure), revisionLookup: revisionLookup }),
   }
 
   /// A findings reviewer files a review with findings, and its turn ends.
   action findingsReviewerLeavesFindings: bool = all {
     unfinishedRunIs(review, FindingsReviewer),
     nondet commenting = COMMENTINGS.oneOf()
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val id = lastUnfinishedRun(review)
     val page = if (ON_A_PAGE) PageReviewPosted(commenting) else NoPageFact
-    moveWith(findingsReviewerFinished(review, id, true, commenting), { ...quietStep(RefinerTurnEnded(id)), page: page }),
+    moveWith(
+      findingsReviewerFinished(review, id, true, commenting, revisionLookup),
+      { ...quietStep(RefinerTurnEnded(id)), page: page, revisionLookup: revisionLookup },
+    ),
   }
 
   /// A findings reviewer files an approving review, and its turn ends.
   action findingsReviewerApproves: bool = all {
     unfinishedRunIs(review, FindingsReviewer),
     nondet commenting = COMMENTINGS.oneOf()
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val id = lastUnfinishedRun(review)
     val page = if (ON_A_PAGE) PageReviewPosted(commenting) else NoPageFact
-    moveWith(findingsReviewerFinished(review, id, false, commenting), { ...quietStep(RefinerTurnEnded(id)), page: page }),
+    moveWith(
+      findingsReviewerFinished(review, id, false, commenting, revisionLookup),
+      { ...quietStep(RefinerTurnEnded(id)), page: page, revisionLookup: revisionLookup },
+    ),
   }
 
   /// A judge closes with its conclusion. The decisions model starts to read it.
@@ -1111,10 +1192,10 @@ module reviewLoop {
   action decisionsModelRules(ruling: Ruling): bool = {
     nondet judgeRun = review.judgeRunsCodeRulesOn.oneOf()
     nondet post = HOST_WRITES.oneOf()
-    moveOnThePage(
-      decisionsModelRuled(review, judgeRun, ruling, post),
-      rejectionFact(review, judgeRun, ruling, post),
-      Set(),
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
+    moveWith(
+      decisionsModelRuled(review, judgeRun, ruling, post, revisionLookup),
+      { ...quietStep(NoTurnEnd), page: rejectionFact(review, judgeRun, ruling, post), revisionLookup: revisionLookup },
     )
   }
 
@@ -1142,8 +1223,12 @@ module reviewLoop {
     holdsARun(review),
     canPersonRuleOn(review, heldRun(review)),
     nondet post = HOST_WRITES.oneOf()
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val page = if (ON_A_PAGE and ruling == Rejected) RejectionPosted(post) else NoPageFact
-    moveOnThePage(applyJudgeRuling(review, heldRun(review), ruling, post), page, Set()),
+    moveWith(
+      applyJudgeRuling(review, heldRun(review), ruling, post, revisionLookup),
+      { ...quietStep(NoTurnEnd), page: page, revisionLookup: revisionLookup },
+    ),
   }
 
   /// A person approves the judge run the artifact is on, through the agent.
@@ -1156,24 +1241,33 @@ module reviewLoop {
   action polisherPushes: bool = all {
     unfinishedRunIs(review, Polisher),
     nondet part = REVISION_PARTS.oneOf()
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val id = lastUnfinishedRun(review)
-    move(polisherFinished(review, id, true, part), RefinerTurnEnded(id)),
+    moveOnLookup(polisherFinished(review, id, true, part, revisionLookup), RefinerTurnEnded(id), revisionLookup),
   }
 
   /// A polisher's turn ends without a change.
   action polisherPushesNothing: bool = all {
     unfinishedRunIs(review, Polisher),
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val id = lastUnfinishedRun(review)
-    move(polisherFinished(review, id, false, Body), RefinerTurnEnded(id)),
+    moveOnLookup(polisherFinished(review, id, false, Body, revisionLookup), RefinerTurnEnded(id), revisionLookup),
   }
 
   /// The agent runs the open segment again from its first entry that still has a say on the revision.
   action agentRequestsReview: bool = all {
     agentCanRoute(review),
     holdsARun(review),
-    canRequestReviewOn(review, heldRun(review)),
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val start = segmentStartOf(review.refinerRuns[heldRun(review)].refinerIndex)
-    move(startRefiner(review, smallest(unreviewedEntriesFrom(review, start), REFINER_COUNT)), NoTurnEnd),
+    all {
+      canRequestReviewOn(review, heldRun(review), revisionLookup),
+      moveOnLookup(
+        startRefiner(review, smallest(unreviewedEntriesFrom(review, start, revisionLookup), REFINER_COUNT)),
+        NoTurnEnd,
+        revisionLookup,
+      ),
+    },
   }
 
   /// The agent ends the open segment and hands the artifact on.
@@ -1181,24 +1275,29 @@ module reviewLoop {
     agentCanRoute(review),
     holdsARun(review),
     refinerOf(review.refinerRuns[heldRun(review)]) != Judge,
-    move(advancePastEntry(review, review.refinerRuns[heldRun(review)].refinerIndex), NoTurnEnd),
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
+    val index = review.refinerRuns[heldRun(review)].refinerIndex
+    moveOnLookup(advancePastEntry(review, index, revisionLookup), NoTurnEnd, revisionLookup),
   }
 
   /// The agent cancels the unfinished refiner run.
   action agentCancelsRefinerRun: bool = all {
     unfinishedRunIds(review).size() > 0,
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val id = lastUnfinishedRun(review)
     val cancelled = withStatus(review, id, Cancelled)
-    move(
-      if (refinerOf(review.refinerRuns[id]) == Polisher) polisherStopped(cancelled, id) else cancelled,
+    moveOnLookup(
+      if (refinerOf(review.refinerRuns[id]) == Polisher) polisherStopped(cancelled, id, revisionLookup) else cancelled,
       NoTurnEnd,
+      revisionLookup,
     ),
   }
 
   /// The sandbox of the unfinished refiner run dies.
   action refinerRunFails: bool = all {
     unfinishedRunIds(review).size() > 0,
-    move(refinerRunFailed(review, lastUnfinishedRun(review)), NoTurnEnd),
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
+    moveOnLookup(refinerRunFailed(review, lastUnfinishedRun(review), revisionLookup), NoTurnEnd, revisionLookup),
   }
 
   /// The unfinished refiner run hits a failure it may recover from. It restarts while it has
@@ -1206,12 +1305,17 @@ module reviewLoop {
   action refinerRunHitsARecoverableFailure: bool = all {
     unfinishedRunIds(review).size() > 0,
     nondet cause = RESTART_CAUSES.oneOf()
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val id = lastUnfinishedRun(review)
     val refinerRun = review.refinerRuns[id]
     moveWith(
       if (refinerRun.restarts < MAX_RESTARTS) withRun(review, id, { ...refinerRun, restarts: refinerRun.restarts + 1 })
-      else refinerRunFailed(review, id),
-      { ...quietStep(NoTurnEnd), recoverableFailure: RefinerRunHit({ refinerRun: id, cause: cause }) },
+      else refinerRunFailed(review, id, revisionLookup),
+      {
+        ...quietStep(NoTurnEnd),
+        recoverableFailure: RefinerRunHit({ refinerRun: id, cause: cause }),
+        revisionLookup: revisionLookup,
+      },
     ),
   }
 
@@ -1314,8 +1418,13 @@ module reviewLoop {
     instanceRestarts,
   }
 
-  pure def endedOnRevisionOtherThan(turnEnd: TurnEnd, delivered: int): bool =
-    match turnEnd { | AuthorTurnEnded(ended) => ended.revision != delivered | _ => false }
+  /// True when an author turn ended on a revision other than `delivered`. An unknown revision
+  /// counts as another one.
+  pure def endedOnRevisionOtherThan(turnEnd: TurnEnd, delivered: FiledRevision): bool =
+    match turnEnd {
+      | AuthorTurnEnded(ended) => ended.revision == UnknownRevision or ended.revision != delivered
+      | _ => false
+    }
 
   pure def startedOnAChangedRevision(before: ReviewLoop, turnEnd: TurnEnd): bool =
     match before.artifact.status {
@@ -1323,11 +1432,22 @@ module reviewLoop {
       | Ready(handed) => endedOnRevisionOtherThan(turnEnd, handed.deliveredRevision)
     }
 
-  pure def readByAnEarlierRun(loop: ReviewLoop, id: int): bool =
+  /// True when a run of the same entry before `id` filed a review of the revision the host gave
+  /// in the step.
+  pure def reviewedByAnEarlierRun(loop: ReviewLoop, id: int, lookup: RevisionLookup): bool =
+    lookup == RevisionKnown and runIds(loop).exists(earlier => and {
+      earlier < id,
+      loop.refinerRuns[earlier].refinerIndex == loop.refinerRuns[id].refinerIndex,
+      isReview(loop.refinerRuns[earlier].result),
+      filedOnRevision(loop.refinerRuns[earlier].result, hostRevision(loop, lookup)),
+    })
+
+  /// True when a run of the same entry before `id` filed a ruling.
+  pure def ruledByAnEarlierRun(loop: ReviewLoop, id: int): bool =
     runIds(loop).exists(earlier => and {
       earlier < id,
       loop.refinerRuns[earlier].refinerIndex == loop.refinerRuns[id].refinerIndex,
-      filedOnRevision(loop.refinerRuns[earlier].result, loop.artifact.revision),
+      isRuling(loop.refinerRuns[earlier].result),
     })
 
   /// The latest run of each findings entry whose segment ends before `index`, when that run filed
@@ -1399,15 +1519,21 @@ module reviewLoop {
         step.kind.turnEnd == RefinerTurnEnded(id),
       })
 
-  /// A refiner run starts on an artifact the humans have only when an author turn ended on a
-  /// revision they have not seen.
+  /// A refiner run starts on an artifact the humans hold only after an author turn ended on a
+  /// changed revision. An unknown revision counts as changed.
   pure def runsAgainOnlyOnAChangedRevision(step: Transition): bool =
     startedRuns(step).size() == 0 or startedOnAChangedRevision(step.before, step.kind.turnEnd)
 
-  /// A reviewer run starts only on a revision no earlier run of its entry filed on.
+  /// A findings reviewer starts a run only on a revision it has not filed a review on. An unknown
+  /// revision counts as one it has not reviewed. A judge entry that ruled does not start a run
+  /// again.
   pure def reviewsOnlyAnUnreviewedRevision(step: Transition): bool =
     startedRuns(step).forall(id =>
-      refinerOf(step.after.refinerRuns[id]) != Polisher implies not(readByAnEarlierRun(step.after, id)))
+      match refinerOf(step.after.refinerRuns[id]) {
+        | FindingsReviewer => not(reviewedByAnEarlierRun(step.after, id, step.kind.revisionLookup))
+        | Judge => not(ruledByAnEarlierRun(step.after, id))
+        | Polisher => true
+      })
 
   /// A refiner run that starts past a pull request review with findings finds them sent.
   pure def sendsEveryPullFinding(step: Transition): bool =
@@ -1689,6 +1815,17 @@ module reviewLoop {
     aRefinerRunStartsAfterAFailedOrCancelledOne:
       startedRuns(step).size() > 0 and step.before.refinerRuns.indices().exists(id =>
         step.before.refinerRuns[id].status == Failed or step.before.refinerRuns[id].status == Cancelled),
+    aReviewerRunsAgainOnAnUnknownRevision:
+      step.kind.revisionLookup == RevisionUnknown and startedRuns(step).exists(id => and {
+        refinerOf(step.after.refinerRuns[id]) == FindingsReviewer,
+        reviewedByAnEarlierRun(step.after, id, RevisionKnown),
+      }),
+    aRefinerRunStartsAfterAnUnknownRevision:
+      startedRuns(step).size() > 0 and step.kind.turnEnd == AuthorTurnEnded({ revision: UnknownRevision }) and
+        step.before.artifact.status == Ready({ deliveredRevision: ReadRevision(step.before.artifact.revision) }),
+    aRefinerRunStartsAfterAnUnknownHandover:
+      startedRuns(step).size() > 0 and step.kind.turnEnd != AuthorTurnEnded({ revision: UnknownRevision }) and
+        step.before.artifact.status == Ready({ deliveredRevision: UnknownRevision }),
   }
 
   /// An artifact has at most one unfinished refiner run, and the artifact is on it.
@@ -1716,12 +1853,13 @@ module reviewLoop {
   /// A refiner run ends `Done` only in the step its turn ended, or it was already done.
   val refinerRunIsDoneOnlyAfterItsTurnEnded: bool = lastStepKept.refinerRunIsDoneOnlyAfterItsTurnEnded
 
-  /// A refiner run starts on an artifact the humans have only when an author turn ended on a
-  /// revision they have not seen.
+  /// A refiner run starts on an artifact the humans hold only after an author turn ended on a
+  /// changed revision. An unknown revision counts as changed.
   val refinersRunAgainOnlyOnChangedRevision: bool = lastStepKept.refinersRunAgainOnlyOnChangedRevision
 
-  /// A reviewer run starts only on a revision that no earlier run of its entry filed a review or
-  /// ruling of. A host that cannot say the revision counts as a changed one.
+  /// A findings reviewer starts a run only on a revision it has not filed a review on. An unknown
+  /// revision counts as one it has not reviewed. A judge entry that ruled does not start a run
+  /// again.
   val reviewerRunsOnlyOnAnUnreviewedRevision: bool = lastStepKept.reviewerRunsOnlyOnAnUnreviewedRevision
 
   /// Every review a findings reviewer files on a pull request reaches its author as a prompt. A
@@ -1989,6 +2127,18 @@ module reviewLoop {
   /// Witness for `aFinishedRefinerRunKeepsItsStatus`: a refiner run starts after a failed or
   /// cancelled one.
   val aRefinerRunStartsAfterAFailedOrCancelledOne: bool = lastStepReached.aRefinerRunStartsAfterAFailedOrCancelledOne
+
+  /// Witness for `reviewerRunsOnlyOnAnUnreviewedRevision`: a findings reviewer runs again on a
+  /// revision it reviewed while the host cannot give the revision.
+  val aReviewerRunsAgainOnAnUnknownRevision: bool = lastStepReached.aReviewerRunsAgainOnAnUnknownRevision
+
+  /// Witness for `refinersRunAgainOnlyOnChangedRevision`: a refiner run starts on an artifact the
+  /// humans had after an author turn ended on an unknown revision.
+  val aRefinerRunStartsAfterAnUnknownRevision: bool = lastStepReached.aRefinerRunStartsAfterAnUnknownRevision
+
+  /// Witness for `refinersRunAgainOnlyOnChangedRevision`: a refiner run starts on an artifact the
+  /// humans got with an unknown revision.
+  val aRefinerRunStartsAfterAnUnknownHandover: bool = lastStepReached.aRefinerRunStartsAfterAnUnknownHandover
 
   /// A new instance took over the workflow.
   val theInstanceRestarted: bool = instanceRestartCount > 0
