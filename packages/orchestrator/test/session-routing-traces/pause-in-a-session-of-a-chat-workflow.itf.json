@@ -43,10 +43,11 @@
         "todoListIsFixedAfterFirstArtifact": true
       },
       "chatThread::sessionRouting::routing": {
+        "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "boards": { "#set": [] },
         "ended": false,
         "jobs": [],
-        "links": [{ "tag": "SubjectIssue", "value": { "#tup": [] } }],
+        "links": [],
         "replyTargets": { "#set": [{ "tag": "ChatThread", "value": { "#bigint": "0" } }] },
         "waiting": { "#set": [] },
         "waitsForInput": false
@@ -59,6 +60,7 @@
         "issue": { "tag": "None", "value": { "#tup": [] } },
         "outcome": { "tag": "None", "value": { "#tup": [] } },
         "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "subject": { "tag": "None", "value": { "#tup": [] } },
         "text": { "tag": "None", "value": { "#tup": [] } },
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
@@ -90,6 +92,56 @@
         "todoListIsFixedAfterFirstArtifact": true
       },
       "chatThread::sessionRouting::routing": {
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
+        "boards": { "#set": [] },
+        "ended": false,
+        "jobs": [],
+        "links": [{ "tag": "SubjectIssue", "value": { "#tup": [] } }],
+        "replyTargets": { "#set": [{ "tag": "ChatThread", "value": { "#bigint": "0" } }] },
+        "waiting": { "#set": [] },
+        "waitsForInput": false
+      },
+      "mbt::actionTaken": "agentNamesTheSubject",
+      "mbt::nondetPicks": {
+        "ending": { "tag": "None", "value": { "#tup": [] } },
+        "health": { "tag": "None", "value": { "#tup": [] } },
+        "id": { "tag": "None", "value": { "#tup": [] } },
+        "issue": { "tag": "None", "value": { "#tup": [] } },
+        "outcome": { "tag": "None", "value": { "#tup": [] } },
+        "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "subject": { "tag": "Some", "value": { "tag": "IssueSubject", "value": { "#tup": [] } } },
+        "text": { "tag": "None", "value": { "#tup": [] } },
+        "todos": { "tag": "None", "value": { "#tup": [] } },
+        "turnEnding": { "tag": "None", "value": { "#tup": [] } }
+      }
+    },
+    {
+      "#meta": { "index": 2 },
+      "chatThread::sessionRouting::lastStep": {
+        "answered": { "#set": [] },
+        "cancelled": { "#set": [] },
+        "feed": [],
+        "health": { "tag": "TrackerUp", "value": { "#tup": [] } },
+        "plans": [],
+        "posts": [],
+        "stoppedIn": { "#set": [] },
+        "turnEnded": { "#set": [] },
+        "woke": false,
+        "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
+      },
+      "chatThread::sessionRouting::lastStepKept": {
+        "aStopAnswersOnlyInTheFeed": true,
+        "chatWorkflowNeverSetsASessionPlan": true,
+        "feedActivityPostsOnce": true,
+        "linearOnlyAsksReachTheStartingSession": true,
+        "orchestratorStaysOutOfSessionsWhenChatExists": true,
+        "sessionFeedEndsWhenItsAuthorIdles": true,
+        "sessionMessageReachesItsRunningAuthorSilently": true,
+        "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "todoListIsFixedAfterFirstArtifact": true
+      },
+      "chatThread::sessionRouting::routing": {
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [{ "job": { "#bigint": "0" }, "thread": { "#bigint": "0" } }] },
         "ended": false,
         "jobs": [
@@ -126,13 +178,14 @@
         "issue": { "tag": "Some", "value": { "tag": "SubIssue", "value": { "#tup": [] } } },
         "outcome": { "tag": "None", "value": { "#tup": [] } },
         "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "subject": { "tag": "None", "value": { "#tup": [] } },
         "text": { "tag": "None", "value": { "#tup": [] } },
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
-      "#meta": { "index": 2 },
+      "#meta": { "index": 3 },
       "chatThread::sessionRouting::lastStep": {
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
@@ -157,6 +210,7 @@
         "todoListIsFixedAfterFirstArtifact": true
       },
       "chatThread::sessionRouting::routing": {
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [{ "job": { "#bigint": "0" }, "thread": { "#bigint": "0" } }] },
         "ended": false,
         "jobs": [
@@ -198,13 +252,14 @@
         "issue": { "tag": "Some", "value": { "tag": "SubIssue", "value": { "#tup": [] } } },
         "outcome": { "tag": "None", "value": { "#tup": [] } },
         "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "subject": { "tag": "None", "value": { "#tup": [] } },
         "text": { "tag": "None", "value": { "#tup": [] } },
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
-      "#meta": { "index": 3 },
+      "#meta": { "index": 4 },
       "chatThread::sessionRouting::lastStep": {
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
@@ -229,6 +284,7 @@
         "todoListIsFixedAfterFirstArtifact": true
       },
       "chatThread::sessionRouting::routing": {
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [{ "job": { "#bigint": "0" }, "thread": { "#bigint": "0" } }] },
         "ended": false,
         "jobs": [
@@ -270,13 +326,14 @@
         "issue": { "tag": "None", "value": { "#tup": [] } },
         "outcome": { "tag": "None", "value": { "#tup": [] } },
         "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "subject": { "tag": "None", "value": { "#tup": [] } },
         "text": { "tag": "None", "value": { "#tup": [] } },
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
-      "#meta": { "index": 4 },
+      "#meta": { "index": 5 },
       "chatThread::sessionRouting::lastStep": {
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
@@ -306,6 +363,7 @@
         "todoListIsFixedAfterFirstArtifact": true
       },
       "chatThread::sessionRouting::routing": {
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [{ "job": { "#bigint": "0" }, "thread": { "#bigint": "0" } }] },
         "ended": false,
         "jobs": [
@@ -347,13 +405,14 @@
         "issue": { "tag": "None", "value": { "#tup": [] } },
         "outcome": { "tag": "None", "value": { "#tup": [] } },
         "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "subject": { "tag": "None", "value": { "#tup": [] } },
         "text": { "tag": "None", "value": { "#tup": [] } },
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
-      "#meta": { "index": 5 },
+      "#meta": { "index": 6 },
       "chatThread::sessionRouting::lastStep": {
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
@@ -378,6 +437,7 @@
         "todoListIsFixedAfterFirstArtifact": true
       },
       "chatThread::sessionRouting::routing": {
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [{ "job": { "#bigint": "0" }, "thread": { "#bigint": "0" } }] },
         "ended": false,
         "jobs": [
@@ -419,13 +479,14 @@
         "issue": { "tag": "None", "value": { "#tup": [] } },
         "outcome": { "tag": "None", "value": { "#tup": [] } },
         "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "subject": { "tag": "None", "value": { "#tup": [] } },
         "text": { "tag": "None", "value": { "#tup": [] } },
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
-      "#meta": { "index": 6 },
+      "#meta": { "index": 7 },
       "chatThread::sessionRouting::lastStep": {
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
@@ -456,6 +517,7 @@
         "todoListIsFixedAfterFirstArtifact": true
       },
       "chatThread::sessionRouting::routing": {
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [{ "job": { "#bigint": "0" }, "thread": { "#bigint": "0" } }] },
         "ended": false,
         "jobs": [
@@ -497,13 +559,14 @@
         "issue": { "tag": "None", "value": { "#tup": [] } },
         "outcome": { "tag": "None", "value": { "#tup": [] } },
         "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "subject": { "tag": "None", "value": { "#tup": [] } },
         "text": { "tag": "None", "value": { "#tup": [] } },
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "Some", "value": { "tag": "Replies", "value": { "#tup": [] } } }
       }
     },
     {
-      "#meta": { "index": 7 },
+      "#meta": { "index": 8 },
       "chatThread::sessionRouting::lastStep": {
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
@@ -528,6 +591,7 @@
         "todoListIsFixedAfterFirstArtifact": true
       },
       "chatThread::sessionRouting::routing": {
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [{ "job": { "#bigint": "0" }, "thread": { "#bigint": "0" } }] },
         "ended": false,
         "jobs": [
@@ -569,13 +633,14 @@
         "issue": { "tag": "None", "value": { "#tup": [] } },
         "outcome": { "tag": "None", "value": { "#tup": [] } },
         "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "subject": { "tag": "None", "value": { "#tup": [] } },
         "text": { "tag": "None", "value": { "#tup": [] } },
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
-      "#meta": { "index": 8 },
+      "#meta": { "index": 9 },
       "chatThread::sessionRouting::lastStep": {
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
@@ -611,6 +676,7 @@
         "todoListIsFixedAfterFirstArtifact": true
       },
       "chatThread::sessionRouting::routing": {
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [{ "job": { "#bigint": "0" }, "thread": { "#bigint": "0" } }] },
         "ended": false,
         "jobs": [
@@ -652,6 +718,7 @@
         "issue": { "tag": "Some", "value": { "tag": "SubIssue", "value": { "#tup": [] } } },
         "outcome": { "tag": "None", "value": { "#tup": [] } },
         "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "subject": { "tag": "None", "value": { "#tup": [] } },
         "text": { "tag": "Some", "value": { "tag": "PauseCommand", "value": { "#tup": [] } } },
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }

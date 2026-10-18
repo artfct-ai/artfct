@@ -26,19 +26,19 @@
     "aFailedCheckNeverAsksThePersonAgain"
   ],
   "mainMinutes": {
-    "pagesWithAReviewer": 2.5,
-    "pagesWithAPolisher": 2.8,
-    "pagesWithoutRefiners": 3.7,
-    "pagesWithAChoice": 3.4,
-    "issuesForAChatRequest": 5.3,
-    "pagesAfterResearch": 7.7,
-    "pagesFromModelCalls": 3.1,
-    "modelCallPagesWithAReviewer": 3.1,
-    "modelCallPagesAfterResearch": 2.1,
-    "pullsTheHostMoves": 4.0,
-    "pullsForAnEndedSubject": 3.6,
-    "pullsForAnEndedSubIssue": 4.0,
-    "pullsForTwoIssues": 4.6
+    "pagesWithAReviewer": 1.7,
+    "pagesWithAPolisher": 1.7,
+    "pagesWithoutRefiners": 1.7,
+    "pagesWithAChoice": 1.6,
+    "issuesForAChatRequest": 1.8,
+    "pagesAfterResearch": 1.7,
+    "pagesFromModelCalls": 1.7,
+    "modelCallPagesWithAReviewer": 1.7,
+    "modelCallPagesAfterResearch": 1.7,
+    "pullsTheHostMoves": 1.7,
+    "pullsForAnEndedSubject": 1.7,
+    "pullsForAnEndedSubIssue": 1.7,
+    "pullsForTwoIssues": 1.7
   },
   "witnesses": {
     "pagesWithAReviewer": [

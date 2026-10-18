@@ -28,13 +28,13 @@
     "checksGoBackOncePerRevision"
   ],
   "mainMinutes": {
-    "judgeThenPolisher": 6.8,
-    "reviewerThenPolisher": 6.7,
-    "judgeBetweenReviewers": 6.2,
-    "modelCallAuthorWithTwoReviewers": 6.4,
-    "pageReviewerThenPolisher": 5.5,
-    "pageJudgeBetweenReviewers": 6.8,
-    "pausedModelCallAuthor": 4.6,
+    "judgeThenPolisher": 2.2,
+    "reviewerThenPolisher": 2.3,
+    "judgeBetweenReviewers": 2.2,
+    "modelCallAuthorWithTwoReviewers": 2.8,
+    "pageReviewerThenPolisher": 2.8,
+    "pageJudgeBetweenReviewers": 2.8,
+    "pausedModelCallAuthor": 2.4,
     "checksOnAPolishedPull": 2.2
   },
   "witnesses": {

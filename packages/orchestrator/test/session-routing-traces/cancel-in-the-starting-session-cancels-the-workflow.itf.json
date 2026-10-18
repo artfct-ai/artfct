@@ -27,6 +27,7 @@
         "issue": { "tag": "None", "value": { "#tup": [] } },
         "outcome": { "tag": "None", "value": { "#tup": [] } },
         "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "subject": { "tag": "None", "value": { "#tup": [] } },
         "text": { "tag": "None", "value": { "#tup": [] } },
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
@@ -55,6 +56,7 @@
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::routing": {
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [] },
         "ended": false,
         "jobs": [],
@@ -78,6 +80,7 @@
         "issue": { "tag": "Some", "value": { "tag": "SubIssue", "value": { "#tup": [] } } },
         "outcome": { "tag": "None", "value": { "#tup": [] } },
         "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "subject": { "tag": "None", "value": { "#tup": [] } },
         "text": { "tag": "None", "value": { "#tup": [] } },
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
@@ -106,6 +109,7 @@
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::routing": {
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [] },
         "ended": false,
         "jobs": [
@@ -146,6 +150,7 @@
         "issue": { "tag": "Some", "value": { "tag": "SubIssue", "value": { "#tup": [] } } },
         "outcome": { "tag": "None", "value": { "#tup": [] } },
         "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "subject": { "tag": "None", "value": { "#tup": [] } },
         "text": { "tag": "None", "value": { "#tup": [] } },
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
@@ -174,6 +179,7 @@
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::routing": {
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [] },
         "ended": false,
         "jobs": [
@@ -215,6 +221,7 @@
         "issue": { "tag": "None", "value": { "#tup": [] } },
         "outcome": { "tag": "None", "value": { "#tup": [] } },
         "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "subject": { "tag": "None", "value": { "#tup": [] } },
         "text": { "tag": "None", "value": { "#tup": [] } },
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
@@ -245,6 +252,7 @@
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::routing": {
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [] },
         "ended": false,
         "jobs": [
@@ -286,6 +294,7 @@
         "issue": { "tag": "None", "value": { "#tup": [] } },
         "outcome": { "tag": "None", "value": { "#tup": [] } },
         "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "subject": { "tag": "None", "value": { "#tup": [] } },
         "text": { "tag": "None", "value": { "#tup": [] } },
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
@@ -314,6 +323,7 @@
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::routing": {
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [] },
         "ended": false,
         "jobs": [
@@ -355,6 +365,7 @@
         "issue": { "tag": "None", "value": { "#tup": [] } },
         "outcome": { "tag": "None", "value": { "#tup": [] } },
         "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "subject": { "tag": "None", "value": { "#tup": [] } },
         "text": { "tag": "None", "value": { "#tup": [] } },
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
@@ -383,6 +394,7 @@
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::routing": {
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [] },
         "ended": false,
         "jobs": [
@@ -427,6 +439,7 @@
         "issue": { "tag": "Some", "value": { "tag": "SubjectIssue", "value": { "#tup": [] } } },
         "outcome": { "tag": "None", "value": { "#tup": [] } },
         "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "subject": { "tag": "None", "value": { "#tup": [] } },
         "text": { "tag": "None", "value": { "#tup": [] } },
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
@@ -455,6 +468,7 @@
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::routing": {
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [] },
         "ended": false,
         "jobs": [
@@ -496,6 +510,7 @@
         "issue": { "tag": "Some", "value": { "tag": "SubjectIssue", "value": { "#tup": [] } } },
         "outcome": { "tag": "None", "value": { "#tup": [] } },
         "streamed": { "tag": "None", "value": { "#tup": [] } },
+        "subject": { "tag": "None", "value": { "#tup": [] } },
         "text": { "tag": "Some", "value": { "tag": "CancelCommand", "value": { "#tup": [] } } },
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
@@ -545,6 +560,7 @@
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::routing": {
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [] },
         "ended": true,
         "jobs": [

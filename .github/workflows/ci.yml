@@ -38,9 +38,52 @@ jobs:
       - run: bun run check:affected
       - run: bun run smoke
 
+  spec_replays_affected:
+    name: spec replays
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - name: Replay the specs at their default count when the orchestrator, a package it depends on, or a spec changed, unless turbo has the result cached
+        run: bunx turbo run spec:replay --affected
+
+  spec_changes:
+    name: spec changes
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      specs: ${{ steps.specs.outputs.specs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - name: List the specs whose folders changed, or every spec when the spec scripts, the quint version, or this workflow changed
+        id: specs
+        shell: bash
+        run: |
+          changed=$(git diff --name-only HEAD^1 HEAD)
+          quint_version=$(git diff HEAD^1 HEAD -- bun.lock | grep -E '^[-+].*@informalsystems/quint' || true)
+          specs=""
+          for checks in spec/*/checks.json; do
+            spec=$(basename "$(dirname "$checks")")
+            if [ -n "$quint_version" ] || grep -qE "^(spec/$spec/|packages/orchestrator/scripts/spec/|\.github/workflows/ci\.yml$)" <<<"$changed"; then
+              specs="$specs $spec"
+            fi
+          done
+          echo "specs=${specs# }" | tee -a "$GITHUB_OUTPUT"
+
   quint:
     name: quint (shard ${{ matrix.shard }})
-    if: github.event_name == 'pull_request'
+    needs: spec_changes
+    if: needs.spec_changes.outputs.specs != ''
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -54,60 +97,20 @@ jobs:
     env:
       SHARD_INDEX: ${{ strategy.job-index }}
       SHARD_COUNT: ${{ strategy.job-total }}
+      SPECS: ${{ needs.spec_changes.outputs.specs }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 2
-      - name: Check whether the pull request changes the specs or the code they model
-        id: paths
-        run: |
-          changed=$(git diff --name-only HEAD^1 HEAD | grep -E '^(spec/|packages/orchestrator/(scripts/spec|src/workflow|src/agent|src/router|test)/|bun\.lock$|\.github/workflows/ci\.yml$)' || true)
-          echo "changed=$([ -n "$changed" ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
-      - if: steps.paths.outputs.changed == 'true'
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
         with:
           bun-version-file: package.json
-      - if: steps.paths.outputs.changed == 'true'
-        run: bun install --frozen-lockfile
-      - if: steps.paths.outputs.changed == 'true'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      - run: bun install --frozen-lockfile
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.quint
           key: quint-${{ runner.os }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
           restore-keys: quint-${{ runner.os }}-
-      - name: Typecheck, check the witnesses, and run every invariant on 10,000 samples for each setup of this shard
-        if: steps.paths.outputs.changed == 'true'
-        run: |
-          status=0
-          for entry in $(bun scripts/spec/check-spec.ts setups | jq -r --argjson index "$SHARD_INDEX" --argjson count "$SHARD_COUNT" 'to_entries[] | select(.key % $count == $index) | .value | "\(.spec)/\(.setup)"'); do
-            spec=${entry%/*}
-            setup=${entry#*/}
-            echo "::group::$setup of $spec"
-            if ! {
-              bunx quint typecheck "../../spec/$spec/$setup.qnt" &&
-                bun scripts/spec/check-spec.ts witnesses "$spec" "$setup" &&
-                bun scripts/spec/check-spec.ts simulate "$spec" "$setup" 10000
-            }; then
-              status=1
-              echo "::error::$setup of $spec failed. Its group in this step's log has the output."
-            fi
-            echo "::endgroup::"
-          done
-          exit "$status"
-      - if: ${{ !cancelled() && steps.paths.outputs.changed == 'true' }}
-        run: bun run template-config
-      - name: Replay this shard's share of the spec traces through the code at the default count
-        if: ${{ !cancelled() && steps.paths.outputs.changed == 'true' }}
-        run: |
-          status=0
-          for replay in $(bun scripts/spec/check-spec.ts setups | jq -r --argjson index "$SHARD_INDEX" --argjson count "$SHARD_COUNT" 'map(.replay) | unique | map(select(. != "")) | to_entries[] | select(.key % $count == $index) | .value'); do
-            if [[ "$replay" == *.test.medium.ts ]]; then
-              bunx vitest run "./$replay" || status=1
-            else
-              bun test "./$replay" || status=1
-            fi
-          done
-          exit "$status"
+      - name: Typecheck, check the witnesses, and run every invariant on 10,000 samples for each setup of the changed specs in this shard
+        run: bun scripts/spec/check-spec.ts shard "$SHARD_INDEX" "$SHARD_COUNT" 10000 $SPECS
 
   quint_spec:
     name: quint spec (shard ${{ matrix.shard }})
@@ -117,7 +120,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5]
+        shard: [1, 2, 3, 4, 5, 6]
     defaults:
       run:
         shell: bash
@@ -137,33 +140,30 @@ jobs:
           key: quint-${{ runner.os }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
           restore-keys: quint-${{ runner.os }}-
       - name: Typecheck, check the witnesses, and run every invariant on 100,000 samples for each setup of this shard
-        run: |
-          status=0
-          for entry in $(bun scripts/spec/check-spec.ts main-shard "$SHARD_INDEX" "$SHARD_COUNT" | jq -r '.[] | "\(.spec)/\(.setup)"'); do
-            spec=${entry%/*}
-            setup=${entry#*/}
-            echo "::group::$setup of $spec"
-            if ! {
-              bunx quint typecheck "../../spec/$spec/$setup.qnt" &&
-                bun scripts/spec/check-spec.ts witnesses "$spec" "$setup" &&
-                bun scripts/spec/check-spec.ts simulate "$spec" "$setup" 100000
-            }; then
-              status=1
-              echo "::error::$setup of $spec failed. Its group in this step's log has the output."
-            fi
-            echo "::endgroup::"
-          done
-          exit "$status"
+        run: bun scripts/spec/check-spec.ts shard "$SHARD_INDEX" "$SHARD_COUNT" 100000
 
   spec_replays:
-    name: spec replays
+    name: spec replays (${{ matrix.name }})
     needs: ci
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: workflow lifecycle
+            replays: workflow_lifecycle
+          - name: session routing
+            replays: session_routing
+          - name: the rest
+            replays: router_bindings review_loop harness_session agent_turns chat_acknowledgement feedback_routing
     defaults:
       run:
+        shell: bash
         working-directory: packages/orchestrator
+    env:
+      REPLAYS: ${{ matrix.replays }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -171,41 +171,16 @@ jobs:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
       - run: bun run template-config
-      - name: Seed the replays from the run id
-        id: seed
+      - name: Seed the replay from the run id
         run: echo "PROPERTY_SEED=$(( GITHUB_RUN_ID % 2147483648 ))" >> "$GITHUB_ENV"
-      - name: Replay the router bindings spec
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
+      - name: Replay the specs
         timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts router_bindings
-      - name: Replay the review loop spec
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts review_loop
-      - name: Replay the workflow lifecycle spec
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts workflow_lifecycle
-      - name: Replay the harness session spec
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts harness_session
-      - name: Replay the agent turns spec
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts agent_turns
-      - name: Replay the chat acknowledgement spec
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts chat_acknowledgement
-      - name: Replay the session routing spec
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts session_routing
-      - name: Replay the feedback routing spec
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 25
-        run: bun scripts/properties/e2e-property-test.ts feedback_routing
+        run: |
+          status=0
+          for replay in $REPLAYS; do
+            bun scripts/properties/e2e-property-test.ts "$replay" || status=1
+          done
+          exit "$status"
 
   e2e_property_test:
     name: e2e property based test (light)

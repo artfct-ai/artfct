@@ -1,5 +1,4 @@
-import type { Database } from "bun:sqlite";
-import { gt, max } from "drizzle-orm";
+import { gt, max, sql } from "drizzle-orm";
 import type {
   LanguageModelV4,
   LanguageModelV4CallOptions,
@@ -56,7 +55,7 @@ import {
 } from "./fake-runtime";
 import type { Observation, Step } from "./invariants";
 import { openMemoryDb, type MemoryDb } from "./memory-db";
-import { ACTION_WORK_BUDGET, exceededWorkBudget } from "./work-budget";
+import { WorkBudget } from "./work-budget";
 import { activityText, SessionTracker, type TrackerHealth } from "./session-tracker";
 import { testEnv } from "./test-env";
 import {
@@ -251,9 +250,6 @@ export type StepFacts = Partial<
   >
 >;
 
-/** The action that runs now, and the store statements counted when it began. */
-type RunningAction = { label: string; statementsAtStart: number };
-
 const PAGE_WRITES: readonly string[] = ["createPage", "updatePageContent", "renamePage"];
 
 /** One thing that happens to a workflow. It picks its target from the world and may do nothing. */
@@ -375,63 +371,43 @@ export class WorkflowWorld {
   private readonly modelPromptTexts = new Map<string, string[]>();
   private readonly queuedPromptTexts = new Map<string, string[]>();
   private whilePageModelAnswers: ((taskId: string) => Promise<void>) | null = null;
-  private statements = 0;
-  private runningAction: RunningAction | null = null;
   private readonly hungModelTurns = new Map<string, string | null>();
 
   /** The document host every page of the world lives on. */
   readonly pageHost: FakeDocuments;
-  private readonly db: MemoryDb;
+  private readonly lastOutboxRow;
+  private readonly outboxRowsAfterId;
+  /** Counts the store statements of each step, and stops a step past its budget. */
+  readonly workBudget: WorkBudget;
 
   private constructor(options: {
     workflow: FakeRuntime;
     db: MemoryDb;
+    workBudget: WorkBudget;
     setup: WorldSetup;
     tracker: SessionTracker;
     pageHost: FakeDocuments;
   }) {
     this.workflow = options.workflow;
-    this.db = options.db;
+    this.lastOutboxRow = options.db
+      .select({ id: max(outbox.id) })
+      .from(outbox)
+      .prepare();
+    this.outboxRowsAfterId = options.db
+      .select()
+      .from(outbox)
+      .where(gt(outbox.id, sql.placeholder("id")))
+      .orderBy(outbox.id)
+      .prepare();
     this.checksOnPush = options.setup.checksOnPush;
     this.tracker = options.tracker;
     this.pageHost = options.pageHost;
-    this.countStatementsOf(options.db.$client);
+    this.workBudget = options.workBudget;
     this.recordQueuedPrompts();
     if (options.setup.pageAuthor === "model") {
       this.answerPageModelWith("page");
       this.recordPromptsModelTurnsTake();
     }
-  }
-
-  /**
-   * Count every statement the store prepares. An action that runs past its work budget stops
-   * there, so a livelock fails with its sequence instead of hanging the run.
-   */
-  private countStatementsOf(database: Database): void {
-    const prepare = database.prepare.bind(database);
-    database.prepare = (sql: string) => {
-      this.statements += 1;
-      const running = this.runningAction;
-      const work = running ? this.statements - running.statementsAtStart : 0;
-      if (running && work > ACTION_WORK_BUDGET) exceededWorkBudget(running.label, work);
-      return prepare(sql);
-    };
-  }
-
-  /**
-   * Run one step of a sequence or a replay that drives the world, and fail it when it ran more
-   * store statements than the work budget. A step that another step's work overlapped is not
-   * measured, since its count holds that work too.
-   */
-  async withinWorkBudget<Result>(label: string, run: () => Promise<Result>): Promise<Result> {
-    const running = { label, statementsAtStart: this.statements };
-    this.runningAction = running;
-    const result = await run();
-    const work = this.statements - running.statementsAtStart;
-    if (this.runningAction !== running) return result;
-    this.runningAction = null;
-    if (work > ACTION_WORK_BUDGET) exceededWorkBudget(label, work);
-    return result;
   }
 
   /** Keep the text of every prompt queued for a task, also one a stop or a cancel clears later. */
@@ -469,7 +445,8 @@ export class WorkflowWorld {
    * workflow. The deployment holds a second workflow definition a plan may name.
    */
   static async open(setup: WorldSetup): Promise<WorkflowWorld> {
-    const db = openMemoryDb();
+    const workBudget = new WorkBudget();
+    const db = openMemoryDb(workBudget);
     const workflow = new FakeRuntime(db, { ...testEnv(), DB: sqliteD1() });
     const lists = REFINER_LISTS[setup.refiners];
     patchStageReviewers(workflow, lists.reviewers);
@@ -502,6 +479,7 @@ export class WorkflowWorld {
       return new WorkflowWorld({
         workflow,
         db,
+        workBudget,
         setup,
         tracker,
         pageHost: documents,
@@ -530,6 +508,7 @@ export class WorkflowWorld {
     const world = new WorkflowWorld({
       workflow,
       db,
+      workBudget,
       setup,
       tracker,
       pageHost: documents,
@@ -549,7 +528,7 @@ export class WorkflowWorld {
     const postedBefore = this.workflow.posted.length;
     this.delivered = null;
     this.landed = [];
-    const facts = await this.withinWorkBudget(String(action), async () => {
+    const facts = await this.workBudget.within(String(action), async () => {
       const ran = (await action.run(this)) ?? {};
       this.adoptNewAuthors();
       await this.dropClosedSockets();
@@ -572,7 +551,6 @@ export class WorkflowWorld {
       start: facts.start ?? null,
       finishedByAgent: facts.finishedByAgent ?? false,
       event: this.delivered,
-      sessionPosts: sessionPostsOf(rows),
       postedTypes: this.workflow.posted.slice(postedBefore).map((event) => event.type),
       feedPosts: feedPostsOf(rows),
       postedTexts: this.workflow.posted.slice(postedBefore).map(plainText),
@@ -873,11 +851,11 @@ export class WorkflowWorld {
     question?: string,
   ): void {
     const answering = decisionsAnswering(answers);
-    const settingAction = this.runningAction;
+    const settingAction = this.workBudget.runningStep();
     const landing =
       meanwhile &&
       (async () => {
-        if (this.runningAction !== settingAction) return;
+        if (this.workBudget.runningStep() !== settingAction) return;
         await this.land(meanwhile);
       });
     const decisions = landing
@@ -1290,17 +1268,14 @@ export class WorkflowWorld {
       .reduce((total, bridge) => total + bridge.promptsSent, 0);
   }
 
-  private lastOutboxId(): number {
-    return (
-      this.db
-        .select({ id: max(outbox.id) })
-        .from(outbox)
-        .get()?.id ?? 0
-    );
+  /** The id of the newest outbox row, or 0 while the outbox is empty. */
+  lastOutboxId(): number {
+    return this.lastOutboxRow.get()?.id ?? 0;
   }
 
-  private outboxRowsAfter(id: number): OutboxRow[] {
-    return this.db.select().from(outbox).where(gt(outbox.id, id)).orderBy(outbox.id).all();
+  /** The outbox rows written after the row with this id, oldest first. */
+  outboxRowsAfter(id: number): OutboxRow[] {
+    return this.outboxRowsAfterId.all({ id });
   }
 
   private observe(): Observation {
@@ -1311,11 +1286,10 @@ export class WorkflowWorld {
     const sent = this.bridges
       .filter((bridge) => authors.has(bridge.taskId))
       .reduce((total, bridge) => total + bridge.promptsSent, 0);
-    const { reply_targets: replyTargets, origin } = this.workflow.state;
+    const { reply_targets: replyTargets } = this.workflow.state;
     const sessions = replyTargets.filter(
       (target): target is TrackerSession => target.source === "tracker",
     );
-    const startingSession = origin?.source === "tracker" ? origin.session_id : null;
     const { stages, definition } = this.workflow.state;
     const declared = definition ? this.workflow.workflowDefinition().stages : [];
     const issueStages = declared
@@ -1333,8 +1307,6 @@ export class WorkflowWorld {
       })),
       workflowStatus: this.workflow.state.status,
       definition: this.workflow.state.definition,
-      chatThread: replyTargets.some((target) => target.source === "chat"),
-      startingSession,
       jobSessions: Object.fromEntries(
         jobs.map((job) => {
           const onIssue = sessions.find((session) => session.issue_id === job.issue_id);
@@ -1398,8 +1370,6 @@ function openingSubject(setup: WorldSetup): Subject | null {
   return null;
 }
 
-const NOT_SESSION_POSTS = ["issue_update", "attach_chat_thread", "delivery_error"];
-
 /** A person presses Stop in a tracker session. */
 export function stopEvent(
   session: TrackerSession,
@@ -1413,14 +1383,6 @@ export function stopEvent(
       { source: "tracker_session", external_id: session.session_id },
     ],
   };
-}
-
-function sessionPostsOf(rows: Array<{ channel: string; kind: string; target: unknown }>) {
-  return rows.flatMap((row) => {
-    if (row.channel !== "tracker" || NOT_SESSION_POSTS.includes(row.kind)) return [];
-    const target = row.target as { session_id?: string };
-    return target.session_id ? [{ session_id: target.session_id, kind: row.kind }] : [];
-  });
 }
 
 type OutboxRow = { channel: string; kind: string; target: unknown; payload: unknown };

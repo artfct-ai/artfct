@@ -8,62 +8,67 @@ export type PropertyFile = { title: string; path: string; runner: string[]; e2eR
 /** The outcome of one property file run, with everything it printed. */
 export type PropertyRun = { outcome: "passed" | "failed" | "timed_out"; output: string };
 
-/** The property test files the CI property and replay jobs and the nightly mutant run use. */
-export const PROPERTY_FILES = {
+/** The spec replay files, which the `spec:replay` task and the CI replay jobs run. */
+export const SPEC_REPLAY_FILES = {
   chat_acknowledgement: {
     title: "chat acknowledgement spec replay",
-    path: "src/router/chat-acknowledgement-replay.test.ts",
+    path: "./src/router/chat-acknowledgement.replay.ts",
     runner: ["bun", "test"],
     e2eRuns: 3000,
   },
+  router_bindings: {
+    title: "router bindings spec replay",
+    path: "./src/router/router-bindings.replay.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 3000,
+  },
+  review_loop: {
+    title: "review loop spec replay",
+    path: "./src/workflow/review-loop.replay.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 300,
+  },
+  workflow_lifecycle: {
+    title: "workflow lifecycle spec replay",
+    path: "./src/workflow/workflow-lifecycle.replay.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 1000,
+  },
+  harness_session: {
+    title: "harness session spec replay",
+    path: "./src/workflow/task/harness/harness-session.replay.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 3000,
+  },
+  agent_turns: {
+    title: "agent turns spec replay",
+    path: "./src/agent/turn/agent-turns.replay.medium.ts",
+    runner: ["bunx", "vitest", "run", "--config", "vitest.replay.config.ts"],
+    e2eRuns: 300,
+  },
+  session_routing: {
+    title: "session routing spec replay",
+    path: "./src/workflow/session-routing.replay.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 3000,
+  },
+  feedback_routing: {
+    title: "feedback routing spec replay",
+    path: "./src/workflow/refiner/feedback-routing.replay.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 3000,
+  },
+} satisfies Record<string, PropertyFile>;
+
+/** The property test files the CI property and replay jobs and the nightly mutant run use. */
+export const PROPERTY_FILES = {
   workflow: {
     title: "workflow properties",
     path: "src/workflow/invariants.test.ts",
     runner: ["bun", "test"],
     e2eRuns: 1250,
   },
-  router_bindings: {
-    title: "router bindings spec replay",
-    path: "src/router/router-bindings-replay.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 3000,
-  },
-  review_loop: {
-    title: "review loop spec replay",
-    path: "src/workflow/review-loop-replay.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 300,
-  },
-  workflow_lifecycle: {
-    title: "workflow lifecycle spec replay",
-    path: "src/workflow/workflow-lifecycle-replay.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 1000,
-  },
-  harness_session: {
-    title: "harness session spec replay",
-    path: "src/workflow/task/harness/harness-session-replay.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 3000,
-  },
-  agent_turns: {
-    title: "agent turns spec replay",
-    path: "src/agent/turn/agent-turns-replay.test.medium.ts",
-    runner: ["bunx", "vitest", "run"],
-    e2eRuns: 300,
-  },
-  session_routing: {
-    title: "session routing spec replay",
-    path: "src/workflow/session-routing-replay.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 3000,
-  },
-  feedback_routing: {
-    title: "feedback routing spec replay",
-    path: "src/workflow/refiner/feedback-routing-replay.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 3000,
-  },
+  ...SPEC_REPLAY_FILES,
 } satisfies Record<string, PropertyFile>;
 
 /** A property file run past this is a hang, reported with its seed. */
@@ -141,18 +146,17 @@ async function echoAndCollect(
 
 async function runPart(options: {
   file: PropertyFile;
-  seed: number;
+  vars: Record<string, string>;
   part: PropertyPart;
   prefix: string;
   children: Set<Subprocess>;
 }): Promise<{ exitCode: number; output: string }> {
-  const { file, seed, part, prefix, children } = options;
+  const { file, vars, part, prefix, children } = options;
   const child = Bun.spawn([...file.runner, file.path, ...part.args], {
     cwd: ORCHESTRATOR_DIR,
     env: {
       ...process.env,
-      PROPERTY_SEED: String(seed),
-      PROPERTY_RUNS: String(e2eRunCount(file)),
+      ...vars,
       NO_COLOR: "1",
     },
     stdout: "pipe",
@@ -168,11 +172,22 @@ async function runPart(options: {
   return { exitCode, output: stdout + stderr };
 }
 
+/** Runs one property file at its e2e run count on a seed, and echoes its output as it runs. */
+export function runPropertyFile(file: PropertyFile, seed: number): Promise<PropertyRun> {
+  return runPropertyParts(file, {
+    PROPERTY_SEED: String(seed),
+    PROPERTY_RUNS: String(e2eRunCount(file)),
+  });
+}
+
 /**
- * Runs one property file at its e2e run count on a seed, and echoes its output as it runs. A spec
- * replay runs each setup in its own process, as many at once as the machine has cores.
+ * Runs one property file with the property variables `vars`, and echoes its output as it runs. A
+ * spec replay runs each setup in its own process, as many at once as the machine has cores.
  */
-export async function runPropertyFile(file: PropertyFile, seed: number): Promise<PropertyRun> {
+export async function runPropertyParts(
+  file: PropertyFile,
+  vars: Record<string, string>,
+): Promise<PropertyRun> {
   const parts = propertyParts(file, replayedSetups(file));
   const children = new Set<Subprocess>();
   let timedOut = false;
@@ -188,7 +203,7 @@ export async function runPropertyFile(file: PropertyFile, seed: number): Promise
       if (timedOut) return;
       const [index, part] = next;
       const prefix = parts.length > 1 ? `[${part.label}] ` : "";
-      const run = await runPart({ file, seed, part, prefix, children });
+      const run = await runPart({ file, vars, part, prefix, children });
       outputs[index] = run.output;
       if (run.exitCode !== 0) failed = true;
     }
