@@ -940,6 +940,15 @@ export class ReviewLoopReplay {
         part: pickTag(step, "part"),
         decision: "AgentRoutes",
         failure: pickTag(step, "failure"),
+        flaw: null,
+      });
+    }
+    if (action === "aModelCallAnswerDoesNotValidate") {
+      return this.modelTurnEnds({
+        part: "Body",
+        decision: "AgentRoutes",
+        failure: null,
+        flaw: pickTag(step, "flaw"),
       });
     }
     if (this.pageModel && isAuthorTurnEnd(action)) {
@@ -947,6 +956,7 @@ export class ReviewLoopReplay {
         part: action === "authorTurnEndsOnANewRevision" ? pickTag(step, "part") : null,
         decision: step.decision,
         failure: null,
+        flaw: null,
       });
     }
     switch (action) {
@@ -1562,6 +1572,21 @@ export class ReviewLoopReplay {
     };
   }
 
+  /** Make the next read of the page text fail, and leave the reads after it as they were. */
+  private hostFailsTheNextRead(): () => void {
+    const host = this.host();
+    const read = host.readPageContent.bind(host);
+    let failed = false;
+    host.readPageContent = async (pageId) => {
+      if (failed) return read(pageId);
+      failed = true;
+      throw new Error("readPageContent: the host cannot be read");
+    };
+    return () => {
+      host.readPageContent = read;
+    };
+  }
+
   /** Make the page host apply a page text change and then fail the call. */
   private hostFailsAfterTheUpdate(): () => void {
     const host = this.host();
@@ -1606,13 +1631,15 @@ export class ReviewLoopReplay {
 
   /**
    * The model-call author's revise call answers with the page it read, with `part` rewritten when
-   * it changed the page, and one comment reply per comment its prompt carries, in spec order. The
-   * host takes its writes, or fails the one `failure` names.
+   * it changed the page, and one comment reply per comment its prompt carries, in spec order. A
+   * `flaw` skips the first reply or adds a reply to a comment the prompt does not carry. The host
+   * takes its writes, or fails the one `failure` names.
    */
   private async modelTurnEnds(turnEnd: {
     part: string | null;
     decision: ReviewAgainDecision | null;
     failure: string | null;
+    flaw: string | null;
   }): Promise<void> {
     const asked = this.pageModel?.heldUserText ?? null;
     const pageText = this.pageTextAtCall;
@@ -1623,10 +1650,11 @@ export class ReviewLoopReplay {
       throw new Error("the spec ended a model-call author's turn without a decision");
     const revised =
       turnEnd.part === null ? pageText : this.withPartRewritten(pageText, turnEnd.part);
-    const replies = this.specCommentIdsIn(asked).flatMap((specId) => [
-      replyMarker(this.comments[specId]!.hostId),
-      "Answered on the page.",
-    ]);
+    const carried = this.specCommentIdsIn(asked);
+    const answered = turnEnd.flaw === "SkipsAReply" ? carried.slice(1) : carried;
+    const repliedTo = answered.map((specId) => this.comments[specId]!.hostId);
+    if (turnEnd.flaw === "RepliesToAStrayComment") repliedTo.push(this.strayCommentHostId(carried));
+    const replies = repliedTo.flatMap((hostId) => [replyMarker(hostId), "Answered on the page."]);
     const gatewayBefore = this.world.workflow.gatewayInstance;
     this.world.workflow.gatewayInstance = reviewAgainGateway(turnEnd.decision);
     const restore = this.hostFailing(turnEnd.failure);
@@ -1640,10 +1668,21 @@ export class ReviewLoopReplay {
     this.world.workflow.gatewayInstance = gatewayBefore;
   }
 
+  /** A comment the prompt does not carry: one the author was not sent, when the page holds one. */
+  private strayCommentHostId(carried: number[]): string {
+    const before = this.trace[this.step - 1]?.review;
+    const unsent = (before?.personComments ?? []).findIndex(
+      (comment, specId) => !comment.sent && !carried.includes(specId),
+    );
+    return unsent === -1 ? "stray-comment" : this.comments[unsent]!.hostId;
+  }
+
   private hostFailing(failure: string | null): () => void {
     switch (failure) {
       case null:
         return () => undefined;
+      case "PageReadFails":
+        return this.hostFailsTheNextRead();
       case "RepliesFail":
         return this.failingHost("replyToComment", "the host refuses the reply");
       case "UpdateFails":

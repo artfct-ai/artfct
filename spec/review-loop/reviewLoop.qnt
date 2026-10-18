@@ -159,15 +159,21 @@ module reviewLoopTypes {
   /// Whether the host says that a new comment mentions the bot.
   type MentionLookup = TheHostSays | TheHostCannotSay
 
-  /// How the host fails a write of a model-call author's revise turn: its first comment reply, the
-  /// page text change before it lands, or the answer after the change landed.
-  type HostFailure = RepliesFail | UpdateFails | UpdateLandsThenFails
+  /// How the host fails a model-call author's revise turn: the read of the page after the model
+  /// call, its first comment reply, the page text change before it lands, or the answer after the
+  /// change landed.
+  type HostFailure = PageReadFails | RepliesFail | UpdateFails | UpdateLandsThenFails
 
-  /// Whether the host takes the writes of a model-call author's revise turn.
-  type PageWrite = WritesLand | WriteFails(HostFailure)
+  /// How the model's answer to a revise turn fails to validate: it skips the reply to a comment
+  /// the prompt carries, or it replies to a comment the prompt does not carry.
+  type AnswerFlaw = SkipsAReply | RepliesToAStrayComment
+
+  /// Whether the host takes the writes of a model-call author's revise turn, or the turn writes
+  /// nothing because the model's answer does not validate.
+  type PageWrite = WritesLand | WriteFails(HostFailure) | AnswerDoesNotValidate(AnswerFlaw)
 
   /// Why a model-call author's revise turn failed.
-  type TurnFailure = ReplyRefused | UpdateRefused | UpdateLandedThenFailed
+  type TurnFailure = PageReadRefused | AnswerInvalid | ReplyRefused | UpdateRefused | UpdateLandedThenFailed
 
   /// Who asked for the held comments to go to the author.
   type Asker = TheAgent | APersonsRevisionRequest | AMention
@@ -285,6 +291,9 @@ module reviewLoopTypes {
     aRejectionLandsOnThePage: bool,
     theHostFailsARejection: bool,
     theHostFailsAModelCallAuthor: bool,
+    theHostFailsTheReadAfterAModelCall: bool,
+    aModelCallAnswerSkipsAReply: bool,
+    aModelCallAnswerRepliesToAnUnsentComment: bool,
     aPersonEditsDuringAModelCallTurn: bool,
     aModelCallTurnStartsOver: bool,
     aRulingCallIsLostWithTheInstance: bool,
@@ -919,13 +928,22 @@ module reviewLoop {
     loop.author.turnComments.union(rewritten).filter(id => not(loop.personComments[id].gone))
   }
 
+  /// True when the model's answer to a revise turn does not validate.
+  pure def isAnswerFlaw(write: PageWrite): bool =
+    match write {
+      | AnswerDoesNotValidate(_) => true
+      | _ => false
+    }
+
   /// The turn runs again on the current page: it keeps its prompt and drops what it read.
   pure def startOver(loop: ReviewLoop): ModelCallTurnEnd =
     { loop: { ...loop, author: { ...loop.author, pageEditsDuringTurn: Set() } }, turnEnd: AuthorTurnStartsOver }
 
-  /// A model-call author's revise turn ends. When a person changed the page text while its model
-  /// call ran, it starts over on the current page without a write. Otherwise it posts its comment
-  /// replies and stops at the first the host does not take. Then it writes the page text change.
+  /// A model-call author's revise turn ends. It reads the page again, and fails when the host
+  /// cannot be read. When a person changed the page text while its model call ran, it starts over
+  /// on the current page without a write. It fails without a write when the answer does not
+  /// validate. Otherwise it posts its comment replies and stops at the first the host does not
+  /// take. Then it writes the page text change.
   pure def modelCallTurnEnds(
     loop: ReviewLoop,
     changed: bool,
@@ -936,7 +954,9 @@ module reviewLoop {
     val lookup = answers.lookup
     val replies = turnReplies(loop, changed, part)
     val replied = markAnswered(loop, replies)
-    if (pageTextEditedDuringTurn(loop)) startOver(loop)
+    if (write == WriteFails(PageReadFails)) turnFailed(loop, PageReadRefused, lookup)
+    else if (pageTextEditedDuringTurn(loop)) startOver(loop)
+    else if (isAnswerFlaw(write)) turnFailed(loop, AnswerInvalid, lookup)
     else if (write == WriteFails(RepliesFail) and replies.size() > 0) turnFailed(loop, ReplyRefused, lookup)
     else if (not(changed)) turnEnded(replied, answers.decision, lookup)
     else if (write == WriteFails(UpdateFails)) turnFailed(replied, UpdateRefused, lookup)
@@ -1337,13 +1357,28 @@ module reviewLoop {
     atWork(review),
     nondet part = REVISION_PARTS.oneOf()
     val failures =
-      if (turnReplies(review, true, part).size() > 0) Set(RepliesFail, UpdateFails, UpdateLandsThenFails)
-      else Set(UpdateFails, UpdateLandsThenFails)
+      if (turnReplies(review, true, part).size() > 0) Set(PageReadFails, RepliesFail, UpdateFails, UpdateLandsThenFails)
+      else Set(PageReadFails, UpdateFails, UpdateLandsThenFails)
     nondet failure = failures.oneOf()
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val answers = { write: WriteFails(failure), decision: AgentRoutes, lookup: revisionLookup }
     val ended = modelCallTurnEnds(review, true, part, answers)
     moveWith(ended.loop, { ...quietStep(ended.turnEnd), write: WriteFails(failure), revisionLookup: revisionLookup }),
+  }
+
+  /// The model call of a model-call author's turn answers, and its answer skips the reply to a
+  /// comment the prompt carries or replies to a comment the prompt does not carry.
+  action aModelCallAnswerDoesNotValidate: bool = all {
+    MODEL_CALL_AUTHOR,
+    atWork(review),
+    val flaws =
+      if (review.author.turnComments.size() > 0) Set(SkipsAReply, RepliesToAStrayComment)
+      else Set(RepliesToAStrayComment)
+    nondet flaw = flaws.oneOf()
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
+    val answers = { write: AnswerDoesNotValidate(flaw), decision: AgentRoutes, lookup: revisionLookup }
+    val ended = modelCallTurnEnds(review, true, Body, answers)
+    moveWith(ended.loop, { ...quietStep(ended.turnEnd), write: AnswerDoesNotValidate(flaw), revisionLookup: revisionLookup }),
   }
 
   /// A findings reviewer files a review with findings, and its turn ends.
@@ -1665,6 +1700,7 @@ module reviewLoop {
     authorTurnEndsOnANewRevision,
     authorTurnEndsOnTheSameRevision,
     theHostFailsAModelCallAuthorsWrite,
+    aModelCallAnswerDoesNotValidate,
     findingsReviewerLeavesFindings,
     findingsReviewerApproves,
     judgeTurnEnds,
@@ -1976,7 +2012,8 @@ module reviewLoop {
       | _ => true
     }
 
-  /// A model-call author's turn fails only in a step where the host did not take a write.
+  /// A model-call author's turn fails only in a step where the host did not take a write, or the
+  /// model's answer did not validate.
   pure def failsOnlyOnAHostError(step: Transition): bool =
     match step.kind.turnEnd {
       | AuthorTurnFailed(_) => step.kind.write != WritesLand
@@ -2181,6 +2218,14 @@ module reviewLoop {
     theHostFailsARejection: step.kind.page == RejectionPosted(HostFails),
     theHostFailsAModelCallAuthor:
       step.kind.turnEnd == AuthorTurnFailed(UpdateRefused) or step.kind.turnEnd == AuthorTurnFailed(UpdateLandedThenFailed),
+    theHostFailsTheReadAfterAModelCall: step.kind.turnEnd == AuthorTurnFailed(PageReadRefused),
+    aModelCallAnswerSkipsAReply:
+      step.kind.write == AnswerDoesNotValidate(SkipsAReply) and step.kind.turnEnd == AuthorTurnFailed(AnswerInvalid),
+    aModelCallAnswerRepliesToAnUnsentComment: and {
+      step.kind.write == AnswerDoesNotValidate(RepliesToAStrayComment),
+      step.kind.turnEnd == AuthorTurnFailed(AnswerInvalid),
+      personCommentIds(step.before).exists(id => not(step.before.personComments[id].sent)),
+    },
     aPersonEditsDuringAModelCallTurn:
       step.kind.page == APersonEditedThePage and step.after.author.pageEditsDuringTurn.size() > 0,
     aModelCallTurnStartsOver: step.kind.turnEnd == AuthorTurnStartsOver,
@@ -2354,9 +2399,9 @@ module reviewLoop {
       (review.personComments[id].acknowledged and not(review.personComments[id].mentions))
         implies review.personComments[id].sent)
 
-  /// A model-call author's revise turn fails only when the document host refuses or loses one of
-  /// its writes. An edit to the page by a person, a polisher, or an earlier revision does not
-  /// fail it.
+  /// A model-call author's revise turn fails only when the document host fails the read of the page
+  /// or refuses or loses one of its writes, or when the model's answer skips or adds a comment
+  /// reply. An edit to the page by a person, a polisher, or an earlier revision does not fail it.
   val aModelCallAuthorFailsOnlyOnAHostError: bool = lastStepKept.aModelCallAuthorFailsOnlyOnAHostError
 
   /// A done judge run that the artifact points at without a ruling has a ruling call out, or the
@@ -2568,6 +2613,18 @@ module reviewLoop {
 
   /// Witness for `aModelCallAuthorFailsOnlyOnAHostError`: the host fails a model-call author's write.
   val theHostFailsAModelCallAuthor: bool = lastStepReached.theHostFailsAModelCallAuthor
+
+  /// Witness for `aModelCallAuthorFailsOnlyOnAHostError`: the host fails the read of the page after
+  /// a model call.
+  val theHostFailsTheReadAfterAModelCall: bool = lastStepReached.theHostFailsTheReadAfterAModelCall
+
+  /// Witness for `failedReplyLeavesThePage`: the model's answer skips the reply to a comment its
+  /// prompt carries, and the turn fails without a write.
+  val aModelCallAnswerSkipsAReply: bool = lastStepReached.aModelCallAnswerSkipsAReply
+
+  /// Witness for `replyGoesOnlyToASentComment`: the model's answer replies to a comment the author
+  /// was not sent, and the turn fails without a reply.
+  val aModelCallAnswerRepliesToAnUnsentComment: bool = lastStepReached.aModelCallAnswerRepliesToAnUnsentComment
 
   /// Witness for `aModelCallAuthorFailsOnlyOnAHostError`: a person edits the page while a
   /// model-call author's turn runs.
