@@ -538,7 +538,7 @@ export class HarnessSessionReplay {
         Object.hasOwn(questions.choices, "outcome") ? this.holdOutcomeCheck() : null,
       ),
     });
-    await this.act(step);
+    await this.world.withinWorkBudget(step.action, () => this.act(step));
     this.readSentFrames();
   }
 

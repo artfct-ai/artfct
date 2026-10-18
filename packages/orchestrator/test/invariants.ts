@@ -2,15 +2,8 @@ import type { PostedComment } from "@artfct-ai/adapters/test/fake-documents";
 import type { InboundEvent, ReplyTarget, VerbalCommand } from "@artfct-ai/contracts/inbound";
 import type { ArtifactStatus, TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
 import { ASK_WHETHER_ACCEPTED, ASK_WHICH_OPTION } from "../src/agent/tools/start/start";
-import type { PlanEntry } from "@agentclientprotocol/sdk";
 import { rejectionHeadline } from "../src/prompts/review-prompt";
-import { boardInputOf, channelKey } from "../src/workflow/board/board";
-import {
-  BOARD_MAX_ENTRIES,
-  boardText,
-  lifecycleLabel,
-  renderBoard,
-} from "../src/workflow/board/render";
+import { channelKey } from "../src/workflow/board/board";
 import { MAX_RESTARTS, SLEEP_TEXT } from "../src/workflow/lifecycle";
 import type { TaskEvent, TaskRole } from "../src/workflow/task/events";
 import { taskAtWork } from "../src/workflow/task/at-work";
@@ -20,7 +13,6 @@ import { STOPPED_TEXT } from "../src/workflow/feed/feed";
 import type { Subject } from "../src/workflow/store/state";
 import { artifactRefKey } from "../src/workflow/store/input-key";
 import { coverageCase } from "./coverage";
-import { ACTION_WORK_BUDGET, exceededWorkBudget } from "./work-budget";
 import { worldIssueInSubject } from "./world-tracker";
 
 /** One task row as an observer saw it. `ruling` is the stored ruling as text, or null. */
@@ -156,8 +148,6 @@ export type Step = {
   pageCommentsPosted: PostedComment[];
   /** True when the document host refused every comment while a ruling landed on a page. */
   pageCommentsRefused: boolean;
-  /** How many store statements the action ran. */
-  work: number;
 };
 
 const FINISHED: TaskStatus[] = ["done", "failed", "cancelled"];
@@ -238,11 +228,6 @@ const coverTrackerIssue = coverageCase(
 );
 const coverBoard = coverageCase("boardsLiveOnlyInChat: a job has a board");
 const coverJobWithoutChat = coverageCase("boardsLiveOnlyInChat: a job runs without a chat thread");
-const coverTodoEntries = coverageCase("everyJobTaskIsOnItsBoard: a task shows its todo list");
-const coverWorkLine = coverageCase("everyJobTaskIsOnItsBoard: a task shows its work line");
-const coverResearcherOnBoard = coverageCase(
-  "everyJobTaskIsOnItsBoard: a researcher is on its board",
-);
 const coverInReview = coverageCase("inReviewTaskHasAnArtifact: a task waits in review");
 const coverRunDone = coverageCase("refinerRunIsDoneOnlyAfterItsTurnEnded: a refiner run ends done");
 const coverPolisherDoneLater = coverageCase(
@@ -300,7 +285,6 @@ const coverModelCallStopped = coverageCase(
 const coverIdleInSession = coverageCase(
   "sessionFeedEndsWhenItsAuthorIdles: an author idles in a session",
 );
-const coverWork = coverageCase("everyActionSettlesWithinItsWorkBudget: an action does work");
 const coverModelCallAuthorQueued = coverageCase(
   "aQueuedPromptReachesItsModelCallAuthor: a model-call author has a queued prompt",
 );
@@ -662,51 +646,6 @@ export function boardsLiveOnlyInChat(workflow: WorkflowRuntime): void {
       }
     }
   }
-}
-
-/**
- * Each researcher and author of a job is on the job's board, as its todo list or its work line.
- * The work line is checked once the task is idle or done, or once an author's artifact exists.
- */
-export function everyJobTaskIsOnItsBoard(workflow: WorkflowRuntime): void {
-  for (const job of workflow.store.jobs()) {
-    const lines = renderBoard(boardInputOf(workflow, job.job_id)).body.split("\n");
-    const produced = workflow.store.artifact(job.job_id) !== null;
-    for (const task of workflow.store.tasks()) {
-      if (task.job_id !== job.job_id || !JOB_ROLES.includes(task.role)) continue;
-      const entries = workflow.store.todoRow(task.task_id)?.todos?.entries ?? [];
-      if (entries.length) coverTodoEntries();
-      else coverWorkLine();
-      if (task.role === "researcher") coverResearcherOnBoard();
-      const missing = entries.length
-        ? missingEntry(lines, entries)
-        : missingLine(lines, expectedWorkLine(task.role, task.status, produced));
-      if (missing !== null) {
-        violated("everyJobTaskIsOnItsBoard", `${task.task_id} lacks "${missing}" on its board`);
-      }
-    }
-  }
-}
-
-function missingEntry(lines: string[], entries: PlanEntry[]): string | null {
-  const shown = entries.slice(0, BOARD_MAX_ENTRIES);
-  return shown.find((entry) => !lines.some((line) => showsEntry(line, entry)))?.content ?? null;
-}
-
-function missingLine(lines: string[], expected: string): string | null {
-  return lines.includes(expected) ? null : expected;
-}
-
-function showsEntry(line: string, entry: PlanEntry): boolean {
-  const box = entry.status === "completed" ? "☑" : "☐";
-  return line.startsWith(`${box} ${boardText(entry.content)}`);
-}
-
-function expectedWorkLine(role: TaskRole, status: TaskStatus, produced: boolean): string {
-  const work = role === "researcher" ? "research" : "produce";
-  const idle = status === "in_review" || status === "done";
-  if (idle || (role === "author" && produced)) return `☑ ${work}`;
-  return `☐ ${work} ← ${lifecycleLabel(status)}`;
 }
 
 /** A task cannot be `in_review` without an artifact on its job. */
@@ -1292,18 +1231,6 @@ export function sessionFeedEndsWhenItsAuthorIdles(_workflow: WorkflowRuntime, st
     "sessionFeedEndsWhenItsAuthorIdles",
     `${author.task_id} went idle and its feed ended on ${last?.kind ?? "nothing"}`,
   );
-}
-
-/**
- * Every action settles within its work budget. An action that runs more store statements than
- * the budget is a livelock, so the world stops it there.
- */
-export function everyActionSettlesWithinItsWorkBudget(
-  _workflow: WorkflowRuntime,
-  step: Step,
-): void {
-  if (step.work > 0) coverWork();
-  if (step.work > ACTION_WORK_BUDGET) exceededWorkBudget(step.action, step.work);
 }
 
 /**

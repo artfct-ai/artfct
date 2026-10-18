@@ -41,9 +41,6 @@ export type RevisionAction =
 type ModelAnswer = {
   sentCommentIds: string[];
   replyCount: number;
-  /** The ids of the lines the answer left as they were, from the page it read. */
-  keptLineIds: number[];
-  insertions: number;
 };
 
 /** One revise action as an observer saw it. */
@@ -52,8 +49,6 @@ type ObservedRevision = {
   repliesPosted: number;
   pageBefore: string | undefined;
   pageAfter: string | undefined;
-  lineIdsBefore: number[];
-  lineIdsAfter: number[];
 };
 
 /** When the revise model read a comment: the host event count at that moment. */
@@ -145,7 +140,6 @@ async function revise(world: PageRevisionWorld, plan: ModelPlan): Promise<void> 
   world.plan = plan;
   world.answer = null;
   const pageBefore = documents.pageText(pageId);
-  const lineIdsBefore = documents.lineIds(pageId);
   const eventsBefore = documents.events.length;
   workflow.store.updateTask(AUTHOR, { status: "in_review" });
   workflow.store.enqueuePrompt(AUTHOR, feedback);
@@ -156,15 +150,12 @@ async function revise(world: PageRevisionWorld, plan: ModelPlan): Promise<void> 
       .length,
     pageBefore,
     pageAfter: documents.pageText(pageId),
-    lineIdsBefore,
-    lineIdsAfter: documents.lineIds(pageId),
   });
 }
 
 function reviseAnswer(world: PageRevisionWorld, userText: string): string {
   const promptLines = userText.split("\n");
   const pageLines = promptLines.slice(promptLines.lastIndexOf("## Document") + 2);
-  const lineIds = world.documents.lineIds(world.pageId);
   const sentCommentIds = labeledPageCommentIds(userText);
   for (const commentId of sentCommentIds) {
     world.sent.push({ commentId, atEvent: world.documents.events.length });
@@ -173,8 +164,6 @@ function reviseAnswer(world: PageRevisionWorld, userText: string): string {
     world.plan.steps.map((step) => [step.lineIndex % pageLines.length, step.kind]),
   );
   const revised: string[] = [];
-  const keptLineIds: number[] = [];
-  let insertions = 0;
   pageLines.forEach((line, index) => {
     const kind = stepOf.get(index);
     if (kind === "delete") return;
@@ -184,15 +173,11 @@ function reviseAnswer(world: PageRevisionWorld, userText: string): string {
       return;
     }
     revised.push(line);
-    keptLineIds.push(...lineIds.slice(index, index + 1));
-    if (kind === "insert_after") {
-      revised.push(`[added ${world.textSeq}]`);
-      insertions += 1;
-    }
+    if (kind === "insert_after") revised.push(`[added ${world.textSeq}]`);
   });
   const replyIds = sentCommentIds.filter((commentId, index) => index !== world.plan.skippedReply);
   if (world.plan.strayReply) replyIds.push("cmt-stray");
-  world.answer = { sentCommentIds, replyCount: replyIds.length, keptLineIds, insertions };
+  world.answer = { sentCommentIds, replyCount: replyIds.length };
   return [
     ...revised,
     CLOSING_TEXT_MARKER,

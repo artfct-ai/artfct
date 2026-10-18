@@ -168,8 +168,6 @@
           }
         },
         "author": {
-          "atWork": true,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -179,6 +177,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "AtWork",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -364,8 +371,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -375,6 +380,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -573,6 +587,12 @@
           "status": {
             "tag": "Ready",
             "value": {
+              "close": {
+                "tag": "ClosedBlocked",
+                "value": {
+                  "#tup": []
+                }
+              },
               "deliveredRevision": {
                 "tag": "ReadRevision",
                 "value": {
@@ -583,8 +603,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -594,6 +612,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -792,6 +819,12 @@
           "status": {
             "tag": "Ready",
             "value": {
+              "close": {
+                "tag": "ClosedBlocked",
+                "value": {
+                  "#tup": []
+                }
+              },
               "deliveredRevision": {
                 "tag": "ReadRevision",
                 "value": {
@@ -802,8 +835,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -813,6 +844,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -1011,6 +1051,12 @@
           "status": {
             "tag": "Ready",
             "value": {
+              "close": {
+                "tag": "ClosedBlocked",
+                "value": {
+                  "#tup": []
+                }
+              },
               "deliveredRevision": {
                 "tag": "ReadRevision",
                 "value": {
@@ -1021,8 +1067,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -1032,6 +1076,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -1230,6 +1283,12 @@
           "status": {
             "tag": "Ready",
             "value": {
+              "close": {
+                "tag": "ClosedBlocked",
+                "value": {
+                  "#tup": []
+                }
+              },
               "deliveredRevision": {
                 "tag": "ReadRevision",
                 "value": {
@@ -1240,8 +1299,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -1251,6 +1308,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -1458,6 +1524,12 @@
           "status": {
             "tag": "Ready",
             "value": {
+              "close": {
+                "tag": "ClosedBlocked",
+                "value": {
+                  "#tup": []
+                }
+              },
               "deliveredRevision": {
                 "tag": "ReadRevision",
                 "value": {
@@ -1468,8 +1540,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -1479,6 +1549,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -1691,6 +1770,12 @@
           "status": {
             "tag": "Ready",
             "value": {
+              "close": {
+                "tag": "ClosedBlocked",
+                "value": {
+                  "#tup": []
+                }
+              },
               "deliveredRevision": {
                 "tag": "ReadRevision",
                 "value": {
@@ -1701,8 +1786,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -1712,6 +1795,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -1924,6 +2016,12 @@
           "status": {
             "tag": "Ready",
             "value": {
+              "close": {
+                "tag": "ClosedBlocked",
+                "value": {
+                  "#tup": []
+                }
+              },
               "deliveredRevision": {
                 "tag": "ReadRevision",
                 "value": {
@@ -1934,8 +2032,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -1945,6 +2041,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -2181,6 +2286,12 @@
           "status": {
             "tag": "Ready",
             "value": {
+              "close": {
+                "tag": "ClosedBlocked",
+                "value": {
+                  "#tup": []
+                }
+              },
               "deliveredRevision": {
                 "tag": "ReadRevision",
                 "value": {
@@ -2191,8 +2302,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -2202,6 +2311,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -2431,6 +2549,12 @@
           "status": {
             "tag": "Ready",
             "value": {
+              "close": {
+                "tag": "ClosedBlocked",
+                "value": {
+                  "#tup": []
+                }
+              },
               "deliveredRevision": {
                 "tag": "ReadRevision",
                 "value": {
@@ -2441,8 +2565,6 @@
           }
         },
         "author": {
-          "atWork": true,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -2452,6 +2574,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "AtWork",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -2686,8 +2817,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -2697,6 +2826,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -2964,8 +3102,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -2975,6 +3111,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -3240,8 +3385,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -3251,6 +3394,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -3516,8 +3668,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -3527,6 +3677,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -3792,8 +3951,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -3803,6 +3960,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -4091,8 +4257,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -4102,6 +4266,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -4384,8 +4557,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -4395,6 +4566,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -4684,8 +4864,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -4695,6 +4873,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -4987,8 +5174,6 @@
           }
         },
         "author": {
-          "atWork": true,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -4998,6 +5183,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "AtWork",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -5287,8 +5481,6 @@
           }
         },
         "author": {
-          "atWork": true,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -5298,6 +5490,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "AtWork",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -5607,8 +5808,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -5618,6 +5817,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -5924,8 +6132,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -5935,6 +6141,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -6264,6 +6479,12 @@
           "status": {
             "tag": "Ready",
             "value": {
+              "close": {
+                "tag": "ClosedBlocked",
+                "value": {
+                  "#tup": []
+                }
+              },
               "deliveredRevision": {
                 "tag": "ReadRevision",
                 "value": {
@@ -6274,8 +6495,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -6285,6 +6504,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -6614,6 +6842,12 @@
           "status": {
             "tag": "Ready",
             "value": {
+              "close": {
+                "tag": "ClosedBlocked",
+                "value": {
+                  "#tup": []
+                }
+              },
               "deliveredRevision": {
                 "tag": "ReadRevision",
                 "value": {
@@ -6624,8 +6858,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -6635,6 +6867,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []
@@ -6978,6 +7219,12 @@
           "status": {
             "tag": "Ready",
             "value": {
+              "close": {
+                "tag": "ClosedBlocked",
+                "value": {
+                  "#tup": []
+                }
+              },
               "deliveredRevision": {
                 "tag": "ReadRevision",
                 "value": {
@@ -6988,8 +7235,6 @@
           }
         },
         "author": {
-          "atWork": false,
-          "failed": false,
           "findingsFrom": {
             "#set": []
           },
@@ -6999,6 +7244,15 @@
           "queuedPrompts": [],
           "rejectedBy": {
             "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "InReview",
+            "value": {
+              "#tup": []
+            }
           },
           "turnComments": {
             "#set": []

@@ -54,6 +54,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | output artifact | The artifact a task produces. The refiners run on it, and the handover delivers it. | `artifacts` row | |
 | revision | The ID that the code host or document host gives the current content of an artifact: the head commit of a pull request or the revision of a page. It is unknown when the lookup fails, and always unknown for an issue. | `ReviewSupport.revision` | version |
 | handover | The artifact reaches the humans. A changed revision is handed over again. | `markArtifactReady`, `delivered_to_humans_at` | review loop closed |
+| blocked handover | A handover that says what stopped the agent review in place of the ready line: an ended author, a failed reviewer, a polisher that stopped, or a blocked checks gate. The humans get the artifact as it was left. | `ArtifactClose` `blocked` | |
 | follow-up | Work the author does on an artifact after its first handover, at the request of the humans or the host. It starts when a prompt reaches the idle author while the humans hold the artifact. | `startFollowUp`, `delivered_to_humans_at` | revision round |
 | feedback | Anything anyone posts on an artifact that the system must route. A review or a comment. | `Feedback` | |
 | review | What a person or an agent posts on an artifact as a whole: a summary, findings, and whether it blocks. | `Review`, `reviews` | verdict |

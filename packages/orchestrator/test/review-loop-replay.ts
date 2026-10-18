@@ -22,11 +22,17 @@ import { InterleavedDecisions, onFirstCallAsking } from "./interleaved-decisions
 import { toolText } from "./tool-result";
 import {
   agentCancels,
+  agentFailsWorkflow,
   agentPromptsAuthor,
   agentRoutes,
   agentStartsTask,
+  authorFails,
+  authorHitsARecoverableFailure,
+  authorPromptFails,
   authorTurnEnds,
+  authorTurnIsCancelled,
   firstArtifactAppears,
+  personCancels,
   personRules,
   refinerRunEnds,
   refinerRunFails,
@@ -124,11 +130,21 @@ export type SpecPersonComment = {
   answered: boolean;
 };
 
+const AUTHOR_STATUSES = ["AtWork", "InReview", "AuthorCancelled", "AuthorFailed"] as const;
+
+/** Where the author of the review stands, as the spec names it. */
+type SpecAuthorStatus = (typeof AUTHOR_STATUSES)[number];
+
+const ARTIFACT_CLOSES = ["ClosedReady", "ClosedBlocked"] as const;
+
+/** How the handover that gave the artifact to the humans closed, as the spec names it. */
+type SpecClose = (typeof ARTIFACT_CLOSES)[number];
+
 /** The review of one artifact as the spec sees it. */
 export type SpecReview = {
   author: {
-    atWork: boolean;
-    failed: boolean;
+    status: SpecAuthorStatus;
+    restarts: number;
     queuedPrompts: number[][];
     turnComments: number[];
     pageEditsDuringTurn: string[];
@@ -136,7 +152,9 @@ export type SpecReview = {
     findingsFrom: number[];
   };
   artifact: {
-    status: { status: "Drafted" } | { status: "Ready"; deliveredRevision: number | null };
+    status:
+      | { status: "Drafted" }
+      | { status: "Ready"; deliveredRevision: number | null; close: SpecClose };
     revision: number;
     refinerRun: number | null;
   };
@@ -201,8 +219,8 @@ function specReview(value: unknown): SpecReview {
   const refinerRun = itfVariant(itfField(artifact, "refinerRun"))!;
   return {
     author: {
-      atWork: itfBool(itfField(author, "atWork")),
-      failed: itfBool(itfField(author, "failed")),
+      status: itfOneOf(itfVariant(itfField(author, "status"))!.tag, AUTHOR_STATUSES),
+      restarts: itfInt(itfField(author, "restarts")),
       queuedPrompts: itfList(itfField(author, "queuedPrompts")).map(sortedInts),
       turnComments: sortedInts(itfField(author, "turnComments")),
       pageEditsDuringTurn: sortedTags(itfField(author, "pageEditsDuringTurn")),
@@ -215,6 +233,7 @@ function specReview(value: unknown): SpecReview {
           ? {
               status: "Ready",
               deliveredRevision: filedRevision(itfField(status.value, "deliveredRevision")),
+              close: itfOneOf(itfVariant(itfField(status.value, "close"))!.tag, ARTIFACT_CLOSES),
             }
           : { status: "Drafted" },
       revision: itfInt(itfField(artifact, "revision")),
@@ -502,7 +521,8 @@ type FailingHostMethod =
   | "acknowledgeComment"
   | "fetchComment"
   | "replyToComment"
-  | "updatePageContent";
+  | "updatePageContent"
+  | "page";
 
 /** Where a person leaves a comment, as the spec picks it. */
 type CommentPlace =
@@ -529,6 +549,18 @@ const COMMENT_HELD_AT_OPEN: ReplayComment = {
   onTheBlock: false,
   mentions: false,
   lineId: null,
+};
+
+/** What a replay of one author's trace is opened with. */
+type ReplayOptions = {
+  world: WorkflowWorld;
+  trace: TraceStep[];
+  seed: number;
+  author: WorldAuthor;
+  revisions: ArtifactRevisions;
+  pageModel: HeldPageModel | null;
+  modelTurn: OpenModelTurn | null;
+  worldReplays: ReviewLoopReplay[];
 };
 
 /**
@@ -558,17 +590,10 @@ export class ReviewLoopReplay {
   private callsSeen = 0;
   private readonly heardSteps: HeardInStep[] = [];
   private heardNow: HeardInStep | null = null;
+  private readonly readyLine: string;
 
-  private constructor(options: {
-    world: WorkflowWorld;
-    trace: TraceStep[];
-    seed: number;
-    author: WorldAuthor;
-    revisions: ArtifactRevisions;
-    pageModel: HeldPageModel | null;
-    modelTurn: OpenModelTurn | null;
-    worldReplays: ReviewLoopReplay[];
-  }) {
+  private constructor(options: ReplayOptions & { readyLine: string }) {
+    this.readyLine = options.readyLine;
     this.world = options.world;
     this.trace = options.trace;
     this.picks = fc.sample(fc.nat(), { seed: options.seed, numRuns: options.trace.length });
@@ -582,6 +607,16 @@ export class ReviewLoopReplay {
     this.comments = onPage ? [COMMENT_HELD_AT_OPEN] : [];
     this.pageLinesAtOpen = onPage ? this.pageText().split("\n") : [];
     this.noteModelCall();
+  }
+
+  /** A replay of an author whose artifact is open, with the line a healthy handover starts with. */
+  private static async create(options: ReplayOptions): Promise<ReviewLoopReplay> {
+    const artifact = options.world.artifactOf(options.author);
+    if (!artifact) throw new Error("the author has no artifact");
+    const ready = await options.world.workflow
+      .artifact(artifact.kind)
+      .readyMessage(artifact.external_url);
+    return new ReviewLoopReplay({ ...options, readyLine: ready.split("\n")[0] ?? ready });
   }
 
   /** A world on the refiner list of `setup` whose author opened its artifact, to replay `trace`. */
@@ -621,7 +656,7 @@ export class ReviewLoopReplay {
       throw new Error("the agent could not start a second job");
     await world.startSandboxOf(author.taskId);
     await world.apply(firstArtifactAppears(authorIndexOf(world, author), "host_event"));
-    return new ReviewLoopReplay({
+    return ReviewLoopReplay.create({
       world,
       trace,
       seed,
@@ -639,7 +674,7 @@ export class ReviewLoopReplay {
   ): Promise<ReviewLoopReplay> {
     const world = await WorkflowWorld.open({ ...WORLD_SETUP, refiners });
     await world.apply(firstArtifactAppears(0, "host_event"));
-    return new ReviewLoopReplay({
+    return ReviewLoopReplay.create({
       ...replayed,
       world,
       author: firstAuthorOf(world),
@@ -658,7 +693,7 @@ export class ReviewLoopReplay {
     await world.apply(firstArtifactAppears(0, "author_text"));
     const author = firstAuthorOf(world);
     const revisions = pageRevisionsOf(world, author);
-    return new ReviewLoopReplay({
+    return ReviewLoopReplay.create({
       ...replayed,
       world,
       author,
@@ -694,7 +729,7 @@ export class ReviewLoopReplay {
       await produceTurn?.work;
     });
     const revisions = pageRevisionsOf(world, author);
-    return new ReviewLoopReplay({
+    return ReviewLoopReplay.create({
       ...replayed,
       world,
       author,
@@ -794,8 +829,13 @@ export class ReviewLoopReplay {
     if (!("revisionLookup" in step.picks) || pickTag(step, "revisionLookup") === "RevisionKnown") {
       return body();
     }
-    if (this.revisions.kind !== "pull") throw new Error("only a pull request revision is unknown");
-    return this.world.whilePullRevisionsAreUnknown(body);
+    if (this.revisions.kind === "pull") return this.world.whilePullRevisionsAreUnknown(body);
+    const restore = this.failingHost("page", "the host cannot say the revision");
+    try {
+      await body();
+    } finally {
+      restore();
+    }
   }
 
   private async takeAction(step: TraceStep): Promise<void> {
@@ -876,8 +916,8 @@ export class ReviewLoopReplay {
       revision === null ? null : this.revisionCount(revision);
     return {
       author: {
-        atWork,
-        failed: author.status === "failed",
+        status: specAuthorStatusOf(author, atWork),
+        restarts: author.restarts,
         queuedPrompts: (this.pageModel && atWork ? queued.slice(1) : queued).map((row) =>
           this.specCommentIdsIn(row.text),
         ),
@@ -890,7 +930,11 @@ export class ReviewLoopReplay {
         status:
           artifact.status === "drafted"
             ? { status: "Drafted" }
-            : { status: "Ready", deliveredRevision: revisionCount(delivered) },
+            : {
+                status: "Ready",
+                deliveredRevision: revisionCount(delivered),
+                close: this.handoverClose(author.job_id),
+              },
         revision: this.revisionCount(this.hostRevision() ?? ""),
         refinerRun: pointer === -1 ? null : pointer,
       },
@@ -901,6 +945,15 @@ export class ReviewLoopReplay {
     };
   }
 
+  /** How the last handover of the job closed. A healthy one starts with the ready line of its kind. */
+  private handoverClose(jobId: string): SpecClose {
+    const handover = this.world.workflow.posted.findLast(
+      (event) => event.type === "artifact_ready" && event.job_id === jobId,
+    );
+    if (handover?.type !== "artifact_ready") throw new Error(`job ${jobId} was not handed over`);
+    return handover.text.startsWith(this.readyLine) ? "ClosedReady" : "ClosedBlocked";
+  }
+
   private worldActionFor(step: TraceStep): WorkflowAction {
     const { action } = step;
     const index = this.authorIndex();
@@ -909,6 +962,8 @@ export class ReviewLoopReplay {
       return findingsReviewerEnds(index, reviewer, pickTag(step, "commenting"));
     }
     if (isAuthorTurnEnd(action)) return this.harnessAuthorTurnEnds(step, index);
+    if (action === "authorEnds") return this.authorEnds(pickTag(step, "ending"), index);
+    if (action === "authorRestarts") return authorHitsARecoverableFailure(index);
     if (action === "refinerRunHitsARecoverableFailure") {
       return this.recoverableFailure(pickTag(step, "cause"), index);
     }
@@ -921,17 +976,70 @@ export class ReviewLoopReplay {
   }
 
   /**
-   * A harness author's turn ends with a closing the seeded pick rotates over. On a page, the
-   * author rewrites the part the spec picks on the host first.
+   * A harness author's turn ends in a way the seeded pick rotates over. On a page, the author
+   * rewrites the part the spec picks on the host first.
    */
   private harnessAuthorTurnEnds(step: TraceStep, index: number): WorkflowAction {
-    const promptQueued = this.world.workflow.store.peekPrompt(this.author.taskId) !== null;
-    const closing = this.pick(closingsAtTurnEnd(promptQueued));
     const changed = step.action === "authorTurnEndsOnANewRevision";
-    if (this.revisions.kind === "page" && changed) {
-      return this.afterPageEdit(pickTag(step, "part"), authorTurnEnds(index, "same", closing));
+    const onPage = this.revisions.kind === "page";
+    const revision = changed && !onPage ? "changed" : "same";
+    const ending = this.pick(this.authorTurnEndings(step, index, revision));
+    return onPage && changed ? this.afterPageEdit(pickTag(step, "part"), ending) : ending;
+  }
+
+  /**
+   * The ways code ends a harness author's turn that the spec ends the same way: a closing, a
+   * failed prompt, a cancelled turn, and a host that is down when the revision is unknown. A
+   * prompt that fails after a turn that stopped early is a stall, so it is left out then.
+   */
+  private authorTurnEndings(
+    step: TraceStep,
+    index: number,
+    revision: "changed" | "same",
+  ): WorkflowAction[] {
+    const { store } = this.world.workflow;
+    const promptQueued = store.peekPrompt(this.author.taskId) !== null;
+    const stoppedEarly = store.requireSandbox(this.author.taskId).stopped_early === 1;
+    const closings = closingsAtTurnEnd(promptQueued).map((closing) =>
+      authorTurnEnds(index, revision, closing),
+    );
+    const failedPrompts = stoppedEarly ? [] : [authorPromptFails(index, revision)];
+    const unknownPull =
+      this.revisions.kind === "pull" &&
+      "revisionLookup" in step.picks &&
+      pickTag(step, "revisionLookup") !== "RevisionKnown";
+    const hostDown = unknownPull ? [this.authorTurnEndsWhileTheHostIsDown(index, revision)] : [];
+    return [...closings, ...failedPrompts, authorTurnIsCancelled(index, revision), ...hostDown];
+  }
+
+  /** The author's turn ends while every call to the host fails, after it pushed when `revision` changed. */
+  private authorTurnEndsWhileTheHostIsDown(
+    index: number,
+    revision: "changed" | "same",
+  ): WorkflowAction {
+    const turnEnd = authorTurnEnds(index, "unreadable", "finished");
+    if (revision === "same") return turnEnd;
+    return {
+      toString: () => `the author pushes, then ${String(turnEnd)}`,
+      run: async (world) => {
+        world.changeRevision(this.author);
+        return turnEnd.run(world);
+      },
+    };
+  }
+
+  /** The world action that ends the author the way the spec's `ending` names. */
+  private authorEnds(ending: string, index: number): WorkflowAction {
+    switch (ending) {
+      case "TheAgentCancelsTheJob":
+        return agentCancels(index, "author");
+      case "TheAuthorFails":
+        return authorFails(index);
+      case "TheWorkflowEnds":
+        return this.pick([agentFailsWorkflow(), personCancels("control")]);
+      default:
+        throw new Error(`the trace has author ending ${ending}`);
     }
-    return authorTurnEnds(index, changed ? "changed" : "same", closing);
   }
 
   /** The world action that makes the refiner run hit the failure `cause` names. */
@@ -1695,6 +1803,19 @@ function specRunOf(
     result: specResultOf(run, revisionCount),
     restarts: run.restarts,
   };
+}
+
+function specAuthorStatusOf(author: TaskRow, atWork: boolean): SpecAuthorStatus {
+  if (author.status === "failed") return "AuthorFailed";
+  if (author.status === "cancelled") return "AuthorCancelled";
+  return atWork ? "AtWork" : "InReview";
+}
+
+/** True when a step of the trace ends the workflow, so no other author can share its world. */
+export function endsTheWorkflow(trace: TraceStep[]): boolean {
+  return trace.some(
+    (step) => step.action === "authorEnds" && pickTag(step, "ending") === "TheWorkflowEnds",
+  );
 }
 
 const SPEC_STATUSES: Record<TaskStatus, SpecRun["status"]> = {
