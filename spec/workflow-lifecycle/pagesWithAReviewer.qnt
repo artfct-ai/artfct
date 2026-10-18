@@ -2,5 +2,5 @@
 /// way here, so the replay runs a judge on these traces too.
 module pagesWithAReviewer {
   import workflowLifecycleTypes.* from "./workflowLifecycle"
-  import workflowLifecycle(REFINER = AReviewer, MODEL_AUTHOR = false, RESEARCH = false, SLOT_COUNTS = Set(2)).* from "./workflowLifecycle"
+  import workflowLifecycle(WORK = PagesForAChatRequest, REFINER = AReviewer, MODEL_AUTHOR = false, RESEARCH = false, SLOT_COUNTS = Set(2)).* from "./workflowLifecycle"
 }

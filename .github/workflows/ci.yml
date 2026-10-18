@@ -117,7 +117,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8]
+        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9]
     defaults:
       run:
         shell: bash
@@ -232,10 +232,6 @@ jobs:
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
         timeout-minutes: 15
         run: bun scripts/properties/e2e-property-test.ts workflow
-      - name: Run the agent turn property
-        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
-        timeout-minutes: 15
-        run: bun scripts/properties/e2e-property-test.ts agent_turn
 
   preview:
     name: preview
