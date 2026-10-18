@@ -1,3 +1,5 @@
+import type { PlanEntry } from "@agentclientprotocol/sdk";
+import type { TaskStatus } from "@artfct-ai/contracts/types";
 import { describe, expect, it } from "bun:test";
 import { acceptingD1 } from "../../../test/accepting-d1";
 import { EchoModel, ScriptedFailure } from "../../../test/fake-model";
@@ -13,7 +15,7 @@ import { testEnv } from "../../../test/test-env";
 import { startAuthorAfterResearch, startJob } from "../lifecycle";
 import { runModelAuthorTurn } from "../task/model-author";
 import { boardInputOf } from "./board";
-import { renderBoard } from "./render";
+import { BOARD_MAX_ENTRIES, renderBoard } from "./render";
 
 const JOB = "wf_x-1";
 
@@ -146,4 +148,91 @@ describe("the board of a job whose research hands over to a model-call author", 
         ]);
       }));
   });
+});
+
+const harnessResearching = scenario(runtimeWithD1, async (workflow) => {
+  patchStageResearch(workflow);
+  patchStageReviewers(workflow, []);
+  await startJob(workflow, {
+    stage: "implement",
+    brief: "Fix the login redirect.",
+    input: { kind: "request", text: "Fix the login redirect." },
+  });
+  workflow.store.updateTask(researcherOf(workflow).task_id, { status: "working" });
+});
+
+const harnessHandedOver = scenario(harnessResearching, async (workflow) => {
+  await startAuthorAfterResearch(workflow, researcherOf(workflow), "Findings.");
+});
+
+function withAuthorStatus(status: TaskStatus): Scenario<FakeRuntime> {
+  return scenario(harnessHandedOver, (workflow) => {
+    workflow.store.updateTask(authorOf(workflow).task_id, { status });
+  });
+}
+
+function recordPullRequest(workflow: FakeRuntime): void {
+  workflow.store.upsertArtifact({
+    job_id: JOB,
+    kind: "pull",
+    external_url: "https://github.com/acme/app/pull/1",
+    ref: { kind: "pull", repo: "acme/app", number: 1 },
+  });
+}
+
+function pendingTodos(count: number): PlanEntry[] {
+  return Array.from({ length: count }, (_, index) => ({
+    content: `Step ${index + 1}`,
+    priority: "medium" as const,
+    status: "pending" as const,
+  }));
+}
+
+describe("the board of a job whose research hands over to a harness author", () => {
+  it("shows a researcher without a todo list as its open work line", () =>
+    harnessResearching((workflow) => {
+      expect(checklistOf(workflow)).toEqual(["☐ research ← working"]);
+    }));
+
+  it("checks the research once the researcher is done", () =>
+    harnessHandedOver((workflow) => {
+      expect(checklistOf(workflow)).toEqual(["☑ research", "☐ produce ← starting"]);
+    }));
+
+  it("shows an author without an artifact as its open work line", () =>
+    withAuthorStatus("working")((workflow) => {
+      expect(checklistOf(workflow)).toEqual(["☑ research", "☐ produce ← working"]);
+    }));
+
+  it("checks the work line of an author with an artifact while it still works", () =>
+    withAuthorStatus("working")((workflow) => {
+      recordPullRequest(workflow);
+      expect(checklistOf(workflow).slice(0, 2)).toEqual(["☑ research", "☑ produce"]);
+    }));
+
+  it("checks the work line of an author idle in review", () =>
+    withAuthorStatus("in_review")((workflow) => {
+      recordPullRequest(workflow);
+      expect(checklistOf(workflow).slice(0, 2)).toEqual(["☑ research", "☑ produce"]);
+    }));
+
+  it("checks the work line of a done author without an artifact", () =>
+    withAuthorStatus("done")((workflow) => {
+      expect(checklistOf(workflow)).toEqual(["☑ research", "☑ produce"]);
+    }));
+
+  it("lists the head of each todo list up to the cap and counts the rest", () =>
+    withAuthorStatus("working")((workflow) => {
+      workflow.store.setTodos(researcherOf(workflow).task_id, { entries: RESEARCH_TODOS });
+      workflow.store.setTodos(authorOf(workflow).task_id, {
+        entries: pendingTodos(BOARD_MAX_ENTRIES + 2),
+      });
+      expect(checklistOf(workflow)).toEqual([
+        "☑ Read the request",
+        "☑ Map the login module",
+        "☐ Write the payload ← working",
+        ...pendingTodos(BOARD_MAX_ENTRIES).map((entry) => `☐ ${entry.content}`),
+        "+2 more",
+      ]);
+    }));
 });
