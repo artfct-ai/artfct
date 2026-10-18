@@ -153,7 +153,7 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | R5 | A findings reviewer entry runs at most `max_review_runs` times on one artifact. The limit adds the unreviewed revision note at handover. A stale segment restart does not count against the limit. | |
 | R6 | A judge rules at most once on an artifact, and its ruling never changes. Later runs skip judge entries that ruled. A ruling that lands while the decisions model or the host is asked stands, and the later one is dropped. An instance restart that loses the ruling call of the judge run the artifact waits on asks the decisions model again, unless the agent was already asked for a person's ruling. | `judgeRulesAtMostOnce`, `reviewLoop::aRestartDoesNotStrandAJudgeRun` |
 | R7 | The decisions model rules a judge conclusion. A missing conclusion, a failed call or a middle probability asks a person to rule. | |
-| R8 | A refiner run ends `done` only after its turn ended normally. A polisher waiting on the checks of its push ends later, only if it did not take a prompt since. | `refinerRunIsDoneOnlyAfterItsTurnEnded`, `tests::packages/orchestrator/src/workflow/refiner/polish.test.ts` |
+| R8 | A refiner run ends `done` only after its turn ended normally. A polisher waiting on the checks of its push ends later, only if it did not take a prompt since. | `refinerRunIsDoneOnlyAfterItsTurnEnded`, `reviewLoop::refinerRunIsDoneOnlyAfterItsTurnEnded`, `reviewLoop::aPolisherEndsDoneOnlyWhenItsChecksOpen`, `tests::packages/orchestrator/src/workflow/refiner/polish.test.ts` |
 | R9 | The review again decision reads a model-call author's closing text. An answer of yes reruns the segment from its first entry that did not review the revision, and an answer of no advances. A failed call asks the agent to route. | |
 | R10 | The agent routes a harness author's review with `request_review` or `finish_review`. The agent is told again on every settle until it routes. | |
 | R11 | A segment merges the latest reviews of its entries and sends the merged review to the author when it holds findings or blocks. A segment that ends with a judge sends it once the judge rules: with the rejection, or on its own after an approval. A clean or empty segment advances. | `reviewLoop::authorGetsEveryPullFinding` |
@@ -169,10 +169,11 @@ The workflow invariants live in `packages/orchestrator/test/invariants.ts`. The 
 | ID | Effect | Guarded by |
 |---|---|---|
 | R20 | The author does not take a prompt while a polisher runs. The first prompt of a session that opens meanwhile, such as after a restart, waits at the head of its queue until the polisher ends. | `reviewLoop::authorIsIdleWhileAPolisherRuns` |
-| R21 | The checks gate waits for checks on the pushed revision. Passed checks stand 60 seconds, unreported ones wait 5 minutes, and running ones wait up to 2 hours, then the gate blocks. Failed checks or a conflict go back to the pusher once per revision. | |
-| R22 | An unreadable revision opens the checks gate, so the refiners and the handover skip CI. | |
+| R21 | The checks gate waits for checks on the pushed revision. Passed checks stand 60 seconds, unreported ones wait 5 minutes, and running ones wait up to 2 hours, then the gate blocks. Failed checks or a conflict go back to the submitter once per revision. | `reviewLoop::aPolisherEndsDoneOnlyWhenItsChecksOpen`, `reviewLoop::checksGoBackOncePerRevision` |
+| R22 | An unreadable revision opens the checks gate, so the refiners and the handover skip CI. | `reviewLoop::aPolisherEndsDoneOnlyWhenItsChecksOpen` |
 | R23 | The `recheck` alarm ticks every 60 seconds while the gate waits and stops when it opens, blocks, or the workflow ends. | |
-| R24 | While the humans hold the artifact, failed checks or a conflict go to an idle author once per revision. A conflict with a finished author tells the agent. Failed checks with a finished author are dropped. | |
+| R24 | While the humans hold the artifact, failed checks or a conflict go to an idle author once per revision. A conflict with a finished author tells the agent. Failed checks with a finished author are dropped. | `reviewLoop::checksGoBackOncePerRevision` |
+
 | R25 | A follow-up starts when a prompt reaches an idle author while the humans hold the artifact. The board moves to the end of the thread. | |
 
 ### Writes to the artifact host

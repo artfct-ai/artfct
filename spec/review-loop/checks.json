@@ -22,7 +22,9 @@
     "aRefinerRunRestartsAtMostTwice",
     "aFinishedRefinerRunKeepsItsStatus",
     "anEndedAuthorEndsItsReview",
-    "aStoppedRefinerRunHandsOverBlocked"
+    "aStoppedRefinerRunHandsOverBlocked",
+    "aPolisherEndsDoneOnlyWhenItsChecksOpen",
+    "checksGoBackOncePerRevision"
   ],
   "mainMinutes": {
     "judgeThenPolisher": 3.9,
@@ -31,7 +33,8 @@
     "modelCallAuthorWithTwoReviewers": 5.1,
     "pageReviewerThenPolisher": 4.5,
     "pageJudgeBetweenReviewers": 3.0,
-    "pausedModelCallAuthor": 4.6
+    "pausedModelCallAuthor": 4.6,
+    "checksOnAPolishedPull": 2.2
   },
   "witnesses": {
     "judgeThenPolisher": [
@@ -227,6 +230,33 @@
       "anAuthorResumesWhileAPolisherRuns",
       "aPersonInstructsWhileAPolisherRuns",
       "heldCommentsQueueForAPausedAuthor"
+    ],
+    "checksOnAPolishedPull": [
+      "aRefinerRunIsUnfinished",
+      "aPromptWaitsWhileAPolisherRuns",
+      "aRefinerRunEndsDone",
+      "aRefinerRunStartsAfterAHandover",
+      "theHumansHaveTheArtifact",
+      "aRefinerRunRestarted",
+      "aRefinerRunFailsPastItsRestarts",
+      "aRefinerRunStartsAfterAFailedOrCancelledOne",
+      "aPolisherFinished",
+      "aRefinerRunStartsAfterAnUnknownRevision",
+      "aRefinerRunStartsAfterAnUnknownHandover",
+      "theAuthorEnded",
+      "anAuthorEndsWhileARefinerRunIsUnfinished",
+      "anAuthorEndsOnAReadyArtifact",
+      "anAuthorRestartsWhileAPolisherRuns",
+      "anAuthorFailsPastItsRestarts",
+      "aPolisherRunStopsOnADraftedArtifact",
+      "aPolisherWaitsOnChecks",
+      "aWaitingPolisherEndsDone",
+      "theChecksGateBlocksTheHandover",
+      "theGateBlocksARevisionItSentBack",
+      "checksGoBackToThePolisherAtItsTurnEnd",
+      "checksGoBackToAWaitingPolisher",
+      "checksGoBackToTheAuthor",
+      "anUnknownRevisionOpensTheGate"
     ]
   },
   "tlc": {
@@ -358,6 +388,26 @@
           "reviewCommentsPosted": 0,
           "personCommentsLeft": 2,
           "promptsQueued": 2
+        }
+      },
+      "checksOnAPolishedPull": {
+        "pr": {
+          "revisions": 2,
+          "refinerRunsStarted": 2,
+          "reviewCommentsPosted": 0,
+          "personCommentsLeft": 1,
+          "promptsQueued": 1,
+          "authorRestartCount": 0,
+          "checksReports": 2
+        },
+        "nightly": {
+          "revisions": 3,
+          "refinerRunsStarted": 3,
+          "reviewCommentsPosted": 0,
+          "personCommentsLeft": 1,
+          "promptsQueued": 2,
+          "authorRestartCount": 1,
+          "checksReports": 3
         }
       }
     }

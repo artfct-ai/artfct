@@ -27,7 +27,7 @@ export async function recheckChecks(workflow: WorkflowRuntime, alarm: ChecksAlar
 }
 
 /**
- * The host may say something new about a job's artifact. The task that pushed the revision
+ * The host may say something new about a job's artifact. The submitter of the revision
  * settles: a polisher that holds the artifact, else the author. A task at work settles when
  * its turn ends. The gate does not run while the humans hold the artifact or a reviewer reads
  * it, so the author hears of it as a follow-up.

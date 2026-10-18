@@ -133,9 +133,9 @@ export type ArtifactChecks =
 export interface ChecksSupport {
   /** What the host says about one revision. */
   read(ref: ArtifactRef, revision: string): Promise<ArtifactChecks>;
-  /** The prompt that sends a conflict with the base branch back to the task that pushed the revision. */
+  /** The prompt that sends a conflict with the base branch back to the submitter of the revision. */
   conflictPrompt(ref: ArtifactRef, base: string): string;
-  /** The prompt that sends failed checks back to the task that pushed the revision. */
+  /** The prompt that sends failed checks back to the submitter of the revision. */
   failurePrompt(ref: ArtifactRef, failures: CheckFailure[]): string;
 }
 

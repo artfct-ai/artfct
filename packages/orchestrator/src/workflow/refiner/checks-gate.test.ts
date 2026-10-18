@@ -65,6 +65,12 @@ function recheckAlarms(workflow: FakeRuntime) {
   return workflow.alarms.filter((alarm) => alarm.method === "recheckChecks");
 }
 
+async function answerTheSendBack(workflow: FakeRuntime): Promise<void> {
+  expect(await gateOf(workflow)).toEqual({ gate: "sent_back" });
+  for (const prompt of workflow.store.queue()) workflow.store.dequeuePrompt(prompt.id);
+  workflow.store.updateTask(TASK, { status: "working" });
+}
+
 describe("checksGate", () => {
   describe("checks that passed a while ago", () => {
     const passed = seeded({ state: "passed", settled_at: at(-CHECKS_QUIET_MS) });
@@ -120,7 +126,7 @@ describe("checksGate", () => {
         expect(recheckAlarms(workflow)).toEqual([]);
       }));
 
-    it("measures the grace period from the last work of the task that pushed", () =>
+    it("measures the grace period from the last work of the submitter", () =>
       silent(async (workflow) => {
         workflow.store.updateSandbox(TASK, { last_progress_at: at(-CHECKS_GRACE_MS) });
         expect(await gateOf(workflow)).toEqual({ gate: "open" });
@@ -162,7 +168,7 @@ describe("checksGate", () => {
   describe("failed checks", () => {
     const failed = seeded({ state: "failed", failures: [UNIT_FAILED] });
 
-    it("go back to the task that pushed the revision", () =>
+    it("go back to the submitter of the revision", () =>
       failed(async (workflow) => {
         expect(await gateOf(workflow)).toEqual({ gate: "sent_back" });
         expect(workflow.store.queue()).toMatchObject([
@@ -179,7 +185,7 @@ describe("checksGate", () => {
 
     it("block the artifact when the quiet task already answered them", () =>
       failed(async (workflow) => {
-        workflow.store.markEventSeen({ id: `checks_failed:${JOB}:${REVISION}`, kind: "ci_event" });
+        await answerTheSendBack(workflow);
         expect(await gateOf(workflow)).toEqual({
           gate: "blocked",
           reason: `The checks still fail after ${TASK} answered them: unit (failure).`,
@@ -190,7 +196,7 @@ describe("checksGate", () => {
   describe("a revision that conflicts with its base branch", () => {
     const conflicted = seeded(PASSED, false);
 
-    it("goes back to the task that pushed it, to merge the base branch in", () =>
+    it("goes back to its submitter, to merge the base branch in", () =>
       conflicted(async (workflow) => {
         expect(await gateOf(workflow)).toEqual({ gate: "sent_back" });
         expect(workflow.store.queue()).toMatchObject([
@@ -207,11 +213,23 @@ describe("checksGate", () => {
 
     it("blocks the artifact when the quiet task already answered it", () =>
       conflicted(async (workflow) => {
-        workflow.store.markEventSeen({ id: `conflicted:${JOB}:${REVISION}`, kind: "pr_event" });
+        await answerTheSendBack(workflow);
         expect(await gateOf(workflow)).toEqual({
           gate: "blocked",
           reason: `The artifact still conflicts with main after ${TASK} answered the conflict.`,
         });
+      }));
+
+    it("blocks without a second send-back when the failed checks of the revision went back", () =>
+      scenario(freshRuntime, (workflow) => {
+        workflow.clock = NOW;
+        workflow.codeHostInstance = hostWith({ state: "failed", failures: [UNIT_FAILED] });
+        seedQuietAuthor(workflow);
+      })(async (workflow) => {
+        await answerTheSendBack(workflow);
+        workflow.codeHostInstance = hostWith(PASSED, false);
+        expect(await gateOf(workflow)).toMatchObject({ gate: "blocked" });
+        expect(workflow.store.queue()).toEqual([]);
       }));
   });
 

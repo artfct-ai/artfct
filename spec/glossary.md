@@ -74,6 +74,9 @@ A code name is one type, table, column, or function. A code name that needs a co
 | judge | A reviewer that approves or rejects and posts nothing. It runs once on an artifact. | `JudgeEntry` | |
 | conclusion | The closing text of a judge run. | judge prompt | |
 | polisher | A refiner that changes the artifact in place. | `TaskRole "polisher"` | |
+| checks gate | The step that holds a pushed revision until its checks pass, wait, go back to the submitter, or block the handover. | `checksGate`, `ChecksGate` | |
+| submitter | The task whose push made the current revision. Failed checks or a conflict go back to it. | the `submitter` of `checksGate` | pusher |
+| checks send-back | The checks gate giving failed checks or a conflict back to the submitter, at most once per revision. | `claimChecksSendBack`, `sendFailedChecksBack`, `sendConflictBack` | |
 | gave up | A task or a refiner run whose closing text says it could not do its work: blocked, without access, stuck on an error, or out of time or budget. It restarts while it has restarts left, then fails. | `harnessGaveUp` | |
 | stopped early | An author turn that ended on its own with the work unfinished, and that does not wait on a person. The author counts as stalled at once. | `AuthorTurnOutcome "stopped_early"` | |
 | stalled | An author whose work is unfinished, that does not wait on a person, and that showed no progress for the no-progress limit, or whose turn stopped early. It gets a nudge in the same session. A second stall with no progress since the nudge restarts it in a fresh sandbox, and it fails once its restarts are used up. Progress is a tool call or a todo list change. Text alone is not progress. | `nudgeOrRestartStalledTask`, `sandboxes.nudged` | |
