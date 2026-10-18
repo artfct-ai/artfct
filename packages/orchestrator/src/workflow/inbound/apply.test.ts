@@ -96,10 +96,10 @@ describe("applyEvent", () => {
         expect(workflow.store.requireTask(TASK).paused_at).not.toBeNull();
       }));
 
-    it("notes the control word without a wake", () =>
+    it("notes the verbal command without a wake", () =>
       controlled(({ workflow }) => {
         expect(workflow.notes).toEqual([
-          { text: expect.stringContaining('Dev sent the control word "pause"'), wake: "none" },
+          { text: expect.stringContaining('Dev sent the verbal command "pause"'), wake: "none" },
         ]);
       }));
   });
@@ -151,7 +151,7 @@ describe("applyEvent", () => {
       }));
   });
 
-  describe("a leading control word with one task active", () => {
+  describe("a leading verbal command with one task active", () => {
     const paused = afterAppliedEvent(freshRuntime, { text: "@ao pause" }, seedTask);
 
     it("handles the event itself", () =>
@@ -165,7 +165,7 @@ describe("applyEvent", () => {
       }));
   });
 
-  describe("a control word with several tasks active", () => {
+  describe("a verbal command with several tasks active", () => {
     const ambiguous = afterAppliedEvent(freshRuntime, { text: "pause" }, (workflow) => {
       seedTask(workflow);
       seedTask(workflow, { task_id: "wf_x.2" });
@@ -519,7 +519,7 @@ describe("applyEvent", () => {
       }));
   });
 
-  describe("a control word in a job session whose author works", () => {
+  describe("a verbal command in a job session whose author works", () => {
     const forwarded = afterAppliedEvent(
       freshRuntime,
       { kind: "prompt", text: "cancel", reply_to: STARTING_SESSION },
@@ -745,7 +745,7 @@ describe("applyEvent", () => {
       }));
   });
 
-  describe("a control word that changes nothing, from a person who waits", () => {
+  describe("a verbal command that changes nothing, from a person who waits", () => {
     const controlled = afterAppliedEvent(freshRuntime, {
       kind: "control",
       control: "pause",

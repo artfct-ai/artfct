@@ -198,6 +198,10 @@ jobs:
         if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
         timeout-minutes: 25
         run: bun scripts/properties/e2e-property-test.ts agent_turns
+      - name: Replay the chat acknowledgement spec
+        if: ${{ !cancelled() && steps.seed.outcome == 'success' }}
+        timeout-minutes: 25
+        run: bun scripts/properties/e2e-property-test.ts chat_acknowledgement
 
   e2e_property_test:
     name: e2e property based test (light)

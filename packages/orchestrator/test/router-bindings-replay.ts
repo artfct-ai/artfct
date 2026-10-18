@@ -8,7 +8,7 @@ import type { ArtifactTarget } from "../src/artifact/types";
 import type { Env } from "../src/env";
 import { deliver } from "../src/router/deliver";
 import { recordArtifact } from "../src/workflow/artifact";
-import { applyControlWord } from "../src/workflow/inbound/controls";
+import { applyVerbalCommand } from "../src/workflow/inbound/controls";
 import { eventRefusalOf } from "../src/workflow/inbound/events";
 import { completeWorkflow, failWorkflow, type JobInput } from "../src/workflow/lifecycle";
 import { isWorkflowFinished } from "../src/workflow/store/state";
@@ -620,7 +620,7 @@ export class RouterBindingsReplay {
           links: [],
           text: "",
         };
-        await applyControlWord(runtime, cancel);
+        await applyVerbalCommand(runtime, cancel);
         return;
       }
       default: {
