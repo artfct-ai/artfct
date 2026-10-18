@@ -7,8 +7,13 @@
 /// starts or restarts is in its turn when the next step begins. Prompt text, model output and the
 /// order of the reply targets are left out.
 module sessionRoutingTypes {
-  /// The subject issue of the workflow, and one of its sub-issues.
+  /// The subject issue of the workflow, and one of its sub-issues. Under a project subject, the
+  /// project holds both.
   type Issue = SubjectIssue | SubIssue
+
+  /// The subject of the workflow: none yet, the subject issue, or the tracker project. A tracker
+  /// origin sets the subject issue. A chat workflow's plan names one later.
+  type Subject = NoSubject | IssueSubject | ProjectSubject
 
   /// A reply target: a chat thread by number, or the tracker session on one issue. Thread 0 is
   /// the chat thread a chat workflow started from. Thread 1 joins later. Without a chat origin,
@@ -107,6 +112,7 @@ module sessionRoutingTypes {
   /// the chat thread, in the order they went out. `waitsForInput` holds while the workflow sleeps
   /// on a question to the humans.
   type Routing = {
+    subject: Subject,
     replyTargets: Set[Target],
     jobs: List[Job],
     waiting: Set[Target],
@@ -210,12 +216,13 @@ module sessionRouting {
 
   pure val ORIGIN: Target = if (STARTS_IN_CHAT) ChatThread(0) else STARTING_SESSION
 
-  /// A chat workflow's plan names the subject issue, which links it to the chat thread.
+  /// A tracker origin sets the subject issue. A chat workflow starts without a subject.
   pure val INITIAL_ROUTING: Routing = {
+    subject: if (STARTS_IN_CHAT) NoSubject else IssueSubject,
     replyTargets: Set(ORIGIN),
     jobs: List(),
     waiting: Set(),
-    links: if (STARTS_IN_CHAT) List(SubjectIssue) else List(),
+    links: List(),
     boards: Set(),
     waitsForInput: false,
     ended: false,
@@ -279,6 +286,10 @@ module sessionRouting {
 
   pure def post(state: Routing, kind: PostKind, answering: Set[Target]): Post =
     { kind: kind, targets: audienceTargets(state, kind, answering) }
+
+  /// True for the issue that is the subject itself, not one under a project subject.
+  pure def isSubjectItself(state: Routing, issue: Issue): bool =
+    state.subject == IssueSubject and issue == SubjectIssue
 
   pure def linksOf(state: Routing, issue: Issue): int =
     state.links.foldl(0, (count, linked) => if (linked == issue) count + 1 else count)
@@ -646,13 +657,13 @@ module sessionRouting {
     else wakeTheAgent(state, issue, wrote)
   }
 
-  /// "cancel" in a session without a running author. On the sub-issue it cancels the last job
-  /// there, unless that job is over, when the agent answers. Anywhere else it cancels the
-  /// workflow. The reply answers the person.
+  /// "cancel" in a session without a running author. On an issue that is not the subject itself,
+  /// it cancels the last job there, unless that job is over, when the agent answers. Anywhere else
+  /// it cancels the workflow. The reply answers the person.
   pure def verbalCancelIn(state: Routing, issue: Issue, wrote: Wrote): StepResult = {
     val owner = lastJobOn(state, issue)
     val reply = List(post(state, InfoPost, Set(Session(issue))))
-    if (owner.size() > 0 and issue != SubjectIssue) {
+    if (owner.size() > 0 and not(isSubjectItself(state, issue))) {
       if (owner.exists(id => isUnfinished(state.jobs[id]))) {
         val cancelled = owner.fold({ state: state, feed: List() }, (sofar, id) => {
           val one = cancelJob(sofar.state, id)
@@ -718,12 +729,12 @@ module sessionRouting {
     }
   }
 
-  /// The agent starts a job on an issue of the subject. A job already on the issue, or an earlier
-  /// one whose artifact the host holds, refuses it. A chat workflow links the issue to its chat
-  /// thread the first time a job works on it, unless the issue is the subject, which the plan
-  /// linked. The new job's board goes to every chat thread, and the workflow runs. A researcher
-  /// starts first when the stage researches. A model-call author produces its page in the step,
-  /// hands it over, and ends its feed on "Done.".
+  /// The agent starts a job on an issue of the subject. A workflow without a subject, a job
+  /// already on the issue, or an earlier one whose artifact the host holds, refuses it. A chat
+  /// workflow links the issue to its chat thread the first time a job works on it, unless the
+  /// issue is the subject itself, which the plan linked. The new job's board goes to every chat
+  /// thread, and the workflow runs. A researcher starts first when the stage researches. A
+  /// model-call author produces its page in the step, hands it over, and ends its feed on "Done.".
   action agentStartsJob: bool = {
     nondet issue = ISSUES.oneOf()
     val onIssue = jobsOn(routing, issue)
@@ -746,7 +757,7 @@ module sessionRouting {
     }
     val started = { ...routing, jobs: routing.jobs.append(job), waitsForInput: false }
     val linked =
-      if (STARTS_IN_CHAT and onIssue.size() == 0 and issue != SubjectIssue)
+      if (STARTS_IN_CHAT and onIssue.size() == 0 and not(isSubjectItself(routing, issue)))
         { ...started, links: started.links.append(issue) }
       else started
     val facts =
@@ -759,9 +770,22 @@ module sessionRouting {
       else NO_FACTS
     all {
       not(routing.ended),
+      routing.subject != NoSubject,
       routing.jobs.length() < MAX_JOBS,
       onIssue.forall(other => not(isUnfinished(routing.jobs[other])) and not(routing.jobs[other].handedOver)),
       move(flushBoard(linked, id), facts),
+    }
+  }
+
+  /// The agent's plan names the subject of a chat workflow: the subject issue, which it links to
+  /// the chat thread, or the tracker project. The workflow runs.
+  action agentNamesTheSubject: bool = {
+    nondet subject = Set(IssueSubject, ProjectSubject).oneOf()
+    val named = { ...routing, subject: subject, waitsForInput: false }
+    all {
+      not(routing.ended),
+      routing.subject == NoSubject,
+      move(if (subject == IssueSubject) { ...named, links: named.links.append(SubjectIssue) } else named, NO_FACTS),
     }
   }
 
@@ -1013,6 +1037,7 @@ module sessionRouting {
     personWritesInSession,
     agentTurnEnds,
     agentStartsJob,
+    agentNamesTheSubject,
     trackerOpensSession,
     chatThreadJoins,
     authorStreams,
@@ -1074,10 +1099,11 @@ module sessionRouting {
   val researchReadsCompleteOnceTheAuthorStarts: bool =
     routing.jobs.foldl(true, (complete, job) => complete and (hasAuthor(job) implies not(isOpen(job.researcherTodos))))
 
-  /// A chat workflow links each issue it works on, and its subject issue, to the chat thread once.
-  /// A tracker workflow does not link any.
+  /// In a workflow that started from a chat thread, an issue subject and every issue a job works on
+  /// get exactly one link request to that thread. A workflow that started in the tracker sends
+  /// none.
   val eachIssueLinksTheChatThreadOnce: bool = ISSUES.forall(issue => {
-    val worked = issue == SubjectIssue or jobsOn(routing, issue).size() > 0
+    val worked = isSubjectItself(routing, issue) or jobsOn(routing, issue).size() > 0
     linksOf(routing, issue) == (if (STARTS_IN_CHAT and worked) 1 else 0)
   })
 
@@ -1149,6 +1175,9 @@ module sessionRouting {
 
   /// Witness for `eachIssueLinksTheChatThreadOnce`: a job works on the sub-issue in a chat workflow.
   val aSubIssueGetsItsLink: bool = linksOf(routing, SubIssue) > 0
+
+  /// Witness for `eachIssueLinksTheChatThreadOnce`: a job works on the subject issue under a project subject, which links it.
+  val aProjectIssueGetsItsLink: bool = routing.subject == ProjectSubject and linksOf(routing, SubjectIssue) > 0
 
   /// Witness for `eachIssueLinksTheChatThreadOnce`: a second job started on an issue.
   val aJobStartsAgainOnItsIssue: bool = ISSUES.exists(issue => jobsOn(routing, issue).size() > 1)
@@ -1233,6 +1262,10 @@ module sessionRouting {
 
   /// Witness for `sessionMessageWithoutAnAuthorIsAnswered`: "cancel" in a session cancels a job and answers the person.
   val aVerbalCancelCancelsAJob: bool = wroteText(lastStep, CancelCommand) and lastStep.posts.length() > 0 and not(routing.ended)
+
+  /// Witness for `sessionMessageWithoutAnAuthorIsAnswered`: "cancel" in the session on the subject issue under a project subject leaves the workflow running.
+  val aVerbalCancelKeepsAProjectWorkflow: bool =
+    wroteText(lastStep, CancelCommand) and wroteIn(lastStep).contains(SubjectIssue) and routing.subject == ProjectSubject and not(routing.ended)
 
   /// Witness for `sessionMessageWithoutAnAuthorIsAnswered`: "cancel" in a session cancels the workflow and answers the person.
   val aVerbalCancelCancelsTheWorkflow: bool =
