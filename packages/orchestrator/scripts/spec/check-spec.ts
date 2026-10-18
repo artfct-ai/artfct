@@ -202,7 +202,6 @@ async function checkModel(spec: string, setup: string, depth: TlcDepth): Promise
         "tlc2.TLC",
         "-workers",
         "auto",
-        "-deadlock",
         "-cleanup",
         "-metadir",
         join(work, "states"),
@@ -214,7 +213,7 @@ async function checkModel(spec: string, setup: string, depth: TlcDepth): Promise
     console.error(
       [
         "",
-        `TLC found a state of ${setup} that breaks an invariant, or it could not finish. The trace above is the shortest path to it.`,
+        `TLC found a state of ${setup} that breaks an invariant or blocks every step, or it could not finish. The trace above is the shortest path to it.`,
         `Reproduce it from the orchestrator package: bun scripts/spec/check-spec.ts tlc ${spec} ${setup} ${depth}`,
       ].join("\n"),
     );
