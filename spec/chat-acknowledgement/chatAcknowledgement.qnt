@@ -123,7 +123,17 @@ module chatAcknowledgement {
     }
   }
 
-  action step: bool = any { messageArrives, delayPasses, addReturns, deliverySettles, removeReturns }
+  /// Every message arrived and waited its delay, and every caller got its result. The model
+  /// stays in this end state, so TLC does not report the end as a deadlock.
+  action finished: bool = all {
+    messages.keys().size() == MESSAGES,
+    delaysPassed == MESSAGES,
+    messages.keys().forall(id => messages.get(id).callerGot != Pending),
+    messages' = messages,
+    delaysPassed' = delaysPassed,
+  }
+
+  action step: bool = any { messageArrives, delayPasses, addReturns, deliverySettles, removeReturns, finished }
 
   /// A message gets the eyes at most once. Once its delivery settles, the eyes have come off
   /// exactly when they went on.
