@@ -922,6 +922,37 @@ module sessionRouting {
     }
   }
 
+  /// The agent prompts a model-call author in review, and a person presses Stop in its job session
+  /// while the model call of that turn is out. The author stays in review with its page. Its board
+  /// flushes, and its feed ends on the stopped reply. The orchestrator does not post.
+  action personStopsAModelCall: bool = {
+    nondet id = JOB_SLOTS.oneOf()
+    nondet health = HEALTHS.oneOf()
+    all {
+      MODEL_AUTHOR,
+      not(routing.ended),
+      not(routing.waitsForInput),
+      id < routing.jobs.length(),
+      val issue = routing.jobs[id].issue
+      val stopped = withJob(routing, id, job => { ...forgetMessage(job), queued: 0, stoppedEarly: false })
+      all {
+        routing.jobs[id].author == InReview,
+        hasSession(routing, issue),
+        sessionJob(routing, issue).contains(id),
+        move(
+          flushBoard(stopped, id),
+          {
+            ...NO_FACTS,
+            feed: feedOf(routing, id, StoppedActivity, health),
+            stoppedIn: Set(issue),
+            turnEnded: Set(id),
+            health: health,
+          },
+        ),
+      },
+    }
+  }
+
   /// The Durable Object restarts. The session feeds live in memory, so every kept message is lost.
   action workflowRestarts: bool =
     move({ ...routing, jobs: routing.jobs.foldl(List(), (jobs, job) => jobs.append(forgetMessage(job))) }, NO_FACTS)
@@ -1046,6 +1077,7 @@ module sessionRouting {
     authorTurnEnds,
     authorFails,
     personStops,
+    personStopsAModelCall,
     workflowRestarts,
     researcherReportsTodos,
     researcherHandsOver,
@@ -1223,6 +1255,10 @@ module sessionRouting {
 
   /// Witness for `aStopAnswersOnlyInTheFeed`: a stop ends the turn of an author.
   val aStopEndsATurn: bool = lastStep.stoppedIn.size() > 0 and feedHas(lastStep, StoppedActivity)
+
+  /// Witness for `aStopAnswersOnlyInTheFeed`: a stop ends the model call of an author in review.
+  val aStopEndsAModelCall: bool =
+    lastStep.stoppedIn.size() > 0 and lastStep.turnEnded.size() > 0 and feedHas(lastStep, StoppedActivity)
 
   /// Witness for `aStopAnswersOnlyInTheFeed`: a stop on a finished workflow ends the author's feed.
   val aStopReachesAFinishedWorkflow: bool = lastStep.stoppedIn.size() > 0 and routing.ended and feedHas(lastStep, StoppedActivity)

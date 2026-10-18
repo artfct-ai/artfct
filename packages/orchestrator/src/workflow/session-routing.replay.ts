@@ -95,6 +95,11 @@ const PINNED: { name: string; setup: SpecSetup; file: string }[] = [
     setup: "trackerResearch",
     file: "a-researcher-fails-after-its-restarts",
   },
+  {
+    name: "ends the feed on the stopped reply when a stop lands during the model call of an author in review",
+    setup: "trackerModelCall",
+    file: "a-stop-ends-the-model-call-of-an-author-in-review",
+  },
 ];
 
 describe("session routing spec", () => {

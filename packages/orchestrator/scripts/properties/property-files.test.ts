@@ -1,21 +1,21 @@
 import { describe, expect, it } from "bun:test";
-import { PROPERTY_FILES, propertyParts } from "./property-files";
+import { SPEC_REPLAY_FILES, propertyParts } from "./property-files";
 
 describe("propertyParts", () => {
   it("runs a file without setups in one process", () => {
-    expect(propertyParts(PROPERTY_FILES.workflow, [])).toEqual([
-      { label: "workflow properties", args: [] },
+    expect(propertyParts(SPEC_REPLAY_FILES.session_routing, [])).toEqual([
+      { label: "session routing spec replay", args: [] },
     ]);
   });
 
   it("runs a replay of one setup in one process", () => {
-    expect(propertyParts(PROPERTY_FILES.review_loop, ["judgeThenPolisher"])).toEqual([
+    expect(propertyParts(SPEC_REPLAY_FILES.review_loop, ["judgeThenPolisher"])).toEqual([
       { label: "review loop spec replay", args: [] },
     ]);
   });
 
   it("runs each setup in its own process, and the tests outside a setup with the first", () => {
-    const parts = propertyParts(PROPERTY_FILES.harness_session, [
+    const parts = propertyParts(SPEC_REPLAY_FILES.harness_session, [
       "harnessDefaultEffort",
       "stageAsksForEffort",
       "agentPausesRunningTurns",
@@ -44,7 +44,7 @@ describe("propertyParts", () => {
   });
 
   it("keeps a setup apart from another whose name ends with it", () => {
-    const parts = propertyParts(PROPERTY_FILES.review_loop, [
+    const parts = propertyParts(SPEC_REPLAY_FILES.review_loop, [
       "reviewerThenPolisher",
       "pageReviewerThenPolisher",
     ]);

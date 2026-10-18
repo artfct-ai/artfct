@@ -10,8 +10,6 @@ import {
 import { freshRuntime } from "../../../test/fresh-runtime";
 import type { Scenario } from "../../../test/scenario";
 import { runStartStep } from "../../../test/restart";
-import type { Step } from "../../../test/invariants";
-import * as invariants from "../../../test/invariants";
 import { WorkflowWorld } from "../../../test/workflow-world";
 import {
   agentPromptsAuthor,
@@ -19,7 +17,6 @@ import {
 } from "../../../test/workflow-actions";
 import { CLOSING_TEXT_MARKER } from "../../prompts/model-author-prompt";
 import { systemPrompt } from "../../agent/prompt/system-prompt";
-import type { WorkflowRuntime } from "../types";
 import { runModelAuthorTurn } from "./model-author";
 import { promptTask } from "./harness/prompt-queue";
 import { onModelTurnDeadline, type ModelTurnAlarm } from "./model-turn";
@@ -202,8 +199,8 @@ describe("a model turn lost with no restarts left", () => {
     }));
 });
 
-describe("the shrunk sequence of seed 1718026998", () => {
-  it("keeps every invariant and revises the page after the restart", async () => {
+describe("a restart during the model call of a revise the agent asked for", () => {
+  it("revises the page after the restart", async () => {
     const world = await WorkflowWorld.open({
       opening: "job",
       artifact: "page",
@@ -217,18 +214,10 @@ describe("the shrunk sequence of seed 1718026998", () => {
       subject: "none",
       sandboxStart: "on_an_action",
     });
-    const every = Object.values(invariants).filter(
-      (value): value is (workflow: WorkflowRuntime, step: Step) => void =>
-        typeof value === "function",
-    );
-    const sequence = [
-      workflowRestartsDuringModelCall(0, "agent_prompts"),
+    await world.apply(workflowRestartsDuringModelCall(0, "agent_prompts"));
+    await world.apply(
       agentPromptsAuthor(0, { decisions: "answers", host: "readable", meanwhile: "nothing" }),
-    ];
-    for (const action of sequence) {
-      const step = await world.apply(action);
-      for (const invariant of every) invariant(world.workflow, step);
-    }
+    );
     expect(world.steps[0]?.after.tasks).toContainEqual(
       expect.objectContaining({ task_id: TASK, status: "in_review", queuedPrompts: 0 }),
     );

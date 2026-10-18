@@ -282,6 +282,11 @@ module workflowLifecycleTypes {
     aCheckFailsAfterItsAuthorEnded: bool,
     aStopEndsAModelCall: bool,
     aStoppedModelCallReturns: bool,
+    aStaleAlarmFindsAnEndedModelTurn: bool,
+    aRestartCutsAProduceTurn: bool,
+    aDeadlinePassesDuringAProduceTurn: bool,
+    aRestartCutsARerunModelTurn: bool,
+    aSessionMessageReachesAModelCallAuthorAtWork: bool,
     aStopLandsDuringAPageWrite: bool,
   }
 
@@ -518,6 +523,18 @@ module workflowLifecycle {
   /// The model calls out whose model turn a stop ended.
   pure def stoppedModelCallsOut(flow: Workflow): int =
     flow.calls.indices().filter(callId => isStoppedModelCall(flow.calls[callId])).size()
+
+  /// True while the deadline alarm of a model turn of the job's model-call author that already
+  /// ended is armed: the turn that produced the page, or a turn whose model call a stop ended.
+  /// Nothing cancels the deadline alarm of a turn that ends.
+  pure def staleModelTurnDeadlineArmed(flow: Workflow, id: int): bool = and {
+    runsAsModelCalls(jobTask(flow, id)),
+    or {
+      flow.jobs[id].artifact != NoArtifact,
+      flow.calls.indices().exists(callId =>
+        isStoppedModelCall(flow.calls[callId]) and flow.calls[callId].job == id),
+    },
+  }
 
   /// The page writes out whose model turn a stop reached.
   pure def stoppedPageWritesOut(flow: Workflow): int =
@@ -1825,6 +1842,13 @@ module workflowLifecycle {
     move(untold(workflow), StaleAlarmStep),
   }
 
+  /// The deadline alarm of a model turn of the job that already ended fires late. The task holds
+  /// another turn or none, so the alarm changes nothing. Only the replay reads the job.
+  action aStaleModelTurnDeadlineFires: bool = onJobWhere(
+    id => staleModelTurnDeadlineArmed(workflow, id),
+    _ => move(untold(workflow), StaleAlarmStep),
+  )
+
   /// The Durable Object restarts while a call is out. Every call that is out is lost with its
   /// isolate. A page write that is out may have landed on the host first. That changes nothing
   /// here, since the store does not hear of it. Only the replay reads it.
@@ -1880,6 +1904,7 @@ module workflowLifecycle {
     personSendsAVerbalCommand,
     idleAlarmFires,
     staleAlarmFires,
+    aStaleModelTurnDeadlineFires,
     theHostMovesAPull,
     aPersonEndsAnIssue,
     aPersonPressesStop,
@@ -2305,6 +2330,23 @@ module workflowLifecycle {
         | StoppedCallReturnStep(_) => true
         | _ => false
       },
+      aStaleAlarmFindsAnEndedModelTurn: step.kind == StaleAlarmStep and
+        jobIds(step.before).exists(id => staleModelTurnDeadlineArmed(step.before, id)),
+      aRestartCutsAProduceTurn: step.kind == RestartStep and
+        cut.exists(id => step.before.jobs[id].artifact == NoArtifact),
+      aDeadlinePassesDuringAProduceTurn: match step.kind {
+        | DeadlineStep(id) => step.before.jobs[id].artifact == NoArtifact
+        | _ => false
+      },
+      aRestartCutsARerunModelTurn: step.kind == RestartStep and
+        cut.exists(id => jobTask(step.before, id).restarts > 0),
+      aSessionMessageReachesAModelCallAuthorAtWork: match step.kind {
+        | VerbalCommandStep(_) => and {
+          not(hasEnded(step.before.status)),
+          forwardedToTheSessionAuthor(step.before).select(id => runsAsModelCalls(jobTask(step.before, id))).length() > 0,
+        }
+        | _ => false
+      },
       aStopLandsDuringAPageWrite: step.kind == StopStep and stoppedPageWritesOut(step.after) > stoppedPageWritesOut(step.before),
     }
   }
@@ -2504,6 +2546,10 @@ module workflowLifecycle {
   /// Witness for `staleAlarmIsIgnored`: a stale alarm fires.
   val aStaleAlarmFires: bool = lastStepReached.aStaleAlarmFires
 
+  /// Witness for `staleAlarmIsIgnored`: a stale alarm fires while the deadline alarm of a model
+  /// turn that ended is armed.
+  val aStaleAlarmFindsAnEndedModelTurn: bool = lastStepReached.aStaleAlarmFindsAnEndedModelTurn
+
   /// Witness for `sleepMessageOnlyDuringAWorkflow`: the sleep message posts.
   val theSleepMessagePosts: bool = lastStepReached.theSleepMessagePosts
 
@@ -2616,6 +2662,23 @@ module workflowLifecycle {
   /// Witness for `aRestartDoesNotLoseAModelTurn`: the deadline of a model turn passes while its
   /// page write is out.
   val aDeadlinePassesDuringAPageWrite: bool = lastStepReached.aDeadlinePassesDuringAPageWrite
+
+  /// Witness for `aRestartDoesNotLoseAModelTurn`: a restart of the Durable Object cuts the turn
+  /// that produces a page.
+  val aRestartCutsAProduceTurn: bool = lastStepReached.aRestartCutsAProduceTurn
+
+  /// Witness for `aRestartDoesNotLoseAModelTurn`: the deadline of the turn that produces a page
+  /// passes.
+  val aDeadlinePassesDuringAProduceTurn: bool = lastStepReached.aDeadlinePassesDuringAProduceTurn
+
+  /// Witness for `aRestartDoesNotLoseAModelTurn`: a restart of the Durable Object cuts a model turn
+  /// that runs again after a deadline or an earlier restart lost one.
+  val aRestartCutsARerunModelTurn: bool = lastStepReached.aRestartCutsARerunModelTurn
+
+  /// Witness for `aQueuedPromptReachesItsModelCallAuthor`: a person's message in the session of the
+  /// subject issue goes to its model-call author while that author runs.
+  val aSessionMessageReachesAModelCallAuthorAtWork: bool =
+    lastStepReached.aSessionMessageReachesAModelCallAuthorAtWork
 
   /// Witness for `aModelCallAuthorWorksOnlyWhileItsCallIsOut`: the page write of a model turn is out.
   val aPageWriteIsOut: bool = outCalls(workflow, PageWrite).size() > 0
