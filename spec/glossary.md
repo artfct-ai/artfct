@@ -57,6 +57,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | blocked handover | A handover that says what stopped the agent review in place of the ready line: an ended author, a failed reviewer, a polisher that stopped, or a blocked checks gate. The humans get the artifact as it was left. | `ArtifactClose` `blocked` | |
 | follow-up | Work the author does on an artifact after its first handover, at the request of the humans or the host. It starts when a prompt reaches the idle author while the humans hold the artifact. | `startFollowUp`, `delivered_to_humans_at` | revision round |
 | feedback | Anything anyone posts on an artifact that the system must route. A review or a comment. | `Feedback` | |
+| routing decision | Where one feedback on a running workflow goes: to the author as a prompt, to nobody because it asks for nothing, or to the agent, which tells the humans. A decisions call that fails reads as the agent. | `FeedbackRoute`, `feedbackRouteFrom` | |
 | review | What a person or an agent posts on an artifact as a whole: a summary, findings, and whether it blocks. | `Review`, `reviews` | verdict |
 | ruling | What a judge files on an artifact: approved, or rejected with a reason. Code reads it from a conclusion, or a person gives it. | `Ruling`, `rulings` | verdict |
 | ruling ask | The agent being told to get a person's ruling on a judge run that the decisions model could not rule. It stays on the judge run until a ruling replaces it. | the `asked` arm of `RulingState` | |

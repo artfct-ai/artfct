@@ -32,9 +32,15 @@ const USAGE = [
   "       bun scripts/spec/check-spec.ts tlc <spec> <setup> <pr|nightly>",
 ].join("\n");
 
-async function run(command: string[], options: { cwd?: string; stdout?: string } = {}) {
+const APALACHE_THREAD_STACK = "-Xss64m";
+
+async function run(
+  command: string[],
+  options: { cwd?: string; stdout?: string; env?: Record<string, string> } = {},
+) {
   const child = Bun.spawn(command, {
     cwd: options.cwd ?? ORCHESTRATOR_DIR,
+    env: { ...process.env, ...options.env },
     stdout: options.stdout ? Bun.file(options.stdout) : "pipe",
     stderr: "inherit",
   });
@@ -151,7 +157,11 @@ async function checkModel(spec: string, setup: string, depth: TlcDepth): Promise
     const typechecked = join(work, `${setup}_tc.tla`);
     const typecheck = await run(
       [tools.apalacheMc, "typecheck", `--output=${typechecked}`, compiled],
-      { cwd: work, stdout: join(work, "typecheck.log") },
+      {
+        cwd: work,
+        stdout: join(work, "typecheck.log"),
+        env: { JVM_ARGS: `${process.env.JVM_ARGS ?? ""} ${APALACHE_THREAD_STACK}`.trim() },
+      },
     );
     if (typecheck.exitCode !== 0) {
       console.error(readFileSync(join(work, "typecheck.log"), "utf8"));

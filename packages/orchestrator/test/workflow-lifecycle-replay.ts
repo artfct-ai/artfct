@@ -18,13 +18,13 @@ import type { SandboxRef } from "../src/sandbox/spec";
 import { artifactRefKey, jobInputKey } from "../src/workflow/store/input-key";
 import type { ArtifactRow } from "../src/workflow/store/records";
 import { failTask } from "../src/workflow/lifecycle";
-import { isTaskFinished } from "../src/workflow/store/state";
+import { isTaskFinished, type Subject } from "../src/workflow/store/state";
 import type { JobRow, TaskRow } from "../src/workflow/store/tasks";
 import type { ConnectionState } from "../src/workflow/task/harness/bridge";
 import { onNoProgress } from "../src/workflow/task/harness/timers";
 import { onModelTurnDeadline, type ModelTurnAlarm } from "../src/workflow/task/model-turn";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
-import { SUBJECT_ISSUE_KEY, subIssueKey } from "./world-tracker";
+import { strayIssueKey, SUBJECT_ISSUE_KEY, subIssueKey } from "./world-tracker";
 import { quintTraces } from "./quint-traces";
 import { EchoModel } from "./fake-model";
 import { FakeRuntime, fakeDocumentsOf, MODEL_AUTHOR_MODEL, PAGE_PARENT } from "./fake-runtime";
@@ -51,6 +51,7 @@ import {
   STAGE_OF,
   WorkflowWorld,
   type StepFacts,
+  type TrackerLink,
   type WorkflowAction,
   type WorldAuthor,
   type WorldSetup,
@@ -91,6 +92,14 @@ export const SPEC_SETUPS = {
     pageAuthor: "harness",
     research: false,
     artifact: "page",
+    origin: "chat",
+  },
+  issuesForAChatRequest: {
+    module: "issuesForAChatRequest",
+    refiners: "none",
+    pageAuthor: "harness",
+    research: false,
+    artifact: "issues",
     origin: "chat",
   },
   pagesAfterResearch: {
@@ -233,8 +242,11 @@ type VerbalCommand = (typeof VERBAL_COMMANDS)[number];
 type GenerationTimer = (typeof GENERATION_TIMERS)[number];
 type HostMove = (typeof HOST_MOVES)[number];
 
-/** The tracker issue the spec names by each number: the subject issue, then a sub-issue of it. */
-const ISSUE_KEYS = [SUBJECT_ISSUE_KEY, subIssueKey(0)] as const;
+/**
+ * The tracker issue the spec names by each number: the subject issue, a sub-issue of it, and an
+ * issue outside the subject issue and the project.
+ */
+const ISSUE_KEYS = [SUBJECT_ISSUE_KEY, subIssueKey(0), strayIssueKey(0)] as const;
 
 /** The state the tracker shows for an issue a person ended. */
 const CANCELED_STATE = { type: "canceled", name: "Canceled" } as const;
@@ -264,6 +276,9 @@ export type SpecJob = {
   pullOnHost: (typeof PULLS_ON_HOST)[number];
 };
 
+/** The subject of the workflow as the spec sees it. An issue is its number in `ISSUE_KEYS`. */
+type SpecSubject = { kind: "none" } | { kind: "issue"; issue: number } | { kind: "project" };
+
 /** One held call as the spec sees it, without the rest of the step that runs when it returns. */
 type SpecCall = { kind: CallKind; job: number };
 
@@ -272,6 +287,7 @@ export type SpecWorkflow = {
   status: (typeof WORKFLOW_STATUSES)[number];
   definition: number | null;
   jobSlots: number | null;
+  subject: SpecSubject;
   idleArmed: boolean;
   jobs: SpecJob[];
   calls: SpecCall[];
@@ -296,6 +312,8 @@ type SpecPicks = {
   landed: boolean | null;
   issue: number | null;
   hostMove: HostMove | null;
+  subjectLink: SpecSubject | null;
+  outputLink: SpecSubject | null;
 };
 
 /**
@@ -340,6 +358,8 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
     const timer = picked("timer");
     const landed = picked("landed");
     const hostMove = picked("hostMove");
+    const subjectLink = picked("subjectLink");
+    const outputLink = picked("outputLink");
     return {
       action: itfText(itfField(state, "mbt::actionTaken")),
       picks: {
@@ -360,6 +380,8 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
         landed: landed === null ? null : itfBool(landed),
         issue: optionalInt(picked("issue")),
         hostMove: hostMove === null ? null : itfOneOf(itfVariant(hostMove)!.tag, HOST_MOVES),
+        subjectLink: subjectLink === null ? null : specSubject(subjectLink),
+        outputLink: outputLink === null ? null : specSubject(outputLink),
       },
       workflow: specWorkflow(
         itfField(state, `${SPEC_SETUPS[setup].module}::workflowLifecycle::workflow`),
@@ -382,6 +404,7 @@ function specWorkflow(value: unknown): SpecWorkflow {
     status: itfOneOf(itfVariant(itfField(value, "status"))!.tag, WORKFLOW_STATUSES),
     definition: definition.tag === "Planned" ? itfInt(definition.value) : null,
     jobSlots: stagePlan.tag === "StagesPlanned" ? itfInt(stagePlan.value) : null,
+    subject: specSubject(itfField(value, "subject")),
     idleArmed: itfBool(itfField(value, "idleArmed")),
     jobs: itfList(itfField(value, "jobs")).map(specJob),
     calls: itfList(itfField(value, "calls")).map((call) => ({
@@ -394,6 +417,39 @@ function specWorkflow(value: unknown): SpecWorkflow {
       .map(itfInt)
       .toSorted((left, right) => left - right),
   };
+}
+
+function specSubject(value: unknown): SpecSubject {
+  const subject = itfVariant(value)!;
+  switch (subject.tag) {
+    case "NoSubject":
+      return { kind: "none" };
+    case "SubjectIssue":
+      return { kind: "issue", issue: itfInt(subject.value) };
+    case "SubjectProject":
+      return { kind: "project" };
+    default:
+      throw new Error(`unknown spec subject ${subject.tag}`);
+  }
+}
+
+/** The tracker link a plan or an issues output names for a spec subject. Null when it is not set. */
+function trackerLinkOf(subject: SpecSubject): TrackerLink | null {
+  switch (subject.kind) {
+    case "none":
+      return null;
+    case "project":
+      return "a_project";
+    case "issue":
+      if (ISSUE_KEYS[subject.issue] !== SUBJECT_ISSUE_KEY) {
+        throw new Error(`the spec links issue ${subject.issue}, which has no tracker link`);
+      }
+      return "the_subject_issue";
+    default: {
+      const unreachable: never = subject;
+      throw new Error(`unhandled spec subject ${String(unreachable)}`);
+    }
+  }
 }
 
 function specInput(value: unknown): SpecJob["input"] {
@@ -633,6 +689,7 @@ export class WorkflowLifecycleReplay {
       status: WORKFLOW_STATUS_OF[state.status],
       definition: state.definition === null ? null : state.definition === SECOND_DEFINITION ? 1 : 0,
       jobSlots: state.stages.length > 0 ? state.concurrency : null,
+      subject: specSubjectOf(state.subject ?? null),
       idleArmed: workflow.alarmsFor("onIdle").length > 0,
       jobs: jobs.map((job, index) => {
         const artifact = store.artifact(job.job_id);
@@ -725,6 +782,8 @@ export class WorkflowLifecycleReplay {
   private inputOf(job: JobRow, jobs: JobRow[]): SpecJob["input"] {
     const built = jobs.findIndex((earlier) => job.input_key === `artifact:${earlier.job_id}`);
     if (built !== -1) return { from: "artifact", job: built };
+    const issue = ISSUE_KEYS.findIndex((key) => key === job.input_key);
+    if (issue !== -1) return { from: "issue", issue };
     const continued = jobs.findIndex((earlier) => {
       const artifact = this.world.workflow.store.artifact(earlier.job_id);
       return (
@@ -733,8 +792,6 @@ export class WorkflowLifecycleReplay {
       );
     });
     if (continued !== -1) return { from: "artifact", job: continued };
-    const issue = ISSUE_KEYS.findIndex((key) => key === job.input_key);
-    if (issue !== -1) return { from: "issue", issue };
     const request = REQUEST_TEXTS.findIndex(
       (requestText) => jobInputKey({ kind: "request", text: requestText }) === job.input_key,
     );
@@ -752,6 +809,7 @@ export class WorkflowLifecycleReplay {
               definition: required(picks.definition),
               withStages: required(picks.withStages),
               jobSlots: required(picks.jobSlots),
+              subject: trackerLinkOf(required(picks.subjectLink)),
             }),
         );
       case "agentStartsJob":
@@ -807,6 +865,14 @@ export class WorkflowLifecycleReplay {
         return worldAction(`author of job ${picks.id} writes its page`, async (world) => {
           const index = this.unfinishedIndexOf(required(picks.id));
           await firstArtifactAppears(index, "author_text").run(world);
+          await authorTurnEnds(index, "same", "finished").run(world);
+        });
+      case "authorLinksItsIssues":
+        return worldAction(`author of job ${picks.id} links its issues`, async (world) => {
+          const index = this.unfinishedIndexOf(required(picks.id));
+          const link = trackerLinkOf(required(picks.outputLink));
+          if (!link) throw new Error("the spec output links no subject");
+          await firstArtifactAppears(index, "author_text", link).run(world);
           await authorTurnEnds(index, "same", "finished").run(world);
         });
       case "refinerRunEnds":
@@ -924,7 +990,8 @@ export class WorkflowLifecycleReplay {
       definition,
       withStages,
       jobSlots,
-    }: { definition: number; withStages: boolean; jobSlots: number },
+      subject,
+    }: { definition: number; withStages: boolean; jobSlots: number; subject: TrackerLink | null },
   ): Promise<StepFacts> {
     const name =
       definition === 2
@@ -945,6 +1012,7 @@ export class WorkflowLifecycleReplay {
         definition: name,
         reason: "the request asks for a design",
         ...(withStages ? stages : {}),
+        ...(subject ? { subject: world.trackerLinkUrl(subject, 0) } : {}),
       },
       TOOL_CALL,
     );
@@ -1282,6 +1350,12 @@ export class WorkflowLifecycleReplay {
       .filter((author) => !isTaskFinished(this.world.taskOf(author).status))
       .findIndex((author) => author.taskId === taskId);
   }
+}
+
+function specSubjectOf(subject: Subject | null): SpecSubject {
+  if (!subject) return { kind: "none" };
+  if (subject.kind === "project") return { kind: "project" };
+  return { kind: "issue", issue: ISSUE_KEYS.findIndex((key) => key === subject.issue_id) };
 }
 
 function required<Value>(value: Value | null): Value {

@@ -12,7 +12,6 @@ import { STOPPED_TEXT } from "../src/workflow/feed/feed";
 import type { Subject } from "../src/workflow/store/state";
 import { artifactRefKey } from "../src/workflow/store/input-key";
 import { coverageCase } from "./coverage";
-import { worldIssueInSubject } from "./world-tracker";
 
 /** One task row as an observer saw it. `ruling` is the stored ruling as text, or null. */
 export type ObservedTask = {
@@ -92,8 +91,6 @@ export type Step = {
   notes: Array<{ text: string; wake: Wake }>;
   /** Set when an author turn ended. `hostRevision` is null when the host could not say one. */
   authorTurnEnd: { task_id: string; hostRevision: string | null; cancelled: boolean } | null;
-  /** Set when a person's feedback event was delivered. */
-  feedback: { task_id: string } | null;
   /**
    * Set when an inbound event was delivered. `person` is true when a person sent it, and
    * `reply_to` is where they wait for the answer.
@@ -128,11 +125,6 @@ export type Step = {
    * not check what the person wrote. `result` is what the tool answered.
    */
   completion: { task_id: string; checkFailed: boolean; result: string } | null;
-  /**
-   * Set when feedback the screen could not admit was delivered or sent. `texts` are what it said.
-   * `agentRead` is the tool result the agent read about it, or null when no tool ran.
-   */
-  unadmittedFeedback: { texts: string[]; agentRead: string | null } | null;
   /**
    * Set when a person pressed Stop while a model call of the author was in flight. `pageWrites`
    * names each page write the host took from the stop to the end of the step.
@@ -198,9 +190,6 @@ const coverRunAfterRuling = coverageCase(
 );
 const coverRulingStands = coverageCase("judgeRulesAtMostOnce: a ruling stands into a later step");
 const coverRejectionSent = coverageCase("judgeRulesAtMostOnce: an author got a judge's rejection");
-const coverFeedback = coverageCase(
-  "everyFeedbackGetsOneRoutingDecision: feedback on a running workflow",
-);
 const coverEventOnFinished = coverageCase(
   "nothingReopensAFinishedWorkflow: an event on a finished workflow",
 );
@@ -248,9 +237,6 @@ const coverWorkflowEnded = coverageCase(
   "endedWorkflowHasNoUnfinishedTask: a workflow ended with tasks",
 );
 const coverSharedInput = coverageCase("oneLiveJobPerInputArtifact: two jobs share an input");
-const coverUnadmitted = coverageCase(
-  "unadmittedFeedbackReachesNobody: feedback the screen did not admit",
-);
 const coverFailedCheck = coverageCase(
   "aFailedCheckNeverCompletesAJob: a check fails at completion",
 );
@@ -424,27 +410,6 @@ function rulingBefore(step: Step, taskId: string): string | null | undefined {
 }
 
 /**
- * Every feedback event on a running workflow gets exactly one routing decision: a prompt for the
- * author, a note that wakes the agent, or the note that it asks for nothing. Never silence, and
- * never two.
- */
-export function everyFeedbackGetsOneRoutingDecision(_workflow: WorkflowRuntime, step: Step): void {
-  if (!step.feedback || FINISHED_WORKFLOW.includes(step.before.workflowStatus)) return;
-  coverFeedback();
-  const decisions = [
-    step.after.authorPrompts > step.before.authorPrompts ? "author" : null,
-    step.notes.some((note) => note.wake === "human") ? "agent" : null,
-    step.notes.some((note) => note.text.includes("It asks for nothing")) ? "nobody" : null,
-  ].filter((decision) => decision !== null);
-  if (decisions.length !== 1) {
-    violated(
-      "everyFeedbackGetsOneRoutingDecision",
-      `feedback on ${step.feedback.task_id} was routed to [${decisions.join(", ")}]`,
-    );
-  }
-}
-
-/**
  * On a finished workflow, no event changes the status, the tasks, or the prompts, and the agent
  * gets no note.
  */
@@ -516,34 +481,6 @@ export function workflowStartsOnlyFromAPlan(workflow: WorkflowRuntime, step: Ste
 }
 
 /**
- * A job whose input is an issue names the subject issue or an issue in its scope. A start the tool
- * refused leaves the jobs unchanged.
- */
-export function aJobWorksOnlyOnIssuesOfItsSubject(_workflow: WorkflowRuntime, step: Step): void {
-  const { subject, jobs } = step.after;
-  for (const job of jobs) {
-    if (!job.issue_id || (subject && worldIssueInSubject(subject, job.issue_id))) continue;
-    violated(
-      "aJobWorksOnlyOnIssuesOfItsSubject",
-      `after ${step.action}, ${job.job_id} works on ${job.issue_id} outside the subject ${describeSubject(subject)}`,
-    );
-  }
-  if (step.start?.refused && jobs.length !== step.before.jobs.length) {
-    violated("aJobWorksOnlyOnIssuesOfItsSubject", `${step.action} was refused and added a job`);
-  }
-}
-
-/** The subject never changes once set. */
-export function subjectNeverChanges(_workflow: WorkflowRuntime, step: Step): void {
-  const { subject } = step.before;
-  if (!subject || describeSubject(step.after.subject) === describeSubject(subject)) return;
-  violated(
-    "subjectNeverChanges",
-    `${step.action} moved the subject from ${describeSubject(subject)} to ${describeSubject(step.after.subject)}`,
-  );
-}
-
-/**
  * A single-issue workflow is done in the same step that a complete_job call completes the job on
  * its subject issue at the last planned stage. A workflow becomes done in no other step, except
  * one where the agent called finish_workflow, so a cancel or a failure of that job does not
@@ -579,11 +516,6 @@ function completedSubjectJobAtLastStage(step: Step): boolean {
   if (!after || after.status !== "done" || before?.status === "done") return false;
   const job = step.after.jobs.find((candidate) => candidate.job_id === after.job_id);
   return job?.issue_id === subject.issue_id && job.stage === step.after.lastStage;
-}
-
-function describeSubject(subject: Subject | null): string {
-  if (!subject) return "none";
-  return subject.kind === "issue" ? `issue ${subject.issue_id}` : `project ${subject.project_id}`;
 }
 
 /**
@@ -885,27 +817,6 @@ export function oneLiveJobPerInputArtifact(workflow: WorkflowRuntime): void {
       );
     }
     owners.set(job.input_key, job.job_id);
-  }
-}
-
-/**
- * Feedback the screen did not admit, because it quarantined it or could not check it, reaches
- * neither the agent nor the author. No note or tool result holds its text, and no prompt goes out.
- */
-export function unadmittedFeedbackReachesNobody(_workflow: WorkflowRuntime, step: Step): void {
-  if (!step.unadmittedFeedback) return;
-  coverUnadmitted();
-  const { texts, agentRead } = step.unadmittedFeedback;
-  for (const text of texts) {
-    if (step.notes.some((note) => note.text.includes(text))) {
-      violated("unadmittedFeedbackReachesNobody", `a note told the agent "${text}"`);
-    }
-    if (agentRead?.includes(text)) {
-      violated("unadmittedFeedbackReachesNobody", `a tool result told the agent "${text}"`);
-    }
-  }
-  if (step.after.authorPrompts !== step.before.authorPrompts) {
-    violated("unadmittedFeedbackReachesNobody", "a prompt went out with the feedback");
   }
 }
 

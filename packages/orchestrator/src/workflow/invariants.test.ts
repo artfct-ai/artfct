@@ -2,16 +2,13 @@ import { describe, expect, it } from "bun:test";
 import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/property-runs";
 import fc from "fast-check";
 import {
-  aJobWorksOnlyOnIssuesOfItsSubject,
   aSingleIssueWorkflowIsDoneWithItsSubjectsJob,
-  subjectNeverChanges,
   aFailedCheckNeverAsksThePersonAgain,
   aFailedCheckNeverCompletesAJob,
   artifactStatusMovesAreLegal,
   deliveredToHumansIsNeverCleared,
   eachIssueLinksTheChatThreadOnce,
   endedWorkflowHasNoUnfinishedTask,
-  everyFeedbackGetsOneRoutingDecision,
   nothingReopensAFinishedWorkflow,
   refinerRunIsDoneOnlyAfterItsTurnEnded,
   finishedTaskKeepsItsStatus,
@@ -30,7 +27,6 @@ import {
   staleAlarmIsIgnored,
   taskRestartsAtMostTwice,
   sleepMessageOnlyDuringAWorkflow,
-  unadmittedFeedbackReachesNobody,
   workflowStartsOnlyFromAPlan,
   workflowWaitsOnlyWhileNoAuthorWorks,
   anAcceptedArtifactNeverMovesBack,
@@ -137,7 +133,6 @@ const STEP_INVARIANTS = [
   deliveredToHumansIsNeverCleared,
   refinersRunAgainOnlyOnChangedRevision,
   judgeRulesAtMostOnce,
-  everyFeedbackGetsOneRoutingDecision,
   nothingReopensAFinishedWorkflow,
   refinerRunIsDoneOnlyAfterItsTurnEnded,
   finishedTaskKeepsItsStatus,
@@ -146,7 +141,6 @@ const STEP_INVARIANTS = [
   artifactStatusMovesAreLegal,
   staleAlarmIsIgnored,
   jobStartsOnlyIntoAFreeSlot,
-  unadmittedFeedbackReachesNobody,
   aFailedCheckNeverCompletesAJob,
   aFailedCheckNeverAsksThePersonAgain,
   linearOnlyAsksReachTheStartingSession,
@@ -157,8 +151,6 @@ const STEP_INVARIANTS = [
   sessionFeedEndsWhenItsAuthorIdles,
   sleepMessageOnlyDuringAWorkflow,
   workflowStartsOnlyFromAPlan,
-  aJobWorksOnlyOnIssuesOfItsSubject,
-  subjectNeverChanges,
   aSingleIssueWorkflowIsDoneWithItsSubjectsJob,
   anAcceptedArtifactNeverMovesBack,
   aModelCallAuthorWorksOnlyWhileItsCallIsOut,
@@ -973,7 +965,7 @@ const CORPUS_EXAMPLES = WORKFLOW_CORPUS.map((replayed): [ReplayedSequence] => [r
 
 describe("the workflow invariants", () => {
   it("are every state and step invariant", () => {
-    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(36);
+    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(34);
   });
 
   for (const property of PROPERTIES) {
