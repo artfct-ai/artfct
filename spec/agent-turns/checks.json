@@ -19,8 +19,8 @@
     "oneTurnRunsAtATime"
   ],
   "mainMinutes": {
-    "chatThread": 1.6,
-    "trackerOnly": 2.6,
+    "chatThread": 1.4,
+    "trackerOnly": 2.5,
     "chatAndSession": 3.1
   },
   "witnesses": {

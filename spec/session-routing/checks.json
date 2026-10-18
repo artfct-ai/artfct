@@ -14,11 +14,11 @@
     "researchReadsCompleteOnceTheAuthorStarts"
   ],
   "mainMinutes": {
-    "chatThread": 1.8,
-    "trackerOnly": 1.8,
-    "trackerResearch": 0.7,
-    "trackerModelCall": 0.4,
-    "trackerPause": 0.6
+    "chatThread": 1.1,
+    "trackerOnly": 0.9,
+    "trackerResearch": 0.9,
+    "trackerModelCall": 0.9,
+    "trackerPause": 1.0
   },
   "witnesses": {
     "chatThread": [

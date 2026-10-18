@@ -18,7 +18,7 @@ error: Property failed after 7 tests
 error: nothingReopensAFinishedWorkflow: a prompt event changed the agent notes of a failed workflow
 `;
 
-const VITEST_OUTPUT = ` FAIL  src/agent/turn/agent-turns-replay.test.medium.ts > agent turns spec > replays its traces
+const VITEST_OUTPUT = ` FAIL  src/agent/turn/agent-turns.replay.medium.ts > agent turns spec > replays its traces
 Error: Property failed after 24 tests
 { seed: -42, path: "23:5:8", endOnFailure: true }
 Counterexample: [[{"type":"workflow_ends","surface":"session_b","status":"done"}]]
@@ -72,7 +72,7 @@ describe("propertyFailureReport", () => {
       "| messageAfterEndStartsNextWorkflow: 2 workflows started after wf_1 ended \\| twice | -42 | `23:5:8` |",
     );
     expect(report).toContain(
-      "PROPERTY_SEED=-42 PROPERTY_RUNS=300 bunx vitest run src/agent/turn/agent-turns-replay.test.medium.ts",
+      "PROPERTY_SEED=-42 PROPERTY_RUNS=300 bunx vitest run --config vitest.replay.config.ts ./src/agent/turn/agent-turns.replay.medium.ts",
     );
   });
 
