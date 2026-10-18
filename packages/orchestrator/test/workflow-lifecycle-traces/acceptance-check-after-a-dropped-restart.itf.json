@@ -30,7 +30,12 @@
         },
         "idleArmed": true,
         "jobs": [],
-        "stagesPlanned": false,
+        "stagePlan": {
+          "tag": "NoStages",
+          "value": {
+            "#tup": []
+          }
+        },
         "status": {
           "tag": "New",
           "value": {
@@ -52,6 +57,12 @@
             "#tup": []
           }
         },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "definition": {
           "tag": "None",
           "value": {
@@ -65,6 +76,12 @@
           }
         },
         "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "jobSlots": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -113,7 +130,12 @@
         },
         "idleArmed": false,
         "jobs": [],
-        "stagesPlanned": false,
+        "stagePlan": {
+          "tag": "NoStages",
+          "value": {
+            "#tup": []
+          }
+        },
         "status": {
           "tag": "New",
           "value": {
@@ -135,6 +157,12 @@
             "#tup": []
           }
         },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "definition": {
           "tag": "None",
           "value": {
@@ -148,6 +176,12 @@
           }
         },
         "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "jobSlots": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -196,7 +230,12 @@
         },
         "idleArmed": false,
         "jobs": [],
-        "stagesPlanned": true,
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
         "status": {
           "tag": "Running",
           "value": {
@@ -218,6 +257,12 @@
             "#tup": []
           }
         },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "definition": {
           "tag": "Some",
           "value": {
@@ -234,6 +279,12 @@
           "tag": "None",
           "value": {
             "#tup": []
+          }
+        },
+        "jobSlots": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "2"
           }
         },
         "request": {
@@ -329,7 +380,12 @@
             ]
           }
         ],
-        "stagesPlanned": true,
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
         "status": {
           "tag": "Running",
           "value": {
@@ -351,6 +407,12 @@
             "#tup": []
           }
         },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "definition": {
           "tag": "None",
           "value": {
@@ -364,6 +426,12 @@
           }
         },
         "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "jobSlots": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -464,7 +532,12 @@
             ]
           }
         ],
-        "stagesPlanned": true,
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
         "status": {
           "tag": "Running",
           "value": {
@@ -486,6 +559,12 @@
             "#tup": []
           }
         },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "definition": {
           "tag": "None",
           "value": {
@@ -502,6 +581,12 @@
           "tag": "Some",
           "value": {
             "#bigint": "0"
+          }
+        },
+        "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "request": {
@@ -599,7 +684,12 @@
             ]
           }
         ],
-        "stagesPlanned": true,
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
         "status": {
           "tag": "Running",
           "value": {
@@ -621,6 +711,12 @@
             "#tup": []
           }
         },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "definition": {
           "tag": "None",
           "value": {
@@ -637,6 +733,12 @@
           "tag": "Some",
           "value": {
             "#bigint": "0"
+          }
+        },
+        "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "request": {
@@ -734,7 +836,12 @@
             ]
           }
         ],
-        "stagesPlanned": true,
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
         "status": {
           "tag": "Running",
           "value": {
@@ -756,6 +863,12 @@
             "#tup": []
           }
         },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "definition": {
           "tag": "None",
           "value": {
@@ -772,6 +885,12 @@
           "tag": "Some",
           "value": {
             "#bigint": "0"
+          }
+        },
+        "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "request": {
@@ -887,7 +1006,12 @@
             ]
           }
         ],
-        "stagesPlanned": true,
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
         "status": {
           "tag": "Running",
           "value": {
@@ -909,6 +1033,12 @@
             "#tup": []
           }
         },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "definition": {
           "tag": "None",
           "value": {
@@ -925,6 +1055,12 @@
           "tag": "Some",
           "value": {
             "#bigint": "0"
+          }
+        },
+        "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "request": {
@@ -1040,7 +1176,12 @@
             ]
           }
         ],
-        "stagesPlanned": true,
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
         "status": {
           "tag": "Running",
           "value": {
@@ -1062,6 +1203,12 @@
             "#tup": []
           }
         },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "definition": {
           "tag": "Some",
           "value": {
@@ -1078,6 +1225,12 @@
           "tag": "None",
           "value": {
             "#tup": []
+          }
+        },
+        "jobSlots": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "2"
           }
         },
         "request": {
@@ -1191,7 +1344,12 @@
             ]
           }
         ],
-        "stagesPlanned": true,
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
         "status": {
           "tag": "Running",
           "value": {
@@ -1213,6 +1371,12 @@
             "#tup": []
           }
         },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "definition": {
           "tag": "Some",
           "value": {
@@ -1229,6 +1393,12 @@
           "tag": "None",
           "value": {
             "#tup": []
+          }
+        },
+        "jobSlots": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "2"
           }
         },
         "request": {
@@ -1342,7 +1512,12 @@
             ]
           }
         ],
-        "stagesPlanned": true,
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
         "status": {
           "tag": "Running",
           "value": {
@@ -1364,6 +1539,12 @@
             "#tup": []
           }
         },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "definition": {
           "tag": "None",
           "value": {
@@ -1380,6 +1561,12 @@
           "tag": "Some",
           "value": {
             "#bigint": "0"
+          }
+        },
+        "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "request": {
@@ -1477,7 +1664,12 @@
             ]
           }
         ],
-        "stagesPlanned": true,
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
         "status": {
           "tag": "Running",
           "value": {
@@ -1499,6 +1691,12 @@
             "#tup": []
           }
         },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "definition": {
           "tag": "None",
           "value": {
@@ -1512,6 +1710,12 @@
           }
         },
         "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "jobSlots": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1612,7 +1816,12 @@
             ]
           }
         ],
-        "stagesPlanned": true,
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
         "status": {
           "tag": "Running",
           "value": {
@@ -1634,6 +1843,12 @@
             "#tup": []
           }
         },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "definition": {
           "tag": "Some",
           "value": {
@@ -1650,6 +1865,12 @@
           "tag": "None",
           "value": {
             "#tup": []
+          }
+        },
+        "jobSlots": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "2"
           }
         },
         "request": {
@@ -1763,7 +1984,12 @@
             ]
           }
         ],
-        "stagesPlanned": true,
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
         "status": {
           "tag": "Running",
           "value": {
@@ -1785,6 +2011,12 @@
             "#tup": []
           }
         },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "definition": {
           "tag": "None",
           "value": {
@@ -1801,6 +2033,12 @@
           "tag": "Some",
           "value": {
             "#bigint": "0"
+          }
+        },
+        "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "request": {

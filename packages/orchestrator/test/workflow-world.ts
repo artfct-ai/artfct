@@ -27,7 +27,7 @@ import type { RefinerEntry, ReviewerEntry } from "../src/config/refiner";
 import { Notifier } from "../src/notify/notifier";
 import { startJob, type JobIssue } from "../src/workflow/lifecycle";
 import { createWorkflow, handleEvent } from "../src/workflow/inbound/events";
-import { parseControl } from "../src/workflow/inbound/control-words";
+import { parseVerbalCommand } from "../src/workflow/inbound/verbal-command";
 import { plainText } from "../src/notify/messages";
 import { outbox } from "../src/workflow/store/schema";
 import { isTaskFinished, type Subject } from "../src/workflow/store/state";
@@ -224,8 +224,8 @@ export const MAX_AUTHORS = 4;
 /** The most pages a world's authors can number. Each author numbers its artifact by its place. */
 const MAX_PAGES = 20;
 
-/** The task slots of the workflow of a world. */
-export const SLOTS = 2;
+/** The job slots of the workflow of a world. */
+const SLOTS = 2;
 
 /** The texts a person asks for ad hoc work with. The first one started the world's first job. */
 export const REQUEST_TEXTS = ["Fix the login redirect.", "Add a logout link."] as const;
@@ -366,6 +366,7 @@ export class WorkflowWorld {
   private readonly bridges: FakeBridge[] = [];
   private readonly promptsAtNormalTurnEnd = new Map<string, number>();
   private hostReadable = true;
+  private pullsReadable = true;
   private hostReviewComments: Record<number, PullRequestReviewComment[]> = {};
   private reviewNumber = 0;
   private eventNumber = 0;
@@ -375,7 +376,6 @@ export class WorkflowWorld {
   private readonly checksOnPush: ChecksOnPush;
   private readonly tracker: SessionTracker;
   private readonly streamedTexts: string[] = [];
-  private readonly stoppedEarly = new Set<string>();
   private readonly modelTurnEnds: string[] = [];
   private readonly modelPromptTexts = new Map<string, string[]>();
   private readonly queuedPromptTexts = new Map<string, string[]>();
@@ -660,7 +660,8 @@ export class WorkflowWorld {
   /** What the host says the author's artifact is now. Null when it cannot say. */
   hostRevisionOf(author: WorldAuthor): string | null {
     const pull = this.pullOf(author);
-    if (author.kind !== "pull" || pull.state === "unopened" || !this.hostReadable) return null;
+    if (author.kind !== "pull" || pull.state === "unopened") return null;
+    if (!this.hostReadable || !this.pullsReadable) return null;
     return revisionOf(pull);
   }
 
@@ -797,6 +798,18 @@ export class WorkflowWorld {
     }
   }
 
+  /** Run `body` while the host cannot say the head commit of any pull request. */
+  async whilePullRevisionsAreUnknown<Result>(body: () => Promise<Result>): Promise<Result> {
+    this.pullsReadable = false;
+    this.installHost();
+    try {
+      return await body();
+    } finally {
+      this.pullsReadable = true;
+      this.installHost();
+    }
+  }
+
   /** A reviewer run files its review on the author's pull request, against the revision it read. */
   fileReview(
     author: WorldAuthor,
@@ -913,7 +926,6 @@ export class WorkflowWorld {
       this.whilePageModelAnswers = null;
       stops.push(host.calls.length);
       await this.deliver(stopEvent(session));
-      this.forgetStoppedEarlyIn(session);
     };
     try {
       await start();
@@ -1121,24 +1133,6 @@ export class WorkflowWorld {
     return taskId ? { task_id: taskId, hostRevision: null, cancelled: false } : null;
   }
 
-  /** An author turn ended. `stoppedEarly` says whether it ended on its own with the work unfinished. */
-  recordAuthorTurnEnd(taskId: string, stoppedEarly: boolean): void {
-    if (stoppedEarly) this.stoppedEarly.add(taskId);
-    else this.stoppedEarly.delete(taskId);
-  }
-
-  /**
-   * A person pressed Stop in a session. The authors of its job wait for that person now, so they
-   * no longer count as stopped early.
-   */
-  forgetStoppedEarlyIn(session: TrackerSession): void {
-    for (const author of this.authors) {
-      if (this.jobOf(author).issue_id === session.issue_id) {
-        this.stoppedEarly.delete(author.taskId);
-      }
-    }
-  }
-
   /** Deliver one event from a person, the way ingress does. */
   async deliver(event: Pick<InboundEvent, "kind" | "text"> & Partial<InboundEvent>): Promise<void> {
     this.eventNumber += 1;
@@ -1154,7 +1148,7 @@ export class WorkflowWorld {
       text: delivered.text,
       person: delivered.actor !== null,
       reply_to: delivered.reply_to ?? null,
-      control: delivered.control ?? parseControl(delivered.text)?.control ?? null,
+      control: delivered.control ?? parseVerbalCommand(delivered.text)?.control ?? null,
     };
     await handleEvent(this.workflow, delivered);
   }
@@ -1278,6 +1272,7 @@ export class WorkflowWorld {
       reviews: Object.fromEntries(onHost.map((pull) => [pull.number, pull.reviews])),
       reviewComments: this.hostReviewComments,
       failing: !this.hostReadable,
+      pullsUnreadable: !this.pullsReadable,
       now: () => this.workflow.now(),
     });
   }
@@ -1386,7 +1381,6 @@ export class WorkflowWorld {
           modelCallOut:
             task.model_turn_id !== null &&
             this.hungModelTurns.get(task.task_id) === task.model_turn_id,
-          stoppedEarly: this.stoppedEarly.has(task.task_id),
         };
       }),
       artifacts: store.artifacts().map((artifact) => ({

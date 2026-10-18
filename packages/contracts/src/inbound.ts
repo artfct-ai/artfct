@@ -11,8 +11,8 @@ type EventKind =
   | "status"
   | "stop";
 
-/** Control verbs carried by `control` events. */
-export type Control = "cancel" | "pause" | "resume" | "instruct";
+/** The verbal commands a `control` event carries. */
+export type VerbalCommand = "cancel" | "pause" | "resume" | "instruct";
 
 /** The person behind an event, resolved to an internal person ID. */
 export type Actor = {
@@ -89,7 +89,7 @@ export type InboundEvent = {
   bindings: Binding[];
   links: string[];
   text: string;
-  control?: Control;
+  control?: VerbalCommand;
   reply_to?: ReplyTarget;
   pull?: PullEventDetail;
   page?: PageDetail;
