@@ -241,7 +241,6 @@ export type StepFacts = Partial<
   Pick<
     Step,
     | "authorTurnEnd"
-    | "refinerTurnEnd"
     | "staleAlarm"
     | "completion"
     | "modelCallStopped"
@@ -362,7 +361,6 @@ export class WorkflowWorld {
   readonly authors: WorldAuthor[] = [];
   private readonly pulls = new Map<number, WorldPull>();
   private readonly bridges: FakeBridge[] = [];
-  private readonly promptsAtNormalTurnEnd = new Map<string, number>();
   private hostReadable = true;
   private pullsReadable = true;
   private hostReviewComments: Record<number, PullRequestReviewComment[]> = {};
@@ -559,10 +557,6 @@ export class WorkflowWorld {
       await this.dropClosedSockets();
       return ran;
     });
-    const ended = facts.refinerTurnEnd?.task_id;
-    if (ended && !this.runningBridgeOf(ended)) {
-      this.promptsAtNormalTurnEnd.set(ended, this.promptsSentTo(ended));
-    }
     const rows = this.outboxRowsAfter(outboxBefore);
     const step: Step = {
       action: String(action),
@@ -571,7 +565,6 @@ export class WorkflowWorld {
       after: this.observe(),
       notes: this.workflow.notes.slice(notesBefore),
       authorTurnEnd: facts.authorTurnEnd ?? this.modelTurnEndSince(modelTurnEndsBefore),
-      refinerTurnEnd: facts.refinerTurnEnd ?? null,
       staleAlarm: facts.staleAlarm ?? null,
       completion: facts.completion ?? null,
       modelCallStopped: facts.modelCallStopped ?? null,
@@ -945,7 +938,7 @@ export class WorkflowWorld {
       .map((call) => call.method)
       .filter((method) => PAGE_WRITES.includes(method));
     return {
-      authorTurnEnd: { task_id: author.taskId, hostRevision: null, cancelled: true },
+      authorTurnEnd: { task_id: author.taskId, cancelled: true },
       modelCallStopped: { task_id: author.taskId, pageWrites },
     };
   }
@@ -1136,7 +1129,7 @@ export class WorkflowWorld {
   /** The last model-call author turn that ended since `index`, as the step records it. */
   private modelTurnEndSince(index: number): Step["authorTurnEnd"] {
     const taskId = this.modelTurnEnds.slice(index).at(-1);
-    return taskId ? { task_id: taskId, hostRevision: null, cancelled: false } : null;
+    return taskId ? { task_id: taskId, cancelled: false } : null;
   }
 
   /** Deliver one event from a person, the way ingress does. */
@@ -1362,8 +1355,6 @@ export class WorkflowWorld {
           job_id: task.job_id,
           refiner_index: task.refiner_index,
           ruling: decidedRulingOf(store.ruling(task.task_id)),
-          quietSinceTurnEnd:
-            this.promptsAtNormalTurnEnd.get(task.task_id) === this.promptsSentTo(task.task_id),
           turnRunning: promptInFlight && this.runningBridgeOf(task.task_id) !== null,
           promptTexts: [
             ...queue.filter((row) => row.task_id === task.task_id).map((row) => row.text),

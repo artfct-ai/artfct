@@ -2050,7 +2050,6 @@ function judgeCloses(run: TaskRow, conclusion: string): WorkflowAction {
       if (!bridge) throw new Error(`judge ${run.task_id} has no running turn`);
       if (conclusion) await bridge.say(conclusion);
       await bridge.endTurn("end_turn");
-      return { refinerTurnEnd: { task_id: run.task_id } };
     },
   };
 }

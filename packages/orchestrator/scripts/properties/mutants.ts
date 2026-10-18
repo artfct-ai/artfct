@@ -20,7 +20,7 @@ export type MutantResult = { mutant: Mutant; status: "killed" | "survived" | "no
 export const MUTANTS: Mutant[] = [
   {
     id: "W1",
-    invariant: "refinersRunAgainOnlyOnChangedRevision",
+    invariant: "reviewLoop::refinersRunAgainOnlyOnChangedRevision",
     path: "src/workflow/refiner/outcome.ts",
     find: "  if (revision !== null && revision === artifact.delivered_revision) return;\n",
     replace: "",
@@ -87,7 +87,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W10",
-    invariant: "judgeRulesAtMostOnce",
+    invariant: "reviewLoop::reviewerRunsOnlyOnAnUnreviewedRevision",
     path: "src/workflow/refiner/stage-refiner.ts",
     find: '  if (entries[index]?.mode !== "judge") return false;\n  return runs.some(',
     replace: '  if (entries[index]?.mode !== "judge") return false;\n  return false && runs.some(',
@@ -131,7 +131,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W16",
-    invariant: "judgeRulesAtMostOnce",
+    invariant: "reviewLoop::judgeRulesAtMostOnce",
     path: "src/workflow/refiner/loop.ts",
     find: "  const refusal = validateJudgeAwaitsRuling(workflow, reviewer);\n  if (refusal) {",
     replace:
