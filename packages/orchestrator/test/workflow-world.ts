@@ -421,6 +421,22 @@ export class WorkflowWorld {
     };
   }
 
+  /**
+   * Run one step of a sequence or a replay that drives the world, and fail it when it ran more
+   * store statements than the work budget. A step that another step's work overlapped is not
+   * measured, since its count holds that work too.
+   */
+  async withinWorkBudget<Result>(label: string, run: () => Promise<Result>): Promise<Result> {
+    const running = { label, statementsAtStart: this.statements };
+    this.runningAction = running;
+    const result = await run();
+    const work = this.statements - running.statementsAtStart;
+    if (this.runningAction !== running) return result;
+    this.runningAction = null;
+    if (work > ACTION_WORK_BUDGET) exceededWorkBudget(label, work);
+    return result;
+  }
+
   /** Keep the text of every prompt queued for a task, also one a stop or a cancel clears later. */
   private recordQueuedPrompts(): void {
     const { store } = this.workflow;
@@ -537,13 +553,12 @@ export class WorkflowWorld {
     const pageCommentsBefore = this.pageHost.postedComments.length;
     this.delivered = null;
     this.landed = [];
-    const running = { label: String(action), statementsAtStart: this.statements };
-    this.runningAction = running;
-    const facts = (await action.run(this)) ?? {};
-    this.adoptNewAuthors();
-    await this.dropClosedSockets();
-    const work = this.statements - running.statementsAtStart;
-    if (this.runningAction === running) this.runningAction = null;
+    const facts = await this.withinWorkBudget(String(action), async () => {
+      const ran = (await action.run(this)) ?? {};
+      this.adoptNewAuthors();
+      await this.dropClosedSockets();
+      return ran;
+    });
     const ended = facts.refinerTurnEnd?.task_id;
     if (ended && !this.runningBridgeOf(ended)) {
       this.promptsAtNormalTurnEnd.set(ended, this.promptsSentTo(ended));
@@ -575,7 +590,6 @@ export class WorkflowWorld {
       postedTexts: this.workflow.posted.slice(postedBefore).map(plainText),
       pageCommentsPosted: this.pageHost.postedComments.slice(pageCommentsBefore),
       pageCommentsRefused: facts.pageCommentsRefused ?? false,
-      work,
     };
     this.steps.push(step);
     return step;

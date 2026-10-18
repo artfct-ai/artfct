@@ -396,7 +396,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "R1",
-    invariant: "messageAfterEndStartsNextWorkflow (claim)",
+    invariant: "routerBindings::messageAfterEndStartsNextWorkflow (claim)",
     path: "src/router/deliver.ts",
     find: "    if (!(await claimBinding(db, claimed.binding, { previous: claimed.workflowId, workflowId }))) {",
     replace:
@@ -404,7 +404,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "R2",
-    invariant: "messageAfterEndStartsNextWorkflow (bind all)",
+    invariant: "routerBindings::messageAfterEndStartsNextWorkflow (bind all)",
     path: "src/router/deliver.ts",
     find: "    if (index === claimedIndex) continue;\n    const previous = bound.workflowId;",
     replace:

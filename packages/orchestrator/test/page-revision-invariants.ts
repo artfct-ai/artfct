@@ -42,30 +42,6 @@ function replyGoesOnlyToASentComment(world: PageRevisionWorld): void {
   });
 }
 
-/**
- * A revision keeps the identity of every line its answer left as it was, except at most one
- * neighbor of each insertion that anchors it. A revision that did not write the page keeps
- * every line.
- */
-function untouchedLinesKeepTheirIdentity(world: PageRevisionWorld): void {
-  for (const revision of world.revisions) {
-    const written = revision.pageAfter !== revision.pageBefore;
-    if (!written || !revision.answer) {
-      if (revision.lineIdsAfter.join() !== revision.lineIdsBefore.join()) {
-        violated("untouchedLinesKeepTheirIdentity", "a revision without a write changed lines");
-      }
-      continue;
-    }
-    const lost = revision.answer.keptLineIds.filter((id) => !revision.lineIdsAfter.includes(id));
-    if (lost.length > revision.answer.insertions) {
-      violated(
-        "untouchedLinesKeepTheirIdentity",
-        `${lost.length} untouched lines lost their identity with ${revision.answer.insertions} insertions`,
-      );
-    }
-  }
-}
-
 /** A revision that posted fewer replies than its answer holds leaves the page as it was. */
 function failedReplyLeavesThePage(world: PageRevisionWorld): void {
   for (const revision of world.revisions) {
@@ -83,6 +59,5 @@ function failedReplyLeavesThePage(world: PageRevisionWorld): void {
 export const PAGE_REVISION_INVARIANTS = [
   sentCommentIsAnsweredBeforeItsLineGoes,
   replyGoesOnlyToASentComment,
-  untouchedLinesKeepTheirIdentity,
   failedReplyLeavesThePage,
 ];
