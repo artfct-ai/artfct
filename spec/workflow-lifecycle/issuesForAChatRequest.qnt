@@ -3,5 +3,5 @@
 /// issue or the project. The plan or the first output sets the subject.
 module issuesForAChatRequest {
   import workflowLifecycleTypes.* from "./workflowLifecycle"
-  import workflowLifecycle(WORK = IssuesForAChatRequest, REFINER = NoRefiner, MODEL_AUTHOR = false, RESEARCH = false, SLOT_COUNTS = Set(2)).* from "./workflowLifecycle"
+  import workflowLifecycle(WORK = IssuesForAChatRequest, REFINER = NoRefiner, MODEL_AUTHOR = false, RESEARCH = false, SLOT_COUNTS = Set(2), STAGE_ENDING = AcceptanceEnding).* from "./workflowLifecycle"
 }

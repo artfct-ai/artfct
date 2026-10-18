@@ -73,7 +73,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W8",
-    invariant: "aFailedCheckNeverCompletesAJob",
+    invariant: "workflowLifecycle::aFailedCheckNeverCompletesAJob",
     path: "src/agent/tools/start/start.ts",
     find: "  if (accepted === null) return checkUnavailableText(`whether the person accepted ${name}`);",
     replace: "  if (accepted === null) return null;",

@@ -28,6 +28,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | research payload | Structured data with file and line references that a researcher task produces. | `jobs.research_payload` | |
 | choice ending | A stage completion that requires a selection. | `Stage.ending "choice"` | choice stage |
 | selection | The one option a person chose on a stage with a choice ending. | `jobs.selection` | |
+| acceptance check | The decisions call that reads acceptance or the chosen option. A failed call keeps the job open. | `humansAccepted`, `humansSelected` | |
 | refiner | One configured agent step over the artifact of a stage, before the handover. A reviewer or a polisher. | `RefinerEntry`, `ReviewerEntry`, `StageRefiner` | pass, place |
 | refiner index | The position of a refiner in the list of its stage. Reviewers come first, then polishers. | `refiner_index` | place |
 | refiner run | One execution of a refiner on an artifact. | `tasks` row with role `reviewer` or `polisher` | pass task, the review |

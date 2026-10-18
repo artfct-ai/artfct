@@ -3,8 +3,6 @@ import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/proper
 import fc from "fast-check";
 import {
   aSingleIssueWorkflowIsDoneWithItsSubjectsJob,
-  aFailedCheckNeverAsksThePersonAgain,
-  aFailedCheckNeverCompletesAJob,
   artifactStatusMovesAreLegal,
   deliveredToHumansIsNeverCleared,
   eachIssueLinksTheChatThreadOnce,
@@ -141,8 +139,6 @@ const STEP_INVARIANTS = [
   artifactStatusMovesAreLegal,
   staleAlarmIsIgnored,
   jobStartsOnlyIntoAFreeSlot,
-  aFailedCheckNeverCompletesAJob,
-  aFailedCheckNeverAsksThePersonAgain,
   linearOnlyAsksReachTheStartingSession,
   sessionMessageReachesItsRunningAuthorSilently,
   sessionMessageWithoutAnAuthorIsAnswered,
@@ -965,7 +961,7 @@ const CORPUS_EXAMPLES = WORKFLOW_CORPUS.map((replayed): [ReplayedSequence] => [r
 
 describe("the workflow invariants", () => {
   it("are every state and step invariant", () => {
-    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(34);
+    expect(STATE_INVARIANTS.length + STEP_INVARIANTS.length).toBe(30);
   });
 
   for (const property of PROPERTIES) {

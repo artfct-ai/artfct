@@ -1299,16 +1299,12 @@ export function agentCompletes(
       "accepts",
     );
     const { complete_job } = startTools(world.workflow, PERSON_MESSAGES[person]);
-    const result = toolText(
-      await complete_job.execute(
-        { job_id: world.jobOf(author).job_id, result: "Done." },
-        toolCallFor(decisions),
-      ),
+    await complete_job.execute(
+      { job_id: world.jobOf(author).job_id, result: "Done." },
+      toolCallFor(decisions),
     );
     if (decisions === "hangs") world.answerDecisionsWith("fails");
-    return {
-      completion: { task_id: author.taskId, checkFailed: decisions !== "answers", result },
-    };
+    return { completion: { task_id: author.taskId } };
   });
 }
 
@@ -1330,16 +1326,12 @@ export function agentCompletesWithSelection(
         : decisions,
     );
     const { complete_job } = startTools(world.workflow, PERSON_MESSAGES[person]);
-    const result = toolText(
-      await complete_job.execute(
-        { job_id: world.jobOf(author).job_id, result: "Done.", option: PAGE_OPTION },
-        toolCallFor(decisions),
-      ),
+    await complete_job.execute(
+      { job_id: world.jobOf(author).job_id, result: "Done.", option: PAGE_OPTION },
+      toolCallFor(decisions),
     );
     if (decisions === "hangs") world.answerDecisionsWith("fails");
-    return {
-      completion: { task_id: author.taskId, checkFailed: decisions !== "answers", result },
-    };
+    return { completion: { task_id: author.taskId } };
   });
 }
 

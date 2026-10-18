@@ -10,6 +10,7 @@
   "vars": [
     "pagesWithoutRefiners::workflowLifecycle::workflow",
     "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent",
+    "pagesWithoutRefiners::workflowLifecycle::lastStepAnswered",
     "mbt::actionTaken",
     "mbt::nondetPicks"
   ],
@@ -57,6 +58,12 @@
         }
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesWithoutRefiners::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "init",
       "mbt::nondetPicks": {
         "accepted": {
@@ -200,6 +207,12 @@
         }
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesWithoutRefiners::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "idleAlarmFires",
       "mbt::nondetPicks": {
         "accepted": {
@@ -343,6 +356,12 @@
         }
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesWithoutRefiners::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
         "accepted": {
@@ -540,6 +559,12 @@
         }
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesWithoutRefiners::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentStartsJob",
       "mbt::nondetPicks": {
         "accepted": {
@@ -736,6 +761,12 @@
         }
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": true,
+      "pagesWithoutRefiners::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "authorWritesItsPage",
       "mbt::nondetPicks": {
         "accepted": {
@@ -932,6 +963,12 @@
         }
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesWithoutRefiners::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentPausesAuthor",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1128,6 +1165,12 @@
         }
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesWithoutRefiners::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentResumesAuthor",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1342,6 +1385,12 @@
         }
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": true,
+      "pagesWithoutRefiners::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "taskStalls",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1556,6 +1605,12 @@
         }
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesWithoutRefiners::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1771,6 +1826,12 @@
         }
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesWithoutRefiners::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
         "accepted": {
@@ -1986,6 +2047,12 @@
         }
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesWithoutRefiners::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentPausesAuthor",
       "mbt::nondetPicks": {
         "accepted": {
@@ -2182,6 +2249,12 @@
         }
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesWithoutRefiners::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "workflowRestarts",
       "mbt::nondetPicks": {
         "accepted": {
@@ -2376,6 +2449,12 @@
         }
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesWithoutRefiners::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
         "accepted": {
@@ -2591,6 +2670,12 @@
         }
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesWithoutRefiners::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
       "mbt::actionTaken": "agentCompletesJob",
       "mbt::nondetPicks": {
         "accepted": {
