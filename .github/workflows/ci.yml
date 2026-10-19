@@ -24,7 +24,7 @@ env:
 jobs:
   ci:
     name: ci
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -42,7 +42,7 @@ jobs:
   spec_replays_affected:
     name: spec replays
     if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -57,7 +57,7 @@ jobs:
 
   spec_changes:
     name: spec changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     outputs:
       specs: ${{ steps.specs.outputs.specs }}
@@ -152,7 +152,7 @@ jobs:
     name: spec replays (${{ matrix.name }})
     needs: ci
     if: github.event_name == 'push'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -188,6 +188,7 @@ jobs:
     name: preview
     needs: [ci, spec_changes, quint_spec, spec_replays]
     if: github.event_name == 'push' && !cancelled() && needs.ci.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
+    # x64, because it builds and publishes the linux/amd64 sandbox image.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     concurrency:
