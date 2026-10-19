@@ -2150,6 +2150,7 @@ const WORLD_SETUP: Omit<WorldSetup, "refiners"> = {
   firstInput: "request",
   subject: "none",
   sandboxStart: "at_task_start",
+  pageBranch: false,
 };
 
 /** The page a model-call author produces. Its lines line up with the parts the spec edits. */

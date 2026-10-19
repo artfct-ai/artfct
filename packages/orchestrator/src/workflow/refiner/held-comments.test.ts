@@ -134,6 +134,30 @@ describe("sendHeldCommentsOnRevisionRequest", () => {
       }));
   });
 
+  describe("an author that finishes while its held comments are read", () => {
+    const finishing = scenario(pageScenario(HELD, "in_review"), (workflow) => {
+      const runtime = workflow;
+      workflow.documentsInstance = new (class extends FakeDocuments {
+        override async heldComments(pageId: string): Promise<HeldComment[]> {
+          runtime.store.updateTask(TASK, { status: "cancelled" });
+          return super.heldComments(pageId);
+        }
+      })({ held: HELD });
+    });
+
+    it("prompts nobody, leaves them held, and tells the agent", () =>
+      finishing(async (workflow) => {
+        expect(await sendHeldCommentsOnRevisionRequest(workflow)).toEqual({
+          prompted: [],
+          notes: [
+            `The person asked for a revision, but the author ${TASK} finished before the comments held on ${PAGE_URL} were sent. They stay held. Tell the person.`,
+          ],
+        });
+        expect(workflow.store.queue()).toEqual([]);
+        expect(fakeDocumentsOf(workflow).argsOf("acknowledgeComment")).toEqual([]);
+      }));
+  });
+
   describe("held comments the screen cannot check", () => {
     const unchecked = scenario(pageScenario(HELD, "in_review"), (workflow) => {
       workflow.gatewayInstance = new FakeGateway({

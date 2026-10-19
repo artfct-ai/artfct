@@ -201,7 +201,12 @@ export async function sendHeldCommentsOnRevisionRequest(
       continue;
     }
     const carried = await carryHeldComments(workflow, author.task_id, held);
-    if (carried === null) continue;
+    if (carried === null) {
+      sent.notes.push(
+        `The person asked for a revision, but the author ${author.task_id} finished before the comments held on ${held.artifact.external_url} were sent. They stay held. Tell the person.`,
+      );
+      continue;
+    }
     if (!carried.length) {
       sent.notes.push(`The person asked for a revision. ${heldCommentsNote(held, carried)}`);
       continue;
