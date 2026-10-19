@@ -835,7 +835,7 @@ export class WorkflowLifecycleReplay {
     const { workflow } = this.world;
     const { store, state } = workflow;
     const jobs = store.jobs();
-    const storedEnd = store.workflowEnd();
+    const storedEnd = state.workflow_end;
     const observed = this.world.steps.at(-1)?.after.tasks ?? [];
     const started = store
       .tasks()

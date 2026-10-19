@@ -77,6 +77,21 @@ export type WorkflowState = {
   turn_board_changed?: boolean;
   /** The schedule id of the idle alarm that posts the sleep note, or null. */
   idle_alarm: string | null;
+  /**
+   * The workflow end, from its request until the channels heard it. Null when the workflow is not
+   * ending. Absent in a workflow stored before this field.
+   */
+  workflow_end?: WorkflowEnd | null;
+};
+
+/**
+ * A workflow end. `reason` is the result of a done workflow, or why it failed or was cancelled.
+ * `answering` is where the people who asked for the end wait. Empty for an end the agent asked for.
+ */
+export type WorkflowEnd = {
+  status: Extract<WorkflowStatus, "done" | "failed" | "cancelled">;
+  reason: string;
+  answering: ReplyTarget[];
 };
 
 export const initialWorkflowState: WorkflowState = {
@@ -104,6 +119,7 @@ export const initialWorkflowState: WorkflowState = {
   turn_first_row: null,
   turn_board_changed: false,
   idle_alarm: null,
+  workflow_end: null,
 };
 
 /** What every reader calls the workflow. Never empty. Stored state may lack a name or a title. */

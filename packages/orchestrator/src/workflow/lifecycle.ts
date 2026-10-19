@@ -17,9 +17,8 @@ import { refinerRunOf } from "./refiner/stage-refiner";
 import { markArtifactReady } from "./refiner/outcome";
 import type { WorkflowRuntime } from "./types";
 import type { JobRow, NewTask, TaskRow } from "./store/tasks";
-import type { WorkflowEndRow } from "./store/records";
 import { jobInputKey } from "./store/input-key";
-import { isTaskFinished, isWorkflowFinished } from "./store/state";
+import { isTaskFinished, isWorkflowFinished, type WorkflowEnd } from "./store/state";
 import {
   clearTaskTimers,
   closeContainer,
@@ -382,25 +381,22 @@ export async function failWorkflow(workflow: WorkflowRuntime, reason: string): P
 
 /** True from the request of a workflow end until the channels heard it. */
 export function workflowEnding(workflow: WorkflowRuntime): boolean {
-  return workflow.store.workflowEnd() !== null;
+  return (workflow.state.workflow_end ?? null) !== null;
 }
 
 /**
- * Store the workflow end before its first cancel, then go on with it. False when the workflow
+ * Record the workflow end in the workflow state before its first cancel, then go on with it. False when the workflow
  * already ended or another end runs, so the caller says nothing.
  */
-export async function endWorkflow(
-  workflow: WorkflowRuntime,
-  end: WorkflowEndRow,
-): Promise<boolean> {
+export async function endWorkflow(workflow: WorkflowRuntime, end: WorkflowEnd): Promise<boolean> {
   if (workflowEnding(workflow) || isWorkflowFinished(workflow.state.status)) return false;
-  workflow.store.storeWorkflowEnd(end);
+  workflow.patchState({ workflow_end: end });
   await goOnWithWorkflowEnd(workflow, end);
   return true;
 }
 
 /**
- * Start step: arm the alarm that goes on with the workflow end the store holds. A later restart
+ * Start step: arm the alarm that goes on with the workflow end the workflow state holds. A later restart
  * before it fires leaves the one alarm armed.
  */
 export async function armWorkflowEndAlarm(workflow: WorkflowRuntime): Promise<void> {
@@ -410,7 +406,7 @@ export async function armWorkflowEndAlarm(workflow: WorkflowRuntime): Promise<vo
 
 /** Alarm: go on with the workflow end that an instance restart cut off. */
 export async function resumeWorkflowEnd(workflow: WorkflowRuntime): Promise<void> {
-  const end = workflow.store.workflowEnd();
+  const end = workflow.state.workflow_end;
   if (end) await goOnWithWorkflowEnd(workflow, end);
 }
 
@@ -419,7 +415,7 @@ export async function resumeWorkflowEnd(workflow: WorkflowRuntime): Promise<void
  * the channels. Each cancel reads the active tasks again, so an author that starts after research
  * meanwhile ends too, and so does a task an earlier instance did not reach.
  */
-async function goOnWithWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEndRow): Promise<void> {
+async function goOnWithWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEnd): Promise<void> {
   const reason = end.status === "done" ? "the workflow is done" : end.reason;
   const nextActive = () => workflow.store.activeAuthorAndResearcherTasks()[0];
   for (let task = nextActive(); task; task = nextActive()) {
@@ -428,14 +424,14 @@ async function goOnWithWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEndRo
   for (const task of workflow.store.activeRefinerRuns()) await cancelTask(workflow, task, reason);
   await writeWorkflowStatus(workflow, end.status);
   await announceWorkflowEnd(workflow, end);
-  workflow.store.dropWorkflowEnd();
+  workflow.patchState({ workflow_end: null });
 }
 
 /**
  * Tell the channels how the workflow ended, and drop its code host bindings. A done workflow
  * completes each session's issue.
  */
-async function announceWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEndRow): Promise<void> {
+async function announceWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEnd): Promise<void> {
   const to = { answering: end.answering };
   switch (end.status) {
     case "done":

@@ -2,7 +2,7 @@ import type { ArtifactStatus } from "@artfct-ai/contracts/types";
 import { and, count, desc, eq, getTableColumns, inArray, ne, notInArray, sql } from "drizzle-orm";
 import type { WorkflowDb } from "./db";
 import { artifactRefKey } from "./input-key";
-import { artifacts, DELIVERY_ERROR, events, jobs, log, outbox, tasks, workflowEnd } from "./schema";
+import { artifacts, DELIVERY_ERROR, events, jobs, log, outbox, tasks } from "./schema";
 import { FINISHED_TASK_STATUSES, now } from "./state";
 
 /** Outbox channels a human reads. Board and internal rows reach nobody. */
@@ -18,9 +18,6 @@ const authorTaskOfArtifact = and(eq(tasks.job_id, artifacts.job_id), eq(tasks.ro
 
 export type ArtifactRow = typeof artifacts.$inferSelect;
 
-/** The workflow end the store holds. */
-export type WorkflowEndRow = typeof workflowEnd.$inferSelect;
-
 function sameArtifactAs(row: ArtifactRow): (other: ArtifactRow) => boolean {
   const key = artifactRefKey({ ref: row.ref, url: row.external_url });
   return (other) => artifactRefKey({ ref: other.ref, url: other.external_url }) === key;
@@ -30,7 +27,7 @@ export type OutboxEntry = Pick<
   "channel" | "kind" | "target" | "payload"
 >;
 
-/** Queries over the record tables: artifacts, outbox, events, log, and the workflow end. */
+/** Queries over the record tables: artifacts, outbox, events, and log. */
 export class RecordStore {
   private readonly artifactOfJob;
   private readonly allArtifacts;
@@ -195,21 +192,6 @@ export class RecordStore {
       .values({ ...event, at: now() })
       .run();
     return true;
-  }
-
-  /** The workflow end the store holds, or null when the workflow is not ending. */
-  workflowEnd(): WorkflowEndRow | null {
-    return this.db.select().from(workflowEnd).get() ?? null;
-  }
-
-  /** Hold the workflow end until `dropWorkflowEnd`. */
-  storeWorkflowEnd(end: WorkflowEndRow): void {
-    this.db.insert(workflowEnd).values(end).run();
-  }
-
-  /** The workflow end is over. */
-  dropWorkflowEnd(): void {
-    this.db.delete(workflowEnd).run();
   }
 
   appendLog(taskId: string | null, line: string): void {

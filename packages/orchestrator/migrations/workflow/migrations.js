@@ -7,7 +7,6 @@ import m0004 from './0004_careful_doctor_spectrum.sql';
 import m0005 from './0005_brainy_stranger.sql';
 import m0006 from './0006_foamy_war_machine.sql';
 import m0007 from './0007_perpetual_celestials.sql';
-import m0008 from './0008_whole_kabuki.sql';
 
   export default {
     journal,
@@ -19,8 +18,7 @@ m0003,
 m0004,
 m0005,
 m0006,
-m0007,
-m0008
+m0007
     }
   }
   

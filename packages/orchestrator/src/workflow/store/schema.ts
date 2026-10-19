@@ -238,22 +238,6 @@ export const outbox = sqliteTable("outbox", {
   payload: text({ mode: "json" }).$type<unknown>().notNull(),
 });
 
-/** The final statuses a workflow end can write. */
-export const WORKFLOW_END_STATUSES = ["done", "failed", "cancelled"] as const;
-
-/**
- * The workflow end, from its request until the channels heard it. At most one row. The end
- * writes it before its first cancel, so a new instance goes on with an end that an instance
- * restart cut off.
- */
-export const workflowEnd = sqliteTable("workflow_end", {
-  status: text({ enum: WORKFLOW_END_STATUSES }).primaryKey(),
-  /** Why the workflow ends: the result of a done workflow, or why it failed or was cancelled. */
-  reason: text().notNull(),
-  /** Where the people who asked for the end wait for the answer. Empty for an end the agent asked for. */
-  answering: text({ mode: "json" }).$type<ReplyTarget[]>().notNull(),
-});
-
 /** Inbound event ids already handled, for idempotency. */
 export const events = sqliteTable("events", {
   id: text().primaryKey(),
