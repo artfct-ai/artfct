@@ -46,12 +46,6 @@
       groupName: "Cloudflare Sandbox",
     },
     {
-      description: "@cloudflare/vitest-pool-workers supports vitest 4 only",
-      matchPackageNames: ["vitest"],
-      matchUpdateTypes: ["major"],
-      enabled: false,
-    },
-    {
       description: "engines states the Node lines a package supports, so only a person changes it",
       matchDepTypes: ["engines"],
       enabled: false,
