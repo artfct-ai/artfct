@@ -18,8 +18,12 @@ import { FakeDecisions, HangingDecisions } from "@artfct-ai/adapters/test/fake-d
 import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
-import type { RpcAck } from "@artfct-ai/contracts/types";
-import type { ArtifactStatus, TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
+import type {
+  ArtifactStatus,
+  RpcAck,
+  TaskStatus,
+  WorkflowStatus,
+} from "@artfct-ai/contracts/types";
 import type { Binding } from "@artfct-ai/contracts/sources";
 import { OPTIONS_HEADING } from "../src/artifact/options";
 import { labeledPageCommentIds } from "../src/artifact/page-comment-label";

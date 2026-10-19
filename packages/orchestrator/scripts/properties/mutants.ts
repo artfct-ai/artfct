@@ -690,11 +690,26 @@ export const MUTANTS: Mutant[] = [
     replace: "",
   },
   {
+    id: "W117",
+    invariant: "sessionRouting::everySessionMessageLandsOnce (marked on arrival)",
+    path: "src/workflow/inbound/events.ts",
+    find: "  if (workflow.store.eventSeen(event.id)) return DUPLICATE;\n",
+    replace:
+      "  if (!workflow.store.markEventSeen(event)) return DUPLICATE;\n  event = { ...event, id: `${event.id}:landed` };\n",
+  },
+  {
+    id: "W118",
+    invariant: "sessionRouting::everySessionMessageLandsOnce (lands twice)",
+    path: "src/workflow/inbound/events.ts",
+    find: "  if (!routesBeforeItIsSeen(workflow, event) && !workflow.store.markEventSeen(event)) {\n    return DUPLICATE;\n  }\n",
+    replace: "  if (!routesBeforeItIsSeen(workflow, event)) workflow.store.markEventSeen(event);\n",
+  },
+  {
     id: "W115",
     invariant: "feedbackRouting::everyFeedbackIsRoutedOnce (seen on arrival)",
     path: "src/workflow/inbound/events.ts",
-    find: "  if (workflow.store.eventSeen(event.id)) return { ok: true, duplicate: true };",
-    replace: "  if (!workflow.store.markEventSeen(event)) return { ok: true, duplicate: true };",
+    find: "  if (workflow.store.eventSeen(event.id)) return DUPLICATE;\n",
+    replace: "  if (!workflow.store.markEventSeen(event)) return DUPLICATE;\n",
   },
   {
     id: "W116",
