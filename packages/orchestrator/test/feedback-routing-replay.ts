@@ -1,8 +1,12 @@
 import type { DecisionState } from "@artfct-ai/adapters/gateway/types";
+import type { InboundEvent } from "@artfct-ai/contracts/inbound";
+import type { RpcAck } from "@artfct-ai/contracts/types";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { taskTools } from "../src/agent/tools/task";
+import type { Artifact, ChangeInput } from "../src/artifact/types";
 import { isTaskFinished, isWorkflowFinished } from "../src/workflow/store/state";
+import { FakeRuntime } from "./fake-runtime";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
 import { quintTraces } from "./quint-traces";
 import {
@@ -72,17 +76,25 @@ type ShownView = {
   heard: Words[];
 };
 
-/** The workflow, its author, its artifact, and what the last feedback showed. */
+/** One feedback that arrived: its deliveries in flight, and whether its routing marked it seen. */
+type FeedbackState = { inFlight: number; seen: boolean };
+
+/**
+ * The workflow, its author, its artifact, each feedback that arrived, and what the last step
+ * showed when it routed a feedback or dropped a delivery of one.
+ */
 export type FeedbackView = {
   workflow: (typeof WORKFLOW_STATUSES)[number];
   author: { status: (typeof AUTHOR_STATUSES)[number]; promptsWaiting: number };
   recorded: boolean;
   heldOnPage: boolean;
+  feedbacks: FeedbackState[];
   shown: ShownView | null;
 };
 
 /** What a spec action picked. */
 type SpecPicks = {
+  id: number | null;
   form: (typeof FORMS)[number] | null;
   screen: (typeof SCREENS)[number] | null;
   ack: (typeof ACKS)[number] | null;
@@ -116,6 +128,7 @@ function traceStep(state: unknown): TraceStep {
   return {
     action: itfText(itfField(state, "mbt::actionTaken")),
     picks: {
+      id: pickedInt(picks, "id"),
       form: pickedTag(picks, "form", FORMS),
       screen: pickedTag(picks, "screen", SCREENS),
       ack: pickedTag(picks, "ack", ACKS),
@@ -132,6 +145,11 @@ function stateVar(state: unknown, name: string): unknown {
   const found = Object.keys(state).find((key) => key.endsWith(`::${name}`));
   if (!found) throw new Error(`the trace has no ${name}`);
   return itfField(state, found);
+}
+
+function pickedInt(picks: unknown, name: string): number | null {
+  const picked = itfVariant(itfField(picks, name, true));
+  return picked?.tag === "Some" ? itfInt(picked.value) : null;
 }
 
 function pickedTag<Name extends string>(
@@ -155,10 +173,48 @@ function wordsOf(value: unknown): Words[] {
   return WORDS.filter((name) => words.includes(name));
 }
 
+function intMap(value: unknown): Map<number, number> {
+  return new Map(
+    itfList(itfField(value, "#map")).map((pair) => {
+      const [key, entry] = itfList(pair);
+      return [itfInt(key), itfInt(entry)];
+    }),
+  );
+}
+
+function feedbackStates(world: unknown): FeedbackState[] {
+  const inFlight = intMap(itfField(world, "inFlight"));
+  const routedTimes = intMap(itfField(world, "routedTimes"));
+  return Array.from({ length: itfInt(itfField(world, "arrivals")) }, (_, id) => ({
+    inFlight: inFlight.get(id) ?? 0,
+    seen: (routedTimes.get(id) ?? 0) > 0,
+  }));
+}
+
+const NOTHING_SHOWN: ShownView = {
+  promptsAdded: 0,
+  prompted: [],
+  note: "NoNote",
+  wake: "NoWake",
+  heard: [],
+};
+
+function shownOf(lastFeedback: unknown): ShownView | null {
+  const last = itfVariant(lastFeedback);
+  if (last?.tag === "DuplicateDropped") return NOTHING_SHOWN;
+  if (last?.tag !== "FeedbackArrived") return null;
+  const shown = itfField(last.value, "shown");
+  return {
+    promptsAdded: itfInt(itfField(shown, "promptsAdded")),
+    prompted: wordsOf(itfField(shown, "prompted")),
+    note: tagOf(itfField(shown, "note"), NOTE_KINDS),
+    wake: tagOf(itfField(shown, "wake"), WAKES),
+    heard: wordsOf(itfField(shown, "heard")),
+  };
+}
+
 function specView(world: unknown, lastFeedback: unknown): FeedbackView {
   const author = itfField(world, "author");
-  const last = itfVariant(lastFeedback);
-  const shown = last?.tag === "FeedbackArrived" ? itfField(last.value, "shown") : null;
   return {
     workflow: tagOf(itfField(world, "workflow"), WORKFLOW_STATUSES),
     author: {
@@ -167,16 +223,8 @@ function specView(world: unknown, lastFeedback: unknown): FeedbackView {
     },
     recorded: itfBool(itfField(world, "recorded")),
     heldOnPage: itfBool(itfField(world, "heldOnPage")),
-    shown:
-      shown === null
-        ? null
-        : {
-            promptsAdded: itfInt(itfField(shown, "promptsAdded")),
-            prompted: wordsOf(itfField(shown, "prompted")),
-            note: tagOf(itfField(shown, "note"), NOTE_KINDS),
-            wake: tagOf(itfField(shown, "wake"), WAKES),
-            heard: wordsOf(itfField(shown, "heard")),
-          },
+    feedbacks: feedbackStates(world),
+    shown: shownOf(lastFeedback),
   };
 }
 
@@ -257,14 +305,32 @@ function required<Value>(value: Value | null): Value {
   return value;
 }
 
+/** One feedback a person posted: the event its host delivers, what it carries, and its form. */
+type PostedFeedback = {
+  form: (typeof FORMS)[number];
+  event: Pick<InboundEvent, "id" | "kind" | "text"> & Partial<InboundEvent>;
+  texts: () => FeedbackTexts;
+  postOnHost: () => void;
+};
+
+/** A delivery that waits at the change of its artifact until the replay routes it. */
+type HeldDelivery = { id: number; route: () => void; answered: Promise<RpcAck> };
+
+/** How a delivery's first stretch ended: the workflow answered it, or it waits to be routed. */
+type ArrivalOutcome = { answered: RpcAck } | { route: () => void };
+
 /**
  * Replays spec traces through a workflow world whose one author works on a pull request or a
- * page. Feedback arrives through the inbound event entry point. A person's pull request
- * feedback takes the shape of a review, a review comment, and a comment in turn.
+ * page. Feedback arrives through the inbound event entry point and waits at the change of its
+ * artifact until the spec routes it. A person's pull request feedback takes the shape of a
+ * review, a review comment, and a comment in turn.
  */
 export class FeedbackRoutingReplay {
   private feedbacks = 0;
   private shown: ShownView | null = null;
+  private readonly posted: PostedFeedback[] = [];
+  private held: HeldDelivery[] = [];
+  private arriving: ((route: () => void) => void) | null = null;
 
   private constructor(
     readonly world: WorkflowWorld,
@@ -279,6 +345,7 @@ export class FeedbackRoutingReplay {
     const artifact = SPEC_SETUPS[setup];
     const world = await WorkflowWorld.open({ ...WORLD_SETUP, artifact });
     const replay = new FeedbackRoutingReplay(world, artifact === "page");
+    replay.holdDeliveries();
     if (artifact === "pull") {
       world.openPull(replay.author());
       return replay;
@@ -299,7 +366,23 @@ export class FeedbackRoutingReplay {
     this.shown = null;
     switch (step.action) {
       case "personPostsFeedback":
-        await this.personPostsFeedback(step.picks);
+        this.posted.push(this.postFeedback(required(step.picks.form)));
+        await this.deliveryArrives(this.posted.length - 1);
+        return;
+      case "hostDeliversAgain":
+        await this.deliveryArrives(required(step.picks.id));
+        return;
+      case "instanceRestarts":
+        await this.world.apply(
+          worldAction("the instance restarts", async (world) => {
+            await world.restartWithoutAlarms();
+            this.held = [];
+            this.holdDeliveries();
+          }),
+        );
+        return;
+      case "feedbackIsRouted":
+        await this.feedbackIsRouted(step.picks);
         return;
       case "personLeavesAPageComment":
         await this.world.apply(
@@ -350,6 +433,10 @@ export class FeedbackRoutingReplay {
       },
       recorded: this.world.artifactOf(this.author()) !== null,
       heldOnPage: this.onAPage && this.world.pageHost.heldNow().length > 0,
+      feedbacks: this.posted.map((feedback, id) => ({
+        inFlight: this.held.filter((delivery) => delivery.id === id).length,
+        seen: workflow.store.eventSeen(feedback.event.id),
+      })),
       shown: this.shown,
     };
   }
@@ -358,6 +445,28 @@ export class FeedbackRoutingReplay {
     const author = this.world.authors[0];
     if (!author) throw new Error("the world has no author");
     return author;
+  }
+
+  /** Make the next delivery that reaches the change of its artifact wait there to be routed. */
+  private holdDeliveries(): void {
+    const runtime = this.world.workflow;
+    runtime.artifact = (kind) => {
+      const artifact: Artifact = FakeRuntime.prototype.artifact.call(runtime, kind);
+      return {
+        ...artifact,
+        change: async (input: ChangeInput) => {
+          await this.waitToBeRouted();
+          return artifact.change(input);
+        },
+      };
+    };
+  }
+
+  private waitToBeRouted(): Promise<void> {
+    const arriving = this.arriving;
+    this.arriving = null;
+    if (!arriving) return Promise.resolve();
+    return new Promise((route) => arriving(() => route()));
   }
 
   private answerDecisions(picks: SpecPicks): void {
@@ -370,21 +479,99 @@ export class FeedbackRoutingReplay {
     });
   }
 
-  private async personPostsFeedback(picks: SpecPicks): Promise<void> {
+  private postFeedback(form: (typeof FORMS)[number]): PostedFeedback {
     this.feedbacks += 1;
+    const id = `feedback-${this.posted.length}`;
+    if (form === "PageMention") return this.mentionOnThePage(id);
+    const texts = this.pullFeedbackTexts(form);
+    return {
+      form,
+      event: this.feedbackOnThePull(id, form),
+      texts: () => texts,
+      postOnHost: () => {},
+    };
+  }
+
+  /** A delivery of feedback `id` reaches the workflow, and either ends or waits to be routed. */
+  private async deliveryArrives(id: number): Promise<void> {
+    const feedback = this.feedbackAt(id);
     const author = this.author();
     const promptsBefore = this.world.promptsQueuedFor(author.taskId).length;
-    this.answerDecisions(picks);
-    const form = required(picks.form);
-    const delivery =
-      form === "PageMention"
-        ? this.mentionOnThePage(picks)
-        : { texts: this.pullFeedbackTexts(form), run: () => this.postOnThePull(picks, form) };
+    let outcome = null as ArrivalOutcome | null;
     const step = await this.world.apply(
-      worldAction(`a person posts ${form} with ${JSON.stringify(picks)}`, delivery.run),
+      worldAction(`a host delivers feedback ${id}`, async (world) => {
+        const running = !isWorkflowFinished(world.workflow.state.status);
+        if (!running) feedback.postOnHost();
+        const reached = new Promise<() => void>((resolve) => {
+          if (running) this.arriving = resolve;
+        });
+        const answered = world.startDelivery(feedback.event);
+        outcome = await Promise.race([
+          answered.then((ack) => ({ answered: ack })),
+          reached.then((route) => ({ route })),
+        ]);
+        this.arriving = null;
+        if ("route" in outcome) this.held.push({ id, route: outcome.route, answered });
+        else if (!outcome.answered.duplicate) feedback.postOnHost();
+      }),
+    );
+    const arrived = required(outcome);
+    if ("route" in arrived || arrived.answered.duplicate) return;
+    const prompts = this.world.promptsQueuedFor(author.taskId).slice(promptsBefore);
+    this.shown = this.shownBy(step, prompts, feedback.texts());
+  }
+
+  /** One delivery of feedback `id` in flight reads the host and the decisions model, and routes. */
+  private async feedbackIsRouted(picks: SpecPicks): Promise<void> {
+    const id = required(picks.id);
+    const index = this.held.findIndex((delivery) => delivery.id === id);
+    const [delivery] = this.held.splice(index, 1);
+    if (index < 0 || !delivery) throw new Error(`no delivery of feedback ${id} is in flight`);
+    const feedback = this.feedbackAt(id);
+    const author = this.author();
+    const promptsBefore = this.world.promptsQueuedFor(author.taskId).length;
+    const texts = feedback.texts();
+    this.answerDecisions(picks);
+    const step = await this.world.apply(
+      worldAction(`feedback ${id} is routed with ${JSON.stringify(picks)}`, () =>
+        this.whileHostAnswers(feedback.form, picks, async () => {
+          feedback.postOnHost();
+          delivery.route();
+          await delivery.answered;
+        }),
+      ),
     );
     const prompts = this.world.promptsQueuedFor(author.taskId).slice(promptsBefore);
-    this.shown = this.shownBy(step, prompts, delivery.texts);
+    this.shown = this.shownBy(step, prompts, texts);
+  }
+
+  private feedbackAt(id: number): PostedFeedback {
+    const feedback = this.posted[id];
+    if (!feedback) throw new Error(`feedback ${id} was never posted`);
+    return feedback;
+  }
+
+  private async whileHostAnswers(
+    form: (typeof FORMS)[number],
+    picks: SpecPicks,
+    body: () => Promise<void>,
+  ): Promise<void> {
+    if (form !== "PageMention") {
+      if (required(picks.ack) === "AckFails") await this.world.whileHostIsDown(body);
+      else await body();
+      return;
+    }
+    const restore =
+      required(picks.heldRead) === "HeldUnreadable"
+        ? this.failingHost("heldComments")
+        : required(picks.ack) === "AckFails"
+          ? this.failingHost("acknowledgeComment")
+          : () => undefined;
+    try {
+      await body();
+    } finally {
+      restore();
+    }
   }
 
   private pullFeedbackTexts(form: "ReviewComment" | "AppReview"): FeedbackTexts {
@@ -393,26 +580,22 @@ export class FeedbackRoutingReplay {
       : { PersonWords: [PERSON_TEXT, PERSON_COMMENT.body], AppWords: [], HeldWords: [] };
   }
 
-  private async postOnThePull(picks: SpecPicks, form: "ReviewComment" | "AppReview") {
+  private feedbackOnThePull(id: string, form: "ReviewComment" | "AppReview") {
     const pull = this.world.pullDetailOf(this.author());
-    const event =
-      form === "AppReview"
-        ? {
-            kind: "feedback" as const,
-            text: APP_TEXT,
-            pull: {
-              ...pull,
-              action: "review" as const,
-              comments: [APP_COMMENT],
-              reviewer_is_app: true,
-            },
-          }
-        : { kind: "feedback" as const, text: PERSON_TEXT, pull: this.personPullDetail(pull) };
-    if (required(picks.ack) === "AckFails") {
-      await this.world.whileHostIsDown(() => this.world.deliver(event));
-      return;
+    if (form === "AppReview") {
+      return {
+        id,
+        kind: "feedback" as const,
+        text: APP_TEXT,
+        pull: {
+          ...pull,
+          action: "review" as const,
+          comments: [APP_COMMENT],
+          reviewer_is_app: true,
+        },
+      };
     }
-    await this.world.deliver(event);
+    return { id, kind: "feedback" as const, text: PERSON_TEXT, pull: this.personPullDetail(pull) };
   }
 
   private personPullDetail(pull: { repo: string; number: number; branch?: string }) {
@@ -425,47 +608,50 @@ export class FeedbackRoutingReplay {
         return {
           ...pull,
           action: "review_comment" as const,
-          review_id: 500,
+          review_id: 500 + this.feedbacks,
           comments: [PERSON_COMMENT],
         };
     }
   }
 
-  private mentionOnThePage(picks: SpecPicks): { texts: FeedbackTexts; run: () => Promise<void> } {
+  /**
+   * A mention on the page. Its comment shows on the host once a delivery of it is routed, so the
+   * held comments another mention carries are the ones the spec holds.
+   */
+  private mentionOnThePage(id: string): PostedFeedback {
     const pageId = this.pageId();
     const host = this.world.pageHost;
-    const held = host.heldNow().map((comment) => comment.text);
     const body = `Mention ${this.feedbacks}: tighten the summary.`;
     const commentId = `mention-${this.feedbacks}`;
-    const run = async () => {
-      host.addPersonComment({
-        id: commentId,
-        pageId,
-        lineId: null,
-        authorName: "Bea",
+    let onHost = false;
+    return {
+      form: "PageMention",
+      event: {
+        id,
+        kind: "feedback",
         text: `@artfct ${body}`,
-        mentionsSelf: true,
-      });
-      const restore =
-        required(picks.heldRead) === "HeldUnreadable"
-          ? this.failingHost("heldComments")
-          : required(picks.ack) === "AckFails"
-            ? this.failingHost("acknowledgeComment")
-            : () => undefined;
-      try {
-        await this.world.deliver({
-          kind: "feedback",
+        bindings: [{ source: "documents_page", external_id: pageId }],
+        page: { page_id: pageId, comment_id: commentId },
+      },
+      texts: () => ({
+        PersonWords: [body],
+        AppWords: [],
+        HeldWords: onHost ? [] : host.heldNow().map((comment) => comment.text),
+      }),
+      postOnHost: () => {
+        if (onHost) return;
+        onHost = true;
+        host.addPersonComment({
+          id: commentId,
+          pageId,
+          lineId: null,
+          authorName: "Bea",
           text: `@artfct ${body}`,
-          bindings: [{ source: "documents_page", external_id: pageId }],
-          page: { page_id: pageId, comment_id: commentId },
+          mentionsSelf: true,
         });
-      } finally {
-        restore();
-      }
+      },
     };
-    return { texts: { PersonWords: [body], AppWords: [], HeldWords: held }, run };
   }
-
   private async personLeavesAPageComment(): Promise<void> {
     this.feedbacks += 1;
     const pageId = this.pageId();

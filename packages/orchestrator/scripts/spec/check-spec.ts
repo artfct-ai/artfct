@@ -109,6 +109,10 @@ async function checkQuintShard(options: {
   return status;
 }
 
+function maxStepsOf(spec: string, setup: string): number {
+  return readSpecChecks(spec).maxSteps?.[setup] ?? MAX_STEPS;
+}
+
 async function checkWitnesses(spec: string, setup: string): Promise<number> {
   const witnesses = readSpecChecks(spec).witnesses[setup] ?? [];
   const { exitCode, output } = await run([
@@ -118,7 +122,7 @@ async function checkWitnesses(spec: string, setup: string): Promise<number> {
     setupFile(spec, setup),
     `--main=${setup}`,
     "--max-samples=10000",
-    `--max-steps=${MAX_STEPS}`,
+    `--max-steps=${maxStepsOf(spec, setup)}`,
     "--witnesses",
     ...witnesses,
   ]);
@@ -139,7 +143,7 @@ async function simulate(spec: string, setup: string, samples: string): Promise<n
     `--main=${setup}`,
     "--backend=rust",
     `--max-samples=${samples}`,
-    `--max-steps=${MAX_STEPS}`,
+    `--max-steps=${maxStepsOf(spec, setup)}`,
     "--invariants",
     ...readSpecChecks(spec).invariants,
   ]);

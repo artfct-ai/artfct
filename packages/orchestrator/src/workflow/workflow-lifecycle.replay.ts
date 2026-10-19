@@ -130,6 +130,18 @@ describe("workflow lifecycle spec", () => {
     await replayTrace("pagesFromModelCalls", traceSteps("pagesFromModelCalls", trace));
   });
 
+  it("leaves the store as it was when the deadline of a lost model turn fires before it runs again", async () => {
+    const path = join(PINNED_TRACES, "a-lost-turn-deadline-before-it-runs-again.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("pagesFromModelCalls", traceSteps("pagesFromModelCalls", trace));
+  });
+
+  it("keeps a stopped author quiet when its lost model turn's run-again alarm fires", async () => {
+    const path = join(PINNED_TRACES, "a-stop-before-a-lost-turn-runs-again.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("modelCallPagesForAnIssue", traceSteps("modelCallPagesForAnIssue", trace));
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,
