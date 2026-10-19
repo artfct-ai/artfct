@@ -39,28 +39,3 @@ jobs:
       - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
         with:
           category: /language:${{ matrix.language }}
-
-  arm_bench:
-    name: bench codeql (${{ matrix.runner }})
-    if: github.event_name == 'pull_request'
-    runs-on: ${{ matrix.runner }}
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        runner: [ubuntu-latest, ubuntu-24.04-arm]
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
-        with:
-          languages: javascript-typescript
-          build-mode: none
-          config: |
-            paths:
-              - packages
-            paths-ignore:
-              - "**/test"
-      - uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4.38.3
-        with:
-          category: /language:javascript-typescript
-          upload: never
