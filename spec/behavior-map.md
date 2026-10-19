@@ -285,23 +285,23 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| M1 | Slack: a mention becomes `start`, or `status` for a bare status question in a thread. A thread reply becomes `prompt` or `status`. A check mark reaction on a message becomes `prompt`. Bots are ignored on mentions and thread replies. Edits are ignored on thread replies. The app itself, Slack Connect channels and tags of other people are ignored. | |
+| M1 | Slack: a mention becomes `start`, or `status` for a bare status question in a thread. A thread reply becomes `prompt` or `status`. A check mark reaction on a message becomes `prompt`. Bots are ignored on mentions and thread replies. Edits are ignored on thread replies. The app itself, Slack Connect channels and tags of other people are ignored. | `tests::packages/adapters/src/chat/slack/inbound.test.ts` |
 | M2 | GitHub: pull request opened, ready, closed or reopened become `pr_event`. Reviews, review comments and pull request comments become `feedback`. Check suites and failed check runs become `ci_event`. A push to the default branch becomes a `pr_event` with a base move action. Pull request events from forks or foreign branches and the app's own reviews are ignored. Bots are ignored on conversation comments. Reviews from other Apps arrive with a flag. Check events do not check for a fork. | |
 | M3 | GitHub: each webhook maps on its own. GitHub delivers one review with N inline comments as N+1 webhooks, and each comment carries the id of its review. A failed check arrives as a check run and a check suite, so two `ci_event`s. | |
 | M4 | Linear: a session created becomes `start`. A session prompt becomes `stop` on the stop signal, else `prompt` or `status`. A document comment becomes `feedback`. An issue moved to canceled or completed by a person becomes `control` cancel. Other workspaces are ignored. | |
-| M5 | Notion: a page comment becomes `feedback` after a fetch. The mapper does not filter the bot's own comments. The resolver drops them because a bot lacks an email. || `tests::packages/adapters/src/documents/notion/inbound.test.ts` |
+| M5 | Notion: a page comment becomes `feedback` after a fetch. The mapper does not filter the bot's own comments. The resolver drops them because a bot lacks an email. | `tests::packages/adapters/src/documents/notion/inbound.test.ts` |
 | M6 | With lookups that answer, every inbound mapper returns an event, or an ignore that names its reason, for any payload. It does not throw. | `inboundInvariants::inboundMapperNeverThrows` |
 
 ## Adapter writes and external calls
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| X1 | Slack thread replies split into chunks. A failure partway leaves the first chunks posted. Every Slack write throws on error. || `tests::packages/adapters/src/chat/slack/chat.test.ts` |
+| X1 | Slack thread replies split into chunks. A failure partway leaves the first chunks posted. Every Slack write throws on error. | `tests::packages/adapters/src/chat/slack/chat.test.ts` |
 | X2 | Linear issue updates, activities, plans and thread sync throw on an error. A thread sync of an issue already synced to another thread links the thread URL instead. An activity conflict is swallowed only when the post names an activity id, so a retried post is idempotent. The SDK `success` flag is not read. | `sessionRouting::feedActivityPostsOnce` |
-| X3 | GitHub writes are a pull request comment, a comment reaction and token minting. Paged reads stop at 10 pages and repository lists at 100. || `tests::packages/adapters/src/code/github/code-host.test.ts` |
+| X3 | GitHub writes are a pull request comment, a comment reaction and token minting. Paged reads stop at 10 pages and repository lists at 100. | `tests::packages/adapters/src/code/github/code-host.test.ts` |
 | X4 | Notion page create, page text change, move, rename, comment, acknowledgement and reply throw on error. Inline findings swallow only a Notion client error per block and come back unposted. A page Notion does not find, or one in the trash, reads as removed. | |
 | X5 | A page text change plans at most 100 edits that each match once and turn the read text into the revised text. | `tests::packages/adapters/src/documents/page-text-update.test.ts` |
 | X6 | A Linear document text change reads the content Linear holds at write time and applies the planned edits to it, so a person's edit since the author read the page stays. It throws when an edit no longer matches. | |
 | X7 | On Notion, a held comment is a person comment of a comment thread that a bot acknowledgement does not follow. Each bot acknowledgement marks the earliest unacknowledged person comment of its comment thread. On Linear, a person comment in an open thread without the bot's acknowledgement reaction is held. The bot's own comments are never held. | |
 | X8 | Decisions calls try each configured model in order with per-attempt deadlines. A missing probability for a picked option counts as a failed call on both Cloudflare and OpenRouter, so the next model takes over. | `agentTurns::aDecisionsCallFallsBackOnlyAfterEveryModelFailed`, `agentTurns::laterDecisionsCallsFallBackOnceOneFails` |
-| X9 | `fetch_url` follows redirects with a 20 second timeout and a 512 KB cap. || `tests::packages/adapters/src/web/http.test.ts` |
+| X9 | `fetch_url` follows redirects with a 20 second timeout and a 512 KB cap. | `tests::packages/adapters/src/web/http.test.ts` |
