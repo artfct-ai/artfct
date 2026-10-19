@@ -180,14 +180,16 @@ export class RecordStore {
     return this.postedRows.get()?.total ?? 0;
   }
 
+  /** True when the event id was recorded. */
+  eventSeen(id: string): boolean {
+    return (
+      this.db.select({ id: events.id }).from(events).where(eq(events.id, id)).get() !== undefined
+    );
+  }
+
   /** Record the event id. False when it was seen before. */
   markEventSeen(event: { id: string; kind: string }): boolean {
-    const seen = this.db
-      .select({ id: events.id })
-      .from(events)
-      .where(eq(events.id, event.id))
-      .get();
-    if (seen) return false;
+    if (this.eventSeen(event.id)) return false;
     this.db
       .insert(events)
       .values({ ...event, at: now() })

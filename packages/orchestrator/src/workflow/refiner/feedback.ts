@@ -7,7 +7,7 @@ import { feedbackText } from "../../prompts/review-prompt";
 import { recordArtifact } from "../artifact";
 import { cancelRefinerRunOf, cancelTask } from "../lifecycle";
 import { promptTask } from "../task/harness/prompt-queue";
-import { isTaskFinished } from "../store/state";
+import { isTaskFinished, isWorkflowFinished } from "../store/state";
 import type { ArtifactRow, TaskRow } from "../store/tasks";
 import { jobsForEvent, noMatchingJobNote } from "../inbound/lookup";
 import type { Applied, Wake, WorkflowRuntime } from "../types";
@@ -18,9 +18,15 @@ import { heldCommentFindings, markHeldCommentsRead } from "./held-comments";
 import { markArtifactReady } from "./outcome";
 
 /**
+ * What one job made of the event. Notes that route a feedback land when the agent gets them, so
+ * `landsUnder` is the key their landing marks seen. Null when the change landed already.
+ */
+type JobApplied = { applied: Applied; landsUnder: string | null };
+
+/**
  * Apply one inbound event to every artifact it may be about, as the artifact's own kind
- * reads it. A job with no author task yet has no artifact, so the event skips it. "handled"
- * when every change was one the agent does not hear about.
+ * reads it. A job with no author task yet has no artifact, so the event skips it. An ended
+ * workflow ignores it. "handled" when every change was one the agent does not hear about.
  */
 export async function applyArtifactEvent(
   workflow: WorkflowRuntime,
@@ -28,25 +34,53 @@ export async function applyArtifactEvent(
 ): Promise<Applied | "handled"> {
   const jobs = jobsForEvent(workflow, event);
   if (!jobs.length) return noMatchingJobNote(workflow);
-  const applied: Applied[] = [];
+  const results: JobApplied[] = [];
   let handled = false;
   for (const job of jobs) {
-    const task = workflow.store.authorTask(job.job_id);
-    if (!task) continue;
-    const artifact = workflow.store.artifact(job.job_id);
-    const change = await changeFor(workflow, task, artifact, event);
+    const author = workflow.store.authorTask(job.job_id);
+    if (!author) continue;
+    const change = await changeFor(workflow, author, workflow.store.artifact(job.job_id), event);
     if (!change) continue;
-    const result = await applyChange(workflow, task, artifact, change);
+    if (isWorkflowFinished(workflow.state.status)) return "handled";
+    const task = workflow.store.requireTask(author.task_id);
+    const result = await applyChange(workflow, task, workflow.store.artifact(job.job_id), change);
     if (result === "handled") handled = true;
-    else applied.push(result);
+    else results.push(result);
   }
+  const applied = landNotes(workflow, event.kind, results);
   if (!applied.length) {
-    return handled ? "handled" : { notes: [`${event.kind}: nothing to record.`], wake: "none" };
+    if (handled || results.length) return "handled";
+    return { notes: [`${event.kind}: nothing to record.`], wake: "none" };
   }
   return {
     notes: applied.flatMap((result) => result.notes),
     wake: applied.map((result) => result.wake).reduce(strongerWake),
   };
+}
+
+/**
+ * Mark seen each feedback whose notes route it, as the notes land. The caller hands the notes to
+ * the agent before its next await. Notes of a feedback another delivery routed are dropped.
+ */
+function landNotes(workflow: WorkflowRuntime, kind: string, results: JobApplied[]): Applied[] {
+  return results.flatMap(({ applied, landsUnder }) => {
+    if (landsUnder === null) return [applied];
+    if (routedAlready(workflow, landsUnder)) return [];
+    workflow.store.markEventSeen({ id: landsUnder, kind });
+    return [applied];
+  });
+}
+
+/** The seen-event id of one feedback's routing decision on one job. Each job routes it once. */
+function feedbackDedupeKey({ dedupeKey, jobId }: { dedupeKey: string; jobId: string }): string {
+  return `feedback:${jobId}:${dedupeKey}`;
+}
+
+/** True when another delivery of the feedback was routed on its job. */
+function routedAlready(workflow: WorkflowRuntime, key: string): boolean {
+  if (!workflow.store.eventSeen(key)) return false;
+  workflow.log(null, `another delivery of ${key} was routed`);
+  return true;
 }
 
 function changeFor(
@@ -58,7 +92,6 @@ function changeFor(
   return workflow.artifact(workflow.stageForTask(task).artifact).change({
     event,
     target: artifact ? targetOf(artifact) : null,
-    claim: (id) => workflow.store.markEventSeen({ id, kind: event.kind }),
   });
 }
 
@@ -81,30 +114,42 @@ function targetOf(artifact: ArtifactRow): ArtifactTarget {
   return { ref: artifact.ref, url: artifact.external_url };
 }
 
+/** A change whose effect landed already. */
+function landed(applied: Applied): JobApplied {
+  return { applied, landsUnder: null };
+}
+
 async function applyChange(
   workflow: WorkflowRuntime,
   task: TaskRow,
   artifact: ArtifactRow | null,
   change: ArtifactChange,
-): Promise<Applied | "handled"> {
+): Promise<JobApplied | "handled"> {
   switch (change.change) {
     case "opened":
-      return onOpened(workflow, task, artifact, change.target);
-    case "feedback":
-      return onFeedback(workflow, task, artifact, change.feedback, []);
+      return landed(await onOpened(workflow, task, artifact, change.target));
+    case "feedback": {
+      const { feedback } = change;
+      const key = feedbackDedupeKey({ dedupeKey: feedback.dedupeKey, jobId: task.job_id });
+      if (routedAlready(workflow, key)) return "handled";
+      return onFeedback(workflow, { task, artifact, feedback, held: [], key });
+    }
     case "comment_held":
       workflow.log(task.task_id, "a page comment waits for a mention");
       return "handled";
-    case "mentioned":
-      return onMentioned(workflow, task, artifact, change);
+    case "mentioned": {
+      const key = feedbackDedupeKey({ dedupeKey: change.dedupeKey, jobId: task.job_id });
+      if (routedAlready(workflow, key)) return "handled";
+      return onMentioned(workflow, { task, artifact, change, key });
+    }
     case "ready":
-      return onHostReady(workflow, task, artifact);
+      return landed(await onHostReady(workflow, task, artifact));
     case "accepted":
-      return onAccepted(workflow, task, artifact);
+      return landed(onAccepted(workflow, task, artifact));
     case "closed":
-      return onClosed(workflow, task);
+      return landed(await onClosed(workflow, task));
     case "checks":
-      return onChecks(workflow, task);
+      return landed(await onChecks(workflow, task));
     default: {
       const unreachable: never = change;
       throw new Error(`unhandled artifact change ${JSON.stringify(unreachable)}`);
@@ -152,6 +197,15 @@ export function unadmittedFeedbackNote(
   }
 }
 
+/** One feedback on one job, the comments held on the page besides it, and its seen-event key. */
+type FeedbackOnJob = {
+  task: TaskRow;
+  artifact: ArtifactRow | null;
+  feedback: Feedback;
+  held: HeldComment[];
+  key: string;
+};
+
 /**
  * A person posted about the artifact. `held` are the comments held on the page besides it. They
  * are screened with it. Unchecked feedback passes the screen first, and one it does not admit
@@ -161,11 +215,10 @@ export function unadmittedFeedbackNote(
  */
 async function onFeedback(
   workflow: WorkflowRuntime,
-  task: TaskRow,
-  artifact: ArtifactRow | null,
-  feedback: Feedback,
-  held: HeldComment[],
-): Promise<Applied> {
+  routing: FeedbackOnJob,
+): Promise<JobApplied | "handled"> {
+  const { task, artifact, feedback, held, key } = routing;
+  const toTheAgent = (applied: Applied): JobApplied => ({ applied, landsUnder: key });
   const who = feedback.from.display_name ?? feedback.from.email ?? "A reviewer";
   const count = feedback.findings.length + held.length;
   const left = count ? ` and left ${count} comment${count === 1 ? "" : "s"}` : "";
@@ -178,7 +231,7 @@ async function onFeedback(
       text: said,
     });
     if (screened !== "admitted") {
-      return { notes: [unadmittedFeedbackNote(wrote, screened)], wake: "human" };
+      return toTheAgent({ notes: [unadmittedFeedbackNote(wrote, screened)], wake: "human" });
     }
   }
   const unmarked = artifact
@@ -186,35 +239,50 @@ async function onFeedback(
     : [];
   const stayHeld = held.length ? " The held comments were not sent. They stay held." : "";
   if (unmarked.length) {
-    return {
+    return toTheAgent({
       notes: [
         `${wrote}. The host did not mark it read, so nobody was sent it.${held.length ? " They stay held." : ""} Tell the humans.`,
         said,
       ],
       wake: "human",
-    };
+    });
   }
   const reviewed = `${wrote}. The system marked it read on the host`;
   if (isTaskFinished(task.status)) {
-    const dead = `That task is ${task.status}, so nothing can be sent to it.${stayHeld}`;
-    return { notes: [`${reviewed} and sent it to nobody. ${dead}`, said], wake: "human" };
+    return toTheAgent(
+      sentToAFinishedTask(task, `${reviewed} and sent it to nobody.`, said, stayHeld),
+    );
   }
   const route = await feedbackRoute(workflow, task.task_id, said);
   switch (route) {
     case "author":
-      return sendFeedbackToAuthor(workflow, { task, artifact, feedback, held, reviewed, said });
+      return sendFeedbackToAuthor(workflow, { ...routing, reviewed, said });
     case "nobody":
-      return {
+      return toTheAgent({
         notes: [`${reviewed}. It asks for nothing, so nobody was sent it.${stayHeld}`, said],
         wake: "none",
-      };
+      });
     case "agent":
-      return { notes: [`${reviewed} and sent it to nobody.${stayHeld}`, said], wake: "human" };
+      return toTheAgent({
+        notes: [`${reviewed} and sent it to nobody.${stayHeld}`, said],
+        wake: "human",
+      });
     default: {
       const unreachable: never = route;
       throw new Error(`unhandled feedback route ${String(unreachable)}`);
     }
   }
+}
+
+/** What the agent hears about feedback for a task that finished. */
+function sentToAFinishedTask(
+  task: TaskRow,
+  sentNowhere: string,
+  said: string,
+  stayHeld: string,
+): Applied {
+  const dead = `That task is ${task.status}, so nothing can be sent to it.${stayHeld}`;
+  return { notes: [`${sentNowhere} ${dead}`, said], wake: "human" };
 }
 
 /** The feedback with the held comments after its own findings. */
@@ -224,29 +292,30 @@ function withHeldComments(feedback: Feedback, held: HeldComment[]): Feedback {
 
 /**
  * Mark the held comments read and send the author the feedback with the ones the host marked.
- * The rest stay held.
+ * The rest stay held. The prompt lands with the mark of the feedback's key, so a second delivery
+ * of it sends nothing.
  */
 async function sendFeedbackToAuthor(
   workflow: WorkflowRuntime,
-  sending: {
-    task: TaskRow;
-    artifact: ArtifactRow | null;
-    feedback: Feedback;
-    held: HeldComment[];
-    reviewed: string;
-    said: string;
-  },
-): Promise<Applied> {
-  const { task, artifact, feedback, held, reviewed, said } = sending;
+  sending: FeedbackOnJob & { reviewed: string; said: string },
+): Promise<JobApplied | "handled"> {
+  const { artifact, feedback, held, key, reviewed, said } = sending;
   const carried =
     artifact && held.length ? await markHeldCommentsRead(workflow, artifact, held) : [];
+  const task = workflow.store.requireTask(sending.task.task_id);
+  if (isTaskFinished(task.status)) {
+    const applied = sentToAFinishedTask(task, `${reviewed} and sent it to nobody.`, said, "");
+    return { applied, landsUnder: key };
+  }
+  if (routedAlready(workflow, key)) return "handled";
+  workflow.store.markEventSeen({ id: key, kind: "feedback" });
   const who = feedback.from.display_name ?? feedback.from.email ?? "A reviewer";
   await promptTask(workflow, task, feedbackText(who, withHeldComments(feedback, carried)));
   const left = held.length - carried.length;
   const sent = left
     ? `${reviewed} and sent it to the author. The host did not mark ${left} held comment${left === 1 ? "" : "s"} read, so ${left === 1 ? "it was" : "they were"} not sent. They stay held.`
     : `${reviewed} and sent it whole to the author.`;
-  return { notes: [sent, said], wake: "none" };
+  return landed({ notes: [sent, said], wake: "none" });
 }
 
 /**
@@ -256,25 +325,31 @@ async function sendFeedbackToAuthor(
  */
 async function onMentioned(
   workflow: WorkflowRuntime,
-  task: TaskRow,
-  artifact: ArtifactRow | null,
-  change: Extract<ArtifactChange, { change: "mentioned" }>,
-): Promise<Applied> {
+  mentioned: {
+    task: TaskRow;
+    artifact: ArtifactRow | null;
+    change: Extract<ArtifactChange, { change: "mentioned" }>;
+    key: string;
+  },
+): Promise<JobApplied | "handled"> {
+  const { task, artifact, change, key } = mentioned;
   const who = change.from.display_name ?? change.from.email ?? "A person";
   const kind = workflow.stageForTask(task).artifact;
   const held = await heldBesidesMention(workflow, task, change);
   if (!held) {
-    return {
+    const applied: Applied = {
       notes: [
         `${who} asked on the page for the held comments of job ${task.job_id} to go to the author, but the host could not be read. They stay held, with that comment. Call prompt_task on the author to try again. The held comments go with it.`,
       ],
       wake: "human",
     };
+    return { applied, landsUnder: key };
   }
   const mention: Finding[] = change.body
     ? [{ location: pageCommentLabel(change.comment_id), body: `${who}: ${change.body}` }]
     : [];
   const feedback: Feedback = {
+    dedupeKey: change.dedupeKey,
     from: change.from,
     unchecked: false,
     body: "",
@@ -283,14 +358,15 @@ async function onMentioned(
   };
   if (!feedback.findings.length && !held.length) {
     if (artifact) await workflow.artifact(kind).acknowledge(feedback.handles, artifact.ref);
-    return {
+    const applied: Applied = {
       notes: [
         `${who} mentioned you on the page of job ${task.job_id}. No comments are held and the comment says nothing else, so nothing was sent.`,
       ],
       wake: "none",
     };
+    return { applied, landsUnder: key };
   }
-  return onFeedback(workflow, task, artifact, feedback, held);
+  return onFeedback(workflow, { task, artifact, feedback, held, key });
 }
 
 /** The held comments on the page other than the mention. Null when the host cannot be read. */
