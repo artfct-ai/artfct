@@ -560,6 +560,7 @@ function effortOption(value: string): SessionConfigOption {
 export class HarnessSessionReplay {
   private calls: HeldCall[] = [];
   private readonly startAwaits = new Map<number, StartAwaits>();
+  private readonly providerStartsReached = new Map<number, () => void>();
   private nextCall = 0;
   private readonly bridges: ReplayBridge[] = [];
   private sockets: ReplaySocket[] = [];
@@ -722,6 +723,7 @@ export class HarnessSessionReplay {
   heldStart(generation: number): Promise<void> {
     const awaits = this.startAwaits.get(generation);
     if (!awaits) throw new Error(`no start of ${generation} is held`);
+    this.providerStartsReached.get(generation)?.();
     return awaits.start.promise;
   }
 
@@ -824,8 +826,7 @@ export class HarnessSessionReplay {
       case "durableObjectRestarts":
         return this.restartDurableObject();
       case "sandboxStartLaunchesBridge":
-        this.launch(this.callOf(required(picks.callId)));
-        return;
+        return this.launchAndRunToTheProviderStart(this.callOf(required(picks.callId)));
       case "sandboxStartReturns":
         return this.returnStart(required(picks.callId), required(picks.ok));
       case "sandboxStartFailsAtOnce":
@@ -948,6 +949,25 @@ export class HarnessSessionReplay {
       saidHello: false,
       requests: [],
     });
+  }
+
+  /**
+   * Launch the container of a held start, and run the start on until it waits on the provider's
+   * start, holds another call, or ends, so later steps do not run its rest.
+   */
+  private async launchAndRunToTheProviderStart(call: HeldCall): Promise<void> {
+    if (call.kind.name !== "SandboxStart" || call.kind.launched || call.state === "Dropped") {
+      return this.launch(call);
+    }
+    const { generation } = call.kind;
+    const providerStartReached = new Promise<void>((resolve) => {
+      this.providerStartsReached.set(generation, resolve);
+    });
+    await this.runStep(async () => {
+      this.launch(call);
+      await Promise.race([call.step, providerStartReached]);
+    }, call.alarm);
+    this.providerStartsReached.delete(generation);
   }
 
   private returnStart(callId: number, ok: boolean): Promise<void> {
