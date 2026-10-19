@@ -34,6 +34,7 @@ import {
   resumeLostTurn,
   type TurnAlarm,
 } from "./agent/turn/watchdog";
+import { runAgent, tellAgent } from "./agent/turn/tell";
 import {
   artifact,
   chat,
@@ -47,9 +48,8 @@ import {
 } from "./clients";
 import { registeredConfig } from "./config/register-config";
 import type { Env } from "./env";
-import { destinationFor } from "./notify/destination";
 import { Notifier, type PostOptions } from "./notify/notifier";
-import { recipientsOf, type Recipients } from "./notify/recipients";
+import type { Recipients } from "./notify/recipients";
 import { CloudflareSandboxProvider } from "./sandbox/cloudflare";
 import type { SandboxProvider } from "./sandbox/provider";
 import {
@@ -62,6 +62,7 @@ import {
   type ConnectionState,
 } from "./workflow/task/harness/bridge";
 import { onFlushBoard, type BoardAlarm } from "./workflow/board/board";
+import { postToRecipients, releaseChatThreads, showWorking } from "./workflow/posts";
 import { openWorkflowDb } from "./workflow/store/db";
 import { createWorkflow, eventRefusalOf, handleEvent } from "./workflow/inbound/events";
 import { armWorkflowEndAlarm, onIdle, resumeWorkflowEnd } from "./workflow/lifecycle";
@@ -85,12 +86,7 @@ import type {
   WorkflowRpc,
   WorkflowRuntime,
 } from "./workflow/types";
-import {
-  initialWorkflowState,
-  isWorkflowFinished,
-  workflowName,
-  type WorkflowState,
-} from "./workflow/store/state";
+import { initialWorkflowState, type WorkflowState } from "./workflow/store/state";
 import { debugDump, summarize } from "./workflow/status";
 import { WorkflowStore, type JobRow, type TaskRow } from "./workflow/store/tasks";
 import {
@@ -170,7 +166,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
   readonly pageWritesOut = new Set<string>();
   /** The chat the notifier posts through, kept so the agent can read back through it. */
   private chatClient: Chat | null = null;
-  private turns = new TurnCoalescer();
+  readonly agentTurns = new TurnCoalescer();
   /** Built once so the token caches live as long as the DO. */
   private codeMemo: CodeHost | null | undefined;
   private trackerMemo: Promise<Tracker | null> | undefined;
@@ -231,17 +227,14 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     return debugDump(this);
   }
 
-  /**
-   * One agent turn, for the alarm lane: the durable backup behind `tellAgent`. It runs only
-   * when no turn is running.
-   */
+  /** The `runAgent` alarm: the backup alarm behind `tellAgent`, and the wake a restart arms. */
   runAgent(): Promise<void> {
-    return this.turns.runIfIdle(() => this.agentTurn());
+    return runAgent(this);
   }
 
   /** Resolves when no agent turn is running. For the tests and the smoke run. */
   settle(): Promise<void> {
-    return this.turns.idle();
+    return this.agentTurns.idle();
   }
 
   onTurnTimeout(alarm: TurnAlarm): Promise<void> {
@@ -361,7 +354,8 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     await onBridgeClosed(this, state);
   }
 
-  private agentTurn(): Promise<void> {
+  /** One agent turn in a span, with the turn code loaded at its first use. */
+  agentTurn(): Promise<void> {
     return this.inSpan("agent turn", null, () =>
       import("./agent/turn/turn").then((turn) => turn.runAgentTurn(this)),
     );
@@ -466,31 +460,12 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     });
   }
 
-  async post(
-    event: TaskEvent,
-    to: Recipients = { answering: [] },
-    options: PostOptions = {},
-  ): Promise<void> {
-    const targets = recipientsOf(this.state, event, to);
-    const finished = isWorkflowFinished(this.state.status);
-    const title = workflowName(this.state);
-    const destination = destinationFor(event);
-    for (const target of targets) {
-      if (destination === "channel") {
-        await this.notifier.post(target, event, { finished, title, ...options });
-      } else {
-        await this.notifier.quiet(target, event, destination);
-      }
-    }
+  post(event: TaskEvent, to?: Recipients, options?: PostOptions): Promise<void> {
+    return postToRecipients(this, event, to, options);
   }
 
-  async release(only?: ReplyTarget): Promise<void> {
-    const targets = only ? [only] : this.state.reply_targets;
-    const finished = isWorkflowFinished(this.state.status);
-    const title = workflowName(this.state);
-    for (const target of targets) {
-      if (target.source === "chat") await this.notifier.release(target, finished, title);
-    }
+  release(only?: ReplyTarget): Promise<void> {
+    return releaseChatThreads(this, only);
   }
 
   gateway(provider: GatewayProvider): Gateway | null {
@@ -562,29 +537,12 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     return this.services.sandbox(this.env);
   }
 
-  /**
-   * Queue text for the agent and run its turn here, in the invocation that queued it. The
-   * zero delay schedule is the durable backup, cancelled once the turn has run.
-   */
-  async tellAgent(text: string, wake: Wake, from?: WroteFrom): Promise<void> {
-    this.transcript.enqueue(text, wake, from);
-    if (wake === "none") return;
-    this.log(null, `agent wake: ${wake}`);
-    const backup = await this.schedule(0, "runAgent", {}, { idempotent: false });
-    this.turns
-      .run(() => this.agentTurn())
-      .then(() => this.cancelSchedule(backup.id))
-      .catch((error: unknown) => {
-        console.warn(
-          `[${this.state.workflow_id}] agent turn failed: ${String(error).slice(0, 300)}`,
-        );
-      });
+  tellAgent(text: string, wake: Wake, from?: WroteFrom): Promise<void> {
+    return tellAgent(this, text, wake, from);
   }
 
-  async working(text: string): Promise<void> {
-    for (const target of this.state.reply_targets) {
-      if (target.source === "chat") await this.notifier.working(target, text);
-    }
+  working(text: string): Promise<void> {
+    return showWorking(this, text);
   }
 
   model(

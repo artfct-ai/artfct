@@ -31,6 +31,7 @@ import type { Recipients } from "../notify/recipients";
 import type { SandboxProvider } from "../sandbox/provider";
 import type { WorkflowState } from "./store/state";
 import type { JobRow, TaskRow, WorkflowStore } from "./store/tasks";
+import type { TurnCoalescer } from "./task/harness/turn";
 
 /** Methods on the Workflow DO that alarms may call by name. */
 export type ScheduledMethod =
@@ -142,6 +143,10 @@ export interface WorkflowRuntime {
    * says where the person who wrote it wrote from.
    */
   tellAgent(text: string, wake: Wake, from?: WroteFrom): Promise<void>;
+  /** The turn lane: one agent turn at a time, and the wakes during a turn become one more turn. */
+  readonly agentTurns: TurnCoalescer;
+  /** Run one agent turn on the inbox. Only the turn lane calls it. */
+  agentTurn(): Promise<void>;
   /** The orchestrator's model, or a named prompt's model with its request fields and gateway. */
   model(
     modelName?: string,

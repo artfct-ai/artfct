@@ -96,9 +96,10 @@ async function checkQuintShard(options: {
   let status = 0;
   for (const { spec, setup } of shard) {
     console.log(`::group::${setup} of ${spec}`);
+    const witnessSamples = witnessSamplesOf(spec, setup);
     const exitCode =
       (await checkWitnessesAndInvariants(spec, setup)) ||
-      (samples > WITNESS_SAMPLES ? await simulate(spec, setup, samples - WITNESS_SAMPLES) : 0);
+      (samples > witnessSamples ? await simulate(spec, setup, samples - witnessSamples) : 0);
     console.log("::endgroup::");
     if (exitCode !== 0) {
       status = 1;
@@ -110,6 +111,10 @@ async function checkQuintShard(options: {
 
 function maxStepsOf(spec: string, setup: string): number {
   return readSpecChecks(spec).maxSteps?.[setup] ?? MAX_STEPS;
+}
+
+function witnessSamplesOf(spec: string, setup: string): number {
+  return readSpecChecks(spec).witnessSamples?.[setup] ?? WITNESS_SAMPLES;
 }
 
 /**
@@ -125,7 +130,7 @@ async function checkWitnessesAndInvariants(spec: string, setup: string): Promise
     setupFile(spec, setup),
     `--main=${setup}`,
     "--backend=rust",
-    `--max-samples=${WITNESS_SAMPLES}`,
+    `--max-samples=${witnessSamplesOf(spec, setup)}`,
     `--max-steps=${maxStepsOf(spec, setup)}`,
     "--invariants",
     ...checks.invariants,

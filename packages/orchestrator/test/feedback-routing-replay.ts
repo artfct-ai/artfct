@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import type { DecisionState } from "@artfct-ai/adapters/gateway/types";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { RpcAck } from "@artfct-ai/contracts/types";
@@ -5,6 +6,7 @@ import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { taskTools } from "../src/agent/tools/task";
 import type { Artifact, ChangeInput } from "../src/artifact/types";
+import { heldCommentFindings } from "../src/workflow/refiner/held-comments";
 import { isTaskFinished, isWorkflowFinished } from "../src/workflow/store/state";
 import { FakeRuntime } from "./fake-runtime";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
@@ -33,7 +35,9 @@ export type SpecSetup = keyof typeof SPEC_SETUPS;
 /** The most steps a generated trace takes after its initial state. */
 const TRACE_STEPS = 12;
 
-const FORMS = ["ReviewComment", "AppReview", "PageMention"] as const;
+const FORMS = ["ReviewComment", "AppReview", "PageMention", "BareMention"] as const;
+type Form = (typeof FORMS)[number];
+type MentionForm = Extract<Form, "PageMention" | "BareMention">;
 const SCREENS = ["Admitted", "NotAdmitted", "Unreadable"] as const;
 const ACKS = ["AckSucceeds", "AckFails"] as const;
 const HELD_READS = ["HeldReadable", "HeldUnreadable"] as const;
@@ -56,6 +60,7 @@ const NOTE_KINDS = [
   "SentToAuthorNote",
   "AsksForNothingNote",
   "ForTheAgentNote",
+  "BareMentionNote",
 ] as const;
 const WAKES = ["NoWake", "WakesForTheHumans"] as const;
 
@@ -95,7 +100,7 @@ export type FeedbackView = {
 /** What a spec action picked. */
 type SpecPicks = {
   id: number | null;
-  form: (typeof FORMS)[number] | null;
+  form: Form | null;
   screen: (typeof SCREENS)[number] | null;
   ack: (typeof ACKS)[number] | null;
   heldRead: (typeof HELD_READS)[number] | null;
@@ -275,7 +280,12 @@ const NOTE_MARKERS: [string, (typeof NOTE_KINDS)[number]][] = [
   ["and sent it whole to the author.", "SentToAuthorNote"],
   ["It asks for nothing, so nobody was sent it.", "AsksForNothingNote"],
   ["and sent it to nobody.", "ForTheAgentNote"],
+  ["the comment says nothing else, so nothing was sent.", "BareMentionNote"],
 ];
+
+function isMentionForm(form: Form): form is MentionForm {
+  return form === "PageMention" || form === "BareMention";
+}
 
 function noteKindOf(text: string): NoteKind {
   const marked = NOTE_MARKERS.find(([marker]) => text.includes(marker));
@@ -308,7 +318,7 @@ function required<Value>(value: Value | null): Value {
 
 /** One feedback a person posted: the event its host delivers, what it carries, and its form. */
 type PostedFeedback = {
-  form: (typeof FORMS)[number];
+  form: Form;
   event: Pick<InboundEvent, "id" | "kind" | "text"> & Partial<InboundEvent>;
   texts: () => FeedbackTexts;
   postOnHost: () => void;
@@ -386,9 +396,7 @@ export class FeedbackRoutingReplay {
         await this.feedbackIsRouted(step.picks);
         return;
       case "personLeavesAPageComment":
-        await this.world.apply(
-          worldAction("a person comments on the page", () => this.personLeavesAPageComment()),
-        );
+        await this.personLeavesAPageComment();
         return;
       case "authorRecordsItsPullRequest":
         await this.world.apply(firstArtifactAppears(0, "author_text"));
@@ -480,10 +488,10 @@ export class FeedbackRoutingReplay {
     });
   }
 
-  private postFeedback(form: (typeof FORMS)[number]): PostedFeedback {
+  private postFeedback(form: Form): PostedFeedback {
     this.feedbacks += 1;
     const id = `feedback-${this.posted.length}`;
-    if (form === "PageMention") return this.mentionOnThePage(id);
+    if (isMentionForm(form)) return this.mentionOnThePage(id, form);
     const texts = this.pullFeedbackTexts(form);
     return {
       form,
@@ -553,11 +561,11 @@ export class FeedbackRoutingReplay {
   }
 
   private async whileHostAnswers(
-    form: (typeof FORMS)[number],
+    form: Form,
     picks: SpecPicks,
     body: () => Promise<void>,
   ): Promise<void> {
-    if (form !== "PageMention") {
+    if (!isMentionForm(form)) {
       if (required(picks.ack) === "AckFails") await this.world.whileHostIsDown(body);
       else await body();
       return;
@@ -616,28 +624,30 @@ export class FeedbackRoutingReplay {
   }
 
   /**
-   * A mention on the page. Its comment shows on the host once a delivery of it is routed, so the
-   * held comments another mention carries are the ones the spec holds.
+   * A mention on the page. A bare mention says nothing besides the mention. Its comment shows on
+   * the host once a delivery of it is routed, so the held comments another mention carries are the
+   * ones the spec holds.
    */
-  private mentionOnThePage(id: string): PostedFeedback {
+  private mentionOnThePage(id: string, form: MentionForm): PostedFeedback {
     const pageId = this.pageId();
     const host = this.world.pageHost;
-    const body = `Mention ${this.feedbacks}: tighten the summary.`;
+    const body = form === "BareMention" ? "" : `Mention ${this.feedbacks}: tighten the summary.`;
+    const text = `@artfct ${body}`.trim();
     const commentId = `mention-${this.feedbacks}`;
     let onHost = false;
     return {
-      form: "PageMention",
+      form,
       event: {
         id,
         kind: "feedback",
-        text: `@artfct ${body}`,
+        text,
         bindings: [{ source: "documents_page", external_id: pageId }],
         page: { page_id: pageId, comment_id: commentId },
       },
       texts: () => ({
-        PersonWords: [body],
+        PersonWords: body ? [body] : [],
         AppWords: [],
-        HeldWords: onHost ? [] : host.heldNow().map((comment) => comment.text),
+        HeldWords: onHost ? [] : heldCommentFindings(host.heldNow()).map((finding) => finding.body),
       }),
       postOnHost: () => {
         if (onHost) return;
@@ -647,30 +657,43 @@ export class FeedbackRoutingReplay {
           pageId,
           lineId: null,
           authorName: "Bea",
-          text: `@artfct ${body}`,
+          text,
           mentionsSelf: true,
         });
       },
     };
   }
+  /**
+   * A comment without a mention stays held on the page. The spec's step shows nothing, so the
+   * view keeps `shown` null only while the code prompted, noted and woke nobody.
+   */
   private async personLeavesAPageComment(): Promise<void> {
     this.feedbacks += 1;
     const pageId = this.pageId();
     const commentId = `comment-${this.feedbacks}`;
     const text = `Comment ${this.feedbacks}: name the owner of each row.`;
-    this.world.pageHost.addPersonComment({
-      id: commentId,
-      pageId,
-      lineId: null,
-      authorName: "Cy",
-      text,
-    });
-    await this.world.deliver({
-      kind: "feedback",
-      text,
-      bindings: [{ source: "documents_page", external_id: pageId }],
-      page: { page_id: pageId, comment_id: commentId },
-    });
+    const author = this.author();
+    const promptsBefore = this.world.promptsQueuedFor(author.taskId).length;
+    const step = await this.world.apply(
+      worldAction("a person comments on the page", async (world) => {
+        world.pageHost.addPersonComment({
+          id: commentId,
+          pageId,
+          lineId: null,
+          authorName: "Cy",
+          text,
+        });
+        await world.deliver({
+          kind: "feedback",
+          text,
+          bindings: [{ source: "documents_page", external_id: pageId }],
+          page: { page_id: pageId, comment_id: commentId },
+        });
+      }),
+    );
+    const prompts = this.world.promptsQueuedFor(author.taskId).slice(promptsBefore);
+    const shown = this.shownBy(step, prompts, { PersonWords: [text], AppWords: [], HeldWords: [] });
+    this.shown = isDeepStrictEqual(shown, NOTHING_SHOWN) ? null : shown;
   }
 
   private failingHost(method: "heldComments" | "acknowledgeComment"): () => void {

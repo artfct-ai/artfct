@@ -450,6 +450,35 @@ export const MUTANTS: Mutant[] = [
     replace: "  await compactIfLarge(workflow, turn, signal);\n",
   },
   {
+    id: "W210",
+    invariant: "agentTurns::aWaitingInboxRowHasATurnComing (backup alarm)",
+    path: "src/agent/turn/tell.ts",
+    find: '  const backup = await workflow.scheduleAlarm(0, "runAgent", {});\n',
+    replace: '  const backup = "no backup alarm";\n',
+  },
+  {
+    id: "W211",
+    invariant: "agent turns replay: the turn lane cancels its backup alarm",
+    path: "src/agent/turn/tell.ts",
+    find: "    .then(() => workflow.cancelAlarm(backup))\n",
+    replace: "    .then(() => backup)\n",
+  },
+  {
+    id: "W212",
+    invariant: "agentTurns::theWorkingStatusNeverOutlivesItsTurn (release of a finished workflow)",
+    path: "src/workflow/posts.ts",
+    find: '    if (target.source === "chat") await workflow.notifier.release(target, finished, title);\n',
+    replace:
+      '    if (target.source === "chat") await workflow.notifier.release(target, false, title);\n',
+  },
+  {
+    id: "W213",
+    invariant: "agent turns replay: each step shows the chat thread its working status",
+    path: "src/workflow/posts.ts",
+    find: '    if (target.source === "chat") await workflow.notifier.working(target, text);\n',
+    replace: '    if (target.source === "chat") return;\n',
+  },
+  {
     id: "W181",
     invariant: "agentTurns::aWaitingInboxRowHasATurnComing (restart of a finished workflow)",
     path: "src/agent/turn/watchdog.ts",
@@ -537,6 +566,13 @@ export const MUTANTS: Mutant[] = [
     replace: "  await changeWorkflowStatus(workflow, end.status);",
   },
   {
+    id: "W218",
+    invariant: "routerBindings::aWorkflowGetsEventsOnlyOnceCreated (the create marks it created)",
+    path: "src/workflow/inbound/events.ts",
+    find: "    created_at: now(),\n",
+    replace: "",
+  },
+  {
     id: "F1",
     invariant:
       "feedbackRouting::unadmittedFeedbackReachesNobody, reviewLoop::unadmittedFeedbackReachesNobody",
@@ -567,6 +603,14 @@ export const MUTANTS: Mutant[] = [
     replace: "  if (false) {\n    return toTheAgent(",
   },
   {
+    id: "W217",
+    invariant:
+      "behavior map E4: a page comment that does not mention the bot stays held and wakes nobody",
+    path: "src/workflow/refiner/feedback.ts",
+    find: '      workflow.log(task.task_id, "a page comment waits for a mention");',
+    replace: '      await workflow.tellAgent("A page comment waits for a mention.", "human");',
+  },
+  {
     id: "C1",
     invariant: "chatAcknowledgement::eyesNeverOutliveTheDelivery",
     path: "src/router/chat-ack.ts",
@@ -586,6 +630,14 @@ export const MUTANTS: Mutant[] = [
     path: "src/router/chat-ack.ts",
     find: "      await chat.removeReaction(",
     replace: "      void chat.removeReaction(",
+  },
+  {
+    id: "W216",
+    invariant:
+      "chatAcknowledgement::eyesMarkOnlyASlowChatDelivery (tracker message with an acknowledgement)",
+    path: "src/router/chat-ack.ts",
+    find: '  if (!chat || !message || target?.source !== "chat") return deliver();',
+    replace: "  if (!chat || !message || !target) return deliver();",
   },
   {
     id: "SR1",
@@ -1156,6 +1208,13 @@ export const MUTANTS: Mutant[] = [
     find: '    case "waiting":\n    case "sent_back":\n',
     replace:
       '    case "waiting":\n      return endPolisherRun(workflow, polisher, { ended: "turn" });\n    case "sent_back":\n',
+  },
+  {
+    id: "W235",
+    invariant: "feedbackRouting::everyFeedbackGetsOneRoutingDecision (bare mention)",
+    path: "src/workflow/refiner/feedback.ts",
+    find: 'so nothing was sent. Ask them what they want.`,\n      ],\n      wake: "human",',
+    replace: 'so nothing was sent. Ask them what they want.`,\n      ],\n      wake: "none",',
   },
   {
     id: "W265",

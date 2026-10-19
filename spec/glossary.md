@@ -68,6 +68,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | comment | Feedback that is not a review. | part of `Feedback` | |
 | comment thread | A page comment and the replies under it. | `commentThread` | discussion |
 | held comment | A person's comment on a page artifact that the system has not acknowledged. Three things send every held comment to the author and acknowledge it: a comment there that mentions the bot when the decisions model routes it to the author, a person's message that asks for a revision, and any prompt the orchestrator sends to that author. The author gets only the held comments the host marked read. A held comment the screen does not admit, the host does not mark read, or a mention routes elsewhere stays held. | `HeldComment`, `Documents.heldComments` | |
+| bare mention | A comment on a page artifact that mentions the bot and says nothing else. With no held comment on the page, the system marks it read and the agent asks the person what they want. With held comments, it sends them as any mention does. | | empty mention |
 | finding | One item in a review or a comment. It may name a location and a passage. | `Finding` | |
 | passage | The few words of a page that a finding quotes. The page host anchors the finding's comment to the block that holds them. | `Finding.passage` | anchor, quote |
 | inline finding | A finding of a page review that code posts as a comment on the block that holds its passage. | `Documents.commentOnPassages` | inline comment |
@@ -145,6 +146,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | closing text | The text the model ends a turn with. It is posted only as the answer to a person who wrote. | `ModelPass.text` | |
 | deadline | The in-process timer that aborts every model and decisions call of an agent turn once the turn timeout passes, so the turn ends and posts the timeout text itself. | `runUnderDeadline`, `boundedAttempt` | |
 | watchdog | The alarm armed at the start of each agent turn that, when the turn still runs after the turn timeout, posts the timeout text, deletes the inbox rows the turn took, and records that no turn is running. | `armTurnWatchdog`, `onTurnTimeout`, `WorkflowState.turn_watchdog` | |
+| backup alarm | The zero-delay `runAgent` alarm a wake arms before its turn lane runs. The lane cancels it when it returns. A restart keeps it, so the turn the restart lost still runs. | `tellAgent`, `runAgent` | |
 | heads-up | The line posted to the chat threads, with their working status kept, when an agent turn on a person's message still runs a minute after it started. | `HEADS_UP_TEXT`, `onTurnHeadsUp`, `WorkflowState.turn_heads_up` | |
 | restart notice | The line posted to the chat threads, with their working status kept, when a new Durable Object instance resumes a lost turn that took a person's message. | `LOST_PLACE_TEXT`, `resumeLostTurn` | |
 | transcript | The stored conversation of the orchestrator agent. The only part of the context that persists across agent turns. | `transcript` table, `TranscriptStore` | history, memory |

@@ -2,14 +2,14 @@ import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 import type { TrackerIssue } from "@artfct-ai/adapters/tracker/types";
 import type { Actor, InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { Binding } from "@artfct-ai/contracts/sources";
-import type { Delivery, WorkflowStatus } from "@artfct-ai/contracts/types";
+import type { Delivery, RpcAck, WorkflowStatus } from "@artfct-ai/contracts/types";
 import { startTools, validateInputNotInWork } from "../src/agent/tools/start/start";
 import type { ArtifactTarget } from "../src/artifact/types";
 import type { Env } from "../src/env";
 import { deliver } from "../src/router/deliver";
 import { recordArtifact } from "../src/workflow/artifact";
 import { applyVerbalCommand } from "../src/workflow/inbound/controls";
-import { eventRefusalOf } from "../src/workflow/inbound/events";
+import { createWorkflow, eventRefusalOf, type WorkflowStart } from "../src/workflow/inbound/events";
 import { completeWorkflow, failWorkflow, type JobInput } from "../src/workflow/lifecycle";
 import { isWorkflowFinished } from "../src/workflow/store/state";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
@@ -514,8 +514,10 @@ export class RouterBindingsReplay {
     this.nextEndedStatus = firstEndedStatus;
     const namespace: object = {
       getByName: (name: string) => ({
-        create: () =>
-          this.gate.hold(`CreateWorkflow(${this.specIdOf(name)})`, () => this.createRuntime(name)),
+        create: (workflowId: string, event: InboundEvent, endedWorkflowId: string | null) =>
+          this.gate.hold(`CreateWorkflow(${this.specIdOf(name)})`, () =>
+            this.createRuntime(name, { workflowId, event, endedWorkflowId }),
+          ),
         handle: (event: InboundEvent) =>
           this.gate.hold(
             `HandleEvent(${this.specIdOf(name)})`,
@@ -759,13 +761,13 @@ export class RouterBindingsReplay {
     await recordArtifact(runtime, author, pullTarget(pull));
   }
 
-  private createRuntime(name: string): { ok: true } {
-    this.runtimeOf(name).patchState({
-      subject: { kind: "issue", issue_id: ISSUE.id },
-      concurrency: 2,
-      created_at: new Date().toISOString(),
-    });
-    return { ok: true };
+  /** The real create path. The subject is the issue, as the plan of a workflow from a thread names it. */
+  private async createRuntime(name: string, start: WorkflowStart): Promise<RpcAck> {
+    const runtime = this.runtimeOf(name);
+    runtime.patchState({ concurrency: 2 });
+    const created = await createWorkflow(runtime, start);
+    runtime.patchState({ subject: { kind: "issue", issue_id: ISSUE.id } });
+    return created;
   }
 
   /** The Durable Object of a workflow. It exists, not yet created, from the first call on it. */
