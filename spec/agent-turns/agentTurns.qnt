@@ -126,8 +126,17 @@ module agentTurnsTypes {
     | AwaitingRuntimeRequest
     | Concluding(Conclusion)
 
-  /// One model call of a turn: the tools it ran, and whether it left the person a reply.
+  /// One model call of a turn, or the system's first reply before the model runs: the tools it
+  /// ran, and whether it left the person a reply.
   type StepRecord = { ran: Set[Tool], answered: bool }
+
+  /// What a revision request did with the comments held on the author's page: it did not read
+  /// them, it sent them after or before the person heard back, or they stay held. `authorFinished`
+  /// when the screen admitted them but the workflow finished and cancelled their author meanwhile.
+  type HeldCommentsOutcome =
+    | HeldCommentsNotRead
+    | HeldCommentsSent({ afterTheFirstReply: bool })
+    | HeldCommentsKept({ authorFinished: bool })
 
   /// What happened to one decisions call.
   type DecisionsEvent = DecisionsAsked | DecisionsAnswered | DecisionsFailed
@@ -152,7 +161,7 @@ module agentTurnsTypes {
     timedOut: bool,
     lostTurnOwed: bool,
     callHung: bool,
-    sentHeldComments: bool,
+    heldComments: HeldCommentsOutcome,
     decisionsEvents: List[DecisionsEvent],
     answeredBy: List[int],
     reads: List[ChatRead],
@@ -177,6 +186,8 @@ module agentTurnsTypes {
     pass: int,
     passEndedByTool: bool,
     runtimeRequestOut: bool,
+    // The heads-up of this turn start reached a chat thread.
+    headsUpPosted: bool,
     record: TurnRecord,
   }
 
@@ -210,6 +221,27 @@ module agentTurnsTypes {
   /// What a step leaves: the workflow, and the turn that ended in it.
   type Next = { workflow: Workflow, turnEnd: TurnEnd }
 
+  /// The two alarms an agent turn arms, by the handler they call.
+  type TurnAlarmKind = WatchdogAlarm | HeadsUpAlarm
+
+  /// The kind of a step, for the rules and witnesses over one step. A stale alarm step carries the
+  /// start of the turn its alarm was armed for.
+  type StepKind = OtherStep | StaleAlarmStep(int)
+
+  /// Whether the last step kept each rule over one step.
+  type KeptRules = {
+    aStaleTurnAlarmChangesNothing: bool,
+    theHeadsUpPostsOnceToChatInAPersonsTurn: bool,
+    aPersonsMessageLeavesTheInboxOnlyWithItsTurn: bool,
+  }
+
+  /// Whether the last step reached each witness that needs the step.
+  type ReachedWitnesses = {
+    aStaleAlarmFiresAfterItsTurnEnded: bool,
+    aStaleAlarmFiresAfterARestart: bool,
+    aStaleAlarmFiresDuringALaterTurn: bool,
+  }
+
   /// What a step did with the backup alarm: a restart kept it, it fired while its turn ran, or
   /// the turn lane cancelled it as it returned.
   type BackupAlarmStep = { kept: bool, firedDuringItsTurn: bool, cancelled: bool }
@@ -227,6 +259,12 @@ module agentTurns {
 
   /// How often the Durable Object restarts in a run.
   pure val MAX_RESTARTS: int = 2
+
+  /// How many alarms fire in a run for a turn that no longer runs.
+  pure val MAX_STALE_ALARMS: int = 2
+
+  /// The most turns that start in a run. Each one takes a row that arrived or a restart's note.
+  pure val MAX_TURN_STARTS: int = MAX_ARRIVALS + MAX_RESTARTS
 
   pure val HAS_CHAT_THREAD: bool = SURFACE != TrackerOnly
 
@@ -291,7 +329,7 @@ module agentTurns {
     timedOut: false,
     lostTurnOwed: false,
     callHung: false,
-    sentHeldComments: false,
+    heldComments: HeldCommentsNotRead,
     decisionsEvents: [],
     answeredBy: [],
     reads: [],
@@ -305,6 +343,10 @@ module agentTurns {
   var backupAlarmStep: BackupAlarmStep
   /// The steps the run took. TLC bounds a run by it.
   var actionsTaken: int
+  /// The alarms that fired for a turn that no longer runs.
+  var staleAlarmsTaken: int
+  var lastStepKept: KeptRules
+  var lastStepReached: ReachedWitnesses
 
   pure def isPerson(from: RowFrom): bool = match from { | Person(_) => true | FromWorkflow => false }
 
@@ -456,6 +498,7 @@ module agentTurns {
         pass: 1,
         passEndedByTool: false,
         runtimeRequestOut: false,
+        headsUpPosted: false,
         record: record,
       }
       if (people.length() > 0) { store: armed, turn: Running(turnRun) }
@@ -613,8 +656,8 @@ module agentTurns {
   pure def isMalicious(message: int): bool = message % 2 == 1
 
   /// A screen call lands, and the step that waited on it ends. Held comments the screen admitted
-  /// stay held when the workflow finished and cancelled their author meanwhile, and the agent is
-  /// not told.
+  /// stay held when the workflow finished and cancelled their author meanwhile. The agent hears
+  /// what happened to the held comments in every case.
   pure def screenLands(store: Store, turnRun: TurnRun, answered: bool, flagsPage: bool, rerun: bool, said: List[ModelSays]): Next =
     match turnRun.phase {
       | Screening(screening) =>
@@ -641,9 +684,10 @@ module agentTurns {
                   screening.overLimit, false, rerun, said)
             | ScreensHeldComments =>
                 val admitted = answered and not(flagsPage)
-                val sent = admitted and not(store.workflowEnded)
-                val noted = if (admitted and not(sent)) store else appendRows(store, [HeldCommentsNote])
-                afterRead(noted, { ...landed, record: { ...record, sentHeldComments: sent } }, rerun, said)
+                val outcome =
+                  if (admitted and not(store.workflowEnded)) HeldCommentsSent({ afterTheFirstReply: heardBack(store, record) })
+                  else HeldCommentsKept({ authorFinished: admitted })
+                afterRead(appendRows(store, [HeldCommentsNote]), { ...landed, record: { ...record, heldComments: outcome } }, rerun, said)
           }
       | _ => { workflow: { store: store, isolate: { turn: Running(turnRun), rerun: rerun } }, turnEnd: NoTurnEnd }
     }
@@ -651,10 +695,27 @@ module agentTurns {
   /// What a failed read falls back to: an unread message.
   pure val UNREAD: MessageRead = { asksForRevision: false, namesModel: false }
 
+  /// The person heard back in the turn: a post answered them, or their chat messages have the
+  /// thumbs-up.
+  pure def heardBack(store: Store, record: TurnRecord): bool =
+    answeringPosts(record).length() > 0 or anyOf(takenPersonRows(store), row => row.reacted)
+
+  /// The turn sends the first reply itself: the thumbs-up on the chat messages that wait for one,
+  /// or one line to the people it answers. The model's `acknowledge` then fails.
+  pure def repliesFirst(store: Store, turnRun: TurnRun): { store: Store, turnRun: TurnRun } =
+    val replied = { ...turnRun, acknowledged: true, firstReplied: true, record: { ...turnRun.record, steps: turnRun.record.steps.append({ ran: Set(), answered: true }) } }
+    if (turnRun.reactable)
+      val reacting = idsOf(awaitingThumbsUp(store))
+      val reacted = store.inbox.foldl([], (rows, row) => rows.append(if (reacting.contains(row.id)) { ...row, reacted: true } else row))
+      { store: { ...store, inbox: reacted }, turnRun: replied }
+    else
+      val targets = answeringTargets(false, turnRun.answering)
+      { store: landPost(store, AcknowledgeText, targets, false), turnRun: { ...replied, record: recordPost(replied.record, AcknowledgeText, targets) } }
+
   /// The read of the person's message lands. A failed read owes the person an answer. A message
   /// that names a model starts the runtime request beside the turn. A message that asks for a
-  /// revision screens the comments held on the author's page before the model runs, unless the
-  /// workflow finished and cancelled the author.
+  /// revision gets the first reply, then screens the comments held on the author's page before
+  /// the model runs, unless the workflow finished and cancelled the author.
   pure def readLands(store: Store, turnRun: TurnRun, owed: Owed, answered: bool, read: MessageRead, rerun: bool, said: List[ModelSays]): Next =
     val heard = turnRun.record.decisionsEvents.append(if (answered) DecisionsAnswered else DecisionsFailed)
     val requested = if (read.namesModel) heard.append(DecisionsAsked) else heard
@@ -671,8 +732,10 @@ module agentTurns {
       runtimeRequestOut: read.namesModel,
       record: record,
     }
-    if (sendsHeldComments) keepRerun(withTurn(store, { ...readTurn, phase: Screening({ screened: ScreensHeldComments, overLimit: false }) }), rerun)
-    else afterRead(store, readTurn, rerun, said)
+    val acknowledged = if (read.asksForRevision) repliesFirst(store, readTurn) else { store: store, turnRun: readTurn }
+    if (sendsHeldComments)
+      keepRerun(withTurn(acknowledged.store, { ...acknowledged.turnRun, phase: Screening({ screened: ScreensHeldComments, overLimit: false }) }), rerun)
+    else afterRead(acknowledged.store, acknowledged.turnRun, rerun, said)
 
   pure def modelAnswered(store: Store, turnRun: TurnRun, answer: ModelAnswer, overLimit: bool, rerun: bool, said: List[ModelSays]): Next =
     match answer {
@@ -706,8 +769,9 @@ module agentTurns {
 
   /// `resumeLostTurn` on the new instance, and the turn its wake starts. The backup alarm of the
   /// lost turn lane stays armed, since no lane cancels it now. With no lost turn, rows that wait
-  /// get the `runAgent` alarm. A finished workflow drops its lost turn, releases the threads, and
-  /// arms the `runAgent` alarm for rows that wait.
+  /// get the `runAgent` alarm. A finished workflow drops a lost turn that took no person's
+  /// message, releases the threads, and arms the `runAgent` alarm for rows that wait. It resumes a
+  /// lost turn a person waits on.
   pure def restarted(store: Store, lost: TurnSlot, said: List[ModelSays]): Next =
     val counted = { ...store,
       restarts: store.restarts + 1,
@@ -726,7 +790,8 @@ module agentTurns {
             chat: chatSetTo(forgotten, Closed),
           }
           val woken = if (waitingRows(dropped).length() > 0) { ...dropped, runAgentAlarms: dropped.runAgentAlarms + 1 } else dropped
-          if (store.workflowEnded) { workflow: { store: woken, isolate: { turn: NoTurn, rerun: false } }, turnEnd: NoTurnEnd }
+          if (store.workflowEnded and takenPersonRows(store).length() == 0)
+            { workflow: { store: woken, isolate: { turn: NoTurn, rerun: false } }, turnEnd: NoTurnEnd }
           else resumed(store, forgotten, lost, said)
     }
 
@@ -742,13 +807,19 @@ module agentTurns {
 
   pure val NO_BACKUP_ALARM_STEP: BackupAlarmStep = { kept: false, firedDuringItsTurn: false, cancelled: false }
 
-  action move(after: Next): bool = all {
+  /// Take a step of `kind` to `after`, and record which rules over one step it kept.
+  action stepTo(after: Next, kind: StepKind): bool = all {
     workflow' = after.workflow,
     models' = models,
     lastTurnEnd' = after.turnEnd,
     backupAlarmStep' = backupAlarmStepOf(workflow, after.workflow),
     actionsTaken' = actionsTaken + 1,
+    staleAlarmsTaken' = staleAlarmsTaken + (if (isStaleAlarmStep(kind)) 1 else 0),
+    lastStepKept' = rulesKeptBy(workflow, after, kind),
+    lastStepReached' = witnessesReachedBy(workflow, kind),
   }
+
+  action move(after: Next): bool = stepTo(after, OtherStep)
 
   /// Run `act` on the running turn.
   action onTurn(act: TurnRun => bool): bool = match workflow.isolate.turn {
@@ -763,6 +834,9 @@ module agentTurns {
     lastTurnEnd' = NoTurnEnd,
     backupAlarmStep' = NO_BACKUP_ALARM_STEP,
     actionsTaken' = 0,
+    staleAlarmsTaken' = 0,
+    lastStepKept' = ALL_RULES_KEPT,
+    lastStepReached' = NO_WITNESS_REACHED,
   }
 
   /// A row lands in the inbox and wakes the agent. The isolate runs the turn now in a lane that
@@ -944,29 +1018,50 @@ module agentTurns {
     move(withTurnKeepingRerun(workflow.store, { ...turnRun, aborted: true }, workflow.isolate.rerun)),
   })
 
-  /// The watchdog alarm of the running turn fires after the timeout. It clears the turn, deletes
-  /// the taken rows and posts the timeout text. On a finished workflow where nobody waits, it
-  /// only releases the threads. The turn itself keeps running.
+  /// `onTurnTimeout` with the start the alarm carries. It acts only while the store holds the turn
+  /// of that start as running: it clears the turn, deletes the taken rows and posts the timeout
+  /// text. On a finished workflow where nobody waits, it only releases the threads. The turn
+  /// itself keeps running.
+  pure def watchdogLands(w: Workflow, armedFor: int): Workflow =
+    if (w.store.startedAt != StartedAt(armedFor)) w
+    else match w.isolate.turn {
+      | NoTurn => w
+      | Running(turnRun) =>
+          val store = w.store
+          val told = answeringTargets(true, answeringNow(store))
+          val cleared = { ...store,
+            startedAt: NotRunning,
+            watchdog: NoAlarm,
+            headsUp: NoAlarm,
+            firstRow: NoFirstRow,
+            inbox: store.inbox.select(row => not(row.taken)),
+          }
+          if (store.workflowEnded and answeringNow(store).size() == 0)
+            { store: { ...cleared, chat: chatSetTo(cleared, Closed) }, isolate: { ...w.isolate, turn: Running({ ...turnRun, record: { ...turnRun.record, timedOut: true } }) } }
+          else {
+            store: landPost(cleared, TimeoutText, told, false),
+            isolate: { ...w.isolate, turn: Running({ ...turnRun, record: { ...recordPost(turnRun.record, TimeoutText, told), timedOut: true } }) },
+          }
+    }
+
+  /// `onTurnHeadsUp` with the start the alarm carries. It acts only while the store holds the turn
+  /// of that start as running: its chat threads hear that it still runs, and keep working.
+  pure def headsUpLands(w: Workflow, armedFor: int): Workflow =
+    if (w.store.startedAt != StartedAt(armedFor)) w
+    else match w.isolate.turn {
+      | NoTurn => w
+      | Running(turnRun) =>
+          val store = { ...w.store, headsUp: NoAlarm }
+          val told = if (HAS_CHAT_THREAD) landPost(store, HeadsUpText, CHAT_THREADS, true) else store
+          val record = if (HAS_CHAT_THREAD) recordPost(turnRun.record, HeadsUpText, CHAT_THREADS) else turnRun.record
+          { store: told, isolate: { ...w.isolate, turn: Running({ ...turnRun, headsUpPosted: turnRun.headsUpPosted or HAS_CHAT_THREAD, record: record }) } }
+    }
+
+  /// The watchdog alarm of the running turn fires after the timeout.
   action watchdogFires: bool = onTurn(turnRun => all {
     turnRun.pastTimeout,
     workflow.store.watchdog == ArmedFor(turnRun.startedAt),
-    workflow.store.startedAt == StartedAt(turnRun.startedAt),
-    val store = workflow.store
-    val told = answeringTargets(true, answeringNow(store))
-    val cleared = { ...store,
-      startedAt: NotRunning,
-      watchdog: NoAlarm,
-      headsUp: NoAlarm,
-      firstRow: NoFirstRow,
-      inbox: store.inbox.select(row => not(row.taken)),
-    }
-    if (store.workflowEnded and answeringNow(store).size() == 0)
-      move(withTurnKeepingRerun({ ...cleared, chat: chatSetTo(cleared, Closed) }, { ...turnRun, record: { ...turnRun.record, timedOut: true } }, workflow.isolate.rerun))
-    else move(withTurnKeepingRerun(
-      landPost(cleared, TimeoutText, told, false),
-      { ...turnRun, record: { ...recordPost(turnRun.record, TimeoutText, told), timedOut: true } },
-      workflow.isolate.rerun,
-    )),
+    move({ workflow: watchdogLands(workflow, turnRun.startedAt), turnEnd: NoTurnEnd }),
   })
 
   /// The workflow finishes: its last job completes, or a person stops it. A turn that runs goes on.
@@ -975,15 +1070,25 @@ module agentTurns {
     move({ workflow: { ...workflow, store: { ...workflow.store, workflowEnded: true } }, turnEnd: NoTurnEnd }),
   }
 
-  /// The heads-up alarm of the running turn fires. Its chat threads hear that it still runs.
+  /// The heads-up alarm of the running turn fires.
   action headsUpFires: bool = onTurn(turnRun => all {
     workflow.store.headsUp == ArmedFor(turnRun.startedAt),
-    workflow.store.startedAt == StartedAt(turnRun.startedAt),
-    val store = { ...workflow.store, headsUp: NoAlarm }
-    val told = if (HAS_CHAT_THREAD) landPost(store, HeadsUpText, CHAT_THREADS, true) else store
-    val record = if (HAS_CHAT_THREAD) recordPost(turnRun.record, HeadsUpText, CHAT_THREADS) else turnRun.record
-    move(withTurnKeepingRerun(told, { ...turnRun, record: record }, workflow.isolate.rerun)),
+    move({ workflow: headsUpLands(workflow, turnRun.startedAt), turnEnd: NoTurnEnd }),
   })
+
+  /// A watchdog or heads-up alarm fires for a turn that no longer runs: a turn that ended, a turn
+  /// a restart lost, or a turn before the one that runs now. The store does not hold that turn as
+  /// running. Its handler runs as for the running turn's alarm.
+  action staleAlarmFires(kind: TurnAlarmKind, armedFor: int): bool = all {
+    staleAlarmsTaken < MAX_STALE_ALARMS,
+    armedFor < workflow.store.nextStart,
+    workflow.store.startedAt != StartedAt(armedFor),
+    val landed = match kind {
+      | WatchdogAlarm => watchdogLands(workflow, armedFor)
+      | HeadsUpAlarm => headsUpLands(workflow, armedFor)
+    }
+    stepTo({ workflow: landed, turnEnd: NoTurnEnd }, StaleAlarmStep(armedFor)),
+  }
 
   /// A deploy resets the Durable Object. The isolate and its turn are gone, with every call it
   /// had out. The new instance resumes a turn the store still holds as running.
@@ -1018,11 +1123,16 @@ module agentTurns {
   /// The transcript rows written. Compaction replaces rows but does not lower it.
   val rowsWritten: int = workflow.store.nextRowId - 1
 
-  /// The workflow finished, every restart happened, no turn runs and no `runAgent` alarm is
-  /// armed. These negate the guards of every other step, so each of them is blocked here.
+  /// The alarms that fired for a turn that no longer runs.
+  val staleAlarmsFired: int = staleAlarmsTaken
+
+  /// The workflow finished, every restart and stale alarm happened, no turn runs and no
+  /// `runAgent` alarm is armed. These negate the guards of every other step, so each of them is
+  /// blocked here. A run where no turn started has no alarm to fire late.
   val theTurnsEnd: bool = and {
     workflow.store.workflowEnded,
     workflow.store.restarts >= MAX_RESTARTS,
+    staleAlarmsTaken >= MAX_STALE_ALARMS or workflow.store.nextStart == 1,
     workflow.isolate.turn == NoTurn,
     workflow.store.runAgentAlarms == 0,
     not(workflow.store.backupAlarm),
@@ -1036,6 +1146,9 @@ module agentTurns {
     lastTurnEnd' = lastTurnEnd,
     backupAlarmStep' = NO_BACKUP_ALARM_STEP,
     actionsTaken' = actionsTaken,
+    staleAlarmsTaken' = staleAlarmsTaken,
+    lastStepKept' = lastStepKept,
+    lastStepReached' = lastStepReached,
   }
 
   /// Each step picks only the values its action reads, so TLC does not generate one copy of a
@@ -1074,6 +1187,11 @@ module agentTurns {
     deadlineFires,
     watchdogFires,
     headsUpFires,
+    {
+      nondet alarm = Set(WatchdogAlarm, HeadsUpAlarm).oneOf()
+      nondet armedFor = 1.to(MAX_TURN_STARTS).oneOf()
+      staleAlarmFires(alarm, armedFor)
+    },
     durableObjectRestarts,
     runAgentAlarmFires,
     workflowFinishes,
@@ -1148,12 +1266,16 @@ module agentTurns {
       or record.steps.select(step => step.answered).length() > 0)
 
   /// In a person's turn, a step that runs any tool but a first reply follows a step that left
-  /// them a post or the thumbs-up.
+  /// them a post or the thumbs-up. The held comments a revision request sends follow a post or the
+  /// thumbs-up too.
   val aPersonHearsBackBeforeAnyWork: bool = holdsForTheEndedTurn(lastTurnEnd, record =>
-    record.owed == NotOwed or record.steps.foldl({ heard: true, answered: false }, (seen, step) => {
-      heard: seen.heard and (step.ran.exclude(FIRST_REPLY_TOOLS).size() > 0 implies seen.answered),
-      answered: seen.answered or step.answered,
-    }).heard)
+    record.owed == NotOwed or and {
+      record.steps.foldl({ heard: true, answered: false }, (seen, step) => {
+        heard: seen.heard and (step.ran.exclude(FIRST_REPLY_TOOLS).size() > 0 implies seen.answered),
+        answered: seen.answered or step.answered,
+      }).heard,
+      match record.heldComments { | HeldCommentsSent(sent) => sent.afterTheFirstReply | _ => true },
+    })
 
   pure def holdsText(entry: Entry, pages: Set[int], messages: Set[int]): bool = match entry {
     | ToolResultRow(output) => match output {
@@ -1247,6 +1369,80 @@ module agentTurns {
     waitingRows(workflow.store).length() > 0 implies
       ((workflow.isolate.turn != NoTurn and workflow.isolate.rerun) or workflow.store.runAgentAlarms > 0)
 
+  pure def isStaleAlarmStep(kind: StepKind): bool = match kind { | StaleAlarmStep(_) => true | _ => false }
+
+  /// The posts a step added. Posts are only ever appended.
+  pure def postsAdded(before: Store, after: Store): List[Post] =
+    after.posts.slice(before.posts.length(), after.posts.length())
+
+  /// A stale alarm leaves the workflow as it was: the store, its posts, and the turn that runs.
+  pure def changesNothingOnAStaleAlarm(before: Workflow, after: Next, kind: StepKind): bool =
+    isStaleAlarmStep(kind) implies after.workflow == before
+
+  /// A step posts the heads-up at most once, only to the chat threads, and only in a turn that
+  /// took a person's message and did not post its heads-up yet.
+  pure def postsTheHeadsUpOnceToChat(before: Workflow, after: Next): bool =
+    val headsUps = postsAdded(before.store, after.workflow.store).select(post => post.text == HeadsUpText)
+    headsUps.length() == 0 or and {
+      headsUps.length() == 1,
+      HAS_CHAT_THREAD,
+      headsUps[0].targets == CHAT_THREADS,
+      match before.isolate.turn {
+        | Running(turnRun) => turnRun.answering.size() > 0 and not(turnRun.headsUpPosted)
+        | NoTurn => false
+      },
+    }
+
+  /// A person's message leaves the inbox only with the turn that took it: the turn that ended in
+  /// the step, or a turn that runs after it.
+  pure def leavesAPersonsMessageWithItsTurn(before: Workflow, after: Next): bool =
+    val left = idsOf(takenPersonRows(before.store)).exclude(idsOf(after.workflow.store.inbox))
+    val ended = match after.turnEnd { | TurnEnded(turnEnd) => turnEnd.record.inboxRows | NoTurnEnd => Set() }
+    val running = match after.workflow.isolate.turn { | Running(turnRun) => turnRun.record.inboxRows | NoTurn => Set() }
+    left.subseteq(ended.union(running))
+
+  pure val ALL_RULES_KEPT: KeptRules = {
+    aStaleTurnAlarmChangesNothing: true,
+    theHeadsUpPostsOnceToChatInAPersonsTurn: true,
+    aPersonsMessageLeavesTheInboxOnlyWithItsTurn: true,
+  }
+
+  pure def rulesKeptBy(before: Workflow, after: Next, kind: StepKind): KeptRules = {
+    aStaleTurnAlarmChangesNothing: changesNothingOnAStaleAlarm(before, after, kind),
+    theHeadsUpPostsOnceToChatInAPersonsTurn: postsTheHeadsUpOnceToChat(before, after),
+    aPersonsMessageLeavesTheInboxOnlyWithItsTurn: leavesAPersonsMessageWithItsTurn(before, after),
+  }
+
+  pure val NO_WITNESS_REACHED: ReachedWitnesses = {
+    aStaleAlarmFiresAfterItsTurnEnded: false,
+    aStaleAlarmFiresAfterARestart: false,
+    aStaleAlarmFiresDuringALaterTurn: false,
+  }
+
+  pure def witnessesReachedBy(before: Workflow, kind: StepKind): ReachedWitnesses = match kind {
+    | StaleAlarmStep(armedFor) => {
+        aStaleAlarmFiresAfterItsTurnEnded: before.isolate.turn == NoTurn and before.store.restarts == 0,
+        aStaleAlarmFiresAfterARestart: before.store.restarts > 0,
+        aStaleAlarmFiresDuringALaterTurn: match before.isolate.turn {
+          | Running(turnRun) => turnRun.startedAt > armedFor
+          | NoTurn => false
+        },
+      }
+    | OtherStep => NO_WITNESS_REACHED
+  }
+
+  /// A heads-up or watchdog alarm armed for a turn that no longer runs does not change the store
+  /// and does not post.
+  val aStaleTurnAlarmChangesNothing: bool = lastStepKept.aStaleTurnAlarmChangesNothing
+
+  /// The heads-up posts at most once per turn, only in a turn that took a person's message, and
+  /// only to the chat threads.
+  val theHeadsUpPostsOnceToChatInAPersonsTurn: bool = lastStepKept.theHeadsUpPostsOnceToChatInAPersonsTurn
+
+  /// A person's message leaves the inbox only with the turn that took it, so a turn always ends
+  /// on it. A restart does not drop it, also on a finished workflow.
+  val aPersonsMessageLeavesTheInboxOnlyWithItsTurn: bool = lastStepKept.aPersonsMessageLeavesTheInboxOnlyWithItsTurn
+
   /// The store holds a turn as running only while that turn runs. One turn runs at a time.
   val oneTurnRunsAtATime: bool = match workflow.store.startedAt {
     | StartedAt(start) => match workflow.isolate.turn {
@@ -1275,6 +1471,9 @@ module agentTurns {
     sessionMessageWithoutAnAuthorIsAnswered,
     aWaitingInboxRowHasATurnComing,
     oneTurnRunsAtATime,
+    aStaleTurnAlarmChangesNothing,
+    theHeadsUpPostsOnceToChatInAPersonsTurn,
+    aPersonsMessageLeavesTheInboxOnlyWithItsTurn,
   }
 
   // Witnesses: states where the behavior an invariant guards happens.
@@ -1352,7 +1551,8 @@ module agentTurns {
   /// `oneTurnRunsAtATime`: a row arrived while a turn ran.
   val aRowWaitsForTheNextTurn: bool = workflow.isolate.rerun
 
-  /// Witness for `theWorkingStatusNeverOutlivesItsTurn`: the heads-up reached a chat thread.
+  /// Witness for `theWorkingStatusNeverOutlivesItsTurn` and `theHeadsUpPostsOnceToChatInAPersonsTurn`:
+  /// the heads-up reached a chat thread.
   val theHeadsUpPosts: bool = anyOf(workflow.store.posts, post => post.text == HeadsUpText)
 
   /// Witness for `aWaitingInboxRowHasATurnComing`: a restart kept the backup alarm of the turn lane
@@ -1372,8 +1572,32 @@ module agentTurns {
   val aRowWaitsForTheRunAgentAlarm: bool =
     workflow.store.runAgentAlarms > 0 and waitingRows(workflow.store).length() > 0
 
-  /// A person's revision request sent the held comments to the author.
-  val aRevisionSendsTheHeldComments: bool = endedTurnWhere(lastTurnEnd, record => record.sentHeldComments)
+  /// Witness for `aPersonHearsBackBeforeAnyWork`: a person's revision request sent the held
+  /// comments to the author after the first reply.
+  val aRevisionSendsTheHeldComments: bool = endedTurnWhere(lastTurnEnd, record =>
+    match record.heldComments { | HeldCommentsSent(_) => true | _ => false })
+
+  /// The screen admitted the held comments of a revision request, but the workflow finished and
+  /// cancelled their author meanwhile, so they stay held.
+  val aFinishedAuthorKeepsItsHeldComments: bool = endedTurnWhere(lastTurnEnd, record =>
+    record.heldComments == HeldCommentsKept({ authorFinished: true }))
+
+  /// Witness for `aPersonsMessageLeavesTheInboxOnlyWithItsTurn`: a restart resumed a lost turn on a
+  /// person's message after the workflow finished.
+  val aRestartResumesAPersonsTurnOnAFinishedWorkflow: bool = match workflow.isolate.turn {
+    | Running(turnRun) => turnRun.record.lostTurnOwed and workflow.store.workflowEnded
+    | NoTurn => false
+  }
+
+  /// Witness for `aStaleTurnAlarmChangesNothing`: a stale alarm fired with no turn running, before
+  /// any restart.
+  val aStaleAlarmFiresAfterItsTurnEnded: bool = lastStepReached.aStaleAlarmFiresAfterItsTurnEnded
+
+  /// Witness for `aStaleTurnAlarmChangesNothing`: a stale alarm fired after a restart.
+  val aStaleAlarmFiresAfterARestart: bool = lastStepReached.aStaleAlarmFiresAfterARestart
+
+  /// Witness for `aStaleTurnAlarmChangesNothing`: a stale alarm fired while a later turn ran.
+  val aStaleAlarmFiresDuringALaterTurn: bool = lastStepReached.aStaleAlarmFiresDuringALaterTurn
 
   /// Witness for `laterDecisionsCallsFallBackOnceOneFails`: the runtime request is out while the turn
   /// waits on a screen call.

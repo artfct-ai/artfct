@@ -52,6 +52,7 @@ const PICKS_READ: Record<string, (keyof TraceStep["picks"])[]> = {
   readAnswers: ["owed", "asksForRevision", "namesModel"],
   screenAnswers: ["flagsPage"],
   modelAnswers: ["answer", "overLimit"],
+  staleAlarmFires: ["alarm", "armedFor"],
 };
 
 function stepName(step: TraceStep): string {

@@ -16,7 +16,10 @@
     "aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead",
     "sessionMessageWithoutAnAuthorIsAnswered",
     "aWaitingInboxRowHasATurnComing",
-    "oneTurnRunsAtATime"
+    "oneTurnRunsAtATime",
+    "aStaleTurnAlarmChangesNothing",
+    "theHeadsUpPostsOnceToChatInAPersonsTurn",
+    "aPersonsMessageLeavesTheInboxOnlyWithItsTurn"
   ],
   "mainMinutes": {
     "chatThread": 1.4,
@@ -47,6 +50,11 @@
       "theClosingPostOutlivesTheTimeout",
       "theWatchdogReleasesAFinishedWorkflow",
       "aTurnEndsOnAFinishedWorkflow",
+      "aStaleAlarmFiresAfterItsTurnEnded",
+      "aStaleAlarmFiresAfterARestart",
+      "aStaleAlarmFiresDuringALaterTurn",
+      "aFinishedAuthorKeepsItsHeldComments",
+      "aRestartResumesAPersonsTurnOnAFinishedWorkflow",
       "aRestartKeepsTheBackupAlarm",
       "theBackupAlarmFiresDuringItsTurn",
       "theTurnLaneCancelsItsBackupAlarm"
@@ -71,6 +79,11 @@
       "twoDecisionsCallsAreOut",
       "theClosingPostOutlivesTheTimeout",
       "theWatchdogReleasesAFinishedWorkflow",
+      "aStaleAlarmFiresAfterItsTurnEnded",
+      "aStaleAlarmFiresAfterARestart",
+      "aStaleAlarmFiresDuringALaterTurn",
+      "aFinishedAuthorKeepsItsHeldComments",
+      "aRestartResumesAPersonsTurnOnAFinishedWorkflow",
       "aRestartKeepsTheBackupAlarm",
       "theBackupAlarmFiresDuringItsTurn",
       "theTurnLaneCancelsItsBackupAlarm"
@@ -98,26 +111,33 @@
       "theClosingPostOutlivesTheTimeout",
       "theWatchdogReleasesAFinishedWorkflow",
       "aTurnEndsOnAFinishedWorkflow",
+      "aStaleAlarmFiresAfterItsTurnEnded",
+      "aStaleAlarmFiresAfterARestart",
+      "aStaleAlarmFiresDuringALaterTurn",
+      "aFinishedAuthorKeepsItsHeldComments",
+      "aRestartResumesAPersonsTurnOnAFinishedWorkflow",
       "aRestartKeepsTheBackupAlarm",
       "theBackupAlarmFiresDuringItsTurn",
       "theTurnLaneCancelsItsBackupAlarm"
     ]
   },
   "tlc": {
-    "ignoredVariables": ["backupAlarmStep"],
+    "ignoredVariables": ["lastStepReached", "backupAlarmStep"],
     "bounds": {
       "chatThread": {
         "pr": {
           "actionsTaken": 10,
           "rowsArrived": 2,
           "restartsTaken": 1,
-          "rowsWritten": 5
+          "rowsWritten": 5,
+          "staleAlarmsFired": 1
         },
         "nightly": {
           "actionsTaken": 12,
           "rowsArrived": 2,
           "restartsTaken": 2,
-          "rowsWritten": 6
+          "rowsWritten": 6,
+          "staleAlarmsFired": 2
         }
       },
       "trackerOnly": {
@@ -125,13 +145,15 @@
           "actionsTaken": 10,
           "rowsArrived": 2,
           "restartsTaken": 1,
-          "rowsWritten": 5
+          "rowsWritten": 5,
+          "staleAlarmsFired": 1
         },
         "nightly": {
           "actionsTaken": 12,
           "rowsArrived": 2,
           "restartsTaken": 2,
-          "rowsWritten": 6
+          "rowsWritten": 6,
+          "staleAlarmsFired": 2
         }
       },
       "chatAndSession": {
@@ -139,13 +161,15 @@
           "actionsTaken": 10,
           "rowsArrived": 2,
           "restartsTaken": 1,
-          "rowsWritten": 5
+          "rowsWritten": 5,
+          "staleAlarmsFired": 1
         },
         "nightly": {
           "actionsTaken": 12,
           "rowsArrived": 2,
           "restartsTaken": 2,
-          "rowsWritten": 6
+          "rowsWritten": 6,
+          "staleAlarmsFired": 2
         }
       }
     }
