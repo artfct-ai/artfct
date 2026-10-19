@@ -47,6 +47,7 @@ const sandbox: SandboxRow = {
   generation: 1,
   bridge_token: "tok",
   session_id: null,
+  first_prompt_at: null,
   last_progress_at: "2026-01-01T00:00:00.000Z",
   prompt_in_flight: 0,
   turn_text: "",

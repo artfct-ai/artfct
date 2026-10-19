@@ -167,6 +167,7 @@ export type SpecTask = {
   paused: boolean;
   generation: number;
   session: boolean;
+  hadPrompt: boolean;
   promptInFlight: boolean;
   nudged: boolean;
   stoppedEarly: boolean;
@@ -265,6 +266,7 @@ function specTask(world: unknown): SpecTask {
     paused: itfBool(itfField(world, "paused")),
     generation: itfInt(itfField(world, "generation")),
     session: itfBool(itfField(world, "session")),
+    hadPrompt: itfBool(itfField(world, "hadPrompt")),
     promptInFlight: itfBool(itfField(world, "promptInFlight")),
     nudged: itfBool(itfField(world, "nudged")),
     stoppedEarly: itfBool(itfField(world, "stoppedEarly")),
@@ -585,6 +587,7 @@ export class HarnessSessionReplay {
       paused: task.paused_at !== null,
       generation: sandbox.generation,
       session: sandbox.session_id !== null,
+      hadPrompt: sandbox.first_prompt_at !== null,
       promptInFlight: sandbox.prompt_in_flight === 1,
       nudged: sandbox.nudged === 1,
       stoppedEarly: sandbox.stopped_early === 1,
