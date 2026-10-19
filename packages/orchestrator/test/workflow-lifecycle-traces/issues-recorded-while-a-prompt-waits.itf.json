@@ -113,7 +113,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -169,6 +171,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "scriptedInit",
@@ -216,6 +224,12 @@
           }
         },
         "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiter": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -323,7 +337,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -379,6 +395,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "agentStartsJob",
@@ -424,6 +446,12 @@
           "value": false
         },
         "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiter": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -531,7 +559,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -587,6 +617,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "agentStartsJobOnAnIssue",
@@ -632,6 +668,12 @@
           "value": false
         },
         "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiter": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -739,7 +781,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -792,6 +836,12 @@
         },
         "storedEnd": {
           "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
           "value": {
             "#tup": []
           }
@@ -848,6 +898,12 @@
             "value": {
               "#tup": []
             }
+          }
+        },
+        "waiter": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "withStages": {
@@ -950,7 +1006,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -1060,6 +1118,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "agentStartsJob",
@@ -1105,6 +1169,12 @@
           "value": false
         },
         "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiter": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1212,7 +1282,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -1322,6 +1394,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "agentSetsPlan",
@@ -1375,6 +1453,12 @@
             "value": {
               "#tup": []
             }
+          }
+        },
+        "waiter": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "withStages": {
@@ -1477,7 +1561,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -1587,6 +1673,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "agentPromptsAuthor",
@@ -1634,6 +1726,12 @@
           }
         },
         "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiter": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1741,7 +1839,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -1851,6 +1951,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "agentStartsJob",
@@ -1896,6 +2002,12 @@
           "value": false
         },
         "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiter": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -2003,7 +2115,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -2113,6 +2227,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "agentStartsJobOnAnIssue",
@@ -2158,6 +2278,12 @@
           "value": false
         },
         "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiter": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -2265,7 +2391,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -2375,6 +2503,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "agentResumesAuthor",
@@ -2422,6 +2556,12 @@
           }
         },
         "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiter": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -2529,7 +2669,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": true,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -2639,6 +2781,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "authorLinksItsIssues",
@@ -2689,6 +2837,12 @@
           }
         },
         "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiter": {
           "tag": "None",
           "value": {
             "#tup": []

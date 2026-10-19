@@ -1496,6 +1496,22 @@ export const MUTANTS: Mutant[] = [
     find: "  return validateInputNotInWork(workflow, input) ?? validateIssueNotCompleted(workflow, input);\n",
     replace: "  return validateIssueNotCompleted(workflow, input);\n",
   },
+  {
+    id: "W242",
+    invariant: "workflowLifecycle::anEndedWorkflowPostsItsEndOnce (resumed end posts again)",
+    path: "src/workflow/lifecycle.ts",
+    find: "  if (!end.posted) await postWorkflowEnd(workflow, end);\n",
+    replace: "  await postWorkflowEnd(workflow, end);\n",
+  },
+  {
+    id: "W243",
+    invariant:
+      "workflowLifecycle::anEndedWorkflowPostsItsEndOnce (recorded posted before the post)",
+    path: "src/workflow/lifecycle.ts",
+    find: "  const to = { answering: end.answering };\n  switch (end.status) {\n",
+    replace:
+      "  const to = { answering: end.answering };\n  workflow.patchState({ workflow_end: { ...end, posted: true } });\n  switch (end.status) {\n",
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */

@@ -40,6 +40,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -143,7 +144,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -162,7 +165,8 @@
         "status": { "tag": "New", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -186,6 +190,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -289,7 +294,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -308,7 +315,8 @@
         "status": { "tag": "New", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -332,6 +340,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -435,7 +444,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -454,7 +465,8 @@
         "status": { "tag": "New", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -478,6 +490,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -581,7 +594,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -600,7 +615,8 @@
         "status": { "tag": "New", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -624,6 +640,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "Some", "value": { "tag": "NoSubject", "value": { "#tup": [] } } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "Some", "value": true }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -727,7 +744,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -746,7 +765,8 @@
         "status": { "tag": "New", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -770,6 +790,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -873,7 +894,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -892,7 +915,8 @@
         "status": { "tag": "New", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -916,6 +940,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -1019,7 +1044,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -1038,7 +1065,8 @@
         "status": { "tag": "New", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -1062,6 +1090,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "Some", "value": { "tag": "NoSubject", "value": { "#tup": [] } } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "Some", "value": true }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -1165,7 +1194,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -1184,7 +1215,8 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -1208,6 +1240,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -1311,7 +1344,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": true,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -1330,7 +1365,8 @@
         "status": { "tag": "WaitingInput", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -1354,6 +1390,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "Some", "value": { "tag": "NoSubject", "value": { "#tup": [] } } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "Some", "value": false }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -1457,7 +1494,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -1476,7 +1515,8 @@
         "status": { "tag": "WaitingInput", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -1500,6 +1540,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -1603,7 +1644,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -1643,7 +1686,8 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -1667,6 +1711,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -1770,7 +1815,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -1830,7 +1877,8 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -1854,6 +1902,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -1957,7 +2006,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -2023,7 +2074,8 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -2047,6 +2099,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -2150,7 +2203,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -2216,7 +2271,8 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -2240,6 +2296,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -2343,7 +2400,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -2403,7 +2462,8 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -2427,6 +2487,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "Some", "value": { "tag": "NoSubject", "value": { "#tup": [] } } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "Some", "value": true }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -2530,7 +2591,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -2590,7 +2653,8 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -2614,6 +2678,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -2717,7 +2782,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -2783,7 +2850,8 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -2807,6 +2875,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -2910,7 +2979,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -2976,7 +3047,8 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -3000,6 +3072,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "Some", "value": { "tag": "NoSubject", "value": { "#tup": [] } } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "Some", "value": true }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -3103,7 +3176,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -3169,7 +3244,8 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -3193,6 +3269,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -3296,7 +3373,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -3368,7 +3447,8 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -3392,6 +3472,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -3495,7 +3576,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -3567,7 +3650,8 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -3591,6 +3675,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -3694,7 +3779,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -3766,7 +3853,8 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -3790,6 +3878,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -3893,7 +3982,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -3965,7 +4056,8 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -3989,6 +4081,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -4092,7 +4185,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -4164,7 +4259,8 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     },
     {
@@ -4188,6 +4284,7 @@
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
         "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
@@ -4291,7 +4388,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -4351,7 +4450,8 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
-        "turnsToRunAgain": { "#set": [] }
+        "turnsToRunAgain": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
       }
     }
   ]

@@ -111,14 +111,25 @@ module workflowLifecycleTypes {
   /// The end of a task that went on after its teardown.
   type Teardown = AfterCancel | AfterFail | AfterComplete
 
-  /// Who ended the task: a tool call or an event, the end of the workflow with the status it ends
-  /// as, or `complete_job` on the job of the subject issue, which ends the workflow done once the
-  /// teardown went on.
-  type Caller = ToolOrEvent | WorkflowEnd(WorkflowStatus) | SubjectJobCompletes
+  /// Who waits in this instance for a workflow end to finish: a person's event, which then tells
+  /// the agent, `complete_job` on the job of the subject issue, which then answers, or neither.
+  type EndWaiter = NobodyWaits | AnEventWaits | CompletionWaits
+
+  /// A workflow end as its loop runs: the status it ends as and who waits for it.
+  type EndRun = { endsAs: WorkflowStatus, waiter: EndWaiter }
+
+  /// Who ended the task: a tool call or an event, the end of the workflow, or `complete_job` on
+  /// the job of the subject issue, which ends the workflow done once the teardown went on.
+  type Caller = ToolOrEvent | WorkflowEnd(EndRun) | SubjectJobCompletes
 
   /// The workflow end the store holds, with the status it ends as. The end stores it before its
-  /// first cancel and drops it once the status is written, so an instance restart keeps it.
-  type StoredEnd = NoStoredEnd | EndStored(WorkflowStatus)
+  /// first cancel, records once its post returned, and drops it once the code host bindings are
+  /// gone, so an instance restart keeps it.
+  type StoredEnd = NoStoredEnd | EndStored(WorkflowStatus) | EndPosted(WorkflowStatus)
+
+  /// The call a workflow end has out once its status is written: the post that tells the people
+  /// of the end, then the unbind of its code host bindings.
+  type EndCall = NoEndCall | EndPostOut(EndWaiter) | CodeHostUnbindOut(EndWaiter)
 
   /// The rest of the step that runs when the call returns. `RestartAfterWake` is a restart whose
   /// author a resume woke in a new generation while its old container went. It stops there.
@@ -163,7 +174,8 @@ module workflowLifecycleTypes {
   /// `turnsToRunAgain` holds the jobs whose restarted author still holds the new turn id that its
   /// run-again alarm names. A stop takes it, so that alarm does nothing.
   /// `restartAlarmFired` and `ranAgain` record the alarms that already fired, which the platform
-  /// may deliver again. `storedEnd` is the workflow end the store holds.
+  /// may deliver again. `storedEnd` is the workflow end the store holds, and `endCall` the call
+  /// it has out.
   type Workflow = {
     status: WorkflowStatus,
     definition: PlanDefinition,
@@ -181,6 +193,7 @@ module workflowLifecycleTypes {
     restartAlarmFired: bool,
     ranAgain: Set[int],
     storedEnd: StoredEnd,
+    endCall: EndCall,
   }
 
   /// A post that tells the person of an end: a researcher or author failed, the workflow failed,
@@ -211,6 +224,8 @@ module workflowLifecycleTypes {
   /// while its author waits for the alarm that runs the turn again. `HostErrorStep` is the page
   /// model failing the model call of the job.
   /// `EndResumeStep` is the alarm that goes on with a workflow end an instance restart cut off.
+  /// `EndPostReturnStep` is the return of the post of a workflow end, and `UnbindReturnStep` the
+  /// return of the unbind of its code host bindings.
   type StepKind =
     | OtherStep
     | PlanStep({ definition: int, subject: Subject })
@@ -237,6 +252,8 @@ module workflowLifecycleTypes {
     | LostTurnDeadlineStep(int)
     | HostErrorStep(int)
     | EndResumeStep
+    | EndPostReturnStep
+    | UnbindReturnStep
 
   /// The timers whose alarms are about one sandbox generation.
   type GenerationTimer = HelloTimeout | NoProgress | KeepAlive | BridgeLost | QueueRetry | SettleIdleAuthor
@@ -361,6 +378,8 @@ module workflowLifecycleTypes {
     aRestartAlarmDecidesATurnThatWaitedToRunAgain: bool,
     aRestartLandsDuringAWorkflowEnd: bool,
     aWorkflowEndResumesAfterARestart: bool,
+    aRestartCutsTheEndPost: bool,
+    aResumedEndFindsItsPostReturned: bool,
   }
 
   type Ending = PersonCancels | AgentFails | AgentFinishes
@@ -490,6 +509,7 @@ module workflowLifecycle {
     restartAlarmFired: false,
     ranAgain: Set(),
     storedEnd: NoStoredEnd,
+    endCall: NoEndCall,
   }
 
   var workflow: Workflow
@@ -738,14 +758,27 @@ module workflowLifecycle {
   pure def inputHeld(flow: Workflow, input: Input): bool =
     jobIds(flow).exists(id => flow.jobs[id].input == input and holdsItsInput(flow, id))
 
-  /// True from the request of a workflow end until its status is written. The store holds the
-  /// end, so an instance restart keeps it.
+  /// True from the request of a workflow end until its code host bindings are gone. The store
+  /// holds the end, so an instance restart keeps it.
   pure def workflowEnding(flow: Workflow): bool = flow.storedEnd != NoStoredEnd
 
   /// The status the workflow end the store holds ends as, or none when it does not hold one.
   pure def storedEndStatus(flow: Workflow): Set[WorkflowStatus] = match flow.storedEnd {
     | NoStoredEnd => Set()
     | EndStored(endsAs) => Set(endsAs)
+    | EndPosted(endsAs) => Set(endsAs)
+  }
+
+  /// True when the store holds a workflow end whose post has not returned.
+  pure def endPostAwaited(flow: Workflow): bool = match flow.storedEnd {
+    | EndStored(_) => true
+    | _ => false
+  }
+
+  /// True when the store holds a workflow end whose post returned.
+  pure def endPostReturned(flow: Workflow): bool = match flow.storedEnd {
+    | EndPosted(_) => true
+    | _ => false
   }
 
   /// True when a call that is out goes on for this caller once it returns.
@@ -754,6 +787,42 @@ module workflowLifecycle {
       | TeardownGoesOn(teardown) => teardown.caller == caller
       | _ => false
     })
+
+  /// True when the caller is the loop of a workflow end that ends as `endsAs`.
+  pure def isEndLoopOf(caller: Caller, endsAs: WorkflowStatus): bool = match caller {
+    | WorkflowEnd(endRun) => endRun.endsAs == endsAs
+    | _ => false
+  }
+
+  /// True when a destroy is out that the loop of a workflow end that ends as `endsAs` waits on.
+  pure def endDestroyOut(flow: Workflow, endsAs: WorkflowStatus): bool =
+    flow.calls.indices().exists(callId => match flow.calls[callId].rest {
+      | TeardownGoesOn(teardown) => isEndLoopOf(teardown.caller, endsAs)
+      | _ => false
+    })
+
+  /// Who waits on the post of a workflow end while it is out, or none while it is not.
+  pure def endPostWaiters(flow: Workflow): Set[EndWaiter] = match flow.endCall {
+    | EndPostOut(waiter) => Set(waiter)
+    | _ => Set()
+  }
+
+  /// Who waits on the unbind of the code host bindings of a workflow end while it is out, or none
+  /// while it is not.
+  pure def unbindWaiters(flow: Workflow): Set[EndWaiter] = match flow.endCall {
+    | CodeHostUnbindOut(waiter) => Set(waiter)
+    | _ => Set()
+  }
+
+  /// True while the unbind of the code host bindings of a workflow end is out.
+  pure def unbindOut(flow: Workflow): bool = unbindWaiters(flow).size() > 0
+
+  /// True while a call of a workflow end that `complete_job` waits on is out: its post or unbind.
+  pure def endCallAwaitsCompletion(flow: Workflow): bool = match flow.endCall {
+    | EndPostOut(waiter) => waiter == CompletionWaits
+    | CodeHostUnbindOut(waiter) => waiter == CompletionWaits
+    | NoEndCall => false
+  }
 
   /// The job slots of the workflow: those the plan set with the stages. Before that, a page
   /// stage does not have any, and any other stage has those the workflow opened with.
@@ -822,29 +891,46 @@ module workflowLifecycle {
     { ...withJob(flow, id, ended), idleArmed: flow.idleArmed or handedOver }
   }
 
-  /// The loop of a workflow end cancels the unfinished refiner runs and sets the status last. A
-  /// cancelled polisher hands the page it holds to the humans blocked. A workflow that ends done
-  /// or failed posts its end, and one from a tracker origin that ends done moves its issue to
-  /// completed. The store then drops the end.
-  pure def finishWorkflowEnd(flow: Workflow, endsAs: WorkflowStatus): Workflow = {
+  /// The loop of a workflow end cancels the unfinished refiner runs and sets the status. A
+  /// cancelled polisher hands the page it holds to the humans blocked. It then sends the post that
+  /// tells the people of the end. An end whose post returned before an instance restart does not
+  /// post again: it moves the issue of a done tracker workflow to completed and sends the unbind
+  /// of its code host bindings.
+  pure def finishWorkflowEnd(flow: Workflow, endsAs: WorkflowStatus, waiter: EndWaiter): Workflow = {
     val stopped = range(0, MAX_JOBS).select(id => id < flow.jobs.length()).foldl(flow, (ending, id) =>
       if (not(refinerRunning(ending.jobs[id]))) ending
       else {
         val cancelled = withJob(ending, id, endLastRefinerRun(ending.jobs[id], RefinerCancelled))
         if (REFINER == APolisher) handOverPage(cancelled, id) else cancelled
       })
-    val movesTheIssue = endsAs == Done and TRACKER_ORIGIN
+    val posted = endPostReturned(flow)
     {
       ...stopped,
       status: endsAs,
-      endingPosts: match endsAs {
-        | Done => stopped.endingPosts.append(DonePost)
-        | Failed => stopped.endingPosts.append(WorkflowFailurePost)
-        | _ => stopped.endingPosts
-      },
-      issueMoves: if (movesTheIssue) stopped.issueMoves + 1 else stopped.issueMoves,
-      storedEnd: NoStoredEnd,
+      issueMoves: if (posted and movesItsIssue(endsAs)) stopped.issueMoves + 1 else stopped.issueMoves,
+      endCall: if (posted) CodeHostUnbindOut(waiter) else EndPostOut(waiter),
     }
+  }
+
+  /// True when the end of a workflow that ends as `endsAs` moves its tracker issue to completed.
+  pure def movesItsIssue(endsAs: WorkflowStatus): bool = endsAs == Done and TRACKER_ORIGIN
+
+  /// The post of a workflow end returns. A workflow that ended done or failed posted its end. The
+  /// store records that the post returned, the issue of a done tracker workflow moves to
+  /// completed, and the unbind of the code host bindings goes out.
+  pure def endPostLanded(flow: Workflow, waiter: EndWaiter): Workflow = match flow.storedEnd {
+    | EndStored(endsAs) => {
+      ...flow,
+      endingPosts: match endsAs {
+        | Done => flow.endingPosts.append(DonePost)
+        | Failed => flow.endingPosts.append(WorkflowFailurePost)
+        | _ => flow.endingPosts
+      },
+      issueMoves: if (movesItsIssue(endsAs)) flow.issueMoves + 1 else flow.issueMoves,
+      storedEnd: EndPosted(endsAs),
+      endCall: CodeHostUnbindOut(waiter),
+    }
+    | _ => flow
   }
 
   /// The jobs whose task is unfinished, in the order their tasks started.
@@ -852,12 +938,13 @@ module workflowLifecycle {
     range(0, 2 * MAX_JOBS).foldl(List(), (order, place) =>
       order.concat(unfinishedJobIds(flow).select(id => jobTask(flow, id).startOrder == place)))
 
-  /// The loop of a workflow end stores the end before its first cancel. It reads the unfinished
+  /// The loop of a workflow end stores the end before its first cancel, and keeps an end the store
+  /// holds when it goes on after a restart. It reads the unfinished
   /// researchers and authors again before each cancel and cancels the one that started first. A
   /// task without a sandbox destroy to wait on ends at once, and its cancel tells the agent. The
   /// loop waits on the destroy of a harness author's sandbox.
-  pure def continueWorkflowEnd(unstored: Workflow, endsAs: WorkflowStatus): Outcome = {
-    val flow = { ...unstored, storedEnd: EndStored(endsAs) }
+  pure def continueWorkflowEnd(unstored: Workflow, endsAs: WorkflowStatus, waiter: EndWaiter): Outcome = {
+    val flow = if (workflowEnding(unstored)) unstored else { ...unstored, storedEnd: EndStored(endsAs) }
     val left = unfinishedJobsInStartOrder(flow)
     val awaited = range(0, MAX_JOBS).select(index =>
       index < left.length() and destroyIsACall(jobTask(flow, left[index])))
@@ -865,14 +952,14 @@ module workflowLifecycle {
     val endedAtOnce = range(0, MAX_JOBS).select(index => index < firstAwaited).foldl(flow, (ending, index) =>
       endReview(finishTask(ending, left[index], TaskCancelled), left[index]))
     val ended =
-      if (firstAwaited == left.length()) finishWorkflowEnd(endedAtOnce, endsAs)
+      if (firstAwaited == left.length()) finishWorkflowEnd(endedAtOnce, endsAs, waiter)
       else {
         val id = left[firstAwaited]
         sendCall(
           finishTask(endedAtOnce, id, TaskCancelled),
           SandboxDestroy,
           id,
-          TeardownGoesOn({ teardown: AfterCancel, caller: WorkflowEnd(endsAs) }),
+          TeardownGoesOn({ teardown: AfterCancel, caller: WorkflowEnd({ endsAs: endsAs, waiter: waiter }) }),
         )
       }
     { flow: ended, told: firstAwaited > 0 }
@@ -890,10 +977,10 @@ module workflowLifecycle {
       else reviewed
     val continued = match caller {
       | ToolOrEvent => untold(posted)
-      | WorkflowEnd(endsAs) => continueWorkflowEnd(posted, endsAs)
+      | WorkflowEnd(endRun) => continueWorkflowEnd(posted, endRun.endsAs, endRun.waiter)
       | SubjectJobCompletes =>
         if (hasEnded(posted.status) or workflowEnding(posted) or posted.stagePlan == NoStages) untold(posted)
-        else continueWorkflowEnd(posted, Done)
+        else continueWorkflowEnd(posted, Done, CompletionWaits)
     }
     { ...continued, told: teardown != AfterComplete or continued.told }
   }
@@ -1097,7 +1184,7 @@ module workflowLifecycle {
     val stranded = flow.calls.indices().filter(callId =>
       flow.calls[callId].rest == RestartGoesOn and
       not(isFinished(jobTask(flow, flow.calls[callId].job).status))).map(callId => flow.calls[callId].job)
-    val dropped = { ...flow, calls: List() }
+    val dropped = { ...flow, calls: List(), endCall: NoEndCall }
     range(0, MAX_JOBS).select(id => stranded.contains(id)).foldl(dropped, (restarting, id) =>
       restartGoesOn(restarting, id))
   }
@@ -1384,7 +1471,7 @@ module workflowLifecycle {
 
   /// The cancel of the workflow, unless another end runs.
   pure def cancelUnlessEnding(flow: Workflow): Outcome =
-    if (workflowEnding(flow)) untold(flow) else continueWorkflowEnd(flow, Cancelled)
+    if (workflowEnding(flow)) untold(flow) else continueWorkflowEnd(flow, Cancelled, AnEventWaits)
 
   /// The jobs on the issue, in the order they started.
   pure def jobsOnIssue(flow: Workflow, issue: int): List[int] =
@@ -1458,11 +1545,12 @@ module workflowLifecycle {
   }
 
   /// An event on a live workflow tells the agent once its handling ends. The handling waits on
-  /// each sandbox destroy it sends and on the model turn its prompt starts. A cancel that ends a
-  /// task at once tells the agent in the step.
+  /// each sandbox destroy it sends, on the model turn its prompt starts, and on the calls of the
+  /// workflow end it starts. A cancel that ends a task at once tells the agent in the step.
   pure def eventHandled(before: Workflow, handled: Outcome): Outcome = {
     val sent = handled.flow.calls.indices().filter(callId => callId >= before.calls.length())
-    val waits = sent.exists(callId => eventWaitsOn(handled.flow.calls[callId]))
+    val sentAnEndCall = before.endCall == NoEndCall and handled.flow.endCall != NoEndCall
+    val waits = sentAnEndCall or sent.exists(callId => eventWaitsOn(handled.flow.calls[callId]))
     { ...handled, told: not(hasEnded(before.status)) and (handled.told or not(waits)) }
   }
 
@@ -1767,10 +1855,10 @@ module workflowLifecycle {
     flow.calls.indices().exists(callId => match flow.calls[callId].rest {
       | TeardownGoesOn(teardown) => or {
         flow.calls[callId].job == id and teardown.teardown == AfterComplete,
-        teardown.caller == WorkflowEnd(Done) and worksOnTheSingleSubjectIssue(flow, id),
+        teardown.caller == WorkflowEnd({ endsAs: Done, waiter: CompletionWaits }) and worksOnTheSingleSubjectIssue(flow, id),
       }
       | _ => false
-    })
+    }) or (endCallAwaitsCompletion(flow) and worksOnTheSingleSubjectIssue(flow, id))
 
   /// What `complete_job` tells the agent in the step that ended the author of the job done: that
   /// the job is done, unless it still waits on a call.
@@ -1840,7 +1928,7 @@ module workflowLifecycle {
   /// True when the call goes on toward the end of the workflow that `complete_job` on the job of
   /// the subject issue starts.
   pure def completesTheSubjectsJob(call: Call): bool = match call.rest {
-    | TeardownGoesOn(teardown) => teardown.caller == SubjectJobCompletes or teardown.caller == WorkflowEnd(Done)
+    | TeardownGoesOn(teardown) => teardown.caller == SubjectJobCompletes or isEndLoopOf(teardown.caller, Done)
     | _ => false
   }
 
@@ -1857,7 +1945,6 @@ module workflowLifecycle {
     val answered = match call.rest {
       | TeardownGoesOn(teardown) =>
         if (teardown.teardown == AfterComplete) answerOnceCompleted(after.flow, call.job)
-        else if (teardown.caller == WorkflowEnd(Done) and not(callOutFor(after.flow, WorkflowEnd(Done)))) Completes
         else NotAnswered
       | _ => NotAnswered
     }
@@ -1976,15 +2063,13 @@ module workflowLifecycle {
         )
       | AgentFails => all {
         not(hasEnded(workflow.status)),
-        move(if (refused) untold(workflow) else continueWorkflowEnd(workflow, Failed), OtherStep),
+        move(if (refused) untold(workflow) else continueWorkflowEnd(workflow, Failed, NobodyWaits), OtherStep),
       }
       | AgentFinishes => all {
         not(hasEnded(workflow.status)),
         move(
-          untold(
-            if (refused or unfinishedJobIds(workflow).length() > 0) workflow
-            else finishWorkflowEnd(workflow, Done),
-          ),
+          if (refused or unfinishedJobIds(workflow).length() > 0) untold(workflow)
+          else continueWorkflowEnd(workflow, Done, NobodyWaits),
           FinishStep,
         ),
       }
@@ -2103,16 +2188,40 @@ module workflowLifecycle {
 
   /// The alarm the start step arms for the workflow end the store holds fires, at once or after
   /// other events and restarts. The end goes on as its loop would: it cancels the unfinished
-  /// researchers and authors and then sets the status. An end whose loop waits on a destroy in
-  /// this instance does not have the alarm.
+  /// researchers and authors and then sets the status. An end whose loop waits on a destroy, its
+  /// post or its unbind in this instance does not have the alarm.
   action theWorkflowEndResumes: bool = all {
     workflowEnding(workflow),
+    workflow.endCall == NoEndCall,
     nondet endsAs = storedEndStatus(workflow).oneOf()
     all {
-      not(callOutFor(workflow, WorkflowEnd(endsAs))),
-      move(continueWorkflowEnd(workflow, endsAs), EndResumeStep),
+      not(endDestroyOut(workflow, endsAs)),
+      move(continueWorkflowEnd(workflow, endsAs, NobodyWaits), EndResumeStep),
     },
   }
+
+  /// The post that tells the people of a workflow end returns.
+  action theEndPostReturns: bool = all {
+    endPostWaiters(workflow).size() > 0,
+    nondet waiter = endPostWaiters(workflow).oneOf()
+    move(untold(endPostLanded(workflow, waiter)), EndPostReturnStep),
+  }
+
+  /// The unbind of the code host bindings of a workflow end returns, and the store drops the end.
+  /// The event that waited on the end then tells the agent, and `complete_job` that waited on it
+  /// answers that the job is done.
+  action theCodeHostUnbindReturns: bool = all {
+    unbindWaiters(workflow).size() > 0,
+    nondet waiter = unbindWaiters(workflow).oneOf()
+    moveAnswering(
+      { flow: { ...workflow, storedEnd: NoStoredEnd, endCall: NoEndCall }, told: waiter == AnEventWaits },
+      UnbindReturnStep,
+      if (waiter == CompletionWaits) Completes else NotAnswered,
+    ),
+  }
+
+  /// A call of a workflow end returns: its post or its unbind.
+  action aWorkflowEndCallReturns: bool = any { theEndPostReturns, theCodeHostUnbindReturns }
 
   /// The deadline alarm of the lost model turn of the job fires while its restarted author waits
   /// for its run-again alarm. The author holds a new turn id, so the alarm changes nothing. Only
@@ -2146,6 +2255,7 @@ module workflowLifecycle {
     sandboxDestroyReturns,
     aModelTurnEnds,
     workflowEnds,
+    aWorkflowEndCallReturns,
     anOutsideEventLands,
     aPersonEndsAnIssueAfterAnAcceptance,
     aPersonPressesStopDuringAPageWrite,
@@ -2387,9 +2497,9 @@ module workflowLifecycle {
     val storedADoneEnd = step.before.storedEnd != EndStored(Done) and step.after.storedEnd == EndStored(Done)
     val endsDoneHere = step.kind == FinishStep or step.kind == SubjectCompletionStep
     val resumesADoneEnd = step.kind == EndResumeStep and step.before.storedEnd == EndStored(Done)
-    val anotherEndStored = step.before.storedEnd != NoStoredEnd and step.before.storedEnd != EndStored(Done)
+    val anotherEndStored = storedEndStatus(step.before).exists(endsAs => endsAs != Done)
     val stillGoesOn =
-      callOutFor(step.after, SubjectJobCompletes) or callOutFor(step.after, WorkflowEnd(Done))
+      callOutFor(step.after, SubjectJobCompletes) or endDestroyOut(step.after, Done)
     val completesInThisStep = and {
       step.kind == SubjectCompletionStep,
       not(hasEnded(step.before.status)),
@@ -2429,10 +2539,18 @@ module workflowLifecycle {
   }
 
   /// A workflow end that began goes on in every later step until the status it ends as is
-  /// written. A step does not drop it or change the status it ends as.
+  /// written. A step does not change the status it ends as. The store records the end posted only
+  /// once that status is written, and drops the end only after its post.
   pure def keepsAnEndGoingUntilItsStatus(step: Transition): bool = match step.before.storedEnd {
     | NoStoredEnd => true
-    | EndStored(endsAs) => step.after.storedEnd == step.before.storedEnd or step.after.status == endsAs
+    | EndStored(endsAs) => or {
+      step.after.storedEnd == step.before.storedEnd,
+      step.after.status == endsAs and step.after.storedEnd == EndPosted(endsAs),
+    }
+    | EndPosted(endsAs) => or {
+      step.after.storedEnd == step.before.storedEnd,
+      step.after.status == endsAs and step.after.storedEnd == NoStoredEnd,
+    }
   }
 
   /// True for a step that is a person's message, or a verbal command other than the cancel.
@@ -2452,7 +2570,9 @@ module workflowLifecycle {
 
   /// A step moves at most one tracker issue. It moves one only when it is the plan that starts a
   /// workflow from a tracker origin, a job start on an issue, or the done end of a workflow from a
-  /// tracker origin. The plan and the done end always move it. A failed or cancelled end does not.
+  /// tracker origin after its post, where the unbind goes out. The plan and the done end always
+  /// move it, and a done end that a restart cut after its post moves it again. A failed or
+  /// cancelled end does not.
   pure def movesIssuesOnlyAtAStartOrADoneEnd(step: Transition): bool = {
     val moves = step.after.issueMoves - step.before.issueMoves
     val plansATrackerWorkflow = and {
@@ -2464,7 +2584,11 @@ module workflowLifecycle {
       | IssueStartStep(_) => true
       | _ => false
     }
-    val endsDone = TRACKER_ORIGIN and step.before.status != Done and step.after.status == Done
+    val endsDone = and {
+      movesItsIssue(step.after.status),
+      not(unbindOut(step.before)),
+      unbindOut(step.after),
+    }
     val endsOtherwise = and {
       not(hasEnded(step.before.status)),
       step.after.status == Failed or step.after.status == Cancelled,
@@ -2799,6 +2923,12 @@ module workflowLifecycle {
       },
       aRestartLandsDuringAWorkflowEnd: step.kind == RestartStep and workflowEnding(step.before),
       aWorkflowEndResumesAfterARestart: step.kind == EndResumeStep,
+      aRestartCutsTheEndPost: and {
+        step.kind == RestartStep,
+        hasEnded(step.before.status),
+        endPostAwaited(step.before),
+      },
+      aResumedEndFindsItsPostReturned: step.kind == EndResumeStep and endPostReturned(step.before),
       aMessageLandsOnAWaitingWorkflow: isPersonsMessage(step.kind) and step.before.status == WaitingInput,
       aTrackerWorkflowEndsWithoutDone: and {
         TRACKER_ORIGIN,
@@ -2837,10 +2967,14 @@ module workflowLifecycle {
   val eachFailedTaskPostsItsFailureOnce: bool = lastStepKept.eachFailedTaskPostsItsFailureOnce
 
   /// A workflow that ended failed posted its failure once, and one that ended done posted its
-  /// done message once. Any other workflow did not post either.
-  val anEndedWorkflowPostsItsEndOnce: bool = and {
-    postsOf(workflow, WorkflowFailurePost) == (if (workflow.status == Failed) 1 else 0),
-    postsOf(workflow, DonePost) == (if (workflow.status == Done) 1 else 0),
+  /// done message once, from the return of its end's post on, also across an instance restart.
+  /// Any other workflow did not post either.
+  val anEndedWorkflowPostsItsEndOnce: bool = {
+    val posted = not(endPostAwaited(workflow))
+    and {
+      postsOf(workflow, WorkflowFailurePost) == (if (workflow.status == Failed and posted) 1 else 0),
+      postsOf(workflow, DonePost) == (if (workflow.status == Done and posted) 1 else 0),
+    }
   }
 
   /// `complete_job` ends the author done and destroys its sandbox. Once that finished, the refiner
@@ -2920,11 +3054,12 @@ module workflowLifecycle {
   val aJobStartProvisionsItsTask: bool = lastStepKept.aJobStartProvisionsItsTask
 
   /// A workflow whose end began reaches the finished status it ends as. Each step keeps the end
-  /// until that status is written, also an instance restart. The store does not hold the end of a
-  /// workflow that finished.
+  /// until that status is written, also an instance restart. The end the store holds for a
+  /// workflow that finished names that status, and only such an end records its post.
   val aWorkflowEndReachesAFinishedStatus: bool = and {
     lastStepKept.aWorkflowEndReachesAFinishedStatus,
-    workflowEnding(workflow) implies not(hasEnded(workflow.status)),
+    storedEndStatus(workflow).forall(endsAs => hasEnded(workflow.status) implies workflow.status == endsAs),
+    endPostReturned(workflow) implies hasEnded(workflow.status),
   }
 
   /// A model-call author has at most one page write out at a time. A stop during the page write
@@ -3129,6 +3264,14 @@ module workflowLifecycle {
   /// Witness for `aWorkflowEndReachesAFinishedStatus`: the alarm goes on with a workflow end that
   /// an instance restart cut off.
   val aWorkflowEndResumesAfterARestart: bool = lastStepReached.aWorkflowEndResumesAfterARestart
+
+  /// Witness for `anEndedWorkflowPostsItsEndOnce`: an instance restart lands after the status of a
+  /// workflow end is written and before its post returned.
+  val aRestartCutsTheEndPost: bool = lastStepReached.aRestartCutsTheEndPost
+
+  /// Witness for `anEndedWorkflowPostsItsEndOnce`: the alarm goes on with a workflow end whose post
+  /// returned before an instance restart cut its unbind.
+  val aResumedEndFindsItsPostReturned: bool = lastStepReached.aResumedEndFindsItsPostReturned
 
   /// A prompt waits for the turn of a task to end.
   val aPromptWaits: bool = jobIds(workflow).exists(id => jobTask(workflow, id).promptsQueued > 0)

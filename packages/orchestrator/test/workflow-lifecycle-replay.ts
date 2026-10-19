@@ -29,7 +29,7 @@ import { artifactRefKey, jobInputKey } from "../src/workflow/store/input-key";
 import type { ArtifactRow } from "../src/workflow/store/records";
 import { failTask, resumeWorkflowEnd } from "../src/workflow/lifecycle";
 import { resumeLostCalls, type LostCallsAlarm } from "../src/workflow/restart";
-import { isTaskFinished, type Subject } from "../src/workflow/store/state";
+import { isTaskFinished, isWorkflowFinished, type Subject } from "../src/workflow/store/state";
 import type { JobRow, TaskRow } from "../src/workflow/store/tasks";
 import type { TaskEvent } from "../src/workflow/task/events";
 import type { ConnectionState } from "../src/workflow/task/harness/bridge";
@@ -44,7 +44,8 @@ import { strayIssueKey, SUBJECT_ISSUE_KEY, subIssueKey } from "./world-tracker";
 import { quintTraces } from "./quint-traces";
 import { toolText } from "./tool-result";
 import { EchoModel } from "./fake-model";
-import { FailingRouterWrites } from "./failing-router-writes";
+import { TAG_TO_START_AGAIN } from "../src/notify/messages";
+import { FailingRouterWrites, holdingBindingDeletes } from "./failing-router-writes";
 import { FakeRuntime, fakeDocumentsOf, MODEL_AUTHOR_MODEL, PAGE_PARENT } from "./fake-runtime";
 import { FakeSandboxProvider } from "./fake-sandbox";
 import { InterleavedDecisions } from "./interleaved-decisions";
@@ -263,6 +264,24 @@ const REFINER_RUN_STATUSES = [
 const CALL_KINDS = ["SandboxDestroy", "AcceptanceCheck", "ModelCall", "PageWrite"] as const;
 const ENDING_POSTS = ["TaskFailurePost", "WorkflowFailurePost", "DonePost"] as const;
 
+const END_CALLS = ["NoEndCall", "EndPostOut", "CodeHostUnbindOut"] as const;
+
+/** True for the post that tells the people how the workflow ended. */
+function isWorkflowEndPost(event: TaskEvent): boolean {
+  return (
+    event.type === "done" ||
+    event.type === "workflow_failed" ||
+    (event.type === "info" && event.text === `Cancelled. ${TAG_TO_START_AGAIN}`)
+  );
+}
+
+/** A call of a workflow end the replay holds: its post, then the unbind of its code host. */
+type HeldEndCall = {
+  kind: Exclude<(typeof END_CALLS)[number], "NoEndCall">;
+  release: () => void;
+  step: Promise<unknown> | null;
+};
+
 /** The ending post of the spec that each posted event of an end is. */
 const ENDING_POST_OF: Partial<Record<TaskEvent["type"], (typeof ENDING_POSTS)[number]>> = {
   failed: "TaskFailurePost",
@@ -379,7 +398,8 @@ export type SpecWorkflow = {
   turnsToRunAgain: number[];
   restartAlarmFired: boolean;
   ranAgain: number[];
-  storedEnd: (typeof WORKFLOW_STATUSES)[number] | null;
+  storedEnd: { endsAs: (typeof WORKFLOW_STATUSES)[number]; posted: boolean } | null;
+  endCall: (typeof END_CALLS)[number];
 };
 
 /** The values the spec picked for one action. */
@@ -530,9 +550,13 @@ function specWorkflow(value: unknown): SpecWorkflow {
     restartAlarmFired: itfBool(itfField(value, "restartAlarmFired")),
     ranAgain: sortedInts(itfField(value, "ranAgain")),
     storedEnd:
-      storedEnd.tag === "EndStored"
-        ? itfOneOf(itfVariant(storedEnd.value)!.tag, WORKFLOW_STATUSES)
-        : null,
+      storedEnd.tag === "NoStoredEnd"
+        ? null
+        : {
+            endsAs: itfOneOf(itfVariant(storedEnd.value)!.tag, WORKFLOW_STATUSES),
+            posted: storedEnd.tag === "EndPosted",
+          },
+    endCall: itfOneOf(itfVariant(itfField(value, "endCall"))!.tag, END_CALLS),
   };
 }
 
@@ -741,6 +765,7 @@ function worldAction(
  */
 export class WorkflowLifecycleReplay {
   private readonly calls: HeldCall[] = [];
+  private endCall: HeldEndCall | null = null;
   private stepOut: Promise<unknown> | null = null;
   private completingJobId = "";
   private heldArrived: (() => void) | null = null;
@@ -781,7 +806,6 @@ export class WorkflowLifecycleReplay {
     });
     const modelAuthor = pageAuthor === "model";
     const routerWrites = new FailingRouterWrites(world.workflow.env.DB);
-    world.workflow.env = { ...world.workflow.env, DB: routerWrites.db };
     const replay = new WorkflowLifecycleReplay(
       world,
       modelAuthor,
@@ -789,6 +813,16 @@ export class WorkflowLifecycleReplay {
       pageEnding === "choice",
       routerWrites,
     );
+    world.workflow.env = {
+      ...world.workflow.env,
+      DB: holdingBindingDeletes(routerWrites.db, (run) =>
+        replay.holdEndCall("CodeHostUnbindOut", run),
+      ),
+    };
+    world.workflow.post = function (this: FakeRuntime, ...post: Parameters<FakeRuntime["post"]>) {
+      const posting = () => FakeRuntime.prototype.post.apply(this, post);
+      return isWorkflowEndPost(post[0]) ? replay.holdEndCall("EndPostOut", posting) : posting();
+    };
     world.workflow.sandboxProvider = new HoldingSandboxProvider((taskId) =>
       replay.holdDestroy(taskId),
     );
@@ -939,7 +973,10 @@ export class WorkflowLifecycleReplay {
         .toSorted((left, right) => left - right),
       restartAlarmFired: this.firedRestartAlarm !== null,
       ranAgain: [...this.ranAgain.keys()].toSorted((left, right) => left - right),
-      storedEnd: storedEnd ? WORKFLOW_STATUS_OF[storedEnd.status] : null,
+      storedEnd: storedEnd
+        ? { endsAs: WORKFLOW_STATUS_OF[storedEnd.status], posted: storedEnd.posted === true }
+        : null,
+      endCall: this.endCall?.kind ?? "NoEndCall",
     };
   }
 
@@ -1271,6 +1308,14 @@ export class WorkflowLifecycleReplay {
         return worldAction("the alarm goes on with the workflow end", (world) =>
           this.workflowEndResumes(world),
         );
+      case "theEndPostReturns":
+        return worldAction("the post of the workflow end returns", () =>
+          this.returnEndCall("EndPostOut"),
+        );
+      case "theCodeHostUnbindReturns":
+        return worldAction("the unbind of the code host of the workflow end returns", () =>
+          this.returnEndCall("CodeHostUnbindOut"),
+        );
       case "theDeadlineOfALostModelTurnFires":
         return worldAction(
           `the deadline of the lost model turn of job ${picks.id} fires`,
@@ -1457,6 +1502,7 @@ export class WorkflowLifecycleReplay {
    */
   private async restart(world: WorkflowWorld, landed: boolean): Promise<void> {
     const lost = this.calls.splice(0);
+    this.endCall = null;
     if (landed) {
       for (const call of lost) await call.land?.();
     }
@@ -1725,6 +1771,31 @@ export class WorkflowLifecycleReplay {
           await write();
         },
       });
+    });
+  }
+
+  /**
+   * Hold `run` as the call `kind` of the workflow end once its status is written, until the replay
+   * returns it. Any other post or binding delete runs at once.
+   */
+  holdEndCall<Result>(kind: HeldEndCall["kind"], run: () => Promise<Result>): Promise<Result> {
+    const { state } = this.world.workflow;
+    if (!state.workflow_end || !isWorkflowFinished(state.status)) return run();
+    if (this.endCall)
+      throw new Error(`the workflow end sent ${kind} while ${this.endCall.kind} is out`);
+    return new Promise<Result>((resolve, reject) => {
+      this.endCall = { kind, release: () => run().then(resolve, reject), step: this.stepOut };
+      this.heldArrived?.();
+    });
+  }
+
+  private async returnEndCall(kind: HeldEndCall["kind"]): Promise<void> {
+    const call = this.endCall;
+    if (call?.kind !== kind) throw new Error(`the workflow end does not have ${kind}`);
+    this.endCall = null;
+    await this.runStep(async () => {
+      call.release();
+      await call.step;
     });
   }
 

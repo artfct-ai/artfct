@@ -61,6 +61,12 @@
             "#tup": []
           }
         },
+        "waiter": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "withStages": {
           "tag": "None",
           "value": {
@@ -158,7 +164,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
@@ -211,6 +219,12 @@
         },
         "storedEnd": {
           "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
           "value": {
             "#tup": []
           }
@@ -257,6 +271,12 @@
             "#tup": []
           }
         },
+        "waiter": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "withStages": {
           "tag": "None",
           "value": {
@@ -354,7 +374,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
@@ -407,6 +429,12 @@
         },
         "storedEnd": {
           "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
           "value": {
             "#tup": []
           }
@@ -456,6 +484,12 @@
             "value": {
               "#bigint": "0"
             }
+          }
+        },
+        "waiter": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "withStages": {
@@ -553,7 +587,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
@@ -609,6 +645,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -647,6 +689,12 @@
           "value": false
         },
         "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiter": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -749,7 +797,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
@@ -877,6 +927,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -923,6 +979,12 @@
             "value": {
               "#tup": []
             }
+          }
+        },
+        "waiter": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "withStages": {
@@ -1020,7 +1082,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
@@ -1148,6 +1212,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -1188,6 +1258,12 @@
           }
         },
         "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiter": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1290,7 +1366,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": true,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
@@ -1418,6 +1496,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -1458,6 +1542,12 @@
           }
         },
         "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "waiter": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1560,7 +1650,9 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
@@ -1685,6 +1777,12 @@
         },
         "storedEnd": {
           "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
           "value": {
             "#tup": []
           }
