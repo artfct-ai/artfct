@@ -56,7 +56,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W6",
-    invariant: "staleAlarmIsIgnored",
+    invariant: "workflowLifecycle::staleAlarmIsIgnored",
     path: "src/workflow/task/harness/timers.ts",
     find: "  if (!task || !sandbox || sandbox.generation !== alarm.generation) return;\n  if (!sandbox.prompt_in_flight || isTaskFinished(task.status) || task.paused_at",
     replace:
@@ -153,7 +153,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W19",
-    invariant: "finishedTaskKeepsItsStatus (restart)",
+    invariant: "workflowLifecycle::finishedTaskKeepsItsStatus (restart)",
     path: "src/workflow/lifecycle.ts",
     find: "  if (isTaskFinished(closed.status) || closed.restarts !== restarts) return;",
     replace: "  if (closed.restarts !== restarts) return;",
@@ -167,14 +167,15 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W21",
-    invariant: "pausedAuthorGetsNoPrompt, reviewLoop::authorIsIdleWhileAPolisherRuns",
+    invariant:
+      "reviewLoop::authorIsIdleWhileAPolisherRuns, harnessSession::pausedAuthorGetsNoPrompt",
     path: "src/workflow/task/harness/prompt-queue.ts",
     find: "  if (!promptsWait(workflow, task)) return sendPrompt(workflow, task, text);",
     replace: "  return sendPrompt(workflow, task, text);",
   },
   {
     id: "W22",
-    invariant: "pausedAuthorGetsNoPrompt (restart)",
+    invariant: "workflowLifecycle::pausedAuthorGetsNoPrompt (restart)",
     path: "src/workflow/lifecycle.ts",
     find: "  if (closed.paused_at === null) await startSandbox(workflow, closed, true);",
     replace: "  if (true || closed.paused_at === null) await startSandbox(workflow, closed, true);",
@@ -217,7 +218,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W28",
-    invariant: "taskRestartsAtMostTwice (stale start)",
+    invariant: "harnessSession::taskRestartsAtMostTwice (stale start)",
     path: "src/workflow/task/sandbox/sandbox.ts",
     find: "    if (workflow.store.requireSandbox(fresh.task_id).generation !== sandbox.generation) return;\n",
     replace: "",
@@ -231,7 +232,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W30",
-    invariant: "taskRestartsAtMostTwice (counted restart)",
+    invariant: "harnessSession::taskRestartsAtMostTwice (counted restart)",
     path: "src/workflow/lifecycle.ts",
     find: "  if (isTaskFinished(closed.status) || closed.restarts !== restarts) return;",
     replace: "  if (isTaskFinished(closed.status)) return;",
@@ -239,7 +240,7 @@ export const MUTANTS: Mutant[] = [
   {
     id: "W31",
     invariant:
-      "finishedTaskKeepsItsStatus, harnessSession::anAuthorInReviewWorksOnlyWithAPrompt (stop)",
+      "harnessSession::finishedTaskKeepsItsStatus, harnessSession::anAuthorInReviewWorksOnlyWithAPrompt (stop)",
     path: "src/workflow/inbound/controls.ts",
     find: '    workflow.store.updateTask(author.task_id, { status: "working" });\n    await closeContainer(workflow, author, "a person pressed Stop");\n',
     replace:
