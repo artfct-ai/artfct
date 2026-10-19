@@ -741,7 +741,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W152",
-    invariant: "harnessSession::aLostTurnIsRecoveredWithoutARestart",
+    invariant: "harnessSession::aLostTurnCountsOneRestart (no container close)",
     path: "src/workflow/task/harness/bridge.ts",
     find: '  workflow.log(task.task_id, "bridge lost with a prompt in flight. restarting the sandbox.");\n',
     replace:
