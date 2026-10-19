@@ -933,7 +933,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W152",
-    invariant: "harnessSession::aLostTurnIsRecoveredWithoutARestart",
+    invariant: "harnessSession::aLostTurnCountsOneRestart (no container close)",
     path: "src/workflow/task/harness/bridge.ts",
     find: '  workflow.log(task.task_id, "bridge lost with a prompt in flight. restarting the sandbox.");\n',
     replace:
@@ -1255,6 +1255,42 @@ export const MUTANTS: Mutant[] = [
     find: '    case "waiting":\n    case "sent_back":\n',
     replace:
       '    case "waiting":\n      return endPolisherRun(workflow, polisher, { ended: "turn" });\n    case "sent_back":\n',
+  },
+  {
+    id: "W205",
+    invariant: "harnessSession::aLostTurnCountsOneRestart (count)",
+    path: "src/workflow/task/harness/bridge.ts",
+    find: "  if (!restartWritten) workflow.store.updateTask(task.task_id, { restarts: restarts + 1 });\n",
+    replace: "",
+  },
+  {
+    id: "W206",
+    invariant: "harnessSession::aLostTurnCountsOneRestart (limit)",
+    path: "src/workflow/task/harness/bridge.ts",
+    find: "  if (!restartWritten && restarts >= MAX_RESTARTS) {\n",
+    replace: "  if (!restartWritten && restarts > MAX_RESTARTS) {\n",
+  },
+  {
+    id: "W207",
+    invariant: "harnessSession::aHarnessExitCountsOneRestart (limit)",
+    path: "src/workflow/task/harness/session.ts",
+    find: "    return failTask(workflow, task, `harness exited (code ${exit.code}) with no restarts left`);\n",
+    replace: "    return;\n",
+  },
+  {
+    id: "W208",
+    invariant: "harnessSession::aHarnessExitCountsOneRestart (resume)",
+    path: "src/workflow/task/harness/session.ts",
+    find: "  await restartSandbox(workflow, task);\n}\n\n/** `initialize` answered.",
+    replace:
+      "  workflow.store.updateSandbox(task.task_id, { first_prompt_at: null });\n  await restartSandbox(workflow, task);\n}\n\n/** `initialize` answered.",
+  },
+  {
+    id: "W209",
+    invariant: "harnessSession::aLostTurnCountsOneRestart (queued for a restart)",
+    path: "src/workflow/task/harness/bridge.ts",
+    find: '  const restartWritten = status === "queued";\n',
+    replace: "  const restartWritten = false;\n",
   },
   {
     id: "W235",

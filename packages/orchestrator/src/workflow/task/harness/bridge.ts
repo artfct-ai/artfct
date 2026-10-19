@@ -39,6 +39,7 @@ import { LOGGED_ERROR_CHARS, onRpcError, onSessionUpdate, onTurnEnd } from "./tu
 import { drainQueue, RECONNECT_CEILING_MS } from "./prompt-queue";
 import type { GenerationAlarm } from "./timers";
 import type { WorkflowRuntime } from "../../types";
+import { MAX_RESTARTS, failTask } from "../../lifecycle";
 import { isTaskFinished } from "../../store/state";
 import { sandboxRefOf } from "../sandbox/size";
 import type { RpcPurpose } from "../../store/schema";
@@ -297,12 +298,19 @@ function waitsOnTheBridge(store: WorkflowStore, sandbox: SandboxRow): boolean {
 }
 
 /**
- * Forget the turn the dead sandbox was running and its harness session, and start the sandbox
- * again. A bridge that still runs the turn cannot take the next prompt. A prompt already queued
- * is what the harness resumes with.
+ * Count a restart, forget the turn the dead sandbox was running and its harness session, and
+ * start the sandbox again. A bridge that still runs the turn cannot take the next prompt. A prompt
+ * already queued is what the harness resumes with. Once its restarts are used up, the task fails.
+ * A task queued for a restart already counted it.
  */
 export async function recoverLostTurn(workflow: WorkflowRuntime, task: TaskRow): Promise<void> {
+  const { restarts, status } = workflow.store.requireTask(task.task_id);
+  const restartWritten = status === "queued";
+  if (!restartWritten && restarts >= MAX_RESTARTS) {
+    return failTask(workflow, task, "bridge lost with a prompt in flight and no restarts left");
+  }
   workflow.log(task.task_id, "bridge lost with a prompt in flight. restarting the sandbox.");
+  if (!restartWritten) workflow.store.updateTask(task.task_id, { restarts: restarts + 1 });
   workflow.store.clearRpc(task.task_id);
   workflow.store.updateSandbox(task.task_id, {
     prompt_in_flight: 0,
