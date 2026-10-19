@@ -241,6 +241,7 @@ const WORLD_SETUP: Omit<WorldSetup, "artifact"> = {
   firstInput: "request",
   subject: "none",
   sandboxStart: "at_task_start",
+  pageBranch: false,
 };
 
 const PERSON_TEXT = "Why does the redirect skip the check?";

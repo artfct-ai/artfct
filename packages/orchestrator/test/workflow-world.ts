@@ -18,8 +18,12 @@ import { FakeDecisions, HangingDecisions } from "@artfct-ai/adapters/test/fake-d
 import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
-import type { RpcAck } from "@artfct-ai/contracts/types";
-import type { ArtifactStatus, TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
+import type {
+  ArtifactStatus,
+  RpcAck,
+  TaskStatus,
+  WorkflowStatus,
+} from "@artfct-ai/contracts/types";
 import type { Binding } from "@artfct-ai/contracts/sources";
 import { OPTIONS_HEADING } from "../src/artifact/options";
 import { labeledPageCommentIds } from "../src/artifact/page-comment-label";
@@ -163,7 +167,8 @@ export type RefinerSetup = (typeof REFINER_SETUPS)[number];
 /**
  * What one generated world is made of: the artifact kind of its first task, its refiner lists,
  * whether its stages run a researcher before the author, how the page author runs, what the
- * checks say on a new push, and how the page stage ends.
+ * checks say on a new push, how the page stage ends, and whether the page stage gives its job its
+ * own branch.
  */
 export type WorldSetup = {
   opening: WorldOpening;
@@ -177,6 +182,7 @@ export type WorldSetup = {
   firstInput: FirstInput;
   subject: PlannedSubject;
   sandboxStart: SandboxStart;
+  pageBranch: boolean;
 };
 
 /**
@@ -516,6 +522,7 @@ export class WorkflowWorld {
     if (setup.research) patchStageResearch(workflow);
     if (setup.pageEnding === "choice") patchPageEnding(workflow, "choice");
     if (setup.pageAuthor === "model") patchModelPageAuthor(workflow);
+    if (setup.pageBranch) patchPageBranch(workflow);
     workflow.addWorkflowDefinition({ ...workflow.workflowDefinition(), name: SECOND_DEFINITION });
     const documents = pageHost();
     workflow.documentsInstance = documents;
@@ -1525,6 +1532,14 @@ function patchModelPageAuthor(workflow: FakeRuntime): void {
           }
         : stage,
     ),
+  });
+}
+
+function patchPageBranch(workflow: FakeRuntime): void {
+  workflow.patchWorkflowDefinition({
+    stages: workflow
+      .workflowDefinition()
+      .stages.map((stage) => (stage.name === STAGE_OF.page ? { ...stage, branch: true } : stage)),
   });
 }
 

@@ -6,5 +6,6 @@ module interruptionsAfterTheFirstPrompt {
     ASKS_EFFORT = false,
     PAUSES_RUNNING_TURNS = false,
     INTERRUPTS_AFTER_THE_FIRST_PROMPT = true,
+    BINDS_A_BRANCH = false,
   ).* from "./harnessSession"
 }

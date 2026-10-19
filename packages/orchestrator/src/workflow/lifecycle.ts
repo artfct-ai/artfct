@@ -245,6 +245,7 @@ export async function completeWorkflow(workflow: WorkflowRuntime, result: string
 /**
  * Stop the task without failing the workflow. Used for a closed artifact and for cancel. An
  * author or researcher task takes its job down with it: the refiner run, the review, and the board.
+ * The task is cancelled before the feed close returns, so a restart cannot keep the closing alone.
  */
 export async function cancelTask(
   workflow: WorkflowRuntime,
@@ -253,8 +254,11 @@ export async function cancelTask(
 ): Promise<void> {
   if (isTaskFinished(workflow.store.requireTask(task.task_id).status)) return;
   workflow.log(task.task_id, `cancelled: ${reason}`);
-  await closeAbandonedTurnFeed(workflow, task, STOPPED_CLOSING);
-  if (!(await finishTask(workflow, task, "cancelled"))) return;
+  const [, finished] = await Promise.all([
+    closeAbandonedTurnFeed(workflow, task, STOPPED_CLOSING),
+    finishTask(workflow, task, "cancelled"),
+  ]);
+  if (!finished) return;
   switch (task.role) {
     case "polisher":
       return endPolisherRun(workflow, task, {
