@@ -394,6 +394,27 @@ describe("an artifact the host closed without accepting it", () => {
     }));
 });
 
+describe("an artifact of a job on an issue the host closed without accepting it", () => {
+  const closed = afterArtifactEvent(
+    { pull: { repo: "acme/app", number: 1, action: "closed" } },
+    (workflow) => {
+      seedPullRequestTask(workflow, { issue_id: "issue-1", issue_key: "ENG-1" });
+    },
+  );
+
+  it("tells the agent the issue does not start again", () =>
+    closed(({ result }) => {
+      expect(result).toEqual({
+        notes: [
+          expect.stringContaining(
+            "An issue gets one job in a workflow, so ENG-1 does not start again. Tell the humans.",
+          ),
+        ],
+        wake: "external_state",
+      });
+    }));
+});
+
 describe("a check that reported on the host", () => {
   const REVISION = "abc123";
   const unitFailed = {

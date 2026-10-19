@@ -421,13 +421,20 @@ function onAccepted(
   };
 }
 
-/** The host closed the artifact without accepting it. The job has nothing left to produce. */
+/**
+ * The host closed the artifact without accepting it. The job has nothing left to produce. A job
+ * on an issue does not retry, because an issue gets one job in a workflow.
+ */
 async function onClosed(workflow: WorkflowRuntime, task: TaskRow): Promise<Applied> {
   workflow.store.advanceArtifact(task.job_id, ["drafted", "ready"], "removed");
   await cancelTask(workflow, task, "the artifact was closed without being accepted");
+  const { issue_key: issueKey } = workflow.store.requireJob(task.job_id);
+  const next = issueKey
+    ? `An issue gets one job in a workflow, so ${issueKey} does not start again. Tell the humans.`
+    : "Ask whether to retry on a new branch or abandon.";
   return {
     notes: [
-      `The artifact of job ${task.job_id} was closed without being accepted. The job is cancelled and its sandbox destroyed. Ask whether to retry on a new branch or abandon.`,
+      `The artifact of job ${task.job_id} was closed without being accepted. The job is cancelled and its sandbox destroyed. ${next}`,
     ],
     wake: "external_state",
   };

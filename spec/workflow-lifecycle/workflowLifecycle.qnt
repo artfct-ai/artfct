@@ -308,7 +308,7 @@ module workflowLifecycleTypes {
     aDeadlinePassesDuringAPageWrite: bool,
     aSubjectsJobEndsTheWorkflow: bool,
     theAcceptanceCheckCompletesTheSubjectsJob: bool,
-    aStartRecordsARemovedPull: bool,
+    aStartOnAnIssueWhoseJobEndedIsRefused: bool,
     aSubIssueEndCancelsItsJob: bool,
     theSubjectIssueEndCancelsTheWorkflow: bool,
     anIssueEndFindsAnAcceptedArtifact: bool,
@@ -1312,30 +1312,6 @@ module workflowLifecycle {
     else flow
   }
 
-  /// True when an unfinished job works from the input.
-  pure def inputInWork(flow: Workflow, input: Input): bool =
-    jobIds(flow).exists(id => flow.jobs[id].input == input and not(isFinished(jobTask(flow, id).status)))
-
-  /// `validateEarlierOutputRemoved` on the finished jobs on the issue, in the order they started.
-  /// A pull the host closed unmerged is recorded removed. The first artifact the host still holds
-  /// refuses the start, unless it is the job's input, and the removals recorded before it stay.
-  pure def recordEarlierPullsRemoved(flow: Workflow, issue: int): { flow: Workflow, clear: bool } =
-    range(0, MAX_JOBS).foldl({ flow: flow, clear: true }, (checked, id) => {
-      val earlier = and {
-        id < flow.jobs.length(),
-        flow.jobs[id].input == FromIssue(issue),
-        isFinished(jobTask(flow, id).status),
-      }
-      if (not(checked.clear) or not(earlier)) checked
-      else {
-        val artifact = checked.flow.jobs[id].artifact
-        if (artifact == NoArtifact or artifact == Removed or outputIsItsInput(checked.flow, id)) checked
-        else if (artifact != Accepted and checked.flow.jobs[id].pullOnHost == PullClosed)
-          { ...checked, flow: advanceArtifact(checked.flow, id, Removed) }
-        else { ...checked, clear: false }
-      }
-    })
-
   /// The host moves the opener's pull. A merge records the artifact that stands for it accepted.
   /// A close without a merge records it removed and cancels its job. A reopen records nothing,
   /// and neither does an ended workflow.
@@ -1551,8 +1527,8 @@ module workflowLifecycle {
   /// The agent calls `start_job` for the stage on the subject issue, its sub-issue, or an issue
   /// outside the subject, also one an earlier job took. An issue outside the subject is refused,
   /// and so is any issue before the workflow has a subject. The tracker refuses an issue a person
-  /// ended. An earlier artifact the host still holds refuses it, and so does an unfinished job on
-  /// the issue. The start claims the issue, which moves it to started. The status write comes
+  /// ended. A job on the issue refuses it, also a finished one, since an issue gets one job in a
+  /// workflow. The start claims the issue, which moves it to started. The status write comes
   /// before the claim, so a status write that fails leaves the issue where it was.
   action agentStartsJobOnAnIssue: bool = all {
     STARTS_ON_ISSUES,
@@ -1560,20 +1536,18 @@ module workflowLifecycle {
     nondet issue = ISSUES.oneOf()
     nondet routerWriteFails = Set(true, false).oneOf()
     val input = FromIssue(issue)
-    val earlier = recordEarlierPullsRemoved(workflow, issue)
     val started =
-      if (routerWriteFails) startedJobPastAFailedRouterWrite(earlier.flow, input)
-      else startedJob(earlier.flow, input)
+      if (routerWriteFails) startedJobPastAFailedRouterWrite(workflow, input) else startedJob(workflow, input)
     val claimed = not(routerWriteFails) or workflow.status == Running
-    val refusedAtOnce = or {
+    val refused = or {
       not(startAllowed(workflow)),
       not(issueInSubject(workflow.subject, issue)),
       workflow.endedIssues.contains(issue),
+      jobsOnIssue(workflow, issue).length() > 0,
     }
     move(
       untold(
-        if (refusedAtOnce) workflow
-        else if (not(earlier.clear) or inputInWork(workflow, input)) earlier.flow
+        if (refused) workflow
         else { ...started, issueMoves: if (claimed) started.issueMoves + 1 else started.issueMoves },
       ),
       IssueStartStep({ issue: issue, routerWriteFails: routerWriteFails }),
@@ -2555,11 +2529,19 @@ module workflowLifecycle {
         step.kind == SubjectCompletionStep,
         outCalls(step.after, AcceptanceCheck).size() < outCalls(step.before, AcceptanceCheck).size(),
       },
-      aStartRecordsARemovedPull: jobIds(step.before).exists(id => and {
-        step.before.jobs[id].artifact != Removed,
-        step.after.jobs[id].artifact == Removed,
-        step.before.jobs[pullOpenerOf(step.before, id)].pullOnHost == PullClosed,
-      }),
+      aStartOnAnIssueWhoseJobEndedIsRefused: match step.kind {
+        | IssueStartStep(start) => {
+          val taken = jobsOnIssue(step.before, start.issue)
+          and {
+            issueStartMayStart(step),
+            issueInSubject(step.before.subject, start.issue),
+            not(step.before.endedIssues.contains(start.issue)),
+            taken.length() > 0,
+            taken.foldl(true, (over, id) => over and isFinished(jobTask(step.before, id).status)),
+          }
+        }
+        | _ => false
+      },
       aSubIssueEndCancelsItsJob: match step.kind {
         | IssueEndStep(issue) => issue != SUBJECT_ISSUE and jobIds(step.before).exists(id => and {
           step.before.jobs[id].input == FromIssue(issue),
@@ -2745,6 +2727,10 @@ module workflowLifecycle {
 
   /// Once set, the subject does not change.
   val subjectNeverChanges: bool = lastStepKept.subjectNeverChanges
+
+  /// An issue gets at most one job in a workflow. A start on an issue that a job took is refused,
+  /// also after that job is over.
+  val oneJobPerIssue: bool = ISSUES.forall(issue => jobsOnIssue(workflow, issue).length() <= 1)
 
   /// An acceptance or selection check that fails does not complete the job unless the artifact was
   /// already accepted.
@@ -3235,9 +3221,9 @@ module workflowLifecycle {
     workflow.jobs[pullOpenerOf(workflow, id)].pullOnHost == PullOpen,
   })
 
-  /// Witness for `artifactStatusMovesAreLegal`: a start records an earlier pull the host closed as
-  /// removed.
-  val aStartRecordsARemovedPull: bool = lastStepReached.aStartRecordsARemovedPull
+  /// Witness for `oneJobPerIssue`: `start_job` names an issue in the subject whose job is over, and
+  /// the start is refused.
+  val aStartOnAnIssueWhoseJobEndedIsRefused: bool = lastStepReached.aStartOnAnIssueWhoseJobEndedIsRefused
 
   /// A person ends a sub-issue on the tracker, and its job is cancelled.
   val aSubIssueEndCancelsItsJob: bool = lastStepReached.aSubIssueEndCancelsItsJob

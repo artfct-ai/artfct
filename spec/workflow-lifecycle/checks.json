@@ -26,6 +26,7 @@
     "aSingleIssueWorkflowIsDoneWithItsSubjectsJob",
     "aJobWorksOnlyOnIssuesOfItsSubject",
     "subjectNeverChanges",
+    "oneJobPerIssue",
     "aFailedCheckNeverCompletesAJob",
     "aFailedCheckNeverAsksThePersonAgain",
     "aWorkflowEndReachesAFinishedStatus",
@@ -431,7 +432,6 @@
       "aPlanStartsTheWorkflow",
       "anUndeclaredPlanLands",
       "theWorkflowWaitsForItsStages",
-      "twoJobsShareAnInput",
       "aFinishedTaskIsInAStep",
       "aWorkflowEndedWithJobs",
       "anEventLandsOnAFinishedWorkflow",
@@ -478,6 +478,7 @@
       "aTrackerWorkflowEndsDone",
       "aTrackerWorkflowEndsWithoutDone",
       "aStartOutsideTheSubjectIsRefused",
+      "aStartOnAnIssueWhoseJobEndedIsRefused",
       "aPlanNamesAnotherSubject",
       "anAuthorIsInReview",
       "theHumansHaveAPage",
@@ -538,6 +539,7 @@
       "anArtifactIsRemoved",
       "aRemovedPullIsOpenAgain",
       "aStartOutsideTheSubjectIsRefused",
+      "aStartOnAnIssueWhoseJobEndedIsRefused",
       "aPlanNamesAnotherSubject",
       "aJobStartsPastAFailedRouterWrite"
     ],
@@ -583,6 +585,7 @@
       "theSubjectIssueEndCancelsTheWorkflow",
       "anIssueEndFindsAnAcceptedArtifact",
       "aStartOutsideTheSubjectIsRefused",
+      "aStartOnAnIssueWhoseJobEndedIsRefused",
       "aPlanNamesAnotherSubject",
       "aJobStartsPastAFailedRouterWrite"
     ],
@@ -626,6 +629,7 @@
       "theSubjectIssueEndCancelsTheWorkflow",
       "anIssueEndFindsAnAcceptedArtifact",
       "aStartOutsideTheSubjectIsRefused",
+      "aStartOnAnIssueWhoseJobEndedIsRefused",
       "aPlanNamesAnotherSubject",
       "aJobWorksOnASubIssue",
       "aJobStartsPastAFailedRouterWrite"
@@ -672,6 +676,7 @@
       "aTrackerWorkflowEndsDone",
       "aTrackerWorkflowEndsWithoutDone",
       "aStartOutsideTheSubjectIsRefused",
+      "aStartOnAnIssueWhoseJobEndedIsRefused",
       "aPlanNamesAnotherSubject",
       "aJobWorksOnASubIssue",
       "aJobStartsPastAFailedRouterWrite"
@@ -706,6 +711,7 @@
       "theWorkflowMovedAnIssue",
       "aStartBeforeTheSubjectIsRefused",
       "aStartOutsideTheSubjectIsRefused",
+      "aStartOnAnIssueWhoseJobEndedIsRefused",
       "aJobWorksOnASubIssue",
       "aJobWorksOnAnIssueOfTheProject",
       "aPlanSetsTheSubject",

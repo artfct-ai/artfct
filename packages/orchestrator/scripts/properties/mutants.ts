@@ -732,8 +732,8 @@ export const MUTANTS: Mutant[] = [
     id: "SR5",
     invariant: "sessionRouting::eachIssueLinksTheChatThreadOnce",
     path: "src/workflow/lifecycle.ts",
-    find: '    if (origin?.source === "chat" && !issueLinked && !syncedAsSubject) {',
-    replace: '    if (origin?.source === "chat" && !syncedAsSubject) {',
+    find: '    if (origin?.source === "chat" && !syncedAsSubject) {',
+    replace: '    if (origin?.source === "chat") {',
   },
   {
     id: "SR6",
@@ -1443,6 +1443,13 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/refiner/checks-gate.ts",
     find: '  return workflow.store.markEventSeen({ id, kind: "checks_sent_back" });\n',
     replace: "  return !workflow.store.eventSeen(id);\n",
+  },
+  {
+    id: "W240",
+    invariant: "workflowLifecycle::oneJobPerIssue, sessionRouting::oneJobPerIssue",
+    path: "src/agent/tools/start/start.ts",
+    find: '  if (input.kind === "issue") return validateIssueWithoutJob(workflow, input.issue);\n',
+    replace: "",
   },
 ];
 

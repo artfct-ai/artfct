@@ -207,7 +207,7 @@ describe("a job that continued its own input", () => {
     expect(authorStatuses(world)).toEqual(["cancelled", "cancelled", "queued"]);
   });
 
-  it("frees that input for the next job once it finishes, on an issue", async () => {
+  it("keeps its issue from a next job once it finishes, since an issue gets one job", async () => {
     const world = await worldAfter([
       {
         opening: "job",
@@ -234,8 +234,8 @@ describe("a job that continued its own input", () => {
         agentStartsTask("pull", "the_subject_issue", REQUEST_TEXTS[0]),
       ],
     ]);
-    expect(world.steps.at(-1)?.start).toEqual({ refused: false });
-    expect(authorStatuses(world)).toEqual(["cancelled", "queued"]);
+    expect(world.steps.at(-1)?.start).toEqual({ refused: true });
+    expect(authorStatuses(world)).toEqual(["cancelled"]);
   });
 });
 
