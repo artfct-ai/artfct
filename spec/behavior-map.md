@@ -75,7 +75,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | ID | Effect | Guarded by |
 |---|---|---|
 | T50 | The bridge accepts a dial only with the task's bridge token. A newer socket closes the older one. | `harnessSession::aBridgeConnectsOnlyWithTheCurrentToken` |
-| T51 | A harness permission request gets its most permissive option. Other agent requests get method not found. | `harnessSession::everyPermissionRequestIsAllowed` |
+| T51 | A harness permission request that offers an allow option gets it. A request without one is not allowed. Other agent requests get method not found. | `harnessSession::everyPermissionRequestWithAnAllowOptionIsAllowed` |
 | T52 | A sandbox destroy that fails is logged and ignored. A bridge process check that fails reads as running. | |
 | T54 | A stop or a finished task before the model call of a model-call author answers leaves the page as it was. A stop during the page write ends the turn once the write returns, and a prompt meanwhile waits in the queue, so the author has at most one page write out. A page write that returns after the task finished does not make the page the job's artifact. | `workflowLifecycle::stoppedModelCallLeavesThePage`, `workflowLifecycle::aModelCallAuthorWorksOnlyWhileItsCallIsOut`, `workflowLifecycle::oneLiveJobPerInputArtifact`, `workflowLifecycle::aModelCallAuthorHasAtMostOnePageWriteOut` |
 
