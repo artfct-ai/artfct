@@ -305,12 +305,14 @@ module sessionRouting {
 
   pure def isSession(target: Target): bool = not(isChatThread(target))
 
-  pure def threadOf(target: Target): int = match target {
-    | ChatThread(thread) => thread
-    | Session(_) => -1
-  }
-
   pure def chatThreads(state: Routing): Set[Target] = state.replyTargets.filter(isChatThread)
+
+  /// The number of each chat thread among the reply targets.
+  pure def chatThreadNumbers(state: Routing): Set[int] =
+    state.replyTargets.fold(Set(), (numbers, target) => match target {
+      | ChatThread(thread) => numbers.union(Set(thread))
+      | Session(_) => numbers
+    })
 
   pure def hasChat(state: Routing): bool = chatThreads(state).size() > 0
 
@@ -401,7 +403,7 @@ module sessionRouting {
 
   /// A board flush writes the job's board in every chat thread among the reply targets.
   pure def flushBoard(state: Routing, id: int): Routing =
-    { ...state, boards: state.boards.union(chatThreads(state).map(thread => { job: id, thread: threadOf(thread) })) }
+    { ...state, boards: state.boards.union(chatThreadNumbers(state).map(thread => { job: id, thread: thread })) }
 
   pure def addTarget(state: Routing, target: Target): Routing =
     { ...state, replyTargets: state.replyTargets.union(Set(target)) }
@@ -837,6 +839,22 @@ module sessionRouting {
     }
   }
 
+  /// A person writes in a session of a running workflow where no author runs on the issue, so the
+  /// message wakes the agent or runs a verbal command. The step also lists `personWritesInSession`,
+  /// and this copy raises how often the agent answers a person in a session.
+  action aPersonWritesWhereNoAuthorRuns: bool = {
+    val quietIssues = ISSUES.filter(issue =>
+      routing.replyTargets.contains(Session(issue)) and runningSessionJob(routing, issue).size() == 0)
+    all {
+      not(routing.ended),
+      quietIssues.size() > 0,
+      nondet issue = quietIssues.oneOf()
+      nondet text = SESSION_TEXTS.oneOf()
+      val landed = messageLands(routing, issue, text)
+      move(landed.state, landed.facts),
+    }
+  }
+
   /// A person sends a message other than a status request in a session of a running workflow.
   /// Its delivery waits on the idle clock, and other steps run before it lands.
   action personSendsInSession: bool = {
@@ -1216,8 +1234,7 @@ module sessionRouting {
     }
   }
 
-  /// The agent pauses an author. The reply goes to the workflow's audience. A paused author stays
-  /// as it is, and nothing is posted.
+  /// The agent pauses an author that runs. The reply goes to the workflow's audience.
   action agentPausesAuthor: bool = {
     nondet id = JOB_SLOTS.oneOf()
     all {
@@ -1225,14 +1242,27 @@ module sessionRouting {
       not(routing.ended),
       id < routing.jobs.length(),
       isAuthorUnfinished(routing.jobs[id]),
-      if (routing.jobs[id].paused) move(routing, NO_FACTS)
-      else move(pauseAuthor(routing, id), { ...NO_FACTS, posts: List(post(routing, InfoPost, Set())) }),
+      not(routing.jobs[id].paused),
+      move(pauseAuthor(routing, id), { ...NO_FACTS, posts: List(post(routing, InfoPost, Set())) }),
     }
   }
 
-  /// The agent resumes an author. A paused author's board flushes, the reply goes to the
-  /// workflow's audience, and the author gets the continue prompt. Any other author stays as it is,
-  /// and nothing is posted.
+  /// The agent pauses an author that is paused already. The author stays as it is, and nothing is
+  /// posted.
+  action agentPausesAPausedAuthor: bool = {
+    nondet id = JOB_SLOTS.oneOf()
+    all {
+      not(MODEL_AUTHOR),
+      not(routing.ended),
+      id < routing.jobs.length(),
+      isAuthorUnfinished(routing.jobs[id]),
+      routing.jobs[id].paused,
+      move(routing, NO_FACTS),
+    }
+  }
+
+  /// The agent resumes a paused author. Its board flushes, the reply goes to the workflow's
+  /// audience, and the author gets the continue prompt.
   action agentResumesAuthor: bool = {
     nondet id = JOB_SLOTS.oneOf()
     all {
@@ -1240,22 +1270,44 @@ module sessionRouting {
       not(routing.ended),
       id < routing.jobs.length(),
       isAuthorUnfinished(routing.jobs[id]),
-      if (routing.jobs[id].paused) {
-        val resumed = flushBoard(withJob(routing, id, job => { ...job, paused: false }), id)
-        move(promptAuthor(resumed, id), { ...NO_FACTS, posts: List(post(routing, InfoPost, Set())) })
-      }
-      else move(routing, NO_FACTS),
+      routing.jobs[id].paused,
+      val resumed = flushBoard(withJob(routing, id, job => { ...job, paused: false }), id)
+      move(promptAuthor(resumed, id), { ...NO_FACTS, posts: List(post(routing, InfoPost, Set())) }),
     }
   }
 
-  /// `onIdle`: the idle clock fires. While the workflow runs and no author runs and no researcher
-  /// works, the workflow sleeps, and the sleep text goes to the workflow's audience. Otherwise
-  /// nothing changes.
+  /// The agent resumes an author that is not paused. The author stays as it is, and nothing is
+  /// posted.
+  action agentResumesAnUnpausedAuthor: bool = {
+    nondet id = JOB_SLOTS.oneOf()
+    all {
+      not(MODEL_AUTHOR),
+      not(routing.ended),
+      id < routing.jobs.length(),
+      isAuthorUnfinished(routing.jobs[id]),
+      not(routing.jobs[id].paused),
+      move(routing, NO_FACTS),
+    }
+  }
+
+  /// Whether the idle clock puts the workflow to sleep: it runs, it does not wait for input yet, and
+  /// no author runs and no researcher works.
+  pure def sleepsOnTheIdleClock(state: Routing): bool =
+    not(state.ended) and not(state.waitsForInput) and state.jobs.foldl(true, (idle, job) => idle and not(isBusy(job)))
+
+  /// `onIdle`: the idle clock fires on an idle workflow. The workflow sleeps, and the sleep text goes
+  /// to the workflow's audience.
   action idleClockFires: bool = all {
+    sleepsOnTheIdleClock(routing),
+    move({ ...routing, waitsForInput: true }, { ...NO_FACTS, posts: List(post(routing, InfoPost, Set())) }),
+  }
+
+  /// `onIdle`: the idle clock fires on a running workflow that works or waits for input already.
+  /// Nothing changes.
+  action idleClockFiresWithoutASleep: bool = all {
     not(routing.ended),
-    val sleeps = not(routing.waitsForInput) and routing.jobs.foldl(true, (idle, job) => idle and not(isBusy(job)))
-    if (sleeps) move({ ...routing, waitsForInput: true }, { ...NO_FACTS, posts: List(post(routing, InfoPost, Set())) })
-    else move(routing, NO_FACTS),
+    not(sleepsOnTheIdleClock(routing)),
+    move(routing, NO_FACTS),
   }
 
   /// A board flush of one job.
@@ -1283,10 +1335,10 @@ module sessionRouting {
 
   action step: bool = any {
     personWritesInSession,
+    aPersonWritesWhereNoAuthorRuns,
     personSendsInSession,
     trackerDeliversAgain,
     aSessionMessageLands,
-    agentTurnEnds,
     agentStartsJob,
     agentNamesTheSubject,
     trackerOpensSession,
@@ -1298,16 +1350,37 @@ module sessionRouting {
     authorFails,
     personStops,
     personStopsAModelCall,
-    workflowRestarts,
+    theAgentTurnEndsOrTheInstanceRestarts,
     researcherReportsTodos,
     researcherHandsOver,
     researcherLeavesNoPayload,
-    agentPausesAuthor,
-    agentResumesAuthor,
-    idleClockFires,
+    aResearcherTurnEnds,
+    theAgentPausesAnAuthor,
+    theAgentResumesAnAuthor,
+    theIdleClockFires,
     boardFlushes,
-    agentEndsWorkflow,
   }
+
+  /// The agent pauses an author, which may be paused already.
+  action theAgentPausesAnAuthor: bool = any { agentPausesAuthor, agentPausesAPausedAuthor }
+
+  /// The agent resumes an author, which may not be paused.
+  action theAgentResumesAnAuthor: bool = any { agentResumesAuthor, agentResumesAnUnpausedAuthor }
+
+  /// The idle clock fires, and the workflow sleeps or goes on.
+  action theIdleClockFires: bool = any { idleClockFires, idleClockFiresWithoutASleep }
+
+  /// A researcher's turn ends: it hands over, or it leaves no payload. The step also lists each
+  /// ending alone, so a researcher reaches its restart limit before the person's messages end
+  /// most traces.
+  action aResearcherTurnEnds: bool = any { researcherHandsOver, researcherLeavesNoPayload }
+
+  /// The agent's turn ends with a reply, or the agent ends the workflow.
+  action theAgentTurnEnds: bool = any { agentTurnEnds, agentEndsWorkflow }
+
+  /// The agent's turn ends, or the instance restarts. Each can happen at any step, so they share one
+  /// pick, and a trace gets to the steps a long session takes before the workflow ends.
+  action theAgentTurnEndsOrTheInstanceRestarts: bool = any { theAgentTurnEnds, workflowRestarts }
 
   /// With a chat thread, the orchestrator does not post to any tracker session.
   val orchestratorStaysOutOfSessionsWhenChatExists: bool =
@@ -1452,10 +1525,6 @@ module sessionRouting {
   val theTimeoutTextReachesTheStartingSession: bool =
     postsOf(lastStep).exists(posted => posted.kind == TurnFailedPost and posted.targets.contains(STARTING_SESSION))
 
-  /// Witness for `sessionMessageWithoutAnAuthorIsAnswered`: the timeout text reached a person in the session on the sub-issue.
-  val theTimeoutTextReachesASubIssueSession: bool =
-    postsOf(lastStep).exists(posted => posted.kind == TurnFailedPost and posted.targets.contains(Session(SubIssue)))
-
   /// Witness for `orchestratorStaysOutOfSessionsWhenChatExists`: a workflow with a chat thread and a session posted.
   val aPostLandsBesideASession: bool =
     lastStep.posts.length() > 0 and hasChat(routing) and sessionsOf(routing.replyTargets).size() > 0
@@ -1464,7 +1533,7 @@ module sessionRouting {
   val aChatThreadJoinsLater: bool = routing.replyTargets.contains(JOINED_THREAD)
 
   /// Witness for `boardsLiveOnlyInChat`: a job has a board in the chat thread that joined later.
-  val aBoardFollowsTheJoinedThread: bool = routing.boards.exists(board => board.thread == threadOf(JOINED_THREAD))
+  val aBoardFollowsTheJoinedThread: bool = routing.boards.exists(board => ChatThread(board.thread) == JOINED_THREAD)
 
   /// Witness for `eachIssueLinksTheChatThreadOnce`: a job works on the sub-issue in a chat workflow.
   val aSubIssueGetsItsLink: bool = linksOf(routing, SubIssue) > 0

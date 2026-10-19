@@ -16,7 +16,8 @@
       "anEyesRemovalIsRefused",
       "aTrackerMessageOutlivesTheDelay",
       "aChatMessageSettlesBeforeTheDelay",
-      "theCallerGetsItsResultPastAHungAdd"
+      "theCallerGetsItsResultPastAHungAdd",
+      "theDeliveriesFinish"
     ],
     "threeMessages": [
       "aMessageSettlesWhileTheEyesAreOut",
@@ -25,7 +26,8 @@
       "anEyesRemovalIsRefused",
       "aTrackerMessageOutlivesTheDelay",
       "aChatMessageSettlesBeforeTheDelay",
-      "theCallerGetsItsResultPastAHungAdd"
+      "theCallerGetsItsResultPastAHungAdd",
+      "theDeliveriesFinish"
     ]
   },
   "tlc": {

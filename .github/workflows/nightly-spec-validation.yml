@@ -34,7 +34,7 @@ jobs:
         run: |
           setups=$(bun scripts/spec/check-spec.ts setups)
           echo "setups=$setups" >> "$GITHUB_OUTPUT"
-          echo "tlc_setups=$(jq -c 'map(select(.tlc))' <<< "$setups")" >> "$GITHUB_OUTPUT"
+          echo "tlc_setups=$(bun scripts/spec/check-spec.ts tlc-setups)" >> "$GITHUB_OUTPUT"
 
   quint_nightly:
     name: quint nightly (${{ matrix.spec }}, ${{ matrix.setup }})

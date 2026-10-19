@@ -3,6 +3,7 @@
  * Runs the checks that each spec folder's `checks.json` declares, for CI and the nightly run.
  * Usage, from the orchestrator package:
  *   bun scripts/spec/check-spec.ts setups
+ *   bun scripts/spec/check-spec.ts tlc-setups
  *   bun scripts/spec/check-spec.ts shard <index> <count> <samples> [spec...]
  *   bun scripts/spec/check-spec.ts witnesses <spec> <setup>
  *   bun scripts/spec/check-spec.ts simulate <spec> <setup> <samples>
@@ -11,7 +12,13 @@
 import { cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { listSpecSetups, readSpecChecks, specDir, type TlcDepth } from "./checks";
+import {
+  listModelCheckedSetups,
+  listSpecSetups,
+  readSpecChecks,
+  specDir,
+  type TlcDepth,
+} from "./checks";
 import {
   boundedSetupSource,
   readTypecheckedModule,
@@ -27,6 +34,7 @@ const MAX_STEPS = 25;
 const WITNESS_SAMPLES = 10_000;
 const USAGE = [
   "usage: bun scripts/spec/check-spec.ts setups",
+  "       bun scripts/spec/check-spec.ts tlc-setups",
   "       bun scripts/spec/check-spec.ts shard <index> <count> <samples> [spec...]",
   "       bun scripts/spec/check-spec.ts witnesses <spec> <setup>",
   "       bun scripts/spec/check-spec.ts simulate <spec> <setup> <samples>",
@@ -74,7 +82,6 @@ function checkedSetups() {
       spec,
       setup,
       replay: replay ? `./${replay}` : "",
-      tlc: Boolean(checks.tlc?.bounds[setup]),
       minutes,
     };
   });
@@ -246,6 +253,10 @@ async function main(args: string[]): Promise<number> {
   const [command, spec, setup, detail] = args;
   if (command === "setups") {
     console.log(JSON.stringify(checkedSetups()));
+    return 0;
+  }
+  if (command === "tlc-setups") {
+    console.log(JSON.stringify(listModelCheckedSetups()));
     return 0;
   }
   if (command === "shard") {
