@@ -169,8 +169,8 @@
           "restartsTaken": 0,
           "authorsWithFeedState": 1,
           "pausedAuthors": 0,
-          "sessionMessagesSent": 1,
-          "messageDeliveriesInFlight": 1
+          "sessionMessagesSent": 0,
+          "messageDeliveriesInFlight": 0
         },
         "nightly": {
           "jobsStarted": 3,
@@ -178,8 +178,8 @@
           "restartsTaken": 2,
           "authorsWithFeedState": 1,
           "pausedAuthors": 0,
-          "sessionMessagesSent": 1,
-          "messageDeliveriesInFlight": 2
+          "sessionMessagesSent": 0,
+          "messageDeliveriesInFlight": 0
         }
       },
       "trackerOnly": {
@@ -189,8 +189,8 @@
           "restartsTaken": 0,
           "authorsWithFeedState": 1,
           "pausedAuthors": 0,
-          "sessionMessagesSent": 1,
-          "messageDeliveriesInFlight": 1
+          "sessionMessagesSent": 0,
+          "messageDeliveriesInFlight": 0
         },
         "nightly": {
           "jobsStarted": 3,
@@ -198,8 +198,8 @@
           "restartsTaken": 2,
           "authorsWithFeedState": 1,
           "pausedAuthors": 0,
-          "sessionMessagesSent": 1,
-          "messageDeliveriesInFlight": 2
+          "sessionMessagesSent": 0,
+          "messageDeliveriesInFlight": 0
         }
       },
       "trackerResearch": {
@@ -209,8 +209,8 @@
           "restartsTaken": 2,
           "authorsWithFeedState": 1,
           "pausedAuthors": 0,
-          "sessionMessagesSent": 1,
-          "messageDeliveriesInFlight": 1
+          "sessionMessagesSent": 0,
+          "messageDeliveriesInFlight": 0
         },
         "nightly": {
           "jobsStarted": 2,
@@ -218,8 +218,8 @@
           "restartsTaken": 2,
           "authorsWithFeedState": 1,
           "pausedAuthors": 0,
-          "sessionMessagesSent": 1,
-          "messageDeliveriesInFlight": 2
+          "sessionMessagesSent": 0,
+          "messageDeliveriesInFlight": 0
         }
       },
       "trackerModelCall": {
