@@ -13,7 +13,7 @@
     "lint": "oxlint"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^1.8.0"
+    "@agentclientprotocol/sdk": "^2.0.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^5.20261019.1"

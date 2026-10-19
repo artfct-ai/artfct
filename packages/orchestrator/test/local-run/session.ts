@@ -1,7 +1,7 @@
 import {
-  ClientSideConnection,
+  client,
+  methods,
   ndJsonStream,
-  type Client,
   type McpServer,
   type SessionUpdate,
 } from "@agentclientprotocol/sdk";
@@ -29,20 +29,6 @@ export async function runLocalSession(options: {
 }): Promise<LocalTurn> {
   const updates: SessionUpdate[] = [];
   let text = "";
-  const client: Client = {
-    async requestPermission(request) {
-      const optionId = chooseAllowOption(request.options);
-      if (!optionId) return { outcome: { outcome: "cancelled" } };
-      return { outcome: { outcome: "selected", optionId } };
-    },
-    async sessionUpdate(notification) {
-      const { update } = notification;
-      updates.push(update);
-      text += updateText(update) ?? "";
-      const activity = toolActivity(update);
-      if (activity) options.onActivity(`${activity.kind === "call" ? "→" : "✗"} ${activity.title}`);
-    },
-  };
   const { stdin, stdout } = options.child;
   const stream = ndJsonStream(
     new WritableStream<Uint8Array>({
@@ -56,27 +42,42 @@ export async function runLocalSession(options: {
       },
     }),
   );
-  const agent = new ClientSideConnection(() => client, stream);
-
-  await agent.initialize({
-    protocolVersion: 1,
-    clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
-  });
-  const session = await agent.newSession({
-    cwd: options.cwd,
-    mcpServers: options.mcpServers,
-  });
-  const held = session.configOptions?.find((option) => option.id === EFFORT_OPTION)?.currentValue;
-  if (options.effort && held !== undefined && held !== options.effort) {
-    await agent.setSessionConfigOption({
-      sessionId: session.sessionId,
-      configId: EFFORT_OPTION,
-      value: options.effort,
+  const result = await client()
+    .onRequest(methods.client.session.requestPermission, ({ params }) => {
+      const optionId = chooseAllowOption(params.options);
+      if (!optionId) return { outcome: { outcome: "cancelled" } };
+      return { outcome: { outcome: "selected", optionId } };
+    })
+    .onNotification(methods.client.session.update, ({ params }) => {
+      const { update } = params;
+      updates.push(update);
+      text += updateText(update) ?? "";
+      const activity = toolActivity(update);
+      if (activity) options.onActivity(`${activity.kind === "call" ? "→" : "✗"} ${activity.title}`);
+    })
+    .connectWith(stream, async (agent) => {
+      await agent.request(methods.agent.initialize, {
+        protocolVersion: 1,
+        clientCapabilities: { fs: { readTextFile: false, writeTextFile: false }, terminal: false },
+      });
+      const session = await agent.request(methods.agent.session.new, {
+        cwd: options.cwd,
+        mcpServers: options.mcpServers,
+      });
+      const held = session.configOptions?.find(
+        (option) => option.id === EFFORT_OPTION,
+      )?.currentValue;
+      if (options.effort && held !== undefined && held !== options.effort) {
+        await agent.request(methods.agent.session.setConfigOption, {
+          sessionId: session.sessionId,
+          configId: EFFORT_OPTION,
+          value: options.effort,
+        });
+      }
+      return agent.request(methods.agent.session.prompt, {
+        sessionId: session.sessionId,
+        prompt: [{ type: "text", text: options.prompt }],
+      });
     });
-  }
-  const result = await agent.prompt({
-    sessionId: session.sessionId,
-    prompt: [{ type: "text", text: options.prompt }],
-  });
   return { stopReason: result.stopReason, text, updates };
 }

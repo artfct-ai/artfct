@@ -34,7 +34,7 @@
     "lint": "oxlint"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^1.8.0",
+    "@agentclientprotocol/sdk": "^2.0.0",
     "@ai-sdk/openai-compatible": "^3.0.73",
     "@ai-sdk/provider": "^4.0.30",
     "@ai-sdk/provider-utils": "^5.0.63",
