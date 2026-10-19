@@ -518,7 +518,7 @@ export const MUTANTS: Mutant[] = [
     id: "C2",
     invariant: "chatAcknowledgement::eyesNeverOutliveTheDelivery (eyes still out)",
     path: "src/router/chat-ack.ts",
-    find: "if (eyes.added && (await eyes.added)) {",
+    find: "if (eyes.added && (await eyesAddedWithinTheWait(eyes.added))) {",
     replace: "if (eyes.added) {",
   },
   {

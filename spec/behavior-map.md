@@ -228,7 +228,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | C15 | A finished workflow posts "Done." with the result. | |
 | C16 | A verbal command sent from a tracker session without a running author answers the person itself. | `sessionRouting::sessionMessageWithoutAnAuthorIsAnswered` |
 | C17 | A reply target on a document page gets a page comment. A progress post skips the page. | |
-| C18 | The chat eyes reaction marks a delivery slower than 3 seconds and comes off when it settles. The caller gets what the delivery gave. | `chatAcknowledgement::eyesNeverOutliveTheDelivery`, `chatAcknowledgement::eyesMarkOnlyASlowChatDelivery`, `chatAcknowledgement::theCallerGetsWhatTheDeliveryGave` |
+| C18 | The chat eyes reaction marks a delivery slower than 3 seconds and comes off when it settles. A settled delivery waits at most 3 seconds for an eyes add that has not answered. Then it logs the add, leaves the eyes as the chat left them, and returns. The caller gets what the delivery gave. | `chatAcknowledgement::eyesNeverOutliveTheDelivery`, `chatAcknowledgement::eyesMarkOnlyASlowChatDelivery`, `chatAcknowledgement::theCallerGetsWhatTheDeliveryGave` |
 | C19 | A received chat message sets the thread to its working status. | |
 
 ## Tracker output
@@ -255,7 +255,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | O2 | A start event that a running workflow took, from a person or not, moves to it each binding it carries that was unbound or whose workflow ended. A binding that points at another running workflow keeps pointing at it. A new workflow takes a binding only while it still points where the delivery read it. | `routerBindings::aDeliveryLeavesTheBindingsOfARunningWorkflow` |
 | O3 | A person's message on a binding whose workflow ended starts exactly one new workflow, and the binding moves to it. This holds when the Durable Object ended before the router's status did. Other events on a binding whose workflow ended are dropped. A start without a person does not start a workflow. | `routerBindings::messageAfterEndStartsNextWorkflow`, `routerBindings::aPersonsMessageNeverReachesAnEndedWorkflow` |
 | O4 | A failed Durable Object create removes the bindings the new workflow took, points each back at the workflow it pointed at unless another delivery bound it since, and marks the workflow failed. | `routerBindings::anAbandonedWorkflowKeepsNoBinding` |
-| O5 | A push to a base branch fans out to every workflow with a pull request in the repository. A failed delivery to one workflow is logged, and the rest still get the event. | |
+| O5 | A push to a base branch fans out to every workflow with a pull request in the repository. A failed delivery to one workflow is logged, and the rest still get the event. The push does not start a workflow or move a binding. | `routerBindings::aBaseMoveOnlyHandsTheEventOn` |
 | O6 | The router's workflow status mirrors the Durable Object status. The router reads it to decide whether a workflow ended. | |
 | O7 | A workflow that ends removes its pull request bindings. A workflow does not bind a pull request once its status ended. | `routerBindings::anEndedWorkflowKeepsNoCodeHostBinding` |
 | O8 | Access: a tracker user must be in the tracker team, a chat user in the chat team or joined by email to a tracker team member, a document user joined by email, a code user able to push. Any App passes. A failed lookup refuses. | |

@@ -6,12 +6,14 @@
     "anAbandonedWorkflowKeepsNoBinding",
     "anEndedWorkflowKeepsNoCodeHostBinding",
     "oneRunningWorkflowHasAJobOnAnIssue",
-    "aPersonsMessageNeverReachesAnEndedWorkflow"
+    "aPersonsMessageNeverReachesAnEndedWorkflow",
+    "aBaseMoveOnlyHandsTheEventOn"
   ],
   "mainMinutes": {
     "chatThread": 0.5,
     "twoSessionsOnOneIssue": 0.6,
-    "sessionWithPullRequest": 0.5
+    "sessionWithPullRequest": 0.5,
+    "baseMoveFanOut": 0.5
   },
   "witnesses": {
     "chatThread": [
@@ -52,10 +54,21 @@
       "thePullRequestIsBound",
       "aPersonWroteAfterAnEnd",
       "aStartWithoutAPersonRebinds"
+    ],
+    "baseMoveFanOut": [
+      "aWorkflowStarted",
+      "aDeliveryJoinsAWorkflow",
+      "aWorkflowEnded",
+      "thePullRequestIsBound",
+      "aBaseMoveFansOutToTwoWorkflows",
+      "aBaseMoveGoesOnPastAFailedCall"
     ]
   },
+  "maxSteps": {
+    "baseMoveFanOut": 80
+  },
   "tlc": {
-    "ignoredVariables": [],
+    "ignoredVariables": ["stepWitnesses"],
     "bounds": {
       "chatThread": {
         "pr": {
@@ -90,6 +103,18 @@
         "nightly": {
           "eventsArrived": 4,
           "workflowsCreated": 4,
+          "operationsStarted": 3
+        }
+      },
+      "baseMoveFanOut": {
+        "pr": {
+          "eventsArrived": 4,
+          "workflowsCreated": 2,
+          "operationsStarted": 2
+        },
+        "nightly": {
+          "eventsArrived": 5,
+          "workflowsCreated": 3,
           "operationsStarted": 3
         }
       }
