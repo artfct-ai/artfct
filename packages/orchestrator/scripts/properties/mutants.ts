@@ -442,6 +442,57 @@ export const MUTANTS: Mutant[] = [
       '    if (signal.aborted) {\n      await new Promise((resolve) => setTimeout(resolve, 5));\n      return "timed_out";\n    }\n  }\n  try {',
   },
   {
+    id: "W180",
+    invariant:
+      "agentTurns::aDecisionsCallFallsBackOnlyAfterEveryModelFailed (model runs before the runtime request lands)",
+    path: "src/agent/turn/turn.ts",
+    find: "  await compactIfLarge(workflow, turn, signal);\n  await runtimeRequest;\n",
+    replace: "  await compactIfLarge(workflow, turn, signal);\n",
+  },
+  {
+    id: "W181",
+    invariant: "agentTurns::aWaitingInboxRowHasATurnComing (restart of a finished workflow)",
+    path: "src/agent/turn/watchdog.ts",
+    find: "    await workflow.release();\n    await wakeForWaitingRows(workflow);\n",
+    replace: "    await workflow.release();\n",
+  },
+  {
+    id: "W182",
+    invariant: "behavior map A3: a revision request sends the held comments before the model runs",
+    path: "src/agent/turn/turn.ts",
+    find: "  if (reply?.asksForRevision) await sendHeldCommentsForRevision(workflow, decisions);\n",
+    replace: "",
+  },
+  {
+    id: "W183",
+    invariant: "behavior map A2: a message that names a model starts the runtime request",
+    path: "src/agent/turn/turn.ts",
+    find: "    reply?.namesModel ? requestedRuntime(workflow, message, decisions) : null,",
+    replace: "    null,",
+  },
+  {
+    id: "W184",
+    invariant: "agentTurns::theWorkingStatusNeverOutlivesItsTurn (watchdog of a finished workflow)",
+    path: "src/agent/turn/watchdog.ts",
+    find: "  if (isWorkflowFinished(workflow.state.status) && !answering.length) return workflow.release();\n",
+    replace: "  if (isWorkflowFinished(workflow.state.status) && !answering.length) return;\n",
+  },
+  {
+    id: "W185",
+    invariant: "agentTurns::aPersonsTurnNeverEndsUnanswered (sent held comments as the reply)",
+    path: "src/agent/turn/turn.ts",
+    find: '    sent.notes.map((note) => ({ role: "user" as const, content: noteMessage(note) })),\n  );\n',
+    replace:
+      '    sent.notes.map((note) => ({ role: "user" as const, content: noteMessage(note) })),\n  );\n  if (sent.prompted.length) workflow.patchState({ turn_board_changed: true });\n',
+  },
+  {
+    id: "W186",
+    invariant: "agentTurns::aPersonsTurnNeverEndsUnanswered (watchdog of a finished workflow)",
+    path: "src/agent/turn/watchdog.ts",
+    find: "  if (isWorkflowFinished(workflow.state.status) && !answering.length) return workflow.release();\n",
+    replace: "  if (isWorkflowFinished(workflow.state.status)) return workflow.release();\n",
+  },
+  {
     id: "R1",
     invariant: "routerBindings::messageAfterEndStartsNextWorkflow (claim)",
     path: "src/router/deliver.ts",

@@ -41,7 +41,12 @@
       "aRowWaitsForTheNextTurn",
       "aRowWaitsForTheRunAgentAlarm",
       "aTurnReadsTheChat",
-      "theHeadsUpPosts"
+      "theHeadsUpPosts",
+      "aRevisionSendsTheHeldComments",
+      "twoDecisionsCallsAreOut",
+      "theClosingPostOutlivesTheTimeout",
+      "theWatchdogReleasesAFinishedWorkflow",
+      "aTurnEndsOnAFinishedWorkflow"
     ],
     "trackerOnly": [
       "aTurnPostsClosingText",
@@ -59,7 +64,12 @@
       "aDecisionsCallFallsBack",
       "aRowWaitsForTheNextTurn",
       "aRowWaitsForTheRunAgentAlarm",
-      "anAnswerReachesASession"
+      "anAnswerReachesASession",
+      "aRevisionSendsTheHeldComments",
+      "twoDecisionsCallsAreOut",
+      "theClosingPostOutlivesTheTimeout",
+      "theWatchdogReleasesAFinishedWorkflow",
+      "aTurnEndsOnAFinishedWorkflow"
     ],
     "chatAndSession": [
       "aTurnPostsClosingText",
@@ -78,7 +88,12 @@
       "aRowWaitsForTheNextTurn",
       "aRowWaitsForTheRunAgentAlarm",
       "aTurnReadsTheChat",
-      "theHeadsUpPosts"
+      "theHeadsUpPosts",
+      "aRevisionSendsTheHeldComments",
+      "twoDecisionsCallsAreOut",
+      "theClosingPostOutlivesTheTimeout",
+      "theWatchdogReleasesAFinishedWorkflow",
+      "aTurnEndsOnAFinishedWorkflow"
     ]
   },
   "tlc": {
