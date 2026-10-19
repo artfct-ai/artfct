@@ -18,11 +18,31 @@ const SPEC_ROOT = join(dirname(fileURLToPath(import.meta.url)), "../../../spec")
 const QUINT_CLI = createRequire(import.meta.url).resolve("@informalsystems/quint/dist/src/cli.js");
 
 /**
+ * The most traces one quint run samples. A quint run holds every trace it samples in memory, about
+ * 3 MB each for the harness session, so a larger count runs as several seeded batches.
+ */
+const TRACES_PER_QUINT_RUN = 250;
+
+/**
  * Sample traces of one spec setup with `quint run --mbt`, and read each trace's ITF JSON with
  * `readTrace`. Traces are read one at a time, so only one ITF document is in memory at once. The
  * run never blocks the event loop, so the vitest process keeps serving workerd while quint samples.
  */
 export async function quintTraces<Trace>(
+  request: QuintTraceRequest,
+  readTrace: (itf: unknown) => Trace,
+): Promise<Trace[]> {
+  const traces: Trace[] = [];
+  for (let batch = 0; batch * TRACES_PER_QUINT_RUN < request.count; batch++) {
+    const count = Math.min(TRACES_PER_QUINT_RUN, request.count - batch * TRACES_PER_QUINT_RUN);
+    traces.push(
+      ...(await quintTraceBatch({ ...request, count, seed: request.seed + batch }, readTrace)),
+    );
+  }
+  return traces;
+}
+
+async function quintTraceBatch<Trace>(
   request: QuintTraceRequest,
   readTrace: (itf: unknown) => Trace,
 ): Promise<Trace[]> {
