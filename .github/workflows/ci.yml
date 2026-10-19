@@ -8,11 +8,11 @@ on:
 permissions:
   contents: read
 
-# A newer push to a pull request cancels its older run. Main runs one commit at a time, in order, and queues the rest.
+# A newer push to a pull request cancels its older run. Main runs one commit at a time, in order, and queues the rest. GitHub rejects `queue: max` beside `cancel-in-progress`, so pull requests keep `single`.
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-  queue: max
+  queue: ${{ github.event_name == 'pull_request' && 'single' || 'max' }}
 
 env:
   TURBO_API: ${{ vars.TURBO_API }}
@@ -57,7 +57,6 @@ jobs:
 
   spec_changes:
     name: spec changes
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -111,11 +110,14 @@ jobs:
           key: quint-${{ runner.os }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
           restore-keys: quint-${{ runner.os }}-
       - name: Typecheck, check the witnesses, and run every invariant on 10,000 samples for each setup of the changed specs in this shard
-        run: bun scripts/spec/check-spec.ts shard "$SHARD_INDEX" "$SHARD_COUNT" 10000 $SPECS
+        run: |
+          read -ra specs <<<"$SPECS"
+          bun scripts/spec/check-spec.ts shard "$SHARD_INDEX" "$SHARD_COUNT" 10000 "${specs[@]}"
 
   quint_spec:
     name: quint spec (shard ${{ matrix.shard }})
-    if: github.event_name == 'push'
+    needs: spec_changes
+    if: github.event_name == 'push' && needs.spec_changes.outputs.specs != ''
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -129,6 +131,7 @@ jobs:
     env:
       SHARD_INDEX: ${{ strategy.job-index }}
       SHARD_COUNT: ${{ strategy.job-total }}
+      SPECS: ${{ needs.spec_changes.outputs.specs }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -140,8 +143,10 @@ jobs:
           path: ~/.quint
           key: quint-${{ runner.os }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
           restore-keys: quint-${{ runner.os }}-
-      - name: Typecheck, check the witnesses, and run every invariant on 100,000 samples for each setup of this shard
-        run: bun scripts/spec/check-spec.ts shard "$SHARD_INDEX" "$SHARD_COUNT" 100000
+      - name: Typecheck, check the witnesses, and run every invariant on 100,000 samples for each setup of the changed specs in this shard
+        run: |
+          read -ra specs <<<"$SPECS"
+          bun scripts/spec/check-spec.ts shard "$SHARD_INDEX" "$SHARD_COUNT" 100000 "${specs[@]}"
 
   spec_replays:
     name: spec replays (${{ matrix.name }})
@@ -171,22 +176,18 @@ jobs:
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
-      - run: bun run template-config
       - name: Seed the replay from the run id
         run: echo "PROPERTY_SEED=$(( GITHUB_RUN_ID % 2147483648 ))" >> "$GITHUB_ENV"
-      - name: Replay the specs
+      - name: Replay the specs at their e2e counts, unless turbo has the result cached
         timeout-minutes: 25
         run: |
-          status=0
-          for replay in $REPLAYS; do
-            bun scripts/properties/e2e-property-test.ts "$replay" || status=1
-          done
-          exit "$status"
+          read -ra replays <<<"$REPLAYS"
+          bunx turbo run spec:replay:e2e --filter=@artfct-ai/orchestrator -- "${replays[@]}"
 
   preview:
     name: preview
-    needs: [ci, quint_spec, spec_replays]
-    if: github.event_name == 'push'
+    needs: [ci, spec_changes, quint_spec, spec_replays]
+    if: github.event_name == 'push' && !cancelled() && needs.ci.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     concurrency:
