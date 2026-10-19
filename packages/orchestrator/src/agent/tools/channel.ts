@@ -19,6 +19,11 @@ const ACKNOWLEDGE = "acknowledge";
 export const FIRST_REPLY_TOOLS = [ACKNOWLEDGE, ASK];
 /** The reaction a clear instruction gets in place of words. */
 export const THUMBS_UP = "thumbsup";
+/** The first reply the system sends to a revision request when the chat cannot take a reaction. */
+export const REVISION_ACKNOWLEDGEMENT_TEXT = "On it. Sending your comments to the author.";
+
+/** Whether the turn sent its first reply through `acknowledge`. The tool and the system share it. */
+export type Acknowledgement = { acknowledged: boolean };
 
 const reactionReply = z.object({ kind: z.literal("reaction") });
 const textReply = z.object({ kind: z.literal("text"), text: z.string().min(1) });
@@ -79,8 +84,11 @@ When execution occurs without an inbound user message, standard closing text is 
  * first reply may react only while the turn has chat messages without the thumbs-up. Every post
  * answers `answering`, where the people the turn answers wrote from.
  */
-export function channelTools(workflow: WorkflowRuntime, answering: ReplyTarget[]) {
-  let acknowledged = false;
+export function channelTools(
+  workflow: WorkflowRuntime,
+  answering: ReplyTarget[],
+  acknowledgement: Acknowledgement = { acknowledged: false },
+) {
   const reactable = workflow.transcript.awaitingThumbsUp().length > 0;
   const inputSchema: z.ZodType<FirstReplyInput> = reactable ? firstReplyInput : textOnlyInput;
   return {
@@ -90,7 +98,7 @@ export function channelTools(workflow: WorkflowRuntime, answering: ReplyTarget[]
         : "Your first reply to the person who wrote, before any other tool: one short line that says what you are about to do, never the answer. It works once per turn.",
       inputSchema,
       execute: async ({ reply }) => {
-        if (acknowledged) {
+        if (acknowledgement.acknowledged) {
           throw new Error(
             "Already acknowledged this turn. An answer goes in your closing text. A question goes through ask.",
           );
@@ -98,10 +106,10 @@ export function channelTools(workflow: WorkflowRuntime, answering: ReplyTarget[]
         switch (reply.kind) {
           case "reaction":
             await reactWithThumbsUp(workflow);
-            acknowledged = true;
+            acknowledgement.acknowledged = true;
             return "Reacted with a thumbs-up.";
           case "text":
-            acknowledged = true;
+            acknowledgement.acknowledged = true;
             await workflow.post({ type: "info", text: reply.text }, { answering });
             return "Acknowledged.";
           default: {
@@ -139,6 +147,20 @@ export function channelTools(workflow: WorkflowRuntime, answering: ReplyTarget[]
       execute: async () => "Silent.",
     }),
   };
+}
+
+/**
+ * The system's first reply to a revision request, sent before the held comments go out: the
+ * thumbs-up on the chat messages that wait for one, or one line. The model's `acknowledge` then fails.
+ */
+export async function acknowledgeRevisionRequest(
+  workflow: WorkflowRuntime,
+  answering: ReplyTarget[],
+  acknowledgement: Acknowledgement,
+): Promise<void> {
+  acknowledgement.acknowledged = true;
+  if (workflow.transcript.awaitingThumbsUp().length) return reactWithThumbsUp(workflow);
+  await workflow.post({ type: "info", text: REVISION_ACKNOWLEDGEMENT_TEXT }, { answering });
 }
 
 /**

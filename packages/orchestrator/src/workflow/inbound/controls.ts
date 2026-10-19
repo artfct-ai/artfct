@@ -1,10 +1,9 @@
 import type { CancelNotification } from "@agentclientprotocol/sdk";
 import { AgentMethods } from "@artfct-ai/acp/methods";
 import type { Actor, InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
-import { TAG_TO_START_AGAIN } from "../../notify/messages";
 import { flushBoards } from "../board/board";
 import { closeSessionFeed, STOPPED_CLOSING } from "../feed/feed";
-import { cancelTask, endWorkflow, unbindCodeHost, workflowEnding } from "../lifecycle";
+import { cancelTask, endWorkflow, workflowEnding } from "../lifecycle";
 import { promptTask } from "../task/harness/prompt-queue";
 import { taskAtWork } from "../task/at-work";
 import { onBridgeLost, sendNotification } from "../task/harness/bridge";
@@ -85,7 +84,7 @@ async function cancel(
     workflow.log(null, `cancel ignored: ${why} (${reason})`);
     return why;
   }
-  await cancelWorkflow(workflow, reason, answering);
+  await endWorkflow(workflow, { status: "cancelled", reason, answering });
   return null;
 }
 
@@ -93,20 +92,6 @@ async function cancel(
 function cancelReason(actor: Actor, text: string): string {
   const who = `Cancelled by ${actor.display_name ?? actor.person_id}.`;
   return text.trim() ? `${who} ${text.trim()}` : who;
-}
-
-/**
- * Cancel every active task, author and researcher tasks first, and close the workflow. The
- * notice answers the people who wrote from `answering`.
- */
-async function cancelWorkflow(
-  workflow: WorkflowRuntime,
-  reason: string,
-  answering: ReplyTarget[],
-): Promise<void> {
-  await endWorkflow(workflow, "cancelled", reason);
-  await workflow.post({ type: "info", text: `Cancelled. ${TAG_TO_START_AGAIN}` }, { answering });
-  await unbindCodeHost(workflow);
 }
 
 /**

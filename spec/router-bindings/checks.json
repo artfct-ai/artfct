@@ -7,7 +7,8 @@
     "anEndedWorkflowKeepsNoCodeHostBinding",
     "oneRunningWorkflowHasAJobOnAnIssue",
     "aPersonsMessageNeverReachesAnEndedWorkflow",
-    "aBaseMoveOnlyHandsTheEventOn"
+    "aBaseMoveOnlyHandsTheEventOn",
+    "theRouterRowMatchesTheWorkflowEnd"
   ],
   "mainMinutes": {
     "chatThread": 0.5,
@@ -25,6 +26,7 @@
       "aRetryAfterAFailedCreateFindsTheEndedWorkflow",
       "aWorkflowWasAbandoned",
       "aWorkflowEnded",
+      "aRestartCutTheEndStatusWrite",
       "aPersonWroteAfterAnEnd"
     ],
     "twoSessionsOnOneIssue": [
@@ -35,6 +37,7 @@
       "aStartRebindsItsBindings",
       "aWorkflowWasAbandoned",
       "aWorkflowEnded",
+      "aRestartCutTheEndStatusWrite",
       "aRunningWorkflowHasAJobOnTheIssue",
       "aJobStartFindsTheIssueBoundElsewhere",
       "aJobStartFindsTheIssueBindingMoved",
@@ -50,6 +53,7 @@
       "aStartRebindsItsBindings",
       "aWorkflowWasAbandoned",
       "aWorkflowEnded",
+      "aRestartCutTheEndStatusWrite",
       "aRunningWorkflowHasAJobOnTheIssue",
       "thePullRequestIsBound",
       "aPersonWroteAfterAnEnd",
@@ -59,6 +63,7 @@
       "aWorkflowStarted",
       "aDeliveryJoinsAWorkflow",
       "aWorkflowEnded",
+      "aRestartCutTheEndStatusWrite",
       "thePullRequestIsBound",
       "aBaseMoveFansOutToTwoWorkflows",
       "aBaseMoveGoesOnPastAFailedCall"

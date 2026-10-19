@@ -39,6 +39,7 @@ import {
 } from "@artfct-ai/acp/methods";
 import type { TaskStatus } from "@artfct-ai/contracts/types";
 import { startTools } from "../src/agent/tools/start/start";
+import type { Env } from "../src/env";
 import type { SandboxRef, SandboxStartSpec } from "../src/sandbox/spec";
 import { pauseTask, resumeTask, stopAuthor } from "../src/workflow/inbound/controls";
 import type { RpcPurpose } from "../src/workflow/store/schema";
@@ -65,6 +66,7 @@ import {
 } from "../src/workflow/task/harness/timers";
 import { GAVE_UP_RESTART_TEXT, settleIdleAuthor } from "../src/workflow/task/harness/turn";
 import { provision, sandboxStartInFlight } from "../src/workflow/task/sandbox/sandbox";
+import { taskAtWork } from "../src/workflow/task/at-work";
 import { fakeConnection, type FakeAlarm, type FakeSocket } from "./fake-runtime";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfText, itfVariant } from "./itf";
 import { FakeSandboxProvider } from "./fake-sandbox";
@@ -74,13 +76,17 @@ import { WorkflowWorld, type WorldSetup } from "./workflow-world";
 
 await mock.module("../src/agent/model/traced-ai", async () => ({ tracedAI: await import("ai") }));
 
-/** The setup modules of the harness session spec, and whether the stage of each asks for an effort. */
+/**
+ * The setup modules of the harness session spec: whether the stage of each asks for an effort, and
+ * whether it gives the job its own branch.
+ */
 export const SPEC_SETUPS = {
-  harnessDefaultEffort: false,
-  stageAsksForEffort: true,
-  agentPausesRunningTurns: false,
-  interruptionsAfterTheFirstPrompt: false,
-} as const satisfies Record<string, boolean>;
+  harnessDefaultEffort: { asksEffort: false, bindsABranch: false },
+  stageAsksForEffort: { asksEffort: true, bindsABranch: false },
+  agentPausesRunningTurns: { asksEffort: false, bindsABranch: false },
+  interruptionsAfterTheFirstPrompt: { asksEffort: false, bindsABranch: false },
+  jobOnABranch: { asksEffort: false, bindsABranch: true },
+} as const satisfies Record<string, { asksEffort: boolean; bindsABranch: boolean }>;
 
 /** The name of one setup module of the spec. */
 export type SpecSetup = keyof typeof SPEC_SETUPS;
@@ -147,6 +153,7 @@ type SpecSocket = { bridge: number; generation: number; state: SocketState };
 
 /** One call the orchestrator awaits, as the spec sees it. */
 type SpecCall =
+  | { id: number; kind: "BranchBinding"; state: CallState }
   | { id: number; kind: "SandboxStart"; generation: number; launched: boolean; state: CallState }
   | { id: number; kind: "SandboxDestroy"; upTo: number; state: CallState }
   | {
@@ -198,6 +205,9 @@ export type SpecTask = {
   socketsClosed: number;
   agentWakes: number;
   eventsThatThrew: number;
+  lostTurns: number;
+  stopsEnded: number;
+  answersToOtherRequests: number;
 };
 
 /** The values the spec picked for one action. */
@@ -324,6 +334,9 @@ function specTask(world: unknown): SpecTask {
     socketsClosed: itfInt(itfField(world, "socketsClosed")),
     agentWakes: itfInt(itfField(world, "agentWakes")),
     eventsThatThrew: itfInt(itfField(world, "eventsThatThrew")),
+    lostTurns: itfInt(itfField(world, "lostTurns")),
+    stopsEnded: itfInt(itfField(world, "stopsEnded")),
+    answersToOtherRequests: itfInt(itfField(world, "answersToOtherRequests")),
   };
 }
 
@@ -351,6 +364,8 @@ function specCall(call: unknown): SpecCall {
   const state = itfOneOf(tagOf(itfField(call, "state")), CALL_STATES);
   const id = itfInt(itfField(call, "id"));
   switch (kind.tag) {
+    case "BranchBinding":
+      return { id, kind: "BranchBinding", state };
     case "SandboxStart":
       return {
         id,
@@ -380,8 +395,8 @@ function tagOf(value: unknown): string {
   return itfVariant(value)!.tag;
 }
 
-/** One request a bridge passed to its harness. */
-type BridgeRequest = { id: number; purpose: SpecPurpose; cancelled: boolean };
+/** One request a bridge passed to its harness. `serial` names the rpc row the orchestrator wrote for it. */
+type BridgeRequest = { id: number; serial: number; purpose: SpecPurpose; cancelled: boolean };
 
 /** One bridge process and its harness, as the replay runs it. */
 type ReplayBridge = {
@@ -392,13 +407,17 @@ type ReplayBridge = {
   requests: BridgeRequest[];
 };
 
-/** One socket the replay dialed, with the frames of it the bridge already read. */
+/**
+ * One socket the replay dialed, with the frames of it the bridge already read, and the serial of
+ * the rpc row behind each request frame, by frame index.
+ */
 type ReplaySocket = {
   bridge: number;
   generation: number;
   state: SocketState;
   fake: FakeSocket;
   read: number;
+  serials: Map<number, number>;
 };
 
 /** A promise the replay settles from a later step. */
@@ -414,6 +433,7 @@ type HeldStart = { name: "SandboxStart"; generation: number; token: string; laun
 type HeldCall = {
   id: number;
   kind:
+    | { name: "BranchBinding" }
     | HeldStart
     | { name: "SandboxDestroy"; upTo: number }
     | { name: "OutcomeCheck"; promptsAtTurnEnd: number; generation: number }
@@ -486,9 +506,14 @@ const CONTINUE_TEXT = "Continue where you left off.";
 const TURN_TEXT = `I wrote the design section by section. ${"Each section names its decision and the reason for it. ".repeat(12)}`;
 const DIGEST_TEXT = "The design is written.";
 const AGENT_WAKE_TEXTS = ["Harness turn ended (", "The harness is idle."];
+const LOST_TURN_LINES = [
+  "bridge lost with a prompt in flight. restarting the sandbox.",
+  "failed: bridge lost with a prompt in flight and no restarts left",
+];
 const HELD_EFFORT = "low";
 const ASKED_EFFORT = "high";
 const INTERNAL_ERROR = -32603;
+const BRANCH_BINDING_WRITE = /^insert into "bindings"/i;
 
 const OUTCOME_OPTIONS: Record<Outcome, string> = {
   Finished: "finished",
@@ -527,7 +552,7 @@ const SPEC_STATUS: Record<TaskStatus, SpecStatus> = {
   failed: "Failed",
 };
 
-const WORLD_SETUP: WorldSetup = {
+const WORLD_SETUP: Omit<WorldSetup, "pageBranch"> = {
   opening: "job_unstarted",
   artifact: "page",
   refiners: "none",
@@ -554,12 +579,14 @@ function effortOption(value: string): SessionConfigOption {
 /**
  * Replays spec traces through one harness author whose job has not started. Each spec action maps
  * to the entry point production uses. The replay plays the sandbox, the bridge and the harness.
- * The sandbox start, the sandbox destroy and the turn outcome question stay out until a later
- * spec step returns them. A sandbox start is out from its commit author lookup.
+ * The branch binding write, the sandbox start, the sandbox destroy and the turn outcome question
+ * stay out until a later spec step returns them. A sandbox start is out from its commit author
+ * lookup.
  */
 export class HarnessSessionReplay {
   private calls: HeldCall[] = [];
   private readonly startAwaits = new Map<number, StartAwaits>();
+  private readonly providerStartsReached = new Map<number, () => void>();
   private nextCall = 0;
   private readonly bridges: ReplayBridge[] = [];
   private sockets: ReplaySocket[] = [];
@@ -574,6 +601,12 @@ export class HarnessSessionReplay {
   private permissionsAllowed = 0;
   private socketsClosed = 0;
   private eventsThatThrew = 0;
+  private stopsEnded = 0;
+  private answersToOtherRequests = 0;
+  private rpcSerial = 0;
+  private lastRpcRow: { id: number; serial: number } | null = null;
+  private readonly rowSerials = new Map<number, number>();
+  private answeredSerial: number | null = null;
   private permissionSeq = 0;
   private clock = REPLAY_START;
 
@@ -585,13 +618,15 @@ export class HarnessSessionReplay {
   /** A world with one queued harness author, and a stage that asks for an effort when `setup` says so. */
   static async open(setup: SpecSetup): Promise<HarnessSessionReplay> {
     setSystemTime(new Date(REPLAY_START));
-    const world = await WorkflowWorld.open(WORLD_SETUP);
+    const { asksEffort, bindsABranch } = SPEC_SETUPS[setup];
+    const world = await WorkflowWorld.open({ ...WORLD_SETUP, pageBranch: bindsABranch });
     const author = world.authors[0];
     if (!author) throw new Error("the world has no author");
     const replay = new HarnessSessionReplay(world, author.taskId);
     const { workflow } = world;
     workflow.sandboxProvider = new HoldingSandboxProvider(replay);
     workflow.modelInstance = new HeldSummarizationModel(replay);
+    workflow.env = { ...workflow.env, DB: replay.holdingBranchBindings(workflow.env.DB) };
     const host = workflow.code();
     if (!host) throw new Error("the world has no code host");
     const commitAuthor = host.commitAuthor.bind(host);
@@ -599,7 +634,7 @@ export class HarnessSessionReplay {
       await replay.holdStart();
       return commitAuthor();
     };
-    if (SPEC_SETUPS[setup]) {
+    if (asksEffort) {
       const { orchestrator } = workflow.config();
       workflow.patchConfig({
         orchestrator: { ...orchestrator, task: { ...orchestrator.task, effort: ASKED_EFFORT } },
@@ -677,7 +712,7 @@ export class HarnessSessionReplay {
         current: bridge.token === sandbox.bridge_token,
         alive: bridge.alive,
         saidHello: bridge.saidHello,
-        requests: bridge.requests.map((request) => ({ ...request })),
+        requests: bridge.requests.map(({ id, purpose, cancelled }) => ({ id, purpose, cancelled })),
       })),
       calls: this.calls.map(projectCall),
       promptsSent: this.promptsSent,
@@ -690,6 +725,11 @@ export class HarnessSessionReplay {
         AGENT_WAKE_TEXTS.some((text) => note.text.includes(text)),
       ).length,
       eventsThatThrew: this.eventsThatThrew,
+      lostTurns: store
+        .logLines()
+        .filter((row) => row.task_id === this.taskId && LOST_TURN_LINES.includes(row.line)).length,
+      stopsEnded: this.stopsEnded,
+      answersToOtherRequests: this.answersToOtherRequests,
     };
   }
 
@@ -722,7 +762,41 @@ export class HarnessSessionReplay {
   heldStart(generation: number): Promise<void> {
     const awaits = this.startAwaits.get(generation);
     if (!awaits) throw new Error(`no start of ${generation} is held`);
+    this.providerStartsReached.get(generation)?.();
     return awaits.start.promise;
+  }
+
+  /**
+   * A D1 binding whose router writes of a branch binding stay out until a later step returns
+   * them. A write that the step returns not ok throws.
+   */
+  holdingBranchBindings(db: Env["DB"]): Env["DB"] {
+    const holdBinding = () =>
+      new Promise<void>((resolve, reject) => {
+        this.hold({
+          kind: { name: "BranchBinding" },
+          answer: ({ ok }) => (ok ? resolve() : reject(new Error("the router write failed"))),
+        });
+      });
+    const binding: object = {
+      prepare: (sql: string) => {
+        const statement = db.prepare(sql);
+        if (!BRANCH_BINDING_WRITE.test(sql)) return statement;
+        return {
+          bind: (...params: unknown[]) => {
+            const bound = statement.bind(...params);
+            if (!params.includes("code_branch")) return bound;
+            return {
+              run: async () => holdBinding().then(() => bound.run()),
+              all: async () => holdBinding().then(() => bound.all()),
+              raw: async () => holdBinding().then(() => bound.raw()),
+              first: async () => holdBinding().then(() => bound.first()),
+            };
+          },
+        };
+      },
+    };
+    return binding as Env["DB"];
   }
 
   /** Hold a sandbox destroy until a later step returns it. */
@@ -771,6 +845,9 @@ export class HarnessSessionReplay {
     const clearRpc = store.clearRpc.bind(store);
     store.insertRpc = (taskId, method, purpose) => {
       const id = insertRpc(taskId, method, purpose);
+      this.rpcSerial += 1;
+      this.lastRpcRow = { id, serial: this.rpcSerial };
+      this.rowSerials.set(id, this.rpcSerial);
       const specPurpose = SPEC_PURPOSE[purpose];
       if (specPurpose) this.rpcs.push({ id, purpose: specPurpose });
       if (purpose === "prompt") this.promptsSent += 1;
@@ -778,16 +855,21 @@ export class HarnessSessionReplay {
     };
     store.takeRpc = (id, taskId) => {
       const pending = takeRpc(id, taskId);
-      if (pending)
-        this.rpcs.splice(
-          this.rpcs.findIndex((row) => row.id === id),
-          1,
-        );
+      if (!pending) return pending;
+      this.rpcs.splice(
+        this.rpcs.findIndex((row) => row.id === id),
+        1,
+      );
+      if (this.answeredSerial !== null && this.rowSerials.get(id) !== this.answeredSerial) {
+        this.answersToOtherRequests += 1;
+      }
+      this.rowSerials.delete(id);
       return pending;
     };
     store.clearRpc = (taskId) => {
       clearRpc(taskId);
       this.rpcs.splice(0, this.rpcs.length);
+      this.rowSerials.clear();
     };
   }
 
@@ -806,7 +888,7 @@ export class HarnessSessionReplay {
       case "agentResumesAuthor":
         return this.runStep(() => resumeTask(workflow, this.task(), { text: "", answering: [] }));
       case "personStops":
-        return this.runStep(() => stopAuthor(workflow, this.task()));
+        return this.stop();
       case "agentCancelsJob":
         return this.runStep(async () => {
           const { cancel_job } = startTools(workflow);
@@ -823,9 +905,13 @@ export class HarnessSessionReplay {
         return;
       case "durableObjectRestarts":
         return this.restartDurableObject();
+      case "branchBindingReturns":
+        return this.returnCall(this.callOf(required(picks.callId)), {
+          ok: required(picks.ok),
+          decisions: new FakeDecisions(ANSWERS),
+        });
       case "sandboxStartLaunchesBridge":
-        this.launch(this.callOf(required(picks.callId)));
-        return;
+        return this.launchAndRunToTheProviderStart(this.callOf(required(picks.callId)));
       case "sandboxStartReturns":
         return this.returnStart(required(picks.callId), required(picks.ok));
       case "sandboxStartFailsAtOnce":
@@ -950,6 +1036,25 @@ export class HarnessSessionReplay {
     });
   }
 
+  /**
+   * Launch the container of a held start, and run the start on until it waits on the provider's
+   * start, holds another call, or ends, so later steps do not run its rest.
+   */
+  private async launchAndRunToTheProviderStart(call: HeldCall): Promise<void> {
+    if (call.kind.name !== "SandboxStart" || call.kind.launched || call.state === "Dropped") {
+      return this.launch(call);
+    }
+    const { generation } = call.kind;
+    const providerStartReached = new Promise<void>((resolve) => {
+      this.providerStartsReached.set(generation, resolve);
+    });
+    await this.runStep(async () => {
+      this.launch(call);
+      await Promise.race([call.step, providerStartReached]);
+    }, call.alarm);
+    this.providerStartsReached.delete(generation);
+  }
+
   private returnStart(callId: number, ok: boolean): Promise<void> {
     const call = this.callOf(callId);
     if (ok) this.launch(call);
@@ -1019,6 +1124,17 @@ export class HarnessSessionReplay {
       state: "Connected",
       fake,
       read: 0,
+      serials: new Map(),
+    };
+    const send = fake.connection.send.bind(fake.connection);
+    fake.connection.send = (data) => {
+      send(data);
+      const frame = fake.sent.length - 1;
+      const message = parseMessage(fake.sent[frame]!);
+      const row = this.lastRpcRow;
+      if (message && isRequest(message) && Number(message.id) === row?.id) {
+        socket.serials.set(frame, row.serial);
+      }
     };
     const recordClose = fake.connection.close.bind(fake.connection);
     fake.connection.close = (code?: number, reason?: string) => {
@@ -1080,7 +1196,29 @@ export class HarnessSessionReplay {
       );
     }
     const result = this.resultOf(request, finished);
-    await this.runStep(() => this.deliver(socket, jsonRpcResponse(request.id, result)));
+    await this.answerRequest(request, () =>
+      this.deliver(socket, jsonRpcResponse(request.id, result)),
+    );
+  }
+
+  /** Deliver the answer to one request, so a taken rpc row is checked against the row behind it. */
+  private async answerRequest(request: BridgeRequest, deliver: () => Promise<void>): Promise<void> {
+    this.answeredSerial = request.serial;
+    try {
+      await this.runStep(deliver);
+    } finally {
+      this.answeredSerial = null;
+    }
+  }
+
+  /** A person presses Stop. It ends a turn when the author was at work and its generation ends. */
+  private async stop(): Promise<void> {
+    const { workflow } = this.world;
+    const atWork = taskAtWork(workflow, this.task());
+    const { generation } = workflow.store.requireSandbox(this.taskId);
+    await this.runStep(() => stopAuthor(workflow, this.task()));
+    const ended = workflow.store.requireSandbox(this.taskId).generation > generation;
+    if (atWork && ended) this.stopsEnded += 1;
   }
 
   private resultOf(request: BridgeRequest, finished: FinishedStop): unknown {
@@ -1118,7 +1256,7 @@ export class HarnessSessionReplay {
     const socket = this.connectedSocketOf(index);
     const request = bridge.requests.shift();
     if (!request) throw new Error(`bridge ${index} holds no request`);
-    await this.runStep(() =>
+    await this.answerRequest(request, () =>
       this.deliver(socket, jsonRpcErrorResponse(request.id, INTERNAL_ERROR, "the harness failed")),
     );
   }
@@ -1182,22 +1320,28 @@ export class HarnessSessionReplay {
   /** Every bridge reads the frames the orchestrator wrote to its socket while it held it open. */
   private readSentFrames(): void {
     for (const socket of this.sockets) {
-      const frames = socket.fake.sent.slice(socket.read);
+      const first = socket.read;
+      const frames = socket.fake.sent.slice(first);
       socket.read = socket.fake.sent.length;
       const bridge = this.bridgeAt(socket.bridge);
       const reads =
         bridge.alive && socket.state !== "BridgeGone" && socket.state !== "ClosingBridgeGone";
       if (!reads) continue;
-      for (const frame of frames) this.readFrame(bridge, frame);
+      frames.forEach((frame, offset) =>
+        this.readFrame(bridge, frame, socket.serials.get(first + offset)),
+      );
     }
   }
 
-  private readFrame(bridge: ReplayBridge, frame: string): void {
+  private readFrame(bridge: ReplayBridge, frame: string, serial: number | undefined): void {
     const message = parseMessage(frame);
     if (!message) return;
     if (isRequest(message)) {
       const purpose = PURPOSE_OF_METHOD[message.method];
-      if (purpose) bridge.requests.push({ id: Number(message.id), purpose, cancelled: false });
+      if (!purpose) return;
+      if (serial === undefined)
+        throw new Error(`request ${message.id} went out without an rpc row`);
+      bridge.requests.push({ id: Number(message.id), serial, purpose, cancelled: false });
       return;
     }
     if (isNotification(message) && message.method === AgentMethods.sessionCancel) {
@@ -1281,6 +1425,8 @@ function required<Value>(value: Value | null): Value {
 
 function projectCall(call: HeldCall): SpecCall {
   switch (call.kind.name) {
+    case "BranchBinding":
+      return { id: call.id, kind: "BranchBinding", state: call.state };
     case "SandboxStart":
       return {
         id: call.id,

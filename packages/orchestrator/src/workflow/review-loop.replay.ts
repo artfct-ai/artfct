@@ -125,6 +125,13 @@ describe("review loop spec", () => {
     );
   });
 
+  it("leaves a queued comment unanswered when a comment reply fails", async () => {
+    await replayPinnedTrace(
+      "reply-fails-beside-a-queued-comment",
+      "modelCallAuthorWithTwoReviewers",
+    );
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,

@@ -18,8 +18,12 @@ import { FakeDecisions, HangingDecisions } from "@artfct-ai/adapters/test/fake-d
 import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
-import type { RpcAck } from "@artfct-ai/contracts/types";
-import type { ArtifactStatus, TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
+import type {
+  ArtifactStatus,
+  RpcAck,
+  TaskStatus,
+  WorkflowStatus,
+} from "@artfct-ai/contracts/types";
 import type { Binding } from "@artfct-ai/contracts/sources";
 import { OPTIONS_HEADING } from "../src/artifact/options";
 import { labeledPageCommentIds } from "../src/artifact/page-comment-label";
@@ -163,7 +167,8 @@ export type RefinerSetup = (typeof REFINER_SETUPS)[number];
 /**
  * What one generated world is made of: the artifact kind of its first task, its refiner lists,
  * whether its stages run a researcher before the author, how the page author runs, what the
- * checks say on a new push, and how the page stage ends.
+ * checks say on a new push, how the page stage ends, and whether the page stage gives its job its
+ * own branch.
  */
 export type WorldSetup = {
   opening: WorldOpening;
@@ -177,6 +182,7 @@ export type WorldSetup = {
   firstInput: FirstInput;
   subject: PlannedSubject;
   sandboxStart: SandboxStart;
+  pageBranch: boolean;
 };
 
 /**
@@ -421,6 +427,8 @@ export class WorkflowWorld {
   private pullsReadable = true;
   private pullReviewsReadable = true;
   private hostReviewComments: Record<number, PullRequestReviewComment[]> = {};
+  /** Every comment the workflow posted on a pull request, across each code host it got. */
+  readonly pullComments: { number: number; body: string }[] = [];
   private reviewNumber = 0;
   private eventNumber = 0;
   private chatThreadsJoined = 0;
@@ -516,6 +524,7 @@ export class WorkflowWorld {
     if (setup.research) patchStageResearch(workflow);
     if (setup.pageEnding === "choice") patchPageEnding(workflow, "choice");
     if (setup.pageAuthor === "model") patchModelPageAuthor(workflow);
+    if (setup.pageBranch) patchPageBranch(workflow);
     workflow.addWorkflowDefinition({ ...workflow.workflowDefinition(), name: SECOND_DEFINITION });
     const documents = pageHost();
     workflow.documentsInstance = documents;
@@ -686,6 +695,14 @@ export class WorkflowWorld {
     if (author.kind !== "pull" || pull.state === "unopened") return null;
     if (!this.hostReadable || !this.pullsReadable) return null;
     return revisionOf(pull);
+  }
+
+  /** Every revision the author's pull request had, oldest first. */
+  pullRevisionsOf(author: WorldAuthor): string[] {
+    const pull = this.pullOf(author);
+    return [...Array(pull.revisionNumber + 1).keys()].map((pushes) =>
+      pullRevisionAfter(pull.number, pushes),
+    );
   }
 
   /** True when an earlier author opened the pull request this author works on. */
@@ -1279,6 +1296,12 @@ export class WorkflowWorld {
         throw new Error("pullReviews: the host cannot list the reviews");
       };
     }
+    const commentOnPull = host.commentOnPull.bind(host);
+    host.commentOnPull = async (repo, number, body) => {
+      const posted = await commentOnPull(repo, number, body);
+      this.pullComments.push({ number, body });
+      return posted;
+    };
     this.workflow.codeHostInstance = host;
   }
 
@@ -1528,6 +1551,14 @@ function patchModelPageAuthor(workflow: FakeRuntime): void {
   });
 }
 
+function patchPageBranch(workflow: FakeRuntime): void {
+  workflow.patchWorkflowDefinition({
+    stages: workflow
+      .workflowDefinition()
+      .stages.map((stage) => (stage.name === STAGE_OF.page ? { ...stage, branch: true } : stage)),
+  });
+}
+
 function patchPageEnding(workflow: FakeRuntime, ending: PageEnding): void {
   workflow.patchWorkflowDefinition({
     stages: workflow
@@ -1541,7 +1572,12 @@ function pullUrl(number: number): string {
 }
 
 function revisionOf(pull: WorldPull): string {
-  return `rev-${pull.number}-${pull.revisionNumber}`;
+  return pullRevisionAfter(pull.number, pull.revisionNumber);
+}
+
+/** The revision of a world pull request after this many pushes. `pushCountOf` reads it back. */
+function pullRevisionAfter(pullNumber: number, pushes: number): string {
+  return `rev-${pullNumber}-${pushes}`;
 }
 
 /** How many pushes came before a revision of a world pull request, read from its name. */

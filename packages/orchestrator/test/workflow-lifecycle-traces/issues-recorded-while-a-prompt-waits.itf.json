@@ -163,6 +163,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "scriptedInit",
@@ -367,6 +373,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "agentStartsJob",
@@ -569,6 +581,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "agentStartsJobOnAnIssue",
@@ -771,6 +789,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "agentSetsPlan",
@@ -1030,6 +1054,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "agentStartsJob",
@@ -1286,6 +1316,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "agentSetsPlan",
@@ -1545,6 +1581,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "agentPromptsAuthor",
@@ -1803,6 +1845,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "agentStartsJob",
@@ -2059,6 +2107,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "agentStartsJobOnAnIssue",
@@ -2315,6 +2369,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "agentResumesAuthor",
@@ -2573,6 +2633,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "mbt::actionTaken": "authorLinksItsIssues",

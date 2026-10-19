@@ -40,6 +40,7 @@ async function replayTrace(setup: SpecSetup, trace: TraceStep[]): Promise<void> 
     const output = await replay.take(step);
     expect(output, divergence(step)).toEqual(step.output);
     expect(replay.project(), divergence(step)).toEqual(step.routing);
+    if (step.messages) expect(replay.messages(), divergence(step)).toEqual(step.messages);
   }
   replay = null;
 }
@@ -94,6 +95,21 @@ const PINNED: { name: string; setup: SpecSetup; file: string }[] = [
     name: "tells the starting session that a researcher failed after its restarts",
     setup: "trackerResearch",
     file: "a-researcher-fails-after-its-restarts",
+  },
+  {
+    name: "restarts a researcher whose turn gave up after it wrote its payload",
+    setup: "trackerResearch",
+    file: "a-researcher-that-gave-up-restarts",
+  },
+  {
+    name: "restarts a researcher that the harness stopped on a limit after it wrote its payload",
+    setup: "trackerResearch",
+    file: "a-researcher-stopped-on-a-limit-restarts",
+  },
+  {
+    name: "loses the closing reply of a cancelled turn when the workflow restarts before the tracker stores it",
+    setup: "trackerOnly",
+    file: "a-restart-loses-the-closing-reply-of-a-cancelled-turn",
   },
   {
     name: "ends the feed on the stopped reply when a stop lands during the model call of an author in review",

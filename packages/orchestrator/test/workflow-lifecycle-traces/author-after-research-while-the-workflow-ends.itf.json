@@ -220,6 +220,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -425,6 +431,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -630,6 +642,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -834,6 +852,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -1039,6 +1063,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -1295,6 +1325,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -1583,6 +1619,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -1922,6 +1964,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -2298,6 +2346,15 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "EndStored",
+          "value": {
+            "tag": "Cancelled",
+            "value": {
+              "#tup": []
+            }
+          }
         }
       }
     },
@@ -2671,6 +2728,15 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "EndStored",
+          "value": {
+            "tag": "Cancelled",
+            "value": {
+              "#tup": []
+            }
+          }
         }
       }
     },
@@ -3074,6 +3140,15 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "EndStored",
+          "value": {
+            "tag": "Cancelled",
+            "value": {
+              "#tup": []
+            }
+          }
         }
       }
     },
@@ -3477,6 +3552,15 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "EndStored",
+          "value": {
+            "tag": "Cancelled",
+            "value": {
+              "#tup": []
+            }
+          }
         }
       }
     }

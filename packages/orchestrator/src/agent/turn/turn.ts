@@ -12,7 +12,14 @@ import { withRequestTimeout } from "../model/request-timeout";
 import { stepStatus } from "./step-status";
 import { isSupersededIsolate } from "./superseded";
 import { activeToolNames, systemPrompt, type TurnFacts } from "../prompt/system-prompt";
-import { ASK, FIRST_REPLY_TOOLS, STAY_SILENT, TELL } from "../tools/channel";
+import {
+  acknowledgeRevisionRequest,
+  ASK,
+  FIRST_REPLY_TOOLS,
+  STAY_SILENT,
+  TELL,
+  type Acknowledgement,
+} from "../tools/channel";
 import { FAIL_WORKFLOW, FINISH_WORKFLOW } from "../tools/plan";
 import { START_JOB } from "../tools/start/start";
 import { PROMPT_TASK } from "../tools/task";
@@ -85,7 +92,11 @@ type GenerateInput = {
 };
 
 /** What the tools of a turn share with the rest of the turn. */
-type TurnToolsInput = { runtimeRequest: Promise<RuntimeRequest | null>; decisions: TurnDecisions };
+type TurnToolsInput = {
+  runtimeRequest: Promise<RuntimeRequest | null>;
+  decisions: TurnDecisions;
+  acknowledgement: Acknowledgement;
+};
 
 /** What one run of the model works with. `stepsBefore` numbers its status lines after an earlier pass. */
 type ModelPassInput = {
@@ -169,7 +180,10 @@ async function boundedAttempt(workflow: WorkflowRuntime, turn: TurnInput): Promi
   }
 }
 
-/** Read the message, and run the model once the runtime request landed. */
+/**
+ * Read the message, and run the model once the runtime request landed. A revision request gets
+ * its first reply, then sends the held comments, before the model runs.
+ */
 async function attempt(
   workflow: WorkflowRuntime,
   turn: TurnInput,
@@ -177,16 +191,21 @@ async function attempt(
 ): Promise<Outcome> {
   const message = turn.messages.join("\n\n");
   const decisions: TurnDecisions = { signal, failed: false };
+  const acknowledgement: Acknowledgement = { acknowledged: false };
   const reading = turn.messages.length ? readPersonMessage(workflow, message, decisions) : null;
   const runtimeRequest = Promise.resolve(reading).then((reply) =>
     reply?.namesModel ? requestedRuntime(workflow, message, decisions) : null,
   );
   const [reply, tools] = await Promise.all([
     reading,
-    loadTools(workflow, turn, { runtimeRequest, decisions }),
+    loadTools(workflow, turn, { runtimeRequest, decisions, acknowledgement }),
   ]);
   const progress: TurnProgress = { firstReplied: false };
-  if (reply?.asksForRevision) await sendHeldCommentsForRevision(workflow, decisions);
+  if (reply?.asksForRevision) {
+    await acknowledgeRevisionRequest(workflow, turn.answering, acknowledgement);
+    progress.firstReplied = true;
+    await sendHeldCommentsForRevision(workflow, decisions);
+  }
   await compactIfLarge(workflow, turn, signal);
   await runtimeRequest;
   return generateWithRetry(workflow, { tools, signal, reply, progress, answering: turn.answering });
@@ -218,7 +237,7 @@ async function generateWithRetry(workflow: WorkflowRuntime, run: GenerateInput):
 async function loadTools(
   workflow: WorkflowRuntime,
   turn: TurnInput,
-  { runtimeRequest, decisions }: TurnToolsInput,
+  { runtimeRequest, decisions, acknowledgement }: TurnToolsInput,
 ): Promise<ToolSet> {
   let mcp: ToolSet = {};
   try {
@@ -231,6 +250,7 @@ async function loadTools(
     runtimeRequest,
     decisions,
     answering: turn.answering,
+    acknowledgement,
   });
   const foreign = new Set<string>([...Object.keys(mcp), ...FOREIGN_TEXT_TOOLS]);
   return condensingTools(

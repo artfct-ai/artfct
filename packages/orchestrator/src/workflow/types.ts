@@ -31,6 +31,7 @@ import type { Recipients } from "../notify/recipients";
 import type { SandboxProvider } from "../sandbox/provider";
 import type { WorkflowState } from "./store/state";
 import type { JobRow, TaskRow, WorkflowStore } from "./store/tasks";
+import type { TurnCoalescer } from "./task/harness/turn";
 
 /** Methods on the Workflow DO that alarms may call by name. */
 export type ScheduledMethod =
@@ -52,6 +53,7 @@ export type ScheduledMethod =
   | "recheckChecks"
   | "onModelTurnDeadline"
   | "resumeLostCalls"
+  | "resumeWorkflowEnd"
   | "runLostModelTurnAgain";
 
 /**
@@ -91,6 +93,8 @@ export interface WorkflowRuntime {
   /** The settings of the stage a task's job runs. */ stageForTask(task: TaskRow): ResolvedStage;
   /** Schedule a method call by name. Returns the schedule id. */
   scheduleAlarm(delaySeconds: number, method: ScheduledMethod, payload: unknown): Promise<string>;
+  /** Schedule a method call due now, unless the same method with the same payload is scheduled. */
+  scheduleAlarmOnce(method: ScheduledMethod, payload: unknown): Promise<void>;
   cancelAlarm(id: string): Promise<void>;
   /** Call a method by name at an interval. A method and payload that already repeat start nothing. */
   startRepeatingAlarm(
@@ -139,6 +143,10 @@ export interface WorkflowRuntime {
    * says where the person who wrote it wrote from.
    */
   tellAgent(text: string, wake: Wake, from?: WroteFrom): Promise<void>;
+  /** The turn lane: one agent turn at a time, and the wakes during a turn become one more turn. */
+  readonly agentTurns: TurnCoalescer;
+  /** Run one agent turn on the inbox. Only the turn lane calls it. */
+  agentTurn(): Promise<void>;
   /** The orchestrator's model, or a named prompt's model with its request fields and gateway. */
   model(
     modelName?: string,

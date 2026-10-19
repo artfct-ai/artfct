@@ -167,8 +167,24 @@ describe("harness session spec", () => {
     await replayPinnedTrace("lost-turn-forgets-its-session");
   });
 
+  it("restarts an author idle in review when its harness exits", async () => {
+    await replayPinnedTrace("harness-exit-under-an-idle-author");
+  });
+
+  it("fails a task whose harness exits with no restarts left", async () => {
+    await replayPinnedTrace("harness-exit-with-no-restarts-left");
+  });
+
+  it("fails a task that loses its turn with no restarts left", async () => {
+    await replayPinnedTrace("lost-turn-with-no-restarts-left");
+  });
+
   it("holds a prompt until the effort handshake ends", async () => {
     await replayPinnedTrace("prompt-during-the-effort-handshake", "stageAsksForEffort");
+  });
+
+  it("does not start the sandbox of a task cancelled while its branch binding was out", async () => {
+    await replayPinnedTrace("branch-binding-returns-after-a-cancel", "jobOnABranch");
   });
 
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
