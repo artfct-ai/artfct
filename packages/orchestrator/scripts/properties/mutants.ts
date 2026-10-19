@@ -884,8 +884,8 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "workflowLifecycle::aQueuedPromptReachesItsModelCallAuthor, reviewLoop::aQueuedPromptReachesItsModelCallAuthor",
     path: "src/workflow/task/model-turn.ts",
-    find: "  await drainQueue(workflow, workflow.store.requireTask(task.task_id));\n}",
-    replace: "}",
+    find: "  await drainQueue(workflow, workflow.store.requireTask(task.task_id));\n",
+    replace: "",
   },
   {
     id: "W124",
