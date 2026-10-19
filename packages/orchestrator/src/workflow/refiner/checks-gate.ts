@@ -143,8 +143,13 @@ function claimChecksSendBack(
   artifact: ArtifactRow,
   revision: string,
 ): boolean {
-  const id = `checks_sent_back:${artifact.job_id}:${revision}`;
+  const id = checksSendBackEventId(artifact.job_id, revision);
   return workflow.store.markEventSeen({ id, kind: "checks_sent_back" });
+}
+
+/** The id of the event that records the one send-back a revision of the job's artifact gets. */
+export function checksSendBackEventId(jobId: string, revision: string): string {
+  return `checks_sent_back:${jobId}:${revision}`;
 }
 
 /**

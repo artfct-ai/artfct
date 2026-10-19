@@ -894,6 +894,27 @@ export const MUTANTS: Mutant[] = [
     find: "  workflow.store.updateTask(task.task_id, { status, model_turn_id: null });\n",
     replace: "  workflow.store.updateTask(task.task_id, { status });\n",
   },
+  {
+    id: "W211",
+    invariant: "reviewLoop replay: finish_review out of turn is refused without a change",
+    path: "src/agent/tools/artifact.ts",
+    find: "  if (isJudgeRun(workflow, pointer)) return JUDGE_ENTRY_REFUSAL;\n  if (!taskQuiet(workflow, author)) {\n    return `The author ${author.task_id} is still working. You are told when its turn ends.`;\n  }\n",
+    replace: "  if (isJudgeRun(workflow, pointer)) return JUDGE_ENTRY_REFUSAL;\n",
+  },
+  {
+    id: "W212",
+    invariant: "reviewLoop::aJudgeRejectionPostsItsReasonOnce (pull request)",
+    path: "src/artifact/pull.ts",
+    find: "    await host.commentOnPull(ref.repo, ref.number, text);\n",
+    replace: "",
+  },
+  {
+    id: "W213",
+    invariant: "reviewLoop replay: the store records the send-back of each revision",
+    path: "src/workflow/refiner/checks-gate.ts",
+    find: '  return workflow.store.markEventSeen({ id, kind: "checks_sent_back" });\n',
+    replace: "  return !workflow.store.eventSeen(id);\n",
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */
