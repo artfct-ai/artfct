@@ -263,7 +263,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | O10 | Person rows are upserted and merged by email before the access check. | |
 | O11 | A repeated event id reaches the agent once per workflow. A base move copy gets the workflow id appended. | |
 | O12 | The tracker install link mints a single-use state. The callback consumes it, exchanges the code, refuses a second workspace, and saves the tokens. A state that a callback does not consume stays stored after it expires. | |
-| O13 | A tracker token refresh spends the refresh token with compare-and-set. The loser adopts the stored tokens. A failed refresh keeps the old token while it is valid. | |
+| O13 | Calls in one isolate share one tracker token refresh. A refresh spends the refresh token with compare-and-set. The loser adopts the stored tokens. A failed refresh keeps the old token while it is valid. | `tests::packages/orchestrator/src/oauth/token.property.test.medium.ts` |
 | O14 | A sandbox bridge dial to a workflow without a row gets 404. | `harnessSession::aBridgeConnectsOnlyWithTheCurrentToken` |
 
 ## Ingress routes
