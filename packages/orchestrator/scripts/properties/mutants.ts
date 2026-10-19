@@ -887,6 +887,13 @@ export const MUTANTS: Mutant[] = [
     replace:
       '    case "waiting":\n      return endPolisherRun(workflow, polisher, { ended: "turn" });\n    case "sent_back":\n',
   },
+  {
+    id: "W210",
+    invariant: "workflowLifecycle replay: a model call's turn ends once its author finishes",
+    path: "src/workflow/lifecycle.ts",
+    find: "  workflow.store.updateTask(task.task_id, { status, model_turn_id: null });\n",
+    replace: "  workflow.store.updateTask(task.task_id, { status });\n",
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */
