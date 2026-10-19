@@ -114,15 +114,7 @@
     "//#knip": {
       "inputs": ["$TURBO_DEFAULT$", "packages/**", "template/**"]
     },
-    "//#test:root": {
-      "inputs": [
-        "scripts/**",
-        "spec/glossary.md",
-        "packages/*/src/**",
-        "packages/*/migrations/**",
-        "template/**"
-      ]
-    },
+    "//#test:root": {},
     "//#fmt:check": {}
   }
 }
