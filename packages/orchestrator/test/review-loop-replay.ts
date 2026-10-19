@@ -181,6 +181,7 @@ export type SpecReview = {
     revision: number;
     refinerRun: number | null;
     sentBack: number | null;
+    recheckArmed: boolean;
   };
   refinerRuns: SpecRun[];
   judgeRunsCodeRulesOn: number[];
@@ -202,6 +203,9 @@ export type TraceStep = {
 };
 
 const REVIEW_AGAIN_DECISIONS = ["ReviewAgain", "NoReviewAgain", "AgentRoutes"] as const;
+
+/** The words of the route note that ask the agent to route the review. */
+const ROUTE_NOTE_TEXT = "Then route it: request_review";
 
 /** What the review again decision says when a model-call author's turn ends. */
 type ReviewAgainDecision = (typeof REVIEW_AGAIN_DECISIONS)[number];
@@ -267,6 +271,7 @@ function specReview(value: unknown): SpecReview {
       revision: itfInt(itfField(artifact, "revision")),
       refinerRun: refinerRun.tag === "OnRefinerRun" ? itfInt(refinerRun.value) : null,
       sentBack: sentBack.tag === "SentBackOn" ? itfInt(sentBack.value) : null,
+      recheckArmed: itfBool(itfField(artifact, "recheckArmed")),
     },
     refinerRuns: itfList(itfField(value, "refinerRuns")).map(specRun),
     judgeRunsCodeRulesOn: sortedInts(itfField(value, "judgeRunsCodeRulesOn")),
@@ -639,7 +644,6 @@ type FailingHostMethod =
   | "heldComments"
   | "acknowledgeComment"
   | "fetchComment"
-  | "replyToComment"
   | "updatePageContent"
   | "page";
 
@@ -1088,6 +1092,7 @@ export class ReviewLoopReplay {
         revision: this.revisionCount(this.hostRevision() ?? ""),
         refinerRun: pointer === -1 ? null : pointer,
         sentBack: this.sentBackRevision(author.job_id),
+        recheckArmed: this.world.workflow.alarmsFor("recheckChecks").length > 0,
       },
       refinerRuns: runs.map((run) =>
         specRunOf(run, revisionCount, taskQuiet(this.world.workflow, run)),
@@ -1626,6 +1631,30 @@ export class ReviewLoopReplay {
     };
   }
 
+  /**
+   * Refuse each reply to a live comment the turn carries, or every reply when it carries none.
+   * A reply to a queued comment then lands only when the author posts it before the turn's own.
+   */
+  private hostRefusesTheTurnReplies(): () => void {
+    const before = this.trace[this.step - 1]!.review;
+    const refused = new Set(
+      before.author.turnComments
+        .filter((specId) => !before.personComments[specId]!.gone)
+        .map((specId) => this.comments[specId]!.hostId),
+    );
+    const host = this.host();
+    const reply = host.replyToComment.bind(host);
+    host.replyToComment = async (target, text) => {
+      if (refused.size === 0 || refused.has(target.commentId)) {
+        throw new Error("replyToComment: the host refuses the reply");
+      }
+      return reply(target, text);
+    };
+    return () => {
+      host.replyToComment = reply;
+    };
+  }
+
   /** Make the next read of the page text fail, and leave the reads after it as they were. */
   private hostFailsTheNextRead(): () => void {
     const host = this.host();
@@ -1743,7 +1772,7 @@ export class ReviewLoopReplay {
       case "PageReadFails":
         return this.hostFailsTheNextRead();
       case "RepliesFail":
-        return this.failingHost("replyToComment", "the host refuses the reply");
+        return this.hostRefusesTheTurnReplies();
       case "UpdateFails":
         return this.failingHost("updatePageContent", "the host refuses the change");
       case "UpdateLandsThenFails":
@@ -2091,14 +2120,15 @@ function rejectionCommentOf(runs: RefinerRun[], run: number, text: string): Spec
 }
 
 /**
- * What the agent read about page comments, as the spec names it: the text of a comment that was
- * held when the step began, that held comments stay held, and the mention that came in.
+ * What the agent read, as the spec names it: the text of a comment that was held when the step
+ * began, that held comments stay held, the mention that came in, and the route note.
  */
 function agentHeardOf(heard: string, said: Pick<HeardInStep, "heldTexts" | "mention">): string[] {
   const notes: string[] = [];
   if (said.heldTexts.some((heldText) => heard.includes(heldText))) notes.push("HeldCommentText");
   if (heard.includes("They stay held")) notes.push("HeldCommentsStayHeld");
   if (said.mention !== null && heard.includes(said.mention)) notes.push("MentionText");
+  if (heard.includes(ROUTE_NOTE_TEXT)) notes.push("RouteNote");
   return notes;
 }
 

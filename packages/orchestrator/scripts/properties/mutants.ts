@@ -1271,6 +1271,65 @@ export const MUTANTS: Mutant[] = [
       '    case "waiting":\n      return endPolisherRun(workflow, polisher, { ended: "turn" });\n    case "sent_back":\n',
   },
   {
+    id: "W220",
+    invariant: "reviewLoop::authorGetsEveryPageFinding",
+    path: "src/workflow/refiner/outcome.ts",
+    find: "  const total = review.findings.length;\n",
+    replace:
+      '  if (artifact.ref.kind === "page") return;\n  const total = review.findings.length;\n',
+  },
+  {
+    id: "W221",
+    invariant: "reviewLoop::aPromptToAPageAuthorCarriesItsHeldComments (mention)",
+    path: "src/workflow/refiner/feedback.ts",
+    find: "feedbackText(who, withHeldComments(feedback, carried))",
+    replace: "feedbackText(who, feedback)",
+  },
+  {
+    id: "W222",
+    invariant: "reviewLoop::failedReplyLeavesThePage (queued reply)",
+    path: "src/workflow/task/model-author.ts",
+    find: "  for (const reply of revision.replies) {\n    if (!(await documents.fetchComment(reply.comment_id))) {\n      workflow.log(task.task_id, `comment ${reply.comment_id} is gone from the page. no reply.`);\n      continue;\n    }\n    await documents.replyToComment(\n      { pageId: ref.page_id, commentId: reply.comment_id },\n      reply.text,\n    );\n  }\n  const after = isRootPage ? aboveResources(revision.pageText, pageText) : revision.pageText;\n  const change = { before: pageText, after };\n  await replyToQueuedCommentsOnRemovedLines(workflow, task, {\n    documents,\n    pageId: ref.page_id,\n    change,\n    promptId: request.promptId,\n  });\n",
+    replace:
+      "  const after = isRootPage ? aboveResources(revision.pageText, pageText) : revision.pageText;\n  const change = { before: pageText, after };\n  await replyToQueuedCommentsOnRemovedLines(workflow, task, {\n    documents,\n    pageId: ref.page_id,\n    change,\n    promptId: request.promptId,\n  });\n  for (const reply of revision.replies) {\n    if (!(await documents.fetchComment(reply.comment_id))) {\n      workflow.log(task.task_id, `comment ${reply.comment_id} is gone from the page. no reply.`);\n      continue;\n    }\n    await documents.replyToComment(\n      { pageId: ref.page_id, commentId: reply.comment_id },\n      reply.text,\n    );\n  }\n",
+  },
+  {
+    id: "W223",
+    invariant: "reviewLoop::aReviewWaitingForRoutingTellsTheAgent",
+    path: "src/workflow/refiner/loop.ts",
+    find: "    return askAgentToRoute(workflow, task, artifact, pointer);\n  }\n",
+    replace: "    return;\n  }\n",
+  },
+  {
+    id: "W224",
+    invariant: "reviewLoop::aReviewWaitingForRoutingTellsTheAgent (failed review again call)",
+    path: "src/workflow/refiner/loop.ts",
+    find: "  if (reviewAgain === null) return askAgentToRoute(workflow, task, artifact, pointer);\n",
+    replace: "  if (reviewAgain === null) return;\n",
+  },
+  {
+    id: "W225",
+    invariant: "reviewLoop::theRecheckAlarmRunsWhileTheGateHolds",
+    path: "src/workflow/refiner/checks-gate.ts",
+    find: '  if (gate.gate === "waiting" || gate.gate === "sent_back") {\n',
+    replace: '  if (gate.gate === "waiting") {\n',
+  },
+  {
+    id: "W226",
+    invariant: "reviewLoop::theRecheckAlarmRunsWhileTheGateHolds (stop)",
+    path: "src/workflow/refiner/checks-gate.ts",
+    find: '  } else {\n    await workflow.stopRepeatingAlarm("recheckChecks", alarm);\n  }\n  return gate;\n',
+    replace: "  }\n  return gate;\n",
+  },
+  {
+    id: "W227",
+    invariant: "reviewLoop::anAnswerAtTheReviewLimitMovesOn",
+    path: "src/workflow/refiner/loop.ts",
+    find: "      return runRefinersOnRevision(workflow, author, artifact, refinerIndexOf(pointer) + 1);\n    }\n    if (taskSettings",
+    replace:
+      "      return runRefinersOnRevision(workflow, author, artifact, refinerIndexOf(pointer));\n    }\n    if (taskSettings",
+  },
+  {
     id: "W205",
     invariant: "harnessSession::aLostTurnCountsOneRestart (count)",
     path: "src/workflow/task/harness/bridge.ts",

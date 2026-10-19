@@ -88,6 +88,9 @@ A code name is one type, table, column, or function. A code name that needs a co
 | stopped early | An author turn that ended on its own with the work unfinished, and that does not wait on a person. The author counts as stalled at once. | `AuthorTurnOutcome "stopped_early"` | |
 | stalled | An author whose work is unfinished, that does not wait on a person, and that showed no progress for the no-progress limit, or whose turn stopped early. It gets a nudge in the same session. A second stall with no progress since the nudge restarts it in a fresh sandbox, and it fails once its restarts are used up. Progress is a tool call or a todo list change. Text alone is not progress. | `nudgeOrRestartStalledTask`, `sandboxes.nudged` | |
 | review again decision | The decision, over a model-call author's closing text, that its revision needs the reviewers to run again. A harness author does not get one. The orchestrator agent routes its closing text. | `authorAskedForReview` | |
+| route note | The note that asks the orchestrator agent to route the author's answer to a findings review, with `request_review` or `finish_review`. It goes out when the answer settles below the review limit, and again on each checks report while the review waits. | `askAgentToRoute` | |
+| review limit | The number of runs, `max_review_runs`, after which the author's answer to a findings reviewer entry moves the list past that entry without another review. | `reviewLimitReached` | |
+| recheck alarm | The repeating alarm that reads the checks again while the checks gate waits or sent a revision back. | `recheckChecks`, `RECHECK_SECONDS` | |
 | option | A proposed direction an author lists under the options heading of a page artifact. | parsed from the page text, not stored | |
 
 ## Communication
