@@ -38,7 +38,7 @@ function invariantsEachWitnessIsFor(source: string): Map<string, string[]> {
 const specModules = [...new Set(listSpecSetups().map(({ spec }) => spec))].map(readSpecModule);
 
 const mutatedInvariants = new Set(
-  MUTANTS.flatMap(({ invariant }) => /^(\w+::\w+)/.exec(invariant)?.[1] ?? []),
+  MUTANTS.flatMap(({ invariant }) => invariant.match(/\w+::\w+/g) ?? []),
 );
 
 describe.each(specModules)("the $module invariants", ({ spec, module, source }) => {
