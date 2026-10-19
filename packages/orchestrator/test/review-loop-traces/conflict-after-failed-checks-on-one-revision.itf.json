@@ -477,9 +477,12 @@
           }
         },
         "outcome": {
-          "tag": "None",
+          "tag": "Some",
           "value": {
-            "#tup": []
+            "tag": "GateOpens",
+            "value": {
+              "#tup": []
+            }
           }
         },
         "part": {
