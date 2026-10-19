@@ -1,0 +1,34 @@
+name: quint bench
+on: pull_request
+permissions:
+  contents: read
+jobs:
+  bench:
+    name: quint bench (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [ubuntu-latest, ubuntu-24.04-arm]
+    defaults:
+      run:
+        shell: bash
+        working-directory: packages/orchestrator
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: sudo apt-get install -y libjemalloc2 libmimalloc2.0 >/dev/null; nproc; lscpu | head -20; ls /usr/lib/*-linux-gnu/ | grep -E 'jemalloc|mimalloc'
+      - name: Throughput by threads and allocator
+        run: |
+          lib=/usr/lib/$(uname -m)-linux-gnu
+          invariants=$(bun -e 'console.log(JSON.parse(require("fs").readFileSync("../../spec/agent-turns/checks.json","utf8")).invariants.join(" "))')
+          run() { bunx quint run ../../spec/agent-turns/chatAndSession.qnt --main=chatAndSession --max-samples=10000 --max-steps=25 --verbosity=1 --invariants $invariants "$@" 2>&1 | grep traces/second; }
+          run --n-threads=1 >/dev/null
+          find ~/.quint -type f -name "quint_evaluator*" -exec file {} \; -exec ldd {} \;
+          for threads in 1 2 4 8; do echo "glibc threads=$threads $(run --n-threads=$threads)"; done
+          for threads in 1 4; do echo "jemalloc threads=$threads $(LD_PRELOAD=$lib/libjemalloc.so.2 run --n-threads=$threads)"; done
+          for threads in 1 4; do echo "mimalloc threads=$threads $(LD_PRELOAD=$(ls $lib/libmimalloc.so.2* | head -1) run --n-threads=$threads)"; done
