@@ -267,6 +267,8 @@ module reviewLoopTypes {
     aStoppedRefinerRunHandsOverBlocked: bool,
     aPolisherEndsDoneOnlyWhenItsChecksOpen: bool,
     checksGoBackOncePerRevision: bool,
+    refinersStartOnlyWhenTheAuthorsGateOpens: bool,
+    aBlockedAuthorsGateHandsOverBlocked: bool,
   }
 
   /// Whether the last step reached each before-and-after witness, by the name of the witness. Only
@@ -1996,6 +1998,18 @@ module reviewLoop {
     step.kind.checks == GateSettles(GateBlocks) implies handedOverBlocked(step.after),
   }
 
+  /// True when the checks gate read the author's revision in a step and did not open.
+  pure def theAuthorsGateHeld(step: Transition): bool = or {
+    step.kind.checks == GateSettlesTheAuthor(GateWaits),
+    step.kind.checks == GateSettlesTheAuthor(GateSendsBack),
+    step.kind.checks == GateSettlesTheAuthor(GateBlocks),
+  }
+
+  /// True when no refiner run starts in a step where the checks gate read the author's revision
+  /// and did not open.
+  pure def startsRunsOnlyThroughTheAuthorsGate(step: Transition): bool =
+    theAuthorsGateHeld(step) implies startedRuns(step).size() == 0
+
   /// True when failed checks or a conflict went back to the submitter in a step.
   pure def sendsChecksBack(step: Transition): bool = or {
     step.kind.checks == GateSettles(GateSendsBack),
@@ -2254,6 +2268,9 @@ module reviewLoop {
     aStoppedRefinerRunHandsOverBlocked: handsOverBlockedWhenItsRunStops(step),
     aPolisherEndsDoneOnlyWhenItsChecksOpen: endsDoneThroughTheGate(step),
     checksGoBackOncePerRevision: sendsBackOncePerRevision(step),
+    refinersStartOnlyWhenTheAuthorsGateOpens: startsRunsOnlyThroughTheAuthorsGate(step),
+    aBlockedAuthorsGateHandsOverBlocked:
+      step.kind.checks == GateSettlesTheAuthor(GateBlocks) implies handedOverBlocked(step.after),
   }
 
   /// The held comments read in a step whose host marks them read, when some were held.
@@ -2623,6 +2640,13 @@ module reviewLoop {
     lastStepKept.checksGoBackOncePerRevision,
   }
 
+  /// A refiner run starts on the author's revision only in a step where the gate opened or did
+  /// not read.
+  val refinersStartOnlyWhenTheAuthorsGateOpens: bool = lastStepKept.refinersStartOnlyWhenTheAuthorsGateOpens
+
+  /// A step where the author's gate blocks hands the artifact over closed blocked.
+  val aBlockedAuthorsGateHandsOverBlocked: bool = lastStepKept.aBlockedAuthorsGateHandsOverBlocked
+
   /// Every invariant above, for one check of all of them.
   val invariants: bool = and {
     oneUnfinishedRefinerRunPerArtifact,
@@ -2651,6 +2675,8 @@ module reviewLoop {
     aStoppedRefinerRunHandsOverBlocked,
     aPolisherEndsDoneOnlyWhenItsChecksOpen,
     checksGoBackOncePerRevision,
+    refinersStartOnlyWhenTheAuthorsGateOpens,
+    aBlockedAuthorsGateHandsOverBlocked,
   }
 
   /// The revisions of the artifact, a counter that model checking bounds.
@@ -2952,14 +2978,15 @@ module reviewLoop {
   /// Witness for `aPolisherEndsDoneOnlyWhenItsChecksOpen`: an unknown revision opens the gate.
   val anUnknownRevisionOpensTheGate: bool = lastStepReached.anUnknownRevisionOpensTheGate
 
-  /// Witness for `refinersRunAgainOnlyOnChangedRevision`: the checks gate opens on the author's
-  /// revision.
+  /// Witness for `refinersStartOnlyWhenTheAuthorsGateOpens`: the checks gate opens on the
+  /// author's revision.
   val theAuthorsGateOpens: bool = lastStepReached.theAuthorsGateOpens
 
-  /// Witness for `checksGoBackOncePerRevision`: the checks gate holds the author's revision.
+  /// Witness for `refinersStartOnlyWhenTheAuthorsGateOpens`: the checks gate holds the author's
+  /// revision.
   val theAuthorsGateWaits: bool = lastStepReached.theAuthorsGateWaits
 
-  /// Witness for `deliveredToHumansIsNeverCleared`: the checks gate on the author's revision
+  /// Witness for `aBlockedAuthorsGateHandsOverBlocked`: the checks gate on the author's revision
   /// blocks the handover.
   val theAuthorsGateBlocksTheHandover: bool = lastStepReached.theAuthorsGateBlocksTheHandover
 
@@ -2971,8 +2998,8 @@ module reviewLoop {
   /// the gate held.
   val checksGoBackToAWaitingAuthor: bool = lastStepReached.checksGoBackToAWaitingAuthor
 
-  /// Witness for `reviewerRunsOnlyOnAnUnreviewedRevision`: a checks report opens the gate on the
-  /// author's revision, and a refiner run starts.
+  /// Witness for `refinersStartOnlyWhenTheAuthorsGateOpens`: a checks report opens the gate on
+  /// the author's revision, and a refiner run starts.
   val aRefinerRunStartsWhenTheAuthorsGateOpens: bool = lastStepReached.aRefinerRunStartsWhenTheAuthorsGateOpens
 
 }
