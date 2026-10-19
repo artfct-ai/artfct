@@ -1,7 +1,9 @@
 /// How the workflow routes a person's feedback on the artifact of its one author. Each feedback
 /// is screened when it carries text the screen reads, marked read on the host, and then routed:
 /// to the author, to nobody, or to the agent, which tells the humans. A failed decisions call
-/// routes to the agent. Each action is one delivery or one change to the author, run to its end.
+/// routes to the agent. A host delivers a feedback, and the workflow routes the delivery later, so
+/// other steps land between them. A restart fails every delivery in flight, and a page host
+/// delivers it again. A feedback is marked seen with its routing decision.
 module feedbackRouting {
   /// The artifact the author works on.
   type ArtifactKind = PullRequest | Page
@@ -78,16 +80,25 @@ module feedbackRouting {
   /// admit, and what it showed.
   type Arrival = { picks: Picks, onARunningWorkflow: bool, unadmitted: Set[Words], shown: Shown }
 
-  /// The feedback the last step delivered, if it delivered one.
-  type LastFeedback = NoFeedback | FeedbackArrived(Arrival)
+  /// The feedback the last step routed, if it routed one, or a delivery it dropped because another
+  /// delivery of the same feedback was routed.
+  type LastFeedback = NoFeedback | FeedbackArrived(Arrival) | DuplicateDropped
 
-  /// The workflow and its author as the last step left them.
+  /// The workflow and its author as the last step left them. Feedbacks are numbered by arrival.
+  /// `forms` is what each person posted, `inFlight` counts each one's deliveries in flight,
+  /// `undelivered` holds the ones a restart failed until a delivery of them ends, and
+  /// `routedTimes` counts each one's routing decisions.
   type World = {
     workflow: WorkflowStatus,
     author: Author,
     recorded: bool,
     heldOnPage: bool,
     arrivals: int,
+    forms: int -> FeedbackForm,
+    inFlight: int -> int,
+    undelivered: Set[int],
+    routedTimes: int -> int,
+    restarts: int,
   }
 
   /// For each rule over a step, whether the last step kept it. Each step writes it anew.
@@ -114,6 +125,8 @@ module feedbackRouting {
     heldCommentsCannotBeRead: bool,
     aMentionCarriesTheHeldComments: bool,
     aMentionWithNothingHeldIsNotScreened: bool,
+    aRedeliveryAfterARestartRoutes: bool,
+    aDuplicateDeliveryIsDropped: bool,
   }
 
   /// Whether the author works on a page. Otherwise it works on a pull request.
@@ -138,6 +151,11 @@ module feedbackRouting {
     recorded: KIND == Page,
     heldOnPage: heldAtStart,
     arrivals: 0,
+    forms: Map(),
+    inFlight: Map(),
+    undelivered: Set(),
+    routedTimes: Map(),
+    restarts: 0,
   }
 
   pure val QUIET: Shown =
@@ -172,14 +190,13 @@ module feedbackRouting {
   /// What one feedback does to the world, and what it shows. A page mention that does not reach
   /// the author leaves itself held, and only the author route sends the held comments.
   pure def delivered(before: World, picks: Picks): { after: World, arrival: Arrival } = {
-    val counted = { ...before, arrivals: before.arrivals + 1 }
     val mention = picks.form == PageMention
     val carriesHeld = mention and before.heldOnPage
     val read = Set(ownWords(picks.form)).union(if (carriesHeld) Set(HeldWords) else Set())
     val screened =
       if (picks.form == AppReview) Set(AppWords) else if (carriesHeld) Set(HeldWords) else Set()
     val heardWithNotes = eventWords(picks.form).union(read)
-    val left = { ...counted, heldOnPage: before.heldOnPage or mention }
+    val left = { ...before, heldOnPage: before.heldOnPage or mention }
     val running = before.workflow == WorkflowRunning
     val arrival = { picks: picks, onARunningWorkflow: running, unadmitted: Set(), shown: QUIET }
     val toTheHumans = { ...QUIET, wake: WakesForTheHumans, heard: heardWithNotes }
@@ -202,21 +219,21 @@ module feedbackRouting {
     else if (KIND == Page and picks.ack == AckFails)
       { after: left, arrival: { ...arrival, shown: { ...toTheHumans, note: NotMarkedReadNote } } }
     else if (before.author.status == Finished)
-      { after: counted, arrival: { ...arrival, shown: { ...toTheHumans, note: AuthorFinishedNote } } }
+      { after: before, arrival: { ...arrival, shown: { ...toTheHumans, note: AuthorFinishedNote } } }
     else match decisionOf(picks.answer) {
       | ToTheAuthor => {
-        after: { ...counted, author: withAPrompt(before.author), heldOnPage: false },
+        after: { ...before, author: withAPrompt(before.author), heldOnPage: false },
         arrival: {
           ...arrival,
           shown: { ...QUIET, promptsAdded: 1, prompted: read, note: SentToAuthorNote, heard: heardWithNotes },
         },
       }
       | ToNobody => {
-        after: counted,
+        after: before,
         arrival: { ...arrival, shown: { ...QUIET, note: AsksForNothingNote, heard: heardWithNotes } },
       }
       | ToTheAgent => {
-        after: counted,
+        after: before,
         arrival: { ...arrival, shown: { ...toTheHumans, note: ForTheAgentNote } },
       }
     }
@@ -236,7 +253,7 @@ module feedbackRouting {
         arrival.shown.promptsAdded <= 1,
         decisionsShown(arrival.shown).size() == 1,
       }
-    | NoFeedback => true
+    | _ => true
   }
 
   pure def unadmittedReachesNobody(last: LastFeedback): bool = match last {
@@ -245,7 +262,7 @@ module feedbackRouting {
         not(arrival.shown.prompted.contains(words)),
         not(arrival.shown.heard.contains(words)),
       })
-    | NoFeedback => true
+    | _ => true
   }
 
   pure def rulesKeptIn(last: LastFeedback): RulesKept = {
@@ -253,7 +270,9 @@ module feedbackRouting {
     unadmittedReachesNobody: unadmittedReachesNobody(last),
   }
 
-  pure def stepWitnessesOf(before: World, last: LastFeedback): StepWitnesses = match last {
+  /// The step witnesses of the last step. `redelivered` is true when it routed a feedback that a
+  /// restart failed.
+  pure def stepWitnessesOf(before: World, last: LastFeedback, redelivered: bool): StepWitnesses = match last {
     | FeedbackArrived(arrival) => {
       val picks = arrival.picks
       val note = arrival.shown.note
@@ -280,8 +299,11 @@ module feedbackRouting {
         aMentionCarriesTheHeldComments: note == SentToAuthorNote and arrival.shown.prompted.contains(HeldWords),
         aMentionWithNothingHeldIsNotScreened:
           picks.form == PageMention and not(before.heldOnPage) and picks.screen != Admitted and note == SentToAuthorNote,
+        aRedeliveryAfterARestartRoutes: redelivered and arrival.onARunningWorkflow,
+        aDuplicateDeliveryIsDropped: false,
       }
     }
+    | DuplicateDropped => { ...NO_STEP_WITNESS, aDuplicateDeliveryIsDropped: true }
     | NoFeedback => NO_STEP_WITNESS
   }
 
@@ -305,6 +327,8 @@ module feedbackRouting {
     heldCommentsCannotBeRead: false,
     aMentionCarriesTheHeldComments: false,
     aMentionWithNothingHeldIsNotScreened: false,
+    aRedeliveryAfterARestartRoutes: false,
+    aDuplicateDeliveryIsDropped: false,
   }
 
   /// Write the world after a step, the feedback it delivered, and the rules and witnesses it kept and showed.
@@ -312,7 +336,15 @@ module feedbackRouting {
     world' = after,
     lastFeedback' = last,
     rulesKept' = rulesKeptIn(last),
-    stepWitnesses' = stepWitnessesOf(world, last),
+    stepWitnesses' = stepWitnessesOf(world, last, false),
+  }
+
+  /// Like `recordStep`, for a step that routed a feedback a restart had failed.
+  action recordRedelivery(after: World, last: LastFeedback): bool = all {
+    world' = after,
+    lastFeedback' = last,
+    rulesKept' = rulesKeptIn(last),
+    stepWitnesses' = stepWitnessesOf(world, last, true),
   }
 
   action init: bool = {
@@ -325,17 +357,105 @@ module feedbackRouting {
     }
   }
 
-  /// A person posts feedback on the artifact, and the host delivers it to the workflow.
-  action personPostsFeedback: bool = {
-    nondet form = formsOf(KIND).oneOf()
+  /// True when the feedback was routed. Its routing decision marked it seen.
+  pure def isSeen(w: World, id: int): bool = w.routedTimes.get(id) > 0
+
+  pure def isInFlight(w: World, id: int): bool = w.inFlight.get(id) > 0
+
+  /// Feedback `id` is routed with `picks`. Routing marks it seen, and its delivery's end clears
+  /// a failed delivery the host owed.
+  pure def routed(w: World, id: int, picks: Picks): { after: World, arrival: Arrival } = {
+    val result = delivered(w, picks)
+    {
+      after: {
+        ...result.after,
+        undelivered: result.after.undelivered.exclude(Set(id)),
+        routedTimes: result.after.routedTimes.put(id, result.after.routedTimes.get(id) + 1),
+      },
+      arrival: result.arrival,
+    }
+  }
+
+  /// A delivery of feedback `id` reaches the workflow. A seen feedback is a duplicate, which ends
+  /// the delivery. An ended workflow ignores it at once. Otherwise the delivery waits in flight.
+  action deliveryArrives(w: World, id: int): bool = {
     nondet screen = Set(Admitted, NotAdmitted, Unreadable).oneOf()
     nondet ack = Set(AckSucceeds, AckFails).oneOf()
     nondet heldRead = heldReadsOf(KIND).oneOf()
     nondet answer = Set(ForTheAuthor, AsksForNothing, BeyondTheAuthor, Unsure, CallFails).oneOf()
-    val result = delivered(world, { form: form, screen: screen, ack: ack, heldRead: heldRead, answer: answer })
+    val picks = { form: w.forms.get(id), screen: screen, ack: ack, heldRead: heldRead, answer: answer }
+    val ignored = routed(w, id, picks)
+    if (isSeen(w, id)) recordStep({ ...w, undelivered: w.undelivered.exclude(Set(id)) }, NoFeedback)
+    else if (w.workflow == WorkflowEnded) recordStep(ignored.after, FeedbackArrived(ignored.arrival))
+    else recordStep({ ...w, inFlight: w.inFlight.put(id, w.inFlight.get(id) + 1) }, NoFeedback)
+  }
+
+  /// A person posts feedback on the artifact, and the host delivers it to the workflow.
+  action personPostsFeedback: bool = {
+    nondet form = formsOf(KIND).oneOf()
+    val id = world.arrivals
     all {
       world.arrivals < FEEDBACKS,
-      recordStep(result.after, FeedbackArrived(result.arrival)),
+      deliveryArrives(
+        {
+          ...world,
+          arrivals: id + 1,
+          forms: world.forms.put(id, form),
+          inFlight: world.inFlight.put(id, 0),
+          routedTimes: world.routedTimes.put(id, 0),
+        },
+        id,
+      ),
+    }
+  }
+
+  /// The feedbacks a host delivers again. A page host retries a delivery a restart failed. Any
+  /// host may send a delivery again while one is in flight. A pull request host does not retry.
+  val deliveredAgain: Set[int] =
+    world.inFlight.keys().filter(id => isInFlight(world, id))
+      .union(if (KIND == Page) world.undelivered else Set())
+
+  /// The host delivers a feedback again.
+  action hostDeliversAgain: bool = all {
+    deliveredAgain != Set(),
+    nondet id = deliveredAgain.oneOf()
+    deliveryArrives(world, id),
+  }
+
+  /// The workflow instance restarts. Every delivery in flight fails, and the host owes it.
+  action instanceRestarts: bool = {
+    val failed = world.inFlight.keys().filter(id => isInFlight(world, id))
+    all {
+      failed != Set(),
+      recordStep(
+        {
+          ...world,
+          inFlight: world.inFlight.keys().mapBy(_ => 0),
+          undelivered: world.undelivered.union(failed),
+          restarts: world.restarts + 1,
+        },
+        NoFeedback,
+      ),
+    }
+  }
+
+  /// A delivery in flight is screened, marked read on the host, and routed. A delivery of a
+  /// feedback another delivery routed already is dropped before it reads anything.
+  action feedbackIsRouted: bool = {
+    val waiting = world.inFlight.keys().filter(id => isInFlight(world, id))
+    all {
+      waiting != Set(),
+      nondet id = waiting.oneOf()
+      nondet screen = Set(Admitted, NotAdmitted, Unreadable).oneOf()
+      nondet ack = Set(AckSucceeds, AckFails).oneOf()
+      nondet heldRead = heldReadsOf(KIND).oneOf()
+      nondet answer = Set(ForTheAuthor, AsksForNothing, BeyondTheAuthor, Unsure, CallFails).oneOf()
+      val rest = { ...world, inFlight: world.inFlight.put(id, world.inFlight.get(id) - 1) }
+      val picks = { form: world.forms.get(id), screen: screen, ack: ack, heldRead: heldRead, answer: answer }
+      val result = routed(rest, id, picks)
+      if (isSeen(world, id)) recordStep(rest, DuplicateDropped)
+      else if (world.undelivered.contains(id)) recordRedelivery(result.after, FeedbackArrived(result.arrival))
+      else recordStep(result.after, FeedbackArrived(result.arrival)),
     }
   }
 
@@ -391,10 +511,12 @@ module feedbackRouting {
     ),
   }
 
-  /// Every feedback arrived, the workflow ended and finished the author, and a page holds a
-  /// comment. These negate the guards of every other step, so each of them is blocked here.
+  /// Every feedback arrived, no delivery is in flight or owed, the workflow ended and finished the
+  /// author, and a page holds a comment. These negate the guards of every other step, so each of
+  /// them is blocked here. A pull request host does not retry, so it may still owe a delivery.
   val theRoutingEnds: bool = and {
     world.arrivals == FEEDBACKS,
+    deliveredAgain == Set(),
     world.workflow == WorkflowEnded,
     world.author.status == Finished,
     KIND == Page implies world.heldOnPage,
@@ -411,6 +533,9 @@ module feedbackRouting {
 
   action step: bool = any {
     personPostsFeedback,
+    hostDeliversAgain,
+    instanceRestarts,
+    feedbackIsRouted,
     personLeavesAPageComment,
     authorRecordsItsPullRequest,
     authorTurnEnds,
@@ -428,8 +553,24 @@ module feedbackRouting {
   /// agent's reads, for every feedback form.
   val unadmittedFeedbackReachesNobody: bool = rulesKept.unadmittedReachesNobody
 
+  /// Each feedback is routed exactly once, unless a delivery of it is still in flight or the host
+  /// still owes it a delivery after a failed one.
+  val everyFeedbackIsRoutedOnce: bool = world.routedTimes.keys().forall(id => and {
+    world.routedTimes.get(id) <= 1,
+    (not(isInFlight(world, id)) and not(world.undelivered.contains(id))) implies world.routedTimes.get(id) == 1,
+  })
+
   /// The feedbacks that arrived, which model checking bounds.
   val feedbacksArrived: int = world.arrivals
+
+  /// The instance restarts, which model checking bounds.
+  val instanceRestartCount: int = world.restarts
+
+  /// The deliveries in flight, which model checking bounds.
+  val deliveriesInFlight: int = world.inFlight.keys().fold(0, (total, id) => total + world.inFlight.get(id))
+
+  /// A restart failed a delivery of a pull request feedback, and its host does not deliver it again.
+  val aRestartLosesAPullRequestFeedback: bool = KIND == PullRequest and world.undelivered != Set()
 
   val aFeedbackGoesToTheAuthor: bool = stepWitnesses.aFeedbackGoesToTheAuthor
   val aFeedbackAsksForNothing: bool = stepWitnesses.aFeedbackAsksForNothing
@@ -450,4 +591,6 @@ module feedbackRouting {
   val heldCommentsCannotBeRead: bool = stepWitnesses.heldCommentsCannotBeRead
   val aMentionCarriesTheHeldComments: bool = stepWitnesses.aMentionCarriesTheHeldComments
   val aMentionWithNothingHeldIsNotScreened: bool = stepWitnesses.aMentionWithNothingHeldIsNotScreened
+  val aRedeliveryAfterARestartRoutes: bool = stepWitnesses.aRedeliveryAfterARestartRoutes
+  val aDuplicateDeliveryIsDropped: bool = stepWitnesses.aDuplicateDeliveryIsDropped
 }
