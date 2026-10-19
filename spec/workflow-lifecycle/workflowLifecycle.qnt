@@ -183,7 +183,9 @@ module workflowLifecycleTypes {
 
   /// What an observer knows about the last step besides the states around it. `PlanStep` is a
   /// plan with its workflow definition and the subject it names, `NoSubject` when it leaves the
-  /// subject out. `IssueStartStep` is `start_job` on the issue. `OutputStep` is the turn end of a
+  /// subject out. `JobStartStep` is `start_job` on a request or on the pull an earlier job
+  /// opened, and `IssueStartStep` is `start_job` on the issue. Each says whether a router write of
+  /// the start failed. `OutputStep` is the turn end of a
   /// breakdown author with the subject its output names. `DeadlineStep` is the deadline alarm of
   /// the model turn of a job. `PromptStep` is the agent's prompt to a task. `FinishStep` is
   /// `finish_workflow`. `SubjectCompletionStep` runs `complete_job` on the job of the subject issue
@@ -200,7 +202,8 @@ module workflowLifecycleTypes {
   type StepKind =
     | OtherStep
     | PlanStep({ definition: int, subject: Subject })
-    | IssueStartStep(int)
+    | JobStartStep({ routerWriteFails: bool })
+    | IssueStartStep({ issue: int, routerWriteFails: bool })
     | OutputStep(Subject)
     | EventStep
     | VerbalCommandStep(VerbalCommand)
@@ -259,6 +262,7 @@ module workflowLifecycleTypes {
     aFailedCheckNeverCompletesAJob: bool,
     aFailedCheckNeverAsksThePersonAgain: bool,
     stoppedModelCallLeavesThePage: bool,
+    aJobStartProvisionsItsTask: bool,
   }
 
   /// Whether the last step reached each before-and-after witness, by the name of the witness. Only
@@ -307,6 +311,7 @@ module workflowLifecycleTypes {
     aCheckFailsAfterItsAuthorEnded: bool,
     aStopEndsAModelCall: bool,
     aStoppedModelCallReturns: bool,
+    aJobStartsPastAFailedRouterWrite: bool,
     aStaleAlarmFindsAnEndedModelTurn: bool,
     aRestartCutsAProduceTurn: bool,
     aDeadlinePassesDuringAProduceTurn: bool,
@@ -733,6 +738,33 @@ module workflowLifecycle {
     val task = newTask(flow, if (RESEARCH) Researcher else Author)
     val job = { input: input, tasks: List(task), artifact: NoArtifact, refinerRuns: List(), pullOnHost: NoPull }
     sendFirstModelCall({ ...flow, jobs: flow.jobs.append(job), status: Running }, flow.jobs.length())
+  }
+
+  /// `startJob` whose router write fails after it wrote the task: the D1 status write when the
+  /// status changes, else the branch binding. The start armed the provision alarm before it, so
+  /// the task starts as it does without the failure.
+  pure def startedJobPastAFailedRouterWrite(flow: Workflow, input: Input): Workflow =
+    startedJob(flow, input)
+
+  /// True when the task of job `id` got its first prompt, or its model call is out.
+  pure def taskProvisioned(flow: Workflow, id: int): bool =
+    if (runsAsModelCalls(jobTask(flow, id)))
+      flow.calls.indices().exists(callId => flow.calls[callId].job == id and flow.calls[callId].kind == ModelCall)
+    else jobTask(flow, id).turnRunning
+
+  /// A job start provisions the task it writes, also when a router write of the start fails.
+  pure def provisionsEveryStartedTask(step: Transition): bool =
+    0.to(MAX_JOBS - 1).forall(id =>
+      (id >= step.before.jobs.length() and id < step.after.jobs.length()) implies taskProvisioned(step.after, id))
+
+  /// True when a step starts a job past a failed router write of the start.
+  pure def startsAJobPastAFailedRouterWrite(step: Transition): bool = and {
+    step.after.jobs.length() > step.before.jobs.length(),
+    match step.kind {
+      | JobStartStep(start) => start.routerWriteFails
+      | IssueStartStep(start) => start.routerWriteFails
+      | _ => false
+    },
   }
 
   /// `startAuthorAfterResearch`: the researcher finishes done once its turn ended with the research
@@ -1478,7 +1510,13 @@ module workflowLifecycle {
     nondet request = REQUESTS.oneOf()
     val input = inputFor(workflow, request)
     val refused = not(startAllowed(workflow)) or inputHeld(workflow, input)
-    move(untold(if (refused) workflow else startedJob(workflow, input)), OtherStep),
+    nondet routerWriteFails = Set(true, false).oneOf()
+    val started =
+      if (routerWriteFails) startedJobPastAFailedRouterWrite(workflow, input) else startedJob(workflow, input)
+    move(
+      untold(if (refused) workflow else started),
+      JobStartStep({ routerWriteFails: routerWriteFails }),
+    ),
   }
 
   /// True while a job can start: a plan started the workflow, it has not ended, no end runs, and
@@ -1494,14 +1532,19 @@ module workflowLifecycle {
   /// outside the subject, also one an earlier job took. An issue outside the subject is refused,
   /// and so is any issue before the workflow has a subject. The tracker refuses an issue a person
   /// ended. An earlier artifact the host still holds refuses it, and so does an unfinished job on
-  /// the issue. The start claims the issue, which moves it to started.
+  /// the issue. The start claims the issue, which moves it to started. The status write comes
+  /// before the claim, so a status write that fails leaves the issue where it was.
   action agentStartsJobOnAnIssue: bool = all {
     STARTS_ON_ISSUES,
     workflow.jobs.length() < MAX_JOBS,
     nondet issue = ISSUES.oneOf()
+    nondet routerWriteFails = Set(true, false).oneOf()
     val input = FromIssue(issue)
     val earlier = recordEarlierPullsRemoved(workflow, issue)
-    val started = startedJob(earlier.flow, input)
+    val started =
+      if (routerWriteFails) startedJobPastAFailedRouterWrite(earlier.flow, input)
+      else startedJob(earlier.flow, input)
+    val claimed = not(routerWriteFails) or workflow.status == Running
     val refusedAtOnce = or {
       not(startAllowed(workflow)),
       not(issueInSubject(workflow.subject, issue)),
@@ -1511,9 +1554,9 @@ module workflowLifecycle {
       untold(
         if (refusedAtOnce) workflow
         else if (not(earlier.clear) or inputInWork(workflow, input)) earlier.flow
-        else { ...started, issueMoves: started.issueMoves + 1 },
+        else { ...started, issueMoves: if (claimed) started.issueMoves + 1 else started.issueMoves },
       ),
-      IssueStartStep(issue),
+      IssueStartStep({ issue: issue, routerWriteFails: routerWriteFails }),
     ),
   }
 
@@ -1529,7 +1572,11 @@ module workflowLifecycle {
         pullChain(workflow, id).select(other => not(isFinished(jobTask(workflow, other).status))).length() > 0,
         workflow.jobs[id].pullOnHost != PullOpen,
       }
-      move(untold(if (refused) workflow else startedJob(workflow, FromArtifactOf(id))), OtherStep),
+      nondet routerWriteFails = Set(true, false).oneOf()
+      val input = FromArtifactOf(id)
+      val started =
+        if (routerWriteFails) startedJobPastAFailedRouterWrite(workflow, input) else startedJob(workflow, input)
+      move(untold(if (refused) workflow else started), JobStartStep({ routerWriteFails: routerWriteFails })),
     },
   )
 
@@ -2125,8 +2172,8 @@ module workflowLifecycle {
   /// A start on an issue outside the subject, or before the workflow has one, does not start a
   /// job.
   pure def startsNoJobOutsideTheSubject(step: Transition): bool = match step.kind {
-    | IssueStartStep(issue) =>
-      not(issueInSubject(step.before.subject, issue)) implies step.after.jobs.length() == step.before.jobs.length()
+    | IssueStartStep(start) =>
+      not(issueInSubject(step.before.subject, start.issue)) implies step.after.jobs.length() == step.before.jobs.length()
     | _ => true
   }
 
@@ -2317,6 +2364,7 @@ module workflowLifecycle {
     aFailedCheckNeverCompletesAJob: leavesTheJobOpenOnAFailedCheck(step),
     aFailedCheckNeverAsksThePersonAgain: doesNotAskAgainOnAFailedCheck(step),
     stoppedModelCallLeavesThePage: leavesThePageOnAStoppedCall(step),
+    aJobStartProvisionsItsTask: provisionsEveryStartedTask(step),
   }
 
   /// Whether one step reached each before-and-after witness.
@@ -2448,10 +2496,10 @@ module workflowLifecycle {
       }),
       aStartBeforeTheSubjectIsRefused: issueStartMayStart(step) and step.before.subject == NoSubject,
       aStartOutsideTheSubjectIsRefused: match step.kind {
-        | IssueStartStep(issue) => and {
+        | IssueStartStep(start) => and {
           issueStartMayStart(step),
           step.before.subject != NoSubject,
-          not(issueInSubject(step.before.subject, issue)),
+          not(issueInSubject(step.before.subject, start.issue)),
         }
         | _ => false
       },
@@ -2489,6 +2537,7 @@ module workflowLifecycle {
         | StoppedCallReturnStep(_) => true
         | _ => false
       },
+      aJobStartsPastAFailedRouterWrite: startsAJobPastAFailedRouterWrite(step),
       aStaleAlarmFindsAnEndedModelTurn: step.kind == StaleAlarmStep and
         jobIds(step.before).exists(id => staleModelTurnDeadlineArmed(step.before, id)),
       aRestartCutsAProduceTurn: step.kind == RestartStep and
@@ -2592,6 +2641,10 @@ module workflowLifecycle {
 
   /// A model call that a stop ended before it answered does not write the page.
   val stoppedModelCallLeavesThePage: bool = lastStepKept.stoppedModelCallLeavesThePage
+
+  /// A job start provisions the task it writes: a harness task gets its first prompt, and a
+  /// model-call author sends its model call. A failed router write of the start does not stop it.
+  val aJobStartProvisionsItsTask: bool = lastStepKept.aJobStartProvisionsItsTask
 
   /// A model-call author has at most one page write out at a time. A stop during the page write
   /// leaves the turn in flight until the write returns, so a prompt meanwhile waits for it.
@@ -2919,6 +2972,10 @@ module workflowLifecycle {
   /// Witness for `stoppedModelCallLeavesThePage`: the model call of a turn that a stop ended
   /// returns.
   val aStoppedModelCallReturns: bool = lastStepReached.aStoppedModelCallReturns
+
+  /// Witness for `aJobStartProvisionsItsTask`: a job starts past a failed router write of the
+  /// start.
+  val aJobStartsPastAFailedRouterWrite: bool = lastStepReached.aJobStartsPastAFailedRouterWrite
 
   /// Witness for `aModelCallAuthorHasAtMostOnePageWriteOut`: a stop lands while the page write of
   /// the author's model turn is out.

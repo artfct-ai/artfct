@@ -609,6 +609,14 @@ export const MUTANTS: Mutant[] = [
     replace: 'return markArtifactReady(workflow, task.job_id, { close: "ready" });',
   },
   {
+    id: "W111",
+    invariant: "workflowLifecycle::aJobStartProvisionsItsTask",
+    path: "src/workflow/lifecycle.ts",
+    find: '  await workflow.scheduleAlarm(0, "provision", { task_id: taskId });\n  await changeWorkflowStatus(workflow, "running");\n',
+    replace:
+      '  await changeWorkflowStatus(workflow, "running");\n  await workflow.scheduleAlarm(0, "provision", { task_id: taskId });\n',
+  },
+  {
     id: "W112",
     invariant: "harnessSession::aTaskWithoutAnEarlierPromptGetsTheTaskPrompt",
     path: "src/workflow/task/harness/prompt-queue.ts",

@@ -39,6 +39,7 @@ import { strayIssueKey, SUBJECT_ISSUE_KEY, subIssueKey } from "./world-tracker";
 import { quintTraces } from "./quint-traces";
 import { toolText } from "./tool-result";
 import { EchoModel } from "./fake-model";
+import { FailingRouterWrites } from "./failing-router-writes";
 import { FakeRuntime, fakeDocumentsOf, MODEL_AUTHOR_MODEL, PAGE_PARENT } from "./fake-runtime";
 import { FakeSandboxProvider } from "./fake-sandbox";
 import { InterleavedDecisions } from "./interleaved-decisions";
@@ -381,6 +382,7 @@ type SpecPicks = {
   subjectLink: SpecSubject | null;
   outputLink: SpecSubject | null;
   lostJobs: number[] | null;
+  routerWriteFails: boolean | null;
 };
 
 /**
@@ -431,6 +433,7 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
     const subjectLink = picked("subjectLink");
     const outputLink = picked("outputLink");
     const lostJobs = picked("lostJobs");
+    const routerWriteFails = picked("routerWriteFails");
     return {
       action: itfText(itfField(state, "mbt::actionTaken")),
       picks: {
@@ -455,6 +458,7 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
         subjectLink: subjectLink === null ? null : specSubject(subjectLink),
         outputLink: outputLink === null ? null : specSubject(outputLink),
         lostJobs: lostJobs === null ? null : sortedInts(lostJobs),
+        routerWriteFails: routerWriteFails === null ? null : itfBool(routerWriteFails),
       },
       workflow: specWorkflow(
         itfField(state, `${SPEC_SETUPS[setup].module}::workflowLifecycle::workflow`),
@@ -718,6 +722,7 @@ export class WorkflowLifecycleReplay {
     private readonly modelAuthor: boolean,
     private readonly stage: string,
     private readonly selects: boolean,
+    private readonly routerWrites: FailingRouterWrites,
   ) {}
 
   /** A world on the stage of `setup`, before the plan. */
@@ -734,11 +739,14 @@ export class WorkflowLifecycleReplay {
       pageEnding,
     });
     const modelAuthor = pageAuthor === "model";
+    const routerWrites = new FailingRouterWrites(world.workflow.env.DB);
+    world.workflow.env = { ...world.workflow.env, DB: routerWrites.db };
     const replay = new WorkflowLifecycleReplay(
       world,
       modelAuthor,
       STAGE_OF[artifact],
       pageEnding === "choice",
+      routerWrites,
     );
     world.workflow.sandboxProvider = new HoldingSandboxProvider((taskId) =>
       replay.holdDestroy(taskId),
@@ -1001,35 +1009,41 @@ export class WorkflowLifecycleReplay {
             }),
         );
       case "agentStartsJob":
-        return worldAction(`agent starts a job on request ${picks.request}`, async (world) => {
-          const requestText = REQUEST_TEXTS[required(picks.request)] ?? REQUEST_TEXTS[0];
-          const { start_job } = startTools(world.workflow, [requestText]);
-          await start_job.execute({ stage: this.stage, brief: "Write the design." }, TOOL_CALL);
-        });
+        return worldAction(`agent starts a job on request ${picks.request}`, (world) =>
+          this.startJob(required(picks.routerWriteFails), async () => {
+            const requestText = REQUEST_TEXTS[required(picks.request)] ?? REQUEST_TEXTS[0];
+            const { start_job } = startTools(world.workflow, [requestText]);
+            await start_job.execute({ stage: this.stage, brief: "Write the design." }, TOOL_CALL);
+          }),
+        );
       case "agentStartsJobOnAnIssue":
         return worldAction(`agent starts a job on issue ${picks.issue}`, (world) =>
-          this.runStep(async () => {
-            const { start_job } = startTools(world.workflow, [REQUEST_TEXTS[0]]);
-            await start_job.execute(
-              {
-                stage: this.stage,
-                brief: "Fix the login redirect.",
-                issue: ISSUE_KEYS[required(picks.issue)],
-              },
-              TOOL_CALL,
-            );
-          }),
+          this.runStep(() =>
+            this.startJob(required(picks.routerWriteFails), async () => {
+              const { start_job } = startTools(world.workflow, [REQUEST_TEXTS[0]]);
+              await start_job.execute(
+                {
+                  stage: this.stage,
+                  brief: "Fix the login redirect.",
+                  issue: ISSUE_KEYS[required(picks.issue)],
+                },
+                TOOL_CALL,
+              );
+            }),
+          ),
         );
       case "agentContinuesAPull":
         return worldAction(`agent continues the pull of job ${picks.id}`, (world) =>
-          this.runStep(async () => {
-            const { start_job } = startTools(world.workflow, [REQUEST_TEXTS[0]]);
-            const url = world.artifactUrlOf(this.worldAuthorOf(required(picks.id)));
-            await start_job.execute(
-              { stage: this.stage, brief: "Address the review.", artifact: url },
-              TOOL_CALL,
-            );
-          }),
+          this.runStep(() =>
+            this.startJob(required(picks.routerWriteFails), async () => {
+              const { start_job } = startTools(world.workflow, [REQUEST_TEXTS[0]]);
+              const url = world.artifactUrlOf(this.worldAuthorOf(required(picks.id)));
+              await start_job.execute(
+                { stage: this.stage, brief: "Address the review.", artifact: url },
+                TOOL_CALL,
+              );
+            }),
+          ),
         );
       case "theHostMovesAPull":
         return worldAction(
@@ -1500,6 +1514,24 @@ export class WorkflowLifecycleReplay {
   }
 
   /** Run a step until it ends or a call it makes is held. */
+  /**
+   * Run a `start_job` call whose router writes fail when `routerWriteFails`. A start that made a
+   * router write reports its failure, and one that made none starts as it would.
+   */
+  private async startJob(routerWriteFails: boolean, start: () => Promise<void>): Promise<void> {
+    this.routerWrites.failing = routerWriteFails;
+    this.routerWrites.thrown = 0;
+    const reported = await start().then(
+      () => null,
+      (error: unknown) => error,
+    );
+    this.routerWrites.failing = false;
+    if (reported !== null && this.routerWrites.thrown === 0) throw reported;
+    if (reported === null && this.routerWrites.thrown > 0) {
+      throw new Error("start_job did not report the router write that failed");
+    }
+  }
+
   private async runStep(step: () => Promise<unknown>): Promise<void> {
     const held = new Promise<"held">((resolve) => {
       this.heldArrived = () => resolve("held");

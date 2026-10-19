@@ -32,6 +32,7 @@
       "issuesForAChatRequest::workflowLifecycle::lastStepKept": {
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
+        "aJobStartProvisionsItsTask": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
@@ -60,6 +61,7 @@
         "aFinishedTaskIsInAStep": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
+        "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
         "aMessageWakesTheWorkflow": false,
@@ -203,6 +205,12 @@
             "#tup": []
           }
         },
+        "routerWriteFails": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "subjectLink": {
           "tag": "None",
           "value": {
@@ -230,6 +238,7 @@
       "issuesForAChatRequest::workflowLifecycle::lastStepKept": {
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
+        "aJobStartProvisionsItsTask": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
@@ -258,6 +267,7 @@
         "aFinishedTaskIsInAStep": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
+        "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
         "aMessageWakesTheWorkflow": false,
@@ -401,6 +411,10 @@
             "#bigint": "0"
           }
         },
+        "routerWriteFails": {
+          "tag": "Some",
+          "value": false
+        },
         "subjectLink": {
           "tag": "None",
           "value": {
@@ -428,6 +442,7 @@
       "issuesForAChatRequest::workflowLifecycle::lastStepKept": {
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
+        "aJobStartProvisionsItsTask": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
@@ -456,6 +471,7 @@
         "aFinishedTaskIsInAStep": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
+        "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
         "aMessageWakesTheWorkflow": false,
@@ -599,6 +615,10 @@
             "#tup": []
           }
         },
+        "routerWriteFails": {
+          "tag": "Some",
+          "value": false
+        },
         "subjectLink": {
           "tag": "None",
           "value": {
@@ -626,6 +646,7 @@
       "issuesForAChatRequest::workflowLifecycle::lastStepKept": {
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
+        "aJobStartProvisionsItsTask": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
@@ -654,6 +675,7 @@
         "aFinishedTaskIsInAStep": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
+        "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
         "aMessageWakesTheWorkflow": false,
@@ -797,6 +819,12 @@
             "#tup": []
           }
         },
+        "routerWriteFails": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "subjectLink": {
           "tag": "Some",
           "value": {
@@ -825,6 +853,7 @@
       "issuesForAChatRequest::workflowLifecycle::lastStepKept": {
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
+        "aJobStartProvisionsItsTask": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
@@ -853,6 +882,7 @@
         "aFinishedTaskIsInAStep": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
+        "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
         "aMessageWakesTheWorkflow": false,
@@ -1050,6 +1080,10 @@
             "#bigint": "0"
           }
         },
+        "routerWriteFails": {
+          "tag": "Some",
+          "value": false
+        },
         "subjectLink": {
           "tag": "None",
           "value": {
@@ -1077,6 +1111,7 @@
       "issuesForAChatRequest::workflowLifecycle::lastStepKept": {
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
+        "aJobStartProvisionsItsTask": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
@@ -1105,6 +1140,7 @@
         "aFinishedTaskIsInAStep": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
+        "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
         "aMessageWakesTheWorkflow": false,
@@ -1302,6 +1338,12 @@
             "#tup": []
           }
         },
+        "routerWriteFails": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "subjectLink": {
           "tag": "Some",
           "value": {
@@ -1330,6 +1372,7 @@
       "issuesForAChatRequest::workflowLifecycle::lastStepKept": {
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
+        "aJobStartProvisionsItsTask": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
@@ -1358,6 +1401,7 @@
         "aFinishedTaskIsInAStep": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
+        "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
         "aMessageWakesTheWorkflow": false,
@@ -1555,6 +1599,12 @@
             "#tup": []
           }
         },
+        "routerWriteFails": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "subjectLink": {
           "tag": "None",
           "value": {
@@ -1582,6 +1632,7 @@
       "issuesForAChatRequest::workflowLifecycle::lastStepKept": {
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
+        "aJobStartProvisionsItsTask": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
@@ -1610,6 +1661,7 @@
         "aFinishedTaskIsInAStep": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
+        "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
         "aMessageWakesTheWorkflow": false,
@@ -1807,6 +1859,10 @@
             "#bigint": "0"
           }
         },
+        "routerWriteFails": {
+          "tag": "Some",
+          "value": false
+        },
         "subjectLink": {
           "tag": "None",
           "value": {
@@ -1834,6 +1890,7 @@
       "issuesForAChatRequest::workflowLifecycle::lastStepKept": {
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
+        "aJobStartProvisionsItsTask": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
@@ -1862,6 +1919,7 @@
         "aFinishedTaskIsInAStep": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
+        "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
         "aMessageWakesTheWorkflow": false,
@@ -2059,6 +2117,10 @@
             "#tup": []
           }
         },
+        "routerWriteFails": {
+          "tag": "Some",
+          "value": false
+        },
         "subjectLink": {
           "tag": "None",
           "value": {
@@ -2086,6 +2148,7 @@
       "issuesForAChatRequest::workflowLifecycle::lastStepKept": {
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
+        "aJobStartProvisionsItsTask": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
@@ -2114,6 +2177,7 @@
         "aFinishedTaskIsInAStep": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
+        "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
         "aMessageWakesTheWorkflow": false,
@@ -2311,6 +2375,12 @@
             "#tup": []
           }
         },
+        "routerWriteFails": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "subjectLink": {
           "tag": "None",
           "value": {
@@ -2338,6 +2408,7 @@
       "issuesForAChatRequest::workflowLifecycle::lastStepKept": {
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
+        "aJobStartProvisionsItsTask": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
@@ -2366,6 +2437,7 @@
         "aFinishedTaskIsInAStep": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
+        "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
         "aMessageWakesTheWorkflow": false,
@@ -2561,6 +2633,12 @@
           }
         },
         "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "routerWriteFails": {
           "tag": "None",
           "value": {
             "#tup": []
