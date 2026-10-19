@@ -630,6 +630,13 @@ export const MUTANTS: Mutant[] = [
     find: "  if (task.model_turn_id !== heldTurnId) return;\n",
     replace: "",
   },
+  {
+    id: "W114",
+    invariant: "reviewLoop::aStoppedRefinerRunHandsOverBlocked (review read)",
+    path: "src/workflow/refiner/loop.ts",
+    find: '  if ("readFailed" in read)\n    return handOverBlockedFromReviewer(\n      workflow,\n      reviewer,\n      `The reviewer\'s review could not be read (${read.readFailed}).`,\n    );\n',
+    replace: "",
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */

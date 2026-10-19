@@ -1,5 +1,5 @@
 import { noteMessage } from "../../agent/transcript/envelope";
-import type { Review, ReviewSupport } from "../../artifact/types";
+import type { Review, ReviewRead, ReviewSupport } from "../../artifact/types";
 import type { JudgeEntry, ReviewerEntry } from "../../config/refiner";
 import { resolveRefinerSettings } from "../../config/stage";
 import { conclusionOf } from "../../prompts/review-prompt";
@@ -261,7 +261,8 @@ export async function startRefiner(
 
 /**
  * A reviewer run finished its turn with `turnText`. Code rules on a judge entry. A findings
- * entry hands its review to the next entry, or settles its segment when it is the last one.
+ * entry hands its review to the next entry, or settles its segment when it is the last one. A
+ * review that cannot be read hands the artifact over blocked.
  */
 export async function onReviewerFinished(
   workflow: WorkflowRuntime,
@@ -271,10 +272,18 @@ export async function onReviewerFinished(
   const reviewer = workflow.store.requireTask(refinerRun.task_id);
   if (isTaskFinished(reviewer.status)) return;
   const entry = reviewerEntryOf(workflow, reviewer);
-  const review =
-    !entry || entry.mode === "judge" ? null : await readReview(workflow, reviewer, entry, turnText);
+  const read: ReviewRead =
+    !entry || entry.mode === "judge"
+      ? { filedNone: true }
+      : await readReview(workflow, reviewer, entry, turnText);
   await finishRefinerRun(workflow, reviewer);
-  if (review) workflow.store.fileReview(reviewer.task_id, review);
+  if ("readFailed" in read)
+    return handOverBlockedFromReviewer(
+      workflow,
+      reviewer,
+      `The reviewer's review could not be read (${read.readFailed}).`,
+    );
+  if ("review" in read) workflow.store.fileReview(reviewer.task_id, read.review);
   const author = workflow.store.authorTaskOf(reviewer.job_id);
   const artifact = workflow.store.artifact(reviewer.job_id);
   if (!artifact) return;
@@ -540,16 +549,16 @@ function mergeReviews(entries: ReviewerEntry[], reviews: FiledReview[]): Review 
   };
 }
 
-/** What the reviewer filed since it started, or null when it filed nothing. */
+/** What the reviewer filed since it started: its review, none, or a read that failed. */
 async function readReview(
   workflow: WorkflowRuntime,
   reviewer: TaskRow,
   entry: ReviewerEntry,
   turnText: string,
-): Promise<Review | null> {
+): Promise<ReviewRead> {
   const artifact = workflow.store.artifact(reviewer.job_id);
   const support = artifact ? reviewSupportOf(workflow, artifact) : null;
-  if (!artifact || !support) return null;
+  if (!artifact || !support) return { filedNone: true };
   return support.postedReview(artifact.ref, {
     since: reviewer.started_at,
     turnText,
@@ -576,6 +585,15 @@ export async function onReviewerFailed(
   reviewer: TaskRow,
   reason: string,
 ): Promise<void> {
+  await handOverBlockedFromReviewer(workflow, reviewer, `The reviewer could not run (${reason}).`);
+}
+
+/** Hand the drafted artifact the reviewer holds over blocked, with `reason` in place of the ready line. */
+async function handOverBlockedFromReviewer(
+  workflow: WorkflowRuntime,
+  reviewer: TaskRow,
+  reason: string,
+): Promise<void> {
   const author = workflow.store.authorTaskOf(reviewer.job_id);
   const artifact = workflow.store.artifact(reviewer.job_id);
   if (!artifact) return;
@@ -594,8 +612,5 @@ export async function onReviewerFailed(
     );
     return;
   }
-  await markArtifactReady(workflow, author.job_id, {
-    close: "blocked",
-    reason: `The reviewer could not run (${reason}).`,
-  });
+  await markArtifactReady(workflow, author.job_id, { close: "blocked", reason });
 }
