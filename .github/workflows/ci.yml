@@ -8,10 +8,11 @@ on:
 permissions:
   contents: read
 
-# A newer push to a pull request cancels its older run. Each push to main gets its own group, so every commit runs.
+# A newer push to a pull request cancels its older run. Main runs one commit at a time, in order, and queues the rest. GitHub rejects `queue: max` beside `cancel-in-progress`, so pull requests keep `single`.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+  queue: ${{ github.event_name == 'pull_request' && 'single' || 'max' }}
 
 env:
   TURBO_API: ${{ vars.TURBO_API }}
