@@ -1063,7 +1063,8 @@ export const MUTANTS: Mutant[] = [
     find: '    case "waiting":\n    case "sent_back":\n',
     replace:
       '    case "waiting":\n      return endPolisherRun(workflow, polisher, { ended: "turn" });\n    case "sent_back":\n',
-  },  {
+  },
+  {
     id: "W205",
     invariant: "harnessSession::aLostTurnCountsOneRestart (count)",
     path: "src/workflow/task/harness/bridge.ts",
@@ -1083,7 +1084,8 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/task/harness/session.ts",
     find: "    return failTask(workflow, task, `harness exited (code ${exit.code}) with no restarts left`);\n",
     replace: "    return;\n",
-  },  {
+  },
+  {
     id: "W208",
     invariant: "harnessSession::aHarnessExitCountsOneRestart (resume)",
     path: "src/workflow/task/harness/session.ts",
