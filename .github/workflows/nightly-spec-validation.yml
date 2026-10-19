@@ -16,7 +16,7 @@ permissions:
 jobs:
   quint_specs:
     name: quint specs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 5
     outputs:
       setups: ${{ steps.list.outputs.setups }}
@@ -39,7 +39,7 @@ jobs:
   quint_nightly:
     name: quint nightly (${{ matrix.spec }}, ${{ matrix.setup }})
     needs: quint_specs
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 200
     strategy:
       fail-fast: false
@@ -138,7 +138,7 @@ jobs:
 
   spec_validation:
     name: spec validation
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 300
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -177,7 +177,7 @@ jobs:
 
   spec_replays:
     name: spec replays
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 90
     defaults:
       run:
@@ -239,7 +239,7 @@ jobs:
     name: nightly spec issue
     needs: [quint_nightly, tlc_nightly, spec_validation, spec_replays]
     if: ${{ !cancelled() && !inputs.commit }}
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 10
     permissions:
       contents: read

@@ -40,7 +40,7 @@ jobs:
   spec_replays:
     name: spec replays (${{ matrix.name }})
     needs: ci
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     strategy:
       fail-fast: false
@@ -73,6 +73,7 @@ jobs:
     name: preview
     needs: [ci, spec_changes, quint, spec_replays]
     if: ${{ !cancelled() && needs.ci.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+    # x64, because it builds and publishes the linux/amd64 sandbox image.
     runs-on: ubuntu-latest
     timeout-minutes: 30
     concurrency:
