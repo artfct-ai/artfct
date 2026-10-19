@@ -8,6 +8,7 @@
     "pullRequestFeedback": 0.2,
     "pageFeedback": 0.2
   },
+  "witnessSamples": { "pageFeedback": 100000 },
   "witnesses": {
     "pullRequestFeedback": [
       "aFeedbackGoesToTheAuthor",

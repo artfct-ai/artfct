@@ -24,6 +24,7 @@ import { quintShards } from "./quint-shards";
 
 const ORCHESTRATOR_DIR = join(import.meta.dirname, "../..");
 const MAX_STEPS = 25;
+const WITNESS_SAMPLES = 10_000;
 const USAGE = [
   "usage: bun scripts/spec/check-spec.ts setups",
   "       bun scripts/spec/check-spec.ts shard <index> <count> <samples> [spec...]",
@@ -121,7 +122,7 @@ async function checkWitnesses(spec: string, setup: string): Promise<number> {
     "run",
     setupFile(spec, setup),
     `--main=${setup}`,
-    "--max-samples=10000",
+    `--max-samples=${readSpecChecks(spec).witnessSamples?.[setup] ?? WITNESS_SAMPLES}`,
     `--max-steps=${maxStepsOf(spec, setup)}`,
     "--witnesses",
     ...witnesses,
