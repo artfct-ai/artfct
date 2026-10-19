@@ -1,6 +1,7 @@
 import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
+import { InterleavedDecisions, onFirstCall } from "../../../test/interleaved-decisions";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { describe, expect, it } from "bun:test";
 import {
@@ -608,4 +609,75 @@ describe("feedback the decisions model reads", () => {
         expect(result.wake).toBe("human");
       }));
   });
+});
+
+function withARunningAuthor(
+  workflow: FakeRuntime,
+  decisions: FakeDecisions | InterleavedDecisions,
+): void {
+  workflow.codeHostInstance = new FakeCodeHost();
+  workflow.gatewayInstance = new FakeGateway({ decisions });
+  seedPullRequestTask(workflow);
+  workflow.store.updateSandbox(TASK, { prompt_in_flight: 1 });
+}
+
+describe("feedback another delivery of it routed", () => {
+  const comment = { id: 901, path: "src/login.ts", line: 12, body: "Drops the error." };
+  const detail = { repo: "acme/app", number: 1, action: "review" as const, comments: [comment] };
+  const event = hostEvent({ kind: "feedback", pull: detail });
+  const FOR_AUTHOR = { for_author: 0.98, beyond_author: 0.06 };
+  const FOR_AGENT = { for_author: 0.97, beyond_author: 0.93 };
+
+  type Twice = { workflow: FakeRuntime; first: Applied | "handled"; second: Applied | "handled" };
+
+  function deliveredAfter(answers: Record<string, number>): Scenario<Twice> {
+    return (run) =>
+      freshRuntime(async (workflow) => {
+        withARunningAuthor(workflow, new FakeDecisions(answers));
+        const first = await applyArtifactEvent(workflow, event);
+        const second = await applyArtifactEvent(workflow, event);
+        await run({ workflow, first, second });
+      });
+  }
+
+  function deliveredWhileItRoutes(answers: Record<string, number>): Scenario<Twice> {
+    return (run) =>
+      freshRuntime(async (workflow) => {
+        let second: Applied | "handled" = "handled";
+        const meanwhile = onFirstCall(async () => {
+          second = await applyArtifactEvent(workflow, event);
+        });
+        withARunningAuthor(
+          workflow,
+          new InterleavedDecisions(new FakeDecisions(answers), meanwhile),
+        );
+        const first = await applyArtifactEvent(workflow, event);
+        await run({ workflow, first, second });
+      });
+  }
+
+  it("sends the author nothing more after it routed", () =>
+    deliveredAfter(FOR_AUTHOR)(({ workflow, second }) => {
+      expect(second).toBe("handled");
+      expect(workflow.store.queue()).toHaveLength(1);
+    }));
+
+  it("tells the agent nothing more after it routed", () =>
+    deliveredAfter(FOR_AGENT)(({ first, second }) => {
+      expect(appliedForAgent(first).wake).toBe("human");
+      expect(second).toBe("handled");
+    }));
+
+  it("sends the author one prompt when it routes while the first delivery waits", () =>
+    deliveredWhileItRoutes(FOR_AUTHOR)(({ workflow, first, second }) => {
+      expect(appliedForAgent(second).notes[0]).toContain("sent it whole to the author");
+      expect(first).toBe("handled");
+      expect(workflow.store.queue()).toHaveLength(1);
+    }));
+
+  it("tells the agent once when it routes while the first delivery waits", () =>
+    deliveredWhileItRoutes(FOR_AGENT)(({ first, second }) => {
+      expect(appliedForAgent(second).wake).toBe("human");
+      expect(first).toBe("handled");
+    }));
 });

@@ -50,6 +50,8 @@ export type Review = {
 
 /** A human message about an artifact, on its way to becoming a prompt for the author. */
 export type Feedback = {
+  /** The id that makes every delivery and every webhook of one feedback the same feedback. */
+  dedupeKey: string;
   from: Actor;
   /** True when access did not check who wrote part of it: an App's review, or held page comments. */
   unchecked: boolean;
@@ -75,19 +77,21 @@ export type ArtifactChange =
   | { change: "opened"; target: ArtifactTarget }
   | { change: "feedback"; feedback: Feedback }
   | { change: "comment_held" }
-  | { change: "mentioned"; from: Actor; page_id: string; comment_id: string; body: string }
+  | {
+      change: "mentioned";
+      dedupeKey: string;
+      from: Actor;
+      page_id: string;
+      comment_id: string;
+      body: string;
+    }
   | { change: "ready" }
   | { change: "accepted" }
   | { change: "closed" }
   | { change: "checks" };
 
-/** What `change` needs besides the event: the artifact it may be about, and the seen-event table. */
-export type ChangeInput = {
-  event: InboundEvent;
-  target: ArtifactTarget | null;
-  /** Take a host action for this event. False when another webhook of it was handled already. */
-  claim: (id: string) => boolean;
-};
+/** What `change` needs besides the event: the artifact it may be about. */
+export type ChangeInput = { event: InboundEvent; target: ArtifactTarget | null };
 
 /**
  * Where a kind looks for a review: the time the reviewer started, and the turn text it ended

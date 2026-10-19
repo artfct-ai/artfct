@@ -164,6 +164,7 @@ async function commentChange(
   if (!comment.mentions.includes(self.id)) return held;
   return {
     change: "mentioned",
+    dedupeKey: event.id,
     from,
     page_id: detail.page_id,
     comment_id: detail.comment_id,

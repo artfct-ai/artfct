@@ -88,9 +88,18 @@ function earlierMessagesNote(endedWorkflowId: string, origin: ReplyTarget | null
   }
 }
 
+/**
+ * True for feedback on a running workflow. It is marked seen when its routing lands, so a
+ * delivery that a restart cut off routes when the host delivers it again.
+ */
+function routesBeforeItIsSeen(workflow: WorkflowRuntime, event: InboundEvent): boolean {
+  return event.kind === "feedback" && !isWorkflowFinished(workflow.state.status);
+}
+
 /** Every later event: dedupe, record what code must record, then tell the agent. */
 export async function handleEvent(workflow: WorkflowRuntime, event: InboundEvent): Promise<RpcAck> {
-  if (!workflow.store.markEventSeen(event)) return { ok: true, duplicate: true };
+  if (workflow.store.eventSeen(event.id)) return { ok: true, duplicate: true };
+  if (!routesBeforeItIsSeen(workflow, event)) workflow.store.markEventSeen(event);
   addReplyTarget(workflow, event.reply_to);
   const job = jobForEvent(workflow, event);
   const controlSuffix = event.control ? `:${event.control}` : "";
@@ -105,6 +114,7 @@ export async function handleEvent(workflow: WorkflowRuntime, event: InboundEvent
   await acknowledge(workflow, event);
   const postedBefore = workflow.store.postedCount();
   const applied = await applyEvent(workflow, event);
+  workflow.store.markEventSeen(event);
   if (applied !== "handled") await tellAgentAbout(workflow, event, applied);
   const wake = applied === "handled" ? "none" : applied.wake;
   if (wake === "none") await releaseIfSilent(workflow, event, postedBefore);

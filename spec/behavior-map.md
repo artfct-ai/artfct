@@ -196,7 +196,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 |---|---|---|
 | E1 | Every feedback event on a running workflow gets one routing decision: author, agent, or `nobody`. | `feedbackRouting::everyFeedbackGetsOneRoutingDecision` |
 | E2 | Feedback the screen does not admit reaches neither the agent nor the author. | `feedbackRouting::unadmittedFeedbackReachesNobody`, `reviewLoop::unadmittedFeedbackReachesNobody` |
-| E3 | A pull request review claims its review id only when the host read succeeds. On a failed read, the review and its comments can each prompt the author. | |
+| E3 | A pull request review is keyed by its review id only when the host read succeeds, so its webhooks route once. On a failed read, the review and its comments can each prompt the author. | |
 | E4 | A page comment that does not mention the bot stays held. A mention screens every held comment with it. When the decisions model routes it to the author, the held comments the host marks read go with it as one feedback. On any other route they stay held. | `reviewLoop::aPromptToAPageAuthorCarriesItsHeldComments`, `reviewLoop::aHeldCommentStaysHeldUntilItReachesTheAuthor` |
 | E5 | An event on a finished workflow does not change its status, its tasks or its prompts, and does not tell the agent. A person's message does not reach it, and the router starts the next workflow with it. A stop still closes the author's feed with the stopped reply. | `workflowLifecycle::nothingReopensAFinishedWorkflow`, `workflowLifecycle::endedWorkflowHasNoUnfinishedTask`, `routerBindings::aPersonsMessageNeverReachesAnEndedWorkflow`, `sessionRouting::aStopAnswersOnlyInTheFeed` |
 | E6 | A message wakes a workflow from `waiting_input` to `running` and rearms the idle alarm. | |
@@ -206,6 +206,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | E10 | A check or base branch event settles the checks of each matched job. | |
 | E11 | An artifact event that does not match a job adds an agent note. While an author or researcher is active, the agent note asks which job it is about. An event that does not name its artifact fans out over the open artifacts and does not ask. | |
 | E12 | The workflow notices a deleted page, or a pull request closed without a merge whose event was lost, only when `start_job` checks the earlier output. | |
+| E13 | A feedback gets one routing decision across its deliveries. A delivery that an instance restart cut off routes when the host delivers it again. A second delivery of a routed feedback is dropped. Known limit: GitHub does not deliver a webhook again on its own, so a pull request feedback that a restart cut off is lost (witness `feedbackRouting::aRestartLosesAPullRequestFeedback`). | `feedbackRouting::everyFeedbackIsRoutedOnce` |
 
 ## Boards and chat output
 
