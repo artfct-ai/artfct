@@ -25,7 +25,9 @@
     "anEndedAuthorEndsItsReview",
     "aStoppedRefinerRunHandsOverBlocked",
     "aPolisherEndsDoneOnlyWhenItsChecksOpen",
-    "checksGoBackOncePerRevision"
+    "checksGoBackOncePerRevision",
+    "refinersStartOnlyWhenTheAuthorsGateOpens",
+    "aBlockedAuthorsGateHandsOverBlocked"
   ],
   "mainMinutes": {
     "judgeThenPolisher": 2.2,
