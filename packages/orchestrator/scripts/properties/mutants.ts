@@ -704,6 +704,28 @@ export const MUTANTS: Mutant[] = [
     replace: "  if (key) return false;",
   },
   {
+    id: "W191",
+    invariant: "workflowLifecycle::aPersonsMessageWakesTheWorkflow",
+    path: "src/workflow/inbound/events.ts",
+    find: '  if (workflow.state.status === "waiting_input") await changeWorkflowStatus(workflow, "running");\n',
+    replace: "",
+  },
+  {
+    id: "W192",
+    invariant: "workflowLifecycle::issuesMoveOnlyAtAStartOrADoneEnd",
+    path: "src/workflow/lifecycle.ts",
+    find: '  await workflow.post({ type: "workflow_failed", reason });\n',
+    replace:
+      '  await workflow.post({ type: "workflow_failed", reason });\n  for (const target of workflow.state.reply_targets) {\n    if (target.source === "tracker") await workflow.notifier.moveIssue(target, "completed");\n  }\n',
+  },
+  {
+    id: "W193",
+    invariant: "workflowLifecycle::aModelCallAuthorWorksOnlyWhileItsCallIsOut",
+    path: "src/workflow/task/model-turn.ts",
+    find: "  await drainQueue(workflow, workflow.store.requireTask(task.task_id));\n}",
+    replace: "}",
+  },
+  {
     id: "W171",
     invariant: "chatAcknowledgement::eyesMarkOnlyASlowChatDelivery",
     path: "src/router/chat-ack.ts",
