@@ -2869,7 +2869,8 @@ module workflowLifecycle {
   /// Witness for `endedWorkflowHasNoUnfinishedTask`: a workflow ended with jobs.
   val aWorkflowEndedWithJobs: bool = hasEnded(workflow.status) and workflow.jobs.length() > 0
 
-  /// Witness for `nothingReopensAFinishedWorkflow`: an event lands on a finished workflow.
+  /// Witness for `nothingReopensAFinishedWorkflow` and `finishedWorkflowKeepsItsStatus`: an event
+  /// lands on a finished workflow.
   val anEventLandsOnAFinishedWorkflow: bool = lastStepReached.anEventLandsOnAFinishedWorkflow
 
   /// Witness for `staleAlarmIsIgnored`: a stale alarm fires.
@@ -2879,7 +2880,8 @@ module workflowLifecycle {
   /// turn that ended is armed.
   val aStaleAlarmFindsAnEndedModelTurn: bool = lastStepReached.aStaleAlarmFindsAnEndedModelTurn
 
-  /// Witness for `sleepMessageOnlyDuringAWorkflow`: the sleep message posts.
+  /// Witness for `sleepMessageOnlyDuringAWorkflow` and `workflowWaitsOnlyWhileNoAuthorWorks`: the
+  /// sleep message posts.
   val theSleepMessagePosts: bool = lastStepReached.theSleepMessagePosts
 
   /// A person's message wakes a sleeping workflow.
@@ -3063,8 +3065,8 @@ module workflowLifecycle {
   /// restart alarm of the last restart fires.
   val aRestartLandsBeforeTheRestartAlarm: bool = lastStepReached.aRestartLandsBeforeTheRestartAlarm
 
-  /// Witness for `aRestartDoesNotLoseAModelTurn`: the Durable Object restarts again before a
-  /// restarted author runs its lost model turn again.
+  /// Witness for `aRestartDoesNotLoseAModelTurn` and `aTurnThatWaitsToRunAgainHasItsAlarm`: the
+  /// Durable Object restarts again before a restarted author runs its lost model turn again.
   val aRestartLandsBeforeALostModelTurnRunsAgain: bool = lastStepReached.aRestartLandsBeforeALostModelTurnRunsAgain
 
   /// Witness for `taskRestartsAtMostTwice`: the restart alarm fails an author with no restarts left.
@@ -3077,8 +3079,8 @@ module workflowLifecycle {
   /// runs a lost model turn again once more.
   val aLostModelTurnRunsAgainOnceMore: bool = lastStepReached.aLostModelTurnRunsAgainOnceMore
 
-  /// Witness for `aStoppedModelCallAuthorStaysQuiet`: a stop takes the lost model turn that an
-  /// author holds until its run-again alarm.
+  /// Witness for `aStoppedModelCallAuthorStaysQuiet` and `aTurnThatWaitsToRunAgainHasItsAlarm`: a
+  /// stop takes the lost model turn that an author holds until its run-again alarm.
   val aStopTakesATurnThatWaitsToRunAgain: bool = lastStepReached.aStopTakesATurnThatWaitsToRunAgain
 
   /// Witness for `aStoppedModelCallAuthorStaysQuiet`: the run-again alarm of a stopped author fires.
@@ -3143,7 +3145,7 @@ module workflowLifecycle {
   /// Witness for `inReviewTaskHasAnArtifact`: an author waits in review.
   val anAuthorIsInReview: bool = jobIds(workflow).exists(id => jobTask(workflow, id).status == InReview)
 
-  /// The humans have a page.
+  /// Witness for `artifactStatusMovesAreLegal`: the humans have a page.
   val theHumansHaveAPage: bool = jobIds(workflow).exists(id => workflow.jobs[id].artifact == Ready)
 
   /// The workflow finished done.

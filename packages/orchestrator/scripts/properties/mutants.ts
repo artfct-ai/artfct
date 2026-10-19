@@ -1128,6 +1128,27 @@ export const MUTANTS: Mutant[] = [
     replace:
       '    case "waiting":\n      return endPolisherRun(workflow, polisher, { ended: "turn" });\n    case "sent_back":\n',
   },
+  {
+    id: "W265",
+    invariant: "harnessSession::staleAlarmIsIgnored (hello timeout)",
+    path: "src/workflow/task/harness/timers.ts",
+    find: '  if (!task || !sandbox || sandbox.generation !== alarm.generation) return;\n  if (task.status !== "provisioning") return;',
+    replace: '  if (!task || !sandbox) return;\n  if (task.status !== "provisioning") return;',
+  },
+  {
+    id: "W266",
+    invariant: "routerBindings::aBaseMoveOnlyHandsTheEventOn",
+    path: "src/router/deliver.ts",
+    find: '  if (event.pull?.action === "base_moved") return fanOutBaseMoved(env, db, event, event.pull);\n',
+    replace: "",
+  },
+  {
+    id: "W267",
+    invariant: "workflowLifecycle::aTurnThatWaitsToRunAgainHasItsAlarm",
+    path: "src/workflow/task/model-turn.ts",
+    find: '    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", rerun);\n',
+    replace: '    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", turn);\n',
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */
