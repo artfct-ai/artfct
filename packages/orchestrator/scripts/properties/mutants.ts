@@ -450,6 +450,35 @@ export const MUTANTS: Mutant[] = [
     replace: "  await compactIfLarge(workflow, turn, signal);\n",
   },
   {
+    id: "W210",
+    invariant: "agentTurns::aWaitingInboxRowHasATurnComing (backup alarm)",
+    path: "src/agent/turn/tell.ts",
+    find: '  const backup = await workflow.scheduleAlarm(0, "runAgent", {});\n',
+    replace: '  const backup = "no backup alarm";\n',
+  },
+  {
+    id: "W211",
+    invariant: "agent turns replay: the turn lane cancels its backup alarm",
+    path: "src/agent/turn/tell.ts",
+    find: "    .then(() => workflow.cancelAlarm(backup))\n",
+    replace: "    .then(() => backup)\n",
+  },
+  {
+    id: "W212",
+    invariant: "agentTurns::theWorkingStatusNeverOutlivesItsTurn (release of a finished workflow)",
+    path: "src/workflow/posts.ts",
+    find: '    if (target.source === "chat") await workflow.notifier.release(target, finished, title);\n',
+    replace:
+      '    if (target.source === "chat") await workflow.notifier.release(target, false, title);\n',
+  },
+  {
+    id: "W213",
+    invariant: "agent turns replay: each step shows the chat thread its working status",
+    path: "src/workflow/posts.ts",
+    find: '    if (target.source === "chat") await workflow.notifier.working(target, text);\n',
+    replace: '    if (target.source === "chat") return;\n',
+  },
+  {
     id: "W181",
     invariant: "agentTurns::aWaitingInboxRowHasATurnComing (restart of a finished workflow)",
     path: "src/agent/turn/watchdog.ts",
