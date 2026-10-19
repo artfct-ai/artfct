@@ -1199,15 +1199,15 @@ export const MUTANTS: Mutant[] = [
     id: "W205",
     invariant: "harnessSession::aLostTurnCountsOneRestart (count)",
     path: "src/workflow/task/harness/bridge.ts",
-    find: "  workflow.store.updateTask(task.task_id, { restarts: restarts + 1 });\n",
+    find: "  if (!restartWritten) workflow.store.updateTask(task.task_id, { restarts: restarts + 1 });\n",
     replace: "",
   },
   {
     id: "W206",
     invariant: "harnessSession::aLostTurnCountsOneRestart (limit)",
     path: "src/workflow/task/harness/bridge.ts",
-    find: "  if (restarts >= MAX_RESTARTS) {\n",
-    replace: "  if (restarts > MAX_RESTARTS) {\n",
+    find: "  if (!restartWritten && restarts >= MAX_RESTARTS) {\n",
+    replace: "  if (!restartWritten && restarts > MAX_RESTARTS) {\n",
   },
   {
     id: "W207",
@@ -1223,6 +1223,13 @@ export const MUTANTS: Mutant[] = [
     find: "  await restartSandbox(workflow, task);\n}\n\n/** `initialize` answered.",
     replace:
       "  workflow.store.updateSandbox(task.task_id, { first_prompt_at: null });\n  await restartSandbox(workflow, task);\n}\n\n/** `initialize` answered.",
+  },
+  {
+    id: "W209",
+    invariant: "harnessSession::aLostTurnCountsOneRestart (queued for a restart)",
+    path: "src/workflow/task/harness/bridge.ts",
+    find: '  const restartWritten = status === "queued";\n',
+    replace: "  const restartWritten = false;\n",
   },
   {
     id: "W235",

@@ -328,6 +328,27 @@ describe("onBridgeLost", () => {
       }));
   });
 
+  describe("a turn lost on a task queued for a restart", () => {
+    const queued = scenario(freshRuntime, async (workflow) => {
+      seedTask(
+        workflow,
+        { status: "queued", restarts: MAX_RESTARTS },
+        { session_id: "s1", prompt_in_flight: 1, bridge_closed_at: longGone() },
+      );
+      await onBridgeLost(workflow, ALARM);
+    });
+
+    it("does not count another restart", () =>
+      queued((workflow) => {
+        expect(workflow.store.requireTask(TASK).restarts).toBe(MAX_RESTARTS);
+      }));
+
+    it("does not fail the task", () =>
+      queued((workflow) => {
+        expect(workflow.store.requireTask(TASK).status).not.toBe("failed");
+      }));
+  });
+
   describe("a turn lost with a prompt already queued", () => {
     const restarted = scenario(freshRuntime, async (workflow) => {
       seedTask(

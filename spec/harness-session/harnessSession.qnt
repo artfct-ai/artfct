@@ -212,6 +212,7 @@ module harnessSessionTypes {
     anAuthorInReviewTakesAPrompt: bool,
     aLostTurnIsRecovered: bool,
     aLostTurnFailsTheTask: bool,
+    aLostTurnOfATaskQueuedForARestart: bool,
     aHarnessExitRestartsTheTask: bool,
     aHarnessExitRestartsAnIdleAuthor: bool,
     aHarnessExitFailsTheTask: bool,
@@ -594,14 +595,16 @@ module harnessSession {
 
   /// `recoverLostTurn`: a lost turn counts one restart. With restarts left, forget the lost turn
   /// and its harness session, so the queue wakes a fresh sandbox instead of a bridge that may still
-  /// run the turn. Once its restarts are used up, the task fails.
+  /// run the turn. Once its restarts are used up, the task fails. A task queued for a restart
+  /// already has that restart written, so its lost turn does not count another one.
   pure def recoverLostTurn(w: World, rest: List[Frame]): World = {
     val counted = { ...w, lostTurns: w.lostTurns + 1 }
-    if (w.restarts >= MAX_RESTARTS) failTask(counted, rest)
+    val restartWritten = w.status == Queued
+    if (not(restartWritten) and w.restarts >= MAX_RESTARTS) failTask(counted, rest)
     else {
       val cleared = {
         ...counted,
-        restarts: w.restarts + 1,
+        restarts: if (restartWritten) w.restarts else w.restarts + 1,
         rpcs: List(),
         promptInFlight: false,
         session: false,
@@ -843,10 +846,16 @@ module harnessSession {
     (step.before.status == InReview and step.after.status == Working) implies sentPrompt(step)
 
   /// T21. A lost turn counts one restart, and the task recovers it in a fresh harness session. A
-  /// lost turn on a task whose restarts are used up fails the task.
+  /// lost turn on a task whose restarts are used up fails the task. A task queued for a restart
+  /// already counted it, so its lost turn does not count another one.
   pure def aLostTurnCountsOneRestartIn(step: Step): bool =
     handledALostTurn(step) implies (
-      if (step.before.restarts < MAX_RESTARTS) and {
+      if (step.before.status == Queued) and {
+        step.after.restarts == step.before.restarts,
+        not(step.after.session),
+        not(step.after.promptInFlight),
+      }
+      else if (step.before.restarts < MAX_RESTARTS) and {
         step.after.restarts == step.before.restarts + 1,
         not(step.after.session),
         not(step.after.promptInFlight),
@@ -1015,8 +1024,11 @@ module harnessSession {
     aHelloMovesTheTaskToWorking:
       step.kind == HelloStep and step.before.status == Provisioning and step.after.status == Working,
     anAuthorInReviewTakesAPrompt: step.before.status == InReview and step.after.status == Working,
-    aLostTurnIsRecovered: handledALostTurn(step) and step.before.restarts < MAX_RESTARTS,
-    aLostTurnFailsTheTask: handledALostTurn(step) and step.before.restarts >= MAX_RESTARTS,
+    aLostTurnIsRecovered:
+      handledALostTurn(step) and step.before.status != Queued and step.before.restarts < MAX_RESTARTS,
+    aLostTurnFailsTheTask:
+      handledALostTurn(step) and step.before.status != Queued and step.before.restarts >= MAX_RESTARTS,
+    aLostTurnOfATaskQueuedForARestart: handledALostTurn(step) and step.before.status == Queued,
     aHarnessExitRestartsTheTask:
       step.kind == ExitStep and not(isFinished(step.before.status)) and step.before.restarts < MAX_RESTARTS,
     aHarnessExitRestartsAnIdleAuthor: and {
@@ -1709,7 +1721,8 @@ module harnessSession {
   val anAuthorInReviewWorksOnlyWithAPrompt: bool = rulesKept.anAuthorInReviewWorksOnlyWithAPrompt
 
   /// T21. A lost turn counts one restart, and the task recovers it in a fresh harness session. A
-  /// lost turn on a task whose restarts are used up fails the task.
+  /// lost turn on a task whose restarts are used up fails the task. A task queued for a restart
+  /// already counted it, so its lost turn does not count another one.
   val aLostTurnCountsOneRestart: bool = rulesKept.aLostTurnCountsOneRestart
 
   /// T22. A harness exit on an unfinished task with restarts left counts one restart and
@@ -1898,6 +1911,9 @@ module harnessSession {
 
   /// Witness for `aLostTurnCountsOneRestart`: a lost turn fails a task whose restarts are used up.
   val aLostTurnFailsTheTask: bool = stepWitnesses.aLostTurnFailsTheTask
+
+  /// Witness for `aLostTurnCountsOneRestart`: a lost turn of a task queued for a restart.
+  val aLostTurnOfATaskQueuedForARestart: bool = stepWitnesses.aLostTurnOfATaskQueuedForARestart
 
   /// Witness for `aHarnessExitCountsOneRestart`: the harness exits on a task with restarts left.
   val aHarnessExitRestartsTheTask: bool = stepWitnesses.aHarnessExitRestartsTheTask
