@@ -47,7 +47,8 @@ describe("MUTANTS", () => {
   it("each applies to today's source", () => {
     const orchestratorRoot = join(import.meta.dir, "../..");
     const stale = MUTANTS.filter(
-      (mutant) => applyMutant(readFileSync(join(orchestratorRoot, mutant.path), "utf8"), mutant) === null,
+      (mutant) =>
+        applyMutant(readFileSync(join(orchestratorRoot, mutant.path), "utf8"), mutant) === null,
     ).map((mutant) => mutant.id);
     expect(stale).toEqual([]);
   });
