@@ -79,6 +79,7 @@
       "judgeThenPolisher::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -271,6 +272,7 @@
       "judgeThenPolisher::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -502,6 +504,7 @@
       "judgeThenPolisher::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -719,6 +722,7 @@
       "judgeThenPolisher::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -936,6 +940,7 @@
       "judgeThenPolisher::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {

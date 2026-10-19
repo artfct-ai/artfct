@@ -160,6 +160,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -376,6 +377,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -612,6 +614,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -866,6 +869,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -1186,6 +1190,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -1506,6 +1511,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -1823,6 +1829,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -2151,6 +2158,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -2489,6 +2497,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -2824,6 +2833,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -3176,6 +3186,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -3551,6 +3562,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -3935,6 +3947,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -4319,6 +4332,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -4696,6 +4710,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -5089,6 +5104,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -5490,6 +5506,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -5898,6 +5915,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -6312,6 +6330,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -6717,6 +6736,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -7122,6 +7142,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -7530,6 +7551,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -7938,6 +7960,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -8336,6 +8359,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -8737,6 +8761,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -9155,6 +9180,7 @@
       "pageJudgeBetweenReviewers::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {

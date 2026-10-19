@@ -124,6 +124,7 @@
       "checksOnAReviewedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -390,6 +391,7 @@
       "checksOnAReviewedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -659,6 +661,7 @@
       "checksOnAReviewedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -955,6 +958,7 @@
       "checksOnAReviewedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -1157,7 +1161,14 @@
         "index": 4
       },
       "checksOnAReviewedPull::reviewLoop::agentHeard": {
-        "#set": []
+        "#set": [
+          {
+            "tag": "RouteNote",
+            "value": {
+              "#tup": []
+            }
+          }
+        ]
       },
       "checksOnAReviewedPull::reviewLoop::checksReportCount": {
         "#bigint": "0"
@@ -1258,6 +1269,7 @@
       "checksOnAReviewedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -1564,6 +1576,7 @@
       "checksOnAReviewedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -1867,6 +1880,7 @@
       "checksOnAReviewedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": true,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -2176,6 +2190,7 @@
       "checksOnAReviewedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -2493,6 +2508,7 @@
       "checksOnAReviewedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -2804,6 +2820,7 @@
       "checksOnAReviewedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -3118,6 +3135,7 @@
       "checksOnAReviewedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -3436,6 +3454,7 @@
       "checksOnAReviewedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -3757,6 +3776,7 @@
       "checksOnAReviewedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -4078,6 +4098,7 @@
       "checksOnAReviewedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -4391,6 +4412,7 @@
       "checksOnAReviewedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -4697,6 +4719,7 @@
       "checksOnAReviewedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -5026,6 +5049,7 @@
       "checksOnAReviewedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -5375,6 +5399,7 @@
       "checksOnAReviewedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": true,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -5727,6 +5752,7 @@
       "checksOnAReviewedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": true,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
