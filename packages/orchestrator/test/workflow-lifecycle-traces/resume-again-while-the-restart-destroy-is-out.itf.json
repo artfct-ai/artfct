@@ -55,6 +55,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -161,6 +171,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -204,6 +220,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -310,6 +336,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -353,6 +385,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -460,6 +502,12 @@
         "withStages": {
           "tag": "Some",
           "value": true
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -503,6 +551,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -610,6 +668,12 @@
         "withStages": {
           "tag": "Some",
           "value": true
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -706,6 +770,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -808,6 +882,12 @@
           }
         },
         "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -926,6 +1006,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
@@ -1028,6 +1118,12 @@
           }
         },
         "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1146,6 +1242,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -1248,6 +1354,12 @@
           }
         },
         "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1366,6 +1478,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -1471,6 +1593,12 @@
           }
         },
         "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1589,6 +1717,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -1691,6 +1829,12 @@
           }
         },
         "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1809,6 +1953,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -1914,6 +2068,12 @@
           }
         },
         "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -2032,6 +2192,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -2134,6 +2304,12 @@
           }
         },
         "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -2252,6 +2428,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -2354,6 +2540,12 @@
           }
         },
         "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []

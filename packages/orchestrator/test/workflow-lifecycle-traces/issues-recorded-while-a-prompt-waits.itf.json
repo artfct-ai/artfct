@@ -55,6 +55,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -161,6 +171,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -204,6 +220,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -310,6 +336,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -353,6 +385,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -459,6 +501,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -502,6 +550,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -609,6 +667,12 @@
         "withStages": {
           "tag": "Some",
           "value": false
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -705,6 +769,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -811,6 +885,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -907,6 +987,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -1014,6 +1104,12 @@
         "withStages": {
           "tag": "Some",
           "value": true
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -1110,6 +1206,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -1216,6 +1322,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -1312,6 +1424,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -1418,6 +1540,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -1514,6 +1642,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -1620,6 +1758,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -1716,6 +1860,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -1822,6 +1976,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -1918,6 +2078,16 @@
           "value": {
             "#bigint": "0"
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": true,
@@ -2023,6 +2193,12 @@
           }
         },
         "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
