@@ -1,0 +1,29 @@
+name: Checks
+
+on:
+  workflow_call:
+    secrets:
+      TURBO_TOKEN:
+        required: false
+
+env:
+  TURBO_API: ${{ vars.TURBO_API }}
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ao
+  # First parent: the merge base on a pull request, the previous commit on main, which only takes squash merges.
+  TURBO_SCM_BASE: HEAD^1
+
+jobs:
+  ci:
+    name: check and smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - uses: ./.github/actions/install
+      - name: Fail when the lockfile does not match the workspace manifests
+        run: bun install --lockfile-only && git diff --exit-code bun.lock
+      - run: bun run check:affected
+      - run: bun run smoke

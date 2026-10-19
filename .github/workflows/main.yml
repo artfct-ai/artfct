@@ -1,0 +1,104 @@
+name: Main
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Main runs one commit at a time, in order, and queues the rest.
+concurrency:
+  group: ${{ github.workflow }}
+  cancel-in-progress: false
+  queue: max
+
+env:
+  TURBO_API: ${{ vars.TURBO_API }}
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ao
+
+jobs:
+  ci:
+    uses: ./.github/workflows/checks.yml
+    secrets:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
+  spec_changes:
+    name: spec changes
+    uses: ./.github/workflows/spec-changes.yml
+
+  quint:
+    needs: spec_changes
+    if: needs.spec_changes.outputs.specs != ''
+    uses: ./.github/workflows/quint.yml
+    with:
+      specs: ${{ needs.spec_changes.outputs.specs }}
+      shards: "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]"
+      samples: 100000
+
+  spec_replays:
+    name: spec replays (${{ matrix.name }})
+    needs: ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: workflow lifecycle
+            replays: workflow_lifecycle
+          - name: session routing
+            replays: session_routing
+          - name: the rest
+            replays: router_bindings review_loop harness_session agent_turns chat_acknowledgement feedback_routing
+    defaults:
+      run:
+        shell: bash
+        working-directory: packages/orchestrator
+    env:
+      REPLAYS: ${{ matrix.replays }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/install
+      - name: Seed the replay from the run id
+        run: echo "PROPERTY_SEED=$(( GITHUB_RUN_ID % 2147483648 ))" >> "$GITHUB_ENV"
+      - name: Replay the specs at their e2e counts, unless turbo has the result cached
+        timeout-minutes: 25
+        run: |
+          read -ra replays <<<"$REPLAYS"
+          bunx turbo run spec:replay:e2e --filter=@artfct-ai/orchestrator -- "${replays[@]}"
+
+  preview:
+    name: preview
+    needs: [ci, spec_changes, quint, spec_replays]
+    if: ${{ !cancelled() && needs.ci.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      # In commit order, so the `@main` tag ends on the newest commit.
+      group: preview
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/install
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Publish the sandbox image to Docker Hub unless turbo has it cached
+        run: |
+          bunx turbo run sandbox-image --filter=@artfct-ai/orchestrator
+          echo "SANDBOX_IMAGE=$(cat packages/orchestrator/dist/sandbox-image/published-image)" >> "$GITHUB_ENV"
+      - name: Point the main tag at the sandbox image
+        run: docker buildx imagetools create --prefer-index=false --tag docker.io/artfct/sandbox:main "$SANDBOX_IMAGE"
+      - run: bun run build --filter=@artfct-ai/core --filter=artfct
+      - name: Confirm the core package names the published image
+        run: cat packages/core/dist/sandbox/published-image
+      - name: Publish the preview packages to pkg.pr.new
+        run: bunx pkg-pr-new publish --bun --no-compact --no-template --comment=off ./packages/core ./packages/cli
+      - name: Start the deploy of the install that tracks main
+        run: gh workflow run deploy.yml --ref main --repo "$PREVIEW_DEPLOY_REPO"
+        env:
+          PREVIEW_DEPLOY_REPO: ${{ secrets.PREVIEW_DEPLOY_REPO }}
+          GH_TOKEN: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}

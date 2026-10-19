@@ -1,0 +1,50 @@
+name: Pull request
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+# A newer push to a pull request cancels its older run.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  TURBO_API: ${{ vars.TURBO_API }}
+  TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+  TURBO_TEAM: ao
+  # First parent: the merge base of the pull request.
+  TURBO_SCM_BASE: HEAD^1
+
+jobs:
+  ci:
+    uses: ./.github/workflows/checks.yml
+    secrets:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+
+  spec_replays:
+    name: spec replays
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - uses: ./.github/actions/install
+      - name: Replay the specs at their default count when the orchestrator, a package it depends on, or a spec changed, unless turbo has the result cached
+        run: bunx turbo run spec:replay --affected
+
+  spec_changes:
+    name: spec changes
+    uses: ./.github/workflows/spec-changes.yml
+
+  quint:
+    needs: spec_changes
+    if: needs.spec_changes.outputs.specs != ''
+    uses: ./.github/workflows/quint.yml
+    with:
+      specs: ${{ needs.spec_changes.outputs.specs }}
+      shards: "[1, 2, 3]"
+      samples: 10000
