@@ -121,6 +121,33 @@ describe("SlackChat messages", () => {
     });
   });
 
+  describe("a long reply whose second part Slack refuses", () => {
+    const paragraph = "x".repeat(3000);
+    let calls: Call[];
+    let failure: unknown;
+
+    beforeEach(async () => {
+      let posts = 0;
+      const slack = slackChat(() => {
+        posts += 1;
+        return posts === 2 ? { ok: false, error: "msg_too_long" } : { ok: true, ts: "9.9" };
+      });
+      failure = await slack.chat
+        .postThreadReply("C1", "1.2", [paragraph, paragraph, paragraph].join("\n\n"))
+        .catch((error: unknown) => error);
+      calls = slack.calls;
+    });
+
+    it("throws the Slack error", () => {
+      expect(failure).toBeInstanceOf(Error);
+      expect(String(failure)).toContain("msg_too_long");
+    });
+
+    it("leaves the first part posted and does not send the parts after the failure", () => {
+      expect(calls).toHaveLength(2);
+    });
+  });
+
   describe("a thread message longer than one Slack message", () => {
     const text = "x".repeat(9000);
     let calls: Call[];
