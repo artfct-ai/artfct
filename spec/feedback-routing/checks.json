@@ -19,7 +19,8 @@
       "aPausedAuthorHoldsIt",
       "aFinishedAuthorGetsNothing",
       "anEndedWorkflowIgnoresIt",
-      "anUnrecordedPullRequestGetsIt"
+      "anUnrecordedPullRequestGetsIt",
+      "theRoutingEnds"
     ],
     "pageFeedback": [
       "aFeedbackGoesToTheAuthor",
@@ -35,7 +36,8 @@
       "unadmittedHeldCommentsStayOut",
       "heldCommentsCannotBeRead",
       "aMentionCarriesTheHeldComments",
-      "aMentionWithNothingHeldIsNotScreened"
+      "aMentionWithNothingHeldIsNotScreened",
+      "theRoutingEnds"
     ]
   },
   "tlc": {

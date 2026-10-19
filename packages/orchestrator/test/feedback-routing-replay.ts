@@ -295,6 +295,7 @@ export class FeedbackRoutingReplay {
 
   /** Take one spec action through the world. */
   async take(step: TraceStep): Promise<void> {
+    if (step.action === "finished") return;
     this.shown = null;
     switch (step.action) {
       case "personPostsFeedback":
