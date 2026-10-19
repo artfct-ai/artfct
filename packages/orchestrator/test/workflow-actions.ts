@@ -1069,6 +1069,26 @@ export function agentRoutes(
 }
 
 /**
+ * The agent routes the artifact of `author` while it may not, also once the author ended, and the
+ * code refuses without a change.
+ */
+export function agentIsRefusedARoute(
+  author: WorldAuthor,
+  call: "request_review" | "finish_review",
+): WorkflowAction {
+  return action(`agent calls ${call} out of turn`, async (world) => {
+    const before = world.storeSnapshot();
+    const answer = await artifactTools(world.workflow)[call].execute(
+      { job_id: world.jobOf(author).job_id },
+      TOOL_CALL,
+    );
+    if (world.storeSnapshot() !== before) {
+      throw new Error(`${call} out of turn changed the store. It answered: ${toolText(answer)}`);
+    }
+  });
+}
+
+/**
  * The agent records the ruling a person gave on a judge entry, while the page host takes or
  * refuses comments.
  */
