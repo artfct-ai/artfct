@@ -59,7 +59,7 @@ function checksOfPull(patch: Parameters<typeof pullRequest>[0]) {
 }
 
 function changeOf(built: Built, patch: Partial<InboundEvent>, target: ArtifactTarget | null) {
-  return built.artifact.change({ event: event(patch), target, claim: () => true });
+  return built.artifact.change({ event: event(patch), target });
 }
 
 function pullDetail(patch: Partial<PullDetail> = {}): PullDetail {
@@ -404,6 +404,7 @@ describe("change", () => {
       expect(await changeOf(built, patch, TARGET)).toEqual({
         change: "feedback",
         feedback: {
+          dedupeKey: "evt-1",
           from: ACTOR,
           unchecked: false,
           body: "Two things.",
@@ -464,21 +465,27 @@ describe("change", () => {
       });
     });
 
-    it("drops a sibling webhook of a review another one already carried", async () => {
+    it("keys every webhook of a review it read whole by the review", async () => {
       const built = build(
         new FakeCodeHost({
           reviews: { 7: [submittedReview({ body: "Two things." })] },
           reviewComments: { 501: [inlineComment()] },
         }),
       );
-      const detail = pullDetail({ action: "review", review_id: 501, comments: [comment] });
-      const change = await built.artifact.change({
-        event: event({ kind: "feedback", actor: ACTOR, pull: detail }),
-        target: TARGET,
-        claim: () => false,
+      const detail = pullDetail({ action: "review_comment", review_id: 501, comments: [comment] });
+      const patch = { kind: "feedback" as const, actor: ACTOR, pull: detail };
+      expect(await changeOf(built, patch, TARGET)).toMatchObject({
+        feedback: { dedupeKey: `code:review:${detail.repo}#${detail.number}:501` },
       });
-      expect(change).toBeNull();
-      expect(built.lines.some((line) => line.includes("was handled already"))).toBe(true);
+    });
+
+    it("keys a comment by its event", async () => {
+      const built = build(null);
+      const detail = pullDetail({ action: "comment", comment_id: 42 });
+      const patch = { kind: "feedback" as const, actor: ACTOR, pull: detail, text: "One thing." };
+      expect(await changeOf(built, patch, TARGET)).toMatchObject({
+        feedback: { dedupeKey: "evt-1" },
+      });
     });
 
     describe("sibling webhooks of one review whose host read fails", () => {
@@ -489,26 +496,29 @@ describe("change", () => {
 
       async function deliverSiblings() {
         const built = build(new FakeCodeHost({ failing: true }));
-        const claimed: string[] = [];
         const changes = [];
         for (const sibling of siblings) {
           const detail = pullDetail({ action: "review", review_id: 501, comments: [sibling] });
           changes.push(
             await built.artifact.change({
-              event: event({ kind: "feedback", actor: ACTOR, pull: detail }),
+              event: event({
+                id: `evt-${sibling.id}`,
+                kind: "feedback",
+                actor: ACTOR,
+                pull: detail,
+              }),
               target: TARGET,
-              claim: (key) => {
-                claimed.push(key);
-                return true;
-              },
             }),
           );
         }
-        return { changes, claimed, lines: built.lines };
+        return { changes, lines: built.lines };
       }
 
-      it("does not claim the review", async () => {
-        expect((await deliverSiblings()).claimed).toEqual([]);
+      it("keys each webhook by its own event, not by the review", async () => {
+        const { changes } = await deliverSiblings();
+        expect(
+          changes.map((change) => change && "feedback" in change && change.feedback.dedupeKey),
+        ).toEqual(["evt-901", "evt-902"]);
       });
 
       it("returns each webhook's own comment as its feedback", async () => {

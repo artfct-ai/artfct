@@ -12,6 +12,8 @@ export type SpecChecks = {
   invariants: string[];
   mainMinutes: Record<string, number>;
   witnesses: Record<string, string[]>;
+  /** Longer traces for a setup whose witnesses need more steps than the default. */
+  maxSteps?: Record<string, number>;
   tlc?: {
     ignoredVariables: string[];
     bounds: Record<string, Record<TlcDepth, TlcBounds>>;

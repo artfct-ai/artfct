@@ -2,5 +2,5 @@
 /// Three deliveries can run at once.
 module twoSessionsOnOneIssue {
   import routerBindingsTypes.* from "./routerBindings"
-  import routerBindings(SURFACES = Set(SessionASurface, SessionBSurface, ThreadSurface), MAX_DELIVERIES = 3).* from "./routerBindings"
+  import routerBindings(SURFACES = Set(SessionASurface, SessionBSurface, ThreadSurface), MAX_DELIVERIES = 3, PULLS = Set()).* from "./routerBindings"
 }

@@ -2,6 +2,8 @@
 /// past the delay gets the eyes reaction, and the eyes come off once the delivery settles.
 /// Each message is its own delivery, its own eyes timer, and its own reaction calls on the chat.
 /// Every message waits the same delay, so the delays pass in the order the messages arrived.
+/// A settled delivery waits a bounded time for an eyes add that is still out. When the add does
+/// not answer in that time, the caller gets its result and the eyes stay as the chat left them.
 module chatAcknowledgement {
   /// Where a message comes from. Only a chat message names a chat message to react to.
   type Source = Chat | Tracker
@@ -9,8 +11,9 @@ module chatAcknowledgement {
   /// What a delivery settled with, or what the caller got. Pending until it settles.
   type Outcome = Pending | Returned | Threw
 
-  /// One reaction call on the chat: not sent, out, or answered.
-  type CallState = NotSent | Out | Accepted | Refused
+  /// One reaction call on the chat: not sent, out, answered, or out when the router stopped
+  /// waiting for it.
+  type CallState = NotSent | Out | Accepted | Refused | Unanswered
 
   /// One message. `slow` is true once the delay passed while its delivery ran. `addsSent` and
   /// `removesSent` count the eyes add and removal calls the router made for it.
@@ -108,6 +111,17 @@ module chatAcknowledgement {
     }
   }
 
+  /// The eyes add of a settled delivery does not answer within the wait, as when the chat hangs.
+  /// The router stops waiting for it, and the caller gets what the delivery gave.
+  action addWaitRunsOut: bool = {
+    nondet id = messages.keys().filter(id => messages.get(id).add == Out and messages.get(id).delivery != Pending).oneOf()
+    val message = messages.get(id)
+    all {
+      messages' = messages.set(id, { ...message, add: Unanswered, callerGot: message.delivery }),
+      delaysPassed' = delaysPassed,
+    }
+  }
+
   /// The chat answers the eyes removal. A refused removal is logged. The caller gets what the delivery gave.
   action removeReturns: bool = {
     nondet id = messages.keys().filter(id => messages.get(id).remove == Out).oneOf()
@@ -133,7 +147,7 @@ module chatAcknowledgement {
     delaysPassed' = delaysPassed,
   }
 
-  action step: bool = any { messageArrives, delayPasses, addReturns, deliverySettles, removeReturns, finished }
+  action step: bool = any { messageArrives, delayPasses, addReturns, deliverySettles, addWaitRunsOut, removeReturns, finished }
 
   /// A message gets the eyes at most once. Once its delivery settles, the eyes have come off
   /// exactly when they went on.
@@ -181,6 +195,10 @@ module chatAcknowledgement {
   /// Witness for `theCallerGetsWhatTheDeliveryGave`: the chat refused the removal and the caller got the delivery.
   val anEyesRemovalIsRefused: bool =
     messages.keys().exists(id => messages.get(id).remove == Refused and messages.get(id).callerGot == Threw)
+
+  /// Witness for `theCallerGetsWhatTheDeliveryGave`: the caller got its result past an eyes add that did not answer.
+  val theCallerGetsItsResultPastAHungAdd: bool =
+    messages.keys().exists(id => messages.get(id).add == Unanswered and messages.get(id).callerGot != Pending)
 
   /// Witness for `eyesMarkOnlyASlowChatDelivery`: a tracker message waited past the delay.
   val aTrackerMessageOutlivesTheDelay: bool =

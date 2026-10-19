@@ -41,7 +41,12 @@
       "aRowWaitsForTheNextTurn",
       "aRowWaitsForTheRunAgentAlarm",
       "aTurnReadsTheChat",
-      "theHeadsUpPosts"
+      "theHeadsUpPosts",
+      "aRevisionSendsTheHeldComments",
+      "twoDecisionsCallsAreOut",
+      "theClosingPostOutlivesTheTimeout",
+      "theWatchdogReleasesAFinishedWorkflow",
+      "aTurnEndsOnAFinishedWorkflow"
     ],
     "trackerOnly": [
       "aTurnPostsClosingText",
@@ -59,7 +64,12 @@
       "aDecisionsCallFallsBack",
       "aRowWaitsForTheNextTurn",
       "aRowWaitsForTheRunAgentAlarm",
-      "anAnswerReachesASession"
+      "anAnswerReachesASession",
+      "aRevisionSendsTheHeldComments",
+      "twoDecisionsCallsAreOut",
+      "theClosingPostOutlivesTheTimeout",
+      "theWatchdogReleasesAFinishedWorkflow",
+      "aTurnEndsOnAFinishedWorkflow"
     ],
     "chatAndSession": [
       "aTurnPostsClosingText",
@@ -78,7 +88,59 @@
       "aRowWaitsForTheNextTurn",
       "aRowWaitsForTheRunAgentAlarm",
       "aTurnReadsTheChat",
-      "theHeadsUpPosts"
+      "theHeadsUpPosts",
+      "aRevisionSendsTheHeldComments",
+      "twoDecisionsCallsAreOut",
+      "theClosingPostOutlivesTheTimeout",
+      "theWatchdogReleasesAFinishedWorkflow",
+      "aTurnEndsOnAFinishedWorkflow"
     ]
+  },
+  "tlc": {
+    "ignoredVariables": [],
+    "bounds": {
+      "chatThread": {
+        "pr": {
+          "actionsTaken": 10,
+          "rowsArrived": 2,
+          "restartsTaken": 1,
+          "rowsWritten": 5
+        },
+        "nightly": {
+          "actionsTaken": 12,
+          "rowsArrived": 2,
+          "restartsTaken": 2,
+          "rowsWritten": 6
+        }
+      },
+      "trackerOnly": {
+        "pr": {
+          "actionsTaken": 10,
+          "rowsArrived": 2,
+          "restartsTaken": 1,
+          "rowsWritten": 5
+        },
+        "nightly": {
+          "actionsTaken": 12,
+          "rowsArrived": 2,
+          "restartsTaken": 2,
+          "rowsWritten": 6
+        }
+      },
+      "chatAndSession": {
+        "pr": {
+          "actionsTaken": 10,
+          "rowsArrived": 2,
+          "restartsTaken": 1,
+          "rowsWritten": 5
+        },
+        "nightly": {
+          "actionsTaken": 12,
+          "rowsArrived": 2,
+          "restartsTaken": 2,
+          "rowsWritten": 6
+        }
+      }
+    }
   }
 }

@@ -90,9 +90,17 @@ function earlierMessagesNote(endedWorkflowId: string, origin: ReplyTarget | null
 }
 
 /**
- * Every later event: dedupe, record what code must record, then tell the agent. The event is
- * marked seen in the same synchronous block as the first write of its effect, so a delivery that
- * a restart cuts off while it wakes the workflow lands when the host delivers it again.
+ * True for feedback on a running workflow. It is marked seen when its routing lands, so a
+ * delivery that a restart cut off routes when the host delivers it again.
+ */
+function routesBeforeItIsSeen(workflow: WorkflowRuntime, event: InboundEvent): boolean {
+  return event.kind === "feedback" && !isWorkflowFinished(workflow.state.status);
+}
+
+/**
+ * Every later event: dedupe, record what code must record, then tell the agent. Any other event
+ * is marked seen in the same synchronous block as the first write of its effect, so a delivery
+ * that a restart cuts off while it wakes the workflow lands when the host delivers it again.
  */
 export async function handleEvent(workflow: WorkflowRuntime, event: InboundEvent): Promise<RpcAck> {
   if (workflow.store.eventSeen(event.id)) return DUPLICATE;
@@ -106,13 +114,16 @@ export async function handleEvent(workflow: WorkflowRuntime, event: InboundEvent
     if (isMessage(event)) await wakeWorkflow(workflow);
     await acknowledge(workflow, event);
   }
-  if (!workflow.store.markEventSeen(event)) return DUPLICATE;
+  if (!routesBeforeItIsSeen(workflow, event) && !workflow.store.markEventSeen(event)) {
+    return DUPLICATE;
+  }
   if (isWorkflowFinished(workflow.state.status)) {
     await replyFinished(workflow, event);
     return ACK;
   }
   const postedBefore = workflow.store.postedCount();
   const applied = await applyEvent(workflow, event);
+  workflow.store.markEventSeen(event);
   if (applied !== "handled") await tellAgentAbout(workflow, event, applied);
   const wake = applied === "handled" ? "none" : applied.wake;
   if (wake === "none") await releaseIfSilent(workflow, event, postedBefore);

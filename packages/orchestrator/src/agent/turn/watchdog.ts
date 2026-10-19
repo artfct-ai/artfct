@@ -71,8 +71,8 @@ export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm)
 
 /**
  * Alarm: the turn armed with this start time never ended. Tell the people it answers and the
- * starting session, and let go of it. On a finished workflow, only take the threads out of their
- * working status.
+ * starting session, and let go of it. On a finished workflow where nobody waits, only take the
+ * threads out of their working status.
  */
 export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {
   if (workflow.state.turn_started_at !== alarm.started_at) return;
@@ -86,7 +86,7 @@ export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm)
   const answering = workflow.transcript.answering();
   workflow.transcript.deleteTaken();
   if (headsUp) await workflow.cancelAlarm(headsUp);
-  if (isWorkflowFinished(workflow.state.status)) return workflow.release();
+  if (isWorkflowFinished(workflow.state.status) && !answering.length) return workflow.release();
   const minutes = workflow.config().orchestrator.turn_timeout_minutes;
   workflow.log(null, `agent turn timed out after ${minutes} minutes`);
   await workflow.post({ type: "turn_failed", text: turnTimeoutText(minutes) }, { answering });
@@ -99,15 +99,14 @@ export const LOST_TURN_TEXT =
 /**
  * Forget a turn still marked as running when the Durable Object starts, and wake the agent with
  * an agent note. The resumed turn keeps the lost turn's messages, transcript rows and board
- * change, and a person who waited hears that it starts again. With no lost turn, rows that wait
- * to wake the agent get a `runAgent` alarm, since the lost isolate took their turn with it. True
- * when a turn was resumed.
+ * change, and a person who waited hears that it starts again. With no lost turn, or with a
+ * finished workflow, rows that wait to wake the agent get a `runAgent` alarm. True when a turn
+ * was resumed.
  */
 export async function resumeLostTurn(workflow: WorkflowRuntime): Promise<boolean> {
   const startedAt = workflow.state.turn_started_at;
   if (!startedAt) {
-    const waking = workflow.transcript.inbox().some((row) => row.wake !== "none");
-    if (waking) await workflow.scheduleAlarm(0, "runAgent", {});
+    await wakeForWaitingRows(workflow);
     return false;
   }
   await cancelTurnAlarms(workflow);
@@ -118,6 +117,7 @@ export async function resumeLostTurn(workflow: WorkflowRuntime): Promise<boolean
     });
     workflow.transcript.deleteTaken();
     await workflow.release();
+    await wakeForWaitingRows(workflow);
     return false;
   }
   workflow.log(
@@ -129,6 +129,12 @@ export async function resumeLostTurn(workflow: WorkflowRuntime): Promise<boolean
   }
   await workflow.tellAgent(noteMessage(LOST_TURN_TEXT), "blocked");
   return true;
+}
+
+/** Arm the `runAgent` alarm when rows wait to wake the agent, since the lost isolate took their turn with it. */
+async function wakeForWaitingRows(workflow: WorkflowRuntime): Promise<void> {
+  const waking = workflow.transcript.inbox().some((row) => row.wake !== "none");
+  if (waking) await workflow.scheduleAlarm(0, "runAgent", {});
 }
 
 async function cancelTurnAlarms(workflow: WorkflowRuntime): Promise<void> {
