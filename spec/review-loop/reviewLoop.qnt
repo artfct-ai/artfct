@@ -119,8 +119,8 @@ module reviewLoopTypes {
   /// Whether the document host takes one write.
   type HostWrite = HostTakes | HostFails
 
-  /// A comment code posted on the page for a refiner run: an inline finding, the outcome comment
-  /// of a review, or the reason of a judge's rejection.
+  /// A comment code posted on the artifact for a refiner run: an inline finding or the outcome
+  /// comment of a page review, or the reason of a judge's rejection.
   type ReviewComment =
     | InlineFinding({ refinerRun: int, passage: Passage })
     | OutcomeComment({ refinerRun: int, findings: Set[Passage], approves: bool })
@@ -192,7 +192,7 @@ module reviewLoopTypes {
   /// one, the text of the mention that came in, or the route note.
   type AgentNote = HeldCommentsStayHeld | HeldCommentText | MentionText | RouteNote
 
-  /// What happened on the document host in a step, for the invariants that read it.
+  /// What happened on the host of the artifact in a step, for the invariants that read it.
   type PageFact =
     | NoPageFact
     | PageReviewPosted(Commenting)
@@ -306,7 +306,7 @@ module reviewLoopTypes {
     aRevisionRewritesTheBlockOfAnAnsweredComment: bool,
     aRevisionAnswersAQueuedComment: bool,
     aCommentReplyFails: bool,
-    aRejectionLandsOnThePage: bool,
+    aRejectionLands: bool,
     theHostFailsARejection: bool,
     theHostFailsAModelCallAuthor: bool,
     theHostFailsTheReadAfterAModelCall: bool,
@@ -1040,8 +1040,8 @@ module reviewLoop {
     if (MODEL_CALL_AUTHOR) modelCallTurnEnds(loop, changed, part, answers)
     else turnEnded(if (changed) pageChanged(loop, part) else loop, answers)
 
-  /// A ruling settles the judge's segment. A rejection posts its reason on a page when the host
-  /// takes it, and reaches the author with the findings of the reviewers before the judge. An
+  /// A ruling settles the judge's segment. A rejection posts its reason on the artifact when the
+  /// host takes it, and reaches the author with the findings of the reviewers before the judge. An
   /// approval sends those findings on their own, or moves on.
   pure def applyJudgeRuling(
     loop: ReviewLoop,
@@ -1059,7 +1059,7 @@ module reviewLoop {
     if (ruling == Rejected) {
       val rejectedBy = ruled.author.rejectedBy.union(Set(index))
       val posted =
-        if (ON_A_PAGE and post == HostTakes) ruled.reviewComments.append(RejectionComment(id))
+        if (post == HostTakes) ruled.reviewComments.append(RejectionComment(id))
         else ruled.reviewComments
       sendFindingsToAuthor({ ...ruled, reviewComments: posted, author: { ...ruled.author, rejectedBy: rejectedBy } }, reviewRuns)
     }
@@ -1588,7 +1588,7 @@ module reviewLoop {
   }
 
   pure def rejectionFact(loop: ReviewLoop, id: int, ruling: Ruling, post: HostWrite): PageFact =
-    if (ON_A_PAGE and ruling == Rejected and rulingLands(loop, id)) RejectionPosted(post) else NoPageFact
+    if (ruling == Rejected and rulingLands(loop, id)) RejectionPosted(post) else NoPageFact
 
   action decisionsModelRules(ruling: Ruling): bool = {
     nondet judgeRun = review.judgeRunsCodeRulesOn.oneOf()
@@ -1625,7 +1625,7 @@ module reviewLoop {
     canPersonRuleOn(review, heldRun(review)),
     nondet post = HOST_WRITES.oneOf()
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
-    val page = if (ON_A_PAGE and ruling == Rejected) RejectionPosted(post) else NoPageFact
+    val page = if (ruling == Rejected) RejectionPosted(post) else NoPageFact
     moveWith(
       applyJudgeRuling(review, heldRun(review), ruling, post, revisionLookup),
       { ...quietStep(NoTurnEnd), page: page, revisionLookup: revisionLookup },
@@ -1704,6 +1704,20 @@ module reviewLoop {
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val index = review.refinerRuns[heldRun(review)].refinerIndex
     moveOnLookup(advancePastEntry(review, index, revisionLookup), NoTurnEnd, revisionLookup),
+  }
+
+  /// The agent asks for a review while it may not route the artifact. The code refuses, and the
+  /// review stays as it was.
+  action agentRequestsReviewOutOfTurn: bool = all {
+    not(agentCanRoute(review)),
+    move(review, NoTurnEnd),
+  }
+
+  /// The agent ends the open segment while it may not route the artifact. The code refuses, and
+  /// the review stays as it was.
+  action agentFinishesReviewOutOfTurn: bool = all {
+    not(agentCanRoute(review)),
+    move(review, NoTurnEnd),
   }
 
   /// The agent cancels the unfinished refiner run.
@@ -1940,6 +1954,8 @@ module reviewLoop {
     polisherPushesNothing,
     agentRequestsReview,
     agentFinishesReview,
+    agentRequestsReviewOutOfTurn,
+    agentFinishesReviewOutOfTurn,
     agentCancelsRefinerRun,
     refinerRunFails,
     refinerRunHitsARecoverableFailure,
@@ -2564,7 +2580,7 @@ module reviewLoop {
         step.after.personComments[id].answered,
       }),
     aCommentReplyFails: step.kind.turnEnd == AuthorTurnFailed(ReplyRefused),
-    aRejectionLandsOnThePage: step.kind.page == RejectionPosted(HostTakes),
+    aRejectionLands: step.kind.page == RejectionPosted(HostTakes),
     theHostFailsARejection: step.kind.page == RejectionPosted(HostFails),
     theHostFailsAModelCallAuthor:
       step.kind.turnEnd == AuthorTurnFailed(UpdateRefused) or step.kind.turnEnd == AuthorTurnFailed(UpdateLandedThenFailed),
@@ -2782,8 +2798,8 @@ module reviewLoop {
   /// prompt carries.
   val failedReplyLeavesThePage: bool = lastStepKept.failedReplyLeavesThePage
 
-  /// A judge rejection on a page posts its reason in one comment when the host takes it, and the
-  /// author gets the rejection whether the post landed or not.
+  /// A judge rejection posts its reason in one comment on the pull request or page when the host
+  /// takes it, and the author gets the rejection whether the post landed or not.
   val aJudgeRejectionPostsItsReasonOnce: bool = lastStepKept.aJudgeRejectionPostsItsReasonOnce
 
   /// The first handover records that the humans got the artifact. A later step does not clear
@@ -3042,8 +3058,8 @@ module reviewLoop {
   /// Witness for `failedReplyLeavesThePage`: a comment reply fails.
   val aCommentReplyFails: bool = lastStepReached.aCommentReplyFails
 
-  /// Witness for `aJudgeRejectionPostsItsReasonOnce`: a rejection lands on the page.
-  val aRejectionLandsOnThePage: bool = lastStepReached.aRejectionLandsOnThePage
+  /// Witness for `aJudgeRejectionPostsItsReasonOnce`: a rejection lands on the pull request or page.
+  val aRejectionLands: bool = lastStepReached.aRejectionLands
 
   /// Witness for `aJudgeRejectionPostsItsReasonOnce`: the host fails the post of a rejection.
   val theHostFailsARejection: bool = lastStepReached.theHostFailsARejection

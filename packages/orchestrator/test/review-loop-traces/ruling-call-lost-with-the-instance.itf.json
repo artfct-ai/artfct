@@ -60,7 +60,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
@@ -253,7 +253,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
@@ -485,7 +485,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
@@ -703,7 +703,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
@@ -921,7 +921,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
         "aRevisionAnswersAQueuedComment": false,
@@ -1029,7 +1029,14 @@
             }
           }
         ],
-        "reviewComments": []
+        "reviewComments": [
+          {
+            "tag": "RejectionComment",
+            "value": {
+              "#bigint": "0"
+            }
+          }
+        ]
       },
       "mbt::actionTaken": "decisionsModelRejects",
       "mbt::nondetPicks": {

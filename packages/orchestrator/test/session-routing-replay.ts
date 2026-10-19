@@ -29,6 +29,7 @@ import {
   personStopsModelCall,
   researcherReportsTodos,
   researcherTurnEnds,
+  researcherTurnEndsUnfinished,
   type AuthorClosing,
 } from "./workflow-actions";
 import {
@@ -96,7 +97,14 @@ const TURN_ENDINGS = [
   "Cancelled",
 ] as const;
 const STREAMED = ["Message", "ToolCall"] as const;
-const HEALTHS = ["TrackerUp", "FailsBeforeStoring", "FailsAfterStoring"] as const;
+const HEALTHS = [
+  "TrackerUp",
+  "FailsBeforeStoring",
+  "FailsAfterStoring",
+  "RestartsBeforeStoring",
+  "RestartsAfterStoring",
+] as const;
+const RESEARCH_ENDINGS = ["LeavesNoPayload", "ResearcherGivesUp", "StopsOnALimit"] as const;
 
 type Issue = (typeof ISSUES)[number];
 type SpecSubject = (typeof SUBJECTS)[number];
@@ -108,6 +116,8 @@ type Ending = (typeof ENDINGS)[number];
 type TurnEnding = (typeof TURN_ENDINGS)[number];
 type Streamed = (typeof STREAMED)[number];
 type Health = (typeof HEALTHS)[number];
+type ResearchEnding = (typeof RESEARCH_ENDINGS)[number];
+type RestartMidPost = Extract<Health, `Restarts${string}`>;
 
 /** The tracker issue key of each issue of the spec. */
 const ISSUE_KEY: Record<Issue, string> = {
@@ -124,12 +134,22 @@ const SUBJECT_LINK: Record<Exclude<SpecSubject, "NoSubject">, string> = {
 /** The chat channel of each chat thread of the spec, by number. */
 const CHAT_CHANNELS = ["C1", "C2"];
 
-/** How the world's tracker answers for each tracker health of the spec. */
-const TRACKER_HEALTH: Record<Health, TrackerHealth> = {
+/** How the world's tracker answers for each tracker health of the spec without a restart. */
+const TRACKER_HEALTH: Record<Exclude<Health, RestartMidPost>, TrackerHealth> = {
   TrackerUp: "up",
   FailsBeforeStoring: "fails_before_storing",
   FailsAfterStoring: "fails_after_storing",
 };
+
+/** Whether the tracker stores the activity that a restart cuts. */
+const STORED_BEFORE_THE_RESTART: Record<RestartMidPost, boolean> = {
+  RestartsBeforeStoring: false,
+  RestartsAfterStoring: true,
+};
+
+function isRestartMidPost(health: Health): health is RestartMidPost {
+  return health in STORED_BEFORE_THE_RESTART;
+}
 
 /** The closing text the author's turn ends with for each turn ending of the spec that is a turn end. */
 const CLOSING_OF: Record<Exclude<TurnEnding, "PromptFails">, AuthorClosing> = {
@@ -197,6 +217,7 @@ export type SpecPicks = {
   health: Health | null;
   todos: number | null;
   message: number | null;
+  researchEnding: ResearchEnding | null;
 };
 
 /**
@@ -261,6 +282,7 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
         health: picked("health", HEALTHS),
         todos: todos === null ? null : specTodos(todos),
         message: message === null ? null : itfInt(message),
+        researchEnding: picked("researchEnding", RESEARCH_ENDINGS),
       },
       output: {
         posts: itfList(itfField(facts, "posts")).map((post) => ({
@@ -494,9 +516,14 @@ export class SessionRoutingReplay {
   async take(step: Pick<TraceStep, "action" | "picks">): Promise<SpecOutput> {
     const deliveriesBefore = this.world.workflow.deliveries.length;
     const outboxBefore = this.world.lastOutboxId();
-    this.world.setTrackerHealth(TRACKER_HEALTH[step.picks.health ?? "TrackerUp"]);
-    await this.world.apply(this.actionFor(step));
-    this.world.setTrackerHealth("up");
+    const health = step.picks.health ?? "TrackerUp";
+    if (isRestartMidPost(health)) {
+      await this.world.apply(this.restartingMidFeedPost(this.actionFor(step), health));
+    } else {
+      this.world.setTrackerHealth(TRACKER_HEALTH[health]);
+      await this.world.apply(this.actionFor(step));
+      this.world.setTrackerHealth("up");
+    }
     await this.world.apply(
       worldAction("sandboxes come up", async (world) => {
         for (const task of world.tasksAwaitingSandbox()) await world.startSandboxOf(task.task_id);
@@ -705,10 +732,7 @@ export class SessionRoutingReplay {
           (world) => this.personStopsAModelCall(world, required(picks.id)),
         );
       case "workflowRestarts":
-        return worldAction("the workflow restarts", async (world) => {
-          for (const message of this.sent) message.held = [];
-          await world.restart();
-        });
+        return worldAction("the workflow restarts", (world) => this.restart(world));
       case "researcherReportsTodos":
         return researcherReportsTodos(
           this.researcherIndexOf(required(picks.id)),
@@ -719,7 +743,10 @@ export class SessionRoutingReplay {
           this.researcherHandsOver(world, required(picks.id)),
         );
       case "researcherLeavesNoPayload":
-        return researcherTurnEnds(this.researcherIndexOf(required(picks.id)), "missing");
+        return this.researcherLeavesNoPayload(
+          required(picks.id),
+          picks.researchEnding ?? "LeavesNoPayload",
+        );
       case "agentPausesAuthor":
         return agentHoldsAuthor(this.unfinishedIndexOf(required(picks.id)), "pause_task");
       case "agentResumesAuthor":
@@ -740,6 +767,45 @@ export class SessionRoutingReplay {
         );
       default:
         throw new Error(`no world action for spec action ${step.action}`);
+    }
+  }
+
+  /** The Durable Object restarts. Every delivery of a session message in flight fails. */
+  private async restart(world: WorkflowWorld): Promise<void> {
+    for (const message of this.sent) message.held = [];
+    await world.restart();
+  }
+
+  /** Run `action`, and restart the workflow while its feed activity is out. */
+  private restartingMidFeedPost(action: WorkflowAction, health: RestartMidPost): WorkflowAction {
+    return worldAction(
+      `${String(action)}, and the workflow restarts mid feed post`,
+      async (world) => {
+        const cut = new Deferred<"cut">();
+        world.tracker.cutNextActivity({
+          stored: STORED_BEFORE_THE_RESTART[health],
+          cut: () => cut.resolve("cut"),
+        });
+        const outcome = await Promise.race([cut.promise, action.run(world).then(() => "ended")]);
+        if (outcome !== "cut") throw new Error(`${String(action)} posted no feed activity to cut`);
+        await this.restart(world);
+      },
+    );
+  }
+
+  private researcherLeavesNoPayload(jobIndex: number, ending: ResearchEnding): WorkflowAction {
+    const index = this.researcherIndexOf(jobIndex);
+    switch (ending) {
+      case "LeavesNoPayload":
+        return researcherTurnEnds(index, "missing");
+      case "ResearcherGivesUp":
+        return researcherTurnEndsUnfinished(index, "gave_up");
+      case "StopsOnALimit":
+        return researcherTurnEndsUnfinished(index, "max_tokens");
+      default: {
+        const unreachable: never = ending;
+        throw new Error(`unhandled research ending ${String(unreachable)}`);
+      }
     }
   }
 

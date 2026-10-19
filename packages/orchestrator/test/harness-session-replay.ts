@@ -205,7 +205,7 @@ export type SpecTask = {
   socketsClosed: number;
   agentWakes: number;
   eventsThatThrew: number;
-  lostTurnsRecovered: number;
+  lostTurns: number;
   stopsEnded: number;
   answersToOtherRequests: number;
 };
@@ -334,7 +334,7 @@ function specTask(world: unknown): SpecTask {
     socketsClosed: itfInt(itfField(world, "socketsClosed")),
     agentWakes: itfInt(itfField(world, "agentWakes")),
     eventsThatThrew: itfInt(itfField(world, "eventsThatThrew")),
-    lostTurnsRecovered: itfInt(itfField(world, "lostTurnsRecovered")),
+    lostTurns: itfInt(itfField(world, "lostTurns")),
     stopsEnded: itfInt(itfField(world, "stopsEnded")),
     answersToOtherRequests: itfInt(itfField(world, "answersToOtherRequests")),
   };
@@ -506,7 +506,10 @@ const CONTINUE_TEXT = "Continue where you left off.";
 const TURN_TEXT = `I wrote the design section by section. ${"Each section names its decision and the reason for it. ".repeat(12)}`;
 const DIGEST_TEXT = "The design is written.";
 const AGENT_WAKE_TEXTS = ["Harness turn ended (", "The harness is idle."];
-const LOST_TURN_RECOVERED_LINE = "bridge lost with a prompt in flight. restarting the sandbox.";
+const LOST_TURN_LINES = [
+  "bridge lost with a prompt in flight. restarting the sandbox.",
+  "failed: bridge lost with a prompt in flight and no restarts left",
+];
 const HELD_EFFORT = "low";
 const ASKED_EFFORT = "high";
 const INTERNAL_ERROR = -32603;
@@ -722,10 +725,9 @@ export class HarnessSessionReplay {
         AGENT_WAKE_TEXTS.some((text) => note.text.includes(text)),
       ).length,
       eventsThatThrew: this.eventsThatThrew,
-      lostTurnsRecovered: store
+      lostTurns: store
         .logLines()
-        .filter((row) => row.task_id === this.taskId && row.line === LOST_TURN_RECOVERED_LINE)
-        .length,
+        .filter((row) => row.task_id === this.taskId && LOST_TURN_LINES.includes(row.line)).length,
       stopsEnded: this.stopsEnded,
       answersToOtherRequests: this.answersToOtherRequests,
     };

@@ -8,6 +8,7 @@
     "boardsLiveOnlyInChat",
     "sessionFeedEndsWhenItsAuthorIdles",
     "feedActivityPostsOnce",
+    "aResearcherThatDidNotFinishRestartsOrFails",
     "chatWorkflowNeverSetsASessionPlan",
     "todoListIsFixedAfterFirstArtifact",
     "aStopAnswersOnlyInTheFeed",
@@ -15,12 +16,12 @@
     "everySessionMessageLandsOnce"
   ],
   "mainMinutes": {
-    "chatThread": 1.1,
-    "trackerOnly": 0.9,
-    "trackerResearch": 0.9,
-    "trackerModelCall": 0.9,
-    "trackerPause": 1.0,
-    "trackerDelivery": 0.9
+    "chatThread": 1.5,
+    "trackerOnly": 1.0,
+    "trackerResearch": 1.0,
+    "trackerModelCall": 1.1,
+    "trackerPause": 1.2,
+    "trackerDelivery": 1.1
   },
   "witnesses": {
     "chatThread": [
@@ -73,6 +74,9 @@
       "aQueuedPromptKeepsTheFeedOpen",
       "aStalledAuthorRestarts",
       "aRetriedActivityIsStoredOnce",
+      "aRestartCutsAToolCallPost",
+      "aRestartLosesAClosingReply",
+      "aRestartFollowsAStoredClosingReply",
       "aToolCallReachesTheFeed",
       "aSessionGetsAPlan",
       "anArtifactCompletesTheTodoList",
@@ -98,6 +102,9 @@
       "aSessionGetsAPlan",
       "aStopEndsATurn",
       "aResearcherFails",
+      "aResearcherThatGaveUpRestarts",
+      "aResearcherStoppedOnALimitRestarts",
+      "aResearcherThatGaveUpFails",
       "aVerbalCancelCancelsAJob",
       "theWorkflowSleeps",
       "aRedeliveredMessageLands",
@@ -143,6 +150,9 @@
       "aQueuedPromptKeepsTheFeedOpen",
       "aStalledAuthorRestarts",
       "aRetriedActivityIsStoredOnce",
+      "aRestartCutsAToolCallPost",
+      "aRestartLosesAClosingReply",
+      "aRestartFollowsAStoredClosingReply",
       "aToolCallReachesTheFeed",
       "aSessionGetsAPlan",
       "anArtifactCompletesTheTodoList",
