@@ -74,6 +74,10 @@
     "test": {
       "dependsOn": ["transit", "types", "template-config"]
     },
+    "@artfct-ai/orchestrator#test": {
+      "dependsOn": ["transit", "types", "template-config"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/spec/*/**/*"]
+    },
     "@artfct-ai/orchestrator#spec:replay": {
       "dependsOn": ["transit", "types", "template-config"],
       "inputs": [
