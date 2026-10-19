@@ -6,6 +6,12 @@ import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { describe, expect, it } from "bun:test";
 import { Adapters } from "../../../config/adapters";
+import { findBinding } from "../../../db/bindings";
+import { createDb } from "../../../db/client";
+import { createWorkflow } from "../../../db/workflows";
+import { FailingRouterWrites } from "../../../../test/failing-router-writes";
+import { sqliteD1 } from "../../../../test/sqlite-d1";
+import { MAX_RESTARTS } from "../../lifecycle";
 import { freshRuntime } from "../../../../test/fresh-runtime";
 import { FakeSandboxProvider } from "../../../../test/fake-sandbox";
 import { seedTask, type FakeRuntime } from "../../../../test/fake-runtime";
@@ -17,6 +23,23 @@ import { CREDENTIAL_REFRESH_MARGIN_MS, TOKEN_RETRY_S } from "./credential";
 
 const TASK = "wf_x.1";
 const JOB = "wf_x-1";
+const BRANCH = "artfct/wf_x-1-fix-login";
+const BRANCH_BINDING = { source: "code_branch", repo: "acme/app", branch: BRANCH } as const;
+
+async function seedQueuedTaskOnABranch(workflow: FakeRuntime, restarts: number): Promise<void> {
+  const db = sqliteD1();
+  workflow.env = { ...workflow.env, DB: db };
+  await createWorkflow(createDb(db), workflow.state.workflow_id);
+  workflow.codeHostInstance = new FakeCodeHost();
+  workflow.patchState({ repo: { full: "acme/app" } });
+  seedTask(workflow, { status: "queued", stage: "design", branch: BRANCH, restarts });
+}
+
+function failRouterWrites(workflow: FakeRuntime): void {
+  const writes = new FailingRouterWrites(workflow.env.DB);
+  writes.failing = true;
+  workflow.env = { ...workflow.env, DB: writes.db };
+}
 
 function installedSkills(workflow: FakeRuntime): string[] {
   return (workflow.sandboxProvider.specs[0]?.files ?? [])
@@ -87,6 +110,13 @@ class CountingMints extends FakeCodeHost {
     const minted = await super.mintToken(repo, permissions);
     this.mints += 1;
     return { ...minted, token: `ghs_${this.mints}` };
+  }
+}
+
+class RefusesMint extends FakeCodeHost {
+  override async mintToken(repo: string, permissions?: Permissions): Promise<MintedToken> {
+    await super.mintToken(repo, permissions);
+    throw new Error("github POST /app/installations/1/access_tokens: 503");
   }
 }
 
@@ -245,6 +275,71 @@ describe("provision", () => {
     it("logs the generation it started", () =>
       provisioned((workflow) => {
         expect(workflow.lines).toContain("sandbox started gen=1 resume=false");
+      }));
+  });
+
+  describe("a queued task on a branch", () => {
+    const provisioned = scenario(freshRuntime, async (workflow) => {
+      await seedQueuedTaskOnABranch(workflow, 0);
+      await provision(workflow, TASK);
+    });
+
+    it("binds the branch to the workflow", () =>
+      provisioned(async (workflow) => {
+        expect(await findBinding(createDb(workflow.env.DB), BRANCH_BINDING)).toBe("wf_x");
+      }));
+
+    it("starts one sandbox", () =>
+      provisioned((workflow) => {
+        expect(workflow.sandboxProvider.specs).toHaveLength(1);
+      }));
+  });
+
+  describe("a queued task on a branch whose binding write fails", () => {
+    const refused = scenario(freshRuntime, async (workflow) => {
+      await seedQueuedTaskOnABranch(workflow, 0);
+      failRouterWrites(workflow);
+      await provision(workflow, TASK);
+    });
+
+    it("starts no sandbox", () =>
+      refused((workflow) => {
+        expect(workflow.sandboxProvider.specs).toEqual([]);
+      }));
+
+    it("counts a restart and keeps the task queued", () =>
+      refused((workflow) => {
+        expect(workflow.store.requireTask(TASK)).toMatchObject({ status: "queued", restarts: 1 });
+      }));
+
+    it("provisions the task again", () =>
+      refused((workflow) => {
+        expect(workflow.alarmsFor("provision").map((alarm) => alarm.payload)).toEqual([
+          { task_id: TASK },
+        ]);
+      }));
+  });
+
+  describe("a queued task on a branch whose binding write fails with its restarts used up", () => {
+    const refused = scenario(freshRuntime, async (workflow) => {
+      await seedQueuedTaskOnABranch(workflow, MAX_RESTARTS);
+      failRouterWrites(workflow);
+      await provision(workflow, TASK);
+    });
+
+    it("fails the task and names the binding", () =>
+      refused((workflow) => {
+        expect(workflow.store.requireTask(TASK).status).toBe("failed");
+        expect(workflow.posted).toContainEqual({
+          type: "failed",
+          job_id: JOB,
+          reason: `The branch binding failed. The details are in the logs of task ${TASK}.`,
+        });
+      }));
+
+    it("does not provision it again", () =>
+      refused((workflow) => {
+        expect(workflow.alarmsFor("provision")).toEqual([]);
       }));
   });
 
@@ -776,6 +871,37 @@ describe("startSandbox", () => {
         expect(workflow.store.requireSandbox(TASK).credential_expires_at).toBe(
           new Date(workflow.now() + ttlMs).toISOString(),
         );
+      }));
+  });
+
+  describe("a code stage whose first token mint fails", () => {
+    const started = scenario(freshRuntime, (workflow) => {
+      workflow.codeHostInstance = new RefusesMint();
+      workflow.patchState({ repo: { full: "acme/app" } });
+      return startSandbox(
+        workflow,
+        seedTask(workflow, { status: "queued", stage: "implement", branch: "artfct/wf_x-1-fix" }),
+        false,
+      );
+    });
+
+    it("starts the sandbox without a token", () =>
+      started((workflow) => {
+        expect(workflow.sandboxProvider.calls).toEqual([`start ${TASK}`]);
+        expect(workflow.sandboxProvider.specs[0]).toMatchObject({
+          workflow_repo_token: null,
+          all_repos_read_token: null,
+        });
+        expect(workflow.store.requireTask(TASK).status).toBe("provisioning");
+      }));
+
+    it("arms no token refresh", () =>
+      started((workflow) => {
+        expect(workflow.alarmsFor("refreshToken")).toEqual([]);
+        expect(workflow.store.requireSandbox(TASK)).toMatchObject({
+          token_schedule: null,
+          credential_expires_at: null,
+        });
       }));
   });
 

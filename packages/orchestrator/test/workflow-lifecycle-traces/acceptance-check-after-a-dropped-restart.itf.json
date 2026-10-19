@@ -750,6 +750,10 @@
           "value": {
             "#tup": []
           }
+        },
+        "routerWriteFails": {
+          "tag": "Some",
+          "value": false
         }
       }
     },

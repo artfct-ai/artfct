@@ -812,4 +812,61 @@ describe("deliver a base branch move", () => {
       expect(await stopTurnAndReadLog("wf_fan_d")).toEqual([]);
     });
   });
+
+  describe("a repository whose first workflow fails to take the event", () => {
+    const fannedOut = ["wf_fan_fail_a", "wf_fan_fail_b"];
+    let delivery: Delivery;
+    let failed: string | undefined;
+    let warn: ReturnType<typeof spyOnWarn>;
+
+    beforeEach(async () => {
+      failed = undefined;
+      for (const [index, workflowId] of fannedOut.entries()) {
+        await startDurableObject(workflowId);
+        await seedBinding(
+          { source: "code_pull", repo: "acme/fail", number: index + 1 },
+          workflowId,
+        );
+      }
+      warn = spyOnWarn();
+      const getByName = env.Workflow.getByName.bind(env.Workflow);
+      const spy = vi.spyOn(env.Workflow, "getByName").mockImplementation((name) => {
+        if (failed !== undefined) return getByName(name);
+        failed = name;
+        return new Proxy(getByName(name), {
+          get: (stub, key) =>
+            key === "handle"
+              ? async () => {
+                  throw new Error("Durable Object reset");
+                }
+              : Reflect.get(stub, key),
+        });
+      });
+      delivery = await deliver(env, {
+        ...prClosed,
+        id: "evt-base-fail",
+        pull: { repo: "acme/fail", action: "base_moved", base: "main" },
+      });
+      spy.mockRestore();
+    });
+
+    afterEach(() => {
+      warn.mockRestore();
+    });
+
+    it("still counts both workflows and answers for the one that took it", () => {
+      expect(delivery).toEqual({ fanned_out: 2, results: [{ ok: true }] });
+    });
+
+    it("logs the failed workflow", () => {
+      expect(warn).toHaveBeenCalledWith(
+        `base move delivery to ${failed} failed: Error: Durable Object reset`,
+      );
+    });
+
+    it("wakes the workflow after the one that failed", async () => {
+      const after = fannedOut.find((workflowId) => workflowId !== failed) ?? "";
+      expect(await stopTurnAndReadLog(after)).toContain("event pr_event");
+    });
+  });
 });

@@ -354,6 +354,10 @@
           "value": {
             "#tup": []
           }
+        },
+        "routerWriteFails": {
+          "tag": "Some",
+          "value": false
         }
       }
     },
@@ -525,6 +529,10 @@
           "value": {
             "#tup": []
           }
+        },
+        "routerWriteFails": {
+          "tag": "Some",
+          "value": false
         }
       }
     },
@@ -921,6 +929,10 @@
           "value": {
             "#tup": []
           }
+        },
+        "routerWriteFails": {
+          "tag": "Some",
+          "value": false
         }
       }
     },
@@ -1594,6 +1606,10 @@
           "value": {
             "#tup": []
           }
+        },
+        "routerWriteFails": {
+          "tag": "Some",
+          "value": false
         }
       }
     },
@@ -1818,6 +1834,10 @@
           "value": {
             "#tup": []
           }
+        },
+        "routerWriteFails": {
+          "tag": "Some",
+          "value": false
         }
       }
     },

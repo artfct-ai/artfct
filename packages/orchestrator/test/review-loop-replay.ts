@@ -958,6 +958,12 @@ export class ReviewLoopReplay {
   private async takeAction(step: TraceStep): Promise<void> {
     const { action } = step;
     if (action === "judgeTurnEnds") return this.judgeTurnEnds();
+    if (action === "theReviewReadFails") {
+      const ends = findingsReviewerEnds(this.authorIndex(), "findings", "TakesAll");
+      return this.world.whilePullReviewsAreUnreadable(() =>
+        this.untilModelCall(() => this.world.apply(ends)),
+      );
+    }
     if (action === "judgeClosesWithoutAConclusion") return this.judgeClosesWithoutAConclusion();
     if (action === "instanceRestarts") {
       return this.instanceRestarts(() => this.untilTheRestartMoment());
