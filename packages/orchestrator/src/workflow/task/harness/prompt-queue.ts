@@ -141,11 +141,16 @@ export async function sendPrompt(
  */
 export async function sendFirstPrompt(workflow: WorkflowRuntime, task: TaskRow): Promise<void> {
   const text = firstPromptText(workflow, task);
+  if (workflow.store.requireSandbox(task.task_id).first_prompt_at === null) {
+    workflow.store.updateSandbox(task.task_id, {
+      first_prompt_at: new Date(workflow.now()).toISOString(),
+    });
+  }
   if (!promptsWait(workflow, task)) return sendPrompt(workflow, task, text);
   workflow.store.enqueuePromptFirst(task.task_id, text);
 }
 
-/** First prompt of a fresh harness session, or the resume prompt on a later generation. */
+/** The task prompt of a task without an earlier first prompt, else the resume prompt. */
 export function firstPromptText(workflow: WorkflowRuntime, task: TaskRow): string {
   const sandbox = workflow.store.requireSandbox(task.task_id);
   const harness = workflow.harness(sandbox.harness);
@@ -157,8 +162,7 @@ export function firstPromptText(workflow: WorkflowRuntime, task: TaskRow): strin
   }
   const artifact = workflow.artifact(workflow.stageForTask(task).artifact).instructions;
   const instructions = harness.invokeSkill(taskSettings(workflow, task).skill);
-  const resumes = sandbox.generation > 1 || workflow.store.requireTask(task.task_id).restarts > 0;
-  if (!resumes) {
+  if (sandbox.first_prompt_at === null) {
     return taskPrompt({ instructions, context: taskContext(workflow, task), artifact });
   }
   const pending = workflow.store.peekPrompt(task.task_id);

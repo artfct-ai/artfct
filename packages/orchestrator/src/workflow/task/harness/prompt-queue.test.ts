@@ -520,3 +520,17 @@ describe("firstPromptText", () => {
       }));
   });
 });
+
+describe("firstPromptText of an author", () => {
+  it("gives the task prompt to a task without an earlier first prompt on a later generation", () =>
+    freshRuntime((workflow) => {
+      const task = seedTask(workflow, {}, { generation: 3 });
+      expect(firstPromptText(workflow, task)).not.toContain("You are resuming a task");
+    }));
+
+  it("gives the resume prompt to a task that had a first prompt", () =>
+    freshRuntime((workflow) => {
+      const task = seedTask(workflow, {}, { generation: 2, first_prompt_at: secondsAgo(60) });
+      expect(firstPromptText(workflow, task)).toContain("You are resuming a task");
+    }));
+});

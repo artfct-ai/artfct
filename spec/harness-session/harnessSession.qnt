@@ -110,6 +110,7 @@ module harnessSessionTypes {
     generation: int,
     token: int,
     session: bool,
+    hadPrompt: bool,
     promptInFlight: bool,
     nudged: bool,
     stoppedEarly: bool,
@@ -139,6 +140,7 @@ module harnessSessionTypes {
     answersToOtherRequests: int,
     eventsThatThrew: int,
     personPrompts: int,
+    resumesChosen: int,
     faults: int,
     actions: int,
     stopped: bool,
@@ -183,6 +185,7 @@ module harnessSessionTypes {
     aBridgeConnectsOnlyWithTheCurrentToken: bool,
     aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn: bool,
     theHelloTimeoutWaitsWhileItsStartIsOut: bool,
+    aTaskWithoutAnEarlierPromptGetsTheTaskPrompt: bool,
   }
 
   /// For each witness that reads a step, whether the last step showed it. Each step writes it anew.
@@ -214,6 +217,8 @@ module harnessSessionTypes {
     aCallWasDropped: bool,
     anAlarmRunsAgainAfterARestart: bool,
     aHelloTimeoutFiresWhileItsStartIsOut: bool,
+    aResumePromptIsChosen: bool,
+    aStoppedTaskGetsTheTaskPrompt: bool,
   }
 }
 
@@ -245,6 +250,7 @@ module harnessSession {
     generation: 0,
     token: 0,
     session: false,
+    hadPrompt: false,
     promptInFlight: false,
     nudged: false,
     stoppedEarly: false,
@@ -274,6 +280,7 @@ module harnessSession {
     answersToOtherRequests: 0,
     eventsThatThrew: 0,
     personPrompts: 0,
+    resumesChosen: 0,
     faults: 0,
     actions: 0,
     stopped: false,
@@ -494,11 +501,12 @@ module harnessSession {
       armKeepAlive(armWallClock(armNoProgress(sendRequest(inFlight, Prompt))))
     }
 
-  /// `sendFirstPrompt`: a later generation takes the head of the queue as its wake text. A paused
-  /// task keeps the first prompt at the head of its queue.
+  /// `sendFirstPrompt`: a task that had a first prompt before resumes, and takes the head of the
+  /// queue as its wake text. A paused task keeps the first prompt at the head of its queue.
   pure def sendFirstPrompt(w: World): World = {
-    val resumes = w.generation > 1 or w.restarts > 0
-    val woken = if (resumes and w.queue.length() > 0) { ...w, queue: w.queue.tail() } else w
+    val resumes = w.hadPrompt
+    val chosen = { ...w, hadPrompt: true, resumesChosen: if (resumes) w.resumesChosen + 1 else w.resumesChosen }
+    val woken = if (resumes and chosen.queue.length() > 0) { ...chosen, queue: chosen.queue.tail() } else chosen
     if (not(woken.paused)) sendPrompt(woken)
     else { ...woken, queue: List(FirstPrompt).concat(woken.queue) }
   }
@@ -750,7 +758,7 @@ module harnessSession {
     endedAStop(step) implies (not(atWork(step.after)) or isFinished(step.after.status)),
   }
 
-  /// PROPOSED, T4. A sandbox start moves the task to provisioning in the next generation with a
+  /// T4. A sandbox start moves the task to provisioning in the next generation with a
   /// new bridge token. The harness session, the prompt in flight, the rpc rows, the nudge, the keep
   /// alive and the time of the last bridge close are cleared, and the hello timeout of the new
   /// generation is armed. A stop also begins a new generation, without a start.
@@ -771,21 +779,21 @@ module harnessSession {
       },
     }
 
-  /// PROPOSED, T5. A provisioning task becomes working only when its bridge says hello, or when a
+  /// T5. A provisioning task becomes working only when its bridge says hello, or when a
   /// stop ends the turn it was starting.
   pure def aStartingTaskWorksOnlyAfterItsHelloIn(step: Step): bool =
     (step.before.status == Provisioning and step.after.status == Working) implies
       (step.kind == HelloStep or endedAStop(step))
 
-  /// PROPOSED, T19. An author in review becomes working only in a step that sends it a prompt.
+  /// T19. An author in review becomes working only in a step that sends it a prompt.
   pure def anAuthorInReviewWorksOnlyWithAPromptIn(step: Step): bool =
     (step.before.status == InReview and step.after.status == Working) implies sentPrompt(step)
 
-  /// PROPOSED, T21. The recovery of a lost turn does not count a restart.
+  /// T21. The recovery of a lost turn does not count a restart.
   pure def aLostTurnIsRecoveredWithoutARestartIn(step: Step): bool =
     recoveredALostTurn(step) implies step.after.restarts == step.before.restarts
 
-  /// PROPOSED, T22. A harness exit on an unfinished task with restarts left counts one restart and
+  /// T22. A harness exit on an unfinished task with restarts left counts one restart and
   /// starts the next generation. The orchestrator does not close a socket for it.
   pure def aHarnessExitCountsOneRestartIn(step: Step): bool =
     (step.kind == ExitStep and not(isFinished(step.before.status)) and step.before.restarts < MAX_RESTARTS) implies and {
@@ -794,7 +802,7 @@ module harnessSession {
       not(closedASocket(step)),
     }
 
-  /// PROPOSED, T23. A sandbox start of the current generation that throws on an unfinished task
+  /// T23. A sandbox start of the current generation that throws on an unfinished task
   /// fails it, or closes its container to restart it. One that throws on a task already queued
   /// for a restart changes nothing, and neither does one of an older generation.
   pure def aFailedSandboxStartRestartsOrFailsIn(step: Step): bool = match step.kind {
@@ -814,21 +822,21 @@ module harnessSession {
     | _ => true
   }
 
-  /// PROPOSED, T29. A prompt the harness refuses is no longer in flight, unless the next prompt
+  /// T29. A prompt the harness refuses is no longer in flight, unless the next prompt
   /// went out in the same step.
   pure def aRefusedPromptLeavesTheTurnIn(step: Step): bool =
     step.kind == PromptRefusedStep implies (not(step.after.promptInFlight) or sentPrompt(step))
 
-  /// PROPOSED, T40. The provision alarm starts a sandbox only for a queued task.
+  /// T40. The provision alarm starts a sandbox only for a queued task.
   pure def provisionStartsOnlyAQueuedTaskIn(step: Step): bool =
     (step.kind == ProvisionStep and step.before.status != Queued) implies not(changedBesidesAlarms(step))
 
-  /// PROPOSED, T42. The wall clock fails a task whose turn is in flight, without a restart.
+  /// T42. The wall clock fails a task whose turn is in flight, without a restart.
   pure def wallClockFailsWithoutARestartIn(step: Step): bool =
     (step.kind == WallClockStep and step.before.promptInFlight and not(step.before.paused) and not(isFinished(step.before.status))) implies
       (step.after.status == Failed and step.after.restarts == step.before.restarts)
 
-  /// PROPOSED, T50. A bridge connects only with the task's current token, and its socket is then
+  /// T50. A bridge connects only with the task's current token, and its socket is then
   /// the only one the task lists.
   pure def aBridgeConnectsOnlyWithTheCurrentTokenIn(step: Step): bool =
     openedASocket(step) implies and {
@@ -837,7 +845,7 @@ module harnessSession {
       listedSockets(step.after) <= 1,
     }
 
-  /// PROPOSED, T26. A turn outcome does not restart or fail the author while a prompt sent after
+  /// T26. A turn outcome does not restart or fail the author while a prompt sent after
   /// that turn ended is in flight.
   pure def aLaterPromptSurvivesTheOutcomeOfAnEarlierTurnIn(step: Step): bool =
     step.kind == OutcomeStep({ laterPromptInFlight: true }) implies and {
@@ -846,7 +854,7 @@ module harnessSession {
       not(issued(step.before, step.after)),
     }
 
-  /// PROPOSED, T43. The hello timeout of the current generation does not restart, fail or move the
+  /// T43. The hello timeout of the current generation does not restart, fail or move the
   /// task while the sandbox start of that generation is out. The end of an older start does not end
   /// the wait.
   pure def theHelloTimeoutWaitsWhileItsStartIsOutIn(step: Step): bool =
@@ -856,6 +864,11 @@ module harnessSession {
       step.after.generation == step.before.generation,
       not(issued(step.before, step.after)),
     }
+
+  /// A task that never had a first prompt gets the task prompt as its first prompt, also after a
+  /// stop or a restart began a later generation.
+  pure def aTaskWithoutAnEarlierPromptGetsTheTaskPromptIn(step: Step): bool =
+    step.after.resumesChosen > step.before.resumesChosen implies step.before.hadPrompt
 
   /// Whether one step kept each before-and-after rule.
   pure def rulesKeptIn(step: Step): RulesKept = {
@@ -875,6 +888,7 @@ module harnessSession {
     aBridgeConnectsOnlyWithTheCurrentToken: aBridgeConnectsOnlyWithTheCurrentTokenIn(step),
     aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn: aLaterPromptSurvivesTheOutcomeOfAnEarlierTurnIn(step),
     theHelloTimeoutWaitsWhileItsStartIsOut: theHelloTimeoutWaitsWhileItsStartIsOutIn(step),
+    aTaskWithoutAnEarlierPromptGetsTheTaskPrompt: aTaskWithoutAnEarlierPromptGetsTheTaskPromptIn(step),
   }
 
   /// Whether a sandbox start of the current generation, or of an older one, failed for an unfinished task.
@@ -949,6 +963,9 @@ module harnessSession {
         step.before.calls.select(call => call.state == Out and alarmsAwaiting(call).length() > 0).length() > 0,
     aHelloTimeoutFiresWhileItsStartIsOut:
       step.kind == HelloTimeoutStep and step.before.status == Provisioning and startCallOut(step.before, step.before.generation),
+    aResumePromptIsChosen: step.after.resumesChosen > step.before.resumesChosen,
+    aStoppedTaskGetsTheTaskPrompt:
+      not(step.before.hadPrompt) and step.after.hadPrompt and step.after.generation > 1 and step.after.restarts == 0,
   }
 
   /// Write the world after a step, and which rules and witnesses that step kept and showed.
@@ -1502,27 +1519,27 @@ module harnessSession {
   /// author does not resume unless its task finished.
   val stopEndsTheAuthorsTurn: bool = rulesKept.stopEndsTheAuthorsTurn
 
-  /// PROPOSED, T4. A sandbox start moves the task to provisioning in the next generation with a
+  /// T4. A sandbox start moves the task to provisioning in the next generation with a
   /// new bridge token. The harness session, the prompt in flight, the rpc rows, the nudge, the keep
   /// alive and the time of the last bridge close are cleared, and the hello timeout of the new
   /// generation is armed.
   val aSandboxStartBeginsAFreshGeneration: bool = rulesKept.aSandboxStartBeginsAFreshGeneration
 
-  /// PROPOSED, T5. A provisioning task becomes working only when its bridge says hello, or when a
+  /// T5. A provisioning task becomes working only when its bridge says hello, or when a
   /// stop ends the turn it was starting.
   val aStartingTaskWorksOnlyAfterItsHello: bool = rulesKept.aStartingTaskWorksOnlyAfterItsHello
 
-  /// PROPOSED, T19. An author in review becomes working only in a step that sends it a prompt.
+  /// T19. An author in review becomes working only in a step that sends it a prompt.
   val anAuthorInReviewWorksOnlyWithAPrompt: bool = rulesKept.anAuthorInReviewWorksOnlyWithAPrompt
 
-  /// PROPOSED, T21. The recovery of a lost turn does not count a restart.
+  /// T21. The recovery of a lost turn does not count a restart.
   val aLostTurnIsRecoveredWithoutARestart: bool = rulesKept.aLostTurnIsRecoveredWithoutARestart
 
-  /// PROPOSED, T22. A harness exit on an unfinished task with restarts left counts one restart and
+  /// T22. A harness exit on an unfinished task with restarts left counts one restart and
   /// starts the next generation. The orchestrator does not close a socket for it.
   val aHarnessExitCountsOneRestart: bool = rulesKept.aHarnessExitCountsOneRestart
 
-  /// PROPOSED, T23. A sandbox start of the current generation that throws on an unfinished task
+  /// T23. A sandbox start of the current generation that throws on an unfinished task
   /// fails it, or closes its container to restart it. One of an older generation changes nothing.
   val aFailedSandboxStartRestartsOrFails: bool = rulesKept.aFailedSandboxStartRestartsOrFails
 
@@ -1549,7 +1566,7 @@ module harnessSession {
       | KeepAlive(_) => false
     }).length() > 0
 
-  /// PROPOSED, T24 and T45. An unpaused, unfinished task with work to do always has a way forward:
+  /// T24 and T45. An unpaused, unfinished task with work to do always has a way forward:
   /// a call out, an alarm that acts on it, a bridge that can answer, or an open socket whose close
   /// recovers a prompt in flight or an unfinished handshake.
   val anUnpausedTaskWithWorkIsNeverStranded: bool =
@@ -1560,17 +1577,17 @@ module harnessSession {
       waitsOnTheBridge(world) and world.sockets.length() > 0,
     }
 
-  /// PROPOSED, T29. A prompt the harness refuses is no longer in flight, unless the next prompt
+  /// T29. A prompt the harness refuses is no longer in flight, unless the next prompt
   /// went out in the same step.
   val aRefusedPromptLeavesTheTurn: bool = rulesKept.aRefusedPromptLeavesTheTurn
 
-  /// PROPOSED, T40. The provision alarm starts a sandbox only for a queued task.
+  /// T40. The provision alarm starts a sandbox only for a queued task.
   val provisionStartsOnlyAQueuedTask: bool = rulesKept.provisionStartsOnlyAQueuedTask
 
-  /// PROPOSED, T42. The wall clock fails a task whose turn is in flight, without a restart.
+  /// T42. The wall clock fails a task whose turn is in flight, without a restart.
   val wallClockFailsWithoutARestart: bool = rulesKept.wallClockFailsWithoutARestart
 
-  /// PROPOSED, T44. While a turn of an unfinished task is in flight in a harness session, the keep
+  /// T44. While a turn of an unfinished task is in flight in a harness session, the keep
   /// alive alarm of its generation is armed.
   val aRunningTurnKeepsItsSandboxAwake: bool =
     (world.promptInFlight and world.session and not(isFinished(world.status))) implies match world.keepAliveSlot {
@@ -1578,26 +1595,26 @@ module harnessSession {
       | Unarmed => false
     }
 
-  /// PROPOSED, T50. A bridge connects only with the task's current token, and its socket is then
+  /// T50. A bridge connects only with the task's current token, and its socket is then
   /// the only one the task lists.
   val aBridgeConnectsOnlyWithTheCurrentToken: bool = rulesKept.aBridgeConnectsOnlyWithTheCurrentToken
 
-  /// PROPOSED, T51. The orchestrator allows every permission request of the current generation.
+  /// T51. The orchestrator allows every permission request of the current generation.
   val everyPermissionRequestIsAllowed: bool = world.permissionsAllowed == world.permissionsAsked
 
-  /// PROPOSED, T7 and A39. A harness session runs one turn at a time: no bridge holds two prompts.
+  /// T7 and A39. A harness session runs one turn at a time: no bridge holds two prompts.
   val aHarnessSessionRunsOneTurnAtATime: bool =
     world.bridges.select(bridge => bridge.requests.select(request => request.purpose == Prompt).length() > 1).length() == 0
 
-  /// PROPOSED, T7. An author in review runs no turn and no handshake.
+  /// T7. An author in review runs no turn and no handshake.
   val anAuthorInReviewRunsNoTurn: bool =
     world.status == InReview implies (not(world.promptInFlight) and not(handshakePending(world)))
 
-  /// PROPOSED, T26. A turn outcome does not restart or fail the author while a prompt sent after
+  /// T26. A turn outcome does not restart or fail the author while a prompt sent after
   /// that turn ended is in flight.
   val aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn: bool = rulesKept.aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn
 
-  /// PROPOSED, T43. The hello timeout of the current generation does not restart, fail or move the
+  /// T43. The hello timeout of the current generation does not restart, fail or move the
   /// task while the sandbox start of that generation is out. The end of an older start does not end
   /// the wait.
   val theHelloTimeoutWaitsWhileItsStartIsOut: bool = rulesKept.theHelloTimeoutWaitsWhileItsStartIsOut
@@ -1607,7 +1624,11 @@ module harnessSession {
   val aStoppedAuthorStaysQuiet: bool =
     (world.stopped and not(isFinished(world.status))) implies not(atWork(world))
 
-  /// PROPOSED. A harness answer reaches only the request it answers, never a later request that
+  /// A task that never had a first prompt gets the task prompt as its first prompt, also after a
+  /// stop or a restart began a later generation.
+  val aTaskWithoutAnEarlierPromptGetsTheTaskPrompt: bool = rulesKept.aTaskWithoutAnEarlierPromptGetsTheTaskPrompt
+
+  /// A harness answer reaches only the request it answers, never a later request that
   /// took the same rpc id.
   val anAnswerReachesOnlyItsOwnRequest: bool = world.answersToOtherRequests == 0
 
@@ -1643,6 +1664,7 @@ module harnessSession {
     anAnswerReachesOnlyItsOwnRequest,
     theHelloTimeoutWaitsWhileItsStartIsOut,
     aStoppedAuthorStaysQuiet,
+    aTaskWithoutAnEarlierPromptGetsTheTaskPrompt,
   }
 
   /// Witness for `finishedTaskKeepsItsStatus`: a finished task is there before a step.
@@ -1755,6 +1777,14 @@ module harnessSession {
   /// Witness for `theHelloTimeoutWaitsWhileItsStartIsOut`: the hello timeout fires on a
   /// provisioning task while the start of its generation is out.
   val aHelloTimeoutFiresWhileItsStartIsOut: bool = stepWitnesses.aHelloTimeoutFiresWhileItsStartIsOut
+
+  /// Witness for `aTaskWithoutAnEarlierPromptGetsTheTaskPrompt`: a task that had a first prompt
+  /// before gets the resume prompt.
+  val aResumePromptIsChosen: bool = stepWitnesses.aResumePromptIsChosen
+
+  /// Witness for `aTaskWithoutAnEarlierPromptGetsTheTaskPrompt`: a task whose generation a stop
+  /// ended before its first prompt gets the task prompt.
+  val aStoppedTaskGetsTheTaskPrompt: bool = stepWitnesses.aStoppedTaskGetsTheTaskPrompt
 
   /// The author was nudged.
   val theAuthorWasNudged: bool = world.nudged

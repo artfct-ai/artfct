@@ -616,6 +616,13 @@ export const MUTANTS: Mutant[] = [
     replace:
       '  await changeWorkflowStatus(workflow, "running");\n  await workflow.scheduleAlarm(0, "provision", { task_id: taskId });\n',
   },
+  {
+    id: "W112",
+    invariant: "harnessSession::aTaskWithoutAnEarlierPromptGetsTheTaskPrompt",
+    path: "src/workflow/task/harness/prompt-queue.ts",
+    find: "  if (sandbox.first_prompt_at === null) {\n",
+    replace: "  if (sandbox.generation <= 1) {\n",
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */
