@@ -175,7 +175,8 @@
       "aPromptGoesOutDuringAnOutcomeCheck",
       "aResumePromptIsChosen",
       "aStaleOutcomeCheckIsDropped",
-      "theAgentWakesForAnIdleHarness"
+      "theAgentWakesForAnIdleHarness",
+      "aHarnessExitRestartsAnIdleAuthor"
     ],
     "jobOnABranch": [
       "theProvisionAlarmFires",

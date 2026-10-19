@@ -959,6 +959,7 @@ export class HarnessSessionReplay {
       case "harnessAsksPermission":
         return this.askPermission(required(picks.bridge), required(picks.offersAllow));
       case "harnessExits":
+      case "theHarnessExitsUnderAnIdleAuthor":
         return this.exit(required(picks.bridge));
       default:
         throw new Error(`no replay action for spec action ${step.action}`);

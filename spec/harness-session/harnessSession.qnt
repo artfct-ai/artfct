@@ -1657,6 +1657,14 @@ module harnessSession {
     any { agentPausesAuthor, agentResumesAuthor },
   }
 
+  /// The harness exits under an author idle in review. A walk reaches review only near its end,
+  /// so this step weighs that exit as much as any other step.
+  action theHarnessExitsUnderAnIdleAuthor: bool = all {
+    world.status == InReview,
+    not(atWork(world)),
+    harnessExits,
+  }
+
   /// A step picks a prompt, the clock, an interruption and a report of the harness each as often
   /// as one event of a call, a socket or the harness, so a random walk of 25 steps reaches the end
   /// of a turn.
@@ -1679,6 +1687,7 @@ module harnessSession {
     harnessWritesThePage,
     theHarnessReportsItsWork,
     theAgentPausesARunningTurn,
+    theHarnessExitsUnderAnIdleAuthor,
   }
 
   /// A finished task never changes status again.
