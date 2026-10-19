@@ -1,7 +1,8 @@
 /// Where the orchestrator's posts go in one workflow, what a person's message or stop in a
 /// tracker session reaches, and what each author's session feed shows there. The surfaces are the
 /// chat threads, the starting session, and the sessions the tracker opens on the issues of jobs.
-/// Each action is one step of the orchestrator that runs to its end before the next event lands.
+/// Each action is one step of the orchestrator that runs to its end before the next event lands,
+/// unless the Durable Object restarts while the step's last feed activity is out.
 /// An agent turn folds into one step that takes the inbox and posts its answer, its question, or
 /// the timeout text. Every sandbox that waits comes up at the end of a step, so an author that
 /// starts or restarts is in its turn when the next step begins. Prompt text, model output and the
@@ -82,8 +83,14 @@ module sessionRoutingTypes {
   type FeedPost = { job: int, kind: FeedKind, stored: int }
 
   /// How the tracker answers an activity: it stores it, it fails before storing it, or it stores
-  /// it and then fails.
-  type TrackerHealth = TrackerUp | FailsBeforeStoring | FailsAfterStoring
+  /// it and then fails. On the last two arms the Durable Object restarts while the first attempt
+  /// is out, before or after the tracker stores the activity.
+  type TrackerHealth =
+    | TrackerUp
+    | FailsBeforeStoring
+    | FailsAfterStoring
+    | RestartsBeforeStoring
+    | RestartsAfterStoring
 
   /// What a person types in a session: a question, a status request, or the verbal command
   /// "pause" or "cancel".
@@ -100,6 +107,11 @@ module sessionRoutingTypes {
   /// `PromptFails` is a harness error answer to the prompt. `Cancelled` is the harness answer to
   /// the cancel a pause sent.
   type TurnEnding = Replies | EndsSilently | StopsEarly | GivesUp | PromptFails | Cancelled
+
+  /// How a researcher's turn ends without a payload its author may take: it left none, it gave
+  /// up, or the harness stopped it on a limit, such as max tokens or a refusal. The last two may
+  /// leave a payload behind.
+  type ResearchEnding = LeavesNoPayload | ResearcherGivesUp | StopsOnALimit
 
   /// How the agent ends the workflow.
   type Ending = Finishes | Fails
@@ -130,7 +142,8 @@ module sessionRoutingTypes {
   /// activities in order, and `plans` the session of each session plan set. `turnEnded` holds the
   /// jobs whose author's turn ended, and `cancelled` those whose turn ended on a cancel.
   /// `stoppedIn` holds the issue of a session where a person pressed Stop. `health` is how the
-  /// tracker answered the step's feed activities.
+  /// tracker answered the step's feed activities. `researchEnded` holds each researcher turn that
+  /// ended without a payload its author may take.
   type StepFacts = {
     wrote: Wrote,
     answered: Set[Target],
@@ -142,6 +155,7 @@ module sessionRoutingTypes {
     cancelled: Set[int],
     stoppedIn: Set[Issue],
     health: TrackerHealth,
+    researchEnded: Set[{ job: int, ending: ResearchEnding }],
   }
 
   /// Whether the last step kept each rule that spans a step.
@@ -155,6 +169,7 @@ module sessionRoutingTypes {
     chatWorkflowNeverSetsASessionPlan: bool,
     todoListIsFixedAfterFirstArtifact: bool,
     aStopAnswersOnlyInTheFeed: bool,
+    aResearcherThatDidNotFinishRestartsOrFails: bool,
   }
 
   /// The state of one step and the feed activities and posts of the turn end that led to it.
@@ -219,6 +234,11 @@ module sessionRouting {
 
   pure val HEALTHS: Set[TrackerHealth] = Set(TrackerUp, FailsBeforeStoring, FailsAfterStoring)
 
+  /// The restarts of the Durable Object while a feed activity is out.
+  pure val RESTARTS_MID_POST: Set[TrackerHealth] = Set(RestartsBeforeStoring, RestartsAfterStoring)
+
+  pure val RESEARCH_ENDINGS: Set[ResearchEnding] = Set(LeavesNoPayload, ResearcherGivesUp, StopsOnALimit)
+
   /// What a person types in a session. The spec does not pause a researcher or a model-call
   /// author, so those setups do not take "pause".
   pure val SESSION_TEXTS: Set[SessionText] =
@@ -253,6 +273,7 @@ module sessionRouting {
     cancelled: Set(),
     stoppedIn: Set(),
     health: TrackerUp,
+    researchEnded: Set(),
   }
 
   pure val NO_DELIVERY_WITNESSES: DeliveryWitnesses = {
@@ -383,14 +404,17 @@ module sessionRouting {
     { ...state, replyTargets: state.replyTargets.union(Set(target)) }
 
   /// How many activities the tracker holds after the notifier's attempts to post one. Each
-  /// attempt sends `ACTIVITY_ID`, and the notifier stops at the first attempt that succeeds.
+  /// attempt sends `ACTIVITY_ID`, and the notifier stops at the first attempt that succeeds. A
+  /// restart ends the attempts.
   pure def storedAcrossAttempts(health: TrackerHealth): int = {
-    val attempts = 1.to(FEED_POST_ATTEMPTS).fold({ stored: Set(), delivered: false }, (tries, _) =>
-      if (tries.delivered) tries
+    val attempts = 1.to(FEED_POST_ATTEMPTS).fold({ stored: Set(), over: false }, (tries, _) =>
+      if (tries.over) tries
       else match health {
-        | TrackerUp => { stored: tries.stored.union(Set(ACTIVITY_ID)), delivered: true }
+        | TrackerUp => { stored: tries.stored.union(Set(ACTIVITY_ID)), over: true }
         | FailsBeforeStoring => tries
         | FailsAfterStoring => { ...tries, stored: tries.stored.union(Set(ACTIVITY_ID)) }
+        | RestartsBeforeStoring => { ...tries, over: true }
+        | RestartsAfterStoring => { stored: tries.stored.union(Set(ACTIVITY_ID)), over: true }
       })
     attempts.stored.size()
   }
@@ -534,6 +558,19 @@ module sessionRouting {
     }),
   }
 
+  /// A researcher turn that ended without a payload its author may take does not start the
+  /// author. The researcher counts one restart, or fails once its restarts are used up.
+  pure def unfinishedResearchRestartsOrFails(before: Routing, after: Routing, facts: StepFacts): bool =
+    facts.researchEnded.forall(ended => {
+      val job = before.jobs[ended.job]
+      val afterwards = after.jobs[ended.job]
+      and {
+        not(hasAuthor(afterwards)),
+        if (job.restarts < MAX_RESTARTS) afterwards.research == Researching and afterwards.restarts == job.restarts + 1
+        else afterwards.research == ResearchFailed,
+      }
+    })
+
   pure def rulesKeptBy(before: Routing, after: Routing, facts: StepFacts): KeptRules = {
     orchestratorStaysOutOfSessionsWhenChatExists: staysOutOfSessions(after, facts),
     linearOnlyAsksReachTheStartingSession: asksReachTheStartingSession(after, facts),
@@ -544,6 +581,7 @@ module sessionRouting {
     chatWorkflowNeverSetsASessionPlan: neverSetsASessionPlan(after, facts),
     todoListIsFixedAfterFirstArtifact: todosFixedAfterArtifact(before, after),
     aStopAnswersOnlyInTheFeed: stopAnswersOnlyInTheFeed(before, after, facts),
+    aResearcherThatDidNotFinishRestartsOrFails: unfinishedResearchRestartsOrFails(before, after, facts),
   }
 
   action moveMessages(
@@ -563,6 +601,45 @@ module sessionRouting {
 
   action move(after: Routing, facts: StepFacts): bool =
     moveMessages(after, facts, sessionMessages, messagesToLand, NO_DELIVERY_WITNESSES)
+
+  /// The session feeds live in memory, so a restart loses every kept message.
+  pure def restartedRouting(state: Routing): Routing =
+    { ...state, jobs: state.jobs.foldl(List(), (jobs, job) => jobs.append(forgetMessage(job))) }
+
+  pure def failedByTheRestart(messages: int -> SessionMessage): Set[int] =
+    messages.keys().filter(message => messages.get(message).inFlight > 0)
+
+  /// A restart fails every delivery of a session message in flight, and the tracker owes it again.
+  pure def messagesAfterRestart(messages: int -> SessionMessage): int -> SessionMessage =
+    messages.keys().mapBy(message => {
+      val sent = messages.get(message)
+      if (failedByTheRestart(messages).contains(message)) { ...sent, inFlight: 0, owed: true } else sent
+    })
+
+  pure def toLandAfterRestart(messages: int -> SessionMessage, toLand: int -> MessageToLand): int -> MessageToLand =
+    toLand.keys().mapBy(message => {
+      val waiting = toLand.get(message)
+      { ...waiting, failedByARestart: waiting.failedByARestart or failedByTheRestart(messages).contains(message) }
+    })
+
+  /// The Durable Object restarts after the step's state is written.
+  action restartAfter(after: Routing, facts: StepFacts): bool =
+    moveMessages(
+      restartedRouting(after),
+      facts,
+      messagesAfterRestart(sessionMessages),
+      toLandAfterRestart(sessionMessages, messagesToLand),
+      NO_DELIVERY_WITNESSES,
+    )
+
+  /// A step that posts one feed activity last. On a restart mid post, the step's state is
+  /// written, the Durable Object restarts, and nothing retries the activity.
+  action moveWithFeed(after: Routing, facts: StepFacts): bool =
+    if (RESTARTS_MID_POST.contains(facts.health)) all {
+      facts.feed.length() == 1,
+      restartAfter(after, facts),
+    }
+    else move(after, facts)
 
   action init: bool = all {
     routing' = INITIAL_ROUTING,
@@ -938,7 +1015,7 @@ module sessionRouting {
   action authorStreams: bool = {
     nondet id = JOB_SLOTS.oneOf()
     nondet streamed = Set(Message, ToolCall).oneOf()
-    nondet health = HEALTHS.oneOf()
+    nondet health = HEALTHS.union(RESTARTS_MID_POST).oneOf()
     all {
       inTurn(routing, id),
       match streamed {
@@ -947,7 +1024,7 @@ module sessionRouting {
             move(says(routing, id), NO_FACTS),
           }
         | ToolCall =>
-            move(
+            moveWithFeed(
               withJob(routing, id, job => { ...forgetMessage(job), nudged: false }),
               { ...NO_FACTS, feed: feedOf(routing, id, ActionActivity, health), health: health },
             )
@@ -987,24 +1064,31 @@ module sessionRouting {
     }
   }
 
-  /// An author's turn ends, and its board flushes. A turn that got a cancel ends cancelled.
+  /// An author's turn ends, and its board flushes. A turn that got a cancel ends cancelled. The
+  /// Durable Object may restart while the closing reply is out, when the turn end posts nothing
+  /// else.
   action authorTurnEnds: bool = {
     nondet id = JOB_SLOTS.oneOf()
     nondet turnEnding = Set(Replies, EndsSilently, StopsEarly, GivesUp, PromptFails, Cancelled).oneOf()
+    nondet health = Set(TrackerUp).union(RESTARTS_MID_POST).oneOf()
     all {
       inTurn(routing, id),
       routing.jobs[id].cancelSent iff turnEnding == Cancelled,
       val ended = turnEndOf(routing, id, turnEnding)
-      move(
-        flushBoard(ended.state, id),
-        {
-          ...NO_FACTS,
-          posts: ended.posts,
-          feed: ended.feed,
-          turnEnded: Set(id),
-          cancelled: if (turnEnding == Cancelled) Set(id) else Set(),
-        },
-      ),
+      all {
+        RESTARTS_MID_POST.contains(health) implies ended.posts.length() == 0,
+        moveWithFeed(
+          flushBoard(ended.state, id),
+          {
+            ...NO_FACTS,
+            posts: ended.posts,
+            feed: ended.feed.foldl(List(), (feed, posted) => feed.append({ ...posted, stored: storedAcrossAttempts(health) })),
+            turnEnded: Set(id),
+            cancelled: if (turnEnding == Cancelled) Set(id) else Set(),
+            health: health,
+          },
+        ),
+      },
     }
   }
 
@@ -1078,24 +1162,8 @@ module sessionRouting {
     }
   }
 
-  /// The Durable Object restarts. The session feeds live in memory, so every kept message is lost.
-  /// Every delivery of a session message in flight fails, and the tracker owes it again.
-  action workflowRestarts: bool = {
-    val failed = sessionMessages.keys().filter(message => sessionMessages.get(message).inFlight > 0)
-    moveMessages(
-      { ...routing, jobs: routing.jobs.foldl(List(), (jobs, job) => jobs.append(forgetMessage(job))) },
-      NO_FACTS,
-      sessionMessages.keys().mapBy(message => {
-        val sent = sessionMessages.get(message)
-        if (failed.contains(message)) { ...sent, inFlight: 0, owed: true } else sent
-      }),
-      messagesToLand.keys().mapBy(message => {
-        val toLand = messagesToLand.get(message)
-        { ...toLand, failedByARestart: toLand.failedByARestart or failed.contains(message) }
-      }),
-      NO_DELIVERY_WITNESSES,
-    )
-  }
+  /// The Durable Object restarts between steps.
+  action workflowRestarts: bool = restartAfter(routing, NO_FACTS)
 
   /// A researcher reports its todo list.
   action researcherReportsTodos: bool = {
@@ -1122,19 +1190,22 @@ module sessionRouting {
     }
   }
 
-  /// A researcher's turn ends without its payload. It restarts in a fresh sandbox, or fails once
-  /// its restarts are used up, and the workflow's audience hears it. Its board flushes.
+  /// A researcher's turn ends without a payload its author may take: it left none, it gave up, or
+  /// the harness stopped it on a limit. It restarts in a fresh sandbox, or fails once its restarts
+  /// are used up, and the workflow's audience hears it. Its board flushes.
   action researcherLeavesNoPayload: bool = {
     nondet id = JOB_SLOTS.oneOf()
+    nondet researchEnding = RESEARCH_ENDINGS.oneOf()
+    val ended = { ...NO_FACTS, researchEnded: Set({ job: id, ending: researchEnding }) }
     all {
       id < routing.jobs.length(),
       routing.jobs[id].research == Researching,
       if (routing.jobs[id].restarts < MAX_RESTARTS)
-        move(flushBoard(withJob(routing, id, job => { ...job, restarts: job.restarts + 1 }), id), NO_FACTS)
+        move(flushBoard(withJob(routing, id, job => { ...job, restarts: job.restarts + 1 }), id), ended)
       else
         move(
           flushBoard(withJob(routing, id, job => { ...job, research: ResearchFailed }), id),
-          { ...NO_FACTS, posts: List(post(routing, FailedPost, Set())) },
+          { ...ended, posts: List(post(routing, FailedPost, Set())) },
         ),
     }
   }
@@ -1257,6 +1328,10 @@ module sessionRouting {
 
   /// The tracker stores each feed activity at most once across retries.
   val feedActivityPostsOnce: bool = lastStepKept.feedActivityPostsOnce
+
+  /// A researcher turn that left no payload, gave up, or stopped on a limit does not start the
+  /// author. The researcher counts one restart, or fails once its restarts are used up.
+  val aResearcherThatDidNotFinishRestartsOrFails: bool = lastStepKept.aResearcherThatDidNotFinishRestartsOrFails
 
   /// A workflow with a chat thread does not set a session plan.
   val chatWorkflowNeverSetsASessionPlan: bool = lastStepKept.chatWorkflowNeverSetsASessionPlan
@@ -1407,6 +1482,17 @@ module sessionRouting {
   /// Witness for `feedActivityPostsOnce`: the tracker stored an activity and then failed, and the retries stored it once.
   val aRetriedActivityIsStoredOnce: bool = lastStep.health == FailsAfterStoring and lastStep.feed.length() > 0
 
+  /// Witness for `feedActivityPostsOnce`: the Durable Object restarts while a tool call's action is out.
+  val aRestartCutsAToolCallPost: bool = RESTARTS_MID_POST.contains(lastStep.health) and feedHas(lastStep, ActionActivity)
+
+  /// Witness for `sessionFeedEndsWhenItsAuthorIdles`: the Durable Object restarts before the tracker stores a closing reply.
+  val aRestartLosesAClosingReply: bool =
+    lastStep.health == RestartsBeforeStoring and lastStep.turnEnded.size() > 0 and lastStep.feed.length() > 0
+
+  /// Witness for `sessionFeedEndsWhenItsAuthorIdles`: the Durable Object restarts after the tracker stores a closing reply.
+  val aRestartFollowsAStoredClosingReply: bool =
+    lastStep.health == RestartsAfterStoring and lastStep.turnEnded.size() > 0 and lastStep.feed.length() > 0
+
   /// Witness for `feedActivityPostsOnce`: a tool call's action reaches the job session.
   val aToolCallReachesTheFeed: bool = feedHas(lastStep, ActionActivity)
 
@@ -1478,6 +1564,21 @@ module sessionRouting {
   /// Witness for `orchestratorStaysOutOfSessionsWhenChatExists`: the workflow goes to sleep and says so.
   val theWorkflowSleeps: bool =
     routing.waitsForInput and lastStep.posts.length() > 0 and wroteIn(lastStep).size() == 0 and lastStep.answered.size() == 0
+
+  pure def researchEndedOn(facts: StepFacts, ending: ResearchEnding): Set[int] =
+    facts.researchEnded.filter(ended => ended.ending == ending).map(ended => ended.job)
+
+  /// Witness for `aResearcherThatDidNotFinishRestartsOrFails`: a researcher that gave up restarts.
+  val aResearcherThatGaveUpRestarts: bool =
+    researchEndedOn(lastStep, ResearcherGivesUp).exists(id => routing.jobs[id].research == Researching)
+
+  /// Witness for `aResearcherThatDidNotFinishRestartsOrFails`: a researcher the harness stopped on a limit restarts.
+  val aResearcherStoppedOnALimitRestarts: bool =
+    researchEndedOn(lastStep, StopsOnALimit).exists(id => routing.jobs[id].research == Researching)
+
+  /// Witness for `aResearcherThatDidNotFinishRestartsOrFails`: a researcher that gave up after its restarts fails.
+  val aResearcherThatGaveUpFails: bool =
+    researchEndedOn(lastStep, ResearcherGivesUp).exists(id => routing.jobs[id].research == ResearchFailed)
 
   /// Witness for `linearOnlyAsksReachTheStartingSession`: a researcher fails and the starting session hears it.
   val aResearcherFails: bool =

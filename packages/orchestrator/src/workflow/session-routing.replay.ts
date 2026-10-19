@@ -97,6 +97,21 @@ const PINNED: { name: string; setup: SpecSetup; file: string }[] = [
     file: "a-researcher-fails-after-its-restarts",
   },
   {
+    name: "restarts a researcher whose turn gave up after it wrote its payload",
+    setup: "trackerResearch",
+    file: "a-researcher-that-gave-up-restarts",
+  },
+  {
+    name: "restarts a researcher that the harness stopped on a limit after it wrote its payload",
+    setup: "trackerResearch",
+    file: "a-researcher-stopped-on-a-limit-restarts",
+  },
+  {
+    name: "loses the closing reply of a cancelled turn when the workflow restarts before the tracker stores it",
+    setup: "trackerOnly",
+    file: "a-restart-loses-the-closing-reply-of-a-cancelled-turn",
+  },
+  {
     name: "ends the feed on the stopped reply when a stop lands during the model call of an author in review",
     setup: "trackerModelCall",
     file: "a-stop-ends-the-model-call-of-an-author-in-review",
