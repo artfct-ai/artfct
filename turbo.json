@@ -83,6 +83,16 @@
         "$TURBO_ROOT$/spec/*/**/*"
       ]
     },
+    "@artfct-ai/orchestrator#spec:replay:e2e": {
+      "dependsOn": ["transit", "types", "template-config"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!**/*.test.ts",
+        "!**/*.test.medium.ts",
+        "$TURBO_ROOT$/spec/*/**/*"
+      ],
+      "passThroughEnv": ["PROPERTY_SEED", "GITHUB_STEP_SUMMARY"]
+    },
     "test:medium": {
       "dependsOn": ["transit", "types", "template-config"]
     },
