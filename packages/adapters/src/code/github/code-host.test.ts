@@ -605,3 +605,38 @@ describe("GithubCodeHost asked whether a login may push", () => {
     });
   });
 });
+
+function reactionCreated(): Response {
+  return Response.json({ id: 1, content: "eyes" }, { status: 201 });
+}
+
+describe("GithubCodeHost comment reactions", () => {
+  const ISSUE_REACTIONS = "/repos/acme/app/issues/comments/42/reactions";
+  const REVIEW_REACTIONS = "/repos/acme/app/pulls/comments/901/reactions";
+  let github: FakeClient;
+
+  beforeEach(async () => {
+    github = client({
+      [`POST ${ISSUE_REACTIONS}`]: reactionCreated,
+      [`POST ${REVIEW_REACTIONS}`]: reactionCreated,
+    });
+    await github.host.reactToComment("acme/app", { kind: "issue", id: 42 }, "eyes");
+    await github.host.reactToComment("acme/app", { kind: "review", id: 901 }, "eyes");
+  });
+
+  it("posts a conversation comment's reaction to the issue comment endpoint and a review comment's to the pull request comment endpoint", () => {
+    const paths = github.requests.map((request) => `${request.method} ${request.url.pathname}`);
+    expect(paths).toEqual([`POST ${ISSUE_REACTIONS}`, `POST ${REVIEW_REACTIONS}`]);
+  });
+
+  it("names the reaction in the body", () => {
+    expect(github.requests.map((request) => JSON.parse(request.body))).toEqual([
+      { content: "eyes" },
+      { content: "eyes" },
+    ]);
+  });
+
+  it("authenticates with the installation token", () => {
+    expect(github.requests.every((request) => request.authorization === "token ghs_1")).toBe(true);
+  });
+});
