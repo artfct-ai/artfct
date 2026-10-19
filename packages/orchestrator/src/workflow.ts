@@ -27,7 +27,7 @@ import type { LanguageModelV4 } from "@ai-sdk/provider";
 import type { JSONValue, ToolSet } from "ai";
 import { allowedMcpTools, connectOrchestratorMcp } from "./agent/tools/mcp";
 import { TranscriptStore, type WroteFrom } from "./agent/transcript/transcript";
-import type { AuthorFeed } from "./workflow/feed/feed";
+import { postClosingReply, type AuthorFeed, type ClosingReplyAlarm } from "./workflow/feed/feed";
 import {
   onTurnHeadsUp,
   onTurnTimeout,
@@ -279,6 +279,13 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
   settleIdleAuthor(alarm: GenerationAlarm): Promise<void> {
     return this.inSpan("alarm settleIdleAuthor", alarm.task_id, () =>
       settleIdleAuthor(this, alarm),
+    );
+  }
+
+  /** Alarm: post a closing reply whose post an instance restart cut. */
+  postClosingReply(alarm: ClosingReplyAlarm): Promise<void> {
+    return this.inSpan("alarm postClosingReply", alarm.activity.task_id, () =>
+      postClosingReply(this, alarm),
     );
   }
 
