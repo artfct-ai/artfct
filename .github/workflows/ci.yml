@@ -58,9 +58,6 @@ jobs:
     name: spec changes
     runs-on: ubuntu-latest
     timeout-minutes: 10
-    permissions:
-      contents: read
-      actions: read
     outputs:
       specs: ${{ steps.specs.outputs.specs }}
       replays: ${{ steps.replays.outputs.replays }}
@@ -68,31 +65,16 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
-      - name: Pick the commit to compare with, the merge base on a pull request or the newest main commit whose run passed, since main skips the commits a newer push replaced
-        id: base
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          base=HEAD^1
-          if [ "$GITHUB_EVENT_NAME" = push ]; then
-            passed=$(gh run list --repo "$GITHUB_REPOSITORY" --branch main --workflow Pipeline --event push --status success --limit 1 --json headSha --jq '.[0].headSha // empty')
-            base=""
-            if [ -n "$passed" ] && git fetch -q --depth=1 origin "$passed"; then base=$passed; fi
-          fi
-          echo "base=$base" | tee -a "$GITHUB_OUTPUT"
-      - name: List the specs whose folders changed, or every spec when the spec scripts, the quint version, or this workflow changed, or when main has not passed yet
+      - name: List the specs whose folders changed, or every spec when the spec scripts, the quint version, or this workflow changed
         id: specs
         shell: bash
-        env:
-          BASE: ${{ steps.base.outputs.base }}
         run: |
-          changed=$(git diff --name-only "$BASE" HEAD || true)
-          quint_version=$(git diff "$BASE" HEAD -- bun.lock | grep -E '^[-+].*@informalsystems/quint' || true)
+          changed=$(git diff --name-only HEAD^1 HEAD)
+          quint_version=$(git diff HEAD^1 HEAD -- bun.lock | grep -E '^[-+].*@informalsystems/quint' || true)
           specs=""
           for checks in spec/*/checks.json; do
             spec=$(basename "$(dirname "$checks")")
-            if [ -z "$BASE" ] || [ -n "$quint_version" ] || grep -qE "^(spec/$spec/|packages/orchestrator/scripts/spec/|\.github/workflows/ci\.yml$)" <<<"$changed"; then
+            if [ -n "$quint_version" ] || grep -qE "^(spec/$spec/|packages/orchestrator/scripts/spec/|\.github/workflows/ci\.yml$)" <<<"$changed"; then
               specs="$specs $spec"
             fi
           done
@@ -103,25 +85,21 @@ jobs:
           bun-version-file: package.json
       - if: github.event_name == 'push'
         run: bun install --frozen-lockfile
-      - name: Replay on main only when the turbo hash of the replay task differs from the compared commit's, since a fresh seed rules out the turbo cache
+      - name: Replay on main only when the turbo hash of the replay task differs from the previous commit's, since a fresh seed rules out the turbo cache
         if: github.event_name == 'push'
         id: replays
         shell: bash
-        env:
-          BASE: ${{ steps.base.outputs.base }}
         run: |
           replay_hash() {
             bunx turbo run spec:replay --filter=@artfct-ai/orchestrator --dry=json |
               jq -r '.tasks[] | select(.taskId == "@artfct-ai/orchestrator#spec:replay") | .hash'
           }
+          now=$(replay_hash)
+          git checkout -q HEAD^1
+          before=$(replay_hash)
+          git checkout -q -
           replays=true
-          if [ -n "$BASE" ]; then
-            now=$(replay_hash)
-            git checkout -q "$BASE"
-            before=$(replay_hash)
-            git checkout -q -
-            [ -n "$now" ] && [ "$now" = "$before" ] && replays=false
-          fi
+          [ -n "$now" ] && [ "$now" = "$before" ] && replays=false
           echo "replays=$replays" | tee -a "$GITHUB_OUTPUT"
 
   quint:
