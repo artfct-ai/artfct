@@ -63,8 +63,8 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.quint
-          key: quint-${{ runner.os }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
-          restore-keys: quint-${{ runner.os }}-
+          key: quint-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
+          restore-keys: quint-${{ runner.os }}-${{ runner.arch }}-
       - name: Run every invariant on 5,000,000 samples
         id: simulation
         timeout-minutes: 180
@@ -115,8 +115,8 @@ jobs:
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.quint
-          key: quint-${{ runner.os }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
-          restore-keys: quint-${{ runner.os }}-
+          key: quint-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
+          restore-keys: quint-${{ runner.os }}-${{ runner.arch }}-
       - name: Check every state within the nightly bounds with TLC
         id: tlc
         timeout-minutes: 345
