@@ -1,6 +1,7 @@
 import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
+import { InterleavedDecisions, onFirstCall } from "../../../test/interleaved-decisions";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { describe, expect, it } from "bun:test";
 import {
@@ -541,6 +542,72 @@ describe("a base branch that moved under several open pull requests", () => {
     }));
 });
 
+const BASE_MOVED: Partial<InboundEvent> = {
+  pull: { repo: "acme/app", action: "base_moved", base: "main" },
+};
+
+function twoActiveAuthors(workflow: FakeRuntime, withArtifact: boolean): void {
+  workflow.patchState({ repo: { full: "acme/app" } });
+  if (withArtifact) seedPullRequestTask(workflow, { task_id: "wf_x.1" }, { status: "ready" });
+  else seedTask(workflow, { task_id: "wf_x.1", stage: "implement" });
+  seedTask(workflow, { task_id: "wf_x.2", stage: "implement", branch: "artfct/wf_x-2-fix" });
+}
+
+describe("an artifact event while several authors are active", () => {
+  describe("that names a pull request no job here owns", () => {
+    const stranger = afterArtifactEvent(
+      { pull: { repo: "acme/app", number: 9, action: "closed", merged: true } },
+      (workflow) => twoActiveAuthors(workflow, false),
+    );
+
+    it("asks the agent which of the active jobs it is about", () =>
+      stranger(({ result }) => {
+        expect(result).toEqual({
+          notes: [
+            "No job matches this event. Active jobs: wf_x-1, wf_x-2. Ask which job it is about.",
+          ],
+          wake: "blocked",
+        });
+      }));
+  });
+
+  describe("that does not name its artifact, with one open artifact", () => {
+    const moved = afterArtifactEvent(BASE_MOVED, (workflow) => {
+      workflow.codeHostInstance = new FakeCodeHost({
+        pulls: [pullRequest({ number: 1, mergeable: false })],
+      });
+      twoActiveAuthors(workflow, true);
+    });
+
+    it("goes to the open artifact's author", () =>
+      moved(({ workflow }) => {
+        expect(workflow.store.queue()).toMatchObject([
+          { task_id: "wf_x.1", text: expect.stringContaining("Do not rebase") },
+        ]);
+      }));
+
+    it("does not ask which job it is about", () =>
+      moved(({ result }) => {
+        expect(result.notes.join("\n")).not.toContain("Ask which job");
+        expect(result.wake).not.toBe("blocked");
+      }));
+  });
+
+  describe("that does not name its artifact, with no open artifact", () => {
+    const moved = afterArtifactEvent(BASE_MOVED, (workflow) => twoActiveAuthors(workflow, false));
+
+    it("matches no job and asks which of the active jobs it is about", () =>
+      moved(({ result }) => {
+        expect(result).toEqual({
+          notes: [
+            "No job matches this event. Active jobs: wf_x-1, wf_x-2. Ask which job it is about.",
+          ],
+          wake: "blocked",
+        });
+      }));
+  });
+});
+
 describe("feedback the decisions model reads", () => {
   const comment = { id: 901, path: "src/login.ts", line: 12, body: "Drops the error." };
   const detail = { repo: "acme/app", number: 1, action: "review" as const, comments: [comment] };
@@ -608,4 +675,75 @@ describe("feedback the decisions model reads", () => {
         expect(result.wake).toBe("human");
       }));
   });
+});
+
+function withARunningAuthor(
+  workflow: FakeRuntime,
+  decisions: FakeDecisions | InterleavedDecisions,
+): void {
+  workflow.codeHostInstance = new FakeCodeHost();
+  workflow.gatewayInstance = new FakeGateway({ decisions });
+  seedPullRequestTask(workflow);
+  workflow.store.updateSandbox(TASK, { prompt_in_flight: 1 });
+}
+
+describe("feedback another delivery of it routed", () => {
+  const comment = { id: 901, path: "src/login.ts", line: 12, body: "Drops the error." };
+  const detail = { repo: "acme/app", number: 1, action: "review" as const, comments: [comment] };
+  const event = hostEvent({ kind: "feedback", pull: detail });
+  const FOR_AUTHOR = { for_author: 0.98, beyond_author: 0.06 };
+  const FOR_AGENT = { for_author: 0.97, beyond_author: 0.93 };
+
+  type Twice = { workflow: FakeRuntime; first: Applied | "handled"; second: Applied | "handled" };
+
+  function deliveredAfter(answers: Record<string, number>): Scenario<Twice> {
+    return (run) =>
+      freshRuntime(async (workflow) => {
+        withARunningAuthor(workflow, new FakeDecisions(answers));
+        const first = await applyArtifactEvent(workflow, event);
+        const second = await applyArtifactEvent(workflow, event);
+        await run({ workflow, first, second });
+      });
+  }
+
+  function deliveredWhileItRoutes(answers: Record<string, number>): Scenario<Twice> {
+    return (run) =>
+      freshRuntime(async (workflow) => {
+        let second: Applied | "handled" = "handled";
+        const meanwhile = onFirstCall(async () => {
+          second = await applyArtifactEvent(workflow, event);
+        });
+        withARunningAuthor(
+          workflow,
+          new InterleavedDecisions(new FakeDecisions(answers), meanwhile),
+        );
+        const first = await applyArtifactEvent(workflow, event);
+        await run({ workflow, first, second });
+      });
+  }
+
+  it("sends the author nothing more after it routed", () =>
+    deliveredAfter(FOR_AUTHOR)(({ workflow, second }) => {
+      expect(second).toBe("handled");
+      expect(workflow.store.queue()).toHaveLength(1);
+    }));
+
+  it("tells the agent nothing more after it routed", () =>
+    deliveredAfter(FOR_AGENT)(({ first, second }) => {
+      expect(appliedForAgent(first).wake).toBe("human");
+      expect(second).toBe("handled");
+    }));
+
+  it("sends the author one prompt when it routes while the first delivery waits", () =>
+    deliveredWhileItRoutes(FOR_AUTHOR)(({ workflow, first, second }) => {
+      expect(appliedForAgent(second).notes[0]).toContain("sent it whole to the author");
+      expect(first).toBe("handled");
+      expect(workflow.store.queue()).toHaveLength(1);
+    }));
+
+  it("tells the agent once when it routes while the first delivery waits", () =>
+    deliveredWhileItRoutes(FOR_AGENT)(({ first, second }) => {
+      expect(appliedForAgent(second).wake).toBe("human");
+      expect(first).toBe("handled");
+    }));
 });

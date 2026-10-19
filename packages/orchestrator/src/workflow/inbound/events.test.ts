@@ -1,3 +1,4 @@
+import type { Decisions } from "@artfct-ai/adapters/gateway/types";
 import { FakeCodeHost } from "@artfct-ai/adapters/test/fake-code-host";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
@@ -54,6 +55,54 @@ describe("handleEvent", () => {
         expect(workflow.notes.map((note) => note.text.split(MARK).length - 1)).toEqual([1]);
       }));
   });
+});
+
+describe("feedback whose delivery a restart cut off", () => {
+  const COMMENT: InboundEvent = {
+    id: "evt-7",
+    kind: "feedback",
+    actor: { person_id: "p1", email: "sam@acme.test", display_name: "Sam" },
+    bindings: [],
+    links: [],
+    text: "Rename the flag.",
+    pull: { repo: "acme/app", number: 1, action: "comment", comment_id: 42 },
+  };
+  const unanswered: Decisions = { decide: () => new Promise(() => undefined) };
+
+  type Redelivered = { restarted: FakeRuntime; ack: unknown; seenBeforeRestart: boolean };
+
+  async function redelivered(run: (fixture: Redelivered) => void): Promise<void> {
+    await freshRuntime(async (workflow) => {
+      workflow.patchState({ status: "running" });
+      workflow.codeHostInstance = new FakeCodeHost();
+      workflow.gatewayInstance = new FakeGateway({ decisions: unanswered });
+      seedPullRequestTask(workflow);
+      void handleEvent(workflow, COMMENT);
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const seenBeforeRestart = workflow.store.eventSeen(COMMENT.id);
+      const restarted = workflow.restarted();
+      const forAuthor = new FakeDecisions({ for_author: 0.98, beyond_author: 0.06 });
+      restarted.gatewayInstance = new FakeGateway({ decisions: forAuthor });
+      const ack = await handleEvent(restarted, COMMENT);
+      run({ restarted, ack, seenBeforeRestart });
+    });
+  }
+
+  it("is not seen before it routes", () =>
+    redelivered(({ seenBeforeRestart }) => {
+      expect(seenBeforeRestart).toBe(false);
+    }));
+
+  it("routes when the host delivers it again", () =>
+    redelivered(({ restarted, ack }) => {
+      expect(ack).toEqual({ ok: true });
+      expect(restarted.store.queue()).toHaveLength(1);
+    }));
+
+  it("is a duplicate once it routed", () =>
+    redelivered(async ({ restarted }) => {
+      expect(await handleEvent(restarted, COMMENT)).toEqual({ ok: true, duplicate: true });
+    }));
 });
 
 describe("a message a person wrote", () => {

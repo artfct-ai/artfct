@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
+import { MockHarness } from "@artfct-ai/adapters/test/mock-harness";
 import { OPTIONS_HEADING } from "../../../artifact/options";
 import { freshRuntime } from "../../../../test/fresh-runtime";
 import {
@@ -12,10 +13,17 @@ import {
 } from "../../../../test/fake-runtime";
 import { scenario } from "../../../../test/scenario";
 import { toolText } from "../../../../test/tool-result";
-import type { RuntimeRequest } from "../../message/requested-runtime";
+import { jobInputKey } from "../../../workflow/store/input-key";
+import { requestedRuntime, type RuntimeRequest } from "../../message/requested-runtime";
 import { validateDocumentHost, validateFreeSlot, startTools, withRequestedRuntime } from "./start";
 
 const call = { toolCallId: "call-1", messages: [], context: {} };
+
+class UnlistedHarness extends MockHarness {
+  override async models(): Promise<null> {
+    throw new Error("models endpoint 503");
+  }
+}
 
 const cancelled = scenario(freshRuntime, (workflow) => {
   seedTask(workflow, { task_id: "wf_x.1", status: "cancelled" });
@@ -380,6 +388,68 @@ const designPlanned = scenario(freshRuntime, (workflow) => {
   workflow.patchState({ stages: ["design"] });
 });
 
+describe("start_job after a cancelled job on the same request left a page", () => {
+  const REQUEST = "Write the session design.";
+  const PAGE_URL = "https://notion.so/sessions";
+
+  function cancelledJobWithPage(removedPages: string[]) {
+    return scenario(designPlanned, (workflow) => {
+      workflow.documentsInstance = new FakeDocuments({ removedPages });
+      seedTask(workflow, {
+        task_id: "wf_x.1",
+        status: "cancelled",
+        stage: "design",
+        input_key: jobInputKey({ kind: "request", text: REQUEST }),
+      });
+      workflow.store.upsertArtifact({
+        job_id: "wf_x-1",
+        kind: "page",
+        external_url: PAGE_URL,
+        ref: { kind: "page", page_id: "sessions" },
+      });
+    });
+  }
+
+  async function startAgain(workflow: FakeRuntime): Promise<string> {
+    const { start_job } = startTools(workflow, [REQUEST]);
+    return toolText(await start_job.execute({ stage: "design", brief: "Write it." }, call));
+  }
+
+  describe("that the host deleted, and the event was lost", () => {
+    const deleted = cancelledJobWithPage([PAGE_URL]);
+
+    it("starts the job", () =>
+      deleted(async (workflow) => {
+        expect(await startAgain(workflow)).toMatch(/^Started job wf_x-2/);
+      }));
+
+    it("records the removal", () =>
+      deleted(async (workflow) => {
+        await startAgain(workflow);
+        expect(workflow.store.artifact("wf_x-1")?.status).toBe("removed");
+        expect(workflow.lines).toContain("the host removed the artifact of job wf_x-1. recorded.");
+      }));
+  });
+
+  describe("that the host still holds", () => {
+    const held = cancelledJobWithPage([]);
+
+    it("refuses and names the page", () =>
+      held(async (workflow) => {
+        expect(await startAgain(workflow)).toMatch(
+          /^Job wf_x-1 \(cancelled\) already produced https:\/\/notion\.so\/sessions from the same request, and the host still holds it \(drafted\)\./,
+        );
+      }));
+
+    it("leaves the page drafted and starts no job", () =>
+      held(async (workflow) => {
+        await startAgain(workflow);
+        expect(workflow.store.artifact("wf_x-1")?.status).toBe("drafted");
+        expect(workflow.store.jobs()).toHaveLength(1);
+      }));
+  });
+});
+
 describe("validateDocumentHost", () => {
   describe("a stage with model execution", () => {
     it("lets the job start with a document host", () =>
@@ -577,6 +647,39 @@ describe("start_job with a requested runtime", () => {
       );
       expect(workflow.store.requireJob("wf_x-1").author_model).toBeNull();
     }));
+
+  describe("a message that names a model while every model list fails", () => {
+    let decisions: FakeDecisions;
+    const failedLists = scenario(designPlanned, (workflow) => {
+      decisions = new FakeDecisions({}, { model: { option: "claude-opus-5-5", probability: 0.8 } });
+      workflow.gatewayInstance = new FakeGateway({ decisions, models: new Error("gateway 503") });
+      workflow.harnessInstance = new UnlistedHarness("claude-code");
+    });
+
+    it("says the job runs without the model, which matched none clearly", () =>
+      failedLists(async (workflow) => {
+        const { start_job } = startTools(workflow, ["Write the design with opus."], {
+          runtimeRequest: requestedRuntime(workflow, "Write the design with opus."),
+        });
+        expect(await start_job.execute({ stage: "design", brief: "Write it." }, call)).toEndWith(
+          "The person named a model that matched none clearly, so the job runs without it. Ask the person which model they meant.",
+        );
+        expect(workflow.store.requireJob("wf_x-1").author_model).toBeNull();
+      }));
+
+    it("asks the decisions model nothing and logs each failed list", () =>
+      failedLists(async (workflow) => {
+        await requestedRuntime(workflow, "Write the design with opus.");
+        expect(decisions.asked).toEqual([]);
+        expect(workflow.lines).toEqual(
+          expect.arrayContaining([
+            expect.stringMatching(/^model list of claude-code unavailable: /),
+            expect.stringMatching(/^model list of opencode unavailable: /),
+            expect.stringMatching(/^model list of the gateway unavailable: /),
+          ]),
+        );
+      }));
+  });
 
   it("starts on the stage's pair when no message named a model", () =>
     designPlanned(async (workflow) => {

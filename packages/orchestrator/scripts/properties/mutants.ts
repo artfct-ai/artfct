@@ -102,9 +102,9 @@ export const MUTANTS: Mutant[] = [
     id: "W12",
     invariant: "feedbackRouting::everyFeedbackGetsOneRoutingDecision",
     path: "src/workflow/refiner/feedback.ts",
-    find: '      return { notes: [`${reviewed} and sent it to nobody.${stayHeld}`, said], wake: "human" };',
+    find: '        notes: [`${reviewed} and sent it to nobody.${stayHeld}`, said],\n        wake: "human",',
     replace:
-      '      return { notes: [`${reviewed} and sent it to nobody.${stayHeld}`, said], wake: "none" };',
+      '        notes: [`${reviewed} and sent it to nobody.${stayHeld}`, said],\n        wake: "none",',
   },
   {
     id: "W13",
@@ -220,7 +220,7 @@ export const MUTANTS: Mutant[] = [
     id: "W28",
     invariant: "harnessSession::taskRestartsAtMostTwice (stale start)",
     path: "src/workflow/task/sandbox/sandbox.ts",
-    find: '    if (workflow.store.requireSandbox(fresh.task_id).generation !== sandbox.generation) return;\n    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The sandbox start"),\n',
+    find: '    if (generationMoved(workflow, sandbox)) return;\n    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The sandbox start"),\n',
     replace:
       '    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The sandbox start"),\n',
   },
@@ -483,9 +483,9 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "feedbackRouting::unadmittedFeedbackReachesNobody, reviewLoop::unadmittedFeedbackReachesNobody",
     path: "src/workflow/refiner/feedback.ts",
-    find: '      return { notes: [unadmittedFeedbackNote(wrote, screened)], wake: "human" };',
+    find: '      return toTheAgent({ notes: [unadmittedFeedbackNote(wrote, screened)], wake: "human" });',
     replace:
-      '      return { notes: [unadmittedFeedbackNote(wrote, screened), said], wake: "human" };',
+      '      return toTheAgent({ notes: [unadmittedFeedbackNote(wrote, screened), said], wake: "human" });',
   },
   {
     id: "F2",
@@ -505,8 +505,8 @@ export const MUTANTS: Mutant[] = [
     id: "F4",
     invariant: "feedbackRouting::everyFeedbackGetsOneRoutingDecision (finished author)",
     path: "src/workflow/refiner/feedback.ts",
-    find: "  if (isTaskFinished(task.status)) {",
-    replace: "  if (false) {",
+    find: "  if (isTaskFinished(task.status)) {\n    return toTheAgent(",
+    replace: "  if (false) {\n    return toTheAgent(",
   },
   {
     id: "C1",
@@ -519,7 +519,7 @@ export const MUTANTS: Mutant[] = [
     id: "C2",
     invariant: "chatAcknowledgement::eyesNeverOutliveTheDelivery (eyes still out)",
     path: "src/router/chat-ack.ts",
-    find: "if (eyes.added && (await eyes.added)) {",
+    find: "if (eyes.added && (await eyesAddedWithinTheWait(eyes.added))) {",
     replace: "if (eyes.added) {",
   },
   {
@@ -591,7 +591,7 @@ export const MUTANTS: Mutant[] = [
     id: "W108",
     invariant: "harnessSession::aStoppedAuthorStaysQuiet (commit author lookup)",
     path: "src/workflow/task/sandbox/sandbox.ts",
-    find: '    if (workflow.store.requireSandbox(fresh.task_id).generation !== sandbox.generation) return;\n    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The commit author lookup"),\n',
+    find: '    if (generationMoved(workflow, sandbox)) return;\n    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The commit author lookup"),\n',
     replace:
       '    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The commit author lookup"),\n',
   },
@@ -625,11 +625,32 @@ export const MUTANTS: Mutant[] = [
     replace: "  if (sandbox.generation <= 1) {\n",
   },
   {
+    id: "W113",
+    invariant: "workflowLifecycle::aStoppedModelCallAuthorStaysQuiet",
+    path: "src/workflow/task/model-turn.ts",
+    find: "  if (task.model_turn_id !== heldTurnId) return;\n",
+    replace: "",
+  },
+  {
     id: "W114",
     invariant: "reviewLoop::aStoppedRefinerRunHandsOverBlocked (review read)",
     path: "src/workflow/refiner/loop.ts",
     find: '  if ("readFailed" in read)\n    return handOverBlockedFromReviewer(\n      workflow,\n      reviewer,\n      `The reviewer\'s review could not be read (${read.readFailed}).`,\n    );\n',
     replace: "",
+  },
+  {
+    id: "W115",
+    invariant: "feedbackRouting::everyFeedbackIsRoutedOnce (seen on arrival)",
+    path: "src/workflow/inbound/events.ts",
+    find: "  if (workflow.store.eventSeen(event.id)) return { ok: true, duplicate: true };",
+    replace: "  if (!workflow.store.markEventSeen(event)) return { ok: true, duplicate: true };",
+  },
+  {
+    id: "W116",
+    invariant: "feedbackRouting::everyFeedbackIsRoutedOnce (duplicate delivery)",
+    path: "src/workflow/refiner/feedback.ts",
+    find: "  if (!workflow.store.eventSeen(key)) return false;",
+    replace: "  if (key) return false;",
   },
   {
     id: "W120",

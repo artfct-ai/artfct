@@ -59,7 +59,7 @@ function checksOfPull(patch: Parameters<typeof pullRequest>[0]) {
 }
 
 function changeOf(built: Built, patch: Partial<InboundEvent>, target: ArtifactTarget | null) {
-  return built.artifact.change({ event: event(patch), target, claim: () => true });
+  return built.artifact.change({ event: event(patch), target });
 }
 
 function pullDetail(patch: Partial<PullDetail> = {}): PullDetail {
@@ -404,6 +404,7 @@ describe("change", () => {
       expect(await changeOf(built, patch, TARGET)).toEqual({
         change: "feedback",
         feedback: {
+          dedupeKey: "evt-1",
           from: ACTOR,
           unchecked: false,
           body: "Two things.",
@@ -464,21 +465,78 @@ describe("change", () => {
       });
     });
 
-    it("drops a sibling webhook of a review another one already carried", async () => {
+    it("keys every webhook of a review it read whole by the review", async () => {
       const built = build(
         new FakeCodeHost({
           reviews: { 7: [submittedReview({ body: "Two things." })] },
           reviewComments: { 501: [inlineComment()] },
         }),
       );
-      const detail = pullDetail({ action: "review", review_id: 501, comments: [comment] });
-      const change = await built.artifact.change({
-        event: event({ kind: "feedback", actor: ACTOR, pull: detail }),
-        target: TARGET,
-        claim: () => false,
+      const detail = pullDetail({ action: "review_comment", review_id: 501, comments: [comment] });
+      const patch = { kind: "feedback" as const, actor: ACTOR, pull: detail };
+      expect(await changeOf(built, patch, TARGET)).toMatchObject({
+        feedback: { dedupeKey: `code:review:${detail.repo}#${detail.number}:501` },
       });
-      expect(change).toBeNull();
-      expect(built.lines.some((line) => line.includes("was handled already"))).toBe(true);
+    });
+
+    it("keys a comment by its event", async () => {
+      const built = build(null);
+      const detail = pullDetail({ action: "comment", comment_id: 42 });
+      const patch = { kind: "feedback" as const, actor: ACTOR, pull: detail, text: "One thing." };
+      expect(await changeOf(built, patch, TARGET)).toMatchObject({
+        feedback: { dedupeKey: "evt-1" },
+      });
+    });
+
+    describe("sibling webhooks of one review whose host read fails", () => {
+      const siblings = [
+        comment,
+        { id: 902, path: "src/session.ts", line: 4, body: "Leaks the token." },
+      ];
+
+      async function deliverSiblings() {
+        const built = build(new FakeCodeHost({ failing: true }));
+        const changes = [];
+        for (const sibling of siblings) {
+          const detail = pullDetail({ action: "review", review_id: 501, comments: [sibling] });
+          changes.push(
+            await built.artifact.change({
+              event: event({
+                id: `evt-${sibling.id}`,
+                kind: "feedback",
+                actor: ACTOR,
+                pull: detail,
+              }),
+              target: TARGET,
+            }),
+          );
+        }
+        return { changes, lines: built.lines };
+      }
+
+      it("keys each webhook by its own event, not by the review", async () => {
+        const { changes } = await deliverSiblings();
+        expect(
+          changes.map((change) => change && "feedback" in change && change.feedback.dedupeKey),
+        ).toEqual(["evt-901", "evt-902"]);
+      });
+
+      it("returns each webhook's own comment as its feedback", async () => {
+        const { changes } = await deliverSiblings();
+        expect(
+          changes.map((change) => change && "feedback" in change && change.feedback.findings),
+        ).toEqual([
+          [{ location: "src/login.ts:12", body: "Drops the error." }],
+          [{ location: "src/session.ts:4", body: "Leaks the token." }],
+        ]);
+      });
+
+      it("logs the failed read", async () => {
+        const { lines } = await deliverSiblings();
+        expect(lines.filter((line) => line.startsWith("review comments unavailable"))).toHaveLength(
+          2,
+        );
+      });
     });
 
     it("keeps the webhook in hand when the host answers with less than it carries", async () => {
