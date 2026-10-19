@@ -30,7 +30,10 @@
     "aFailedCheckNeverAsksThePersonAgain",
     "aJobStartProvisionsItsTask",
     "aPersonsMessageWakesTheWorkflow",
-    "issuesMoveOnlyAtAStartOrADoneEnd"
+    "issuesMoveOnlyAtAStartOrADoneEnd",
+    "eachFailedTaskPostsItsFailureOnce",
+    "anEndedWorkflowPostsItsEndOnce",
+    "aCompletedJobEndsItsReview"
   ],
   "mainMinutes": {
     "pagesWithAReviewer": 1.7,
@@ -89,7 +92,11 @@
       "anAcceptanceCheckFails",
       "aCheckFailsAfterItsAuthorEnded",
       "theAgentIsToldToAskAgain",
-      "aJobStartsPastAFailedRouterWrite"
+      "aJobStartsPastAFailedRouterWrite",
+      "aHarnessAuthorPostsItsFailureAfterItsDestroy",
+      "aHarnessAuthorCompletesAfterItsDestroy",
+      "aRestartDropsAFailurePost",
+      "aJobCompletesDuringItsReview"
     ],
     "pagesWithAPolisher": [
       "aPlanStartsTheWorkflow",
@@ -133,7 +140,11 @@
       "anAcceptanceCheckFails",
       "aCheckFailsAfterItsAuthorEnded",
       "theAgentIsToldToAskAgain",
-      "aJobStartsPastAFailedRouterWrite"
+      "aJobStartsPastAFailedRouterWrite",
+      "aHarnessAuthorPostsItsFailureAfterItsDestroy",
+      "aHarnessAuthorCompletesAfterItsDestroy",
+      "aRestartDropsAFailurePost",
+      "aJobCompletesDuringItsReview"
     ],
     "pagesWithoutRefiners": [
       "aPlanStartsTheWorkflow",
@@ -170,7 +181,10 @@
       "anAcceptanceCheckFails",
       "aCheckFailsAfterItsAuthorEnded",
       "theAgentIsToldToAskAgain",
-      "aJobStartsPastAFailedRouterWrite"
+      "aJobStartsPastAFailedRouterWrite",
+      "aHarnessAuthorPostsItsFailureAfterItsDestroy",
+      "aHarnessAuthorCompletesAfterItsDestroy",
+      "aRestartDropsAFailurePost"
     ],
     "pagesWithAChoice": [
       "aPlanStartsTheWorkflow",
@@ -207,7 +221,10 @@
       "anAcceptanceCheckFails",
       "aCheckFailsAfterItsAuthorEnded",
       "theAgentIsToldToAskAgain",
-      "aJobStartsPastAFailedRouterWrite"
+      "aJobStartsPastAFailedRouterWrite",
+      "aHarnessAuthorPostsItsFailureAfterItsDestroy",
+      "aHarnessAuthorCompletesAfterItsDestroy",
+      "aRestartDropsAFailurePost"
     ],
     "pagesAfterResearch": [
       "aPlanStartsTheWorkflow",
@@ -237,7 +254,11 @@
       "theHumansHaveAPage",
       "theWorkflowIsDone",
       "theWorkflowFailed",
-      "aJobStartsPastAFailedRouterWrite"
+      "aJobStartsPastAFailedRouterWrite",
+      "aHarnessAuthorPostsItsFailureAfterItsDestroy",
+      "aHarnessAuthorCompletesAfterItsDestroy",
+      "aRestartDropsAFailurePost",
+      "aResearcherPostsItsFailure"
     ],
     "pagesFromModelCalls": [
       "aPlanStartsTheWorkflow",
@@ -293,7 +314,8 @@
       "aLostModelTurnRunsAgainOnceMore",
       "aLostModelTurnDeadlineFires",
       "aRestartAlarmDecidesATurnThatWaitedToRunAgain",
-      "aJobStartsPastAFailedRouterWrite"
+      "aJobStartsPastAFailedRouterWrite",
+      "aModelCallHostErrorPostsAFailure"
     ],
     "modelCallPagesWithAReviewer": [
       "aPlanStartsTheWorkflow",
@@ -356,7 +378,8 @@
       "aLostModelTurnRunsAgainOnceMore",
       "aLostModelTurnDeadlineFires",
       "aRestartAlarmDecidesATurnThatWaitedToRunAgain",
-      "aJobStartsPastAFailedRouterWrite"
+      "aJobStartsPastAFailedRouterWrite",
+      "aModelCallHostErrorPostsAFailure"
     ],
     "modelCallPagesAfterResearch": [
       "aPlanStartsTheWorkflow",
@@ -414,7 +437,9 @@
       "aLostModelTurnRunsAgainOnceMore",
       "aLostModelTurnDeadlineFires",
       "aRestartAlarmDecidesATurnThatWaitedToRunAgain",
-      "aJobStartsPastAFailedRouterWrite"
+      "aJobStartsPastAFailedRouterWrite",
+      "aModelCallHostErrorPostsAFailure",
+      "aResearcherPostsItsFailure"
     ],
     "modelCallPagesForAnIssue": [
       "aPlanStartsTheWorkflow",
@@ -483,7 +508,8 @@
       "aRestartAlarmDecidesATurnThatWaitedToRunAgain",
       "aStopTakesATurnThatWaitsToRunAgain",
       "aRunAgainAlarmFindsAStoppedAuthor",
-      "aJobStartsPastAFailedRouterWrite"
+      "aJobStartsPastAFailedRouterWrite",
+      "aModelCallHostErrorPostsAFailure"
     ],
     "pullsTheHostMoves": [
       "aPlanStartsTheWorkflow",
@@ -526,7 +552,10 @@
       "aRemovedPullIsOpenAgain",
       "aStartOutsideTheSubjectIsRefused",
       "aPlanNamesAnotherSubject",
-      "aJobStartsPastAFailedRouterWrite"
+      "aJobStartsPastAFailedRouterWrite",
+      "aHarnessAuthorPostsItsFailureAfterItsDestroy",
+      "aHarnessAuthorCompletesAfterItsDestroy",
+      "aRestartDropsAFailurePost"
     ],
     "pullsForAnEndedSubject": [
       "aPlanStartsTheWorkflow",
@@ -569,7 +598,10 @@
       "anIssueEndFindsAnAcceptedArtifact",
       "aStartOutsideTheSubjectIsRefused",
       "aPlanNamesAnotherSubject",
-      "aJobStartsPastAFailedRouterWrite"
+      "aJobStartsPastAFailedRouterWrite",
+      "aHarnessAuthorPostsItsFailureAfterItsDestroy",
+      "aHarnessAuthorCompletesAfterItsDestroy",
+      "aRestartDropsAFailurePost"
     ],
     "pullsForAnEndedSubIssue": [
       "aPlanStartsTheWorkflow",
@@ -611,7 +643,10 @@
       "aStartOutsideTheSubjectIsRefused",
       "aPlanNamesAnotherSubject",
       "aJobWorksOnASubIssue",
-      "aJobStartsPastAFailedRouterWrite"
+      "aJobStartsPastAFailedRouterWrite",
+      "aHarnessAuthorPostsItsFailureAfterItsDestroy",
+      "aHarnessAuthorCompletesAfterItsDestroy",
+      "aRestartDropsAFailurePost"
     ],
     "pullsForTwoIssues": [
       "aPlanStartsTheWorkflow",
@@ -655,7 +690,10 @@
       "aStartOutsideTheSubjectIsRefused",
       "aPlanNamesAnotherSubject",
       "aJobWorksOnASubIssue",
-      "aJobStartsPastAFailedRouterWrite"
+      "aJobStartsPastAFailedRouterWrite",
+      "aHarnessAuthorPostsItsFailureAfterItsDestroy",
+      "aHarnessAuthorCompletesAfterItsDestroy",
+      "aRestartDropsAFailurePost"
     ],
     "issuesForAChatRequest": [
       "aPlanStartsTheWorkflow",
@@ -695,7 +733,11 @@
       "anAcceptanceCheckFails",
       "aCheckFailsAfterItsAuthorEnded",
       "theAgentIsToldToAskAgain",
-      "aJobStartsPastAFailedRouterWrite"
+      "aJobStartsPastAFailedRouterWrite",
+      "aHarnessAuthorPostsItsFailureAfterItsDestroy",
+      "aHarnessAuthorCompletesAfterItsDestroy",
+      "aRestartDropsAFailurePost",
+      "theWorkflowFailed"
     ]
   },
   "tlc": {

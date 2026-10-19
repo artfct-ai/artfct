@@ -178,9 +178,7 @@
         "endedIssues": {
           "#set": []
         },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
+        "endingPosts": [],
         "idleArmed": true,
         "issueMoves": {
           "#bigint": "0"
@@ -379,9 +377,7 @@
         "endedIssues": {
           "#set": []
         },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
+        "endingPosts": [],
         "idleArmed": true,
         "issueMoves": {
           "#bigint": "0"
@@ -595,9 +591,7 @@
         "endedIssues": {
           "#set": []
         },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
+        "endingPosts": [],
         "idleArmed": true,
         "issueMoves": {
           "#bigint": "0"
@@ -867,9 +861,7 @@
         "endedIssues": {
           "#set": []
         },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
+        "endingPosts": [],
         "idleArmed": true,
         "issueMoves": {
           "#bigint": "0"
@@ -1139,9 +1131,7 @@
         "endedIssues": {
           "#set": []
         },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
+        "endingPosts": [],
         "idleArmed": true,
         "issueMoves": {
           "#bigint": "0"
@@ -1393,9 +1383,7 @@
         "endedIssues": {
           "#set": []
         },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
+        "endingPosts": [],
         "idleArmed": true,
         "issueMoves": {
           "#bigint": "0"
@@ -1647,9 +1635,7 @@
         "endedIssues": {
           "#set": []
         },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
+        "endingPosts": [],
         "idleArmed": true,
         "issueMoves": {
           "#bigint": "0"
@@ -1902,9 +1888,7 @@
         "endedIssues": {
           "#set": []
         },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
+        "endingPosts": [],
         "idleArmed": true,
         "issueMoves": {
           "#bigint": "0"
@@ -2156,9 +2140,7 @@
         "endedIssues": {
           "#set": []
         },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
+        "endingPosts": [],
         "idleArmed": true,
         "issueMoves": {
           "#bigint": "0"

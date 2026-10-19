@@ -726,6 +726,43 @@ export const MUTANTS: Mutant[] = [
     replace: "}",
   },
   {
+    id: "W200",
+    invariant: "workflowLifecycle::pausedAuthorGetsNoPrompt (pausing step)",
+    path: "src/workflow/inbound/controls.ts",
+    find: "  if (isTaskFinished(task.status) || task.paused_at !== null) return;\n  workflow.store.updateTask(task.task_id, {\n    paused_at:",
+    replace:
+      '  if (isTaskFinished(task.status) || task.paused_at !== null) return;\n  await promptTask(workflow, task, "Keep going.");\n  workflow.store.updateTask(task.task_id, {\n    paused_at:',
+  },
+  {
+    id: "W201",
+    invariant: "workflowLifecycle::eachFailedTaskPostsItsFailureOnce",
+    path: "src/workflow/lifecycle.ts",
+    find: '  await workflow.post({ type: "failed", job_id: task.job_id, reason });\n',
+    replace: "",
+  },
+  {
+    id: "W202",
+    invariant: "workflowLifecycle::anEndedWorkflowPostsItsEndOnce (done)",
+    path: "src/workflow/lifecycle.ts",
+    find: '  await workflow.post({ type: "done", result });\n',
+    replace: "",
+  },
+  {
+    id: "W203",
+    invariant: "workflowLifecycle::anEndedWorkflowPostsItsEndOnce (failed twice)",
+    path: "src/workflow/lifecycle.ts",
+    find: '  await workflow.post({ type: "workflow_failed", reason });\n',
+    replace:
+      '  await workflow.post({ type: "workflow_failed", reason });\n  await workflow.post({ type: "workflow_failed", reason });\n',
+  },
+  {
+    id: "W204",
+    invariant: "workflowLifecycle::aCompletedJobEndsItsReview",
+    path: "src/workflow/lifecycle.ts",
+    find: '  await finishTask(workflow, author, "done");\n  await endReviewAndBoard(workflow, author.job_id, {\n    reason: "the job is complete",\n    close: { close: "ready" },\n  });\n',
+    replace: '  await finishTask(workflow, author, "done");\n',
+  },
+  {
     id: "W120",
     invariant: "workflowLifecycle::workflowWaitsOnlyWhileNoAuthorWorks",
     path: "src/workflow/lifecycle.ts",
