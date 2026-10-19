@@ -19,7 +19,8 @@
     "trackerOnly": 0.9,
     "trackerResearch": 0.9,
     "trackerModelCall": 0.9,
-    "trackerPause": 1.0
+    "trackerPause": 1.0,
+    "trackerDelivery": 0.9
   },
   "witnesses": {
     "chatThread": [
@@ -122,6 +123,40 @@
       "theWorkflowSleeps",
       "aRedeliveredMessageLands",
       "aSecondDeliveryIsDropped"
+    ],
+    "trackerDelivery": [
+      "aMessageReachesARunningAuthor",
+      "aMessageStartsAnIdleAuthorsTurn",
+      "aMessageWakesTheAgent",
+      "anAgentTurnAnswersASession",
+      "aFinishedWorkflowReplies",
+      "anAskReachesTheStartingSession",
+      "theTimeoutTextReachesTheStartingSession",
+      "aPostLandsBesideASession",
+      "aChatThreadJoinsLater",
+      "aBoardFollowsTheJoinedThread",
+      "aJobStartsAgainOnItsIssue",
+      "aSessionOpensOnTheSubIssue",
+      "anAuthorRepliesInItsSession",
+      "anAuthorIdlesOnDone",
+      "aFailedPromptEndsTheFeed",
+      "aQueuedPromptKeepsTheFeedOpen",
+      "aStalledAuthorRestarts",
+      "aRetriedActivityIsStoredOnce",
+      "aToolCallReachesTheFeed",
+      "aSessionGetsAPlan",
+      "anArtifactCompletesTheTodoList",
+      "aStopEndsATurn",
+      "aStopReachesAFinishedWorkflow",
+      "aStopLandsWhileTheWorkflowSleeps",
+      "aPauseCancelsATurn",
+      "aResumedAuthorGoesOnAfterTheCancel",
+      "aMessageWaitsForAPausedAuthor",
+      "aVerbalPausePausesAnAuthor",
+      "aVerbalCancelCancelsTheWorkflow",
+      "theWorkflowSleeps",
+      "aRedeliveredMessageLands",
+      "aSecondDeliveryIsDropped"
     ]
   },
   "tlc": {
@@ -143,8 +178,8 @@
           "restartsTaken": 2,
           "authorsWithFeedState": 1,
           "pausedAuthors": 0,
-          "sessionMessagesSent": 0,
-          "messageDeliveriesInFlight": 0
+          "sessionMessagesSent": 1,
+          "messageDeliveriesInFlight": 2
         }
       },
       "trackerOnly": {
@@ -163,8 +198,8 @@
           "restartsTaken": 2,
           "authorsWithFeedState": 1,
           "pausedAuthors": 0,
-          "sessionMessagesSent": 0,
-          "messageDeliveriesInFlight": 0
+          "sessionMessagesSent": 1,
+          "messageDeliveriesInFlight": 2
         }
       },
       "trackerResearch": {
@@ -183,8 +218,8 @@
           "restartsTaken": 2,
           "authorsWithFeedState": 1,
           "pausedAuthors": 0,
-          "sessionMessagesSent": 0,
-          "messageDeliveriesInFlight": 0
+          "sessionMessagesSent": 1,
+          "messageDeliveriesInFlight": 2
         }
       },
       "trackerModelCall": {
@@ -224,6 +259,26 @@
           "authorsWithFeedState": 1,
           "pausedAuthors": 1,
           "sessionMessagesSent": 1,
+          "messageDeliveriesInFlight": 2
+        }
+      },
+      "trackerDelivery": {
+        "pr": {
+          "jobsStarted": 1,
+          "promptsWaiting": 1,
+          "restartsTaken": 0,
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 0,
+          "sessionMessagesSent": 1,
+          "messageDeliveriesInFlight": 1
+        },
+        "nightly": {
+          "jobsStarted": 1,
+          "promptsWaiting": 2,
+          "restartsTaken": 2,
+          "authorsWithFeedState": 1,
+          "pausedAuthors": 0,
+          "sessionMessagesSent": 2,
           "messageDeliveriesInFlight": 2
         }
       }

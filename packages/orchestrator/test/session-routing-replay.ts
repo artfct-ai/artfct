@@ -49,6 +49,7 @@ export const SPEC_SETUPS = {
   trackerResearch: { origin: "tracker", research: true, pageAuthor: "harness" },
   trackerModelCall: { origin: "tracker", research: false, pageAuthor: "model" },
   trackerPause: { origin: "tracker", research: false, pageAuthor: "harness" },
+  trackerDelivery: { origin: "tracker", research: false, pageAuthor: "harness" },
 } as const satisfies Record<string, Pick<WorldSetup, "origin" | "research" | "pageAuthor">>;
 
 /** The name of one setup module of the spec. */
@@ -184,7 +185,7 @@ export type SpecRouting = {
 export type SpecMessage = { inFlight: number; seen: boolean };
 
 /** The values the spec picked for one action. */
-type SpecPicks = {
+export type SpecPicks = {
   subject: SpecSubject | null;
   issue: Issue | null;
   text: SessionText | null;
@@ -489,7 +490,7 @@ export class SessionRoutingReplay {
   }
 
   /** Take one spec action, then bring up every sandbox that waits. Returns what the step sent. */
-  async take(step: TraceStep): Promise<SpecOutput> {
+  async take(step: Pick<TraceStep, "action" | "picks">): Promise<SpecOutput> {
     const deliveriesBefore = this.world.workflow.deliveries.length;
     const outboxBefore = this.world.lastOutboxId();
     this.world.setTrackerHealth(TRACKER_HEALTH[step.picks.health ?? "TrackerUp"]);
@@ -616,7 +617,7 @@ export class SessionRoutingReplay {
     return { job, kind: feedKindOf(payload.content), stored: stored.length };
   }
 
-  private actionFor(step: TraceStep): WorkflowAction {
+  private actionFor(step: Pick<TraceStep, "action" | "picks">): WorkflowAction {
     const { picks } = step;
     switch (step.action) {
       case "personWritesInSession":
