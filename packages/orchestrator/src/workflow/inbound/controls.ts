@@ -150,7 +150,8 @@ export async function stopAuthor(workflow: WorkflowRuntime, author: TaskRow): Pr
  * End the turn of a stopped author, whether it runs, starts, resumes, or idles. A harness author
  * ends its generation, so a call it awaited before the stop does not act after it, and a starting
  * one becomes working. A model-call author goes back in review when its page is out, since it
- * takes a prompt only there.
+ * takes a prompt only there. It lets go of its model turn, also a lost one that waits for its
+ * run-again alarm, so that alarm does nothing.
  */
 async function endStoppedTurn(workflow: WorkflowRuntime, author: TaskRow): Promise<void> {
   const sandbox = workflow.store.sandbox(author.task_id);

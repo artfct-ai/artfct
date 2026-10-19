@@ -28,7 +28,7 @@ import { resumeLostCalls, type LostCallsAlarm } from "../src/workflow/restart";
 import { isTaskFinished, type Subject } from "../src/workflow/store/state";
 import type { JobRow, TaskRow } from "../src/workflow/store/tasks";
 import type { ConnectionState } from "../src/workflow/task/harness/bridge";
-import { onNoProgress, type TaskAlarm } from "../src/workflow/task/harness/timers";
+import { onNoProgress } from "../src/workflow/task/harness/timers";
 import {
   onModelTurnDeadline,
   runLostModelTurnAgain,
@@ -342,7 +342,8 @@ type SpecCall = { kind: CallKind; job: number };
 
 /**
  * The workflow as the spec sees it. `jobSlots` is null until a plan sets the stages. A restart
- * alarm is the jobs whose lost model turn it still decides.
+ * alarm is the jobs whose lost model turn it still decides. `turnsToRunAgain` is the jobs whose
+ * author still holds the turn id an armed run-again alarm names.
  */
 export type SpecWorkflow = {
   status: (typeof WORKFLOW_STATUSES)[number];
@@ -357,6 +358,7 @@ export type SpecWorkflow = {
   endedIssues: number[];
   restartAlarms: number[][];
   runAgainAlarms: number[];
+  turnsToRunAgain: number[];
   restartAlarmFired: boolean;
   ranAgain: number[];
   storedEnd: (typeof WORKFLOW_STATUSES)[number] | null;
@@ -507,6 +509,7 @@ function specWorkflow(value: unknown): SpecWorkflow {
       .map(sortedInts)
       .toSorted(compareJobLists),
     runAgainAlarms: sortedInts(itfField(value, "runAgainAlarms")),
+    turnsToRunAgain: sortedInts(itfField(value, "turnsToRunAgain")),
     restartAlarmFired: itfBool(itfField(value, "restartAlarmFired")),
     ranAgain: sortedInts(itfField(value, "ranAgain")),
     storedEnd:
@@ -716,7 +719,9 @@ export class WorkflowLifecycleReplay {
   private storeAtStaleAlarm: string | null = null;
   private readonly firedStaleDeadlines = new Map<string, ModelTurnAlarm>();
   private firedRestartAlarm: LostCallsAlarm | null = null;
-  private readonly ranAgain = new Set<number>();
+  private readonly ranAgain = new Map<number, ModelTurnAlarm[]>();
+  private readonly lostTurnIds = new Set<string>();
+  private readonly firedLostTurnDeadlines = new Map<string, ModelTurnAlarm>();
 
   private constructor(
     readonly world: WorkflowWorld,
@@ -889,16 +894,25 @@ export class WorkflowLifecycleReplay {
       endedIssues: [...this.endedIssues].toSorted((left, right) => left - right),
       restartAlarms: this.restartAlarms(),
       runAgainAlarms: [
-        ...new Set(
-          workflow
-            .alarmsFor("runLostModelTurnAgain")
-            .map((alarm) => this.jobIndexOfTask((alarm.payload as TaskAlarm).task_id)),
-        ),
+        ...new Set(this.runAgainAlarms().map((alarm) => this.jobIndexOfTask(alarm.task_id))),
       ].toSorted((left, right) => left - right),
+      turnsToRunAgain: this.runAgainAlarms()
+        .filter((alarm) => {
+          const task = store.requireTask(alarm.task_id);
+          return !isTaskFinished(task.status) && task.model_turn_id === alarm.turn_id;
+        })
+        .map((alarm) => this.jobIndexOfTask(alarm.task_id))
+        .toSorted((left, right) => left - right),
       restartAlarmFired: this.firedRestartAlarm !== null,
-      ranAgain: [...this.ranAgain].toSorted((left, right) => left - right),
+      ranAgain: [...this.ranAgain.keys()].toSorted((left, right) => left - right),
       storedEnd: storedEnd ? WORKFLOW_STATUS_OF[storedEnd.status] : null,
     };
+  }
+
+  private runAgainAlarms(): ModelTurnAlarm[] {
+    return this.world.workflow
+      .alarmsFor("runLostModelTurnAgain")
+      .map((alarm) => alarm.payload as ModelTurnAlarm);
   }
 
   /** Each armed restart alarm by the jobs whose author still holds a model turn it names. */
@@ -1208,6 +1222,11 @@ export class WorkflowLifecycleReplay {
         return worldAction("the alarm goes on with the workflow end", (world) =>
           this.workflowEndResumes(world),
         );
+      case "theDeadlineOfALostModelTurnFires":
+        return worldAction(
+          `the deadline of the lost model turn of job ${picks.id} fires`,
+          (world) => this.lostModelTurnDeadlineFires(world, required(picks.id)),
+        );
       default:
         throw new Error(`no world action for spec action ${step.action}`);
     }
@@ -1396,7 +1415,8 @@ export class WorkflowLifecycleReplay {
 
   /**
    * The restart alarms that still decide the lost model turns of exactly these jobs fire. Each
-   * leaves the list before it runs, as an alarm the platform delivers does.
+   * leaves the list before it runs, as an alarm the platform delivers does. A restarted author
+   * holds a new turn id, which no model call made.
    */
   private async restartAlarmFires(world: WorkflowWorld, lostJobs: number[]): Promise<void> {
     const firing = world.workflow
@@ -1411,7 +1431,11 @@ export class WorkflowLifecycleReplay {
       const payload = alarm.payload as LostCallsAlarm;
       await world.workflow.cancelAlarm(alarm.id);
       this.firedRestartAlarm = payload;
+      for (const turn of payload.model_turns) this.lostTurnIds.add(turn.turn_id);
       await this.runStep(() => resumeLostCalls(world.workflow, payload));
+    }
+    for (const task of world.workflow.store.tasks()) {
+      if (task.model_turn_id) this.heldTurns.add(task.model_turn_id);
     }
   }
 
@@ -1432,23 +1456,44 @@ export class WorkflowLifecycleReplay {
   }
 
   /**
-   * The alarm of the job's restarted author fires and runs its lost model turn again. Once it
-   * fired, the platform delivers it again.
+   * The alarms of the job's restarted author fire and run its lost model turn again. Once they
+   * fired, the platform delivers them again.
    */
   private async lostModelTurnRunsAgain(world: WorkflowWorld, jobIndex: number): Promise<void> {
-    const author: TaskAlarm = { task_id: this.taskOf(jobIndex).task_id };
+    const taskId = this.taskOf(jobIndex).task_id;
     const armed = world.workflow
       .alarmsFor("runLostModelTurnAgain")
-      .filter((alarm) => (alarm.payload as TaskAlarm).task_id === author.task_id);
-    if (armed.length === 0 && !this.ranAgain.has(jobIndex)) {
-      throw new Error(`job ${jobIndex} has no lost model turn to run again`);
-    }
-    this.ranAgain.add(jobIndex);
+      .filter((alarm) => (alarm.payload as ModelTurnAlarm).task_id === taskId);
+    const deliveries =
+      armed.length > 0
+        ? armed.map((alarm) => alarm.payload as ModelTurnAlarm)
+        : this.ranAgain.get(jobIndex);
+    if (!deliveries) throw new Error(`job ${jobIndex} has no lost model turn to run again`);
+    this.ranAgain.set(jobIndex, deliveries);
     for (const alarm of armed) await world.workflow.cancelAlarm(alarm.id);
-    const deliveries = Math.max(armed.length, 1);
-    for (let delivery = 0; delivery < deliveries; delivery += 1) {
-      await this.runStep(() => runLostModelTurnAgain(world.workflow, author));
+    for (const delivery of deliveries) {
+      await this.runStep(() => runLostModelTurnAgain(world.workflow, delivery));
     }
+  }
+
+  /**
+   * The deadline alarm of a model turn of the job that an instance restart lost fires before the
+   * turn runs again. Once it fired, the platform delivers it again.
+   */
+  private async lostModelTurnDeadlineFires(world: WorkflowWorld, jobIndex: number): Promise<void> {
+    const taskId = this.taskOf(jobIndex).task_id;
+    const armed = world.workflow.alarmsFor("onModelTurnDeadline").find((alarm) => {
+      const { task_id, turn_id } = alarm.payload as ModelTurnAlarm;
+      return task_id === taskId && this.lostTurnIds.has(turn_id);
+    });
+    if (armed) await world.workflow.cancelAlarm(armed.id);
+    const payload = armed
+      ? (armed.payload as ModelTurnAlarm)
+      : this.firedLostTurnDeadlines.get(taskId);
+    if (!payload) throw new Error(`job ${jobIndex} has no deadline armed for a lost model turn`);
+    this.firedLostTurnDeadlines.set(taskId, payload);
+    this.storeAtStaleAlarm = world.storeSnapshot();
+    await onModelTurnDeadline(world.workflow, payload);
   }
 
   /** The deadline of a held model call or page write fires first. The call never returns. */
@@ -1474,7 +1519,9 @@ export class WorkflowLifecycleReplay {
     const task = this.taskOf(jobIndex);
     const stale = world.workflow.alarmsFor("onModelTurnDeadline").find((alarm) => {
       const { task_id, turn_id } = alarm.payload as ModelTurnAlarm;
-      return task_id === task.task_id && turn_id !== task.model_turn_id;
+      return (
+        task_id === task.task_id && turn_id !== task.model_turn_id && !this.lostTurnIds.has(turn_id)
+      );
     });
     if (stale) await world.workflow.cancelAlarm(stale.id);
     const payload = stale

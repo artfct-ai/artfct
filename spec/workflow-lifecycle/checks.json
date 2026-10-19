@@ -13,6 +13,8 @@
     "staleAlarmIsIgnored",
     "stoppedModelCallLeavesThePage",
     "aModelCallAuthorHasAtMostOnePageWriteOut",
+    "aTurnThatWaitsToRunAgainHasItsAlarm",
+    "aStoppedModelCallAuthorStaysQuiet",
     "sleepMessageOnlyDuringAWorkflow",
     "finishedWorkflowKeepsItsStatus",
     "taskRestartsAtMostTwice",
@@ -292,6 +294,8 @@
       "theRestartAlarmFailsAnAuthor",
       "aRestartAlarmFiresAgain",
       "aLostModelTurnRunsAgainOnceMore",
+      "aLostModelTurnDeadlineFires",
+      "aRestartAlarmDecidesATurnThatWaitedToRunAgain",
       "aJobStartsPastAFailedRouterWrite"
     ],
     "modelCallPagesWithAReviewer": [
@@ -351,6 +355,8 @@
       "theRestartAlarmFailsAnAuthor",
       "aRestartAlarmFiresAgain",
       "aLostModelTurnRunsAgainOnceMore",
+      "aLostModelTurnDeadlineFires",
+      "aRestartAlarmDecidesATurnThatWaitedToRunAgain",
       "aJobStartsPastAFailedRouterWrite"
     ],
     "modelCallPagesAfterResearch": [
@@ -405,6 +411,8 @@
       "theRestartAlarmFailsAnAuthor",
       "aRestartAlarmFiresAgain",
       "aLostModelTurnRunsAgainOnceMore",
+      "aLostModelTurnDeadlineFires",
+      "aRestartAlarmDecidesATurnThatWaitedToRunAgain",
       "aJobStartsPastAFailedRouterWrite"
     ],
     "modelCallPagesForAnIssue": [
@@ -465,6 +473,10 @@
       "theRestartAlarmFailsAnAuthor",
       "aRestartAlarmFiresAgain",
       "aLostModelTurnRunsAgainOnceMore",
+      "aLostModelTurnDeadlineFires",
+      "aRestartAlarmDecidesATurnThatWaitedToRunAgain",
+      "aStopTakesATurnThatWaitsToRunAgain",
+      "aRunAgainAlarmFindsAStoppedAuthor",
       "aJobStartsPastAFailedRouterWrite"
     ],
     "pullsTheHostMoves": [

@@ -29,7 +29,9 @@ module workflowLifecycleTypes {
   /// container of the task's generation is closed and the task waits for a prompt to start the
   /// next one. A restart of a paused task closes it, and so does a polisher as it starts.
   /// `startOrder` is the place of the task among the researchers and authors of the workflow, in
-  /// the order they started.
+  /// the order they started. `stopped` holds once a stop left a model-call author without a turn,
+  /// until a prompt or a resume reaches it. A stop that reached a page write leaves the author
+  /// without a turn once the write returns.
   type Task = {
     role: Role,
     startOrder: int,
@@ -40,6 +42,7 @@ module workflowLifecycleTypes {
     promptsSent: int,
     promptsQueued: int,
     generationClosed: bool,
+    stopped: bool,
   }
 
   /// `Accepted` and `Removed` record that the host merged or closed the artifact. Only a pull gets
@@ -157,6 +160,8 @@ module workflowLifecycleTypes {
   /// decides. A job leaves every one once its author no longer holds that turn.
   /// `runAgainAlarms` holds the jobs whose restarted author has its alarm to run the lost model
   /// turn again armed. The store keeps both alarms across an instance restart.
+  /// `turnsToRunAgain` holds the jobs whose restarted author still holds the new turn id that its
+  /// run-again alarm names. A stop takes it, so that alarm does nothing.
   /// `restartAlarmFired` and `ranAgain` record the alarms that already fired, which the platform
   /// may deliver again. `storedEnd` is the workflow end the store holds.
   type Workflow = {
@@ -172,6 +177,7 @@ module workflowLifecycleTypes {
     endedIssues: Set[int],
     restartAlarms: Set[Set[int]],
     runAgainAlarms: Set[int],
+    turnsToRunAgain: Set[int],
     restartAlarmFired: bool,
     ranAgain: Set[int],
     storedEnd: StoredEnd,
@@ -196,6 +202,8 @@ module workflowLifecycleTypes {
   /// `RestartAlarmStep` is the restart alarm that decides the lost model turns of the jobs it
   /// holds. `RestartAlarmAgainStep` is a restart alarm the platform delivers again.
   /// `RunAgainStep` is the alarm that runs the lost model turn of the job again, also once more.
+  /// `LostTurnDeadlineStep` is the deadline alarm of the lost model turn of the job, which fires
+  /// while its author waits for the alarm that runs the turn again.
   /// `EndResumeStep` is the alarm that goes on with a workflow end an instance restart cut off.
   type StepKind =
     | OtherStep
@@ -219,6 +227,7 @@ module workflowLifecycleTypes {
     | RestartAlarmStep(Set[int])
     | RestartAlarmAgainStep
     | RunAgainStep(int)
+    | LostTurnDeadlineStep(int)
     | EndResumeStep
 
   /// The timers whose alarms are about one sandbox generation.
@@ -324,6 +333,10 @@ module workflowLifecycleTypes {
     theRestartAlarmFailsAnAuthor: bool,
     aRestartAlarmFiresAgain: bool,
     aLostModelTurnRunsAgainOnceMore: bool,
+    aStopTakesATurnThatWaitsToRunAgain: bool,
+    aRunAgainAlarmFindsAStoppedAuthor: bool,
+    aLostModelTurnDeadlineFires: bool,
+    aRestartAlarmDecidesATurnThatWaitedToRunAgain: bool,
     aRestartLandsDuringAWorkflowEnd: bool,
     aWorkflowEndResumesAfterARestart: bool,
   }
@@ -451,6 +464,7 @@ module workflowLifecycle {
     endedIssues: Set(),
     restartAlarms: Set(),
     runAgainAlarms: Set(),
+    turnsToRunAgain: Set(),
     restartAlarmFired: false,
     ranAgain: Set(),
     storedEnd: NoStoredEnd,
@@ -549,13 +563,15 @@ module workflowLifecycle {
   }
 
   /// True while the model turn of the job's unfinished model-call author is in flight: its model
-  /// call or its page write is out, or an instance restart cut it and the author still holds it.
+  /// call or its page write is out, or an instance restart cut it and the author still holds it,
+  /// also while it waits for its run-again alarm.
   pure def modelTurnInFlight(flow: Workflow, id: int): bool = and {
     not(isFinished(jobTask(flow, id).status)),
     or {
       flow.calls.indices().exists(callId =>
         isModelTurnCall(flow.calls[callId]) and flow.calls[callId].job == id),
       lostModelTurn(flow, id),
+      flow.turnsToRunAgain.contains(id),
     },
   }
 
@@ -563,10 +579,11 @@ module workflowLifecycle {
   pure def lostModelTurn(flow: Workflow, id: int): bool =
     flow.restartAlarms.exists(jobs => jobs.contains(id))
 
-  /// The workflow once the author of the job no longer holds its lost model turn. A restart alarm
-  /// left without a job decides nothing, so it goes.
+  /// The workflow once the author of the job no longer holds its lost model turn, also one that
+  /// waits for its run-again alarm. A restart alarm left without a job decides nothing, so it goes.
   pure def withoutLostModelTurn(flow: Workflow, id: int): Workflow = {
     ...flow,
+    turnsToRunAgain: flow.turnsToRunAgain.exclude(Set(id)),
     restartAlarms: flow.restartAlarms.map(jobs => jobs.exclude(Set(id))).filter(jobs => jobs.size() > 0),
   }
 
@@ -624,6 +641,7 @@ module workflowLifecycle {
       promptsSent: if (harness) 1 else 0,
       promptsQueued: 0,
       generationClosed: false,
+      stopped: false,
     }
   }
 
@@ -1031,8 +1049,17 @@ module workflowLifecycle {
       | PageWriteStarts(turn) => modelCallAnswered(returned, call.job, turn)
       | ModelTurnGoesOn(turn) => modelTurnEnds(returned, call.job, turn)
       | ModelCallStopped(turn) => { flow: returned, told: turn.eventWaits }
-      | StoppedTurnGoesOn(turn) => modelTurnEnds(returned, call.job, turn)
+      | StoppedTurnGoesOn(turn) => stoppedTurnEnds(returned, call.job, turn)
     }
+  }
+
+  /// The page write of a model turn that a stop reached returns, and the turn ends as any turn
+  /// does. An author left without a turn and without a prompt since the stop stays stopped.
+  pure def stoppedTurnEnds(flow: Workflow, id: int, turn: ModelTurn): Outcome = {
+    val ended = modelTurnEnds(flow, id, turn)
+    val task = jobTask(ended.flow, id)
+    if (isFinished(task.status) or modelTurnInFlight(ended.flow, id) or task.promptsQueued > 0) ended
+    else { ...ended, flow: withTask(ended.flow, id, { ...task, stopped: true }) }
   }
 
   /// A restart of the Durable Object drops every call that is out. A task whose restart it
@@ -1048,32 +1075,41 @@ module workflowLifecycle {
   }
 
   /// An instance restart drops every call that is out. The start step arms one restart alarm for
-  /// every model turn the authors still hold, also one an earlier restart cut. The prompt of a
+  /// every model turn the authors still hold, also one an earlier restart cut and one that waits
+  /// for its run-again alarm. That one counts as lost again. The prompt of a
   /// revise turn the restart cut waits again unless a stop reached its page write. The alarms of
   /// earlier restarts stay armed. The review loop spec holds the lost rulings the alarm asks again.
   /// The workflow end the store holds stays, and the start step arms the alarm that goes on with it.
   pure def restartWorkflow(flow: Workflow): Workflow = {
     val held = modelTurnsInFlight(flow)
-    val requeued = held.filter(id => not(lostModelTurn(flow, id))).fold(dropCalls(flow), (requeuing, id) =>
+    val cut = held.filter(id => not(lostModelTurn(flow, id)) and not(flow.turnsToRunAgain.contains(id)))
+    val requeued = cut.fold(dropCalls(flow), (requeuing, id) =>
       requeueCutPrompt(requeuing, id, keepsItsPrompt(flow, id)))
     if (held.size() == 0) requeued else { ...requeued, restartAlarms: requeued.restartAlarms.union(Set(held)) }
   }
 
   /// The restart alarm decides the lost model turn of each of its jobs, in the order their authors
-  /// started. Each author it restarts gets its own alarm to run that turn again.
+  /// started. Each author it restarts holds a new turn id until its own alarm runs that turn again.
   pure def decideLostModelTurns(flow: Workflow, jobs: Set[int]): Outcome = {
     val decided = unfinishedJobsInStartOrder(flow).select(id => jobs.contains(id)).foldl(untold(flow), (deciding, id) => {
       val lost = restartLostModelTurn(deciding.flow, id)
       val runsAgain = if (isFinished(jobTask(lost.flow, id).status)) lost.flow
-        else { ...lost.flow, runAgainAlarms: lost.flow.runAgainAlarms.union(Set(id)) }
+        else {
+          ...lost.flow,
+          runAgainAlarms: lost.flow.runAgainAlarms.union(Set(id)),
+          turnsToRunAgain: lost.flow.turnsToRunAgain.union(Set(id)),
+        }
       { flow: runsAgain, told: deciding.told or lost.told }
     })
     { ...decided, flow: { ...decided.flow, restartAlarmFired: true } }
   }
 
-  /// The alarm of the job's restarted author fires, and the author runs its lost model turn again.
+  /// The alarm of the job's restarted author fires. While the author still holds the turn id the
+  /// alarm names, it lets go of it and runs its lost model turn again. Otherwise it does nothing.
   pure def lostTurnRunsAgain(flow: Workflow, id: int): Workflow = {
-    val ran = runLostModelTurnAgain(flow, id)
+    val ran =
+      if (flow.turnsToRunAgain.contains(id)) runLostModelTurnAgain(withoutLostModelTurn(flow, id), id)
+      else flow
     { ...ran, runAgainAlarms: ran.runAgainAlarms.exclude(Set(id)), ranAgain: ran.ranAgain.union(Set(id)) }
   }
 
@@ -1118,7 +1154,7 @@ module workflowLifecycle {
   /// comes from a person's event, which waits for the turn it starts.
   pure def promptTask(flow: Workflow, id: int, eventWaits: bool): Workflow = {
     val task = jobTask(flow, id)
-    val queued = withTask(flow, id, { ...task, promptsQueued: task.promptsQueued + 1 })
+    val queued = withTask(flow, id, { ...task, promptsQueued: task.promptsQueued + 1, stopped: false })
     if (isFinished(task.status)) flow
     else if (task.paused or polisherHoldsPrompts(flow, id)) queued
     else if (runsAsModelCalls(task)) {
@@ -1357,8 +1393,9 @@ module workflowLifecycle {
 
   /// `stopAuthor` on the author of the job: its queued prompts go. A model turn whose model call
   /// is out ends, and the answer of that call changes nothing. The author goes back in review when
-  /// its page is out, and otherwise waits busy for its next prompt. A model turn whose page write
-  /// is out stays in flight and ends once the write returns.
+  /// its page is out, and otherwise waits busy for its next prompt. A lost model turn that waits
+  /// for its run-again alarm ends too. A model turn whose page write is out stays in flight and
+  /// ends once the write returns. A model-call author the stop leaves without a turn is stopped.
   pure def stopAuthor(flow: Workflow, id: int): Workflow = {
     val task = jobTask(flow, id)
     val stoppedCalls = flow.calls.foldl(List(), (calls, call) => calls.append(
@@ -1369,11 +1406,12 @@ module workflowLifecycle {
         | _ => call
       }))
     val dropped = { ...task, promptsQueued: 0 }
-    if (not(modelTurnInFlight(flow, id))) withTask(flow, id, dropped)
+    val quiet = { ...dropped, stopped: runsAsModelCalls(task) }
+    if (not(modelTurnInFlight(flow, id))) withTask(flow, id, quiet)
     else if (pageWriteOut(flow, id)) withTask({ ...flow, calls: stoppedCalls }, id, dropped)
     else
       withoutLostModelTurn(withTask({ ...flow, calls: stoppedCalls }, id, {
-        ...dropped,
+        ...quiet,
         status: if (flow.jobs[id].artifact == NoArtifact) Busy else InReview,
       }), id)
   }
@@ -1999,7 +2037,7 @@ module workflowLifecycle {
   }
 
   /// The platform delivers a restart alarm that already fired again. Each model turn it names was
-  /// decided or ended, and a turn id is not used twice, so it changes nothing.
+  /// decided or ended, and an author it restarted holds a new turn id, so it changes nothing.
   action theRestartAlarmFiresAgain: bool = all {
     workflow.restartAlarmFired,
     move(untold(workflow), RestartAlarmAgainStep),
@@ -2025,12 +2063,22 @@ module workflowLifecycle {
     },
   }
 
+  /// The deadline alarm of the lost model turn of the job fires while its restarted author waits
+  /// for its run-again alarm. The author holds a new turn id, so the alarm changes nothing. Only
+  /// the replay reads the job.
+  action theDeadlineOfALostModelTurnFires: bool = onJobWhere(
+    id => workflow.turnsToRunAgain.contains(id),
+    id => move(untold(workflow), LostTurnDeadlineStep(id)),
+  )
+
   /// An alarm that an instance restart armed fires: the restart alarm, the alarm that runs a lost
-  /// model turn again, or the alarm that goes on with a workflow end.
+  /// model turn again, or the alarm that goes on with a workflow end. The deadline of a lost model
+  /// turn fires before it runs again.
   action anAlarmOfARestartFires: bool = any {
     theRestartAlarmFires,
     theRestartAlarmFiresAgain,
     lostModelTurnRunsAgain,
+    theDeadlineOfALostModelTurnFires,
     theWorkflowEndResumes,
   }
 
@@ -2191,10 +2239,18 @@ module workflowLifecycle {
       not(step.toldTheAgent),
     }
 
-  /// An alarm of an older sandbox generation changes nothing. A stale alarm does not tell the
-  /// agent.
+  /// An alarm of an older sandbox generation, or of a model turn the author no longer holds,
+  /// changes nothing. A stale alarm does not tell the agent.
   pure def ignoresAStaleAlarm(step: Transition): bool =
-    step.kind == StaleAlarmStep implies (step.after == step.before and not(step.toldTheAgent))
+    isStaleAlarmStep(step.kind) implies (step.after == step.before and not(step.toldTheAgent))
+
+  /// True for the step of an alarm that is about a generation or a turn that went: a stale alarm,
+  /// or the deadline of a lost model turn whose author holds a new turn id.
+  pure def isStaleAlarmStep(kind: StepKind): bool = match kind {
+    | StaleAlarmStep => true
+    | LostTurnDeadlineStep(_) => true
+    | _ => false
+  }
 
   /// The sleep message posts only while the workflow runs from a plan.
   pure def sleepsOnlyDuringAWorkflow(step: Transition): bool =
@@ -2240,7 +2296,6 @@ module workflowLifecycle {
       val revised = step.before.jobs[id].artifact != NoArtifact
       or {
         modelTurnInFlight(step.after, id),
-        step.after.runAgainAlarms.contains(id),
         after.status == InReview and not(revised and after.promptsQueued > before.promptsQueued),
         after.paused,
         after.status == TaskFailed and step.after.failuresPosted > step.before.failuresPosted,
@@ -2556,6 +2611,20 @@ module workflowLifecycle {
         | RunAgainStep(id) => not(step.before.runAgainAlarms.contains(id))
         | _ => false
       },
+      aStopTakesATurnThatWaitsToRunAgain: step.kind == StopStep and
+        step.before.turnsToRunAgain.exists(id => not(step.after.turnsToRunAgain.contains(id))),
+      aRunAgainAlarmFindsAStoppedAuthor: match step.kind {
+        | RunAgainStep(id) => step.before.runAgainAlarms.contains(id) and jobTask(step.before, id).stopped
+        | _ => false
+      },
+      aLostModelTurnDeadlineFires: match step.kind {
+        | LostTurnDeadlineStep(_) => true
+        | _ => false
+      },
+      aRestartAlarmDecidesATurnThatWaitedToRunAgain: match step.kind {
+        | RestartAlarmStep(jobs) => jobs.exists(id => step.before.turnsToRunAgain.contains(id))
+        | _ => false
+      },
       aRestartLandsDuringAWorkflowEnd: step.kind == RestartStep and workflowEnding(step.before),
       aWorkflowEndResumesAfterARestart: step.kind == EndResumeStep,
     }
@@ -2685,7 +2754,7 @@ module workflowLifecycle {
 
   /// An unpaused model-call author with a queued prompt has a model turn in flight or is starting.
   /// The start of a turn folds into the step that queues it, so an author that is starting has its
-  /// model call out, or waits for its alarm to run its lost model turn again.
+  /// model call out, or holds its lost model turn until its alarm runs it again.
   val aQueuedPromptReachesItsModelCallAuthor: bool =
     jobIds(workflow).forall(id => {
       val task = jobTask(workflow, id)
@@ -2695,12 +2764,12 @@ module workflowLifecycle {
         not(task.paused),
         task.promptsQueued > 0,
       }
-      waiting implies (modelTurnInFlight(workflow, id) or workflow.runAgainAlarms.contains(id))
+      waiting implies modelTurnInFlight(workflow, id)
     })
 
   /// A model-call author is working only while its model call or its page write is out, or after
   /// a stop ended its turn before its page existed. `Busy` covers starting, which folds into the
-  /// step that sends the model call, or waits for the alarm that runs a lost model turn again. A
+  /// step that sends the model call, or holds a lost model turn until its alarm runs it again. A
   /// paused task does not work, as `taskWorks` reads it, so a paused author whose produce turn was
   /// lost waits busy until its resume. An author that a stop ended before its page existed waits
   /// busy for its next prompt.
@@ -2710,9 +2779,24 @@ module workflowLifecycle {
       (runsAsModelCalls(task) and task.status == Busy and not(task.paused)) implies
         or {
           modelTurnInFlight(workflow, id),
-          workflow.runAgainAlarms.contains(id),
           A_PERSON_STOPS and workflow.jobs[id].artifact == NoArtifact,
         }
+    })
+
+  /// A restarted author holds the new turn id of its lost model turn only while the alarm that runs
+  /// that turn again is armed.
+  val aTurnThatWaitsToRunAgainHasItsAlarm: bool =
+    jobIds(workflow).forall(id =>
+      (workflow.turnsToRunAgain.contains(id) and not(isFinished(jobTask(workflow, id).status))) implies
+        workflow.runAgainAlarms.contains(id))
+
+  /// A model-call author that a stop left without a turn does not start one until a prompt or a
+  /// resume reaches it. The alarm that runs a lost model turn again does not start one either.
+  val aStoppedModelCallAuthorStaysQuiet: bool =
+    jobIds(workflow).forall(id => {
+      val task = jobTask(workflow, id)
+      (runsAsModelCalls(task) and task.stopped and not(isFinished(task.status))) implies
+        not(modelTurnInFlight(workflow, id))
     })
 
   /// The prompts the workflow sent its tasks, a counter that model checking bounds.
@@ -2982,6 +3066,22 @@ module workflowLifecycle {
   /// Witness for `aModelCallAuthorHasAtMostOnePageWriteOut`: the platform delivers the alarm that
   /// runs a lost model turn again once more.
   val aLostModelTurnRunsAgainOnceMore: bool = lastStepReached.aLostModelTurnRunsAgainOnceMore
+
+  /// Witness for `aStoppedModelCallAuthorStaysQuiet`: a stop takes the lost model turn that an
+  /// author holds until its run-again alarm.
+  val aStopTakesATurnThatWaitsToRunAgain: bool = lastStepReached.aStopTakesATurnThatWaitsToRunAgain
+
+  /// Witness for `aStoppedModelCallAuthorStaysQuiet`: the run-again alarm of a stopped author fires.
+  val aRunAgainAlarmFindsAStoppedAuthor: bool = lastStepReached.aRunAgainAlarmFindsAStoppedAuthor
+
+  /// Witness for `staleAlarmIsIgnored`: the deadline of a lost model turn fires before the turn
+  /// runs again.
+  val aLostModelTurnDeadlineFires: bool = lastStepReached.aLostModelTurnDeadlineFires
+
+  /// Witness for `taskRestartsAtMostTwice`: a restart alarm decides a turn that waited for its
+  /// run-again alarm when a later instance restart cut it, which counts another restart.
+  val aRestartAlarmDecidesATurnThatWaitedToRunAgain: bool =
+    lastStepReached.aRestartAlarmDecidesATurnThatWaitedToRunAgain
 
   /// Witness for `aModelCallAuthorHasAtMostOnePageWriteOut`: a prompt waits for a model turn whose
   /// page write a stop reached.

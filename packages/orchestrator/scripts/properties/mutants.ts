@@ -624,6 +624,13 @@ export const MUTANTS: Mutant[] = [
     replace: "  if (sandbox.generation <= 1) {\n",
   },
   {
+    id: "W113",
+    invariant: "workflowLifecycle::aStoppedModelCallAuthorStaysQuiet",
+    path: "src/workflow/task/model-turn.ts",
+    find: "  if (task.model_turn_id !== heldTurnId) return;\n",
+    replace: "",
+  },
+  {
     id: "W114",
     invariant: "reviewLoop::aStoppedRefinerRunHandsOverBlocked (review read)",
     path: "src/workflow/refiner/loop.ts",
