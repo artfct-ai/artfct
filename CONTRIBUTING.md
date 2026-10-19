@@ -23,7 +23,7 @@ bun run dev                  # terminal 2: both Workers under wrangler dev
 CI does not run on a pull request from a fork until a maintainer approves it. Test the change fully on your machine first. Run these from the repository root. Each must pass with zero errors and zero warnings.
 
 ```sh
-bun run check   # the tests, the lint, the build, and the format check that CI runs
+bun run ci      # the tests, the lint, the build, and the format check that CI runs
 bun run smoke   # must print SMOKE PASSED
 ```
 

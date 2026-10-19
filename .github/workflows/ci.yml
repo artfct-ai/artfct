@@ -1,4 +1,4 @@
-name: Checks
+name: CI
 
 on:
   workflow_call:
@@ -15,7 +15,7 @@ env:
 
 jobs:
   ci:
-    name: check and smoke
+    name: ci
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -25,5 +25,5 @@ jobs:
       - uses: ./.github/actions/install
       - name: Fail when the lockfile does not match the workspace manifests
         run: bun install --lockfile-only && git diff --exit-code bun.lock
-      - run: bun run check:affected
+      - run: bun run ci:affected
       - run: bun run smoke

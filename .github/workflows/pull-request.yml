@@ -20,7 +20,7 @@ env:
 
 jobs:
   ci:
-    uses: ./.github/workflows/checks.yml
+    uses: ./.github/workflows/ci.yml
     secrets:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
 
