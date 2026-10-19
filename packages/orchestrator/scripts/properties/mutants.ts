@@ -497,14 +497,16 @@ export const MUTANTS: Mutant[] = [
     invariant: "agentTurns::aStaleTurnAlarmChangesNothing (heads-up)",
     path: "src/agent/turn/watchdog.ts",
     find: "export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n  if (workflow.state.turn_started_at !== alarm.started_at) return;\n",
-    replace: "export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n",
+    replace:
+      "export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n",
   },
   {
     id: "W251",
     invariant: "agentTurns::aStaleTurnAlarmChangesNothing (watchdog)",
     path: "src/agent/turn/watchdog.ts",
     find: "export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n  if (workflow.state.turn_started_at !== alarm.started_at) return;\n",
-    replace: "export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n",
+    replace:
+      "export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n",
   },
   {
     id: "W252",
@@ -524,9 +526,9 @@ export const MUTANTS: Mutant[] = [
     id: "W254",
     invariant: "agentTurns::theHeadsUpPostsOnceToChatInAPersonsTurn (once per turn)",
     path: "src/agent/turn/watchdog.ts",
-    find: "  workflow.patchState({ turn_heads_up: null });\n  workflow.log(null, \"agent turn still running, heads-up posted\");\n",
+    find: '  workflow.patchState({ turn_heads_up: null });\n  workflow.log(null, "agent turn still running, heads-up posted");\n',
     replace:
-      "  workflow.patchState({\n    turn_heads_up: await workflow.scheduleAlarm(HEADS_UP_SECONDS, \"onTurnHeadsUp\", alarm),\n  });\n",
+      '  workflow.patchState({\n    turn_heads_up: await workflow.scheduleAlarm(HEADS_UP_SECONDS, "onTurnHeadsUp", alarm),\n  });\n',
   },
   {
     id: "W255",
@@ -537,14 +539,16 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W256",
-    invariant: "agentTurns::aPersonsMessageLeavesTheInboxOnlyWithItsTurn (restart of a finished workflow)",
+    invariant:
+      "agentTurns::aPersonsMessageLeavesTheInboxOnlyWithItsTurn (restart of a finished workflow)",
     path: "src/agent/turn/watchdog.ts",
     find: "  if (isWorkflowFinished(workflow.state.status) && !workflow.transcript.takenMessages().length) {\n",
     replace: "  if (isWorkflowFinished(workflow.state.status)) {\n",
   },
   {
     id: "W257",
-    invariant: "behavior map A3: the agent hears that held comments stay held when their author finished",
+    invariant:
+      "behavior map A3: the agent hears that held comments stay held when their author finished",
     path: "src/workflow/refiner/held-comments.ts",
     find: "    if (carried === null) {\n      sent.notes.push(\n",
     replace: "    if (carried === null) {\n      continue;\n      sent.notes.push(\n",

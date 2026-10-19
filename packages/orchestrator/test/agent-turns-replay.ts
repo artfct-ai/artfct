@@ -1226,7 +1226,8 @@ export class AgentTurnsReplay {
 
   private async fireStaleAlarm(kind: TurnAlarmKind, startNumber: number): Promise<void> {
     const started = [...this.ledger.startNumbers].find(([, number]) => number === startNumber);
-    if (!started) throw new Error(`the trace fires a stale alarm for start ${startNumber}, which never ran`);
+    if (!started)
+      throw new Error(`the trace fires a stale alarm for start ${startNumber}, which never ran`);
     const handler = kind === "WatchdogAlarm" ? onTurnTimeout : onTurnHeadsUp;
     this.ledger.firingAlarm = true;
     try {

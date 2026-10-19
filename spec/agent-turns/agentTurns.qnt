@@ -122,7 +122,8 @@ module agentTurnsTypes {
     | AwaitingRuntimeRequest
     | Concluding(Conclusion)
 
-  /// One model call of a turn: the tools it ran, and whether it left the person a reply.
+  /// One model call of a turn, or the system's first reply before the model runs: the tools it
+  /// ran, and whether it left the person a reply.
   type StepRecord = { ran: Set[Tool], answered: bool }
 
   /// What a revision request did with the comments held on the author's page: it did not read
@@ -157,8 +158,6 @@ module agentTurnsTypes {
     lostTurnOwed: bool,
     callHung: bool,
     heldComments: HeldCommentsOutcome,
-    // The system sent the first reply before the model ran.
-    repliedBeforeTheModel: bool,
     decisionsEvents: List[DecisionsEvent],
     answeredBy: List[int],
     reads: List[ChatRead],
@@ -322,7 +321,6 @@ module agentTurns {
     lostTurnOwed: false,
     callHung: false,
     heldComments: HeldCommentsNotRead,
-    repliedBeforeTheModel: false,
     decisionsEvents: [],
     answeredBy: [],
     reads: [],
@@ -690,7 +688,7 @@ module agentTurns {
   /// The turn sends the first reply itself: the thumbs-up on the chat messages that wait for one,
   /// or one line to the people it answers. The model's `acknowledge` then fails.
   pure def repliesFirst(store: Store, turnRun: TurnRun): { store: Store, turnRun: TurnRun } =
-    val replied = { ...turnRun, acknowledged: true, firstReplied: true, record: { ...turnRun.record, repliedBeforeTheModel: true } }
+    val replied = { ...turnRun, acknowledged: true, firstReplied: true, record: { ...turnRun.record, steps: turnRun.record.steps.append({ ran: Set(), answered: true }) } }
     if (turnRun.reactable)
       val reacting = idsOf(awaitingThumbsUp(store))
       val reacted = store.inbox.foldl([], (rows, row) => rows.append(if (reacting.contains(row.id)) { ...row, reacted: true } else row))
@@ -1231,7 +1229,7 @@ module agentTurns {
   /// thumbs-up too.
   val aPersonHearsBackBeforeAnyWork: bool = holdsForTheEndedTurn(lastTurnEnd, record =>
     record.owed == NotOwed or and {
-      record.steps.foldl({ heard: true, answered: record.repliedBeforeTheModel }, (seen, step) => {
+      record.steps.foldl({ heard: true, answered: false }, (seen, step) => {
         heard: seen.heard and (step.ran.exclude(FIRST_REPLY_TOOLS).size() > 0 implies seen.answered),
         answered: seen.answered or step.answered,
       }).heard,

@@ -115,9 +115,7 @@
     ]
   },
   "tlc": {
-    "ignoredVariables": [
-      "lastStepReached"
-    ],
+    "ignoredVariables": ["lastStepReached"],
     "bounds": {
       "chatThread": {
         "pr": {
