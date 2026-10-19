@@ -237,10 +237,12 @@ describe("review", () => {
   it("reads the summary, the review, and every finding of its own review", async () => {
     const { artifact } = build(reviewHost([submittedReview({ state: "CHANGES_REQUESTED" })]));
     expect(await artifact.review!.postedReview(TARGET.ref, REVIEW_INPUT)).toEqual({
-      revision: "abc123",
-      blocking: true,
-      summary: "Looks fine.",
-      findings: [{ location: "src/login.ts:12", body: "Drops the error." }],
+      review: {
+        revision: "abc123",
+        blocking: true,
+        summary: "Looks fine.",
+        findings: [{ location: "src/login.ts:12", body: "Drops the error." }],
+      },
     });
   });
 
@@ -248,14 +250,14 @@ describe("review", () => {
     const review = submittedReview({ body: "BLOCKING: fix the redirect." });
     const { artifact } = build(reviewHost([review]));
     expect(await artifact.review!.postedReview(TARGET.ref, REVIEW_INPUT)).toMatchObject({
-      blocking: true,
+      review: { blocking: true },
     });
   });
 
   it("is not blocking for a review that only commented", async () => {
     const { artifact } = build(reviewHost([submittedReview()]));
     expect(await artifact.review!.postedReview(TARGET.ref, REVIEW_INPUT)).toMatchObject({
-      blocking: false,
+      review: { blocking: false },
     });
   });
 
@@ -263,13 +265,15 @@ describe("review", () => {
     const older = submittedReview({ id: 500, body: "First pass." });
     const { artifact } = build(reviewHost([submittedReview({ body: "Second pass." }), older]));
     expect(await artifact.review!.postedReview(TARGET.ref, REVIEW_INPUT)).toMatchObject({
-      summary: "Second pass.",
+      review: { summary: "Second pass." },
     });
   });
 
   it("ignores a review a human filed, since that reaches the workflow as feedback", async () => {
     const { artifact } = build(reviewHost([submittedReview({ user: { login: "sam" } })]));
-    expect(await artifact.review!.postedReview(TARGET.ref, REVIEW_INPUT)).toBeNull();
+    expect(await artifact.review!.postedReview(TARGET.ref, REVIEW_INPUT)).toEqual({
+      filedNone: true,
+    });
   });
 
   it("ignores a review filed before the reviewer started", async () => {
@@ -280,13 +284,14 @@ describe("review", () => {
         turnText: "",
         signature: "",
       }),
-    ).toBeNull();
+    ).toEqual({ filedNone: true });
   });
 
-  it("says out loud when the host cannot be asked", async () => {
+  it("fails the read with the reason when the host cannot be asked", async () => {
     const built = build(new FakeCodeHost({ failing: true }));
-    expect(await built.artifact.review!.postedReview(TARGET.ref, REVIEW_INPUT)).toBeNull();
-    expect(built.lines.some((line) => line.startsWith("review lookup failed"))).toBe(true);
+    const read = await built.artifact.review!.postedReview(TARGET.ref, REVIEW_INPUT);
+    expect(read).toMatchObject({ readFailed: expect.any(String) });
+    expect(built.lines.some((line) => line.startsWith("review read failed"))).toBe(true);
   });
 });
 
@@ -474,6 +479,54 @@ describe("change", () => {
       });
       expect(change).toBeNull();
       expect(built.lines.some((line) => line.includes("was handled already"))).toBe(true);
+    });
+
+    describe("sibling webhooks of one review whose host read fails", () => {
+      const siblings = [
+        comment,
+        { id: 902, path: "src/session.ts", line: 4, body: "Leaks the token." },
+      ];
+
+      async function deliverSiblings() {
+        const built = build(new FakeCodeHost({ failing: true }));
+        const claimed: string[] = [];
+        const changes = [];
+        for (const sibling of siblings) {
+          const detail = pullDetail({ action: "review", review_id: 501, comments: [sibling] });
+          changes.push(
+            await built.artifact.change({
+              event: event({ kind: "feedback", actor: ACTOR, pull: detail }),
+              target: TARGET,
+              claim: (key) => {
+                claimed.push(key);
+                return true;
+              },
+            }),
+          );
+        }
+        return { changes, claimed, lines: built.lines };
+      }
+
+      it("does not claim the review", async () => {
+        expect((await deliverSiblings()).claimed).toEqual([]);
+      });
+
+      it("returns each webhook's own comment as its feedback", async () => {
+        const { changes } = await deliverSiblings();
+        expect(
+          changes.map((change) => change && "feedback" in change && change.feedback.findings),
+        ).toEqual([
+          [{ location: "src/login.ts:12", body: "Drops the error." }],
+          [{ location: "src/session.ts:4", body: "Leaks the token." }],
+        ]);
+      });
+
+      it("logs the failed read", async () => {
+        const { lines } = await deliverSiblings();
+        expect(lines.filter((line) => line.startsWith("review comments unavailable"))).toHaveLength(
+          2,
+        );
+      });
     });
 
     it("keeps the webhook in hand when the host answers with less than it carries", async () => {

@@ -541,6 +541,72 @@ describe("a base branch that moved under several open pull requests", () => {
     }));
 });
 
+const BASE_MOVED: Partial<InboundEvent> = {
+  pull: { repo: "acme/app", action: "base_moved", base: "main" },
+};
+
+function twoActiveAuthors(workflow: FakeRuntime, withArtifact: boolean): void {
+  workflow.patchState({ repo: { full: "acme/app" } });
+  if (withArtifact) seedPullRequestTask(workflow, { task_id: "wf_x.1" }, { status: "ready" });
+  else seedTask(workflow, { task_id: "wf_x.1", stage: "implement" });
+  seedTask(workflow, { task_id: "wf_x.2", stage: "implement", branch: "artfct/wf_x-2-fix" });
+}
+
+describe("an artifact event while several authors are active", () => {
+  describe("that names a pull request no job here owns", () => {
+    const stranger = afterArtifactEvent(
+      { pull: { repo: "acme/app", number: 9, action: "closed", merged: true } },
+      (workflow) => twoActiveAuthors(workflow, false),
+    );
+
+    it("asks the agent which of the active jobs it is about", () =>
+      stranger(({ result }) => {
+        expect(result).toEqual({
+          notes: [
+            "No job matches this event. Active jobs: wf_x-1, wf_x-2. Ask which job it is about.",
+          ],
+          wake: "blocked",
+        });
+      }));
+  });
+
+  describe("that does not name its artifact, with one open artifact", () => {
+    const moved = afterArtifactEvent(BASE_MOVED, (workflow) => {
+      workflow.codeHostInstance = new FakeCodeHost({
+        pulls: [pullRequest({ number: 1, mergeable: false })],
+      });
+      twoActiveAuthors(workflow, true);
+    });
+
+    it("goes to the open artifact's author", () =>
+      moved(({ workflow }) => {
+        expect(workflow.store.queue()).toMatchObject([
+          { task_id: "wf_x.1", text: expect.stringContaining("Do not rebase") },
+        ]);
+      }));
+
+    it("does not ask which job it is about", () =>
+      moved(({ result }) => {
+        expect(result.notes.join("\n")).not.toContain("Ask which job");
+        expect(result.wake).not.toBe("blocked");
+      }));
+  });
+
+  describe("that does not name its artifact, with no open artifact", () => {
+    const moved = afterArtifactEvent(BASE_MOVED, (workflow) => twoActiveAuthors(workflow, false));
+
+    it("matches no job and asks which of the active jobs it is about", () =>
+      moved(({ result }) => {
+        expect(result).toEqual({
+          notes: [
+            "No job matches this event. Active jobs: wf_x-1, wf_x-2. Ask which job it is about.",
+          ],
+          wake: "blocked",
+        });
+      }));
+  });
+});
+
 describe("feedback the decisions model reads", () => {
   const comment = { id: 901, path: "src/login.ts", line: 12, body: "Drops the error." };
   const detail = { repo: "acme/app", number: 1, action: "review" as const, comments: [comment] };

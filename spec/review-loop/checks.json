@@ -97,6 +97,7 @@
       "anAuthorFailsPastItsRestarts",
       "aPolisherRunStopsOnADraftedArtifact",
       "aReviewerRunFailsOnADraftedArtifact",
+      "aReviewReadFailsOnADraftedArtifact",
       "aDraftWasDeliveredBefore",
       "anAuthorTurnEndsOnTheDeliveredRevision"
     ],
@@ -123,6 +124,7 @@
       "anAuthorEndsOnAReadyArtifact",
       "anAuthorFailsPastItsRestarts",
       "aReviewerRunFailsOnADraftedArtifact",
+      "aReviewReadFailsOnADraftedArtifact",
       "aDraftWasDeliveredBefore",
       "aRulingCallReturnsAfterTheAuthorEnded",
       "anAuthorTurnEndsOnTheDeliveredRevision"
@@ -371,6 +373,7 @@
       "aRefinerRunStartsAfterAnUnknownHandover",
       "aPolisherRunStopsOnADraftedArtifact",
       "aReviewerRunFailsOnADraftedArtifact",
+      "aReviewReadFailsOnADraftedArtifact",
       "aDraftWasDeliveredBefore",
       "anAuthorTurnEndsOnTheDeliveredRevision",
       "aPolisherWaitsOnChecks",

@@ -223,7 +223,10 @@ async function endedStatus(db: Database, workflowId: string): Promise<WorkflowSt
   return row && isWorkflowFinished(row.status) ? row.status : null;
 }
 
-/** A push to the base branch goes to every workflow with a pull request bound in the repo. */
+/**
+ * A push to the base branch goes to every workflow with a pull request bound in the repo. A
+ * failed delivery to one workflow is logged, and the rest still get the event.
+ */
 async function fanOutBaseMoved(
   env: Env,
   db: Database,
@@ -234,8 +237,12 @@ async function fanOutBaseMoved(
   const results: RpcAck[] = [];
   for (const workflowId of workflowIds) {
     const perWorkflow: InboundEvent = { ...event, id: `${event.id}:${workflowId}`, pull: detail };
-    const answer = await env.Workflow.getByName(workflowId).handle(perWorkflow);
-    if (!("refused" in answer)) results.push(answer);
+    try {
+      const answer = await env.Workflow.getByName(workflowId).handle(perWorkflow);
+      if (!("refused" in answer)) results.push(answer);
+    } catch (error) {
+      console.warn(`base move delivery to ${workflowId} failed: ${String(error)}`);
+    }
   }
   return { fanned_out: workflowIds.length, results };
 }
