@@ -8,9 +8,13 @@
     "timestamp": 1792316535267
   },
   "vars": [
-    "modelCallPagesWithAReviewer::workflowLifecycle::workflow",
-    "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent",
+    "mbt::actionTaken",
+    "mbt::nondetPicks",
     "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered",
+    "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept",
+    "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached",
+    "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent",
+    "modelCallPagesWithAReviewer::workflowLifecycle::workflow",
     "mbt::actionTaken",
     "mbt::nondetPicks"
   ],
@@ -19,6 +23,160 @@
       "#meta": {
         "index": 0
       },
+      "mbt::actionTaken": "scriptedInit",
+      "mbt::nondetPicks": {
+        "callId": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "definition": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [],
         "definition": {
@@ -38,14 +196,18 @@
           "#bigint": "0"
         },
         "jobs": [],
+        "ranAgain": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
         "stagePlan": {
           "tag": "NoStages",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
           "value": {
             "#tup": []
           }
@@ -56,32 +218,23 @@
             "#tup": []
           }
         },
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "restartAlarmFired": false,
-        "ranAgain": {
-          "#set": []
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
-      "mbt::actionTaken": "init",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
+        "subject": {
+          "tag": "NoSubject",
           "value": {
             "#tup": []
           }
         },
+        "turnsToRunAgain": {
+          "#set": []
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 1
+      },
+      "mbt::actionTaken": "idleAlarmFires",
+      "mbt::nondetPicks": {
         "callId": {
           "tag": "None",
           "value": {
@@ -100,25 +253,7 @@
             "#tup": []
           }
         },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -136,7 +271,7 @@
             "#tup": []
           }
         },
-        "outputLink": {
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -148,19 +283,7 @@
             "#tup": []
           }
         },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -171,19 +294,99 @@
           "value": {
             "#tup": []
           }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 1
       },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [],
         "definition": {
@@ -203,14 +406,18 @@
           "#bigint": "0"
         },
         "jobs": [],
+        "ranAgain": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
         "stagePlan": {
           "tag": "NoStages",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
           "value": {
             "#tup": []
           }
@@ -221,127 +428,14 @@
             "#tup": []
           }
         },
-        "restartAlarms": {
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnsToRunAgain": {
           "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "restartAlarmFired": false,
-        "ranAgain": {
-          "#set": []
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
-      "mbt::actionTaken": "idleAlarmFires",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "command": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "jobSlots": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "landed": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outputLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "withStages": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
         }
       }
     },
@@ -349,69 +443,8 @@
       "#meta": {
         "index": 2
       },
-      "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
-        "calls": [],
-        "definition": {
-          "tag": "Unplanned",
-          "value": {
-            "#tup": []
-          }
-        },
-        "endedIssues": {
-          "#set": []
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
-        "idleArmed": true,
-        "issueMoves": {
-          "#bigint": "0"
-        },
-        "jobs": [],
-        "stagePlan": {
-          "tag": "NoStages",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
-          }
-        },
-        "status": {
-          "tag": "New",
-          "value": {
-            "#tup": []
-          }
-        },
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "restartAlarmFired": false,
-        "ranAgain": {
-          "#set": []
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
       "mbt::actionTaken": "personSendsAVerbalCommand",
       "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "callId": {
           "tag": "None",
           "value": {
@@ -433,25 +466,7 @@
             "#tup": []
           }
         },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -469,7 +484,7 @@
             "#tup": []
           }
         },
-        "outputLink": {
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -481,19 +496,7 @@
             "#tup": []
           }
         },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -504,19 +507,99 @@
           "value": {
             "#tup": []
           }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 3
       },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [],
         "definition": {
@@ -536,14 +619,18 @@
           "#bigint": "0"
         },
         "jobs": [],
+        "ranAgain": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
         "stagePlan": {
           "tag": "NoStages",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
           "value": {
             "#tup": []
           }
@@ -554,32 +641,23 @@
             "#tup": []
           }
         },
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "restartAlarmFired": false,
-        "ranAgain": {
-          "#set": []
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
-      "mbt::actionTaken": "agentStartsJob",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
+        "subject": {
+          "tag": "NoSubject",
           "value": {
             "#tup": []
           }
         },
+        "turnsToRunAgain": {
+          "#set": []
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 3
+      },
+      "mbt::actionTaken": "agentStartsJob",
+      "mbt::nondetPicks": {
         "callId": {
           "tag": "None",
           "value": {
@@ -598,25 +676,7 @@
             "#tup": []
           }
         },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -634,7 +694,7 @@
             "#tup": []
           }
         },
-        "outputLink": {
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -646,19 +706,7 @@
             "#bigint": "0"
           }
         },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -669,12 +717,148 @@
           "value": {
             "#tup": []
           }
-        },
-        "lostJobs": {
-          "tag": "None",
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
+      "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
+        "calls": [],
+        "definition": {
+          "tag": "Unplanned",
           "value": {
             "#tup": []
           }
+        },
+        "endedIssues": {
+          "#set": []
+        },
+        "failuresPosted": {
+          "#bigint": "0"
+        },
+        "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
+        "jobs": [],
+        "ranAgain": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "stagePlan": {
+          "tag": "NoStages",
+          "value": {
+            "#tup": []
+          }
+        },
+        "status": {
+          "tag": "New",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnsToRunAgain": {
+          "#set": []
         }
       }
     },
@@ -682,6 +866,161 @@
       "#meta": {
         "index": 4
       },
+      "mbt::actionTaken": "agentSetsPlan",
+      "mbt::nondetPicks": {
+        "callId": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "definition": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "jobSlots": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "2"
+          }
+        },
+        "landed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subjectLink": {
+          "tag": "Some",
+          "value": {
+            "tag": "NoSubject",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "withStages": {
+          "tag": "Some",
+          "value": true
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": true,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [],
         "definition": {
@@ -701,16 +1040,20 @@
           "#bigint": "0"
         },
         "jobs": [],
+        "ranAgain": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
         "stagePlan": {
           "tag": "StagesPlanned",
           "value": {
             "#bigint": "2"
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
           }
         },
         "status": {
@@ -719,128 +1062,14 @@
             "#tup": []
           }
         },
-        "restartAlarms": {
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnsToRunAgain": {
           "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "restartAlarmFired": false,
-        "ranAgain": {
-          "#set": []
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
-      "mbt::actionTaken": "agentSetsPlan",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "command": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "jobSlots": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "2"
-          }
-        },
-        "landed": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outputLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subjectLink": {
-          "tag": "Some",
-          "value": {
-            "tag": "NoSubject",
-            "value": {
-              "#tup": []
-            }
-          }
-        },
-        "timer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "withStages": {
-          "tag": "Some",
-          "value": true
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
         }
       }
     },
@@ -848,140 +1077,8 @@
       "#meta": {
         "index": 5
       },
-      "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
-        "calls": [
-          {
-            "job": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "ModelCall",
-              "value": {
-                "#tup": []
-              }
-            },
-            "rest": {
-              "tag": "PageWriteStarts",
-              "value": {
-                "eventWaits": false
-              }
-            }
-          }
-        ],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "endedIssues": {
-          "#set": []
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
-        "idleArmed": true,
-        "issueMoves": {
-          "#bigint": "0"
-        },
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "pullOnHost": {
-              "tag": "NoPull",
-              "value": {
-                "#tup": []
-              }
-            },
-            "refinerRuns": [],
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "0"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": false
-              }
-            ]
-          }
-        ],
-        "stagePlan": {
-          "tag": "StagesPlanned",
-          "value": {
-            "#bigint": "2"
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
-          }
-        },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "restartAlarmFired": false,
-        "ranAgain": {
-          "#set": []
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
       "mbt::actionTaken": "agentStartsJob",
       "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "callId": {
           "tag": "None",
           "value": {
@@ -1000,25 +1097,7 @@
             "#tup": []
           }
         },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1036,7 +1115,7 @@
             "#tup": []
           }
         },
-        "outputLink": {
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1048,19 +1127,7 @@
             "#bigint": "1"
           }
         },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1071,19 +1138,99 @@
           "value": {
             "#tup": []
           }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 6
       },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [
           {
@@ -1169,21 +1316,26 @@
                     "#tup": []
                   }
                 },
+                "stopped": false,
                 "turnRunning": false
               }
             ]
           }
         ],
+        "ranAgain": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
         "stagePlan": {
           "tag": "StagesPlanned",
           "value": {
             "#bigint": "2"
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
           }
         },
         "status": {
@@ -1192,32 +1344,23 @@
             "#tup": []
           }
         },
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "restartAlarmFired": false,
-        "ranAgain": {
-          "#set": []
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
-      "mbt::actionTaken": "personWrites",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
+        "subject": {
+          "tag": "NoSubject",
           "value": {
             "#tup": []
           }
         },
+        "turnsToRunAgain": {
+          "#set": []
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 6
+      },
+      "mbt::actionTaken": "personWrites",
+      "mbt::nondetPicks": {
         "callId": {
           "tag": "None",
           "value": {
@@ -1236,25 +1379,7 @@
             "#tup": []
           }
         },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1272,7 +1397,7 @@
             "#tup": []
           }
         },
-        "outputLink": {
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1284,7 +1409,283 @@
             "#tup": []
           }
         },
-        "sandbox": {
+        "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
+      "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
+        "calls": [
+          {
+            "job": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "ModelCall",
+              "value": {
+                "#tup": []
+              }
+            },
+            "rest": {
+              "tag": "PageWriteStarts",
+              "value": {
+                "eventWaits": false
+              }
+            }
+          }
+        ],
+        "definition": {
+          "tag": "Planned",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "endedIssues": {
+          "#set": []
+        },
+        "failuresPosted": {
+          "#bigint": "0"
+        },
+        "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
+        "jobs": [
+          {
+            "artifact": {
+              "tag": "NoArtifact",
+              "value": {
+                "#tup": []
+              }
+            },
+            "input": {
+              "tag": "FromRequest",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            },
+            "refinerRuns": [],
+            "tasks": [
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "0"
+                },
+                "restarts": {
+                  "#bigint": "0"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "0"
+                },
+                "status": {
+                  "tag": "Busy",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "stopped": false,
+                "turnRunning": false
+              }
+            ]
+          }
+        ],
+        "ranAgain": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnsToRunAgain": {
+          "#set": []
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 7
+      },
+      "mbt::actionTaken": "modelTurnOutlivesItsDeadline",
+      "mbt::nondetPicks": {
+        "callId": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "definition": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "request": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1296,30 +1697,104 @@
             "#tup": []
           }
         },
-        "timer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "withStages": {
           "tag": "None",
           "value": {
             "#tup": []
           }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 7
       },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": true,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": true,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [
           {
@@ -1405,21 +1880,26 @@
                     "#tup": []
                   }
                 },
+                "stopped": false,
                 "turnRunning": false
               }
             ]
           }
         ],
+        "ranAgain": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
         "stagePlan": {
           "tag": "StagesPlanned",
           "value": {
             "#bigint": "2"
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
           }
         },
         "status": {
@@ -1428,36 +1908,27 @@
             "#tup": []
           }
         },
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "restartAlarmFired": false,
-        "ranAgain": {
-          "#set": []
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
-      "mbt::actionTaken": "modelTurnOutlivesItsDeadline",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
+        "subject": {
+          "tag": "NoSubject",
           "value": {
             "#tup": []
           }
         },
+        "turnsToRunAgain": {
+          "#set": []
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 8
+      },
+      "mbt::actionTaken": "workflowRestarts",
+      "mbt::nondetPicks": {
         "callId": {
-          "tag": "Some",
+          "tag": "None",
           "value": {
-            "#bigint": "0"
+            "#tup": []
           }
         },
         "command": {
@@ -1472,25 +1943,7 @@
             "#tup": []
           }
         },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1503,12 +1956,10 @@
           }
         },
         "landed": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
+          "tag": "Some",
+          "value": true
         },
-        "outputLink": {
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1520,19 +1971,7 @@
             "#tup": []
           }
         },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1543,19 +1982,99 @@
           "value": {
             "#tup": []
           }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 8
       },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": true,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": true,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": true,
+        "aRestartCutsARerunModelTurn": true,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [],
         "definition": {
@@ -1623,29 +2142,16 @@
                     "#tup": []
                   }
                 },
+                "stopped": false,
                 "turnRunning": false
               }
             ]
           }
         ],
-        "stagePlan": {
-          "tag": "StagesPlanned",
-          "value": {
-            "#bigint": "2"
-          }
+        "ranAgain": {
+          "#set": []
         },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
-          }
-        },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
+        "restartAlarmFired": false,
         "restartAlarms": {
           "#set": [
             {
@@ -1660,26 +2166,35 @@
         "runAgainAlarms": {
           "#set": []
         },
-        "restartAlarmFired": false,
-        "ranAgain": {
-          "#set": []
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
-      "mbt::actionTaken": "workflowRestarts",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
+        "status": {
+          "tag": "Running",
           "value": {
             "#tup": []
           }
         },
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnsToRunAgain": {
+          "#set": []
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 9
+      },
+      "mbt::actionTaken": "theRestartAlarmFires",
+      "mbt::nondetPicks": {
         "callId": {
           "tag": "None",
           "value": {
@@ -1698,25 +2213,7 @@
             "#tup": []
           }
         },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1729,22 +2226,22 @@
           }
         },
         "landed": {
-          "tag": "Some",
-          "value": true
-        },
-        "outputLink": {
           "tag": "None",
           "value": {
             "#tup": []
+          }
+        },
+        "lostJobs": {
+          "tag": "Some",
+          "value": {
+            "#set": [
+              {
+                "#bigint": "0"
+              }
+            ]
           }
         },
         "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "sandbox": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1756,30 +2253,104 @@
             "#tup": []
           }
         },
-        "timer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "withStages": {
           "tag": "None",
           "value": {
             "#tup": []
           }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 9
       },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [],
         "definition": {
@@ -1847,29 +2418,16 @@
                     "#tup": []
                   }
                 },
+                "stopped": false,
                 "turnRunning": false
               }
             ]
           }
         ],
-        "stagePlan": {
-          "tag": "StagesPlanned",
-          "value": {
-            "#bigint": "2"
-          }
+        "ranAgain": {
+          "#set": []
         },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
-          }
-        },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
+        "restartAlarmFired": true,
         "restartAlarms": {
           "#set": []
         },
@@ -1880,26 +2438,39 @@
             }
           ]
         },
-        "restartAlarmFired": true,
-        "ranAgain": {
-          "#set": []
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
-      "mbt::actionTaken": "theRestartAlarmFires",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
+        "status": {
+          "tag": "Running",
           "value": {
             "#tup": []
           }
         },
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnsToRunAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 10
+      },
+      "mbt::actionTaken": "lostModelTurnRunsAgain",
+      "mbt::nondetPicks": {
         "callId": {
           "tag": "None",
           "value": {
@@ -1918,28 +2489,10 @@
             "#tup": []
           }
         },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "id": {
-          "tag": "None",
+          "tag": "Some",
           "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
-          "tag": "None",
-          "value": {
-            "#tup": []
+            "#bigint": "0"
           }
         },
         "jobSlots": {
@@ -1954,7 +2507,7 @@
             "#tup": []
           }
         },
-        "outputLink": {
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1966,19 +2519,7 @@
             "#tup": []
           }
         },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1989,23 +2530,99 @@
           "value": {
             "#tup": []
           }
-        },
-        "lostJobs": {
-          "tag": "Some",
-          "value": {
-            "#set": [
-              {
-                "#bigint": "0"
-              }
-            ]
-          }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 10
       },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [
           {
@@ -2091,21 +2708,30 @@
                     "#tup": []
                   }
                 },
+                "stopped": false,
                 "turnRunning": false
               }
             ]
           }
         ],
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        },
+        "restartAlarmFired": true,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
         "stagePlan": {
           "tag": "StagesPlanned",
           "value": {
             "#bigint": "2"
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
           }
         },
         "status": {
@@ -2114,40 +2740,27 @@
             "#tup": []
           }
         },
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "restartAlarmFired": true,
-        "ranAgain": {
-          "#set": [
-            {
-              "#bigint": "0"
-            }
-          ]
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
-      "mbt::actionTaken": "lostModelTurnRunsAgain",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
+        "subject": {
+          "tag": "NoSubject",
           "value": {
             "#tup": []
           }
         },
+        "turnsToRunAgain": {
+          "#set": []
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 11
+      },
+      "mbt::actionTaken": "modelCallReturns",
+      "mbt::nondetPicks": {
         "callId": {
-          "tag": "None",
+          "tag": "Some",
           "value": {
-            "#tup": []
+            "#bigint": "0"
           }
         },
         "command": {
@@ -2162,25 +2775,7 @@
             "#tup": []
           }
         },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "id": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -2198,7 +2793,7 @@
             "#tup": []
           }
         },
-        "outputLink": {
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -2210,19 +2805,7 @@
             "#tup": []
           }
         },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -2233,19 +2816,99 @@
           "value": {
             "#tup": []
           }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 11
       },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [
           {
@@ -2331,21 +2994,30 @@
                     "#tup": []
                   }
                 },
+                "stopped": false,
                 "turnRunning": false
               }
             ]
           }
         ],
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        },
+        "restartAlarmFired": true,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
         "stagePlan": {
           "tag": "StagesPlanned",
           "value": {
             "#bigint": "2"
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
           }
         },
         "status": {
@@ -2354,36 +3026,23 @@
             "#tup": []
           }
         },
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "restartAlarmFired": true,
-        "ranAgain": {
-          "#set": [
-            {
-              "#bigint": "0"
-            }
-          ]
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
-      "mbt::actionTaken": "modelCallReturns",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
+        "subject": {
+          "tag": "NoSubject",
           "value": {
             "#tup": []
           }
         },
+        "turnsToRunAgain": {
+          "#set": []
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 12
+      },
+      "mbt::actionTaken": "pageWriteReturns",
+      "mbt::nondetPicks": {
         "callId": {
           "tag": "Some",
           "value": {
@@ -2402,25 +3061,7 @@
             "#tup": []
           }
         },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -2438,7 +3079,7 @@
             "#tup": []
           }
         },
-        "outputLink": {
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -2450,19 +3091,7 @@
             "#tup": []
           }
         },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -2473,19 +3102,99 @@
           "value": {
             "#tup": []
           }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 12
       },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [],
         "definition": {
@@ -2560,21 +3269,30 @@
                     "#tup": []
                   }
                 },
+                "stopped": false,
                 "turnRunning": false
               }
             ]
           }
         ],
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        },
+        "restartAlarmFired": true,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
         "stagePlan": {
           "tag": "StagesPlanned",
           "value": {
             "#bigint": "2"
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
           }
         },
         "status": {
@@ -2583,131 +3301,14 @@
             "#tup": []
           }
         },
-        "restartAlarms": {
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnsToRunAgain": {
           "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "restartAlarmFired": true,
-        "ranAgain": {
-          "#set": [
-            {
-              "#bigint": "0"
-            }
-          ]
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
-      "mbt::actionTaken": "pageWriteReturns",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "command": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "jobSlots": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "landed": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outputLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "withStages": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
         }
       }
     },
@@ -2715,151 +3316,8 @@
       "#meta": {
         "index": 13
       },
-      "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
-        "calls": [
-          {
-            "job": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "ModelCall",
-              "value": {
-                "#tup": []
-              }
-            },
-            "rest": {
-              "tag": "PageWriteStarts",
-              "value": {
-                "eventWaits": true
-              }
-            }
-          }
-        ],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "endedIssues": {
-          "#set": []
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
-        "idleArmed": true,
-        "issueMoves": {
-          "#bigint": "0"
-        },
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "Drafted",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "pullOnHost": {
-              "tag": "NoPull",
-              "value": {
-                "#tup": []
-              }
-            },
-            "refinerRuns": [
-              {
-                "tag": "RefinerRunning",
-                "value": {
-                  "#tup": []
-                }
-              }
-            ],
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "2"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": false
-              }
-            ]
-          }
-        ],
-        "stagePlan": {
-          "tag": "StagesPlanned",
-          "value": {
-            "#bigint": "2"
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
-          }
-        },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "restartAlarmFired": true,
-        "ranAgain": {
-          "#set": [
-            {
-              "#bigint": "0"
-            }
-          ]
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
       "mbt::actionTaken": "personSendsAVerbalCommand",
       "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "callId": {
           "tag": "None",
           "value": {
@@ -2881,25 +3339,7 @@
             "#tup": []
           }
         },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -2917,7 +3357,7 @@
             "#tup": []
           }
         },
-        "outputLink": {
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -2929,19 +3369,7 @@
             "#tup": []
           }
         },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -2952,19 +3380,99 @@
           "value": {
             "#tup": []
           }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 14
       },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [
           {
@@ -3057,21 +3565,30 @@
                     "#tup": []
                   }
                 },
+                "stopped": false,
                 "turnRunning": false
               }
             ]
           }
         ],
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        },
+        "restartAlarmFired": true,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
         "stagePlan": {
           "tag": "StagesPlanned",
           "value": {
             "#bigint": "2"
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
           }
         },
         "status": {
@@ -3080,36 +3597,23 @@
             "#tup": []
           }
         },
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "restartAlarmFired": true,
-        "ranAgain": {
-          "#set": [
-            {
-              "#bigint": "0"
-            }
-          ]
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
-      "mbt::actionTaken": "agentSetsPlan",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
+        "subject": {
+          "tag": "NoSubject",
           "value": {
             "#tup": []
           }
         },
+        "turnsToRunAgain": {
+          "#set": []
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 14
+      },
+      "mbt::actionTaken": "agentSetsPlan",
+      "mbt::nondetPicks": {
         "callId": {
           "tag": "None",
           "value": {
@@ -3128,25 +3632,7 @@
             "#bigint": "2"
           }
         },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -3164,19 +3650,13 @@
             "#tup": []
           }
         },
-        "outputLink": {
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
           }
         },
         "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "sandbox": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -3191,21 +3671,234 @@
             }
           }
         },
-        "timer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "withStages": {
           "tag": "Some",
           "value": false
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": true,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": true,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
+      "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
+        "calls": [
+          {
+            "job": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "ModelCall",
+              "value": {
+                "#tup": []
+              }
+            },
+            "rest": {
+              "tag": "PageWriteStarts",
+              "value": {
+                "eventWaits": true
+              }
+            }
+          }
+        ],
+        "definition": {
+          "tag": "Planned",
+          "value": {
+            "#bigint": "0"
+          }
         },
-        "lostJobs": {
-          "tag": "None",
+        "endedIssues": {
+          "#set": []
+        },
+        "failuresPosted": {
+          "#bigint": "0"
+        },
+        "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
+        "jobs": [
+          {
+            "artifact": {
+              "tag": "Drafted",
+              "value": {
+                "#tup": []
+              }
+            },
+            "input": {
+              "tag": "FromRequest",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            },
+            "refinerRuns": [
+              {
+                "tag": "RefinerRunning",
+                "value": {
+                  "#tup": []
+                }
+              }
+            ],
+            "tasks": [
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "1"
+                },
+                "restarts": {
+                  "#bigint": "2"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "0"
+                },
+                "status": {
+                  "tag": "Busy",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "stopped": false,
+                "turnRunning": false
+              }
+            ]
+          }
+        ],
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        },
+        "restartAlarmFired": true,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
+        "status": {
+          "tag": "Running",
           "value": {
             "#tup": []
           }
+        },
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnsToRunAgain": {
+          "#set": []
         }
       }
     },
@@ -3213,151 +3906,8 @@
       "#meta": {
         "index": 15
       },
-      "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
-        "calls": [
-          {
-            "job": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "PageWrite",
-              "value": {
-                "#tup": []
-              }
-            },
-            "rest": {
-              "tag": "ModelTurnGoesOn",
-              "value": {
-                "eventWaits": true
-              }
-            }
-          }
-        ],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "endedIssues": {
-          "#set": []
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
-        "idleArmed": true,
-        "issueMoves": {
-          "#bigint": "0"
-        },
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "Drafted",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "pullOnHost": {
-              "tag": "NoPull",
-              "value": {
-                "#tup": []
-              }
-            },
-            "refinerRuns": [
-              {
-                "tag": "RefinerRunning",
-                "value": {
-                  "#tup": []
-                }
-              }
-            ],
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "2"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": false
-              }
-            ]
-          }
-        ],
-        "stagePlan": {
-          "tag": "StagesPlanned",
-          "value": {
-            "#bigint": "2"
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
-          }
-        },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "restartAlarmFired": true,
-        "ranAgain": {
-          "#set": [
-            {
-              "#bigint": "0"
-            }
-          ]
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
       "mbt::actionTaken": "modelCallReturns",
       "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "callId": {
           "tag": "Some",
           "value": {
@@ -3376,25 +3926,7 @@
             "#tup": []
           }
         },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -3412,19 +3944,13 @@
             "#tup": []
           }
         },
-        "outputLink": {
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
           }
         },
         "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "sandbox": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -3436,30 +3962,104 @@
             "#tup": []
           }
         },
-        "timer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "withStages": {
           "tag": "None",
           "value": {
             "#tup": []
           }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 16
       },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [
           {
@@ -3552,21 +4152,30 @@
                     "#tup": []
                   }
                 },
+                "stopped": false,
                 "turnRunning": false
               }
             ]
           }
         ],
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        },
+        "restartAlarmFired": true,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
         "stagePlan": {
           "tag": "StagesPlanned",
           "value": {
             "#bigint": "2"
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
           }
         },
         "status": {
@@ -3575,36 +4184,23 @@
             "#tup": []
           }
         },
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "restartAlarmFired": true,
-        "ranAgain": {
-          "#set": [
-            {
-              "#bigint": "0"
-            }
-          ]
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
-      "mbt::actionTaken": "agentSetsPlan",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
+        "subject": {
+          "tag": "NoSubject",
           "value": {
             "#tup": []
           }
         },
+        "turnsToRunAgain": {
+          "#set": []
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 16
+      },
+      "mbt::actionTaken": "agentSetsPlan",
+      "mbt::nondetPicks": {
         "callId": {
           "tag": "None",
           "value": {
@@ -3623,25 +4219,7 @@
             "#bigint": "0"
           }
         },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -3659,19 +4237,13 @@
             "#tup": []
           }
         },
-        "outputLink": {
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
           }
         },
         "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "sandbox": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -3686,28 +4258,102 @@
             }
           }
         },
-        "timer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "withStages": {
           "tag": "Some",
           "value": false
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 17
       },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": true,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [
           {
@@ -3800,21 +4446,30 @@
                     "#tup": []
                   }
                 },
+                "stopped": false,
                 "turnRunning": false
               }
             ]
           }
         ],
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        },
+        "restartAlarmFired": true,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
         "stagePlan": {
           "tag": "StagesPlanned",
           "value": {
             "#bigint": "2"
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
           }
         },
         "status": {
@@ -3823,36 +4478,23 @@
             "#tup": []
           }
         },
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "restartAlarmFired": true,
-        "ranAgain": {
-          "#set": [
-            {
-              "#bigint": "0"
-            }
-          ]
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
-      "mbt::actionTaken": "agentStartsJob",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
+        "subject": {
+          "tag": "NoSubject",
           "value": {
             "#tup": []
           }
         },
+        "turnsToRunAgain": {
+          "#set": []
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 17
+      },
+      "mbt::actionTaken": "agentStartsJob",
+      "mbt::nondetPicks": {
         "callId": {
           "tag": "None",
           "value": {
@@ -3871,25 +4513,7 @@
             "#tup": []
           }
         },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -3907,7 +4531,7 @@
             "#tup": []
           }
         },
-        "outputLink": {
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -3919,7 +4543,294 @@
             "#bigint": "1"
           }
         },
-        "sandbox": {
+        "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
+      "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
+        "calls": [
+          {
+            "job": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "PageWrite",
+              "value": {
+                "#tup": []
+              }
+            },
+            "rest": {
+              "tag": "ModelTurnGoesOn",
+              "value": {
+                "eventWaits": true
+              }
+            }
+          }
+        ],
+        "definition": {
+          "tag": "Planned",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "endedIssues": {
+          "#set": []
+        },
+        "failuresPosted": {
+          "#bigint": "0"
+        },
+        "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
+        "jobs": [
+          {
+            "artifact": {
+              "tag": "Drafted",
+              "value": {
+                "#tup": []
+              }
+            },
+            "input": {
+              "tag": "FromRequest",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            },
+            "refinerRuns": [
+              {
+                "tag": "RefinerRunning",
+                "value": {
+                  "#tup": []
+                }
+              }
+            ],
+            "tasks": [
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "1"
+                },
+                "restarts": {
+                  "#bigint": "2"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "0"
+                },
+                "status": {
+                  "tag": "Busy",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "stopped": false,
+                "turnRunning": false
+              }
+            ]
+          }
+        ],
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        },
+        "restartAlarmFired": true,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnsToRunAgain": {
+          "#set": []
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 18
+      },
+      "mbt::actionTaken": "refinerRunEnds",
+      "mbt::nondetPicks": {
+        "callId": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "definition": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "request": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -3931,30 +4842,104 @@
             "#tup": []
           }
         },
-        "timer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "withStages": {
           "tag": "None",
           "value": {
             "#tup": []
           }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 18
       },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [
           {
@@ -4047,21 +5032,30 @@
                     "#tup": []
                   }
                 },
+                "stopped": false,
                 "turnRunning": false
               }
             ]
           }
         ],
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        },
+        "restartAlarmFired": true,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
         "stagePlan": {
           "tag": "StagesPlanned",
           "value": {
             "#bigint": "2"
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
           }
         },
         "status": {
@@ -4070,36 +5064,23 @@
             "#tup": []
           }
         },
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "restartAlarmFired": true,
-        "ranAgain": {
-          "#set": [
-            {
-              "#bigint": "0"
-            }
-          ]
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
-      "mbt::actionTaken": "refinerRunEnds",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
+        "subject": {
+          "tag": "NoSubject",
           "value": {
             "#tup": []
           }
         },
+        "turnsToRunAgain": {
+          "#set": []
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 19
+      },
+      "mbt::actionTaken": "personSendsAVerbalCommand",
+      "mbt::nondetPicks": {
         "callId": {
           "tag": "None",
           "value": {
@@ -4107,9 +5088,12 @@
           }
         },
         "command": {
-          "tag": "None",
+          "tag": "Some",
           "value": {
-            "#tup": []
+            "tag": "Pause",
+            "value": {
+              "#tup": []
+            }
           }
         },
         "definition": {
@@ -4118,25 +5102,7 @@
             "#tup": []
           }
         },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "id": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -4154,7 +5120,7 @@
             "#tup": []
           }
         },
-        "outputLink": {
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -4166,19 +5132,7 @@
             "#tup": []
           }
         },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -4189,19 +5143,99 @@
           "value": {
             "#tup": []
           }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 19
       },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [
           {
@@ -4294,21 +5328,30 @@
                     "#tup": []
                   }
                 },
+                "stopped": false,
                 "turnRunning": false
               }
             ]
           }
         ],
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        },
+        "restartAlarmFired": true,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
         "stagePlan": {
           "tag": "StagesPlanned",
           "value": {
             "#bigint": "2"
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
           }
         },
         "status": {
@@ -4317,49 +5360,33 @@
             "#tup": []
           }
         },
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "restartAlarmFired": true,
-        "ranAgain": {
-          "#set": [
-            {
-              "#bigint": "0"
-            }
-          ]
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
-      "mbt::actionTaken": "personSendsAVerbalCommand",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
+        "subject": {
+          "tag": "NoSubject",
           "value": {
             "#tup": []
           }
         },
+        "turnsToRunAgain": {
+          "#set": []
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 20
+      },
+      "mbt::actionTaken": "pageWriteReturns",
+      "mbt::nondetPicks": {
         "callId": {
-          "tag": "None",
+          "tag": "Some",
           "value": {
-            "#tup": []
+            "#bigint": "0"
           }
         },
         "command": {
-          "tag": "Some",
+          "tag": "None",
           "value": {
-            "tag": "Pause",
-            "value": {
-              "#tup": []
-            }
+            "#tup": []
           }
         },
         "definition": {
@@ -4368,25 +5395,7 @@
             "#tup": []
           }
         },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -4404,7 +5413,7 @@
             "#tup": []
           }
         },
-        "outputLink": {
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -4416,19 +5425,7 @@
             "#tup": []
           }
         },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
         "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -4439,19 +5436,99 @@
           "value": {
             "#tup": []
           }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
         }
-      }
-    },
-    {
-      "#meta": {
-        "index": 20
       },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [],
         "definition": {
@@ -4532,21 +5609,30 @@
                     "#tup": []
                   }
                 },
+                "stopped": false,
                 "turnRunning": false
               }
             ]
           }
         ],
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        },
+        "restartAlarmFired": true,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
         "stagePlan": {
           "tag": "StagesPlanned",
           "value": {
             "#bigint": "2"
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
           }
         },
         "status": {
@@ -4555,131 +5641,14 @@
             "#tup": []
           }
         },
-        "restartAlarms": {
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnsToRunAgain": {
           "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "restartAlarmFired": true,
-        "ranAgain": {
-          "#set": [
-            {
-              "#bigint": "0"
-            }
-          ]
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
-      "mbt::actionTaken": "pageWriteReturns",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "command": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "jobSlots": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "landed": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outputLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "withStages": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
         }
       }
     }

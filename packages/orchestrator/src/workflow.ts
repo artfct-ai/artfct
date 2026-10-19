@@ -313,7 +313,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     return this.inSpan("alarm resumeLostCalls", null, () => resumeLostCalls(this, alarm));
   }
 
-  runLostModelTurnAgain(alarm: TaskAlarm): Promise<void> {
+  runLostModelTurnAgain(alarm: ModelTurnAlarm): Promise<void> {
     return this.inSpan("alarm runLostModelTurnAgain", alarm.task_id, () =>
       runLostModelTurnAgain(this, alarm),
     );

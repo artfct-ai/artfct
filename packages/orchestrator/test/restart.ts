@@ -1,8 +1,7 @@
 import { resumeLostTurn } from "../src/agent/turn/watchdog";
 import { armLostCallsAlarm, resumeLostCalls, type LostCallsAlarm } from "../src/workflow/restart";
-import type { TaskAlarm } from "../src/workflow/task/harness/timers";
 import { settleIdleAuthors } from "../src/workflow/task/harness/turn";
-import { runLostModelTurnAgain } from "../src/workflow/task/model-turn";
+import { runLostModelTurnAgain, type ModelTurnAlarm } from "../src/workflow/task/model-turn";
 import { provisionQueuedTasks } from "../src/workflow/task/sandbox/sandbox";
 import type { FakeRuntime } from "./fake-runtime";
 
@@ -26,6 +25,6 @@ export async function runStartStep(restarted: FakeRuntime): Promise<void> {
   }
   for (const alarm of restarted.alarmsFor("runLostModelTurnAgain")) {
     await restarted.cancelAlarm(alarm.id);
-    await runLostModelTurnAgain(restarted, alarm.payload as TaskAlarm);
+    await runLostModelTurnAgain(restarted, alarm.payload as ModelTurnAlarm);
   }
 }

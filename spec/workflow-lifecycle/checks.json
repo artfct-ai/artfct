@@ -13,6 +13,8 @@
     "staleAlarmIsIgnored",
     "stoppedModelCallLeavesThePage",
     "aModelCallAuthorHasAtMostOnePageWriteOut",
+    "aTurnThatWaitsToRunAgainHasItsAlarm",
+    "aStoppedModelCallAuthorStaysQuiet",
     "sleepMessageOnlyDuringAWorkflow",
     "finishedWorkflowKeepsItsStatus",
     "taskRestartsAtMostTwice",
@@ -274,7 +276,9 @@
       "aRestartLandsBeforeALostModelTurnRunsAgain",
       "theRestartAlarmFailsAnAuthor",
       "aRestartAlarmFiresAgain",
-      "aLostModelTurnRunsAgainOnceMore"
+      "aLostModelTurnRunsAgainOnceMore",
+      "aLostModelTurnDeadlineFires",
+      "aRestartAlarmDecidesATurnThatWaitedToRunAgain"
     ],
     "modelCallPagesWithAReviewer": [
       "aPlanStartsTheWorkflow",
@@ -332,7 +336,9 @@
       "aRestartLandsBeforeALostModelTurnRunsAgain",
       "theRestartAlarmFailsAnAuthor",
       "aRestartAlarmFiresAgain",
-      "aLostModelTurnRunsAgainOnceMore"
+      "aLostModelTurnRunsAgainOnceMore",
+      "aLostModelTurnDeadlineFires",
+      "aRestartAlarmDecidesATurnThatWaitedToRunAgain"
     ],
     "modelCallPagesAfterResearch": [
       "aPlanStartsTheWorkflow",
@@ -385,7 +391,9 @@
       "aRestartLandsBeforeALostModelTurnRunsAgain",
       "theRestartAlarmFailsAnAuthor",
       "aRestartAlarmFiresAgain",
-      "aLostModelTurnRunsAgainOnceMore"
+      "aLostModelTurnRunsAgainOnceMore",
+      "aLostModelTurnDeadlineFires",
+      "aRestartAlarmDecidesATurnThatWaitedToRunAgain"
     ],
     "modelCallPagesForAnIssue": [
       "aPlanStartsTheWorkflow",
@@ -444,7 +452,11 @@
       "aRestartLandsBeforeALostModelTurnRunsAgain",
       "theRestartAlarmFailsAnAuthor",
       "aRestartAlarmFiresAgain",
-      "aLostModelTurnRunsAgainOnceMore"
+      "aLostModelTurnRunsAgainOnceMore",
+      "aLostModelTurnDeadlineFires",
+      "aRestartAlarmDecidesATurnThatWaitedToRunAgain",
+      "aStopTakesATurnThatWaitsToRunAgain",
+      "aRunAgainAlarmFindsAStoppedAuthor"
     ],
     "pullsTheHostMoves": [
       "aPlanStartsTheWorkflow",
