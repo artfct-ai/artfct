@@ -684,6 +684,7 @@ const WORLD_SETUP: Omit<
   firstInput: "request",
   subject: "none",
   sandboxStart: "at_task_start",
+  pageBranch: false,
 };
 
 function worldAction(

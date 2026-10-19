@@ -74,6 +74,10 @@
     "test": {
       "dependsOn": ["transit", "types", "template-config"]
     },
+    "@artfct-ai/orchestrator#test": {
+      "dependsOn": ["transit", "types", "template-config"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/spec/*/**/*"]
+    },
     "@artfct-ai/orchestrator#spec:replay": {
       "dependsOn": ["transit", "types", "template-config"],
       "inputs": [
@@ -114,15 +118,7 @@
     "//#knip": {
       "inputs": ["$TURBO_DEFAULT$", "packages/**", "template/**"]
     },
-    "//#test:root": {
-      "inputs": [
-        "scripts/**",
-        "spec/glossary.md",
-        "packages/*/src/**",
-        "packages/*/migrations/**",
-        "template/**"
-      ]
-    },
+    "//#test:root": {},
     "//#fmt:check": {}
   }
 }

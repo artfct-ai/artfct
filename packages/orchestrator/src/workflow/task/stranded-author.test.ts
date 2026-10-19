@@ -242,6 +242,7 @@ describe("a restart during the model call of a revise the agent asked for", () =
       firstInput: "request",
       subject: "none",
       sandboxStart: "on_an_action",
+      pageBranch: false,
     });
     await world.apply(workflowRestartsDuringModelCall(0, "agent_prompts"));
     await world.apply(
