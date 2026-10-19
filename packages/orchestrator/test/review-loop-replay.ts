@@ -102,6 +102,7 @@ export const SPEC_SETUPS = {
     authors: 1,
   },
   checksOnAPolishedPull: { refiners: "polisher", author: "pull_harness", authors: 1 },
+  checksOnAReviewedPull: { refiners: "reviewer_then_polisher", author: "pull_harness", authors: 1 },
 } as const satisfies Record<
   string,
   { refiners: RefinerSetup; author: SetupAuthor; authors: 1 | 2 }
@@ -417,7 +418,7 @@ const MERGE_UNKNOWN: HostChecks = { report: "passed_long_ago", mergeability: "un
 type ChecksDelivery = "check_webhook" | "base_webhook" | "recheck";
 
 /**
- * What the host can say about a revision whose polisher last showed work `quietMs` ago, for
+ * What the host can say about a revision whose submitter last showed work `quietMs` ago, for
  * each gate outcome the spec picks. Unreported checks open the gate once the grace period is
  * over, and checks that still run block it once the limit is reached. A revision that went
  * back already blocks on failed checks or a conflict too.
@@ -467,6 +468,22 @@ function polisherWaitsIn(review: SpecReview): boolean {
 function polisherWorksIn(review: SpecReview): boolean {
   const held = review.artifact.refinerRun;
   return held !== null && review.refinerRuns[held]?.status === "Running";
+}
+
+/**
+ * True when the checks gate reads the revision of the author in a spec state: the artifact is
+ * drafted, no refiner run is unfinished, and the author is live and quiet.
+ */
+function authorWaitsOnTheGateIn(review: SpecReview): boolean {
+  const held = review.artifact.refinerRun;
+  const heldStatus = held === null ? null : review.refinerRuns[held]?.status;
+  return (
+    review.artifact.status.status === "Drafted" &&
+    heldStatus !== "Running" &&
+    heldStatus !== "WaitsOnChecks" &&
+    review.author.status === "InReview" &&
+    review.author.queuedPrompts.length === 0
+  );
 }
 
 /** True when the current revision went back to its submitter in a spec state. */
@@ -1155,7 +1172,8 @@ export class ReviewLoopReplay {
 
   /**
    * The host reports checks. A polisher the gate holds settles on checks that give the outcome
-   * the spec picks, and code hears of them by a webhook or the recheck alarm. Failed checks or a
+   * the spec picks, and code hears of them by a webhook or the recheck alarm. So does an author
+   * that waits on the gate, by the recheck alarm only while one is armed. Failed checks or a
    * conflict reach an idle author by a webhook. A report the spec says changes nothing either
    * misses its webhook, or reaches a polisher at work.
    */
@@ -1169,6 +1187,18 @@ export class ReviewLoopReplay {
         sentBackOnTheRevision(before),
         this.polisherQuietMs(),
       ).flatMap((checks) => deliveriesOf(checks, true).map((delivery) => ({ checks, delivery })));
+      const { checks, delivery } = this.pick(options);
+      return this.hostReports(checks, delivery, index);
+    }
+    if (authorWaitsOnTheGateIn(before)) {
+      const recheckArmed = this.world.workflow.alarmsFor("recheckChecks").length > 0;
+      const options = hostChecksFor(
+        outcome,
+        sentBackOnTheRevision(before),
+        this.quietMsOf(this.world.taskOf(this.author)),
+      ).flatMap((checks) =>
+        deliveriesOf(checks, recheckArmed).map((delivery) => ({ checks, delivery })),
+      );
       const { checks, delivery } = this.pick(options);
       return this.hostReports(checks, delivery, index);
     }
@@ -1223,8 +1253,15 @@ export class ReviewLoopReplay {
   private polisherQuietMs(): number {
     const run = this.world.refinerRunOf(this.author);
     if (!run) throw new Error("no polisher holds the artifact");
-    const sandbox = this.world.workflow.store.sandbox(run.task_id);
-    return this.world.workflow.now() - Date.parse(sandbox?.last_progress_at ?? run.started_at);
+    return this.quietMsOf(run);
+  }
+
+  /** How long ago `submitter` last showed work, the way the checks gate measures it. */
+  private quietMsOf(submitter: TaskRow): number {
+    const sandbox = this.world.workflow.store.sandbox(submitter.task_id);
+    return (
+      this.world.workflow.now() - Date.parse(sandbox?.last_progress_at ?? submitter.started_at)
+    );
   }
 
   /**
@@ -1233,23 +1270,35 @@ export class ReviewLoopReplay {
    */
   private harnessAuthorTurnEnds(step: TraceStep, index: number): WorkflowAction {
     const changed = step.action === "authorTurnEndsOnANewRevision";
-    const onPage = this.revisions.kind === "page";
-    const revision = changed && !onPage ? "changed" : "same";
-    const ending = this.pick(this.authorTurnEndings(step, index, revision));
-    if (onPage) return changed ? this.afterPageEdit(pickTag(step, "part"), ending) : ending;
-    return this.afterChecksPass(ending);
+    if (this.revisions.kind === "pull") return this.authorTurnEndsOnAPull(step, index, changed);
+    const ending = this.pick(this.authorTurnEndings(step, index));
+    return changed ? this.afterPageEdit(pickTag(step, "part"), ending) : ending;
   }
 
   /**
-   * The checks of the author's revision pass and it merges, then `action` runs. The spec does
-   * not model the checks gate on the author, so the gate opens on every revision it leaves.
+   * A harness author's turn on a pull request ends after it pushed or not. The host says checks
+   * that give the gate outcome the spec picks, and the turn ends in a way code ends it the same.
+   * One seeded pick rotates over both.
    */
-  private afterChecksPass(action: WorkflowAction): WorkflowAction {
+  private authorTurnEndsOnAPull(step: TraceStep, index: number, pushed: boolean): WorkflowAction {
+    const outcome = pickTag(step, "outcome");
+    const checksOptions = hostChecksFor(
+      outcome,
+      sentBackOnTheRevision(step.review),
+      this.quietMsOf(this.world.taskOf(this.author)),
+    );
+    const { checks, ending } = this.pick(
+      this.authorTurnEndings(step, index).flatMap((turnEnd) =>
+        checksOptions.map((option) => ({ checks: option, ending: turnEnd })),
+      ),
+    );
     return {
-      toString: () => `the checks pass, then ${String(action)}`,
+      toString: () =>
+        `${pushed ? "the author pushes" : "the author pushes nothing"}, the host says ${checks.report} and ${checks.mergeability}, then ${String(ending)}`,
       run: async (world) => {
-        this.hostSays(PASSED_AND_CLEAN);
-        return action.run(world);
+        if (pushed) world.changeRevision(this.author);
+        this.hostSays(checks);
+        return ending.run(world);
       },
     };
   }
@@ -1257,42 +1306,23 @@ export class ReviewLoopReplay {
   /**
    * The ways code ends a harness author's turn that the spec ends the same way: a closing, a
    * failed prompt, a cancelled turn, and a host that is down when the revision is unknown. A
-   * prompt that fails after a turn that stopped early is a stall, so it is left out then.
+   * prompt that fails after a turn that stopped early is a stall, so it is left out then. The
+   * revision does not change in the ending.
    */
-  private authorTurnEndings(
-    step: TraceStep,
-    index: number,
-    revision: "changed" | "same",
-  ): WorkflowAction[] {
+  private authorTurnEndings(step: TraceStep, index: number): WorkflowAction[] {
     const { store } = this.world.workflow;
     const promptQueued = store.peekPrompt(this.author.taskId) !== null;
     const stoppedEarly = store.requireSandbox(this.author.taskId).stopped_early === 1;
     const closings = closingsAtTurnEnd(promptQueued).map((closing) =>
-      authorTurnEnds(index, revision, closing),
+      authorTurnEnds(index, "same", closing),
     );
-    const failedPrompts = stoppedEarly ? [] : [authorPromptFails(index, revision)];
+    const failedPrompts = stoppedEarly ? [] : [authorPromptFails(index, "same")];
     const unknownPull =
       this.revisions.kind === "pull" &&
       "revisionLookup" in step.picks &&
       pickTag(step, "revisionLookup") !== "RevisionKnown";
-    const hostDown = unknownPull ? [this.authorTurnEndsWhileTheHostIsDown(index, revision)] : [];
-    return [...closings, ...failedPrompts, authorTurnIsCancelled(index, revision), ...hostDown];
-  }
-
-  /** The author's turn ends while every call to the host fails, after it pushed when `revision` changed. */
-  private authorTurnEndsWhileTheHostIsDown(
-    index: number,
-    revision: "changed" | "same",
-  ): WorkflowAction {
-    const turnEnd = authorTurnEnds(index, "unreadable", "finished");
-    if (revision === "same") return turnEnd;
-    return {
-      toString: () => `the author pushes, then ${String(turnEnd)}`,
-      run: async (world) => {
-        world.changeRevision(this.author);
-        return turnEnd.run(world);
-      },
-    };
+    const hostDown = unknownPull ? [authorTurnEnds(index, "unreadable", "finished")] : [];
+    return [...closings, ...failedPrompts, authorTurnIsCancelled(index, "same"), ...hostDown];
   }
 
   /** The world action that ends the author the way the spec's `ending` names. */

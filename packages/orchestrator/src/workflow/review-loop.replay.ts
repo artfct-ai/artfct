@@ -118,6 +118,13 @@ describe("review loop spec", () => {
     );
   });
 
+  it("sends checks back to the author, blocks its revision, then sends checks back to a waiting polisher", async () => {
+    await replayPinnedTrace(
+      "checks-go-back-to-the-author-then-to-a-waiting-polisher",
+      "checksOnAReviewedPull",
+    );
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,

@@ -149,7 +149,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| R1 | Refiners settle only once the author is quiet and the checks gate is open. Each settle reads the store again after the host read. | `reviewLoop::authorIsIdleWhileAPolisherRuns`, `reviewLoop::oneUnfinishedRefinerRunPerArtifact` |
+| R1 | Refiners settle only once the author is quiet and the checks gate is open. Each settle reads the store again after the host read. | `reviewLoop::authorIsIdleWhileAPolisherRuns`, `reviewLoop::oneUnfinishedRefinerRunPerArtifact`, `tests::packages/orchestrator/src/workflow/refiner/checks-gate.test.ts` |
 | R2 | An artifact has at most one unfinished refiner run, and the artifact points at it. | `reviewLoop::oneUnfinishedRefinerRunPerArtifact` |
 | R3 | A refiner run starts on an artifact the humans hold only after an author turn ended on a changed revision. An unknown revision counts as changed. | `reviewLoop::refinersRunAgainOnlyOnChangedRevision` |
 | R4 | A reviewer does not run again on a revision it already reviewed. One rule picks the next entry on every path that runs the list: after the author's turn, `request_review`, `finish_review`, a review again decision, a stale segment restart, and a finished entry handing on. It passes over an entry that already reviewed or ruled on the current revision, and a judge that ruled. `request_review` refuses when that leaves no entry of the open segment, and a review again decision of yes then advances, as no does. An unknown revision allows the run. | `reviewLoop::reviewerRunsOnlyOnAnUnreviewedRevision` |

@@ -36,7 +36,8 @@
     "pageJudgeBetweenReviewers": 2.8,
     "pausedModelCallAuthor": 2.4,
     "checksOnAPolishedPull": 2.2,
-    "modelCallJudgeThenPolisher": 2.6
+    "modelCallJudgeThenPolisher": 2.6,
+    "checksOnAReviewedPull": 2.3
   },
   "witnesses": {
     "judgeThenPolisher": [
@@ -293,7 +294,13 @@
       "checksGoBackToTheAuthor",
       "anUnknownRevisionOpensTheGate",
       "aDraftWasDeliveredBefore",
-      "anAuthorTurnEndsOnTheDeliveredRevision"
+      "anAuthorTurnEndsOnTheDeliveredRevision",
+      "theAuthorsGateOpens",
+      "theAuthorsGateWaits",
+      "theAuthorsGateBlocksTheHandover",
+      "checksGoBackToTheAuthorAtItsTurnEnd",
+      "checksGoBackToAWaitingAuthor",
+      "aRefinerRunStartsWhenTheAuthorsGateOpens"
     ],
     "modelCallJudgeThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -342,6 +349,42 @@
       "aPageTextChangeLandsBeforeTheInstanceRestarts",
       "aModelCallAuthorFailsOnALostTurn",
       "anAuthorTurnEndsOnTheDeliveredRevision"
+    ],
+    "checksOnAReviewedPull": [
+      "aRefinerRunIsUnfinished",
+      "aPromptWaitsWhileAPolisherRuns",
+      "aRefinerRunEndsDone",
+      "aRefinerRunStartsAfterAHandover",
+      "aReviewerRunsAgainOnANewRevision",
+      "aRefinerRunStartsPastFindings",
+      "theHumansHaveTheArtifact",
+      "aReviewerReachedTheLimit",
+      "aRefinerRunRestarted",
+      "aRefinerRunFailsPastItsRestarts",
+      "aRefinerRunStartsAfterAFailedOrCancelledOne",
+      "aPolisherFinished",
+      "theInstanceRestarted",
+      "aReviewerRunsAgainOnAnUnknownRevision",
+      "aRefinerRunStartsAfterAnUnknownRevision",
+      "aRefinerRunStartsAfterAnUnknownHandover",
+      "aPolisherRunStopsOnADraftedArtifact",
+      "aReviewerRunFailsOnADraftedArtifact",
+      "aDraftWasDeliveredBefore",
+      "anAuthorTurnEndsOnTheDeliveredRevision",
+      "aPolisherWaitsOnChecks",
+      "aWaitingPolisherEndsDone",
+      "theChecksGateBlocksTheHandover",
+      "theGateBlocksARevisionItSentBack",
+      "checksGoBackToThePolisherAtItsTurnEnd",
+      "checksGoBackToAWaitingPolisher",
+      "checksGoBackToTheAuthor",
+      "anUnknownRevisionOpensTheGate",
+      "theAuthorsGateOpens",
+      "theAuthorsGateWaits",
+      "theAuthorsGateBlocksTheHandover",
+      "checksGoBackToTheAuthorAtItsTurnEnd",
+      "checksGoBackToAWaitingAuthor",
+      "aRefinerRunStartsWhenTheAuthorsGateOpens"
     ]
   },
   "tlc": {
@@ -517,6 +560,28 @@
           "promptsQueued": 1,
           "instanceRestartCount": 2,
           "authorRestartCount": 2
+        }
+      },
+      "checksOnAReviewedPull": {
+        "pr": {
+          "revisions": 2,
+          "refinerRunsStarted": 3,
+          "reviewCommentsPosted": 2,
+          "personCommentsLeft": 1,
+          "promptsQueued": 1,
+          "instanceRestartCount": 1,
+          "authorRestartCount": 0,
+          "checksReports": 2
+        },
+        "nightly": {
+          "revisions": 3,
+          "refinerRunsStarted": 4,
+          "reviewCommentsPosted": 2,
+          "personCommentsLeft": 1,
+          "promptsQueued": 2,
+          "instanceRestartCount": 2,
+          "authorRestartCount": 0,
+          "checksReports": 3
         }
       }
     }

@@ -428,6 +428,15 @@
           "value": {
             "#tup": []
           }
+        },
+        "outcome": {
+          "tag": "Some",
+          "value": {
+            "tag": "GateOpens",
+            "value": {
+              "#tup": []
+            }
+          }
         }
       }
     },
