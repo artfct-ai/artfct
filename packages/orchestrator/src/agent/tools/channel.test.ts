@@ -9,7 +9,13 @@ import { openMemoryDb } from "../../../test/memory-db";
 import { scenario, type Scenario } from "../../../test/scenario";
 import { testEnv } from "../../../test/test-env";
 import { toolText } from "../../../test/tool-result";
-import { channelTools, THUMBS_UP } from "./channel";
+import {
+  acknowledgeRevisionRequest,
+  channelTools,
+  REVISION_ACKNOWLEDGEMENT_TEXT,
+  THUMBS_UP,
+  type Acknowledgement,
+} from "./channel";
 
 const call = { toolCallId: "call-1", messages: [], context: {} };
 
@@ -31,6 +37,57 @@ function firstReplySchema(workflow: FakeRuntime): z.ZodType {
 const routedRuntime: Scenario<FakeRuntime> = async (run) => {
   await run(new FakeRuntime(openMemoryDb(), { ...testEnv(), DB: acceptingD1() }));
 };
+
+describe("acknowledgeRevisionRequest", () => {
+  describe("on chat messages that wait for the thumbs-up", () => {
+    let chat: FakeChat;
+    const acknowledgement: Acknowledgement = { acknowledged: false };
+    const replied = scenario(freshRuntime, async (workflow) => {
+      chat = new FakeChat();
+      workflow.chatInstance = chat;
+      takeChatMessages(workflow, [MESSAGE]);
+      await acknowledgeRevisionRequest(workflow, workflow.transcript.answering(), acknowledgement);
+    });
+
+    it("puts the thumbs-up on them and posts nothing", () =>
+      replied((workflow) => {
+        expect(chat.argsOf("addReaction")).toEqual([["C1", "1757000001.000100", THUMBS_UP]]);
+        expect(workflow.posted).toEqual([]);
+      }));
+
+    it("marks the turn acknowledged", () =>
+      replied(() => {
+        expect(acknowledgement.acknowledged).toBe(true);
+      }));
+  });
+
+  describe("without a chat message to react to", () => {
+    let refusal = "";
+    const replied = scenario(freshRuntime, async (workflow) => {
+      const acknowledgement: Acknowledgement = { acknowledged: false };
+      const answering = workflow.transcript.answering();
+      await acknowledgeRevisionRequest(workflow, answering, acknowledgement);
+      try {
+        await channelTools(workflow, answering, acknowledgement).acknowledge.execute(
+          { reply: { kind: "text", text: "Got it." } },
+          call,
+        );
+      } catch (error) {
+        refusal = error instanceof Error ? error.message : String(error);
+      }
+    });
+
+    it("posts one line", () =>
+      replied((workflow) => {
+        expect(workflow.posted).toEqual([{ type: "info", text: REVISION_ACKNOWLEDGEMENT_TEXT }]);
+      }));
+
+    it("leaves the model's acknowledge nothing to send", () =>
+      replied(() => {
+        expect(refusal).toMatch(/^Already acknowledged/);
+      }));
+  });
+});
 
 describe("channel tools", () => {
   describe("acknowledge", () => {

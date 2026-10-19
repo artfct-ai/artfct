@@ -26,6 +26,7 @@ import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import type { ModelMessage } from "ai";
 import { runInDurableObject } from "cloudflare:test";
 import { env } from "cloudflare:workers";
+import { REVISION_ACKNOWLEDGEMENT_TEXT } from "../src/agent/tools/channel";
 import { noteMessage } from "../src/agent/transcript/envelope";
 import {
   TranscriptStore,
@@ -113,7 +114,12 @@ type StepPicks = {
   flagsPage: boolean | null;
   answer: ModelAnswer | null;
   overLimit: boolean | null;
+  alarm: TurnAlarmKind | null;
+  armedFor: number | null;
 };
+
+const TURN_ALARM_KINDS = ["WatchdogAlarm", "HeadsUpAlarm"] as const;
+type TurnAlarmKind = (typeof TURN_ALARM_KINDS)[number];
 
 /**
  * The agent turns of one workflow as the spec and the replay both see them. Rows, posts, and the
@@ -213,6 +219,8 @@ function stepPicks(picks: unknown): StepPicks {
   const flagsPage = picked(picks, "flagsPage");
   const answer = picked(picks, "answer");
   const overLimit = picked(picks, "overLimit");
+  const alarm = picked(picks, "alarm");
+  const armedStart = picked(picks, "armedFor");
   return {
     origin: origin === null ? null : itfOneOf(tagOf(origin), ORIGINS),
     owed: owed === null ? null : itfOneOf(tagOf(owed), OWED),
@@ -221,6 +229,8 @@ function stepPicks(picks: unknown): StepPicks {
     flagsPage: flagsPage === null ? null : itfBool(flagsPage),
     answer: answer === null ? null : modelAnswer(answer),
     overLimit: overLimit === null ? null : itfBool(overLimit),
+    alarm: alarm === null ? null : itfOneOf(tagOf(alarm), TURN_ALARM_KINDS),
+    armedFor: armedStart === null ? null : itfInt(armedStart),
   };
 }
 
@@ -683,6 +693,7 @@ function postText(event: TaskEvent): string {
   if (event.type !== "info") return `Other(${event.type})`;
   switch (event.text) {
     case ACKNOWLEDGE_TEXT:
+    case REVISION_ACKNOWLEDGEMENT_TEXT:
       return "AcknowledgeText";
     case TOLD_TEXT:
       return "ToldText";
@@ -1073,6 +1084,10 @@ export class AgentTurnsReplay {
         return this.settleAfter(() => this.fireAlarm("onTurnTimeout", onTurnTimeout));
       case "headsUpFires":
         return this.settleAfter(() => this.fireAlarm("onTurnHeadsUp", onTurnHeadsUp));
+      case "staleAlarmFires":
+        return this.settleAfter(() =>
+          this.fireStaleAlarm(required(picks.alarm, "alarm"), required(picks.armedFor, "armedFor")),
+        );
       case "durableObjectRestarts":
         return this.settleAfter(() => this.restart());
       case "runAgentAlarmFires":
@@ -1204,6 +1219,18 @@ export class AgentTurnsReplay {
     this.ledger.firingAlarm = true;
     try {
       await handler(this.runtime, { started_at: startedAtOf(alarm.payload) });
+    } finally {
+      this.ledger.firingAlarm = false;
+    }
+  }
+
+  private async fireStaleAlarm(kind: TurnAlarmKind, startNumber: number): Promise<void> {
+    const started = [...this.ledger.startNumbers].find(([, number]) => number === startNumber);
+    if (!started) throw new Error(`the trace fires a stale alarm for start ${startNumber}, which never ran`);
+    const handler = kind === "WatchdogAlarm" ? onTurnTimeout : onTurnHeadsUp;
+    this.ledger.firingAlarm = true;
+    try {
+      await handler(this.runtime, { started_at: started[0] });
     } finally {
       this.ledger.firingAlarm = false;
     }

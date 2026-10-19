@@ -111,7 +111,7 @@ export async function resumeLostTurn(workflow: WorkflowRuntime): Promise<boolean
   }
   await cancelTurnAlarms(workflow);
   workflow.patchState({ turn_started_at: null });
-  if (isWorkflowFinished(workflow.state.status)) {
+  if (isWorkflowFinished(workflow.state.status) && !workflow.transcript.takenMessages().length) {
     workflow.patchState({
       turn_first_row: null,
     });

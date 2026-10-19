@@ -419,11 +419,12 @@ describe("resumeLostTurn", () => {
       }));
   });
 
-  describe("a finished workflow whose turn was lost", () => {
+  describe("a finished workflow that lost a turn nobody waited on", () => {
     let resumed: boolean | undefined;
     const finished = scenario(freshRuntime, async (workflow) => {
       await workingThread(workflow);
-      takeMessage(workflow);
+      workflow.transcript.enqueue("The author finished.", "blocked");
+      workflow.transcript.takeInbox();
       await armTurnWatchdog(workflow);
       workflow.patchState({ status: "done", turn_first_row: FIRST_ROW });
       resumed = await resumeLostTurn(workflow);
@@ -454,6 +455,33 @@ describe("resumeLostTurn", () => {
     it("wakes nobody", () =>
       finished((workflow) => {
         expect(workflow.notes).toEqual([]);
+      }));
+  });
+
+  describe("a finished workflow that lost a turn a person waited on", () => {
+    let resumed: boolean | undefined;
+    const finished = scenario(freshRuntime, async (workflow) => {
+      await workingThread(workflow);
+      takeMessage(workflow);
+      await armTurnWatchdog(workflow);
+      workflow.patchState({ status: "done", turn_first_row: FIRST_ROW });
+      resumed = await resumeLostTurn(workflow);
+    });
+
+    it("resumes the turn", () =>
+      finished((workflow) => {
+        expect(resumed).toBe(true);
+        expect(workflow.notes.map((note) => note.wake)).toEqual(["blocked"]);
+      }));
+
+    it("keeps the person's message for the resumed turn", () =>
+      finished((workflow) => {
+        expect(workflow.transcript.takenMessages().map((row) => row.text)).toEqual(MESSAGES);
+      }));
+
+    it("tells the thread it picks the turn up again", () =>
+      finished((workflow) => {
+        expect(workflow.posted).toEqual([{ type: "info", text: LOST_PLACE_TEXT }]);
       }));
   });
 });
