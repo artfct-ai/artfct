@@ -38,7 +38,7 @@
     "@ai-sdk/openai-compatible": "^3.0.73",
     "@ai-sdk/provider": "^4.0.30",
     "@ai-sdk/provider-utils": "^5.0.63",
-    "@cloudflare/sandbox": "^0.12.10",
+    "@cloudflare/sandbox": "^0.12.11",
     "@linear/sdk": "^97.0.0",
     "@notionhq/client": "^5.27.1",
     "@octokit/auth-app": "^8.3.1",

@@ -98,7 +98,7 @@
         "@ai-sdk/openai-compatible": "^3.0.73",
         "@ai-sdk/provider": "^4.0.30",
         "@ai-sdk/provider-utils": "^5.0.63",
-        "@cloudflare/sandbox": "^0.12.10",
+        "@cloudflare/sandbox": "^0.12.11",
         "@linear/sdk": "^97.0.0",
         "@notionhq/client": "^5.27.1",
         "@octokit/auth-app": "^8.3.1",
@@ -151,7 +151,7 @@
         "@artfct-ai/acp": "workspace:*",
         "@artfct-ai/adapters": "workspace:*",
         "@artfct-ai/contracts": "workspace:*",
-        "@cloudflare/sandbox": "^0.12.10",
+        "@cloudflare/sandbox": "^0.12.11",
         "agents": "^0.24.0",
         "ai": "^7.0.145",
         "drizzle-orm": "^0.45.4",
@@ -279,7 +279,7 @@
 
     "@cloudflare/kv-asset-handler": ["@cloudflare/kv-asset-handler@0.5.0", "", {}, "sha512-jxQYkj8dSIzc0cD6cMMNdOc1UVjqSqu8BZdor5s8cGjW2I8BjODt/kWPVdY+u9zj3ms75Q5qaZgnxUad83+eAg=="],
 
-    "@cloudflare/sandbox": ["@cloudflare/sandbox@0.12.10", "", { "dependencies": { "@cloudflare/containers": "^0.3.5", "aws4fetch": "^1.0.20", "capnweb": "^0.8.0", "hono": "^4.13.7" }, "peerDependencies": { "@openai/agents": "^0.3.3", "@opencode-ai/sdk": "^1.1.40", "@xterm/xterm": ">=5.0.0" }, "optionalPeers": ["@openai/agents", "@opencode-ai/sdk", "@xterm/xterm"] }, "sha512-245s6xEdR1v0Jti0YYd8ORWcTG/f/ksjJfpubvnbky0KxFC/ZDOpbpNKdtyiRBYZqmJGtEncYW7Cwge47tDrpg=="],
+    "@cloudflare/sandbox": ["@cloudflare/sandbox@0.12.11", "", { "dependencies": { "@cloudflare/containers": "^0.3.5", "aws4fetch": "^1.0.20", "capnweb": "^0.8.0", "hono": "^4.13.7" }, "peerDependencies": { "@openai/agents": "^0.3.3", "@opencode-ai/sdk": "^1.1.40", "@xterm/xterm": ">=5.0.0" }, "optionalPeers": ["@openai/agents", "@opencode-ai/sdk", "@xterm/xterm"] }, "sha512-5QQxEJCLlhnofpmIfd/UG0/q+u1RitePNtOO+mfo8pRy2n2n/2C1LKTREbzWSNOT1rRcHPyJr0akpoA7dmbJIQ=="],
 
     "@cloudflare/unenv-preset": ["@cloudflare/unenv-preset@2.16.2", "", { "peerDependencies": { "unenv": "2.0.0-rc.24", "workerd": ">1.20260305.0 <2.0.0-0" }, "optionalPeers": ["workerd"] }, "sha512-JBP1+Z7ZSNG/d4mRP+y8VC5dka3tZVMLEZRvS+rzQ4DGV1EoxRFQckcJTTkXbHSQiTj0DtNI01Zwb/V2fX0mvQ=="],
 

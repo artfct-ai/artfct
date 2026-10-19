@@ -30,7 +30,7 @@
     "@artfct-ai/acp": "workspace:*",
     "@artfct-ai/adapters": "workspace:*",
     "@artfct-ai/contracts": "workspace:*",
-    "@cloudflare/sandbox": "^0.12.10",
+    "@cloudflare/sandbox": "^0.12.11",
     "agents": "^0.24.0",
     "ai": "^7.0.145",
     "drizzle-orm": "^0.45.4",
