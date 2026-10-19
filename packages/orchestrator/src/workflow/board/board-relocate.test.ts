@@ -266,3 +266,46 @@ describe("a restart after the new board is posted and before it is stored", () =
       expect(chat.argsOf("deleteMessage")).toEqual([["C1", PREVIOUS_TS]]);
     }));
 });
+
+describe("a restart after the first board is posted and before it is stored", () => {
+  let restarted: FakeRuntime;
+  const afterRestart = scenario(onFreshDb, async (workflow) => {
+    useChat(workflow);
+    seedBoardTask(workflow);
+    const died = gate();
+    const createBoard = workflow.notifier.createBoard.bind(workflow.notifier);
+    workflow.notifier.createBoard = async (channel, text) => {
+      const messageId = await createBoard(channel, text);
+      await died.hold();
+      return messageId;
+    };
+    void flushBoards(workflow, JOB);
+    await died.reached;
+    restarted = restart(workflow);
+    await flushBoards(restarted, JOB);
+  });
+
+  it("posts a second board on the next flush", () =>
+    afterRestart(() => {
+      expect(methods()).toEqual(["postThreadMessage", "postThreadMessage"]);
+    }));
+
+  it("keeps the second board and leaves the first in the thread", () =>
+    afterRestart(() => {
+      expect(restarted.store.board(JOB, CHAT_KEY)?.message_id).toBe(SECOND_TS);
+      expect(chat.argsOf("deleteMessage")).toEqual([]);
+    }));
+
+  describe("and a change after it", () => {
+    const changed = scenario(afterRestart, async () => {
+      moveTodos(restarted, "step two");
+      await flushBoards(restarted, JOB);
+    });
+
+    it("edits the second board and posts no third", () =>
+      changed(() => {
+        expect(methods()).toEqual(["postThreadMessage", "postThreadMessage", "updateMessage"]);
+        expect(chat.argsOf("updateMessage")[0]?.[1]).toBe(SECOND_TS);
+      }));
+  });
+});
