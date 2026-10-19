@@ -1440,70 +1440,81 @@ module agentTurns {
   pure def endedTurnWhere(turnEnd: TurnEnd, rule: TurnRecord => bool): bool =
     match turnEnd { | TurnEnded(ended) => rule(ended.record) | NoTurnEnd => false }
 
-  /// A turn posted closing text.
+  /// Witness for `closingTextAnswersOnlyAPersonWhoWrote`: a turn posted closing text.
   val aTurnPostsClosingText: bool = endedTurnWhere(lastTurnEnd, record => record.closingTextsPosted > 0)
 
-  /// A person's turn ended with the timeout.
+  /// Witness for `aWaitingPersonHearsBackByTheTimeout`: a person's turn ended with the timeout.
   val aPersonsTurnTimesOut: bool = endedTurnWhere(lastTurnEnd, record => record.owed != NotOwed and record.timedOut)
 
-  /// A recap replaced the rows before a turn.
+  /// Witness for `compactionReplacesOnlyEarlierRows`: a recap replaced the rows before a turn.
   val aTurnIsCompacted: bool = anyOf(workflow.store.transcript, row => row.entry == Recap)
 
-  /// A tool call is in the transcript.
+  /// Witness for `everyToolCallKeepsItsResult`: a tool call is in the transcript.
   val aToolCallIsInTheTranscript: bool = anyOf(workflow.store.transcript, row => isToolCall(row.entry))
 
-  /// A person's turn ran the model once more after it left them nothing.
+  /// Witness for `aPersonsTurnNeverEndsUnanswered`: a person's turn ran the model once more after it
+  /// left them nothing.
   val aPersonsTurnRunsTheModelAgain: bool = endedTurnWhere(lastTurnEnd, record => record.owed != NotOwed and record.askedAgain)
 
-  /// A person's turn ran work after it replied.
+  /// Witness for `aPersonHearsBackBeforeAnyWork`: a person's turn ran work after it replied.
   val aPersonHearsBackThenWorkRuns: bool = endedTurnWhere(lastTurnEnd, record =>
     record.owed != NotOwed and anyOf(record.steps, step => step.ran.exclude(FIRST_REPLY_TOOLS).size() > 0))
 
-  /// The screen withheld a page from a turn.
+  /// Witness for `quarantinedTextNeverEntersTheTranscript`: the screen withheld a page from a turn.
   val aPageIsWithheld: bool = endedTurnWhere(lastTurnEnd, record => record.quarantinedPages.size() > 0)
 
-  /// The screen admitted a page into the transcript.
+  /// Witness for `quarantinedTextNeverEntersTheTranscript`: the screen admitted a page into the
+  /// transcript.
   val aPageIsAdmitted: bool = anyOf(workflow.store.transcript, row => match row.entry {
     | ToolResultRow(output) => match output { | PageText(_) => true | _ => false }
     | _ => false
   })
 
-  /// A turn read the chat history.
+  /// Witness for `aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead`: a turn read the chat
+  /// history.
   val aTurnReadsTheChat: bool = endedTurnWhere(lastTurnEnd, record => record.reads.length() > 0)
 
-  /// A turn ended with the chat thread out of its working status after it showed working.
+  /// Witness for `theWorkingStatusNeverOutlivesItsTurn`: a turn ended with the chat thread out of its
+  /// working status after it showed working.
   val aWorkingTurnEnds: bool = match lastTurnEnd {
     | TurnEnded(ended) => ended.record.steps.length() > 1 and ended.chat == Active
     | NoTurnEnd => false
   }
 
-  /// The watchdog fired on a turn that kept running.
+  /// Witness for `oneTurnRunsAtATime`: the watchdog fired on a turn that kept running.
   val theWatchdogFiresOnARunningTurn: bool = match workflow.isolate.turn {
     | Running(turnRun) => turnRun.pastTimeout and workflow.store.startedAt == NotRunning and turnRun.record.timedOut
     | NoTurn => false
   }
 
-  /// A resumed turn ended after the turn a person waited on was lost.
+  /// Witness for `aResumedTurnAnswersWhatItsLostTurnOwed`: a resumed turn ended after the turn a
+  /// person waited on was lost.
   val aResumedTurnEnds: bool = endedTurnWhere(lastTurnEnd, record => record.lostTurnOwed)
 
-  /// A person's turn failed into the stuck text.
+  /// Witness for `aPersonsTurnNeverEndsUnanswered`: a person's turn failed into the stuck text.
   val aTurnPostsTheStuckText: bool = endedTurnWhere(lastTurnEnd, record => anyOf(record.posts, post => post.text == StuckText))
 
-  /// A decisions call failed and a later one fell back without asking.
+  /// Witness for `aPersonGetsTheAnswerDuringADecisionsOutage`,
+  /// `aDecisionsCallFallsBackOnlyAfterEveryModelFailed` and
+  /// `laterDecisionsCallsFallBackOnceOneFails`: a decisions call failed and a later one fell back
+  /// without asking.
   val aDecisionsCallFallsBack: bool = endedTurnWhere(lastTurnEnd, record =>
     record.decisionsEvents.select(event => event == DecisionsFailed).length() > 0 and record.reads.length() + record.quarantinedPages.size() > 0)
 
-  /// A turn's answer reached a session a person wrote from.
+  /// Witness for `sessionMessageWithoutAnAuthorIsAnswered`: a turn's answer reached a session a
+  /// person wrote from.
   val anAnswerReachesASession: bool = endedTurnWhere(lastTurnEnd, record =>
     anyOf(record.posts, post => isAnswerPost(post) and sessionsOf(post.targets).size() > 0))
 
-  /// A row arrived while a turn ran.
+  /// Witness for `everyInboxRowReachesTheTranscriptOnce`, `aWaitingInboxRowHasATurnComing` and
+  /// `oneTurnRunsAtATime`: a row arrived while a turn ran.
   val aRowWaitsForTheNextTurn: bool = workflow.isolate.rerun
 
-  /// The heads-up reached a chat thread.
+  /// Witness for `theWorkingStatusNeverOutlivesItsTurn`: the heads-up reached a chat thread.
   val theHeadsUpPosts: bool = anyOf(workflow.store.posts, post => post.text == HeadsUpText)
 
-  /// A row waits for the `runAgent` alarm after a restart.
+  /// Witness for `aWaitingInboxRowHasATurnComing`: a row waits for the `runAgent` alarm after a
+  /// restart.
   val aRowWaitsForTheRunAgentAlarm: bool =
     workflow.store.runAgentAlarms > 0 and waitingRows(workflow.store).length() > 0
 
@@ -1531,20 +1542,22 @@ module agentTurns {
   /// A stale alarm fired while a later turn ran.
   val aStaleAlarmFiresDuringALaterTurn: bool = lastStepReached.aStaleAlarmFiresDuringALaterTurn
 
-  /// The runtime request is out while the turn waits on a screen call.
+  /// Witness for `laterDecisionsCallsFallBackOnceOneFails`: the runtime request is out while the turn
+  /// waits on a screen call.
   val twoDecisionsCallsAreOut: bool = match workflow.isolate.turn {
     | Running(turnRun) => turnRun.runtimeRequestOut and isScreening(turnRun.phase)
     | NoTurn => false
   }
 
-  /// The watchdog fired while the closing text was still posting.
+  /// Witness for `aWaitingPersonHearsBackByTheTimeout`: the watchdog fired while the closing text was
+  /// still posting.
   val theClosingPostOutlivesTheTimeout: bool = match workflow.isolate.turn {
     | Running(turnRun) => isPostingClosing(turnRun.phase) and turnRun.pastTimeout and workflow.store.startedAt == NotRunning
     | NoTurn => false
   }
 
-  /// The watchdog of a finished workflow released the threads of a turn that kept running,
-  /// without the timeout text.
+  /// Witness for `theWorkingStatusNeverOutlivesItsTurn`: the watchdog of a finished workflow released
+  /// the threads of a turn that kept running, without the timeout text.
   val theWatchdogReleasesAFinishedWorkflow: bool = match workflow.isolate.turn {
     | Running(turnRun) => and {
         turnRun.record.timedOut,
@@ -1554,7 +1567,8 @@ module agentTurns {
     | NoTurn => false
   }
 
-  /// A turn ended on a finished workflow and closed the chat thread.
+  /// Witness for `theWorkingStatusNeverOutlivesItsTurn`: a turn ended on a finished workflow and
+  /// closed the chat thread.
   val aTurnEndsOnAFinishedWorkflow: bool = match lastTurnEnd {
     | TurnEnded(ended) => ended.chat == Closed
     | NoTurnEnd => false
