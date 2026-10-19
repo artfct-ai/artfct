@@ -121,6 +121,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -339,6 +340,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -569,6 +571,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -833,6 +836,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -1096,6 +1100,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -1271,7 +1276,7 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "1"
+                "#bigint": "2"
               }
             },
             "rest": [],
@@ -1293,7 +1298,7 @@
           "#bigint": "1"
         },
         "generation": {
-          "#bigint": "1"
+          "#bigint": "2"
         },
         "helloSlot": {
           "tag": "Unarmed",
@@ -1377,6 +1382,7 @@
             "#tup": []
           }
         },
+        "stopped": true,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"
@@ -1507,60 +1513,10 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "1"
+                "#bigint": "2"
               }
             },
             "rest": [],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "3"
-            },
-            "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "rest": [
-              {
-                "tag": "RestartAfterClose",
-                "value": {
-                  "generation": {
-                    "#bigint": "1"
-                  },
-                  "restarts": {
-                    "#bigint": "1"
-                  }
-                }
-              },
-              {
-                "tag": "StartEnds",
-                "value": {
-                  "#bigint": "1"
-                }
-              },
-              {
-                "tag": "AlarmEnds",
-                "value": {
-                  "id": {
-                    "#bigint": "0"
-                  },
-                  "kind": {
-                    "tag": "Provision",
-                    "value": {
-                      "#tup": []
-                    }
-                  }
-                }
-              }
-            ],
             "state": {
               "tag": "Out",
               "value": {
@@ -1579,7 +1535,7 @@
           "#bigint": "2"
         },
         "generation": {
-          "#bigint": "1"
+          "#bigint": "2"
         },
         "helloSlot": {
           "tag": "Unarmed",
@@ -1606,7 +1562,7 @@
           "#bigint": "2"
         },
         "nextCall": {
-          "#bigint": "4"
+          "#bigint": "3"
         },
         "nextSerial": {
           "#bigint": "1"
@@ -1634,7 +1590,7 @@
         },
         "queue": [],
         "restarts": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "rpcs": [],
         "session": false,
@@ -1658,17 +1614,18 @@
           "#bigint": "1"
         },
         "status": {
-          "tag": "Queued",
+          "tag": "Working",
           "value": {
             "#tup": []
           }
         },
+        "stopped": true,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"
         },
         "token": {
-          "#bigint": "4"
+          "#bigint": "3"
         },
         "wallSlot": {
           "tag": "Unarmed",
@@ -1735,7 +1692,7 @@
         },
         "artifact": false,
         "bridgeClosedAt": {
-          "tag": "Recent",
+          "tag": "Unset",
           "value": {
             "#tup": []
           }
@@ -1791,60 +1748,10 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "1"
+                "#bigint": "2"
               }
             },
             "rest": [],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "3"
-            },
-            "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "rest": [
-              {
-                "tag": "RestartAfterClose",
-                "value": {
-                  "generation": {
-                    "#bigint": "1"
-                  },
-                  "restarts": {
-                    "#bigint": "1"
-                  }
-                }
-              },
-              {
-                "tag": "StartEnds",
-                "value": {
-                  "#bigint": "1"
-                }
-              },
-              {
-                "tag": "AlarmEnds",
-                "value": {
-                  "id": {
-                    "#bigint": "0"
-                  },
-                  "kind": {
-                    "tag": "Provision",
-                    "value": {
-                      "#tup": []
-                    }
-                  }
-                }
-              }
-            ],
             "state": {
               "tag": "Out",
               "value": {
@@ -1863,7 +1770,7 @@
           "#bigint": "2"
         },
         "generation": {
-          "#bigint": "1"
+          "#bigint": "2"
         },
         "helloSlot": {
           "tag": "Unarmed",
@@ -1890,7 +1797,7 @@
           "#bigint": "2"
         },
         "nextCall": {
-          "#bigint": "4"
+          "#bigint": "3"
         },
         "nextSerial": {
           "#bigint": "1"
@@ -1918,7 +1825,7 @@
         },
         "queue": [],
         "restarts": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "rpcs": [],
         "session": false,
@@ -1927,17 +1834,18 @@
           "#bigint": "1"
         },
         "status": {
-          "tag": "Queued",
+          "tag": "Working",
           "value": {
             "#tup": []
           }
         },
+        "stopped": true,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"
         },
         "token": {
-          "#bigint": "4"
+          "#bigint": "3"
         },
         "wallSlot": {
           "tag": "Unarmed",
@@ -2006,7 +1914,7 @@
         },
         "artifact": false,
         "bridgeClosedAt": {
-          "tag": "Recent",
+          "tag": "Unset",
           "value": {
             "#tup": []
           }
@@ -2032,60 +1940,10 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "1"
+                "#bigint": "2"
               }
             },
             "rest": [],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "3"
-            },
-            "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "rest": [
-              {
-                "tag": "RestartAfterClose",
-                "value": {
-                  "generation": {
-                    "#bigint": "1"
-                  },
-                  "restarts": {
-                    "#bigint": "1"
-                  }
-                }
-              },
-              {
-                "tag": "StartEnds",
-                "value": {
-                  "#bigint": "1"
-                }
-              },
-              {
-                "tag": "AlarmEnds",
-                "value": {
-                  "id": {
-                    "#bigint": "0"
-                  },
-                  "kind": {
-                    "tag": "Provision",
-                    "value": {
-                      "#tup": []
-                    }
-                  }
-                }
-              }
-            ],
             "state": {
               "tag": "Out",
               "value": {
@@ -2104,7 +1962,7 @@
           "#bigint": "2"
         },
         "generation": {
-          "#bigint": "1"
+          "#bigint": "2"
         },
         "helloSlot": {
           "tag": "Unarmed",
@@ -2131,7 +1989,7 @@
           "#bigint": "2"
         },
         "nextCall": {
-          "#bigint": "4"
+          "#bigint": "3"
         },
         "nextSerial": {
           "#bigint": "1"
@@ -2159,7 +2017,7 @@
         },
         "queue": [],
         "restarts": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "rpcs": [],
         "session": false,
@@ -2168,17 +2026,18 @@
           "#bigint": "1"
         },
         "status": {
-          "tag": "Queued",
+          "tag": "Working",
           "value": {
             "#tup": []
           }
         },
+        "stopped": true,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"
         },
         "token": {
-          "#bigint": "4"
+          "#bigint": "3"
         },
         "wallSlot": {
           "tag": "Unarmed",

@@ -121,6 +121,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -339,6 +340,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -557,6 +559,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -775,6 +778,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -908,7 +912,7 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "1"
+                "#bigint": "2"
               }
             },
             "rest": [],
@@ -930,7 +934,7 @@
           "#bigint": "0"
         },
         "generation": {
-          "#bigint": "1"
+          "#bigint": "2"
         },
         "helloSlot": {
           "tag": "Unarmed",
@@ -999,6 +1003,7 @@
             "#tup": []
           }
         },
+        "stopped": true,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"
@@ -1136,7 +1141,7 @@
           "#bigint": "0"
         },
         "generation": {
-          "#bigint": "1"
+          "#bigint": "2"
         },
         "helloSlot": {
           "tag": "Unarmed",
@@ -1205,6 +1210,7 @@
             "#tup": []
           }
         },
+        "stopped": true,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"
@@ -1281,7 +1287,7 @@
             "kind": {
               "tag": "HelloTimeout",
               "value": {
-                "#bigint": "2"
+                "#bigint": "3"
               }
             }
           }
@@ -1351,7 +1357,7 @@
               "tag": "SandboxStart",
               "value": {
                 "generation": {
-                  "#bigint": "2"
+                  "#bigint": "3"
                 },
                 "launched": false,
                 "token": {
@@ -1363,7 +1369,7 @@
               {
                 "tag": "StartEnds",
                 "value": {
-                  "#bigint": "2"
+                  "#bigint": "3"
                 }
               }
             ],
@@ -1385,7 +1391,7 @@
           "#bigint": "0"
         },
         "generation": {
-          "#bigint": "2"
+          "#bigint": "3"
         },
         "helloSlot": {
           "tag": "Armed",
@@ -1461,6 +1467,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"
@@ -1537,7 +1544,7 @@
             "kind": {
               "tag": "HelloTimeout",
               "value": {
-                "#bigint": "2"
+                "#bigint": "3"
               }
             }
           }
@@ -1607,7 +1614,7 @@
               "tag": "SandboxStart",
               "value": {
                 "generation": {
-                  "#bigint": "2"
+                  "#bigint": "3"
                 },
                 "launched": false,
                 "token": {
@@ -1619,7 +1626,7 @@
               {
                 "tag": "StartEnds",
                 "value": {
-                  "#bigint": "2"
+                  "#bigint": "3"
                 }
               }
             ],
@@ -1641,7 +1648,7 @@
           "#bigint": "0"
         },
         "generation": {
-          "#bigint": "2"
+          "#bigint": "3"
         },
         "helloSlot": {
           "tag": "Armed",
@@ -1723,6 +1730,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"
@@ -1799,7 +1807,7 @@
             "kind": {
               "tag": "HelloTimeout",
               "value": {
-                "#bigint": "2"
+                "#bigint": "3"
               }
             }
           }
@@ -1836,7 +1844,7 @@
               "tag": "SandboxStart",
               "value": {
                 "generation": {
-                  "#bigint": "2"
+                  "#bigint": "3"
                 },
                 "launched": false,
                 "token": {
@@ -1848,7 +1856,7 @@
               {
                 "tag": "StartEnds",
                 "value": {
-                  "#bigint": "2"
+                  "#bigint": "3"
                 }
               }
             ],
@@ -1870,7 +1878,7 @@
           "#bigint": "0"
         },
         "generation": {
-          "#bigint": "2"
+          "#bigint": "3"
         },
         "helloSlot": {
           "tag": "Armed",
@@ -1952,6 +1960,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"
@@ -2026,7 +2035,7 @@
             "kind": {
               "tag": "HelloTimeout",
               "value": {
-                "#bigint": "2"
+                "#bigint": "3"
               }
             }
           }
@@ -2063,7 +2072,7 @@
               "tag": "SandboxStart",
               "value": {
                 "generation": {
-                  "#bigint": "2"
+                  "#bigint": "3"
                 },
                 "launched": false,
                 "token": {
@@ -2075,7 +2084,7 @@
               {
                 "tag": "StartEnds",
                 "value": {
-                  "#bigint": "2"
+                  "#bigint": "3"
                 }
               }
             ],
@@ -2097,7 +2106,7 @@
           "#bigint": "0"
         },
         "generation": {
-          "#bigint": "2"
+          "#bigint": "3"
         },
         "helloSlot": {
           "tag": "Armed",
@@ -2179,6 +2188,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"

@@ -135,6 +135,7 @@ async function startGeneration(
       fresh.task_id,
       `commit author lookup failed: ${String(error).slice(0, LOGGED_ERROR_CHARS)}`,
     );
+    if (workflow.store.requireSandbox(fresh.task_id).generation !== sandbox.generation) return;
     return restartOrFailTask(
       workflow,
       fresh,

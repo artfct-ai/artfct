@@ -102,7 +102,7 @@ module harnessSessionTypes {
   type StopReason = EndTurn | CancelledTurn | MaxTokens
 
   /// The task, its sandbox row, its queue and rpc rows, its alarms, the sockets and bridges around
-  /// it, and the calls out. The counters at the end are what an observer counts.
+  /// it, and the calls out. The counters and the stop flag at the end are what an observer records.
   type World = {
     status: TaskStatus,
     restarts: int,
@@ -141,6 +141,7 @@ module harnessSessionTypes {
     personPrompts: int,
     faults: int,
     actions: int,
+    stopped: bool,
   }
 
   /// What kind of event the last step was, as far as a rule needs it.
@@ -275,6 +276,7 @@ module harnessSession {
     personPrompts: 0,
     faults: 0,
     actions: 0,
+    stopped: false,
   }
 
   var world: World
@@ -751,9 +753,9 @@ module harnessSession {
   /// PROPOSED, T4. A sandbox start moves the task to provisioning in the next generation with a
   /// new bridge token. The harness session, the prompt in flight, the rpc rows, the nudge, the keep
   /// alive and the time of the last bridge close are cleared, and the hello timeout of the new
-  /// generation is armed.
+  /// generation is armed. A stop also begins a new generation, without a start.
   pure def aSandboxStartBeginsAFreshGenerationIn(step: Step): bool =
-    step.after.generation != step.before.generation implies and {
+    (step.after.generation != step.before.generation and step.kind != StopStep) implies and {
       step.after.generation == step.before.generation + 1,
       step.after.status == Provisioning,
       step.after.token > step.before.token,
@@ -973,7 +975,7 @@ module harnessSession {
   /// A person writes to the author: a reply in its job session or the agent's `prompt_task`.
   action personPrompts: bool = all {
     world.personPrompts < MAX_PERSON_PROMPTS,
-    move(promptTask({ ...world, personPrompts: world.personPrompts + 1 }, PersonPrompt, List()), OtherStep),
+    move(promptTask({ ...world, personPrompts: world.personPrompts + 1, stopped: false }, PersonPrompt, List()), OtherStep),
   }
 
   /// The agent calls `pause_task`. The tool refuses a finished task.
@@ -992,19 +994,29 @@ module harnessSession {
   action agentResumesAuthor: bool = all {
     not(isFinished(world.status)),
     if (not(world.paused)) move(world, OtherStep)
-    else move(onBridgeLostNow(promptTask({ ...world, paused: false }, ContinuePrompt, List())), OtherStep),
+    else move(onBridgeLostNow(promptTask({ ...world, paused: false, stopped: false }, ContinuePrompt, List())), OtherStep),
   }
 
   /// `endResumingTurn`: the stopped state is written before the container goes.
-  pure def endStoppedTurn(w: World): World =
-    { ...w, rpcs: List(), promptInFlight: false, status: Working, stopsEnded: w.stopsEnded + 1 }
+  pure def endStoppedTurn(w: World): World = {
+    val starting = w.status == Queued or w.status == Provisioning
+    {
+      ...w,
+      rpcs: List(),
+      promptInFlight: false,
+      status: if (starting) Working else w.status,
+      generation: w.generation + 1,
+      stopsEnded: if (atWork(w)) w.stopsEnded + 1 else w.stopsEnded,
+    }
+  }
 
-  /// A person presses Stop in the job session of the author. A running turn gets a cancel, and the
-  /// turn ends with the container even when the cancel is lost.
+  /// A person presses Stop in the job session of the author. A running turn gets a cancel. The stop
+  /// ends the generation of an unfinished author, also an idle one, and closes its container even
+  /// when the cancel is lost.
   action personStops: bool = {
-    val cleared = { ...world, queue: List(), stoppedEarly: false }
+    val cleared = { ...world, queue: List(), stoppedEarly: false, stopped: true }
     val cancelled = if (connected(cleared) and cleared.session and cleared.promptInFlight) sendCancel(cleared) else cleared
-    if (not(isFinished(cancelled.status)) and atWork(cancelled))
+    if (not(isFinished(cancelled.status)))
       move(closeContainer(endStoppedTurn(clearTaskTimers(cancelled)), List()), StopStep)
     else move(cancelled, StopStep)
   }
@@ -1590,6 +1602,11 @@ module harnessSession {
   /// the wait.
   val theHelloTimeoutWaitsWhileItsStartIsOut: bool = rulesKept.theHelloTimeoutWaitsWhileItsStartIsOut
 
+  /// After a stop, the author stays out of work until a person prompts it or a resume continues it,
+  /// unless its task finished.
+  val aStoppedAuthorStaysQuiet: bool =
+    (world.stopped and not(isFinished(world.status))) implies not(atWork(world))
+
   /// PROPOSED. A harness answer reaches only the request it answers, never a later request that
   /// took the same rpc id.
   val anAnswerReachesOnlyItsOwnRequest: bool = world.answersToOtherRequests == 0
@@ -1625,6 +1642,7 @@ module harnessSession {
     aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn,
     anAnswerReachesOnlyItsOwnRequest,
     theHelloTimeoutWaitsWhileItsStartIsOut,
+    aStoppedAuthorStaysQuiet,
   }
 
   /// Witness for `finishedTaskKeepsItsStatus`: a finished task is there before a step.
@@ -1655,6 +1673,10 @@ module harnessSession {
 
   /// Witness for `aSandboxStartBeginsAFreshGeneration`: a later generation begins.
   val aLaterGenerationBegins: bool = stepWitnesses.aLaterGenerationBegins
+
+  /// Witness for `aStoppedAuthorStaysQuiet`: a stopped, unfinished author has a call out.
+  val aStoppedAuthorHasACallOut: bool =
+    world.stopped and not(isFinished(world.status)) and not(noCallOut(world))
 
   /// Witness for `aStartingTaskWorksOnlyAfterItsHello`: a hello moves the task to working.
   val aHelloMovesTheTaskToWorking: bool = stepWitnesses.aHelloMovesTheTaskToWorking

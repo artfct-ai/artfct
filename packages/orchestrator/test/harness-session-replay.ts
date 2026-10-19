@@ -381,11 +381,20 @@ type ReplaySocket = {
   read: number;
 };
 
+/** A promise the replay settles from a later step. */
+type Gate = { promise: Promise<void>; resolve: () => void; reject: (error: Error) => void };
+
+/** The two awaits of one sandbox start: the commit author lookup, then the provider's start. */
+type StartAwaits = { lookup: Gate; start: Gate };
+
+/** A held sandbox start. */
+type HeldStart = { name: "SandboxStart"; generation: number; token: string; launched: boolean };
+
 /** One call the replay holds, with the step that waits on it. */
 type HeldCall = {
   id: number;
   kind:
-    | { name: "SandboxStart"; generation: number; token: string; launched: boolean }
+    | HeldStart
     | { name: "SandboxDestroy"; upTo: number }
     | { name: "OutcomeCheck"; promptsAtTurnEnd: number; generation: number };
   state: CallState;
@@ -402,7 +411,7 @@ class HoldingSandboxProvider extends FakeSandboxProvider {
 
   override async start(spec: SandboxStartSpec): Promise<void> {
     await super.start(spec);
-    await this.replay.holdStart(spec);
+    await this.replay.heldStart(spec.generation);
   }
 
   override async destroy(sandbox: SandboxRef): Promise<void> {
@@ -489,10 +498,11 @@ function effortOption(value: string): SessionConfigOption {
  * Replays spec traces through one harness author whose job has not started. Each spec action maps
  * to the entry point production uses. The replay plays the sandbox, the bridge and the harness.
  * The sandbox start, the sandbox destroy and the turn outcome question stay out until a later
- * spec step returns them.
+ * spec step returns them. A sandbox start is out from its commit author lookup.
  */
 export class HarnessSessionReplay {
   private calls: HeldCall[] = [];
+  private readonly startAwaits = new Map<number, StartAwaits>();
   private nextCall = 0;
   private readonly bridges: ReplayBridge[] = [];
   private sockets: ReplaySocket[] = [];
@@ -523,6 +533,13 @@ export class HarnessSessionReplay {
     const replay = new HarnessSessionReplay(world, author.taskId);
     const { workflow } = world;
     workflow.sandboxProvider = new HoldingSandboxProvider(replay);
+    const host = workflow.code();
+    if (!host) throw new Error("the world has no code host");
+    const commitAuthor = host.commitAuthor.bind(host);
+    host.commitAuthor = async () => {
+      await replay.holdStart();
+      return commitAuthor();
+    };
     if (SPEC_SETUPS[setup]) {
       const { orchestrator } = workflow.config();
       workflow.patchConfig({
@@ -616,19 +633,31 @@ export class HarnessSessionReplay {
     return this.bridges.some((bridge) => bridge.alive && bridge.generation === generation);
   }
 
-  /** Hold a sandbox start until a later step returns it. */
-  holdStart(spec: SandboxStartSpec): Promise<void> {
-    return new Promise<void>((resolve, reject) => {
-      this.hold({
-        kind: {
-          name: "SandboxStart",
-          generation: spec.generation,
-          token: spec.token,
-          launched: false,
-        },
-        answer: ({ ok }) => (ok ? resolve() : reject(new Error("the container did not come up"))),
-      });
-    });
+  /**
+   * Hold a sandbox start from its commit author lookup until a later step returns it. The lookup
+   * goes on when the container launches. A start that fails before it launched fails its lookup
+   * in an odd generation and its provider start in an even one.
+   */
+  holdStart(): Promise<void> {
+    const { generation, bridge_token } = this.world.workflow.store.requireSandbox(this.taskId);
+    const awaits = { lookup: openGate(), start: openGate() };
+    awaits.start.promise.catch(() => undefined);
+    this.startAwaits.set(generation, awaits);
+    const start: HeldStart = {
+      name: "SandboxStart",
+      generation,
+      token: bridge_token,
+      launched: false,
+    };
+    this.hold({ kind: start, answer: ({ ok }) => answerStart(start, awaits, ok) });
+    return awaits.lookup.promise;
+  }
+
+  /** The provider's start of `generation`, which stays out until a later step returns it. */
+  heldStart(generation: number): Promise<void> {
+    const awaits = this.startAwaits.get(generation);
+    if (!awaits) throw new Error(`no start of ${generation} is held`);
+    return awaits.start.promise;
   }
 
   /** Hold a sandbox destroy until a later step returns it. */
@@ -829,6 +858,7 @@ export class HarnessSessionReplay {
     if (call.kind.name !== "SandboxStart" || call.kind.launched) return;
     call.kind.launched = true;
     if (call.state === "Dropped") this.withoutCall(call);
+    else this.startAwaits.get(call.kind.generation)?.lookup.resolve();
     this.bridges.push({
       generation: call.kind.generation,
       token: call.kind.token,
@@ -1137,6 +1167,26 @@ export class HarnessSessionReplay {
     this.stepOut = null;
     this.alarmOut = null;
   }
+}
+
+function openGate(): Gate {
+  const settlers: Pick<Gate, "resolve" | "reject">[] = [];
+  const promise = new Promise<void>((resolve, reject) => {
+    settlers.push({ resolve, reject });
+  });
+  const [settle] = settlers;
+  if (!settle) throw new Error("the promise executor did not run");
+  return { promise, ...settle };
+}
+
+function answerStart(start: HeldStart, awaits: StartAwaits, ok: boolean): void {
+  if (!ok && !start.launched && start.generation % 2 === 1) {
+    awaits.lookup.reject(new Error("the commit author lookup failed"));
+    return;
+  }
+  awaits.lookup.resolve();
+  if (ok) awaits.start.resolve();
+  else awaits.start.reject(new Error("the container did not come up"));
 }
 
 function required<Value>(value: Value | null): Value {
