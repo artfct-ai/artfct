@@ -2327,21 +2327,21 @@ module workflowLifecycle {
   /// The workflow becomes done only on `finish_workflow` or on `complete_job` of the subject
   /// issue's job. The spec splits that `complete_job` at each call it waits on. The step that
   /// leaves none of them out is the one the code takes, and there the workflow is done, unless
-  /// it ended or another end ran. Only those steps store a done workflow end, and the alarm that
-  /// goes on with a stored done end after a restart may make the workflow done.
+  /// it ended or the store held a cancel or a failure before the step, which a restart keeps.
+  /// Only those steps store a done workflow end, and the alarm that goes on with a stored done
+  /// end after a restart may make the workflow done.
   pure def isDoneWithTheSubjectsJob(step: Transition): bool = {
     val becameDone = step.before.status != Done and step.after.status == Done
     val storedADoneEnd = step.before.storedEnd != EndStored(Done) and step.after.storedEnd == EndStored(Done)
     val endsDoneHere = step.kind == FinishStep or step.kind == SubjectCompletionStep
     val resumesADoneEnd = step.kind == EndResumeStep and step.before.storedEnd == EndStored(Done)
-    val anotherEndRan =
-      callOutFor(step.before, WorkflowEnd(Cancelled)) or callOutFor(step.before, WorkflowEnd(Failed))
+    val anotherEndStored = step.before.storedEnd != NoStoredEnd and step.before.storedEnd != EndStored(Done)
     val stillGoesOn =
       callOutFor(step.after, SubjectJobCompletes) or callOutFor(step.after, WorkflowEnd(Done))
     val completesInThisStep = and {
       step.kind == SubjectCompletionStep,
       not(hasEnded(step.before.status)),
-      not(anotherEndRan),
+      not(anotherEndStored),
       not(stillGoesOn),
     }
     and {
