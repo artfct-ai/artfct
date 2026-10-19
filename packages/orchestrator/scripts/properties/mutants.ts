@@ -415,7 +415,7 @@ export const MUTANTS: Mutant[] = [
     id: "A4",
     invariant: "agentTurns::aWaitingInboxRowHasATurnComing",
     path: "src/agent/turn/watchdog.ts",
-    find: '    if (waking) await workflow.scheduleAlarm(0, "runAgent", {});\n',
+    find: '  if (waking) await workflow.scheduleAlarm(0, "runAgent", {});\n',
     replace: "",
   },
   {
@@ -437,9 +437,9 @@ export const MUTANTS: Mutant[] = [
     id: "A7",
     invariant: "agentTurns::aWaitingPersonHearsBackByTheTimeout (waits after the deadline)",
     path: "src/agent/turn/turn.ts",
-    find: '    if (signal.aborted) return "timed_out";\n  }\n  try {',
+    find: '    if (run.signal.aborted) return "timed_out";\n  }\n  try {',
     replace:
-      '    if (signal.aborted) {\n      await new Promise((resolve) => setTimeout(resolve, 5));\n      return "timed_out";\n    }\n  }\n  try {',
+      '    if (run.signal.aborted) {\n      await new Promise((resolve) => setTimeout(resolve, 5));\n      return "timed_out";\n    }\n  }\n  try {',
   },
   {
     id: "W180",
@@ -876,7 +876,7 @@ export const MUTANTS: Mutant[] = [
     id: "W122",
     invariant: "workflowLifecycle::aRestartDoesNotLoseAModelTurn",
     path: "src/workflow/task/model-turn.ts",
-    find: '    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", author);\n',
+    find: '    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", rerun);\n',
     replace: "",
   },
   {
@@ -884,8 +884,8 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "workflowLifecycle::aQueuedPromptReachesItsModelCallAuthor, reviewLoop::aQueuedPromptReachesItsModelCallAuthor",
     path: "src/workflow/task/model-turn.ts",
-    find: "  if (task) await drainQueue(workflow, task);\n",
-    replace: "  if (task) return;\n",
+    find: "  await drainQueue(workflow, workflow.store.requireTask(task.task_id));\n",
+    replace: "",
   },
   {
     id: "W124",
