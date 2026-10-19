@@ -90,6 +90,13 @@ class CountingMints extends FakeCodeHost {
   }
 }
 
+class RefusesMint extends FakeCodeHost {
+  override async mintToken(repo: string, permissions?: Permissions): Promise<MintedToken> {
+    await super.mintToken(repo, permissions);
+    throw new Error("github POST /app/installations/1/access_tokens: 503");
+  }
+}
+
 describe("provision", () => {
   describe("a queued task whose sandbox start has not returned", () => {
     const starting = scenario(freshRuntime, async (workflow) => {
@@ -776,6 +783,37 @@ describe("startSandbox", () => {
         expect(workflow.store.requireSandbox(TASK).credential_expires_at).toBe(
           new Date(workflow.now() + ttlMs).toISOString(),
         );
+      }));
+  });
+
+  describe("a code stage whose first token mint fails", () => {
+    const started = scenario(freshRuntime, (workflow) => {
+      workflow.codeHostInstance = new RefusesMint();
+      workflow.patchState({ repo: { full: "acme/app" } });
+      return startSandbox(
+        workflow,
+        seedTask(workflow, { status: "queued", stage: "implement", branch: "artfct/wf_x-1-fix" }),
+        false,
+      );
+    });
+
+    it("starts the sandbox without a token", () =>
+      started((workflow) => {
+        expect(workflow.sandboxProvider.calls).toEqual([`start ${TASK}`]);
+        expect(workflow.sandboxProvider.specs[0]).toMatchObject({
+          workflow_repo_token: null,
+          all_repos_read_token: null,
+        });
+        expect(workflow.store.requireTask(TASK).status).toBe("provisioning");
+      }));
+
+    it("arms no token refresh", () =>
+      started((workflow) => {
+        expect(workflow.alarmsFor("refreshToken")).toEqual([]);
+        expect(workflow.store.requireSandbox(TASK)).toMatchObject({
+          token_schedule: null,
+          credential_expires_at: null,
+        });
       }));
   });
 
