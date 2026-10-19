@@ -1306,10 +1306,12 @@ module sessionRouting {
   val messageDeliveriesInFlight: int =
     sessionMessages.keys().fold(0, (total, message) => total + sessionMessages.get(message).inFlight)
 
-  /// A session message lands after a restart failed a delivery of it.
+  /// Witness for `everySessionMessageLandsOnce`: a session message lands after a restart failed a
+  /// delivery of it.
   val aRedeliveredMessageLands: bool = lastDelivery.aRedeliveredMessageLands
 
-  /// A second delivery of a session message that landed is dropped.
+  /// Witness for `everySessionMessageLandsOnce`: a second delivery of a session message that
+  /// landed is dropped.
   val aSecondDeliveryIsDropped: bool = lastDelivery.aSecondDeliveryIsDropped
 
   /// The prompts that wait for an author, which model checking bounds.
