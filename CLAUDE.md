@@ -11,7 +11,7 @@ An orchestrator agent that runs a control loop for software development agents o
 
 - The type-aware lint is the type gate. Do not run `tsc`.
 - `scripts/test-near <file-or-dir>...` runs nearby tests in seconds. Use it while you work.
-- `bun run check` runs the CI checks. `bun run fmt` formats. `bun run smoke` must print `SMOKE PASSED`.
+- `bun run ci` runs the CI checks. `bun run fmt` formats. `bun run smoke` must print `SMOKE PASSED`.
 - `wrangler types` generates each app's `worker-configuration.d.ts`. Never add `@cloudflare/workers-types` to an app.
 - The decisions model is a System One model. It returns probabilities for yes-or-no and choice questions and does not generate text. Each gateway picks its own, such as TypeSafe's Jev or Cloudflare's Clef.
 - Write a decisions question against the `Decisions` interface. Load the `typesafe:typesafe-ai` skill before you write or change one.
@@ -161,10 +161,10 @@ Judge the model by these rules:
 - While you work, run `scripts/test-near` on the files you change. Before you push, `bun run lint` passes with zero warnings and the nearby tests pass.
 - Push early and open a draft PR. Do not stop at a local commit, and do not ask first.
 - Do not repeat CI runs locally. CI runs these:
-  - Pull request: `bun run check` then smoke in one job. The spec replays run at their default count in their own job, through turbo, which caches them on the orchestrator and the spec folders. A change to test files alone hits the cache. A light quint run in 3 shards checks the specs that changed. It checks every spec when the spec scripts, the quint version, or the CI workflow change.
+  - Pull request: `bun run ci:affected` then smoke in one job. The spec replays run at their default count in their own job, through turbo, which caches them on the orchestrator and the spec folders. A change to test files alone hits the cache. A light quint run in 3 shards checks the specs that changed. It checks every spec when the spec scripts, the quint version, or the CI workflows change.
   - Main: witnesses and 100,000 quint samples per setup of the specs that changed, and the spec replays at their e2e counts through turbo, which caches them on the same inputs as on a pull request.
   - Nightly: deep quint, TLC at the `nightly` bounds, the full property counts, and the mutants. To bisect a failure, start the nightly workflow by hand with a commit.
-- CI does not run on a fork's PR until a maintainer approves it. A fork runs `bun run check` and `bun run smoke` locally before it pushes.
+- CI does not run on a fork's PR until a maintainer approves it. A fork runs `bun run ci` and `bun run smoke` locally before it pushes.
 - Run `gh pr checks <number> --watch --fail-fast`. Fix what fails and push until every check is green.
 - Never leave a lint warning or a failing test because it was already there. Fix it in the same change and mention the fix in one line.
 - The PR description states the reason for each part of the change.

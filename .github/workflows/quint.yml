@@ -1,0 +1,48 @@
+name: Quint
+
+on:
+  workflow_call:
+    inputs:
+      specs:
+        description: The space-separated names of the specs to check.
+        required: true
+        type: string
+      shards:
+        description: The shard numbers as a JSON array, such as [1, 2, 3]. Its length is the shard count.
+        required: true
+        type: string
+      samples:
+        description: The samples each invariant runs on, per setup.
+        required: true
+        type: number
+
+jobs:
+  quint:
+    name: shard ${{ matrix.shard }}
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: ${{ fromJSON(inputs.shards) }}
+    defaults:
+      run:
+        shell: bash
+        working-directory: packages/orchestrator
+    env:
+      SHARD_INDEX: ${{ strategy.job-index }}
+      SHARD_COUNT: ${{ strategy.job-total }}
+      SPECS: ${{ inputs.specs }}
+      SAMPLES: ${{ inputs.samples }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/install
+      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.quint
+          key: quint-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
+          restore-keys: quint-${{ runner.os }}-${{ runner.arch }}-
+      - name: Typecheck, check the witnesses, and run every invariant on ${{ inputs.samples }} samples for each setup of the changed specs in this shard
+        run: |
+          read -ra specs <<<"$SPECS"
+          bun scripts/spec/check-spec.ts shard "$SHARD_INDEX" "$SHARD_COUNT" "$SAMPLES" "${specs[@]}"

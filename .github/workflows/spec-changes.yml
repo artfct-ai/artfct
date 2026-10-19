@@ -1,0 +1,35 @@
+name: Spec changes
+
+on:
+  workflow_call:
+    outputs:
+      specs:
+        description: The space-separated names of the specs to check.
+        value: ${{ jobs.list.outputs.specs }}
+
+jobs:
+  list:
+    name: list changed specs
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      specs: ${{ steps.specs.outputs.specs }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 2
+      - name: List the specs whose folders changed, or every spec when the spec scripts, the quint version, or the pipeline workflows changed
+        id: specs
+        shell: bash
+        run: |
+          changed=$(git diff --name-only HEAD^1 HEAD)
+          quint_version=$(git diff HEAD^1 HEAD -- bun.lock | grep -E '^[-+].*@informalsystems/quint' || true)
+          pipeline='\.github/(workflows/(pull-request|main|ci|spec-changes|quint)\.yml$|actions/)'
+          specs=""
+          for checks in spec/*/checks.json; do
+            spec=$(basename "$(dirname "$checks")")
+            if [ -n "$quint_version" ] || grep -qE "^(spec/$spec/|packages/orchestrator/scripts/spec/|$pipeline)" <<<"$changed"; then
+              specs="$specs $spec"
+            fi
+          done
+          echo "specs=${specs# }" | tee -a "$GITHUB_OUTPUT"
