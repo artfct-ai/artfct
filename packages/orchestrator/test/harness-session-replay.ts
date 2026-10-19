@@ -39,6 +39,7 @@ import {
 } from "@artfct-ai/acp/methods";
 import type { TaskStatus } from "@artfct-ai/contracts/types";
 import { startTools } from "../src/agent/tools/start/start";
+import type { Env } from "../src/env";
 import type { SandboxRef, SandboxStartSpec } from "../src/sandbox/spec";
 import { pauseTask, resumeTask, stopAuthor } from "../src/workflow/inbound/controls";
 import type { RpcPurpose } from "../src/workflow/store/schema";
@@ -74,13 +75,17 @@ import { WorkflowWorld, type WorldSetup } from "./workflow-world";
 
 await mock.module("../src/agent/model/traced-ai", async () => ({ tracedAI: await import("ai") }));
 
-/** The setup modules of the harness session spec, and whether the stage of each asks for an effort. */
+/**
+ * The setup modules of the harness session spec: whether the stage of each asks for an effort, and
+ * whether it gives the job its own branch.
+ */
 export const SPEC_SETUPS = {
-  harnessDefaultEffort: false,
-  stageAsksForEffort: true,
-  agentPausesRunningTurns: false,
-  interruptionsAfterTheFirstPrompt: false,
-} as const satisfies Record<string, boolean>;
+  harnessDefaultEffort: { asksEffort: false, bindsABranch: false },
+  stageAsksForEffort: { asksEffort: true, bindsABranch: false },
+  agentPausesRunningTurns: { asksEffort: false, bindsABranch: false },
+  interruptionsAfterTheFirstPrompt: { asksEffort: false, bindsABranch: false },
+  jobOnABranch: { asksEffort: false, bindsABranch: true },
+} as const satisfies Record<string, { asksEffort: boolean; bindsABranch: boolean }>;
 
 /** The name of one setup module of the spec. */
 export type SpecSetup = keyof typeof SPEC_SETUPS;
@@ -147,6 +152,7 @@ type SpecSocket = { bridge: number; generation: number; state: SocketState };
 
 /** One call the orchestrator awaits, as the spec sees it. */
 type SpecCall =
+  | { id: number; kind: "BranchBinding"; state: CallState }
   | { id: number; kind: "SandboxStart"; generation: number; launched: boolean; state: CallState }
   | { id: number; kind: "SandboxDestroy"; upTo: number; state: CallState }
   | {
@@ -351,6 +357,8 @@ function specCall(call: unknown): SpecCall {
   const state = itfOneOf(tagOf(itfField(call, "state")), CALL_STATES);
   const id = itfInt(itfField(call, "id"));
   switch (kind.tag) {
+    case "BranchBinding":
+      return { id, kind: "BranchBinding", state };
     case "SandboxStart":
       return {
         id,
@@ -414,6 +422,7 @@ type HeldStart = { name: "SandboxStart"; generation: number; token: string; laun
 type HeldCall = {
   id: number;
   kind:
+    | { name: "BranchBinding" }
     | HeldStart
     | { name: "SandboxDestroy"; upTo: number }
     | { name: "OutcomeCheck"; promptsAtTurnEnd: number; generation: number }
@@ -489,6 +498,7 @@ const AGENT_WAKE_TEXTS = ["Harness turn ended (", "The harness is idle."];
 const HELD_EFFORT = "low";
 const ASKED_EFFORT = "high";
 const INTERNAL_ERROR = -32603;
+const BRANCH_BINDING_WRITE = /^insert into "bindings"/i;
 
 const OUTCOME_OPTIONS: Record<Outcome, string> = {
   Finished: "finished",
@@ -527,7 +537,7 @@ const SPEC_STATUS: Record<TaskStatus, SpecStatus> = {
   failed: "Failed",
 };
 
-const WORLD_SETUP: WorldSetup = {
+const WORLD_SETUP: Omit<WorldSetup, "pageBranch"> = {
   opening: "job_unstarted",
   artifact: "page",
   refiners: "none",
@@ -554,12 +564,14 @@ function effortOption(value: string): SessionConfigOption {
 /**
  * Replays spec traces through one harness author whose job has not started. Each spec action maps
  * to the entry point production uses. The replay plays the sandbox, the bridge and the harness.
- * The sandbox start, the sandbox destroy and the turn outcome question stay out until a later
- * spec step returns them. A sandbox start is out from its commit author lookup.
+ * The branch binding write, the sandbox start, the sandbox destroy and the turn outcome question
+ * stay out until a later spec step returns them. A sandbox start is out from its commit author
+ * lookup.
  */
 export class HarnessSessionReplay {
   private calls: HeldCall[] = [];
   private readonly startAwaits = new Map<number, StartAwaits>();
+  private readonly providerStartsReached = new Map<number, () => void>();
   private nextCall = 0;
   private readonly bridges: ReplayBridge[] = [];
   private sockets: ReplaySocket[] = [];
@@ -585,13 +597,15 @@ export class HarnessSessionReplay {
   /** A world with one queued harness author, and a stage that asks for an effort when `setup` says so. */
   static async open(setup: SpecSetup): Promise<HarnessSessionReplay> {
     setSystemTime(new Date(REPLAY_START));
-    const world = await WorkflowWorld.open(WORLD_SETUP);
+    const { asksEffort, bindsABranch } = SPEC_SETUPS[setup];
+    const world = await WorkflowWorld.open({ ...WORLD_SETUP, pageBranch: bindsABranch });
     const author = world.authors[0];
     if (!author) throw new Error("the world has no author");
     const replay = new HarnessSessionReplay(world, author.taskId);
     const { workflow } = world;
     workflow.sandboxProvider = new HoldingSandboxProvider(replay);
     workflow.modelInstance = new HeldSummarizationModel(replay);
+    workflow.env = { ...workflow.env, DB: replay.holdingBranchBindings(workflow.env.DB) };
     const host = workflow.code();
     if (!host) throw new Error("the world has no code host");
     const commitAuthor = host.commitAuthor.bind(host);
@@ -599,7 +613,7 @@ export class HarnessSessionReplay {
       await replay.holdStart();
       return commitAuthor();
     };
-    if (SPEC_SETUPS[setup]) {
+    if (asksEffort) {
       const { orchestrator } = workflow.config();
       workflow.patchConfig({
         orchestrator: { ...orchestrator, task: { ...orchestrator.task, effort: ASKED_EFFORT } },
@@ -722,7 +736,41 @@ export class HarnessSessionReplay {
   heldStart(generation: number): Promise<void> {
     const awaits = this.startAwaits.get(generation);
     if (!awaits) throw new Error(`no start of ${generation} is held`);
+    this.providerStartsReached.get(generation)?.();
     return awaits.start.promise;
+  }
+
+  /**
+   * A D1 binding whose router writes of a branch binding stay out until a later step returns
+   * them. A write that the step returns not ok throws.
+   */
+  holdingBranchBindings(db: Env["DB"]): Env["DB"] {
+    const holdBinding = () =>
+      new Promise<void>((resolve, reject) => {
+        this.hold({
+          kind: { name: "BranchBinding" },
+          answer: ({ ok }) => (ok ? resolve() : reject(new Error("the router write failed"))),
+        });
+      });
+    const binding: object = {
+      prepare: (sql: string) => {
+        const statement = db.prepare(sql);
+        if (!BRANCH_BINDING_WRITE.test(sql)) return statement;
+        return {
+          bind: (...params: unknown[]) => {
+            const bound = statement.bind(...params);
+            if (!params.includes("code_branch")) return bound;
+            return {
+              run: async () => holdBinding().then(() => bound.run()),
+              all: async () => holdBinding().then(() => bound.all()),
+              raw: async () => holdBinding().then(() => bound.raw()),
+              first: async () => holdBinding().then(() => bound.first()),
+            };
+          },
+        };
+      },
+    };
+    return binding as Env["DB"];
   }
 
   /** Hold a sandbox destroy until a later step returns it. */
@@ -823,9 +871,13 @@ export class HarnessSessionReplay {
         return;
       case "durableObjectRestarts":
         return this.restartDurableObject();
+      case "branchBindingReturns":
+        return this.returnCall(this.callOf(required(picks.callId)), {
+          ok: required(picks.ok),
+          decisions: new FakeDecisions(ANSWERS),
+        });
       case "sandboxStartLaunchesBridge":
-        this.launch(this.callOf(required(picks.callId)));
-        return;
+        return this.launchAndRunToTheProviderStart(this.callOf(required(picks.callId)));
       case "sandboxStartReturns":
         return this.returnStart(required(picks.callId), required(picks.ok));
       case "sandboxStartFailsAtOnce":
@@ -948,6 +1000,25 @@ export class HarnessSessionReplay {
       saidHello: false,
       requests: [],
     });
+  }
+
+  /**
+   * Launch the container of a held start, and run the start on until it waits on the provider's
+   * start, holds another call, or ends, so later steps do not run its rest.
+   */
+  private async launchAndRunToTheProviderStart(call: HeldCall): Promise<void> {
+    if (call.kind.name !== "SandboxStart" || call.kind.launched || call.state === "Dropped") {
+      return this.launch(call);
+    }
+    const { generation } = call.kind;
+    const providerStartReached = new Promise<void>((resolve) => {
+      this.providerStartsReached.set(generation, resolve);
+    });
+    await this.runStep(async () => {
+      this.launch(call);
+      await Promise.race([call.step, providerStartReached]);
+    }, call.alarm);
+    this.providerStartsReached.delete(generation);
   }
 
   private returnStart(callId: number, ok: boolean): Promise<void> {
@@ -1281,6 +1352,8 @@ function required<Value>(value: Value | null): Value {
 
 function projectCall(call: HeldCall): SpecCall {
   switch (call.kind.name) {
+    case "BranchBinding":
+      return { id: call.id, kind: "BranchBinding", state: call.state };
     case "SandboxStart":
       return {
         id: call.id,
