@@ -530,6 +530,13 @@ export const MUTANTS: Mutant[] = [
     replace: "    if (!row) {",
   },
   {
+    id: "W218",
+    invariant: "routerBindings::aWorkflowGetsEventsOnlyOnceCreated (the create marks it created)",
+    path: "src/workflow/inbound/events.ts",
+    find: "    created_at: now(),\n",
+    replace: "",
+  },
+  {
     id: "F1",
     invariant:
       "feedbackRouting::unadmittedFeedbackReachesNobody, reviewLoop::unadmittedFeedbackReachesNobody",
@@ -560,6 +567,14 @@ export const MUTANTS: Mutant[] = [
     replace: "  if (false) {\n    return toTheAgent(",
   },
   {
+    id: "W217",
+    invariant:
+      "behavior map E4: a page comment that does not mention the bot stays held and wakes nobody",
+    path: "src/workflow/refiner/feedback.ts",
+    find: '      workflow.log(task.task_id, "a page comment waits for a mention");',
+    replace: '      await workflow.tellAgent("A page comment waits for a mention.", "human");',
+  },
+  {
     id: "C1",
     invariant: "chatAcknowledgement::eyesNeverOutliveTheDelivery",
     path: "src/router/chat-ack.ts",
@@ -579,6 +594,14 @@ export const MUTANTS: Mutant[] = [
     path: "src/router/chat-ack.ts",
     find: "      await chat.removeReaction(",
     replace: "      void chat.removeReaction(",
+  },
+  {
+    id: "W216",
+    invariant:
+      "chatAcknowledgement::eyesMarkOnlyASlowChatDelivery (tracker message with an acknowledgement)",
+    path: "src/router/chat-ack.ts",
+    find: '  if (!chat || !message || target?.source !== "chat") return deliver();',
+    replace: "  if (!chat || !message || !target) return deliver();",
   },
   {
     id: "SR1",
