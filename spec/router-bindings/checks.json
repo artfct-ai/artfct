@@ -11,10 +11,10 @@
     "theRouterRowMatchesTheWorkflowEnd"
   ],
   "mainMinutes": {
-    "chatThread": 0.5,
-    "twoSessionsOnOneIssue": 0.6,
-    "sessionWithPullRequest": 0.5,
-    "baseMoveFanOut": 0.5
+    "chatThread": 0.4,
+    "twoSessionsOnOneIssue": 0.4,
+    "sessionWithPullRequest": 0.4,
+    "baseMoveFanOut": 1.3
   },
   "witnesses": {
     "chatThread": [

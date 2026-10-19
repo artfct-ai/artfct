@@ -5,7 +5,7 @@
     "theCallerGetsWhatTheDeliveryGave"
   ],
   "mainMinutes": {
-    "twoMessages": 0.1,
+    "twoMessages": 0.2,
     "threeMessages": 0.2
   },
   "witnesses": {
