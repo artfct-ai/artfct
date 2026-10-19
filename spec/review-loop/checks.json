@@ -133,7 +133,6 @@
       "aDraftWasDeliveredBefore",
       "aRulingCallReturnsAfterTheAuthorEnded",
       "anAuthorTurnEndsOnTheDeliveredRevision",
-      "anAuthorAnswersAReviewAtTheLimit",
       "theAgentIsAskedToRoute"
     ],
     "modelCallAuthorWithTwoReviewers": [
@@ -252,7 +251,6 @@
       "anAuthorEndsOnAReadyArtifact",
       "anAuthorFailsPastItsRestarts",
       "anAuthorTurnEndsOnTheDeliveredRevision",
-      "anAuthorAnswersAReviewAtTheLimit",
       "theAgentIsAskedToRoute",
       "aMentionCarriesTheHeldComments"
     ],
