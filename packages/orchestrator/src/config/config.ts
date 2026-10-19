@@ -1,6 +1,7 @@
 import { EFFORTS, HARNESSES } from "@artfct-ai/adapters/harness/types";
 import { parse as parseYaml } from "yaml";
 import { z } from "zod";
+import { CONTAINER_MAX_INACTIVITY_MS } from "../sandbox/spec";
 import { Duration } from "./duration";
 import { DecisionsModelSetting, DEFAULT_DECISIONS_MODELS, GatewayProvider } from "./gateway";
 import { McpServers } from "./mcp-servers";
@@ -23,8 +24,13 @@ export const TaskConfig = z.object({
   timeouts: TaskTimeouts.prefault({}),
 });
 
-/** Idle time before a sandbox sleeps, in milliseconds after parsing. 0 never sleeps. */
-export const SleepAfter = z.union([z.literal(0), Duration]);
+/** Idle time before a sandbox sleeps, in milliseconds after parsing, up to 6h. 0 never sleeps. */
+export const SleepAfter = z.union([
+  z.literal(0),
+  Duration.pipe(
+    z.number().max(CONTAINER_MAX_INACTIVITY_MS, "sleep_after is at most 6h, or 0 to never sleep"),
+  ),
+]);
 
 /** The sandboxes the tasks of a workflow run in. */
 export const SandboxConfig = z.object({

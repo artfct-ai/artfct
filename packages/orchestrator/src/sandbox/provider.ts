@@ -3,7 +3,6 @@ import type { AllReposReadToken, SandboxRef, SandboxStartSpec } from "./spec";
 /** Starts, updates, and destroys sandboxes. */
 export interface SandboxProvider {
   start(spec: SandboxStartSpec): Promise<void>;
-  setEnv(sandbox: SandboxRef, env: Record<string, string>): Promise<void>;
   /** Replace the GitHub tokens the running sandbox uses for git and gh. */
   refreshGithubTokens(
     sandbox: SandboxRef,
