@@ -38,7 +38,7 @@ import { taskAtWork } from "../src/workflow/task/at-work";
 import type { TaskRole } from "../src/workflow/task/events";
 import type { Wake } from "../src/workflow/types";
 import { onModelTurnDeadline, type ModelTurnAlarm } from "../src/workflow/task/model-turn";
-import { runStartStep } from "./restart";
+import { runStartStep, startRestartedInstance } from "./restart";
 import { sqliteD1 } from "./sqlite-d1";
 import { FakeBridge } from "./fake-bridge";
 import { InterleavedDecisions, onFirstCall, onFirstCallAsking } from "./interleaved-decisions";
@@ -987,10 +987,20 @@ export class WorkflowWorld {
    * alarms it arms for now fire. A call the old instance awaited never answers.
    */
   async restart(): Promise<void> {
+    this.restartIsolate();
+    await runStartStep(this.workflow);
+  }
+
+  /** The Durable Object restarts, and a new instance runs the start step. Its alarms stay armed. */
+  async restartWithoutAlarms(): Promise<void> {
+    this.restartIsolate();
+    await startRestartedInstance(this.workflow);
+  }
+
+  private restartIsolate(): void {
     this.workflow = this.workflow.restarted();
     this.hungModelTurns.clear();
     for (const bridge of this.bridges) bridge.reachRestarted(this.workflow);
-    await runStartStep(this.workflow);
   }
 
   /** Run `start`, and restart the workflow while the first page model call of `author` is out. */

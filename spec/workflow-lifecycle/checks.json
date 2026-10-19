@@ -267,7 +267,14 @@
       "anAuthorIsInReview",
       "theHumansHaveAPage",
       "theWorkflowIsDone",
-      "theWorkflowFailed"
+      "theWorkflowFailed",
+      "anEventLandsBeforeTheRestartAlarm",
+      "anEventLandsBeforeALostModelTurnRunsAgain",
+      "aRestartLandsBeforeTheRestartAlarm",
+      "aRestartLandsBeforeALostModelTurnRunsAgain",
+      "theRestartAlarmFailsAnAuthor",
+      "aRestartAlarmFiresAgain",
+      "aLostModelTurnRunsAgainOnceMore"
     ],
     "modelCallPagesWithAReviewer": [
       "aPlanStartsTheWorkflow",
@@ -318,7 +325,14 @@
       "anAuthorIsInReview",
       "theHumansHaveAPage",
       "theWorkflowIsDone",
-      "theWorkflowFailed"
+      "theWorkflowFailed",
+      "anEventLandsBeforeTheRestartAlarm",
+      "anEventLandsBeforeALostModelTurnRunsAgain",
+      "aRestartLandsBeforeTheRestartAlarm",
+      "aRestartLandsBeforeALostModelTurnRunsAgain",
+      "theRestartAlarmFailsAnAuthor",
+      "aRestartAlarmFiresAgain",
+      "aLostModelTurnRunsAgainOnceMore"
     ],
     "modelCallPagesAfterResearch": [
       "aPlanStartsTheWorkflow",
@@ -364,7 +378,14 @@
       "anAuthorIsInReview",
       "theHumansHaveAPage",
       "theWorkflowIsDone",
-      "theWorkflowFailed"
+      "theWorkflowFailed",
+      "anEventLandsBeforeTheRestartAlarm",
+      "anEventLandsBeforeALostModelTurnRunsAgain",
+      "aRestartLandsBeforeTheRestartAlarm",
+      "aRestartLandsBeforeALostModelTurnRunsAgain",
+      "theRestartAlarmFailsAnAuthor",
+      "aRestartAlarmFiresAgain",
+      "aLostModelTurnRunsAgainOnceMore"
     ],
     "modelCallPagesForAnIssue": [
       "aPlanStartsTheWorkflow",
@@ -416,7 +437,14 @@
       "anAuthorIsInReview",
       "theHumansHaveAPage",
       "theWorkflowIsDone",
-      "theWorkflowFailed"
+      "theWorkflowFailed",
+      "anEventLandsBeforeTheRestartAlarm",
+      "anEventLandsBeforeALostModelTurnRunsAgain",
+      "aRestartLandsBeforeTheRestartAlarm",
+      "aRestartLandsBeforeALostModelTurnRunsAgain",
+      "theRestartAlarmFailsAnAuthor",
+      "aRestartAlarmFiresAgain",
+      "aLostModelTurnRunsAgainOnceMore"
     ],
     "pullsTheHostMoves": [
       "aPlanStartsTheWorkflow",

@@ -55,6 +55,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -161,6 +171,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -204,6 +220,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -310,6 +336,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -353,6 +385,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
@@ -462,6 +504,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -505,6 +553,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -611,6 +669,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -654,6 +718,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -761,6 +835,12 @@
         "withStages": {
           "tag": "Some",
           "value": true
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -875,6 +955,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -977,6 +1067,12 @@
           }
         },
         "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1095,6 +1191,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
@@ -1197,6 +1303,12 @@
           }
         },
         "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1315,6 +1427,16 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
         }
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -1421,12 +1543,468 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
     {
       "#meta": {
         "index": 8
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
+        "calls": [],
+        "definition": {
+          "tag": "Planned",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "endedIssues": {
+          "#set": []
+        },
+        "failuresPosted": {
+          "#bigint": "0"
+        },
+        "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
+        "jobs": [
+          {
+            "artifact": {
+              "tag": "NoArtifact",
+              "value": {
+                "#tup": []
+              }
+            },
+            "input": {
+              "tag": "FromRequest",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            },
+            "refinerRuns": [],
+            "tasks": [
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "0"
+                },
+                "restarts": {
+                  "#bigint": "1"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "0"
+                },
+                "status": {
+                  "tag": "Busy",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "turnRunning": false
+              }
+            ]
+          }
+        ],
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
+        "restartAlarms": {
+          "#set": [
+            {
+              "#set": [
+                {
+                  "#bigint": "0"
+                }
+              ]
+            }
+          ]
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "ranAgain": {
+          "#set": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "mbt::actionTaken": "workflowRestarts",
+      "mbt::nondetPicks": {
+        "accepted": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "callId": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "definition": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
+          "tag": "Some",
+          "value": true
+        },
+        "outputLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "sandbox": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "timer": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 9
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
+        "calls": [],
+        "definition": {
+          "tag": "Planned",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "endedIssues": {
+          "#set": []
+        },
+        "failuresPosted": {
+          "#bigint": "0"
+        },
+        "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
+        "jobs": [
+          {
+            "artifact": {
+              "tag": "NoArtifact",
+              "value": {
+                "#tup": []
+              }
+            },
+            "input": {
+              "tag": "FromRequest",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            },
+            "refinerRuns": [],
+            "tasks": [
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "0"
+                },
+                "restarts": {
+                  "#bigint": "2"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "0"
+                },
+                "status": {
+                  "tag": "Busy",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "turnRunning": false
+              }
+            ]
+          }
+        ],
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        },
+        "restartAlarmFired": true,
+        "ranAgain": {
+          "#set": []
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "mbt::actionTaken": "theRestartAlarmFires",
+      "mbt::nondetPicks": {
+        "accepted": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "callId": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "definition": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outputLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "sandbox": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "timer": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostJobs": {
+          "tag": "Some",
+          "value": {
+            "#set": [
+              {
+                "#bigint": "0"
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 10
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [
@@ -1535,6 +2113,20 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": true,
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
         }
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -1544,7 +2136,7 @@
           "#tup": []
         }
       },
-      "mbt::actionTaken": "workflowRestarts",
+      "mbt::actionTaken": "lostModelTurnRunsAgain",
       "mbt::nondetPicks": {
         "accepted": {
           "tag": "None",
@@ -1583,9 +2175,9 @@
           }
         },
         "id": {
-          "tag": "None",
+          "tag": "Some",
           "value": {
-            "#tup": []
+            "#bigint": "0"
           }
         },
         "issue": {
@@ -1601,8 +2193,10 @@
           }
         },
         "landed": {
-          "tag": "Some",
-          "value": true
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         },
         "outputLink": {
           "tag": "None",
@@ -1639,12 +2233,18 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
     {
       "#meta": {
-        "index": 9
+        "index": 11
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [
@@ -1753,6 +2353,20 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": true,
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
         }
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -1859,12 +2473,18 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
     {
       "#meta": {
-        "index": 10
+        "index": 12
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [],
@@ -1962,6 +2582,20 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": true,
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
         }
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -2068,12 +2702,18 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
     {
       "#meta": {
-        "index": 11
+        "index": 13
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [
@@ -2189,6 +2829,20 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": true,
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
         }
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -2298,12 +2952,18 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
     {
       "#meta": {
-        "index": 12
+        "index": 14
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [
@@ -2419,6 +3079,20 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": true,
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
         }
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -2526,461 +3200,12 @@
         "withStages": {
           "tag": "Some",
           "value": false
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 13
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
-        "calls": [
-          {
-            "job": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "PageWrite",
-              "value": {
-                "#tup": []
-              }
-            },
-            "rest": {
-              "tag": "ModelTurnGoesOn",
-              "value": {
-                "eventWaits": true
-              }
-            }
-          }
-        ],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
         },
-        "endedIssues": {
-          "#set": []
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
-        "idleArmed": true,
-        "issueMoves": {
-          "#bigint": "0"
-        },
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "Drafted",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "pullOnHost": {
-              "tag": "NoPull",
-              "value": {
-                "#tup": []
-              }
-            },
-            "refinerRuns": [
-              {
-                "tag": "RefinerRunning",
-                "value": {
-                  "#tup": []
-                }
-              }
-            ],
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "2"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": false
-              }
-            ]
-          }
-        ],
-        "stagePlan": {
-          "tag": "StagesPlanned",
-          "value": {
-            "#bigint": "2"
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
-          }
-        },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
-      "mbt::actionTaken": "modelCallReturns",
-      "mbt::nondetPicks": {
-        "accepted": {
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
           }
-        },
-        "callId": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "command": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "jobSlots": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "landed": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outputLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "withStages": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 14
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
-        "calls": [
-          {
-            "job": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "PageWrite",
-              "value": {
-                "#tup": []
-              }
-            },
-            "rest": {
-              "tag": "ModelTurnGoesOn",
-              "value": {
-                "eventWaits": true
-              }
-            }
-          }
-        ],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "endedIssues": {
-          "#set": []
-        },
-        "failuresPosted": {
-          "#bigint": "0"
-        },
-        "idleArmed": true,
-        "issueMoves": {
-          "#bigint": "0"
-        },
-        "jobs": [
-          {
-            "artifact": {
-              "tag": "Drafted",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "pullOnHost": {
-              "tag": "NoPull",
-              "value": {
-                "#tup": []
-              }
-            },
-            "refinerRuns": [
-              {
-                "tag": "RefinerRunning",
-                "value": {
-                  "#tup": []
-                }
-              }
-            ],
-            "tasks": [
-              {
-                "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "2"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "turnRunning": false
-              }
-            ]
-          }
-        ],
-        "stagePlan": {
-          "tag": "StagesPlanned",
-          "value": {
-            "#bigint": "2"
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
-          }
-        },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
-      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
-        "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
-      },
-      "mbt::actionTaken": "agentSetsPlan",
-      "mbt::nondetPicks": {
-        "accepted": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "command": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "jobSlots": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "2"
-          }
-        },
-        "landed": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outputLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subjectLink": {
-          "tag": "Some",
-          "value": {
-            "tag": "NoSubject",
-            "value": {
-              "#tup": []
-            }
-          }
-        },
-        "timer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "withStages": {
-          "tag": "Some",
-          "value": false
         }
       }
     },
@@ -3102,6 +3327,515 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": true,
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "mbt::actionTaken": "modelCallReturns",
+      "mbt::nondetPicks": {
+        "accepted": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "callId": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "definition": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "landed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outputLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "sandbox": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "timer": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 16
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
+        "calls": [
+          {
+            "job": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "PageWrite",
+              "value": {
+                "#tup": []
+              }
+            },
+            "rest": {
+              "tag": "ModelTurnGoesOn",
+              "value": {
+                "eventWaits": true
+              }
+            }
+          }
+        ],
+        "definition": {
+          "tag": "Planned",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "endedIssues": {
+          "#set": []
+        },
+        "failuresPosted": {
+          "#bigint": "0"
+        },
+        "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
+        "jobs": [
+          {
+            "artifact": {
+              "tag": "Drafted",
+              "value": {
+                "#tup": []
+              }
+            },
+            "input": {
+              "tag": "FromRequest",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            },
+            "refinerRuns": [
+              {
+                "tag": "RefinerRunning",
+                "value": {
+                  "#tup": []
+                }
+              }
+            ],
+            "tasks": [
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "1"
+                },
+                "restarts": {
+                  "#bigint": "2"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "0"
+                },
+                "status": {
+                  "tag": "Busy",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "turnRunning": false
+              }
+            ]
+          }
+        ],
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": true,
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        }
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
+      "modelCallPagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "mbt::actionTaken": "agentSetsPlan",
+      "mbt::nondetPicks": {
+        "accepted": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "callId": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "command": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "definition": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "hostMove": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "issue": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "jobSlots": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "2"
+          }
+        },
+        "landed": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outputLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "sandbox": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subjectLink": {
+          "tag": "Some",
+          "value": {
+            "tag": "NoSubject",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "timer": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
+          "tag": "Some",
+          "value": false
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 17
+      },
+      "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
+        "calls": [
+          {
+            "job": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "PageWrite",
+              "value": {
+                "#tup": []
+              }
+            },
+            "rest": {
+              "tag": "ModelTurnGoesOn",
+              "value": {
+                "eventWaits": true
+              }
+            }
+          }
+        ],
+        "definition": {
+          "tag": "Planned",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "endedIssues": {
+          "#set": []
+        },
+        "failuresPosted": {
+          "#bigint": "0"
+        },
+        "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
+        "jobs": [
+          {
+            "artifact": {
+              "tag": "Drafted",
+              "value": {
+                "#tup": []
+              }
+            },
+            "input": {
+              "tag": "FromRequest",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            },
+            "refinerRuns": [
+              {
+                "tag": "RefinerRunning",
+                "value": {
+                  "#tup": []
+                }
+              }
+            ],
+            "tasks": [
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "1"
+                },
+                "restarts": {
+                  "#bigint": "2"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "0"
+                },
+                "status": {
+                  "tag": "Busy",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "turnRunning": false
+              }
+            ]
+          }
+        ],
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": true,
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
         }
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -3208,12 +3942,18 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
     {
       "#meta": {
-        "index": 16
+        "index": 18
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [
@@ -3329,6 +4069,20 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": true,
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
         }
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
@@ -3435,12 +4189,18 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
     {
       "#meta": {
-        "index": 17
+        "index": 19
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [
@@ -3556,6 +4316,20 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": true,
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
         }
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
@@ -3665,12 +4439,18 @@
           "value": {
             "#tup": []
           }
+        },
+        "lostJobs": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
     {
       "#meta": {
-        "index": 18
+        "index": 20
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [],
@@ -3774,6 +4554,20 @@
           "value": {
             "#tup": []
           }
+        },
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "restartAlarmFired": true,
+        "ranAgain": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
         }
       },
       "modelCallPagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
@@ -3876,6 +4670,12 @@
           }
         },
         "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostJobs": {
           "tag": "None",
           "value": {
             "#tup": []
