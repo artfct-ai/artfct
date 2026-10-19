@@ -453,6 +453,52 @@ describe("start_job", () => {
       }));
   });
 
+  describe("an issue whose job completed", () => {
+    let result: string;
+    const refused = scenario(subjectWorkflow(2), async (workflow) => {
+      seedJob(workflow, "j1", "t1", { issue: { id: "ENG-1", key: "ENG-1" } });
+      workflow.store.updateTask("t1", { status: "done" });
+      const { start_job } = startTools(workflow);
+      result = toolText(
+        await start_job.execute({ stage: "implement", brief: "again", issue: "ENG-1" }, call),
+      );
+    });
+
+    it("refuses and names the job that completed it", () =>
+      refused(() => {
+        expect(result).toBe(
+          "Job j1 completed ENG-1. A job does not start on an issue whose job completed.",
+        );
+      }));
+
+    it("records no second job", () =>
+      refused((workflow) => {
+        expect(workflow.store.jobs()).toHaveLength(1);
+      }));
+  });
+
+  describe("an issue whose only job was cancelled before it produced anything", () => {
+    let result: string;
+    const retried = scenario(subjectWorkflow(2), async (workflow) => {
+      seedJob(workflow, "j1", "t1", { issue: { id: "ENG-1", key: "ENG-1" } });
+      workflow.store.updateTask("t1", { status: "cancelled" });
+      const { start_job } = startTools(workflow);
+      result = toolText(
+        await start_job.execute({ stage: "implement", brief: "again", issue: "ENG-1" }, call),
+      );
+    });
+
+    it("starts a retry", () =>
+      retried(() => {
+        expect(result).toMatch(/^Started job \S+ for stage implement for ENG-1/);
+      }));
+
+    it("records the retry as a second job on the issue", () =>
+      retried((workflow) => {
+        expect(workflow.store.jobs().filter((job) => job.issue_id === "ENG-1")).toHaveLength(2);
+      }));
+  });
+
   describe("a request another unfinished job was started for", () => {
     let result: string;
     const refused = scenario(plannedWorkflow(2), async (workflow) => {

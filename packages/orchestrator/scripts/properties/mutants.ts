@@ -1481,6 +1481,21 @@ export const MUTANTS: Mutant[] = [
     find: '  return workflow.store.markEventSeen({ id, kind: "checks_sent_back" });\n',
     replace: "  return !workflow.store.eventSeen(id);\n",
   },
+  {
+    id: "W240",
+    invariant: "workflowLifecycle::oneJobAtATimePerIssueUntilOneCompletes",
+    path: "src/agent/tools/start/start.ts",
+    find: "  return validateInputNotInWork(workflow, input) ?? validateIssueNotCompleted(workflow, input);\n",
+    replace: "  return validateInputNotInWork(workflow, input);\n",
+  },
+  {
+    id: "W241",
+    invariant:
+      "workflowLifecycle::oneJobAtATimePerIssueUntilOneCompletes, sessionRouting::oneJobAtATimePerIssueUntilOneCompletes",
+    path: "src/agent/tools/start/start.ts",
+    find: "  return validateInputNotInWork(workflow, input) ?? validateIssueNotCompleted(workflow, input);\n",
+    replace: "  return validateIssueNotCompleted(workflow, input);\n",
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */
