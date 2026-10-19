@@ -53,5 +53,6 @@ export class FakeSandboxProvider implements SandboxProvider {
 
   async destroy(sandbox: SandboxRef): Promise<void> {
     this.calls.push(`destroy ${sandbox.id}`);
+    this.files.delete(sandbox.id);
   }
 }

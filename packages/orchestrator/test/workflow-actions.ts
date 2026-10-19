@@ -195,6 +195,34 @@ export function authorHitsARecoverableFailure(index: number): WorkflowAction {
 /** What a researcher left at the research payload path when its turn ends. */
 export type PayloadAtTurnEnd = "written" | "missing" | "oversized";
 
+/** How a researcher's turn ends unfinished: its closing text says it gave up, or the harness stops it on max tokens. */
+export type ResearcherUnfinishedEnding = "gave_up" | "max_tokens";
+
+/**
+ * A running researcher writes its payload and ends its turn unfinished. The decisions model reads
+ * later turns as reporting work.
+ */
+export function researcherTurnEndsUnfinished(
+  index: number,
+  ending: ResearcherUnfinishedEnding,
+): WorkflowAction {
+  return action(`researcher ${index}: turn ends unfinished, ${ending}`, async (world) => {
+    const researcher = world.researcherAt(index);
+    const bridge = researcher ? world.runningBridgeOf(researcher.task_id) : null;
+    if (!researcher || !bridge) return;
+    const content = JSON.stringify({ summary: "The redirect check lives in the session guard." });
+    world.workflow.sandboxProvider.putFile(researcher.task_id, RESEARCH_PAYLOAD_PATH, content);
+    if (ending === "max_tokens") {
+      await bridge.endTurn("max_tokens");
+      return;
+    }
+    world.answerDecisionsWith(GAVE_UP_ANSWERS);
+    await bridge.say(GAVE_UP_TEXT);
+    await bridge.endTurn("end_turn");
+    world.answerDecisionsWith(REPORTS_WORK_ANSWERS);
+  });
+}
+
 /** A running researcher reports its todo list, with the first `completed` entries done. */
 export function researcherReportsTodos(index: number, completed: number): WorkflowAction {
   return action(`researcher ${index}: reports todos, ${completed} done`, async (world) => {

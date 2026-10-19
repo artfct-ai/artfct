@@ -909,6 +909,29 @@ export const MUTANTS: Mutant[] = [
     find: 'so nothing was sent. Ask them what they want.`,\n      ],\n      wake: "human",',
     replace: 'so nothing was sent. Ask them what they want.`,\n      ],\n      wake: "none",',
   },
+  {
+    id: "W236",
+    invariant: "sessionRouting::aResearcherThatDidNotFinishRestartsOrFails (gave up)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: "  if (!(await harnessGaveUp(workflow, run))) return false;\n",
+    replace:
+      '  if (run.role === "researcher" || !(await harnessGaveUp(workflow, run))) return false;\n',
+  },
+  {
+    id: "W237",
+    invariant: "sessionRouting::aResearcherThatDidNotFinishRestartsOrFails (stopped on a limit)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: "  if (UNFINISHED_STOPS.includes(stopReason)) {\n",
+    replace: '  if (UNFINISHED_STOPS.includes(stopReason) && run.role !== "researcher") {\n',
+  },
+  {
+    id: "W238",
+    invariant: "sessionRouting::sessionFeedEndsWhenItsAuthorIdles (restart mid feed post)",
+    path: "src/notify/notifier.ts",
+    find: '    this.outbox({\n      channel: "feed",\n      kind: content.type,\n      target: session,\n      payload: { task_id: taskId, id, content },\n    });\n    const tracker = await this.tracker();\n    if (!tracker) return;\n    for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {\n      try {\n        await tracker.activity(session.session_id, content, { id });\n',
+    replace:
+      '    const row = {\n      channel: "feed",\n      kind: content.type,\n      target: session,\n      payload: { task_id: taskId, id, content },\n    };\n    const tracker = await this.tracker();\n    if (!tracker) return;\n    for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {\n      try {\n        await tracker\n          .activity(session.session_id, content, { id })\n          .finally(() => attempt === 1 && this.outbox(row));\n',
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */
