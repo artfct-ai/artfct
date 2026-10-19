@@ -561,6 +561,10 @@
           "value": {
             "#tup": []
           }
+        },
+        "routerWriteFails": {
+          "tag": "Some",
+          "value": false
         }
       },
       "pagesFromModelCalls::workflowLifecycle::lastStepAnswered": {
