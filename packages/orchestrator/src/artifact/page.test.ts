@@ -206,31 +206,33 @@ describe("review", () => {
 
   it("reads the review the reviewer ended its turn with", async () => {
     expect(await build().review!.postedReview(ref, REVIEW_INPUT)).toEqual({
-      revision: "rev-2",
-      blocking: false,
-      summary: "The scope is wider than the request.",
-      findings: [
-        { passage: "Each team owns its rollout", location: "Rollout", body: "No owner." },
-        { body: "The page names no metric." },
-      ],
+      review: {
+        revision: "rev-2",
+        blocking: false,
+        summary: "The scope is wider than the request.",
+        findings: [
+          { passage: "Each team owns its rollout", location: "Rollout", body: "No owner." },
+          { body: "The page names no metric." },
+        ],
+      },
     });
   });
 
   it("posts the quoted finding inline and the outcome on the page, then reads the revision", async () => {
     const { sent, overrides } = recording();
-    const review = await build(overrides).review!.postedReview(ref, REVIEW_INPUT);
+    const read = await build(overrides).review!.postedReview(ref, REVIEW_INPUT);
     expect(sent).toEqual([
       `inline ${PAGE_ID} Each team owns its rollout`,
       expect.stringMatching(new RegExp(`^page ${PAGE_ID} Review: findings`)),
       "read revision",
     ]);
-    expect(review?.revision).toBe("rev-3");
+    expect(read).toMatchObject({ review: { revision: "rev-3" } });
   });
 
-  it("is null and posts nothing when the turn text carries no review", async () => {
+  it("files none and posts nothing when the turn text carries no review", async () => {
     const { sent, overrides } = recording();
     const input = { ...REVIEW_INPUT, turnText: "Read the page." };
-    expect(await build(overrides).review!.postedReview(ref, input)).toBeNull();
+    expect(await build(overrides).review!.postedReview(ref, input)).toEqual({ filedNone: true });
     expect(sent).toEqual([]);
   });
 
@@ -245,12 +247,15 @@ describe("review", () => {
       },
       log: (line) => lines.push(line),
     });
-    expect((await artifact.review!.postedReview(ref, REVIEW_INPUT))?.findings).toHaveLength(2);
+    const read = await artifact.review!.postedReview(ref, REVIEW_INPUT);
+    expect("review" in read && read.review.findings).toHaveLength(2);
     expect(lines.join(" ")).toContain("docs host down");
   });
 
-  it("is null for a ref of another kind", async () => {
-    expect(await build().review!.postedReview({ kind: "issues" }, REVIEW_INPUT)).toBeNull();
+  it("files none for a ref of another kind", async () => {
+    expect(await build().review!.postedReview({ kind: "issues" }, REVIEW_INPUT)).toEqual({
+      filedNone: true,
+    });
   });
 });
 

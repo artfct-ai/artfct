@@ -319,6 +319,29 @@ describe("refreshToken", () => {
           workflow.alarmsFor("refreshToken")[0]!.id,
         );
       }));
+
+    describe("and keeps refusing on every retry", () => {
+      const retried = scenario(failed, async ({ workflow }) => {
+        for (let retries = 0; retries < 5; retries += 1) {
+          await refreshToken(workflow, { task_id: TASK });
+        }
+      });
+
+      it("tries again after the retry interval each time", () =>
+        retried(({ workflow }) => {
+          expect(workflow.alarmsFor("refreshToken")).toEqual([
+            expect.objectContaining({ delay: TOKEN_RETRY_S }),
+          ]);
+          expect(workflow.store.requireSandbox(TASK).token_schedule).toBe(
+            workflow.alarmsFor("refreshToken")[0]!.id,
+          );
+        }));
+
+      it("asks the code host on every retry", () =>
+        retried(({ code }) => {
+          expect(code.argsOf("mintToken")).toHaveLength(6);
+        }));
+    });
   });
 
   describe("a runtime with no code host", () => {

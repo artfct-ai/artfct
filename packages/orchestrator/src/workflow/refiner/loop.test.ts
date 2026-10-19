@@ -92,6 +92,13 @@ class PromptArrivesDuringRevision extends FakeCodeHost {
   }
 }
 
+/** A host that holds the review but fails the read of the pull request's reviews. */
+class ReviewsUnreadable extends FakeCodeHost {
+  override async pullReviews(): Promise<PullRequestReview[]> {
+    throw new Error("pullReviews: host down");
+  }
+}
+
 /** A host that holds the review but fails every read of the pull request itself. */
 class PullUnreadable extends FakeCodeHost {
   override async getPull(): Promise<PullRequest> {
@@ -575,6 +582,38 @@ describe("onReviewerFinished", () => {
     it("says the one line the pull request kind wrote, and nothing about the review", () =>
       clean((workflow) => {
         expect(announcedText(workflow)).toBe(`The pull request is ready for you: ${PR_URL}`);
+      }));
+  });
+
+  describe("a review the host cannot read", () => {
+    const unread = scenario(started, async (workflow) => {
+      workflow.codeHostInstance = new ReviewsUnreadable({
+        pulls: [pullRequest({ number: 1, head: { ref: "artfct/wf_x-1-fix", sha: "abc123" } })],
+      });
+      await onReviewerFinished(workflow, reviewerOf(workflow), "");
+    });
+
+    it("ends the reviewer run done without a review", () =>
+      unread((workflow) => {
+        expect(workflow.store.refinerRunsOf(JOB).at(-1)).toMatchObject({
+          status: "done",
+          review: null,
+        });
+      }));
+
+    it("gives the artifact to the humans and lets go of the reviewer", () =>
+      unread((workflow) => {
+        expect(workflow.store.artifact(JOB)).toMatchObject({
+          status: "ready",
+          refiner_task_id: null,
+        });
+      }));
+
+    it("says the review could not be read in place of the ready line, and gives the url", () =>
+      unread((workflow) => {
+        expect(announcedText(workflow)).toBe(
+          `The reviewer's review could not be read (Error: pullReviews: host down). ${PR_URL}`,
+        );
       }));
   });
 

@@ -423,6 +423,7 @@ export class WorkflowWorld {
   private readonly bridges: FakeBridge[] = [];
   private hostReadable = true;
   private pullsReadable = true;
+  private pullReviewsReadable = true;
   private hostReviewComments: Record<number, PullRequestReviewComment[]> = {};
   private reviewNumber = 0;
   private eventNumber = 0;
@@ -831,6 +832,18 @@ export class WorkflowWorld {
       return await body();
     } finally {
       this.pullsReadable = true;
+      this.installHost();
+    }
+  }
+
+  /** Run `body` while every read of the reviews of a pull request fails. */
+  async whilePullReviewsAreUnreadable<Result>(body: () => Promise<Result>): Promise<Result> {
+    this.pullReviewsReadable = false;
+    this.installHost();
+    try {
+      return await body();
+    } finally {
+      this.pullReviewsReadable = true;
       this.installHost();
     }
   }
@@ -1245,7 +1258,7 @@ export class WorkflowWorld {
 
   private installHost(): void {
     const onHost = [...this.pulls.values()].filter((pull) => pull.state !== "unopened");
-    this.workflow.codeHostInstance = new FakeCodeHost({
+    const host = new FakeCodeHost({
       repositories: [REPO],
       pulls: onHost.map((pull) =>
         pullRequest({
@@ -1265,6 +1278,12 @@ export class WorkflowWorld {
       pullsUnreadable: !this.pullsReadable,
       now: () => this.workflow.now(),
     });
+    if (!this.pullReviewsReadable) {
+      host.pullReviews = async () => {
+        throw new Error("pullReviews: the host cannot list the reviews");
+      };
+    }
+    this.workflow.codeHostInstance = host;
   }
 
   /** A socket the workflow closed is gone, and the workflow hears that it closed. */
