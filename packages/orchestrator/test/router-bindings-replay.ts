@@ -12,7 +12,7 @@ import { applyVerbalCommand } from "../src/workflow/inbound/controls";
 import { eventRefusalOf } from "../src/workflow/inbound/events";
 import { completeWorkflow, failWorkflow, type JobInput } from "../src/workflow/lifecycle";
 import { isWorkflowFinished } from "../src/workflow/store/state";
-import { itfBool, itfField, itfInt, itfList, itfOneOf, itfText, itfVariant } from "./itf";
+import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
 import { quintTraces } from "./quint-traces";
 import { migratedD1Database, sqliteParams } from "./sqlite-d1";
 import { FakeRuntime, seedTask } from "./fake-runtime";
@@ -24,6 +24,7 @@ export const SPEC_SETUPS = [
   "chatThread",
   "twoSessionsOnOneIssue",
   "sessionWithPullRequest",
+  "baseMoveFanOut",
 ] as const;
 
 /** The name of one setup module of the spec. */
@@ -32,20 +33,36 @@ export type SpecSetup = (typeof SPEC_SETUPS)[number];
 /** The most steps a generated trace takes after its initial state. */
 const TRACE_STEPS = 25;
 
-const KEYS = ["Thread", "SessionA", "SessionB", "Issue", "Pull"] as const;
+const KEYS = ["Thread", "SessionA", "SessionB", "Issue", "Pull", "SecondPull"] as const;
 
 type KeyName = (typeof KEYS)[number];
 
-const SURFACES = ["ThreadSurface", "SessionASurface", "SessionBSurface", "PullSurface"] as const;
+const PULL_KEYS = ["Pull", "SecondPull"] as const;
+
+type PullKeyName = (typeof PULL_KEYS)[number];
+
+const SURFACES = [
+  "ThreadSurface",
+  "SessionASurface",
+  "SessionBSurface",
+  "PullSurface",
+  "BaseSurface",
+] as const;
 
 type SurfaceName = (typeof SURFACES)[number];
 
-const EVENT_KINDS = ["Start", "StartWithoutAPerson", "PersonsMessage", "OtherEvent"] as const;
+const EVENT_KINDS = [
+  "Start",
+  "StartWithoutAPerson",
+  "PersonsMessage",
+  "OtherEvent",
+  "BaseMoved",
+] as const;
 
 type EventKindName = (typeof EVENT_KINDS)[number];
 
-/** Work a workflow does against the router's tables: its end, a job start on the issue, or a pull request it records. */
-export type WorkflowWork = "end" | "job_on_issue" | "pull_request";
+/** Work a workflow does against the router's tables: its end, a job start on the issue, or one of the two pull requests it records. */
+export type WorkflowWork = "end" | "job_on_issue" | "pull_request" | "second_pull_request";
 
 /** The statuses a workflow ends with. The spec reads each one as ended. */
 const ENDED_STATUSES = ["done", "failed", "cancelled"] as const;
@@ -57,7 +74,7 @@ type ObjectView = {
   created: boolean;
   ended: boolean;
   hasIssueJob: boolean;
-  openedPull: boolean;
+  openedPulls: PullKeyName[];
   unbound: boolean;
 };
 
@@ -79,6 +96,7 @@ type SpecPicks = {
   delivery: number | null;
   workflow: number | null;
   operation: number | null;
+  pull: PullKeyName | null;
 };
 
 /** One state of a trace: the action that led to it, what it picked, and the router as the spec sees it. */
@@ -102,7 +120,8 @@ export async function generateTraces(
   );
 }
 
-function traceSteps(trace: unknown): TraceStep[] {
+/** The steps of one ITF trace of the spec. */
+export function traceSteps(trace: unknown): TraceStep[] {
   return itfList(itfField(trace, "states")).map((state) => {
     const worldName = Object.keys(asRecord(state)).find((name) => name.endsWith("::world"));
     if (!worldName) throw new Error("the trace has no world");
@@ -115,6 +134,7 @@ function traceSteps(trace: unknown): TraceStep[] {
         delivery: pickedInt(picks, "delivery"),
         workflow: pickedInt(picks, "workflow"),
         operation: pickedInt(picks, "operation"),
+        pull: pickedTag(picks, "pull", PULL_KEYS),
       },
       view: specView(itfField(state, worldName)),
     };
@@ -141,7 +161,13 @@ function pickedTag<Name extends string>(
 }
 
 function isNewObject(object: ObjectView): boolean {
-  return Object.values(object).every((flag) => !flag);
+  return (
+    !object.created &&
+    !object.ended &&
+    !object.hasIssueJob &&
+    object.openedPulls.length === 0 &&
+    !object.unbound
+  );
 }
 
 type SpecDelivery = {
@@ -167,7 +193,9 @@ function specView(world: unknown): RouterView {
       created: itfBool(itfField(object, "created")),
       ended: itfBool(itfField(object, "ended")),
       hasIssueJob: itfBool(itfField(object, "hasIssueJob")),
-      openedPull: itfBool(itfField(object, "openedPull")),
+      openedPulls: itfSet(itfField(object, "openedPulls"))
+        .map((pull) => itfOneOf(itfVariant(pull)!.tag, PULL_KEYS))
+        .toSorted(),
       unbound: itfBool(itfField(object, "unbound")),
     };
     if (!isNewObject(view)) objects[itfInt(workflow)] = view;
@@ -204,12 +232,17 @@ const SURFACE_KEYS: Record<SurfaceName, KeyName[]> = {
   SessionASurface: ["SessionA", "Issue"],
   SessionBSurface: ["SessionB", "Issue"],
   PullSurface: ["Pull"],
+  BaseSurface: [],
 };
 
 function deliveryCall(delivery: SpecDelivery): string {
   const keys = SURFACE_KEYS[delivery.surface];
   const key = keys[delivery.index];
   switch (delivery.phase) {
+    case "ReadingPulls":
+      return "FindPullWorkflows";
+    case "FanningOut":
+      return `HandleEvent(${delivery.target})`;
     case "Reading":
       return `FindBinding(${keys[delivery.found.length]})`;
     case "Checking":
@@ -248,7 +281,7 @@ function operationCall(workflow: number, phase: unknown): string {
     case "JobBindsIssue":
       return "ClaimBinding(Issue)";
     case "PullBinds":
-      return `BindWorkflow(Pull, ${workflow})`;
+      return `BindWorkflow(${itfOneOf(itfVariant(named.value)!.tag, PULL_KEYS)}, ${workflow})`;
     default:
       throw new Error(`the trace has the operation phase ${named.tag}`);
   }
@@ -387,10 +420,23 @@ const ISSUE_INPUT: JobInput = {
   },
 };
 
-const PULL_TARGET: ArtifactTarget = {
-  url: "https://github.com/acme/app/pull/7",
-  ref: { kind: "pull", repo: "acme/app", number: 7 },
+const REPO = "acme/app";
+
+/** The pull request each pull key names, by its number in the repository. */
+const PULL_NUMBERS: Record<PullKeyName, number> = { Pull: 7, SecondPull: 8 };
+
+const PULL_WORK: Record<PullKeyName, WorkflowWork> = {
+  Pull: "pull_request",
+  SecondPull: "second_pull_request",
 };
+
+function pullTarget(pull: PullKeyName): ArtifactTarget {
+  const number = PULL_NUMBERS[pull];
+  return {
+    url: `https://github.com/${REPO}/pull/${number}`,
+    ref: { kind: "pull", repo: REPO, number },
+  };
+}
 
 const PERSON: Actor = { person_id: "p1", email: "dev@acme.test", display_name: "Dev" };
 
@@ -400,7 +446,8 @@ const BINDING_KEYS: Record<string, KeyName> = {
   "tracker_session:sess-a": "SessionA",
   "tracker_session:sess-b": "SessionB",
   [`tracker_issue:${ISSUE.id}`]: "Issue",
-  "code_pull:acme/app#7": "Pull",
+  [`code_pull:${REPO}#${PULL_NUMBERS.Pull}`]: "Pull",
+  [`code_pull:${REPO}#${PULL_NUMBERS.SecondPull}`]: "SecondPull",
 };
 
 function trackerSession(sessionId: string): { bindings: Binding[]; reply_to: ReplyTarget } {
@@ -413,14 +460,15 @@ function trackerSession(sessionId: string): { bindings: Binding[]; reply_to: Rep
   };
 }
 
-const SURFACE_EVENTS: Record<SurfaceName, { bindings: Binding[]; reply_to?: ReplyTarget }> = {
+const SURFACE_EVENTS: Record<SurfaceName, Pick<InboundEvent, "bindings" | "reply_to" | "pull">> = {
   ThreadSurface: {
     bindings: [{ source: "chat_thread", external_id: "C1:1.0" }],
     reply_to: { source: "chat", channel: "C1", thread: "1.0" },
   },
   SessionASurface: trackerSession("sess-a"),
   SessionBSurface: trackerSession("sess-b"),
-  PullSurface: { bindings: [{ source: "code_pull", repo: "acme/app", number: 7 }] },
+  PullSurface: { bindings: [{ source: "code_pull", repo: REPO, number: PULL_NUMBERS.Pull }] },
+  BaseSurface: { bindings: [], pull: { action: "base_moved", repo: REPO, base: "main" } },
 };
 
 const call = { toolCallId: "call-1", messages: [], context: {} };
@@ -472,6 +520,11 @@ export class RouterBindingsReplay {
         return this.gate.land(`d${required(picks.delivery, "delivery")}`);
       case "workflowCreateFails":
         return this.failCreate(`d${required(picks.delivery, "delivery")}`);
+      case "fanOutCallFails":
+        return this.gate.fail(
+          `d${required(picks.delivery, "delivery")}`,
+          new Error("Durable Object reset"),
+        );
       case "workflowCallReturns":
         return this.gate.land(`o${required(picks.operation, "operation")}`);
       case "workflowEnds":
@@ -481,7 +534,10 @@ export class RouterBindingsReplay {
         await this.startWork(required(picks.workflow, "workflow"), "job_on_issue");
         return;
       case "workflowOpensThePullRequest":
-        await this.startWork(required(picks.workflow, "workflow"), "pull_request");
+        await this.startWork(
+          required(picks.workflow, "workflow"),
+          PULL_WORK[required(picks.pull, "pull")],
+        );
         return;
       default:
         throw new Error(`no replay for spec action ${step.action}`);
@@ -513,7 +569,10 @@ export class RouterBindingsReplay {
         created: true,
         ended: isWorkflowFinished(runtime.state.status),
         hasIssueJob: validateInputNotInWork(runtime, ISSUE_INPUT) !== null,
-        openedPull: runtime.store.artifacts().some((artifact) => artifact.kind === "pull"),
+        openedPulls: runtime.store
+          .artifacts()
+          .flatMap(({ ref }) => (ref.kind === "pull" ? [pullKeyOf(ref.number)] : []))
+          .toSorted(),
         unbound: this.unbound.has(name),
       };
       objects[this.specIdOf(name)] = view;
@@ -556,7 +615,11 @@ export class RouterBindingsReplay {
       case "job_on_issue":
         return this.startOperation(workflow, (runtime) => this.startJobOnTheIssue(runtime));
       case "pull_request":
-        return this.startOperation(workflow, (runtime) => this.openPullRequest(runtime));
+        return this.startOperation(workflow, (runtime) => this.openPullRequest(runtime, "Pull"));
+      case "second_pull_request":
+        return this.startOperation(workflow, (runtime) =>
+          this.openPullRequest(runtime, "SecondPull"),
+        );
       default: {
         const unreachable: never = work;
         throw new Error(`unhandled work ${String(unreachable)}`);
@@ -639,13 +702,13 @@ export class RouterBindingsReplay {
     );
   }
 
-  private async openPullRequest(runtime: FakeRuntime): Promise<void> {
+  private async openPullRequest(runtime: FakeRuntime, pull: PullKeyName): Promise<void> {
     const author = seedTask(runtime, {
       task_id: `${runtime.state.workflow_id}.9`,
       job_id: `${runtime.state.workflow_id}-9`,
       stage: "implement",
     });
-    await recordArtifact(runtime, author, PULL_TARGET);
+    await recordArtifact(runtime, author, pullTarget(pull));
   }
 
   private createRuntime(name: string): { ok: true } {
@@ -678,7 +741,11 @@ export class RouterBindingsReplay {
   private gatedD1(): Env["DB"] {
     const statementOf = (sql: string, params: unknown[]) => {
       const named = this.statementCall(sql, params);
-      const execute = <Result>(run: () => Result) => this.gate.hold(named, run);
+      const execute = <Result>(run: () => Result) =>
+        this.gate.hold(named, () => {
+          const result = run();
+          return named === FIND_PULL_WORKFLOWS ? this.inSpecOrder(result) : result;
+        });
       return {
         run: () =>
           execute(() => {
@@ -703,6 +770,16 @@ export class RouterBindingsReplay {
     return binding as Env["DB"];
   }
 
+  /** The fan-out reads the workflows in the order the spec hands them the event: the smallest spec id first. */
+  private inSpecOrder<Result>(result: Result): Result {
+    const rows = Array.isArray(result) ? result : itfList(itfField(result, "results"));
+    const sorted = rows.toSorted(
+      (left: object, right: object) =>
+        this.specIdOf(firstText(left)) - this.specIdOf(firstText(right)),
+    );
+    return (Array.isArray(result) ? sorted : { ...result, results: sorted }) as Result;
+  }
+
   /** The call a D1 statement makes, as the spec names it. A new workflow id gets the next number. */
   private statementCall(sql: string, params: unknown[]): string {
     const ids = params
@@ -710,6 +787,7 @@ export class RouterBindingsReplay {
       .map((workflowId) => this.specIdOf(workflowId));
     if (sql.startsWith('select "workflow_id" from "bindings"'))
       return `FindBinding(${bindingKeyOf(params)})`;
+    if (sql.startsWith('select distinct "workflow_id" from "bindings"')) return FIND_PULL_WORKFLOWS;
     if (/^select .* from "workflows"/.test(sql)) return `FindWorkflow(${ids[0]})`;
     if (sql.startsWith('insert into "bindings"') && sql.includes("do nothing")) {
       return `ClaimBinding(${bindingKeyOf(params)})`;
@@ -743,11 +821,25 @@ function eventKindOf(
       return { kind: "prompt", actor: PERSON };
     case "OtherEvent":
       return { kind: surface === "PullSurface" ? "ci_event" : "status", actor: null };
+    case "BaseMoved":
+      return { kind: "pr_event", actor: null };
     default: {
       const unreachable: never = kind;
       throw new Error(`unhandled event kind ${String(unreachable)}`);
     }
   }
+}
+
+const FIND_PULL_WORKFLOWS = "FindPullWorkflows";
+
+function pullKeyOf(number: number): PullKeyName {
+  const pull = PULL_KEYS.find((key) => PULL_NUMBERS[key] === number);
+  if (!pull) throw new Error(`the replay does not know the pull request #${number}`);
+  return pull;
+}
+
+function firstText(row: object): string {
+  return itfText(Object.values(row)[0]);
 }
 
 function bindingKeyOf(params: unknown[]): KeyName {

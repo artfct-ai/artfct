@@ -74,6 +74,7 @@ import {
   onModelTurnDeadline,
   runLostModelTurnAgain,
   type ModelTurnAlarm,
+  type RunAgainAlarm,
 } from "./workflow/task/model-turn";
 import { armLostCallsAlarm, resumeLostCalls, type LostCallsAlarm } from "./workflow/restart";
 import { settleIdleAuthor, settleIdleAuthors, TurnCoalescer } from "./workflow/task/harness/turn";
@@ -313,7 +314,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     return this.inSpan("alarm resumeLostCalls", null, () => resumeLostCalls(this, alarm));
   }
 
-  runLostModelTurnAgain(alarm: TaskAlarm): Promise<void> {
+  runLostModelTurnAgain(alarm: RunAgainAlarm): Promise<void> {
     return this.inSpan("alarm runLostModelTurnAgain", alarm.task_id, () =>
       runLostModelTurnAgain(this, alarm),
     );
