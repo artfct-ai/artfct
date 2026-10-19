@@ -52,6 +52,7 @@ export type ScheduledMethod =
   | "recheckChecks"
   | "onModelTurnDeadline"
   | "resumeLostCalls"
+  | "resumeWorkflowEnd"
   | "runLostModelTurnAgain";
 
 /**
@@ -91,6 +92,8 @@ export interface WorkflowRuntime {
   /** The settings of the stage a task's job runs. */ stageForTask(task: TaskRow): ResolvedStage;
   /** Schedule a method call by name. Returns the schedule id. */
   scheduleAlarm(delaySeconds: number, method: ScheduledMethod, payload: unknown): Promise<string>;
+  /** Schedule a method call due now, unless the same method with the same payload is scheduled. */
+  scheduleAlarmOnce(method: ScheduledMethod, payload: unknown): Promise<void>;
   cancelAlarm(id: string): Promise<void>;
   /** Call a method by name at an interval. A method and payload that already repeat start nothing. */
   startRepeatingAlarm(

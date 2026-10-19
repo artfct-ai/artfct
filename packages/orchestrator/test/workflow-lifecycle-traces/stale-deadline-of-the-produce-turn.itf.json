@@ -238,6 +238,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -463,6 +469,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -758,6 +770,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -1053,6 +1071,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -1348,6 +1372,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -1625,6 +1655,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -1902,6 +1938,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -2180,6 +2222,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -2457,6 +2505,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     }

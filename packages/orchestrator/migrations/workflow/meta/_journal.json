@@ -57,6 +57,13 @@
       "when": 1792376812281,
       "tag": "0007_perpetual_celestials",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "6",
+      "when": 1792410859924,
+      "tag": "0008_whole_kabuki",
+      "breakpoints": true
     }
   ]
 }

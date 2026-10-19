@@ -23,7 +23,7 @@ import { taskTools } from "../src/agent/tools/task";
 import type { SandboxRef } from "../src/sandbox/spec";
 import { artifactRefKey, jobInputKey } from "../src/workflow/store/input-key";
 import type { ArtifactRow } from "../src/workflow/store/records";
-import { failTask } from "../src/workflow/lifecycle";
+import { failTask, resumeWorkflowEnd } from "../src/workflow/lifecycle";
 import { resumeLostCalls, type LostCallsAlarm } from "../src/workflow/restart";
 import { isTaskFinished, type Subject } from "../src/workflow/store/state";
 import type { JobRow, TaskRow } from "../src/workflow/store/tasks";
@@ -358,6 +358,7 @@ export type SpecWorkflow = {
   runAgainAlarms: number[];
   restartAlarmFired: boolean;
   ranAgain: number[];
+  storedEnd: (typeof WORKFLOW_STATUSES)[number] | null;
 };
 
 /** The values the spec picked for one action. */
@@ -483,6 +484,7 @@ function optionalInt(value: unknown): number | null {
 function specWorkflow(value: unknown): SpecWorkflow {
   const definition = itfVariant(itfField(value, "definition"))!;
   const stagePlan = itfVariant(itfField(value, "stagePlan"))!;
+  const storedEnd = itfVariant(itfField(value, "storedEnd"))!;
   return {
     status: itfOneOf(itfVariant(itfField(value, "status"))!.tag, WORKFLOW_STATUSES),
     definition: definition.tag === "Planned" ? itfInt(definition.value) : null,
@@ -503,6 +505,10 @@ function specWorkflow(value: unknown): SpecWorkflow {
     runAgainAlarms: sortedInts(itfField(value, "runAgainAlarms")),
     restartAlarmFired: itfBool(itfField(value, "restartAlarmFired")),
     ranAgain: sortedInts(itfField(value, "ranAgain")),
+    storedEnd:
+      storedEnd.tag === "EndStored"
+        ? itfOneOf(itfVariant(storedEnd.value)!.tag, WORKFLOW_STATUSES)
+        : null,
   };
 }
 
@@ -815,6 +821,7 @@ export class WorkflowLifecycleReplay {
     const { workflow } = this.world;
     const { store, state } = workflow;
     const jobs = store.jobs();
+    const storedEnd = store.workflowEnd();
     const observed = this.world.steps.at(-1)?.after.tasks ?? [];
     const started = store
       .tasks()
@@ -882,6 +889,7 @@ export class WorkflowLifecycleReplay {
       ].toSorted((left, right) => left - right),
       restartAlarmFired: this.firedRestartAlarm !== null,
       ranAgain: [...this.ranAgain].toSorted((left, right) => left - right),
+      storedEnd: storedEnd ? WORKFLOW_STATUS_OF[storedEnd.status] : null,
     };
   }
 
@@ -1182,6 +1190,10 @@ export class WorkflowLifecycleReplay {
         return worldAction(`the lost model turn of job ${picks.id} runs again`, (world) =>
           this.lostModelTurnRunsAgain(world, required(picks.id)),
         );
+      case "theWorkflowEndResumes":
+        return worldAction("the alarm goes on with the workflow end", (world) =>
+          this.workflowEndResumes(world),
+        );
       default:
         throw new Error(`no world action for spec action ${step.action}`);
     }
@@ -1387,6 +1399,14 @@ export class WorkflowLifecycleReplay {
       this.firedRestartAlarm = payload;
       await this.runStep(() => resumeLostCalls(world.workflow, payload));
     }
+  }
+
+  /** The one alarm the start step armed for the workflow end the store holds fires. */
+  private async workflowEndResumes(world: WorkflowWorld): Promise<void> {
+    const [alarm, ...others] = world.workflow.alarmsFor("resumeWorkflowEnd");
+    if (!alarm || others.length > 0) throw new Error("the workflow end does not have one alarm");
+    await world.workflow.cancelAlarm(alarm.id);
+    await this.runStep(() => resumeWorkflowEnd(world.workflow));
   }
 
   /** The platform delivers the last restart alarm that fired again. */

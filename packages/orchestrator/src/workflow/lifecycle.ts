@@ -8,6 +8,7 @@ import { noteMessage } from "../agent/transcript/envelope";
 import { bindWorkflow as bindInDb, deleteBindings } from "../db/bindings";
 import { createDb } from "../db/client";
 import { setWorkflowStatus } from "../db/workflows";
+import { TAG_TO_START_AGAIN } from "../notify/messages";
 import { dropBoardFlush, flushBoards } from "./board/board";
 import { closeAbandonedTurnFeed, STOPPED_CLOSING } from "./feed/feed";
 import { onReviewerFailed } from "./refiner/loop";
@@ -16,6 +17,7 @@ import { refinerRunOf } from "./refiner/stage-refiner";
 import { markArtifactReady } from "./refiner/outcome";
 import type { WorkflowRuntime } from "./types";
 import type { JobRow, NewTask, TaskRow } from "./store/tasks";
+import type { WorkflowEndRow } from "./store/records";
 import { jobInputKey } from "./store/input-key";
 import { isTaskFinished, isWorkflowFinished } from "./store/state";
 import {
@@ -236,13 +238,7 @@ export async function completeJob(
  * session's issue completes.
  */
 export async function completeWorkflow(workflow: WorkflowRuntime, result: string): Promise<void> {
-  if (!(await endWorkflow(workflow, "done", "the workflow is done"))) return;
-  workflow.log(null, `finished: ${result}`);
-  await workflow.post({ type: "done", result });
-  for (const target of workflow.state.reply_targets) {
-    if (target.source === "tracker") await workflow.notifier.moveIssue(target, "completed");
-  }
-  await unbindCodeHost(workflow);
+  await endWorkflow(workflow, { status: "done", reason: result, answering: [] });
 }
 
 /**
@@ -376,45 +372,86 @@ export async function restartOrFailTask(
  * bindings stay, so a person's next message on them starts a new workflow.
  */
 export async function failWorkflow(workflow: WorkflowRuntime, reason: string): Promise<void> {
-  if (!(await endWorkflow(workflow, "failed", reason))) return;
-  await workflow.post({ type: "workflow_failed", reason });
-  await unbindCodeHost(workflow);
+  await endWorkflow(workflow, { status: "failed", reason, answering: [] });
 }
 
-/**
- * Workflows whose end is cancelling their tasks now, per runtime. It dies with the isolate, so a
- * restart of the Durable Object that cut an end off leaves the workflow running.
- */
-const workflowsEnding = new WeakSet<WorkflowRuntime>();
-
-/** True while this instance cancels the tasks of the workflow to end it. */
+/** True from the request of a workflow end until the channels heard it. */
 export function workflowEnding(workflow: WorkflowRuntime): boolean {
-  return workflowsEnding.has(workflow);
+  return workflow.store.workflowEnd() !== null;
 }
 
 /**
- * Cancel every active task, author and researcher tasks first, then set the final status. Each
- * cancel reads the active tasks again, so an author that starts after research meanwhile ends too.
- * False when the workflow already ended or another end runs, so the caller says nothing.
+ * Store the workflow end before its first cancel, then go on with it. False when the workflow
+ * already ended or another end runs, so the caller says nothing.
  */
 export async function endWorkflow(
   workflow: WorkflowRuntime,
-  status: "done" | "failed" | "cancelled",
-  reason: string,
+  end: WorkflowEndRow,
 ): Promise<boolean> {
   if (workflowEnding(workflow) || isWorkflowFinished(workflow.state.status)) return false;
-  workflowsEnding.add(workflow);
-  try {
-    const nextActive = () => workflow.store.activeAuthorAndResearcherTasks()[0];
-    for (let task = nextActive(); task; task = nextActive()) {
-      await cancelTask(workflow, task, reason);
-    }
-    for (const task of workflow.store.activeRefinerRuns()) await cancelTask(workflow, task, reason);
-    await changeWorkflowStatus(workflow, status);
-  } finally {
-    workflowsEnding.delete(workflow);
-  }
+  workflow.store.storeWorkflowEnd(end);
+  await goOnWithWorkflowEnd(workflow, end);
   return true;
+}
+
+/**
+ * Start step: arm the alarm that goes on with the workflow end the store holds. A later restart
+ * before it fires leaves the one alarm armed.
+ */
+export async function armWorkflowEndAlarm(workflow: WorkflowRuntime): Promise<void> {
+  if (!workflowEnding(workflow)) return;
+  await workflow.scheduleAlarmOnce("resumeWorkflowEnd", {});
+}
+
+/** Alarm: go on with the workflow end that an instance restart cut off. */
+export async function resumeWorkflowEnd(workflow: WorkflowRuntime): Promise<void> {
+  const end = workflow.store.workflowEnd();
+  if (end) await goOnWithWorkflowEnd(workflow, end);
+}
+
+/**
+ * Cancel every active task, author and researcher tasks first, then set the final status and tell
+ * the channels. Each cancel reads the active tasks again, so an author that starts after research
+ * meanwhile ends too, and so does a task an earlier instance did not reach.
+ */
+async function goOnWithWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEndRow): Promise<void> {
+  const reason = end.status === "done" ? "the workflow is done" : end.reason;
+  const nextActive = () => workflow.store.activeAuthorAndResearcherTasks()[0];
+  for (let task = nextActive(); task; task = nextActive()) {
+    await cancelTask(workflow, task, reason);
+  }
+  for (const task of workflow.store.activeRefinerRuns()) await cancelTask(workflow, task, reason);
+  await changeWorkflowStatus(workflow, end.status);
+  await announceWorkflowEnd(workflow, end);
+  workflow.store.dropWorkflowEnd();
+}
+
+/**
+ * Tell the channels how the workflow ended, and drop its code host bindings. A done workflow
+ * completes each session's issue.
+ */
+async function announceWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEndRow): Promise<void> {
+  const to = { answering: end.answering };
+  switch (end.status) {
+    case "done":
+      workflow.log(null, `finished: ${end.reason}`);
+      await workflow.post({ type: "done", result: end.reason }, to);
+      for (const target of workflow.state.reply_targets) {
+        if (target.source === "tracker") await workflow.notifier.moveIssue(target, "completed");
+      }
+      break;
+    case "failed":
+      await workflow.post({ type: "workflow_failed", reason: end.reason }, to);
+      break;
+    case "cancelled":
+      await workflow.post({ type: "info", text: `Cancelled. ${TAG_TO_START_AGAIN}` }, to);
+      break;
+    default: {
+      const unhandled: never = end.status;
+      throw new Error(`unknown workflow end status ${String(unhandled)}`);
+    }
+  }
+  await unbindCodeHost(workflow);
 }
 
 /** Point an external object (pull, branch, page) at this workflow so ingress can route to it. */

@@ -64,7 +64,7 @@ import {
 import { onFlushBoard, type BoardAlarm } from "./workflow/board/board";
 import { openWorkflowDb } from "./workflow/store/db";
 import { createWorkflow, eventRefusalOf, handleEvent } from "./workflow/inbound/events";
-import { onIdle } from "./workflow/lifecycle";
+import { armWorkflowEndAlarm, onIdle, resumeWorkflowEnd } from "./workflow/lifecycle";
 import type { ChecksAlarm } from "./workflow/refiner/checks-gate";
 import { recheckChecks } from "./workflow/refiner/checks-recheck";
 import { settleLostJudgeRuling } from "./workflow/refiner/loop";
@@ -198,6 +198,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
       (entry) => this.store.writeOutbox(entry),
     );
     await armLostCallsAlarm(this);
+    await armWorkflowEndAlarm(this);
     await resumeLostTurn(this);
     await provisionQueuedTasks(this);
     await settleIdleAuthors(this);
@@ -309,6 +310,10 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     return this.inSpan("alarm recheckChecks", null, () => recheckChecks(this, alarm));
   }
 
+  resumeWorkflowEnd(): Promise<void> {
+    return this.inSpan("alarm resumeWorkflowEnd", null, () => resumeWorkflowEnd(this));
+  }
+
   resumeLostCalls(alarm: LostCallsAlarm): Promise<void> {
     return this.inSpan("alarm resumeLostCalls", null, () => resumeLostCalls(this, alarm));
   }
@@ -414,6 +419,10 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     }
     const scheduled = await this.schedule(delaySeconds, method, payload);
     return scheduled.id;
+  }
+
+  async scheduleAlarmOnce(method: ScheduledMethod, payload: unknown): Promise<void> {
+    await this.schedule(0, method, payload, { idempotent: true });
   }
 
   async cancelAlarm(id: string): Promise<void> {

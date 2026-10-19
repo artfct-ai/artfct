@@ -615,6 +615,13 @@ export const MUTANTS: Mutant[] = [
     find: "  if (sandbox.first_prompt_at === null) {\n",
     replace: "  if (sandbox.generation <= 1) {\n",
   },
+  {
+    id: "W190",
+    invariant: "workflowLifecycle::aWorkflowEndReachesAFinishedStatus",
+    path: "src/workflow/lifecycle.ts",
+    find: '  await workflow.scheduleAlarmOnce("resumeWorkflowEnd", {});\n',
+    replace: "",
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */

@@ -65,6 +65,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -230,6 +236,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -395,6 +407,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -560,6 +578,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -779,6 +803,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -997,6 +1027,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -1216,6 +1252,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -1434,6 +1476,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -1652,6 +1700,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -1870,6 +1924,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
@@ -2088,6 +2148,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": true,

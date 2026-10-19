@@ -65,6 +65,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
@@ -230,6 +236,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
@@ -396,6 +408,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
@@ -562,6 +580,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": true,
@@ -727,6 +751,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
@@ -946,6 +976,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
@@ -1193,6 +1229,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
@@ -1492,6 +1534,12 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
@@ -1823,6 +1871,15 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "EndStored",
+          "value": {
+            "tag": "Cancelled",
+            "value": {
+              "#tup": []
+            }
+          }
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
@@ -2157,6 +2214,15 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "EndStored",
+          "value": {
+            "tag": "Cancelled",
+            "value": {
+              "#tup": []
+            }
+          }
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
@@ -2517,6 +2583,15 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "EndStored",
+          "value": {
+            "tag": "Cancelled",
+            "value": {
+              "#tup": []
+            }
+          }
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
@@ -2877,6 +2952,15 @@
         "restartAlarmFired": false,
         "ranAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "EndStored",
+          "value": {
+            "tag": "Cancelled",
+            "value": {
+              "#tup": []
+            }
+          }
         }
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": true,

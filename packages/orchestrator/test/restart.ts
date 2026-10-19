@@ -1,4 +1,5 @@
 import { resumeLostTurn } from "../src/agent/turn/watchdog";
+import { armWorkflowEndAlarm, resumeWorkflowEnd } from "../src/workflow/lifecycle";
 import { armLostCallsAlarm, resumeLostCalls, type LostCallsAlarm } from "../src/workflow/restart";
 import type { TaskAlarm } from "../src/workflow/task/harness/timers";
 import { settleIdleAuthors } from "../src/workflow/task/harness/turn";
@@ -9,14 +10,16 @@ import type { FakeRuntime } from "./fake-runtime";
 /** Run the start step of an instance the Durable Object restarted as. The alarms it arms stay armed. */
 export async function startRestartedInstance(restarted: FakeRuntime): Promise<void> {
   await armLostCallsAlarm(restarted);
+  await armWorkflowEndAlarm(restarted);
   await resumeLostTurn(restarted);
   await provisionQueuedTasks(restarted);
   await settleIdleAuthors(restarted);
 }
 
 /**
- * Run the start step of an instance the Durable Object restarted as. Fire the restart alarm and
- * each lost model turn it runs again, as the platform does. The settles of lost rulings stay armed.
+ * Run the start step of an instance the Durable Object restarted as. Fire the restart alarm, each
+ * lost model turn it runs again, and the alarm that goes on with a workflow end, as the platform
+ * does. The settles of lost rulings stay armed.
  */
 export async function runStartStep(restarted: FakeRuntime): Promise<void> {
   await startRestartedInstance(restarted);
@@ -27,5 +30,9 @@ export async function runStartStep(restarted: FakeRuntime): Promise<void> {
   for (const alarm of restarted.alarmsFor("runLostModelTurnAgain")) {
     await restarted.cancelAlarm(alarm.id);
     await runLostModelTurnAgain(restarted, alarm.payload as TaskAlarm);
+  }
+  for (const alarm of restarted.alarmsFor("resumeWorkflowEnd")) {
+    await restarted.cancelAlarm(alarm.id);
+    await resumeWorkflowEnd(restarted);
   }
 }
