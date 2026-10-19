@@ -442,6 +442,57 @@ export const MUTANTS: Mutant[] = [
       '    if (signal.aborted) {\n      await new Promise((resolve) => setTimeout(resolve, 5));\n      return "timed_out";\n    }\n  }\n  try {',
   },
   {
+    id: "W180",
+    invariant:
+      "agentTurns::aDecisionsCallFallsBackOnlyAfterEveryModelFailed (model runs before the runtime request lands)",
+    path: "src/agent/turn/turn.ts",
+    find: "  await compactIfLarge(workflow, turn, signal);\n  await runtimeRequest;\n",
+    replace: "  await compactIfLarge(workflow, turn, signal);\n",
+  },
+  {
+    id: "W181",
+    invariant: "agentTurns::aWaitingInboxRowHasATurnComing (restart of a finished workflow)",
+    path: "src/agent/turn/watchdog.ts",
+    find: "    await workflow.release();\n    await wakeForWaitingRows(workflow);\n",
+    replace: "    await workflow.release();\n",
+  },
+  {
+    id: "W182",
+    invariant: "behavior map A3: a revision request sends the held comments before the model runs",
+    path: "src/agent/turn/turn.ts",
+    find: "  if (reply?.asksForRevision) await sendHeldCommentsForRevision(workflow, decisions);\n",
+    replace: "",
+  },
+  {
+    id: "W183",
+    invariant: "behavior map A2: a message that names a model starts the runtime request",
+    path: "src/agent/turn/turn.ts",
+    find: "    reply?.namesModel ? requestedRuntime(workflow, message, decisions) : null,",
+    replace: "    null,",
+  },
+  {
+    id: "W184",
+    invariant: "agentTurns::theWorkingStatusNeverOutlivesItsTurn (watchdog of a finished workflow)",
+    path: "src/agent/turn/watchdog.ts",
+    find: "  if (isWorkflowFinished(workflow.state.status) && !answering.length) return workflow.release();\n",
+    replace: "  if (isWorkflowFinished(workflow.state.status) && !answering.length) return;\n",
+  },
+  {
+    id: "W185",
+    invariant: "agentTurns::aPersonsTurnNeverEndsUnanswered (sent held comments as the reply)",
+    path: "src/agent/turn/turn.ts",
+    find: '    sent.notes.map((note) => ({ role: "user" as const, content: noteMessage(note) })),\n  );\n',
+    replace:
+      '    sent.notes.map((note) => ({ role: "user" as const, content: noteMessage(note) })),\n  );\n  if (sent.prompted.length) workflow.patchState({ turn_board_changed: true });\n',
+  },
+  {
+    id: "W186",
+    invariant: "agentTurns::aPersonsTurnNeverEndsUnanswered (watchdog of a finished workflow)",
+    path: "src/agent/turn/watchdog.ts",
+    find: "  if (isWorkflowFinished(workflow.state.status) && !answering.length) return workflow.release();\n",
+    replace: "  if (isWorkflowFinished(workflow.state.status)) return workflow.release();\n",
+  },
+  {
     id: "R1",
     invariant: "routerBindings::messageAfterEndStartsNextWorkflow (claim)",
     path: "src/router/deliver.ts",
@@ -480,7 +531,8 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "F1",
-    invariant: "feedbackRouting::unadmittedFeedbackReachesNobody",
+    invariant:
+      "feedbackRouting::unadmittedFeedbackReachesNobody, reviewLoop::unadmittedFeedbackReachesNobody",
     path: "src/workflow/refiner/feedback.ts",
     find: '      return toTheAgent({ notes: [unadmittedFeedbackNote(wrote, screened)], wake: "human" });',
     replace:
@@ -805,6 +857,190 @@ export const MUTANTS: Mutant[] = [
     path: "src/agent/turn/watchdog.ts",
     find: "  workflow.patchState({\n    turn_started_at: null,\n    turn_watchdog: null,",
     replace: "  workflow.patchState({\n    turn_watchdog: null,",
+  },
+  {
+    id: "W120",
+    invariant: "workflowLifecycle::workflowWaitsOnlyWhileNoAuthorWorks",
+    path: "src/workflow/lifecycle.ts",
+    find: "  if (workflow.store.activeAuthorAndResearcherTasks().some((task) => BUSY.has(task.status))) return;\n",
+    replace: "",
+  },
+  {
+    id: "W121",
+    invariant: "workflowLifecycle::sleepMessageOnlyDuringAWorkflow",
+    path: "src/workflow/lifecycle.ts",
+    find: '  if (workflow.state.status !== "running") return;\n  workflow.log(null, "idle. going to sleep.");\n',
+    replace: '  workflow.log(null, "idle. going to sleep.");\n',
+  },
+  {
+    id: "W122",
+    invariant: "workflowLifecycle::aRestartDoesNotLoseAModelTurn",
+    path: "src/workflow/task/model-turn.ts",
+    find: '    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", author);\n',
+    replace: "",
+  },
+  {
+    id: "W123",
+    invariant:
+      "workflowLifecycle::aQueuedPromptReachesItsModelCallAuthor, reviewLoop::aQueuedPromptReachesItsModelCallAuthor",
+    path: "src/workflow/task/model-turn.ts",
+    find: "  if (task) await drainQueue(workflow, task);\n",
+    replace: "  if (task) return;\n",
+  },
+  {
+    id: "W124",
+    invariant: "workflowLifecycle::aSingleIssueWorkflowIsDoneWithItsSubjectsJob",
+    path: "src/workflow/subject.ts",
+    find: "  return stages.at(-1) === job.stage && isSingleIssueWorkflow(workflow);\n",
+    replace: "  return false;\n",
+  },
+  {
+    id: "W125",
+    invariant: "workflowLifecycle::subjectNeverChanges",
+    path: "src/workflow/subject.ts",
+    find: "  return `The subject of this workflow is ${shown}, and it never changes.",
+    replace:
+      "  return null;\n  return `The subject of this workflow is ${shown}, and it never changes.",
+  },
+  {
+    id: "W126",
+    invariant: "workflowLifecycle::aJobWorksOnlyOnIssuesOfItsSubject",
+    path: "src/workflow/subject.ts",
+    find: "  if (issueInSubject(subject, issue)) return null;\n",
+    replace: "  return null;\n",
+  },
+  {
+    id: "W127",
+    invariant: "workflowLifecycle::workflowKeepsItsDefinition",
+    path: "src/agent/tools/plan.ts",
+    find: "  if (stored === null || stored === named) return null;\n",
+    replace: "  return null;\n",
+  },
+  {
+    id: "W128",
+    invariant: "workflowLifecycle::aFailedCheckNeverAsksThePersonAgain",
+    path: "src/agent/tools/start/start.ts",
+    find: "${TELL_THE_CHECK_IS_UNAVAILABLE}",
+    replace: "${ASK_WHETHER_ACCEPTED}",
+  },
+  {
+    id: "W129",
+    invariant: "workflowLifecycle::finishedWorkflowKeepsItsStatus",
+    path: "src/workflow/lifecycle.ts",
+    find: "  if (workflowEnding(workflow) || isWorkflowFinished(workflow.state.status)) return false;\n",
+    replace: "  if (workflowEnding(workflow)) return false;\n",
+  },
+  {
+    id: "W130",
+    invariant: "workflowLifecycle::anAcceptedArtifactNeverMovesBack",
+    path: "src/workflow/refiner/outcome.ts",
+    find: '  if (artifact.status !== "drafted") return;\n  const revision = await artifactRevision(workflow, artifact);\n  if (!workflow.store.advanceArtifact(jobId, ["drafted"], "ready")) return;\n',
+    replace:
+      '  if (artifact.status === "ready") return;\n  const revision = await artifactRevision(workflow, artifact);\n  if (!workflow.store.advanceArtifact(jobId, ["drafted", "accepted"], "ready")) return;\n',
+  },
+  {
+    id: "W131",
+    invariant: "workflowLifecycle::artifactStatusMovesAreLegal",
+    path: "src/workflow/refiner/outcome.ts",
+    find: '  if (artifact.status !== "drafted") return;\n  const revision = await artifactRevision(workflow, artifact);\n  if (!workflow.store.advanceArtifact(jobId, ["drafted"], "ready")) return;\n',
+    replace:
+      '  if (artifact.status === "ready") return;\n  const revision = await artifactRevision(workflow, artifact);\n  if (!workflow.store.advanceArtifact(jobId, ["drafted", "removed"], "ready")) return;\n',
+  },
+  {
+    id: "W132",
+    invariant: "harnessSession::inReviewTaskHasAnArtifact",
+    path: "src/workflow/artifact.ts",
+    find: "  if (!workflow.store.artifact(task.job_id)) return;\n",
+    replace: "",
+  },
+  {
+    id: "W133",
+    invariant: "workflowLifecycle::inReviewTaskHasAnArtifact",
+    path: "src/workflow/task/model-turn.ts",
+    find: '    status: pageOut ? "in_review" : "working",\n',
+    replace: '    status: "in_review",\n',
+  },
+  {
+    id: "W134",
+    invariant: "workflowLifecycle::aModelCallAuthorWorksOnlyWhileItsCallIsOut",
+    path: "src/workflow/task/model-turn.ts",
+    find: "      if (current()) workflow.store.updateTask(taskId, { model_turn_id: null });\n",
+    replace: "",
+  },
+  {
+    id: "W135",
+    invariant: "reviewLoop::oneUnfinishedRefinerRunPerArtifact",
+    path: "src/workflow/refiner/loop.ts",
+    find: "  workflow.patchState({ task_seq: sequence });\n  workflow.store.setArtifactRefinerRun(author.job_id, refinerRunId);\n",
+    replace: "  workflow.patchState({ task_seq: sequence });\n",
+  },
+  {
+    id: "W136",
+    invariant: "reviewLoop::refinerRunIsDoneOnlyAfterItsTurnEnded",
+    path: "src/workflow/refiner/loop.ts",
+    find: '  workflow.store.setArtifactRefinerRun(author.job_id, null);\n  if (artifact.status !== "drafted") {\n    workflow.log(\n      author.task_id,\n      `reviewer run dropped',
+    replace:
+      '  workflow.store.updateTask(reviewer.task_id, { status: "done" });\n  workflow.store.setArtifactRefinerRun(author.job_id, null);\n  if (artifact.status !== "drafted") {\n    workflow.log(\n      author.task_id,\n      `reviewer run dropped',
+  },
+  {
+    id: "W137",
+    invariant: "reviewLoop::authorGetsEveryPageFinding",
+    path: "src/workflow/refiner/outcome.ts",
+    find: "  const total = review.findings.length;\n",
+    replace:
+      '  if (artifact.ref.kind === "page") return;\n  const total = review.findings.length;\n',
+  },
+  {
+    id: "W138",
+    invariant: "reviewLoop::pageReviewPostsEachFindingOnce",
+    path: "src/artifact/page-review.ts",
+    find: "    pageFindings: review.findings.filter((finding) => !inline.has(finding)),\n",
+    replace: "    pageFindings: review.findings,\n",
+  },
+  {
+    id: "W139",
+    invariant: "reviewLoop::aJudgeRejectionPostsItsReasonOnce",
+    path: "src/workflow/refiner/loop.ts",
+    find: "  if (support.postRejection) await support.postRejection(artifact.ref, signedReason);\n",
+    replace:
+      "  if (support.postRejection) {\n    await support.postRejection(artifact.ref, signedReason);\n    await support.postRejection(artifact.ref, signedReason);\n  }\n",
+  },
+  {
+    id: "W140",
+    invariant: "reviewLoop::deliveredToHumansIsNeverCleared",
+    path: "src/workflow/store/records.ts",
+    find: "    const firstAt = this.artifact(jobId)?.delivered_to_humans_at ?? at;\n",
+    replace: "    const firstAt = this.artifact(jobId)?.delivered_to_humans_at ? null : at;\n",
+  },
+  {
+    id: "W141",
+    invariant:
+      "reviewLoop::aRefinerRunRestartsAtMostTwice, workflowLifecycle::taskRestartsAtMostTwice",
+    path: "src/workflow/lifecycle.ts",
+    find: "  if (current.restarts >= MAX_RESTARTS) return failTask(workflow, task, reason);\n",
+    replace: "  if (current.restarts > MAX_RESTARTS) return failTask(workflow, task, reason);\n",
+  },
+  {
+    id: "W142",
+    invariant: "reviewLoop::aFinishedRefinerRunKeepsItsStatus",
+    path: "src/workflow/refiner/loop.ts",
+    find: '  if (isTaskFinished(run.status)) return;\n  workflow.store.updateTask(run.task_id, { status: "done" });\n',
+    replace: '  workflow.store.updateTask(run.task_id, { status: "done" });\n',
+  },
+  {
+    id: "W143",
+    invariant: "reviewLoop::anEndedAuthorEndsItsReview",
+    path: "src/workflow/lifecycle.ts",
+    find: "  await cancelRefinerRunOf(workflow, jobId, options.reason);\n  await markArtifactReady(workflow, jobId, options.close);\n",
+    replace: "  await markArtifactReady(workflow, jobId, options.close);\n",
+  },
+  {
+    id: "W144",
+    invariant: "reviewLoop::aPolisherEndsDoneOnlyWhenItsChecksOpen",
+    path: "src/workflow/refiner/polish.ts",
+    find: '    case "waiting":\n    case "sent_back":\n',
+    replace:
+      '    case "waiting":\n      return endPolisherRun(workflow, polisher, { ended: "turn" });\n    case "sent_back":\n',
   },
 ];
 
