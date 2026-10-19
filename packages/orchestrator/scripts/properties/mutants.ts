@@ -1144,6 +1144,13 @@ export const MUTANTS: Mutant[] = [
       '    case "waiting":\n      return endPolisherRun(workflow, polisher, { ended: "turn" });\n    case "sent_back":\n',
   },
   {
+    id: "W235",
+    invariant: "feedbackRouting::everyFeedbackGetsOneRoutingDecision (bare mention)",
+    path: "src/workflow/refiner/feedback.ts",
+    find: 'so nothing was sent. Ask them what they want.`,\n      ],\n      wake: "human",',
+    replace: 'so nothing was sent. Ask them what they want.`,\n      ],\n      wake: "none",',
+  },
+  {
     id: "W265",
     invariant: "harnessSession::staleAlarmIsIgnored (hello timeout)",
     path: "src/workflow/task/harness/timers.ts",

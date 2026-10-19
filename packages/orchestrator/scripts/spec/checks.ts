@@ -14,6 +14,8 @@ export type SpecChecks = {
   witnesses: Record<string, string[]>;
   /** Longer traces for a setup whose witnesses need more steps than the default. */
   maxSteps?: Record<string, number>;
+  /** More witness samples for a setup whose rarest witness needs them to be reached every run. */
+  witnessSamples?: Record<string, number>;
   tlc?: {
     ignoredVariables: string[];
     bounds: Record<string, Record<TlcDepth, TlcBounds>>;

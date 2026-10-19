@@ -321,7 +321,8 @@ async function sendFeedbackToAuthor(
 /**
  * A person mentioned the document user in a comment on the page. The held comments the host
  * shows go out with this one as one feedback, each labeled with its comment so the author can
- * reply to it. When the host cannot be read, they all stay held.
+ * reply to it. When the host cannot be read, they all stay held. A bare mention with nothing
+ * held goes to the agent, which asks the person what they want.
  */
 async function onMentioned(
   workflow: WorkflowRuntime,
@@ -360,9 +361,9 @@ async function onMentioned(
     if (artifact) await workflow.artifact(kind).acknowledge(feedback.handles, artifact.ref);
     const applied: Applied = {
       notes: [
-        `${who} mentioned you on the page of job ${task.job_id}. No comments are held and the comment says nothing else, so nothing was sent.`,
+        `${who} mentioned you on the page of job ${task.job_id}. No comments are held and the comment says nothing else, so nothing was sent. Ask them what they want.`,
       ],
-      wake: "none",
+      wake: "human",
     };
     return { applied, landsUnder: key };
   }

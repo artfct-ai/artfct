@@ -3,7 +3,8 @@
 /// to the author, to nobody, or to the agent, which tells the humans. A failed decisions call
 /// routes to the agent. A host delivers a feedback, and the workflow routes the delivery later, so
 /// other steps land between them. A restart fails every delivery in flight, and a page host
-/// delivers it again. A feedback is marked seen with its routing decision.
+/// delivers it again. A feedback is marked seen with its routing decision. A bare mention with
+/// nothing held is a decision for the agent, which asks the person what they want.
 module feedbackRouting {
   /// The artifact the author works on.
   type ArtifactKind = PullRequest | Page
@@ -11,7 +12,8 @@ module feedbackRouting {
   /// What a person posts. A review comment is a person's review, review comment, or comment on
   /// the pull request. An app review is a review an app files on it, which the screen reads
   /// first. A page mention is a page comment that mentions the bot. It sends the held comments.
-  type FeedbackForm = ReviewComment | AppReview | PageMention
+  /// A bare mention is a page mention that says nothing besides the mention.
+  type FeedbackForm = ReviewComment | AppReview | PageMention | BareMention
 
   /// What the screen decides about the text it reads. Unreadable when the decisions call fails.
   type ScreenOutcome = Admitted | NotAdmitted | Unreadable
@@ -53,6 +55,7 @@ module feedbackRouting {
     | SentToAuthorNote
     | AsksForNothingNote
     | ForTheAgentNote
+    | BareMentionNote
 
   /// Whether the note wakes the agent to tell the humans.
   type Wake = NoWake | WakesForTheHumans
@@ -125,6 +128,8 @@ module feedbackRouting {
     heldCommentsCannotBeRead: bool,
     aMentionCarriesTheHeldComments: bool,
     aMentionWithNothingHeldIsNotScreened: bool,
+    aBareMentionGoesToTheAgent: bool,
+    aBareMentionSendsTheHeldComments: bool,
     aRedeliveryAfterARestartRoutes: bool,
     aDuplicateDeliveryIsDropped: bool,
   }
@@ -162,17 +167,21 @@ module feedbackRouting {
     { promptsAdded: 0, prompted: Set(), note: NoNote, wake: NoWake, heard: Set() }
 
   pure def formsOf(kind: ArtifactKind): Set[FeedbackForm] =
-    if (kind == PullRequest) Set(ReviewComment, AppReview) else Set(PageMention)
+    if (kind == PullRequest) Set(ReviewComment, AppReview) else Set(PageMention, BareMention)
 
   pure def heldReadsOf(kind: ArtifactKind): Set[HeldRead] =
     if (kind == Page) Set(HeldReadable, HeldUnreadable) else Set(HeldReadable)
 
-  /// The words of the feedback itself.
-  pure def ownWords(form: FeedbackForm): Words = if (form == AppReview) AppWords else PersonWords
+  /// The words of the feedback itself. A bare mention has none.
+  pure def ownWords(form: FeedbackForm): Set[Words] = match form {
+    | AppReview => Set(AppWords)
+    | BareMention => Set()
+    | _ => Set(PersonWords)
+  }
 
   /// The words the agent reads with the event itself. An app review's text is left out.
   pure def eventWords(form: FeedbackForm): Set[Words] =
-    if (form == AppReview) Set() else Set(PersonWords)
+    if (form == AppReview) Set() else ownWords(form)
 
   pure def decisionOf(answer: RouteAnswer): RoutingDecision = match answer {
     | ForTheAuthor => ToTheAuthor
@@ -188,11 +197,13 @@ module feedbackRouting {
     else { ...author, promptsWaiting: author.promptsWaiting + 1 }
 
   /// What one feedback does to the world, and what it shows. A page mention that does not reach
-  /// the author leaves itself held, and only the author route sends the held comments.
+  /// the author leaves itself held, and only the author route sends the held comments. A bare
+  /// mention with nothing held is marked read and goes to the agent. It stays held when the host
+  /// does not mark it read.
   pure def delivered(before: World, picks: Picks): { after: World, arrival: Arrival } = {
-    val mention = picks.form == PageMention
+    val mention = picks.form.in(Set(PageMention, BareMention))
     val carriesHeld = mention and before.heldOnPage
-    val read = Set(ownWords(picks.form)).union(if (carriesHeld) Set(HeldWords) else Set())
+    val read = ownWords(picks.form).union(if (carriesHeld) Set(HeldWords) else Set())
     val screened =
       if (picks.form == AppReview) Set(AppWords) else if (carriesHeld) Set(HeldWords) else Set()
     val heardWithNotes = eventWords(picks.form).union(read)
@@ -206,6 +217,11 @@ module feedbackRouting {
       {
         after: left,
         arrival: { ...arrival, shown: { ...toTheHumans, note: HeldUnreadableNote, heard: eventWords(picks.form) } },
+      }
+    else if (picks.form == BareMention and not(before.heldOnPage))
+      {
+        after: { ...before, heldOnPage: picks.ack == AckFails },
+        arrival: { ...arrival, shown: { ...toTheHumans, note: BareMentionNote } },
       }
     else if (screened != Set() and picks.screen != Admitted)
       {
@@ -299,6 +315,8 @@ module feedbackRouting {
         aMentionCarriesTheHeldComments: note == SentToAuthorNote and arrival.shown.prompted.contains(HeldWords),
         aMentionWithNothingHeldIsNotScreened:
           picks.form == PageMention and not(before.heldOnPage) and picks.screen != Admitted and note == SentToAuthorNote,
+        aBareMentionGoesToTheAgent: note == BareMentionNote,
+        aBareMentionSendsTheHeldComments: picks.form == BareMention and note == SentToAuthorNote,
         aRedeliveryAfterARestartRoutes: redelivered and arrival.onARunningWorkflow,
         aDuplicateDeliveryIsDropped: false,
       }
@@ -327,6 +345,8 @@ module feedbackRouting {
     heldCommentsCannotBeRead: false,
     aMentionCarriesTheHeldComments: false,
     aMentionWithNothingHeldIsNotScreened: false,
+    aBareMentionGoesToTheAgent: false,
+    aBareMentionSendsTheHeldComments: false,
     aRedeliveryAfterARestartRoutes: false,
     aDuplicateDeliveryIsDropped: false,
   }
@@ -607,6 +627,11 @@ module feedbackRouting {
   val heldCommentsCannotBeRead: bool = stepWitnesses.heldCommentsCannotBeRead
   val aMentionCarriesTheHeldComments: bool = stepWitnesses.aMentionCarriesTheHeldComments
   val aMentionWithNothingHeldIsNotScreened: bool = stepWitnesses.aMentionWithNothingHeldIsNotScreened
+
+  /// Witness for `everyFeedbackGetsOneRoutingDecision`: a bare mention with nothing held got the
+  /// note that wakes the agent.
+  val aBareMentionGoesToTheAgent: bool = stepWitnesses.aBareMentionGoesToTheAgent
+  val aBareMentionSendsTheHeldComments: bool = stepWitnesses.aBareMentionSendsTheHeldComments
 
   /// Witness for `everyFeedbackIsRoutedOnce`: a delivery that a restart cut off routed when the host
   /// delivered it again.

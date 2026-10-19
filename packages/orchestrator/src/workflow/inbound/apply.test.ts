@@ -397,9 +397,12 @@ describe("applyEvent", () => {
       ),
     );
 
-    it("sends nothing and does not wake the agent", () =>
+    it("sends nothing and wakes the agent to ask the person what they want", () =>
       mentioned(({ workflow, result }) => {
-        expect(result).toMatchObject({ wake: "none" });
+        expect(result).toMatchObject({
+          notes: [expect.stringContaining("Ask them what they want.")],
+          wake: "human",
+        });
         expect(workflow.store.queue()).toEqual([]);
       }));
 
