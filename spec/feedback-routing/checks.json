@@ -1,5 +1,9 @@
 {
-  "invariants": ["everyFeedbackGetsOneRoutingDecision", "unadmittedFeedbackReachesNobody"],
+  "invariants": [
+    "everyFeedbackGetsOneRoutingDecision",
+    "unadmittedFeedbackReachesNobody",
+    "everyFeedbackIsRoutedOnce"
+  ],
   "mainMinutes": {
     "pullRequestFeedback": 0.2,
     "pageFeedback": 0.2
@@ -20,6 +24,8 @@
       "aFinishedAuthorGetsNothing",
       "anEndedWorkflowIgnoresIt",
       "anUnrecordedPullRequestGetsIt",
+      "aDuplicateDeliveryIsDropped",
+      "aRestartLosesAPullRequestFeedback",
       "theRoutingEnds"
     ],
     "pageFeedback": [
@@ -37,6 +43,8 @@
       "heldCommentsCannotBeRead",
       "aMentionCarriesTheHeldComments",
       "aMentionWithNothingHeldIsNotScreened",
+      "aRedeliveryAfterARestartRoutes",
+      "aDuplicateDeliveryIsDropped",
       "theRoutingEnds"
     ]
   },
@@ -44,12 +52,28 @@
     "ignoredVariables": ["lastFeedback", "stepWitnesses"],
     "bounds": {
       "pullRequestFeedback": {
-        "pr": { "feedbacksArrived": 3 },
-        "nightly": { "feedbacksArrived": 4 }
+        "pr": {
+          "feedbacksArrived": 3,
+          "instanceRestartCount": 1,
+          "deliveriesInFlight": 2
+        },
+        "nightly": {
+          "feedbacksArrived": 4,
+          "instanceRestartCount": 2,
+          "deliveriesInFlight": 3
+        }
       },
       "pageFeedback": {
-        "pr": { "feedbacksArrived": 3 },
-        "nightly": { "feedbacksArrived": 4 }
+        "pr": {
+          "feedbacksArrived": 3,
+          "instanceRestartCount": 1,
+          "deliveriesInFlight": 2
+        },
+        "nightly": {
+          "feedbacksArrived": 4,
+          "instanceRestartCount": 2,
+          "deliveriesInFlight": 3
+        }
       }
     }
   }

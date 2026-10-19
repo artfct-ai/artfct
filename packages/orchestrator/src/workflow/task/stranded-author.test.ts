@@ -9,7 +9,7 @@ import {
 } from "../../../test/fake-runtime";
 import { freshRuntime } from "../../../test/fresh-runtime";
 import type { Scenario } from "../../../test/scenario";
-import { runStartStep } from "../../../test/restart";
+import { runStartStep, startRestartedInstance } from "../../../test/restart";
 import { WorkflowWorld } from "../../../test/workflow-world";
 import {
   agentPromptsAuthor,
@@ -19,7 +19,9 @@ import { CLOSING_TEXT_MARKER } from "../../prompts/model-author-prompt";
 import { systemPrompt } from "../../agent/prompt/system-prompt";
 import { runModelAuthorTurn } from "./model-author";
 import { promptTask } from "./harness/prompt-queue";
-import { onModelTurnDeadline, type ModelTurnAlarm } from "./model-turn";
+import { onModelTurnDeadline, runLostModelTurnAgain, type ModelTurnAlarm } from "./model-turn";
+import { resumeLostCalls, type LostCallsAlarm } from "../restart";
+import { stopAuthor } from "../inbound/controls";
 
 const TASK = "wf_x.1";
 const JOB = "wf_x-1";
@@ -78,6 +80,33 @@ function restartedDuring(cut: Scenario<CutTurn>): Scenario<FakeRuntime> {
       await runStartStep(restarted);
       await run(restarted);
     });
+}
+
+type WaitingRerun = { workflow: FakeRuntime; restartAlarm: LostCallsAlarm };
+
+const waitingToRunAgain: Scenario<WaitingRerun> = (run) =>
+  revisingWith(0)(async ({ workflow }) => {
+    const restarted = workflow.restarted();
+    restarted.modelInstance = new EchoModel(REVISE_ANSWER);
+    await startRestartedInstance(restarted);
+    const [alarm] = restarted.alarmsFor("resumeLostCalls");
+    await restarted.cancelAlarm(alarm!.id);
+    const restartAlarm = alarm!.payload as LostCallsAlarm;
+    await resumeLostCalls(restarted, restartAlarm);
+    await run({ workflow: restarted, restartAlarm });
+  });
+
+function runAgainAlarmsOf(workflow: FakeRuntime): ModelTurnAlarm[] {
+  return workflow
+    .alarmsFor("runLostModelTurnAgain")
+    .map((alarm) => alarm.payload as ModelTurnAlarm);
+}
+
+async function fireRunAgainAlarms(workflow: FakeRuntime): Promise<void> {
+  for (const alarm of workflow.alarmsFor("runLostModelTurnAgain")) {
+    await workflow.cancelAlarm(alarm.id);
+    await runLostModelTurnAgain(workflow, alarm.payload as ModelTurnAlarm);
+  }
 }
 
 function jobLineOf(workflow: FakeRuntime): string | undefined {
@@ -223,4 +252,75 @@ describe("a restart during the model call of a revise the agent asked for", () =
     );
     expect(fakeDocumentsOf(world.workflow).argsOf("updatePageContent").length).toBeGreaterThan(0);
   });
+});
+
+describe("a restarted author whose lost model turn waits to run again", () => {
+  it("holds a new turn id that its run-again alarm names", () =>
+    waitingToRunAgain(({ workflow, restartAlarm }) => {
+      const task = workflow.store.requireTask(TASK);
+      expect(runAgainAlarmsOf(workflow)).toEqual([{ task_id: TASK, turn_id: task.model_turn_id! }]);
+      expect(restartAlarm.model_turns.map((turn) => turn.turn_id)).not.toContain(
+        task.model_turn_id,
+      );
+    }));
+
+  it("stays quiet after a stop when the run-again alarm fires", () =>
+    waitingToRunAgain(async ({ workflow }) => {
+      await stopAuthor(workflow, workflow.store.requireTask(TASK));
+      await fireRunAgainAlarms(workflow);
+      expect(workflow.store.requireTask(TASK)).toMatchObject({
+        status: "in_review",
+        model_turn_id: null,
+      });
+      expect(fakeDocumentsOf(workflow).argsOf("updatePageContent")).toEqual([]);
+      expect(pageTextOf(workflow)).toBe(FIRST_PAGE);
+    }));
+
+  it("leaves the task as it was when the restart alarm fires again", () =>
+    waitingToRunAgain(async ({ workflow, restartAlarm }) => {
+      const task = workflow.store.requireTask(TASK);
+      await resumeLostCalls(workflow, restartAlarm);
+      expect(workflow.store.requireTask(TASK)).toEqual(task);
+      expect(runAgainAlarmsOf(workflow)).toHaveLength(1);
+    }));
+
+  it("leaves the task as it was when the deadline of the lost turn fires", () =>
+    waitingToRunAgain(async ({ workflow, restartAlarm }) => {
+      const task = workflow.store.requireTask(TASK);
+      await onModelTurnDeadline(workflow, restartAlarm.model_turns[0]!);
+      expect(workflow.store.requireTask(TASK)).toEqual(task);
+      expect(workflow.store.queue().map((row) => row.text)).toEqual([FEEDBACK]);
+    }));
+
+  it("counts another restart when a second restart lands first", () =>
+    waitingToRunAgain(async ({ workflow }) => {
+      const restartedAgain = workflow.restarted();
+      await runStartStep(restartedAgain);
+      expect(restartedAgain.store.requireTask(TASK)).toMatchObject({
+        status: "in_review",
+        restarts: 2,
+        model_turn_id: null,
+      });
+      expect(fakeDocumentsOf(restartedAgain).argsOf("updatePageContent")).toHaveLength(1);
+    }));
+});
+
+describe("a run-again alarm armed before run-again alarms named a turn", () => {
+  it("revises the page of an author the old restart alarm put back in review", () =>
+    revisingWith(0)(async ({ workflow }) => {
+      const restarted = workflow.restarted();
+      restarted.modelInstance = new EchoModel(REVISE_ANSWER);
+      restarted.store.updateTask(TASK, { model_turn_id: null, restarts: 1, status: "in_review" });
+      await runLostModelTurnAgain(restarted, { task_id: TASK });
+      expect(restarted.store.queue()).toEqual([]);
+      expect(pageTextOf(restarted)).toBe(REVISED_PAGE);
+    }));
+
+  it("leaves an author that holds a turn as it was", () =>
+    waitingToRunAgain(async ({ workflow }) => {
+      const task = workflow.store.requireTask(TASK);
+      await runLostModelTurnAgain(workflow, { task_id: TASK });
+      expect(workflow.store.requireTask(TASK)).toEqual(task);
+      expect(fakeDocumentsOf(workflow).argsOf("updatePageContent")).toEqual([]);
+    }));
 });

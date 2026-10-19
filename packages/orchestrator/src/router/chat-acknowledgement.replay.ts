@@ -28,9 +28,8 @@ function stepName(step: TraceStep): string {
 async function replayTrace(setup: SpecSetup, trace: TraceStep[]): Promise<void> {
   const [initial, ...steps] = trace;
   if (!initial) throw new Error(`${setup} produced an empty trace`);
-  jest.useFakeTimers();
+  const replay = new ChatAcknowledgementReplay();
   try {
-    const replay = new ChatAcknowledgementReplay();
     const taken = ["init"];
     const divergence = (step: TraceStep) =>
       `${setup} diverged after ${taken.join(" -> ")}\nspec state: ${JSON.stringify(step.view)}`;
@@ -41,8 +40,7 @@ async function replayTrace(setup: SpecSetup, trace: TraceStep[]): Promise<void> 
       expect(replay.project(), divergence(step)).toEqual(step.view);
     }
   } finally {
-    jest.clearAllTimers();
-    jest.useRealTimers();
+    replay.close();
   }
 }
 
