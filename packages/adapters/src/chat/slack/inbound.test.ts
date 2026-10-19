@@ -273,6 +273,34 @@ describe("slack mentions", () => {
   });
 });
 
+describe("a mention another bot wrote", () => {
+  let lookup: ReturnType<typeof fakeLookup>;
+  let normalized: ChatInbound;
+
+  beforeEach(async () => {
+    lookup = fakeLookup("1700.1");
+    normalized = await normalize(
+      {
+        type: "app_mention",
+        user: "U2",
+        bot_id: "B2",
+        channel: "C1",
+        ts: "1700.1",
+        text: "<@UBOT> fix the test",
+      },
+      { chat: lookup.chat },
+    );
+  });
+
+  it("starts nothing", () => {
+    expect(normalized).toEqual({ ignore: "bot mention" });
+  });
+
+  it("looks nobody up", () => {
+    expect(lookup.seen.userIds).toEqual([]);
+  });
+});
+
 describe("a slack sender who is not authorized", () => {
   const unauthorized = { resolveActor: fakeUserActor({ authorized: false }) };
   const ignored = { ignore: "sender is not authorized" };
