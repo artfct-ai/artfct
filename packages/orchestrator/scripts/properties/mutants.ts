@@ -1482,6 +1482,30 @@ export const MUTANTS: Mutant[] = [
     replace: "  return !workflow.store.eventSeen(id);\n",
   },
   {
+    id: "W214",
+    invariant:
+      "harnessSession::anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone (empty turn with open todos)",
+    path: "src/workflow/task/author-turn.ts",
+    find: '    unfinished && !workflow.store.artifact(author.job_id) ? "stopped_early" : "finished";',
+    replace: '    "finished";',
+  },
+  {
+    id: "W215",
+    invariant:
+      "harnessSession::anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone (decisions asked about an empty turn)",
+    path: "src/workflow/task/author-turn.ts",
+    find: "  const answered = author.summary.trim() ? await askAuthorTurn(workflow, author) : null;",
+    replace: "  const answered = await askAuthorTurn(workflow, author);",
+  },
+  {
+    id: "W276",
+    invariant:
+      "harnessSession::anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone (todo list not stored)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: "    const stored = workflow.store.setTodos(task.task_id, { entries });",
+    replace: "    const stored = false;",
+  },
+  {
     id: "W240",
     invariant: "workflowLifecycle::oneJobAtATimePerIssueUntilOneCompletes",
     path: "src/agent/tools/start/start.ts",

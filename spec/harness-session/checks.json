@@ -176,7 +176,9 @@
       "aResumePromptIsChosen",
       "aStaleOutcomeCheckIsDropped",
       "theAgentWakesForAnIdleHarness",
-      "aHarnessExitRestartsAnIdleAuthor"
+      "aHarnessExitRestartsAnIdleAuthor",
+      "anEmptyTurnStopsEarly",
+      "theAgentWakesAfterAnEmptyTurn"
     ],
     "jobOnABranch": [
       "theProvisionAlarmFires",
