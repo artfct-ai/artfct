@@ -415,7 +415,7 @@ export const MUTANTS: Mutant[] = [
     id: "A4",
     invariant: "agentTurns::aWaitingInboxRowHasATurnComing",
     path: "src/agent/turn/watchdog.ts",
-    find: '    if (waking) await workflow.scheduleAlarm(0, "runAgent", {});\n',
+    find: '  if (waking) await workflow.scheduleAlarm(0, "runAgent", {});\n',
     replace: "",
   },
   {
@@ -437,9 +437,9 @@ export const MUTANTS: Mutant[] = [
     id: "A7",
     invariant: "agentTurns::aWaitingPersonHearsBackByTheTimeout (waits after the deadline)",
     path: "src/agent/turn/turn.ts",
-    find: '    if (signal.aborted) return "timed_out";\n  }\n  try {',
+    find: '    if (run.signal.aborted) return "timed_out";\n  }\n  try {',
     replace:
-      '    if (signal.aborted) {\n      await new Promise((resolve) => setTimeout(resolve, 5));\n      return "timed_out";\n    }\n  }\n  try {',
+      '    if (run.signal.aborted) {\n      await new Promise((resolve) => setTimeout(resolve, 5));\n      return "timed_out";\n    }\n  }\n  try {',
   },
   {
     id: "W180",
@@ -448,6 +448,35 @@ export const MUTANTS: Mutant[] = [
     path: "src/agent/turn/turn.ts",
     find: "  await compactIfLarge(workflow, turn, signal);\n  await runtimeRequest;\n",
     replace: "  await compactIfLarge(workflow, turn, signal);\n",
+  },
+  {
+    id: "W210",
+    invariant: "agentTurns::aWaitingInboxRowHasATurnComing (backup alarm)",
+    path: "src/agent/turn/tell.ts",
+    find: '  const backup = await workflow.scheduleAlarm(0, "runAgent", {});\n',
+    replace: '  const backup = "no backup alarm";\n',
+  },
+  {
+    id: "W211",
+    invariant: "agent turns replay: the turn lane cancels its backup alarm",
+    path: "src/agent/turn/tell.ts",
+    find: "    .then(() => workflow.cancelAlarm(backup))\n",
+    replace: "    .then(() => backup)\n",
+  },
+  {
+    id: "W212",
+    invariant: "agentTurns::theWorkingStatusNeverOutlivesItsTurn (release of a finished workflow)",
+    path: "src/workflow/posts.ts",
+    find: '    if (target.source === "chat") await workflow.notifier.release(target, finished, title);\n',
+    replace:
+      '    if (target.source === "chat") await workflow.notifier.release(target, false, title);\n',
+  },
+  {
+    id: "W213",
+    invariant: "agent turns replay: each step shows the chat thread its working status",
+    path: "src/workflow/posts.ts",
+    find: '    if (target.source === "chat") await workflow.notifier.working(target, text);\n',
+    replace: '    if (target.source === "chat") return;\n',
   },
   {
     id: "W181",
@@ -460,7 +489,7 @@ export const MUTANTS: Mutant[] = [
     id: "W182",
     invariant: "behavior map A3: a revision request sends the held comments before the model runs",
     path: "src/agent/turn/turn.ts",
-    find: "  if (reply?.asksForRevision) await sendHeldCommentsForRevision(workflow, decisions);\n",
+    find: "    await sendHeldCommentsForRevision(workflow, decisions);\n",
     replace: "",
   },
   {
@@ -491,6 +520,67 @@ export const MUTANTS: Mutant[] = [
     path: "src/agent/turn/watchdog.ts",
     find: "  if (isWorkflowFinished(workflow.state.status) && !answering.length) return workflow.release();\n",
     replace: "  if (isWorkflowFinished(workflow.state.status)) return workflow.release();\n",
+  },
+  {
+    id: "W250",
+    invariant: "agentTurns::aStaleTurnAlarmChangesNothing (heads-up)",
+    path: "src/agent/turn/watchdog.ts",
+    find: "export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n  if (workflow.state.turn_started_at !== alarm.started_at) return;\n",
+    replace:
+      "export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n",
+  },
+  {
+    id: "W251",
+    invariant: "agentTurns::aStaleTurnAlarmChangesNothing (watchdog)",
+    path: "src/agent/turn/watchdog.ts",
+    find: "export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n  if (workflow.state.turn_started_at !== alarm.started_at) return;\n",
+    replace:
+      "export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n",
+  },
+  {
+    id: "W252",
+    invariant: "agentTurns::theHeadsUpPostsOnceToChatInAPersonsTurn (a turn nobody wrote in)",
+    path: "src/agent/turn/watchdog.ts",
+    find: "  const headsUp = workflow.transcript.takenMessages().length\n",
+    replace: "  const headsUp = true\n",
+  },
+  {
+    id: "W253",
+    invariant: "agentTurns::theHeadsUpPostsOnceToChatInAPersonsTurn (chat threads only)",
+    path: "src/agent/turn/watchdog.ts",
+    find: '    if (target.source !== "chat") continue;\n',
+    replace: "",
+  },
+  {
+    id: "W254",
+    invariant: "agentTurns::theHeadsUpPostsOnceToChatInAPersonsTurn (once per turn)",
+    path: "src/agent/turn/watchdog.ts",
+    find: '  workflow.patchState({ turn_heads_up: null });\n  workflow.log(null, "agent turn still running, heads-up posted");\n',
+    replace:
+      '  workflow.patchState({\n    turn_heads_up: await workflow.scheduleAlarm(HEADS_UP_SECONDS, "onTurnHeadsUp", alarm),\n  });\n',
+  },
+  {
+    id: "W255",
+    invariant: "agentTurns::aPersonHearsBackBeforeAnyWork (held comments of a revision request)",
+    path: "src/agent/turn/turn.ts",
+    find: "    await acknowledgeRevisionRequest(workflow, turn.answering, acknowledgement);\n",
+    replace: "",
+  },
+  {
+    id: "W256",
+    invariant:
+      "agentTurns::aPersonsMessageLeavesTheInboxOnlyWithItsTurn (restart of a finished workflow)",
+    path: "src/agent/turn/watchdog.ts",
+    find: "  if (isWorkflowFinished(workflow.state.status) && !workflow.transcript.takenMessages().length) {\n",
+    replace: "  if (isWorkflowFinished(workflow.state.status)) {\n",
+  },
+  {
+    id: "W257",
+    invariant:
+      "behavior map A3: the agent hears that held comments stay held when their author finished",
+    path: "src/workflow/refiner/held-comments.ts",
+    find: "    if (carried === null) {\n      sent.notes.push(\n",
+    replace: "    if (carried === null) {\n      continue;\n      sent.notes.push(\n",
   },
   {
     id: "R1",
@@ -530,6 +620,13 @@ export const MUTANTS: Mutant[] = [
     replace: "    if (!row) {",
   },
   {
+    id: "W218",
+    invariant: "routerBindings::aWorkflowGetsEventsOnlyOnceCreated (the create marks it created)",
+    path: "src/workflow/inbound/events.ts",
+    find: "    created_at: now(),\n",
+    replace: "",
+  },
+  {
     id: "F1",
     invariant:
       "feedbackRouting::unadmittedFeedbackReachesNobody, reviewLoop::unadmittedFeedbackReachesNobody",
@@ -560,6 +657,14 @@ export const MUTANTS: Mutant[] = [
     replace: "  if (false) {\n    return toTheAgent(",
   },
   {
+    id: "W217",
+    invariant:
+      "behavior map E4: a page comment that does not mention the bot stays held and wakes nobody",
+    path: "src/workflow/refiner/feedback.ts",
+    find: '      workflow.log(task.task_id, "a page comment waits for a mention");',
+    replace: '      await workflow.tellAgent("A page comment waits for a mention.", "human");',
+  },
+  {
     id: "C1",
     invariant: "chatAcknowledgement::eyesNeverOutliveTheDelivery",
     path: "src/router/chat-ack.ts",
@@ -579,6 +684,14 @@ export const MUTANTS: Mutant[] = [
     path: "src/router/chat-ack.ts",
     find: "      await chat.removeReaction(",
     replace: "      void chat.removeReaction(",
+  },
+  {
+    id: "W216",
+    invariant:
+      "chatAcknowledgement::eyesMarkOnlyASlowChatDelivery (tracker message with an acknowledgement)",
+    path: "src/router/chat-ack.ts",
+    find: '  if (!chat || !message || target?.source !== "chat") return deliver();',
+    replace: "  if (!chat || !message || !target) return deliver();",
   },
   {
     id: "SR1",
@@ -719,6 +832,247 @@ export const MUTANTS: Mutant[] = [
     replace: "  if (key) return false;",
   },
   {
+    id: "W191",
+    invariant: "workflowLifecycle::aPersonsMessageWakesTheWorkflow",
+    path: "src/workflow/inbound/events.ts",
+    find: '  if (workflow.state.status === "waiting_input") await changeWorkflowStatus(workflow, "running");\n',
+    replace: "",
+  },
+  {
+    id: "W192",
+    invariant: "workflowLifecycle::issuesMoveOnlyAtAStartOrADoneEnd",
+    path: "src/workflow/lifecycle.ts",
+    find: '  await workflow.post({ type: "workflow_failed", reason });\n',
+    replace:
+      '  await workflow.post({ type: "workflow_failed", reason });\n  for (const target of workflow.state.reply_targets) {\n    if (target.source === "tracker") await workflow.notifier.moveIssue(target, "completed");\n  }\n',
+  },
+  {
+    id: "W193",
+    invariant: "workflowLifecycle::aModelCallAuthorWorksOnlyWhileItsCallIsOut",
+    path: "src/workflow/task/model-turn.ts",
+    find: "  await drainQueue(workflow, workflow.store.requireTask(task.task_id));\n}",
+    replace: "}",
+  },
+  {
+    id: "W171",
+    invariant: "chatAcknowledgement::eyesMarkOnlyASlowChatDelivery",
+    path: "src/router/chat-ack.ts",
+    find: "  }, delayMs);",
+    replace: "  }, delayMs / 2);",
+  },
+  {
+    id: "W172",
+    invariant: "routerBindings::aWorkflowGetsEventsOnlyOnceCreated",
+    path: "src/workflow/inbound/events.ts",
+    find: '  if (!created_at) return { refused: "not_created" };\n',
+    replace: "",
+  },
+  {
+    id: "W173",
+    invariant: "routerBindings::aPersonsMessageNeverReachesAnEndedWorkflow",
+    path: "src/workflow/inbound/events.ts",
+    find: '  if (isWorkflowFinished(status) && isMessage(event)) return { refused: "ended", status };',
+    replace:
+      '  if (isWorkflowFinished(status) && event.kind === "start") return { refused: "ended", status };',
+  },
+  {
+    id: "W174",
+    invariant: "routerBindings::anAbandonedWorkflowKeepsNoBinding",
+    path: "src/router/deliver.ts",
+    find: "  await deleteBindings(db, workflowId, sources);\n",
+    replace: "",
+  },
+  {
+    id: "W175",
+    invariant: "routerBindings::anEndedWorkflowKeepsNoCodeHostBinding",
+    path: "src/workflow/lifecycle.ts",
+    find: 'const CODE_SOURCES: BindingSource[] = ["code_branch", "code_pull"];',
+    replace: 'const CODE_SOURCES: BindingSource[] = ["code_branch"];',
+  },
+  {
+    id: "W176",
+    invariant: "sessionRouting::feedActivityPostsOnce",
+    path: "src/notify/notifier.ts",
+    find: "await tracker.activity(session.session_id, content, { id });",
+    replace: "await tracker.activity(session.session_id, content, { id: crypto.randomUUID() });",
+  },
+  {
+    id: "W177",
+    invariant: "sessionRouting::chatWorkflowNeverSetsASessionPlan",
+    path: "src/workflow/feed/feed.ts",
+    find: "  if (hasChatThread(workflow.state)) return;\n",
+    replace: "",
+  },
+  {
+    id: "W178",
+    invariant: "sessionRouting::todoListIsFixedAfterFirstArtifact",
+    path: "src/workflow/board/board-store.ts",
+    find: "    if (author && this.artifact(author.job_id)) return false;\n",
+    replace: "",
+  },
+  {
+    id: "W179",
+    invariant: "sessionRouting::researchReadsCompleteOnceTheAuthorStarts",
+    path: "src/workflow/lifecycle.ts",
+    find: "  workflow.store.completeTodos(researcher.task_id);\n",
+    replace: "",
+  },
+  {
+    id: "W150",
+    invariant: "harnessSession::aSandboxStartBeginsAFreshGeneration",
+    path: "src/workflow/task/sandbox/sandbox.ts",
+    find: "  const generation = sandbox.generation + 1;",
+    replace: "  const generation = sandbox.generation;",
+  },
+  {
+    id: "W151",
+    invariant: "harnessSession::aStartingTaskWorksOnlyAfterItsHello",
+    path: "src/workflow/task/sandbox/sandbox.ts",
+    find: '  workflow.store.updateTask(task.task_id, { status: "provisioning" });',
+    replace: '  workflow.store.updateTask(task.task_id, { status: "working" });',
+  },
+  {
+    id: "W152",
+    invariant: "harnessSession::aLostTurnIsRecoveredWithoutARestart",
+    path: "src/workflow/task/harness/bridge.ts",
+    find: '  workflow.log(task.task_id, "bridge lost with a prompt in flight. restarting the sandbox.");\n',
+    replace:
+      '  workflow.log(task.task_id, "bridge lost with a prompt in flight. restarting the sandbox.");\n  const { restartOrFailTask } = await import("../../lifecycle");\n  return restartOrFailTask(workflow, task, "lost turn");\n',
+  },
+  {
+    id: "W153",
+    invariant: "harnessSession::aHarnessExitCountsOneRestart",
+    path: "src/workflow/task/harness/session.ts",
+    find: "  await restartSandbox(workflow, task);\n}\n\n/** `initialize` answered.",
+    replace:
+      "  await restartSandbox(workflow, task);\n  await restartSandbox(workflow, workflow.store.requireTask(task.task_id));\n}\n\n/** `initialize` answered.",
+  },
+  {
+    id: "W154",
+    invariant: "harnessSession::aFailedSandboxStartRestartsOrFails",
+    path: "src/workflow/task/sandbox/sandbox.ts",
+    find: '    if (generationMoved(workflow, sandbox)) return;\n    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The sandbox start"),\n',
+    replace:
+      '    if (true) return;\n    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The sandbox start"),\n',
+  },
+  {
+    id: "W155",
+    invariant: "harnessSession::aRefusedPromptLeavesTheTurn",
+    path: "src/workflow/task/harness/turn.ts",
+    find: '  if (purpose !== "prompt") return;\n  workflow.store.updateSandbox(task.task_id, { prompt_in_flight: 0 });',
+    replace: '  if (purpose !== "prompt") return;',
+  },
+  {
+    id: "W156",
+    invariant: "harnessSession::provisionStartsOnlyAQueuedTask",
+    path: "src/workflow/task/sandbox/sandbox.ts",
+    find: '  const bound = workflow.store.requireTask(taskId);\n  if (bound.status !== "queued") return;\n',
+    replace: "  const bound = workflow.store.requireTask(taskId);\n",
+  },
+  {
+    id: "W157",
+    invariant: "harnessSession::wallClockFailsWithoutARestart",
+    path: "src/workflow/task/harness/timers.ts",
+    find: "  await failTask(\n    workflow,\n    task,\n    `A turn ran longer than the limit",
+    replace:
+      "  await restartOrFailTask(\n    workflow,\n    task,\n    `A turn ran longer than the limit",
+  },
+  {
+    id: "W158",
+    invariant: "harnessSession::aBridgeConnectsOnlyWithTheCurrentToken",
+    path: "src/workflow/task/harness/bridge.ts",
+    find: "  if (!sandbox || sandbox.bridge_token !== bridgeTokenOf(dial.headers)) return null;",
+    replace: "  if (!sandbox) return null;",
+  },
+  {
+    id: "W159",
+    invariant: "harnessSession::everyPermissionRequestWithAnAllowOptionIsAllowed",
+    path: "src/workflow/task/harness/bridge.ts",
+    find: '    outcome: optionId ? { outcome: "selected", optionId } : { outcome: "cancelled" },',
+    replace: '    outcome: { outcome: "cancelled" },',
+  },
+  {
+    id: "W160",
+    invariant: "harnessSession::theHelloTimeoutWaitsWhileItsStartIsOut",
+    path: "src/workflow/task/harness/timers.ts",
+    find: "  if (sandboxStartInFlight(workflow, task.task_id, sandbox.generation)) {\n    return armHelloTimeout(workflow, { ...sandbox, hello_schedule: null });\n  }\n",
+    replace: "",
+  },
+  {
+    id: "W161",
+    invariant: "agentTurns::everyInboxRowReachesTheTranscriptOnce",
+    path: "src/agent/turn/watchdog.ts",
+    find: "  workflow.transcript.deleteTaken();\n  return true;",
+    replace: "  return true;",
+  },
+  {
+    id: "W162",
+    invariant: "agentTurns::compactionReplacesOnlyEarlierRows",
+    path: "src/agent/turn/turn.ts",
+    find: "  workflow.transcript.replaceThrough(older.at(-1)!.id, {",
+    replace: "  workflow.transcript.replaceThrough(rows.at(-1)!.id, {",
+  },
+  {
+    id: "W163",
+    invariant: "agentTurns::everyToolCallKeepsItsResult",
+    path: "src/agent/turn/turn.ts",
+    find: "      workflow.transcript.append(step.messages);",
+    replace:
+      '      workflow.transcript.append(step.messages.filter((message) => message.role !== "tool"));',
+  },
+  {
+    id: "W164",
+    invariant: "agentTurns::aPersonsTurnNeverEndsUnanswered",
+    path: "src/agent/turn/turn.ts",
+    find: "  if (reply && !replied(workflow, pass)) {",
+    replace: "  if (false && reply && !replied(workflow, pass)) {",
+  },
+  {
+    id: "W165",
+    invariant: "agentTurns::quarantinedTextNeverEntersTheTranscript",
+    path: "src/agent/tools/screened.ts",
+    find: '      return screened === "admitted" ? result : unadmittedResultText(name, screened);',
+    replace:
+      '      return screened === "quarantined" ? unadmittedResultText(name, screened) : result;',
+  },
+  {
+    id: "W166",
+    invariant: "agentTurns::aResumedTurnAnswersWhatItsLostTurnOwed",
+    path: "src/agent/turn/watchdog.ts",
+    find: "  if (workflow.transcript.takenMessages().length) {\n    await postKeepingWorkingStatus(workflow, LOST_PLACE_TEXT);\n  }\n",
+    replace: "",
+  },
+  {
+    id: "W167",
+    invariant: "agentTurns::aPersonGetsTheAnswerDuringADecisionsOutage",
+    path: "src/decisions/ask.ts",
+    find: "  } catch (error) {\n    if (turn) turn.failed = true;",
+    replace:
+      '  } catch (error) {\n    if (turn) await new Promise((resolve) => turn.signal?.addEventListener("abort", resolve));\n    if (turn) turn.failed = true;',
+  },
+  {
+    id: "W168",
+    invariant: "agentTurns::aDecisionsCallFallsBackOnlyAfterEveryModelFailed",
+    path: "../adapters/src/gateway/models-in-order.ts",
+    find: "  for (const model of models) {",
+    replace: "  for (const model of models.slice(0, 1)) {",
+  },
+  {
+    id: "W169",
+    invariant: "agentTurns::aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead",
+    path: "src/decisions/screen.ts",
+    find: "(name) => probabilities[`${field}.${name}`]! >= QUARANTINE_FLOOR,",
+    replace:
+      "() => Object.values(probabilities).some((probability) => probability >= QUARANTINE_FLOOR),",
+  },
+  {
+    id: "W170",
+    invariant: "agentTurns::oneTurnRunsAtATime",
+    path: "src/agent/turn/watchdog.ts",
+    find: "  workflow.patchState({\n    turn_started_at: null,\n    turn_watchdog: null,",
+    replace: "  workflow.patchState({\n    turn_watchdog: null,",
+  },
+  {
     id: "W120",
     invariant: "workflowLifecycle::workflowWaitsOnlyWhileNoAuthorWorks",
     path: "src/workflow/lifecycle.ts",
@@ -736,7 +1090,7 @@ export const MUTANTS: Mutant[] = [
     id: "W122",
     invariant: "workflowLifecycle::aRestartDoesNotLoseAModelTurn",
     path: "src/workflow/task/model-turn.ts",
-    find: '    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", author);\n',
+    find: '    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", rerun);\n',
     replace: "",
   },
   {
@@ -744,8 +1098,8 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "workflowLifecycle::aQueuedPromptReachesItsModelCallAuthor, reviewLoop::aQueuedPromptReachesItsModelCallAuthor",
     path: "src/workflow/task/model-turn.ts",
-    find: "  if (task) await drainQueue(workflow, task);\n",
-    replace: "  if (task) return;\n",
+    find: "  await drainQueue(workflow, workflow.store.requireTask(task.task_id));\n",
+    replace: "",
   },
   {
     id: "W124",
@@ -931,6 +1285,55 @@ export const MUTANTS: Mutant[] = [
     find: '    this.outbox({\n      channel: "feed",\n      kind: content.type,\n      target: session,\n      payload: { task_id: taskId, id, content },\n    });\n    const tracker = await this.tracker();\n    if (!tracker) return;\n    for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {\n      try {\n        await tracker.activity(session.session_id, content, { id });\n',
     replace:
       '    const row = {\n      channel: "feed",\n      kind: content.type,\n      target: session,\n      payload: { task_id: taskId, id, content },\n    };\n    const tracker = await this.tracker();\n    if (!tracker) return;\n    for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {\n      try {\n        await tracker\n          .activity(session.session_id, content, { id })\n          .finally(() => attempt === 1 && this.outbox(row));\n',
+  },
+  {
+    id: "W265",
+    invariant: "harnessSession::staleAlarmIsIgnored (hello timeout)",
+    path: "src/workflow/task/harness/timers.ts",
+    find: '  if (!task || !sandbox || sandbox.generation !== alarm.generation) return;\n  if (task.status !== "provisioning") return;',
+    replace: '  if (!task || !sandbox) return;\n  if (task.status !== "provisioning") return;',
+  },
+  {
+    id: "W266",
+    invariant: "routerBindings::aBaseMoveOnlyHandsTheEventOn",
+    path: "src/router/deliver.ts",
+    find: '  if (event.pull?.action === "base_moved") return fanOutBaseMoved(env, db, event, event.pull);\n',
+    replace: "",
+  },
+  {
+    id: "W267",
+    invariant: "workflowLifecycle::aTurnThatWaitsToRunAgainHasItsAlarm",
+    path: "src/workflow/task/model-turn.ts",
+    find: '    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", rerun);\n',
+    replace: '    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", turn);\n',
+  },
+  {
+    id: "W268",
+    invariant: "workflowLifecycle replay: a model call's turn ends once its author finishes",
+    path: "src/workflow/lifecycle.ts",
+    find: "  workflow.store.updateTask(task.task_id, { status, model_turn_id: null });\n",
+    replace: "  workflow.store.updateTask(task.task_id, { status });\n",
+  },
+  {
+    id: "W269",
+    invariant: "reviewLoop replay: finish_review out of turn is refused without a change",
+    path: "src/agent/tools/artifact.ts",
+    find: "  if (isJudgeRun(workflow, pointer)) return JUDGE_ENTRY_REFUSAL;\n  if (!taskQuiet(workflow, author)) {\n    return `The author ${author.task_id} is still working. You are told when its turn ends.`;\n  }\n",
+    replace: "  if (isJudgeRun(workflow, pointer)) return JUDGE_ENTRY_REFUSAL;\n",
+  },
+  {
+    id: "W270",
+    invariant: "reviewLoop::aJudgeRejectionPostsItsReasonOnce (pull request)",
+    path: "src/artifact/pull.ts",
+    find: "    await host.commentOnPull(ref.repo, ref.number, text);\n",
+    replace: "",
+  },
+  {
+    id: "W271",
+    invariant: "reviewLoop replay: the store records the send-back of each revision",
+    path: "src/workflow/refiner/checks-gate.ts",
+    find: '  return workflow.store.markEventSeen({ id, kind: "checks_sent_back" });\n',
+    replace: "  return !workflow.store.eventSeen(id);\n",
   },
 ];
 

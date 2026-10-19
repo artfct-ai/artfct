@@ -24,6 +24,7 @@ import { quintShards } from "./quint-shards";
 
 const ORCHESTRATOR_DIR = join(import.meta.dirname, "../..");
 const MAX_STEPS = 25;
+const WITNESS_SAMPLES = 10_000;
 const USAGE = [
   "usage: bun scripts/spec/check-spec.ts setups",
   "       bun scripts/spec/check-spec.ts shard <index> <count> <samples> [spec...]",
@@ -82,7 +83,7 @@ function checkedSetups() {
 async function checkQuintShard(options: {
   index: number;
   count: number;
-  samples: string;
+  samples: number;
   specs: string[];
 }): Promise<number> {
   const { index, count, samples, specs } = options;
@@ -95,11 +96,10 @@ async function checkQuintShard(options: {
   let status = 0;
   for (const { spec, setup } of shard) {
     console.log(`::group::${setup} of ${spec}`);
-    const typecheck = await run(["bunx", "quint", "typecheck", setupFile(spec, setup)]);
+    const witnessSamples = witnessSamplesOf(spec, setup);
     const exitCode =
-      typecheck.exitCode ||
-      (await checkWitnesses(spec, setup)) ||
-      (await simulate(spec, setup, samples));
+      (await checkWitnessesAndInvariants(spec, setup)) ||
+      (samples > witnessSamples ? await simulate(spec, setup, samples - witnessSamples) : 0);
     console.log("::endgroup::");
     if (exitCode !== 0) {
       status = 1;
@@ -113,18 +113,29 @@ function maxStepsOf(spec: string, setup: string): number {
   return readSpecChecks(spec).maxSteps?.[setup] ?? MAX_STEPS;
 }
 
-async function checkWitnesses(spec: string, setup: string): Promise<number> {
-  const witnesses = readSpecChecks(spec).witnesses[setup] ?? [];
+function witnessSamplesOf(spec: string, setup: string): number {
+  return readSpecChecks(spec).witnessSamples?.[setup] ?? WITNESS_SAMPLES;
+}
+
+/**
+ * Checks the witnesses and every invariant on the same samples, in one `quint run`, which
+ * typechecks the setup first.
+ */
+async function checkWitnessesAndInvariants(spec: string, setup: string): Promise<number> {
+  const checks = readSpecChecks(spec);
   const { exitCode, output } = await run([
     "bunx",
     "quint",
     "run",
     setupFile(spec, setup),
     `--main=${setup}`,
-    "--max-samples=10000",
+    "--backend=rust",
+    `--max-samples=${witnessSamplesOf(spec, setup)}`,
     `--max-steps=${maxStepsOf(spec, setup)}`,
+    "--invariants",
+    ...checks.invariants,
     "--witnesses",
-    ...witnesses,
+    ...(checks.witnesses[setup] ?? []),
   ]);
   if (exitCode !== 0) return exitCode;
   if (!output.includes("witnessed in 0 trace")) return 0;
@@ -134,7 +145,7 @@ async function checkWitnesses(spec: string, setup: string): Promise<number> {
   return 1;
 }
 
-async function simulate(spec: string, setup: string, samples: string): Promise<number> {
+async function simulate(spec: string, setup: string, samples: number): Promise<number> {
   const { exitCode } = await run([
     "bunx",
     "quint",
@@ -243,12 +254,13 @@ async function main(args: string[]): Promise<number> {
       return checkQuintShard({
         index: Number(shardIndex),
         count: Number(shardCount),
-        samples,
+        samples: Number(samples),
         specs,
       });
   }
-  if (command === "witnesses" && spec && setup) return checkWitnesses(spec, setup);
-  if (command === "simulate" && spec && setup && detail) return simulate(spec, setup, detail);
+  if (command === "witnesses" && spec && setup) return checkWitnessesAndInvariants(spec, setup);
+  if (command === "simulate" && spec && setup && detail)
+    return simulate(spec, setup, Number(detail));
   if (command === "tlc" && spec && setup && isTlcDepth(detail))
     return checkModel(spec, setup, detail);
   console.error(USAGE);

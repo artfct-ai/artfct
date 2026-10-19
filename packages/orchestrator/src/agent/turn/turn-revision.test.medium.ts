@@ -8,6 +8,7 @@ import { seedTask, type FakeRuntime } from "../../../test/fake-runtime";
 import { EchoModel } from "../../../test/fake-model";
 import type { Scenario } from "../../../test/scenario";
 import { REVISION_REQUEST_PROMPT } from "../../workflow/refiner/held-comments";
+import { REVISION_ACKNOWLEDGEMENT_TEXT } from "../tools/channel";
 import { eventMessage } from "../transcript/envelope";
 import { runAgentTurn } from "./turn";
 
@@ -62,6 +63,11 @@ describe("a person's turn", () => {
         expect(queuedTexts(workflow)).toEqual([
           `${REVISION_REQUEST_PROMPT}\n\nThe people who commented on the page said:\n\nComments:\n- [comment cmt-1]: Ann: Name the owner of the table.`,
         ]);
+      }));
+
+    it("answers the person first", () =>
+      reviewed(({ workflow }) => {
+        expect(workflow.posted[0]).toEqual({ type: "info", text: REVISION_ACKNOWLEDGEMENT_TEXT });
       }));
 
     it("tells the model what the system sent", () =>

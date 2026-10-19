@@ -1,3 +1,4 @@
+import { isDeepStrictEqual } from "node:util";
 import type { DecisionState } from "@artfct-ai/adapters/gateway/types";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import type { RpcAck } from "@artfct-ai/contracts/types";
@@ -245,6 +246,7 @@ const WORLD_SETUP: Omit<WorldSetup, "artifact"> = {
   firstInput: "request",
   subject: "none",
   sandboxStart: "at_task_start",
+  pageBranch: false,
 };
 
 const PERSON_TEXT = "Why does the redirect skip the check?";
@@ -394,9 +396,7 @@ export class FeedbackRoutingReplay {
         await this.feedbackIsRouted(step.picks);
         return;
       case "personLeavesAPageComment":
-        await this.world.apply(
-          worldAction("a person comments on the page", () => this.personLeavesAPageComment()),
-        );
+        await this.personLeavesAPageComment();
         return;
       case "authorRecordsItsPullRequest":
         await this.world.apply(firstArtifactAppears(0, "author_text"));
@@ -663,24 +663,37 @@ export class FeedbackRoutingReplay {
       },
     };
   }
+  /**
+   * A comment without a mention stays held on the page. The spec's step shows nothing, so the
+   * view keeps `shown` null only while the code prompted, noted and woke nobody.
+   */
   private async personLeavesAPageComment(): Promise<void> {
     this.feedbacks += 1;
     const pageId = this.pageId();
     const commentId = `comment-${this.feedbacks}`;
     const text = `Comment ${this.feedbacks}: name the owner of each row.`;
-    this.world.pageHost.addPersonComment({
-      id: commentId,
-      pageId,
-      lineId: null,
-      authorName: "Cy",
-      text,
-    });
-    await this.world.deliver({
-      kind: "feedback",
-      text,
-      bindings: [{ source: "documents_page", external_id: pageId }],
-      page: { page_id: pageId, comment_id: commentId },
-    });
+    const author = this.author();
+    const promptsBefore = this.world.promptsQueuedFor(author.taskId).length;
+    const step = await this.world.apply(
+      worldAction("a person comments on the page", async (world) => {
+        world.pageHost.addPersonComment({
+          id: commentId,
+          pageId,
+          lineId: null,
+          authorName: "Cy",
+          text,
+        });
+        await world.deliver({
+          kind: "feedback",
+          text,
+          bindings: [{ source: "documents_page", external_id: pageId }],
+          page: { page_id: pageId, comment_id: commentId },
+        });
+      }),
+    );
+    const prompts = this.world.promptsQueuedFor(author.taskId).slice(promptsBefore);
+    const shown = this.shownBy(step, prompts, { PersonWords: [text], AppWords: [], HeldWords: [] });
+    this.shown = isDeepStrictEqual(shown, NOTHING_SHOWN) ? null : shown;
   }
 
   private failingHost(method: "heldComments" | "acknowledgeComment"): () => void {

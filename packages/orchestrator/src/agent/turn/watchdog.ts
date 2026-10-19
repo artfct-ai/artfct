@@ -2,7 +2,7 @@ import { isWorkflowFinished } from "../../workflow/store/state";
 import { noteMessage } from "../transcript/envelope";
 import type { WorkflowRuntime } from "../../workflow/types";
 
-/** The alarm payload. The start time tells a late alarm from the turn it was armed for. */
+/** The alarm payload. The start time tells a stale alarm from the running turn. */
 export type TurnAlarm = { started_at: string };
 
 /** Seconds into a turn on a person's message before its chat threads hear that it still runs. */
@@ -111,7 +111,7 @@ export async function resumeLostTurn(workflow: WorkflowRuntime): Promise<boolean
   }
   await cancelTurnAlarms(workflow);
   workflow.patchState({ turn_started_at: null });
-  if (isWorkflowFinished(workflow.state.status)) {
+  if (isWorkflowFinished(workflow.state.status) && !workflow.transcript.takenMessages().length) {
     workflow.patchState({
       turn_first_row: null,
     });

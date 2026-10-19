@@ -589,16 +589,29 @@ module feedbackRouting {
   /// The deliveries in flight, which model checking bounds.
   val deliveriesInFlight: int = world.inFlight.keys().fold(0, (total, id) => total + world.inFlight.get(id))
 
-  /// A restart failed a delivery of a pull request feedback, and its host does not deliver it again.
+  /// Witness for `everyFeedbackIsRoutedOnce`: a restart failed a delivery of a pull request
+  /// feedback, and its host does not deliver it again.
   val aRestartLosesAPullRequestFeedback: bool = KIND == PullRequest and world.undelivered != Set()
 
+  /// Witness for `everyFeedbackGetsOneRoutingDecision`: a feedback went to its author.
   val aFeedbackGoesToTheAuthor: bool = stepWitnesses.aFeedbackGoesToTheAuthor
+
+  /// Witness for `everyFeedbackGetsOneRoutingDecision`: a feedback got the note that it asks for
+  /// nothing.
   val aFeedbackAsksForNothing: bool = stepWitnesses.aFeedbackAsksForNothing
+
+  /// Witness for `everyFeedbackGetsOneRoutingDecision`: a feedback got the note that wakes the agent
+  /// for the humans.
   val aFeedbackGoesToTheAgent: bool = stepWitnesses.aFeedbackGoesToTheAgent
   val aFailedRouteCallGoesToTheAgent: bool = stepWitnesses.aFailedRouteCallGoesToTheAgent
   val aFailedAcknowledgeStillRoutes: bool = stepWitnesses.aFailedAcknowledgeStillRoutes
   val aFailedAcknowledgeLeavesItUnsent: bool = stepWitnesses.aFailedAcknowledgeLeavesItUnsent
+
+  /// Witness for `unadmittedFeedbackReachesNobody`: the screen did not admit an app review.
   val anUnadmittedPullReview: bool = stepWitnesses.anUnadmittedPullReview
+
+  /// Witness for `unadmittedFeedbackReachesNobody`: the screen could not read an app review, so it
+  /// did not admit it.
   val anUncheckedAppReview: bool = stepWitnesses.anUncheckedAppReview
   val anAdmittedAppReviewGoesToTheAuthor: bool = stepWitnesses.anAdmittedAppReviewGoesToTheAuthor
   val aRunningAuthorQueuesIt: bool = stepWitnesses.aRunningAuthorQueuesIt
@@ -607,12 +620,23 @@ module feedbackRouting {
   val aFinishedAuthorGetsNothing: bool = stepWitnesses.aFinishedAuthorGetsNothing
   val anEndedWorkflowIgnoresIt: bool = stepWitnesses.anEndedWorkflowIgnoresIt
   val anUnrecordedPullRequestGetsIt: bool = stepWitnesses.anUnrecordedPullRequestGetsIt
+
+  /// Witness for `unadmittedFeedbackReachesNobody`: the screen did not admit the held comments of a
+  /// page mention.
   val unadmittedHeldCommentsStayOut: bool = stepWitnesses.unadmittedHeldCommentsStayOut
   val heldCommentsCannotBeRead: bool = stepWitnesses.heldCommentsCannotBeRead
   val aMentionCarriesTheHeldComments: bool = stepWitnesses.aMentionCarriesTheHeldComments
   val aMentionWithNothingHeldIsNotScreened: bool = stepWitnesses.aMentionWithNothingHeldIsNotScreened
+
+  /// Witness for `everyFeedbackGetsOneRoutingDecision`: a bare mention with nothing held got the
+  /// note that wakes the agent.
   val aBareMentionGoesToTheAgent: bool = stepWitnesses.aBareMentionGoesToTheAgent
   val aBareMentionSendsTheHeldComments: bool = stepWitnesses.aBareMentionSendsTheHeldComments
+
+  /// Witness for `everyFeedbackIsRoutedOnce`: a delivery that a restart cut off routed when the host
+  /// delivered it again.
   val aRedeliveryAfterARestartRoutes: bool = stepWitnesses.aRedeliveryAfterARestartRoutes
+
+  /// Witness for `everyFeedbackIsRoutedOnce`: a second delivery of a routed feedback was dropped.
   val aDuplicateDeliveryIsDropped: bool = stepWitnesses.aDuplicateDeliveryIsDropped
 }

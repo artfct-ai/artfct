@@ -18,7 +18,11 @@ import {
   TELL_THE_CHECK_IS_UNAVAILABLE,
 } from "../src/agent/tools/start/start";
 import { labeledPageCommentIds } from "../src/artifact/page-comment-label";
-import { CLOSING_TEXT_MARKER, replyMarker } from "../src/prompts/model-author-prompt";
+import {
+  CLOSING_TEXT_MARKER,
+  REVISE_OPENING,
+  replyMarker,
+} from "../src/prompts/model-author-prompt";
 import { taskTools } from "../src/agent/tools/task";
 import type { SandboxRef } from "../src/sandbox/spec";
 import { artifactRefKey, jobInputKey } from "../src/workflow/store/input-key";
@@ -337,13 +341,19 @@ export type SpecJob = {
 /** The subject of the workflow as the spec sees it. An issue is its number in `ISSUE_KEYS`. */
 type SpecSubject = { kind: "none" } | { kind: "issue"; issue: number } | { kind: "project" };
 
-/** One held call as the spec sees it, without the rest of the step that runs when it returns. */
-type SpecCall = { kind: CallKind; job: number };
+/**
+ * One held call as the spec sees it, without the rest of the step that runs when it returns. A
+ * call of a model turn says whether that turn ended: a stop ended it, or its author finished.
+ */
+type SpecCall =
+  | { kind: "SandboxDestroy" | "AcceptanceCheck"; job: number }
+  | { kind: "ModelCall" | "PageWrite"; job: number; turnEnded: boolean };
 
 /**
  * The workflow as the spec sees it. `jobSlots` is null until a plan sets the stages. A restart
  * alarm is the jobs whose lost model turn it still decides. `turnsToRunAgain` is the jobs whose
- * author still holds the turn id an armed run-again alarm names.
+ * author still holds the turn id an armed run-again alarm names. The spec's ended issues only
+ * drive the tracker the code reads, so the replay does not compare them.
  */
 export type SpecWorkflow = {
   status: (typeof WORKFLOW_STATUSES)[number];
@@ -355,7 +365,6 @@ export type SpecWorkflow = {
   calls: SpecCall[];
   failuresPosted: number;
   issueMoves: number;
-  endedIssues: number[];
   restartAlarms: number[][];
   runAgainAlarms: number[];
   turnsToRunAgain: number[];
@@ -487,6 +496,7 @@ function optionalInt(value: unknown): number | null {
 }
 
 function specWorkflow(value: unknown): SpecWorkflow {
+  const jobs = itfList(itfField(value, "jobs")).map(specJob);
   const definition = itfVariant(itfField(value, "definition"))!;
   const stagePlan = itfVariant(itfField(value, "stagePlan"))!;
   return {
@@ -495,14 +505,10 @@ function specWorkflow(value: unknown): SpecWorkflow {
     jobSlots: stagePlan.tag === "StagesPlanned" ? itfInt(stagePlan.value) : null,
     subject: specSubject(itfField(value, "subject")),
     idleArmed: itfBool(itfField(value, "idleArmed")),
-    jobs: itfList(itfField(value, "jobs")).map(specJob),
-    calls: itfList(itfField(value, "calls")).map((call) => ({
-      kind: itfOneOf(itfVariant(itfField(call, "kind"))!.tag, CALL_KINDS),
-      job: itfInt(itfField(call, "job")),
-    })),
+    jobs,
+    calls: itfList(itfField(value, "calls")).map((call) => specCall(call, jobs)),
     failuresPosted: itfInt(itfField(value, "failuresPosted")),
     issueMoves: itfInt(itfField(value, "issueMoves")),
-    endedIssues: sortedInts(itfField(value, "endedIssues")),
     restartAlarms: itfSet(itfField(value, "restartAlarms"))
       .map(sortedInts)
       .toSorted(compareJobLists),
@@ -511,6 +517,22 @@ function specWorkflow(value: unknown): SpecWorkflow {
     restartAlarmFired: itfBool(itfField(value, "restartAlarmFired")),
     ranAgain: sortedInts(itfField(value, "ranAgain")),
   };
+}
+
+const FINISHED_TASK_STATUSES = new Set<SpecTask["status"]>([
+  "TaskDone",
+  "TaskCancelled",
+  "TaskFailed",
+]);
+
+function specCall(call: unknown, jobs: SpecJob[]): SpecCall {
+  const kind = itfOneOf(itfVariant(itfField(call, "kind"))!.tag, CALL_KINDS);
+  const job = itfInt(itfField(call, "job"));
+  if (kind === "SandboxDestroy" || kind === "AcceptanceCheck") return { kind, job };
+  const author = jobs[job]?.tasks.find((task) => task.role === "Author");
+  if (!author) throw new Error(`the spec holds a ${kind} of job ${job}, which has no author`);
+  const stopped = itfVariant(itfField(call, "rest"))!.tag === "ModelCallStopped";
+  return { kind, job, turnEnded: stopped || FINISHED_TASK_STATUSES.has(author.status) };
 }
 
 function compareJobLists(left: number[], right: number[]): number {
@@ -623,7 +645,7 @@ class HoldingPageModel implements LanguageModelV4 {
   readonly modelId = "holding-page";
   readonly supportedUrls = {};
 
-  constructor(private readonly hold: () => Promise<string>) {}
+  constructor(private readonly hold: (promptText: string) => Promise<string>) {}
 
   async doGenerate(options: LanguageModelV4CallOptions): Promise<LanguageModelV4GenerateResult> {
     const promptText = options.prompt
@@ -634,7 +656,7 @@ class HoldingPageModel implements LanguageModelV4 {
       replyMarker(commentId),
       "Answered on the page.",
     ]);
-    return new EchoModel([await this.hold(), ...replies].join("\n")).doGenerate(options);
+    return new EchoModel([await this.hold(promptText), ...replies].join("\n")).doGenerate(options);
   }
 
   async doStream(_options: LanguageModelV4CallOptions): Promise<LanguageModelV4StreamResult> {
@@ -684,6 +706,7 @@ const WORLD_SETUP: Omit<
   firstInput: "request",
   subject: "none",
   sandboxStart: "at_task_start",
+  pageBranch: false,
 };
 
 function worldAction(
@@ -705,7 +728,7 @@ export class WorkflowLifecycleReplay {
   private heldArrived: (() => void) | null = null;
   private taken = 0;
   private readonly heldTurns = new Set<string>();
-  private readonly reviseTurns = new Map<string, number>();
+  private readonly reviseCalls = new Map<string, number>();
   private pagesWritten = 0;
   private answeredModelCall: HeldCall | null = null;
   private readonly endedIssues = new Set<number>();
@@ -754,8 +777,8 @@ export class WorkflowLifecycleReplay {
     replay.holdPullAcceptance();
     replay.showEndedIssues();
     if (modelAuthor) {
-      world.workflow.modelsByName[MODEL_AUTHOR_MODEL] = new HoldingPageModel(() =>
-        replay.holdModelCall(),
+      world.workflow.modelsByName[MODEL_AUTHOR_MODEL] = new HoldingPageModel((promptText) =>
+        replay.holdModelCall(promptText),
       );
       const host = fakeDocumentsOf(world.workflow);
       const createPage = host.createPage.bind(host);
@@ -878,13 +901,9 @@ export class WorkflowLifecycleReplay {
           pullOnHost: input.from === "issue" ? this.pullOnHostOf(index) : "NoPull",
         };
       }),
-      calls: this.calls.map((call) => ({
-        kind: call.kind,
-        job: jobs.findIndex((job) => job.job_id === call.jobId),
-      })),
+      calls: this.calls.map((call) => this.specCallOf(call, jobs)),
       failuresPosted: workflow.posted.filter((event) => event.type === "failed").length,
       issueMoves: this.world.steps.reduce((total, step) => total + step.issueUpdates, 0),
-      endedIssues: [...this.endedIssues].toSorted((left, right) => left - right),
       restartAlarms: this.restartAlarms(),
       runAgainAlarms: [
         ...new Set(this.runAgainAlarms().map((alarm) => this.jobIndexOfTask(alarm.task_id))),
@@ -899,6 +918,16 @@ export class WorkflowLifecycleReplay {
       restartAlarmFired: this.firedRestartAlarm !== null,
       ranAgain: [...this.ranAgain.keys()].toSorted((left, right) => left - right),
     };
+  }
+
+  /** A held call as the spec sees it. A model turn ended once its author no longer holds it. */
+  private specCallOf(call: HeldCall, jobs: JobRow[]): SpecCall {
+    const job = jobs.findIndex((candidate) => candidate.job_id === call.jobId);
+    if (call.kind === "SandboxDestroy" || call.kind === "AcceptanceCheck") {
+      return { kind: call.kind, job };
+    }
+    const author = this.world.workflow.store.authorTaskOf(call.jobId);
+    return { kind: call.kind, job, turnEnded: author.model_turn_id !== call.turnId };
   }
 
   private runAgainAlarms(): ModelTurnAlarm[] {
@@ -949,10 +978,10 @@ export class WorkflowLifecycleReplay {
   }
 
   /**
-   * The prompts of a model-call author as the spec counts them. A revise turn sends its prompt
-   * as it starts, and that prompt stays queued until the turn applies its revision. A stop drops
-   * the queue. It ends a turn whose model call is out, and leaves one whose page write is out in
-   * flight without its prompt.
+   * The prompts of a model-call author as the spec counts them. A revise model call sends its
+   * prompt, and that prompt stays queued until the turn applies its revision. A stop drops the
+   * queue. It ends a turn whose model call is out, and leaves one whose page write is out in
+   * flight without its prompt. A model-call author never gets a container or a harness turn.
    */
   private modelTurnsOf(
     task: TaskRow,
@@ -967,11 +996,12 @@ export class WorkflowLifecycleReplay {
           call.turnId === task.model_turn_id &&
           queued.some((row) => row.id === call.revises?.promptId),
       );
+    const sandbox = this.world.workflow.store.sandbox(task.task_id);
     return {
-      turnRunning: false,
-      promptsSent: this.reviseTurns.get(task.task_id) ?? 0,
+      turnRunning: sandbox?.prompt_in_flight === 1,
+      promptsSent: this.reviseCalls.get(task.task_id) ?? 0,
       promptsQueued: revising ? queued.length - 1 : queued.length,
-      generationClosed: false,
+      generationClosed: sandbox !== null,
     };
   }
 
@@ -1592,10 +1622,10 @@ export class WorkflowLifecycleReplay {
   }
 
   /**
-   * Hold the page model call of the model turn that just started. It answers with a page text no
-   * earlier answer had, so each revision changes the page.
+   * Hold the page model call of the model turn that just started, and count the revise calls the
+   * code sent. It answers with a page text no earlier answer had, so each revision changes the page.
    */
-  private holdModelCall(): Promise<string> {
+  private holdModelCall(promptText: string): Promise<string> {
     const { store } = this.world.workflow;
     const task = store
       .tasks()
@@ -1603,7 +1633,9 @@ export class WorkflowLifecycleReplay {
     if (!task?.model_turn_id) throw new Error("a page model call went out without a model turn");
     this.heldTurns.add(task.model_turn_id);
     const prompt = store.artifact(task.job_id) === null ? null : store.peekPrompt(task.task_id);
-    if (prompt) this.reviseTurns.set(task.task_id, (this.reviseTurns.get(task.task_id) ?? 0) + 1);
+    if (promptText.startsWith(REVISE_OPENING)) {
+      this.reviseCalls.set(task.task_id, (this.reviseCalls.get(task.task_id) ?? 0) + 1);
+    }
     this.pagesWritten += 1;
     const page = `# Sessions\n\nVersion ${this.pagesWritten} of the page.\n\n${CLOSING_TEXT_MARKER}\nRevised the page.`;
     return new Promise<string>((release) => {

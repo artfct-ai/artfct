@@ -1,4 +1,5 @@
 import type { Chat, SessionStatus } from "@artfct-ai/adapters/chat/types";
+import { FakeChat } from "@artfct-ai/adapters/test/fake-chat";
 import type { CodeHost } from "@artfct-ai/adapters/code/types";
 import type { Decisions, Gateway } from "@artfct-ai/adapters/gateway/types";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
@@ -32,18 +33,15 @@ import {
 import { TEST_DEFINITION_NAME } from "./test-config";
 import type { Env } from "../src/env";
 import { destinationFor } from "../src/notify/destination";
-import { plainText } from "../src/notify/messages";
 import { Notifier, type PostOptions } from "../src/notify/notifier";
 import { recipientsOf, type Recipients } from "../src/notify/recipients";
 import type { SandboxProvider } from "../src/sandbox/provider";
 import { FakeSandboxProvider } from "./fake-sandbox";
 import type { ConnectionState } from "../src/workflow/task/harness/bridge";
+import { TurnCoalescer } from "../src/workflow/task/harness/turn";
 import type { WorkflowDb } from "../src/workflow/store/db";
-import {
-  initialWorkflowState,
-  isWorkflowFinished,
-  type WorkflowState,
-} from "../src/workflow/store/state";
+import { postToRecipients, releaseChatThreads, showWorking } from "../src/workflow/posts";
+import { initialWorkflowState, type WorkflowState } from "../src/workflow/store/state";
 import {
   WorkflowStore,
   type JobRow,
@@ -128,12 +126,7 @@ export class FakeRuntime implements WorkflowRuntime {
   /** Every channel post with the reply targets it went to, in order. */
   deliveries: Array<{ event: TaskEvent; targets: ReplyTarget[] }> = [];
   released: Array<ReplyTarget | null> = [];
-  statuses: string[] = [];
-  /**
-   * The session status the notifier would leave on a chat thread after the posts, releases, and
-   * working calls so far. Null before any of them.
-   */
-  chatSession: SessionStatus | null = null;
+  readonly agentTurns = new TurnCoalescer();
   notes: FakeNote[] = [];
   lines: string[] = [];
   gatewayInstance: Gateway | null = null;
@@ -156,6 +149,7 @@ export class FakeRuntime implements WorkflowRuntime {
   configOverride: Config | null = null;
   workflowDefinitionsOverride: WorkflowDefinition[] | null = null;
   private alarmSeq = 0;
+  private notifiedChat: FakeChat | null = null;
 
   constructor(
     private readonly db: WorkflowDb,
@@ -172,12 +166,13 @@ export class FakeRuntime implements WorkflowRuntime {
 
   /**
    * The same Durable Object after a restart. The store, the alarms, and the fakes stay. The
-   * session feeds, the page writes out, and every turn the old instance held in memory are gone.
+   * session feeds, the page writes out, the turn lane, and every turn the old instance held in
+   * memory are gone.
    */
   restarted(): FakeRuntime {
     const next = new FakeRuntime(this.db, this.env);
-    const { sessionFeeds, pageWritesOut } = next;
-    Object.assign(next, this, { sessionFeeds, pageWritesOut, turnRunning: false });
+    const { sessionFeeds, pageWritesOut, agentTurns } = next;
+    Object.assign(next, this, { sessionFeeds, pageWritesOut, agentTurns, turnRunning: false });
     return next;
   }
 
@@ -292,26 +287,35 @@ export class FakeRuntime implements WorkflowRuntime {
     options: PostOptions = {},
   ): Promise<void> {
     this.posted.push(event);
-    if (destinationFor(event) !== "channel") return;
-    const targets = recipientsOf(this.state, event, to);
-    this.deliveries.push({ event, targets });
-    for (const target of targets) await this.notifier.post(target, event, options);
-    if (!plainText(event) || options.keepSession) return;
-    this.chatSession = this.sessionAfterTurn();
+    if (destinationFor(event) === "channel") {
+      this.deliveries.push({ event, targets: recipientsOf(this.state, event, to) });
+    }
+    await postToRecipients(this, event, to, options);
   }
 
   async release(only?: ReplyTarget): Promise<void> {
     this.released.push(only ?? null);
-    this.chatSession = this.sessionAfterTurn();
+    await releaseChatThreads(this, only);
   }
 
-  async working(text: string): Promise<void> {
-    this.statuses.push(text);
-    this.chatSession = "processing";
+  working(text: string): Promise<void> {
+    return showWorking(this, text);
   }
 
-  private sessionAfterTurn(): SessionStatus {
-    return isWorkflowFinished(this.state.status) ? "closed" : "active";
+  /** Post, release, and show working through a recording chat, and return that chat. */
+  postThroughChat(chat: FakeChat = new FakeChat()): FakeChat {
+    this.notifiedChat = chat;
+    this.notifier = new Notifier(
+      { tracker: async () => null, chat, documents: async () => null },
+      (entry) => this.store.writeOutbox(entry),
+    );
+    return chat;
+  }
+
+  /** The status the last status call set on a chat thread of `postThroughChat`. Null before any. */
+  get chatSession(): SessionStatus | null {
+    const last = this.notifiedChat?.argsOf("setSessionStatus").at(-1);
+    return last ? (last[2] as SessionStatus) : null;
   }
 
   gateway(provider: GatewayProvider): Gateway | null {
@@ -374,6 +378,11 @@ export class FakeRuntime implements WorkflowRuntime {
 
   async tellAgent(text: string, wake: Wake, from?: WroteFrom): Promise<void> {
     this.notes.push(from ? { text, wake, from } : { text, wake });
+  }
+
+  async agentTurn(): Promise<void> {
+    const { runAgentTurn } = await import("../src/agent/turn/turn");
+    await runAgentTurn(this);
   }
 
   async model(
