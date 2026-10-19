@@ -341,10 +341,6 @@ export function authorStreams(index: number, streamed: Streamed): WorkflowAction
   });
 }
 
-export function workflowRestarts(): WorkflowAction {
-  return action("the workflow restarts", (world) => world.restart());
-}
-
 /** What a findings reviewer run leaves behind when its turn ends. */
 type ReviewOutcome = "no_review" | "approved" | "findings" | "blocking";
 
