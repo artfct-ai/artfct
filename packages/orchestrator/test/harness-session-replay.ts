@@ -65,6 +65,7 @@ import {
 } from "../src/workflow/task/harness/timers";
 import { GAVE_UP_RESTART_TEXT, settleIdleAuthor } from "../src/workflow/task/harness/turn";
 import { provision, sandboxStartInFlight } from "../src/workflow/task/sandbox/sandbox";
+import { taskAtWork } from "../src/workflow/task/at-work";
 import { fakeConnection, type FakeAlarm, type FakeSocket } from "./fake-runtime";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfText, itfVariant } from "./itf";
 import { FakeSandboxProvider } from "./fake-sandbox";
@@ -198,6 +199,9 @@ export type SpecTask = {
   socketsClosed: number;
   agentWakes: number;
   eventsThatThrew: number;
+  lostTurnsRecovered: number;
+  stopsEnded: number;
+  answersToOtherRequests: number;
 };
 
 /** The values the spec picked for one action. */
@@ -324,6 +328,9 @@ function specTask(world: unknown): SpecTask {
     socketsClosed: itfInt(itfField(world, "socketsClosed")),
     agentWakes: itfInt(itfField(world, "agentWakes")),
     eventsThatThrew: itfInt(itfField(world, "eventsThatThrew")),
+    lostTurnsRecovered: itfInt(itfField(world, "lostTurnsRecovered")),
+    stopsEnded: itfInt(itfField(world, "stopsEnded")),
+    answersToOtherRequests: itfInt(itfField(world, "answersToOtherRequests")),
   };
 }
 
@@ -380,8 +387,8 @@ function tagOf(value: unknown): string {
   return itfVariant(value)!.tag;
 }
 
-/** One request a bridge passed to its harness. */
-type BridgeRequest = { id: number; purpose: SpecPurpose; cancelled: boolean };
+/** One request a bridge passed to its harness. `serial` names the rpc row the orchestrator wrote for it. */
+type BridgeRequest = { id: number; serial: number; purpose: SpecPurpose; cancelled: boolean };
 
 /** One bridge process and its harness, as the replay runs it. */
 type ReplayBridge = {
@@ -392,13 +399,17 @@ type ReplayBridge = {
   requests: BridgeRequest[];
 };
 
-/** One socket the replay dialed, with the frames of it the bridge already read. */
+/**
+ * One socket the replay dialed, with the frames of it the bridge already read, and the serial of
+ * the rpc row behind each request frame, by frame index.
+ */
 type ReplaySocket = {
   bridge: number;
   generation: number;
   state: SocketState;
   fake: FakeSocket;
   read: number;
+  serials: Map<number, number>;
 };
 
 /** A promise the replay settles from a later step. */
@@ -486,6 +497,7 @@ const CONTINUE_TEXT = "Continue where you left off.";
 const TURN_TEXT = `I wrote the design section by section. ${"Each section names its decision and the reason for it. ".repeat(12)}`;
 const DIGEST_TEXT = "The design is written.";
 const AGENT_WAKE_TEXTS = ["Harness turn ended (", "The harness is idle."];
+const LOST_TURN_RECOVERED_LINE = "bridge lost with a prompt in flight. restarting the sandbox.";
 const HELD_EFFORT = "low";
 const ASKED_EFFORT = "high";
 const INTERNAL_ERROR = -32603;
@@ -574,6 +586,12 @@ export class HarnessSessionReplay {
   private permissionsAllowed = 0;
   private socketsClosed = 0;
   private eventsThatThrew = 0;
+  private stopsEnded = 0;
+  private answersToOtherRequests = 0;
+  private rpcSerial = 0;
+  private lastRpcRow: { id: number; serial: number } | null = null;
+  private readonly rowSerials = new Map<number, number>();
+  private answeredSerial: number | null = null;
   private permissionSeq = 0;
   private clock = REPLAY_START;
 
@@ -677,7 +695,7 @@ export class HarnessSessionReplay {
         current: bridge.token === sandbox.bridge_token,
         alive: bridge.alive,
         saidHello: bridge.saidHello,
-        requests: bridge.requests.map((request) => ({ ...request })),
+        requests: bridge.requests.map(({ id, purpose, cancelled }) => ({ id, purpose, cancelled })),
       })),
       calls: this.calls.map(projectCall),
       promptsSent: this.promptsSent,
@@ -690,6 +708,12 @@ export class HarnessSessionReplay {
         AGENT_WAKE_TEXTS.some((text) => note.text.includes(text)),
       ).length,
       eventsThatThrew: this.eventsThatThrew,
+      lostTurnsRecovered: store
+        .logLines()
+        .filter((row) => row.task_id === this.taskId && row.line === LOST_TURN_RECOVERED_LINE)
+        .length,
+      stopsEnded: this.stopsEnded,
+      answersToOtherRequests: this.answersToOtherRequests,
     };
   }
 
@@ -771,6 +795,9 @@ export class HarnessSessionReplay {
     const clearRpc = store.clearRpc.bind(store);
     store.insertRpc = (taskId, method, purpose) => {
       const id = insertRpc(taskId, method, purpose);
+      this.rpcSerial += 1;
+      this.lastRpcRow = { id, serial: this.rpcSerial };
+      this.rowSerials.set(id, this.rpcSerial);
       const specPurpose = SPEC_PURPOSE[purpose];
       if (specPurpose) this.rpcs.push({ id, purpose: specPurpose });
       if (purpose === "prompt") this.promptsSent += 1;
@@ -778,16 +805,21 @@ export class HarnessSessionReplay {
     };
     store.takeRpc = (id, taskId) => {
       const pending = takeRpc(id, taskId);
-      if (pending)
-        this.rpcs.splice(
-          this.rpcs.findIndex((row) => row.id === id),
-          1,
-        );
+      if (!pending) return pending;
+      this.rpcs.splice(
+        this.rpcs.findIndex((row) => row.id === id),
+        1,
+      );
+      if (this.answeredSerial !== null && this.rowSerials.get(id) !== this.answeredSerial) {
+        this.answersToOtherRequests += 1;
+      }
+      this.rowSerials.delete(id);
       return pending;
     };
     store.clearRpc = (taskId) => {
       clearRpc(taskId);
       this.rpcs.splice(0, this.rpcs.length);
+      this.rowSerials.clear();
     };
   }
 
@@ -806,7 +838,7 @@ export class HarnessSessionReplay {
       case "agentResumesAuthor":
         return this.runStep(() => resumeTask(workflow, this.task(), { text: "", answering: [] }));
       case "personStops":
-        return this.runStep(() => stopAuthor(workflow, this.task()));
+        return this.stop();
       case "agentCancelsJob":
         return this.runStep(async () => {
           const { cancel_job } = startTools(workflow);
@@ -1019,6 +1051,17 @@ export class HarnessSessionReplay {
       state: "Connected",
       fake,
       read: 0,
+      serials: new Map(),
+    };
+    const send = fake.connection.send.bind(fake.connection);
+    fake.connection.send = (data) => {
+      send(data);
+      const frame = fake.sent.length - 1;
+      const message = parseMessage(fake.sent[frame]!);
+      const row = this.lastRpcRow;
+      if (message && isRequest(message) && Number(message.id) === row?.id) {
+        socket.serials.set(frame, row.serial);
+      }
     };
     const recordClose = fake.connection.close.bind(fake.connection);
     fake.connection.close = (code?: number, reason?: string) => {
@@ -1080,7 +1123,29 @@ export class HarnessSessionReplay {
       );
     }
     const result = this.resultOf(request, finished);
-    await this.runStep(() => this.deliver(socket, jsonRpcResponse(request.id, result)));
+    await this.answerRequest(request, () =>
+      this.deliver(socket, jsonRpcResponse(request.id, result)),
+    );
+  }
+
+  /** Deliver the answer to one request, so a taken rpc row is checked against the row behind it. */
+  private async answerRequest(request: BridgeRequest, deliver: () => Promise<void>): Promise<void> {
+    this.answeredSerial = request.serial;
+    try {
+      await this.runStep(deliver);
+    } finally {
+      this.answeredSerial = null;
+    }
+  }
+
+  /** A person presses Stop. It ends a turn when the author was at work and its generation ends. */
+  private async stop(): Promise<void> {
+    const { workflow } = this.world;
+    const atWork = taskAtWork(workflow, this.task());
+    const { generation } = workflow.store.requireSandbox(this.taskId);
+    await this.runStep(() => stopAuthor(workflow, this.task()));
+    const ended = workflow.store.requireSandbox(this.taskId).generation > generation;
+    if (atWork && ended) this.stopsEnded += 1;
   }
 
   private resultOf(request: BridgeRequest, finished: FinishedStop): unknown {
@@ -1118,7 +1183,7 @@ export class HarnessSessionReplay {
     const socket = this.connectedSocketOf(index);
     const request = bridge.requests.shift();
     if (!request) throw new Error(`bridge ${index} holds no request`);
-    await this.runStep(() =>
+    await this.answerRequest(request, () =>
       this.deliver(socket, jsonRpcErrorResponse(request.id, INTERNAL_ERROR, "the harness failed")),
     );
   }
@@ -1182,22 +1247,28 @@ export class HarnessSessionReplay {
   /** Every bridge reads the frames the orchestrator wrote to its socket while it held it open. */
   private readSentFrames(): void {
     for (const socket of this.sockets) {
-      const frames = socket.fake.sent.slice(socket.read);
+      const first = socket.read;
+      const frames = socket.fake.sent.slice(first);
       socket.read = socket.fake.sent.length;
       const bridge = this.bridgeAt(socket.bridge);
       const reads =
         bridge.alive && socket.state !== "BridgeGone" && socket.state !== "ClosingBridgeGone";
       if (!reads) continue;
-      for (const frame of frames) this.readFrame(bridge, frame);
+      frames.forEach((frame, offset) =>
+        this.readFrame(bridge, frame, socket.serials.get(first + offset)),
+      );
     }
   }
 
-  private readFrame(bridge: ReplayBridge, frame: string): void {
+  private readFrame(bridge: ReplayBridge, frame: string, serial: number | undefined): void {
     const message = parseMessage(frame);
     if (!message) return;
     if (isRequest(message)) {
       const purpose = PURPOSE_OF_METHOD[message.method];
-      if (purpose) bridge.requests.push({ id: Number(message.id), purpose, cancelled: false });
+      if (!purpose) return;
+      if (serial === undefined)
+        throw new Error(`request ${message.id} went out without an rpc row`);
+      bridge.requests.push({ id: Number(message.id), serial, purpose, cancelled: false });
       return;
     }
     if (isNotification(message) && message.method === AgentMethods.sessionCancel) {
