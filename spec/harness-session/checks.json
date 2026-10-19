@@ -25,7 +25,8 @@
     "anUnpausedTaskWithWorkIsNeverStranded",
     "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone",
     "theHelloTimeoutWaitsWhileItsStartIsOut",
-    "aStoppedAuthorStaysQuiet"
+    "aStoppedAuthorStaysQuiet",
+    "aTaskWithoutAnEarlierPromptGetsTheTaskPrompt"
   ],
   "mainMinutes": {
     "harnessDefaultEffort": 1.3,
@@ -67,7 +68,9 @@
       "theAuthorWasNudged",
       "theTaskWasCancelled",
       "aHelloTimeoutFiresWhileItsStartIsOut",
-      "aStoppedAuthorHasACallOut"
+      "aStoppedAuthorHasACallOut",
+      "aResumePromptIsChosen",
+      "aStoppedTaskGetsTheTaskPrompt"
     ],
     "stageAsksForEffort": [
       "aFinishedTaskIsInAStep",
@@ -103,7 +106,8 @@
       "theTaskWasCancelled",
       "theEffortIsSet",
       "aHelloTimeoutFiresWhileItsStartIsOut",
-      "aStoppedAuthorHasACallOut"
+      "aStoppedAuthorHasACallOut",
+      "aStoppedTaskGetsTheTaskPrompt"
     ],
     "agentPausesRunningTurns": [
       "aFinishedTaskIsInAStep",
@@ -140,7 +144,9 @@
       "theAuthorWasNudged",
       "theTaskWasCancelled",
       "aHelloTimeoutFiresWhileItsStartIsOut",
-      "aStoppedAuthorHasACallOut"
+      "aStoppedAuthorHasACallOut",
+      "aResumePromptIsChosen",
+      "aStoppedTaskGetsTheTaskPrompt"
     ]
   },
   "tlc": {

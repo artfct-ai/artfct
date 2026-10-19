@@ -99,6 +99,7 @@
         "generation": {
           "#bigint": "0"
         },
+        "hadPrompt": false,
         "helloSlot": {
           "tag": "Unarmed",
           "value": {
@@ -154,6 +155,9 @@
         "restarts": {
           "#bigint": "0"
         },
+        "resumesChosen": {
+          "#bigint": "0"
+        },
         "rpcs": [],
         "session": false,
         "sockets": [],
@@ -166,6 +170,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -317,6 +322,7 @@
         "generation": {
           "#bigint": "1"
         },
+        "hadPrompt": false,
         "helloSlot": {
           "tag": "Armed",
           "value": {
@@ -372,6 +378,9 @@
         "restarts": {
           "#bigint": "0"
         },
+        "resumesChosen": {
+          "#bigint": "0"
+        },
         "rpcs": [],
         "session": false,
         "sockets": [],
@@ -384,6 +393,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -499,6 +509,7 @@
         "generation": {
           "#bigint": "1"
         },
+        "hadPrompt": false,
         "helloSlot": {
           "tag": "Armed",
           "value": {
@@ -554,6 +565,9 @@
         "restarts": {
           "#bigint": "0"
         },
+        "resumesChosen": {
+          "#bigint": "0"
+        },
         "rpcs": [],
         "session": false,
         "sockets": [],
@@ -566,6 +580,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -683,6 +698,7 @@
         "generation": {
           "#bigint": "1"
         },
+        "hadPrompt": false,
         "helloSlot": {
           "tag": "Armed",
           "value": {
@@ -738,6 +754,9 @@
         "restarts": {
           "#bigint": "0"
         },
+        "resumesChosen": {
+          "#bigint": "0"
+        },
         "rpcs": [],
         "session": false,
         "sockets": [],
@@ -750,6 +769,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -871,6 +891,7 @@
         "generation": {
           "#bigint": "1"
         },
+        "hadPrompt": false,
         "helloSlot": {
           "tag": "Unarmed",
           "value": {
@@ -926,6 +947,9 @@
         "restarts": {
           "#bigint": "0"
         },
+        "resumesChosen": {
+          "#bigint": "0"
+        },
         "rpcs": [
           {
             "id": {
@@ -968,6 +992,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -1089,6 +1114,7 @@
         "generation": {
           "#bigint": "1"
         },
+        "hadPrompt": false,
         "helloSlot": {
           "tag": "Unarmed",
           "value": {
@@ -1144,6 +1170,9 @@
         "restarts": {
           "#bigint": "0"
         },
+        "resumesChosen": {
+          "#bigint": "0"
+        },
         "rpcs": [
           {
             "id": {
@@ -1186,6 +1215,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -1307,6 +1337,7 @@
         "generation": {
           "#bigint": "1"
         },
+        "hadPrompt": false,
         "helloSlot": {
           "tag": "Unarmed",
           "value": {
@@ -1369,6 +1400,9 @@
         "restarts": {
           "#bigint": "0"
         },
+        "resumesChosen": {
+          "#bigint": "0"
+        },
         "rpcs": [
           {
             "id": {
@@ -1411,6 +1445,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -1532,6 +1567,7 @@
         "generation": {
           "#bigint": "1"
         },
+        "hadPrompt": false,
         "helloSlot": {
           "tag": "Unarmed",
           "value": {
@@ -1600,6 +1636,9 @@
         "restarts": {
           "#bigint": "0"
         },
+        "resumesChosen": {
+          "#bigint": "0"
+        },
         "rpcs": [
           {
             "id": {
@@ -1642,6 +1681,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -1807,6 +1847,7 @@
         "generation": {
           "#bigint": "2"
         },
+        "hadPrompt": false,
         "helloSlot": {
           "tag": "Armed",
           "value": {
@@ -1875,6 +1916,9 @@
         "restarts": {
           "#bigint": "0"
         },
+        "resumesChosen": {
+          "#bigint": "0"
+        },
         "rpcs": [],
         "session": false,
         "sockets": [],
@@ -1887,6 +1931,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"

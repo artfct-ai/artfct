@@ -608,6 +608,13 @@ export const MUTANTS: Mutant[] = [
     find: 'return markArtifactReady(workflow, task.job_id, { close: "blocked", reason: gate.reason });',
     replace: 'return markArtifactReady(workflow, task.job_id, { close: "ready" });',
   },
+  {
+    id: "W112",
+    invariant: "harnessSession::aTaskWithoutAnEarlierPromptGetsTheTaskPrompt",
+    path: "src/workflow/task/harness/prompt-queue.ts",
+    find: "  if (sandbox.first_prompt_at === null) {\n",
+    replace: "  if (sandbox.generation <= 1) {\n",
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */

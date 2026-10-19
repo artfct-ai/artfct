@@ -110,6 +110,7 @@ module harnessSessionTypes {
     generation: int,
     token: int,
     session: bool,
+    hadPrompt: bool,
     promptInFlight: bool,
     nudged: bool,
     stoppedEarly: bool,
@@ -139,6 +140,7 @@ module harnessSessionTypes {
     answersToOtherRequests: int,
     eventsThatThrew: int,
     personPrompts: int,
+    resumesChosen: int,
     faults: int,
     actions: int,
     stopped: bool,
@@ -183,6 +185,7 @@ module harnessSessionTypes {
     aBridgeConnectsOnlyWithTheCurrentToken: bool,
     aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn: bool,
     theHelloTimeoutWaitsWhileItsStartIsOut: bool,
+    aTaskWithoutAnEarlierPromptGetsTheTaskPrompt: bool,
   }
 
   /// For each witness that reads a step, whether the last step showed it. Each step writes it anew.
@@ -214,6 +217,8 @@ module harnessSessionTypes {
     aCallWasDropped: bool,
     anAlarmRunsAgainAfterARestart: bool,
     aHelloTimeoutFiresWhileItsStartIsOut: bool,
+    aResumePromptIsChosen: bool,
+    aStoppedTaskGetsTheTaskPrompt: bool,
   }
 }
 
@@ -245,6 +250,7 @@ module harnessSession {
     generation: 0,
     token: 0,
     session: false,
+    hadPrompt: false,
     promptInFlight: false,
     nudged: false,
     stoppedEarly: false,
@@ -274,6 +280,7 @@ module harnessSession {
     answersToOtherRequests: 0,
     eventsThatThrew: 0,
     personPrompts: 0,
+    resumesChosen: 0,
     faults: 0,
     actions: 0,
     stopped: false,
@@ -494,11 +501,12 @@ module harnessSession {
       armKeepAlive(armWallClock(armNoProgress(sendRequest(inFlight, Prompt))))
     }
 
-  /// `sendFirstPrompt`: a later generation takes the head of the queue as its wake text. A paused
-  /// task keeps the first prompt at the head of its queue.
+  /// `sendFirstPrompt`: a task that had a first prompt before resumes, and takes the head of the
+  /// queue as its wake text. A paused task keeps the first prompt at the head of its queue.
   pure def sendFirstPrompt(w: World): World = {
-    val resumes = w.generation > 1 or w.restarts > 0
-    val woken = if (resumes and w.queue.length() > 0) { ...w, queue: w.queue.tail() } else w
+    val resumes = w.hadPrompt
+    val chosen = { ...w, hadPrompt: true, resumesChosen: if (resumes) w.resumesChosen + 1 else w.resumesChosen }
+    val woken = if (resumes and chosen.queue.length() > 0) { ...chosen, queue: chosen.queue.tail() } else chosen
     if (not(woken.paused)) sendPrompt(woken)
     else { ...woken, queue: List(FirstPrompt).concat(woken.queue) }
   }
@@ -857,6 +865,11 @@ module harnessSession {
       not(issued(step.before, step.after)),
     }
 
+  /// A task that never had a first prompt gets the task prompt as its first prompt, also after a
+  /// stop or a restart began a later generation.
+  pure def aTaskWithoutAnEarlierPromptGetsTheTaskPromptIn(step: Step): bool =
+    step.after.resumesChosen > step.before.resumesChosen implies step.before.hadPrompt
+
   /// Whether one step kept each before-and-after rule.
   pure def rulesKeptIn(step: Step): RulesKept = {
     finishedTaskKeepsItsStatus: finishedTaskKeepsItsStatusIn(step),
@@ -875,6 +888,7 @@ module harnessSession {
     aBridgeConnectsOnlyWithTheCurrentToken: aBridgeConnectsOnlyWithTheCurrentTokenIn(step),
     aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn: aLaterPromptSurvivesTheOutcomeOfAnEarlierTurnIn(step),
     theHelloTimeoutWaitsWhileItsStartIsOut: theHelloTimeoutWaitsWhileItsStartIsOutIn(step),
+    aTaskWithoutAnEarlierPromptGetsTheTaskPrompt: aTaskWithoutAnEarlierPromptGetsTheTaskPromptIn(step),
   }
 
   /// Whether a sandbox start of the current generation, or of an older one, failed for an unfinished task.
@@ -949,6 +963,9 @@ module harnessSession {
         step.before.calls.select(call => call.state == Out and alarmsAwaiting(call).length() > 0).length() > 0,
     aHelloTimeoutFiresWhileItsStartIsOut:
       step.kind == HelloTimeoutStep and step.before.status == Provisioning and startCallOut(step.before, step.before.generation),
+    aResumePromptIsChosen: step.after.resumesChosen > step.before.resumesChosen,
+    aStoppedTaskGetsTheTaskPrompt:
+      not(step.before.hadPrompt) and step.after.hadPrompt and step.after.generation > 1 and step.after.restarts == 0,
   }
 
   /// Write the world after a step, and which rules and witnesses that step kept and showed.
@@ -1607,6 +1624,10 @@ module harnessSession {
   val aStoppedAuthorStaysQuiet: bool =
     (world.stopped and not(isFinished(world.status))) implies not(atWork(world))
 
+  /// A task that never had a first prompt gets the task prompt as its first prompt, also after a
+  /// stop or a restart began a later generation.
+  val aTaskWithoutAnEarlierPromptGetsTheTaskPrompt: bool = rulesKept.aTaskWithoutAnEarlierPromptGetsTheTaskPrompt
+
   /// PROPOSED. A harness answer reaches only the request it answers, never a later request that
   /// took the same rpc id.
   val anAnswerReachesOnlyItsOwnRequest: bool = world.answersToOtherRequests == 0
@@ -1643,6 +1664,7 @@ module harnessSession {
     anAnswerReachesOnlyItsOwnRequest,
     theHelloTimeoutWaitsWhileItsStartIsOut,
     aStoppedAuthorStaysQuiet,
+    aTaskWithoutAnEarlierPromptGetsTheTaskPrompt,
   }
 
   /// Witness for `finishedTaskKeepsItsStatus`: a finished task is there before a step.
@@ -1755,6 +1777,14 @@ module harnessSession {
   /// Witness for `theHelloTimeoutWaitsWhileItsStartIsOut`: the hello timeout fires on a
   /// provisioning task while the start of its generation is out.
   val aHelloTimeoutFiresWhileItsStartIsOut: bool = stepWitnesses.aHelloTimeoutFiresWhileItsStartIsOut
+
+  /// Witness for `aTaskWithoutAnEarlierPromptGetsTheTaskPrompt`: a task that had a first prompt
+  /// before gets the resume prompt.
+  val aResumePromptIsChosen: bool = stepWitnesses.aResumePromptIsChosen
+
+  /// Witness for `aTaskWithoutAnEarlierPromptGetsTheTaskPrompt`: a task whose generation a stop
+  /// ended before its first prompt gets the task prompt.
+  val aStoppedTaskGetsTheTaskPrompt: bool = stepWitnesses.aStoppedTaskGetsTheTaskPrompt
 
   /// The author was nudged.
   val theAuthorWasNudged: bool = world.nudged

@@ -1,0 +1,1 @@
+ALTER TABLE `sandboxes` ADD `first_prompt_at` text;
