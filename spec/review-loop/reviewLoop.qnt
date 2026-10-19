@@ -21,6 +21,9 @@ module reviewLoopTypes {
   /// How the lookups of the revision on the host go in one step: they give it, or they fail.
   type RevisionLookup = RevisionKnown | RevisionUnknown
 
+  /// How the read of a pull request review went at its reviewer's turn end.
+  type ReviewRead = ReviewReadOk | ReviewReadFails
+
   /// A revision as a review, a ruling or a handover recorded it: the one the host gave, or
   /// unknown when the lookup failed.
   type FiledRevision = ReadRevision(int) | UnknownRevision
@@ -228,7 +231,8 @@ module reviewLoopTypes {
   /// ended, what happened on the document host, whether the host took a model-call author's
   /// writes, what the agent read about page comments, whether a new instance took over, the
   /// refiner run that hit a failure it may recover from, how the lookups of the revision went,
-  /// what a read of the checks did, and whether the host reported checks.
+  /// what a read of the checks did, whether the host reported checks, and how the read of a
+  /// pull request review went.
   type StepKind = {
     turnEnd: TurnEnd,
     page: PageFact,
@@ -239,6 +243,7 @@ module reviewLoopTypes {
     revisionLookup: RevisionLookup,
     checks: ChecksRead,
     checksReported: bool,
+    reviewRead: ReviewRead,
   }
 
   /// One step: the review before it, the review after it, and what an observer knows of it.
@@ -323,6 +328,7 @@ module reviewLoopTypes {
     anAuthorFailsPastItsRestarts: bool,
     aPolisherRunStopsOnADraftedArtifact: bool,
     aReviewerRunFailsOnADraftedArtifact: bool,
+    aReviewReadFailsOnADraftedArtifact: bool,
     aPausedAuthorResumesItsWork: bool,
     anAuthorResumesWhileAPolisherRuns: bool,
     aPersonInstructsWhileAPolisherRuns: bool,
@@ -1258,6 +1264,10 @@ module reviewLoop {
     else if (drafted(loop)) handOver(loop, ClosedBlocked, lookup)
     else withoutRefinerRun(loop)
 
+  /// A pull request reviewer's turn ended, and the read of its review failed.
+  pure def reviewReadFailed(loop: ReviewLoop, id: int, lookup: RevisionLookup): ReviewLoop =
+    reviewerFailed(withStatus(loop, id, Done), id, lookup)
+
   pure def refinerRunFailed(loop: ReviewLoop, id: int, lookup: RevisionLookup): ReviewLoop = {
     val failed = withStatus(loop, id, Failed)
     if (refinerOf(loop.refinerRuns[id]) == Polisher) polisherStopped(failed, id, lookup)
@@ -1362,6 +1372,7 @@ module reviewLoop {
       revisionLookup: RevisionKnown,
       checks: ChecksNotRead,
       checksReported: false,
+      reviewRead: ReviewReadOk,
     }
 
   action moveWith(after: ReviewLoop, kind: StepKind): bool = {
@@ -1490,6 +1501,18 @@ module reviewLoop {
     moveWith(
       findingsReviewerFinished(review, id, false, commenting, revisionLookup),
       { ...quietStep(RefinerTurnEnded(id)), page: page, revisionLookup: revisionLookup },
+    ),
+  }
+
+  /// A pull request findings reviewer's turn ends, and the read of its review fails.
+  action theReviewReadFails: bool = all {
+    not(ON_A_PAGE),
+    runningRunIs(review, FindingsReviewer),
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
+    val id = lastUnfinishedRun(review)
+    moveWith(
+      reviewReadFailed(review, id, revisionLookup),
+      { ...quietStep(RefinerTurnEnded(id)), revisionLookup: revisionLookup, reviewRead: ReviewReadFails },
     ),
   }
 
@@ -1842,6 +1865,7 @@ module reviewLoop {
     aModelCallAnswerDoesNotValidate,
     findingsReviewerLeavesFindings,
     findingsReviewerApproves,
+    theReviewReadFails,
     judgeTurnEnds,
     judgeClosesWithoutAConclusion,
     decisionsModelApproves,
@@ -2223,8 +2247,8 @@ module reviewLoop {
   /// True when the drafted artifact is on a run of a polisher.
   pure def heldRunIsAPolisher(loop: ReviewLoop): bool = refinerOf(loop.refinerRuns[heldRun(loop)]) == Polisher
 
-  /// True when the unfinished refiner run a drafted artifact is on fails in the step, or is
-  /// cancelled in it and is a polisher run.
+  /// True when the unfinished refiner run a drafted artifact is on fails in the step, is cancelled
+  /// in it and is a polisher run, or ends in it with a review that could not be read.
   pure def stopsTheRunOfADraft(step: Transition): bool =
     if (drafted(step.before) and holdsARun(step.before)) {
       val before = step.before.refinerRuns[heldRun(step.before)]
@@ -2232,11 +2256,20 @@ module reviewLoop {
       isUnfinished(before.status) and or {
         after.status == Failed,
         after.status == Cancelled and refinerOf(before) == Polisher,
+        step.kind.reviewRead == ReviewReadFails and step.kind.turnEnd == RefinerTurnEnded(heldRun(step.before)),
       }
     } else false
 
-  /// A step that fails the run a drafted artifact is on, or cancels its polisher run, hands the
-  /// artifact over blocked.
+  /// True when the read of the review fails on the run a drafted artifact is on.
+  pure def failsTheReviewReadOfADraft(step: Transition): bool = and {
+    step.kind.reviewRead == ReviewReadFails,
+    drafted(step.before),
+    holdsARun(step.before),
+    step.kind.turnEnd == RefinerTurnEnded(heldRun(step.before)),
+  }
+
+  /// A step that fails the run a drafted artifact is on, cancels its polisher run, or cannot read
+  /// the review its findings reviewer filed, hands the artifact over blocked.
   pure def handsOverBlockedWhenItsRunStops(step: Transition): bool =
     stopsTheRunOfADraft(step) implies handedOverBlocked(step.after)
 
@@ -2446,6 +2479,7 @@ module reviewLoop {
       step.kind.recoverableFailure == AuthorHit and step.before.author.restarts == MAX_RESTARTS,
     aPolisherRunStopsOnADraftedArtifact: stopsTheRunOfADraft(step) and heldRunIsAPolisher(step.before),
     aReviewerRunFailsOnADraftedArtifact: stopsTheRunOfADraft(step) and not(heldRunIsAPolisher(step.before)),
+    aReviewReadFailsOnADraftedArtifact: failsTheReviewReadOfADraft(step),
     aPausedAuthorResumesItsWork: resumesTheAuthor(step) and not(atWork(step.before)) and atWork(step.after),
     anAuthorResumesWhileAPolisherRuns: resumesTheAuthor(step) and polisherRunning(step.before),
     aPersonInstructsWhileAPolisherRuns: and {
@@ -2623,8 +2657,9 @@ module reviewLoop {
     lastStepKept.anEndedAuthorEndsItsReview,
   }
 
-  /// A findings reviewer or judge run that fails, or a polisher run that is cancelled or fails,
-  /// while the drafted artifact is on it, hands the artifact over blocked.
+  /// A findings reviewer or judge run that fails, a polisher run that is cancelled or fails, or a
+  /// findings reviewer run whose review cannot be read, while the drafted artifact is on it, hands
+  /// the artifact over blocked.
   val aStoppedRefinerRunHandsOverBlocked: bool = lastStepKept.aStoppedRefinerRunHandsOverBlocked
 
   /// A polisher run ends done only after the checks gate opens or blocks on the revision it left.
@@ -2925,6 +2960,10 @@ module reviewLoop {
   /// Witness for `aStoppedRefinerRunHandsOverBlocked`: a findings reviewer or judge run the drafted
   /// artifact is on fails.
   val aReviewerRunFailsOnADraftedArtifact: bool = lastStepReached.aReviewerRunFailsOnADraftedArtifact
+
+  /// Witness for `aStoppedRefinerRunHandsOverBlocked`: the read of the review fails on the findings
+  /// reviewer run the drafted artifact is on.
+  val aReviewReadFailsOnADraftedArtifact: bool = lastStepReached.aReviewReadFailsOnADraftedArtifact
 
   /// Witness for `aQueuedPromptReachesItsModelCallAuthor`: a prompt waits for the author while it
   /// is paused in review.

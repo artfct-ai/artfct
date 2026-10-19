@@ -11,6 +11,7 @@ const mentionEventSchema = z.object({
   channel: z.string(),
   ts: z.string(),
   thread_ts: z.string().optional(),
+  bot_id: z.string().optional(),
 });
 
 const messageEventSchema = z.object({
@@ -103,9 +104,10 @@ const SENDER_UNAUTHORIZED: ChatInbound = { ignore: "sender is not authorized" };
 
 /**
  * A mention starts a workflow, or joins the running one its thread is bound to. A status
- * question inside a thread only asks.
+ * question inside a thread only asks. A bot's mention is dropped.
  */
 async function mentionEvent(event: MentionEvent, context: SlackContext): Promise<ChatInbound> {
+  if (event.bot_id) return { ignore: "bot mention" };
   const actor = await resolveActor(context, event.user);
   if (!actor) return SENDER_UNAUTHORIZED;
   const threadTs = event.thread_ts ?? event.ts;
