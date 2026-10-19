@@ -21,7 +21,7 @@ const QUINT_CLI = createRequire(import.meta.url).resolve("@informalsystems/quint
  * The most traces one quint run samples. A quint run holds every trace it samples in memory, about
  * 3 MB each for the harness session, so a larger count runs as several seeded batches.
  */
-const TRACES_PER_QUINT_RUN = 250;
+const TRACES_PER_QUINT_RUN = 500;
 
 /**
  * Sample traces of one spec setup with `quint run --mbt`, and read each trace's ITF JSON with
