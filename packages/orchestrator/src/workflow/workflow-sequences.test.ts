@@ -190,6 +190,7 @@ describe("a job that continued its own input", () => {
         firstInput: "request",
         subject: "none",
         sandboxStart: "on_an_action",
+        pageBranch: false,
       },
       [
         firstArtifactAppears(0, "author_text"),
@@ -220,6 +221,7 @@ describe("a job that continued its own input", () => {
         firstInput: "origin_issue",
         subject: "none",
         sandboxStart: "on_an_action",
+        pageBranch: false,
       },
       [
         firstArtifactAppears(0, "author_text", "the_subject_issue"),
@@ -250,6 +252,7 @@ function pullSetup(refiners: WorldSetup["refiners"]): WorldSetup {
     firstInput: "request",
     subject: "none",
     sandboxStart: "on_an_action",
+    pageBranch: false,
   };
 }
 

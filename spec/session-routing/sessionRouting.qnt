@@ -162,6 +162,20 @@ module sessionRoutingTypes {
 
   /// The state after one step and the facts of that step.
   type StepResult = { state: Routing, facts: StepFacts }
+
+  /// The deliveries of a message a person sent in a session that waits on the workflow's idle
+  /// clock before it lands: how many are in flight, whether the tracker still owes one after a
+  /// restart failed one, and how many times the message landed. The workflow marks it seen when
+  /// it lands.
+  type SessionMessage = { inFlight: int, owed: bool, landed: int }
+
+  /// A session message that has not landed yet: where and what a person wrote, and whether a
+  /// restart failed a delivery of it.
+  type MessageToLand = { issue: Issue, text: SessionText, failedByARestart: bool }
+
+  /// Whether the last step landed a message the tracker delivered again after a restart, or
+  /// dropped a second delivery of a message that landed.
+  type DeliveryWitnesses = { aRedeliveredMessageLands: bool, aSecondDeliveryIsDropped: bool }
 }
 
 /// Routing in a workflow that starts from a chat thread or from a tracker session.
@@ -241,9 +255,24 @@ module sessionRouting {
     health: TrackerUp,
   }
 
+  pure val NO_DELIVERY_WITNESSES: DeliveryWitnesses = {
+    aRedeliveredMessageLands: false,
+    aSecondDeliveryIsDropped: false,
+  }
+
   var routing: Routing
   var lastStepKept: KeptRules
   var lastStep: StepFacts
+
+  /// The deliveries of each session message that waits on the idle clock, by the order they were
+  /// sent.
+  var sessionMessages: int -> SessionMessage
+
+  /// The session messages that have not landed yet.
+  var messagesToLand: int -> MessageToLand
+
+  /// What the last step did with a delivery of a session message.
+  var lastDelivery: DeliveryWitnesses
 
   pure def isChatThread(target: Target): bool = match target {
     | ChatThread(_) => true
@@ -517,16 +546,31 @@ module sessionRouting {
     aStopAnswersOnlyInTheFeed: stopAnswersOnlyInTheFeed(before, after, facts),
   }
 
-  action move(after: Routing, facts: StepFacts): bool = all {
+  action moveMessages(
+    after: Routing,
+    facts: StepFacts,
+    messagesAfter: int -> SessionMessage,
+    toLandAfter: int -> MessageToLand,
+    delivery: DeliveryWitnesses,
+  ): bool = all {
     routing' = after,
     lastStepKept' = rulesKeptBy(routing, after, facts),
     lastStep' = facts,
+    sessionMessages' = messagesAfter,
+    messagesToLand' = toLandAfter,
+    lastDelivery' = delivery,
   }
+
+  action move(after: Routing, facts: StepFacts): bool =
+    moveMessages(after, facts, sessionMessages, messagesToLand, NO_DELIVERY_WITNESSES)
 
   action init: bool = all {
     routing' = INITIAL_ROUTING,
     lastStepKept' = rulesKeptBy(INITIAL_ROUTING, INITIAL_ROUTING, NO_FACTS),
     lastStep' = NO_FACTS,
+    sessionMessages' = Map(),
+    messagesToLand' = Map(),
+    lastDelivery' = NO_DELIVERY_WITNESSES,
   }
 
   /// `settleAndResumeAuthor` and the feed closing after it. The next queued prompt goes out, and
@@ -678,33 +722,111 @@ module sessionRouting {
     }
   }
 
-  /// A person writes in one of the workflow's tracker sessions. In the job session of a running
+  /// What a person's message in a session does when it lands. In the job session of a running
   /// author, the message is a prompt for that author, a verbal command too. Anywhere else a verbal
   /// command runs, and any other message wakes the agent. A message other than a status request
-  /// wakes a sleeping workflow. A finished workflow answers the person at once.
+  /// wakes a sleeping workflow. A finished workflow answers the person.
+  pure def messageLands(state: Routing, issue: Issue, text: SessionText): StepResult = {
+    val session = Session(issue)
+    val wrote = WroteIn({ issue: issue, text: text })
+    val running = runningSessionJob(state, issue)
+    val woken = { ...state, waitsForInput: state.waitsForInput and text == StatusRequest }
+    if (state.ended) {
+      val kind = if (text == StatusRequest) StatusPost else InfoPost
+      val reply = { kind: kind, targets: replyTargetsOf(state, session) }
+      { state: state, facts: { ...NO_FACTS, wrote: wrote, posts: List(reply) } }
+    } else if (running.size() > 0) {
+      { state: running.fold(woken, (prompted, id) => promptAuthor(prompted, id)), facts: { ...NO_FACTS, wrote: wrote } }
+    } else match text {
+      | PauseCommand => verbalPauseIn(woken, issue, wrote)
+      | CancelCommand => verbalCancelIn(woken, issue, wrote)
+      | _ => wakeTheAgent(woken, issue, wrote)
+    }
+  }
+
+  /// A person writes in one of the workflow's tracker sessions, and the message lands in the same
+  /// step. A status request does not wait on the idle clock, and a finished workflow answers at
+  /// once. Any other message lands here when nothing else ran while it waited on the idle clock.
   action personWritesInSession: bool = {
     nondet issue = ISSUES.oneOf()
     nondet text = SESSION_TEXTS.oneOf()
-    val session = Session(issue)
-    val wrote = WroteIn({ issue: issue, text: text })
-    val running = runningSessionJob(routing, issue)
-    val woken = { ...routing, waitsForInput: routing.waitsForInput and text == StatusRequest }
+    val landed = messageLands(routing, issue, text)
     all {
-      routing.replyTargets.contains(session),
-      if (routing.ended) {
-        val kind = if (text == StatusRequest) StatusPost else InfoPost
-        val reply = { kind: kind, targets: replyTargetsOf(routing, session) }
-        move(routing, { ...NO_FACTS, wrote: wrote, posts: List(reply) })
-      } else if (running.size() > 0) {
-        move(running.fold(woken, (prompted, id) => promptAuthor(prompted, id)), { ...NO_FACTS, wrote: wrote })
-      } else {
-        val answered = match text {
-          | PauseCommand => verbalPauseIn(woken, issue, wrote)
-          | CancelCommand => verbalCancelIn(woken, issue, wrote)
-          | _ => wakeTheAgent(woken, issue, wrote)
-        }
-        move(answered.state, answered.facts)
-      },
+      routing.replyTargets.contains(Session(issue)),
+      move(landed.state, landed.facts),
+    }
+  }
+
+  /// A person sends a message other than a status request in a session of a running workflow.
+  /// Its delivery waits on the idle clock, and other steps run before it lands.
+  action personSendsInSession: bool = {
+    nondet issue = ISSUES.oneOf()
+    nondet text = SESSION_TEXTS.exclude(Set(StatusRequest)).oneOf()
+    val message = sessionMessages.keys().size()
+    all {
+      not(routing.ended),
+      routing.replyTargets.contains(Session(issue)),
+      moveMessages(
+        routing,
+        NO_FACTS,
+        sessionMessages.put(message, { inFlight: 1, owed: false, landed: 0 }),
+        messagesToLand.put(message, { issue: issue, text: text, failedByARestart: false }),
+        NO_DELIVERY_WITNESSES,
+      ),
+    }
+  }
+
+  /// A session message lands with what it does, the workflow marks it seen, and it does not wait
+  /// to land any more.
+  action landMessage(message: int, sent: SessionMessage): bool = {
+    val toLand = messagesToLand.get(message)
+    val landed = messageLands(routing, toLand.issue, toLand.text)
+    moveMessages(
+      landed.state,
+      landed.facts,
+      sessionMessages.put(message, { ...sent, landed: sent.landed + 1 }),
+      messagesToLand.keys().exclude(Set(message)).mapBy(other => messagesToLand.get(other)),
+      { ...NO_DELIVERY_WITNESSES, aRedeliveredMessageLands: toLand.failedByARestart },
+    )
+  }
+
+  /// The tracker delivers a session message again: after a restart failed a delivery of it, or
+  /// while a delivery of it is in flight. A delivery of a message that landed is dropped on arrival.
+  /// A finished workflow does not wait on the idle clock, so the message lands at once.
+  action trackerDeliversAgain: bool = {
+    nondet message = sessionMessages.keys().oneOf()
+    val sent = sessionMessages.get(message)
+    val delivered = { ...sent, owed: false }
+    all {
+      sent.owed or sent.inFlight > 0,
+      if (sent.landed > 0)
+        moveMessages(routing, NO_FACTS, sessionMessages.put(message, delivered), messagesToLand, { ...NO_DELIVERY_WITNESSES, aSecondDeliveryIsDropped: true })
+      else if (routing.ended)
+        landMessage(message, delivered)
+      else
+        moveMessages(routing, NO_FACTS, sessionMessages.put(message, { ...delivered, inFlight: sent.inFlight + 1 }), messagesToLand, NO_DELIVERY_WITNESSES),
+    }
+  }
+
+  /// One delivery of a session message in flight lands. A delivery of a message that another
+  /// delivery landed wakes a sleeping workflow, since the wake comes before the seen mark, and is
+  /// dropped.
+  action aSessionMessageLands: bool = {
+    nondet message = sessionMessages.keys().oneOf()
+    val sent = sessionMessages.get(message)
+    val delivered = { ...sent, inFlight: sent.inFlight - 1 }
+    all {
+      sent.inFlight > 0,
+      if (sent.landed > 0)
+        moveMessages(
+          { ...routing, waitsForInput: routing.waitsForInput and routing.ended },
+          NO_FACTS,
+          sessionMessages.put(message, delivered),
+          messagesToLand,
+          { ...NO_DELIVERY_WITNESSES, aSecondDeliveryIsDropped: true },
+        )
+      else
+        landMessage(message, delivered),
     }
   }
 
@@ -957,8 +1079,23 @@ module sessionRouting {
   }
 
   /// The Durable Object restarts. The session feeds live in memory, so every kept message is lost.
-  action workflowRestarts: bool =
-    move({ ...routing, jobs: routing.jobs.foldl(List(), (jobs, job) => jobs.append(forgetMessage(job))) }, NO_FACTS)
+  /// Every delivery of a session message in flight fails, and the tracker owes it again.
+  action workflowRestarts: bool = {
+    val failed = sessionMessages.keys().filter(message => sessionMessages.get(message).inFlight > 0)
+    moveMessages(
+      { ...routing, jobs: routing.jobs.foldl(List(), (jobs, job) => jobs.append(forgetMessage(job))) },
+      NO_FACTS,
+      sessionMessages.keys().mapBy(message => {
+        val sent = sessionMessages.get(message)
+        if (failed.contains(message)) { ...sent, inFlight: 0, owed: true } else sent
+      }),
+      messagesToLand.keys().mapBy(message => {
+        val toLand = messagesToLand.get(message)
+        { ...toLand, failedByARestart: toLand.failedByARestart or failed.contains(message) }
+      }),
+      NO_DELIVERY_WITNESSES,
+    )
+  }
 
   /// A researcher reports its todo list.
   action researcherReportsTodos: bool = {
@@ -1069,6 +1206,9 @@ module sessionRouting {
 
   action step: bool = any {
     personWritesInSession,
+    personSendsInSession,
+    trackerDeliversAgain,
+    aSessionMessageLands,
     agentTurnEnds,
     agentStartsJob,
     agentNamesTheSubject,
@@ -1148,6 +1288,29 @@ module sessionRouting {
 
   /// The jobs the workflow started, which model checking bounds.
   val jobsStarted: int = routing.jobs.length()
+
+  /// Every session message lands once, unless a delivery of it is in flight or the tracker still
+  /// owes one after a restart failed it.
+  val everySessionMessageLandsOnce: bool = sessionMessages.keys().forall(message => {
+    val sent = sessionMessages.get(message)
+    and {
+      sent.landed <= 1,
+      (sent.inFlight == 0 and not(sent.owed)) implies sent.landed == 1,
+    }
+  })
+
+  /// The session messages sent, which model checking bounds.
+  val sessionMessagesSent: int = sessionMessages.keys().size()
+
+  /// The deliveries of session messages in flight, which model checking bounds.
+  val messageDeliveriesInFlight: int =
+    sessionMessages.keys().fold(0, (total, message) => total + sessionMessages.get(message).inFlight)
+
+  /// A session message lands after a restart failed a delivery of it.
+  val aRedeliveredMessageLands: bool = lastDelivery.aRedeliveredMessageLands
+
+  /// A second delivery of a session message that landed is dropped.
+  val aSecondDeliveryIsDropped: bool = lastDelivery.aSecondDeliveryIsDropped
 
   /// The prompts that wait for an author, which model checking bounds.
   val promptsWaiting: int = routing.jobs.foldl(0, (total, job) => total + job.queued)
