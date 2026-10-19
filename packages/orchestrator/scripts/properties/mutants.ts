@@ -594,6 +594,20 @@ export const MUTANTS: Mutant[] = [
     replace:
       '    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The commit author lookup"),\n',
   },
+  {
+    id: "W109",
+    invariant: "reviewLoop::refinersStartOnlyWhenTheAuthorsGateOpens",
+    path: "src/workflow/refiner/loop.ts",
+    find: '  if (gate.gate !== "open") return;\n',
+    replace: "",
+  },
+  {
+    id: "W110",
+    invariant: "reviewLoop::aBlockedAuthorsGateHandsOverBlocked",
+    path: "src/workflow/refiner/loop.ts",
+    find: 'return markArtifactReady(workflow, task.job_id, { close: "blocked", reason: gate.reason });',
+    replace: 'return markArtifactReady(workflow, task.job_id, { close: "ready" });',
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */
