@@ -1,7 +1,7 @@
 import type { HostInstructions } from "@artfct-ai/adapters/instructions";
 import type { McpServer } from "@artfct-ai/adapters/mcp";
 import { lastClaimedLink } from "./detect";
-import type { Artifact, ArtifactTarget, Review, TrackerRef } from "./types";
+import type { Artifact, ArtifactTarget, ReviewRead, TrackerRef } from "./types";
 import { parseTurnTextReview, reviewInstructions } from "./review-text";
 
 /** What the issues kind needs from the configured tracker provider. */
@@ -45,10 +45,10 @@ export function issuesArtifact(clients: IssuesClients): Artifact {
   };
 }
 
-/** The review the turn text of the reviewer carries. Null when it carries none. */
-function turnTextReview(turnText: string): Review | null {
+/** The review the turn text of the reviewer carries, or none. */
+function turnTextReview(turnText: string): ReviewRead {
   const parsed = parseTurnTextReview(turnText);
-  return parsed ? { revision: null, ...parsed } : null;
+  return parsed ? { review: { revision: null, ...parsed } } : { filedNone: true };
 }
 
 async function detect(clients: IssuesClients, text: string): Promise<ArtifactTarget | null> {

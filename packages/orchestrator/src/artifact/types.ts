@@ -99,15 +99,19 @@ export type ChangeInput = { event: InboundEvent; target: ArtifactTarget | null }
  */
 export type ReviewInput = { since: string; turnText: string; signature: string };
 
+/** What a reviewer's turn end found on the host: its review, none, or a read that failed. */
+export type ReviewRead = { review: Review } | { filedNone: true } | { readFailed: string };
+
 /** How a kind's artifacts are reviewed. Absent on a kind with no reviewer. */
 export interface ReviewSupport {
   /** What the artifact says it is right now. Null when the host cannot say. A review about another revision is stale. */
   revision(ref: ArtifactRef): Promise<string | null>;
   /**
-   * The newest review this reviewer filed for this turn. Null when it filed none. A kind whose
-   * reviewer ends its turn with the review posts it on the host first, when it has a place for it.
+   * The newest review this reviewer filed for this turn, none when it filed none, or the reason
+   * the read failed. A kind whose reviewer ends its turn with the review posts it on the host
+   * first, when it has a place for it.
    */
-  postedReview(ref: ArtifactRef, input: ReviewInput): Promise<Review | null>;
+  postedReview(ref: ArtifactRef, input: ReviewInput): Promise<ReviewRead>;
   /**
    * True when the reviewer posts its review on the host itself, so it signs what it posts.
    * False when it ends its turn with the review.

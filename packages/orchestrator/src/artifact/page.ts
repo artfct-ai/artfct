@@ -19,8 +19,8 @@ import type {
   ArtifactTarget,
   ChangeInput,
   FeedbackHandle,
-  Review,
   ReviewInput,
+  ReviewRead,
 } from "./types";
 
 /** Where the author answers a finding on a page it does not act on. */
@@ -122,23 +122,23 @@ async function pageRevision(clients: PageClients, ref: ArtifactRef): Promise<str
 }
 
 /**
- * The review the reviewer ended its turn with, posted on the page first. Null when the turn
+ * The review the reviewer ended its turn with, posted on the page first. None when the turn
  * text does not carry one. The revision is read after the post.
  */
 async function fileReview(
   clients: PageClients,
   ref: ArtifactRef,
   input: ReviewInput,
-): Promise<Review | null> {
-  if (ref.kind !== "page") return null;
+): Promise<ReviewRead> {
+  if (ref.kind !== "page") return { filedNone: true };
   const parsed = parseTurnTextReview(input.turnText);
-  if (!parsed) return null;
+  if (!parsed) return { filedNone: true };
   await postPageReview(clients, {
     pageId: ref.page_id,
     review: parsed,
     signature: input.signature,
   });
-  return { revision: await pageRevision(clients, ref), ...parsed };
+  return { review: { revision: await pageRevision(clients, ref), ...parsed } };
 }
 
 /**
