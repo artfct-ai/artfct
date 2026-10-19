@@ -19,6 +19,7 @@ import { jobForEvent } from "./lookup";
 import type { Applied, EventRefusal, WorkflowRuntime } from "../types";
 
 const ACK: RpcAck = { ok: true };
+const DUPLICATE: RpcAck = { ok: true, duplicate: true };
 
 /** True when a person wrote to the workflow: a message in its chat thread or tracker session. */
 function isMessage(event: InboundEvent): boolean {
@@ -52,7 +53,7 @@ export async function createWorkflow(
   { workflowId, event, endedWorkflowId }: WorkflowStart,
 ): Promise<RpcAck> {
   if (workflow.state.created_at) return handleEvent(workflow, event);
-  if (!workflow.store.markEventSeen(event)) return { ok: true, duplicate: true };
+  if (!workflow.store.markEventSeen(event)) return DUPLICATE;
   const origin = event.reply_to ?? null;
   workflow.patchState({
     workflow_id: workflowId,
@@ -88,21 +89,28 @@ function earlierMessagesNote(endedWorkflowId: string, origin: ReplyTarget | null
   }
 }
 
-/** Every later event: dedupe, record what code must record, then tell the agent. */
+/**
+ * Every later event: dedupe, record what code must record, then tell the agent. The event is
+ * marked seen in the same synchronous block as the first write of its effect, so a delivery that
+ * a restart cuts off while it wakes the workflow lands when the host delivers it again.
+ */
 export async function handleEvent(workflow: WorkflowRuntime, event: InboundEvent): Promise<RpcAck> {
-  if (!workflow.store.markEventSeen(event)) return { ok: true, duplicate: true };
+  if (workflow.store.eventSeen(event.id)) return DUPLICATE;
   addReplyTarget(workflow, event.reply_to);
   const job = jobForEvent(workflow, event);
   const controlSuffix = event.control ? `:${event.control}` : "";
   const task = job ? workflow.store.authorOrResearcherTaskOf(job.job_id) : null;
   workflow.log(task?.task_id ?? null, `event ${event.kind}${controlSuffix}`);
 
+  if (!isWorkflowFinished(workflow.state.status)) {
+    if (isMessage(event)) await wakeWorkflow(workflow);
+    await acknowledge(workflow, event);
+  }
+  if (!workflow.store.markEventSeen(event)) return DUPLICATE;
   if (isWorkflowFinished(workflow.state.status)) {
     await replyFinished(workflow, event);
     return ACK;
   }
-  if (isMessage(event)) await wakeWorkflow(workflow);
-  await acknowledge(workflow, event);
   const postedBefore = workflow.store.postedCount();
   const applied = await applyEvent(workflow, event);
   if (applied !== "handled") await tellAgentAbout(workflow, event, applied);

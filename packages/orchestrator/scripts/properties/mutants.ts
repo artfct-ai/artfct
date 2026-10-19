@@ -615,6 +615,21 @@ export const MUTANTS: Mutant[] = [
     find: "  if (sandbox.first_prompt_at === null) {\n",
     replace: "  if (sandbox.generation <= 1) {\n",
   },
+  {
+    id: "W117",
+    invariant: "sessionRouting::everySessionMessageLandsOnce (marked on arrival)",
+    path: "src/workflow/inbound/events.ts",
+    find: "  if (workflow.store.eventSeen(event.id)) return DUPLICATE;\n",
+    replace:
+      "  if (!workflow.store.markEventSeen(event)) return DUPLICATE;\n  event = { ...event, id: `${event.id}:landed` };\n",
+  },
+  {
+    id: "W118",
+    invariant: "sessionRouting::everySessionMessageLandsOnce (lands twice)",
+    path: "src/workflow/inbound/events.ts",
+    find: "  if (!workflow.store.markEventSeen(event)) return DUPLICATE;\n  if (isWorkflowFinished",
+    replace: "  workflow.store.markEventSeen(event);\n  if (isWorkflowFinished",
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */

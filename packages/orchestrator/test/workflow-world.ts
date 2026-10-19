@@ -18,7 +18,12 @@ import { FakeDecisions, HangingDecisions } from "@artfct-ai/adapters/test/fake-d
 import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
-import type { ArtifactStatus, TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
+import type {
+  ArtifactStatus,
+  RpcAck,
+  TaskStatus,
+  WorkflowStatus,
+} from "@artfct-ai/contracts/types";
 import type { Binding } from "@artfct-ai/contracts/sources";
 import { OPTIONS_HEADING } from "../src/artifact/options";
 import { labeledPageCommentIds } from "../src/artifact/page-comment-label";
@@ -1128,14 +1133,14 @@ export class WorkflowWorld {
   /** Deliver one event from a person, the way ingress does. */
   async deliver(event: Pick<InboundEvent, "kind" | "text"> & Partial<InboundEvent>): Promise<void> {
     this.eventNumber += 1;
-    const delivered: InboundEvent = {
-      id: `evt-${this.eventNumber}`,
-      actor: PERSON,
-      bindings: [],
-      links: [],
-      ...event,
-    };
-    await handleEvent(this.workflow, delivered);
+    await this.startDelivery({ id: `evt-${this.eventNumber}`, ...event });
+  }
+
+  /** Start one delivery of an event from a person, under the id its host gave it. */
+  startDelivery(
+    event: Pick<InboundEvent, "id" | "kind" | "text"> & Partial<InboundEvent>,
+  ): Promise<RpcAck> {
+    return handleEvent(this.workflow, { actor: PERSON, bindings: [], links: [], ...event });
   }
 
   /**

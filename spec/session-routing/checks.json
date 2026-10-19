@@ -11,7 +11,8 @@
     "chatWorkflowNeverSetsASessionPlan",
     "todoListIsFixedAfterFirstArtifact",
     "aStopAnswersOnlyInTheFeed",
-    "researchReadsCompleteOnceTheAuthorStarts"
+    "researchReadsCompleteOnceTheAuthorStarts",
+    "everySessionMessageLandsOnce"
   ],
   "mainMinutes": {
     "chatThread": 1.1,
@@ -48,7 +49,9 @@
       "aPauseCancelsATurn",
       "aResumedAuthorGoesOnAfterTheCancel",
       "aMessageWaitsForAPausedAuthor",
-      "theWorkflowSleeps"
+      "theWorkflowSleeps",
+      "aRedeliveredMessageLands",
+      "aSecondDeliveryIsDropped"
     ],
     "trackerOnly": [
       "aMessageReachesARunningAuthor",
@@ -80,7 +83,9 @@
       "aMessageWaitsForAPausedAuthor",
       "aVerbalPausePausesAnAuthor",
       "aVerbalCancelCancelsTheWorkflow",
-      "theWorkflowSleeps"
+      "theWorkflowSleeps",
+      "aRedeliveredMessageLands",
+      "aSecondDeliveryIsDropped"
     ],
     "trackerResearch": [
       "aMessageWakesTheAgent",
@@ -93,7 +98,9 @@
       "aStopEndsATurn",
       "aResearcherFails",
       "aVerbalCancelCancelsAJob",
-      "theWorkflowSleeps"
+      "theWorkflowSleeps",
+      "aRedeliveredMessageLands",
+      "aSecondDeliveryIsDropped"
     ],
     "trackerModelCall": [
       "aMessageWakesTheAgent",
@@ -102,7 +109,9 @@
       "aStopEndsATurn",
       "aStopEndsAModelCall",
       "aStopReachesAFinishedWorkflow",
-      "theWorkflowSleeps"
+      "theWorkflowSleeps",
+      "aRedeliveredMessageLands",
+      "aSecondDeliveryIsDropped"
     ],
     "trackerPause": [
       "aPauseCancelsATurn",
@@ -110,11 +119,13 @@
       "aMessageWaitsForAPausedAuthor",
       "aVerbalPausePausesAnAuthor",
       "aVerbalCancelCancelsTheWorkflow",
-      "theWorkflowSleeps"
+      "theWorkflowSleeps",
+      "aRedeliveredMessageLands",
+      "aSecondDeliveryIsDropped"
     ]
   },
   "tlc": {
-    "ignoredVariables": ["lastStep"],
+    "ignoredVariables": ["lastStep", "lastDelivery"],
     "bounds": {
       "chatThread": {
         "pr": {
@@ -122,14 +133,18 @@
           "promptsWaiting": 1,
           "restartsTaken": 0,
           "authorsWithFeedState": 1,
-          "pausedAuthors": 0
+          "pausedAuthors": 0,
+          "sessionMessagesSent": 1,
+          "messageDeliveriesInFlight": 1
         },
         "nightly": {
           "jobsStarted": 3,
           "promptsWaiting": 2,
           "restartsTaken": 2,
           "authorsWithFeedState": 1,
-          "pausedAuthors": 0
+          "pausedAuthors": 0,
+          "sessionMessagesSent": 0,
+          "messageDeliveriesInFlight": 0
         }
       },
       "trackerOnly": {
@@ -138,14 +153,18 @@
           "promptsWaiting": 1,
           "restartsTaken": 0,
           "authorsWithFeedState": 1,
-          "pausedAuthors": 0
+          "pausedAuthors": 0,
+          "sessionMessagesSent": 1,
+          "messageDeliveriesInFlight": 1
         },
         "nightly": {
           "jobsStarted": 3,
           "promptsWaiting": 2,
           "restartsTaken": 2,
           "authorsWithFeedState": 1,
-          "pausedAuthors": 0
+          "pausedAuthors": 0,
+          "sessionMessagesSent": 0,
+          "messageDeliveriesInFlight": 0
         }
       },
       "trackerResearch": {
@@ -154,14 +173,18 @@
           "promptsWaiting": 1,
           "restartsTaken": 2,
           "authorsWithFeedState": 1,
-          "pausedAuthors": 0
+          "pausedAuthors": 0,
+          "sessionMessagesSent": 1,
+          "messageDeliveriesInFlight": 1
         },
         "nightly": {
           "jobsStarted": 2,
           "promptsWaiting": 2,
           "restartsTaken": 2,
           "authorsWithFeedState": 1,
-          "pausedAuthors": 0
+          "pausedAuthors": 0,
+          "sessionMessagesSent": 0,
+          "messageDeliveriesInFlight": 0
         }
       },
       "trackerModelCall": {
@@ -170,14 +193,18 @@
           "promptsWaiting": 1,
           "restartsTaken": 0,
           "authorsWithFeedState": 1,
-          "pausedAuthors": 0
+          "pausedAuthors": 0,
+          "sessionMessagesSent": 1,
+          "messageDeliveriesInFlight": 1
         },
         "nightly": {
           "jobsStarted": 3,
           "promptsWaiting": 3,
           "restartsTaken": 0,
           "authorsWithFeedState": 1,
-          "pausedAuthors": 0
+          "pausedAuthors": 0,
+          "sessionMessagesSent": 1,
+          "messageDeliveriesInFlight": 2
         }
       },
       "trackerPause": {
@@ -186,14 +213,18 @@
           "promptsWaiting": 1,
           "restartsTaken": 0,
           "authorsWithFeedState": 1,
-          "pausedAuthors": 1
+          "pausedAuthors": 1,
+          "sessionMessagesSent": 1,
+          "messageDeliveriesInFlight": 1
         },
         "nightly": {
           "jobsStarted": 2,
           "promptsWaiting": 1,
           "restartsTaken": 0,
           "authorsWithFeedState": 1,
-          "pausedAuthors": 1
+          "pausedAuthors": 1,
+          "sessionMessagesSent": 1,
+          "messageDeliveriesInFlight": 2
         }
       }
     }

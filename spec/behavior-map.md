@@ -206,6 +206,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | E10 | A check or base branch event settles the checks of each matched job. | |
 | E11 | An artifact event that does not match a job adds an agent note. While an author or researcher is active, the agent note asks which job it is about. An event that does not name its artifact fans out over the open artifacts and does not ask. | |
 | E12 | The workflow notices a deleted page, or a pull request closed without a merge whose event was lost, only when `start_job` checks the earlier output. | |
+| E14 | A session message takes effect once across its deliveries. The workflow marks a message, a status request, a verbal command or a stop seen with the first write of its effect, after it wakes the workflow. A delivery that an instance restart cut off while it woke the workflow lands when the tracker delivers it again. A delivery of a message that landed is dropped. Known limit: a cancel writes after it closes the session feed, so a restart in between drops the cancel. | `sessionRouting::everySessionMessageLandsOnce` |
 
 ## Boards and chat output
 
