@@ -143,8 +143,8 @@ module sessionRoutingTypes {
   /// jobs whose author's turn ended, and `cancelled` those whose turn ended on a cancel.
   /// `stoppedIn` holds the issue of a session where a person pressed Stop. `health` is how the
   /// tracker answered the step's feed activities. `researchEnded` holds each researcher turn that
-  /// ended without a payload its author may take. `startRefusedAfterTheIssuesJob` holds when a
-  /// job start names an issue whose job is over and is refused.
+  /// ended without a payload its author may take. `startRefusedBesideTheIssuesJob` holds when a
+  /// job start names an issue whose job is not over and is refused.
   type StepFacts = {
     wrote: Wrote,
     answered: Set[Target],
@@ -157,7 +157,7 @@ module sessionRoutingTypes {
     stoppedIn: Set[Issue],
     health: TrackerHealth,
     researchEnded: Set[{ job: int, ending: ResearchEnding }],
-    startRefusedAfterTheIssuesJob: bool,
+    startRefusedBesideTheIssuesJob: bool,
   }
 
   /// Whether the last step kept each rule that spans a step.
@@ -276,7 +276,7 @@ module sessionRouting {
     stoppedIn: Set(),
     health: TrackerUp,
     researchEnded: Set(),
-    startRefusedAfterTheIssuesJob: false,
+    startRefusedBesideTheIssuesJob: false,
   }
 
   pure val NO_DELIVERY_WITNESSES: DeliveryWitnesses = {
@@ -931,12 +931,13 @@ module sessionRouting {
     }
   }
 
-  /// The agent starts a job on an issue of the subject. A workflow without a subject refuses it.
-  /// A job on the issue refuses it, also a finished one, since an issue gets one job in a
-  /// workflow. A chat workflow links the issue to its chat thread, unless the issue is the subject
-  /// itself, which the plan linked. The new job's board goes to every chat thread, and the
-  /// workflow runs. A researcher starts first when the stage researches. A model-call author
-  /// produces its page in the step, hands it over, and ends its feed on "Done.".
+  /// The agent starts a job on an issue of the subject. A workflow without a subject refuses it. A
+  /// job on the issue that is not over, or an earlier one whose artifact the host holds, refuses
+  /// it in the step. A job here ends only cancelled or failed, so a start after it is a retry. A chat
+  /// workflow links the issue to its chat thread the first time a job works on it, unless the
+  /// issue is the subject itself, which the plan linked. The new job's board goes to every chat
+  /// thread, and the workflow runs. A researcher starts first when the stage researches. A
+  /// model-call author produces its page in the step, hands it over, and ends its feed on "Done.".
   action agentStartsJob: bool = {
     nondet issue = ISSUES.oneOf()
     val onIssue = jobsOn(routing, issue)
@@ -959,7 +960,7 @@ module sessionRouting {
     }
     val started = { ...routing, jobs: routing.jobs.append(job), waitsForInput: false }
     val linked =
-      if (STARTS_IN_CHAT and not(isSubjectItself(routing, issue)))
+      if (STARTS_IN_CHAT and onIssue.size() == 0 and not(isSubjectItself(routing, issue)))
         { ...started, links: started.links.append(issue) }
       else started
     val facts =
@@ -970,12 +971,14 @@ module sessionRouting {
         turnEnded: Set(id),
       }
       else NO_FACTS
-    val refused = { ...NO_FACTS, startRefusedAfterTheIssuesJob: onIssue.forall(other => not(isUnfinished(routing.jobs[other]))) }
+    val inWork = onIssue.exists(other => isUnfinished(routing.jobs[other]))
+    val held = onIssue.exists(other => routing.jobs[other].handedOver)
     all {
       not(routing.ended),
       routing.subject != NoSubject,
       routing.jobs.length() < MAX_JOBS,
-      if (onIssue.size() > 0) move(routing, refused) else move(flushBoard(linked, id), facts),
+      if (inWork or held) move(routing, { ...NO_FACTS, startRefusedBesideTheIssuesJob: inWork })
+      else move(flushBoard(linked, id), facts),
     }
   }
 
@@ -1364,9 +1367,17 @@ module sessionRouting {
   val boardsLiveOnlyInChat: bool =
     routing.boards.forall(board => routing.replyTargets.contains(ChatThread(board.thread)))
 
-  /// An issue gets at most one job in a workflow. A start on an issue that a job took is refused,
-  /// also after that job is over.
-  val oneJobPerIssue: bool = ISSUES.forall(issue => jobsOn(routing, issue).size() <= 1)
+  /// An issue has at most one job that is not over, and a job does not start on an issue whose job
+  /// completed. A job here ends only cancelled or failed, so every job on an issue but the last
+  /// one is over.
+  val oneJobAtATimePerIssueUntilOneCompletes: bool = ISSUES.forall(issue => {
+    val onIssue = jobsOn(routing, issue)
+    onIssue.forall(earlier => onIssue.forall(later => earlier < later implies not(isUnfinished(routing.jobs[earlier]))))
+  })
+
+  /// Witness for `oneJobAtATimePerIssueUntilOneCompletes`: a job start names an issue whose job is
+  /// not over, and it is refused.
+  val aStartBesideAnIssuesJobIsRefused: bool = lastStep.startRefusedBesideTheIssuesJob
 
   /// The jobs the workflow started, which model checking bounds.
   val jobsStarted: int = routing.jobs.length()
@@ -1461,8 +1472,9 @@ module sessionRouting {
   /// Witness for `eachIssueLinksTheChatThreadOnce`: a job works on the subject issue under a project subject, which links it.
   val aProjectIssueGetsItsLink: bool = routing.subject == ProjectSubject and linksOf(routing, SubjectIssue) > 0
 
-  /// Witness for `oneJobPerIssue`: a job start names an issue whose job is over, and it is refused.
-  val aStartOnAnIssueWhoseJobEndedIsRefused: bool = lastStep.startRefusedAfterTheIssuesJob
+  /// Witness for `eachIssueLinksTheChatThreadOnce` and `oneJobAtATimePerIssueUntilOneCompletes`: a
+  /// second job started on an issue, as a retry after the first was cancelled or failed.
+  val aJobStartsAgainOnItsIssue: bool = ISSUES.exists(issue => jobsOn(routing, issue).size() > 1)
 
   /// The tracker opened a session on the sub-issue.
   val aSessionOpensOnTheSubIssue: bool = routing.replyTargets.contains(Session(SubIssue))

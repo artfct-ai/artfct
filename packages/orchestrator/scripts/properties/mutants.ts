@@ -732,8 +732,8 @@ export const MUTANTS: Mutant[] = [
     id: "SR5",
     invariant: "sessionRouting::eachIssueLinksTheChatThreadOnce",
     path: "src/workflow/lifecycle.ts",
-    find: '    if (origin?.source === "chat" && !syncedAsSubject) {',
-    replace: '    if (origin?.source === "chat") {',
+    find: '    if (origin?.source === "chat" && !issueLinked && !syncedAsSubject) {',
+    replace: '    if (origin?.source === "chat" && !syncedAsSubject) {',
   },
   {
     id: "SR6",
@@ -1446,10 +1446,18 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W240",
-    invariant: "workflowLifecycle::oneJobPerIssue, sessionRouting::oneJobPerIssue",
+    invariant: "workflowLifecycle::oneJobAtATimePerIssueUntilOneCompletes",
     path: "src/agent/tools/start/start.ts",
-    find: '  if (input.kind === "issue") return validateIssueWithoutJob(workflow, input.issue);\n',
-    replace: "",
+    find: "  return validateInputNotInWork(workflow, input) ?? validateIssueNotCompleted(workflow, input);\n",
+    replace: "  return validateInputNotInWork(workflow, input);\n",
+  },
+  {
+    id: "W241",
+    invariant:
+      "workflowLifecycle::oneJobAtATimePerIssueUntilOneCompletes, sessionRouting::oneJobAtATimePerIssueUntilOneCompletes",
+    path: "src/agent/tools/start/start.ts",
+    find: "  return validateInputNotInWork(workflow, input) ?? validateIssueNotCompleted(workflow, input);\n",
+    replace: "  return validateIssueNotCompleted(workflow, input);\n",
   },
 ];
 

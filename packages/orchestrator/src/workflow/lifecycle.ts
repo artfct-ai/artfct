@@ -87,6 +87,7 @@ export async function startJob(
   const target = input.kind === "target" ? input.target : null;
   const title = issue?.title ?? options.title ?? state.request.title;
   const branch = stage.branch ? (options.continued_branch ?? branchName(jobId, title)) : null;
+  const issueLinked = issue !== null && workflow.store.jobByIssue(issue.id) !== null;
   workflow.store.insertJob({
     job_id: jobId,
     stage: stage.name,
@@ -121,7 +122,7 @@ export async function startJob(
     await workflow.notifier.claimIssue(ref, { started: issue.started });
     const { origin, subject } = state;
     const syncedAsSubject = subject?.kind === "issue" && subject.issue_id === issue.id;
-    if (origin?.source === "chat" && !syncedAsSubject) {
+    if (origin?.source === "chat" && !issueLinked && !syncedAsSubject) {
       await workflow.notifier.linkChatThread(ref, origin);
     }
   }

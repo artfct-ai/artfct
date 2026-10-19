@@ -64,11 +64,11 @@ Evaluate user replies and reactions (e.g., an approving emoji) against the follo
 
 ### Pull Request States
 * **MERGED**: Call \`complete_job\` once a person or a note says the pull request merged. It asks the code host live, so a merge whose event was lost still counts, and it refuses a pull request that is not merged.
-* **CLOSED_UNMERGED**: Prompt user with a binary decision: retry on a new branch or abandon. A job that worked on an issue cannot retry, because an issue gets one job in a workflow. Tell the user instead.
+* **CLOSED_UNMERGED**: Prompt user with a binary decision: retry on a new branch or abandon.
 * **OPEN_WITHOUT_AUTHOR** (its job was cancelled or failed): Call \`start_job\` with \`artifact\` set to the pull request link. The new job continues it on its branch. Never ask to close it first.
 
 ### Invariants & Exclusions
-* **Ignore Unavailable Issues**: Never assign issues that are blocked, closed, or already bound to an active job.
+* **Ignore Unavailable Issues**: Never assign issues that are blocked, closed, already bound to an active job, or whose job completed.
 * **Enforce Concurrency**: Never start more jobs than available slot capacity.
 * **Omit Redundant Context**: Never duplicate system-injected stage instructions in job briefs.
 * **Prevent Duplicate Execution**: Never repeat operations listed in "What the system already did" logs.
@@ -98,7 +98,7 @@ export function startTools(
   return {
     [START_JOB]: tool({
       description:
-        "Start a job for a stage. Its author task runs in a sandbox, or as one model call on a stage with model execution. The brief is what the harness reads first: goal, acceptance criteria, links, context. The stage instructions are added by the system. Name the tracker issue when the job works on one. Name the artifact when the request points at one that a job of this workflow did not produce, such as a design doc written elsewhere or an open pull request. Name it too for an open pull request whose job was cancelled or failed. A job that is given a pull request in a stage that produces one continues it: it works on the branch of that pull request and does not open another. Refused when the workflow has not started or has ended, every slot is busy, the issue is not an issue of the workflow's subject, the issue is blocked by an unfinished issue, the artifact link is not on a configured host, the pull request to continue is closed or its author task is unfinished, a job of this workflow already took the issue, a job already works on the same input, an earlier job on the same input left an artifact the host still holds, a stage with model execution or a choice ending does not have a document host, a stage that writes a page does not have a saved plan, or the plan does not set a root page or a page parent for a model-call author. The input is the issue, else the artifact. Without either, it is the artifact of the latest completed job, or else the message that asked for the job.",
+        "Start a job for a stage. Its author task runs in a sandbox, or as one model call on a stage with model execution. The brief is what the harness reads first: goal, acceptance criteria, links, context. The stage instructions are added by the system. Name the tracker issue when the job works on one. Name the artifact when the request points at one that a job of this workflow did not produce, such as a design doc written elsewhere or an open pull request. Name it too for an open pull request whose job was cancelled or failed. A job that is given a pull request in a stage that produces one continues it: it works on the branch of that pull request and does not open another. Refused when the workflow has not started or has ended, every slot is busy, the issue is not an issue of the workflow's subject, the issue is blocked by an unfinished issue, the artifact link is not on a configured host, the pull request to continue is closed or its author task is unfinished, a job already works on the same input, a job on the issue completed, an earlier job on the same input left an artifact the host still holds, a stage with model execution or a choice ending does not have a document host, a stage that writes a page does not have a saved plan, or the plan does not set a root page or a page parent for a model-call author. The input is the issue, else the artifact. Without either, it is the artifact of the latest completed job, or else the message that asked for the job.",
       inputSchema: z.object({
         stage: z.string().describe("a stage name from the config"),
         brief: z.string().min(1),
@@ -155,7 +155,7 @@ export function startTools(
     }),
     cancel_job: tool({
       description:
-        "Cancel a job: its author or researcher task, any running refiner run, and their sandboxes. The board closes. The workflow stays open. An issue gets one job in a workflow, so a cancelled job's issue does not start again.",
+        "Cancel a job: its author or researcher task, any running refiner run, and their sandboxes. The board closes. The workflow stays open, so its issue can start again.",
       inputSchema: z.object({ job_id: jobIdField, reason: z.string() }),
       execute: ({ job_id, reason }) => cancel(workflow, job_id, reason),
     }),
@@ -245,18 +245,23 @@ export function validateInputNotInWork(workflow: WorkflowRuntime, input: JobInpu
   return null;
 }
 
-/** Validate that a job of this workflow has not taken the issue. An issue gets one job in a workflow. */
-function validateIssueWithoutJob(workflow: WorkflowRuntime, issue: JobIssue): string | null {
-  const job = workflow.store.jobByIssue(issue.id);
-  if (!job) return null;
-  const task = workflow.store.authorOrResearcherTaskOf(job.job_id);
-  return `Job ${job.job_id} already took ${issue.key} (${task.status}). An issue gets one job in a workflow, so ${issue.key} does not start again.`;
+/** Validate that no job on the issue completed. A job does not start on an issue whose job completed. */
+function validateIssueNotCompleted(workflow: WorkflowRuntime, input: JobInput): string | null {
+  if (input.kind !== "issue") return null;
+  const completed = workflow.store
+    .jobs()
+    .find(
+      (job) =>
+        job.issue_id === input.issue.id &&
+        workflow.store.authorOrResearcherTaskOf(job.job_id).status === "done",
+    );
+  if (!completed) return null;
+  return `Job ${completed.job_id} completed ${input.issue.key}. A job does not start on an issue whose job completed.`;
 }
 
-/** Validate that a job does not hold the input: an issue a job took, or another input a job works from. */
+/** Validate that a job does not hold the input: a job works from it, or a job on the issue completed. */
 function validateInputFree(workflow: WorkflowRuntime, input: JobInput): string | null {
-  if (input.kind === "issue") return validateIssueWithoutJob(workflow, input.issue);
-  return validateInputNotInWork(workflow, input);
+  return validateInputNotInWork(workflow, input) ?? validateIssueNotCompleted(workflow, input);
 }
 
 /**

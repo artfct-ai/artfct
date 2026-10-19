@@ -85,29 +85,34 @@ function subjectWorkflow(
     );
 }
 
-const REQUEST_INPUT: JobInput = { kind: "request", text: REQUEST };
+const ENG_1 = { id: "i1", key: "ENG-1" };
+
+const ENG_1_INPUT: JobInput = {
+  kind: "issue",
+  issue: { ...ENG_1, title: "Fix login", team_id: null, started: false },
+};
 
 describe("validateInputNotInWork", () => {
-  describe("a request whose only job failed", () => {
+  describe("an issue whose only job failed", () => {
     const failed = scenario(freshWorkflow(), (workflow) => {
-      seedJob(workflow, "j1", "t1");
+      seedJob(workflow, "j1", "t1", { issue: ENG_1 });
       workflow.store.updateTask("t1", { status: "failed" });
     });
 
-    it("frees the request again", () =>
+    it("frees the issue again", () =>
       failed((workflow) => {
-        expect(validateInputNotInWork(workflow, REQUEST_INPUT)).toBeNull();
+        expect(validateInputNotInWork(workflow, ENG_1_INPUT)).toBeNull();
       }));
 
-    describe("with a newer job on the same request", () => {
+    describe("with a newer job on the same issue", () => {
       const owned = scenario(failed, (workflow) => {
-        seedJob(workflow, "j2", "t2");
+        seedJob(workflow, "j2", "t2", { issue: ENG_1 });
       });
 
       it("names the newer job, not the failed one", () =>
         owned((workflow) => {
-          expect(validateInputNotInWork(workflow, REQUEST_INPUT)).toMatch(
-            /^Job j2 already works on the same request/,
+          expect(validateInputNotInWork(workflow, ENG_1_INPUT)).toMatch(
+            /^Job j2 already works on ENG-1/,
           );
         }));
 
@@ -116,9 +121,9 @@ describe("validateInputNotInWork", () => {
           workflow.store.updateTask("t2", { status: "done" });
         });
 
-        it("leaves the request to the output artifact check", () =>
+        it("leaves the issue to the output artifact check", () =>
           done((workflow) => {
-            expect(validateInputNotInWork(workflow, REQUEST_INPUT)).toBeNull();
+            expect(validateInputNotInWork(workflow, ENG_1_INPUT)).toBeNull();
           }));
       });
     });
@@ -151,32 +156,14 @@ function cancelledJobWithPull(code: () => FakeCodeHost, from: StartedFrom): Scen
     });
 }
 
-const SAME_REQUEST: StartedFrom = { issue: false, request: REQUEST };
-
 describe("start_job after a finished job on the same input artifact", () => {
-  describe("on the issue, whose pull request the host closed with no merge", () => {
-    const refused = cancelledJobWithPull(closedPullHost, { issue: true });
-
-    it("refuses, because an issue gets one job in a workflow", () =>
-      refused(({ result }) => {
-        expect(result).toBe(
-          "Job j1 already took ENG-1 (cancelled). An issue gets one job in a workflow, so ENG-1 does not start again.",
-        );
-      }));
-
-    it("records no second job", () =>
-      refused(({ workflow }) => {
-        expect(workflow.store.jobs()).toHaveLength(1);
-      }));
-  });
-
   describe("whose pull request the host still holds", () => {
-    const refused = cancelledJobWithPull(() => pullHost(false), SAME_REQUEST);
+    const refused = cancelledJobWithPull(() => pullHost(false), { issue: true });
 
-    it("refuses and names the output artifact and the request", () =>
+    it("refuses and names the output artifact", () =>
       refused(({ result }) => {
         expect(result).toMatch(
-          /^Job j1 \(cancelled\) already produced https:\/\/github.com\/acme\/app\/pull\/1 from the same request/,
+          /^Job j1 \(cancelled\) already produced https:\/\/github.com\/acme\/app\/pull\/1/,
         );
       }));
 
@@ -188,6 +175,15 @@ describe("start_job after a finished job on the same input artifact", () => {
     it("records no second job", () =>
       refused(({ workflow }) => {
         expect(workflow.store.jobs()).toHaveLength(1);
+      }));
+  });
+
+  describe("that named no issue, asked for by the same request", () => {
+    const refused = cancelledJobWithPull(() => pullHost(false), { issue: false, request: REQUEST });
+
+    it("refuses and names the request", () =>
+      refused(({ result }) => {
+        expect(result).toMatch(/^Job j1 \(cancelled\) already produced \S+ from the same request/);
       }));
   });
 
@@ -204,7 +200,7 @@ describe("start_job after a finished job on the same input artifact", () => {
   });
 
   describe("whose pull request the host closed with no merge, and the event was lost", () => {
-    const started = cancelledJobWithPull(closedPullHost, SAME_REQUEST);
+    const started = cancelledJobWithPull(closedPullHost, { issue: true });
 
     it("starts the job", () =>
       started(({ result }) => {
@@ -218,7 +214,7 @@ describe("start_job after a finished job on the same input artifact", () => {
   });
 
   describe("whose pull request the host merged", () => {
-    const refused = cancelledJobWithPull(() => pullHost(true), SAME_REQUEST);
+    const refused = cancelledJobWithPull(() => pullHost(true), { issue: true });
 
     it("refuses", () =>
       refused(({ result }) => {
@@ -436,7 +432,7 @@ describe("start_job", () => {
       }));
   });
 
-  describe("an issue another job already took", () => {
+  describe("an issue another job already works on", () => {
     let result: string;
     const refused = scenario(subjectWorkflow(2), async (workflow) => {
       seedJob(workflow, "j1", "t1", { issue: { id: "ENG-1", key: "ENG-1" } });
@@ -448,12 +444,58 @@ describe("start_job", () => {
 
     it("names the job that owns the issue", () =>
       refused(() => {
-        expect(result).toMatch(/^Job j1 already took ENG-1 \(queued\)\./);
+        expect(result).toMatch(/^Job j1 already works on ENG-1/);
       }));
 
     it("records no second job", () =>
       refused((workflow) => {
         expect(workflow.store.jobs()).toHaveLength(1);
+      }));
+  });
+
+  describe("an issue whose job completed", () => {
+    let result: string;
+    const refused = scenario(subjectWorkflow(2), async (workflow) => {
+      seedJob(workflow, "j1", "t1", { issue: { id: "ENG-1", key: "ENG-1" } });
+      workflow.store.updateTask("t1", { status: "done" });
+      const { start_job } = startTools(workflow);
+      result = toolText(
+        await start_job.execute({ stage: "implement", brief: "again", issue: "ENG-1" }, call),
+      );
+    });
+
+    it("refuses and names the job that completed it", () =>
+      refused(() => {
+        expect(result).toBe(
+          "Job j1 completed ENG-1. A job does not start on an issue whose job completed.",
+        );
+      }));
+
+    it("records no second job", () =>
+      refused((workflow) => {
+        expect(workflow.store.jobs()).toHaveLength(1);
+      }));
+  });
+
+  describe("an issue whose only job was cancelled before it produced anything", () => {
+    let result: string;
+    const retried = scenario(subjectWorkflow(2), async (workflow) => {
+      seedJob(workflow, "j1", "t1", { issue: { id: "ENG-1", key: "ENG-1" } });
+      workflow.store.updateTask("t1", { status: "cancelled" });
+      const { start_job } = startTools(workflow);
+      result = toolText(
+        await start_job.execute({ stage: "implement", brief: "again", issue: "ENG-1" }, call),
+      );
+    });
+
+    it("starts a retry", () =>
+      retried(() => {
+        expect(result).toMatch(/^Started job \S+ for stage implement for ENG-1/);
+      }));
+
+    it("records the retry as a second job on the issue", () =>
+      retried((workflow) => {
+        expect(workflow.store.jobs().filter((job) => job.issue_id === "ENG-1")).toHaveLength(2);
       }));
   });
 
@@ -852,7 +894,7 @@ describe("complete_job", () => {
   describe("a job on an issue, with slots left in its stage", () => {
     let result: string;
     const completed = scenario(plannedWorkflow(2), async (workflow) => {
-      seedJob(workflow, "j1", "t1", { issue: { id: "i1", key: "ENG-1" } });
+      seedJob(workflow, "j1", "t1", { issue: ENG_1 });
       workflow.store.updateTask("t1", { status: "in_review" });
       const { complete_job } = startTools(workflow);
       result = toolText(await complete_job.execute({ job_id: "j1", result: "done" }, call));
