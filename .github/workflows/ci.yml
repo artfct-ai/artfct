@@ -56,29 +56,73 @@ jobs:
 
   spec_changes:
     name: spec changes
-    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
-    timeout-minutes: 5
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: read
     outputs:
       specs: ${{ steps.specs.outputs.specs }}
+      replays: ${{ steps.replays.outputs.replays }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
-      - name: List the specs whose folders changed, or every spec when the spec scripts, the quint version, or this workflow changed
+      - name: Pick the commit to compare with, the merge base on a pull request or the newest main commit whose run passed, since main skips the commits a newer push replaced
+        id: base
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          base=HEAD^1
+          if [ "$GITHUB_EVENT_NAME" = push ]; then
+            passed=$(gh run list --repo "$GITHUB_REPOSITORY" --branch main --workflow Pipeline --event push --status success --limit 1 --json headSha --jq '.[0].headSha // empty')
+            base=""
+            if [ -n "$passed" ] && git fetch -q --depth=1 origin "$passed"; then base=$passed; fi
+          fi
+          echo "base=$base" | tee -a "$GITHUB_OUTPUT"
+      - name: List the specs whose folders changed, or every spec when the spec scripts, the quint version, or this workflow changed, or when main has not passed yet
         id: specs
         shell: bash
+        env:
+          BASE: ${{ steps.base.outputs.base }}
         run: |
-          changed=$(git diff --name-only HEAD^1 HEAD)
-          quint_version=$(git diff HEAD^1 HEAD -- bun.lock | grep -E '^[-+].*@informalsystems/quint' || true)
+          changed=$(git diff --name-only "$BASE" HEAD || true)
+          quint_version=$(git diff "$BASE" HEAD -- bun.lock | grep -E '^[-+].*@informalsystems/quint' || true)
           specs=""
           for checks in spec/*/checks.json; do
             spec=$(basename "$(dirname "$checks")")
-            if [ -n "$quint_version" ] || grep -qE "^(spec/$spec/|packages/orchestrator/scripts/spec/|\.github/workflows/ci\.yml$)" <<<"$changed"; then
+            if [ -z "$BASE" ] || [ -n "$quint_version" ] || grep -qE "^(spec/$spec/|packages/orchestrator/scripts/spec/|\.github/workflows/ci\.yml$)" <<<"$changed"; then
               specs="$specs $spec"
             fi
           done
           echo "specs=${specs# }" | tee -a "$GITHUB_OUTPUT"
+      - if: github.event_name == 'push'
+        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - if: github.event_name == 'push'
+        run: bun install --frozen-lockfile
+      - name: Replay on main only when the turbo hash of the replay task differs from the compared commit's, since a fresh seed rules out the turbo cache
+        if: github.event_name == 'push'
+        id: replays
+        shell: bash
+        env:
+          BASE: ${{ steps.base.outputs.base }}
+        run: |
+          replay_hash() {
+            bunx turbo run spec:replay --filter=@artfct-ai/orchestrator --dry=json |
+              jq -r '.tasks[] | select(.taskId == "@artfct-ai/orchestrator#spec:replay") | .hash'
+          }
+          replays=true
+          if [ -n "$BASE" ]; then
+            now=$(replay_hash)
+            git checkout -q "$BASE"
+            before=$(replay_hash)
+            git checkout -q -
+            [ -n "$now" ] && [ "$now" = "$before" ] && replays=false
+          fi
+          echo "replays=$replays" | tee -a "$GITHUB_OUTPUT"
 
   quint:
     name: quint (shard ${{ matrix.shard }})
@@ -110,11 +154,14 @@ jobs:
           key: quint-${{ runner.os }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
           restore-keys: quint-${{ runner.os }}-
       - name: Typecheck, check the witnesses, and run every invariant on 10,000 samples for each setup of the changed specs in this shard
-        run: bun scripts/spec/check-spec.ts shard "$SHARD_INDEX" "$SHARD_COUNT" 10000 $SPECS
+        run: |
+          read -ra specs <<<"$SPECS"
+          bun scripts/spec/check-spec.ts shard "$SHARD_INDEX" "$SHARD_COUNT" 10000 "${specs[@]}"
 
   quint_spec:
     name: quint spec (shard ${{ matrix.shard }})
-    if: github.event_name == 'push'
+    needs: spec_changes
+    if: github.event_name == 'push' && needs.spec_changes.outputs.specs != ''
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -128,6 +175,7 @@ jobs:
     env:
       SHARD_INDEX: ${{ strategy.job-index }}
       SHARD_COUNT: ${{ strategy.job-total }}
+      SPECS: ${{ needs.spec_changes.outputs.specs }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
@@ -139,13 +187,15 @@ jobs:
           path: ~/.quint
           key: quint-${{ runner.os }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
           restore-keys: quint-${{ runner.os }}-
-      - name: Typecheck, check the witnesses, and run every invariant on 100,000 samples for each setup of this shard
-        run: bun scripts/spec/check-spec.ts shard "$SHARD_INDEX" "$SHARD_COUNT" 100000
+      - name: Typecheck, check the witnesses, and run every invariant on 100,000 samples for each setup of the changed specs in this shard
+        run: |
+          read -ra specs <<<"$SPECS"
+          bun scripts/spec/check-spec.ts shard "$SHARD_INDEX" "$SHARD_COUNT" 100000 "${specs[@]}"
 
   spec_replays:
     name: spec replays (${{ matrix.name }})
-    needs: ci
-    if: github.event_name == 'push'
+    needs: [ci, spec_changes]
+    if: github.event_name == 'push' && needs.spec_changes.outputs.replays == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -184,8 +234,8 @@ jobs:
 
   preview:
     name: preview
-    needs: [ci, quint_spec, spec_replays]
-    if: github.event_name == 'push'
+    needs: [ci, spec_changes, quint_spec, spec_replays]
+    if: github.event_name == 'push' && !cancelled() && needs.ci.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
     runs-on: ubuntu-latest
     timeout-minutes: 30
     concurrency:
