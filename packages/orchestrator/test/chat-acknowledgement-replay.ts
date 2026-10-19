@@ -1,6 +1,6 @@
 import { FakeChat } from "@artfct-ai/adapters/test/fake-chat";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
-import { jest } from "bun:test";
+import { spyOn, type Mock } from "bun:test";
 import { deliverWithChatAck } from "../src/router/chat-ack";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfText, itfVariant } from "./itf";
 import { quintTraces } from "./quint-traces";
@@ -14,7 +14,7 @@ export type SpecSetup = (typeof SPEC_SETUPS)[number];
 /** The most steps a generated trace takes after its initial state. */
 const TRACE_STEPS = 25;
 
-/** The eyes delay of the first message. Each later message waits one millisecond longer, so no two delays end at once. */
+/** The eyes delay each message waits. The replay checks that the eyes timer waits exactly this long. */
 const DELAY_MS = 3_000;
 
 const EYES = "eyes";
@@ -32,7 +32,7 @@ const SETTLED_OUTCOMES = ["Returned", "Threw"] as const;
 /** What a delivery settled with or what the caller got. `Mismatched` is a caller result the delivery did not give. */
 type OutcomeName = (typeof OUTCOMES)[number] | "Mismatched";
 
-const CALL_STATES = ["NotSent", "Out", "Accepted", "Refused"] as const;
+const CALL_STATES = ["NotSent", "Out", "Accepted", "Refused", "Unanswered"] as const;
 
 type CallStateName = (typeof CALL_STATES)[number];
 
@@ -201,11 +201,54 @@ class HeldReactionChat extends FakeChat {
   }
 }
 
-/** One message the replay delivered, and what its caller got so far. */
+/** A timer the chat acknowledgement armed. It fires only when the replay fires it. */
+type HeldTimer = { callback: () => void; ms: number; state: "armed" | "fired" | "cleared" };
+
+function clearHeldTimer(timer?: HeldTimer): void {
+  if (timer?.state === "armed") timer.state = "cleared";
+}
+
+/** Holds every timer the code arms, so each one fires when the spec says and not before. */
+class HeldTimers {
+  readonly timers: HeldTimer[] = [];
+  private readonly spies: Mock<(...args: never[]) => unknown>[];
+
+  constructor() {
+    const arm = (callback: () => void, ms?: number): HeldTimer => {
+      const timer: HeldTimer = { callback, ms: ms ?? 0, state: "armed" };
+      this.timers.push(timer);
+      return timer;
+    };
+    this.spies = [
+      spyOn(globalThis, "setTimeout").mockImplementation(arm as unknown as typeof setTimeout),
+      spyOn(globalThis, "clearTimeout").mockImplementation(
+        clearHeldTimer as unknown as typeof clearTimeout,
+      ),
+    ];
+  }
+
+  /** The timers armed from the place `from` in arming order on. */
+  armedSince(from: number): HeldTimer[] {
+    return this.timers.slice(from).filter((timer) => timer.state === "armed");
+  }
+
+  fire(timer: HeldTimer): void {
+    if (timer.state !== "armed") return;
+    timer.state = "fired";
+    timer.callback();
+  }
+
+  restore(): void {
+    for (const spy of this.spies) spy.mockRestore();
+  }
+}
+
+/** One message the replay delivered, its timers, and what its caller got so far. */
 type DeliveredMessage = {
   source: SourceName;
   ts: string;
-  deadlineMs: number;
+  delayTimer: HeldTimer | null;
+  addWaitTimer: HeldTimer | null;
   delivery: Deferred<string>;
   value: string;
   error: Error;
@@ -214,13 +257,13 @@ type DeliveredMessage = {
 };
 
 /**
- * Replays spec traces through the chat acknowledgement on fake timers. Each delivery and each
- * eyes call waits until a spec step settles it.
+ * Replays spec traces through the chat acknowledgement. Each delivery, each eyes call and each
+ * timer waits until a spec step settles or fires it.
  */
 export class ChatAcknowledgementReplay {
   private readonly chat = new HeldReactionChat();
+  private readonly timers = new HeldTimers();
   private readonly messages: DeliveredMessage[] = [];
-  private elapsedMs = 0;
   private delaysPassed = 0;
 
   /** Take one spec action. */
@@ -237,7 +280,10 @@ export class ChatAcknowledgementReplay {
         this.answer(required(picks.id, "id"), "adds", required(picks.accepted, "accepted"));
         break;
       case "deliverySettles":
-        this.settle(required(picks.id, "id"), required(picks.outcome, "outcome"));
+        await this.settle(required(picks.id, "id"), required(picks.outcome, "outcome"));
+        break;
+      case "addWaitRunsOut":
+        this.endAddWait(required(picks.id, "id"));
         break;
       case "removeReturns":
         this.answer(required(picks.id, "id"), "removes", required(picks.accepted, "accepted"));
@@ -265,19 +311,26 @@ export class ChatAcknowledgementReplay {
           callerGot: message.callerGot,
         };
       }),
-      armedTimers: jest.getTimerCount(),
+      armedTimers: this.timers.armedSince(0).filter((timer) => !this.isAddWaitOfAnOutAdd(timer))
+        .length,
       strayChatCalls: this.chat.strayReactions + this.chat.calls.length,
     };
+  }
+
+  /** Put the real timers back. */
+  close(): void {
+    this.timers.restore();
   }
 
   private arrive(source: SourceName): void {
     const index = this.messages.length;
     const ts = `2.${index}`;
-    const delayMs = DELAY_MS + index;
+    const armedBefore = this.timers.timers.length;
     const message: DeliveredMessage = {
       source,
       ts,
-      deadlineMs: this.elapsedMs + delayMs,
+      delayTimer: null,
+      addWaitTimer: null,
       delivery: new Deferred<string>(),
       value: `delivered ${ts}`,
       error: new Error(`workflow unavailable for ${ts}`),
@@ -290,7 +343,7 @@ export class ChatAcknowledgementReplay {
       this.chat,
       eventFor(source, ts),
       () => message.delivery.promise,
-      delayMs,
+      DELAY_MS,
     ).then(
       (value) => {
         message.callerGot = value === message.value ? "Returned" : "Mismatched";
@@ -299,20 +352,50 @@ export class ChatAcknowledgementReplay {
         message.callerGot = error === message.error ? "Threw" : "Mismatched";
       },
     );
+    message.delayTimer = this.timers.armedSince(armedBefore)[0] ?? null;
   }
 
   private passTheNextDelay(): void {
-    const message = this.messageAt(this.delaysPassed);
+    const id = this.delaysPassed;
+    const { delayTimer } = this.messageAt(id);
     this.delaysPassed += 1;
-    jest.advanceTimersByTime(message.deadlineMs - this.elapsedMs);
-    this.elapsedMs = message.deadlineMs;
+    if (!delayTimer) return;
+    if (delayTimer.ms !== DELAY_MS) {
+      throw new Error(
+        `message ${id} armed its eyes timer for ${delayTimer.ms} ms, not ${DELAY_MS}`,
+      );
+    }
+    this.timers.fire(delayTimer);
   }
 
-  private settle(id: number, outcome: (typeof SETTLED_OUTCOMES)[number]): void {
+  private async settle(id: number, outcome: (typeof SETTLED_OUTCOMES)[number]): Promise<void> {
     const message = this.messageAt(id);
+    const armedBefore = this.timers.timers.length;
     message.settled = outcome;
     if (outcome === "Returned") message.delivery.resolve(message.value);
     else message.delivery.reject(message.error);
+    await drainMicrotasks();
+    message.addWaitTimer = this.timers.armedSince(armedBefore)[0] ?? null;
+  }
+
+  private endAddWait(id: number): void {
+    const message = this.messageAt(id);
+    const add = this.chat.reactions
+      .get(message.ts)!
+      .adds.findLast((reaction) => reaction.state === "Out");
+    if (!message.addWaitTimer || !add) {
+      throw new Error(`message ${id} does not wait on an eyes add`);
+    }
+    add.state = "Unanswered";
+    this.timers.fire(message.addWaitTimer);
+  }
+
+  private isAddWaitOfAnOutAdd(timer: HeldTimer): boolean {
+    return this.messages.some(
+      (message) =>
+        message.addWaitTimer === timer &&
+        lastState(this.chat.reactions.get(message.ts)!.adds) === "Out",
+    );
   }
 
   private answer(id: number, kind: keyof MessageReactions, accepted: boolean): void {

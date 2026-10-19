@@ -288,8 +288,8 @@ function checksChange(input: ChangeInput): ArtifactChange | null {
 }
 
 /**
- * A reviewer wrote on the pull request. The whole review is read back from the host, and only
- * the webhook that read it whole claims the review id.
+ * A reviewer wrote on the pull request. The whole review is read back from the host. Every
+ * webhook that read it whole carries the review key, so the review routes once.
  */
 async function reviewChange(
   clients: PullClients,
@@ -300,10 +300,6 @@ async function reviewChange(
   const from = event.actor;
   if (!detail || !from) return null;
   const whole = detail.review_id ? await readWholeReview(clients, detail) : null;
-  if (whole && !input.claim(reviewKey(detail))) {
-    clients.log(`another webhook of ${reviewKey(detail)} was handled already`);
-    return null;
-  }
   const body = (whole?.body || event.text).trim();
   const comments = whole?.comments ?? detail.comments ?? [];
   if (!body && !comments.length) return null;
@@ -313,10 +309,11 @@ async function reviewChange(
   }));
   const handles = acknowledgementHandles(detail, comments);
   const unchecked = detail.reviewer_is_app === true;
-  return { change: "feedback", feedback: { from, unchecked, body, findings, handles } };
+  const dedupeKey = whole ? reviewKey(detail) : event.id;
+  return { change: "feedback", feedback: { dedupeKey, from, unchecked, body, findings, handles } };
 }
 
-/** The key that makes every webhook naming one submitted review a single event. */
+/** The key that makes every webhook naming one submitted review a single feedback. */
 function reviewKey(detail: PullDetail): string {
   return `code:review:${detail.repo}#${detail.number}:${detail.review_id}`;
 }

@@ -228,6 +228,7 @@ describe("reviewForAuthorPrompt", () => {
 
 describe("feedbackText", () => {
   const feedback: Feedback = {
+    dedupeKey: "evt-1",
     from: { person_id: "p1", email: null, display_name: "alice" },
     unchecked: false,
     body: "Two things.",

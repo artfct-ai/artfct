@@ -307,7 +307,7 @@ describe("change", () => {
     on: ArtifactTarget | null = target,
     overrides: Overrides = {},
   ) {
-    return build(overrides).change({ event, target: on, claim: () => true });
+    return build(overrides).change({ event, target: on });
   }
 
   it("holds a person's comment that does not mention the document user", async () => {
@@ -318,6 +318,7 @@ describe("change", () => {
     const event = feedbackEvent({ text: "@artfct please revise" });
     expect(await changeOf(event, target, { fetchComment: mentioningSelf })).toEqual({
       change: "mentioned",
+      dedupeKey: "notion:evt-1",
       from: ACTOR,
       page_id: PAGE_ID,
       comment_id: "cmt-1",
