@@ -281,6 +281,8 @@ module agentTurns {
   var workflow: Workflow
   var models: List[ModelSays]
   var lastTurnEnd: TurnEnd
+  /// The steps the run took. TLC bounds a run by it.
+  var actionsTaken: int
 
   pure def isPerson(from: RowFrom): bool = match from { | Person(_) => true | FromWorkflow => false }
 
@@ -660,6 +662,7 @@ module agentTurns {
     workflow' = after.workflow,
     models' = models,
     lastTurnEnd' = after.turnEnd,
+    actionsTaken' = actionsTaken + 1,
   }
 
   /// Run `act` on the running turn.
@@ -673,6 +676,7 @@ module agentTurns {
     models' = said,
     workflow' = { store: EMPTY_STORE, isolate: { turn: NoTurn, rerun: false } },
     lastTurnEnd' = NoTurnEnd,
+    actionsTaken' = 0,
   }
 
   /// A row lands in the inbox and wakes the agent. The isolate runs the turn now, or once more
@@ -872,32 +876,70 @@ module agentTurns {
     }
   }
 
-  action step: bool = {
-    nondet origin = ORIGINS.oneOf()
-    nondet owed = Set(OwedAnswer, OwedBoard).oneOf()
-    nondet flagsPage = Set(true, false).oneOf()
-    nondet answer = MODEL_ANSWERS.oneOf()
-    nondet overLimit = Set(true, false).oneOf()
-    any {
-      personWrites(origin),
-      workflowEventArrives,
-      readAnswers(owed),
-      readFails,
-      screenAnswers(flagsPage),
-      screenFails,
-      summarizationAnswers,
-      summarizationFails,
-      modelAnswers(answer, overLimit),
-      modelThrows,
-      closingPostLands,
-      conclusionLands,
-      timeoutPasses,
-      deadlineFires,
-      watchdogFires,
-      headsUpFires,
-      durableObjectRestarts,
-      runAgentAlarmFires,
-    }
+  // Counters that TLC bounds per setup.
+
+  /// The inbox rows that arrived.
+  val rowsArrived: int = workflow.store.nextInboxId - 1
+
+  /// The restarts of the Durable Object.
+  val restartsTaken: int = workflow.store.restarts
+
+  /// The transcript rows written. Compaction replaces rows but does not lower it.
+  val rowsWritten: int = workflow.store.nextRowId - 1
+
+  /// Every row arrived, every restart happened, no turn runs and no `runAgent` alarm is armed.
+  /// These negate the guards of every other step, so each of them is blocked here.
+  val theTurnsEnd: bool = and {
+    workflow.store.nextInboxId > MAX_ARRIVALS,
+    workflow.store.restarts >= MAX_RESTARTS,
+    workflow.isolate.turn == NoTurn,
+    workflow.store.runAgentAlarms == 0,
+  }
+
+  /// The model stays in its end state, so TLC does not report the end as a deadlock.
+  action finished: bool = all {
+    theTurnsEnd,
+    workflow' = workflow,
+    models' = models,
+    lastTurnEnd' = lastTurnEnd,
+    actionsTaken' = actionsTaken,
+  }
+
+  /// Each step picks only the values its action reads, so TLC does not generate one copy of a
+  /// successor for every value of a pick it ignores.
+  action step: bool = any {
+    {
+      nondet origin = ORIGINS.oneOf()
+      personWrites(origin)
+    },
+    workflowEventArrives,
+    {
+      nondet owed = Set(OwedAnswer, OwedBoard).oneOf()
+      readAnswers(owed)
+    },
+    readFails,
+    {
+      nondet flagsPage = Set(true, false).oneOf()
+      screenAnswers(flagsPage)
+    },
+    screenFails,
+    summarizationAnswers,
+    summarizationFails,
+    {
+      nondet answer = MODEL_ANSWERS.oneOf()
+      nondet overLimit = Set(true, false).oneOf()
+      modelAnswers(answer, overLimit)
+    },
+    modelThrows,
+    closingPostLands,
+    conclusionLands,
+    timeoutPasses,
+    deadlineFires,
+    watchdogFires,
+    headsUpFires,
+    durableObjectRestarts,
+    runAgentAlarmFires,
+    finished,
   }
 
   // Invariants over the turn that ended in the last step, mirrored from the agent turn
@@ -952,9 +994,12 @@ module agentTurns {
 
   /// Every tool call in the transcript has its result right after it.
   val everyToolCallKeepsItsResult: bool = match lastTurnEnd {
-    | TurnEnded(ended) => ended.transcript.indices().forall(index =>
-        isToolCall(ended.transcript[index].entry) implies
-          (index + 1 < ended.transcript.length() and isToolResult(ended.transcript[index + 1].entry)))
+    | TurnEnded(ended) =>
+        val read = ended.transcript.foldl({ kept: true, callOpen: false }, (seen, row) => {
+          kept: seen.kept and (seen.callOpen implies isToolResult(row.entry)),
+          callOpen: isToolCall(row.entry),
+        })
+        read.kept and not(read.callOpen)
     | NoTurnEnd => true
   }
 
@@ -967,9 +1012,10 @@ module agentTurns {
   /// In a person's turn, a step that runs any tool but a first reply follows a step that left
   /// them a post or the thumbs-up.
   val aPersonHearsBackBeforeAnyWork: bool = holdsForTheEndedTurn(lastTurnEnd, record =>
-    record.owed == NotOwed or record.steps.indices().forall(index =>
-      record.steps[index].ran.exclude(FIRST_REPLY_TOOLS).size() > 0 implies
-        record.steps.indices().exists(earlier => earlier < index and record.steps[earlier].answered)))
+    record.owed == NotOwed or record.steps.foldl({ heard: true, answered: false }, (seen, step) => {
+      heard: seen.heard and (step.ran.exclude(FIRST_REPLY_TOOLS).size() > 0 implies seen.answered),
+      answered: seen.answered or step.answered,
+    }).heard)
 
   pure def holdsText(entry: Entry, pages: Set[int], messages: Set[int]): bool = match entry {
     | ToolResultRow(output) => match output {
@@ -1021,10 +1067,10 @@ module agentTurns {
 
   /// After a decisions call of a turn fails, no later call of the turn asks the decisions model.
   val laterDecisionsCallsFallBackOnceOneFails: bool = holdsForTheEndedTurn(lastTurnEnd, record =>
-    record.decisionsEvents.indices().forall(failed =>
-      record.decisionsEvents[failed] == DecisionsFailed implies
-        record.decisionsEvents.indices().forall(later =>
-          later > failed implies record.decisionsEvents[later] != DecisionsAsked)))
+    record.decisionsEvents.foldl({ fellBack: true, failed: false }, (seen, event) => {
+      fellBack: seen.fellBack and not(seen.failed and event == DecisionsAsked),
+      failed: seen.failed or event == DecisionsFailed,
+    }).fellBack)
 
   /// Every chat message the screen admitted is in its read.
   val aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead: bool = holdsForTheEndedTurn(lastTurnEnd, record =>

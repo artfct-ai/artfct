@@ -978,6 +978,7 @@ export class AgentTurnsReplay {
       case "conclusionLands":
         return this.land(this.ledger.held?.phase ?? "Concluding", { kind: "post" });
       case "timeoutPasses":
+      case "finished":
         return;
       case "deadlineFires":
         return this.settleAfter(async () => this.fireDeadline());
