@@ -22,9 +22,9 @@
     "aPersonsMessageLeavesTheInboxOnlyWithItsTurn"
   ],
   "mainMinutes": {
-    "chatThread": 1.4,
-    "trackerOnly": 2.5,
-    "chatAndSession": 3.1
+    "chatThread": 0.7,
+    "trackerOnly": 0.8,
+    "chatAndSession": 0.8
   },
   "witnesses": {
     "chatThread": [

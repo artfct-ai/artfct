@@ -5,8 +5,8 @@
     "everyFeedbackIsRoutedOnce"
   ],
   "mainMinutes": {
-    "pullRequestFeedback": 0.2,
-    "pageFeedback": 0.2
+    "pullRequestFeedback": 0.3,
+    "pageFeedback": 0.3
   },
   "witnessSamples": { "pageFeedback": 100000 },
   "witnesses": {

@@ -17,12 +17,12 @@
     "everySessionMessageLandsOnce"
   ],
   "mainMinutes": {
-    "chatThread": 1.5,
-    "trackerOnly": 1.0,
-    "trackerResearch": 1.0,
-    "trackerModelCall": 1.1,
-    "trackerPause": 1.2,
-    "trackerDelivery": 1.1
+    "chatThread": 1.1,
+    "trackerOnly": 0.8,
+    "trackerResearch": 0.8,
+    "trackerModelCall": 0.8,
+    "trackerPause": 0.7,
+    "trackerDelivery": 0.8
   },
   "witnesses": {
     "chatThread": [
