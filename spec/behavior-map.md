@@ -13,10 +13,10 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | T1 | A job and its task start only into a free job slot, and only after the plan started the workflow. A job start leaves at most the plan's number of job slots of jobs active. | `workflowLifecycle::jobStartsOnlyIntoAFreeSlot`, `workflowLifecycle::workflowStartsOnlyFromAPlan` |
 | T2 | Only one live job works from one input artifact in a workflow. An unfinished job holds its input. A finished job holds it while its output exists, unless that output is the input itself. | `workflowLifecycle::oneLiveJobPerInputArtifact` |
 | T3 | A job start on an issue points the issue's binding at its workflow before it writes the job. A job start writes the job and its task before the router's status and branch binding writes. A failed router write leaves a `queued` task without a provision alarm. | |
-| T4 | A sandbox start moves the task to `provisioning` with a new generation and bridge token, and clears the session state. A stop also begins a new generation, without a start. | |
-| T5 | The first bridge hello moves the task to `working`. | |
+| T4 | A sandbox start moves the task to `provisioning` with a new generation and bridge token, and clears the session state. A stop also begins a new generation, without a start. | `harnessSession::aSandboxStartBeginsAFreshGeneration` |
+| T5 | A provisioning task moves to `working` only on its first bridge hello, or when a stop ends the turn it was starting. | `harnessSession::aStartingTaskWorksOnlyAfterItsHello` |
 | T6 | A model-call author is `working` only while its model turn is in flight or about to run again after a restart, or after a stop ended its first turn before the page existed. | `workflowLifecycle::aModelCallAuthorWorksOnlyWhileItsCallIsOut` |
-| T7 | An author moves to `in_review` only when its job has an artifact. It leaves `in_review` only for a prompt. | `workflowLifecycle::inReviewTaskHasAnArtifact`, `harnessSession::inReviewTaskHasAnArtifact`, `harnessSession::anAuthorInReviewWorksOnlyWithAPrompt` |
+| T7 | An author moves to `in_review` only when its job has an artifact. An author in review does not run a turn or a handshake. It leaves `in_review` only for a prompt. | `workflowLifecycle::inReviewTaskHasAnArtifact`, `harnessSession::inReviewTaskHasAnArtifact`, `harnessSession::anAuthorInReviewWorksOnlyWithAPrompt`, `harnessSession::anAuthorInReviewRunsNoTurn` |
 | T8 | A finished task (`done`, `failed`, `cancelled`) never changes status again. A restart or a completion that finds the task finished when it reads it again leaves it finished. A stop writes its stopped state before it awaits the destroy, so a destroy that returns late writes nothing. | `workflowLifecycle::finishedTaskKeepsItsStatus`, `harnessSession::finishedTaskKeepsItsStatus`, `reviewLoop::aFinishedRefinerRunKeepsItsStatus` |
 | T9 | A failed author closes its review, and its drafted artifact is handed over blocked. A failed findings reviewer, judge or polisher hands the drafted artifact over blocked. | `reviewLoop::anEndedAuthorEndsItsReview`, `reviewLoop::aStoppedRefinerRunHandsOverBlocked` |
 | T10 | A cancelled author or researcher stays cancelled, and a workflow that ended leaves every task finished. A cancelled author closes its review, and its drafted artifact is handed over blocked. | `workflowLifecycle::finishedTaskKeepsItsStatus`, `harnessSession::finishedTaskKeepsItsStatus`, `workflowLifecycle::endedWorkflowHasNoUnfinishedTask`, `reviewLoop::anEndedAuthorEndsItsReview` |
@@ -28,7 +28,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | T16 | A job records an artifact only when it has an author. From then on, the author's todo list does not change. | `sessionRouting::todoListIsFixedAfterFirstArtifact` |
 | T17 | An artifact status moves only along the legal moves, and `accepted` and `removed` are final. | `workflowLifecycle::artifactStatusMovesAreLegal`, `workflowLifecycle::anAcceptedArtifactNeverMovesBack` |
 | T18 | The first handover sets the time the humans got the artifact, and it is never cleared. | `reviewLoop::deliveredToHumansIsNeverCleared` |
-| T19 | A harness author moves to `working` only when a prompt goes out for it. | |
+| T19 | A harness author moves from `in_review` to `working` only when a prompt goes out for it. | `harnessSession::anAuthorInReviewWorksOnlyWithAPrompt` |
 | T56 | Every event, alarm and tool call settles within a bounded amount of store work. A loop that never settles does not hang the workflow. | `world::workBudget.within` |
 | T58 | A single-issue workflow ends done when complete_job completes the job on its subject issue at the last planned stage. | `workflowLifecycle::aSingleIssueWorkflowIsDoneWithItsSubjectsJob` |
 | T59 | A job on an issue works on the subject issue or an issue inside the subject. A start outside the subject, or before the workflow has one, is refused and does not start a job. | `workflowLifecycle::aJobWorksOnlyOnIssuesOfItsSubject` |
@@ -40,7 +40,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | ID | Effect | Guarded by |
 |---|---|---|
 | T20 | A task restarts at most twice, whatever the cause, then fails. The count lives on the task and covers harness and model-call tasks. A restart writes the task `queued` with its restart counted before it destroys the old container, so a restart of the Durable Object during the destroy leaves the task queued for the start step. A paused task waits queued for its resume. A failure of a task already queued for a restart is dropped. A restart whose container closed after another restart counted, or after a newer generation began, is dropped. | `workflowLifecycle::taskRestartsAtMostTwice`, `harnessSession::taskRestartsAtMostTwice`, `harnessSession::anUnpausedTaskWithWorkIsNeverStranded`, `reviewLoop::aRefinerRunRestartsAtMostTwice` |
-| T21 | Recovery of a lost harness turn starts a fresh sandbox without counting a restart. A sandbox that keeps dying mid-turn restarts without a limit. | |
+| T21 | Recovery of a lost harness turn starts a fresh sandbox without counting a restart. A sandbox that keeps dying mid-turn restarts without a limit. | `harnessSession::aLostTurnIsRecoveredWithoutARestart` |
 | T22 | A harness process exit counts a restart and starts a fresh sandbox. It does not close the container, write the board note, or tell the agent. | |
 | T23 | A sandbox start that throws restarts or fails the task. A start of an older generation that throws changes nothing, and so does one that throws on a task already queued for a restart. | `harnessSession::aFailedSandboxStartRestartsOrFails`, `workflowLifecycle::taskRestartsAtMostTwice`, `harnessSession::taskRestartsAtMostTwice` |
 | T24 | After the hello, the handshake runs without a timer. An `initialize` or `session/new` that never answers leaves the task `working` without an alarm until the socket closes. A socket that closes during the handshake and does not come back restarts the sandbox the way a lost turn does. A queued prompt waits for the handshake to end. | `harnessSession::aHarnessSessionRunsOneTurnAtATime`, `harnessSession::anUnpausedTaskWithWorkIsNeverStranded` |
@@ -48,7 +48,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | T26 | An author turn the decisions model reads as blocked queues the gave up text and restarts or fails. A failed decisions call falls back to a heuristic. The outcome of a turn of an older generation is dropped. A blocked outcome leaves the author alone while a later prompt is in flight or queued. | `harnessSession::anAuthorInReviewRunsNoTurn`, `harnessSession::aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn`, `harnessSession::anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone` |
 | T27 | A researcher or refiner turn that gave up or stopped on a limit restarts or fails. | |
 | T28 | A researcher's payload passes to its author. A missing or oversized payload restarts or fails the researcher, and the failure reaches the starting session. | `sessionRouting::researchReadsCompleteOnceTheAuthorStarts`, `sessionRouting::linearOnlyAsksReachTheStartingSession` |
-| T29 | A refused prompt of an author whose last turn stopped early does not leave the author alone. It gets a nudge or a restart, or its task finished. An RPC id is never given twice, so a late answer cannot reach a later request. | `harnessSession::anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone`, `harnessSession::anAnswerReachesOnlyItsOwnRequest` |
+| T29 | A refused prompt is no longer in flight, unless the next prompt went out in the same step. A refused prompt of an author whose last turn stopped early does not leave the author alone. It gets a nudge or a restart, or its task finished. An RPC id is never given twice, so a late answer cannot reach a later request. | `harnessSession::anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone`, `harnessSession::anAnswerReachesOnlyItsOwnRequest`, `harnessSession::aRefusedPromptLeavesTheTurn` |
 | T30 | A model-call author's revise turn fails without a restart when the page host fails a read or a write, or when the answer skips or adds a comment reply. A page edit by a person, a polisher or an earlier revision does not fail it. A page model call that throws or answers blank fails the task. | `reviewLoop::aModelCallAuthorFailsOnlyOnAHostError` |
 | T31 | A model turn that a restart or its deadline cut runs again as a restart. After an instance restart, the restart alarm restarts or fails each author, and a separate alarm per restarted author runs its turn again. Events and further restarts can land between them, and either alarm can fire twice. A revise keeps its prompt queued until it applies the answer. An author with its page out goes back in review and takes that prompt. One without its page produces it again. A paused author stays paused. Past the restart limit the task fails with a post to the person. | `workflowLifecycle::aRestartDoesNotLoseAModelTurn` |
 | T32 | A prompt queued for an unpaused model-call author reaches it. A model turn is in flight, the author is starting, or a polisher holds its page. A paused author keeps its queued prompts until it resumes. | `workflowLifecycle::aQueuedPromptReachesItsModelCallAuthor`, `reviewLoop::aQueuedPromptReachesItsModelCallAuthor` |
@@ -58,9 +58,9 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| T40 | The start step of a Durable Object arms a provision alarm for each unpaused `queued` task, so an unpaused harness task with work always has a way forward. | `harnessSession::anUnpausedTaskWithWorkIsNeverStranded` |
+| T40 | The provision alarm starts a sandbox only for a `queued` task. The start step of a Durable Object arms a provision alarm for each unpaused `queued` task, so an unpaused harness task with work always has a way forward. | `harnessSession::anUnpausedTaskWithWorkIsNeverStranded`, `harnessSession::provisionStartsOnlyAQueuedTask` |
 | T41 | The `no_progress` alarm ignores a stale generation, an idle, finished or paused task. Without a socket it recovers the lost turn. Otherwise it nudges or restarts. | `workflowLifecycle::staleAlarmIsIgnored`, `harnessSession::staleAlarmIsIgnored`, `harnessSession::anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone` |
-| T42 | The wall clock alarm fails a task whose turn ran past the limit, without a restart. It belongs to the task, not to a generation. | |
+| T42 | The wall clock alarm fails a task whose turn ran past the limit, without a restart. It belongs to the task, not to a generation. | `harnessSession::wallClockFailsWithoutARestart` |
 | T43 | The hello timeout restarts or fails a task that never said hello. While the start of the task's current generation is still awaited in this isolate it rearms without a limit. A start of an older generation that returns does not end that wait. | `workflowLifecycle::staleAlarmIsIgnored`, `harnessSession::staleAlarmIsIgnored`, `harnessSession::theHelloTimeoutWaitsWhileItsStartIsOut` |
 | T44 | The keep alive alarm of the current generation stays armed while a turn of an unfinished task runs in a harness session. A restart that another restart made stale does not stop it. | `workflowLifecycle::staleAlarmIsIgnored`, `harnessSession::staleAlarmIsIgnored`, `harnessSession::aRunningTurnKeepsItsSandboxAwake` |
 | T45 | The queue retry alarm drains a prompt queued while the bridge was briefly closed. | `workflowLifecycle::staleAlarmIsIgnored`, `harnessSession::staleAlarmIsIgnored`, `harnessSession::anUnpausedTaskWithWorkIsNeverStranded` |
@@ -74,8 +74,8 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| T50 | The bridge accepts a dial only with the task's bridge token. A newer socket closes the older one. | |
-| T51 | Every harness permission request is allowed. Other agent requests get method not found. | |
+| T50 | The bridge accepts a dial only with the task's bridge token. A newer socket closes the older one. | `harnessSession::aBridgeConnectsOnlyWithTheCurrentToken` |
+| T51 | A harness permission request gets its most permissive option. Other agent requests get method not found. | `harnessSession::everyPermissionRequestIsAllowed` |
 | T52 | A sandbox destroy that fails is logged and ignored. A bridge process check that fails reads as running. | |
 | T54 | A stop or a finished task before the model call of a model-call author answers leaves the page as it was. A stop during the page write ends the turn once the write returns, and a prompt meanwhile waits in the queue, so the author has at most one page write out. A page write that returns after the task finished does not make the page the job's artifact. | `workflowLifecycle::stoppedModelCallLeavesThePage`, `workflowLifecycle::aModelCallAuthorWorksOnlyWhileItsCallIsOut`, `workflowLifecycle::oneLiveJobPerInputArtifact`, `workflowLifecycle::aModelCallAuthorHasAtMostOnePageWriteOut` |
 
@@ -264,7 +264,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | O11 | A repeated event id reaches the agent once per workflow. A base move copy gets the workflow id appended. | |
 | O12 | The tracker install link mints a single-use state. The callback consumes it, exchanges the code, refuses a second workspace, and saves the tokens. A state that a callback does not consume stays stored after it expires. | |
 | O13 | A tracker token refresh spends the refresh token with compare-and-set. The loser adopts the stored tokens. A failed refresh keeps the old token while it is valid. | |
-| O14 | A sandbox bridge dial to a workflow without a row gets 404. | |
+| O14 | A sandbox bridge dial to a workflow without a row gets 404. | `harnessSession::aBridgeConnectsOnlyWithTheCurrentToken` |
 
 ## Ingress routes
 
@@ -274,10 +274,10 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | I2 | The GitHub webhook checks the HMAC on the raw body without a timestamp window, then delivers one event. A missing delivery id gets a random event id. | `webhookInvariants::badSignatureNeverDelivers` |
 | I3 | The Slack webhook checks the HMAC and a 300 second window. The route answers 200 at once and maps and delivers after the reply. Every Slack retry is dropped. A failed delivery is only logged. | `webhookInvariants::badSignatureNeverDelivers` |
 | I4 | The app posts a Slack greeting when it joins a channel. | |
-| I5 | The Notion webhook answers an unsigned handshake while the token is unset, then checks the HMAC without a window. Only `comment.created` maps. The mapper fetches the comment before delivery. | `webhookInvariants::badSignatureNeverDelivers` |
+| I5 | The Notion webhook answers the unsigned subscription request while the verification token is unset, and refuses that request once the token is set. Then it checks the HMAC without a window. Only `comment.created` maps. The mapper fetches the comment before delivery, so the webhook refuses a comment while the Notion token is missing. | `webhookInvariants::badSignatureNeverDelivers` |
 | I6 | The Linear OAuth callback relies on the single-use state. | |
 | I7 | The admin install link and the debug dumps need the admin token. The dumps answer 404 unless debug is on. | |
-| I8 | Bridge WebSocket upgrades pass to the orchestrator, which checks the bridge token. | |
+| I8 | Bridge WebSocket upgrades pass to the orchestrator, which checks the bridge token. | `harnessSession::aBridgeConnectsOnlyWithTheCurrentToken` |
 | I9 | A webhook with a changed, missing or duplicated signature, a wrong secret, or a body changed after signing does not reach the orchestrator. Neither does a Linear or Slack webhook whose timestamp is missing or at least 400 seconds stale, or a Slack webhook whose timestamp changed after signing. The route does not deliver or look anyone up. | `webhookInvariants::badSignatureNeverDelivers` |
 
 ## Inbound mappers
