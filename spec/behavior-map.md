@@ -4,7 +4,7 @@ This file lists each effect a person sees or the system relies on, and the invar
 
 Effects use the terms of the glossary. A guard is the exact function name of an invariant. A guard written `module::name` is an invariant of that Quint spec module. A guard written `world::name` is a check the workflow world in `packages/orchestrator/test/workflow-world.ts` makes on every step, so every property test and replay that drives the world makes it. A guard written `tests::path` names the example tests in that test file. A row with an empty guard list is unguarded.
 
-The router binding invariants live in the Quint spec at `spec/router-bindings/routerBindings.qnt`. The review loop invariants live in the Quint spec at `spec/review-loop/reviewLoop.qnt`, the workflow lifecycle invariants in `spec/workflow-lifecycle/workflowLifecycle.qnt`, the harness session invariants in `spec/harness-session/harnessSession.qnt`, the agent turns invariants in `spec/agent-turns/agentTurns.qnt`, the chat acknowledgement invariants in `spec/chat-acknowledgement/chatAcknowledgement.qnt`, the session routing invariants in `spec/session-routing/sessionRouting.qnt`, and the feedback routing invariants in `spec/feedback-routing/feedbackRouting.qnt`. The webhook invariants live in `packages/ingress/test/webhook-invariants.ts`, and the inbound mapper invariants in `packages/adapters/test/inbound-invariants.ts`.
+The router binding invariants live in the Quint spec at `spec/router-bindings/routerBindings.qnt`. The review loop invariants live in the Quint spec at `spec/review-loop/reviewLoop.qnt`, the workflow lifecycle invariants in `spec/workflow-lifecycle/workflowLifecycle.qnt`, the harness session invariants in `spec/harness-session/harnessSession.qnt`, the agent turns invariants in `spec/agent-turns/agentTurns.qnt`, the chat acknowledgement invariants in `spec/chat-acknowledgement/chatAcknowledgement.qnt`, the session routing invariants in `spec/session-routing/sessionRouting.qnt`, and the feedback routing invariants in `spec/feedback-routing/feedbackRouting.qnt`. A guard written `webhookInvariants::name` is a webhook invariant in `packages/ingress/test/webhook-invariants.ts`, and one written `inboundInvariants::name` is an inbound mapper invariant in `packages/adapters/test/inbound-invariants.ts`.
 
 ## Workflow, tasks and statuses
 
@@ -29,7 +29,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | T17 | An artifact status moves only along the legal moves, and `accepted` and `removed` are final. | `workflowLifecycle::artifactStatusMovesAreLegal`, `workflowLifecycle::anAcceptedArtifactNeverMovesBack` |
 | T18 | The first handover sets the time the humans got the artifact, and it is never cleared. | `reviewLoop::deliveredToHumansIsNeverCleared` |
 | T19 | A harness author moves to `working` only when a prompt goes out for it. | |
-| T56 | Every event, alarm and tool call settles within a bounded amount of store work. A loop that never settles does not hang the workflow. | `world::withinWorkBudget` |
+| T56 | Every event, alarm and tool call settles within a bounded amount of store work. A loop that never settles does not hang the workflow. | `world::workBudget.within` |
 | T58 | A single-issue workflow ends done when complete_job completes the job on its subject issue at the last planned stage. | `workflowLifecycle::aSingleIssueWorkflowIsDoneWithItsSubjectsJob` |
 | T59 | A job on an issue works on the subject issue or an issue inside the subject. A start outside the subject, or before the workflow has one, is refused and does not start a job. | `workflowLifecycle::aJobWorksOnlyOnIssuesOfItsSubject` |
 | T60 | A tracker origin, the plan, or a recorded tracker output sets the subject once. A plan or an output that names another subject is refused, and the subject does not change. | `workflowLifecycle::subjectNeverChanges` |
@@ -99,7 +99,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | A12 | A turn lost with its Durable Object resumes, posts the restart notice in chat, keeps the lost turn's board change, and answers what the lost turn owed. | `agentTurns::aResumedTurnAnswersWhatItsLostTurnOwed`, `agentTurns::closingTextAnswersOnlyAPersonWhoWrote` |
 | A13 | Tool results from MCP, `fetch_url`, `read_artifact` and `ready_issues` pass the screen. Fixed text replaces a quarantined or unchecked result. | `agentTurns::quarantinedTextNeverEntersTheTranscript` |
 | A14 | `read_channel` screens each message. A flagged message does not remove another from the read. | `agentTurns::aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead`, `agentTurns::quarantinedTextNeverEntersTheTranscript` |
-| A15 | A tool result over the context limit is replaced by its summarization under a marker, or by a fixed "too large" text. | |
+| A15 | A tool result over the context limit is replaced by its summarization under a marker, or by a fixed "too large" text. | `tests::packages/orchestrator/src/agent/tools/condensed.property.test.medium.ts` |
 | A16 | A failed MCP connect is logged, and the turn runs without the MCP tools. | |
 | A17 | Turn answers reach the people the turn answers, read as the turn takes its inbox, so a post after the watchdog fired still reaches them. They reach the chat thread and do not reach a session when a chat thread exists. Otherwise they reach the sessions people wrote from. | `agentTurns::sessionMessageWithoutAnAuthorIsAnswered` |
 
@@ -124,7 +124,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | A33 | `set_plan` sets the definition, stages, number of job slots, repository, page parent and root page. A later plan can set fewer job slots than the jobs that run, and no job starts until one finishes. It sets the workflow `running`, moves the origin issue to started, and can create the root page on the document host. | `workflowLifecycle::workflowStartsOnlyFromAPlan`, `workflowLifecycle::workflowKeepsItsDefinition`, `workflowLifecycle::jobStartsOnlyIntoAFreeSlot` |
 | A34 | `start_job` inserts the job and task, binds the issue and branch in the router, claims the issue, links the chat thread, schedules the provision alarm, and links the input page from the root page. | `workflowLifecycle::jobStartsOnlyIntoAFreeSlot`, `workflowLifecycle::oneLiveJobPerInputArtifact`, `sessionRouting::eachIssueLinksTheChatThreadOnce`, `workflowLifecycle::workflowStartsOnlyFromAPlan` |
 | A35 | `start_job` on an issue starts only when the issue's binding points at no workflow, at this workflow, or at a workflow that ended. The binding row alone decides. A workflow whose session maps the issue refuses another workflow's job on it until it ends, even without a job on the issue. `start_job` also refuses when the binding moved after it read it. | `routerBindings::oneRunningWorkflowHasAJobOnAnIssue` |
-| A36 | `complete_job` stores a selection, or advances a host-accepted artifact. It ends the author `done`, destroys its sandbox, cancels its refiner run, and hands the artifact over. | `workflowLifecycle::aFailedCheckNeverCompletesAJob`, `workflowLifecycle::aFailedCheckNeverAsksThePersonAgain` |
+| A36 | `complete_job` stores a selection, or advances a host-accepted artifact. It ends the author `done`, destroys its sandbox, cancels its refiner run, and hands the artifact over. | `workflowLifecycle::aFailedCheckNeverCompletesAJob`, `workflowLifecycle::aFailedCheckNeverAsksThePersonAgain`, `workflowLifecycle::finishedTaskKeepsItsStatus`, `workflowLifecycle::artifactStatusMovesAreLegal` |
 | A37 | `cancel_job` cancels the author or researcher. It closes its feed, destroys its sandbox, cancels its refiner run, and closes the artifact. | `workflowLifecycle::finishedTaskKeepsItsStatus`, `harnessSession::finishedTaskKeepsItsStatus`, `workflowLifecycle::artifactStatusMovesAreLegal`, `reviewLoop::oneUnfinishedRefinerRunPerArtifact`, `reviewLoop::anEndedAuthorEndsItsReview` |
 | A38 | `prompt_task` reads and screens held page comments, marks them read, and queues the prompt. It marks the comments read before it queues the prompt. | `reviewLoop::aPromptToAPageAuthorCarriesItsHeldComments` |
 | A39 | `pause_task` and `resume_task` set or clear the pause, send a cancel to the harness session, post "Paused" or "Resumed", and queue "Continue where you left off." on resume. The resume prompt waits for the answer to the turn the pause cancelled, and a turn whose bridge was lost during the pause is recovered. They report success on a no-op. A paused task gets no prompt until it resumes. The first prompt of a session that opens while the task is paused waits at the head of its queue, and the restart of a paused task leaves it `queued` for the resume to start the next generation. | `workflowLifecycle::pausedAuthorGetsNoPrompt`, `harnessSession::pausedAuthorGetsNoPrompt`, `harnessSession::aHarnessSessionRunsOneTurnAtATime`, `sessionRouting::aStopAnswersOnlyInTheFeed`, `sessionRouting::sessionMessageReachesItsRunningAuthorSilently` |
@@ -132,8 +132,8 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | A41 | `request_review` starts the reviewer segment from its first entry. `finish_review` moves past the open entry to the next refiner or the handover. | `reviewLoop::refinersRunAgainOnlyOnChangedRevision`, `reviewLoop::oneUnfinishedRefinerRunPerArtifact`, `reviewLoop::authorIsIdleWhileAPolisherRuns` |
 | A42 | `rule_on_review` with approve moves on, or first sends the author the findings of the judge's segment. With reject it posts the signed reason on the artifact host and sends it to the author with those findings. | `reviewLoop::judgeRulesAtMostOnce`, `reviewLoop::authorGetsEveryPullFinding` |
 | A43 | `finish_workflow` sets `done`, posts the done event, moves tracker issues to completed, and removes code host bindings. It refuses while an author or researcher is active. | `workflowLifecycle::endedWorkflowHasNoUnfinishedTask`, `workflowLifecycle::nothingReopensAFinishedWorkflow` |
-| A44 | `fail_workflow` cancels every active task and refiner run, sets `failed`, posts the failure, and removes code host bindings. | `workflowLifecycle::endedWorkflowHasNoUnfinishedTask`, `sessionRouting::linearOnlyAsksReachTheStartingSession` |
-| A45 | `move_into_root_page` moves a page under the root page on the document host and drops its link. | |
+| A44 | `fail_workflow` cancels every active task and refiner run, sets `failed`, posts the failure, and removes code host bindings. | `workflowLifecycle::endedWorkflowHasNoUnfinishedTask`, `sessionRouting::linearOnlyAsksReachTheStartingSession`, `routerBindings::anEndedWorkflowKeepsNoCodeHostBinding` |
+| A45 | `move_into_root_page` moves a page under the root page on the document host and drops its link. | `tests::packages/orchestrator/src/agent/tools/root-page.test.ts` |
 | A46 | The MCP tracker tools write to the tracker under prompt rules only. A result the screen does not admit reads to the model as not given, though the write happened. | |
 | A47 | The read tools only read, and they screen text that comes from outside. | `agentTurns::quarantinedTextNeverEntersTheTranscript` |
 
@@ -144,29 +144,29 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | A50 | The main model request retries once per turn and fails into the stuck text. A hang ends at the turn deadline. | `agentTurns::aPersonsTurnNeverEndsUnanswered`, `agentTurns::aWaitingPersonHearsBackByTheTimeout` |
 | A51 | A decisions call that fails, hangs or lacks a gateway returns its site's fallback. The fallback of the acceptance and selection checks keeps the job open. | `agentTurns::laterDecisionsCallsFallBackOnceOneFails`, `workflowLifecycle::aFailedCheckNeverCompletesAJob` |
 | A52 | A failed model list for a requested runtime reads to the person as "matched none clearly". | |
-| A53 | A host acceptance lookup that throws reads as "not accepted". | |
+| A53 | A host acceptance lookup that throws reads as "not accepted". | `tests::packages/orchestrator/src/artifact/pull.test.ts` |
 
 ## Refiners, reviews and handover
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| R1 | Refiners settle only once the author is quiet and the checks gate is open. Each settle reads the store again after the host read. | `reviewLoop::authorIsIdleWhileAPolisherRuns`, `reviewLoop::oneUnfinishedRefinerRunPerArtifact`, `tests::packages/orchestrator/src/workflow/refiner/checks-gate.test.ts` |
+| R1 | Refiners settle only once the author is quiet and the checks gate is open. Each settle reads the store again after the host read. | `reviewLoop::authorIsIdleWhileAPolisherRuns`, `reviewLoop::oneUnfinishedRefinerRunPerArtifact`, `reviewLoop::refinersStartOnlyWhenTheAuthorsGateOpens`, `reviewLoop::aBlockedAuthorsGateHandsOverBlocked`, `tests::packages/orchestrator/src/workflow/refiner/checks-gate.test.ts` |
 | R2 | An artifact has at most one unfinished refiner run, and the artifact points at it. | `reviewLoop::oneUnfinishedRefinerRunPerArtifact` |
 | R3 | A refiner run starts on an artifact the humans hold only after an author turn ended on a changed revision. An unknown revision counts as changed. | `reviewLoop::refinersRunAgainOnlyOnChangedRevision` |
 | R4 | A reviewer does not run again on a revision it already reviewed. One rule picks the next entry on every path that runs the list: after the author's turn, `request_review`, `finish_review`, a review again decision, a stale segment restart, and a finished entry handing on. It passes over an entry that already reviewed or ruled on the current revision, and a judge that ruled. `request_review` refuses when that leaves no entry of the open segment, and a review again decision of yes then advances, as no does. An unknown revision allows the run. | `reviewLoop::reviewerRunsOnlyOnAnUnreviewedRevision` |
 | R5 | A findings reviewer entry runs at most `max_review_runs` times on one artifact. The limit adds the unreviewed revision note at handover. A stale segment restart does not count against the limit. | |
 | R6 | A judge rules at most once on an artifact, and its ruling never changes. Later runs skip judge entries that ruled. A ruling that lands while the decisions model or the host is asked stands, and the later one is dropped. An instance restart that loses the ruling call of the judge run the artifact waits on asks the decisions model again, unless the agent was already asked for a person's ruling. | `reviewLoop::judgeRulesAtMostOnce`, `reviewLoop::aRestartDoesNotStrandAJudgeRun` |
-| R7 | The decisions model rules a judge conclusion. A missing conclusion, a failed call or a middle probability asks a person to rule. | |
+| R7 | The decisions model rules a judge conclusion. A missing conclusion, a failed call or a middle probability asks a person to rule. | `reviewLoop::aRestartDoesNotStrandAJudgeRun` |
 | R8 | A refiner run ends `done` only after its turn ended normally. A polisher waiting on the checks of its push ends later, only if it did not take a prompt since. | `reviewLoop::refinerRunIsDoneOnlyAfterItsTurnEnded`, `reviewLoop::aPolisherEndsDoneOnlyWhenItsChecksOpen`, `tests::packages/orchestrator/src/workflow/refiner/polish.test.ts` |
 | R9 | The review again decision reads a model-call author's closing text. An answer of yes reruns the segment from its first entry that did not review the revision, and an answer of no advances. A failed call asks the agent to route. | |
 | R10 | The agent routes a harness author's review with `request_review` or `finish_review`. The agent is told again on every settle until it routes. | |
-| R11 | A segment merges the latest reviews of its entries and sends the merged review to the author when it holds findings or blocks. A segment that ends with a judge sends it once the judge rules: with the rejection, or on its own after an approval. A clean or empty segment advances. | `reviewLoop::authorGetsEveryPullFinding` |
+| R11 | A segment merges the latest reviews of its entries and sends the merged review to the author when it holds findings or blocks. A segment that ends with a judge sends it once the judge rules: with the rejection, or on its own after an approval. A clean or empty segment advances. | `reviewLoop::authorGetsEveryPullFinding`, `reviewLoop::authorGetsEveryPageFinding` |
 | R12 | The handover moves the artifact from drafted to ready once, records the delivered revision, posts `artifact_ready` and arms the idle alarm. Blocked paths hand over with a reason. | `reviewLoop::deliveredToHumansIsNeverCleared`, `workflowLifecycle::artifactStatusMovesAreLegal`, `workflowLifecycle::inReviewTaskHasAnArtifact`, `harnessSession::inReviewTaskHasAnArtifact` |
 | R13 | A cancelled findings reviewer or judge run leaves the artifact drafted, pointing at the run, until the agent routes it. A failed reviewer hands over blocked. A cancelled or failed polisher hands over blocked. | `reviewLoop::aStoppedRefinerRunHandsOverBlocked` |
 | R14 | An author turn that ends on a ready artifact with a changed or unreadable revision reopens it to drafted and reruns the refiners. A stage without refiners posts `artifact_ready` again. The turn that records the artifact does not reopen it, so the humans get each recorded revision once. | `workflowLifecycle::artifactStatusMovesAreLegal`, `reviewLoop::refinersRunAgainOnlyOnChangedRevision` |
 | R15 | A pull request review read that fails reads as if the reviewer did not file a review, and the segment advances as if clean. | |
 | R16 | A reviewer that failed or gave up restarts while it has restarts, then the artifact is handed over blocked. | `workflowLifecycle::finishedTaskKeepsItsStatus`, `harnessSession::finishedTaskKeepsItsStatus`, `reviewLoop::aRefinerRunRestartsAtMostTwice`, `reviewLoop::aFinishedRefinerRunKeepsItsStatus`, `reviewLoop::aStoppedRefinerRunHandsOverBlocked` |
-| R17 | An accepted artifact stays accepted, and a refiner run does not start on its job. Its job completes once. A second `complete_job` does not change a task or the artifact, and does not post. | `workflowLifecycle::anAcceptedArtifactNeverMovesBack` |
+| R17 | An accepted artifact stays accepted, and a refiner run does not start on its job. Its job completes once. A second `complete_job` does not change a task or the artifact, and does not post. | `workflowLifecycle::anAcceptedArtifactNeverMovesBack`, `workflowLifecycle::finishedTaskKeepsItsStatus` |
 
 ### Polish and checks
 
@@ -177,14 +177,13 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | R22 | An unreadable revision opens the checks gate, so the refiners and the handover skip CI. | `reviewLoop::aPolisherEndsDoneOnlyWhenItsChecksOpen` |
 | R23 | The `recheck` alarm ticks every 60 seconds while the gate waits and stops when it opens, blocks, or the workflow ends. | |
 | R24 | While the humans hold the artifact, failed checks or a conflict go to an idle author once per revision. A conflict with a finished author tells the agent. Failed checks with a finished author are dropped. | `reviewLoop::checksGoBackOncePerRevision` |
-
-| R25 | A follow-up starts when a prompt reaches an idle author while the humans hold the artifact. The board moves to the end of the thread. | |
+| R25 | A follow-up starts when a prompt reaches an idle author while the humans hold the artifact. The board moves to the end of the thread. | `tests::packages/orchestrator/src/workflow/follow-up.test.ts`, `tests::packages/orchestrator/src/workflow/board/board-relocate.test.ts` |
 
 ### Writes to the artifact host
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| R30 | A pull request reviewer posts its own review with its own token. | |
+| R30 | A pull request reviewer posts its own review with its own token. | `tests::packages/orchestrator/src/workflow/task/sandbox/credential.test.ts` |
 | R31 | A page review posts each finding with a passage as an inline comment, then one outcome comment with the review line. A failed inline comment moves into the outcome comment. The post happens before the check that the run still owns the artifact. | `reviewLoop::pageReviewPostsEachFindingOnce` |
 | R32 | A judge rejection posts the signed reason on the pull request or page, or in the thread for issues. A failed post is logged, and the author still gets the rejection. | `reviewLoop::aJudgeRejectionPostsItsReasonOnce` |
 | R33 | Person feedback on a pull request gets the eyes reaction per comment, or "Relayed to the author." when it lacks comment handles, before routing. One failure skips the rest. | |
@@ -204,7 +203,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | E5 | A finished workflow ignores events. It refuses a person's message, and the router starts the next workflow with it. A stop still stops the author, a status gets the summary, and anything else gets "This workflow is X". | `workflowLifecycle::nothingReopensAFinishedWorkflow`, `workflowLifecycle::endedWorkflowHasNoUnfinishedTask`, `routerBindings::aPersonsMessageNeverReachesAnEndedWorkflow`, `sessionRouting::aStopAnswersOnlyInTheFeed` |
 | E6 | A message wakes a workflow from `waiting_input` to `running` and rearms the idle alarm. | |
 | E7 | A stop clears the author's queue, cancels a running turn, ends the author's generation, and closes its container, also for an idle author. A call the author awaited before the stop does not start work after it. The feed closes with "Stopped.". The workflow does not change, and the orchestrator does not post. | `harnessSession::stopEndsTheAuthorsTurn`, `harnessSession::aStoppedAuthorStaysQuiet`, `sessionRouting::aStopAnswersOnlyInTheFeed`, `workflowLifecycle::stoppedModelCallLeavesThePage` |
-| E8 | A person's verbal command: cancel, pause, resume or instruct. Cancel ends the workflow, or the one job on an issue that is not the issue subject. Pause, resume and instruct act on the task of the one active job, a researcher too. With none or several jobs active, the message goes to the agent. A paused task keeps the instruct prompt queued until it resumes. In a session with a running author, the words go to the author as a prompt. | `workflowLifecycle::pausedAuthorGetsNoPrompt`, `sessionRouting::sessionMessageWithoutAnAuthorIsAnswered`, `sessionRouting::sessionMessageReachesItsRunningAuthorSilently` |
+| E8 | A person's verbal command: cancel, pause, resume or instruct. Cancel ends the workflow, or the one job on an issue that is not the issue subject. Pause, resume and instruct act on the task of the one active job, a researcher too. With none or several jobs active, the message goes to the agent. A paused task keeps the instruct prompt queued until it resumes. In a session with a running author, the words go to the author as a prompt. | `workflowLifecycle::pausedAuthorGetsNoPrompt`, `sessionRouting::sessionMessageWithoutAnAuthorIsAnswered`, `sessionRouting::sessionMessageReachesItsRunningAuthorSilently`, `workflowLifecycle::endedWorkflowHasNoUnfinishedTask` |
 | E9 | A pull request opened records the artifact and settles refiners. Marked ready cancels the refiner run and hands over. Merged accepts the artifact and tells the agent, and does not cancel a running polisher. Closed unmerged removes it and cancels the author. Reopened does not change the artifact. | `workflowLifecycle::artifactStatusMovesAreLegal`, `workflowLifecycle::anAcceptedArtifactNeverMovesBack` |
 | E10 | A check or base branch event settles the checks of each matched job. | |
 | E11 | An event that does not match a job adds a note. One that matches several active jobs asks the agent which. | |
@@ -226,7 +225,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | C10 | With a chat thread, every post goes to the chat threads and does not reach a tracker session. | `sessionRouting::orchestratorStaysOutOfSessionsWhenChatExists`, `sessionRouting::sessionMessageWithoutAnAuthorIsAnswered` |
 | C11 | A chat post that fails writes a delivery error row and is not retried. The post still counts as posted, so the thread may not be released. | |
 | C12 | After a chat post outside a turn, the thread status goes to active, or closed when the workflow finished. | |
-| C13 | The sleep message posts after the idle hours while the workflow runs and every author and researcher is idle. The workflow moves to `waiting_input`. | `workflowLifecycle::sleepMessageOnlyDuringAWorkflow`, `sessionRouting::orchestratorStaysOutOfSessionsWhenChatExists`, `sessionRouting::linearOnlyAsksReachTheStartingSession` |
+| C13 | The sleep message posts after the idle hours while the workflow runs and every author and researcher is idle. The workflow moves to `waiting_input`. | `workflowLifecycle::sleepMessageOnlyDuringAWorkflow`, `sessionRouting::orchestratorStaysOutOfSessionsWhenChatExists`, `sessionRouting::linearOnlyAsksReachTheStartingSession`, `workflowLifecycle::workflowWaitsOnlyWhileNoAuthorWorks` |
 | C14 | A failed task posts "❌ reason". A failed workflow posts the failure and the "tag me again" line. | |
 | C15 | A finished workflow posts "Done." with the result. | |
 | C16 | Controls post "Cancelled.", "Paused", "Resumed" or "Not authorized.". | `sessionRouting::sessionMessageWithoutAnAuthorIsAnswered` |
@@ -247,7 +246,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | K7 | A start without an authorized actor gets "No workflow is working on this issue. Delegate it to me or mention me to start one.", after the starting thought. | |
 | K8 | A job start claims its issue: started state and delegation to the app user. The plan moves the origin issue to started. A done workflow moves tracker issues to completed. A failed or cancelled workflow does not move them. | |
 | K9 | A chat workflow links an issue subject and each issue a job works on to its chat thread once. A tracker workflow does not link any. | `sessionRouting::eachIssueLinksTheChatThreadOnce` |
-| K10 | A session message to a running author goes to that author as a prompt, does not post, and does not wake a turn. A paused author holds it in its queue. A prompt queued for an unpaused model-call author waits on an author at work. | `sessionRouting::sessionMessageReachesItsRunningAuthorSilently` |
+| K10 | A session message to a running author goes to that author as a prompt, does not post, and does not wake a turn. A paused author holds it in its queue. A prompt queued for an unpaused model-call author waits on an author at work. | `sessionRouting::sessionMessageReachesItsRunningAuthorSilently`, `workflowLifecycle::aQueuedPromptReachesItsModelCallAuthor` |
 | K11 | A session message without a running author wakes an agent turn, and the turn's answer, question or timeout text reaches that session or the chat threads. A verbal command that runs answers the person itself. A finished workflow replies at once. | `sessionRouting::sessionMessageWithoutAnAuthorIsAnswered` |
 
 ## Router, identity and install
@@ -273,15 +272,15 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| I1 | The Linear webhook checks the HMAC and a 60 second timestamp window, then maps the payload and delivers one event. A bad signature gets 401. | |
-| I2 | The GitHub webhook checks the HMAC on the raw body without a timestamp window, then delivers one event. A missing delivery id gets a random event id. | |
-| I3 | The Slack webhook checks the HMAC and a 300 second window. The route answers 200 at once and maps and delivers after the reply. Every Slack retry is dropped. A failed delivery is only logged. | |
+| I1 | The Linear webhook checks the HMAC and a 60 second timestamp window, then maps the payload and delivers one event. A bad signature gets 401. | `webhookInvariants::badSignatureNeverDelivers` |
+| I2 | The GitHub webhook checks the HMAC on the raw body without a timestamp window, then delivers one event. A missing delivery id gets a random event id. | `webhookInvariants::badSignatureNeverDelivers` |
+| I3 | The Slack webhook checks the HMAC and a 300 second window. The route answers 200 at once and maps and delivers after the reply. Every Slack retry is dropped. A failed delivery is only logged. | `webhookInvariants::badSignatureNeverDelivers` |
 | I4 | The app posts a Slack greeting when it joins a channel. | |
-| I5 | The Notion webhook answers an unsigned handshake while the token is unset, then checks the HMAC without a window. Only `comment.created` maps. The mapper fetches the comment before delivery. | |
+| I5 | The Notion webhook answers an unsigned handshake while the token is unset, then checks the HMAC without a window. Only `comment.created` maps. The mapper fetches the comment before delivery. | `webhookInvariants::badSignatureNeverDelivers` |
 | I6 | The Linear OAuth callback relies on the single-use state. | |
 | I7 | The admin install link and the debug dumps need the admin token. The dumps answer 404 unless debug is on. | |
 | I8 | Bridge WebSocket upgrades pass to the orchestrator, which checks the bridge token. | |
-| I9 | A webhook with a changed signature, a stale or missing timestamp, a wrong secret, a body changed after signing, or a changed header does not reach the orchestrator. The route does not deliver or look anyone up. | `badSignatureNeverDelivers` |
+| I9 | A webhook with a changed signature, a stale or missing timestamp, a wrong secret, a body changed after signing, or a changed header does not reach the orchestrator. The route does not deliver or look anyone up. | `webhookInvariants::badSignatureNeverDelivers` |
 
 ## Inbound mappers
 
@@ -292,18 +291,18 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | M3 | GitHub: one review with N inline comments arrives as N+1 feedback events. A failed check arrives as two `ci_event`s. | |
 | M4 | Linear: a session created becomes `start`. A session prompt becomes `stop` on the stop signal, else `prompt` or `status`. A document comment becomes `feedback`. An issue moved to canceled or completed by a person becomes `control` cancel. Other workspaces are ignored. | |
 | M5 | Notion: a page comment becomes `feedback` after a fetch. The mapper does not filter the bot's own comments. The resolver drops them because a bot lacks an email. | |
-| M6 | Every inbound mapper returns an event, or an ignore that names its reason, for any payload. It never throws. | `inboundMapperNeverThrows` |
+| M6 | Every inbound mapper returns an event, or an ignore that names its reason, for any payload. It never throws. | `inboundInvariants::inboundMapperNeverThrows` |
 
 ## Adapter writes and external calls
 
 | ID | Effect | Guarded by |
 |---|---|---|
 | X1 | Slack thread replies split into chunks. A failure partway leaves the first chunks posted. Every Slack write throws on error. | |
-| X2 | Linear issue updates, activities, plans and thread sync throw on an error. A repeated activity id is swallowed so the post is idempotent. The SDK `success` flag is not read. | |
+| X2 | Linear issue updates, activities, plans and thread sync throw on an error. A repeated activity id is swallowed so the post is idempotent. The SDK `success` flag is not read. | `sessionRouting::feedActivityPostsOnce` |
 | X3 | GitHub writes are a pull request comment, a comment reaction and token minting. Paged reads stop at 10 pages and repository lists at 100. | |
 | X4 | Notion page create, page text change, move, rename, comment, acknowledgement and reply throw on error. Inline findings swallow a per-block error and come back unposted. Not found reads as a removed page. | |
-| X5 | A page text change plans at most 100 edits that each match once and turn the read text into the revised text. | |
+| X5 | A page text change plans at most 100 edits that each match once and turn the read text into the revised text. | `tests::packages/adapters/src/documents/page-text-update.test.ts` |
 | X6 | A Linear document text change is a read-modify-write of the whole content. A person's edit between the read and the write is lost. | |
 | X7 | A held comment is a person comment of a comment thread that a bot acknowledgement does not follow. Each bot acknowledgement marks the earliest unacknowledged person comment of its comment thread. The bot's own comments are never held. | |
-| X8 | Decisions calls try each configured model in order with per-attempt deadlines. Cloudflare throws on a missing probability and moves to the next model. OpenRouter reads it as 0. | |
+| X8 | Decisions calls try each configured model in order with per-attempt deadlines. Cloudflare throws on a missing probability and moves to the next model. OpenRouter reads it as 0. | `agentTurns::aDecisionsCallFallsBackOnlyAfterEveryModelFailed`, `agentTurns::laterDecisionsCallsFallBackOnceOneFails` |
 | X9 | `fetch_url` follows redirects with a 20 second timeout and a 512 KB cap. | |

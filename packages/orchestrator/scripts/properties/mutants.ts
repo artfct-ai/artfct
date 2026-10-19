@@ -596,6 +596,20 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W109",
+    invariant: "reviewLoop::refinersStartOnlyWhenTheAuthorsGateOpens",
+    path: "src/workflow/refiner/loop.ts",
+    find: '  if (gate.gate !== "open") return;\n',
+    replace: "",
+  },
+  {
+    id: "W110",
+    invariant: "reviewLoop::aBlockedAuthorsGateHandsOverBlocked",
+    path: "src/workflow/refiner/loop.ts",
+    find: 'return markArtifactReady(workflow, task.job_id, { close: "blocked", reason: gate.reason });',
+    replace: 'return markArtifactReady(workflow, task.job_id, { close: "ready" });',
+  },
+  {
+    id: "W112",
     invariant: "harnessSession::aTaskWithoutAnEarlierPromptGetsTheTaskPrompt",
     path: "src/workflow/task/harness/prompt-queue.ts",
     find: "  if (sandbox.first_prompt_at === null) {\n",
