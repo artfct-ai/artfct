@@ -109,6 +109,8 @@ export const sandboxes = sqliteTable("sandboxes", {
   generation: integer().notNull().default(0),
   bridge_token: text().notNull(),
   session_id: text(),
+  /** When the task's first prompt was chosen. Null before it, so the first prompt is the task prompt. */
+  first_prompt_at: text(),
   /** When the harness last streamed an update. Throttles the no-progress timer. */
   last_progress_at: text().notNull(),
   prompt_in_flight: integer().notNull().default(0),

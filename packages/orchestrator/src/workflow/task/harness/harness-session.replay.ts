@@ -103,6 +103,10 @@ describe("harness session spec", () => {
     await replayPinnedTrace("refused-prompt-after-a-stopped-early-turn");
   });
 
+  it("sends the task prompt to a task stopped before its first start", async () => {
+    await replayPinnedTrace("task-prompt-after-a-stop-before-the-first-start");
+  });
+
   it("closes the container on a stop whose cancel is lost", async () => {
     await replayPinnedTrace("stop-after-the-bridge-died");
   });

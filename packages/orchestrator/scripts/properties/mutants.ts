@@ -594,6 +594,13 @@ export const MUTANTS: Mutant[] = [
     replace:
       '    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The commit author lookup"),\n',
   },
+  {
+    id: "W109",
+    invariant: "harnessSession::aTaskWithoutAnEarlierPromptGetsTheTaskPrompt",
+    path: "src/workflow/task/harness/prompt-queue.ts",
+    find: "  if (sandbox.first_prompt_at === null) {\n",
+    replace: "  if (sandbox.generation <= 1) {\n",
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */

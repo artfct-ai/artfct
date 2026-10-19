@@ -99,6 +99,7 @@
         "generation": {
           "#bigint": "0"
         },
+        "hadPrompt": false,
         "helloSlot": {
           "tag": "Unarmed",
           "value": {
@@ -152,6 +153,9 @@
         },
         "queue": [],
         "restarts": {
+          "#bigint": "0"
+        },
+        "resumesChosen": {
           "#bigint": "0"
         },
         "rpcs": [],
@@ -315,6 +319,7 @@
         "generation": {
           "#bigint": "1"
         },
+        "hadPrompt": false,
         "helloSlot": {
           "tag": "Armed",
           "value": {
@@ -375,6 +380,9 @@
           }
         ],
         "restarts": {
+          "#bigint": "0"
+        },
+        "resumesChosen": {
           "#bigint": "0"
         },
         "rpcs": [],
@@ -538,6 +546,7 @@
         "generation": {
           "#bigint": "1"
         },
+        "hadPrompt": false,
         "helloSlot": {
           "tag": "Armed",
           "value": {
@@ -604,6 +613,9 @@
           }
         ],
         "restarts": {
+          "#bigint": "0"
+        },
+        "resumesChosen": {
           "#bigint": "0"
         },
         "rpcs": [],
@@ -745,6 +757,7 @@
         "generation": {
           "#bigint": "1"
         },
+        "hadPrompt": false,
         "helloSlot": {
           "tag": "Armed",
           "value": {
@@ -811,6 +824,9 @@
           }
         ],
         "restarts": {
+          "#bigint": "0"
+        },
+        "resumesChosen": {
           "#bigint": "0"
         },
         "rpcs": [],
@@ -959,6 +975,7 @@
         "generation": {
           "#bigint": "1"
         },
+        "hadPrompt": false,
         "helloSlot": {
           "tag": "Unarmed",
           "value": {
@@ -1025,6 +1042,9 @@
           }
         ],
         "restarts": {
+          "#bigint": "0"
+        },
+        "resumesChosen": {
           "#bigint": "0"
         },
         "rpcs": [
@@ -1206,6 +1226,7 @@
         "generation": {
           "#bigint": "1"
         },
+        "hadPrompt": false,
         "helloSlot": {
           "tag": "Unarmed",
           "value": {
@@ -1272,6 +1293,9 @@
           }
         ],
         "restarts": {
+          "#bigint": "0"
+        },
+        "resumesChosen": {
           "#bigint": "0"
         },
         "rpcs": [
@@ -1486,6 +1510,7 @@
         "generation": {
           "#bigint": "1"
         },
+        "hadPrompt": true,
         "helloSlot": {
           "tag": "Unarmed",
           "value": {
@@ -1552,6 +1577,9 @@
           }
         ],
         "restarts": {
+          "#bigint": "0"
+        },
+        "resumesChosen": {
           "#bigint": "0"
         },
         "rpcs": [
@@ -1763,6 +1791,7 @@
         "generation": {
           "#bigint": "1"
         },
+        "hadPrompt": true,
         "helloSlot": {
           "tag": "Unarmed",
           "value": {
@@ -1829,6 +1858,9 @@
           }
         ],
         "restarts": {
+          "#bigint": "0"
+        },
+        "resumesChosen": {
           "#bigint": "0"
         },
         "rpcs": [
@@ -2040,6 +2072,7 @@
         "generation": {
           "#bigint": "1"
         },
+        "hadPrompt": true,
         "helloSlot": {
           "tag": "Unarmed",
           "value": {
@@ -2106,6 +2139,9 @@
           }
         ],
         "restarts": {
+          "#bigint": "0"
+        },
+        "resumesChosen": {
           "#bigint": "0"
         },
         "rpcs": [
@@ -2317,6 +2353,7 @@
         "generation": {
           "#bigint": "1"
         },
+        "hadPrompt": true,
         "helloSlot": {
           "tag": "Unarmed",
           "value": {
@@ -2383,6 +2420,9 @@
           }
         ],
         "restarts": {
+          "#bigint": "0"
+        },
+        "resumesChosen": {
           "#bigint": "0"
         },
         "rpcs": [
@@ -2580,6 +2620,7 @@
         "generation": {
           "#bigint": "2"
         },
+        "hadPrompt": true,
         "helloSlot": {
           "tag": "Unarmed",
           "value": {
@@ -2633,6 +2674,9 @@
         },
         "queue": [],
         "restarts": {
+          "#bigint": "0"
+        },
+        "resumesChosen": {
           "#bigint": "0"
         },
         "rpcs": [],
