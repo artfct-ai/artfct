@@ -327,6 +327,7 @@ const WORLD_SETUP: Omit<WorldSetup, "origin" | "research" | "pageAuthor"> = {
   firstInput: "request",
   subject: "none",
   sandboxStart: "at_task_start",
+  pageBranch: false,
 };
 
 /** What a person types in a tracker session for each session text of the spec. */

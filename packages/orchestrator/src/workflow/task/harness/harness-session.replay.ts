@@ -171,6 +171,10 @@ describe("harness session spec", () => {
     await replayPinnedTrace("prompt-during-the-effort-handshake", "stageAsksForEffort");
   });
 
+  it("does not start the sandbox of a task cancelled while its branch binding was out", async () => {
+    await replayPinnedTrace("branch-binding-returns-after-a-cancel", "jobOnABranch");
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,
