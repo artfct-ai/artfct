@@ -4,20 +4,23 @@
 /// create or handle each end a stretch. The statement lands when the next
 /// stretch of its caller runs. An await that does not touch the router's tables or another
 /// workflow, such as a tracker read, stays inside its stretch.
+/// A push to the repository's base branch does not route by bindings. It fans out to every
+/// workflow with a pull request bound in the repository, one Durable Object call at a time.
 module routerBindingsTypes {
   /// One external object that routes events: a chat thread, two tracker sessions on one issue,
-  /// the issue, and a pull request.
-  type Key = Thread | SessionA | SessionB | Issue | Pull
+  /// the issue, and two pull requests in one repository.
+  type Key = Thread | SessionA | SessionB | Issue | Pull | SecondPull
 
   /// The kind of an external object. A workflow's end and an abandoned create delete bindings by it.
   type Source = ChatThread | TrackerSession | TrackerIssue | CodePull
 
-  /// Where an event comes from. It names the bindings the event carries.
-  type Surface = ThreadSurface | SessionASurface | SessionBSurface | PullSurface
+  /// Where an event comes from. It names the bindings the event carries. The base branch of the
+  /// repository carries none.
+  type Surface = ThreadSurface | SessionASurface | SessionBSurface | PullSurface | BaseSurface
 
   /// A start and a person's message come from a person. A start without a person, such as one
-  /// a bot sends, and every other event do not.
-  type EventKind = Start | StartWithoutAPerson | PersonsMessage | OtherEvent
+  /// a bot sends, and every other event do not. A base move is a push to the base branch.
+  type EventKind = Start | StartWithoutAPerson | PersonsMessage | OtherEvent | BaseMoved
 
   /// What one binding pointed at when a delivery or a job start read it: no workflow, or one workflow.
   type Bound = Unbound | BoundTo(int)
@@ -28,6 +31,7 @@ module routerBindingsTypes {
   /// The call a delivery or a workflow waits on.
   type Call =
     | FindBinding(Key)
+    | FindPullWorkflows
     | FindWorkflow(int)
     | ClaimBinding(Key)
     | InsertWorkflow(int)
@@ -38,7 +42,11 @@ module routerBindingsTypes {
     | HandleEvent(int)
 
   /// Where a delivery stands: reading the route, joining a running workflow, or starting the next one.
+  /// A base move reads the workflows with a pull request bound, then hands the event to each one
+  /// left, the smallest first.
   type DeliveryPhase =
+    | ReadingPulls
+    | FanningOut(Set[int])
     | Reading
     | Checking
     | Handling
@@ -79,18 +87,19 @@ module routerBindingsTypes {
     | JobReadsIssueBinding
     | JobReadsBoundWorkflow(int)
     | JobBindsIssue(Bound)
-    | PullBinds
+    | PullBinds(Key)
 
   /// One stretch of work a workflow does against the router's tables.
   type WorkflowOperation = { workflow: int, phase: OperationPhase }
 
   /// What the Durable Object of one workflow knows. `hasIssueJob` is true while it has an
-  /// unfinished job on the issue. `unbound` is true once its end removed its code host bindings.
+  /// unfinished job on the issue. `openedPulls` holds the pull requests it recorded. `unbound` is
+  /// true once its end removed its code host bindings.
   type WorkflowObject = {
     created: bool,
     ended: bool,
     hasIssueJob: bool,
-    openedPull: bool,
+    openedPulls: Set[Key],
     unbound: bool,
   }
 
@@ -121,6 +130,10 @@ module routerBindingsTypes {
     after: Key -> Observed,
   }
 
+  /// What the last step showed that its end state does not: a fanned-out call threw and the fan-out
+  /// went on to the next workflow.
+  type StepWitnesses = { fanOutWentOnPastAFailure: bool }
+
   /// What observers saw over the trace.
   type History = {
     movedBindings: Set[{ key: Key, from: int }],
@@ -141,15 +154,18 @@ module routerBindings {
   /// How many deliveries run at once.
   const MAX_DELIVERIES: int
 
+  /// The pull requests the workflows may open.
+  const PULLS: Set[Key]
+
   /// How many workflow operations run at once.
   pure val MAX_OPERATIONS: int = 2
 
-  pure val ALL_KEYS: Set[Key] = Set(Thread, SessionA, SessionB, Issue, Pull)
+  pure val ALL_KEYS: Set[Key] = Set(Thread, SessionA, SessionB, Issue, Pull, SecondPull)
 
   pure val CODE_SOURCES: Set[Source] = Set(CodePull)
 
   pure val NEW_OBJECT: WorkflowObject =
-    { created: false, ended: false, hasIssueJob: false, openedPull: false, unbound: false }
+    { created: false, ended: false, hasIssueJob: false, openedPulls: Set(), unbound: false }
 
   pure val EMPTY_BATCH: Batch = {
     open: false,
@@ -173,6 +189,8 @@ module routerBindings {
     nextOperation: 0,
   }
 
+  pure val NO_STEP_WITNESSES: StepWitnesses = { fanOutWentOnPastAFailure: false }
+
   pure val INITIAL_HISTORY: History = {
     movedBindings: Set(),
     eventsBeforeCreate: Set(),
@@ -183,16 +201,19 @@ module routerBindings {
 
   var world: World
   var history: History
+  var stepWitnesses: StepWitnesses
 
   pure def keysOf(surface: Surface): List[Key] = match surface {
     | ThreadSurface => List(Thread)
     | SessionASurface => List(SessionA, Issue)
     | SessionBSurface => List(SessionB, Issue)
     | PullSurface => List(Pull)
+    | BaseSurface => List()
   }
 
   pure def kindsOf(surface: Surface): Set[EventKind] = match surface {
     | PullSurface => Set(OtherEvent)
+    | BaseSurface => Set(BaseMoved)
     | _ => Set(Start, StartWithoutAPerson, PersonsMessage, OtherEvent)
   }
 
@@ -208,6 +229,7 @@ module routerBindings {
     | SessionB => TrackerSession
     | Issue => TrackerIssue
     | Pull => CodePull
+    | SecondPull => CodePull
   }
 
   pure def keySet(list: List[Key]): Set[Key] = list.foldl(Set(), (found, key) => found.union(Set(key)))
@@ -282,6 +304,8 @@ module routerBindings {
   pure def callOf(delivery: Delivery): Call = {
     val surfaceKeys = keysOf(delivery.surface)
     match delivery.phase {
+      | ReadingPulls => FindPullWorkflows
+      | FanningOut(_) => HandleEvent(targetOf(delivery))
       | Reading => FindBinding(surfaceKeys[delivery.found.length()])
       | Checking => FindWorkflow(workflowOf(delivery.found[delivery.index]))
       | Handling => HandleEvent(targetOf(delivery))
@@ -303,7 +327,7 @@ module routerBindings {
     | JobReadsIssueBinding => FindBinding(Issue)
     | JobReadsBoundWorkflow(bound) => FindWorkflow(bound)
     | JobBindsIssue(_) => ClaimBinding(Issue)
-    | PullBinds => BindWorkflow({ key: Pull, workflow: operation.workflow })
+    | PullBinds(pull) => BindWorkflow({ key: pull, workflow: operation.workflow })
   }
 
   /// The route is read. A person's start, or a person's message on a binding whose workflow ended,
@@ -429,10 +453,35 @@ module routerBindings {
   pure def afterMarkFailed(state: World, id: int, delivery: Delivery): World =
     finishDelivery({ ...state, rows: state.rows.put(targetOf(delivery), Ended) }, id)
 
+  /// The workflows that a pull request binding points at.
+  pure def pullWorkflows(state: World): Set[int] =
+    state.bindings.keys().filter(key => sourceOf(key) == CodePull).map(key => state.bindings.get(key))
+
+  /// Hand the base move to the smallest workflow in `left`, or end the fan-out once none is left.
+  pure def fanOutTo(state: World, id: int, delivery: Delivery, left: Set[int]): World =
+    if (left.size() == 0) finishDelivery(state, id)
+    else withDelivery(state, id, { ...delivery, phase: FanningOut(left), target: TargetWorkflow(smallest(left, state.nextWorkflow)) })
+
+  /// The fanned-out call to the current workflow returned or threw. The fan-out goes on to the next one.
+  pure def fanOutNext(state: World, id: int): World = {
+    val delivery = state.deliveries.get(id)
+    match delivery.phase {
+      | FanningOut(left) => fanOutTo(state, id, delivery, left.exclude(Set(targetOf(delivery))))
+      | _ => state
+    }
+  }
+
+  pure def isFanningOut(phase: DeliveryPhase): bool = match phase {
+    | FanningOut(_) => true
+    | _ => false
+  }
+
   /// The call a delivery waits on returns, and the delivery runs to its next call or its end.
   pure def resumeDelivery(state: World, id: int): World = {
     val delivery = state.deliveries.get(id)
     match delivery.phase {
+      | ReadingPulls => fanOutTo(state, id, delivery, pullWorkflows(state))
+      | FanningOut(_) => fanOutNext(state, id)
       | Reading => afterRead(state, id, delivery)
       | Checking => afterCheck(state, id, delivery)
       | Handling => afterHandle(state, id, delivery)
@@ -489,7 +538,7 @@ module routerBindings {
           if (rowEnded(state, bound)) withOperation(state, id, JobBindsIssue(BoundTo(bound)))
           else finishOperation(state, id)
       | JobBindsIssue(previous) => afterIssueBind(state, id, workflow, previous)
-      | PullBinds => finishOperation(bindWhileLive(state, Pull, workflow), id)
+      | PullBinds(pull) => finishOperation(bindWhileLive(state, pull, workflow), id)
     }
   }
 
@@ -549,6 +598,7 @@ module routerBindings {
   action init: bool = all {
     world' = INITIAL_WORLD,
     history' = INITIAL_HISTORY,
+    stepWitnesses' = NO_STEP_WITNESSES,
   }
 
   /// An event reaches the router from one surface.
@@ -558,7 +608,7 @@ module routerBindings {
     val delivery = {
       surface: surface,
       kind: kind,
-      phase: Reading,
+      phase: if (kind == BaseMoved) ReadingPulls else Reading,
       found: List(),
       index: 0,
       joined: 0,
@@ -566,14 +616,16 @@ module routerBindings {
       target: NoTarget,
       won: List(),
     }
+    val routed = if (kind == BaseMoved) Set() else Set(surface)
     val batch = if (history.batch.open)
-        { ...history.batch, surfaces: history.batch.surfaces.union(Set(surface)), personWrote: history.batch.personWrote or isPersonsEvent(kind) }
+        { ...history.batch, surfaces: history.batch.surfaces.union(routed), personWrote: history.batch.personWrote or isPersonsEvent(kind) }
       else
-        { ...EMPTY_BATCH, open: true, surfaces: Set(surface), personWrote: isPersonsEvent(kind), before: observe(world) }
+        { ...EMPTY_BATCH, open: true, surfaces: routed, personWrote: isPersonsEvent(kind), before: observe(world) }
     all {
       world.deliveries.keys().size() < MAX_DELIVERIES,
       world' = { ...withDelivery(world, world.nextDelivery, delivery), nextDelivery: world.nextDelivery + 1 },
       history' = withBatch(history, batch),
+      stepWitnesses' = NO_STEP_WITNESSES,
     }
   }
 
@@ -584,6 +636,19 @@ module routerBindings {
     all {
       world' = after,
       history' = recordDeliveryStep(history, world, after, delivery),
+      stepWitnesses' = NO_STEP_WITNESSES,
+    }
+  }
+
+  /// The Durable Object call a base move fans out throws. The router logs it and goes on to the
+  /// next workflow.
+  action fanOutCallFails: bool = {
+    nondet delivery = world.deliveries.keys().filter(id => isFanningOut(world.deliveries.get(id).phase)).oneOf()
+    val after = fanOutNext(world, delivery)
+    all {
+      world' = after,
+      history' = recordDeliveryStep(history, world, after, delivery),
+      stepWitnesses' = { fanOutWentOnPastAFailure: after.deliveries.keys().contains(delivery) },
     }
   }
 
@@ -603,6 +668,7 @@ module routerBindings {
             { ...recorded.lastBatch, created: recorded.lastBatch.created.union(Set(created)) }
           else recorded.lastBatch,
       },
+      stepWitnesses' = NO_STEP_WITNESSES,
     }
   }
 
@@ -614,6 +680,7 @@ module routerBindings {
     all {
       world' = after,
       history' = withBatch(recorded, { ...recorded.batch, createFailed: true }),
+      stepWitnesses' = NO_STEP_WITNESSES,
     }
   }
 
@@ -622,6 +689,7 @@ module routerBindings {
     isRunning(world, workflow),
     world' = withObject(startOperation(world, workflow, phase), workflow, change),
     history' = if (history.batch.open) withBatch(history, { ...history.batch, quiet: false }) else history,
+    stepWitnesses' = NO_STEP_WITNESSES,
   }
 
   /// A running workflow ends: done, failed or cancelled. Its Durable Object status changes, then it
@@ -645,15 +713,13 @@ module routerBindings {
     }
   }
 
-  /// A running workflow records the pull request its job opened and binds it. Only one running
-  /// workflow opens the pull request.
+  /// A running workflow records the pull request its job opened and binds it. Each workflow opens
+  /// at most one, and only one running workflow opens each pull request.
   action workflowOpensThePullRequest: bool = {
-    nondet workflow = world.objects.keys().oneOf()
-    all {
-      SETUP_KEYS.contains(Pull),
-      world.objects.keys().forall(other => objectOf(world, other).openedPull implies objectOf(world, other).ended),
-      startWorkflowOperation(workflow, PullBinds, object => { ...object, openedPull: true }),
-    }
+    nondet workflow = world.objects.keys().filter(id => objectOf(world, id).openedPulls.size() == 0).oneOf()
+    nondet pull = PULLS.filter(pull => world.objects.keys().forall(other =>
+        objectOf(world, other).openedPulls.contains(pull) implies objectOf(world, other).ended)).oneOf()
+    startWorkflowOperation(workflow, PullBinds(pull), object => { ...object, openedPulls: Set(pull) })
   }
 
   /// The call a workflow operation waits on returns.
@@ -662,6 +728,7 @@ module routerBindings {
     all {
       world' = resumeOperation(world, operation),
       history' = if (history.batch.open) withBatch(history, { ...history.batch, quiet: false }) else history,
+      stepWitnesses' = NO_STEP_WITNESSES,
     }
   }
 
@@ -670,6 +737,7 @@ module routerBindings {
     deliveryResumes,
     workflowCreateReturns,
     workflowCreateFails,
+    fanOutCallFails,
     workflowEnds,
     workflowStartsAJobOnTheIssue,
     workflowOpensThePullRequest,
@@ -731,6 +799,14 @@ module routerBindings {
 
   /// A person's message never reaches a workflow that ended. It starts the next workflow instead.
   val aPersonsMessageNeverReachesAnEndedWorkflow: bool = history.messagesOnEndedWorkflows.size() == 0
+
+  /// A base move only hands the event to the workflows with a pull request bound. It never starts
+  /// a workflow or moves a binding.
+  val aBaseMoveOnlyHandsTheEventOn: bool =
+    world.deliveries.keys().forall(id => {
+      val delivery = world.deliveries.get(id)
+      delivery.kind == BaseMoved implies (delivery.phase == ReadingPulls or isFanningOut(delivery.phase))
+    })
 
   /// The events that reached the router, which model checking bounds.
   val eventsArrived: int = world.nextDelivery
@@ -831,6 +907,17 @@ module routerBindings {
 
   /// Witness for `anEndedWorkflowKeepsNoCodeHostBinding`: a workflow bound the pull request.
   val thePullRequestIsBound: bool = world.bindings.keys().contains(Pull)
+
+  /// Witness for `aBaseMoveOnlyHandsTheEventOn`: a base move has two workflows left to hand the event to.
+  val aBaseMoveFansOutToTwoWorkflows: bool =
+    world.deliveries.keys().exists(id => match world.deliveries.get(id).phase {
+      | FanningOut(left) => left.size() == 2
+      | _ => false
+    })
+
+  /// Witness for `aBaseMoveOnlyHandsTheEventOn`: a fanned-out call threw and the base move went on
+  /// to the next workflow.
+  val aBaseMoveGoesOnPastAFailedCall: bool = stepWitnesses.fanOutWentOnPastAFailure
 
   /// Witness for `aPersonsMessageNeverReachesAnEndedWorkflow`: a person wrote on a binding whose workflow ended.
   val aPersonWroteAfterAnEnd: bool =
