@@ -1,5 +1,9 @@
 import { jsonRpcNotification, jsonRpcResponse } from "@artfct-ai/acp/jsonrpc";
-import { type BridgeHelloParams, BridgeMethods } from "@artfct-ai/acp/methods";
+import {
+  type BridgeExitParams,
+  type BridgeHelloParams,
+  BridgeMethods,
+} from "@artfct-ai/acp/methods";
 import { FakeCodeHost } from "@artfct-ai/adapters/test/fake-code-host";
 import type { McpServer, NewSessionRequest, SessionConfigOption } from "@agentclientprotocol/sdk";
 import { describe, expect, it } from "bun:test";
@@ -187,6 +191,41 @@ describe("onBridgeHello", () => {
     it("logs the error with its code and message", () =>
       logged(({ workflow }) => {
         expect(workflow.lines).toContain("session error without request id (-32000: boom)");
+      }));
+  });
+});
+
+describe("onBridgeExit", () => {
+  describe("a harness exit on a working author with restarts left", () => {
+    const exited = scenario(sessionOf(TASK), async ({ workflow, socket }) => {
+      seedTask(workflow, {}, { session_id: "s1" });
+      const params: BridgeExitParams = { code: 137, signal: null };
+      const frame = JSON.stringify(jsonRpcNotification(BridgeMethods.exit, params));
+      await onBridgeMessage(workflow, socket.connection, frame);
+    });
+
+    it("counts a restart on a new generation", () =>
+      exited(({ workflow }) => {
+        expect(workflow.store.requireTask(TASK)).toMatchObject({
+          status: "provisioning",
+          restarts: 1,
+        });
+        expect(workflow.store.requireSandbox(TASK).generation).toBe(2);
+      }));
+
+    it("starts a fresh sandbox without closing the container", () =>
+      exited(({ workflow }) => {
+        expect(workflow.sandboxProvider.calls).toEqual([`start ${TASK}`]);
+      }));
+
+    it("writes no board note", () =>
+      exited(({ workflow }) => {
+        expect(workflow.store.todoRow(TASK)?.note ?? null).toBeNull();
+      }));
+
+    it("does not tell the agent", () =>
+      exited(({ workflow }) => {
+        expect(workflow.notes).toEqual([]);
       }));
   });
 });

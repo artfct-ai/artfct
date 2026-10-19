@@ -28,6 +28,9 @@ import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 import type { TrackerIssue } from "@artfct-ai/adapters/tracker/types";
 import { markArtifactReady } from "../../refiner/outcome";
+import { FakeChat } from "@artfct-ai/adapters/test/fake-chat";
+import { attachChat } from "../../../../test/scripted-chat";
+import { flushBoards } from "../../board/board";
 
 const TASK = "wf_x.1";
 const JOB = "wf_x-1";
@@ -348,6 +351,51 @@ describe("onTurnEnd", () => {
         expect(workflow.sandboxProvider.calls).toEqual([]);
         expect(workflow.store.requireTask(TASK).status).toBe("cancelled");
       }));
+  });
+
+  describe("an author turn that ends under a board note", () => {
+    const NOTES = {
+      "a restart reason": "Restarted in a fresh sandbox: The sandbox start failed.",
+      "a prompt error": `The prompt failed. The details are in the logs of task ${TASK}.`,
+    };
+
+    for (const [kind, note] of Object.entries(NOTES)) {
+      describe(kind, () => {
+        let chat: FakeChat;
+        const noted = scenario(freshRuntime, async (workflow) => {
+          chat = new FakeChat();
+          attachChat(workflow, chat);
+          decisionsPick(workflow, "finished");
+          seedTask(workflow, {}, { prompt_in_flight: 1, turn_text: "The fix is pushed." });
+          workflow.store.patchTodoRow(TASK, { note });
+          await flushBoards(workflow, JOB);
+        });
+
+        it("shows on the board while the turn runs", () =>
+          noted(() => {
+            expect(String(chat.argsOf("postThreadMessage")[0]?.at(-1))).toContain(`note: ${note}`);
+          }));
+
+        describe("and the turn ends", () => {
+          const ended = scenario(noted, async (workflow) => {
+            await onTurnEnd(workflow, workflow.store.requireTask(TASK), "end_turn");
+            await flushBoards(workflow, JOB);
+          });
+
+          it("is cleared", () =>
+            ended((workflow) => {
+              expect(workflow.store.todoRow(TASK)?.note).toBeNull();
+            }));
+
+          it("leaves the board on the next flush", () =>
+            ended(() => {
+              const edits = chat.argsOf("updateMessage").map((args) => String(args.at(-1)));
+              expect(edits.length).toBeGreaterThan(0);
+              expect(edits.at(-1)).not.toContain("note:");
+            }));
+        });
+      });
+    }
   });
 
   describe("an author turn that ends on its own", () => {
