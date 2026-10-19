@@ -219,8 +219,9 @@ export const MUTANTS: Mutant[] = [
     id: "W28",
     invariant: "taskRestartsAtMostTwice (stale start)",
     path: "src/workflow/task/sandbox/sandbox.ts",
-    find: "    if (workflow.store.requireSandbox(fresh.task_id).generation !== sandbox.generation) return;\n",
-    replace: "",
+    find: '    if (workflow.store.requireSandbox(fresh.task_id).generation !== sandbox.generation) return;\n    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The sandbox start"),\n',
+    replace:
+      '    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The sandbox start"),\n',
   },
   {
     id: "W29",
@@ -241,9 +242,9 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "finishedTaskKeepsItsStatus, harnessSession::anAuthorInReviewWorksOnlyWithAPrompt (stop)",
     path: "src/workflow/inbound/controls.ts",
-    find: '    workflow.store.updateTask(author.task_id, { status: "working" });\n    await closeContainer(workflow, author, "a person pressed Stop");\n',
+    find: '    if (starting) workflow.store.updateTask(author.task_id, { status: "working" });\n    await closeContainer(workflow, author, "a person pressed Stop");\n',
     replace:
-      '    await closeContainer(workflow, author, "a person pressed Stop");\n    workflow.store.updateTask(author.task_id, { status: "working" });\n',
+      '    await closeContainer(workflow, author, "a person pressed Stop");\n    if (starting) workflow.store.updateTask(author.task_id, { status: "working" });\n',
   },
   {
     id: "W32",
@@ -294,9 +295,9 @@ export const MUTANTS: Mutant[] = [
     id: "W38",
     invariant: "sessionRouting::aStopAnswersOnlyInTheFeed (lost cancel)",
     path: "src/workflow/inbound/controls.ts",
-    find: "  if (atWork && !writing) await endStoppedTurn(workflow, author);\n",
+    find: "  if (endsTurn) await endStoppedTurn(workflow, author);\n",
     replace:
-      '  if (cancelled) return "cancelled";\n  if (atWork && !writing) await endStoppedTurn(workflow, author);\n',
+      '  if (cancelled) return "cancelled";\n  if (endsTurn) await endStoppedTurn(workflow, author);\n',
   },
   {
     id: "W39",
@@ -576,6 +577,21 @@ export const MUTANTS: Mutant[] = [
     find: "  await resumeLostModelTurns(workflow, alarm.model_turns);\n",
     replace:
       '  const { settleLostJudgeRuling } = await import("./refiner/loop");\n  for (const run of alarm.judge_runs) await settleLostJudgeRuling(workflow, run);\n  await resumeLostModelTurns(workflow, alarm.model_turns);\n',
+  },
+  {
+    id: "W107",
+    invariant: "harnessSession::aStoppedAuthorStaysQuiet",
+    path: "src/workflow/inbound/controls.ts",
+    find: "generation: sandbox.generation + 1",
+    replace: "generation: sandbox.generation",
+  },
+  {
+    id: "W108",
+    invariant: "harnessSession::aStoppedAuthorStaysQuiet (commit author lookup)",
+    path: "src/workflow/task/sandbox/sandbox.ts",
+    find: '    if (workflow.store.requireSandbox(fresh.task_id).generation !== sandbox.generation) return;\n    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The commit author lookup"),\n',
+    replace:
+      '    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The commit author lookup"),\n',
   },
 ];
 

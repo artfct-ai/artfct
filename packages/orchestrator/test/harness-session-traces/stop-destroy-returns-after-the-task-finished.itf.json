@@ -166,6 +166,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -338,6 +339,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -438,7 +440,7 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "0"
+                "#bigint": "1"
               }
             },
             "rest": [],
@@ -460,7 +462,7 @@
           "#bigint": "0"
         },
         "generation": {
-          "#bigint": "0"
+          "#bigint": "1"
         },
         "helloSlot": {
           "tag": "Unarmed",
@@ -529,6 +531,7 @@
             "#tup": []
           }
         },
+        "stopped": true,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"
@@ -617,7 +620,7 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "0"
+                "#bigint": "1"
               }
             },
             "rest": [],
@@ -639,7 +642,7 @@
           "#bigint": "0"
         },
         "generation": {
-          "#bigint": "0"
+          "#bigint": "1"
         },
         "helloSlot": {
           "tag": "Unarmed",
@@ -708,6 +711,7 @@
             "#tup": []
           }
         },
+        "stopped": true,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"
@@ -796,7 +800,7 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "0"
+                "#bigint": "1"
               }
             },
             "rest": [],
@@ -814,7 +818,7 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "0"
+                "#bigint": "1"
               }
             },
             "rest": [],
@@ -836,7 +840,7 @@
           "#bigint": "0"
         },
         "generation": {
-          "#bigint": "0"
+          "#bigint": "1"
         },
         "helloSlot": {
           "tag": "Unarmed",
@@ -905,6 +909,7 @@
             "#tup": []
           }
         },
+        "stopped": true,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"
@@ -993,7 +998,7 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "0"
+                "#bigint": "1"
               }
             },
             "rest": [],
@@ -1011,7 +1016,7 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "0"
+                "#bigint": "1"
               }
             },
             "rest": [],
@@ -1033,7 +1038,7 @@
           "#bigint": "0"
         },
         "generation": {
-          "#bigint": "0"
+          "#bigint": "1"
         },
         "helloSlot": {
           "tag": "Unarmed",
@@ -1102,6 +1107,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"
@@ -1190,7 +1196,7 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "0"
+                "#bigint": "1"
               }
             },
             "rest": [],
@@ -1208,7 +1214,7 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "0"
+                "#bigint": "1"
               }
             },
             "rest": [],
@@ -1230,7 +1236,7 @@
           "#bigint": "0"
         },
         "generation": {
-          "#bigint": "0"
+          "#bigint": "1"
         },
         "helloSlot": {
           "tag": "Unarmed",
@@ -1299,6 +1305,7 @@
             "#tup": []
           }
         },
+        "stopped": true,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"
@@ -1387,7 +1394,7 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "0"
+                "#bigint": "1"
               }
             },
             "rest": [],
@@ -1409,7 +1416,7 @@
           "#bigint": "0"
         },
         "generation": {
-          "#bigint": "0"
+          "#bigint": "1"
         },
         "helloSlot": {
           "tag": "Unarmed",
@@ -1478,6 +1485,7 @@
             "#tup": []
           }
         },
+        "stopped": true,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"

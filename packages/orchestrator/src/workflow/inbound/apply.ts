@@ -117,6 +117,7 @@ const STOP_NOTES: Record<StopOutcome, string> = {
   cancelled: "Its prompt turn was cancelled and its container closed.",
   ended: "The turn it was starting or resuming was ended.",
   writing: "Its page write was out, so its turn ends once the write returns.",
+  closed: "No prompt turn ran. Its container closed.",
   idle: "No prompt turn ran.",
 };
 

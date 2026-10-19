@@ -166,6 +166,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -388,6 +389,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -616,6 +618,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -822,6 +825,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -1065,6 +1069,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -1311,6 +1316,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -1590,6 +1596,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -1866,6 +1873,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -2142,6 +2150,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -2418,6 +2427,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -2546,7 +2556,7 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "1"
+                "#bigint": "2"
               }
             },
             "rest": [],
@@ -2568,7 +2578,7 @@
           "#bigint": "1"
         },
         "generation": {
-          "#bigint": "1"
+          "#bigint": "2"
         },
         "helloSlot": {
           "tag": "Unarmed",
@@ -2652,6 +2662,7 @@
             "#tup": []
           }
         },
+        "stopped": true,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"

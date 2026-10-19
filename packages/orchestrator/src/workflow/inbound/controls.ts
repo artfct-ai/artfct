@@ -130,43 +130,55 @@ export async function pauseTask(
   );
 }
 
-/** What a stop found the author doing. `writing` is a model turn whose page write is out. */
-export type StopOutcome = "cancelled" | "ended" | "writing" | "idle";
+/**
+ * What a stop found the author doing. `writing` is a model turn whose page write is out. `closed`
+ * is an idle harness author whose container the stop closed.
+ */
+export type StopOutcome = "cancelled" | "ended" | "writing" | "closed" | "idle";
 
 /**
  * End the author's current turn and drop its queued prompts, so it waits for the person. A
- * running turn gets a cancel, and its container goes too, since a cancel on a dropped socket is
- * lost. A model turn whose page write is out ends once the write returns, so the author does not
- * start a second write beside it.
+ * running turn gets a cancel. An unfinished harness author's container goes, also when it is
+ * idle, since a cancel on a dropped socket is lost. A model turn whose page write is out ends
+ * once the write returns, so the author does not start a second write beside it.
  */
 export async function stopAuthor(workflow: WorkflowRuntime, author: TaskRow): Promise<StopOutcome> {
   workflow.store.clearPromptQueue(author.task_id);
-  if (workflow.store.sandbox(author.task_id)) {
-    workflow.store.updateSandbox(author.task_id, { stopped_early: 0 });
-  }
+  const harnessAuthor = workflow.store.sandbox(author.task_id) !== null;
+  if (harnessAuthor) workflow.store.updateSandbox(author.task_id, { stopped_early: 0 });
   const connected = workflow.connections(author.task_id).length > 0;
   const cancelled = connected && cancelPromptTurn(workflow, author);
-  const atWork = !isTaskFinished(author.status) && taskAtWork(workflow, author);
+  const unfinished = !isTaskFinished(author.status);
+  const atWork = unfinished && taskAtWork(workflow, author);
   const turnId = workflow.store.requireTask(author.task_id).model_turn_id;
   const writing = atWork && turnId !== null && workflow.pageWritesOut.has(turnId);
-  if (atWork && !writing) await endStoppedTurn(workflow, author);
+  const endsTurn = harnessAuthor ? unfinished : atWork && !writing;
+  if (endsTurn) await endStoppedTurn(workflow, author);
   await closeSessionFeed(workflow, author, STOPPED_CLOSING);
   if (cancelled) return "cancelled";
   if (writing) return "writing";
-  return atWork ? "ended" : "idle";
+  if (atWork) return "ended";
+  return endsTurn ? "closed" : "idle";
 }
 
 /**
- * End the turn of a stopped author, whether it runs, starts, or resumes. A model-call author goes
- * back in review when its page is out, since it takes a prompt only there.
+ * End the turn of a stopped author, whether it runs, starts, resumes, or idles. A harness author
+ * ends its generation, so a call it awaited before the stop does not act after it, and a starting
+ * one becomes working. A model-call author goes back in review when its page is out, since it
+ * takes a prompt only there.
  */
 async function endStoppedTurn(workflow: WorkflowRuntime, author: TaskRow): Promise<void> {
   const sandbox = workflow.store.sandbox(author.task_id);
   if (sandbox) {
+    const starting = author.status === "queued" || author.status === "provisioning";
     await clearTaskTimers(workflow, sandbox);
     workflow.store.clearRpc(author.task_id);
-    workflow.store.updateSandbox(author.task_id, { prompt_in_flight: 0, turn_text: "" });
-    workflow.store.updateTask(author.task_id, { status: "working" });
+    workflow.store.updateSandbox(author.task_id, {
+      prompt_in_flight: 0,
+      turn_text: "",
+      generation: sandbox.generation + 1,
+    });
+    if (starting) workflow.store.updateTask(author.task_id, { status: "working" });
     await closeContainer(workflow, author, "a person pressed Stop");
   } else {
     const pageOut = workflow.store.artifact(author.job_id) !== null;

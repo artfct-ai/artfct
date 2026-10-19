@@ -166,6 +166,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -384,6 +385,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -592,6 +594,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -787,6 +790,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -971,6 +975,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -1189,6 +1194,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -1414,6 +1420,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -1639,6 +1646,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -1867,6 +1875,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -2092,6 +2101,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -2323,6 +2333,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -2591,6 +2602,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -2856,6 +2868,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -3121,6 +3134,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -3386,6 +3400,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -3647,6 +3662,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -3936,6 +3952,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -4236,6 +4253,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -4536,6 +4554,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -4701,7 +4720,7 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "2"
+                "#bigint": "3"
               }
             },
             "rest": [],
@@ -4723,7 +4742,7 @@
           "#bigint": "3"
         },
         "generation": {
-          "#bigint": "2"
+          "#bigint": "3"
         },
         "helloSlot": {
           "tag": "Unarmed",
@@ -4807,6 +4826,7 @@
             "#tup": []
           }
         },
+        "stopped": true,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"
@@ -4881,7 +4901,7 @@
             "kind": {
               "tag": "HelloTimeout",
               "value": {
-                "#bigint": "2"
+                "#bigint": "3"
               }
             }
           }
@@ -4951,7 +4971,7 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "2"
+                "#bigint": "3"
               }
             },
             "rest": [],
@@ -4973,7 +4993,7 @@
           "#bigint": "3"
         },
         "generation": {
-          "#bigint": "2"
+          "#bigint": "3"
         },
         "helloSlot": {
           "tag": "Armed",
@@ -5057,6 +5077,7 @@
             "#tup": []
           }
         },
+        "stopped": true,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"
@@ -5125,19 +5146,7 @@
         "actions": {
           "#bigint": "21"
         },
-        "alarms": [
-          {
-            "id": {
-              "#bigint": "6"
-            },
-            "kind": {
-              "tag": "HelloTimeout",
-              "value": {
-                "#bigint": "2"
-              }
-            }
-          }
-        ],
+        "alarms": [],
         "answersToOtherRequests": {
           "#bigint": "0"
         },
@@ -5203,7 +5212,25 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "2"
+                "#bigint": "3"
+              }
+            },
+            "rest": [],
+            "state": {
+              "tag": "Out",
+              "value": {
+                "#tup": []
+              }
+            }
+          },
+          {
+            "id": {
+              "#bigint": "4"
+            },
+            "kind": {
+              "tag": "SandboxDestroy",
+              "value": {
+                "#bigint": "4"
               }
             },
             "rest": [],
@@ -5225,12 +5252,12 @@
           "#bigint": "3"
         },
         "generation": {
-          "#bigint": "2"
+          "#bigint": "4"
         },
         "helloSlot": {
-          "tag": "Armed",
+          "tag": "Unarmed",
           "value": {
-            "#bigint": "6"
+            "#tup": []
           }
         },
         "keepAliveSlot": {
@@ -5252,7 +5279,7 @@
           "#bigint": "7"
         },
         "nextCall": {
-          "#bigint": "4"
+          "#bigint": "5"
         },
         "nextSerial": {
           "#bigint": "3"
@@ -5309,12 +5336,13 @@
             "#tup": []
           }
         },
+        "stopped": true,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"
         },
         "token": {
-          "#bigint": "3"
+          "#bigint": "4"
         },
         "wallSlot": {
           "tag": "Unarmed",
@@ -5380,19 +5408,7 @@
         "actions": {
           "#bigint": "22"
         },
-        "alarms": [
-          {
-            "id": {
-              "#bigint": "6"
-            },
-            "kind": {
-              "tag": "HelloTimeout",
-              "value": {
-                "#bigint": "2"
-              }
-            }
-          }
-        ],
+        "alarms": [],
         "answersToOtherRequests": {
           "#bigint": "0"
         },
@@ -5435,7 +5451,25 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "2"
+                "#bigint": "3"
+              }
+            },
+            "rest": [],
+            "state": {
+              "tag": "Out",
+              "value": {
+                "#tup": []
+              }
+            }
+          },
+          {
+            "id": {
+              "#bigint": "4"
+            },
+            "kind": {
+              "tag": "SandboxDestroy",
+              "value": {
+                "#bigint": "4"
               }
             },
             "rest": [],
@@ -5457,12 +5491,12 @@
           "#bigint": "3"
         },
         "generation": {
-          "#bigint": "2"
+          "#bigint": "4"
         },
         "helloSlot": {
-          "tag": "Armed",
+          "tag": "Unarmed",
           "value": {
-            "#bigint": "6"
+            "#tup": []
           }
         },
         "keepAliveSlot": {
@@ -5484,7 +5518,7 @@
           "#bigint": "7"
         },
         "nextCall": {
-          "#bigint": "4"
+          "#bigint": "5"
         },
         "nextSerial": {
           "#bigint": "3"
@@ -5541,12 +5575,13 @@
             "#tup": []
           }
         },
+        "stopped": true,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "1"
         },
         "token": {
-          "#bigint": "3"
+          "#bigint": "4"
         },
         "wallSlot": {
           "tag": "Unarmed",

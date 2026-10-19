@@ -127,6 +127,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -189,202 +190,11 @@
     },
     {
       "#meta": {
-        "index": 1
-      },
-      "harnessDefaultEffort::harnessSession::world": {
-        "actions": {
-          "#bigint": "1"
-        },
-        "alarms": [
-          {
-            "id": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "Provision",
-              "value": {
-                "#tup": []
-              }
-            }
-          }
-        ],
-        "answersToOtherRequests": {
-          "#bigint": "0"
-        },
-        "artifact": false,
-        "bridgeClosedAt": {
-          "tag": "Unset",
-          "value": {
-            "#tup": []
-          }
-        },
-        "bridges": [],
-        "calls": [
-          {
-            "id": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "0"
-              }
-            },
-            "rest": [],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          }
-        ],
-        "cancelsDelivered": {
-          "#bigint": "0"
-        },
-        "eventsThatThrew": {
-          "#bigint": "0"
-        },
-        "faults": {
-          "#bigint": "0"
-        },
-        "generation": {
-          "#bigint": "0"
-        },
-        "helloSlot": {
-          "tag": "Unarmed",
-          "value": {
-            "#tup": []
-          }
-        },
-        "keepAliveSlot": {
-          "tag": "Unarmed",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lastProgressAt": {
-          "tag": "Recent",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lostTurnsRecovered": {
-          "#bigint": "0"
-        },
-        "nextAlarm": {
-          "#bigint": "1"
-        },
-        "nextCall": {
-          "#bigint": "1"
-        },
-        "nextSerial": {
-          "#bigint": "0"
-        },
-        "noProgressSlot": {
-          "tag": "Unarmed",
-          "value": {
-            "#tup": []
-          }
-        },
-        "nudged": false,
-        "paused": false,
-        "permissionsAllowed": {
-          "#bigint": "0"
-        },
-        "permissionsAsked": {
-          "#bigint": "0"
-        },
-        "personPrompts": {
-          "#bigint": "0"
-        },
-        "promptInFlight": false,
-        "promptsSent": {
-          "#bigint": "0"
-        },
-        "queue": [],
-        "restarts": {
-          "#bigint": "0"
-        },
-        "rpcs": [],
-        "session": false,
-        "sockets": [],
-        "socketsClosed": {
-          "#bigint": "0"
-        },
-        "status": {
-          "tag": "Working",
-          "value": {
-            "#tup": []
-          }
-        },
-        "stoppedEarly": false,
-        "stopsEnded": {
-          "#bigint": "1"
-        },
-        "token": {
-          "#bigint": "1"
-        },
-        "wallSlot": {
-          "tag": "Unarmed",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "mbt::actionTaken": "personStops",
-      "mbt::nondetPicks": {
-        "alarmIndex": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "bridge": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "finished": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "index": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ok": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outcome": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      }
-    },
-    {
-      "#meta": {
         "index": 2
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "alarms": [
           {
@@ -427,24 +237,6 @@
               "#bigint": "0"
             },
             "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "0"
-              }
-            },
-            "rest": [],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "1"
-            },
-            "kind": {
               "tag": "SandboxStart",
               "value": {
                 "generation": {
@@ -452,7 +244,7 @@
                 },
                 "launched": false,
                 "token": {
-                  "#bigint": "2"
+                  "#bigint": "1"
                 }
               }
             },
@@ -509,7 +301,7 @@
           "#bigint": "2"
         },
         "nextCall": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "nextSerial": {
           "#bigint": "0"
@@ -558,12 +350,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "wallSlot": {
           "tag": "Unarmed",
@@ -624,6 +417,241 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
+          "#bigint": "2"
+        },
+        "alarms": [
+          {
+            "id": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "Provision",
+              "value": {
+                "#tup": []
+              }
+            }
+          },
+          {
+            "id": {
+              "#bigint": "1"
+            },
+            "kind": {
+              "tag": "HelloTimeout",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          }
+        ],
+        "answersToOtherRequests": {
+          "#bigint": "0"
+        },
+        "artifact": false,
+        "bridgeClosedAt": {
+          "tag": "Unset",
+          "value": {
+            "#tup": []
+          }
+        },
+        "bridges": [
+          {
+            "alive": true,
+            "generation": {
+              "#bigint": "1"
+            },
+            "requests": [],
+            "saidHello": false,
+            "token": {
+              "#bigint": "1"
+            }
+          }
+        ],
+        "calls": [
+          {
+            "id": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "SandboxStart",
+              "value": {
+                "generation": {
+                  "#bigint": "1"
+                },
+                "launched": true,
+                "token": {
+                  "#bigint": "1"
+                }
+              }
+            },
+            "rest": [
+              {
+                "tag": "StartEnds",
+                "value": {
+                  "#bigint": "1"
+                }
+              }
+            ],
+            "state": {
+              "tag": "Out",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "cancelsDelivered": {
+          "#bigint": "0"
+        },
+        "eventsThatThrew": {
+          "#bigint": "0"
+        },
+        "faults": {
+          "#bigint": "0"
+        },
+        "generation": {
+          "#bigint": "1"
+        },
+        "helloSlot": {
+          "tag": "Armed",
+          "value": {
+            "#bigint": "1"
+          }
+        },
+        "keepAliveSlot": {
+          "tag": "Unarmed",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lastProgressAt": {
+          "tag": "Recent",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostTurnsRecovered": {
+          "#bigint": "0"
+        },
+        "nextAlarm": {
+          "#bigint": "2"
+        },
+        "nextCall": {
+          "#bigint": "1"
+        },
+        "nextSerial": {
+          "#bigint": "0"
+        },
+        "noProgressSlot": {
+          "tag": "Unarmed",
+          "value": {
+            "#tup": []
+          }
+        },
+        "nudged": false,
+        "paused": false,
+        "permissionsAllowed": {
+          "#bigint": "0"
+        },
+        "permissionsAsked": {
+          "#bigint": "0"
+        },
+        "personPrompts": {
+          "#bigint": "1"
+        },
+        "promptInFlight": false,
+        "promptsSent": {
+          "#bigint": "0"
+        },
+        "queue": [
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "restarts": {
+          "#bigint": "0"
+        },
+        "rpcs": [],
+        "session": false,
+        "sockets": [],
+        "socketsClosed": {
+          "#bigint": "0"
+        },
+        "status": {
+          "tag": "Provisioning",
+          "value": {
+            "#tup": []
+          }
+        },
+        "stopped": false,
+        "stoppedEarly": false,
+        "stopsEnded": {
+          "#bigint": "0"
+        },
+        "token": {
+          "#bigint": "1"
+        },
+        "wallSlot": {
+          "tag": "Unarmed",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "mbt::actionTaken": "sandboxStartLaunchesBridge",
+      "mbt::nondetPicks": {
+        "alarmIndex": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "bridge": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "callId": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "finished": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "index": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ok": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 4
+      },
+      "harnessDefaultEffort::harnessSession::world": {
+        "actions": {
           "#bigint": "3"
         },
         "alarms": [
@@ -669,7 +697,7 @@
             "requests": [],
             "saidHello": false,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           }
         ],
@@ -679,24 +707,6 @@
               "#bigint": "0"
             },
             "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "0"
-              }
-            },
-            "rest": [],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "1"
-            },
-            "kind": {
               "tag": "SandboxStart",
               "value": {
                 "generation": {
@@ -704,7 +714,7 @@
                 },
                 "launched": true,
                 "token": {
-                  "#bigint": "2"
+                  "#bigint": "1"
                 }
               }
             },
@@ -761,7 +771,7 @@
           "#bigint": "2"
         },
         "nextCall": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "nextSerial": {
           "#bigint": "0"
@@ -810,264 +820,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "2"
-        },
-        "wallSlot": {
-          "tag": "Unarmed",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "mbt::actionTaken": "sandboxStartLaunchesBridge",
-      "mbt::nondetPicks": {
-        "alarmIndex": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "bridge": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "1"
-          }
-        },
-        "finished": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "index": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ok": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outcome": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 4
-      },
-      "harnessDefaultEffort::harnessSession::world": {
-        "actions": {
-          "#bigint": "4"
-        },
-        "alarms": [
-          {
-            "id": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "Provision",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "1"
-            },
-            "kind": {
-              "tag": "HelloTimeout",
-              "value": {
-                "#bigint": "1"
-              }
-            }
-          }
-        ],
-        "answersToOtherRequests": {
-          "#bigint": "0"
-        },
-        "artifact": false,
-        "bridgeClosedAt": {
-          "tag": "Unset",
-          "value": {
-            "#tup": []
-          }
-        },
-        "bridges": [
-          {
-            "alive": true,
-            "generation": {
-              "#bigint": "1"
-            },
-            "requests": [],
-            "saidHello": false,
-            "token": {
-              "#bigint": "2"
-            }
-          }
-        ],
-        "calls": [
-          {
-            "id": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "0"
-              }
-            },
-            "rest": [],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "1"
-            },
-            "kind": {
-              "tag": "SandboxStart",
-              "value": {
-                "generation": {
-                  "#bigint": "1"
-                },
-                "launched": true,
-                "token": {
-                  "#bigint": "2"
-                }
-              }
-            },
-            "rest": [
-              {
-                "tag": "StartEnds",
-                "value": {
-                  "#bigint": "1"
-                }
-              }
-            ],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          }
-        ],
-        "cancelsDelivered": {
-          "#bigint": "0"
-        },
-        "eventsThatThrew": {
-          "#bigint": "0"
-        },
-        "faults": {
-          "#bigint": "0"
-        },
-        "generation": {
           "#bigint": "1"
-        },
-        "helloSlot": {
-          "tag": "Armed",
-          "value": {
-            "#bigint": "1"
-          }
-        },
-        "keepAliveSlot": {
-          "tag": "Unarmed",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lastProgressAt": {
-          "tag": "Recent",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lostTurnsRecovered": {
-          "#bigint": "0"
-        },
-        "nextAlarm": {
-          "#bigint": "2"
-        },
-        "nextCall": {
-          "#bigint": "2"
-        },
-        "nextSerial": {
-          "#bigint": "0"
-        },
-        "noProgressSlot": {
-          "tag": "Unarmed",
-          "value": {
-            "#tup": []
-          }
-        },
-        "nudged": false,
-        "paused": false,
-        "permissionsAllowed": {
-          "#bigint": "0"
-        },
-        "permissionsAsked": {
-          "#bigint": "0"
-        },
-        "personPrompts": {
-          "#bigint": "1"
-        },
-        "promptInFlight": false,
-        "promptsSent": {
-          "#bigint": "0"
-        },
-        "queue": [
-          {
-            "tag": "PersonPrompt",
-            "value": {
-              "#tup": []
-            }
-          }
-        ],
-        "restarts": {
-          "#bigint": "0"
-        },
-        "rpcs": [],
-        "session": false,
-        "sockets": [],
-        "socketsClosed": {
-          "#bigint": "0"
-        },
-        "status": {
-          "tag": "Provisioning",
-          "value": {
-            "#tup": []
-          }
-        },
-        "stoppedEarly": false,
-        "stopsEnded": {
-          "#bigint": "1"
-        },
-        "token": {
-          "#bigint": "2"
         },
         "wallSlot": {
           "tag": "Unarmed",
@@ -1128,7 +887,7 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "5"
+          "#bigint": "4"
         },
         "alarms": [
           {
@@ -1178,7 +937,7 @@
             ],
             "saidHello": true,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           }
         ],
@@ -1188,24 +947,6 @@
               "#bigint": "0"
             },
             "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "0"
-              }
-            },
-            "rest": [],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "1"
-            },
-            "kind": {
               "tag": "SandboxStart",
               "value": {
                 "generation": {
@@ -1213,7 +954,7 @@
                 },
                 "launched": true,
                 "token": {
-                  "#bigint": "2"
+                  "#bigint": "1"
                 }
               }
             },
@@ -1270,7 +1011,7 @@
           "#bigint": "2"
         },
         "nextCall": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "nextSerial": {
           "#bigint": "1"
@@ -1349,12 +1090,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "wallSlot": {
           "tag": "Unarmed",
@@ -1415,7 +1157,7 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "6"
+          "#bigint": "5"
         },
         "alarms": [
           {
@@ -1465,7 +1207,7 @@
             ],
             "saidHello": true,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           }
         ],
@@ -1475,24 +1217,6 @@
               "#bigint": "0"
             },
             "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "0"
-              }
-            },
-            "rest": [],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "1"
-            },
-            "kind": {
               "tag": "SandboxStart",
               "value": {
                 "generation": {
@@ -1500,7 +1224,7 @@
                 },
                 "launched": true,
                 "token": {
-                  "#bigint": "2"
+                  "#bigint": "1"
                 }
               }
             },
@@ -1557,7 +1281,7 @@
           "#bigint": "2"
         },
         "nextCall": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "nextSerial": {
           "#bigint": "1"
@@ -1636,12 +1360,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "wallSlot": {
           "tag": "Unarmed",
@@ -1702,7 +1427,7 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "7"
+          "#bigint": "6"
         },
         "alarms": [
           {
@@ -1752,7 +1477,7 @@
             ],
             "saidHello": true,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           }
         ],
@@ -1762,24 +1487,6 @@
               "#bigint": "0"
             },
             "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "0"
-              }
-            },
-            "rest": [],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "1"
-            },
-            "kind": {
               "tag": "SandboxStart",
               "value": {
                 "generation": {
@@ -1787,7 +1494,7 @@
                 },
                 "launched": true,
                 "token": {
-                  "#bigint": "2"
+                  "#bigint": "1"
                 }
               }
             },
@@ -1844,7 +1551,7 @@
           "#bigint": "2"
         },
         "nextCall": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "nextSerial": {
           "#bigint": "1"
@@ -1929,12 +1636,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "wallSlot": {
           "tag": "Unarmed",
@@ -1995,7 +1703,7 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "8"
+          "#bigint": "7"
         },
         "alarms": [
           {
@@ -2045,7 +1753,7 @@
             ],
             "saidHello": true,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           }
         ],
@@ -2055,24 +1763,6 @@
               "#bigint": "0"
             },
             "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "0"
-              }
-            },
-            "rest": [],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "1"
-            },
-            "kind": {
               "tag": "SandboxStart",
               "value": {
                 "generation": {
@@ -2080,7 +1770,7 @@
                 },
                 "launched": true,
                 "token": {
-                  "#bigint": "2"
+                  "#bigint": "1"
                 }
               }
             },
@@ -2137,7 +1827,7 @@
           "#bigint": "2"
         },
         "nextCall": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "nextSerial": {
           "#bigint": "2"
@@ -2222,12 +1912,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "wallSlot": {
           "tag": "Unarmed",
@@ -2291,7 +1982,7 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "9"
+          "#bigint": "8"
         },
         "alarms": [
           {
@@ -2374,7 +2065,7 @@
             ],
             "saidHello": true,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           }
         ],
@@ -2384,24 +2075,6 @@
               "#bigint": "0"
             },
             "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "0"
-              }
-            },
-            "rest": [],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "1"
-            },
-            "kind": {
               "tag": "SandboxStart",
               "value": {
                 "generation": {
@@ -2409,7 +2082,7 @@
                 },
                 "launched": true,
                 "token": {
-                  "#bigint": "2"
+                  "#bigint": "1"
                 }
               }
             },
@@ -2466,7 +2139,7 @@
           "#bigint": "5"
         },
         "nextCall": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "nextSerial": {
           "#bigint": "3"
@@ -2551,12 +2224,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "wallSlot": {
           "tag": "Armed",
@@ -2620,7 +2294,7 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "10"
+          "#bigint": "9"
         },
         "alarms": [
           {
@@ -2703,7 +2377,7 @@
             ],
             "saidHello": true,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           }
         ],
@@ -2713,24 +2387,6 @@
               "#bigint": "0"
             },
             "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "0"
-              }
-            },
-            "rest": [],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "1"
-            },
-            "kind": {
               "tag": "SandboxStart",
               "value": {
                 "generation": {
@@ -2738,7 +2394,7 @@
                 },
                 "launched": true,
                 "token": {
-                  "#bigint": "2"
+                  "#bigint": "1"
                 }
               }
             },
@@ -2795,7 +2451,7 @@
           "#bigint": "5"
         },
         "nextCall": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "nextSerial": {
           "#bigint": "3"
@@ -2880,12 +2536,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "wallSlot": {
           "tag": "Armed",
@@ -2946,7 +2603,7 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "11"
+          "#bigint": "10"
         },
         "alarms": [
           {
@@ -3013,7 +2670,7 @@
             "requests": [],
             "saidHello": true,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           }
         ],
@@ -3023,24 +2680,6 @@
               "#bigint": "0"
             },
             "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "0"
-              }
-            },
-            "rest": [],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "1"
-            },
-            "kind": {
               "tag": "SandboxStart",
               "value": {
                 "generation": {
@@ -3048,7 +2687,7 @@
                 },
                 "launched": true,
                 "token": {
-                  "#bigint": "2"
+                  "#bigint": "1"
                 }
               }
             },
@@ -3069,7 +2708,7 @@
           },
           {
             "id": {
-              "#bigint": "2"
+              "#bigint": "1"
             },
             "kind": {
               "tag": "OutcomeCheck",
@@ -3128,7 +2767,7 @@
           "#bigint": "5"
         },
         "nextCall": {
-          "#bigint": "3"
+          "#bigint": "2"
         },
         "nextSerial": {
           "#bigint": "3"
@@ -3198,12 +2837,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "wallSlot": {
           "tag": "Armed",
@@ -3264,6 +2904,312 @@
     {
       "#meta": {
         "index": 12
+      },
+      "harnessDefaultEffort::harnessSession::world": {
+        "actions": {
+          "#bigint": "11"
+        },
+        "alarms": [
+          {
+            "id": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "Provision",
+              "value": {
+                "#tup": []
+              }
+            }
+          },
+          {
+            "id": {
+              "#bigint": "4"
+            },
+            "kind": {
+              "tag": "KeepAlive",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          },
+          {
+            "id": {
+              "#bigint": "5"
+            },
+            "kind": {
+              "tag": "NoProgress",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          },
+          {
+            "id": {
+              "#bigint": "6"
+            },
+            "kind": {
+              "tag": "WallClock",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "answersToOtherRequests": {
+          "#bigint": "0"
+        },
+        "artifact": true,
+        "bridgeClosedAt": {
+          "tag": "Unset",
+          "value": {
+            "#tup": []
+          }
+        },
+        "bridges": [
+          {
+            "alive": true,
+            "generation": {
+              "#bigint": "1"
+            },
+            "requests": [
+              {
+                "cancelled": false,
+                "id": {
+                  "#bigint": "4"
+                },
+                "purpose": {
+                  "tag": "Prompt",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "serial": {
+                  "#bigint": "3"
+                }
+              }
+            ],
+            "saidHello": true,
+            "token": {
+              "#bigint": "1"
+            }
+          }
+        ],
+        "calls": [
+          {
+            "id": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "SandboxStart",
+              "value": {
+                "generation": {
+                  "#bigint": "1"
+                },
+                "launched": true,
+                "token": {
+                  "#bigint": "1"
+                }
+              }
+            },
+            "rest": [
+              {
+                "tag": "StartEnds",
+                "value": {
+                  "#bigint": "1"
+                }
+              }
+            ],
+            "state": {
+              "tag": "Out",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "cancelsDelivered": {
+          "#bigint": "0"
+        },
+        "eventsThatThrew": {
+          "#bigint": "0"
+        },
+        "faults": {
+          "#bigint": "0"
+        },
+        "generation": {
+          "#bigint": "1"
+        },
+        "helloSlot": {
+          "tag": "Unarmed",
+          "value": {
+            "#tup": []
+          }
+        },
+        "keepAliveSlot": {
+          "tag": "Armed",
+          "value": {
+            "#bigint": "4"
+          }
+        },
+        "lastProgressAt": {
+          "tag": "Recent",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostTurnsRecovered": {
+          "#bigint": "0"
+        },
+        "nextAlarm": {
+          "#bigint": "7"
+        },
+        "nextCall": {
+          "#bigint": "2"
+        },
+        "nextSerial": {
+          "#bigint": "4"
+        },
+        "noProgressSlot": {
+          "tag": "Armed",
+          "value": {
+            "#bigint": "5"
+          }
+        },
+        "nudged": false,
+        "paused": false,
+        "permissionsAllowed": {
+          "#bigint": "0"
+        },
+        "permissionsAsked": {
+          "#bigint": "0"
+        },
+        "personPrompts": {
+          "#bigint": "2"
+        },
+        "promptInFlight": true,
+        "promptsSent": {
+          "#bigint": "2"
+        },
+        "queue": [
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
+        "restarts": {
+          "#bigint": "0"
+        },
+        "rpcs": [
+          {
+            "id": {
+              "#bigint": "4"
+            },
+            "purpose": {
+              "tag": "Prompt",
+              "value": {
+                "#tup": []
+              }
+            },
+            "serial": {
+              "#bigint": "3"
+            }
+          }
+        ],
+        "session": true,
+        "sockets": [
+          {
+            "bridge": {
+              "#bigint": "0"
+            },
+            "generation": {
+              "#bigint": "1"
+            },
+            "state": {
+              "tag": "Connected",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "socketsClosed": {
+          "#bigint": "0"
+        },
+        "status": {
+          "tag": "Working",
+          "value": {
+            "#tup": []
+          }
+        },
+        "stopped": false,
+        "stoppedEarly": false,
+        "stopsEnded": {
+          "#bigint": "0"
+        },
+        "token": {
+          "#bigint": "1"
+        },
+        "wallSlot": {
+          "tag": "Armed",
+          "value": {
+            "#bigint": "6"
+          }
+        }
+      },
+      "mbt::actionTaken": "outcomeCheckReturns",
+      "mbt::nondetPicks": {
+        "alarmIndex": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "bridge": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "callId": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "1"
+          }
+        },
+        "finished": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "index": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ok": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "Some",
+          "value": {
+            "tag": "WaitsOnPerson",
+            "value": {
+              "#tup": []
+            }
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 13
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
@@ -3350,7 +3296,7 @@
             ],
             "saidHello": true,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           }
         ],
@@ -3360,24 +3306,6 @@
               "#bigint": "0"
             },
             "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "0"
-              }
-            },
-            "rest": [],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "1"
-            },
-            "kind": {
               "tag": "SandboxStart",
               "value": {
                 "generation": {
@@ -3385,7 +3313,7 @@
                 },
                 "launched": true,
                 "token": {
-                  "#bigint": "2"
+                  "#bigint": "1"
                 }
               }
             },
@@ -3430,7 +3358,7 @@
           }
         },
         "lastProgressAt": {
-          "tag": "Recent",
+          "tag": "Old",
           "value": {
             "#tup": []
           }
@@ -3442,7 +3370,7 @@
           "#bigint": "7"
         },
         "nextCall": {
-          "#bigint": "3"
+          "#bigint": "2"
         },
         "nextSerial": {
           "#bigint": "4"
@@ -3521,12 +3449,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "wallSlot": {
           "tag": "Armed",
@@ -3535,7 +3464,7 @@
           }
         }
       },
-      "mbt::actionTaken": "outcomeCheckReturns",
+      "mbt::actionTaken": "timePasses",
       "mbt::nondetPicks": {
         "alarmIndex": {
           "tag": "None",
@@ -3550,9 +3479,9 @@
           }
         },
         "callId": {
-          "tag": "Some",
+          "tag": "None",
           "value": {
-            "#bigint": "2"
+            "#tup": []
           }
         },
         "finished": {
@@ -3574,19 +3503,16 @@
           }
         },
         "outcome": {
-          "tag": "Some",
+          "tag": "None",
           "value": {
-            "tag": "WaitsOnPerson",
-            "value": {
-              "#tup": []
-            }
+            "#tup": []
           }
         }
       }
     },
     {
       "#meta": {
-        "index": 13
+        "index": 15
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
@@ -3654,26 +3580,10 @@
             "generation": {
               "#bigint": "1"
             },
-            "requests": [
-              {
-                "cancelled": false,
-                "id": {
-                  "#bigint": "4"
-                },
-                "purpose": {
-                  "tag": "Prompt",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "serial": {
-                  "#bigint": "3"
-                }
-              }
-            ],
+            "requests": [],
             "saidHello": true,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           }
         ],
@@ -3683,24 +3593,6 @@
               "#bigint": "0"
             },
             "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "0"
-              }
-            },
-            "rest": [],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "1"
-            },
-            "kind": {
               "tag": "SandboxStart",
               "value": {
                 "generation": {
@@ -3708,7 +3600,7 @@
                 },
                 "launched": true,
                 "token": {
-                  "#bigint": "2"
+                  "#bigint": "1"
                 }
               }
             },
@@ -3720,6 +3612,29 @@
                 }
               }
             ],
+            "state": {
+              "tag": "Out",
+              "value": {
+                "#tup": []
+              }
+            }
+          },
+          {
+            "id": {
+              "#bigint": "2"
+            },
+            "kind": {
+              "tag": "OutcomeCheck",
+              "value": {
+                "generation": {
+                  "#bigint": "1"
+                },
+                "promptsSent": {
+                  "#bigint": "2"
+                }
+              }
+            },
+            "rest": [],
             "state": {
               "tag": "Out",
               "value": {
@@ -3787,7 +3702,7 @@
         "personPrompts": {
           "#bigint": "2"
         },
-        "promptInFlight": true,
+        "promptInFlight": false,
         "promptsSent": {
           "#bigint": "2"
         },
@@ -3802,22 +3717,7 @@
         "restarts": {
           "#bigint": "0"
         },
-        "rpcs": [
-          {
-            "id": {
-              "#bigint": "4"
-            },
-            "purpose": {
-              "tag": "Prompt",
-              "value": {
-                "#tup": []
-              }
-            },
-            "serial": {
-              "#bigint": "3"
-            }
-          }
-        ],
+        "rpcs": [],
         "session": true,
         "sockets": [
           {
@@ -3844,12 +3744,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "wallSlot": {
           "tag": "Armed",
@@ -3858,7 +3759,7 @@
           }
         }
       },
-      "mbt::actionTaken": "timePasses",
+      "mbt::actionTaken": "harnessAnswers",
       "mbt::nondetPicks": {
         "alarmIndex": {
           "tag": "None",
@@ -3867,9 +3768,9 @@
           }
         },
         "bridge": {
-          "tag": "None",
+          "tag": "Some",
           "value": {
-            "#tup": []
+            "#bigint": "0"
           }
         },
         "callId": {
@@ -3879,9 +3780,12 @@
           }
         },
         "finished": {
-          "tag": "None",
+          "tag": "Some",
           "value": {
-            "#tup": []
+            "tag": "EndTurn",
+            "value": {
+              "#tup": []
+            }
           }
         },
         "index": {
@@ -3906,7 +3810,7 @@
     },
     {
       "#meta": {
-        "index": 14
+        "index": 16
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
@@ -3974,616 +3878,17 @@
             "generation": {
               "#bigint": "1"
             },
-            "requests": [
-              {
-                "cancelled": false,
-                "id": {
-                  "#bigint": "4"
-                },
-                "purpose": {
-                  "tag": "Prompt",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "serial": {
-                  "#bigint": "3"
-                }
-              }
-            ],
-            "saidHello": true,
-            "token": {
-              "#bigint": "2"
-            }
-          }
-        ],
-        "calls": [
-          {
-            "id": {
-              "#bigint": "1"
-            },
-            "kind": {
-              "tag": "SandboxStart",
-              "value": {
-                "generation": {
-                  "#bigint": "1"
-                },
-                "launched": true,
-                "token": {
-                  "#bigint": "2"
-                }
-              }
-            },
-            "rest": [
-              {
-                "tag": "StartEnds",
-                "value": {
-                  "#bigint": "1"
-                }
-              }
-            ],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          }
-        ],
-        "cancelsDelivered": {
-          "#bigint": "0"
-        },
-        "eventsThatThrew": {
-          "#bigint": "0"
-        },
-        "faults": {
-          "#bigint": "0"
-        },
-        "generation": {
-          "#bigint": "1"
-        },
-        "helloSlot": {
-          "tag": "Unarmed",
-          "value": {
-            "#tup": []
-          }
-        },
-        "keepAliveSlot": {
-          "tag": "Armed",
-          "value": {
-            "#bigint": "4"
-          }
-        },
-        "lastProgressAt": {
-          "tag": "Old",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lostTurnsRecovered": {
-          "#bigint": "0"
-        },
-        "nextAlarm": {
-          "#bigint": "7"
-        },
-        "nextCall": {
-          "#bigint": "3"
-        },
-        "nextSerial": {
-          "#bigint": "4"
-        },
-        "noProgressSlot": {
-          "tag": "Armed",
-          "value": {
-            "#bigint": "5"
-          }
-        },
-        "nudged": false,
-        "paused": false,
-        "permissionsAllowed": {
-          "#bigint": "0"
-        },
-        "permissionsAsked": {
-          "#bigint": "0"
-        },
-        "personPrompts": {
-          "#bigint": "2"
-        },
-        "promptInFlight": true,
-        "promptsSent": {
-          "#bigint": "2"
-        },
-        "queue": [
-          {
-            "tag": "PersonPrompt",
-            "value": {
-              "#tup": []
-            }
-          }
-        ],
-        "restarts": {
-          "#bigint": "0"
-        },
-        "rpcs": [
-          {
-            "id": {
-              "#bigint": "4"
-            },
-            "purpose": {
-              "tag": "Prompt",
-              "value": {
-                "#tup": []
-              }
-            },
-            "serial": {
-              "#bigint": "3"
-            }
-          }
-        ],
-        "session": true,
-        "sockets": [
-          {
-            "bridge": {
-              "#bigint": "0"
-            },
-            "generation": {
-              "#bigint": "1"
-            },
-            "state": {
-              "tag": "Connected",
-              "value": {
-                "#tup": []
-              }
-            }
-          }
-        ],
-        "socketsClosed": {
-          "#bigint": "0"
-        },
-        "status": {
-          "tag": "Working",
-          "value": {
-            "#tup": []
-          }
-        },
-        "stoppedEarly": false,
-        "stopsEnded": {
-          "#bigint": "1"
-        },
-        "token": {
-          "#bigint": "2"
-        },
-        "wallSlot": {
-          "tag": "Armed",
-          "value": {
-            "#bigint": "6"
-          }
-        }
-      },
-      "mbt::actionTaken": "sandboxDestroyReturns",
-      "mbt::nondetPicks": {
-        "alarmIndex": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "bridge": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "finished": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "index": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ok": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outcome": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 15
-      },
-      "harnessDefaultEffort::harnessSession::world": {
-        "actions": {
-          "#bigint": "15"
-        },
-        "alarms": [
-          {
-            "id": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "Provision",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "4"
-            },
-            "kind": {
-              "tag": "KeepAlive",
-              "value": {
-                "#bigint": "1"
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "5"
-            },
-            "kind": {
-              "tag": "NoProgress",
-              "value": {
-                "#bigint": "1"
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "6"
-            },
-            "kind": {
-              "tag": "WallClock",
-              "value": {
-                "#tup": []
-              }
-            }
-          }
-        ],
-        "answersToOtherRequests": {
-          "#bigint": "0"
-        },
-        "artifact": true,
-        "bridgeClosedAt": {
-          "tag": "Unset",
-          "value": {
-            "#tup": []
-          }
-        },
-        "bridges": [
-          {
-            "alive": true,
-            "generation": {
-              "#bigint": "1"
-            },
             "requests": [],
             "saidHello": true,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           }
         ],
         "calls": [
           {
             "id": {
-              "#bigint": "1"
-            },
-            "kind": {
-              "tag": "SandboxStart",
-              "value": {
-                "generation": {
-                  "#bigint": "1"
-                },
-                "launched": true,
-                "token": {
-                  "#bigint": "2"
-                }
-              }
-            },
-            "rest": [
-              {
-                "tag": "StartEnds",
-                "value": {
-                  "#bigint": "1"
-                }
-              }
-            ],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "3"
-            },
-            "kind": {
-              "tag": "OutcomeCheck",
-              "value": {
-                "generation": {
-                  "#bigint": "1"
-                },
-                "promptsSent": {
-                  "#bigint": "2"
-                }
-              }
-            },
-            "rest": [],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          }
-        ],
-        "cancelsDelivered": {
-          "#bigint": "0"
-        },
-        "eventsThatThrew": {
-          "#bigint": "0"
-        },
-        "faults": {
-          "#bigint": "0"
-        },
-        "generation": {
-          "#bigint": "1"
-        },
-        "helloSlot": {
-          "tag": "Unarmed",
-          "value": {
-            "#tup": []
-          }
-        },
-        "keepAliveSlot": {
-          "tag": "Armed",
-          "value": {
-            "#bigint": "4"
-          }
-        },
-        "lastProgressAt": {
-          "tag": "Old",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lostTurnsRecovered": {
-          "#bigint": "0"
-        },
-        "nextAlarm": {
-          "#bigint": "7"
-        },
-        "nextCall": {
-          "#bigint": "4"
-        },
-        "nextSerial": {
-          "#bigint": "4"
-        },
-        "noProgressSlot": {
-          "tag": "Armed",
-          "value": {
-            "#bigint": "5"
-          }
-        },
-        "nudged": false,
-        "paused": false,
-        "permissionsAllowed": {
-          "#bigint": "0"
-        },
-        "permissionsAsked": {
-          "#bigint": "0"
-        },
-        "personPrompts": {
-          "#bigint": "2"
-        },
-        "promptInFlight": false,
-        "promptsSent": {
-          "#bigint": "2"
-        },
-        "queue": [
-          {
-            "tag": "PersonPrompt",
-            "value": {
-              "#tup": []
-            }
-          }
-        ],
-        "restarts": {
-          "#bigint": "0"
-        },
-        "rpcs": [],
-        "session": true,
-        "sockets": [
-          {
-            "bridge": {
-              "#bigint": "0"
-            },
-            "generation": {
-              "#bigint": "1"
-            },
-            "state": {
-              "tag": "Connected",
-              "value": {
-                "#tup": []
-              }
-            }
-          }
-        ],
-        "socketsClosed": {
-          "#bigint": "0"
-        },
-        "status": {
-          "tag": "Working",
-          "value": {
-            "#tup": []
-          }
-        },
-        "stoppedEarly": false,
-        "stopsEnded": {
-          "#bigint": "1"
-        },
-        "token": {
-          "#bigint": "2"
-        },
-        "wallSlot": {
-          "tag": "Armed",
-          "value": {
-            "#bigint": "6"
-          }
-        }
-      },
-      "mbt::actionTaken": "harnessAnswers",
-      "mbt::nondetPicks": {
-        "alarmIndex": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "bridge": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "finished": {
-          "tag": "Some",
-          "value": {
-            "tag": "EndTurn",
-            "value": {
-              "#tup": []
-            }
-          }
-        },
-        "index": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ok": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outcome": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 16
-      },
-      "harnessDefaultEffort::harnessSession::world": {
-        "actions": {
-          "#bigint": "16"
-        },
-        "alarms": [
-          {
-            "id": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "Provision",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "4"
-            },
-            "kind": {
-              "tag": "KeepAlive",
-              "value": {
-                "#bigint": "1"
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "5"
-            },
-            "kind": {
-              "tag": "NoProgress",
-              "value": {
-                "#bigint": "1"
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "6"
-            },
-            "kind": {
-              "tag": "WallClock",
-              "value": {
-                "#tup": []
-              }
-            }
-          }
-        ],
-        "answersToOtherRequests": {
-          "#bigint": "0"
-        },
-        "artifact": true,
-        "bridgeClosedAt": {
-          "tag": "Unset",
-          "value": {
-            "#tup": []
-          }
-        },
-        "bridges": [
-          {
-            "alive": true,
-            "generation": {
-              "#bigint": "1"
-            },
-            "requests": [],
-            "saidHello": true,
-            "token": {
               "#bigint": "2"
-            }
-          }
-        ],
-        "calls": [
-          {
-            "id": {
-              "#bigint": "3"
             },
             "kind": {
               "tag": "OutcomeCheck",
@@ -4606,7 +3911,7 @@
           },
           {
             "id": {
-              "#bigint": "4"
+              "#bigint": "3"
             },
             "kind": {
               "tag": "SandboxDestroy",
@@ -4678,7 +3983,7 @@
           "#bigint": "7"
         },
         "nextCall": {
-          "#bigint": "5"
+          "#bigint": "4"
         },
         "nextSerial": {
           "#bigint": "4"
@@ -4742,12 +4047,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "3"
+          "#bigint": "2"
         },
         "wallSlot": {
           "tag": "Armed",
@@ -4773,7 +4079,7 @@
         "callId": {
           "tag": "Some",
           "value": {
-            "#bigint": "1"
+            "#bigint": "0"
           }
         },
         "finished": {
@@ -4806,7 +4112,7 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "17"
+          "#bigint": "15"
         },
         "alarms": [
           {
@@ -4873,14 +4179,14 @@
             "requests": [],
             "saidHello": true,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           }
         ],
         "calls": [
           {
             "id": {
-              "#bigint": "3"
+              "#bigint": "2"
             },
             "kind": {
               "tag": "OutcomeCheck",
@@ -4903,7 +4209,7 @@
           },
           {
             "id": {
-              "#bigint": "4"
+              "#bigint": "3"
             },
             "kind": {
               "tag": "SandboxDestroy",
@@ -4975,7 +4281,7 @@
           "#bigint": "7"
         },
         "nextCall": {
-          "#bigint": "5"
+          "#bigint": "4"
         },
         "nextSerial": {
           "#bigint": "4"
@@ -5024,12 +4330,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "3"
+          "#bigint": "2"
         },
         "wallSlot": {
           "tag": "Armed",
@@ -5090,7 +4397,7 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "18"
+          "#bigint": "16"
         },
         "alarms": [
           {
@@ -5157,14 +4464,14 @@
             "requests": [],
             "saidHello": true,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           }
         ],
         "calls": [
           {
             "id": {
-              "#bigint": "4"
+              "#bigint": "3"
             },
             "kind": {
               "tag": "SandboxDestroy",
@@ -5200,7 +4507,7 @@
           },
           {
             "id": {
-              "#bigint": "5"
+              "#bigint": "4"
             },
             "kind": {
               "tag": "SandboxStart",
@@ -5210,7 +4517,7 @@
                 },
                 "launched": false,
                 "token": {
-                  "#bigint": "4"
+                  "#bigint": "3"
                 }
               }
             },
@@ -5267,7 +4574,7 @@
           "#bigint": "8"
         },
         "nextCall": {
-          "#bigint": "6"
+          "#bigint": "5"
         },
         "nextSerial": {
           "#bigint": "4"
@@ -5316,12 +4623,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "4"
+          "#bigint": "3"
         },
         "wallSlot": {
           "tag": "Armed",
@@ -5347,7 +4655,7 @@
         "callId": {
           "tag": "Some",
           "value": {
-            "#bigint": "3"
+            "#bigint": "2"
           }
         },
         "finished": {
@@ -5385,7 +4693,7 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "19"
+          "#bigint": "17"
         },
         "alarms": [
           {
@@ -5441,14 +4749,14 @@
             "requests": [],
             "saidHello": true,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           }
         ],
         "calls": [
           {
             "id": {
-              "#bigint": "4"
+              "#bigint": "3"
             },
             "kind": {
               "tag": "SandboxDestroy",
@@ -5484,7 +4792,7 @@
           },
           {
             "id": {
-              "#bigint": "5"
+              "#bigint": "4"
             },
             "kind": {
               "tag": "SandboxStart",
@@ -5494,7 +4802,7 @@
                 },
                 "launched": false,
                 "token": {
-                  "#bigint": "4"
+                  "#bigint": "3"
                 }
               }
             },
@@ -5551,7 +4859,7 @@
           "#bigint": "8"
         },
         "nextCall": {
-          "#bigint": "6"
+          "#bigint": "5"
         },
         "nextSerial": {
           "#bigint": "4"
@@ -5600,12 +4908,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "4"
+          "#bigint": "3"
         },
         "wallSlot": {
           "tag": "Armed",
@@ -5666,7 +4975,7 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "20"
+          "#bigint": "18"
         },
         "alarms": [
           {
@@ -5722,7 +5031,7 @@
             "requests": [],
             "saidHello": true,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           },
           {
@@ -5733,14 +5042,14 @@
             "requests": [],
             "saidHello": false,
             "token": {
-              "#bigint": "4"
+              "#bigint": "3"
             }
           }
         ],
         "calls": [
           {
             "id": {
-              "#bigint": "4"
+              "#bigint": "3"
             },
             "kind": {
               "tag": "SandboxDestroy",
@@ -5776,7 +5085,7 @@
           },
           {
             "id": {
-              "#bigint": "5"
+              "#bigint": "4"
             },
             "kind": {
               "tag": "SandboxStart",
@@ -5786,7 +5095,7 @@
                 },
                 "launched": true,
                 "token": {
-                  "#bigint": "4"
+                  "#bigint": "3"
                 }
               }
             },
@@ -5843,7 +5152,7 @@
           "#bigint": "8"
         },
         "nextCall": {
-          "#bigint": "6"
+          "#bigint": "5"
         },
         "nextSerial": {
           "#bigint": "4"
@@ -5892,12 +5201,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "4"
+          "#bigint": "3"
         },
         "wallSlot": {
           "tag": "Armed",
@@ -5923,7 +5233,7 @@
         "callId": {
           "tag": "Some",
           "value": {
-            "#bigint": "5"
+            "#bigint": "4"
           }
         },
         "finished": {
@@ -5958,7 +5268,7 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "21"
+          "#bigint": "19"
         },
         "alarms": [
           {
@@ -6003,7 +5313,7 @@
             "requests": [],
             "saidHello": true,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           },
           {
@@ -6030,14 +5340,14 @@
             ],
             "saidHello": true,
             "token": {
-              "#bigint": "4"
+              "#bigint": "3"
             }
           }
         ],
         "calls": [
           {
             "id": {
-              "#bigint": "4"
+              "#bigint": "3"
             },
             "kind": {
               "tag": "SandboxDestroy",
@@ -6073,7 +5383,7 @@
           },
           {
             "id": {
-              "#bigint": "5"
+              "#bigint": "4"
             },
             "kind": {
               "tag": "SandboxStart",
@@ -6083,7 +5393,7 @@
                 },
                 "launched": true,
                 "token": {
-                  "#bigint": "4"
+                  "#bigint": "3"
                 }
               }
             },
@@ -6140,7 +5450,7 @@
           "#bigint": "8"
         },
         "nextCall": {
-          "#bigint": "6"
+          "#bigint": "5"
         },
         "nextSerial": {
           "#bigint": "5"
@@ -6219,12 +5529,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "4"
+          "#bigint": "3"
         },
         "wallSlot": {
           "tag": "Armed",
@@ -6285,7 +5596,7 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "22"
+          "#bigint": "20"
         },
         "alarms": [
           {
@@ -6330,7 +5641,7 @@
             "requests": [],
             "saidHello": true,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           },
           {
@@ -6357,14 +5668,14 @@
             ],
             "saidHello": true,
             "token": {
-              "#bigint": "4"
+              "#bigint": "3"
             }
           }
         ],
         "calls": [
           {
             "id": {
-              "#bigint": "5"
+              "#bigint": "4"
             },
             "kind": {
               "tag": "SandboxStart",
@@ -6374,7 +5685,7 @@
                 },
                 "launched": true,
                 "token": {
-                  "#bigint": "4"
+                  "#bigint": "3"
                 }
               }
             },
@@ -6431,7 +5742,7 @@
           "#bigint": "8"
         },
         "nextCall": {
-          "#bigint": "6"
+          "#bigint": "5"
         },
         "nextSerial": {
           "#bigint": "5"
@@ -6510,12 +5821,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "4"
+          "#bigint": "3"
         },
         "wallSlot": {
           "tag": "Armed",
@@ -6541,7 +5853,7 @@
         "callId": {
           "tag": "Some",
           "value": {
-            "#bigint": "4"
+            "#bigint": "3"
           }
         },
         "finished": {
@@ -6576,7 +5888,7 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "23"
+          "#bigint": "21"
         },
         "alarms": [
           {
@@ -6621,7 +5933,7 @@
             "requests": [],
             "saidHello": true,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           },
           {
@@ -6648,14 +5960,14 @@
             ],
             "saidHello": true,
             "token": {
-              "#bigint": "4"
+              "#bigint": "3"
             }
           }
         ],
         "calls": [
           {
             "id": {
-              "#bigint": "5"
+              "#bigint": "4"
             },
             "kind": {
               "tag": "SandboxStart",
@@ -6665,7 +5977,7 @@
                 },
                 "launched": true,
                 "token": {
-                  "#bigint": "4"
+                  "#bigint": "3"
                 }
               }
             },
@@ -6722,7 +6034,7 @@
           "#bigint": "8"
         },
         "nextCall": {
-          "#bigint": "6"
+          "#bigint": "5"
         },
         "nextSerial": {
           "#bigint": "5"
@@ -6801,12 +6113,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "4"
+          "#bigint": "3"
         },
         "wallSlot": {
           "tag": "Armed",
@@ -6867,7 +6180,7 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "24"
+          "#bigint": "22"
         },
         "alarms": [
           {
@@ -6912,7 +6225,7 @@
             "requests": [],
             "saidHello": true,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           },
           {
@@ -6923,14 +6236,14 @@
             "requests": [],
             "saidHello": true,
             "token": {
-              "#bigint": "4"
+              "#bigint": "3"
             }
           }
         ],
         "calls": [
           {
             "id": {
-              "#bigint": "5"
+              "#bigint": "4"
             },
             "kind": {
               "tag": "SandboxStart",
@@ -6940,7 +6253,7 @@
                 },
                 "launched": true,
                 "token": {
-                  "#bigint": "4"
+                  "#bigint": "3"
                 }
               }
             },
@@ -6961,7 +6274,7 @@
           },
           {
             "id": {
-              "#bigint": "6"
+              "#bigint": "5"
             },
             "kind": {
               "tag": "SandboxDestroy",
@@ -7027,7 +6340,7 @@
           "#bigint": "8"
         },
         "nextCall": {
-          "#bigint": "7"
+          "#bigint": "6"
         },
         "nextSerial": {
           "#bigint": "5"
@@ -7091,12 +6404,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "5"
+          "#bigint": "4"
         },
         "wallSlot": {
           "tag": "Armed",
@@ -7157,7 +6471,7 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "25"
+          "#bigint": "23"
         },
         "alarms": [
           {
@@ -7202,7 +6516,7 @@
             "requests": [],
             "saidHello": true,
             "token": {
-              "#bigint": "2"
+              "#bigint": "1"
             }
           },
           {
@@ -7213,14 +6527,14 @@
             "requests": [],
             "saidHello": true,
             "token": {
-              "#bigint": "4"
+              "#bigint": "3"
             }
           }
         ],
         "calls": [
           {
             "id": {
-              "#bigint": "6"
+              "#bigint": "5"
             },
             "kind": {
               "tag": "SandboxDestroy",
@@ -7286,7 +6600,7 @@
           "#bigint": "8"
         },
         "nextCall": {
-          "#bigint": "7"
+          "#bigint": "6"
         },
         "nextSerial": {
           "#bigint": "5"
@@ -7350,12 +6664,13 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "token": {
-          "#bigint": "5"
+          "#bigint": "4"
         },
         "wallSlot": {
           "tag": "Armed",
@@ -7381,7 +6696,7 @@
         "callId": {
           "tag": "Some",
           "value": {
-            "#bigint": "5"
+            "#bigint": "4"
           }
         },
         "finished": {

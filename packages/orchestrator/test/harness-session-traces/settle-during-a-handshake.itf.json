@@ -166,6 +166,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -384,6 +385,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -592,6 +594,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -800,6 +803,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -1008,6 +1012,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -1203,6 +1208,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -1433,6 +1439,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -1666,6 +1673,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -1932,6 +1940,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -2195,6 +2204,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -2427,6 +2437,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -2690,6 +2701,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -2925,6 +2937,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -3188,6 +3201,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -3451,6 +3465,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -3710,6 +3725,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -3966,6 +3982,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -4211,6 +4228,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -4441,6 +4459,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "0"
@@ -4604,12 +4623,6 @@
                 "value": {
                   "#bigint": "2"
                 }
-              },
-              {
-                "tag": "SettleAfterDrain",
-                "value": {
-                  "#tup": []
-                }
               }
             ],
             "state": {
@@ -4706,6 +4719,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": true,
         "stopsEnded": {
           "#bigint": "0"
@@ -4855,12 +4869,6 @@
                 "value": {
                   "#bigint": "2"
                 }
-              },
-              {
-                "tag": "SettleAfterDrain",
-                "value": {
-                  "#tup": []
-                }
               }
             ],
             "state": {
@@ -4957,6 +4965,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": true,
         "stopsEnded": {
           "#bigint": "0"
@@ -5117,12 +5126,6 @@
                 "value": {
                   "#bigint": "2"
                 }
-              },
-              {
-                "tag": "SettleAfterDrain",
-                "value": {
-                  "#tup": []
-                }
               }
             ],
             "state": {
@@ -5219,6 +5222,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": true,
         "stopsEnded": {
           "#bigint": "0"
@@ -5379,12 +5383,6 @@
                 "value": {
                   "#bigint": "2"
                 }
-              },
-              {
-                "tag": "SettleAfterDrain",
-                "value": {
-                  "#tup": []
-                }
               }
             ],
             "state": {
@@ -5481,6 +5479,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": true,
         "stopsEnded": {
           "#bigint": "0"
@@ -5646,12 +5645,6 @@
                 "value": {
                   "#bigint": "2"
                 }
-              },
-              {
-                "tag": "SettleAfterDrain",
-                "value": {
-                  "#tup": []
-                }
               }
             ],
             "state": {
@@ -5778,6 +5771,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": true,
         "stopsEnded": {
           "#bigint": "0"
@@ -5946,12 +5940,6 @@
                 "value": {
                   "#bigint": "2"
                 }
-              },
-              {
-                "tag": "SettleAfterDrain",
-                "value": {
-                  "#tup": []
-                }
               }
             ],
             "state": {
@@ -6078,6 +6066,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": true,
         "stopsEnded": {
           "#bigint": "0"
@@ -6346,6 +6335,7 @@
             "#tup": []
           }
         },
+        "stopped": false,
         "stoppedEarly": true,
         "stopsEnded": {
           "#bigint": "0"
