@@ -103,6 +103,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | work line | The one checklist line of a researcher or author without a todo list. It names the task's work and shows its status until the task is idle or done. An author's line reads complete once the job has an artifact. | `WorkLine` | |
 | board note | One line from the orchestrator on a board. | `BoardInput.note` | note |
 | agent note | A system message to the orchestrator agent. | `noteMessage`, `Applied.notes` | note |
+| ending post | A post that tells the people a workflow reports to of an end: a researcher or author failed, the workflow failed, or the workflow is done. Each end posts once. | `TaskEvent` `failed`, `workflow_failed`, `done` | |
 | harness session | The ACP session of one task. | `sandboxes.session_id` | session |
 | bridge | The connection between the workflow and the harness in the sandbox. A process in the sandbox dials the workflow with the bridge token of its generation and carries the ACP messages both ways. | `onBridgeHello`, `onBridgeClosed`, `sandboxes.bridge_token` | |
 | prompt in flight | A prompt sent to the harness session that has not answered yet. A task has at most one. | `sandboxes.prompt_in_flight` | |

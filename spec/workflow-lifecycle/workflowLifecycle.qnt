@@ -153,7 +153,7 @@ module workflowLifecycleTypes {
   /// a recorded tracker output set it. `SubjectIssue` names the issue by its number.
   type Subject = NoSubject | SubjectIssue(int) | SubjectProject
 
-  /// `failuresPosted` counts the posts that tell the person a researcher or author failed.
+  /// `endingPosts` holds the posts that tell the person of an end, in the order they went out.
   /// `issueMoves` counts the moves of a tracker issue the workflow made. `endedIssues` holds the
   /// issues a person moved to a canceled or completed state on the tracker.
   /// `restartAlarms` holds each armed restart alarm by the jobs whose lost model turn it still
@@ -172,7 +172,7 @@ module workflowLifecycleTypes {
     idleArmed: bool,
     jobs: List[Job],
     calls: List[Call],
-    failuresPosted: int,
+    endingPosts: List[EndingPost],
     issueMoves: int,
     endedIssues: Set[int],
     restartAlarms: Set[Set[int]],
@@ -182,6 +182,10 @@ module workflowLifecycleTypes {
     ranAgain: Set[int],
     storedEnd: StoredEnd,
   }
+
+  /// A post that tells the person of an end: a researcher or author failed, the workflow failed,
+  /// or the workflow is done.
+  type EndingPost = TaskFailurePost | WorkflowFailurePost | DonePost
 
   /// A verbal command that acts on a job. The cancel ends the workflow, so it is an `Ending`.
   type VerbalCommand = Pause | Resume | Instruct
@@ -204,7 +208,8 @@ module workflowLifecycleTypes {
   /// holds. `RestartAlarmAgainStep` is a restart alarm the platform delivers again.
   /// `RunAgainStep` is the alarm that runs the lost model turn of the job again, also once more.
   /// `LostTurnDeadlineStep` is the deadline alarm of the lost model turn of the job, which fires
-  /// while its author waits for the alarm that runs the turn again.
+  /// while its author waits for the alarm that runs the turn again. `HostErrorStep` is the page
+  /// model failing the model call of the job.
   /// `EndResumeStep` is the alarm that goes on with a workflow end an instance restart cut off.
   type StepKind =
     | OtherStep
@@ -230,6 +235,7 @@ module workflowLifecycleTypes {
     | RestartAlarmAgainStep
     | RunAgainStep(int)
     | LostTurnDeadlineStep(int)
+    | HostErrorStep(int)
     | EndResumeStep
 
   /// The timers whose alarms are about one sandbox generation.
@@ -275,6 +281,8 @@ module workflowLifecycleTypes {
     aWorkflowEndReachesAFinishedStatus: bool,
     aPersonsMessageWakesTheWorkflow: bool,
     issuesMoveOnlyAtAStartOrADoneEnd: bool,
+    eachFailedTaskPostsItsFailureOnce: bool,
+    aCompletedJobEndsItsReview: bool,
   }
 
   /// Whether the last step reached each before-and-after witness, by the name of the witness. Only
@@ -343,6 +351,12 @@ module workflowLifecycleTypes {
     aMessageLandsOnAWaitingWorkflow: bool,
     aTrackerWorkflowEndsWithoutDone: bool,
     aRestartCutsAPageCreate: bool,
+    aHarnessAuthorPostsItsFailureAfterItsDestroy: bool,
+    aResearcherPostsItsFailure: bool,
+    aModelCallHostErrorPostsAFailure: bool,
+    aRestartDropsAFailurePost: bool,
+    aJobCompletesDuringItsReview: bool,
+    aHarnessAuthorCompletesAfterItsDestroy: bool,
     aRestartAlarmDecidesATurnThatWaitedToRunAgain: bool,
     aRestartLandsDuringAWorkflowEnd: bool,
     aWorkflowEndResumesAfterARestart: bool,
@@ -466,7 +480,7 @@ module workflowLifecycle {
     idleArmed: true,
     jobs: List(),
     calls: List(),
-    failuresPosted: 0,
+    endingPosts: List(),
     issueMoves: 0,
     endedIssues: Set(),
     restartAlarms: Set(),
@@ -808,8 +822,9 @@ module workflowLifecycle {
   }
 
   /// The loop of a workflow end cancels the unfinished refiner runs and sets the status last. A
-  /// cancelled polisher hands the page it holds to the humans blocked. A workflow from a tracker
-  /// origin that ends done moves its issue to completed. The store then drops the end.
+  /// cancelled polisher hands the page it holds to the humans blocked. A workflow that ends done
+  /// or failed posts its end, and one from a tracker origin that ends done moves its issue to
+  /// completed. The store then drops the end.
   pure def finishWorkflowEnd(flow: Workflow, endsAs: WorkflowStatus): Workflow = {
     val stopped = range(0, MAX_JOBS).select(id => id < flow.jobs.length()).foldl(flow, (ending, id) =>
       if (not(refinerRunning(ending.jobs[id]))) ending
@@ -821,6 +836,11 @@ module workflowLifecycle {
     {
       ...stopped,
       status: endsAs,
+      endingPosts: match endsAs {
+        | Done => stopped.endingPosts.append(DonePost)
+        | Failed => stopped.endingPosts.append(WorkflowFailurePost)
+        | _ => stopped.endingPosts
+      },
       issueMoves: if (movesTheIssue) stopped.issueMoves + 1 else stopped.issueMoves,
       storedEnd: NoStoredEnd,
     }
@@ -865,7 +885,7 @@ module workflowLifecycle {
   pure def teardownGoesOn(flow: Workflow, id: int, teardown: Teardown, caller: Caller): Outcome = {
     val reviewed = endReview(flow, id)
     val posted =
-      if (teardown == AfterFail) { ...reviewed, failuresPosted: reviewed.failuresPosted + 1 }
+      if (teardown == AfterFail) { ...reviewed, endingPosts: reviewed.endingPosts.append(TaskFailurePost) }
       else reviewed
     val continued = match caller {
       | ToolOrEvent => untold(posted)
@@ -1845,6 +1865,21 @@ module workflowLifecycle {
     move(returnCall(workflow, callId), stepKind),
   }
 
+  /// The page model fails the model call of an unfinished model-call author that a stop did not
+  /// reach. The author fails at once, and its failure posts.
+  action modelCallFails: bool = {
+    val failing = outCalls(workflow, ModelCall).filter(callId => and {
+      not(isStoppedModelCall(workflow.calls[callId])),
+      not(isFinished(jobTask(workflow, workflow.calls[callId].job).status)),
+    })
+    all {
+      failing.size() > 0,
+      nondet callId = failing.oneOf()
+      val id = workflow.calls[callId].job
+      move(endTask(withoutCall(workflow, callId), id, TaskFailed, AfterFail, ToolOrEvent), HostErrorStep(id)),
+    }
+  }
+
   /// The document host returns from the page write of a model-call author.
   action pageWriteReturns: bool = all {
     outCalls(workflow, PageWrite).size() > 0,
@@ -2126,9 +2161,9 @@ module workflowLifecycle {
   /// The agent cancels or completes a job.
   action theAgentEndsAJob: bool = any { agentCancelsJob, agentCompletesJob }
 
-  /// The page model answers a model call, the host returns from a page write, or the deadline of
-  /// its model turn passes first.
-  action aModelTurnEnds: bool = any { modelCallReturns, pageWriteReturns, modelTurnOutlivesItsDeadline }
+  /// The page model answers a model call or fails it, the host returns from a page write, or the
+  /// deadline of its model turn passes first.
+  action aModelTurnEnds: bool = any { modelCallReturns, modelCallFails, pageWriteReturns, modelTurnOutlivesItsDeadline }
 
   /// A message, an alarm, a stop, or a move on the host or the tracker reaches the workflow.
   action anOutsideEventLands: bool = any {
@@ -2268,13 +2303,13 @@ module workflowLifecycle {
   pure def keepsAFinishedStatus(step: Transition): bool =
     hasEnded(step.before.status) implies step.after.status == step.before.status
 
-  /// A paused author or researcher does not get a prompt.
+  /// A paused author or researcher does not get a prompt, also in the step that pauses it.
   pure def sendsAPausedTaskNoPrompt(step: Transition): bool =
     step.before.jobs.indices().forall(id =>
       step.before.jobs[id].tasks.indices().forall(index => {
         val was = step.before.jobs[id].tasks[index]
         val now = step.after.jobs[id].tasks[index]
-        (was.paused and now.paused) implies now.promptsSent == was.promptsSent
+        now.paused implies now.promptsSent == was.promptsSent
       }))
 
   /// The workflow moves to waiting for input only in a step that leaves no researcher or author busy.
@@ -2306,7 +2341,7 @@ module workflowLifecycle {
         modelTurnInFlight(step.after, id),
         after.status == InReview and not(revised and after.promptsQueued > before.promptsQueued),
         after.paused,
-        after.status == TaskFailed and step.after.failuresPosted > step.before.failuresPosted,
+        after.status == TaskFailed and postsOf(step.after, TaskFailurePost) > postsOf(step.before, TaskFailurePost),
       }
     })
 
@@ -2435,6 +2470,68 @@ module workflowLifecycle {
     }
   }
 
+  /// The ending posts of one kind the workflow made.
+  pure def postsOf(flow: Workflow, post: EndingPost): int =
+    flow.endingPosts.select(made => made == post).length()
+
+  /// The jobs that ran before the step, out of the constant cap.
+  pure def jobsBefore(step: Transition): Set[int] =
+    0.to(MAX_JOBS - 1).filter(id => id < step.before.jobs.length())
+
+  /// True while the end of the job's task waits on the destroy of its author's sandbox.
+  pure def teardownOut(flow: Workflow, id: int, teardown: Teardown): bool =
+    flow.calls.indices().exists(callId => and {
+      flow.calls[callId].job == id,
+      match flow.calls[callId].rest {
+        | TeardownGoesOn(goesOn) => goesOn.teardown == teardown
+        | _ => false
+      },
+    })
+
+  /// True when the end of the job's task as `status` finished in the step: the task ended at once,
+  /// or the destroy of its sandbox returned. A restart that drops the destroy does not finish it.
+  pure def finishesTheEnd(step: Transition, id: int, status: TaskStatus, teardown: Teardown): bool = and {
+    step.kind != RestartStep,
+    jobTask(step.after, id).status == status,
+    not(teardownOut(step.after, id, teardown)),
+    jobTask(step.before, id).status != status or teardownOut(step.before, id, teardown),
+  }
+
+  /// True when the failure of the job's researcher or author finished in the step.
+  pure def finishesAFailure(step: Transition, id: int): bool =
+    finishesTheEnd(step, id, TaskFailed, AfterFail)
+
+  /// True when `complete_job` on the job finished in the step.
+  pure def finishesACompletion(step: Transition, id: int): bool =
+    jobTask(step.after, id).role == Author and finishesTheEnd(step, id, TaskDone, AfterComplete)
+
+  /// A step posts one failure for each researcher or author whose failure finished in it, and no
+  /// other. A failed refiner run, a cancel, and a dropped destroy do not post one.
+  pure def postsEachFailureAsItsEndFinishes(step: Transition): bool = {
+    val finished = jobsBefore(step).filter(id => finishesAFailure(step, id)).size()
+    postsOf(step.after, TaskFailurePost) - postsOf(step.before, TaskFailurePost) == finished
+  }
+
+  /// `complete_job` ends the author done. A harness author waits on the destroy of its sandbox.
+  /// Once the end finished, the refiner run of the job is not running and the humans have the
+  /// artifact the review held.
+  pure def endsTheReviewOfACompletedJob(step: Transition): bool =
+    jobsBefore(step).forall(id => {
+      val author = jobTask(step.after, id)
+      val becameDone = and {
+        author.role == Author,
+        author.status == TaskDone,
+        jobTask(step.before, id).status != TaskDone,
+      }
+      and {
+        (becameDone and destroyIsACall(author)) implies teardownOut(step.after, id, AfterComplete),
+        finishesACompletion(step, id) implies and {
+          not(refinerRunning(step.after.jobs[id])),
+          step.after.jobs[id].artifact != Drafted,
+        },
+      }
+    })
+
   /// Whether one step kept each before-and-after rule.
   pure def rulesKeptBy(step: Transition): KeptRules = {
     jobStartsOnlyIntoAFreeSlot: startsOnlyIntoAFreeSlot(step),
@@ -2461,6 +2558,8 @@ module workflowLifecycle {
     aWorkflowEndReachesAFinishedStatus: keepsAnEndGoingUntilItsStatus(step),
     aPersonsMessageWakesTheWorkflow: wakesOnAPersonsMessage(step),
     issuesMoveOnlyAtAStartOrADoneEnd: movesIssuesOnlyAtAStartOrADoneEnd(step),
+    eachFailedTaskPostsItsFailureOnce: postsEachFailureAsItsEndFinishes(step),
+    aCompletedJobEndsItsReview: endsTheReviewOfACompletedJob(step),
   }
 
   /// Whether one step reached each before-and-after witness.
@@ -2689,6 +2788,20 @@ module workflowLifecycle {
       },
       aRestartCutsAPageCreate: step.kind == RestartStep and
         cut.exists(id => pageWriteOut(step.before, id) and step.before.jobs[id].artifact == NoArtifact),
+      aHarnessAuthorPostsItsFailureAfterItsDestroy: jobsBefore(step).exists(id =>
+        finishesAFailure(step, id) and teardownOut(step.before, id, AfterFail)),
+      aResearcherPostsItsFailure: jobsBefore(step).exists(id =>
+        finishesAFailure(step, id) and jobTask(step.after, id).role == Researcher),
+      aModelCallHostErrorPostsAFailure: match step.kind {
+        | HostErrorStep(id) => finishesAFailure(step, id)
+        | _ => false
+      },
+      aRestartDropsAFailurePost: step.kind == RestartStep and
+        jobsBefore(step).exists(id => teardownOut(step.before, id, AfterFail)),
+      aJobCompletesDuringItsReview: jobsBefore(step).exists(id =>
+        finishesACompletion(step, id) and refinerRunning(step.before.jobs[id])),
+      aHarnessAuthorCompletesAfterItsDestroy: jobsBefore(step).exists(id =>
+        finishesACompletion(step, id) and teardownOut(step.before, id, AfterComplete)),
     }
   }
 
@@ -2699,6 +2812,21 @@ module workflowLifecycle {
   /// Tracker issues move only at the plan of a tracker workflow, a job start on an issue, or the
   /// done end of a tracker workflow. A failed or cancelled end does not move them.
   val issuesMoveOnlyAtAStartOrADoneEnd: bool = lastStepKept.issuesMoveOnlyAtAStartOrADoneEnd
+
+  /// Each researcher or author that failed posts its failure once, as its end finishes. A failed
+  /// refiner run does not post.
+  val eachFailedTaskPostsItsFailureOnce: bool = lastStepKept.eachFailedTaskPostsItsFailureOnce
+
+  /// A workflow that ended failed posted its failure once, and one that ended done posted its
+  /// done message once. Any other workflow did not post either.
+  val anEndedWorkflowPostsItsEndOnce: bool = and {
+    postsOf(workflow, WorkflowFailurePost) == (if (workflow.status == Failed) 1 else 0),
+    postsOf(workflow, DonePost) == (if (workflow.status == Done) 1 else 0),
+  }
+
+  /// `complete_job` ends the author done and destroys its sandbox. Once that finished, the refiner
+  /// run of the job ended and the humans have the artifact.
+  val aCompletedJobEndsItsReview: bool = lastStepKept.aCompletedJobEndsItsReview
 
   /// A job start leaves at most the plan's number of job slots of jobs active.
   val jobStartsOnlyIntoAFreeSlot: bool = lastStepKept.jobStartsOnlyIntoAFreeSlot
@@ -3208,10 +3336,10 @@ module workflowLifecycle {
   /// Witness for `artifactStatusMovesAreLegal`: the humans have a page.
   val theHumansHaveAPage: bool = jobIds(workflow).exists(id => workflow.jobs[id].artifact == Ready)
 
-  /// The workflow finished done.
+  /// Witness for `anEndedWorkflowPostsItsEndOnce`: the workflow finished done.
   val theWorkflowIsDone: bool = workflow.status == Done
 
-  /// The workflow failed.
+  /// Witness for `anEndedWorkflowPostsItsEndOnce`: the workflow failed.
   val theWorkflowFailed: bool = workflow.status == Failed
 
   /// Witness for `aSingleIssueWorkflowIsDoneWithItsSubjectsJob`: `complete_job` on the subject
@@ -3268,6 +3396,28 @@ module workflowLifecycle {
   /// Known limit of row T33: a restart of the Durable Object cuts the produce turn of a model-call
   /// author while the page create is out. The turn runs again and creates a second page.
   val aRestartCutsAPageCreate: bool = lastStepReached.aRestartCutsAPageCreate
+
+  /// Witness for `eachFailedTaskPostsItsFailureOnce`: the failure of a harness author posts once the
+  /// destroy of its sandbox returns.
+  val aHarnessAuthorPostsItsFailureAfterItsDestroy: bool = lastStepReached.aHarnessAuthorPostsItsFailureAfterItsDestroy
+
+  /// Witness for `eachFailedTaskPostsItsFailureOnce`: a researcher fails past its restarts and posts.
+  val aResearcherPostsItsFailure: bool = lastStepReached.aResearcherPostsItsFailure
+
+  /// Witness for `eachFailedTaskPostsItsFailureOnce`: the page model fails a model call, and its
+  /// author posts its failure.
+  val aModelCallHostErrorPostsAFailure: bool = lastStepReached.aModelCallHostErrorPostsAFailure
+
+  /// Known limit of row C14: a restart of the Durable Object drops the destroy of a failed harness
+  /// author's sandbox. The failure does not post, and the agent is not told.
+  val aRestartDropsAFailurePost: bool = lastStepReached.aRestartDropsAFailurePost
+
+  /// Witness for `aCompletedJobEndsItsReview`: `complete_job` ends a job while its refiner run runs.
+  val aJobCompletesDuringItsReview: bool = lastStepReached.aJobCompletesDuringItsReview
+
+  /// Witness for `aCompletedJobEndsItsReview`: the end of a completed harness author finishes once
+  /// the destroy of its sandbox returns.
+  val aHarnessAuthorCompletesAfterItsDestroy: bool = lastStepReached.aHarnessAuthorCompletesAfterItsDestroy
 
   /// Witness for `aModelCallAuthorWorksOnlyWhileItsCallIsOut`: a stop left a model-call author at
   /// work without a turn and without a page.

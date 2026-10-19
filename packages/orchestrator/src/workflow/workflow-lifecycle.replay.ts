@@ -91,6 +91,12 @@ describe("workflow lifecycle spec", () => {
     await replayTrace("pagesWithAReviewer", traceSteps("pagesWithAReviewer", trace));
   });
 
+  it("ends the refiner run of a job the agent completes during its review", async () => {
+    const path = join(PINNED_TRACES, "a-job-completes-during-its-review.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("pagesWithAReviewer", traceSteps("pagesWithAReviewer", trace));
+  });
+
   it("tells the agent of a person's instruct once the revise turn it starts ends", async () => {
     const path = join(PINNED_TRACES, "instruct-waits-for-the-revise-turn.itf.json");
     const trace: unknown = JSON.parse(readFileSync(path, "utf8"));

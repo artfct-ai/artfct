@@ -31,6 +31,7 @@ import { failTask, resumeWorkflowEnd } from "../src/workflow/lifecycle";
 import { resumeLostCalls, type LostCallsAlarm } from "../src/workflow/restart";
 import { isTaskFinished, type Subject } from "../src/workflow/store/state";
 import type { JobRow, TaskRow } from "../src/workflow/store/tasks";
+import type { TaskEvent } from "../src/workflow/task/events";
 import type { ConnectionState } from "../src/workflow/task/harness/bridge";
 import { onNoProgress } from "../src/workflow/task/harness/timers";
 import {
@@ -260,6 +261,14 @@ const REFINER_RUN_STATUSES = [
   "RefinerFailed",
 ] as const;
 const CALL_KINDS = ["SandboxDestroy", "AcceptanceCheck", "ModelCall", "PageWrite"] as const;
+const ENDING_POSTS = ["TaskFailurePost", "WorkflowFailurePost", "DonePost"] as const;
+
+/** The ending post of the spec that each posted event of an end is. */
+const ENDING_POST_OF: Partial<Record<TaskEvent["type"], (typeof ENDING_POSTS)[number]>> = {
+  failed: "TaskFailurePost",
+  workflow_failed: "WorkflowFailurePost",
+  done: "DonePost",
+};
 const CHECK_ANSWERS = ["CheckPasses", "CheckDoesNotPass", "CheckUnavailable"] as const;
 const COMPLETION_ANSWERS = [
   "NotAnswered",
@@ -363,7 +372,7 @@ export type SpecWorkflow = {
   idleArmed: boolean;
   jobs: SpecJob[];
   calls: SpecCall[];
-  failuresPosted: number;
+  endingPosts: (typeof ENDING_POSTS)[number][];
   issueMoves: number;
   restartAlarms: number[][];
   runAgainAlarms: number[];
@@ -509,7 +518,9 @@ function specWorkflow(value: unknown): SpecWorkflow {
     idleArmed: itfBool(itfField(value, "idleArmed")),
     jobs,
     calls: itfList(itfField(value, "calls")).map((call) => specCall(call, jobs)),
-    failuresPosted: itfInt(itfField(value, "failuresPosted")),
+    endingPosts: itfList(itfField(value, "endingPosts")).map((post) =>
+      itfOneOf(itfVariant(post)!.tag, ENDING_POSTS),
+    ),
     issueMoves: itfInt(itfField(value, "issueMoves")),
     restartAlarms: itfSet(itfField(value, "restartAlarms"))
       .map(sortedInts)
@@ -623,6 +634,7 @@ type HeldCall = {
   kind: CallKind;
   jobId: string;
   answer: (decisions: Decisions) => void;
+  fail: (() => void) | null;
   step: Promise<unknown> | null;
   turnId: string | null;
   revises: { taskId: string; promptId: number } | null;
@@ -909,7 +921,10 @@ export class WorkflowLifecycleReplay {
         };
       }),
       calls: this.calls.map((call) => this.specCallOf(call, jobs)),
-      failuresPosted: workflow.posted.filter((event) => event.type === "failed").length,
+      endingPosts: workflow.posted.flatMap((event) => {
+        const post = ENDING_POST_OF[event.type];
+        return post ? [post] : [];
+      }),
       issueMoves: this.world.steps.reduce((total, step) => total + step.issueUpdates, 0),
       restartAlarms: this.restartAlarms(),
       runAgainAlarms: [
@@ -1200,6 +1215,10 @@ export class WorkflowLifecycleReplay {
         return worldAction(`model call ${picks.callId} returns`, () =>
           this.returnCall(required(picks.callId), new FakeDecisions(ANSWERS)),
         );
+      case "modelCallFails":
+        return worldAction(`model call ${picks.callId} fails`, () =>
+          this.failModelCall(required(picks.callId)),
+        );
       case "pageWriteReturns":
         return worldAction(`page write ${picks.callId} returns`, () =>
           this.returnCall(required(picks.callId), new FakeDecisions(ANSWERS)),
@@ -1401,6 +1420,7 @@ export class WorkflowLifecycleReplay {
               answer: () => {
                 accepted(ref).then(resolve, reject);
               },
+              fail: null,
               turnId: null,
               revises: null,
               land: null,
@@ -1607,6 +1627,16 @@ export class WorkflowLifecycleReplay {
     this.answeredModelCall = null;
   }
 
+  private async failModelCall(callId: number): Promise<void> {
+    const [call] = this.calls.splice(callId, 1);
+    if (!call?.fail) throw new Error(`no model call ${callId} is out`);
+    const { fail, step: rest } = call;
+    await this.runStep(async () => {
+      fail();
+      await rest;
+    });
+  }
+
   /**
    * Hold the destroy of the sandbox of an author that ended or restarts. A polisher closes the
    * container of an author as it starts, and the spec folds that destroy into the step.
@@ -1620,6 +1650,7 @@ export class WorkflowLifecycleReplay {
         kind: "SandboxDestroy",
         jobId: task.job_id,
         answer: () => release(),
+        fail: null,
         turnId: null,
         revises: null,
         land: null,
@@ -1634,6 +1665,7 @@ export class WorkflowLifecycleReplay {
         kind: "AcceptanceCheck",
         jobId,
         answer: release,
+        fail: null,
         turnId: null,
         revises: null,
         land: null,
@@ -1658,11 +1690,12 @@ export class WorkflowLifecycleReplay {
     }
     this.pagesWritten += 1;
     const page = `# Sessions\n\nVersion ${this.pagesWritten} of the page.\n\n${CLOSING_TEXT_MARKER}\nRevised the page.`;
-    return new Promise<string>((release) => {
+    return new Promise<string>((release, reject) => {
       this.hold({
         kind: "ModelCall",
         jobId: task.job_id,
         answer: () => release(page),
+        fail: () => reject(new Error("the page model is down")),
         turnId: task.model_turn_id,
         revises: prompt ? { taskId: task.task_id, promptId: prompt.id } : null,
         land: null,
@@ -1685,6 +1718,7 @@ export class WorkflowLifecycleReplay {
         answer: () => {
           write().then(resolve, reject);
         },
+        fail: null,
         turnId: modelCall.turnId,
         revises: modelCall.revises,
         land: async () => {
