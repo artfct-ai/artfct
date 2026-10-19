@@ -32,6 +32,7 @@ import {
   type TranscriptRow,
   type WroteFrom,
 } from "../src/agent/transcript/transcript";
+import { runAgent, tellAgent } from "../src/agent/turn/tell";
 import { RECAP_MARKER, runAgentTurn, STUCK_TEXT, UNANSWERED_TEXT } from "../src/agent/turn/turn";
 import {
   HEADS_UP_TEXT,
@@ -47,7 +48,6 @@ import type { PostOptions } from "../src/notify/notifier";
 import type { Recipients } from "../src/notify/recipients";
 import { openWorkflowDb, type WorkflowDb } from "../src/workflow/store/db";
 import type { TaskEvent } from "../src/workflow/task/events";
-import { TurnCoalescer } from "../src/workflow/task/harness/turn";
 import type { ScheduledMethod, Wake } from "../src/workflow/types";
 import { SCRIPTED_CLOSING_TEXT, SCRIPTED_PAGE_URL, SCRIPTED_TASK } from "./fake-model";
 import { FakeRuntime, seedTask } from "./fake-runtime";
@@ -135,6 +135,7 @@ export type TurnsView = {
   pagesFetched: number;
   messagesRead: number;
   decisionsAnsweredBy: number[];
+  decisionsEvents: string[];
   runtimeRequestOut: boolean;
 };
 
@@ -184,7 +185,8 @@ export async function generateTraces(
   return itfList(traces).map((trace) => specTrace(setup, trace));
 }
 
-function specTrace(setup: SpecSetup, trace: unknown): SpecTrace {
+/** One ITF trace of a setup, such as a pinned one, in the terms the replay takes. */
+export function specTrace(setup: SpecSetup, trace: unknown): SpecTrace {
   const states = itfList(itfField(trace, "states"));
   const models = itfList(itfField(states[0], `${setup}::agentTurns::models`)).map(modelSays);
   const steps = states.map((state) => ({
@@ -257,7 +259,8 @@ function specView(workflow: unknown): TurnsView {
     headsUp: armedFor(itfField(store, "headsUp"), "ArmedFor"),
     firstRow: armedFor(itfField(store, "firstRow"), "FirstRowIs"),
     boardChanged: itfBool(itfField(store, "boardChanged")),
-    runAgentAlarms: itfInt(itfField(store, "runAgentAlarms")),
+    runAgentAlarms:
+      itfInt(itfField(store, "runAgentAlarms")) + (itfBool(itfField(store, "backupAlarm")) ? 1 : 0),
     lastInputOverLimit: itfBool(itfField(store, "lastInputOverLimit")),
     chat: tagOf(itfField(store, "chat")),
     posts: itfList(itfField(store, "posts")).map(
@@ -267,6 +270,7 @@ function specView(workflow: unknown): TurnsView {
     pagesFetched: itfInt(itfField(store, "pagesFetched")),
     messagesRead: itfInt(itfField(store, "messagesRead")),
     decisionsAnsweredBy: specAnsweredBy(itfField(itfField(workflow, "isolate"), "turn")),
+    decisionsEvents: specDecisionsEvents(itfField(itfField(workflow, "isolate"), "turn")),
     runtimeRequestOut: specRuntimeRequestOut(itfField(itfField(workflow, "isolate"), "turn")),
   };
 }
@@ -275,6 +279,12 @@ function specAnsweredBy(slot: unknown): number[] {
   const turn = itfVariant(slot)!;
   if (turn.tag === "NoTurn") return [];
   return itfList(itfField(itfField(turn.value, "record"), "answeredBy")).map(itfInt);
+}
+
+function specDecisionsEvents(slot: unknown): string[] {
+  const turn = itfVariant(slot)!;
+  if (turn.tag === "NoTurn") return [];
+  return itfList(itfField(itfField(turn.value, "record"), "decisionsEvents")).map(tagOf);
 }
 
 function specRuntimeRequestOut(slot: unknown): boolean {
@@ -373,6 +383,7 @@ class ReplayLedger {
   firingAlarm = false;
   deadlineFired = false;
   usageAtTurnStart = 0;
+  decisionsEvents: string[] = [];
   clock = REPLAY_START;
   pagesFetched = 0;
   messagesRead = 0;
@@ -489,7 +500,9 @@ class HeldDecisions implements Decisions {
     );
     const requestsRuntime = RUNTIME_REQUEST_CHOICE in questions.choices;
     const phase = screens ? "Screening" : requestsRuntime ? RUNTIME_REQUEST : "ReadingMessage";
-    return new Promise((resolve, reject) => {
+    const { ledger } = this;
+    ledger.decisionsEvents.push("DecisionsAsked");
+    const answered = new Promise<DecisionAnswers<YesNoName, ChoiceName>>((resolve, reject) => {
       this.ledger.hold({
         phase,
         land: async (landing) => {
@@ -502,6 +515,16 @@ class HeldDecisions implements Decisions {
         },
       });
     });
+    return answered.then(
+      (answers) => {
+        ledger.decisionsEvents.push("DecisionsAnswered");
+        return answers;
+      },
+      (error: unknown) => {
+        ledger.decisionsEvents.push("DecisionsFailed");
+        throw error;
+      },
+    );
   }
 }
 
@@ -586,12 +609,12 @@ class RevisionHeldComments extends FakeDocuments {
 
 /**
  * The fake runtime as the Workflow wires agent turns: `tellAgent` queues the text and runs the
- * turn through the turn loop of the Workflow. The posts and the release that close a turn wait for the replay.
+ * turn in the turn lane, as the Workflow does. The posts and the release that close a turn wait
+ * for the replay.
  */
 class ReplayRuntime extends FakeRuntime {
   override readonly transcript: ReplayTranscript;
   turnActive = false;
-  private readonly turns = new TurnCoalescer();
 
   constructor(
     private readonly database: WorkflowDb,
@@ -604,12 +627,12 @@ class ReplayRuntime extends FakeRuntime {
 
   override restarted(): ReplayRuntime {
     const next = new ReplayRuntime(this.database, this.env, this.ledger);
-    const { sessionFeeds, pageWritesOut, transcript, turns } = next;
+    const { sessionFeeds, pageWritesOut, transcript, agentTurns } = next;
     Object.assign(next, this, {
       sessionFeeds,
       pageWritesOut,
       transcript,
-      turns,
+      agentTurns,
       turnRunning: false,
     });
     next.turnActive = false;
@@ -621,19 +644,8 @@ class ReplayRuntime extends FakeRuntime {
     return this.ledger.clock;
   }
 
-  override async tellAgent(text: string, wake: Wake, from?: WroteFrom): Promise<void> {
-    this.transcript.enqueue(text, wake, from);
-    if (wake === "none") return;
-    void this.turns
-      .run(() => this.agentTurn())
-      .catch((error: unknown) => this.ledger.failures.push(`agent turn threw: ${String(error)}`));
-  }
-
-  /** The `runAgent` alarm: a turn only when none runs, as the Workflow runs it. */
-  async runAgent(): Promise<void> {
-    await this.turns
-      .runIfIdle(() => this.agentTurn())
-      .catch((error: unknown) => this.ledger.failures.push(`agent turn threw: ${String(error)}`));
+  override tellAgent(text: string, wake: Wake, from?: WroteFrom): Promise<void> {
+    return tellAgent(this, text, wake, from);
   }
 
   override async post(event: TaskEvent, to?: Recipients, options?: PostOptions): Promise<void> {
@@ -657,11 +669,15 @@ class ReplayRuntime extends FakeRuntime {
     await super.release(only);
   }
 
-  private async agentTurn(): Promise<void> {
+  override async agentTurn(): Promise<void> {
     this.turnActive = true;
     this.ledger.usageAtTurnStart = this.store.modelUsage().length;
+    this.ledger.decisionsEvents = [];
     try {
       await runAgentTurn(this);
+    } catch (error) {
+      this.ledger.failures.push(`agent turn threw: ${String(error)}`);
+      throw error;
     } finally {
       this.turnActive = false;
       this.ledger.deadlineFired = false;
@@ -992,7 +1008,7 @@ export class AgentTurnsReplay {
         ],
       });
       runtime.documentsInstance = new RevisionHeldComments(ledger);
-      runtime.chatInstance = new NumberedChat(ledger);
+      runtime.chatInstance = runtime.postThroughChat(new NumberedChat(ledger));
       runtime.webInstance = new NumberedWeb(ledger);
       globalThis.setTimeout = capturingSetTimeout(ledger, realSetTimeout);
       globalThis.clearTimeout = capturingClearTimeout(ledger, realClearTimeout);
@@ -1113,6 +1129,7 @@ export class AgentTurnsReplay {
       pagesFetched: ledger.pagesFetched,
       messagesRead: ledger.messagesRead,
       decisionsAnsweredBy: this.decisionsAnsweredBy(),
+      decisionsEvents: ledger.held || runtime.turnActive ? [...ledger.decisionsEvents] : [],
       runtimeRequestOut: ledger.runtimeRequest !== null,
     };
   }
@@ -1147,14 +1164,14 @@ export class AgentTurnsReplay {
   private async personWrites(origin: Origin): Promise<void> {
     const target = ORIGIN_TARGETS[origin];
     const id = this.ledger.nextInboxId;
+    const message = `17580${String(id).padStart(5, "0")}.000000`;
     const from: WroteFrom =
-      origin === "ChatThread"
-        ? {
-            reply_to: target,
-            chat_message: { channel: "C1", message: `17580${String(id).padStart(5, "0")}.000000` },
-          }
+      target.source === "chat"
+        ? { reply_to: target, chat_message: { channel: target.channel, message } }
         : { reply_to: target };
-    if (origin === "ChatThread") this.runtime.chatSession = "processing";
+    if (target.source === "chat") {
+      await this.runtime.notifier.acknowledge(target, { message, user: "U1" }, "Replay");
+    }
     await this.runtime.tellAgent(
       `[event kind=message]\n\nFix the flaky test with ${NAMED_MODEL} (inbox ${id}).${LONG_DETAIL}`,
       "message",
@@ -1213,7 +1230,9 @@ export class AgentTurnsReplay {
     const alarm = this.runtime.alarmsFor("runAgent")[0];
     if (!alarm) throw new Error("the trace fires runAgent, but no such alarm is armed");
     await this.runtime.cancelAlarm(alarm.id);
-    void this.runtime.runAgent();
+    void runAgent(this.runtime).catch((error: unknown) =>
+      this.ledger.failures.push(`runAgent threw: ${String(error)}`),
+    );
   }
 
   private async restart(): Promise<void> {
@@ -1275,6 +1294,9 @@ function capturingSetTimeout(ledger: ReplayLedger, real: typeof setTimeout): typ
       return Number(Reflect.apply(real, globalThis, [handler, delay, ...args]));
     }
     if (delay === TURN_TIMEOUT_MS) {
+      if (ledger.deadlines.some((armed) => !armed.cleared)) {
+        ledger.failures.push(`a second ${TURN_TIMEOUT_MS} ms timer ran beside the turn deadline`);
+      }
       ledger.deadlines.push({ fire: () => handler(), cleared: false });
       return -ledger.deadlines.length;
     }

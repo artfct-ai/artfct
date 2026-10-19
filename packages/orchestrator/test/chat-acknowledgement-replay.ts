@@ -2,6 +2,7 @@ import { FakeChat } from "@artfct-ai/adapters/test/fake-chat";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { spyOn, type Mock } from "bun:test";
 import { deliverWithChatAck } from "../src/router/chat-ack";
+import { Deferred } from "./deferred";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfText, itfVariant } from "./itf";
 import { quintTraces } from "./quint-traces";
 
@@ -153,16 +154,6 @@ function asRecord(value: unknown): object {
     throw new Error(`the trace has ${JSON.stringify(value)}, not a record`);
   }
   return value;
-}
-
-/** A promise the replay settles when the spec says so. */
-class Deferred<Value> {
-  resolve: (value: Value) => void = () => {};
-  reject: (error: Error) => void = () => {};
-  readonly promise = new Promise<Value>((resolve, reject) => {
-    this.resolve = resolve;
-    this.reject = reject;
-  });
 }
 
 /** One reaction call the chat holds until the spec answers it. */
@@ -428,14 +419,19 @@ function eventFor(source: SourceName, ts: string): InboundEvent {
     links: [],
     text: "also add a test",
   };
+  const acknowledge = { message: ts, user: "U1" };
   if (source === "Chat") {
     return {
       ...base,
       reply_to: { source: "chat", channel: CHANNEL, thread: "1.0" },
-      acknowledge: { message: ts, user: "U1" },
+      acknowledge,
     };
   }
-  return { ...base, reply_to: { source: "tracker", session_id: "s1", issue_id: "i1" } };
+  return {
+    ...base,
+    reply_to: { source: "tracker", session_id: "s1", issue_id: "i1" },
+    acknowledge,
+  };
 }
 
 async function drainMicrotasks(): Promise<void> {

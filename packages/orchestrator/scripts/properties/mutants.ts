@@ -415,7 +415,7 @@ export const MUTANTS: Mutant[] = [
     id: "A4",
     invariant: "agentTurns::aWaitingInboxRowHasATurnComing",
     path: "src/agent/turn/watchdog.ts",
-    find: '    if (waking) await workflow.scheduleAlarm(0, "runAgent", {});\n',
+    find: '  if (waking) await workflow.scheduleAlarm(0, "runAgent", {});\n',
     replace: "",
   },
   {
@@ -437,9 +437,9 @@ export const MUTANTS: Mutant[] = [
     id: "A7",
     invariant: "agentTurns::aWaitingPersonHearsBackByTheTimeout (waits after the deadline)",
     path: "src/agent/turn/turn.ts",
-    find: '    if (signal.aborted) return "timed_out";\n  }\n  try {',
+    find: '    if (run.signal.aborted) return "timed_out";\n  }\n  try {',
     replace:
-      '    if (signal.aborted) {\n      await new Promise((resolve) => setTimeout(resolve, 5));\n      return "timed_out";\n    }\n  }\n  try {',
+      '    if (run.signal.aborted) {\n      await new Promise((resolve) => setTimeout(resolve, 5));\n      return "timed_out";\n    }\n  }\n  try {',
   },
   {
     id: "W180",
@@ -448,6 +448,35 @@ export const MUTANTS: Mutant[] = [
     path: "src/agent/turn/turn.ts",
     find: "  await compactIfLarge(workflow, turn, signal);\n  await runtimeRequest;\n",
     replace: "  await compactIfLarge(workflow, turn, signal);\n",
+  },
+  {
+    id: "W210",
+    invariant: "agentTurns::aWaitingInboxRowHasATurnComing (backup alarm)",
+    path: "src/agent/turn/tell.ts",
+    find: '  const backup = await workflow.scheduleAlarm(0, "runAgent", {});\n',
+    replace: '  const backup = "no backup alarm";\n',
+  },
+  {
+    id: "W211",
+    invariant: "agent turns replay: the turn lane cancels its backup alarm",
+    path: "src/agent/turn/tell.ts",
+    find: "    .then(() => workflow.cancelAlarm(backup))\n",
+    replace: "    .then(() => backup)\n",
+  },
+  {
+    id: "W212",
+    invariant: "agentTurns::theWorkingStatusNeverOutlivesItsTurn (release of a finished workflow)",
+    path: "src/workflow/posts.ts",
+    find: '    if (target.source === "chat") await workflow.notifier.release(target, finished, title);\n',
+    replace:
+      '    if (target.source === "chat") await workflow.notifier.release(target, false, title);\n',
+  },
+  {
+    id: "W213",
+    invariant: "agent turns replay: each step shows the chat thread its working status",
+    path: "src/workflow/posts.ts",
+    find: '    if (target.source === "chat") await workflow.notifier.working(target, text);\n',
+    replace: '    if (target.source === "chat") return;\n',
   },
   {
     id: "W181",
@@ -530,6 +559,13 @@ export const MUTANTS: Mutant[] = [
     replace: "    if (!row) {",
   },
   {
+    id: "W218",
+    invariant: "routerBindings::aWorkflowGetsEventsOnlyOnceCreated (the create marks it created)",
+    path: "src/workflow/inbound/events.ts",
+    find: "    created_at: now(),\n",
+    replace: "",
+  },
+  {
     id: "F1",
     invariant:
       "feedbackRouting::unadmittedFeedbackReachesNobody, reviewLoop::unadmittedFeedbackReachesNobody",
@@ -560,6 +596,14 @@ export const MUTANTS: Mutant[] = [
     replace: "  if (false) {\n    return toTheAgent(",
   },
   {
+    id: "W217",
+    invariant:
+      "behavior map E4: a page comment that does not mention the bot stays held and wakes nobody",
+    path: "src/workflow/refiner/feedback.ts",
+    find: '      workflow.log(task.task_id, "a page comment waits for a mention");',
+    replace: '      await workflow.tellAgent("A page comment waits for a mention.", "human");',
+  },
+  {
     id: "C1",
     invariant: "chatAcknowledgement::eyesNeverOutliveTheDelivery",
     path: "src/router/chat-ack.ts",
@@ -579,6 +623,14 @@ export const MUTANTS: Mutant[] = [
     path: "src/router/chat-ack.ts",
     find: "      await chat.removeReaction(",
     replace: "      void chat.removeReaction(",
+  },
+  {
+    id: "W216",
+    invariant:
+      "chatAcknowledgement::eyesMarkOnlyASlowChatDelivery (tracker message with an acknowledgement)",
+    path: "src/router/chat-ack.ts",
+    find: '  if (!chat || !message || target?.source !== "chat") return deliver();',
+    replace: "  if (!chat || !message || !target) return deliver();",
   },
   {
     id: "SR1",
@@ -690,11 +742,26 @@ export const MUTANTS: Mutant[] = [
     replace: "",
   },
   {
+    id: "W117",
+    invariant: "sessionRouting::everySessionMessageLandsOnce (marked on arrival)",
+    path: "src/workflow/inbound/events.ts",
+    find: "  if (workflow.store.eventSeen(event.id)) return DUPLICATE;\n",
+    replace:
+      "  if (!workflow.store.markEventSeen(event)) return DUPLICATE;\n  event = { ...event, id: `${event.id}:landed` };\n",
+  },
+  {
+    id: "W118",
+    invariant: "sessionRouting::everySessionMessageLandsOnce (lands twice)",
+    path: "src/workflow/inbound/events.ts",
+    find: "  if (!routesBeforeItIsSeen(workflow, event) && !workflow.store.markEventSeen(event)) {\n    return DUPLICATE;\n  }\n",
+    replace: "  if (!routesBeforeItIsSeen(workflow, event)) workflow.store.markEventSeen(event);\n",
+  },
+  {
     id: "W115",
     invariant: "feedbackRouting::everyFeedbackIsRoutedOnce (seen on arrival)",
     path: "src/workflow/inbound/events.ts",
-    find: "  if (workflow.store.eventSeen(event.id)) return { ok: true, duplicate: true };",
-    replace: "  if (!workflow.store.markEventSeen(event)) return { ok: true, duplicate: true };",
+    find: "  if (workflow.store.eventSeen(event.id)) return DUPLICATE;\n",
+    replace: "  if (!workflow.store.markEventSeen(event)) return DUPLICATE;\n",
   },
   {
     id: "W116",
@@ -702,6 +769,28 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/refiner/feedback.ts",
     find: "  if (!workflow.store.eventSeen(key)) return false;",
     replace: "  if (key) return false;",
+  },
+  {
+    id: "W191",
+    invariant: "workflowLifecycle::aPersonsMessageWakesTheWorkflow",
+    path: "src/workflow/inbound/events.ts",
+    find: '  if (workflow.state.status === "waiting_input") await changeWorkflowStatus(workflow, "running");\n',
+    replace: "",
+  },
+  {
+    id: "W192",
+    invariant: "workflowLifecycle::issuesMoveOnlyAtAStartOrADoneEnd",
+    path: "src/workflow/lifecycle.ts",
+    find: '  await workflow.post({ type: "workflow_failed", reason });\n',
+    replace:
+      '  await workflow.post({ type: "workflow_failed", reason });\n  for (const target of workflow.state.reply_targets) {\n    if (target.source === "tracker") await workflow.notifier.moveIssue(target, "completed");\n  }\n',
+  },
+  {
+    id: "W193",
+    invariant: "workflowLifecycle::aModelCallAuthorWorksOnlyWhileItsCallIsOut",
+    path: "src/workflow/task/model-turn.ts",
+    find: "  await drainQueue(workflow, workflow.store.requireTask(task.task_id));\n}",
+    replace: "}",
   },
   {
     id: "W171",
@@ -940,7 +1029,7 @@ export const MUTANTS: Mutant[] = [
     id: "W122",
     invariant: "workflowLifecycle::aRestartDoesNotLoseAModelTurn",
     path: "src/workflow/task/model-turn.ts",
-    find: '    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", author);\n',
+    find: '    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", rerun);\n',
     replace: "",
   },
   {
@@ -948,8 +1037,8 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "workflowLifecycle::aQueuedPromptReachesItsModelCallAuthor, reviewLoop::aQueuedPromptReachesItsModelCallAuthor",
     path: "src/workflow/task/model-turn.ts",
-    find: "  if (task) await drainQueue(workflow, task);\n",
-    replace: "  if (task) return;\n",
+    find: "  await drainQueue(workflow, workflow.store.requireTask(task.task_id));\n",
+    replace: "",
   },
   {
     id: "W124",
@@ -1105,6 +1194,34 @@ export const MUTANTS: Mutant[] = [
     find: '    case "waiting":\n    case "sent_back":\n',
     replace:
       '    case "waiting":\n      return endPolisherRun(workflow, polisher, { ended: "turn" });\n    case "sent_back":\n',
+  },
+  {
+    id: "W235",
+    invariant: "feedbackRouting::everyFeedbackGetsOneRoutingDecision (bare mention)",
+    path: "src/workflow/refiner/feedback.ts",
+    find: 'so nothing was sent. Ask them what they want.`,\n      ],\n      wake: "human",',
+    replace: 'so nothing was sent. Ask them what they want.`,\n      ],\n      wake: "none",',
+  },
+  {
+    id: "W265",
+    invariant: "harnessSession::staleAlarmIsIgnored (hello timeout)",
+    path: "src/workflow/task/harness/timers.ts",
+    find: '  if (!task || !sandbox || sandbox.generation !== alarm.generation) return;\n  if (task.status !== "provisioning") return;',
+    replace: '  if (!task || !sandbox) return;\n  if (task.status !== "provisioning") return;',
+  },
+  {
+    id: "W266",
+    invariant: "routerBindings::aBaseMoveOnlyHandsTheEventOn",
+    path: "src/router/deliver.ts",
+    find: '  if (event.pull?.action === "base_moved") return fanOutBaseMoved(env, db, event, event.pull);\n',
+    replace: "",
+  },
+  {
+    id: "W267",
+    invariant: "workflowLifecycle::aTurnThatWaitsToRunAgainHasItsAlarm",
+    path: "src/workflow/task/model-turn.ts",
+    find: '    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", rerun);\n',
+    replace: '    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", turn);\n',
   },
   {
     id: "W268",

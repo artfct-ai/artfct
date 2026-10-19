@@ -824,7 +824,8 @@ module routerBindings {
   val aDeliveryJoinsAWorkflow: bool =
     world.deliveries.keys().exists(id => world.deliveries.get(id).phase == Handling)
 
-  /// A delivery hands the event to a workflow whose create has not returned.
+  /// Witness for `aWorkflowGetsEventsOnlyOnceCreated`: a delivery hands the event to a workflow whose
+  /// create has not returned.
   val aDeliveryReachesAWorkflowBeforeItsCreate: bool =
     world.deliveries.keys().exists(id => and {
       world.deliveries.get(id).phase == Handling,

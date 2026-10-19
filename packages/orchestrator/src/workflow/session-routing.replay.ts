@@ -40,6 +40,7 @@ async function replayTrace(setup: SpecSetup, trace: TraceStep[]): Promise<void> 
     const output = await replay.take(step);
     expect(output, divergence(step)).toEqual(step.output);
     expect(replay.project(), divergence(step)).toEqual(step.routing);
+    if (step.messages) expect(replay.messages(), divergence(step)).toEqual(step.messages);
   }
   replay = null;
 }
