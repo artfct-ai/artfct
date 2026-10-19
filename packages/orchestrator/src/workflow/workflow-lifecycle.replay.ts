@@ -130,6 +130,18 @@ describe("workflow lifecycle spec", () => {
     await replayTrace("pagesFromModelCalls", traceSteps("pagesFromModelCalls", trace));
   });
 
+  it("finishes the cancel of a workflow when an instance restart cut its last destroy", async () => {
+    const path = join(PINNED_TRACES, "a-restart-cuts-the-last-destroy-of-a-workflow-end.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("pagesWithAReviewer", traceSteps("pagesWithAReviewer", trace));
+  });
+
+  it("cancels the next author when the alarm goes on with a failure an instance restart cut off", async () => {
+    const path = join(PINNED_TRACES, "a-resumed-workflow-end-waits-on-the-next-destroy.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("pagesWithAReviewer", traceSteps("pagesWithAReviewer", trace));
+  });
+
   it("leaves the store as it was when the deadline of a lost model turn fires before it runs again", async () => {
     const path = join(PINNED_TRACES, "a-lost-turn-deadline-before-it-runs-again.itf.json");
     const trace: unknown = JSON.parse(readFileSync(path, "utf8"));

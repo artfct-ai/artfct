@@ -116,6 +116,10 @@ module workflowLifecycleTypes {
   /// teardown went on.
   type Caller = ToolOrEvent | WorkflowEnd(WorkflowStatus) | SubjectJobCompletes
 
+  /// The workflow end the store holds, with the status it ends as. The end stores it before its
+  /// first cancel and drops it once the status is written, so an instance restart keeps it.
+  type StoredEnd = NoStoredEnd | EndStored(WorkflowStatus)
+
   /// The rest of the step that runs when the call returns. `RestartAfterWake` is a restart whose
   /// author a resume woke in a new generation while its old container went. It stops there.
   /// `PageWriteStarts` is the model turn that writes the answer of its model call to the page.
@@ -159,7 +163,7 @@ module workflowLifecycleTypes {
   /// `turnsToRunAgain` holds the jobs whose restarted author still holds the new turn id that its
   /// run-again alarm names. A stop takes it, so that alarm does nothing.
   /// `restartAlarmFired` and `ranAgain` record the alarms that already fired, which the platform
-  /// may deliver again.
+  /// may deliver again. `storedEnd` is the workflow end the store holds.
   type Workflow = {
     status: WorkflowStatus,
     definition: PlanDefinition,
@@ -176,6 +180,7 @@ module workflowLifecycleTypes {
     turnsToRunAgain: Set[int],
     restartAlarmFired: bool,
     ranAgain: Set[int],
+    storedEnd: StoredEnd,
   }
 
   /// A verbal command that acts on a job. The cancel ends the workflow, so it is an `Ending`.
@@ -200,6 +205,7 @@ module workflowLifecycleTypes {
   /// `RunAgainStep` is the alarm that runs the lost model turn of the job again, also once more.
   /// `LostTurnDeadlineStep` is the deadline alarm of the lost model turn of the job, which fires
   /// while its author waits for the alarm that runs the turn again.
+  /// `EndResumeStep` is the alarm that goes on with a workflow end an instance restart cut off.
   type StepKind =
     | OtherStep
     | PlanStep({ definition: int, subject: Subject })
@@ -224,6 +230,7 @@ module workflowLifecycleTypes {
     | RestartAlarmAgainStep
     | RunAgainStep(int)
     | LostTurnDeadlineStep(int)
+    | EndResumeStep
 
   /// The timers whose alarms are about one sandbox generation.
   type GenerationTimer = HelloTimeout | NoProgress | KeepAlive | BridgeLost | QueueRetry | SettleIdleAuthor
@@ -265,6 +272,7 @@ module workflowLifecycleTypes {
     aFailedCheckNeverAsksThePersonAgain: bool,
     stoppedModelCallLeavesThePage: bool,
     aJobStartProvisionsItsTask: bool,
+    aWorkflowEndReachesAFinishedStatus: bool,
     aPersonsMessageWakesTheWorkflow: bool,
     issuesMoveOnlyAtAStartOrADoneEnd: bool,
   }
@@ -336,6 +344,8 @@ module workflowLifecycleTypes {
     aTrackerWorkflowEndsWithoutDone: bool,
     aRestartCutsAPageCreate: bool,
     aRestartAlarmDecidesATurnThatWaitedToRunAgain: bool,
+    aRestartLandsDuringAWorkflowEnd: bool,
+    aWorkflowEndResumesAfterARestart: bool,
   }
 
   type Ending = PersonCancels | AgentFails | AgentFinishes
@@ -464,6 +474,7 @@ module workflowLifecycle {
     turnsToRunAgain: Set(),
     restartAlarmFired: false,
     ranAgain: Set(),
+    storedEnd: NoStoredEnd,
   }
 
   var workflow: Workflow
@@ -712,16 +723,15 @@ module workflowLifecycle {
   pure def inputHeld(flow: Workflow, input: Input): bool =
     jobIds(flow).exists(id => flow.jobs[id].input == input and holdsItsInput(flow, id))
 
-  /// True while the loop of a workflow end waits on the destroy of an author's sandbox. Only this
-  /// instance knows it, so a restart of the Durable Object forgets it with the calls it drops.
-  pure def workflowEnding(flow: Workflow): bool =
-    flow.calls.indices().exists(callId => match flow.calls[callId].rest {
-      | TeardownGoesOn(teardown) => match teardown.caller {
-        | WorkflowEnd(_) => true
-        | _ => false
-      }
-      | _ => false
-    })
+  /// True from the request of a workflow end until its status is written. The store holds the
+  /// end, so an instance restart keeps it.
+  pure def workflowEnding(flow: Workflow): bool = flow.storedEnd != NoStoredEnd
+
+  /// The status the workflow end the store holds ends as, or none when it does not hold one.
+  pure def storedEndStatus(flow: Workflow): Set[WorkflowStatus] = match flow.storedEnd {
+    | NoStoredEnd => Set()
+    | EndStored(endsAs) => Set(endsAs)
+  }
 
   /// True when a call that is out goes on for this caller once it returns.
   pure def callOutFor(flow: Workflow, caller: Caller): bool =
@@ -799,7 +809,7 @@ module workflowLifecycle {
 
   /// The loop of a workflow end cancels the unfinished refiner runs and sets the status last. A
   /// cancelled polisher hands the page it holds to the humans blocked. A workflow from a tracker
-  /// origin that ends done moves its issue to completed.
+  /// origin that ends done moves its issue to completed. The store then drops the end.
   pure def finishWorkflowEnd(flow: Workflow, endsAs: WorkflowStatus): Workflow = {
     val stopped = range(0, MAX_JOBS).select(id => id < flow.jobs.length()).foldl(flow, (ending, id) =>
       if (not(refinerRunning(ending.jobs[id]))) ending
@@ -812,6 +822,7 @@ module workflowLifecycle {
       ...stopped,
       status: endsAs,
       issueMoves: if (movesTheIssue) stopped.issueMoves + 1 else stopped.issueMoves,
+      storedEnd: NoStoredEnd,
     }
   }
 
@@ -820,11 +831,12 @@ module workflowLifecycle {
     range(0, 2 * MAX_JOBS).foldl(List(), (order, place) =>
       order.concat(unfinishedJobIds(flow).select(id => jobTask(flow, id).startOrder == place)))
 
-  /// The loop of a workflow end reads the unfinished researchers and authors again before each
-  /// cancel and cancels the one that started first. A task without a sandbox destroy to wait on
-  /// ends at once, and its cancel tells the agent. The loop waits on the destroy of a harness
-  /// author's sandbox.
-  pure def continueWorkflowEnd(flow: Workflow, endsAs: WorkflowStatus): Outcome = {
+  /// The loop of a workflow end stores the end before its first cancel. It reads the unfinished
+  /// researchers and authors again before each cancel and cancels the one that started first. A
+  /// task without a sandbox destroy to wait on ends at once, and its cancel tells the agent. The
+  /// loop waits on the destroy of a harness author's sandbox.
+  pure def continueWorkflowEnd(unstored: Workflow, endsAs: WorkflowStatus): Outcome = {
+    val flow = { ...unstored, storedEnd: EndStored(endsAs) }
     val left = unfinishedJobsInStartOrder(flow)
     val awaited = range(0, MAX_JOBS).select(index =>
       index < left.length() and destroyIsACall(jobTask(flow, left[index])))
@@ -1074,6 +1086,7 @@ module workflowLifecycle {
   /// for its run-again alarm. That one counts as lost again. The prompt of a
   /// revise turn the restart cut waits again unless a stop reached its page write. The alarms of
   /// earlier restarts stay armed. The review loop spec holds the lost rulings the alarm asks again.
+  /// The workflow end the store holds stays, and the start step arms the alarm that goes on with it.
   pure def restartWorkflow(flow: Workflow): Workflow = {
     val held = modelTurnsInFlight(flow)
     val cut = held.filter(id => not(lostModelTurn(flow, id)) and not(flow.turnsToRunAgain.contains(id)))
@@ -2008,15 +2021,16 @@ module workflowLifecycle {
     _ => move(untold(workflow), StaleAlarmStep),
   )
 
-  /// The Durable Object restarts while a call is out or an alarm of an earlier restart is armed.
-  /// Every call that is out is lost with its isolate. A page write that is out may have landed on
-  /// the host first. That changes nothing here, since the store does not hear of it. Only the
-  /// replay reads it.
+  /// The Durable Object restarts while a call is out, an alarm of an earlier restart is armed, or
+  /// the store holds a workflow end. Every call that is out is lost with its isolate. A page write
+  /// that is out may have landed on the host first. That changes nothing here, since the store
+  /// does not hear of it. Only the replay reads it.
   action workflowRestarts: bool = all {
     or {
       workflow.calls.length() > 0,
       workflow.restartAlarms.size() > 0,
       workflow.runAgainAlarms.size() > 0,
+      workflowEnding(workflow),
     },
     nondet landed = Set(true, false).oneOf()
     move(untold(restartWorkflow(workflow)), RestartStep),
@@ -2043,6 +2057,19 @@ module workflowLifecycle {
     id => move(untold(lostTurnRunsAgain(workflow, id)), RunAgainStep(id)),
   )
 
+  /// The alarm the start step arms for the workflow end the store holds fires, at once or after
+  /// other events and restarts. The end goes on as its loop would: it cancels the unfinished
+  /// researchers and authors and then sets the status. An end whose loop waits on a destroy in
+  /// this instance does not have the alarm.
+  action theWorkflowEndResumes: bool = all {
+    workflowEnding(workflow),
+    nondet endsAs = storedEndStatus(workflow).oneOf()
+    all {
+      not(callOutFor(workflow, WorkflowEnd(endsAs))),
+      move(continueWorkflowEnd(workflow, endsAs), EndResumeStep),
+    },
+  }
+
   /// The deadline alarm of the lost model turn of the job fires while its restarted author waits
   /// for its run-again alarm. The author holds a new turn id, so the alarm changes nothing. Only
   /// the replay reads the job.
@@ -2051,13 +2078,15 @@ module workflowLifecycle {
     id => move(untold(workflow), LostTurnDeadlineStep(id)),
   )
 
-  /// An alarm that an instance restart armed fires: the restart alarm, or the alarm that runs a
-  /// lost model turn again. The deadline of a lost model turn fires before it runs again.
+  /// An alarm that an instance restart armed fires: the restart alarm, the alarm that runs a lost
+  /// model turn again, or the alarm that goes on with a workflow end. The deadline of a lost model
+  /// turn fires before it runs again.
   action anAlarmOfARestartFires: bool = any {
     theRestartAlarmFires,
     theRestartAlarmFiresAgain,
     lostModelTurnRunsAgain,
     theDeadlineOfALostModelTurnFires,
+    theWorkflowEndResumes,
   }
 
   action step: bool = any {
@@ -2306,21 +2335,26 @@ module workflowLifecycle {
   /// The workflow becomes done only on `finish_workflow` or on `complete_job` of the subject
   /// issue's job. The spec splits that `complete_job` at each call it waits on. The step that
   /// leaves none of them out is the one the code takes, and there the workflow is done, unless
-  /// it ended or another end ran.
+  /// it ended or the store held a cancel or a failure before the step, which a restart keeps.
+  /// Only those steps store a done workflow end, and the alarm that goes on with a stored done
+  /// end after a restart may make the workflow done.
   pure def isDoneWithTheSubjectsJob(step: Transition): bool = {
     val becameDone = step.before.status != Done and step.after.status == Done
-    val anotherEndRan =
-      callOutFor(step.before, WorkflowEnd(Cancelled)) or callOutFor(step.before, WorkflowEnd(Failed))
+    val storedADoneEnd = step.before.storedEnd != EndStored(Done) and step.after.storedEnd == EndStored(Done)
+    val endsDoneHere = step.kind == FinishStep or step.kind == SubjectCompletionStep
+    val resumesADoneEnd = step.kind == EndResumeStep and step.before.storedEnd == EndStored(Done)
+    val anotherEndStored = step.before.storedEnd != NoStoredEnd and step.before.storedEnd != EndStored(Done)
     val stillGoesOn =
       callOutFor(step.after, SubjectJobCompletes) or callOutFor(step.after, WorkflowEnd(Done))
     val completesInThisStep = and {
       step.kind == SubjectCompletionStep,
       not(hasEnded(step.before.status)),
-      not(anotherEndRan),
+      not(anotherEndStored),
       not(stillGoesOn),
     }
     and {
-      becameDone implies (step.kind == FinishStep or step.kind == SubjectCompletionStep),
+      storedADoneEnd implies endsDoneHere,
+      becameDone implies (endsDoneHere or resumesADoneEnd),
       completesInThisStep implies step.after.status == Done,
     }
   }
@@ -2348,6 +2382,13 @@ module workflowLifecycle {
       pageWritesOut(step.after, id) <= pageWritesOut(step.before, id),
     }
     | _ => true
+  }
+
+  /// A workflow end that began goes on in every later step until the status it ends as is
+  /// written. A step does not drop it or change the status it ends as.
+  pure def keepsAnEndGoingUntilItsStatus(step: Transition): bool = match step.before.storedEnd {
+    | NoStoredEnd => true
+    | EndStored(endsAs) => step.after.storedEnd == step.before.storedEnd or step.after.status == endsAs
   }
 
   /// True for a step that is a person's message, or a verbal command other than the cancel.
@@ -2417,6 +2458,7 @@ module workflowLifecycle {
     aFailedCheckNeverAsksThePersonAgain: doesNotAskAgainOnAFailedCheck(step),
     stoppedModelCallLeavesThePage: leavesThePageOnAStoppedCall(step),
     aJobStartProvisionsItsTask: provisionsEveryStartedTask(step),
+    aWorkflowEndReachesAFinishedStatus: keepsAnEndGoingUntilItsStatus(step),
     aPersonsMessageWakesTheWorkflow: wakesOnAPersonsMessage(step),
     issuesMoveOnlyAtAStartOrADoneEnd: movesIssuesOnlyAtAStartOrADoneEnd(step),
   }
@@ -2637,6 +2679,8 @@ module workflowLifecycle {
         | RestartAlarmStep(jobs) => jobs.exists(id => step.before.turnsToRunAgain.contains(id))
         | _ => false
       },
+      aRestartLandsDuringAWorkflowEnd: step.kind == RestartStep and workflowEnding(step.before),
+      aWorkflowEndResumesAfterARestart: step.kind == EndResumeStep,
       aMessageLandsOnAWaitingWorkflow: isPersonsMessage(step.kind) and step.before.status == WaitingInput,
       aTrackerWorkflowEndsWithoutDone: and {
         TRACKER_ORIGIN,
@@ -2715,6 +2759,14 @@ module workflowLifecycle {
   /// A job start provisions the task it writes: a harness task gets its first prompt, and a
   /// model-call author sends its model call. A failed router write of the start does not stop it.
   val aJobStartProvisionsItsTask: bool = lastStepKept.aJobStartProvisionsItsTask
+
+  /// A workflow whose end began reaches the finished status it ends as. Each step keeps the end
+  /// until that status is written, also an instance restart. The store does not hold the end of a
+  /// workflow that finished.
+  val aWorkflowEndReachesAFinishedStatus: bool = and {
+    lastStepKept.aWorkflowEndReachesAFinishedStatus,
+    workflowEnding(workflow) implies not(hasEnded(workflow.status)),
+  }
 
   /// A model-call author has at most one page write out at a time. A stop during the page write
   /// leaves the turn in flight until the write returns, so a prompt meanwhile waits for it.
@@ -2908,8 +2960,16 @@ module workflowLifecycle {
   val aPausedAuthorWaitsToRestart: bool =
     jobIds(workflow).exists(id => jobTask(workflow, id).paused and jobTask(workflow, id).generationClosed)
 
-  /// The workflow ends while its loop waits on the destroy of an author's sandbox.
+  /// The store holds a workflow end whose status is not written yet.
   val theWorkflowIsEnding: bool = workflowEnding(workflow)
+
+  /// Witness for `aWorkflowEndReachesAFinishedStatus`: an instance restart lands while the store
+  /// holds a workflow end.
+  val aRestartLandsDuringAWorkflowEnd: bool = lastStepReached.aRestartLandsDuringAWorkflowEnd
+
+  /// Witness for `aWorkflowEndReachesAFinishedStatus`: the alarm goes on with a workflow end that
+  /// an instance restart cut off.
+  val aWorkflowEndResumesAfterARestart: bool = lastStepReached.aWorkflowEndResumesAfterARestart
 
   /// A prompt waits for the turn of a task to end.
   val aPromptWaits: bool = jobIds(workflow).exists(id => jobTask(workflow, id).promptsQueued > 0)

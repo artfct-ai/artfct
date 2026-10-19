@@ -14,6 +14,7 @@ import { completeWorkflow, failWorkflow, type JobInput } from "../src/workflow/l
 import { isWorkflowFinished } from "../src/workflow/store/state";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
 import { quintTraces } from "./quint-traces";
+import { runStartStep } from "./restart";
 import { migratedD1Database, sqliteParams } from "./sqlite-d1";
 import { FakeRuntime, seedTask } from "./fake-runtime";
 import { openMemoryDb } from "./memory-db";
@@ -97,6 +98,7 @@ type SpecPicks = {
   workflow: number | null;
   operation: number | null;
   pull: PullKeyName | null;
+  landed: boolean | null;
 };
 
 /** One state of a trace: the action that led to it, what it picked, and the router as the spec sees it. */
@@ -135,6 +137,7 @@ export function traceSteps(trace: unknown): TraceStep[] {
         workflow: pickedInt(picks, "workflow"),
         operation: pickedInt(picks, "operation"),
         pull: pickedTag(picks, "pull", PULL_KEYS),
+        landed: pickedBool(picks, "landed"),
       },
       view: specView(itfField(state, worldName)),
     };
@@ -149,6 +152,11 @@ function pickedValue(picks: unknown, name: string): unknown {
 function pickedInt(picks: unknown, name: string): number | null {
   const value = pickedValue(picks, name);
   return value === null ? null : itfInt(value);
+}
+
+function pickedBool(picks: unknown, name: string): boolean | null {
+  const value = pickedValue(picks, name);
+  return value === null ? null : itfBool(value);
 }
 
 function pickedTag<Name extends string>(
@@ -358,6 +366,16 @@ class CallGate {
     });
   }
 
+  /**
+   * Drop a caller whose instance restarted. The call it waits on lands first when `landed` is set.
+   * The caller never hears back.
+   */
+  async drop(name: string, landed: boolean): Promise<void> {
+    const { waiting } = this.waitingOf(name);
+    this.callers.delete(name);
+    if (landed) await waiting.land();
+  }
+
   async fail(name: string, error: Error): Promise<void> {
     const { caller, waiting } = this.waitingOf(name);
     await this.runUntilStopped(caller, () => waiting.reject(error));
@@ -483,6 +501,7 @@ export class RouterBindingsReplay {
   private readonly sqlite = migratedD1Database();
   private readonly runtimes = new Map<string, FakeRuntime>();
   private readonly unbound = new Set<string>();
+  private readonly operationWorkflows = new Map<string, string>();
   private readonly delivered = new Map<string, Delivery>();
   private readonly workflowIds: string[] = [];
   private readonly env: Env;
@@ -529,6 +548,11 @@ export class RouterBindingsReplay {
         );
       case "workflowCallReturns":
         return this.gate.land(`o${required(picks.operation, "operation")}`);
+      case "instanceRestartCutsTheEndStatusWrite":
+        return this.restartDuringEndStatusWrite(
+          `o${required(picks.operation, "operation")}`,
+          required(picks.landed, "landed"),
+        );
       case "workflowEnds":
         await this.startWork(required(picks.workflow, "workflow"), "end");
         return;
@@ -659,8 +683,32 @@ export class RouterBindingsReplay {
     }
     const operation = `o${this.nextOperation}`;
     this.nextOperation += 1;
+    this.operationWorkflows.set(operation, name);
     await this.gate.start(operation, () => run(runtime));
     return operation;
+  }
+
+  /**
+   * The Durable Object of the workflow that `operation` ends restarts while its status write is out.
+   * Every call the workflow has out is lost. The new instance runs the start step, and its alarm
+   * goes on with the stored end under the same operation.
+   */
+  async restartDuringEndStatusWrite(operation: string, landed: boolean): Promise<void> {
+    const name = this.operationWorkflows.get(operation);
+    const runtime = name ? this.runtimes.get(name) : undefined;
+    if (!name || !runtime) throw new Error(`${operation} is not the work of a workflow`);
+    await this.gate.drop(operation, landed);
+    for (const [other, workflow] of this.operationWorkflows) {
+      if (other !== operation && workflow === name && this.gate.calls()[other]) {
+        await this.gate.drop(other, false);
+      }
+    }
+    const restarted = runtime.restarted();
+    this.runtimes.set(name, restarted);
+    await this.gate.start(operation, async () => {
+      await runStartStep(restarted);
+      this.unbound.add(name);
+    });
   }
 
   private async endWorkflow(runtime: FakeRuntime): Promise<void> {

@@ -620,6 +620,13 @@ export const MUTANTS: Mutant[] = [
     replace: "    if (!row) {",
   },
   {
+    id: "W239",
+    invariant: "routerBindings::theRouterRowMatchesTheWorkflowEnd",
+    path: "src/workflow/lifecycle.ts",
+    find: "  await writeWorkflowStatus(workflow, end.status);",
+    replace: "  await changeWorkflowStatus(workflow, end.status);",
+  },
+  {
     id: "W218",
     invariant: "routerBindings::aWorkflowGetsEventsOnlyOnceCreated (the create marks it created)",
     path: "src/workflow/inbound/events.ts",
@@ -832,6 +839,13 @@ export const MUTANTS: Mutant[] = [
     replace: "  if (key) return false;",
   },
   {
+    id: "W190",
+    invariant: "workflowLifecycle::aWorkflowEndReachesAFinishedStatus",
+    path: "src/workflow/lifecycle.ts",
+    find: '  await workflow.scheduleAlarmOnce("resumeWorkflowEnd", {});\n',
+    replace: "",
+  },
+  {
     id: "W191",
     invariant: "workflowLifecycle::aPersonsMessageWakesTheWorkflow",
     path: "src/workflow/inbound/events.ts",
@@ -842,9 +856,9 @@ export const MUTANTS: Mutant[] = [
     id: "W192",
     invariant: "workflowLifecycle::issuesMoveOnlyAtAStartOrADoneEnd",
     path: "src/workflow/lifecycle.ts",
-    find: '  await workflow.post({ type: "workflow_failed", reason });\n',
+    find: '      await workflow.post({ type: "workflow_failed", reason: end.reason }, to);\n',
     replace:
-      '  await workflow.post({ type: "workflow_failed", reason });\n  for (const target of workflow.state.reply_targets) {\n    if (target.source === "tracker") await workflow.notifier.moveIssue(target, "completed");\n  }\n',
+      '      await workflow.post({ type: "workflow_failed", reason: end.reason }, to);\n      for (const target of workflow.state.reply_targets) {\n        if (target.source === "tracker") await workflow.notifier.moveIssue(target, "completed");\n      }\n',
   },
   {
     id: "W193",

@@ -229,6 +229,15 @@ export class FakeRuntime implements WorkflowRuntime {
     return this.armAlarm({ delay, method, payload, repeats: false });
   }
 
+  async scheduleAlarmOnce(method: ScheduledMethod, payload: unknown): Promise<void> {
+    const wanted = JSON.stringify(payload);
+    const armed = this.alarms.some(
+      (alarm) =>
+        !alarm.repeats && alarm.method === method && JSON.stringify(alarm.payload) === wanted,
+    );
+    if (!armed) this.armAlarm({ delay: 0, method, payload, repeats: false });
+  }
+
   async cancelAlarm(id: string): Promise<void> {
     this.cancelled.push(id);
     this.alarms = this.alarms.filter((alarm) => alarm.id !== id);
