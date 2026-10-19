@@ -426,7 +426,7 @@ async function goOnWithWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEndRo
     await cancelTask(workflow, task, reason);
   }
   for (const task of workflow.store.activeRefinerRuns()) await cancelTask(workflow, task, reason);
-  await changeWorkflowStatus(workflow, end.status);
+  await writeWorkflowStatus(workflow, end.status);
   await announceWorkflowEnd(workflow, end);
   workflow.store.dropWorkflowEnd();
 }
@@ -466,14 +466,25 @@ export async function bindWorkflow(workflow: WorkflowRuntime, binding: Binding):
 }
 
 /**
- * Move the workflow to a new status. The only writer of the status: the router reads the D1 copy
- * to drop machine events on a finished workflow without waking it.
+ * Move the workflow to a new status. The router reads the D1 copy to drop machine events on a
+ * finished workflow without waking it.
  */
 export async function changeWorkflowStatus(
   workflow: WorkflowRuntime,
   status: WorkflowStatus,
 ): Promise<void> {
   if (workflow.state.status === status) return;
+  await writeWorkflowStatus(workflow, status);
+}
+
+/**
+ * The only writer of the status and its D1 copy. A resumed workflow end writes both even when the
+ * instance holds the status, since an instance restart may have cut off the D1 write.
+ */
+async function writeWorkflowStatus(
+  workflow: WorkflowRuntime,
+  status: WorkflowStatus,
+): Promise<void> {
   workflow.patchState({ status });
   const db = createDb(workflow.env.DB);
   await setWorkflowStatus(db, workflow.state.workflow_id, status);

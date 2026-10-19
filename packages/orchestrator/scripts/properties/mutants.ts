@@ -530,6 +530,13 @@ export const MUTANTS: Mutant[] = [
     replace: "    if (!row) {",
   },
   {
+    id: "W239",
+    invariant: "routerBindings::theRouterRowMatchesTheWorkflowEnd",
+    path: "src/workflow/lifecycle.ts",
+    find: "  await writeWorkflowStatus(workflow, end.status);",
+    replace: "  await changeWorkflowStatus(workflow, end.status);",
+  },
+  {
     id: "F1",
     invariant:
       "feedbackRouting::unadmittedFeedbackReachesNobody, reviewLoop::unadmittedFeedbackReachesNobody",
