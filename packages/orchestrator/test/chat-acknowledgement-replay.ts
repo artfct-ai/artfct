@@ -419,14 +419,19 @@ function eventFor(source: SourceName, ts: string): InboundEvent {
     links: [],
     text: "also add a test",
   };
+  const acknowledge = { message: ts, user: "U1" };
   if (source === "Chat") {
     return {
       ...base,
       reply_to: { source: "chat", channel: CHANNEL, thread: "1.0" },
-      acknowledge: { message: ts, user: "U1" },
+      acknowledge,
     };
   }
-  return { ...base, reply_to: { source: "tracker", session_id: "s1", issue_id: "i1" } };
+  return {
+    ...base,
+    reply_to: { source: "tracker", session_id: "s1", issue_id: "i1" },
+    acknowledge,
+  };
 }
 
 async function drainMicrotasks(): Promise<void> {

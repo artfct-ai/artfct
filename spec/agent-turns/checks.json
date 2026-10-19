@@ -54,7 +54,10 @@
       "aStaleAlarmFiresAfterARestart",
       "aStaleAlarmFiresDuringALaterTurn",
       "aFinishedAuthorKeepsItsHeldComments",
-      "aRestartResumesAPersonsTurnOnAFinishedWorkflow"
+      "aRestartResumesAPersonsTurnOnAFinishedWorkflow",
+      "aRestartKeepsTheBackupAlarm",
+      "theBackupAlarmFiresDuringItsTurn",
+      "theTurnLaneCancelsItsBackupAlarm"
     ],
     "trackerOnly": [
       "aTurnPostsClosingText",
@@ -65,7 +68,6 @@
       "aPersonHearsBackThenWorkRuns",
       "aPageIsWithheld",
       "aPageIsAdmitted",
-      "aWorkingTurnEnds",
       "theWatchdogFiresOnARunningTurn",
       "aResumedTurnEnds",
       "aTurnPostsTheStuckText",
@@ -77,12 +79,14 @@
       "twoDecisionsCallsAreOut",
       "theClosingPostOutlivesTheTimeout",
       "theWatchdogReleasesAFinishedWorkflow",
-      "aTurnEndsOnAFinishedWorkflow",
       "aStaleAlarmFiresAfterItsTurnEnded",
       "aStaleAlarmFiresAfterARestart",
       "aStaleAlarmFiresDuringALaterTurn",
       "aFinishedAuthorKeepsItsHeldComments",
-      "aRestartResumesAPersonsTurnOnAFinishedWorkflow"
+      "aRestartResumesAPersonsTurnOnAFinishedWorkflow",
+      "aRestartKeepsTheBackupAlarm",
+      "theBackupAlarmFiresDuringItsTurn",
+      "theTurnLaneCancelsItsBackupAlarm"
     ],
     "chatAndSession": [
       "aTurnPostsClosingText",
@@ -111,11 +115,14 @@
       "aStaleAlarmFiresAfterARestart",
       "aStaleAlarmFiresDuringALaterTurn",
       "aFinishedAuthorKeepsItsHeldComments",
-      "aRestartResumesAPersonsTurnOnAFinishedWorkflow"
+      "aRestartResumesAPersonsTurnOnAFinishedWorkflow",
+      "aRestartKeepsTheBackupAlarm",
+      "theBackupAlarmFiresDuringItsTurn",
+      "theTurnLaneCancelsItsBackupAlarm"
     ]
   },
   "tlc": {
-    "ignoredVariables": ["lastStepReached"],
+    "ignoredVariables": ["lastStepReached", "backupAlarmStep"],
     "bounds": {
       "chatThread": {
         "pr": {

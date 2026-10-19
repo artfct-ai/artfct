@@ -27,6 +27,7 @@ function takeMessage(workflow: FakeRuntime): void {
 }
 
 async function workingThread(workflow: FakeRuntime): Promise<void> {
+  workflow.postThroughChat();
   workflow.patchState({ reply_targets: [THREAD, ISSUE] });
   await workflow.working("reading the board");
 }
