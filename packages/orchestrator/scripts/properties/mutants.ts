@@ -711,8 +711,6 @@ export const MUTANTS: Mutant[] = [
     replace: "",
   },
   {
-  },
-  {
     id: "W150",
     invariant: "harnessSession::aSandboxStartBeginsAFreshGeneration",
     path: "src/workflow/task/sandbox/sandbox.ts",
