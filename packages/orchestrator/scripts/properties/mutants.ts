@@ -594,6 +594,14 @@ export const MUTANTS: Mutant[] = [
     replace:
       '    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The commit author lookup"),\n',
   },
+  {
+    id: "W111",
+    invariant: "workflowLifecycle::aJobStartProvisionsItsTask",
+    path: "src/workflow/lifecycle.ts",
+    find: '  await workflow.scheduleAlarm(0, "provision", { task_id: taskId });\n  await changeWorkflowStatus(workflow, "running");\n',
+    replace:
+      '  await changeWorkflowStatus(workflow, "running");\n  await workflow.scheduleAlarm(0, "provision", { task_id: taskId });\n',
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */
