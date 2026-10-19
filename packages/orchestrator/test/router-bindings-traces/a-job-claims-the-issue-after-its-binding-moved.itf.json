@@ -146,7 +146,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ]
@@ -246,7 +245,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ],
@@ -260,7 +258,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ]
@@ -357,7 +354,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ],
@@ -371,7 +367,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ],
@@ -385,7 +380,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ]
@@ -482,7 +476,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ],
@@ -496,7 +489,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ],
@@ -510,7 +502,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ]
@@ -607,7 +598,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ],
@@ -621,7 +611,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ]
@@ -722,7 +711,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ],
@@ -736,7 +724,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ],
@@ -750,7 +737,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ]
@@ -848,7 +834,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ],
@@ -862,7 +847,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ]
@@ -960,7 +944,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ],
@@ -974,7 +957,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ]
@@ -1072,10 +1054,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Claiming", "value": { "#tup": [] } },
+                "phase": { "tag": "Claiming", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "0" } },
                 "won": []
               }
             ],
@@ -1089,7 +1070,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ]
@@ -1187,10 +1167,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Claiming", "value": { "#tup": [] } },
+                "phase": { "tag": "Claiming", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "0" } },
                 "won": []
               }
             ],
@@ -1204,10 +1183,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Claiming", "value": { "#tup": [] } },
+                "phase": { "tag": "Claiming", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "1" } },
                 "won": []
               }
             ]
@@ -1305,10 +1283,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Claiming", "value": { "#tup": [] } },
+                "phase": { "tag": "Claiming", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "0" } },
                 "won": []
               }
             ],
@@ -1322,10 +1299,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Claiming", "value": { "#tup": [] } },
+                "phase": { "tag": "Claiming", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "1" } },
                 "won": []
               }
             ],
@@ -1339,7 +1315,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ]
@@ -1439,10 +1414,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Claiming", "value": { "#tup": [] } },
+                "phase": { "tag": "Claiming", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "0" } },
                 "won": []
               }
             ],
@@ -1456,10 +1430,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Inserting", "value": { "#tup": [] } },
+                "phase": { "tag": "Inserting", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "1" } },
                 "won": [{ "#bigint": "0" }]
               }
             ],
@@ -1473,7 +1446,6 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "target": { "tag": "NoTarget", "value": { "#tup": [] } },
                 "won": []
               }
             ]
@@ -1573,10 +1545,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Claiming", "value": { "#tup": [] } },
+                "phase": { "tag": "Claiming", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "0" } },
                 "won": []
               }
             ],
@@ -1590,10 +1561,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Inserting", "value": { "#tup": [] } },
+                "phase": { "tag": "Inserting", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "1" } },
                 "won": [{ "#bigint": "0" }]
               }
             ],
@@ -1604,10 +1574,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Claiming", "value": { "#tup": [] } },
+                "phase": { "tag": "Claiming", "value": { "#bigint": "2" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "2" } },
                 "won": []
               }
             ]
@@ -1710,10 +1679,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Inserting", "value": { "#tup": [] } },
+                "phase": { "tag": "Inserting", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "0" } },
                 "won": [{ "#bigint": "0" }]
               }
             ],
@@ -1727,10 +1695,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Inserting", "value": { "#tup": [] } },
+                "phase": { "tag": "Inserting", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "1" } },
                 "won": [{ "#bigint": "0" }]
               }
             ],
@@ -1741,10 +1708,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Claiming", "value": { "#tup": [] } },
+                "phase": { "tag": "Claiming", "value": { "#bigint": "2" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "2" } },
                 "won": []
               }
             ]
@@ -1848,10 +1814,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Inserting", "value": { "#tup": [] } },
+                "phase": { "tag": "Inserting", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "0" } },
                 "won": [{ "#bigint": "0" }]
               }
             ],
@@ -1865,10 +1830,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Inserting", "value": { "#tup": [] } },
+                "phase": { "tag": "Inserting", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "1" } },
                 "won": [{ "#bigint": "0" }]
               }
             ],
@@ -1879,10 +1843,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Inserting", "value": { "#tup": [] } },
+                "phase": { "tag": "Inserting", "value": { "#bigint": "2" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "2" } },
                 "won": [{ "#bigint": "0" }]
               }
             ]
@@ -1986,10 +1949,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Inserting", "value": { "#tup": [] } },
+                "phase": { "tag": "Inserting", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "0" } },
                 "won": [{ "#bigint": "0" }]
               }
             ],
@@ -2003,10 +1965,9 @@
                 "index": { "#bigint": "1" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Binding", "value": { "#tup": [] } },
+                "phase": { "tag": "Binding", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "1" } },
                 "won": [{ "#bigint": "0" }]
               }
             ],
@@ -2017,10 +1978,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Inserting", "value": { "#tup": [] } },
+                "phase": { "tag": "Inserting", "value": { "#bigint": "2" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "2" } },
                 "won": [{ "#bigint": "0" }]
               }
             ]
@@ -2124,10 +2084,9 @@
                 "index": { "#bigint": "1" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Binding", "value": { "#tup": [] } },
+                "phase": { "tag": "Binding", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "0" } },
                 "won": [{ "#bigint": "0" }]
               }
             ],
@@ -2141,10 +2100,9 @@
                 "index": { "#bigint": "1" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Binding", "value": { "#tup": [] } },
+                "phase": { "tag": "Binding", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "1" } },
                 "won": [{ "#bigint": "0" }]
               }
             ],
@@ -2155,10 +2113,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Inserting", "value": { "#tup": [] } },
+                "phase": { "tag": "Inserting", "value": { "#bigint": "2" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "2" } },
                 "won": [{ "#bigint": "0" }]
               }
             ]
@@ -2267,10 +2224,9 @@
                 "index": { "#bigint": "1" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Binding", "value": { "#tup": [] } },
+                "phase": { "tag": "Binding", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "0" } },
                 "won": [{ "#bigint": "0" }]
               }
             ],
@@ -2284,10 +2240,9 @@
                 "index": { "#bigint": "1" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Binding", "value": { "#tup": [] } },
+                "phase": { "tag": "Binding", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "1" } },
                 "won": [{ "#bigint": "0" }]
               }
             ],
@@ -2298,10 +2253,9 @@
                 "index": { "#bigint": "0" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Creating", "value": { "#tup": [] } },
+                "phase": { "tag": "Creating", "value": { "#bigint": "2" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "2" } },
                 "won": [{ "#bigint": "0" }]
               }
             ]
@@ -2411,10 +2365,9 @@
                 "index": { "#bigint": "1" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Binding", "value": { "#tup": [] } },
+                "phase": { "tag": "Binding", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "0" } },
                 "won": [{ "#bigint": "0" }]
               }
             ],
@@ -2428,10 +2381,9 @@
                 "index": { "#bigint": "1" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Binding", "value": { "#tup": [] } },
+                "phase": { "tag": "Binding", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "1" } },
                 "won": [{ "#bigint": "0" }]
               }
             ]
@@ -2554,10 +2506,9 @@
                 "index": { "#bigint": "1" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Binding", "value": { "#tup": [] } },
+                "phase": { "tag": "Binding", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "0" } },
                 "won": [{ "#bigint": "0" }]
               }
             ],
@@ -2571,10 +2522,9 @@
                 "index": { "#bigint": "1" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Binding", "value": { "#tup": [] } },
+                "phase": { "tag": "Binding", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "1" } },
                 "won": [{ "#bigint": "0" }]
               }
             ]
@@ -2707,10 +2657,9 @@
                 "index": { "#bigint": "1" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Binding", "value": { "#tup": [] } },
+                "phase": { "tag": "Binding", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "0" } },
                 "won": [{ "#bigint": "0" }]
               }
             ],
@@ -2724,10 +2673,9 @@
                 "index": { "#bigint": "1" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Binding", "value": { "#tup": [] } },
+                "phase": { "tag": "Binding", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "1" } },
                 "won": [{ "#bigint": "0" }]
               }
             ]
@@ -2864,10 +2812,9 @@
                 "index": { "#bigint": "1" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Creating", "value": { "#tup": [] } },
+                "phase": { "tag": "Creating", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "0" } },
                 "won": [{ "#bigint": "0" }, { "#bigint": "1" }]
               }
             ],
@@ -2881,10 +2828,9 @@
                 "index": { "#bigint": "1" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Binding", "value": { "#tup": [] } },
+                "phase": { "tag": "Binding", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "1" } },
                 "won": [{ "#bigint": "0" }]
               }
             ]
@@ -3021,10 +2967,9 @@
                 "index": { "#bigint": "1" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Creating", "value": { "#tup": [] } },
+                "phase": { "tag": "Creating", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "0" } },
                 "won": [{ "#bigint": "0" }, { "#bigint": "1" }]
               }
             ],
@@ -3038,10 +2983,9 @@
                 "index": { "#bigint": "1" },
                 "joined": { "#bigint": "0" },
                 "kind": { "tag": "Start", "value": { "#tup": [] } },
-                "phase": { "tag": "Binding", "value": { "#tup": [] } },
+                "phase": { "tag": "Binding", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "target": { "tag": "TargetWorkflow", "value": { "#bigint": "1" } },
                 "won": [{ "#bigint": "0" }]
               }
             ]
