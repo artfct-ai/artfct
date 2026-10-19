@@ -99,6 +99,20 @@ describe("harness session spec", () => {
     await replayPinnedTrace("turn-summarization-lost-with-the-instance");
   });
 
+  it("stops an author early when its turn ends without text while todos are open", async () => {
+    await replayPinnedTrace(
+      "empty-turn-with-open-todos-stops-early",
+      "interruptionsAfterTheFirstPrompt",
+    );
+  });
+
+  it("wakes the agent at once when a turn ends without text", async () => {
+    await replayPinnedTrace(
+      "empty-turn-wakes-the-agent-at-once",
+      "interruptionsAfterTheFirstPrompt",
+    );
+  });
+
   it("drops the late answer to a request of an earlier dial", async () => {
     await replayPinnedTrace("late-answer-after-a-redial");
   });

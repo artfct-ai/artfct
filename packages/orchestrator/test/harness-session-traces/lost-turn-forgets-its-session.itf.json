@@ -66,6 +66,8 @@
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
@@ -100,6 +102,7 @@
         "nextSerial": { "#bigint": "0" },
         "noProgressSlot": { "tag": "Unarmed", "value": { "#tup": [] } },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": { "#bigint": "0" },
         "permissionsAsked": { "#bigint": "0" },
@@ -119,6 +122,7 @@
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
         "token": { "#bigint": "0" },
+        "turnText": false,
         "wallSlot": { "tag": "Unarmed", "value": { "#tup": [] } }
       },
       "mbt::actionTaken": "init",
@@ -126,10 +130,12 @@
         "alarmIndex": { "tag": "None", "value": { "#tup": [] } },
         "bridge": { "tag": "None", "value": { "#tup": [] } },
         "callId": { "tag": "None", "value": { "#tup": [] } },
+        "endsWithText": { "tag": "None", "value": { "#tup": [] } },
         "finished": { "tag": "None", "value": { "#tup": [] } },
         "index": { "tag": "None", "value": { "#tup": [] } },
         "offersAllow": { "tag": "None", "value": { "#tup": [] } },
-        "ok": { "tag": "None", "value": { "#tup": [] } }
+        "ok": { "tag": "None", "value": { "#tup": [] } },
+        "report": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
@@ -181,6 +187,8 @@
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
@@ -233,6 +241,7 @@
         "nextSerial": { "#bigint": "0" },
         "noProgressSlot": { "tag": "Unarmed", "value": { "#tup": [] } },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": { "#bigint": "0" },
         "permissionsAsked": { "#bigint": "0" },
@@ -252,6 +261,7 @@
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
         "token": { "#bigint": "1" },
+        "turnText": false,
         "wallSlot": { "tag": "Unarmed", "value": { "#tup": [] } }
       },
       "mbt::actionTaken": "personPrompts",
@@ -259,10 +269,12 @@
         "alarmIndex": { "tag": "None", "value": { "#tup": [] } },
         "bridge": { "tag": "None", "value": { "#tup": [] } },
         "callId": { "tag": "None", "value": { "#tup": [] } },
+        "endsWithText": { "tag": "None", "value": { "#tup": [] } },
         "finished": { "tag": "None", "value": { "#tup": [] } },
         "index": { "tag": "None", "value": { "#tup": [] } },
         "offersAllow": { "tag": "None", "value": { "#tup": [] } },
-        "ok": { "tag": "None", "value": { "#tup": [] } }
+        "ok": { "tag": "None", "value": { "#tup": [] } },
+        "report": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
@@ -314,6 +326,8 @@
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
@@ -360,6 +374,7 @@
         "nextSerial": { "#bigint": "0" },
         "noProgressSlot": { "tag": "Unarmed", "value": { "#tup": [] } },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": { "#bigint": "0" },
         "permissionsAsked": { "#bigint": "0" },
@@ -379,6 +394,7 @@
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
         "token": { "#bigint": "1" },
+        "turnText": false,
         "wallSlot": { "tag": "Unarmed", "value": { "#tup": [] } }
       },
       "mbt::actionTaken": "sandboxStartReturns",
@@ -386,10 +402,12 @@
         "alarmIndex": { "tag": "None", "value": { "#tup": [] } },
         "bridge": { "tag": "None", "value": { "#tup": [] } },
         "callId": { "tag": "Some", "value": { "#bigint": "0" } },
+        "endsWithText": { "tag": "None", "value": { "#tup": [] } },
         "finished": { "tag": "None", "value": { "#tup": [] } },
         "index": { "tag": "None", "value": { "#tup": [] } },
         "offersAllow": { "tag": "None", "value": { "#tup": [] } },
-        "ok": { "tag": "Some", "value": true }
+        "ok": { "tag": "Some", "value": true },
+        "report": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
@@ -441,6 +459,8 @@
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
@@ -490,6 +510,7 @@
         "nextSerial": { "#bigint": "1" },
         "noProgressSlot": { "tag": "Unarmed", "value": { "#tup": [] } },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": { "#bigint": "0" },
         "permissionsAsked": { "#bigint": "0" },
@@ -521,6 +542,7 @@
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
         "token": { "#bigint": "1" },
+        "turnText": false,
         "wallSlot": { "tag": "Unarmed", "value": { "#tup": [] } }
       },
       "mbt::actionTaken": "bridgeDials",
@@ -528,10 +550,12 @@
         "alarmIndex": { "tag": "None", "value": { "#tup": [] } },
         "bridge": { "tag": "Some", "value": { "#bigint": "0" } },
         "callId": { "tag": "None", "value": { "#tup": [] } },
+        "endsWithText": { "tag": "None", "value": { "#tup": [] } },
         "finished": { "tag": "None", "value": { "#tup": [] } },
         "index": { "tag": "None", "value": { "#tup": [] } },
         "offersAllow": { "tag": "None", "value": { "#tup": [] } },
-        "ok": { "tag": "None", "value": { "#tup": [] } }
+        "ok": { "tag": "None", "value": { "#tup": [] } },
+        "report": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
@@ -583,6 +607,8 @@
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
@@ -632,6 +658,7 @@
         "nextSerial": { "#bigint": "2" },
         "noProgressSlot": { "tag": "Unarmed", "value": { "#tup": [] } },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": { "#bigint": "0" },
         "permissionsAsked": { "#bigint": "0" },
@@ -663,6 +690,7 @@
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
         "token": { "#bigint": "1" },
+        "turnText": false,
         "wallSlot": { "tag": "Unarmed", "value": { "#tup": [] } }
       },
       "mbt::actionTaken": "harnessAnswers",
@@ -670,10 +698,12 @@
         "alarmIndex": { "tag": "None", "value": { "#tup": [] } },
         "bridge": { "tag": "Some", "value": { "#bigint": "0" } },
         "callId": { "tag": "None", "value": { "#tup": [] } },
+        "endsWithText": { "tag": "Some", "value": true },
         "finished": { "tag": "Some", "value": { "tag": "EndTurn", "value": { "#tup": [] } } },
         "index": { "tag": "None", "value": { "#tup": [] } },
         "offersAllow": { "tag": "None", "value": { "#tup": [] } },
-        "ok": { "tag": "None", "value": { "#tup": [] } }
+        "ok": { "tag": "None", "value": { "#tup": [] } },
+        "report": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
@@ -725,6 +755,8 @@
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
@@ -774,6 +806,7 @@
         "nextSerial": { "#bigint": "2" },
         "noProgressSlot": { "tag": "Unarmed", "value": { "#tup": [] } },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": { "#bigint": "0" },
         "permissionsAsked": { "#bigint": "0" },
@@ -808,6 +841,7 @@
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
         "token": { "#bigint": "1" },
+        "turnText": false,
         "wallSlot": { "tag": "Unarmed", "value": { "#tup": [] } }
       },
       "mbt::actionTaken": "personPrompts",
@@ -815,10 +849,12 @@
         "alarmIndex": { "tag": "None", "value": { "#tup": [] } },
         "bridge": { "tag": "None", "value": { "#tup": [] } },
         "callId": { "tag": "None", "value": { "#tup": [] } },
+        "endsWithText": { "tag": "None", "value": { "#tup": [] } },
         "finished": { "tag": "None", "value": { "#tup": [] } },
         "index": { "tag": "None", "value": { "#tup": [] } },
         "offersAllow": { "tag": "None", "value": { "#tup": [] } },
-        "ok": { "tag": "None", "value": { "#tup": [] } }
+        "ok": { "tag": "None", "value": { "#tup": [] } },
+        "report": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
@@ -870,6 +906,8 @@
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
@@ -925,6 +963,7 @@
         "nextSerial": { "#bigint": "3" },
         "noProgressSlot": { "tag": "Armed", "value": { "#bigint": "3" } },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": { "#bigint": "0" },
         "permissionsAsked": { "#bigint": "0" },
@@ -959,6 +998,7 @@
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
         "token": { "#bigint": "1" },
+        "turnText": false,
         "wallSlot": { "tag": "Armed", "value": { "#bigint": "4" } }
       },
       "mbt::actionTaken": "harnessAnswers",
@@ -966,10 +1006,12 @@
         "alarmIndex": { "tag": "None", "value": { "#tup": [] } },
         "bridge": { "tag": "Some", "value": { "#bigint": "0" } },
         "callId": { "tag": "None", "value": { "#tup": [] } },
+        "endsWithText": { "tag": "Some", "value": true },
         "finished": { "tag": "Some", "value": { "tag": "MaxTokens", "value": { "#tup": [] } } },
         "index": { "tag": "None", "value": { "#tup": [] } },
         "offersAllow": { "tag": "None", "value": { "#tup": [] } },
-        "ok": { "tag": "None", "value": { "#tup": [] } }
+        "ok": { "tag": "None", "value": { "#tup": [] } },
+        "report": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
@@ -1021,6 +1063,8 @@
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
@@ -1076,6 +1120,7 @@
         "nextSerial": { "#bigint": "3" },
         "noProgressSlot": { "tag": "Armed", "value": { "#bigint": "3" } },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": { "#bigint": "0" },
         "permissionsAsked": { "#bigint": "0" },
@@ -1110,6 +1155,7 @@
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
         "token": { "#bigint": "1" },
+        "turnText": true,
         "wallSlot": { "tag": "Armed", "value": { "#bigint": "4" } }
       },
       "mbt::actionTaken": "harnessWritesThePage",
@@ -1117,10 +1163,12 @@
         "alarmIndex": { "tag": "None", "value": { "#tup": [] } },
         "bridge": { "tag": "Some", "value": { "#bigint": "0" } },
         "callId": { "tag": "None", "value": { "#tup": [] } },
+        "endsWithText": { "tag": "None", "value": { "#tup": [] } },
         "finished": { "tag": "None", "value": { "#tup": [] } },
         "index": { "tag": "None", "value": { "#tup": [] } },
         "offersAllow": { "tag": "None", "value": { "#tup": [] } },
-        "ok": { "tag": "None", "value": { "#tup": [] } }
+        "ok": { "tag": "None", "value": { "#tup": [] } },
+        "report": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
@@ -1172,6 +1220,8 @@
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
@@ -1224,6 +1274,7 @@
         "nextSerial": { "#bigint": "3" },
         "noProgressSlot": { "tag": "Armed", "value": { "#bigint": "6" } },
         "nudged": true,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": { "#bigint": "0" },
         "permissionsAsked": { "#bigint": "0" },
@@ -1259,6 +1310,7 @@
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
         "token": { "#bigint": "1" },
+        "turnText": true,
         "wallSlot": { "tag": "Armed", "value": { "#bigint": "4" } }
       },
       "mbt::actionTaken": "alarmFires",
@@ -1266,10 +1318,12 @@
         "alarmIndex": { "tag": "Some", "value": { "#bigint": "1" } },
         "bridge": { "tag": "None", "value": { "#tup": [] } },
         "callId": { "tag": "None", "value": { "#tup": [] } },
+        "endsWithText": { "tag": "None", "value": { "#tup": [] } },
         "finished": { "tag": "None", "value": { "#tup": [] } },
         "index": { "tag": "None", "value": { "#tup": [] } },
         "offersAllow": { "tag": "None", "value": { "#tup": [] } },
-        "ok": { "tag": "None", "value": { "#tup": [] } }
+        "ok": { "tag": "None", "value": { "#tup": [] } },
+        "report": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
@@ -1321,6 +1375,8 @@
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
@@ -1373,6 +1429,7 @@
         "nextSerial": { "#bigint": "3" },
         "noProgressSlot": { "tag": "Armed", "value": { "#bigint": "6" } },
         "nudged": true,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": { "#bigint": "0" },
         "permissionsAsked": { "#bigint": "0" },
@@ -1408,6 +1465,7 @@
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
         "token": { "#bigint": "1" },
+        "turnText": true,
         "wallSlot": { "tag": "Armed", "value": { "#bigint": "4" } }
       },
       "mbt::actionTaken": "agentResumesAuthor",
@@ -1415,10 +1473,12 @@
         "alarmIndex": { "tag": "None", "value": { "#tup": [] } },
         "bridge": { "tag": "None", "value": { "#tup": [] } },
         "callId": { "tag": "None", "value": { "#tup": [] } },
+        "endsWithText": { "tag": "None", "value": { "#tup": [] } },
         "finished": { "tag": "None", "value": { "#tup": [] } },
         "index": { "tag": "None", "value": { "#tup": [] } },
         "offersAllow": { "tag": "None", "value": { "#tup": [] } },
-        "ok": { "tag": "None", "value": { "#tup": [] } }
+        "ok": { "tag": "None", "value": { "#tup": [] } },
+        "report": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
@@ -1470,6 +1530,8 @@
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
@@ -1522,6 +1584,7 @@
         "nextSerial": { "#bigint": "3" },
         "noProgressSlot": { "tag": "Armed", "value": { "#bigint": "6" } },
         "nudged": true,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": { "#bigint": "1" },
         "permissionsAsked": { "#bigint": "1" },
@@ -1557,6 +1620,7 @@
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
         "token": { "#bigint": "1" },
+        "turnText": true,
         "wallSlot": { "tag": "Armed", "value": { "#bigint": "4" } }
       },
       "mbt::actionTaken": "harnessAsksPermission",
@@ -1564,10 +1628,12 @@
         "alarmIndex": { "tag": "None", "value": { "#tup": [] } },
         "bridge": { "tag": "Some", "value": { "#bigint": "0" } },
         "callId": { "tag": "None", "value": { "#tup": [] } },
+        "endsWithText": { "tag": "None", "value": { "#tup": [] } },
         "finished": { "tag": "None", "value": { "#tup": [] } },
         "index": { "tag": "None", "value": { "#tup": [] } },
         "offersAllow": { "tag": "Some", "value": true },
-        "ok": { "tag": "None", "value": { "#tup": [] } }
+        "ok": { "tag": "None", "value": { "#tup": [] } },
+        "report": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
@@ -1619,6 +1685,8 @@
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
@@ -1671,6 +1739,7 @@
         "nextSerial": { "#bigint": "3" },
         "noProgressSlot": { "tag": "Armed", "value": { "#bigint": "6" } },
         "nudged": true,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": { "#bigint": "1" },
         "permissionsAsked": { "#bigint": "1" },
@@ -1706,6 +1775,7 @@
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
         "token": { "#bigint": "1" },
+        "turnText": true,
         "wallSlot": { "tag": "Armed", "value": { "#bigint": "4" } }
       },
       "mbt::actionTaken": "socketDrops",
@@ -1713,10 +1783,12 @@
         "alarmIndex": { "tag": "None", "value": { "#tup": [] } },
         "bridge": { "tag": "None", "value": { "#tup": [] } },
         "callId": { "tag": "None", "value": { "#tup": [] } },
+        "endsWithText": { "tag": "None", "value": { "#tup": [] } },
         "finished": { "tag": "None", "value": { "#tup": [] } },
         "index": { "tag": "Some", "value": { "#bigint": "0" } },
         "offersAllow": { "tag": "None", "value": { "#tup": [] } },
-        "ok": { "tag": "None", "value": { "#tup": [] } }
+        "ok": { "tag": "None", "value": { "#tup": [] } },
+        "report": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
@@ -1768,6 +1840,8 @@
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
@@ -1824,6 +1898,7 @@
         "nextSerial": { "#bigint": "3" },
         "noProgressSlot": { "tag": "Armed", "value": { "#bigint": "6" } },
         "nudged": true,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": { "#bigint": "1" },
         "permissionsAsked": { "#bigint": "1" },
@@ -1853,6 +1928,7 @@
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
         "token": { "#bigint": "1" },
+        "turnText": true,
         "wallSlot": { "tag": "Armed", "value": { "#bigint": "4" } }
       },
       "mbt::actionTaken": "socketCloseLands",
@@ -1860,10 +1936,12 @@
         "alarmIndex": { "tag": "None", "value": { "#tup": [] } },
         "bridge": { "tag": "None", "value": { "#tup": [] } },
         "callId": { "tag": "None", "value": { "#tup": [] } },
+        "endsWithText": { "tag": "None", "value": { "#tup": [] } },
         "finished": { "tag": "None", "value": { "#tup": [] } },
         "index": { "tag": "Some", "value": { "#bigint": "0" } },
         "offersAllow": { "tag": "None", "value": { "#tup": [] } },
-        "ok": { "tag": "None", "value": { "#tup": [] } }
+        "ok": { "tag": "None", "value": { "#tup": [] } },
+        "report": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
@@ -1915,6 +1993,8 @@
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
@@ -1996,6 +2076,7 @@
         "nextSerial": { "#bigint": "3" },
         "noProgressSlot": { "tag": "Armed", "value": { "#bigint": "6" } },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": { "#bigint": "1" },
         "permissionsAsked": { "#bigint": "1" },
@@ -2019,6 +2100,7 @@
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
         "token": { "#bigint": "2" },
+        "turnText": false,
         "wallSlot": { "tag": "Armed", "value": { "#bigint": "4" } }
       },
       "mbt::actionTaken": "alarmFires",
@@ -2026,10 +2108,12 @@
         "alarmIndex": { "tag": "Some", "value": { "#bigint": "3" } },
         "bridge": { "tag": "None", "value": { "#tup": [] } },
         "callId": { "tag": "None", "value": { "#tup": [] } },
+        "endsWithText": { "tag": "None", "value": { "#tup": [] } },
         "finished": { "tag": "None", "value": { "#tup": [] } },
         "index": { "tag": "None", "value": { "#tup": [] } },
         "offersAllow": { "tag": "None", "value": { "#tup": [] } },
-        "ok": { "tag": "None", "value": { "#tup": [] } }
+        "ok": { "tag": "None", "value": { "#tup": [] } },
+        "report": { "tag": "None", "value": { "#tup": [] } }
       }
     },
     {
@@ -2081,6 +2165,8 @@
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
@@ -2162,6 +2248,7 @@
         "nextSerial": { "#bigint": "3" },
         "noProgressSlot": { "tag": "Armed", "value": { "#bigint": "6" } },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": { "#bigint": "1" },
         "permissionsAsked": { "#bigint": "1" },
@@ -2185,6 +2272,7 @@
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
         "token": { "#bigint": "2" },
+        "turnText": false,
         "wallSlot": { "tag": "Armed", "value": { "#bigint": "4" } }
       },
       "mbt::actionTaken": "bridgeDials",
@@ -2192,10 +2280,12 @@
         "alarmIndex": { "tag": "None", "value": { "#tup": [] } },
         "bridge": { "tag": "Some", "value": { "#bigint": "0" } },
         "callId": { "tag": "None", "value": { "#tup": [] } },
+        "endsWithText": { "tag": "None", "value": { "#tup": [] } },
         "finished": { "tag": "None", "value": { "#tup": [] } },
         "index": { "tag": "None", "value": { "#tup": [] } },
         "offersAllow": { "tag": "None", "value": { "#tup": [] } },
-        "ok": { "tag": "None", "value": { "#tup": [] } }
+        "ok": { "tag": "None", "value": { "#tup": [] } },
+        "report": { "tag": "None", "value": { "#tup": [] } }
       }
     }
   ]

@@ -109,9 +109,15 @@ module harnessSessionTypes {
   /// The stop reason a prompt answer carries.
   type StopReason = EndTurn | CancelledTurn | MaxTokens
 
+  /// What the harness reports during its turn: a tool call, or a todo list that has open entries or
+  /// whose every entry is completed.
+  type ProgressReport = ToolCall | OpenTodoList | FinishedTodoList
+
   /// The task, its sandbox row, its queue and rpc rows, its alarms, the sockets and bridges around
   /// it, and the calls out. The counters and the stop flag at the end are what an observer records.
   /// `lostTurns` counts the lost turns the code handled: each one recovered, or failed its task.
+  /// `turnText` says the turn so far printed text. `openTodos` says the stored todo list of the task
+  /// has open entries.
   type World = {
     status: TaskStatus,
     restarts: int,
@@ -123,6 +129,8 @@ module harnessSessionTypes {
     promptInFlight: bool,
     nudged: bool,
     stoppedEarly: bool,
+    turnText: bool,
+    openTodos: bool,
     bridgeClosedAt: Stamp,
     lastProgressAt: Stamp,
     queue: List[PromptKind],
@@ -174,6 +182,7 @@ module harnessSessionTypes {
     | DialStep
     | DurableObjectRestartStep
     | AnswerStep({ reachedItsOwnRow: bool, purpose: RpcPurpose })
+    | EmptyTurnEndStep
     | OutcomeStep({ laterPromptInFlight: bool })
 
   /// One step: the world before it, the world after it, and what kind of step it was.
@@ -231,6 +240,8 @@ module harnessSessionTypes {
     aSocketIsReplaced: bool,
     aResumeLandsDuringACancelledTurn: bool,
     aPromptGoesOutDuringAnOutcomeCheck: bool,
+    anEmptyTurnStopsEarly: bool,
+    theAgentWakesAfterAnEmptyTurn: bool,
     anAnswerArrivesAfterItsRowWasCleared: bool,
     theEffortIsSet: bool,
     aCallWasDropped: bool,
@@ -286,6 +297,8 @@ module harnessSession {
     promptInFlight: false,
     nudged: false,
     stoppedEarly: false,
+    turnText: false,
+    openTodos: false,
     bridgeClosedAt: Unset,
     lastProgressAt: Recent,
     queue: List(),
@@ -531,6 +544,7 @@ module harnessSession {
       val inFlight = {
         ...w,
         promptInFlight: true,
+        turnText: false,
         status: if (w.status == InReview) Working else w.status,
         promptsSent: w.promptsSent + 1,
       }
@@ -607,6 +621,7 @@ module harnessSession {
         restarts: if (restartWritten) w.restarts else w.restarts + 1,
         rpcs: List(),
         promptInFlight: false,
+        turnText: false,
         session: false,
       }
       val woken = if (cleared.queue.length() == 0) { ...cleared, queue: List(LostSandboxWake) } else cleared
@@ -654,13 +669,21 @@ module harnessSession {
     if (ASKS_EFFORT) sendRequest(opened, SetEffort) else sendFirstPrompt(opened)
   }
 
-  /// A turn that ends forgets whether the turn before it stopped early. Its own outcome, when the
-  /// check returns, says whether it did.
+  /// A turn that ends forgets whether the turn before it stopped early, and its text. Its own outcome
+  /// says whether it did. A turn that ended on its own with text waits on the outcome check. One
+  /// without text skips the check. Every text a harness prints is longer than the room the digest
+  /// has for it, so the wake after a turn with text waits on its summarization.
   pure def onTurnEnd(w: World, stop: StopReason): World = {
-    val ended = { ...w, promptInFlight: false, stoppedEarly: false }
-    if (stop == EndTurn) issueCall(ended, OutcomeCheck({ promptsSent: ended.promptsSent, generation: ended.generation }), List())
-    else settleThenWake(ended, false)
+    val ended = { ...w, promptInFlight: false, stoppedEarly: false, turnText: false }
+    if (stop != EndTurn) settleThenWake(ended, w.turnText)
+    else if (w.turnText) issueCall(ended, OutcomeCheck({ promptsSent: ended.promptsSent, generation: ended.generation }), List())
+    else onOutcome(ended, emptyTurnOutcome(ended), false)
   }
+
+  /// `authorTurnOutcome` without a turn text: an author with open todos and without an artifact
+  /// stopped early, and any other finished.
+  pure def emptyTurnOutcome(w: World): Outcome =
+    if (w.openTodos and not(w.artifact)) StoppedEarly else Finished
 
   /// The feed of an idle author closes on the stop reason of its turn. Without one the event throws.
   pure def closeFeedWithoutStopReason(w: World): World =
@@ -669,7 +692,7 @@ module harnessSession {
   /// An answer to another request reaches a prompt row. The turn ends and settles like a turn
   /// without an outcome check, then the event throws if the author is idle.
   pure def endTurnWithoutStopReason(w: World): World = {
-    val ended = { ...w, promptInFlight: false, stoppedEarly: false }
+    val ended = { ...w, promptInFlight: false, stoppedEarly: false, turnText: false }
     val settled = settleAndResumeAuthor(ended, List(CloseFeedWithoutStopReason))
     if (issued(ended, settled)) settled else closeFeedWithoutStopReason(settled)
   }
@@ -1058,6 +1081,9 @@ module harnessSession {
       step.before.paused and not(step.after.paused) and turnRunning(step.before),
     aPromptGoesOutDuringAnOutcomeCheck:
       sentPrompt(step) and outCalls(step.after, isOutcomeCheck).size() > 0,
+    anEmptyTurnStopsEarly:
+      step.kind == EmptyTurnEndStep and step.after.stoppedEarly and not(isFinished(step.before.status)),
+    theAgentWakesAfterAnEmptyTurn: step.kind == EmptyTurnEndStep and step.after.agentWakes > step.before.agentWakes,
     anAnswerArrivesAfterItsRowWasCleared: match step.kind {
       | AnswerStep(answer) => not(answer.reachedItsOwnRow)
       | _ => false
@@ -1135,6 +1161,7 @@ module harnessSession {
       ...w,
       rpcs: List(),
       promptInFlight: false,
+      turnText: false,
       status: if (starting) Working else w.status,
       generation: w.generation + 1,
       stopsEnded: if (atWork(w)) w.stopsEnded + 1 else w.stopsEnded,
@@ -1413,17 +1440,17 @@ module harnessSession {
     move(runFrames(gone, restOf(world, callId)), OtherStep),
   }
 
-  /// A blocked author restarts, unless a prompt is in flight or queued or its task finished. The
-  /// turn ended on its own with text, so the agent's wake waits on its summarization.
-  pure def onOutcome(w: World, outcome: Outcome): World = {
+  /// A blocked author restarts, unless a prompt is in flight or queued or its task finished. With
+  /// `summarizes`, the turn ended with text, so the agent's wake waits on its summarization.
+  pure def onOutcome(w: World, outcome: Outcome, summarizes: bool): World = {
     val recorded = { ...w, stoppedEarly: outcome == StoppedEarly }
     match outcome {
       | Blocked =>
         if (isFinished(recorded.status)) recorded
-        else if (recorded.promptInFlight or recorded.queue.length() > 0) settleThenWake(recorded, true)
+        else if (recorded.promptInFlight or recorded.queue.length() > 0) settleThenWake(recorded, summarizes)
         else restartOrFailTask({ ...recorded, queue: recorded.queue.append(GaveUpWake) }, List())
-      | StoppedEarly => settleStoppedEarlyAuthor(recorded, true)
-      | _ => settleThenWake(recorded, true)
+      | StoppedEarly => settleStoppedEarlyAuthor(recorded, summarizes)
+      | _ => settleThenWake(recorded, summarizes)
     }
   }
 
@@ -1450,7 +1477,7 @@ module harnessSession {
     val later = world.promptInFlight and world.promptsSent > promptsAtTurnEnd(world, callId)
     val checked = withoutCall(world, callId)
     val current = generationOfCall(world, callId) == world.generation
-    move(if (current) onOutcome(checked, outcome) else checked, OutcomeStep({ laterPromptInFlight: later })),
+    move(if (current) onOutcome(checked, outcome, true) else checked, OutcomeStep({ laterPromptInFlight: later })),
   }
 
   /// The summarization of the turn text returns, and the agent wakes.
@@ -1551,18 +1578,22 @@ module harnessSession {
     })
 
   /// The harness answers its oldest request. A prompt ends its turn, cancelled when a cancel
-  /// reached it.
+  /// reached it. A turn that ends on its own prints its closing text first, or ends without text.
   action harnessAnswers: bool = all {
     world.bridges.indices().exists(bridge => answerable(world, bridge)),
     nondet bridge = world.bridges.indices().filter(index => answerable(world, index)).oneOf()
     nondet finished = Set(EndTurn, MaxTokens).oneOf()
+    nondet endsWithText = Set(true, false).oneOf()
     val request = world.bridges[bridge].requests[0]
     val stop = if (request.cancelled) CancelledTurn else finished
     val answered = withoutFirstRequest(world, bridge)
+    val printed = { ...answered, turnText: world.turnText or (endsWithText and request.purpose == Prompt and stop == EndTurn) }
     val ownRow = served(world, bridge) and world.rpcs.select(row => row.serial == request.serial).length() > 0
+    val endsATurn = request.purpose == Prompt and rowsWith(world, request.id).select(row => row.purpose == Prompt).length() > 0
+    val emptyTurnEnd = served(world, bridge) and endsATurn and stop == EndTurn and not(printed.turnText)
     move(
-      if (served(world, bridge)) onAnswer(answered, request, stop) else answered,
-      AnswerStep({ reachedItsOwnRow: ownRow, purpose: request.purpose }),
+      if (served(world, bridge)) onAnswer(printed, request, stop) else answered,
+      if (emptyTurnEnd) EmptyTurnEndStep else AnswerStep({ reachedItsOwnRow: ownRow, purpose: request.purpose }),
     ),
   }
 
@@ -1580,22 +1611,34 @@ module harnessSession {
     move(refused, if (promptRefused) PromptRefusedStep else OtherStep),
   }
 
+  /// `setTodos`: the todo list of an author is fixed once its job has an artifact.
+  pure def storeTodos(w: World, open: bool): World = if (w.artifact) w else { ...w, openTodos: open }
+
+  pure def reportProgress(w: World, report: ProgressReport): World = match report {
+    | ToolCall => w
+    | OpenTodoList => storeTodos(w, true)
+    | FinishedTodoList => storeTodos(w, false)
+  }
+
   /// The harness reports a tool call or a todo list change during its turn.
   action harnessShowsProgress: bool = all {
     world.bridges.indices().exists(bridge => runsATurn(world, bridge)),
     nondet bridge = world.bridges.indices().filter(index => runsATurn(world, index)).oneOf()
-    move(if (served(world, bridge)) touchProgress(world) else world, OtherStep),
+    nondet report = Set(ToolCall, OpenTodoList, FinishedTodoList).oneOf()
+    move(if (served(world, bridge)) reportProgress(touchProgress(world), report) else world, OtherStep),
   }
 
-  /// The harness writes the page and prints its link during its turn. `recordArtifact` stores it
-  /// and moves an author without a prompt in flight to review.
+  /// The harness writes the page and prints its link during its turn. `recordArtifact` stores it,
+  /// completes the todo list, and moves an author without a prompt in flight to review.
   action harnessWritesThePage: bool = all {
     not(world.artifact),
     world.bridges.indices().exists(bridge => runsATurn(world, bridge)),
     nondet bridge = world.bridges.indices().filter(index => runsATurn(world, index)).oneOf()
+    val printed = { ...world, turnText: true }
     move(
-      if (served(world, bridge) and not(isFinished(world.status))) markAuthorInReview({ ...world, artifact: true })
-      else world,
+      if (not(served(world, bridge))) world
+      else if (isFinished(world.status)) printed
+      else markAuthorInReview({ ...printed, artifact: true, openTodos: false }),
       OtherStep,
     ),
   }
@@ -1665,6 +1708,14 @@ module harnessSession {
     harnessExits,
   }
 
+  /// The harness reports its work while the job has no artifact, so its todo list can still change.
+  /// Samples rarely list todos before the page is written, so this step gives that report more
+  /// weight.
+  action theHarnessListsItsTodos: bool = all {
+    not(world.artifact),
+    harnessShowsProgress,
+  }
+
   /// A step picks a prompt, the clock, an interruption and a report of the harness each as often
   /// as one event of a call, a socket or the harness, so a random walk of 25 steps reaches the end
   /// of a turn.
@@ -1688,6 +1739,7 @@ module harnessSession {
     theHarnessReportsItsWork,
     theAgentPausesARunningTurn,
     theHarnessExitsUnderAnIdleAuthor,
+    theHarnessListsItsTodos,
   }
 
   /// A finished task never changes status again.
@@ -1996,6 +2048,14 @@ module harnessSession {
   /// Witness for `aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn`: a prompt goes out while an
   /// outcome check is out.
   val aPromptGoesOutDuringAnOutcomeCheck: bool = stepWitnesses.aPromptGoesOutDuringAnOutcomeCheck
+
+  /// Witness for `anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone`: a turn ends on its own without
+  /// text while the todo list has open entries and the job has no artifact, so the author stopped
+  /// early without an outcome check.
+  val anEmptyTurnStopsEarly: bool = stepWitnesses.anEmptyTurnStopsEarly
+
+  /// The agent wakes after a turn that ended on its own without text, without a summarization.
+  val theAgentWakesAfterAnEmptyTurn: bool = stepWitnesses.theAgentWakesAfterAnEmptyTurn
 
   /// Witness for `anAnswerReachesOnlyItsOwnRequest`: the harness answers a request after the
   /// orchestrator cleared its rpc row.
