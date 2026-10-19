@@ -68,10 +68,16 @@ const SLACK_TIMESTAMP_HEADER = "x-slack-request-timestamp";
 
 const DIGEST_LENGTH = 64;
 
-const staleSkewSeconds = fc.oneof(
-  fc.integer({ min: 400, max: 10_000_000 }),
-  fc.integer({ min: -10_000_000, max: -400 }),
-);
+function staleSkewSeconds(windowSeconds: number) {
+  return fc.oneof(
+    fc.integer({ min: windowSeconds + 1, max: 10_000_000 }),
+    fc.integer({ min: -10_000_000, max: -(windowSeconds + 1) }),
+  );
+}
+
+const LINEAR_WINDOW_SECONDS = 60;
+
+const SLACK_WINDOW_WITH_WHOLE_SECOND_ROUNDING = 301;
 
 const commonTampers: fc.Arbitrary<Tamper>[] = [
   fc.record({
@@ -104,12 +110,18 @@ const TAMPERS: Record<Vendor, fc.Arbitrary<Tamper>> = {
   notion: fc.oneof(...commonTampers),
   linear: fc.oneof(
     ...commonTampers,
-    fc.record({ kind: fc.constant("stale timestamp"), skewSeconds: staleSkewSeconds }),
+    fc.record({
+      kind: fc.constant("stale timestamp"),
+      skewSeconds: staleSkewSeconds(LINEAR_WINDOW_SECONDS),
+    }),
     fc.constant({ kind: "timestamp missing" }),
   ),
   slack: fc.oneof(
     ...commonTampers,
-    fc.record({ kind: fc.constant("stale timestamp"), skewSeconds: staleSkewSeconds }),
+    fc.record({
+      kind: fc.constant("stale timestamp"),
+      skewSeconds: staleSkewSeconds(SLACK_WINDOW_WITH_WHOLE_SECOND_ROUNDING),
+    }),
     fc.constant({ kind: "timestamp missing" }),
     fc.record({
       kind: fc.constant("timestamp changed after signing"),
@@ -220,7 +232,8 @@ describe("webhook invariants", () => {
   it("hold for every vendor route and every tamper", async () => {
     await fc.assert(
       fc.asyncProperty(webhookCase, async ({ vendor, text, tamper }) => {
-        expect(await orchestratorCalls(vendor, text, null)).toContain("deliver");
+        const untampered = await orchestratorCalls(vendor, text, null);
+        expect(untampered.filter((call) => call === "deliver")).toHaveLength(1);
         badSignatureNeverDelivers({
           vendor,
           tamper: tamper.kind,
