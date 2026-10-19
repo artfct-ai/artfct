@@ -57,10 +57,9 @@ jobs:
   spec_changes:
     name: spec changes
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 5
     outputs:
       specs: ${{ steps.specs.outputs.specs }}
-      replays: ${{ steps.replays.outputs.replays }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -79,28 +78,6 @@ jobs:
             fi
           done
           echo "specs=${specs# }" | tee -a "$GITHUB_OUTPUT"
-      - if: github.event_name == 'push'
-        uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - if: github.event_name == 'push'
-        run: bun install --frozen-lockfile
-      - name: Replay on main only when the turbo hash of the replay task differs from the previous commit's, since a fresh seed rules out the turbo cache
-        if: github.event_name == 'push'
-        id: replays
-        shell: bash
-        run: |
-          replay_hash() {
-            bunx turbo run spec:replay --filter=@artfct-ai/orchestrator --dry=json |
-              jq -r '.tasks[] | select(.taskId == "@artfct-ai/orchestrator#spec:replay") | .hash'
-          }
-          now=$(replay_hash)
-          git checkout -q HEAD^1
-          before=$(replay_hash)
-          git checkout -q -
-          replays=true
-          [ -n "$now" ] && [ "$now" = "$before" ] && replays=false
-          echo "replays=$replays" | tee -a "$GITHUB_OUTPUT"
 
   quint:
     name: quint (shard ${{ matrix.shard }})
@@ -172,8 +149,8 @@ jobs:
 
   spec_replays:
     name: spec replays (${{ matrix.name }})
-    needs: [ci, spec_changes]
-    if: github.event_name == 'push' && needs.spec_changes.outputs.replays == 'true'
+    needs: ci
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
@@ -198,17 +175,13 @@ jobs:
         with:
           bun-version-file: package.json
       - run: bun install --frozen-lockfile
-      - run: bun run template-config
       - name: Seed the replay from the run id
         run: echo "PROPERTY_SEED=$(( GITHUB_RUN_ID % 2147483648 ))" >> "$GITHUB_ENV"
-      - name: Replay the specs
+      - name: Replay the specs at their e2e counts, unless turbo has the result cached
         timeout-minutes: 25
         run: |
-          status=0
-          for replay in $REPLAYS; do
-            bun scripts/properties/e2e-property-test.ts "$replay" || status=1
-          done
-          exit "$status"
+          read -ra replays <<<"$REPLAYS"
+          bunx turbo run spec:replay:e2e --filter=@artfct-ai/orchestrator -- "${replays[@]}"
 
   preview:
     name: preview
