@@ -282,6 +282,39 @@ describe("OpenRouterDecisions choice questions", () => {
     });
   });
 
+  test("moves to the next model when the picked option has no probability", async () => {
+    const { decisions, seen } = decisionsReplying(
+      (request) => ({
+        status: 200,
+        answers: {
+          model:
+            request.body.model === FALLBACK_MODEL
+              ? { type: "choice", choice: "none", probabilities: { none: 0.6 } }
+              : { type: "choice", choice: "claude-opus-5-5", probabilities: { none: 0.2 } },
+        },
+      }),
+      { models: [JEV, FALLBACK_MODEL] },
+    );
+
+    const answered = await decisions.decide(
+      { message: "use opus" },
+      { yesNo: {}, choices: MODEL_QUESTION },
+    );
+
+    expect(seen.map((request) => request.body.model)).toEqual([JEV, FALLBACK_MODEL]);
+    expect(answered.choices).toEqual({ model: { option: "none", probability: 0.6 } });
+  });
+
+  test("fails like a failed call when no model gives the picked option a probability", async () => {
+    const { decisions } = decisionsAnswering({
+      model: { type: "choice", choice: "claude-opus-5-5" },
+    });
+
+    await expect(
+      decisions.decide({ message: "use opus" }, { yesNo: {}, choices: MODEL_QUESTION }),
+    ).rejects.toThrow("every decisions model failed");
+  });
+
   test("throws when a question gets no choice", async () => {
     const { decisions } = decisionsAnswering({ model: { type: "noul", noul: 0.9 } });
 

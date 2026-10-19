@@ -14,7 +14,7 @@ import type {
   ChangeInput,
   FeedbackHandle,
   PullRef,
-  Review,
+  ReviewRead,
 } from "./types";
 
 /** What the pull kind needs from the configured code provider. */
@@ -172,35 +172,39 @@ async function headRevision(clients: PullClients, ref: ArtifactRef): Promise<str
 }
 
 /**
- * The newest review this reviewer filed after `since`. Null when it filed none, when the host
- * cannot be reached, and when the host will not say which login is ours.
+ * The newest review this reviewer filed after `since`. None when it filed none or the code host
+ * is not configured. A host call that throws, such as the one that says which login is ours, fails
+ * the read.
  */
 async function readReview(
   clients: PullClients,
   ref: ArtifactRef,
   since: string,
-): Promise<Review | null> {
+): Promise<ReviewRead> {
   const host = clients.host();
-  if (!host || ref.kind !== "pull") return null;
+  if (!host || ref.kind !== "pull") return { filedNone: true };
   try {
     const login = await host.reviewerLogin();
     const reviews = await host.pullReviews(ref.repo, ref.number);
     const latest = newestOwnReview(reviews, login, Date.parse(since));
-    if (!latest) return null;
+    if (!latest) return { filedNone: true };
     const comments = await host.reviewComments(ref.repo, ref.number, latest.id);
     const body = latest.body ?? "";
     return {
-      revision: latest.commit_id ?? (await host.getPull(ref.repo, ref.number)).head.sha,
-      blocking: clients.review.blocking(latest.state, body),
-      summary: body.trim(),
-      findings: comments.map((comment) => ({
-        location: commentLocation(comment),
-        body: comment.body,
-      })),
+      review: {
+        revision: latest.commit_id ?? (await host.getPull(ref.repo, ref.number)).head.sha,
+        blocking: clients.review.blocking(latest.state, body),
+        summary: body.trim(),
+        findings: comments.map((comment) => ({
+          location: commentLocation(comment),
+          body: comment.body,
+        })),
+      },
     };
   } catch (error) {
-    clients.log(`review lookup failed: ${String(error).slice(0, 200)}`);
-    return null;
+    const reason = String(error).slice(0, 200);
+    clients.log(`review read failed: ${reason}`);
+    return { readFailed: reason };
   }
 }
 

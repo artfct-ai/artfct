@@ -25,7 +25,8 @@
     "aJobWorksOnlyOnIssuesOfItsSubject",
     "subjectNeverChanges",
     "aFailedCheckNeverCompletesAJob",
-    "aFailedCheckNeverAsksThePersonAgain"
+    "aFailedCheckNeverAsksThePersonAgain",
+    "aJobStartProvisionsItsTask"
   ],
   "mainMinutes": {
     "pagesWithAReviewer": 1.7,
@@ -82,7 +83,8 @@
       "theWorkflowFailed",
       "anAcceptanceCheckFails",
       "aCheckFailsAfterItsAuthorEnded",
-      "theAgentIsToldToAskAgain"
+      "theAgentIsToldToAskAgain",
+      "aJobStartsPastAFailedRouterWrite"
     ],
     "pagesWithAPolisher": [
       "aPlanStartsTheWorkflow",
@@ -124,7 +126,8 @@
       "theWorkflowFailed",
       "anAcceptanceCheckFails",
       "aCheckFailsAfterItsAuthorEnded",
-      "theAgentIsToldToAskAgain"
+      "theAgentIsToldToAskAgain",
+      "aJobStartsPastAFailedRouterWrite"
     ],
     "pagesWithoutRefiners": [
       "aPlanStartsTheWorkflow",
@@ -159,7 +162,8 @@
       "theWorkflowFailed",
       "anAcceptanceCheckFails",
       "aCheckFailsAfterItsAuthorEnded",
-      "theAgentIsToldToAskAgain"
+      "theAgentIsToldToAskAgain",
+      "aJobStartsPastAFailedRouterWrite"
     ],
     "pagesWithAChoice": [
       "aPlanStartsTheWorkflow",
@@ -194,7 +198,8 @@
       "theWorkflowFailed",
       "anAcceptanceCheckFails",
       "aCheckFailsAfterItsAuthorEnded",
-      "theAgentIsToldToAskAgain"
+      "theAgentIsToldToAskAgain",
+      "aJobStartsPastAFailedRouterWrite"
     ],
     "pagesAfterResearch": [
       "aPlanStartsTheWorkflow",
@@ -223,7 +228,8 @@
       "anAuthorIsInReview",
       "theHumansHaveAPage",
       "theWorkflowIsDone",
-      "theWorkflowFailed"
+      "theWorkflowFailed",
+      "aJobStartsPastAFailedRouterWrite"
     ],
     "pagesFromModelCalls": [
       "aPlanStartsTheWorkflow",
@@ -274,7 +280,8 @@
       "aRestartLandsBeforeALostModelTurnRunsAgain",
       "theRestartAlarmFailsAnAuthor",
       "aRestartAlarmFiresAgain",
-      "aLostModelTurnRunsAgainOnceMore"
+      "aLostModelTurnRunsAgainOnceMore",
+      "aJobStartsPastAFailedRouterWrite"
     ],
     "modelCallPagesWithAReviewer": [
       "aPlanStartsTheWorkflow",
@@ -332,7 +339,8 @@
       "aRestartLandsBeforeALostModelTurnRunsAgain",
       "theRestartAlarmFailsAnAuthor",
       "aRestartAlarmFiresAgain",
-      "aLostModelTurnRunsAgainOnceMore"
+      "aLostModelTurnRunsAgainOnceMore",
+      "aJobStartsPastAFailedRouterWrite"
     ],
     "modelCallPagesAfterResearch": [
       "aPlanStartsTheWorkflow",
@@ -385,7 +393,8 @@
       "aRestartLandsBeforeALostModelTurnRunsAgain",
       "theRestartAlarmFailsAnAuthor",
       "aRestartAlarmFiresAgain",
-      "aLostModelTurnRunsAgainOnceMore"
+      "aLostModelTurnRunsAgainOnceMore",
+      "aJobStartsPastAFailedRouterWrite"
     ],
     "modelCallPagesForAnIssue": [
       "aPlanStartsTheWorkflow",
@@ -444,7 +453,8 @@
       "aRestartLandsBeforeALostModelTurnRunsAgain",
       "theRestartAlarmFailsAnAuthor",
       "aRestartAlarmFiresAgain",
-      "aLostModelTurnRunsAgainOnceMore"
+      "aLostModelTurnRunsAgainOnceMore",
+      "aJobStartsPastAFailedRouterWrite"
     ],
     "pullsTheHostMoves": [
       "aPlanStartsTheWorkflow",
@@ -483,7 +493,8 @@
       "anArtifactIsRemoved",
       "aRemovedPullIsOpenAgain",
       "aStartOutsideTheSubjectIsRefused",
-      "aPlanNamesAnotherSubject"
+      "aPlanNamesAnotherSubject",
+      "aJobStartsPastAFailedRouterWrite"
     ],
     "pullsForAnEndedSubject": [
       "aPlanStartsTheWorkflow",
@@ -522,7 +533,8 @@
       "theSubjectIssueEndCancelsTheWorkflow",
       "anIssueEndFindsAnAcceptedArtifact",
       "aStartOutsideTheSubjectIsRefused",
-      "aPlanNamesAnotherSubject"
+      "aPlanNamesAnotherSubject",
+      "aJobStartsPastAFailedRouterWrite"
     ],
     "pullsForAnEndedSubIssue": [
       "aPlanStartsTheWorkflow",
@@ -560,7 +572,8 @@
       "anIssueEndFindsAnAcceptedArtifact",
       "aStartOutsideTheSubjectIsRefused",
       "aPlanNamesAnotherSubject",
-      "aJobWorksOnASubIssue"
+      "aJobWorksOnASubIssue",
+      "aJobStartsPastAFailedRouterWrite"
     ],
     "pullsForTwoIssues": [
       "aPlanStartsTheWorkflow",
@@ -600,7 +613,8 @@
       "theWorkflowMovedAnIssue",
       "aStartOutsideTheSubjectIsRefused",
       "aPlanNamesAnotherSubject",
-      "aJobWorksOnASubIssue"
+      "aJobWorksOnASubIssue",
+      "aJobStartsPastAFailedRouterWrite"
     ],
     "issuesForAChatRequest": [
       "aPlanStartsTheWorkflow",
@@ -638,7 +652,8 @@
       "anOutputIsItsInput",
       "anAcceptanceCheckFails",
       "aCheckFailsAfterItsAuthorEnded",
-      "theAgentIsToldToAskAgain"
+      "theAgentIsToldToAskAgain",
+      "aJobStartsPastAFailedRouterWrite"
     ]
   },
   "tlc": {
