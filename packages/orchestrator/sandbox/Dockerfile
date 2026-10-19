@@ -1,8 +1,8 @@
 # The Sandbox SDK checks SANDBOX_VERSION against @cloudflare/sandbox in packages/orchestrator.
 # Each image is pinned by digest and each download by checksum. Renovate bumps both halves of a pair
 # together. It finds a download by the comment above it, and pin-sha256.sh writes its checksum.
-ARG SANDBOX_VERSION=0.12.10
-ARG SANDBOX_DIGEST=sha256:35c932d3e5b35f28d350800cf00551cac46dfe28274afb54e16325b8d8f560d1
+ARG SANDBOX_VERSION=0.12.11
+ARG SANDBOX_DIGEST=sha256:3406de01c37e24b92042afba3a1288fb3fd63fa0cf7784775bce7b7f1ddcc1fc
 ARG BUN_TAG=1.4.3-slim
 ARG BUN_DIGEST=sha256:14a223fa35747ec728bce300ef85888bc5f7958164d15bbba6a54b22b52a3288
 ARG NODE_TAG=24.21.0-bookworm-slim

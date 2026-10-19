@@ -14,23 +14,23 @@
     "lint": "oxlint"
   },
   "dependencies": {
-    "@agentclientprotocol/sdk": "^1.8.0",
+    "@agentclientprotocol/sdk": "^2.0.0",
     "@artfct-ai/acp": "workspace:*",
     "@artfct-ai/contracts": "workspace:*",
-    "@linear/sdk": "^97.0.0",
-    "@notionhq/client": "^5.27.0",
+    "@linear/sdk": "^98.0.0",
+    "@notionhq/client": "^5.27.1",
     "@octokit/auth-app": "^8.3.1",
     "@octokit/rest": "^22.0.1",
     "@octokit/webhooks-methods": "^6.0.0",
-    "@openrouter/sdk": "^1.4.7",
-    "@slack/web-api": "^8.1.1",
-    "cloudflare": "^7.2.0",
+    "@openrouter/sdk": "^1.4.25",
+    "@slack/web-api": "^8.2.0",
+    "cloudflare": "^7.3.0",
     "diff": "^9.0.0",
     "p-limit": "^7.3.3",
     "zod": "^4.6.7"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^5.20261007.1",
+    "@cloudflare/workers-types": "^5.20261019.1",
     "fast-check": "^4.10.2"
   }
 }
