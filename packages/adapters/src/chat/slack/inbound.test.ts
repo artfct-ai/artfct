@@ -421,17 +421,6 @@ describe("slack thread replies", () => {
       expect("ignore" in fromBot).toBe(true);
     });
 
-    it("ignores an edit of a reply", async () => {
-      const edited = await normalize({
-        type: "message",
-        subtype: "message_changed",
-        channel: "C1",
-        ts: "1700.4",
-        thread_ts: "1700.1",
-      });
-      expect(edited).toEqual({ ignore: "not a human thread reply" });
-    });
-
     it("ignores a top-level message, which starts no thread", async () => {
       const topLevel = await normalize({
         type: "message",

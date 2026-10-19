@@ -83,22 +83,6 @@ describe("harness session spec", () => {
     await replayPinnedTrace("settle-during-a-handshake");
   });
 
-  it("keeps an author out of review when the settle alarm fires during a handshake", async () => {
-    await replayPinnedTrace("settle-alarm-during-a-handshake");
-  });
-
-  it("drops a start of an older generation that fails before it launches", async () => {
-    await replayPinnedTrace("stale-start-fails-at-once");
-  });
-
-  it("wakes the agent once the turn text summarization returns", async () => {
-    await replayPinnedTrace("agent-wakes-after-the-turn-summarization");
-  });
-
-  it("loses the agent wake with the turn text summarization on a restart", async () => {
-    await replayPinnedTrace("turn-summarization-lost-with-the-instance");
-  });
-
   it("drops the late answer to a request of an earlier dial", async () => {
     await replayPinnedTrace("late-answer-after-a-redial");
   });

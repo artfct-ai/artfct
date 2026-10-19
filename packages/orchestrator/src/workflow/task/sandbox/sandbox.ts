@@ -174,7 +174,7 @@ async function startGeneration(
       fresh.task_id,
       `commit author lookup failed: ${String(error).slice(0, LOGGED_ERROR_CHARS)}`,
     );
-    if (generationMoved(workflow, sandbox)) return;
+    if (workflow.store.requireSandbox(fresh.task_id).generation !== sandbox.generation) return;
     return restartOrFailTask(
       workflow,
       fresh,
@@ -187,7 +187,6 @@ async function startGeneration(
     gateway = gatewayRouting(workflow, fresh, job);
     skills = loadHarnessSkills(settings.skill);
   } catch (error) {
-    if (generationMoved(workflow, sandbox)) return;
     return failTask(workflow, fresh, String(error).slice(0, 500));
   }
   const built = buildStartSpec({
@@ -210,10 +209,7 @@ async function startGeneration(
     sleepAfterMs: config.orchestrator.sandbox.sleep_after,
     startupTimeoutMs: config.orchestrator.sandbox.startup_timeout,
   });
-  if ("error" in built) {
-    if (generationMoved(workflow, sandbox)) return;
-    return failTask(workflow, fresh, built.error);
-  }
+  if ("error" in built) return failTask(workflow, fresh, built.error);
   try {
     await workflow.sandbox().start(built.spec);
   } catch (error) {
@@ -221,7 +217,7 @@ async function startGeneration(
       fresh.task_id,
       `sandbox start failed: ${String(error).slice(0, LOGGED_ERROR_CHARS)}`,
     );
-    if (generationMoved(workflow, sandbox)) return;
+    if (workflow.store.requireSandbox(fresh.task_id).generation !== sandbox.generation) return;
     return restartOrFailTask(
       workflow,
       fresh,
@@ -236,11 +232,6 @@ async function startGeneration(
       workflow.store.requireSandbox(fresh.task_id),
       githubTokens.expiresAt,
     );
-}
-
-/** True when a stop or a later start began another generation while this start awaited. */
-function generationMoved(workflow: WorkflowRuntime, started: SandboxRow): boolean {
-  return workflow.store.requireSandbox(started.task_id).generation !== started.generation;
 }
 
 /** Bump the generation, issue a bridge token, and forget the old harness session, rpc rows, keepalive, and nudge. */

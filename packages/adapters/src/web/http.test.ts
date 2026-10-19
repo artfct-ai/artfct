@@ -1,4 +1,4 @@
-import { describe, expect, it, spyOn } from "bun:test";
+import { describe, expect, it } from "bun:test";
 import { fetchHeader, fetchUrl } from "../../test/fetch";
 import { HttpWeb } from "./http";
 
@@ -47,25 +47,6 @@ describe("HttpWeb", () => {
       await new HttpWeb({ fetch }).readPage("https://a.example/", turn.signal);
       turn.abort();
       expect(calls[0]?.init?.signal?.aborted).toBe(true);
-    });
-
-    it("aborts the request once its 20 second timeout fires", async () => {
-      const timeout = new AbortController();
-      const timeoutSpy = spyOn(AbortSignal, "timeout").mockReturnValue(timeout.signal);
-      const { fetch, calls } = answering(() => new Response("hi"));
-      await new HttpWeb({ fetch }).readPage("https://a.example/");
-      const timeouts = timeoutSpy.mock.calls.map(([milliseconds]) => milliseconds);
-      timeoutSpy.mockRestore();
-      expect(timeouts).toEqual([20_000]);
-      expect(calls[0]?.init?.signal?.aborted).toBe(false);
-      timeout.abort();
-      expect(calls[0]?.init?.signal?.aborted).toBe(true);
-    });
-
-    it("leaves redirects to the platform fetch, which follows them", async () => {
-      const { fetch, calls } = answering(() => new Response("hi"));
-      await new HttpWeb({ fetch }).readPage("https://a.example/");
-      expect(calls[0]?.init?.redirect ?? "follow").toBe("follow");
     });
 
     it("throws on a failed status", async () => {

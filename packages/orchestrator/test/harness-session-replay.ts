@@ -1,9 +1,4 @@
-import { mock, setSystemTime } from "bun:test";
-import type {
-  LanguageModelV4,
-  LanguageModelV4GenerateResult,
-  LanguageModelV4StreamResult,
-} from "@ai-sdk/provider";
+import { setSystemTime } from "bun:test";
 import type {
   InitializeResponse,
   NewSessionResponse,
@@ -15,7 +10,7 @@ import type {
   SetSessionConfigOptionResponse,
   StopReason,
 } from "@agentclientprotocol/sdk";
-import type { CompatRoute, Decisions } from "@artfct-ai/adapters/gateway/types";
+import type { Decisions } from "@artfct-ai/adapters/gateway/types";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { bridgeTokenHeaders } from "@artfct-ai/acp/bridge-token";
@@ -72,14 +67,11 @@ import { InterleavedDecisions } from "./interleaved-decisions";
 import { quintTraces } from "./quint-traces";
 import { WorkflowWorld, type WorldSetup } from "./workflow-world";
 
-await mock.module("../src/agent/model/traced-ai", async () => ({ tracedAI: await import("ai") }));
-
 /** The setup modules of the harness session spec, and whether the stage of each asks for an effort. */
 export const SPEC_SETUPS = {
   harnessDefaultEffort: false,
   stageAsksForEffort: true,
   agentPausesRunningTurns: false,
-  interruptionsAfterTheFirstPrompt: false,
 } as const satisfies Record<string, boolean>;
 
 /** The name of one setup module of the spec. */
@@ -155,8 +147,7 @@ type SpecCall =
       promptsAtTurnEnd: number;
       generation: number;
       state: CallState;
-    }
-  | { id: number; kind: "Summarization"; state: CallState };
+    };
 
 /**
  * Where each schedule column points: the index of its alarm among the alarms, -1 for an alarm
@@ -193,10 +184,8 @@ export type SpecTask = {
   promptsSent: number;
   cancelsDelivered: number;
   permissionsAsked: number;
-  permissionsWithAnAllowOption: number;
   permissionsAllowed: number;
   socketsClosed: number;
-  agentWakes: number;
   eventsThatThrew: number;
 };
 
@@ -209,7 +198,6 @@ type SpecPicks = {
   bridge: number | null;
   index: number | null;
   finished: FinishedStop | null;
-  offersAllow: boolean | null;
 };
 
 /** One state of a trace: the action that led to it, its picks, and the task. */
@@ -244,7 +232,6 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
     const ok = picked("ok");
     const outcome = picked("outcome");
     const finished = picked("finished");
-    const offersAllow = picked("offersAllow");
     return {
       action: itfText(itfField(state, "mbt::actionTaken")),
       picks: {
@@ -255,7 +242,6 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
         bridge: optionalInt(picked("bridge")),
         index: optionalInt(picked("index")),
         finished: finished === null ? null : itfOneOf(itfVariant(finished)!.tag, FINISHED_STOPS),
-        offersAllow: offersAllow === null ? null : itfBool(offersAllow),
       },
       task: specTask(itfField(state, `${setup}::harnessSession::world`)),
     };
@@ -319,10 +305,8 @@ function specTask(world: unknown): SpecTask {
     promptsSent: itfInt(itfField(world, "promptsSent")),
     cancelsDelivered: itfInt(itfField(world, "cancelsDelivered")),
     permissionsAsked: itfInt(itfField(world, "permissionsAsked")),
-    permissionsWithAnAllowOption: itfInt(itfField(world, "permissionsWithAnAllowOption")),
     permissionsAllowed: itfInt(itfField(world, "permissionsAllowed")),
     socketsClosed: itfInt(itfField(world, "socketsClosed")),
-    agentWakes: itfInt(itfField(world, "agentWakes")),
     eventsThatThrew: itfInt(itfField(world, "eventsThatThrew")),
   };
 }
@@ -369,8 +353,6 @@ function specCall(call: unknown): SpecCall {
         generation: itfInt(itfField(kind.value, "generation")),
         state,
       };
-    case "Summarization":
-      return { id, kind: "Summarization", state };
     default:
       throw new Error(`the trace has a call ${kind.tag}`);
   }
@@ -416,8 +398,7 @@ type HeldCall = {
   kind:
     | HeldStart
     | { name: "SandboxDestroy"; upTo: number }
-    | { name: "OutcomeCheck"; promptsAtTurnEnd: number; generation: number }
-    | { name: "Summarization" };
+    | { name: "OutcomeCheck"; promptsAtTurnEnd: number; generation: number };
   state: CallState;
   answer: (answer: { ok: boolean; decisions: Decisions }) => void;
   step: Promise<unknown> | null;
@@ -445,47 +426,11 @@ class HoldingSandboxProvider extends FakeSandboxProvider {
   }
 }
 
-/** A gateway without a route for the harness model, so a sandbox start fails before it launches. */
-class RoutelessGateway extends FakeGateway {
-  override compatRoute(): CompatRoute {
-    throw new Error("the gateway has no route for the harness model");
-  }
-}
-
-/** A model whose every summarization stays out until the replay returns it. */
-class HeldSummarizationModel implements LanguageModelV4 {
-  readonly specificationVersion = "v4" as const;
-  readonly provider = "test";
-  readonly modelId = "held-summarization";
-  readonly supportedUrls = {};
-
-  constructor(private readonly replay: HarnessSessionReplay) {}
-
-  async doGenerate(): Promise<LanguageModelV4GenerateResult> {
-    await this.replay.holdSummarization();
-    return {
-      content: [{ type: "text", text: DIGEST_TEXT }],
-      finishReason: { unified: "stop", raw: undefined },
-      usage: {
-        inputTokens: { total: 0, noCache: 0, cacheRead: undefined, cacheWrite: undefined },
-        outputTokens: { total: 0, text: 0, reasoning: undefined },
-      },
-      warnings: [],
-    };
-  }
-
-  doStream(): Promise<LanguageModelV4StreamResult> {
-    return Promise.reject(new Error("no streaming"));
-  }
-}
-
 const TOOL_CALL = { toolCallId: "call-1", messages: [], context: {} };
 const ANSWERS = { for_author: 0, beyond_author: 0, rejects: 0 };
 const PERSON_TEXT = "Cover the error path too.";
 const CONTINUE_TEXT = "Continue where you left off.";
-const TURN_TEXT = `I wrote the design section by section. ${"Each section names its decision and the reason for it. ".repeat(12)}`;
-const DIGEST_TEXT = "The design is written.";
-const AGENT_WAKE_TEXTS = ["Harness turn ended (", "The harness is idle."];
+const TURN_TEXT = "I wrote the design section by section.";
 const HELD_EFFORT = "low";
 const ASKED_EFFORT = "high";
 const INTERNAL_ERROR = -32603;
@@ -570,7 +515,6 @@ export class HarnessSessionReplay {
   private promptsSent = 0;
   private cancelsDelivered = 0;
   private permissionsAsked = 0;
-  private permissionsWithAnAllowOption = 0;
   private permissionsAllowed = 0;
   private socketsClosed = 0;
   private eventsThatThrew = 0;
@@ -591,7 +535,6 @@ export class HarnessSessionReplay {
     const replay = new HarnessSessionReplay(world, author.taskId);
     const { workflow } = world;
     workflow.sandboxProvider = new HoldingSandboxProvider(replay);
-    workflow.modelInstance = new HeldSummarizationModel(replay);
     const host = workflow.code();
     if (!host) throw new Error("the world has no code host");
     const commitAuthor = host.commitAuthor.bind(host);
@@ -611,8 +554,7 @@ export class HarnessSessionReplay {
 
   /** Take one spec action, then let every bridge read what the orchestrator sent it. */
   async take(step: TraceStep): Promise<void> {
-    const Gateway = step.action === "sandboxStartFailsAtOnce" ? RoutelessGateway : FakeGateway;
-    this.world.workflow.gatewayInstance = new Gateway({
+    this.world.workflow.gatewayInstance = new FakeGateway({
       decisions: new InterleavedDecisions(new FakeDecisions(ANSWERS), (questions) =>
         Object.hasOwn(questions.choices, "outcome") ? this.holdOutcomeCheck() : null,
       ),
@@ -683,12 +625,8 @@ export class HarnessSessionReplay {
       promptsSent: this.promptsSent,
       cancelsDelivered: this.cancelsDelivered,
       permissionsAsked: this.permissionsAsked,
-      permissionsWithAnAllowOption: this.permissionsWithAnAllowOption,
       permissionsAllowed: this.permissionsAllowed,
       socketsClosed: this.socketsClosed,
-      agentWakes: workflow.notes.filter((note) =>
-        AGENT_WAKE_TEXTS.some((text) => note.text.includes(text)),
-      ).length,
       eventsThatThrew: this.eventsThatThrew,
     };
   }
@@ -730,13 +668,6 @@ export class HarnessSessionReplay {
     const upTo = this.world.workflow.store.requireSandbox(this.taskId).generation;
     return new Promise<void>((resolve) => {
       this.hold({ kind: { name: "SandboxDestroy", upTo }, answer: () => resolve() });
-    });
-  }
-
-  /** Hold the summarization of a long turn text until a later step returns it. */
-  holdSummarization(): Promise<void> {
-    return new Promise<void>((resolve) => {
-      this.hold({ kind: { name: "Summarization" }, answer: () => resolve() });
     });
   }
 
@@ -828,20 +759,10 @@ export class HarnessSessionReplay {
         return;
       case "sandboxStartReturns":
         return this.returnStart(required(picks.callId), required(picks.ok));
-      case "sandboxStartFailsAtOnce":
-        return this.returnCall(this.callOf(required(picks.callId)), {
-          ok: true,
-          decisions: new FakeDecisions(ANSWERS),
-        });
       case "sandboxDestroyReturns":
         return this.returnDestroy(required(picks.callId));
       case "outcomeCheckReturns":
         return this.returnOutcomeCheck(required(picks.callId), required(picks.outcome));
-      case "summarizationReturns":
-        return this.returnCall(this.callOf(required(picks.callId)), {
-          ok: true,
-          decisions: new FakeDecisions(ANSWERS),
-        });
       case "bridgeDials":
         return this.dial(required(picks.bridge));
       case "socketDrops":
@@ -871,7 +792,7 @@ export class HarnessSessionReplay {
         });
       }
       case "harnessAsksPermission":
-        return this.askPermission(required(picks.bridge), required(picks.offersAllow));
+        return this.askPermission(required(picks.bridge));
       case "harnessExits":
         return this.exit(required(picks.bridge));
       default:
@@ -1134,7 +1055,7 @@ export class HarnessSessionReplay {
     return this.deliver(socket, jsonRpcNotification(ClientMethods.sessionUpdate, notice));
   }
 
-  private async askPermission(index: number, offersAllow: boolean): Promise<void> {
+  private async askPermission(index: number): Promise<void> {
     const socket = this.connectedSocketOf(index);
     const served = this.served(socket);
     this.permissionSeq += 1;
@@ -1142,16 +1063,13 @@ export class HarnessSessionReplay {
     const params: RequestPermissionRequest = {
       sessionId: this.world.workflow.store.requireSandbox(this.taskId).session_id ?? "none",
       toolCall: { toolCallId: id, title: "Write the page" },
-      options: offersAllow
-        ? [{ optionId: "allow", name: "Allow", kind: "allow_once" }]
-        : [{ optionId: "reject", name: "Reject", kind: "reject_once" }],
+      options: [{ optionId: "allow", name: "Allow", kind: "allow_once" }],
     };
     const before = socket.fake.sent.length;
     await this.runStep(() =>
       this.deliver(socket, jsonRpcRequest(id, ClientMethods.sessionRequestPermission, params)),
     );
     if (served) this.permissionsAsked += 1;
-    if (served && offersAllow) this.permissionsWithAnAllowOption += 1;
     const allowed = socket.fake.sent.slice(before).some((frame) => {
       const message = parseMessage(frame);
       if (!message || !isResponse(message) || message.id !== id) return false;
@@ -1299,8 +1217,6 @@ function projectCall(call: HeldCall): SpecCall {
         generation: call.kind.generation,
         state: call.state,
       };
-    case "Summarization":
-      return { id: call.id, kind: "Summarization", state: call.state };
     default: {
       const unreachable: never = call.kind;
       throw new Error(`unhandled call ${String(unreachable)}`);
