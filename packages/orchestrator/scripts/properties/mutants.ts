@@ -220,7 +220,7 @@ export const MUTANTS: Mutant[] = [
     id: "W28",
     invariant: "harnessSession::taskRestartsAtMostTwice (stale start)",
     path: "src/workflow/task/sandbox/sandbox.ts",
-    find: '    if (workflow.store.requireSandbox(fresh.task_id).generation !== sandbox.generation) return;\n    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The sandbox start"),\n',
+    find: '    if (generationMoved(workflow, sandbox)) return;\n    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The sandbox start"),\n',
     replace:
       '    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The sandbox start"),\n',
   },
@@ -590,7 +590,7 @@ export const MUTANTS: Mutant[] = [
     id: "W108",
     invariant: "harnessSession::aStoppedAuthorStaysQuiet (commit author lookup)",
     path: "src/workflow/task/sandbox/sandbox.ts",
-    find: '    if (workflow.store.requireSandbox(fresh.task_id).generation !== sandbox.generation) return;\n    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The commit author lookup"),\n',
+    find: '    if (generationMoved(workflow, sandbox)) return;\n    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The commit author lookup"),\n',
     replace:
       '    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The commit author lookup"),\n',
   },

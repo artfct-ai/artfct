@@ -72,6 +72,8 @@ module harnessSessionTypes {
   /// What runs after the call that returns, innermost first. `CloseFeedWithoutStopReason` throws
   /// when the author is idle, because the feed closing reads a stop reason the answer lacked.
   /// `AlarmEnds` marks the end of an alarm's handler. The alarm stays scheduled until it runs.
+  /// `WakeTheAgent` wakes the orchestrator agent when the harness is idle after a turn end or a
+  /// refused prompt. With `summarizes`, the turn text needs a summarization first.
   /// `RestartAfterClose` names the generation and the restart count that its restart began from.
   /// `StartEnds` names the generation of its sandbox start. That start is out while a call that is
   /// out carries the frame.
@@ -80,13 +82,16 @@ module harnessSessionTypes {
     | StartEnds(int)
     | CloseFeedWithoutStopReason
     | AlarmEnds(Alarm)
+    | WakeTheAgent({ summarizes: bool })
 
   /// A call the orchestrator awaits. A sandbox destroy kills the bridges up to the generation it
-  /// names. An outcome check remembers the prompts sent and the generation when its turn ended.
+  /// names. An outcome check remembers the prompts sent and the generation when its turn ended. A
+  /// summarization is the model call that shortens a long turn text before the agent wakes.
   type CallKind =
     | SandboxStart({ generation: int, token: int, launched: bool })
     | SandboxDestroy(int)
     | OutcomeCheck({ promptsSent: int, generation: int })
+    | Summarization
 
   /// A call is out until it returns and leaves the list. A restart of the Durable Object drops the
   /// calls that are out. A dropped start stays until its container comes up. Every other dropped
@@ -133,11 +138,13 @@ module harnessSessionTypes {
     promptsSent: int,
     cancelsDelivered: int,
     permissionsAsked: int,
+    permissionsWithAnAllowOption: int,
     permissionsAllowed: int,
     socketsClosed: int,
     lostTurnsRecovered: int,
     stopsEnded: int,
     answersToOtherRequests: int,
+    agentWakes: int,
     eventsThatThrew: int,
     personPrompts: int,
     resumesChosen: int,
@@ -153,7 +160,7 @@ module harnessSessionTypes {
     | StopStep
     | StaleAlarmStep
     | ExitStep
-    | StartFailedStep(int)
+    | StartFailedStep({ generation: int, atOnce: bool })
     | HelloTimeoutStep
     | PromptRefusedStep
     | ProvisionStep
@@ -202,11 +209,14 @@ module harnessSessionTypes {
     aHarnessExitRestartsTheTask: bool,
     aSandboxStartFails: bool,
     aStaleSandboxStartFails: bool,
+    aSandboxStartFailsAtOnce: bool,
+    aStaleSandboxStartFailsAtOnce: bool,
     aStaleRestartIsDropped: bool,
     aStaleOutcomeCheckIsDropped: bool,
     theHarnessRefusesAPrompt: bool,
     theProvisionAlarmFires: bool,
     theWallClockFailsATurn: bool,
+    theWallClockFiresDuringARestart: bool,
     theKeepAliveFiresOnATurn: bool,
     aDialIsRefused: bool,
     aSocketIsReplaced: bool,
@@ -215,10 +225,13 @@ module harnessSessionTypes {
     anAnswerArrivesAfterItsRowWasCleared: bool,
     theEffortIsSet: bool,
     aCallWasDropped: bool,
+    theInstanceRestartsWithoutACallOut: bool,
     anAlarmRunsAgainAfterARestart: bool,
     aHelloTimeoutFiresWhileItsStartIsOut: bool,
     aResumePromptIsChosen: bool,
     aStoppedTaskGetsTheTaskPrompt: bool,
+    theAgentWakesForAnIdleHarness: bool,
+    aRestartDropsTheSummarization: bool,
   }
 }
 
@@ -232,6 +245,10 @@ module harnessSession {
   /// True when the agent pauses and resumes the author during its turns more often than any other
   /// step happens, so a resume lands while the cancel of the pause is out.
   const PAUSES_RUNNING_TURNS: bool
+
+  /// True when nothing interrupts the work of an unfinished task before the first prompt goes out,
+  /// so more samples reach the end of a turn and what follows it.
+  const INTERRUPTS_AFTER_THE_FIRST_PROMPT: bool
 
   /// How often a task restarts before it fails.
   pure val MAX_RESTARTS: int = 2
@@ -273,11 +290,13 @@ module harnessSession {
     promptsSent: 0,
     cancelsDelivered: 0,
     permissionsAsked: 0,
+    permissionsWithAnAllowOption: 0,
     permissionsAllowed: 0,
     socketsClosed: 0,
     lostTurnsRecovered: 0,
     stopsEnded: 0,
     answersToOtherRequests: 0,
+    agentWakes: 0,
     eventsThatThrew: 0,
     personPrompts: 0,
     resumesChosen: 0,
@@ -305,6 +324,8 @@ module harnessSession {
   pure def handshakePending(w: World): bool = w.rpcs.select(row => row.purpose != Prompt).length() > 0
 
   pure def issued(before: World, after: World): bool = after.nextCall > before.nextCall
+
+  pure def noCallOut(w: World): bool = w.calls.select(call => call.state == Out).length() == 0
 
   pure def bridgesOn(w: World, state: SocketState): Set[int] =
     w.sockets.foldl(Set(), (found, socket) =>
@@ -544,6 +565,19 @@ module harnessSession {
     if (issued(w, drained)) drained else markAuthorInReview(drained)
   }
 
+  /// Settle the author, then wake the agent once the drain and any start it awaited end.
+  pure def settleThenWake(w: World, summarizes: bool): World = {
+    val wake = List(WakeTheAgent({ summarizes: summarizes }))
+    goOn(w, settleAndResumeAuthor(w, wake), wake)
+  }
+
+  /// The agent wakes when the harness is idle. A turn text that needs a summarization waits on
+  /// that model call first.
+  pure def wakeTheAgent(w: World, summarizes: bool, rest: List[Frame]): World =
+    if (w.promptInFlight) w
+    else if (summarizes) issueCall(w, Summarization, rest)
+    else { ...w, agentWakes: w.agentWakes + 1 }
+
   /// `recoverLostTurn`: forget the lost turn and its harness session, so the queue wakes a fresh
   /// sandbox instead of a bridge that may still run the turn.
   pure def recoverLostTurn(w: World, rest: List[Frame]): World = {
@@ -603,7 +637,7 @@ module harnessSession {
   pure def onTurnEnd(w: World, stop: StopReason): World = {
     val ended = { ...w, promptInFlight: false, stoppedEarly: false }
     if (stop == EndTurn) issueCall(ended, OutcomeCheck({ promptsSent: ended.promptsSent, generation: ended.generation }), List())
-    else settleAndResumeAuthor(ended, List())
+    else settleThenWake(ended, false)
   }
 
   /// The feed of an idle author closes on the stop reason of its turn. Without one the event throws.
@@ -619,11 +653,11 @@ module harnessSession {
   }
 
   /// `stalledAtTurnEnd`: an author that stopped early stalled, unless a prompt is in flight or
-  /// queued or its task finished.
-  pure def settleStoppedEarlyAuthor(w: World): World =
-    if (isFinished(w.status) or w.promptInFlight or w.queue.length() > 0) settleAndResumeAuthor(w, List())
+  /// queued or its task finished. An author that restarts for it does not wake the agent.
+  pure def settleStoppedEarlyAuthor(w: World, summarizes: bool): World =
+    if (isFinished(w.status) or w.promptInFlight or w.queue.length() > 0) settleThenWake(w, summarizes)
     else if (w.nudged) restartOrFailTask(w, List())
-    else settleAndResumeAuthor(nudgeOrRestartStalledTask(w, List()), List())
+    else settleThenWake(nudgeOrRestartStalledTask(w, List()), summarizes)
 
   /// A refused prompt of an author whose last turn stopped early counts as a stall.
   pure def onRpcError(w: World, purpose: RpcPurpose): World = match purpose {
@@ -632,7 +666,7 @@ module harnessSession {
     | SetEffort => sendFirstPrompt(w)
     | Prompt =>
       val refused = { ...w, promptInFlight: false }
-      if (refused.stoppedEarly) settleStoppedEarlyAuthor(refused) else settleAndResumeAuthor(refused, List())
+      if (refused.stoppedEarly) settleStoppedEarlyAuthor(refused, false) else settleThenWake(refused, false)
   }
 
   pure def onBridgeExit(w: World): World =
@@ -651,6 +685,7 @@ module harnessSession {
     | StartEnds(_) => w
     | CloseFeedWithoutStopReason => closeFeedWithoutStopReason(w)
     | AlarmEnds(_) => w
+    | WakeTheAgent(wake) => wakeTheAgent(w, wake.summarizes, rest)
     | RestartAfterClose(began) =>
       if (isFinished(w.status) or w.generation != began.generation or w.restarts != began.restarts + 1) w
       else if (w.paused) clearTaskTimers(w)
@@ -806,7 +841,8 @@ module harnessSession {
   /// fails it, or closes its container to restart it. One that throws on a task already queued
   /// for a restart changes nothing, and neither does one of an older generation.
   pure def aFailedSandboxStartRestartsOrFailsIn(step: Step): bool = match step.kind {
-    | StartFailedStep(generation) =>
+    | StartFailedStep(failure) =>
+      val generation = failure.generation
       if (generation != step.before.generation or step.before.status == Queued) and {
         step.after.status == step.before.status,
         step.after.restarts == step.before.restarts,
@@ -893,8 +929,15 @@ module harnessSession {
 
   /// Whether a sandbox start of the current generation, or of an older one, failed for an unfinished task.
   pure def failedASandboxStart(step: Step, current: bool): bool = match step.kind {
-    | StartFailedStep(generation) =>
-      (generation == step.before.generation) == current and not(isFinished(step.before.status))
+    | StartFailedStep(failure) =>
+      (failure.generation == step.before.generation) == current and not(isFinished(step.before.status))
+    | _ => false
+  }
+
+  /// Whether a sandbox start of the current generation, or of an older one, failed at once for an
+  /// unfinished task.
+  pure def failedASandboxStartAtOnce(step: Step, current: bool): bool = match step.kind {
+    | StartFailedStep(failure) => failure.atOnce and failedASandboxStart(step, current)
     | _ => false
   }
 
@@ -938,12 +981,16 @@ module harnessSession {
       step.kind == ExitStep and not(isFinished(step.before.status)) and step.before.restarts < MAX_RESTARTS,
     aSandboxStartFails: failedASandboxStart(step, true),
     aStaleSandboxStartFails: failedASandboxStart(step, false),
+    aSandboxStartFailsAtOnce: failedASandboxStartAtOnce(step, true),
+    aStaleSandboxStartFailsAtOnce: failedASandboxStartAtOnce(step, false),
     aStaleRestartIsDropped: droppedAStaleRestart(step),
     aStaleOutcomeCheckIsDropped: droppedAStaleOutcomeCheck(step),
     theHarnessRefusesAPrompt: step.kind == PromptRefusedStep,
     theProvisionAlarmFires: step.kind == ProvisionStep,
     theWallClockFailsATurn:
       step.kind == WallClockStep and step.before.promptInFlight and step.after.status == Failed,
+    theWallClockFiresDuringARestart:
+      step.kind == WallClockStep and step.before.status == Queued and step.before.promptInFlight and not(step.before.paused),
     theKeepAliveFiresOnATurn: step.kind == KeepAliveStep and step.before.promptInFlight,
     aDialIsRefused: step.kind == DialStep,
     aSocketIsReplaced: step.kind == HelloStep and listedSockets(step.before) > 0,
@@ -957,7 +1004,8 @@ module harnessSession {
     },
     theEffortIsSet:
       step.kind == AnswerStep({ reachedItsOwnRow: true, purpose: SetEffort }) and sentPrompt(step),
-    aCallWasDropped: step.kind == DurableObjectRestartStep,
+    aCallWasDropped: step.kind == DurableObjectRestartStep and not(noCallOut(step.before)),
+    theInstanceRestartsWithoutACallOut: step.kind == DurableObjectRestartStep and noCallOut(step.before),
     anAlarmRunsAgainAfterARestart:
       step.kind == DurableObjectRestartStep and
         step.before.calls.select(call => call.state == Out and alarmsAwaiting(call).length() > 0).length() > 0,
@@ -966,6 +1014,9 @@ module harnessSession {
     aResumePromptIsChosen: step.after.resumesChosen > step.before.resumesChosen,
     aStoppedTaskGetsTheTaskPrompt:
       not(step.before.hadPrompt) and step.after.hadPrompt and step.after.generation > 1 and step.after.restarts == 0,
+    theAgentWakesForAnIdleHarness: step.after.agentWakes > step.before.agentWakes,
+    aRestartDropsTheSummarization:
+      step.kind == DurableObjectRestartStep and outCalls(step.before, isSummarization).size() > 0,
   }
 
   /// Write the world after a step, and which rules and witnesses that step kept and showed.
@@ -1138,13 +1189,12 @@ module harnessSession {
     else if (w.status == Working and not(w.promptInFlight)) arm(w, SettleIdleAuthor(w.generation))
     else w
 
-  /// The Durable Object restarts while a call is out. The calls are lost with the isolate. A destroy
-  /// that was out still takes the container. A start that was out may still bring its container up.
-  /// An alarm whose handler awaited a lost call is scheduled again, because its row is deleted only
-  /// when the handler ends. Then the start step runs.
+  /// The Durable Object restarts, with or without a call out. The calls out are lost with the
+  /// isolate. A destroy that was out still takes the container. A start that was out may still
+  /// bring its container up. An alarm whose handler awaited a lost call is scheduled again, because
+  /// its row is deleted only when the handler ends. Then the start step runs.
   action durableObjectRestarts: bool = all {
     world.faults < MAX_FAULTS,
-    world.calls.select(call => call.state == Out).length() > 0,
     val lost = world.calls.foldl({ ...world, calls: List(), faults: world.faults + 1 }, (restarted, call) =>
       if (call.state != Out) { ...restarted, calls: restarted.calls.append(call) }
       else {
@@ -1155,6 +1205,7 @@ module harnessSession {
             if (start.launched) rescheduled
             else { ...rescheduled, calls: rescheduled.calls.append({ ...call, state: Dropped, rest: List() }) }
           | OutcomeCheck(_) => rescheduled
+          | Summarization => rescheduled
         }
       })
     move(startStep(lost), DurableObjectRestartStep),
@@ -1206,6 +1257,11 @@ module harnessSession {
     | _ => false
   }
 
+  pure def isSummarization(kind: CallKind): bool = match kind {
+    | Summarization => true
+    | _ => false
+  }
+
   pure def outCalls(w: World, isKind: CallKind => bool): Set[int] =
     w.calls.foldl(Set(), (ids, call) => if (call.state == Out and isKind(call.kind)) ids.union(Set(call.id)) else ids)
 
@@ -1229,9 +1285,23 @@ module harnessSession {
         val failed = { ...withoutCall(world, callId), faults: world.faults + 1 }
         val generation = generationOfCall(world, callId)
         val handled = if (generation == world.generation) restartOrFailTask(failed, rest) else failed
-        move(goOn(failed, handled, rest), StartFailedStep(generation))
+        move(goOn(failed, handled, rest), StartFailedStep({ generation: generation, atOnce: false }))
       },
     },
+  }
+
+  /// A sandbox start fails before its container launches, on an error that a restart cannot fix:
+  /// the gateway route, the skills or the start spec. The task fails. One of an older generation
+  /// changes nothing.
+  action sandboxStartFailsAtOnce: bool = all {
+    world.faults < MAX_FAULTS,
+    outCalls(world, isStart).intersect(unlaunchedStarts(world)).size() > 0,
+    nondet callId = outCalls(world, isStart).intersect(unlaunchedStarts(world)).oneOf()
+    val rest = restOf(world, callId)
+    val failed = { ...withoutCall(world, callId), faults: world.faults + 1 }
+    val generation = generationOfCall(world, callId)
+    val handled = if (generation == world.generation) failTask(failed, rest) else failed
+    move(goOn(failed, handled, rest), StartFailedStep({ generation: generation, atOnce: true })),
   }
 
   /// The sandbox provider returns from a destroy. The container went with the bridges it ran.
@@ -1245,16 +1315,17 @@ module harnessSession {
     move(runFrames(gone, restOf(world, callId)), OtherStep),
   }
 
-  /// A blocked author restarts, unless a prompt is in flight or queued or its task finished.
+  /// A blocked author restarts, unless a prompt is in flight or queued or its task finished. The
+  /// turn ended on its own with text, so the agent's wake waits on its summarization.
   pure def onOutcome(w: World, outcome: Outcome): World = {
     val recorded = { ...w, stoppedEarly: outcome == StoppedEarly }
     match outcome {
       | Blocked =>
         if (isFinished(recorded.status)) recorded
-        else if (recorded.promptInFlight or recorded.queue.length() > 0) settleAndResumeAuthor(recorded, List())
+        else if (recorded.promptInFlight or recorded.queue.length() > 0) settleThenWake(recorded, true)
         else restartOrFailTask({ ...recorded, queue: recorded.queue.append(GaveUpWake) }, List())
-      | StoppedEarly => settleStoppedEarlyAuthor(recorded)
-      | _ => settleAndResumeAuthor(recorded, List())
+      | StoppedEarly => settleStoppedEarlyAuthor(recorded, true)
+      | _ => settleThenWake(recorded, true)
     }
   }
 
@@ -1282,6 +1353,14 @@ module harnessSession {
     val checked = withoutCall(world, callId)
     val current = generationOfCall(world, callId) == world.generation
     move(if (current) onOutcome(checked, outcome) else checked, OutcomeStep({ laterPromptInFlight: later })),
+  }
+
+  /// The summarization of the turn text returns, and the agent wakes.
+  action summarizationReturns: bool = all {
+    outCalls(world, isSummarization).size() > 0,
+    nondet callId = outCalls(world, isSummarization).oneOf()
+    val woken = { ...withoutCall(world, callId), agentWakes: world.agentWakes + 1 }
+    move(runFrames(woken, restOf(world, callId)), OtherStep),
   }
 
   pure def canDial(w: World, bridge: int): bool = and {
@@ -1423,15 +1502,22 @@ module harnessSession {
     ),
   }
 
-  /// The harness asks permission for a tool call during its turn. The orchestrator answers on the
-  /// socket the request came on.
+  /// The harness asks permission for a tool call during its turn, with or without an option that
+  /// allows it. The orchestrator answers on the socket the request came on. It selects the allow
+  /// option, and a request without one is not allowed.
   action harnessAsksPermission: bool = all {
     world.bridges.indices().exists(bridge => runsATurn(world, bridge)),
     nondet bridge = world.bridges.indices().filter(index => runsATurn(world, index)).oneOf()
+    nondet offersAllow = Set(true, false).oneOf()
+    val asked = {
+      ...world,
+      permissionsAsked: world.permissionsAsked + 1,
+      permissionsWithAnAllowOption: world.permissionsWithAnAllowOption + (if (offersAllow) 1 else 0),
+    }
     move(
-      if (served(world, bridge))
-        { ...world, permissionsAsked: world.permissionsAsked + 1, permissionsAllowed: world.permissionsAllowed + 1 }
-      else world,
+      if (not(served(world, bridge))) world
+      else if (offersAllow) { ...asked, permissionsAllowed: world.permissionsAllowed + 1 }
+      else asked,
       OtherStep,
     ),
   }
@@ -1456,6 +1542,7 @@ module harnessSession {
     personStops,
     agentCancelsJob,
     durableObjectRestarts,
+    sandboxStartFailsAtOnce,
     socketDrops,
     bridgeDies,
     harnessRefuses,
@@ -1478,11 +1565,15 @@ module harnessSession {
   action step: bool = any {
     personPrompts,
     timeMoves,
-    theWorkIsInterrupted,
+    all {
+      not(INTERRUPTS_AFTER_THE_FIRST_PROMPT) or world.promptsSent > 0 or isFinished(world.status),
+      theWorkIsInterrupted,
+    },
     sandboxStartLaunchesBridge,
     sandboxStartReturns,
     sandboxDestroyReturns,
     outcomeCheckReturns,
+    summarizationReturns,
     bridgeDials,
     socketCloseLands,
     harnessAnswers,
@@ -1490,8 +1581,6 @@ module harnessSession {
     theHarnessReportsItsWork,
     theAgentPausesARunningTurn,
   }
-
-  pure def noCallOut(w: World): bool = w.calls.select(call => call.state == Out).length() == 0
 
   /// A finished task never changes status again.
   val finishedTaskKeepsItsStatus: bool = rulesKept.finishedTaskKeepsItsStatus
@@ -1553,6 +1642,13 @@ module harnessSession {
       canDial(w, bridge) or (connectedSocketsOf(w, bridge).length() > 0 and w.bridges[bridge].requests.length() > 0),
     })
 
+  /// True when draining the queue now sends a prompt or starts a sandbox. A drain that only arms
+  /// the next retry does not move the task.
+  pure def drainMovesTheTask(w: World): bool = {
+    val drained = drainQueue(w, List())
+    drained.queue != w.queue or issued(w, drained)
+  }
+
   /// An alarm whose handler moves the task in the state it would fire in now.
   pure def alarmMovesTheTask(w: World): bool =
     w.alarms.select(alarm => match alarm.kind {
@@ -1560,7 +1656,7 @@ module harnessSession {
       | HelloTimeout(generation) => generation == w.generation and w.status == Provisioning
       | NoProgress(generation) => generation == w.generation and w.promptInFlight
       | BridgeLost(generation) => generation == w.generation and waitsOnTheBridge(w)
-      | RetryQueue(generation) => generation == w.generation
+      | RetryQueue(generation) => generation == w.generation and drainMovesTheTask(w)
       | SettleIdleAuthor(generation) => generation == w.generation and w.status == Working and not(w.promptInFlight)
       | WallClock => w.promptInFlight
       | KeepAlive(_) => false
@@ -1599,8 +1695,10 @@ module harnessSession {
   /// the only one the task lists.
   val aBridgeConnectsOnlyWithTheCurrentToken: bool = rulesKept.aBridgeConnectsOnlyWithTheCurrentToken
 
-  /// T51. The orchestrator allows every permission request of the current generation.
-  val everyPermissionRequestIsAllowed: bool = world.permissionsAllowed == world.permissionsAsked
+  /// T51. The orchestrator allows every permission request of the current generation that offers
+  /// an allow option.
+  val everyPermissionRequestWithAnAllowOptionIsAllowed: bool =
+    world.permissionsAllowed == world.permissionsWithAnAllowOption
 
   /// T7 and A39. A harness session runs one turn at a time: no bridge holds two prompts.
   val aHarnessSessionRunsOneTurnAtATime: bool =
@@ -1657,7 +1755,7 @@ module harnessSession {
     wallClockFailsWithoutARestart,
     aRunningTurnKeepsItsSandboxAwake,
     aBridgeConnectsOnlyWithTheCurrentToken,
-    everyPermissionRequestIsAllowed,
+    everyPermissionRequestWithAnAllowOptionIsAllowed,
     aHarnessSessionRunsOneTurnAtATime,
     anAuthorInReviewRunsNoTurn,
     aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn,
@@ -1718,6 +1816,12 @@ module harnessSession {
   /// Witness for `taskRestartsAtMostTwice`: the start of an older generation throws.
   val aStaleSandboxStartFails: bool = stepWitnesses.aStaleSandboxStartFails
 
+  /// Witness for `aFailedSandboxStartRestartsOrFails`: a sandbox start fails at once and fails the task.
+  val aSandboxStartFailsAtOnce: bool = stepWitnesses.aSandboxStartFailsAtOnce
+
+  /// Witness for `aFailedSandboxStartRestartsOrFails`: the start of an older generation fails at once.
+  val aStaleSandboxStartFailsAtOnce: bool = stepWitnesses.aStaleSandboxStartFailsAtOnce
+
   /// Witness for `taskRestartsAtMostTwice` and `aRunningTurnKeepsItsSandboxAwake`: a destroy returns
   /// after another restart counted or a newer generation began, and its restart is dropped.
   val aStaleRestartIsDropped: bool = stepWitnesses.aStaleRestartIsDropped
@@ -1738,6 +1842,10 @@ module harnessSession {
   /// Witness for `wallClockFailsWithoutARestart`: the wall clock fails a turn in flight.
   val theWallClockFailsATurn: bool = stepWitnesses.theWallClockFailsATurn
 
+  /// Witness for `wallClockFailsWithoutARestart`: the wall clock of a turn fires while its task is
+  /// queued for a restart.
+  val theWallClockFiresDuringARestart: bool = stepWitnesses.theWallClockFiresDuringARestart
+
   /// Witness for `aRunningTurnKeepsItsSandboxAwake`: the keep alive alarm fires on a turn in flight.
   val theKeepAliveFiresOnATurn: bool = stepWitnesses.theKeepAliveFiresOnATurn
 
@@ -1747,8 +1855,12 @@ module harnessSession {
   /// Witness for `aBridgeConnectsOnlyWithTheCurrentToken`: a new socket replaces a listed one.
   val aSocketIsReplaced: bool = stepWitnesses.aSocketIsReplaced
 
-  /// Witness for `everyPermissionRequestIsAllowed`: a permission request is allowed.
+  /// Witness for `everyPermissionRequestWithAnAllowOptionIsAllowed`: a permission request is allowed.
   val aPermissionIsAllowed: bool = world.permissionsAllowed > 0
+
+  /// Witness for `everyPermissionRequestWithAnAllowOptionIsAllowed`: a permission request offers no
+  /// allow option.
+  val aPermissionRequestOffersNoAllowOption: bool = world.permissionsAsked > world.permissionsWithAnAllowOption
 
   /// Witness for `aHarnessSessionRunsOneTurnAtATime`: a harness turn runs.
   val aTurnRuns: bool = turnRunning(world)
@@ -1771,6 +1883,9 @@ module harnessSession {
   /// A restart of the Durable Object dropped a call.
   val aCallWasDropped: bool = stepWitnesses.aCallWasDropped
 
+  /// The Durable Object restarts while no call is out, so only the start step runs.
+  val theInstanceRestartsWithoutACallOut: bool = stepWitnesses.theInstanceRestartsWithoutACallOut
+
   /// A restart of the Durable Object cut an alarm's handler, and the alarm runs again.
   val anAlarmRunsAgainAfterARestart: bool = stepWitnesses.anAlarmRunsAgainAfterARestart
 
@@ -1785,6 +1900,13 @@ module harnessSession {
   /// Witness for `aTaskWithoutAnEarlierPromptGetsTheTaskPrompt`: a task whose generation a stop
   /// ended before its first prompt gets the task prompt.
   val aStoppedTaskGetsTheTaskPrompt: bool = stepWitnesses.aStoppedTaskGetsTheTaskPrompt
+
+  /// The agent wakes because the harness is idle after a turn end or a refused prompt.
+  val theAgentWakesForAnIdleHarness: bool = stepWitnesses.theAgentWakesForAnIdleHarness
+
+  /// A restart of the Durable Object drops the summarization of a turn end, and the agent does not
+  /// wake.
+  val aRestartDropsTheSummarization: bool = stepWitnesses.aRestartDropsTheSummarization
 
   /// The author was nudged.
   val theAuthorWasNudged: bool = world.nudged

@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
+import type { ExternalUser } from "@artfct-ai/contracts/types";
 import { fakeUserActor } from "../../../test/fake-actors";
 import { FakeDocuments } from "../../../test/fake-documents";
 import { notionInbound, type NotionWebhook } from "./inbound";
@@ -96,6 +97,47 @@ describe("notionInbound", () => {
         }),
       );
       expect(event.actor?.email).toBe("ann@acme.test");
+    });
+  });
+
+  describe("a comment this app's own bot wrote", () => {
+    const botComment = new FakeDocuments({
+      comments: {
+        cmt1: { text: "Updated the intro.", author: { id: "bot1", email: null }, mentions: [] },
+      },
+    });
+    let asked: ExternalUser[];
+    let normalized: DocumentsInbound;
+
+    beforeEach(async () => {
+      asked = [];
+      normalized = await notionInbound(comment({ page_id: DASHED_PAGE }), {
+        resolveActor: async (user) => {
+          asked.push(user);
+          return user.email ? fakeUserActor()(user) : null;
+        },
+        documents: botComment,
+      });
+    });
+
+    it("asks the resolver about an author without an email, since a bot has none", () => {
+      expect(asked).toEqual([{ id: "bot1", email: null }]);
+    });
+
+    it("is ignored", () => {
+      expect(normalized).toEqual({ ignore: "comment author is not authorized" });
+    });
+  });
+
+  describe("a comment the host fails to return", () => {
+    it("throws on a host error other than a missing comment", async () => {
+      const failing = new FakeDocuments({ failing: true });
+      await expect(
+        notionInbound(comment({ page_id: DASHED_PAGE }), {
+          resolveActor: fakeUserActor(),
+          documents: failing,
+        }),
+      ).rejects.toThrow();
     });
   });
 
