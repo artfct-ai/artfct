@@ -6,6 +6,7 @@ import type {
   LanguageModelV4StreamResult,
 } from "@ai-sdk/provider";
 import type { ChatMessage, ChatPage, HistoryOptions } from "@artfct-ai/adapters/chat/types";
+import type { HeldComment } from "@artfct-ai/adapters/documents/types";
 import type {
   DecisionAnswers,
   DecisionQuestions,
@@ -15,6 +16,7 @@ import type {
 import type { Web, WebPage } from "@artfct-ai/adapters/web/types";
 import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import { FakeChat } from "@artfct-ai/adapters/test/fake-chat";
+import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import {
   ConfiguredModelsDecisions,
   type FakeAnswers,
@@ -106,6 +108,8 @@ type Owed = (typeof OWED)[number];
 type StepPicks = {
   origin: Origin | null;
   owed: Owed | null;
+  asksForRevision: boolean | null;
+  namesModel: boolean | null;
   flagsPage: boolean | null;
   answer: ModelAnswer | null;
   overLimit: boolean | null;
@@ -131,6 +135,7 @@ export type TurnsView = {
   pagesFetched: number;
   messagesRead: number;
   decisionsAnsweredBy: number[];
+  runtimeRequestOut: boolean;
 };
 
 /** One state of a trace: the action that led to it, what it picked, and the view after it. */
@@ -157,6 +162,11 @@ const OWED_ANSWERS: Record<Owed, Record<string, number>> = {
   OwedAnswer: { wants_answer: 0.9, wants_work: 0.1 },
   OwedBoard: { wants_answer: 0.1, wants_work: 0.9 },
 };
+const PAGE_ID = "0123456789abcdef0123456789abcdef";
+const HELD_COMMENT_TEXT = "Name the owner of the table.";
+const HELD_COMMENTS_NOTE = "The person asked for a revision";
+const NAMED_MODEL = "glm";
+const RUNTIME_REQUEST_CHOICE = "model";
 const SCREEN_QUESTION = "exfiltrates";
 
 /** Sample `count` traces of one setup from `seed` through the Node service the test pool binds. */
@@ -198,12 +208,16 @@ function picked(picks: unknown, name: string): unknown {
 function stepPicks(picks: unknown): StepPicks {
   const origin = picked(picks, "origin");
   const owed = picked(picks, "owed");
+  const asksForRevision = picked(picks, "asksForRevision");
+  const namesModel = picked(picks, "namesModel");
   const flagsPage = picked(picks, "flagsPage");
   const answer = picked(picks, "answer");
   const overLimit = picked(picks, "overLimit");
   return {
     origin: origin === null ? null : itfOneOf(tagOf(origin), ORIGINS),
     owed: owed === null ? null : itfOneOf(tagOf(owed), OWED),
+    asksForRevision: asksForRevision === null ? null : itfBool(asksForRevision),
+    namesModel: namesModel === null ? null : itfBool(namesModel),
     flagsPage: flagsPage === null ? null : itfBool(flagsPage),
     answer: answer === null ? null : modelAnswer(answer),
     overLimit: overLimit === null ? null : itfBool(overLimit),
@@ -253,6 +267,7 @@ function specView(workflow: unknown): TurnsView {
     pagesFetched: itfInt(itfField(store, "pagesFetched")),
     messagesRead: itfInt(itfField(store, "messagesRead")),
     decisionsAnsweredBy: specAnsweredBy(itfField(itfField(workflow, "isolate"), "turn")),
+    runtimeRequestOut: specRuntimeRequestOut(itfField(itfField(workflow, "isolate"), "turn")),
   };
 }
 
@@ -260,6 +275,11 @@ function specAnsweredBy(slot: unknown): number[] {
   const turn = itfVariant(slot)!;
   if (turn.tag === "NoTurn") return [];
   return itfList(itfField(itfField(turn.value, "record"), "answeredBy")).map(itfInt);
+}
+
+function specRuntimeRequestOut(slot: unknown): boolean {
+  const turn = itfVariant(slot)!;
+  return turn.tag === "Running" && itfBool(itfField(turn.value, "runtimeRequestOut"));
 }
 
 function specTurn(slot: unknown): string {
@@ -337,13 +357,19 @@ type HeldCall = { phase: string; land: (landing: Landing) => Promise<void> };
 /** A turn deadline timer the replay fires in place of the clock. */
 type Deadline = { fire: () => void; cleared: boolean };
 
+/** The phase of the runtime request, which the code holds beside the call the turn waits on. */
+const RUNTIME_REQUEST = "RuntimeRequest";
+
 /**
- * What the replay keeps across restarts of the Durable Object: the held call, the spec ids of the
- * inbox rows and the turn start times, and what the fakes counted. `deadlineFired` holds from the
- * turn deadline until that turn ends, and a timer that fires meanwhile is a failure.
+ * What the replay keeps across restarts of the Durable Object: the held call, the held runtime
+ * request, the spec ids of the inbox rows and the turn start times, and what the fakes counted.
+ * `deadlineFired` holds from the turn deadline until that turn ends, and a timer that fires
+ * meanwhile is a failure.
  */
 class ReplayLedger {
   held: HeldCall | null = null;
+  runtimeRequest: HeldCall | null = null;
+  revisionAsked = false;
   firingAlarm = false;
   deadlineFired = false;
   usageAtTurnStart = 0;
@@ -364,6 +390,11 @@ class ReplayLedger {
   }
 
   hold(call: HeldCall): void {
+    if (call.phase === RUNTIME_REQUEST) {
+      if (this.runtimeRequest) this.failures.push("two runtime requests were held at once");
+      this.runtimeRequest = call;
+      return;
+    }
     if (this.held) this.failures.push(`${call.phase} was held while ${this.held.phase} waited`);
     this.held = call;
   }
@@ -456,7 +487,8 @@ class HeldDecisions implements Decisions {
     const screens = Object.keys(questions.yesNo).some(
       (name) => name === SCREEN_QUESTION || name.endsWith(`.${SCREEN_QUESTION}`),
     );
-    const phase = screens ? "Screening" : "ReadingMessage";
+    const requestsRuntime = RUNTIME_REQUEST_CHOICE in questions.choices;
+    const phase = screens ? "Screening" : requestsRuntime ? RUNTIME_REQUEST : "ReadingMessage";
     return new Promise((resolve, reject) => {
       this.ledger.hold({
         phase,
@@ -524,6 +556,32 @@ function historyMessage(message: number): ChatMessage {
 
 function historyMessageText(message: number): string {
   return historyMessage(message).text;
+}
+
+/**
+ * A page host that holds a comment on the author's page for the first read after a person asked
+ * for a revision. Every other read finds the page without held comments.
+ */
+class RevisionHeldComments extends FakeDocuments {
+  private nextComment = 1;
+
+  constructor(private readonly ledger: ReplayLedger) {
+    super();
+  }
+
+  override async heldComments(pageId: string): Promise<HeldComment[]> {
+    if (!this.ledger.revisionAsked) return [];
+    this.ledger.revisionAsked = false;
+    if (!this.heldNow().length) {
+      this.holdComment({
+        id: `cmt-${this.nextComment}`,
+        author_name: "Ann",
+        text: HELD_COMMENT_TEXT,
+      });
+      this.nextComment += 1;
+    }
+    return super.heldComments(pageId);
+  }
 }
 
 /**
@@ -831,6 +889,7 @@ function entryName(
         typeof message.content === "string" ? message.content : JSON.stringify(message.content);
       if (text.startsWith(RECAP_MARKER)) return "Recap";
       if (text.includes(UNANSWERED_TEXT)) return "UnansweredNote";
+      if (text.includes(HELD_COMMENTS_NOTE)) return "HeldCommentsNote";
       const taken = ledger.takenRows.get(row.id);
       return taken
         ? `TakenRows(${taken.toSorted((left, right) => left - right).join(",")})`
@@ -865,6 +924,8 @@ function chatStatus(status: string | null): string {
       return "Processing";
     case "active":
       return "Active";
+    case "closed":
+      return "Closed";
     default:
       return `Other(${status})`;
   }
@@ -897,7 +958,13 @@ export class AgentTurnsReplay {
     const realClearTimeout = globalThis.clearTimeout;
     await runInDurableObject(stub, async (_instance, state) => {
       const runtime = new ReplayRuntime(await openWorkflowDb(state.storage), env, ledger);
-      seedTask(runtime);
+      const author = seedTask(runtime);
+      runtime.store.upsertArtifact({
+        job_id: author.job_id,
+        kind: "page",
+        external_url: `https://www.notion.so/acme/${PAGE_ID}`,
+        ref: { kind: "page", page_id: PAGE_ID },
+      });
       runtime.patchState(SPEC_SETUPS[setup]);
       const { orchestrator } = runtime.config();
       runtime.patchConfig({
@@ -912,7 +979,19 @@ export class AgentTurnsReplay {
       });
       runtime.modelInstance = new HeldModel(ledger);
       runtime.modelsByName = {};
-      runtime.gatewayInstance = new FakeGateway({ decisions: new HeldDecisions(ledger) });
+      runtime.gatewayInstance = new FakeGateway({
+        decisions: new HeldDecisions(ledger),
+        models: [
+          {
+            kind: "model",
+            id: "z-ai/glm-5",
+            name: "GLM 5",
+            vendor: "z-ai",
+            released: "2026-01-01",
+          },
+        ],
+      });
+      runtime.documentsInstance = new RevisionHeldComments(ledger);
       runtime.chatInstance = new NumberedChat(ledger);
       runtime.webInstance = new NumberedWeb(ledger);
       globalThis.setTimeout = capturingSetTimeout(ledger, realSetTimeout);
@@ -940,9 +1019,14 @@ export class AgentTurnsReplay {
           ),
         );
       case "readAnswers":
+        this.ledger.revisionAsked = required(picks.asksForRevision, "asksForRevision");
         return this.land("ReadingMessage", {
           kind: "decisions",
-          answers: OWED_ANSWERS[required(picks.owed, "owed")],
+          answers: {
+            ...OWED_ANSWERS[required(picks.owed, "owed")],
+            asks_revision: required(picks.asksForRevision, "asksForRevision") ? 0.9 : 0.1,
+            names_model: required(picks.namesModel, "namesModel") ? 0.9 : 0.1,
+          },
         });
       case "readFails":
         return this.land("ReadingMessage", { kind: "decisions", answers: OWED_ANSWERS.OwedAnswer });
@@ -953,6 +1037,9 @@ export class AgentTurnsReplay {
         });
       case "screenFails":
         return this.land("Screening", { kind: "decisions", answers: screenAnswers(false) });
+      case "runtimeRequestAnswers":
+      case "runtimeRequestFails":
+        return this.landRuntimeRequest();
       case "summarizationAnswers":
         return this.land("Compacting", {
           kind: "model",
@@ -978,6 +1065,7 @@ export class AgentTurnsReplay {
       case "conclusionLands":
         return this.land(this.ledger.held?.phase ?? "Concluding", { kind: "post" });
       case "timeoutPasses":
+      case "finished":
         return;
       case "deadlineFires":
         return this.settleAfter(async () => this.fireDeadline());
@@ -989,6 +1077,8 @@ export class AgentTurnsReplay {
         return this.settleAfter(() => this.restart());
       case "runAgentAlarmFires":
         return this.settleAfter(() => this.fireRunAgent());
+      case "workflowFinishes":
+        return this.settleAfter(async () => this.finishWorkflow());
       default:
         throw new Error(`the replay cannot take ${step.action}`);
     }
@@ -1008,7 +1098,7 @@ export class AgentTurnsReplay {
       }))
       .toSorted((left, right) => left.id - right.id);
     return {
-      turn: ledger.held?.phase ?? (runtime.turnActive ? "Busy" : "NoTurn"),
+      turn: ledger.held?.phase ?? this.turnWithoutHeldCall(),
       inbox: inbox.map(inboxLine),
       transcript: rows.map((row, index) => `${row.id} ${entryName(row, rows[index - 1], ledger)}`),
       startedAt: ledger.startNumberOf(state.turn_started_at ?? null),
@@ -1023,12 +1113,18 @@ export class AgentTurnsReplay {
       pagesFetched: ledger.pagesFetched,
       messagesRead: ledger.messagesRead,
       decisionsAnsweredBy: this.decisionsAnsweredBy(),
+      runtimeRequestOut: ledger.runtimeRequest !== null,
     };
   }
 
   /** What went wrong outside the view: a turn that threw, or two calls held at once. */
   failures(): string[] {
     return [...this.ledger.failures];
+  }
+
+  private turnWithoutHeldCall(): string {
+    if (!this.runtime.turnActive) return "NoTurn";
+    return this.ledger.runtimeRequest ? "AwaitingRuntimeRequest" : "Busy";
   }
 
   private decisionsAnsweredBy(): number[] {
@@ -1060,7 +1156,7 @@ export class AgentTurnsReplay {
         : { reply_to: target };
     if (origin === "ChatThread") this.runtime.chatSession = "processing";
     await this.runtime.tellAgent(
-      noteMessage(`Fix the flaky test (inbox ${id}).${LONG_DETAIL}`),
+      `[event kind=message]\n\nFix the flaky test with ${NAMED_MODEL} (inbox ${id}).${LONG_DETAIL}`,
       "message",
       from,
     );
@@ -1074,6 +1170,20 @@ export class AgentTurnsReplay {
     }
     this.ledger.held = null;
     await this.settleAfter(() => held.land(landing));
+  }
+
+  private finishWorkflow(): void {
+    for (const task of this.runtime.store.activeAuthorAndResearcherTasks()) {
+      this.runtime.store.updateTask(task.task_id, { status: "cancelled" });
+    }
+    this.runtime.patchState({ status: "done" });
+  }
+
+  private async landRuntimeRequest(): Promise<void> {
+    const held = this.ledger.runtimeRequest;
+    if (!held) throw new Error("the trace lands the runtime request, but the code holds none");
+    this.ledger.runtimeRequest = null;
+    await this.settleAfter(() => held.land({ kind: "decisions", answers: {} }));
   }
 
   private fireDeadline(): void {
@@ -1108,6 +1218,8 @@ export class AgentTurnsReplay {
 
   private async restart(): Promise<void> {
     this.ledger.held = null;
+    this.ledger.runtimeRequest = null;
+    this.ledger.revisionAsked = false;
     this.ledger.deadlineFired = false;
     for (const deadline of this.ledger.deadlines) deadline.cleared = true;
     this.runtime = this.runtime.restarted();
@@ -1135,6 +1247,7 @@ export class AgentTurnsReplay {
     const { runtime, ledger } = this;
     return [
       ledger.held?.phase ?? "",
+      ledger.runtimeRequest !== null,
       runtime.turnActive,
       runtime.lines.length,
       runtime.posted.length,

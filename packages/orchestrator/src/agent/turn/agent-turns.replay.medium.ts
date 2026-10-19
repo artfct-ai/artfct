@@ -13,7 +13,7 @@ const TRACES_PER_SETUP = 10;
 
 const PICKS_READ: Record<string, (keyof TraceStep["picks"])[]> = {
   personWrites: ["origin"],
-  readAnswers: ["owed"],
+  readAnswers: ["owed", "asksForRevision", "namesModel"],
   screenAnswers: ["flagsPage"],
   modelAnswers: ["answer", "overLimit"],
 };
