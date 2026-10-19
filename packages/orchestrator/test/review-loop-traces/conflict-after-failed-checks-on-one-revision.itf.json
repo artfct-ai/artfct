@@ -76,7 +76,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -109,6 +109,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -315,7 +316,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -348,6 +349,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -584,7 +586,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -617,6 +619,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": false,
+          "recheckArmed": true,
           "refinerRun": {
             "tag": "OnRefinerRun",
             "value": {
@@ -853,7 +856,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -886,6 +889,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -1130,7 +1134,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -1163,6 +1167,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -1407,7 +1412,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -1440,6 +1445,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -1684,7 +1690,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -1717,6 +1723,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -1961,7 +1968,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -1994,6 +2001,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -2238,7 +2246,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -2271,6 +2279,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -2515,7 +2524,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -2548,6 +2557,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -2792,7 +2802,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -2825,6 +2835,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -3069,7 +3080,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -3102,6 +3113,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -3346,7 +3358,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -3379,6 +3391,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -3623,7 +3636,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -3656,6 +3669,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -3900,7 +3914,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -3933,6 +3947,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -4177,7 +4192,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -4210,6 +4225,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -4454,7 +4470,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -4487,6 +4503,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -4731,7 +4748,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -4764,6 +4781,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -5008,7 +5026,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -5041,6 +5059,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -5285,7 +5304,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -5318,6 +5337,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -5562,7 +5582,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -5595,6 +5615,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -5839,7 +5860,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -5872,6 +5893,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -6116,7 +6138,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -6149,6 +6171,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -6393,7 +6416,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -6426,6 +6449,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -6670,7 +6694,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -6703,6 +6727,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {
@@ -6947,7 +6972,7 @@
         "aRefinerRunStartsAfterAnUnknownRevision": false,
         "aRefinerRunStartsPastAJudgeWithFindings": false,
         "aRefinerRunStartsPastFindings": false,
-        "aRejectionLandsOnThePage": false,
+        "aRejectionLands": false,
         "aReviewerRunFailsOnADraftedArtifact": false,
         "aReviewerRunsAgainOnANewRevision": false,
         "aReviewerRunsAgainOnAnUnknownRevision": false,
@@ -6980,6 +7005,7 @@
       "checksOnAPolishedPull::reviewLoop::review": {
         "artifact": {
           "deliveredToHumans": true,
+          "recheckArmed": false,
           "refinerRun": {
             "tag": "NoRefinerRun",
             "value": {

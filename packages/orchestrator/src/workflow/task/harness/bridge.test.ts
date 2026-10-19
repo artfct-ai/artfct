@@ -21,6 +21,7 @@ import {
 import { freshStore } from "../../../../test/fresh-store";
 import { scenario, type Scenario } from "../../../../test/scenario";
 import { RECONNECT_CEILING_MS } from "./prompt-queue";
+import { MAX_RESTARTS } from "../../lifecycle";
 
 const TASK = "wf_x.1";
 const ALARM = { task_id: TASK, generation: 1 };
@@ -295,6 +296,56 @@ describe("onBridgeLost", () => {
     it("queues the lost-sandbox text, which the resume prompt reads at session start", () =>
       restarted((workflow) => {
         expect(workflow.store.queue().map((row) => row.text)).toEqual([LOST_SANDBOX_TEXT]);
+      }));
+
+    it("counts one restart", () =>
+      restarted((workflow) => {
+        expect(workflow.store.requireTask(TASK).restarts).toBe(1);
+      }));
+  });
+
+  describe("a turn lost on a task whose restarts are used up", () => {
+    const failed = scenario(freshRuntime, async (workflow) => {
+      seedTask(
+        workflow,
+        { restarts: MAX_RESTARTS },
+        { session_id: "s1", prompt_in_flight: 1, bridge_closed_at: longGone() },
+      );
+      await onBridgeLost(workflow, ALARM);
+    });
+
+    it("fails the task", () =>
+      failed((workflow) => {
+        expect(workflow.store.requireTask(TASK)).toMatchObject({
+          status: "failed",
+          restarts: MAX_RESTARTS,
+        });
+      }));
+
+    it("does not start the sandbox again", () =>
+      failed((workflow) => {
+        expect(workflow.sandboxProvider.calls).not.toContain(`start ${TASK}`);
+      }));
+  });
+
+  describe("a turn lost on a task queued for a restart", () => {
+    const queued = scenario(freshRuntime, async (workflow) => {
+      seedTask(
+        workflow,
+        { status: "queued", restarts: MAX_RESTARTS },
+        { session_id: "s1", prompt_in_flight: 1, bridge_closed_at: longGone() },
+      );
+      await onBridgeLost(workflow, ALARM);
+    });
+
+    it("does not count another restart", () =>
+      queued((workflow) => {
+        expect(workflow.store.requireTask(TASK).restarts).toBe(MAX_RESTARTS);
+      }));
+
+    it("does not fail the task", () =>
+      queued((workflow) => {
+        expect(workflow.store.requireTask(TASK).status).not.toBe("failed");
       }));
   });
 

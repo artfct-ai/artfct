@@ -27,7 +27,10 @@
     "aPolisherEndsDoneOnlyWhenItsChecksOpen",
     "checksGoBackOncePerRevision",
     "refinersStartOnlyWhenTheAuthorsGateOpens",
-    "aBlockedAuthorsGateHandsOverBlocked"
+    "aBlockedAuthorsGateHandsOverBlocked",
+    "aReviewWaitingForRoutingTellsTheAgent",
+    "theRecheckAlarmRunsWhileTheGateHolds",
+    "anAnswerAtTheReviewLimitMovesOn"
   ],
   "mainMinutes": {
     "judgeThenPolisher": 2.2,
@@ -47,6 +50,7 @@
       "aPromptWaitsWhileAPolisherRuns",
       "aRulingLandsOnARuledJudgeRun",
       "theAuthorGotARejection",
+      "aRejectionLands",
       "aRefinerRunEndsDone",
       "aRefinerRunStartsAfterAHandover",
       "aReviewerRunsAgainOnANewRevision",
@@ -99,12 +103,15 @@
       "aReviewerRunFailsOnADraftedArtifact",
       "aReviewReadFailsOnADraftedArtifact",
       "aDraftWasDeliveredBefore",
-      "anAuthorTurnEndsOnTheDeliveredRevision"
+      "anAuthorTurnEndsOnTheDeliveredRevision",
+      "anAuthorAnswersAReviewAtTheLimit",
+      "theAgentIsAskedToRoute"
     ],
     "judgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
       "aRulingLandsOnARuledJudgeRun",
       "theAuthorGotARejection",
+      "aRejectionLands",
       "aRefinerRunEndsDone",
       "aRefinerRunStartsAfterAHandover",
       "aReviewerRunsAgainOnANewRevision",
@@ -127,7 +134,8 @@
       "aReviewReadFailsOnADraftedArtifact",
       "aDraftWasDeliveredBefore",
       "aRulingCallReturnsAfterTheAuthorEnded",
-      "anAuthorTurnEndsOnTheDeliveredRevision"
+      "anAuthorTurnEndsOnTheDeliveredRevision",
+      "theAgentIsAskedToRoute"
     ],
     "modelCallAuthorWithTwoReviewers": [
       "aRefinerRunIsUnfinished",
@@ -167,7 +175,11 @@
       "theHostFailsTheReadAfterAModelCall",
       "aModelCallAnswerSkipsAReply",
       "aModelCallAnswerRepliesToAnUnsentComment",
-      "anAuthorTurnEndsOnTheDeliveredRevision"
+      "anAuthorTurnEndsOnTheDeliveredRevision",
+      "anAuthorAnswersAReviewAtTheLimit",
+      "theAgentIsAskedToRoute",
+      "aMentionCarriesTheHeldComments",
+      "aFailedReplyLeavesAQueuedCommentUnanswered"
     ],
     "pageReviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -199,7 +211,10 @@
       "aPolisherRunStopsOnADraftedArtifact",
       "aReviewerRunFailsOnADraftedArtifact",
       "aDraftWasDeliveredBefore",
-      "anAuthorTurnEndsOnTheDeliveredRevision"
+      "anAuthorTurnEndsOnTheDeliveredRevision",
+      "anAuthorAnswersAReviewAtTheLimit",
+      "theAgentIsAskedToRoute",
+      "aMentionCarriesTheHeldComments"
     ],
     "pageJudgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -224,7 +239,7 @@
       "aMentionRoutedAwayLeavesHeldComments",
       "aPersonRepliesWhileTheScreenReads",
       "aHeldCommentReachesTheAuthor",
-      "aRejectionLandsOnThePage",
+      "aRejectionLands",
       "theHostFailsARejection",
       "theAgentIsAskedForAPersonsRuling",
       "theInstanceRestarted",
@@ -237,7 +252,9 @@
       "anAuthorEndsWhileARefinerRunIsUnfinished",
       "anAuthorEndsOnAReadyArtifact",
       "anAuthorFailsPastItsRestarts",
-      "anAuthorTurnEndsOnTheDeliveredRevision"
+      "anAuthorTurnEndsOnTheDeliveredRevision",
+      "theAgentIsAskedToRoute",
+      "aMentionCarriesTheHeldComments"
     ],
     "pausedModelCallAuthor": [
       "aRefinerRunIsUnfinished",
@@ -304,7 +321,8 @@
       "theAuthorsGateBlocksTheHandover",
       "checksGoBackToTheAuthorAtItsTurnEnd",
       "checksGoBackToAWaitingAuthor",
-      "aRefinerRunStartsWhenTheAuthorsGateOpens"
+      "aRefinerRunStartsWhenTheAuthorsGateOpens",
+      "theRecheckAlarmStops"
     ],
     "modelCallJudgeThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -312,7 +330,7 @@
       "aModelCallAuthorHasAQueuedPrompt",
       "aRulingLandsOnARuledJudgeRun",
       "theAuthorGotARejection",
-      "aRejectionLandsOnThePage",
+      "aRejectionLands",
       "theHostFailsARejection",
       "aRefinerRunEndsDone",
       "aRefinerRunStartsAfterAHandover",
@@ -352,7 +370,9 @@
       "aPageWriteIsLostWithTheInstance",
       "aPageTextChangeLandsBeforeTheInstanceRestarts",
       "aModelCallAuthorFailsOnALostTurn",
-      "anAuthorTurnEndsOnTheDeliveredRevision"
+      "anAuthorTurnEndsOnTheDeliveredRevision",
+      "aMentionCarriesTheHeldComments",
+      "aFailedReplyLeavesAQueuedCommentUnanswered"
     ],
     "checksOnAReviewedPull": [
       "aRefinerRunIsUnfinished",
@@ -389,7 +409,11 @@
       "theAuthorsGateBlocksTheHandover",
       "checksGoBackToTheAuthorAtItsTurnEnd",
       "checksGoBackToAWaitingAuthor",
-      "aRefinerRunStartsWhenTheAuthorsGateOpens"
+      "aRefinerRunStartsWhenTheAuthorsGateOpens",
+      "anAuthorAnswersAReviewAtTheLimit",
+      "theAgentIsAskedToRoute",
+      "theAgentIsAskedToRouteAgain",
+      "theRecheckAlarmStops"
     ]
   },
   "tlc": {

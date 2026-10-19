@@ -10,7 +10,11 @@ import { labeledPageCommentIds } from "../src/artifact/page-comment-label";
 import { findingText } from "../src/artifact/review-text";
 import { CLOSING_TEXT_MARKER, replyMarker } from "../src/prompts/model-author-prompt";
 import { rejectionHeadline } from "../src/prompts/review-prompt";
-import { CHECKS_GRACE_MS, CHECKS_LIMIT_MS } from "../src/workflow/refiner/checks-gate";
+import {
+  CHECKS_GRACE_MS,
+  CHECKS_LIMIT_MS,
+  checksSendBackEventId,
+} from "../src/workflow/refiner/checks-gate";
 import { sendHeldCommentsOnRevisionRequest } from "../src/workflow/refiner/held-comments";
 import { taskQuiet } from "../src/workflow/refiner/loop";
 import { isTaskFinished } from "../src/workflow/store/state";
@@ -30,6 +34,7 @@ import {
   checksReport,
   agentHoldsAuthor,
   agentPromptsAuthor,
+  agentIsRefusedARoute,
   agentRoutes,
   agentStartsTask,
   authorFails,
@@ -176,6 +181,7 @@ export type SpecReview = {
     revision: number;
     refinerRun: number | null;
     sentBack: number | null;
+    recheckArmed: boolean;
   };
   refinerRuns: SpecRun[];
   judgeRunsCodeRulesOn: number[];
@@ -197,6 +203,9 @@ export type TraceStep = {
 };
 
 const REVIEW_AGAIN_DECISIONS = ["ReviewAgain", "NoReviewAgain", "AgentRoutes"] as const;
+
+/** The words of the route note that ask the agent to route the review. */
+const ROUTE_NOTE_TEXT = "Then route it: request_review";
 
 /** What the review again decision says when a model-call author's turn ends. */
 type ReviewAgainDecision = (typeof REVIEW_AGAIN_DECISIONS)[number];
@@ -262,6 +271,7 @@ function specReview(value: unknown): SpecReview {
       revision: itfInt(itfField(artifact, "revision")),
       refinerRun: refinerRun.tag === "OnRefinerRun" ? itfInt(refinerRun.value) : null,
       sentBack: sentBack.tag === "SentBackOn" ? itfInt(sentBack.value) : null,
+      recheckArmed: itfBool(itfField(artifact, "recheckArmed")),
     },
     refinerRuns: itfList(itfField(value, "refinerRuns")).map(specRun),
     judgeRunsCodeRulesOn: sortedInts(itfField(value, "judgeRunsCodeRulesOn")),
@@ -491,9 +501,6 @@ function sentBackOnTheRevision(review: SpecReview): boolean {
   return review.artifact.sentBack === review.artifact.revision;
 }
 
-const CHECKS_FAILED_LINE = /^the checks failed on (\S+):/;
-const CONFLICT_LINE = /^(\S+) conflicts with /;
-
 /** The stop reasons of a turn that ended before its work was complete. */
 const UNFINISHED_STOPS = ["max_tokens", "max_turn_requests", "refusal"] as const;
 
@@ -637,7 +644,6 @@ type FailingHostMethod =
   | "heldComments"
   | "acknowledgeComment"
   | "fetchComment"
-  | "replyToComment"
   | "updatePageContent"
   | "page";
 
@@ -1020,6 +1026,12 @@ export class ReviewLoopReplay {
             ),
           ),
         );
+      case "agentRequestsReviewOutOfTurn":
+        await this.world.apply(agentIsRefusedARoute(this.author, "request_review"));
+        return;
+      case "agentFinishesReviewOutOfTurn":
+        await this.world.apply(agentIsRefusedARoute(this.author, "finish_review"));
+        return;
       default: {
         const mapped = this.worldActionFor(step);
         await this.untilModelCall(() => this.world.apply(mapped));
@@ -1080,6 +1092,7 @@ export class ReviewLoopReplay {
         revision: this.revisionCount(this.hostRevision() ?? ""),
         refinerRun: pointer === -1 ? null : pointer,
         sentBack: this.sentBackRevision(author.job_id),
+        recheckArmed: this.world.workflow.alarmsFor("recheckChecks").length > 0,
       },
       refinerRuns: runs.map((run) =>
         specRunOf(run, revisionCount, taskQuiet(this.world.workflow, run)),
@@ -1092,21 +1105,15 @@ export class ReviewLoopReplay {
 
   /**
    * The revision whose failed checks or conflict went back to its submitter last, as the spec
-   * counts revisions. Code logs each send-back on the submitter, an ended one too.
+   * counts revisions. The store records the one send-back each revision of a pull request gets.
    */
   private sentBackRevision(jobId: string): number | null {
-    const { store } = this.world.workflow;
-    const jobTasks = new Set(
-      store
-        .tasks()
-        .filter((task) => task.job_id === jobId)
-        .map((task) => task.task_id),
-    );
-    const sent = store.logLines().flatMap(({ task_id, line }) => {
-      if (task_id === null || !jobTasks.has(task_id)) return [];
-      const revision = (CHECKS_FAILED_LINE.exec(line) ?? CONFLICT_LINE.exec(line))?.[1];
-      return revision ? [revision] : [];
-    });
+    if (this.revisions.kind !== "pull") return null;
+    const sent = this.world
+      .pullRevisionsOf(this.author)
+      .filter((revision) =>
+        this.world.workflow.store.eventSeen(checksSendBackEventId(jobId, revision)),
+      );
     const last = sent.at(-1);
     return last === undefined ? null : this.revisionCount(last);
   }
@@ -1624,6 +1631,30 @@ export class ReviewLoopReplay {
     };
   }
 
+  /**
+   * Refuse each reply to a live comment the turn carries, or every reply when it carries none.
+   * A reply to a queued comment then lands only when the author posts it before the turn's own.
+   */
+  private hostRefusesTheTurnReplies(): () => void {
+    const before = this.trace[this.step - 1]!.review;
+    const refused = new Set(
+      before.author.turnComments
+        .filter((specId) => !before.personComments[specId]!.gone)
+        .map((specId) => this.comments[specId]!.hostId),
+    );
+    const host = this.host();
+    const reply = host.replyToComment.bind(host);
+    host.replyToComment = async (target, text) => {
+      if (refused.size === 0 || refused.has(target.commentId)) {
+        throw new Error("replyToComment: the host refuses the reply");
+      }
+      return reply(target, text);
+    };
+    return () => {
+      host.replyToComment = reply;
+    };
+  }
+
   /** Make the next read of the page text fail, and leave the reads after it as they were. */
   private hostFailsTheNextRead(): () => void {
     const host = this.host();
@@ -1741,7 +1772,7 @@ export class ReviewLoopReplay {
       case "PageReadFails":
         return this.hostFailsTheNextRead();
       case "RepliesFail":
-        return this.failingHost("replyToComment", "the host refuses the reply");
+        return this.hostRefusesTheTurnReplies();
       case "UpdateFails":
         return this.failingHost("updatePageContent", "the host refuses the change");
       case "UpdateLandsThenFails":
@@ -1821,12 +1852,17 @@ export class ReviewLoopReplay {
 
   /** The comments code posted on the page for refiner runs, oldest first. */
   private reviewComments(runs: RefinerRun[]): SpecReviewComment[] {
-    if (this.revisions.kind !== "page") return [];
+    if (this.revisions.kind !== "page") {
+      return this.world.pullComments.flatMap((posted): SpecReviewComment[] => {
+        if (posted.number !== this.author.pullNumber) return [];
+        const run = signedRun(runs, posted.body);
+        return run === -1 ? [] : [rejectionCommentOf(runs, run, posted.body)];
+      });
+    }
     const { pageId } = this.revisions;
     return this.host().postedComments.flatMap((posted): SpecReviewComment[] => {
       if (posted.pageId !== pageId) return [];
-      const signed = /· task (\S+)\s*$/.exec(posted.text)?.[1];
-      const run = runs.findIndex((candidate) => candidate.task_id === signed);
+      const run = signedRun(runs, posted.text);
       if (run === -1) return [];
       if (posted.passage !== null) {
         const passage = QUOTED_PASSAGES[posted.passage];
@@ -1841,11 +1877,7 @@ export class ReviewLoopReplay {
         const approves = posted.text.startsWith("Review: approved");
         return [{ kind: "outcome", run, findings, approves }];
       }
-      const ruling = runs[run]?.ruling;
-      if (ruling?.status !== "rejected" || !posted.text.startsWith(ruling.reason)) {
-        throw new Error(`run ${run} posted a comment that is not its rejection:\n${posted.text}`);
-      }
-      return [{ kind: "rejection", run }];
+      return [rejectionCommentOf(runs, run, posted.text)];
     });
   }
 
@@ -2072,15 +2104,31 @@ export class ReviewLoopReplay {
   }
 }
 
+/** The refiner run that signed a comment code posted, or -1 when no run of the job signed it. */
+function signedRun(runs: RefinerRun[], text: string): number {
+  const signed = /· task (\S+)\s*$/.exec(text)?.[1];
+  return runs.findIndex((candidate) => candidate.task_id === signed);
+}
+
+/** The rejection comment of a judge run. Any other comment the run signed is a defect. */
+function rejectionCommentOf(runs: RefinerRun[], run: number, text: string): SpecReviewComment {
+  const ruling = runs[run]?.ruling;
+  if (ruling?.status !== "rejected" || !text.startsWith(ruling.reason)) {
+    throw new Error(`run ${run} posted a comment that is not its rejection:\n${text}`);
+  }
+  return { kind: "rejection", run };
+}
+
 /**
- * What the agent read about page comments, as the spec names it: the text of a comment that was
- * held when the step began, that held comments stay held, and the mention that came in.
+ * What the agent read, as the spec names it: the text of a comment that was held when the step
+ * began, that held comments stay held, the mention that came in, and the route note.
  */
 function agentHeardOf(heard: string, said: Pick<HeardInStep, "heldTexts" | "mention">): string[] {
   const notes: string[] = [];
   if (said.heldTexts.some((heldText) => heard.includes(heldText))) notes.push("HeldCommentText");
   if (heard.includes("They stay held")) notes.push("HeldCommentsStayHeld");
   if (said.mention !== null && heard.includes(said.mention)) notes.push("MentionText");
+  if (heard.includes(ROUTE_NOTE_TEXT)) notes.push("RouteNote");
   return notes;
 }
 
@@ -2120,6 +2168,7 @@ const WORLD_SETUP: Omit<WorldSetup, "refiners"> = {
   firstInput: "request",
   subject: "none",
   sandboxStart: "at_task_start",
+  pageBranch: false,
 };
 
 /** The page a model-call author produces. Its lines line up with the parts the spec edits. */

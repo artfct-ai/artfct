@@ -1,5 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import { applyMutant, mutantReport, type Mutant } from "./mutants";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { MUTANTS, applyMutant, mutantReport, type Mutant } from "./mutants";
 
 const MUTANT: Mutant = {
   id: "X1",
@@ -38,5 +40,21 @@ describe("mutantReport", () => {
 
   it("is null when every mutant was killed", () => {
     expect(mutantReport([{ mutant: MUTANT, status: "killed" }], 5)).toBeNull();
+  });
+});
+
+describe("MUTANTS", () => {
+  it("each applies to today's source", () => {
+    const orchestratorRoot = join(import.meta.dir, "../..");
+    const stale = MUTANTS.filter(
+      (mutant) =>
+        applyMutant(readFileSync(join(orchestratorRoot, mutant.path), "utf8"), mutant) === null,
+    ).map((mutant) => mutant.id);
+    expect(stale).toEqual([]);
+  });
+
+  it("have unique ids", () => {
+    const ids = MUTANTS.map((mutant) => mutant.id);
+    expect(new Set(ids).size).toBe(ids.length);
   });
 });

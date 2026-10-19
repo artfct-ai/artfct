@@ -1,7 +1,8 @@
 /// One harness author task: its sandbox, its bridge, and its harness session, from the provision
 /// alarm to the end of the task.
-/// Each action is one event the orchestrator handles to its end before the next event lands. Three
-/// calls split an event: the sandbox start, the sandbox destroy, and the turn outcome check. One
+/// Each action is one event the orchestrator handles to its end before the next event lands. Five
+/// calls split an event: the branch binding write, the sandbox start, the sandbox destroy, the turn
+/// outcome check, and the summarization of a turn text. One
 /// action sends the call and a later action returns it. A restart of the Durable Object drops every
 /// call that is out, with the rest of its event. Every other await is answered at once.
 /// Any alarm may fire at any step, also before its delay ran out. Time moves only when
@@ -86,8 +87,10 @@ module harnessSessionTypes {
 
   /// A call the orchestrator awaits. A sandbox destroy kills the bridges up to the generation it
   /// names. An outcome check remembers the prompts sent and the generation when its turn ended. A
-  /// summarization is the model call that shortens a long turn text before the agent wakes.
+  /// summarization is the model call that shortens a long turn text before the agent wakes. A branch
+  /// binding is the router write that routes pushes on the job's branch to the workflow.
   type CallKind =
+    | BranchBinding
     | SandboxStart({ generation: int, token: int, launched: bool })
     | SandboxDestroy(int)
     | OutcomeCheck({ promptsSent: int, generation: int })
@@ -108,6 +111,7 @@ module harnessSessionTypes {
 
   /// The task, its sandbox row, its queue and rpc rows, its alarms, the sockets and bridges around
   /// it, and the calls out. The counters and the stop flag at the end are what an observer records.
+  /// `lostTurns` counts the lost turns the code handled: each one recovered, or failed its task.
   type World = {
     status: TaskStatus,
     restarts: int,
@@ -141,7 +145,7 @@ module harnessSessionTypes {
     permissionsWithAnAllowOption: int,
     permissionsAllowed: int,
     socketsClosed: int,
-    lostTurnsRecovered: int,
+    lostTurns: int,
     stopsEnded: int,
     answersToOtherRequests: int,
     agentWakes: int,
@@ -164,6 +168,7 @@ module harnessSessionTypes {
     | HelloTimeoutStep
     | PromptRefusedStep
     | ProvisionStep
+    | BranchBindingReturnStep
     | WallClockStep
     | KeepAliveStep
     | DialStep
@@ -183,7 +188,7 @@ module harnessSessionTypes {
     aSandboxStartBeginsAFreshGeneration: bool,
     aStartingTaskWorksOnlyAfterItsHello: bool,
     anAuthorInReviewWorksOnlyWithAPrompt: bool,
-    aLostTurnIsRecoveredWithoutARestart: bool,
+    aLostTurnCountsOneRestart: bool,
     aHarnessExitCountsOneRestart: bool,
     aFailedSandboxStartRestartsOrFails: bool,
     aRefusedPromptLeavesTheTurn: bool,
@@ -206,7 +211,11 @@ module harnessSessionTypes {
     aHelloMovesTheTaskToWorking: bool,
     anAuthorInReviewTakesAPrompt: bool,
     aLostTurnIsRecovered: bool,
+    aLostTurnFailsTheTask: bool,
+    aLostTurnOfATaskQueuedForARestart: bool,
     aHarnessExitRestartsTheTask: bool,
+    aHarnessExitRestartsAnIdleAuthor: bool,
+    aHarnessExitFailsTheTask: bool,
     aSandboxStartFails: bool,
     aStaleSandboxStartFails: bool,
     aSandboxStartFailsAtOnce: bool,
@@ -232,6 +241,8 @@ module harnessSessionTypes {
     aStoppedTaskGetsTheTaskPrompt: bool,
     theAgentWakesForAnIdleHarness: bool,
     aRestartDropsTheSummarization: bool,
+    aTaskLeftQueuedDuringItsBranchBinding: bool,
+    theBranchBindingFails: bool,
   }
 }
 
@@ -249,6 +260,10 @@ module harnessSession {
   /// True when nothing interrupts the work of an unfinished task before the first prompt goes out,
   /// so more samples reach the end of a turn and what follows it.
   const INTERRUPTS_AFTER_THE_FIRST_PROMPT: bool
+
+  /// True when the stage gives the job its own branch, so the provision alarm writes the branch
+  /// binding before it starts the sandbox.
+  const BINDS_A_BRANCH: bool
 
   /// How often a task restarts before it fails.
   pure val MAX_RESTARTS: int = 2
@@ -293,7 +308,7 @@ module harnessSession {
     permissionsWithAnAllowOption: 0,
     permissionsAllowed: 0,
     socketsClosed: 0,
-    lostTurnsRecovered: 0,
+    lostTurns: 0,
     stopsEnded: 0,
     answersToOtherRequests: 0,
     agentWakes: 0,
@@ -578,18 +593,25 @@ module harnessSession {
     else if (summarizes) issueCall(w, Summarization, rest)
     else { ...w, agentWakes: w.agentWakes + 1 }
 
-  /// `recoverLostTurn`: forget the lost turn and its harness session, so the queue wakes a fresh
-  /// sandbox instead of a bridge that may still run the turn.
+  /// `recoverLostTurn`: a lost turn counts one restart. With restarts left, forget the lost turn
+  /// and its harness session, so the queue wakes a fresh sandbox instead of a bridge that may still
+  /// run the turn. Once its restarts are used up, the task fails. A task queued for a restart
+  /// already has that restart written, so its lost turn does not count another one.
   pure def recoverLostTurn(w: World, rest: List[Frame]): World = {
-    val cleared = {
-      ...w,
-      rpcs: List(),
-      promptInFlight: false,
-      session: false,
-      lostTurnsRecovered: w.lostTurnsRecovered + 1,
+    val counted = { ...w, lostTurns: w.lostTurns + 1 }
+    val restartWritten = w.status == Queued
+    if (not(restartWritten) and w.restarts >= MAX_RESTARTS) failTask(counted, rest)
+    else {
+      val cleared = {
+        ...counted,
+        restarts: if (restartWritten) w.restarts else w.restarts + 1,
+        rpcs: List(),
+        promptInFlight: false,
+        session: false,
+      }
+      val woken = if (cleared.queue.length() == 0) { ...cleared, queue: List(LostSandboxWake) } else cleared
+      drainQueue(woken, rest)
     }
-    val woken = if (cleared.queue.length() == 0) { ...cleared, queue: List(LostSandboxWake) } else cleared
-    drainQueue(woken, rest)
   }
 
   pure def nudgeOrRestartStalledTask(w: World, rest: List[Frame]): World =
@@ -761,8 +783,7 @@ module harnessSession {
 
   pure def endedAStop(step: Step): bool = step.after.stopsEnded > step.before.stopsEnded
 
-  pure def recoveredALostTurn(step: Step): bool =
-    step.after.lostTurnsRecovered > step.before.lostTurnsRecovered
+  pure def handledALostTurn(step: Step): bool = step.after.lostTurns > step.before.lostTurns
 
   pure def closedASocket(step: Step): bool = step.after.socketsClosed > step.before.socketsClosed
 
@@ -824,18 +845,39 @@ module harnessSession {
   pure def anAuthorInReviewWorksOnlyWithAPromptIn(step: Step): bool =
     (step.before.status == InReview and step.after.status == Working) implies sentPrompt(step)
 
-  /// T21. The recovery of a lost turn does not count a restart.
-  pure def aLostTurnIsRecoveredWithoutARestartIn(step: Step): bool =
-    recoveredALostTurn(step) implies step.after.restarts == step.before.restarts
+  /// T21. A lost turn counts one restart, and the task recovers it in a fresh harness session. A
+  /// lost turn on a task whose restarts are used up fails the task. A task queued for a restart
+  /// already counted it, so its lost turn does not count another one.
+  pure def aLostTurnCountsOneRestartIn(step: Step): bool =
+    handledALostTurn(step) implies (
+      if (step.before.status == Queued) and {
+        step.after.restarts == step.before.restarts,
+        not(step.after.session),
+        not(step.after.promptInFlight),
+      }
+      else if (step.before.restarts < MAX_RESTARTS) and {
+        step.after.restarts == step.before.restarts + 1,
+        not(step.after.session),
+        not(step.after.promptInFlight),
+      }
+      else step.after.status == Failed
+    )
 
   /// T22. A harness exit on an unfinished task with restarts left counts one restart and
-  /// starts the next generation. The orchestrator does not close a socket for it.
+  /// starts the next generation, also when the author was idle in review. An author that had its
+  /// first prompt keeps it, so the harness session of that generation resumes the author. The
+  /// orchestrator does not close a socket for it. A harness exit on a task whose restarts are used
+  /// up fails the task.
   pure def aHarnessExitCountsOneRestartIn(step: Step): bool =
-    (step.kind == ExitStep and not(isFinished(step.before.status)) and step.before.restarts < MAX_RESTARTS) implies and {
-      step.after.restarts == step.before.restarts + 1,
-      step.after.generation == step.before.generation + 1,
-      not(closedASocket(step)),
-    }
+    (step.kind == ExitStep and not(isFinished(step.before.status))) implies (
+      if (step.before.restarts < MAX_RESTARTS) and {
+        step.after.restarts == step.before.restarts + 1,
+        step.after.generation == step.before.generation + 1,
+        step.after.hadPrompt == step.before.hadPrompt,
+        not(closedASocket(step)),
+      }
+      else step.after.status == Failed
+    )
 
   /// T23. A sandbox start of the current generation that throws on an unfinished task
   /// fails it, or closes its container to restart it. One that throws on a task already queued
@@ -863,9 +905,15 @@ module harnessSession {
   pure def aRefusedPromptLeavesTheTurnIn(step: Step): bool =
     step.kind == PromptRefusedStep implies (not(step.after.promptInFlight) or sentPrompt(step))
 
-  /// T40. The provision alarm starts a sandbox only for a queued task.
+  /// T40. The provision alarm starts a sandbox only for a queued task. The return of its branch
+  /// binding write leaves a task that left queued while the write was out as it is.
   pure def provisionStartsOnlyAQueuedTaskIn(step: Step): bool =
-    (step.kind == ProvisionStep and step.before.status != Queued) implies not(changedBesidesAlarms(step))
+    step.before.status != Queued implies match step.kind {
+      | ProvisionStep => not(changedBesidesAlarms(step))
+      | BranchBindingReturnStep =>
+        { ...step.before, calls: step.after.calls, faults: step.after.faults, actions: step.after.actions } == step.after
+      | _ => true
+    }
 
   /// T42. The wall clock fails a task whose turn is in flight, without a restart.
   pure def wallClockFailsWithoutARestartIn(step: Step): bool =
@@ -915,7 +963,7 @@ module harnessSession {
     aSandboxStartBeginsAFreshGeneration: aSandboxStartBeginsAFreshGenerationIn(step),
     aStartingTaskWorksOnlyAfterItsHello: aStartingTaskWorksOnlyAfterItsHelloIn(step),
     anAuthorInReviewWorksOnlyWithAPrompt: anAuthorInReviewWorksOnlyWithAPromptIn(step),
-    aLostTurnIsRecoveredWithoutARestart: aLostTurnIsRecoveredWithoutARestartIn(step),
+    aLostTurnCountsOneRestart: aLostTurnCountsOneRestartIn(step),
     aHarnessExitCountsOneRestart: aHarnessExitCountsOneRestartIn(step),
     aFailedSandboxStartRestartsOrFails: aFailedSandboxStartRestartsOrFailsIn(step),
     aRefusedPromptLeavesTheTurn: aRefusedPromptLeavesTheTurnIn(step),
@@ -976,9 +1024,21 @@ module harnessSession {
     aHelloMovesTheTaskToWorking:
       step.kind == HelloStep and step.before.status == Provisioning and step.after.status == Working,
     anAuthorInReviewTakesAPrompt: step.before.status == InReview and step.after.status == Working,
-    aLostTurnIsRecovered: recoveredALostTurn(step),
+    aLostTurnIsRecovered:
+      handledALostTurn(step) and step.before.status != Queued and step.before.restarts < MAX_RESTARTS,
+    aLostTurnFailsTheTask:
+      handledALostTurn(step) and step.before.status != Queued and step.before.restarts >= MAX_RESTARTS,
+    aLostTurnOfATaskQueuedForARestart: handledALostTurn(step) and step.before.status == Queued,
     aHarnessExitRestartsTheTask:
       step.kind == ExitStep and not(isFinished(step.before.status)) and step.before.restarts < MAX_RESTARTS,
+    aHarnessExitRestartsAnIdleAuthor: and {
+      step.kind == ExitStep,
+      step.before.status == InReview,
+      not(atWork(step.before)),
+      step.before.restarts < MAX_RESTARTS,
+    },
+    aHarnessExitFailsTheTask:
+      step.kind == ExitStep and not(isFinished(step.before.status)) and step.before.restarts >= MAX_RESTARTS,
     aSandboxStartFails: failedASandboxStart(step, true),
     aStaleSandboxStartFails: failedASandboxStart(step, false),
     aSandboxStartFailsAtOnce: failedASandboxStartAtOnce(step, true),
@@ -1017,6 +1077,9 @@ module harnessSession {
     theAgentWakesForAnIdleHarness: step.after.agentWakes > step.before.agentWakes,
     aRestartDropsTheSummarization:
       step.kind == DurableObjectRestartStep and outCalls(step.before, isSummarization).size() > 0,
+    aTaskLeftQueuedDuringItsBranchBinding:
+      step.kind == BranchBindingReturnStep and step.before.status != Queued,
+    theBranchBindingFails: step.kind == BranchBindingReturnStep and step.after.faults > step.before.faults,
   }
 
   /// Write the world after a step, and which rules and witnesses that step kept and showed.
@@ -1107,7 +1170,10 @@ module harnessSession {
   }
 
   pure def onAlarm(w: World, kind: AlarmKind): World = match kind {
-    | Provision => if (w.status == Queued) startSandbox(w, List()) else w
+    | Provision =>
+      if (w.status != Queued) w
+      else if (BINDS_A_BRANCH) issueCall(w, BranchBinding, List())
+      else startSandbox(w, List())
     | HelloTimeout(_) =>
       if (w.status != Provisioning) w
       else if (startsOut(w).contains(w.generation)) { ...arm(w, HelloTimeout(w.generation)), helloSlot: Armed(w.nextAlarm) }
@@ -1206,6 +1272,7 @@ module harnessSession {
             else { ...rescheduled, calls: rescheduled.calls.append({ ...call, state: Dropped, rest: List() }) }
           | OutcomeCheck(_) => rescheduled
           | Summarization => rescheduled
+          | BranchBinding => rescheduled
         }
       })
     move(startStep(lost), DurableObjectRestartStep),
@@ -1257,6 +1324,11 @@ module harnessSession {
     | _ => false
   }
 
+  pure def isBranchBinding(kind: CallKind): bool = match kind {
+    | BranchBinding => true
+    | _ => false
+  }
+
   pure def isSummarization(kind: CallKind): bool = match kind {
     | Summarization => true
     | _ => false
@@ -1302,6 +1374,32 @@ module harnessSession {
     val generation = generationOfCall(world, callId)
     val handled = if (generation == world.generation) failTask(failed, rest) else failed
     move(goOn(failed, handled, rest), StartFailedStep({ generation: generation, atOnce: true })),
+  }
+
+  /// The router write of the branch binding returns. The provision alarm then starts the sandbox
+  /// of a task that is still queued. A failed write of a queued task counts a restart and arms the
+  /// provision alarm again, or fails the task once its restarts are used up. A task that left
+  /// queued while the write was out is left as it is.
+  action branchBindingReturns: bool = all {
+    outCalls(world, isBranchBinding).size() > 0,
+    nondet callId = outCalls(world, isBranchBinding).oneOf()
+    nondet ok = Set(true, false).oneOf()
+    all {
+      ok or world.faults < MAX_FAULTS,
+      val rest = restOf(world, callId)
+      val returned = withoutCall(world, callId)
+      if (ok) {
+        val handled = if (returned.status == Queued) startSandbox(returned, rest) else returned
+        move(goOn(returned, handled, rest), BranchBindingReturnStep)
+      } else {
+        val failed = { ...returned, faults: world.faults + 1 }
+        val handled =
+          if (failed.status != Queued) failed
+          else if (failed.restarts >= MAX_RESTARTS) failTask(failed, rest)
+          else arm({ ...failed, restarts: failed.restarts + 1 }, Provision)
+        move(goOn(failed, handled, rest), BranchBindingReturnStep)
+      },
+    },
   }
 
   /// The sandbox provider returns from a destroy. The container went with the bridges it ran.
@@ -1569,6 +1667,7 @@ module harnessSession {
       not(INTERRUPTS_AFTER_THE_FIRST_PROMPT) or world.promptsSent > 0 or isFinished(world.status),
       theWorkIsInterrupted,
     },
+    branchBindingReturns,
     sandboxStartLaunchesBridge,
     sandboxStartReturns,
     sandboxDestroyReturns,
@@ -1621,11 +1720,14 @@ module harnessSession {
   /// T19. An author in review becomes working only in a step that sends it a prompt.
   val anAuthorInReviewWorksOnlyWithAPrompt: bool = rulesKept.anAuthorInReviewWorksOnlyWithAPrompt
 
-  /// T21. The recovery of a lost turn does not count a restart.
-  val aLostTurnIsRecoveredWithoutARestart: bool = rulesKept.aLostTurnIsRecoveredWithoutARestart
+  /// T21. A lost turn counts one restart, and the task recovers it in a fresh harness session. A
+  /// lost turn on a task whose restarts are used up fails the task. A task queued for a restart
+  /// already counted it, so its lost turn does not count another one.
+  val aLostTurnCountsOneRestart: bool = rulesKept.aLostTurnCountsOneRestart
 
   /// T22. A harness exit on an unfinished task with restarts left counts one restart and
-  /// starts the next generation. The orchestrator does not close a socket for it.
+  /// starts the next generation, also when the author was idle in review. A harness exit on a
+  /// task whose restarts are used up fails the task.
   val aHarnessExitCountsOneRestart: bool = rulesKept.aHarnessExitCountsOneRestart
 
   /// T23. A sandbox start of the current generation that throws on an unfinished task
@@ -1746,7 +1848,7 @@ module harnessSession {
     aSandboxStartBeginsAFreshGeneration,
     aStartingTaskWorksOnlyAfterItsHello,
     anAuthorInReviewWorksOnlyWithAPrompt,
-    aLostTurnIsRecoveredWithoutARestart,
+    aLostTurnCountsOneRestart,
     aHarnessExitCountsOneRestart,
     aFailedSandboxStartRestartsOrFails,
     anUnpausedTaskWithWorkIsNeverStranded,
@@ -1804,11 +1906,24 @@ module harnessSession {
   /// Witness for `anAuthorInReviewWorksOnlyWithAPrompt`: an author in review takes a prompt.
   val anAuthorInReviewTakesAPrompt: bool = stepWitnesses.anAuthorInReviewTakesAPrompt
 
-  /// Witness for `aLostTurnIsRecoveredWithoutARestart`: a lost turn is recovered.
+  /// Witness for `aLostTurnCountsOneRestart`: a lost turn is recovered.
   val aLostTurnIsRecovered: bool = stepWitnesses.aLostTurnIsRecovered
+
+  /// Witness for `aLostTurnCountsOneRestart`: a lost turn fails a task whose restarts are used up.
+  val aLostTurnFailsTheTask: bool = stepWitnesses.aLostTurnFailsTheTask
+
+  /// Witness for `aLostTurnCountsOneRestart`: a lost turn of a task queued for a restart.
+  val aLostTurnOfATaskQueuedForARestart: bool = stepWitnesses.aLostTurnOfATaskQueuedForARestart
 
   /// Witness for `aHarnessExitCountsOneRestart`: the harness exits on a task with restarts left.
   val aHarnessExitRestartsTheTask: bool = stepWitnesses.aHarnessExitRestartsTheTask
+
+  /// Witness for `aHarnessExitCountsOneRestart`: the harness exits under an author idle in review.
+  val aHarnessExitRestartsAnIdleAuthor: bool = stepWitnesses.aHarnessExitRestartsAnIdleAuthor
+
+  /// Witness for `aHarnessExitCountsOneRestart`: the harness exits on a task whose restarts are
+  /// used up.
+  val aHarnessExitFailsTheTask: bool = stepWitnesses.aHarnessExitFailsTheTask
 
   /// Witness for `aFailedSandboxStartRestartsOrFails`: a sandbox start throws.
   val aSandboxStartFails: bool = stepWitnesses.aSandboxStartFails
@@ -1907,6 +2022,13 @@ module harnessSession {
   /// A restart of the Durable Object drops the summarization of a turn end, and the agent does not
   /// wake.
   val aRestartDropsTheSummarization: bool = stepWitnesses.aRestartDropsTheSummarization
+
+  /// Witness for `provisionStartsOnlyAQueuedTask`: the branch binding write returns after the task
+  /// left queued, so the provision alarm does not start the sandbox.
+  val aTaskLeftQueuedDuringItsBranchBinding: bool = stepWitnesses.aTaskLeftQueuedDuringItsBranchBinding
+
+  /// The router write of the branch binding fails.
+  val theBranchBindingFails: bool = stepWitnesses.theBranchBindingFails
 
   /// The author was nudged.
   val theAuthorWasNudged: bool = world.nudged

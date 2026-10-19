@@ -65,13 +65,15 @@ module reviewLoopTypes {
   type SentBack = NotSentBack | SentBackOn(int)
 
   /// The output artifact. A revision is a number here. The host gives it a name. It is delivered to
-  /// the humans from its first handover on, also while it is a draft again.
+  /// the humans from its first handover on, also while it is a draft again. The recheck alarm of
+  /// its job is armed or stopped.
   type Artifact = {
     status: ArtifactStatus,
     deliveredToHumans: bool,
     revision: int,
     refinerRun: RefinerRunOfArtifact,
     sentBack: SentBack,
+    recheckArmed: bool,
   }
 
   /// A part of the page an edit rewrites. A person comment on a block sits on `TheBlock`. No edit
@@ -117,8 +119,8 @@ module reviewLoopTypes {
   /// Whether the document host takes one write.
   type HostWrite = HostTakes | HostFails
 
-  /// A comment code posted on the page for a refiner run: an inline finding, the outcome comment
-  /// of a review, or the reason of a judge's rejection.
+  /// A comment code posted on the artifact for a refiner run: an inline finding or the outcome
+  /// comment of a page review, or the reason of a judge's rejection.
   type ReviewComment =
     | InlineFinding({ refinerRun: int, passage: Passage })
     | OutcomeComment({ refinerRun: int, findings: Set[Passage], approves: bool })
@@ -182,14 +184,15 @@ module reviewLoopTypes {
   /// Why a model-call author's revise turn failed.
   type TurnFailure = PageReadRefused | AnswerInvalid | ReplyRefused | UpdateRefused | UpdateLandedThenFailed
 
-  /// Who asked for the held comments to go to the author.
-  type Asker = TheAgent | APersonsRevisionRequest | AMention
+  /// Who asked for the held comments to go to the author. A mention carries the route the
+  /// decisions model gave it.
+  type Asker = TheAgent | APersonsRevisionRequest | AMention(FeedbackRoute)
 
-  /// What the agent read in a step about page comments: that the held ones stay held, the text of
-  /// a held one, or the text of the mention that came in.
-  type AgentNote = HeldCommentsStayHeld | HeldCommentText | MentionText
+  /// What the agent read in a step: that the held page comments stay held, the text of a held
+  /// one, the text of the mention that came in, or the route note.
+  type AgentNote = HeldCommentsStayHeld | HeldCommentText | MentionText | RouteNote
 
-  /// What happened on the document host in a step, for the invariants that read it.
+  /// What happened on the host of the artifact in a step, for the invariants that read it.
   type PageFact =
     | NoPageFact
     | PageReviewPosted(Commenting)
@@ -274,6 +277,9 @@ module reviewLoopTypes {
     checksGoBackOncePerRevision: bool,
     refinersStartOnlyWhenTheAuthorsGateOpens: bool,
     aBlockedAuthorsGateHandsOverBlocked: bool,
+    aReviewWaitingForRoutingTellsTheAgent: bool,
+    theRecheckAlarmRunsWhileTheGateHolds: bool,
+    anAnswerAtTheReviewLimitMovesOn: bool,
   }
 
   /// Whether the last step reached each before-and-after witness, by the name of the witness. Only
@@ -300,7 +306,7 @@ module reviewLoopTypes {
     aRevisionRewritesTheBlockOfAnAnsweredComment: bool,
     aRevisionAnswersAQueuedComment: bool,
     aCommentReplyFails: bool,
-    aRejectionLandsOnThePage: bool,
+    aRejectionLands: bool,
     theHostFailsARejection: bool,
     theHostFailsAModelCallAuthor: bool,
     theHostFailsTheReadAfterAModelCall: bool,
@@ -346,6 +352,12 @@ module reviewLoopTypes {
     checksGoBackToTheAuthorAtItsTurnEnd: bool,
     checksGoBackToAWaitingAuthor: bool,
     aRefinerRunStartsWhenTheAuthorsGateOpens: bool,
+    aMentionCarriesTheHeldComments: bool,
+    aFailedReplyLeavesAQueuedCommentUnanswered: bool,
+    theAgentIsAskedToRoute: bool,
+    theAgentIsAskedToRouteAgain: bool,
+    anAuthorAnswersAReviewAtTheLimit: bool,
+    theRecheckAlarmStops: bool,
   }
 
   /// A model-call author's turn end: the review after it and how the turn ended.
@@ -450,6 +462,7 @@ module reviewLoop {
       revision: 0,
       refinerRun: NoRefinerRun,
       sentBack: NotSentBack,
+      recheckArmed: false,
     },
     refinerRuns: List(),
     judgeRunsCodeRulesOn: Set(),
@@ -821,6 +834,12 @@ module reviewLoop {
       isReview(loop.refinerRuns[id].result),
     })
 
+  /// True when a review the segment that ends at `end` filed read a revision other than the one
+  /// the host gives. No review is stale against an unknown revision.
+  pure def segmentIsStale(loop: ReviewLoop, end: int, lookup: RevisionLookup): bool =
+    lookup == RevisionKnown and segmentReviewRuns(loop, end).exists(id =>
+      reviewedRevisionIsNot(loop.refinerRuns[id].result, hostRevision(loop, lookup)))
+
   /// Point the artifact at the latest run of the last findings entry of the segment that ends at
   /// `end`, so the author's answer to the segment's review is routed from there.
   pure def pointAtLastReviewerOfSegment(loop: ReviewLoop, end: int): ReviewLoop = {
@@ -870,6 +889,23 @@ module reviewLoop {
     else if (isRejection(refinerRun.result)) runRefinersFrom(loop, refinerRun.refinerIndex + 1, lookup)
     else loop
   }
+
+  /// True when the refiners of the quiet author settle onto a finished findings reviewer run below
+  /// the review limit that the agent routes. The agent then gets the route note.
+  pure def settlesOntoAReviewToRoute(loop: ReviewLoop, decision: ReviewAgainDecision): bool = and {
+    decision == AgentRoutes,
+    drafted(loop),
+    not(refinerInFlight(loop)),
+    authorQuiet(loop),
+    holdsARun(loop),
+    refinerOf(loop.refinerRuns[heldRun(loop)]) == FindingsReviewer,
+    not(reviewLimitReached(loop, heldRun(loop))),
+  }
+
+  /// What the agent reads when the checks gate on the quiet author's revision `loop` holds comes
+  /// out `outcome`, and the refiners settle on `decision`.
+  pure def routeNoteFor(loop: ReviewLoop, outcome: GateOutcome, decision: ReviewAgainDecision): Set[AgentNote] =
+    if (outcome == GateOpens and settlesOntoAReviewToRoute(loop, decision)) Set(RouteNote) else Set()
 
   /// The refiners settle once the author is quiet.
   pure def settleRefiners(loop: ReviewLoop, decision: ReviewAgainDecision, lookup: RevisionLookup): ReviewLoop =
@@ -1004,8 +1040,8 @@ module reviewLoop {
     if (MODEL_CALL_AUTHOR) modelCallTurnEnds(loop, changed, part, answers)
     else turnEnded(if (changed) pageChanged(loop, part) else loop, answers)
 
-  /// A ruling settles the judge's segment. A rejection posts its reason on a page when the host
-  /// takes it, and reaches the author with the findings of the reviewers before the judge. An
+  /// A ruling settles the judge's segment. A rejection posts its reason on the artifact when the
+  /// host takes it, and reaches the author with the findings of the reviewers before the judge. An
   /// approval sends those findings on their own, or moves on.
   pure def applyJudgeRuling(
     loop: ReviewLoop,
@@ -1023,7 +1059,7 @@ module reviewLoop {
     if (ruling == Rejected) {
       val rejectedBy = ruled.author.rejectedBy.union(Set(index))
       val posted =
-        if (ON_A_PAGE and post == HostTakes) ruled.reviewComments.append(RejectionComment(id))
+        if (post == HostTakes) ruled.reviewComments.append(RejectionComment(id))
         else ruled.reviewComments
       sendFindingsToAuthor({ ...ruled, reviewComments: posted, author: { ...ruled.author, rejectedBy: rejectedBy } }, reviewRuns)
     }
@@ -1037,8 +1073,7 @@ module reviewLoop {
   pure def settleSegment(loop: ReviewLoop, end: int, lookup: RevisionLookup): ReviewLoop = {
     val start = segmentStartOf(end)
     val filed = segmentReviewRuns(loop, end)
-    val stale = lookup == RevisionKnown and filed.exists(id =>
-      reviewedRevisionIsNot(loop.refinerRuns[id].result, hostRevision(loop, lookup)))
+    val stale = segmentIsStale(loop, end, lookup)
     if (filed.size() == 0) advancePastEntry(loop, end, lookup)
     else if (stale and not(authorQuiet(loop))) settleRefiners(loop, AgentRoutes, lookup)
     else if (stale) runRefinersFrom(loop, start, lookup)
@@ -1164,26 +1199,38 @@ module reviewLoop {
   pure def authorGateRead(loop: ReviewLoop, outcome: GateOutcome, lookup: RevisionLookup): ChecksRead =
     if (authorGateReadsChecks(loop, lookup)) GateSettlesTheAuthor(outcome) else ChecksNotRead
 
-  /// The checks gate settles the quiet author's revision. The refiners settle once it opens, and
-  /// the humans get the artifact blocked once it blocks. The review does not change while it
-  /// waits. Failed checks or a conflict go back to the author.
+  /// True when the checks gate holds the revision: it waits, or failed checks or a conflict went
+  /// back to the submitter.
+  pure def gateHolds(outcome: GateOutcome): bool = outcome == GateWaits or outcome == GateSendsBack
+
+  /// Arm or stop the recheck alarm of the job.
+  pure def withRecheck(loop: ReviewLoop, armed: bool): ReviewLoop =
+    { ...loop, artifact: { ...loop.artifact, recheckArmed: armed } }
+
+  /// The checks gate settles the quiet author's revision. The recheck alarm runs while the gate
+  /// holds it. The refiners settle once it opens, and the humans get the artifact blocked once
+  /// it blocks. Failed checks or a conflict go back to the author.
   pure def settleThroughTheAuthorsGate(
     loop: ReviewLoop,
     outcome: GateOutcome,
     decision: ReviewAgainDecision,
     lookup: RevisionLookup,
-  ): ReviewLoop =
+  ): ReviewLoop = {
+    val gated = if (authorWaitsOnTheGate(loop)) withRecheck(loop, gateHolds(outcome)) else loop
     match outcome {
-      | GateOpens => settleRefiners(loop, decision, lookup)
-      | GateWaits => loop
-      | GateSendsBack => sendChecksBackToTheAuthor(loop)
-      | GateBlocks => handOver(loop, ClosedBlocked, lookup)
+      | GateOpens => settleRefiners(gated, decision, lookup)
+      | GateWaits => gated
+      | GateSendsBack => sendChecksBackToTheAuthor(gated)
+      | GateBlocks => handOver(gated, ClosedBlocked, lookup)
     }
+  }
 
-  /// The checks gate settles the polisher run `id`. It ends done and hands the artifact on once
-  /// the gate opens, and ends done with a blocked handover once it blocks. It waits on the
-  /// checks, or gets failed checks or a conflict back and works on them.
-  pure def settlePolisher(loop: ReviewLoop, id: int, outcome: GateOutcome, lookup: RevisionLookup): ReviewLoop = {
+  /// The checks gate settles the polisher run `id` while the drafted artifact is on it. The
+  /// recheck alarm runs while the gate holds the revision. The run ends done and hands the
+  /// artifact on once the gate opens, and ends done with a blocked handover once it blocks. It
+  /// waits on the checks, or gets failed checks or a conflict back and works on them.
+  pure def settlePolisher(polished: ReviewLoop, id: int, outcome: GateOutcome, lookup: RevisionLookup): ReviewLoop = {
+    val loop = if (isOnRun(polished, id) and drafted(polished)) withRecheck(polished, gateHolds(outcome)) else polished
     val done = withStatus(loop, id, Done)
     val settled = match outcome {
       | GateOpens =>
@@ -1237,8 +1284,8 @@ module reviewLoop {
 
   /// The host reports checks, or the recheck alarm reads them. A polisher the gate holds settles,
   /// and so does an author that waits on the gate. Otherwise, failed checks or a conflict go to
-  /// an idle author as a follow-up. A polisher at work settles at its turn end, so the report
-  /// changes nothing then.
+  /// an idle author as a follow-up, which stops the recheck alarm. A polisher at work settles at
+  /// its turn end, so the report changes nothing then.
   pure def checksReported(
     loop: ReviewLoop,
     outcome: GateOutcome,
@@ -1252,7 +1299,7 @@ module reviewLoop {
         checks: authorGateRead(loop, outcome, lookup),
       }
     else if (authorCanBeFollowedUp(loop, lookup) and outcome == GateSendsBack)
-      { loop: sendChecksBackToTheAuthor(loop), checks: AuthorFollowedUp }
+      { loop: sendChecksBackToTheAuthor(withRecheck(loop, false)), checks: AuthorFollowedUp }
     else { loop: loop, checks: ChecksNotRead }
 
   /// A polisher that stops early gives the artifact to the humans with what it pushed.
@@ -1342,7 +1389,7 @@ module reviewLoop {
     val carried = if (marks and toTheAuthor) held.union(Set(mention)) else Set()
     val acknowledged = acknowledge(during, if (marks) carried.union(Set(mention)) else Set())
     val stayHeld = screened and not(marks and toTheAuthor)
-    val asked = HeldCommentsAsked({ by: AMention, read: readHeld, carried: carried })
+    val asked = HeldCommentsAsked({ by: AMention(route), read: readHeld, carried: carried })
     if (lookup == TheHostCannotSay) { loop: withMention, page: NoPageFact, agentHeard: Set() }
     else if (read == HostCannotBeRead) {
       loop: withMention,
@@ -1432,9 +1479,18 @@ module reviewLoop {
     nondet outcome = authorGateOutcomes(left, revisionLookup).oneOf()
     val answers = { write: WritesLand, decision: decision, lookup: revisionLookup, gate: outcome }
     val ended = authorTurnEnds(review, changed, part, answers)
+    val heard = match ended.turnEnd {
+      | AuthorTurnEnded(_) => routeNoteFor(left, outcome, decision)
+      | _ => Set()
+    }
     moveWith(
       ended.loop,
-      { ...quietStep(ended.turnEnd), revisionLookup: revisionLookup, checks: authorGateRead(left, outcome, revisionLookup) },
+      {
+        ...quietStep(ended.turnEnd),
+        agentHeard: heard,
+        revisionLookup: revisionLookup,
+        checks: authorGateRead(left, outcome, revisionLookup),
+      },
     ),
   }
 
@@ -1532,7 +1588,7 @@ module reviewLoop {
   }
 
   pure def rejectionFact(loop: ReviewLoop, id: int, ruling: Ruling, post: HostWrite): PageFact =
-    if (ON_A_PAGE and ruling == Rejected and rulingLands(loop, id)) RejectionPosted(post) else NoPageFact
+    if (ruling == Rejected and rulingLands(loop, id)) RejectionPosted(post) else NoPageFact
 
   action decisionsModelRules(ruling: Ruling): bool = {
     nondet judgeRun = review.judgeRunsCodeRulesOn.oneOf()
@@ -1569,7 +1625,7 @@ module reviewLoop {
     canPersonRuleOn(review, heldRun(review)),
     nondet post = HOST_WRITES.oneOf()
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
-    val page = if (ON_A_PAGE and ruling == Rejected) RejectionPosted(post) else NoPageFact
+    val page = if (ruling == Rejected) RejectionPosted(post) else NoPageFact
     moveWith(
       applyJudgeRuling(review, heldRun(review), ruling, post, revisionLookup),
       { ...quietStep(NoTurnEnd), page: page, revisionLookup: revisionLookup },
@@ -1611,9 +1667,16 @@ module reviewLoop {
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     nondet outcome = reportOutcomes(review, revisionLookup).oneOf()
     val reported = checksReported(review, outcome, revisionLookup)
+    val settlesTheAuthor = not(polisherWaitsOnChecks(review)) and authorWaitsOnTheGate(review)
     moveWith(
       reported.loop,
-      { ...quietStep(NoTurnEnd), revisionLookup: revisionLookup, checks: reported.checks, checksReported: true },
+      {
+        ...quietStep(NoTurnEnd),
+        agentHeard: if (settlesTheAuthor) routeNoteFor(review, outcome, AgentRoutes) else Set(),
+        revisionLookup: revisionLookup,
+        checks: reported.checks,
+        checksReported: true,
+      },
     ),
   }
 
@@ -1641,6 +1704,20 @@ module reviewLoop {
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val index = review.refinerRuns[heldRun(review)].refinerIndex
     moveOnLookup(advancePastEntry(review, index, revisionLookup), NoTurnEnd, revisionLookup),
+  }
+
+  /// The agent asks for a review while it may not route the artifact. The code refuses, and the
+  /// review stays as it was.
+  action agentRequestsReviewOutOfTurn: bool = all {
+    not(agentCanRoute(review)),
+    move(review, NoTurnEnd),
+  }
+
+  /// The agent ends the open segment while it may not route the artifact. The code refuses, and
+  /// the review stays as it was.
+  action agentFinishesReviewOutOfTurn: bool = all {
+    not(agentCanRoute(review)),
+    move(review, NoTurnEnd),
   }
 
   /// The agent cancels the unfinished refiner run.
@@ -1877,6 +1954,8 @@ module reviewLoop {
     polisherPushesNothing,
     agentRequestsReview,
     agentFinishesReview,
+    agentRequestsReviewOutOfTurn,
+    agentFinishesReviewOutOfTurn,
     agentCancelsRefinerRun,
     refinerRunFails,
     refinerRunHitsARecoverableFailure,
@@ -2083,12 +2162,23 @@ module reviewLoop {
       findingsBefore(step.after, step.after.refinerRuns[started].refinerIndex)
         .forall(id => step.after.author.findingsFrom.contains(id)))
 
-  /// A review prompt in the step a page reviewer ended carries that reviewer's findings.
+  /// A page reviewer whose turn ends with findings on the drafted artifact of a live author, and
+  /// whose segment settles on it without a stale review, sends the author its findings in that
+  /// step.
   pure def sendsEveryPageFinding(step: Transition): bool =
     ARTIFACT == PullRequest or match step.kind.turnEnd {
-      | RefinerTurnEnded(id) =>
-        (gotNewFindings(step) and reviewHasFindings(step.after.refinerRuns[id].result))
-          implies step.after.author.findingsFrom.contains(id)
+      | RefinerTurnEnded(id) => {
+        val index = step.after.refinerRuns[id].refinerIndex
+        val lookup = step.kind.revisionLookup
+        and {
+          reviewHasFindings(step.after.refinerRuns[id].result),
+          isOnRun(step.before, id),
+          drafted(step.before),
+          authorLive(step.before),
+          index == segmentEndOf(index) or unreviewedEntriesFrom(step.before, index + 1, lookup).size() == 0,
+          not(segmentIsStale(step.before, segmentEndOf(index), lookup)),
+        } implies step.after.author.findingsFrom.contains(id)
+      }
       | _ => true
     }
 
@@ -2118,22 +2208,28 @@ module reviewLoop {
       | _ => true
     }
 
-  /// A prompt the agent sends or a revision request carries every held comment the host marked
-  /// read. A held comment it does not mark stays held, and the agent is told so.
+  /// A prompt the agent sends, a revision request, or a mention the decisions model routes to the
+  /// author carries every held comment once the host marked them read. Otherwise each one stays
+  /// held, and the agent is told so unless the screen refused them.
   pure def carriesTheHeldComments(step: Transition): bool =
     match step.kind.page {
       | HeldCommentsAsked(asked) => {
         val heldBefore = heldCommentIds(step.before)
+        val carriesThem =
+          heldBefore.forall(id => asked.carried.contains(id) and not(isHeld(step.after.personComments[id])))
+        val keepsThem =
+          heldBefore.forall(id => not(asked.carried.contains(id)) and isHeld(step.after.personComments[id]))
+        val toldTheyStay = step.kind.agentHeard.contains(HeldCommentsStayHeld)
         or {
-          asked.by == AMention,
           not(authorLive(step.after)),
           heldBefore.size() == 0,
-          if (asked.read == AdmittedAndAcknowledged)
-            heldBefore.forall(id => asked.carried.contains(id) and not(isHeld(step.after.personComments[id])))
-          else and {
-            heldBefore.forall(id => not(asked.carried.contains(id)) and isHeld(step.after.personComments[id])),
-            not(step.kind.agentHeard.contains(HeldCommentText)),
-            step.kind.agentHeard.contains(HeldCommentsStayHeld),
+          match asked.by {
+            | AMention(route) =>
+              if (route == ToTheAuthor and asked.read == AdmittedAndAcknowledged) carriesThem
+              else and { keepsThem, asked.read != ScreenRefuses implies toldTheyStay }
+            | _ =>
+              if (asked.read == AdmittedAndAcknowledged) carriesThem
+              else and { keepsThem, not(step.kind.agentHeard.contains(HeldCommentText)), toldTheyStay }
           },
         }
       }
@@ -2163,12 +2259,20 @@ module reviewLoop {
     } implies step.after.personComments[id].answered)
 
   /// A revise turn that did not reply to every comment its prompt carries that is still on the
-  /// page leaves the page as it was.
+  /// page leaves the page text and its blocks as they were, and does not reply to a comment its
+  /// prompt does not carry.
   pure def failedReplyLeavesItAsItWas(step: Transition): bool =
     not(endsAModelCallTurn(step)) or
       step.before.author.turnComments.forall(id =>
         step.before.personComments[id].gone or step.after.personComments[id].answered) or
-      step.after.artifact.revision == step.before.artifact.revision
+      and {
+        step.after.artifact.revision == step.before.artifact.revision,
+        personCommentIds(step.before).forall(id => and {
+          step.after.personComments[id].gone == step.before.personComments[id].gone,
+          not(step.before.author.turnComments.contains(id)) implies
+            step.after.personComments[id].answered == step.before.personComments[id].answered,
+        }),
+      }
 
   /// The refiner runs whose rejection landed in a step.
   pure def rejectedIn(step: Transition): Set[int] =
@@ -2279,6 +2383,70 @@ module reviewLoop {
       not(isUnfinished(step.before.refinerRuns[id].status))
         implies step.after.refinerRuns[id].status == step.before.refinerRuns[id].status)
 
+  /// True when the drafted artifact is on a done findings reviewer run, its live author is quiet,
+  /// and the recheck alarm is stopped, so the checks gate does not hold the author's revision.
+  pure def holdsADoneReviewForTheQuietAuthor(loop: ReviewLoop): bool = and {
+    drafted(loop),
+    authorLive(loop),
+    authorQuiet(loop),
+    not(loop.artifact.recheckArmed),
+    holdsARun(loop),
+    loop.refinerRuns[heldRun(loop)].status == Done,
+    refinerOf(loop.refinerRuns[heldRun(loop)]) == FindingsReviewer,
+  }
+
+  /// True when the artifact waits for the agent to route the review of its quiet author: the run
+  /// it is on is below the review limit.
+  pure def waitsForRouting(loop: ReviewLoop): bool =
+    holdsADoneReviewForTheQuietAuthor(loop) and not(reviewLimitReached(loop, heldRun(loop)))
+
+  /// A step that leaves the artifact waiting for routing sends the agent the route note, when the
+  /// artifact did not wait before or the host reported checks in the step.
+  pure def tellsTheAgentToRoute(step: Transition): bool =
+    (waitsForRouting(step.after) and (not(waitsForRouting(step.before)) or step.kind.checksReported))
+      implies step.kind.agentHeard.contains(RouteNote)
+
+  /// True when the drafted artifact is on a done findings reviewer run at the review limit.
+  pure def onADoneReviewAtTheLimit(loop: ReviewLoop): bool = and {
+    drafted(loop),
+    holdsARun(loop),
+    loop.refinerRuns[heldRun(loop)].status == Done,
+    refinerOf(loop.refinerRuns[heldRun(loop)]) == FindingsReviewer,
+    reviewLimitReached(loop, heldRun(loop)),
+  }
+
+  /// A step from a done findings reviewer run at the review limit does not start another run of
+  /// its entry.
+  pure def doesNotRerunAReviewAtTheLimit(step: Transition): bool =
+    onADoneReviewAtTheLimit(step.before) implies {
+      val index = step.before.refinerRuns[heldRun(step.before)].refinerIndex
+      startedRuns(step).forall(id => step.after.refinerRuns[id].refinerIndex != index)
+    }
+
+  /// True when a read of the checks gate in a step opened or blocked.
+  pure def gateLetsGo(checks: ChecksRead): bool = or {
+    checks == GateSettles(GateOpens),
+    checks == GateSettles(GateBlocks),
+    checks == GateSettlesTheAuthor(GateOpens),
+    checks == GateSettlesTheAuthor(GateBlocks),
+  }
+
+  /// True when a read of the checks gate in a step waited or sent the revision back.
+  pure def gateHeld(checks: ChecksRead): bool = or {
+    checks == GateSettles(GateWaits),
+    checks == GateSettles(GateSendsBack),
+    checks == GateSettlesTheAuthor(GateWaits),
+    checks == GateSettlesTheAuthor(GateSendsBack),
+  }
+
+  /// A step where the checks gate waits or sends the revision back leaves the recheck alarm
+  /// armed. A step where it opens or blocks, or failed checks go to the idle author, stops it.
+  pure def recheckFollowsTheGate(step: Transition): bool = and {
+    gateHeld(step.kind.checks) implies step.after.artifact.recheckArmed,
+    gateLetsGo(step.kind.checks) implies not(step.after.artifact.recheckArmed),
+    step.kind.checks == AuthorFollowedUp implies not(step.after.artifact.recheckArmed),
+  }
+
   /// Whether one step kept each before-and-after rule.
   pure def rulesKeptBy(step: Transition): KeptRules = {
     judgeRulesAtMostOnce: keepsEveryRuling(step),
@@ -2304,6 +2472,9 @@ module reviewLoop {
     refinersStartOnlyWhenTheAuthorsGateOpens: startsRunsOnlyThroughTheAuthorsGate(step),
     aBlockedAuthorsGateHandsOverBlocked:
       step.kind.checks == GateSettlesTheAuthor(GateBlocks) implies handedOverBlocked(step.after),
+    aReviewWaitingForRoutingTellsTheAgent: tellsTheAgentToRoute(step),
+    theRecheckAlarmRunsWhileTheGateHolds: recheckFollowsTheGate(step),
+    anAnswerAtTheReviewLimitMovesOn: doesNotRerunAReviewAtTheLimit(step),
   }
 
   /// The held comments read in a step whose host marks them read, when some were held.
@@ -2312,6 +2483,9 @@ module reviewLoop {
       | HeldCommentsAsked(asked) => heldCommentIds(step.before).size() > 0 and matches(asked)
       | _ => false
     }
+
+  /// True when a mention asked for the held comments.
+  pure def isMention(by: Asker): bool = match by { | AMention(_) => true | _ => false }
 
   /// True when the author was paused before a step and is not after it.
   pure def resumesTheAuthor(step: Transition): bool = step.before.author.paused and not(step.after.author.paused)
@@ -2365,16 +2539,16 @@ module reviewLoop {
     },
     aPageReviewMeetsAHostThatIsDown: step.kind.page == PageReviewPosted(HostDown),
     heldCommentsGoToThePageAuthor:
-      heldCommentsAskedFor(step, asked => asked.by != AMention and asked.carried.size() > 0),
+      heldCommentsAskedFor(step, asked => not(isMention(asked.by)) and asked.carried.size() > 0),
     heldCommentsStayHeld:
-      heldCommentsAskedFor(step, asked => asked.by != AMention and not(admits(asked.read))),
+      heldCommentsAskedFor(step, asked => not(isMention(asked.by)) and not(admits(asked.read))),
     theHostKeepsHeldCommentsHeld:
       heldCommentsAskedFor(step, asked => asked.read == AdmittedButAcknowledgementFails),
     theScreenKeepsHeldComments:
       heldCommentsAskedFor(step, asked => asked.by != TheAgent and asked.read == ScreenRefuses),
     aMentionRoutedAwayLeavesHeldComments:
       heldCommentsAskedFor(step, asked => and {
-        asked.by == AMention,
+        isMention(asked.by),
         asked.read == AdmittedAndAcknowledged,
         asked.carried.size() == 0,
       }),
@@ -2406,7 +2580,7 @@ module reviewLoop {
         step.after.personComments[id].answered,
       }),
     aCommentReplyFails: step.kind.turnEnd == AuthorTurnFailed(ReplyRefused),
-    aRejectionLandsOnThePage: step.kind.page == RejectionPosted(HostTakes),
+    aRejectionLands: step.kind.page == RejectionPosted(HostTakes),
     theHostFailsARejection: step.kind.page == RejectionPosted(HostFails),
     theHostFailsAModelCallAuthor:
       step.kind.turnEnd == AuthorTurnFailed(UpdateRefused) or step.kind.turnEnd == AuthorTurnFailed(UpdateLandedThenFailed),
@@ -2519,6 +2693,22 @@ module reviewLoop {
       step.kind.turnEnd == NoTurnEnd,
       startedRuns(step).size() > 0,
     },
+    aMentionCarriesTheHeldComments:
+      heldCommentsAskedFor(step, asked => asked.by == AMention(ToTheAuthor) and asked.carried.size() > 1),
+    aFailedReplyLeavesAQueuedCommentUnanswered: and {
+      step.kind.turnEnd == AuthorTurnFailed(ReplyRefused),
+      step.before.author.turnComments.exists(id => not(step.before.personComments[id].gone)),
+      queuedComments(step.before).exists(id => and {
+        not(step.before.author.turnComments.contains(id)),
+        not(step.before.personComments[id].gone),
+        not(step.before.personComments[id].answered),
+      }),
+    },
+    theAgentIsAskedToRoute: step.kind.agentHeard.contains(RouteNote),
+    theAgentIsAskedToRouteAgain: step.kind.agentHeard.contains(RouteNote) and waitsForRouting(step.before),
+    anAuthorAnswersAReviewAtTheLimit:
+      onADoneReviewAtTheLimit(step.before) and not(isOnRun(step.after, heldRun(step.before))),
+    theRecheckAlarmStops: step.before.artifact.recheckArmed and not(step.after.artifact.recheckArmed),
   }
 
   /// An artifact has at most one unfinished refiner run, and the artifact is on it.
@@ -2560,8 +2750,9 @@ module reviewLoop {
   /// judge's approval does not drop it.
   val authorGetsEveryPullFinding: bool = lastStepKept.authorGetsEveryPullFinding
 
-  /// A review prompt the author of a page gets in the step its reviewer ended carries every
-  /// finding of that review.
+  /// A page reviewer whose turn ends with findings sends them to the author in that step, when the
+  /// drafted artifact of a live author is on its run, no later entry of its segment still has a
+  /// say, and no review of the segment is stale.
   val authorGetsEveryPageFinding: bool = lastStepKept.authorGetsEveryPageFinding
 
   /// A prompt queued for a model-call author reaches it. A model-call author with a queued
@@ -2580,11 +2771,12 @@ module reviewLoop {
   /// file a review does not post a comment.
   val pageReviewPostsEachFindingOnce: bool = lastStepKept.pageReviewPostsEachFindingOnce
 
-  /// A prompt the agent sends to the author of a page, and a person's request for a revision,
-  /// carry every comment held on the page and mark it read. When the host cannot be read, the
-  /// screen does not admit them, or the host does not mark them read, no prompt carries them,
-  /// they stay held, and the agent is told so. An author that finished during the step is not
-  /// owed them.
+  /// A prompt the agent sends to the author of a page, a person's request for a revision, and a
+  /// mention the decisions model routes to the author carry every comment held on the page and
+  /// mark it read. When the host cannot be read, the screen does not admit them, the host does
+  /// not mark them read, or a mention goes elsewhere, no prompt carries them and they stay held.
+  /// The agent is told so unless the screen refused a mention. An author that finished during
+  /// the step is not owed them.
   val aPromptToAPageAuthorCarriesItsHeldComments: bool = lastStepKept.aPromptToAPageAuthorCarriesItsHeldComments
 
   /// Held comments a person's revision request or mention sends, when the host cannot be read or
@@ -2602,11 +2794,12 @@ module reviewLoop {
       review.personComments[id].answered implies review.personComments[id].sent)
 
   /// A revision that posted fewer comment replies than its prompt carries comments still on the
-  /// page leaves the page as it was.
+  /// page leaves the page text and its blocks as they were, and replies to no comment a queued
+  /// prompt carries.
   val failedReplyLeavesThePage: bool = lastStepKept.failedReplyLeavesThePage
 
-  /// A judge rejection on a page posts its reason in one comment when the host takes it, and the
-  /// author gets the rejection whether the post landed or not.
+  /// A judge rejection posts its reason in one comment on the pull request or page when the host
+  /// takes it, and the author gets the rejection whether the post landed or not.
   val aJudgeRejectionPostsItsReasonOnce: bool = lastStepKept.aJudgeRejectionPostsItsReasonOnce
 
   /// The first handover records that the humans got the artifact. A later step does not clear
@@ -2682,6 +2875,25 @@ module reviewLoop {
   /// A step where the author's gate blocks hands the artifact over closed blocked.
   val aBlockedAuthorsGateHandsOverBlocked: bool = lastStepKept.aBlockedAuthorsGateHandsOverBlocked
 
+  /// The agent gets the route note in each step that leaves the drafted artifact waiting for it to
+  /// route the review of the quiet author, below the review limit, and again on each checks read
+  /// while it waits.
+  val aReviewWaitingForRoutingTellsTheAgent: bool = lastStepKept.aReviewWaitingForRoutingTellsTheAgent
+
+  /// The recheck alarm runs while the checks gate holds a revision, and stops once the gate opens
+  /// or blocks or failed checks go to the idle author. A polisher the gate holds has it armed.
+  val theRecheckAlarmRunsWhileTheGateHolds: bool = and {
+    polisherWaitsOnChecks(review) implies review.artifact.recheckArmed,
+    lastStepKept.theRecheckAlarmRunsWhileTheGateHolds,
+  }
+
+  /// The author's answer to a findings review at the review limit moves the list past that entry
+  /// without another run of it, so a quiet author never waits on one.
+  val anAnswerAtTheReviewLimitMovesOn: bool = and {
+    not(holdsADoneReviewForTheQuietAuthor(review) and reviewLimitReached(review, heldRun(review))),
+    lastStepKept.anAnswerAtTheReviewLimitMovesOn,
+  }
+
   /// Every invariant above, for one check of all of them.
   val invariants: bool = and {
     oneUnfinishedRefinerRunPerArtifact,
@@ -2712,6 +2924,9 @@ module reviewLoop {
     checksGoBackOncePerRevision,
     refinersStartOnlyWhenTheAuthorsGateOpens,
     aBlockedAuthorsGateHandsOverBlocked,
+    aReviewWaitingForRoutingTellsTheAgent,
+    theRecheckAlarmRunsWhileTheGateHolds,
+    anAnswerAtTheReviewLimitMovesOn,
   }
 
   /// The revisions of the artifact, a counter that model checking bounds.
@@ -2778,8 +2993,12 @@ module reviewLoop {
   /// A stale review runs its segment again.
   val aStaleReviewRunsTheSegmentAgain: bool = lastStepReached.aStaleReviewRunsTheSegmentAgain
 
-  /// A reviewer reached the review limit.
+  /// Witness for `anAnswerAtTheReviewLimitMovesOn`: a reviewer reached the review limit.
   val aReviewerReachedTheLimit: bool = runIds(review).exists(id => reviewLimitReached(review, id))
+
+  /// Witness for `anAnswerAtTheReviewLimitMovesOn`: the artifact moves off a done findings reviewer
+  /// run at the review limit.
+  val anAuthorAnswersAReviewAtTheLimit: bool = lastStepReached.anAuthorAnswersAReviewAtTheLimit
 
   /// Witness for `aRefinerRunRestartsAtMostTwice`: a refiner run restarted.
   val aRefinerRunRestarted: bool = runIds(review).exists(id => review.refinerRuns[id].restarts > 0)
@@ -2839,8 +3058,8 @@ module reviewLoop {
   /// Witness for `failedReplyLeavesThePage`: a comment reply fails.
   val aCommentReplyFails: bool = lastStepReached.aCommentReplyFails
 
-  /// Witness for `aJudgeRejectionPostsItsReasonOnce`: a rejection lands on the page.
-  val aRejectionLandsOnThePage: bool = lastStepReached.aRejectionLandsOnThePage
+  /// Witness for `aJudgeRejectionPostsItsReasonOnce`: a rejection lands on the pull request or page.
+  val aRejectionLands: bool = lastStepReached.aRejectionLands
 
   /// Witness for `aJudgeRejectionPostsItsReasonOnce`: the host fails the post of a rejection.
   val theHostFailsARejection: bool = lastStepReached.theHostFailsARejection
@@ -3040,5 +3259,23 @@ module reviewLoop {
   /// Witness for `refinersStartOnlyWhenTheAuthorsGateOpens`: a checks report opens the gate on
   /// the author's revision, and a refiner run starts.
   val aRefinerRunStartsWhenTheAuthorsGateOpens: bool = lastStepReached.aRefinerRunStartsWhenTheAuthorsGateOpens
+
+  /// Witness for `aPromptToAPageAuthorCarriesItsHeldComments`: a mention the decisions model routes
+  /// to the author carries the held comments.
+  val aMentionCarriesTheHeldComments: bool = lastStepReached.aMentionCarriesTheHeldComments
+
+  /// Witness for `failedReplyLeavesThePage`: a reply to a comment the turn carries fails while a
+  /// queued prompt carries another comment that is not answered.
+  val aFailedReplyLeavesAQueuedCommentUnanswered: bool = lastStepReached.aFailedReplyLeavesAQueuedCommentUnanswered
+
+  /// Witness for `aReviewWaitingForRoutingTellsTheAgent`: the agent gets the route note.
+  val theAgentIsAskedToRoute: bool = lastStepReached.theAgentIsAskedToRoute
+
+  /// Witness for `aReviewWaitingForRoutingTellsTheAgent`: the agent gets the route note again on a
+  /// checks read while the artifact waits for it.
+  val theAgentIsAskedToRouteAgain: bool = lastStepReached.theAgentIsAskedToRouteAgain
+
+  /// Witness for `theRecheckAlarmRunsWhileTheGateHolds`: the recheck alarm stops.
+  val theRecheckAlarmStops: bool = lastStepReached.theRecheckAlarmStops
 
 }

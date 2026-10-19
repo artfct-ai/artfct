@@ -1,18 +1,10 @@
-name: Pipeline
+name: CI
 
 on:
-  pull_request:
-  push:
-    branches: [main]
-
-permissions:
-  contents: read
-
-# A newer push to a pull request cancels its older run. Main runs one commit at a time, in order, and queues the rest. GitHub rejects `queue: max` beside `cancel-in-progress`, so pull requests keep `single`.
-concurrency:
-  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
-  queue: ${{ github.event_name == 'pull_request' && 'single' || 'max' }}
+  workflow_call:
+    secrets:
+      TURBO_TOKEN:
+        required: false
 
 env:
   TURBO_API: ${{ vars.TURBO_API }}
@@ -24,200 +16,14 @@ env:
 jobs:
   ci:
     name: ci
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - run: bun install --frozen-lockfile
+      - uses: ./.github/actions/install
       - name: Fail when the lockfile does not match the workspace manifests
         run: bun install --lockfile-only && git diff --exit-code bun.lock
-      - run: bun run check:affected
+      - run: bun run ci:affected
       - run: bun run smoke
-
-  spec_replays_affected:
-    name: spec replays
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 30
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 2
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - run: bun install --frozen-lockfile
-      - name: Replay the specs at their default count when the orchestrator, a package it depends on, or a spec changed, unless turbo has the result cached
-        run: bunx turbo run spec:replay --affected
-
-  spec_changes:
-    name: spec changes
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 5
-    outputs:
-      specs: ${{ steps.specs.outputs.specs }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 2
-      - name: List the specs whose folders changed, or every spec when the spec scripts, the quint version, or this workflow changed
-        id: specs
-        shell: bash
-        run: |
-          changed=$(git diff --name-only HEAD^1 HEAD)
-          quint_version=$(git diff HEAD^1 HEAD -- bun.lock | grep -E '^[-+].*@informalsystems/quint' || true)
-          specs=""
-          for checks in spec/*/checks.json; do
-            spec=$(basename "$(dirname "$checks")")
-            if [ -n "$quint_version" ] || grep -qE "^(spec/$spec/|packages/orchestrator/scripts/spec/|\.github/workflows/ci\.yml$)" <<<"$changed"; then
-              specs="$specs $spec"
-            fi
-          done
-          echo "specs=${specs# }" | tee -a "$GITHUB_OUTPUT"
-
-  quint:
-    name: quint (shard ${{ matrix.shard }})
-    needs: spec_changes
-    if: needs.spec_changes.outputs.specs != ''
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3]
-    defaults:
-      run:
-        shell: bash
-        working-directory: packages/orchestrator
-    env:
-      SHARD_INDEX: ${{ strategy.job-index }}
-      SHARD_COUNT: ${{ strategy.job-total }}
-      SPECS: ${{ needs.spec_changes.outputs.specs }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - run: bun install --frozen-lockfile
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.quint
-          key: quint-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
-          restore-keys: quint-${{ runner.os }}-${{ runner.arch }}-
-      - name: Typecheck, check the witnesses, and run every invariant on 10,000 samples for each setup of the changed specs in this shard
-        run: |
-          read -ra specs <<<"$SPECS"
-          bun scripts/spec/check-spec.ts shard "$SHARD_INDEX" "$SHARD_COUNT" 10000 "${specs[@]}"
-
-  quint_spec:
-    name: quint spec (shard ${{ matrix.shard }})
-    needs: spec_changes
-    if: github.event_name == 'push' && needs.spec_changes.outputs.specs != ''
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        shard: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
-    defaults:
-      run:
-        shell: bash
-        working-directory: packages/orchestrator
-    env:
-      SHARD_INDEX: ${{ strategy.job-index }}
-      SHARD_COUNT: ${{ strategy.job-total }}
-      SPECS: ${{ needs.spec_changes.outputs.specs }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - run: bun install --frozen-lockfile
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: ~/.quint
-          key: quint-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('bun.lock', 'packages/orchestrator/scripts/spec/tlc-tools.ts') }}
-          restore-keys: quint-${{ runner.os }}-${{ runner.arch }}-
-      - name: Typecheck, check the witnesses, and run every invariant on 100,000 samples for each setup of the changed specs in this shard
-        run: |
-          read -ra specs <<<"$SPECS"
-          bun scripts/spec/check-spec.ts shard "$SHARD_INDEX" "$SHARD_COUNT" 100000 "${specs[@]}"
-
-  spec_replays:
-    name: spec replays (${{ matrix.name }})
-    needs: ci
-    if: github.event_name == 'push'
-    runs-on: ubuntu-24.04-arm
-    timeout-minutes: 30
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: workflow lifecycle
-            replays: workflow_lifecycle
-          - name: session routing
-            replays: session_routing
-          - name: the rest
-            replays: router_bindings review_loop harness_session agent_turns chat_acknowledgement feedback_routing
-    defaults:
-      run:
-        shell: bash
-        working-directory: packages/orchestrator
-    env:
-      REPLAYS: ${{ matrix.replays }}
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - run: bun install --frozen-lockfile
-      - name: Seed the replay from the run id
-        run: echo "PROPERTY_SEED=$(( GITHUB_RUN_ID % 2147483648 ))" >> "$GITHUB_ENV"
-      - name: Replay the specs at their e2e counts, unless turbo has the result cached
-        timeout-minutes: 25
-        run: |
-          read -ra replays <<<"$REPLAYS"
-          bunx turbo run spec:replay:e2e --filter=@artfct-ai/orchestrator -- "${replays[@]}"
-
-  preview:
-    name: preview
-    needs: [ci, spec_changes, quint_spec, spec_replays]
-    if: github.event_name == 'push' && !cancelled() && needs.ci.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled')
-    # x64, because it builds and publishes the linux/amd64 sandbox image.
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-    concurrency:
-      # In commit order, so the `@main` tag ends on the newest commit.
-      group: preview
-      cancel-in-progress: false
-    steps:
-      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
-        with:
-          bun-version-file: package.json
-      - run: bun install --frozen-lockfile
-      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - name: Publish the sandbox image to Docker Hub unless turbo has it cached
-        run: |
-          bunx turbo run sandbox-image --filter=@artfct-ai/orchestrator
-          echo "SANDBOX_IMAGE=$(cat packages/orchestrator/dist/sandbox-image/published-image)" >> "$GITHUB_ENV"
-      - name: Point the main tag at the sandbox image
-        run: docker buildx imagetools create --prefer-index=false --tag docker.io/artfct/sandbox:main "$SANDBOX_IMAGE"
-      - run: bun run build --filter=@artfct-ai/core --filter=artfct
-      - name: Confirm the core package names the published image
-        run: cat packages/core/dist/sandbox/published-image
-      - name: Publish the preview packages to pkg.pr.new
-        run: bunx pkg-pr-new publish --bun --no-compact --no-template --comment=off ./packages/core ./packages/cli
-      - name: Start the deploy of the install that tracks main
-        run: gh workflow run deploy.yml --ref main --repo "$PREVIEW_DEPLOY_REPO"
-        env:
-          PREVIEW_DEPLOY_REPO: ${{ secrets.PREVIEW_DEPLOY_REPO }}
-          GH_TOKEN: ${{ secrets.PREVIEW_DEPLOY_TOKEN }}

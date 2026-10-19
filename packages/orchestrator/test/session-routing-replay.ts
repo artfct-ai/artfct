@@ -1,5 +1,5 @@
-import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
-import type { TaskStatus } from "@artfct-ai/contracts/types";
+import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
+import type { RpcAck, TaskStatus } from "@artfct-ai/contracts/types";
 import type { AgentActivityContent } from "@artfct-ai/adapters/tracker/types";
 import { channelTools } from "../src/agent/tools/channel";
 import { planTools } from "../src/agent/tools/plan";
@@ -13,6 +13,8 @@ import type { TaskRow } from "../src/workflow/store/tasks";
 import { onWallClock } from "../src/workflow/task/harness/timers";
 import type { TaskEvent } from "../src/workflow/task/events";
 import type { WorkflowRuntime } from "../src/workflow/types";
+import { Deferred } from "./deferred";
+import { FakeRuntime } from "./fake-runtime";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
 import { quintTraces } from "./quint-traces";
 import type { TrackerHealth } from "./session-tracker";
@@ -27,6 +29,7 @@ import {
   personStopsModelCall,
   researcherReportsTodos,
   researcherTurnEnds,
+  researcherTurnEndsUnfinished,
   type AuthorClosing,
 } from "./workflow-actions";
 import {
@@ -47,6 +50,7 @@ export const SPEC_SETUPS = {
   trackerResearch: { origin: "tracker", research: true, pageAuthor: "harness" },
   trackerModelCall: { origin: "tracker", research: false, pageAuthor: "model" },
   trackerPause: { origin: "tracker", research: false, pageAuthor: "harness" },
+  trackerDelivery: { origin: "tracker", research: false, pageAuthor: "harness" },
 } as const satisfies Record<string, Pick<WorldSetup, "origin" | "research" | "pageAuthor">>;
 
 /** The name of one setup module of the spec. */
@@ -93,7 +97,14 @@ const TURN_ENDINGS = [
   "Cancelled",
 ] as const;
 const STREAMED = ["Message", "ToolCall"] as const;
-const HEALTHS = ["TrackerUp", "FailsBeforeStoring", "FailsAfterStoring"] as const;
+const HEALTHS = [
+  "TrackerUp",
+  "FailsBeforeStoring",
+  "FailsAfterStoring",
+  "RestartsBeforeStoring",
+  "RestartsAfterStoring",
+] as const;
+const RESEARCH_ENDINGS = ["LeavesNoPayload", "ResearcherGivesUp", "StopsOnALimit"] as const;
 
 type Issue = (typeof ISSUES)[number];
 type SpecSubject = (typeof SUBJECTS)[number];
@@ -105,6 +116,8 @@ type Ending = (typeof ENDINGS)[number];
 type TurnEnding = (typeof TURN_ENDINGS)[number];
 type Streamed = (typeof STREAMED)[number];
 type Health = (typeof HEALTHS)[number];
+type ResearchEnding = (typeof RESEARCH_ENDINGS)[number];
+type RestartMidPost = Extract<Health, `Restarts${string}`>;
 
 /** The tracker issue key of each issue of the spec. */
 const ISSUE_KEY: Record<Issue, string> = {
@@ -121,12 +134,22 @@ const SUBJECT_LINK: Record<Exclude<SpecSubject, "NoSubject">, string> = {
 /** The chat channel of each chat thread of the spec, by number. */
 const CHAT_CHANNELS = ["C1", "C2"];
 
-/** How the world's tracker answers for each tracker health of the spec. */
-const TRACKER_HEALTH: Record<Health, TrackerHealth> = {
+/** How the world's tracker answers for each tracker health of the spec without a restart. */
+const TRACKER_HEALTH: Record<Exclude<Health, RestartMidPost>, TrackerHealth> = {
   TrackerUp: "up",
   FailsBeforeStoring: "fails_before_storing",
   FailsAfterStoring: "fails_after_storing",
 };
+
+/** Whether the tracker stores the activity that a restart cuts. */
+const STORED_BEFORE_THE_RESTART: Record<RestartMidPost, boolean> = {
+  RestartsBeforeStoring: false,
+  RestartsAfterStoring: true,
+};
+
+function isRestartMidPost(health: Health): health is RestartMidPost {
+  return health in STORED_BEFORE_THE_RESTART;
+}
 
 /** The closing text the author's turn ends with for each turn ending of the spec that is a turn end. */
 const CLOSING_OF: Record<Exclude<TurnEnding, "PromptFails">, AuthorClosing> = {
@@ -178,8 +201,11 @@ export type SpecRouting = {
   ended: boolean;
 };
 
+/** The deliveries of one session message in flight, and whether it was marked seen. */
+export type SpecMessage = { inFlight: number; seen: boolean };
+
 /** The values the spec picked for one action. */
-type SpecPicks = {
+export type SpecPicks = {
   subject: SpecSubject | null;
   issue: Issue | null;
   text: SessionText | null;
@@ -190,14 +216,21 @@ type SpecPicks = {
   streamed: Streamed | null;
   health: Health | null;
   todos: number | null;
+  message: number | null;
+  researchEnding: ResearchEnding | null;
 };
 
-/** One state of a trace: the action that led to it, its picks, what its step sent, and the workflow. */
+/**
+ * One state of a trace: the action that led to it, its picks, what its step sent, the workflow,
+ * and the session messages that waited on the idle clock. A pinned trace that predates them has
+ * none.
+ */
 export type TraceStep = {
   action: string;
   picks: SpecPicks;
   output: SpecOutput;
   routing: SpecRouting;
+  messages: SpecMessage[] | null;
 };
 
 /** Run the spec of one setup for `count` traces from `seed`. */
@@ -232,6 +265,8 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
     };
     const id = pickOf("id");
     const todos = pickOf("todos");
+    const message = pickOf("message");
+    const messages = itfField(state, `${setup}::sessionRouting::sessionMessages`, true);
     const facts = itfField(state, `${setup}::sessionRouting::lastStep`);
     return {
       action: itfText(itfField(state, "mbt::actionTaken")),
@@ -246,6 +281,8 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
         streamed: picked("streamed", STREAMED),
         health: picked("health", HEALTHS),
         todos: todos === null ? null : specTodos(todos),
+        message: message === null ? null : itfInt(message),
+        researchEnding: picked("researchEnding", RESEARCH_ENDINGS),
       },
       output: {
         posts: itfList(itfField(facts, "posts")).map((post) => ({
@@ -264,8 +301,22 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
           .toSorted(),
       },
       routing: specRouting(itfField(state, `${setup}::sessionRouting::routing`)),
+      messages: messages === null ? null : specMessages(messages),
     };
   });
+}
+
+function specMessages(value: unknown): SpecMessage[] {
+  return itfList(itfField(value, "#map"))
+    .map((pair) => {
+      const [message, sent] = itfList(pair);
+      return { message: itfInt(message), sent };
+    })
+    .toSorted((left, right) => left.message - right.message)
+    .map(({ sent }) => ({
+      inFlight: itfInt(itfField(sent, "inFlight")),
+      seen: itfInt(itfField(sent, "landed")) > 0,
+    }));
 }
 
 function byJob(feed: SpecFeedPost[]): SpecFeedPost[] {
@@ -327,6 +378,7 @@ const WORLD_SETUP: Omit<WorldSetup, "origin" | "research" | "pageAuthor"> = {
   firstInput: "request",
   subject: "none",
   sandboxStart: "at_task_start",
+  pageBranch: false,
 };
 
 /** What a person types in a tracker session for each session text of the spec. */
@@ -413,12 +465,27 @@ function todosOf(workflow: WorkflowRuntime, task: TaskRow | null): SpecTodos {
   return entries.filter((entry) => entry.status === "completed").length;
 }
 
+/** A delivery that waits on the idle clock until the trace lands it. */
+type HeldDelivery = { land: () => void; outcome: Promise<RpcAck> };
+
+/** A session message a person sent, and its deliveries that wait on the idle clock. */
+type SentMessage = {
+  event: Pick<InboundEvent, "id" | "kind" | "text" | "reply_to" | "bindings">;
+  held: HeldDelivery[];
+};
+
+/** The next delivery to reach the idle clock: it says it arrived and waits to land. */
+type IdleClockGate = { arrived: () => void; landed: Promise<void> };
+
 /**
  * Replays session routing traces through a workflow world that starts in a chat thread or in a
  * tracker session. Each spec action maps to the entry point production uses. The agent turn
  * runs as its tools and its watchdog would: it takes the inbox, posts, and deletes what it took.
  */
 export class SessionRoutingReplay {
+  private readonly sent: SentMessage[] = [];
+  private readonly gates: { next: IdleClockGate | null } = { next: null };
+
   private constructor(readonly world: WorkflowWorld) {}
 
   /** A started world of `setup`. A chat workflow's plan does not name a subject yet. */
@@ -431,17 +498,32 @@ export class SessionRoutingReplay {
       await recordNote(text, wake, from);
     };
     const replay = new SessionRoutingReplay(world);
+    const { gates } = replay;
+    workflow.scheduleAlarm = async function scheduleBehindTheGate(this: FakeRuntime, ...alarm) {
+      const gate = alarm[1] === "onIdle" ? gates.next : null;
+      if (gate) {
+        gates.next = null;
+        gate.arrived();
+        await gate.landed;
+      }
+      return FakeRuntime.prototype.scheduleAlarm.apply(this, alarm);
+    };
     await world.apply(worldAction("the agent sets the plan", () => setPlan(workflow, {})));
     return replay;
   }
 
   /** Take one spec action, then bring up every sandbox that waits. Returns what the step sent. */
-  async take(step: TraceStep): Promise<SpecOutput> {
+  async take(step: Pick<TraceStep, "action" | "picks">): Promise<SpecOutput> {
     const deliveriesBefore = this.world.workflow.deliveries.length;
     const outboxBefore = this.world.lastOutboxId();
-    this.world.setTrackerHealth(TRACKER_HEALTH[step.picks.health ?? "TrackerUp"]);
-    await this.world.apply(this.actionFor(step));
-    this.world.setTrackerHealth("up");
+    const health = step.picks.health ?? "TrackerUp";
+    if (isRestartMidPost(health)) {
+      await this.world.apply(this.restartingMidFeedPost(this.actionFor(step), health));
+    } else {
+      this.world.setTrackerHealth(TRACKER_HEALTH[health]);
+      await this.world.apply(this.actionFor(step));
+      this.world.setTrackerHealth("up");
+    }
     await this.world.apply(
       worldAction("sandboxes come up", async (world) => {
         for (const task of world.tasksAwaitingSandbox()) await world.startSandboxOf(task.task_id);
@@ -465,6 +547,15 @@ export class SessionRoutingReplay {
         .map((row) => issueOfKey(issueKeyOfTarget(row.target)))
         .toSorted(),
     };
+  }
+
+  /** The session messages as the spec sees them, in the order they were sent. */
+  messages(): SpecMessage[] {
+    const { store } = this.world.workflow;
+    return this.sent.map(({ event, held }) => ({
+      inFlight: held.length,
+      seen: store.eventSeen(event.id),
+    }));
   }
 
   /** The workflow as the spec sees it. */
@@ -554,7 +645,7 @@ export class SessionRoutingReplay {
     return { job, kind: feedKindOf(payload.content), stored: stored.length };
   }
 
-  private actionFor(step: TraceStep): WorkflowAction {
+  private actionFor(step: Pick<TraceStep, "action" | "picks">): WorkflowAction {
     const { picks } = step;
     switch (step.action) {
       case "personWritesInSession":
@@ -562,6 +653,22 @@ export class SessionRoutingReplay {
           `a person says ${picks.text} in the session on ${picks.issue}`,
           (world) => this.personWritesInSession(world, required(picks.issue), required(picks.text)),
         );
+      case "personSendsInSession":
+        return worldAction(
+          `a person sends ${picks.text} in the session on ${picks.issue}`,
+          (world) => this.personSendsInSession(world, required(picks.issue), required(picks.text)),
+        );
+      case "trackerDeliversAgain":
+        return worldAction(`the tracker delivers message ${picks.message} again`, (world) =>
+          this.deliverSentMessage(world, this.sentMessage(required(picks.message))),
+        );
+      case "aSessionMessageLands":
+        return worldAction(`a delivery of message ${picks.message} lands`, async () => {
+          const delivery = this.sentMessage(required(picks.message)).held.shift();
+          if (!delivery) throw new Error(`message ${picks.message} has no delivery in flight`);
+          delivery.land();
+          await delivery.outcome;
+        });
       case "agentTurnEnds":
         return worldAction(`the agent turn ends: ${picks.outcome}`, (world) =>
           this.agentTurnEnds(world, required(picks.outcome)),
@@ -625,7 +732,7 @@ export class SessionRoutingReplay {
           (world) => this.personStopsAModelCall(world, required(picks.id)),
         );
       case "workflowRestarts":
-        return worldAction("the workflow restarts", (world) => world.restart());
+        return worldAction("the workflow restarts", (world) => this.restart(world));
       case "researcherReportsTodos":
         return researcherReportsTodos(
           this.researcherIndexOf(required(picks.id)),
@@ -636,7 +743,10 @@ export class SessionRoutingReplay {
           this.researcherHandsOver(world, required(picks.id)),
         );
       case "researcherLeavesNoPayload":
-        return researcherTurnEnds(this.researcherIndexOf(required(picks.id)), "missing");
+        return this.researcherLeavesNoPayload(
+          required(picks.id),
+          picks.researchEnding ?? "LeavesNoPayload",
+        );
       case "agentPausesAuthor":
         return agentHoldsAuthor(this.unfinishedIndexOf(required(picks.id)), "pause_task");
       case "agentResumesAuthor":
@@ -660,6 +770,45 @@ export class SessionRoutingReplay {
     }
   }
 
+  /** The Durable Object restarts. Every delivery of a session message in flight fails. */
+  private async restart(world: WorkflowWorld): Promise<void> {
+    for (const message of this.sent) message.held = [];
+    await world.restart();
+  }
+
+  /** Run `action`, and restart the workflow while its feed activity is out. */
+  private restartingMidFeedPost(action: WorkflowAction, health: RestartMidPost): WorkflowAction {
+    return worldAction(
+      `${String(action)}, and the workflow restarts mid feed post`,
+      async (world) => {
+        const cut = new Deferred<"cut">();
+        world.tracker.cutNextActivity({
+          stored: STORED_BEFORE_THE_RESTART[health],
+          cut: () => cut.resolve("cut"),
+        });
+        const outcome = await Promise.race([cut.promise, action.run(world).then(() => "ended")]);
+        if (outcome !== "cut") throw new Error(`${String(action)} posted no feed activity to cut`);
+        await this.restart(world);
+      },
+    );
+  }
+
+  private researcherLeavesNoPayload(jobIndex: number, ending: ResearchEnding): WorkflowAction {
+    const index = this.researcherIndexOf(jobIndex);
+    switch (ending) {
+      case "LeavesNoPayload":
+        return researcherTurnEnds(index, "missing");
+      case "ResearcherGivesUp":
+        return researcherTurnEndsUnfinished(index, "gave_up");
+      case "StopsOnALimit":
+        return researcherTurnEndsUnfinished(index, "max_tokens");
+      default: {
+        const unreachable: never = ending;
+        throw new Error(`unhandled research ending ${String(unreachable)}`);
+      }
+    }
+  }
+
   private sessionOn(
     world: WorkflowWorld,
     issue: Issue,
@@ -677,15 +826,56 @@ export class SessionRoutingReplay {
     issue: Issue,
     said: SessionText,
   ): Promise<void> {
+    await world.deliver(this.sessionEvent(world, issue, said));
+  }
+
+  private async personSendsInSession(
+    world: WorkflowWorld,
+    issue: Issue,
+    said: SessionText,
+  ): Promise<void> {
+    const message: SentMessage = {
+      event: {
+        id: `session-message-${this.sent.length}`,
+        ...this.sessionEvent(world, issue, said),
+      },
+      held: [],
+    };
+    this.sent.push(message);
+    await this.deliverSentMessage(world, message);
+  }
+
+  /** Start a delivery of a sent message. It waits on the idle clock when it reaches it. */
+  private async deliverSentMessage(world: WorkflowWorld, message: SentMessage): Promise<void> {
+    const atTheIdleClock = new Deferred<"held">();
+    const landing = new Deferred<void>();
+    this.gates.next = { arrived: () => atTheIdleClock.resolve("held"), landed: landing.promise };
+    const outcome = world.startDelivery(message.event);
+    const settled = await Promise.race([atTheIdleClock.promise, outcome]);
+    this.gates.next = null;
+    if (settled === "held") message.held.push({ land: landing.resolve, outcome });
+  }
+
+  private sentMessage(index: number): SentMessage {
+    const message = this.sent[index];
+    if (!message) throw new Error(`no session message ${index} was sent`);
+    return message;
+  }
+
+  private sessionEvent(
+    world: WorkflowWorld,
+    issue: Issue,
+    said: SessionText,
+  ): Omit<SentMessage["event"], "id"> {
     const session = this.sessionOn(world, issue);
-    await world.deliver({
+    return {
       ...SESSION_EVENTS[said],
       reply_to: session,
       bindings: [
         { source: "tracker_issue", external_id: session.issue_id },
         { source: "tracker_session", external_id: session.session_id },
       ],
-    });
+    };
   }
 
   private async agentTurnEnds(world: WorkflowWorld, outcome: Outcome): Promise<void> {

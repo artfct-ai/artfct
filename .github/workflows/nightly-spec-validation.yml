@@ -87,7 +87,7 @@ jobs:
   tlc_nightly:
     name: tlc nightly (${{ matrix.spec }}, ${{ matrix.setup }})
     needs: quint_specs
-    runs-on: ubuntu-24.04-arm
+    runs-on: ubuntu-latest
     timeout-minutes: 360
     strategy:
       fail-fast: false

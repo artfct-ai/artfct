@@ -222,6 +222,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -429,6 +435,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -705,6 +717,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -971,6 +989,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -1243,6 +1267,12 @@
               "#bigint": "0"
             }
           ]
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -1511,6 +1541,12 @@
               "#bigint": "0"
             }
           ]
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -1793,6 +1829,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
         }
       }
     }
