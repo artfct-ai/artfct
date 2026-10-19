@@ -113,8 +113,8 @@
           "operationsStarted": 2
         },
         "nightly": {
-          "eventsArrived": 5,
-          "workflowsCreated": 3,
+          "eventsArrived": 4,
+          "workflowsCreated": 2,
           "operationsStarted": 3
         }
       }
