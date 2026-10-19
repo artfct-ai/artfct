@@ -64,10 +64,12 @@ describe("agent review", () => {
         { since: "", turnText, signature: "" },
       ),
     ).toEqual({
-      revision: null,
-      blocking: false,
-      summary: "",
-      findings: [{ location: "ENG-1", body: "no outcome." }],
+      review: {
+        revision: null,
+        blocking: false,
+        summary: "",
+        findings: [{ location: "ENG-1", body: "no outcome." }],
+      },
     });
   });
 
@@ -77,7 +79,7 @@ describe("agent review", () => {
         { kind: "project", project_id: "p1" },
         { since: "", turnText: "Read them all.", signature: "" },
       ),
-    ).toBeNull();
+    ).toEqual({ filedNone: true });
   });
 
   it("has no revision to go stale against", async () => {

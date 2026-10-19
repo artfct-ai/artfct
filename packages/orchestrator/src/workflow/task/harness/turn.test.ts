@@ -125,6 +125,26 @@ describe("onSessionUpdate", () => {
         used((workflow) => {
           expect(workflow.posted).toHaveLength(1);
         }));
+
+      describe("and a later usage update that reports a lower cost", () => {
+        const lowered = scenario(used, (workflow) =>
+          onSessionUpdate(
+            workflow,
+            workflow.store.requireTask(TASK),
+            notice({
+              sessionUpdate: "usage_update",
+              used: 2,
+              size: 100,
+              cost: { amount: 0.05, currency: "USD" },
+            }),
+          ),
+        );
+
+        it("replaces the cost and does not add to it", () =>
+          lowered((workflow) => {
+            expect(workflow.store.requireTask(TASK)).toMatchObject({ cost_usd: 0.05 });
+          }));
+      });
     });
   });
 

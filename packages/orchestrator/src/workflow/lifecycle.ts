@@ -60,7 +60,8 @@ export type StartJobOptions = {
 };
 
 /**
- * Create a job for the named stage with its first task, and schedule provisioning.
+ * Create a job for the named stage with its first task, and schedule provisioning before the
+ * router writes, so a failed one does not strand the task.
  */
 export async function startJob(
   workflow: WorkflowRuntime,
@@ -113,6 +114,7 @@ export async function startJob(
         }
       : authorTaskOf(stage, job),
   );
+  await workflow.scheduleAlarm(0, "provision", { task_id: taskId });
   await changeWorkflowStatus(workflow, "running");
   if (issue) {
     const ref = { issue_id: issue.id, team_id: issue.team_id };
@@ -128,7 +130,6 @@ export async function startJob(
   }
   await workflow.post({ type: "started", stage: stage.name, job_id: jobId });
   await flushBoards(workflow, jobId);
-  await workflow.scheduleAlarm(0, "provision", { task_id: taskId });
   return job;
 }
 

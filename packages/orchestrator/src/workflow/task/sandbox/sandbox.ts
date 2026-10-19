@@ -17,7 +17,7 @@ import type { ResolvedStage } from "../../../config/stage";
 import type { AllReposReadToken, SandboxStartSpec } from "../../../sandbox/spec";
 import { armTokenRefresh, hostCredential, mintSandboxGithubTokens } from "./credential";
 import { flushBoards } from "../../board/board";
-import { failTask, restartOrFailTask } from "../../lifecycle";
+import { bindWorkflow, failTask, MAX_RESTARTS, restartOrFailTask } from "../../lifecycle";
 import { runModelAuthorTurn } from "../model-author";
 import type { WorkflowRuntime } from "../../types";
 import { taskSettings } from "../settings";
@@ -49,16 +49,55 @@ export function sandboxStartInFlight(
   return startsInFlight.get(workflow)?.has(sandboxStartKey(taskId, generation)) ?? false;
 }
 
-/** Alarm handler: start a queued task. A task of a stage the workflow definition dropped fails instead. */
+/**
+ * Alarm handler: start a queued task. A task of a stage the workflow definition dropped fails
+ * instead. The binding of the job's branch is written again first, since a router write of the
+ * job start may have failed.
+ */
 export async function provision(workflow: WorkflowRuntime, taskId: string): Promise<void> {
   const task = workflow.store.task(taskId);
   if (!task || task.status !== "queued") return;
-  const { stage } = workflow.store.requireJob(task.job_id);
-  if (!workflow.workflowDefinition().stages.some((declared) => declared.name === stage)) {
-    return failTask(workflow, task, `Stage ${stage} is not in the workflow definition.`);
+  const job = workflow.store.requireJob(task.job_id);
+  if (!workflow.workflowDefinition().stages.some((declared) => declared.name === job.stage)) {
+    return failTask(workflow, task, `Stage ${job.stage} is not in the workflow definition.`);
   }
-  if (!workflow.store.sandbox(taskId)) return runModelAuthorTurn(workflow, task);
-  await startSandbox(workflow, task, false);
+  if (!(await bindBranchOfJob(workflow, task, job))) return;
+  const bound = workflow.store.requireTask(taskId);
+  if (bound.status !== "queued") return;
+  if (!workflow.store.sandbox(taskId)) return runModelAuthorTurn(workflow, bound);
+  await startSandbox(workflow, bound, false);
+}
+
+/**
+ * Write the binding of the job's branch, so pushes to it route to the workflow. A failed write
+ * counts a restart and provisions the task again, or fails it once its restarts are used up.
+ * True when the task may start.
+ */
+async function bindBranchOfJob(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+  job: JobRow,
+): Promise<boolean> {
+  const { repo } = workflow.state;
+  if (!job.branch || !repo) return true;
+  try {
+    await bindWorkflow(workflow, { source: "code_branch", repo: repo.full, branch: job.branch });
+    return true;
+  } catch (error) {
+    workflow.log(
+      task.task_id,
+      `branch binding failed: ${String(error).slice(0, LOGGED_ERROR_CHARS)}`,
+    );
+    const current = workflow.store.requireTask(task.task_id);
+    if (current.status !== "queued") return false;
+    if (current.restarts >= MAX_RESTARTS) {
+      await failTask(workflow, current, loggedFailureReason(task.task_id, "The branch binding"));
+      return false;
+    }
+    workflow.store.updateTask(task.task_id, { restarts: current.restarts + 1 });
+    await workflow.scheduleAlarm(0, "provision", { task_id: task.task_id });
+    return false;
+  }
 }
 
 /**
@@ -135,7 +174,7 @@ async function startGeneration(
       fresh.task_id,
       `commit author lookup failed: ${String(error).slice(0, LOGGED_ERROR_CHARS)}`,
     );
-    if (workflow.store.requireSandbox(fresh.task_id).generation !== sandbox.generation) return;
+    if (generationMoved(workflow, sandbox)) return;
     return restartOrFailTask(
       workflow,
       fresh,
@@ -148,6 +187,7 @@ async function startGeneration(
     gateway = gatewayRouting(workflow, fresh, job);
     skills = loadHarnessSkills(settings.skill);
   } catch (error) {
+    if (generationMoved(workflow, sandbox)) return;
     return failTask(workflow, fresh, String(error).slice(0, 500));
   }
   const built = buildStartSpec({
@@ -170,7 +210,10 @@ async function startGeneration(
     sleepAfterMs: config.orchestrator.sandbox.sleep_after,
     startupTimeoutMs: config.orchestrator.sandbox.startup_timeout,
   });
-  if ("error" in built) return failTask(workflow, fresh, built.error);
+  if ("error" in built) {
+    if (generationMoved(workflow, sandbox)) return;
+    return failTask(workflow, fresh, built.error);
+  }
   try {
     await workflow.sandbox().start(built.spec);
   } catch (error) {
@@ -178,7 +221,7 @@ async function startGeneration(
       fresh.task_id,
       `sandbox start failed: ${String(error).slice(0, LOGGED_ERROR_CHARS)}`,
     );
-    if (workflow.store.requireSandbox(fresh.task_id).generation !== sandbox.generation) return;
+    if (generationMoved(workflow, sandbox)) return;
     return restartOrFailTask(
       workflow,
       fresh,
@@ -193,6 +236,11 @@ async function startGeneration(
       workflow.store.requireSandbox(fresh.task_id),
       githubTokens.expiresAt,
     );
+}
+
+/** True when a stop or a later start began another generation while this start awaited. */
+function generationMoved(workflow: WorkflowRuntime, started: SandboxRow): boolean {
+  return workflow.store.requireSandbox(started.task_id).generation !== started.generation;
 }
 
 /** Bump the generation, issue a bridge token, and forget the old harness session, rpc rows, keepalive, and nudge. */

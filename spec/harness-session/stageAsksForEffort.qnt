@@ -2,5 +2,5 @@
 /// first prompt.
 module stageAsksForEffort {
   import harnessSessionTypes.* from "./harnessSession"
-  import harnessSession(ASKS_EFFORT = true, PAUSES_RUNNING_TURNS = false).* from "./harnessSession"
+  import harnessSession(ASKS_EFFORT = true, PAUSES_RUNNING_TURNS = false, INTERRUPTS_AFTER_THE_FIRST_PROMPT = false).* from "./harnessSession"
 }

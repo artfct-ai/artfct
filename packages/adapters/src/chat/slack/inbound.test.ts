@@ -273,6 +273,34 @@ describe("slack mentions", () => {
   });
 });
 
+describe("a mention another bot wrote", () => {
+  let lookup: ReturnType<typeof fakeLookup>;
+  let normalized: ChatInbound;
+
+  beforeEach(async () => {
+    lookup = fakeLookup("1700.1");
+    normalized = await normalize(
+      {
+        type: "app_mention",
+        user: "U2",
+        bot_id: "B2",
+        channel: "C1",
+        ts: "1700.1",
+        text: "<@UBOT> fix the test",
+      },
+      { chat: lookup.chat },
+    );
+  });
+
+  it("starts nothing", () => {
+    expect(normalized).toEqual({ ignore: "bot mention" });
+  });
+
+  it("looks nobody up", () => {
+    expect(lookup.seen.userIds).toEqual([]);
+  });
+});
+
 describe("a slack sender who is not authorized", () => {
   const unauthorized = { resolveActor: fakeUserActor({ authorized: false }) };
   const ignored = { ignore: "sender is not authorized" };
@@ -391,6 +419,17 @@ describe("slack thread replies", () => {
         text: "x",
       });
       expect("ignore" in fromBot).toBe(true);
+    });
+
+    it("ignores an edit of a reply", async () => {
+      const edited = await normalize({
+        type: "message",
+        subtype: "message_changed",
+        channel: "C1",
+        ts: "1700.4",
+        thread_ts: "1700.1",
+      });
+      expect(edited).toEqual({ ignore: "not a human thread reply" });
     });
 
     it("ignores a top-level message, which starts no thread", async () => {

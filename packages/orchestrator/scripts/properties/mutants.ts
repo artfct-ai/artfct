@@ -220,7 +220,7 @@ export const MUTANTS: Mutant[] = [
     id: "W28",
     invariant: "harnessSession::taskRestartsAtMostTwice (stale start)",
     path: "src/workflow/task/sandbox/sandbox.ts",
-    find: '    if (workflow.store.requireSandbox(fresh.task_id).generation !== sandbox.generation) return;\n    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The sandbox start"),\n',
+    find: '    if (generationMoved(workflow, sandbox)) return;\n    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The sandbox start"),\n',
     replace:
       '    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The sandbox start"),\n',
   },
@@ -641,7 +641,7 @@ export const MUTANTS: Mutant[] = [
     id: "W108",
     invariant: "harnessSession::aStoppedAuthorStaysQuiet (commit author lookup)",
     path: "src/workflow/task/sandbox/sandbox.ts",
-    find: '    if (workflow.store.requireSandbox(fresh.task_id).generation !== sandbox.generation) return;\n    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The commit author lookup"),\n',
+    find: '    if (generationMoved(workflow, sandbox)) return;\n    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The commit author lookup"),\n',
     replace:
       '    return restartOrFailTask(\n      workflow,\n      fresh,\n      loggedFailureReason(fresh.task_id, "The commit author lookup"),\n',
   },
@@ -660,11 +660,26 @@ export const MUTANTS: Mutant[] = [
     replace: 'return markArtifactReady(workflow, task.job_id, { close: "ready" });',
   },
   {
+    id: "W111",
+    invariant: "workflowLifecycle::aJobStartProvisionsItsTask",
+    path: "src/workflow/lifecycle.ts",
+    find: '  await workflow.scheduleAlarm(0, "provision", { task_id: taskId });\n  await changeWorkflowStatus(workflow, "running");\n',
+    replace:
+      '  await changeWorkflowStatus(workflow, "running");\n  await workflow.scheduleAlarm(0, "provision", { task_id: taskId });\n',
+  },
+  {
     id: "W112",
     invariant: "harnessSession::aTaskWithoutAnEarlierPromptGetsTheTaskPrompt",
     path: "src/workflow/task/harness/prompt-queue.ts",
     find: "  if (sandbox.first_prompt_at === null) {\n",
     replace: "  if (sandbox.generation <= 1) {\n",
+  },
+  {
+    id: "W114",
+    invariant: "reviewLoop::aStoppedRefinerRunHandsOverBlocked (review read)",
+    path: "src/workflow/refiner/loop.ts",
+    find: '  if ("readFailed" in read)\n    return handOverBlockedFromReviewer(\n      workflow,\n      reviewer,\n      `The reviewer\'s review could not be read (${read.readFailed}).`,\n    );\n',
+    replace: "",
   },
 ];
 
