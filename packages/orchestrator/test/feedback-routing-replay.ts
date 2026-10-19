@@ -5,6 +5,7 @@ import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { taskTools } from "../src/agent/tools/task";
 import type { Artifact, ChangeInput } from "../src/artifact/types";
+import { heldCommentFindings } from "../src/workflow/refiner/held-comments";
 import { isTaskFinished, isWorkflowFinished } from "../src/workflow/store/state";
 import { FakeRuntime } from "./fake-runtime";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
@@ -646,7 +647,7 @@ export class FeedbackRoutingReplay {
       texts: () => ({
         PersonWords: body ? [body] : [],
         AppWords: [],
-        HeldWords: onHost ? [] : host.heldNow().map((comment) => comment.text),
+        HeldWords: onHost ? [] : heldCommentFindings(host.heldNow()).map((finding) => finding.body),
       }),
       postOnHost: () => {
         if (onHost) return;
