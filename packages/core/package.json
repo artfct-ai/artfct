@@ -46,7 +46,7 @@
     "@octokit/webhooks-methods": "^6.0.0",
     "@openrouter/sdk": "^1.4.25",
     "@slack/web-api": "^8.2.0",
-    "agents": "^0.24.0",
+    "agents": "^0.28.1",
     "ai": "^7.0.145",
     "cloudflare": "^7.3.0",
     "diff": "^9.0.0",
