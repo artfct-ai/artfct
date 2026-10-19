@@ -107,7 +107,7 @@ function attemptTimeoutFetch(inner: typeof fetch, timeoutMs: number): typeof fet
   };
 }
 
-/** The answers of one response, or a throw when an asked question has none. */
+/** The answers of one response, or a throw when an asked question has none or its pick has no probability. */
 function decisionAnswers<YesNoName extends string, ChoiceName extends string>(
   { answers, model, usage }: DecisionsResponse,
   yesNoNames: YesNoName[],
@@ -122,11 +122,12 @@ function decisionAnswers<YesNoName extends string, ChoiceName extends string>(
   const choices = {} as Record<ChoiceName, Choice>;
   for (const name of choiceNames) {
     const answer = answers[name];
-    if (answer?.type !== "choice") throw new Error(`decisions: no choice for ${name}`);
-    choices[name] = {
-      option: answer.choice,
-      probability: answer.probabilities?.[answer.choice] ?? 0,
-    };
+    const probability =
+      answer?.type === "choice" ? answer.probabilities?.[answer.choice] : undefined;
+    if (answer?.type !== "choice" || probability === undefined) {
+      throw new Error(`decisions: no choice for ${name}`);
+    }
+    choices[name] = { option: answer.choice, probability };
   }
   return { probabilities, choices, usage: decisionsUsage(model, usage) };
 }
