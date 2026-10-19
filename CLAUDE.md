@@ -24,7 +24,7 @@ An orchestrator agent that runs a control loop for software development agents o
 - Ingress and the orchestrator name capabilities: `code`, `tracker`, `chat`, `documents`. A vendor's URL shapes, id formats, header names, signing schemes, and payload types go in its directory under its capability, such as `chat/slack/`.
 - Ingress never touches storage. It calls the orchestrator through the service binding typed by `OrchestratorRpc`. An ingress route verifies the webhook with the vendor adapter's function, maps the payload with the vendor's mapper, and delivers one `InboundEvent`.
 - `packages/adapters`:
-  - `types.ts` holds one interface per capability. Each vendor gets a directory under its capability.
+  - Each capability directory has a `types.ts` that holds its interface. Each vendor gets a directory under its capability.
   - The vendor directory holds the implementation on the vendor's official SDK, in a file named after its interface. It also holds the vendor's pure functions: the inbound mapper, signature verification, and URL readers and writers.
   - When two adapters need the same vendor code, each keeps its own copy.
   - Make a pure parse a function, not an interface method, so a caller without a credential can use it.
@@ -59,7 +59,7 @@ Judge a change by the complexity it leaves behind, not by its size. An interface
 - Add a guard only for an input or state that occurs, and name the wrong outcome it prevents.
 - Add a config key, mode, flag, or option only for a use today. One place sets a value and one place reads it.
 - A helper needs two callers today, or a name that lets a reader skip its body. Keep callers loosely coupled. Do not add a flag, mode, or fallback to serve different callers. Split it instead. Inline a helper that fails these tests.
-- Do not wrap one field access or one method call in a function. Call `workflow.store.activeTasks()` directly.
+- Do not wrap one field access or one method call in a function. Call `workflow.store.activeAuthorAndResearcherTasks()` directly.
 - Put a method on an interface only when a consumer outside the package calls it. A method that only the vendor implementations call stays on the class, off the interface and the fake.
 
 ## Representation
@@ -104,9 +104,9 @@ Judge the model by these rules:
 
 - Every behavior a person sees or the system relies on has an invariant. When a change adds or alters one, propose its invariants with the design. After approval, add each one with its property test in the same change.
 - Every invariant has a property test on random sequences. A new invariant ships with generator actions that reach it, including failures, hangs, restarts, and concurrent events. An invariant that no sequence reaches is not tested.
+- Every invariant can fail. Each one has a mutant in `packages/orchestrator/scripts/properties/mutants.ts` that its replay kills, and a witness in `checks.json` that reaches its premise. An invariant that restates a guard, or holds because of how the spec writes the state, is not a rule.
 - When a change would let an invariant pass without testing anything, such as a new post that satisfies a reply check, propose the tightened invariant with the design.
-- Workflow invariants live in `packages/orchestrator/test/invariants.ts`. `packages/orchestrator/src/workflow/invariants.test.ts` checks them after every action.
-- Agent turn invariants live in the Quint spec in `spec/agent-turns/`. Its replay, `packages/orchestrator/test/agent-turns-replay.ts`, runs the code on the spec's traces.
+- Workflow and agent turn invariants live in the Quint specs under `spec/`, such as `spec/workflow-lifecycle/` and `spec/agent-turns/`. Each spec's replay runs the code on the spec's traces.
 - Code outside the workflow and the agent turn, such as the router or ingress, follows the same rule. Add a missing property test in the same change.
 - Only the repository owner adds, changes, or removes an invariant. The PR lists each approved invariant and its property test in its description.
 - When a property test fails, never weaken an invariant, an action, or a generator. Stop and report the shrunk sequence and the seed.
@@ -124,7 +124,8 @@ Judge the model by these rules:
 - Write every rule as a state invariant, so simulation and TLC both check it.
 - TLC fails a state where every step is blocked. When a setup has a natural end, add a step that is enabled only at that end and changes no variable.
 - Give each list or number that grows a counter val. Cap it per setup under `tlc.bounds` in `checks.json`, at `pr` and `nightly` depth. Only the nightly run checks TLC, at the `nightly` bounds. Use the `pr` bounds to check a setup with TLC locally. Keep each main quint shard under 12 minutes. Record each setup's minutes on main under `mainMinutes` in `checks.json`. The quint shards on main and on pull requests balance on them.
-- Remove a call from the state once it returns. A restart drops every call that is out.
+- The `nightly` bounds allow at least two of each entity that can run at the same time, such as jobs, calls out, and restarts. They are never below the `pr` bounds. Split a setup whose nightly TLC run would pass its time limit.
+- Each external call that a handler awaits is its own step that sends a call out. A step never merges two awaited calls, or a call and the write after it, so a restart can land between any two. Remove a call from the state once it returns. A restart drops every call that is out.
 - Write a before-and-after rule as a pure def over one step: the state before, the state after, and the kind of step. Each step records whether it kept each rule in a record variable, and the invariant reads that field. Do not store the state before the step.
 - Record a witness that needs the step in its own record variable, and list that variable under `tlc.ignoredVariables`.
 - Do not range over a length that depends on the state, such as the jobs so far. Range over the constant cap and filter, so Apalache can translate the spec.
@@ -148,6 +149,7 @@ Judge the model by these rules:
 - Tests:
   - Write a small test (`*.test.ts`) unless the code needs a Durable Object, D1, or `cloudflare:workers`. Then write a medium test (`*.test.medium.ts`).
   - Name a spec replay `<spec>.replay.ts`, or `<spec>.replay.medium.ts` when it needs workerd. The test runs skip it. `bun run spec:replay` in the orchestrator runs every replay.
+  - A replay drives only real handlers and compares only state it reads from the real store or the real vendor fakes. It does not own, copy, or fix a value that an invariant reads. When a class method holds the logic, move it into a function over `WorkflowRuntime` that the class and the replay both call.
   - Test logic over `WorkflowRuntime` with `freshRuntime` and `freshStore`, which do not need a Durable Object.
   - Test helpers live in `<package>/test/`, never in `src/`. A fake, mock, or scripted stand-in that only tests, smoke, or `bun run dev` use is a test helper, even when a Worker entry wires it in.
   - Production code never checks for a mock mode or a mock name.
