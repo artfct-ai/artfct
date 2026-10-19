@@ -777,16 +777,19 @@ export class SessionRoutingReplay {
 
   /** Run `action`, and restart the workflow while its feed activity is out. */
   private restartingMidFeedPost(action: WorkflowAction, health: RestartMidPost): WorkflowAction {
-    return worldAction(`${String(action)}, and the workflow restarts mid feed post`, async (world) => {
-      const cut = new Deferred<"cut">();
-      world.tracker.cutNextActivity({
-        stored: STORED_BEFORE_THE_RESTART[health],
-        cut: () => cut.resolve("cut"),
-      });
-      const outcome = await Promise.race([cut.promise, action.run(world).then(() => "ended")]);
-      if (outcome !== "cut") throw new Error(`${String(action)} posted no feed activity to cut`);
-      await this.restart(world);
-    });
+    return worldAction(
+      `${String(action)}, and the workflow restarts mid feed post`,
+      async (world) => {
+        const cut = new Deferred<"cut">();
+        world.tracker.cutNextActivity({
+          stored: STORED_BEFORE_THE_RESTART[health],
+          cut: () => cut.resolve("cut"),
+        });
+        const outcome = await Promise.race([cut.promise, action.run(world).then(() => "ended")]);
+        if (outcome !== "cut") throw new Error(`${String(action)} posted no feed activity to cut`);
+        await this.restart(world);
+      },
+    );
   }
 
   private researcherLeavesNoPayload(jobIndex: number, ending: ResearchEnding): WorkflowAction {

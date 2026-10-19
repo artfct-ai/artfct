@@ -14,6 +14,7 @@ const NO_PICKS: SpecPicks = {
   health: null,
   todos: null,
   message: null,
+  researchEnding: null,
 };
 
 describe("a verbal cancel of an author whose prompt is in flight", () => {
