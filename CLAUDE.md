@@ -161,7 +161,7 @@ Judge the model by these rules:
 - While you work, run `scripts/test-near` on the files you change. Before you push, `bun run lint` passes with zero warnings and the nearby tests pass.
 - Push early and open a draft PR. Do not stop at a local commit, and do not ask first.
 - Do not repeat CI runs locally. CI runs these:
-  - Pull request: `bun run check` then smoke in one job. The spec replays run at their default count in their own job, through turbo, which caches them on the orchestrator and the spec folders. A light quint run in 3 shards checks the specs that changed. It checks every spec when the spec scripts, the quint version, or the CI workflow change.
+  - Pull request: `bun run check` then smoke in one job. The spec replays run at their default count in their own job, through turbo, which caches them on the orchestrator and the spec folders. A change to test files alone hits the cache. A light quint run in 3 shards checks the specs that changed. It checks every spec when the spec scripts, the quint version, or the CI workflow change.
   - Main: witnesses and 100,000 quint samples per setup, the spec replays, and the properties at reduced counts.
   - Nightly: deep quint, TLC at the `nightly` bounds, the full property counts, and the mutants. To bisect a failure, start the nightly workflow by hand with a commit.
 - CI does not run on a fork's PR until a maintainer approves it. A fork runs `bun run check` and `bun run smoke` locally before it pushes.
