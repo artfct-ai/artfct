@@ -169,7 +169,7 @@ async function boundedAttempt(workflow: WorkflowRuntime, turn: TurnInput): Promi
   }
 }
 
-/** Run the model. One retry, unless the deadline is what ended the first try. */
+/** Read the message, and run the model once the runtime request landed. */
 async function attempt(
   workflow: WorkflowRuntime,
   turn: TurnInput,
@@ -188,20 +188,25 @@ async function attempt(
   const progress: TurnProgress = { firstReplied: false };
   if (reply?.asksForRevision) await sendHeldCommentsForRevision(workflow, decisions);
   await compactIfLarge(workflow, turn, signal);
-  const run = { tools, signal, reply, progress, answering: turn.answering };
+  await runtimeRequest;
+  return generateWithRetry(workflow, { tools, signal, reply, progress, answering: turn.answering });
+}
+
+/** Run the model, and once more when the first try failed before the deadline. */
+async function generateWithRetry(workflow: WorkflowRuntime, run: GenerateInput): Promise<Outcome> {
   try {
     return await generate(workflow, run);
   } catch (firstError) {
     if (isSupersededIsolate(firstError)) throw firstError;
     workflow.log(null, `agent turn failed: ${String(firstError).slice(0, 300)}`);
-    if (signal.aborted) return "timed_out";
+    if (run.signal.aborted) return "timed_out";
   }
   try {
     return await generate(workflow, run);
   } catch (secondError) {
     if (isSupersededIsolate(secondError)) throw secondError;
     workflow.log(null, `agent turn failed again: ${String(secondError).slice(0, 300)}`);
-    return signal.aborted ? "timed_out" : "failed";
+    return run.signal.aborted ? "timed_out" : "failed";
   }
 }
 
@@ -277,7 +282,7 @@ function turnFacts(reply: Reply, heldComments: TurnFacts["heldComments"]): TurnF
 
 /**
  * A person asked for a revision. Send the held comments of every running page author before the
- * model runs, and tell the model what was sent. A prompt that went out changes the board.
+ * model runs, and tell the model what was sent. The model still owes the person its reply.
  */
 async function sendHeldCommentsForRevision(
   workflow: WorkflowRuntime,
@@ -288,9 +293,6 @@ async function sendHeldCommentsForRevision(
   workflow.transcript.append(
     sent.notes.map((note) => ({ role: "user" as const, content: noteMessage(note) })),
   );
-  if (sent.prompted.length && hasChatThread(workflow.state)) {
-    workflow.patchState({ turn_board_changed: true });
-  }
 }
 
 /**

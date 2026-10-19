@@ -42,6 +42,7 @@ module agentTurnsTypes {
     | ToolResultRow(ToolOutput)
     | TextRow
     | UnansweredNote
+    | HeldCommentsNote
 
   type Row = { id: int, entry: Entry }
 
@@ -55,7 +56,7 @@ module agentTurnsTypes {
   type FirstRow = NoFirstRow | FirstRowIs(int)
 
   /// The session status of the chat thread as the notifier last set it.
-  type ChatStatus = NoStatus | Processing | Active
+  type ChatStatus = NoStatus | Processing | Active | Closed
 
   /// A reply target a post reached.
   type Target = ToChatThread | ToSession(Origin)
@@ -95,6 +96,7 @@ module agentTurnsTypes {
     pagesFetched: int,
     messagesRead: int,
     restarts: int,
+    workflowEnded: bool,
   }
 
   /// What the message of the person who wrote is owed. `NotOwed` when nobody wrote.
@@ -106,8 +108,9 @@ module agentTurnsTypes {
   /// The host call that concludes a turn after its attempt.
   type Conclusion = Releases | PostsStuckText(Set[Target]) | PostsTimeoutText(Set[Target])
 
-  /// The text a screen call reads: a fetched page, or the messages of one chat read.
-  type Screened = ScreensPage(int) | ScreensChannelRead(Set[int])
+  /// The text a screen call reads: a fetched page, the messages of one chat read, or the comments
+  /// held on the page of the author a revision request sends them to.
+  type Screened = ScreensPage(int) | ScreensChannelRead(Set[int]) | ScreensHeldComments
 
   /// The call a running turn waits on.
   type Phase =
@@ -116,6 +119,7 @@ module agentTurnsTypes {
     | AwaitingModel
     | Screening({ screened: Screened, overLimit: bool })
     | PostingClosing(Set[Target])
+    | AwaitingRuntimeRequest
     | Concluding(Conclusion)
 
   /// One model call of a turn: the tools it ran, and whether it left the person a reply.
@@ -143,7 +147,8 @@ module agentTurnsTypes {
     admittedMessages: Set[int],
     timedOut: bool,
     lostTurnOwed: bool,
-    modelHung: bool,
+    callHung: bool,
+    sentHeldComments: bool,
     decisionsEvents: List[DecisionsEvent],
     answeredBy: List[int],
     reads: List[ChatRead],
@@ -167,6 +172,7 @@ module agentTurnsTypes {
     attempt: int,
     pass: int,
     passEndedByTool: bool,
+    runtimeRequestOut: bool,
     record: TurnRecord,
   }
 
@@ -187,6 +193,9 @@ module agentTurnsTypes {
         chatMessageWaits: bool,
         chat: ChatStatus,
       })
+
+  /// What the decisions model read in a person's message, beyond what it owes them.
+  type MessageRead = { asksForRevision: bool, namesModel: bool }
 
   /// The record a turn starts from: its own, or the one of the lost turn it resumes.
   type Carried = Fresh | ResumedFrom(TurnRecord)
@@ -255,6 +264,7 @@ module agentTurns {
     pagesFetched: 0,
     messagesRead: 0,
     restarts: 0,
+    workflowEnded: false,
   }
 
   pure val FRESH_RECORD: TurnRecord = {
@@ -271,7 +281,8 @@ module agentTurns {
     admittedMessages: Set(),
     timedOut: false,
     lostTurnOwed: false,
-    modelHung: false,
+    callHung: false,
+    sentHeldComments: false,
     decisionsEvents: [],
     answeredBy: [],
     reads: [],
@@ -281,6 +292,8 @@ module agentTurns {
   var workflow: Workflow
   var models: List[ModelSays]
   var lastTurnEnd: TurnEnd
+  /// The steps the run took. TLC bounds a run by it.
+  var actionsTaken: int
 
   pure def isPerson(from: RowFrom): bool = match from { | Person(_) => true | FromWorkflow => false }
 
@@ -346,22 +359,28 @@ module agentTurns {
     steps: setLast(record.steps, step => { ...step, answered: step.answered or answersInAStep(text) }),
   }
 
-  /// A post lands. A post that does not keep the working status leaves the chat thread active.
+  /// The chat thread once a turn lets go of it: active, or closed once the workflow finished.
+  pure def released(store: Store): ChatStatus = if (store.workflowEnded) Closed else Active
+
+  /// A post lands. A post that does not keep the working status releases the chat thread.
   pure def landPost(store: Store, text: PostText, targets: Set[Target], keepsSession: bool): Store = {
     ...store,
     posts: store.posts.append({ text: text, targets: targets, answering: answeringNow(store) }),
-    chat: if (keepsSession) store.chat else Active,
+    chat: if (keepsSession) store.chat else released(store),
   }
 
   pure def withTurn(store: Store, turnRun: TurnRun): Next =
     { workflow: { store: store, isolate: { turn: Running(turnRun), rerun: false } }, turnEnd: NoTurnEnd }
 
-  /// The turn sends a model call. The property test marks a step at every call.
-  pure def awaitModel(store: Store, turnRun: TurnRun): Next = withTurn(store, {
-    ...turnRun,
-    phase: AwaitingModel,
-    record: { ...turnRun.record, steps: turnRun.record.steps.append({ ran: Set(), answered: false }) },
-  })
+  /// The turn sends a model call. The property test marks a step at every call. The first call
+  /// waits until the runtime request lands.
+  pure def awaitModel(store: Store, turnRun: TurnRun): Next =
+    if (turnRun.runtimeRequestOut) withTurn(store, { ...turnRun, phase: AwaitingRuntimeRequest })
+    else withTurn(store, {
+      ...turnRun,
+      phase: AwaitingModel,
+      record: { ...turnRun.record, steps: turnRun.record.steps.append({ ran: Set(), answered: false }) },
+    })
 
   /// Compact when the transcript before the turn is large, then call the model.
   pure def compactThenCallModel(store: Store, turnRun: TurnRun): Next =
@@ -401,7 +420,7 @@ module agentTurns {
         owed: NotOwed,
         inboxRows: idsOf(took.inbox.select(row => row.taken)),
         lostTurnOwed: carried != Fresh and lostTurnOwed,
-        modelHung: false,
+        callHung: false,
         decisionsEvents: if (people.length() > 0) [DecisionsAsked] else [],
         answeredBy: [],
         answering: answeringNow(armed),
@@ -421,6 +440,7 @@ module agentTurns {
         attempt: 1,
         pass: 1,
         passEndedByTool: false,
+        runtimeRequestOut: false,
         record: record,
       }
       if (people.length() > 0) { store: armed, turn: Running(turnRun) }
@@ -429,15 +449,16 @@ module agentTurns {
         { store: after.workflow.store, turn: after.workflow.isolate.turn }
 
   /// After the read, compact when the transcript before the turn is large, then call the model.
-  /// A turn the deadline aborted ends its attempt, since every call it starts throws at once.
+  /// A turn the deadline aborted ends its attempt once the runtime request lands, since every
+  /// call it starts throws at once.
   pure def afterRead(store: Store, turnRun: TurnRun, rerun: bool, said: List[ModelSays]): Next =
-    if (turnRun.aborted) attemptEnds(store, turnRun, TimedOut, rerun, said)
+    if (turnRun.aborted and not(turnRun.runtimeRequestOut)) attemptEnds(store, turnRun, TimedOut, rerun, said)
     else keepRerun(compactThenCallModel(store, turnRun), rerun)
 
   /// The turn calls the model. A call that starts after the deadline aborted the turn throws
-  /// before it reaches the model, and the attempt ends.
+  /// before it reaches the model, and the attempt ends once the runtime request lands.
   pure def callModel(store: Store, turnRun: TurnRun, rerun: bool, said: List[ModelSays]): Next =
-    if (turnRun.aborted) attemptEnds(store, turnRun, TimedOut, rerun, said)
+    if (turnRun.aborted and not(turnRun.runtimeRequestOut)) attemptEnds(store, turnRun, TimedOut, rerun, said)
     else keepRerun(awaitModel(store, turnRun), rerun)
 
   /// The turn that ended leaves its record. The isolate runs one more turn when a row arrived while it ran.
@@ -576,7 +597,9 @@ module agentTurns {
   /// The flagged message of a chat read. Every read holds one harmless and one malicious message.
   pure def isMalicious(message: int): bool = message % 2 == 1
 
-  /// A screen call lands, and the step that waited on it ends.
+  /// A screen call lands, and the step that waited on it ends. Held comments the screen admitted
+  /// stay held when the workflow finished and cancelled their author meanwhile, and the agent is
+  /// not told.
   pure def screenLands(store: Store, turnRun: TurnRun, answered: bool, flagsPage: bool, rerun: bool, said: List[ModelSays]): Next =
     match turnRun.phase {
       | Screening(screening) =>
@@ -601,23 +624,40 @@ module agentTurns {
                   } },
                   [ToolCallRow(ReadChannel), ToolResultRow(ChannelRead(admitted))],
                   screening.overLimit, false, rerun, said)
+            | ScreensHeldComments =>
+                val admitted = answered and not(flagsPage)
+                val sent = admitted and not(store.workflowEnded)
+                val noted = if (admitted and not(sent)) store else appendRows(store, [HeldCommentsNote])
+                afterRead(noted, { ...landed, record: { ...record, sentHeldComments: sent } }, rerun, said)
           }
       | _ => { workflow: { store: store, isolate: { turn: Running(turnRun), rerun: rerun } }, turnEnd: NoTurnEnd }
     }
 
-  /// The read of the person's message lands. A failed read owes the person an answer.
-  pure def readLands(store: Store, turnRun: TurnRun, owed: Owed, answered: bool, rerun: bool, said: List[ModelSays]): Next =
+  /// What a failed read falls back to: an unread message.
+  pure val UNREAD: MessageRead = { asksForRevision: false, namesModel: false }
+
+  /// The read of the person's message lands. A failed read owes the person an answer. A message
+  /// that names a model starts the runtime request beside the turn. A message that asks for a
+  /// revision screens the comments held on the author's page before the model runs, unless the
+  /// workflow finished and cancelled the author.
+  pure def readLands(store: Store, turnRun: TurnRun, owed: Owed, answered: bool, read: MessageRead, rerun: bool, said: List[ModelSays]): Next =
+    val heard = turnRun.record.decisionsEvents.append(if (answered) DecisionsAnswered else DecisionsFailed)
+    val requested = if (read.namesModel) heard.append(DecisionsAsked) else heard
+    val sendsHeldComments = read.asksForRevision and not(store.workflowEnded)
     val record = { ...turnRun.record,
       owed: if (answered) owed else OwedAnswer,
-      decisionsEvents: turnRun.record.decisionsEvents.append(if (answered) DecisionsAnswered else DecisionsFailed),
+      decisionsEvents: if (sendsHeldComments) requested.append(DecisionsAsked) else requested,
       answeredBy: if (answered) turnRun.record.answeredBy.append(firstAnswering(said)) else turnRun.record.answeredBy,
     }
-    afterRead(store, {
+    val readTurn = {
       ...turnRun,
       owed: if (answered) owed else OwedAnswer,
       decisionsFailed: not(answered),
+      runtimeRequestOut: read.namesModel,
       record: record,
-    }, rerun, said)
+    }
+    if (sendsHeldComments) keepRerun(withTurn(store, { ...readTurn, phase: Screening({ screened: ScreensHeldComments, overLimit: false }) }), rerun)
+    else afterRead(store, readTurn, rerun, said)
 
   pure def modelAnswered(store: Store, turnRun: TurnRun, answer: ModelAnswer, overLimit: bool, rerun: bool, said: List[ModelSays]): Next =
     match answer {
@@ -634,8 +674,23 @@ module agentTurns {
       callModel(store, { ...turnRun, attempt: 2, pass: 1, passEndedByTool: false }, rerun, said)
     else attemptEnds(store, turnRun, if (turnRun.aborted) TimedOut else Failed, rerun, said)
 
+  /// The new instance resumes the lost turn: a person who waited hears that it starts again, and
+  /// an agent note wakes the turn that resumes.
+  pure def resumed(store: Store, forgotten: Store, lost: TurnSlot, said: List[ModelSays]): Next =
+    val lostRecord = match lost { | Running(turnRun) => turnRun.record | NoTurn => FRESH_RECORD }
+    val noticed = takenPersonRows(store).length() > 0 and HAS_CHAT_THREAD
+    val told = if (noticed) landPost(forgotten, LostPlaceText, CHAT_THREADS, true) else forgotten
+    val carried = if (noticed) recordPost(lostRecord, LostPlaceText, CHAT_THREADS) else lostRecord
+    val woken = { ...told,
+      inbox: told.inbox.append({ id: told.nextInboxId, from: FromWorkflow, taken: false, reacted: false }),
+      nextInboxId: told.nextInboxId + 1,
+    }
+    val after = startTurn(woken, ResumedFrom(carried), said)
+    { workflow: { store: after.store, isolate: { turn: after.turn, rerun: false } }, turnEnd: NoTurnEnd }
+
   /// `resumeLostTurn` on the new instance, and the turn its wake starts. With no lost turn, rows
-  /// that wait get the `runAgent` alarm.
+  /// that wait get the `runAgent` alarm. A finished workflow drops its lost turn, releases the
+  /// threads, and arms the `runAgent` alarm for rows that wait.
   pure def restarted(store: Store, lost: TurnSlot, said: List[ModelSays]): Next =
     val counted = { ...store, restarts: store.restarts + 1 }
     match store.startedAt {
@@ -644,22 +699,21 @@ module agentTurns {
           { workflow: { store: armed, isolate: { turn: NoTurn, rerun: false } }, turnEnd: NoTurnEnd }
       | StartedAt(_) =>
           val forgotten = { ...counted, startedAt: NotRunning, watchdog: NoAlarm, headsUp: NoAlarm }
-          val lostRecord = match lost { | Running(turnRun) => turnRun.record | NoTurn => FRESH_RECORD }
-          val noticed = takenPersonRows(store).length() > 0 and HAS_CHAT_THREAD
-          val told = if (noticed) landPost(forgotten, LostPlaceText, CHAT_THREADS, true) else forgotten
-          val carried = if (noticed) recordPost(lostRecord, LostPlaceText, CHAT_THREADS) else lostRecord
-          val woken = { ...told,
-            inbox: told.inbox.append({ id: told.nextInboxId, from: FromWorkflow, taken: false, reacted: false }),
-            nextInboxId: told.nextInboxId + 1,
+          val dropped = { ...forgotten,
+            firstRow: NoFirstRow,
+            inbox: forgotten.inbox.select(row => not(row.taken)),
+            chat: Closed,
           }
-          val after = startTurn(woken, ResumedFrom(carried), said)
-          { workflow: { store: after.store, isolate: { turn: after.turn, rerun: false } }, turnEnd: NoTurnEnd }
+          val woken = if (waitingRows(dropped).length() > 0) { ...dropped, runAgentAlarms: dropped.runAgentAlarms + 1 } else dropped
+          if (store.workflowEnded) { workflow: { store: woken, isolate: { turn: NoTurn, rerun: false } }, turnEnd: NoTurnEnd }
+          else resumed(store, forgotten, lost, said)
     }
 
   action move(after: Next): bool = all {
     workflow' = after.workflow,
     models' = models,
     lastTurnEnd' = after.turnEnd,
+    actionsTaken' = actionsTaken + 1,
   }
 
   /// Run `act` on the running turn.
@@ -673,6 +727,7 @@ module agentTurns {
     models' = said,
     workflow' = { store: EMPTY_STORE, isolate: { turn: NoTurn, rerun: false } },
     lastTurnEnd' = NoTurnEnd,
+    actionsTaken' = 0,
   }
 
   /// A row lands in the inbox and wakes the agent. The isolate runs the turn now, or once more
@@ -692,31 +747,34 @@ module agentTurns {
           { workflow: { store: after.store, isolate: { turn: after.turn, rerun: false } }, turnEnd: NoTurnEnd }
     }
 
-  /// A person writes. Ingress puts a chat thread in its working status as it acknowledges.
+  /// A person writes. Ingress puts a chat thread in its working status as it acknowledges. A
+  /// finished workflow refuses the message.
   action personWrites(origin: Origin): bool = all {
     workflow.store.nextInboxId <= MAX_ARRIVALS,
+    not(workflow.store.workflowEnded),
     move(arrive(workflow, Person(origin), models)),
   }
 
-  /// A task event or a note reaches the agent.
+  /// A task event or a note reaches the agent. A finished workflow takes no more events.
   action workflowEventArrives: bool = all {
     workflow.store.nextInboxId <= MAX_ARRIVALS,
+    not(workflow.store.workflowEnded),
     move(arrive(workflow, FromWorkflow, models)),
   }
 
   /// The decisions model reads the person's message.
-  action readAnswers(owed: Owed): bool = onTurn(turnRun => all {
+  action readAnswers(owed: Owed, read: MessageRead): bool = onTurn(turnRun => all {
     turnRun.phase == ReadingMessage,
     not(turnRun.aborted),
     firstAnswering(models) >= 0,
-    move(readLands(workflow.store, turnRun, owed, true, workflow.isolate.rerun, models)),
+    move(readLands(workflow.store, turnRun, owed, true, read, workflow.isolate.rerun, models)),
   })
 
   /// The read fails: every configured model failed, or the deadline aborted it.
   action readFails: bool = onTurn(turnRun => all {
     turnRun.phase == ReadingMessage,
     turnRun.aborted or firstAnswering(models) < 0,
-    move(readLands(workflow.store, turnRun, OwedAnswer, false, workflow.isolate.rerun, models)),
+    move(readLands(workflow.store, turnRun, OwedAnswer, false, UNREAD, workflow.isolate.rerun, models)),
   })
 
   pure def isScreening(phase: Phase): bool = match phase { | Screening(_) => true | _ => false }
@@ -734,6 +792,34 @@ module agentTurns {
     isScreening(turnRun.phase),
     turnRun.aborted or firstAnswering(models) < 0,
     move(screenLands(workflow.store, turnRun, false, false, workflow.isolate.rerun, models)),
+  })
+
+  /// The runtime request lands. The turn goes on with the call it waits on, or calls the model
+  /// when it waited only on the runtime request.
+  pure def runtimeRequestLands(store: Store, turnRun: TurnRun, answered: bool, rerun: bool, said: List[ModelSays]): Next =
+    val record = { ...turnRun.record,
+      decisionsEvents: turnRun.record.decisionsEvents.append(if (answered) DecisionsAnswered else DecisionsFailed),
+      answeredBy: if (answered) turnRun.record.answeredBy.append(firstAnswering(said)) else turnRun.record.answeredBy,
+    }
+    val landed = { ...turnRun, runtimeRequestOut: false, decisionsFailed: turnRun.decisionsFailed or not(answered), record: record }
+    match turnRun.phase {
+      | AwaitingRuntimeRequest => callModel(store, landed, rerun, said)
+      | _ => withTurnKeepingRerun(store, landed, rerun)
+    }
+
+  /// The decisions model picks the model the person's message names.
+  action runtimeRequestAnswers: bool = onTurn(turnRun => all {
+    turnRun.runtimeRequestOut,
+    not(turnRun.aborted),
+    firstAnswering(models) >= 0,
+    move(runtimeRequestLands(workflow.store, turnRun, true, workflow.isolate.rerun, models)),
+  })
+
+  /// The runtime request fails, and the model the message named stays unresolved.
+  action runtimeRequestFails: bool = onTurn(turnRun => all {
+    turnRun.runtimeRequestOut,
+    turnRun.aborted or firstAnswering(models) < 0,
+    move(runtimeRequestLands(workflow.store, turnRun, false, workflow.isolate.rerun, models)),
   })
 
   /// The summarization answers. One recap takes the place of every row before the turn.
@@ -782,7 +868,7 @@ module agentTurns {
   pure def conclusionLanded(store: Store, turnRun: TurnRun, rerun: bool, said: List[ModelSays]): Next =
     match turnRun.phase {
       | Concluding(conclusion) => match conclusion {
-          | Releases => endTurn({ ...store, chat: Active }, turnRun, rerun, said)
+          | Releases => endTurn({ ...store, chat: released(store) }, turnRun, rerun, said)
           | PostsStuckText(targets) =>
               endTurn(landPost(store, StuckText, targets, false), { ...turnRun, record: recordPost(turnRun.record, StuckText, targets) }, rerun, said)
           | PostsTimeoutText(targets) =>
@@ -803,12 +889,13 @@ module agentTurns {
     move(conclusionLanded(workflow.store, turnRun, workflow.isolate.rerun, models)),
   })
 
-  /// The turn timeout passes while the model is slow to answer. Every other call of a turn ends
-  /// within its own deadline, which is far below the turn timeout.
+  /// The turn timeout passes while the model is slow to answer or the closing post hangs. Every
+  /// other call of a turn, the runtime request and the summarization among them, ends within its
+  /// own deadline, which is far below the turn timeout.
   action timeoutPasses: bool = onTurn(turnRun => all {
-    turnRun.phase == AwaitingModel,
+    turnRun.phase == AwaitingModel or isPostingClosing(turnRun.phase),
     not(turnRun.pastTimeout),
-    move(withTurnKeepingRerun(workflow.store, { ...turnRun, pastTimeout: true, record: { ...turnRun.record, modelHung: true } }, workflow.isolate.rerun)),
+    move(withTurnKeepingRerun(workflow.store, { ...turnRun, pastTimeout: true, record: { ...turnRun.record, callHung: true } }, workflow.isolate.rerun)),
   })
 
   pure def deadlineRuns(phase: Phase): bool = match phase { | Concluding(_) => false | _ => true }
@@ -822,7 +909,8 @@ module agentTurns {
   })
 
   /// The watchdog alarm of the running turn fires after the timeout. It clears the turn, deletes
-  /// the taken rows and posts the timeout text. The turn itself keeps running.
+  /// the taken rows and posts the timeout text. On a finished workflow where nobody waits, it
+  /// only releases the threads. The turn itself keeps running.
   action watchdogFires: bool = onTurn(turnRun => all {
     turnRun.pastTimeout,
     workflow.store.watchdog == ArmedFor(turnRun.startedAt),
@@ -836,12 +924,20 @@ module agentTurns {
       firstRow: NoFirstRow,
       inbox: store.inbox.select(row => not(row.taken)),
     }
-    move(withTurnKeepingRerun(
+    if (store.workflowEnded and answeringNow(store).size() == 0)
+      move(withTurnKeepingRerun({ ...cleared, chat: Closed }, { ...turnRun, record: { ...turnRun.record, timedOut: true } }, workflow.isolate.rerun))
+    else move(withTurnKeepingRerun(
       landPost(cleared, TimeoutText, told, false),
       { ...turnRun, record: { ...recordPost(turnRun.record, TimeoutText, told), timedOut: true } },
       workflow.isolate.rerun,
     )),
   })
+
+  /// The workflow finishes: its last job completes, or a person stops it. A turn that runs goes on.
+  action workflowFinishes: bool = all {
+    not(workflow.store.workflowEnded),
+    move({ workflow: { ...workflow, store: { ...workflow.store, workflowEnded: true } }, turnEnd: NoTurnEnd }),
+  }
 
   /// The heads-up alarm of the running turn fires. Its chat threads hear that it still runs.
   action headsUpFires: bool = onTurn(turnRun => all {
@@ -872,32 +968,75 @@ module agentTurns {
     }
   }
 
-  action step: bool = {
-    nondet origin = ORIGINS.oneOf()
-    nondet owed = Set(OwedAnswer, OwedBoard).oneOf()
-    nondet flagsPage = Set(true, false).oneOf()
-    nondet answer = MODEL_ANSWERS.oneOf()
-    nondet overLimit = Set(true, false).oneOf()
-    any {
-      personWrites(origin),
-      workflowEventArrives,
-      readAnswers(owed),
-      readFails,
-      screenAnswers(flagsPage),
-      screenFails,
-      summarizationAnswers,
-      summarizationFails,
-      modelAnswers(answer, overLimit),
-      modelThrows,
-      closingPostLands,
-      conclusionLands,
-      timeoutPasses,
-      deadlineFires,
-      watchdogFires,
-      headsUpFires,
-      durableObjectRestarts,
-      runAgentAlarmFires,
-    }
+  // Counters that TLC bounds per setup.
+
+  /// The inbox rows that arrived.
+  val rowsArrived: int = workflow.store.nextInboxId - 1
+
+  /// The restarts of the Durable Object.
+  val restartsTaken: int = workflow.store.restarts
+
+  /// The transcript rows written. Compaction replaces rows but does not lower it.
+  val rowsWritten: int = workflow.store.nextRowId - 1
+
+  /// The workflow finished, every restart happened, no turn runs and no `runAgent` alarm is
+  /// armed. These negate the guards of every other step, so each of them is blocked here.
+  val theTurnsEnd: bool = and {
+    workflow.store.workflowEnded,
+    workflow.store.restarts >= MAX_RESTARTS,
+    workflow.isolate.turn == NoTurn,
+    workflow.store.runAgentAlarms == 0,
+  }
+
+  /// The model stays in its end state, so TLC does not report the end as a deadlock.
+  action finished: bool = all {
+    theTurnsEnd,
+    workflow' = workflow,
+    models' = models,
+    lastTurnEnd' = lastTurnEnd,
+    actionsTaken' = actionsTaken,
+  }
+
+  /// Each step picks only the values its action reads, so TLC does not generate one copy of a
+  /// successor for every value of a pick it ignores.
+  action step: bool = any {
+    {
+      nondet origin = ORIGINS.oneOf()
+      personWrites(origin)
+    },
+    workflowEventArrives,
+    {
+      nondet owed = Set(OwedAnswer, OwedBoard).oneOf()
+      nondet asksForRevision = Set(true, false).oneOf()
+      nondet namesModel = Set(true, false).oneOf()
+      readAnswers(owed, { asksForRevision: asksForRevision, namesModel: namesModel })
+    },
+    readFails,
+    runtimeRequestAnswers,
+    runtimeRequestFails,
+    {
+      nondet flagsPage = Set(true, false).oneOf()
+      screenAnswers(flagsPage)
+    },
+    screenFails,
+    summarizationAnswers,
+    summarizationFails,
+    {
+      nondet answer = MODEL_ANSWERS.oneOf()
+      nondet overLimit = Set(true, false).oneOf()
+      modelAnswers(answer, overLimit)
+    },
+    modelThrows,
+    closingPostLands,
+    conclusionLands,
+    timeoutPasses,
+    deadlineFires,
+    watchdogFires,
+    headsUpFires,
+    durableObjectRestarts,
+    runAgentAlarmFires,
+    workflowFinishes,
+    finished,
   }
 
   // Invariants over the turn that ended in the last step, mirrored from the agent turn
@@ -952,9 +1091,12 @@ module agentTurns {
 
   /// Every tool call in the transcript has its result right after it.
   val everyToolCallKeepsItsResult: bool = match lastTurnEnd {
-    | TurnEnded(ended) => ended.transcript.indices().forall(index =>
-        isToolCall(ended.transcript[index].entry) implies
-          (index + 1 < ended.transcript.length() and isToolResult(ended.transcript[index + 1].entry)))
+    | TurnEnded(ended) =>
+        val read = ended.transcript.foldl({ kept: true, callOpen: false }, (seen, row) => {
+          kept: seen.kept and (seen.callOpen implies isToolResult(row.entry)),
+          callOpen: isToolCall(row.entry),
+        })
+        read.kept and not(read.callOpen)
     | NoTurnEnd => true
   }
 
@@ -967,9 +1109,10 @@ module agentTurns {
   /// In a person's turn, a step that runs any tool but a first reply follows a step that left
   /// them a post or the thumbs-up.
   val aPersonHearsBackBeforeAnyWork: bool = holdsForTheEndedTurn(lastTurnEnd, record =>
-    record.owed == NotOwed or record.steps.indices().forall(index =>
-      record.steps[index].ran.exclude(FIRST_REPLY_TOOLS).size() > 0 implies
-        record.steps.indices().exists(earlier => earlier < index and record.steps[earlier].answered)))
+    record.owed == NotOwed or record.steps.foldl({ heard: true, answered: false }, (seen, step) => {
+      heard: seen.heard and (step.ran.exclude(FIRST_REPLY_TOOLS).size() > 0 implies seen.answered),
+      answered: seen.answered or step.answered,
+    }).heard)
 
   pure def holdsText(entry: Entry, pages: Set[int], messages: Set[int]): bool = match entry {
     | ToolResultRow(output) => match output {
@@ -1007,9 +1150,9 @@ module agentTurns {
       answeringPosts(record).length() > 0 or record.boardChanged or record.askedAgain,
     })
 
-  /// A person's turn times out only when the model was slow to answer.
+  /// A person's turn times out only when a call other than a decisions call hung.
   val aPersonGetsTheAnswerDuringADecisionsOutage: bool = holdsForTheEndedTurn(lastTurnEnd, record =>
-    (record.owed != NotOwed and not(record.modelHung)) implies not(record.timedOut))
+    (record.owed != NotOwed and not(record.callHung)) implies not(record.timedOut))
 
   /// While a configured decisions model answers, every decisions call of a turn that did not
   /// time out gets the answer of the first model that does.
@@ -1019,12 +1162,13 @@ module agentTurns {
       record.answeredBy.foldl(true, (holds, model) => holds and model == firstAnswering(models)),
     })
 
-  /// After a decisions call of a turn fails, no later call of the turn asks the decisions model.
+  /// After a decisions call of a turn fails, no call of the turn that starts later asks the
+  /// decisions model. A call that started before the failure may still get its answer.
   val laterDecisionsCallsFallBackOnceOneFails: bool = holdsForTheEndedTurn(lastTurnEnd, record =>
-    record.decisionsEvents.indices().forall(failed =>
-      record.decisionsEvents[failed] == DecisionsFailed implies
-        record.decisionsEvents.indices().forall(later =>
-          later > failed implies record.decisionsEvents[later] != DecisionsAsked)))
+    record.decisionsEvents.foldl({ fellBack: true, failed: false }, (seen, event) => {
+      fellBack: seen.fellBack and not(seen.failed and event == DecisionsAsked),
+      failed: seen.failed or event == DecisionsFailed,
+    }).fellBack)
 
   /// Every chat message the screen admitted is in its read.
   val aFlaggedMessageNeverRemovesAnotherFromAChatHistoryRead: bool = holdsForTheEndedTurn(lastTurnEnd, record =>
@@ -1163,4 +1307,36 @@ module agentTurns {
   /// A row waits for the `runAgent` alarm after a restart.
   val aRowWaitsForTheRunAgentAlarm: bool =
     workflow.store.runAgentAlarms > 0 and waitingRows(workflow.store).length() > 0
+
+  /// A person's revision request sent the held comments to the author.
+  val aRevisionSendsTheHeldComments: bool = endedTurnWhere(lastTurnEnd, record => record.sentHeldComments)
+
+  /// The runtime request is out while the turn waits on a screen call.
+  val twoDecisionsCallsAreOut: bool = match workflow.isolate.turn {
+    | Running(turnRun) => turnRun.runtimeRequestOut and isScreening(turnRun.phase)
+    | NoTurn => false
+  }
+
+  /// The watchdog fired while the closing text was still posting.
+  val theClosingPostOutlivesTheTimeout: bool = match workflow.isolate.turn {
+    | Running(turnRun) => isPostingClosing(turnRun.phase) and turnRun.pastTimeout and workflow.store.startedAt == NotRunning
+    | NoTurn => false
+  }
+
+  /// The watchdog of a finished workflow released the threads of a turn that kept running,
+  /// without the timeout text.
+  val theWatchdogReleasesAFinishedWorkflow: bool = match workflow.isolate.turn {
+    | Running(turnRun) => and {
+        turnRun.record.timedOut,
+        workflow.store.workflowEnded,
+        not(anyOf(turnRun.record.posts, post => post.text == TimeoutText)),
+      }
+    | NoTurn => false
+  }
+
+  /// A turn ended on a finished workflow and closed the chat thread.
+  val aTurnEndsOnAFinishedWorkflow: bool = match lastTurnEnd {
+    | TurnEnded(ended) => ended.chat == Closed
+    | NoTurnEnd => false
+  }
 }
