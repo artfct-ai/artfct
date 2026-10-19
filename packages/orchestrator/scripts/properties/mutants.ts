@@ -619,8 +619,8 @@ export const MUTANTS: Mutant[] = [
     id: "W113",
     invariant: "workflowLifecycle::aStoppedModelCallAuthorStaysQuiet",
     path: "src/workflow/task/model-turn.ts",
-    find: "  if (task?.model_turn_id !== alarm.turn_id) return;\n",
-    replace: "  if (!task) return;\n",
+    find: "  if (task.model_turn_id !== heldTurnId) return;\n",
+    replace: "",
   },
 ];
 

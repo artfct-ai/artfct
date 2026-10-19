@@ -2,6 +2,7 @@ import { failTask, MAX_RESTARTS } from "../lifecycle";
 import { isTaskFinished } from "../store/state";
 import type { WorkflowRuntime } from "../types";
 import { drainQueue } from "./harness/prompt-queue";
+import type { TaskAlarm } from "./harness/timers";
 
 /**
  * Seconds after its start that a model turn counts as lost. It lies past the bound of the model
@@ -11,6 +12,12 @@ const MODEL_TURN_DEADLINE_SECONDS = 20 * 60;
 
 /** The payload of an alarm about one model turn: its deadline, or the run-again alarm of a lost one. */
 export type ModelTurnAlarm = { task_id: string; turn_id: string };
+
+/**
+ * The payload of a run-again alarm. One armed before run-again alarms named a turn holds only the
+ * task. Drop that shape one deploy after this one.
+ */
+export type RunAgainAlarm = ModelTurnAlarm | TaskAlarm;
 
 /** A model turn in flight, as the code that runs it sees it. */
 export type ModelTurn = {
@@ -109,14 +116,17 @@ export async function resumeLostModelTurns(
 
 /**
  * Alarm: a restarted model-call author runs its lost model turn again from its queue. It acts
- * only while the author still holds the turn, so a stop or a later restart in between wins.
+ * only while the author still holds the turn, so a stop or a later restart in between wins. An
+ * alarm that names only the task acts while the author holds no turn, as it did before.
  */
 export async function runLostModelTurnAgain(
   workflow: WorkflowRuntime,
-  alarm: ModelTurnAlarm,
+  alarm: RunAgainAlarm,
 ): Promise<void> {
   const task = workflow.store.task(alarm.task_id);
-  if (task?.model_turn_id !== alarm.turn_id) return;
+  if (!task) return;
+  const heldTurnId = "turn_id" in alarm ? alarm.turn_id : null;
+  if (task.model_turn_id !== heldTurnId) return;
   workflow.store.updateTask(task.task_id, { model_turn_id: null });
   await drainQueue(workflow, workflow.store.requireTask(task.task_id));
 }

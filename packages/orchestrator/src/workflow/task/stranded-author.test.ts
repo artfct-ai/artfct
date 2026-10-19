@@ -304,3 +304,23 @@ describe("a restarted author whose lost model turn waits to run again", () => {
       expect(fakeDocumentsOf(restartedAgain).argsOf("updatePageContent")).toHaveLength(1);
     }));
 });
+
+describe("a run-again alarm armed before run-again alarms named a turn", () => {
+  it("revises the page of an author the old restart alarm put back in review", () =>
+    revisingWith(0)(async ({ workflow }) => {
+      const restarted = workflow.restarted();
+      restarted.modelInstance = new EchoModel(REVISE_ANSWER);
+      restarted.store.updateTask(TASK, { model_turn_id: null, restarts: 1, status: "in_review" });
+      await runLostModelTurnAgain(restarted, { task_id: TASK });
+      expect(restarted.store.queue()).toEqual([]);
+      expect(pageTextOf(restarted)).toBe(REVISED_PAGE);
+    }));
+
+  it("leaves an author that holds a turn as it was", () =>
+    waitingToRunAgain(async ({ workflow }) => {
+      const task = workflow.store.requireTask(TASK);
+      await runLostModelTurnAgain(workflow, { task_id: TASK });
+      expect(workflow.store.requireTask(TASK)).toEqual(task);
+      expect(fakeDocumentsOf(workflow).argsOf("updatePageContent")).toEqual([]);
+    }));
+});
