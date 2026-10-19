@@ -679,8 +679,8 @@ export const MUTANTS: Mutant[] = [
     id: "W156",
     invariant: "harnessSession::provisionStartsOnlyAQueuedTask",
     path: "src/workflow/task/sandbox/sandbox.ts",
-    find: '  if (!task || task.status !== "queued") return;',
-    replace: "  if (!task) return;",
+    find: '  const bound = workflow.store.requireTask(taskId);\n  if (bound.status !== "queued") return;\n',
+    replace: "  const bound = workflow.store.requireTask(taskId);\n",
   },
   {
     id: "W157",
