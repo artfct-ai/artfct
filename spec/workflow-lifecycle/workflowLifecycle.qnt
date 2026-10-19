@@ -195,7 +195,8 @@ module workflowLifecycleTypes {
   /// the model turn of a job. `PromptStep` is the agent's prompt to a task. `FinishStep` is
   /// `finish_workflow`. `SubjectCompletionStep` runs `complete_job` on the job of the subject issue
   /// up to its end or its next call, and so does the return of each call it waits on.
-  /// `IssueEndStep` is a person moving the issue to a canceled or completed state.
+  /// `MessageStep` is a person's message in the chat thread. `IssueEndStep` is a person moving
+  /// the issue to a canceled or completed state.
   /// `FailedCheckStep` is the return of the acceptance check of the job when the check failed.
   /// `StopStep` is a person pressing Stop in the session of the subject issue.
   /// `StoppedCallReturnStep` is the return of the model call of the job that a stop ended.
@@ -212,6 +213,7 @@ module workflowLifecycleTypes {
     | IssueStartStep({ issue: int, routerWriteFails: bool })
     | OutputStep(Subject)
     | EventStep
+    | MessageStep
     | VerbalCommandStep(VerbalCommand)
     | PromptStep
     | StaleAlarmStep
@@ -271,6 +273,8 @@ module workflowLifecycleTypes {
     stoppedModelCallLeavesThePage: bool,
     aJobStartProvisionsItsTask: bool,
     aWorkflowEndReachesAFinishedStatus: bool,
+    aPersonsMessageWakesTheWorkflow: bool,
+    issuesMoveOnlyAtAStartOrADoneEnd: bool,
   }
 
   /// Whether the last step reached each before-and-after witness, by the name of the witness. Only
@@ -336,6 +340,9 @@ module workflowLifecycleTypes {
     aStopTakesATurnThatWaitsToRunAgain: bool,
     aRunAgainAlarmFindsAStoppedAuthor: bool,
     aLostModelTurnDeadlineFires: bool,
+    aMessageLandsOnAWaitingWorkflow: bool,
+    aTrackerWorkflowEndsWithoutDone: bool,
+    aRestartCutsAPageCreate: bool,
     aRestartAlarmDecidesATurnThatWaitedToRunAgain: bool,
     aRestartLandsDuringAWorkflowEnd: bool,
     aWorkflowEndResumesAfterARestart: bool,
@@ -1865,7 +1872,7 @@ module workflowLifecycle {
 
   /// A person writes a message in the chat thread. It wakes a sleeping workflow.
   action personWrites: bool =
-    move(eventHandled(workflow, untold(if (hasEnded(workflow.status)) workflow else messageWakes(workflow))), EventStep)
+    move(eventHandled(workflow, untold(if (hasEnded(workflow.status)) workflow else messageWakes(workflow))), MessageStep)
 
   /// A person's message in the session of the subject issue goes to its author as a prompt while
   /// the author runs. Only a workflow from a tracker origin has that session.
@@ -2163,6 +2170,7 @@ module workflowLifecycle {
   /// a move on the host or the tracker.
   pure def isEventStep(kind: StepKind): bool = match kind {
     | EventStep => true
+    | MessageStep => true
     | VerbalCommandStep(_) => true
     | IssueEndStep(_) => true
     | StopStep => true
@@ -2383,6 +2391,50 @@ module workflowLifecycle {
     | EndStored(endsAs) => step.after.storedEnd == step.before.storedEnd or step.after.status == endsAs
   }
 
+  /// True for a step that is a person's message, or a verbal command other than the cancel.
+  pure def isPersonsMessage(kind: StepKind): bool = match kind {
+    | MessageStep => true
+    | VerbalCommandStep(_) => true
+    | _ => false
+  }
+
+  /// A person's message on a workflow that has not ended starts the idle clock over and moves a
+  /// waiting workflow to running.
+  pure def wakesOnAPersonsMessage(step: Transition): bool =
+    (isPersonsMessage(step.kind) and not(hasEnded(step.before.status))) implies and {
+      step.after.idleArmed,
+      step.before.status == WaitingInput implies step.after.status == Running,
+    }
+
+  /// A step moves at most one tracker issue. It moves one only when it is the plan that starts a
+  /// workflow from a tracker origin, a job start on an issue, or the done end of a workflow from a
+  /// tracker origin. The plan and the done end always move it. A failed or cancelled end does not.
+  pure def movesIssuesOnlyAtAStartOrADoneEnd(step: Transition): bool = {
+    val moves = step.after.issueMoves - step.before.issueMoves
+    val plansATrackerWorkflow = and {
+      TRACKER_ORIGIN,
+      step.before.definition == Unplanned,
+      step.after.definition != Unplanned,
+    }
+    val startsAJobOnAnIssue = match step.kind {
+      | IssueStartStep(_) => true
+      | _ => false
+    }
+    val endsDone = TRACKER_ORIGIN and step.before.status != Done and step.after.status == Done
+    val endsOtherwise = and {
+      not(hasEnded(step.before.status)),
+      step.after.status == Failed or step.after.status == Cancelled,
+    }
+    and {
+      moves >= 0,
+      moves <= 1,
+      moves == 1 implies (plansATrackerWorkflow or startsAJobOnAnIssue or endsDone),
+      plansATrackerWorkflow implies moves == 1,
+      endsDone implies moves == 1,
+      endsOtherwise implies moves == 0,
+    }
+  }
+
   /// Whether one step kept each before-and-after rule.
   pure def rulesKeptBy(step: Transition): KeptRules = {
     jobStartsOnlyIntoAFreeSlot: startsOnlyIntoAFreeSlot(step),
@@ -2407,6 +2459,8 @@ module workflowLifecycle {
     stoppedModelCallLeavesThePage: leavesThePageOnAStoppedCall(step),
     aJobStartProvisionsItsTask: provisionsEveryStartedTask(step),
     aWorkflowEndReachesAFinishedStatus: keepsAnEndGoingUntilItsStatus(step),
+    aPersonsMessageWakesTheWorkflow: wakesOnAPersonsMessage(step),
+    issuesMoveOnlyAtAStartOrADoneEnd: movesIssuesOnlyAtAStartOrADoneEnd(step),
   }
 
   /// Whether one step reached each before-and-after witness.
@@ -2627,8 +2681,24 @@ module workflowLifecycle {
       },
       aRestartLandsDuringAWorkflowEnd: step.kind == RestartStep and workflowEnding(step.before),
       aWorkflowEndResumesAfterARestart: step.kind == EndResumeStep,
+      aMessageLandsOnAWaitingWorkflow: isPersonsMessage(step.kind) and step.before.status == WaitingInput,
+      aTrackerWorkflowEndsWithoutDone: and {
+        TRACKER_ORIGIN,
+        not(hasEnded(step.before.status)),
+        step.after.status == Failed or step.after.status == Cancelled,
+      },
+      aRestartCutsAPageCreate: step.kind == RestartStep and
+        cut.exists(id => pageWriteOut(step.before, id) and step.before.jobs[id].artifact == NoArtifact),
     }
   }
+
+  /// A person's message on a workflow that has not ended starts the idle clock over and moves a
+  /// waiting workflow to running.
+  val aPersonsMessageWakesTheWorkflow: bool = lastStepKept.aPersonsMessageWakesTheWorkflow
+
+  /// Tracker issues move only at the plan of a tracker workflow, a job start on an issue, or the
+  /// done end of a tracker workflow. A failed or cancelled end does not move them.
+  val issuesMoveOnlyAtAStartOrADoneEnd: bool = lastStepKept.issuesMoveOnlyAtAStartOrADoneEnd
 
   /// A job start leaves at most the plan's number of job slots of jobs active.
   val jobStartsOnlyIntoAFreeSlot: bool = lastStepKept.jobStartsOnlyIntoAFreeSlot
@@ -2779,7 +2849,7 @@ module workflowLifecycle {
       (runsAsModelCalls(task) and task.status == Busy and not(task.paused)) implies
         or {
           modelTurnInFlight(workflow, id),
-          A_PERSON_STOPS and workflow.jobs[id].artifact == NoArtifact,
+          task.stopped and workflow.jobs[id].artifact == NoArtifact,
         }
     })
 
@@ -3181,6 +3251,30 @@ module workflowLifecycle {
 
   /// Witness for `workflowStartsOnlyFromAPlan`: the workflow moved a tracker issue.
   val theWorkflowMovedAnIssue: bool = workflow.issueMoves > 0
+
+  /// Witness for `aPersonsMessageWakesTheWorkflow`: a person's message lands on a workflow that
+  /// waits for input.
+  val aMessageLandsOnAWaitingWorkflow: bool = lastStepReached.aMessageLandsOnAWaitingWorkflow
+
+  /// Witness for `issuesMoveOnlyAtAStartOrADoneEnd`: a workflow from a tracker origin ends failed
+  /// or cancelled.
+  val aTrackerWorkflowEndsWithoutDone: bool = lastStepReached.aTrackerWorkflowEndsWithoutDone
+
+  /// Witness for `issuesMoveOnlyAtAStartOrADoneEnd`: a workflow from a tracker origin ends done.
+  val aTrackerWorkflowEndsDone: bool = TRACKER_ORIGIN and workflow.status == Done
+
+  /// Known limit of row T33: a restart of the Durable Object cuts the produce turn of a model-call
+  /// author while the page create is out. The turn runs again and creates a second page.
+  val aRestartCutsAPageCreate: bool = lastStepReached.aRestartCutsAPageCreate
+
+  /// Witness for `aModelCallAuthorWorksOnlyWhileItsCallIsOut`: a stop left a model-call author at
+  /// work without a turn and without a page.
+  val aStopLeavesAnAuthorWithoutAPage: bool = jobIds(workflow).exists(id => and {
+    runsAsModelCalls(jobTask(workflow, id)),
+    jobTask(workflow, id).status == Busy,
+    jobTask(workflow, id).stopped,
+    workflow.jobs[id].artifact == NoArtifact,
+  })
 
   /// Witness for `aJobWorksOnlyOnIssuesOfItsSubject`: `start_job` names an issue before the
   /// workflow has a subject.
