@@ -33,7 +33,9 @@ export type SpecSetup = keyof typeof SPEC_SETUPS;
 /** The most steps a generated trace takes after its initial state. */
 const TRACE_STEPS = 12;
 
-const FORMS = ["ReviewComment", "AppReview", "PageMention"] as const;
+const FORMS = ["ReviewComment", "AppReview", "PageMention", "BareMention"] as const;
+type Form = (typeof FORMS)[number];
+type MentionForm = Extract<Form, "PageMention" | "BareMention">;
 const SCREENS = ["Admitted", "NotAdmitted", "Unreadable"] as const;
 const ACKS = ["AckSucceeds", "AckFails"] as const;
 const HELD_READS = ["HeldReadable", "HeldUnreadable"] as const;
@@ -56,6 +58,7 @@ const NOTE_KINDS = [
   "SentToAuthorNote",
   "AsksForNothingNote",
   "ForTheAgentNote",
+  "BareMentionNote",
 ] as const;
 const WAKES = ["NoWake", "WakesForTheHumans"] as const;
 
@@ -95,7 +98,7 @@ export type FeedbackView = {
 /** What a spec action picked. */
 type SpecPicks = {
   id: number | null;
-  form: (typeof FORMS)[number] | null;
+  form: Form | null;
   screen: (typeof SCREENS)[number] | null;
   ack: (typeof ACKS)[number] | null;
   heldRead: (typeof HELD_READS)[number] | null;
@@ -274,7 +277,12 @@ const NOTE_MARKERS: [string, (typeof NOTE_KINDS)[number]][] = [
   ["and sent it whole to the author.", "SentToAuthorNote"],
   ["It asks for nothing, so nobody was sent it.", "AsksForNothingNote"],
   ["and sent it to nobody.", "ForTheAgentNote"],
+  ["the comment says nothing else, so nothing was sent.", "BareMentionNote"],
 ];
+
+function isMentionForm(form: Form): form is MentionForm {
+  return form === "PageMention" || form === "BareMention";
+}
 
 function noteKindOf(text: string): NoteKind {
   const marked = NOTE_MARKERS.find(([marker]) => text.includes(marker));
@@ -307,7 +315,7 @@ function required<Value>(value: Value | null): Value {
 
 /** One feedback a person posted: the event its host delivers, what it carries, and its form. */
 type PostedFeedback = {
-  form: (typeof FORMS)[number];
+  form: Form;
   event: Pick<InboundEvent, "id" | "kind" | "text"> & Partial<InboundEvent>;
   texts: () => FeedbackTexts;
   postOnHost: () => void;
@@ -479,10 +487,10 @@ export class FeedbackRoutingReplay {
     });
   }
 
-  private postFeedback(form: (typeof FORMS)[number]): PostedFeedback {
+  private postFeedback(form: Form): PostedFeedback {
     this.feedbacks += 1;
     const id = `feedback-${this.posted.length}`;
-    if (form === "PageMention") return this.mentionOnThePage(id);
+    if (isMentionForm(form)) return this.mentionOnThePage(id, form);
     const texts = this.pullFeedbackTexts(form);
     return {
       form,
@@ -552,11 +560,11 @@ export class FeedbackRoutingReplay {
   }
 
   private async whileHostAnswers(
-    form: (typeof FORMS)[number],
+    form: Form,
     picks: SpecPicks,
     body: () => Promise<void>,
   ): Promise<void> {
-    if (form !== "PageMention") {
+    if (!isMentionForm(form)) {
       if (required(picks.ack) === "AckFails") await this.world.whileHostIsDown(body);
       else await body();
       return;
@@ -615,26 +623,28 @@ export class FeedbackRoutingReplay {
   }
 
   /**
-   * A mention on the page. Its comment shows on the host once a delivery of it is routed, so the
-   * held comments another mention carries are the ones the spec holds.
+   * A mention on the page. A bare mention says nothing besides the mention. Its comment shows on
+   * the host once a delivery of it is routed, so the held comments another mention carries are the
+   * ones the spec holds.
    */
-  private mentionOnThePage(id: string): PostedFeedback {
+  private mentionOnThePage(id: string, form: MentionForm): PostedFeedback {
     const pageId = this.pageId();
     const host = this.world.pageHost;
-    const body = `Mention ${this.feedbacks}: tighten the summary.`;
+    const body = form === "BareMention" ? "" : `Mention ${this.feedbacks}: tighten the summary.`;
+    const text = `@artfct ${body}`.trim();
     const commentId = `mention-${this.feedbacks}`;
     let onHost = false;
     return {
-      form: "PageMention",
+      form,
       event: {
         id,
         kind: "feedback",
-        text: `@artfct ${body}`,
+        text,
         bindings: [{ source: "documents_page", external_id: pageId }],
         page: { page_id: pageId, comment_id: commentId },
       },
       texts: () => ({
-        PersonWords: [body],
+        PersonWords: body ? [body] : [],
         AppWords: [],
         HeldWords: onHost ? [] : host.heldNow().map((comment) => comment.text),
       }),
@@ -646,7 +656,7 @@ export class FeedbackRoutingReplay {
           pageId,
           lineId: null,
           authorName: "Bea",
-          text: `@artfct ${body}`,
+          text,
           mentionsSelf: true,
         });
       },

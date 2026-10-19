@@ -194,7 +194,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| E1 | Every feedback event on a running workflow gets one routing decision: author, agent, or `nobody`. | `feedbackRouting::everyFeedbackGetsOneRoutingDecision` |
+| E1 | Every feedback event on a running workflow gets one routing decision: author, agent, or `nobody`. A bare mention with nothing held goes to the agent, which asks the person what they want. | `feedbackRouting::everyFeedbackGetsOneRoutingDecision` |
 | E2 | Feedback the screen does not admit reaches neither the agent nor the author. | `feedbackRouting::unadmittedFeedbackReachesNobody`, `reviewLoop::unadmittedFeedbackReachesNobody` |
 | E3 | A pull request review is keyed by its review id only when the host read succeeds, so its webhooks route once. On a failed read, the review and its comments can each prompt the author. | `tests::packages/orchestrator/src/artifact/pull.test.ts` |
 | E4 | A page comment that does not mention the bot stays held. A mention screens every held comment with it. When the decisions model routes it to the author, the held comments the host marks read go with it as one feedback. On any other route they stay held. | `reviewLoop::aPromptToAPageAuthorCarriesItsHeldComments`, `reviewLoop::aHeldCommentStaysHeldUntilItReachesTheAuthor` |

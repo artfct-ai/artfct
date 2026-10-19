@@ -67,6 +67,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | comment | Feedback that is not a review. | part of `Feedback` | |
 | comment thread | A page comment and the replies under it. | `commentThread` | discussion |
 | held comment | A person's comment on a page artifact that the system has not acknowledged. Three things send every held comment to the author and acknowledge it: a comment there that mentions the bot when the decisions model routes it to the author, a person's message that asks for a revision, and any prompt the orchestrator sends to that author. The author gets only the held comments the host marked read. A held comment the screen does not admit, the host does not mark read, or a mention routes elsewhere stays held. | `HeldComment`, `Documents.heldComments` | |
+| bare mention | A comment on a page artifact that mentions the bot and says nothing else. With no held comment on the page, the system marks it read and the agent asks the person what they want. With held comments, it sends them as any mention does. | | empty mention |
 | finding | One item in a review or a comment. It may name a location and a passage. | `Finding` | |
 | passage | The few words of a page that a finding quotes. The page host anchors the finding's comment to the block that holds them. | `Finding.passage` | anchor, quote |
 | inline finding | A finding of a page review that code posts as a comment on the block that holds its passage. | `Documents.commentOnPassages` | inline comment |

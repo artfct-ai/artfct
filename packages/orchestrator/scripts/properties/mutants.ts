@@ -902,6 +902,13 @@ export const MUTANTS: Mutant[] = [
     replace:
       '    case "waiting":\n      return endPolisherRun(workflow, polisher, { ended: "turn" });\n    case "sent_back":\n',
   },
+  {
+    id: "W235",
+    invariant: "feedbackRouting::everyFeedbackGetsOneRoutingDecision (bare mention)",
+    path: "src/workflow/refiner/feedback.ts",
+    find: 'so nothing was sent. Ask them what they want.`,\n      ],\n      wake: "human",',
+    replace: 'so nothing was sent. Ask them what they want.`,\n      ],\n      wake: "none",',
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */
