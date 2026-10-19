@@ -131,8 +131,8 @@ module routerBindingsTypes {
   }
 
   /// What the last step showed that its end state does not: a fanned-out call threw and the fan-out
-  /// went on to the next workflow.
-  type StepWitnesses = { fanOutWentOnPastAFailure: bool }
+  /// went on to the next workflow, or an instance restart cut off the status write of a workflow end.
+  type StepWitnesses = { fanOutWentOnPastAFailure: bool, restartCutTheEndStatusWrite: bool }
 
   /// What observers saw over the trace.
   type History = {
@@ -189,7 +189,7 @@ module routerBindings {
     nextOperation: 0,
   }
 
-  pure val NO_STEP_WITNESSES: StepWitnesses = { fanOutWentOnPastAFailure: false }
+  pure val NO_STEP_WITNESSES: StepWitnesses = { fanOutWentOnPastAFailure: false, restartCutTheEndStatusWrite: false }
 
   pure val INITIAL_HISTORY: History = {
     movedBindings: Set(),
@@ -648,7 +648,7 @@ module routerBindings {
     all {
       world' = after,
       history' = recordDeliveryStep(history, world, after, delivery),
-      stepWitnesses' = { fanOutWentOnPastAFailure: after.deliveries.keys().contains(delivery) },
+      stepWitnesses' = { ...NO_STEP_WITNESSES, fanOutWentOnPastAFailure: after.deliveries.keys().contains(delivery) },
     }
   }
 
@@ -732,6 +732,27 @@ module routerBindings {
     }
   }
 
+  /// The Durable Object of an ending workflow restarts while the end's status write is out. The write
+  /// landed or not. The restart drops every other call the workflow has out. The store keeps the end,
+  /// so the new instance goes on with it and writes the status again. A status write that fails
+  /// leaves the end stored too, and the next instance restart goes on with it the same way.
+  action instanceRestartCutsTheEndStatusWrite: bool = {
+    nondet operation = world.operations.keys().filter(id => world.operations.get(id).phase == EndWritesStatus).oneOf()
+    nondet landed = Set(true, false).oneOf()
+    val workflow = world.operations.get(operation).workflow
+    val written = if (landed) { ...world, rows: world.rows.put(workflow, Ended) } else world
+    all {
+      world' = {
+        ...written,
+        operations: world.operations.keys()
+          .filter(id => id == operation or world.operations.get(id).workflow != workflow)
+          .mapBy(id => world.operations.get(id)),
+      },
+      history' = if (history.batch.open) withBatch(history, { ...history.batch, quiet: false }) else history,
+      stepWitnesses' = { ...NO_STEP_WITNESSES, restartCutTheEndStatusWrite: true },
+    }
+  }
+
   action step: bool = any {
     eventArrives,
     deliveryResumes,
@@ -742,6 +763,7 @@ module routerBindings {
     workflowStartsAJobOnTheIssue,
     workflowOpensThePullRequest,
     workflowCallReturns,
+    instanceRestartCutsTheEndStatusWrite,
   }
 
   /// The bindings of `surface` that pointed at a workflow that ended.
@@ -807,6 +829,27 @@ module routerBindings {
       val delivery = world.deliveries.get(id)
       delivery.kind == BaseMoved implies (delivery.phase == ReadingPulls or isFanningOut(delivery.phase))
     })
+
+  /// The router still writes the status of a workflow it creates or abandons.
+  pure def routerCreatesOrAbandons(phase: DeliveryPhase): bool =
+    Set(Binding, Creating, Unbinding, Restoring, MarkingFailed).contains(phase)
+
+  /// A write to the workflow's row is out or ahead: the status write of its end, or the router's
+  /// create of it.
+  pure def rowWriteAhead(state: World, workflow: int): bool = or {
+    state.operations.keys().exists(id =>
+      state.operations.get(id).workflow == workflow and state.operations.get(id).phase == EndWritesStatus),
+    state.deliveries.keys().exists(id =>
+      targetOf(state.deliveries.get(id)) == workflow and routerCreatesOrAbandons(state.deliveries.get(id).phase)),
+  }
+
+  /// Once neither the workflow's end nor the router's create of it has a status write out, the
+  /// router's row of the workflow reads ended exactly when its Durable Object ended or was never
+  /// created.
+  val theRouterRowMatchesTheWorkflowEnd: bool =
+    world.rows.keys().forall(workflow =>
+      not(rowWriteAhead(world, workflow)) implies
+        rowEnded(world, workflow) == (objectOf(world, workflow).ended or not(objectOf(world, workflow).created)))
 
   /// The events that reached the router, which model checking bounds.
   val eventsArrived: int = world.nextDelivery
@@ -918,6 +961,10 @@ module routerBindings {
   /// Witness for `aBaseMoveOnlyHandsTheEventOn`: a fanned-out call threw and the base move went on
   /// to the next workflow.
   val aBaseMoveGoesOnPastAFailedCall: bool = stepWitnesses.fanOutWentOnPastAFailure
+
+  /// Witness for `theRouterRowMatchesTheWorkflowEnd`: an instance restart cut off the status write
+  /// of a workflow end, and the new instance writes it again.
+  val aRestartCutTheEndStatusWrite: bool = stepWitnesses.restartCutTheEndStatusWrite
 
   /// Witness for `aPersonsMessageNeverReachesAnEndedWorkflow`: a person wrote on a binding whose workflow ended.
   val aPersonWroteAfterAnEnd: bool =
