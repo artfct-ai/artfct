@@ -37,7 +37,7 @@ module sessionRoutingTypes {
   /// feed keeps a message of the author's turn for the closing reply. `nudged` and `stoppedEarly`
   /// are the stall marks of the author's sandbox. `restarts` counts the fresh sandboxes of the
   /// job's current task: its researcher, then its author. `containerClosed` holds while an idle
-  /// author waits without a container, since a stop during its turn closed it. `paused` holds while
+  /// author waits without a container, since a stop closed it. `paused` holds while
   /// the author is paused, so its prompts wait for its resume. `cancelSent` holds while the
   /// author's turn runs after a pause sent the harness a cancel.
   type Job = {
@@ -903,8 +903,9 @@ module sessionRouting {
 
   /// A person presses Stop in a tracker session. The author of its job session drops its queued
   /// prompts and its stall mark. An author in its turn stops working and its container goes, so
-  /// its next prompt starts a fresh one. The feed ends on the stopped reply, also on a finished
-  /// workflow. The orchestrator does not post.
+  /// its next prompt starts a fresh one. The container of an idle harness author goes too, and an
+  /// idle or in-review harness author's board flushes. The feed ends on the stopped reply, also on
+  /// a finished workflow. The orchestrator does not post.
   action personStops: bool = {
     nondet issue = ISSUES.oneOf()
     nondet health = HEALTHS.oneOf()
@@ -912,8 +913,10 @@ module sessionRouting {
     val stopped = chosen.fold(routing, (state, id) => {
       val ended = withJob(state, id, job =>
         if (job.author == InTurn) { ...forgetMessage(job), queued: 0, stoppedEarly: false, nudged: false, author: Idle, containerClosed: true, cancelSent: false }
+        else if (job.author == Idle and not(MODEL_AUTHOR)) { ...forgetMessage(job), queued: 0, stoppedEarly: false, containerClosed: true }
         else { ...forgetMessage(job), queued: 0, stoppedEarly: false })
-      if (state.jobs[id].author == InTurn) flushBoard(ended, id) else ended
+      val harnessAtRest = not(MODEL_AUTHOR) and (state.jobs[id].author == Idle or state.jobs[id].author == InReview)
+      if (state.jobs[id].author == InTurn or harnessAtRest) flushBoard(ended, id) else ended
     })
     val feed = chosen.fold(List(), (posts, id) => posts.concat(feedOf(routing, id, StoppedActivity, health)))
     all {
