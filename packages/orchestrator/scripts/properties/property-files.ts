@@ -31,6 +31,7 @@ export const E2E_RUNS_BY_FILE: Record<string, number> = {
   "adapters/src/documents/linear/held-comments.property.ts": 200_000,
   "adapters/src/documents/notion/held-comments.property.ts": 200_000,
   "orchestrator/src/agent/tools/condensed.property.medium.ts": 20_000,
+  "orchestrator/src/decisions/screen.property.ts": 20_000,
   "orchestrator/src/db/persons.property.medium.ts": 3_000,
   "orchestrator/src/oauth/token.property.medium.ts": 5_000,
   "orchestrator/src/router/identity.property.medium.ts": 50_000,

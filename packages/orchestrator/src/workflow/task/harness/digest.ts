@@ -2,7 +2,7 @@ import type { DigestInput, TodoSnapshot, TaskCounters } from "../../board/types"
 import { boardWorkWord } from "../../board/render";
 import { taskCostText } from "../../cost";
 
-/** The digest never exceeds this many characters. The `last` line gives way first. */
+/** The digest never exceeds this many characters. The `last` line gives way first, then the end of the head. */
 export const DIGEST_MAX_CHARS = 500;
 
 const SEPARATOR = " · ";
@@ -18,20 +18,30 @@ const MAX_NOTE_CHARS = 160;
  * Built from stored records only.
  */
 export function taskDigest(input: DigestInput): string {
-  const head = headLines(input);
-  const tail = tailLines(input.task, input.now);
-  return [...head, ...lastLines(input.last, lastBudget(input)), ...tail].join("\n");
+  const tail = tailText(input);
+  const head = headText(input, tail);
+  return [head, ...lastLines(input.last, lastBudget(input)), tail].join("\n");
 }
 
 /** Characters left for the `last` text once every other line of the digest is written. */
 export function lastBudget(input: DigestInput): number {
-  const { task } = input;
-  const head = headLines(input).join("\n").length;
-  const tail = tailLines(task, input.now).join("\n").length;
+  const tail = tailText(input);
+  const head = headText(input, tail);
   const newlinesAroundLast = 2;
   return (
-    DIGEST_MAX_CHARS - head - tail - LAST_PREFIX.length - LAST_SUFFIX.length - newlinesAroundLast
+    DIGEST_MAX_CHARS -
+    head.length -
+    tail.length -
+    LAST_PREFIX.length -
+    LAST_SUFFIX.length -
+    newlinesAroundLast
   );
+}
+
+/** The head lines, cut at their end so the head and the tail fit the digest. */
+function headText(input: DigestInput, tail: string): string {
+  const newlineBeforeTail = 1;
+  return clipHead(headLines(input).join("\n"), DIGEST_MAX_CHARS - tail.length - newlineBeforeTail);
 }
 
 function headLines(input: DigestInput): string[] {
@@ -46,8 +56,8 @@ function headLines(input: DigestInput): string[] {
   ];
 }
 
-function tailLines(task: DigestInput["task"], now: number): string[] {
-  return [`cost: ${taskCostText(task.cost_usd)}${SEPARATOR}${elapsedText(task.started_at, now)}`];
+function tailText({ task, now }: DigestInput): string {
+  return `cost: ${taskCostText(task.cost_usd)}${SEPARATOR}${elapsedText(task.started_at, now)}`;
 }
 
 function resultText(artifact: DigestInput["artifact"]): string {
