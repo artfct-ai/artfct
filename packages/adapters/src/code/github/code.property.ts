@@ -197,7 +197,14 @@ describe("GitHub code invariants", () => {
           if (!url.startsWith("https://github.com/") && url.includes("github.com/")) foreignHosts++;
           githubPullLinkNamesOnlyAGithubPull(url, githubPullFromUrl(url));
         }),
-        propertyRuns("github pull link names only a github pull", RUNS),
+        {
+          ...propertyRuns("github pull link names only a github pull", RUNS),
+          examples: [
+            ["https://evil.test/github.com/acme/app/pull/7"],
+            ["https://github.com/acme/app/pull/7abc"],
+            ["https://github.com/acme/app/pull/9007199254740993"],
+          ],
+        },
       );
       expect(foreignHosts).toBeGreaterThan(0);
     },
