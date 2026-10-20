@@ -65,6 +65,16 @@ const PINNED: { name: string; setup: SpecSetup; file: string }[] = [
     setup: "baseMoveFanOut",
     file: "a-base-move-goes-on-past-a-failed-call",
   },
+  {
+    name: "keeps the bindings of a workflow a takeover created when the first create throws",
+    setup: "chatThread",
+    file: "an-abandon-keeps-the-bindings-a-takeover-created",
+  },
+  {
+    name: "points the binding back at the ended workflow when the next workflow's create throws",
+    setup: "chatThread",
+    file: "an-abandon-points-the-binding-back-at-the-ended-workflow",
+  },
 ];
 
 describe("router bindings spec", () => {

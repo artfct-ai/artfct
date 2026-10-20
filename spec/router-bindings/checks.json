@@ -10,7 +10,9 @@
     "aBaseMoveOnlyHandsTheEventOn",
     "theRouterRowMatchesTheWorkflowEnd",
     "aPersonsEventCreatesTheWorkflowItFindsUncreated",
-    "aRecordedPullRequestIsBoundToItsWorkflow"
+    "aRecordedPullRequestIsBoundToItsWorkflow",
+    "aBindingStaysBoundThroughItsDeliveries",
+    "aWorkflowHearsOfItsPredecessor"
   ],
   "mainMinutes": {
     "chatThread": 1.2,
@@ -30,7 +32,10 @@
       "aWorkflowEnded",
       "aRestartCutTheEndStatusWrite",
       "aPersonWroteAfterAnEnd",
-      "aPersonsEventCreatedAWorkflowTheRouterLeft"
+      "aPersonsEventCreatedAWorkflowTheRouterLeft",
+      "aRouterDeathCutAnAbandon",
+      "anAbandonFoundATakeover",
+      "aTakeoverNamedThePredecessor"
     ],
     "twoSessionsOnOneIssue": [
       "aWorkflowStarted",
@@ -47,7 +52,9 @@
       "aPersonWroteAfterAnEnd",
       "aStartWithoutAPersonRebinds",
       "threeDeliveriesOverlapOnOneSurface",
-      "aPersonsEventCreatedAWorkflowTheRouterLeft"
+      "aPersonsEventCreatedAWorkflowTheRouterLeft",
+      "aRouterDeathCutAnAbandon",
+      "aRouterDeathCutARebind"
     ],
     "sessionWithPullRequest": [
       "aWorkflowStarted",
@@ -63,7 +70,9 @@
       "aPersonWroteAfterAnEnd",
       "aStartWithoutAPersonRebinds",
       "aPersonsEventCreatedAWorkflowTheRouterLeft",
-      "aRestartCutThePullRequestBind"
+      "aRestartCutThePullRequestBind",
+      "aRouterDeathCutAnAbandon",
+      "aRouterDeathCutARebind"
     ],
     "baseMoveFanOut": [
       "aWorkflowStarted",

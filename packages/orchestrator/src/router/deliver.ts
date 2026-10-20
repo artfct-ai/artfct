@@ -5,14 +5,16 @@ import type { Delivery, RpcAck, WorkflowStatus } from "@artfct-ai/contracts/type
 import { chat, tracker } from "../clients";
 import { registeredConfig } from "../config/register-config";
 import {
+  abandonWorkflowCreate,
   claimBinding,
-  deleteBindingsOfNewWorkflow,
+  claimBindingAndRecordPredecessor,
   findBinding,
   takeOverWorkflowCreate,
   workflowsWithPullsInRepo,
+  type WonBinding,
 } from "../db/bindings";
 import { createDb, type Database } from "../db/client";
-import { createWorkflow, findWorkflow, setWorkflowStatus } from "../db/workflows";
+import { createWorkflow, findWorkflow } from "../db/workflows";
 import type { Env } from "../env";
 import { newWorkflowId } from "../ids";
 import { isWorkflowFinished } from "../workflow/store/state";
@@ -144,7 +146,8 @@ async function follow(
 
 /**
  * Claim the binding whose workflow ended, else the first binding, then create the next workflow.
- * Each other binding moves to it only if it still points where the route read it.
+ * The claim of a binding whose workflow ended records that workflow as the predecessor. Each other
+ * binding moves to the next workflow only if it still points where the route read it.
  */
 async function startNextWorkflow(
   env: Env,
@@ -155,49 +158,35 @@ async function startNextWorkflow(
   const workflowId = newWorkflowId();
   const claimedIndex = route.replaced?.index ?? 0;
   const claimed = route.bound[claimedIndex];
-  const won: BoundBinding[] = [];
+  const predecessorId = route.replaced?.workflowId ?? null;
+  const won: WonBinding[] = [];
   if (claimed) {
-    if (!(await claimBinding(db, claimed.binding, { previous: claimed.workflowId, workflowId }))) {
-      return follow(env, db, event, await routeOf(db, event));
-    }
-    won.push(claimed);
+    const claim = { previous: claimed.workflowId, workflowId };
+    const claimWon = predecessorId
+      ? await claimBindingAndRecordPredecessor(db, claimed.binding, { ...claim, predecessorId })
+      : await claimBinding(db, claimed.binding, claim);
+    if (!claimWon) return follow(env, db, event, await routeOf(db, event));
+    won.push({ binding: claimed.binding, previous: claimed.workflowId });
   }
   await createWorkflow(db, workflowId);
   for (const [index, bound] of route.bound.entries()) {
     if (index === claimedIndex) continue;
     const previous = bound.workflowId;
-    if (await claimBinding(db, bound.binding, { previous, workflowId })) won.push(bound);
+    if (await claimBinding(db, bound.binding, { previous, workflowId })) {
+      won.push({ binding: bound.binding, previous });
+    }
   }
-  const endedWorkflowId = route.replaced?.workflowId ?? null;
   try {
     const result = await env.Workflow.getByName(workflowId).create(
       workflowId,
       event,
-      endedWorkflowId,
+      predecessorId,
     );
     return { workflow_id: workflowId, created: true, result };
   } catch (error) {
-    await abandonWorkflow(db, workflowId, won);
+    await abandonWorkflowCreate(db, workflowId, won);
     throw error;
   }
-}
-
-/**
- * Undo a workflow whose Durable Object never started. The bindings it won go, and each points
- * back at the workflow it pointed at, unless another delivery bound it since. A takeover of the
- * create that came first keeps the workflow, so nothing is undone.
- */
-async function abandonWorkflow(
-  db: Database,
-  workflowId: string,
-  won: BoundBinding[],
-): Promise<void> {
-  const sources = won.map(({ binding }) => binding.source);
-  if (!(await deleteBindingsOfNewWorkflow(db, workflowId, sources))) return;
-  for (const { binding, workflowId: restored } of won) {
-    if (restored) await claimBinding(db, binding, { previous: null, workflowId: restored });
-  }
-  await setWorkflowStatus(db, workflowId, "failed");
 }
 
 /**
@@ -249,7 +238,8 @@ function isPersonsStartOrMessage(event: InboundEvent): boolean {
 /**
  * Create a workflow whose create has not returned with a person's event, such as one whose router
  * invocation ended mid-create. The row marks the takeover first, so an abandon of the first create
- * keeps the bindings. A takeover that a moved binding or an abandon refuses reads the route again.
+ * keeps the bindings. The create names the predecessor the first create recorded. A takeover that
+ * a moved binding or an abandon refuses reads the route again.
  */
 async function takeOverCreate(
   env: Env,
@@ -258,10 +248,13 @@ async function takeOverCreate(
   route: Extract<Route, { kind: "join" }>,
 ): Promise<Delivery> {
   const { binding, workflowId } = route;
-  if (!(await takeOverWorkflowCreate(db, binding, workflowId))) {
-    return follow(env, db, event, await routeOf(db, event));
-  }
-  const result = await env.Workflow.getByName(workflowId).create(workflowId, event, null);
+  const taken = await takeOverWorkflowCreate(db, binding, workflowId);
+  if (!taken) return follow(env, db, event, await routeOf(db, event));
+  const result = await env.Workflow.getByName(workflowId).create(
+    workflowId,
+    event,
+    taken.predecessorId,
+  );
   return { workflow_id: workflowId, created: true, result };
 }
 

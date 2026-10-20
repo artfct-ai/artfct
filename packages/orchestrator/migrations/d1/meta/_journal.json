@@ -8,6 +8,13 @@
       "when": 1792515897718,
       "tag": "0000_special_mister_sinister",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1792524477426,
+      "tag": "0001_chilly_ink",
+      "breakpoints": true
     }
   ]
 }

@@ -51,9 +51,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": { "#map": [] },
         "deliveries": { "#map": [] },
@@ -62,7 +69,8 @@
         "nextWorkflow": { "#bigint": "0" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [] }
+        "rows": { "#map": [] },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -129,9 +137,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": { "#map": [] },
         "deliveries": {
@@ -146,7 +161,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -156,7 +172,8 @@
         "nextWorkflow": { "#bigint": "0" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [] }
+        "rows": { "#map": [] },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -228,9 +245,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": { "#map": [] },
         "deliveries": {
@@ -245,7 +269,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -258,7 +283,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -268,7 +294,8 @@
         "nextWorkflow": { "#bigint": "0" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [] }
+        "rows": { "#map": [] },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -337,9 +364,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": { "#map": [] },
         "deliveries": {
@@ -354,7 +388,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -367,7 +402,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -380,7 +416,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -390,7 +427,8 @@
         "nextWorkflow": { "#bigint": "0" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [] }
+        "rows": { "#map": [] },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -459,9 +497,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": { "#map": [] },
         "deliveries": {
@@ -476,7 +521,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -489,7 +535,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -502,7 +549,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -512,7 +560,8 @@
         "nextWorkflow": { "#bigint": "0" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [] }
+        "rows": { "#map": [] },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -581,9 +630,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": { "#map": [] },
         "deliveries": {
@@ -598,7 +654,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -611,7 +668,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -621,7 +679,8 @@
         "nextWorkflow": { "#bigint": "0" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [] }
+        "rows": { "#map": [] },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -694,9 +753,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": { "#map": [] },
         "deliveries": {
@@ -711,7 +777,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -724,7 +791,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -737,7 +805,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -747,7 +816,8 @@
         "nextWorkflow": { "#bigint": "0" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [] }
+        "rows": { "#map": [] },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -817,9 +887,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": { "#map": [] },
         "deliveries": {
@@ -834,7 +911,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -847,7 +925,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -857,7 +936,8 @@
         "nextWorkflow": { "#bigint": "0" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [] }
+        "rows": { "#map": [] },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -927,9 +1007,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": { "#map": [] },
         "deliveries": {
@@ -944,7 +1031,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -957,7 +1045,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -967,7 +1056,8 @@
         "nextWorkflow": { "#bigint": "0" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [] }
+        "rows": { "#map": [] },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -1037,9 +1127,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": { "#map": [] },
         "deliveries": {
@@ -1057,7 +1154,8 @@
                 "phase": { "tag": "Claiming", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -1070,7 +1168,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -1080,7 +1179,8 @@
         "nextWorkflow": { "#bigint": "1" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [] }
+        "rows": { "#map": [] },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -1150,9 +1250,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": { "#map": [] },
         "deliveries": {
@@ -1170,7 +1277,8 @@
                 "phase": { "tag": "Claiming", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -1186,7 +1294,8 @@
                 "phase": { "tag": "Claiming", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -1196,7 +1305,8 @@
         "nextWorkflow": { "#bigint": "2" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [] }
+        "rows": { "#map": [] },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -1266,9 +1376,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": { "#map": [] },
         "deliveries": {
@@ -1286,7 +1403,8 @@
                 "phase": { "tag": "Claiming", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -1302,7 +1420,8 @@
                 "phase": { "tag": "Claiming", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -1315,7 +1434,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -1325,7 +1445,8 @@
         "nextWorkflow": { "#bigint": "2" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [] }
+        "rows": { "#map": [] },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -1395,9 +1516,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": {
           "#map": [[{ "tag": "SessionB", "value": { "#tup": [] } }, { "#bigint": "1" }]]
@@ -1417,7 +1545,8 @@
                 "phase": { "tag": "Claiming", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -1433,7 +1562,8 @@
                 "phase": { "tag": "Inserting", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -1446,7 +1576,8 @@
                 "phase": { "tag": "Reading", "value": { "#tup": [] } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -1456,7 +1587,8 @@
         "nextWorkflow": { "#bigint": "2" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [] }
+        "rows": { "#map": [] },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -1526,9 +1658,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": {
           "#map": [[{ "tag": "SessionB", "value": { "#tup": [] } }, { "#bigint": "1" }]]
@@ -1548,7 +1687,8 @@
                 "phase": { "tag": "Claiming", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -1564,7 +1704,8 @@
                 "phase": { "tag": "Inserting", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -1577,7 +1718,8 @@
                 "phase": { "tag": "Claiming", "value": { "#bigint": "2" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -1587,7 +1729,8 @@
         "nextWorkflow": { "#bigint": "3" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [] }
+        "rows": { "#map": [] },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -1657,9 +1800,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": {
           "#map": [
@@ -1682,7 +1832,8 @@
                 "phase": { "tag": "Inserting", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -1698,7 +1849,8 @@
                 "phase": { "tag": "Inserting", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -1711,7 +1863,8 @@
                 "phase": { "tag": "Claiming", "value": { "#bigint": "2" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "won": []
+                "won": [],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -1721,7 +1874,8 @@
         "nextWorkflow": { "#bigint": "3" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [] }
+        "rows": { "#map": [] },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -1791,9 +1945,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": {
           "#map": [
@@ -1817,7 +1978,8 @@
                 "phase": { "tag": "Inserting", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -1833,7 +1995,8 @@
                 "phase": { "tag": "Inserting", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -1846,7 +2009,8 @@
                 "phase": { "tag": "Inserting", "value": { "#bigint": "2" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -1856,7 +2020,8 @@
         "nextWorkflow": { "#bigint": "3" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [] }
+        "rows": { "#map": [] },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -1926,9 +2091,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": {
           "#map": [
@@ -1952,7 +2124,8 @@
                 "phase": { "tag": "Inserting", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -1968,7 +2141,8 @@
                 "phase": { "tag": "Binding", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -1981,7 +2155,8 @@
                 "phase": { "tag": "Inserting", "value": { "#bigint": "2" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -1991,7 +2166,8 @@
         "nextWorkflow": { "#bigint": "3" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [[{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]] }
+        "rows": { "#map": [[{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]] },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -2061,9 +2237,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": {
           "#map": [
@@ -2087,7 +2270,8 @@
                 "phase": { "tag": "Binding", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -2103,7 +2287,8 @@
                 "phase": { "tag": "Binding", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -2116,7 +2301,8 @@
                 "phase": { "tag": "Inserting", "value": { "#bigint": "2" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -2131,7 +2317,8 @@
             [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
             [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
-        }
+        },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -2201,9 +2388,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": {
           "#map": [
@@ -2227,7 +2421,8 @@
                 "phase": { "tag": "Binding", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -2243,7 +2438,8 @@
                 "phase": { "tag": "Binding", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -2256,7 +2452,8 @@
                 "phase": { "tag": "Creating", "value": { "#bigint": "2" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "ThreadSurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -2272,7 +2469,8 @@
             [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }],
             [{ "#bigint": "2" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
-        }
+        },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -2342,9 +2540,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": {
           "#map": [
@@ -2368,7 +2573,8 @@
                 "phase": { "tag": "Binding", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -2384,7 +2590,8 @@
                 "phase": { "tag": "Binding", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -2401,7 +2608,8 @@
                 "ended": false,
                 "hasIssueJob": false,
                 "openedPulls": { "#set": [] },
-                "unbound": false
+                "unbound": false,
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -2413,7 +2621,8 @@
             [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }],
             [{ "#bigint": "2" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
-        }
+        },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -2483,9 +2692,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": {
           "#map": [
@@ -2509,7 +2725,8 @@
                 "phase": { "tag": "Binding", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -2525,7 +2742,8 @@
                 "phase": { "tag": "Binding", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -2542,7 +2760,8 @@
                 "ended": false,
                 "hasIssueJob": false,
                 "openedPulls": { "#set": [] },
-                "unbound": false
+                "unbound": false,
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -2564,7 +2783,8 @@
             [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }],
             [{ "#bigint": "2" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
-        }
+        },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -2634,9 +2854,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": {
           "#map": [
@@ -2660,7 +2887,8 @@
                 "phase": { "tag": "Binding", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -2676,7 +2904,8 @@
                 "phase": { "tag": "Binding", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -2693,7 +2922,8 @@
                 "ended": false,
                 "hasIssueJob": false,
                 "openedPulls": { "#set": [] },
-                "unbound": false
+                "unbound": false,
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -2718,7 +2948,8 @@
             [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }],
             [{ "#bigint": "2" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
-        }
+        },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -2788,9 +3019,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": {
           "#map": [
@@ -2815,7 +3053,8 @@
                 "phase": { "tag": "Creating", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }, { "#bigint": "1" }]
+                "won": [{ "#bigint": "0" }, { "#bigint": "1" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -2831,7 +3070,8 @@
                 "phase": { "tag": "Binding", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -2848,7 +3088,8 @@
                 "ended": false,
                 "hasIssueJob": false,
                 "openedPulls": { "#set": [] },
-                "unbound": false
+                "unbound": false,
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -2873,7 +3114,8 @@
             [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }],
             [{ "#bigint": "2" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
-        }
+        },
+        "predecessors": { "#map": [] }
       }
     },
     {
@@ -2943,9 +3185,16 @@
           "surfaces": { "#set": [] }
         },
         "messagesOnEndedWorkflows": { "#set": [] },
-        "movedBindings": { "#set": [] }
+        "movedBindings": { "#set": [] },
+        "predecessors": { "#map": [] }
       },
-      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": { "fanOutWentOnPastAFailure": false },
+      "twoSessionsOnOneIssue::routerBindings::stepWitnesses": {
+        "fanOutWentOnPastAFailure": false,
+        "routerEndedAnAbandon": false,
+        "routerEndedARebind": false,
+        "abandonFoundATakeover": false,
+        "takeoverNamedAPredecessor": false
+      },
       "twoSessionsOnOneIssue::routerBindings::world": {
         "bindings": {
           "#map": [
@@ -2970,7 +3219,8 @@
                 "phase": { "tag": "Creating", "value": { "#bigint": "0" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionASurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }, { "#bigint": "1" }]
+                "won": [{ "#bigint": "0" }, { "#bigint": "1" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ],
             [
@@ -2986,7 +3236,8 @@
                 "phase": { "tag": "Binding", "value": { "#bigint": "1" } },
                 "replaced": { "tag": "NothingReplaced", "value": { "#tup": [] } },
                 "surface": { "tag": "SessionBSurface", "value": { "#tup": [] } },
-                "won": [{ "#bigint": "0" }]
+                "won": [{ "#bigint": "0" }],
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -3003,7 +3254,8 @@
                 "ended": false,
                 "hasIssueJob": false,
                 "openedPulls": { "#set": [] },
-                "unbound": false
+                "unbound": false,
+                "predecessor": { "tag": "NoPredecessor", "value": { "#tup": [] } }
               }
             ]
           ]
@@ -3015,7 +3267,8 @@
             [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }],
             [{ "#bigint": "2" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
-        }
+        },
+        "predecessors": { "#map": [] }
       }
     }
   ]

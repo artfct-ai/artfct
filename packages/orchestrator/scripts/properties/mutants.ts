@@ -603,9 +603,8 @@ export const MUTANTS: Mutant[] = [
     id: "R1",
     invariant: "routerBindings::messageAfterEndStartsNextWorkflow (claim)",
     path: "src/router/deliver.ts",
-    find: "    if (!(await claimBinding(db, claimed.binding, { previous: claimed.workflowId, workflowId }))) {",
-    replace:
-      "    if (!((await claimBinding(db, claimed.binding, { previous: claimed.workflowId, workflowId })) || true)) {",
+    find: "    if (!claimWon) return follow(",
+    replace: "    if (!(claimWon || true)) return follow(",
   },
   {
     id: "R2",
@@ -657,6 +656,35 @@ export const MUTANTS: Mutant[] = [
     find: "  if (binding) await bindWorkflow(workflow, binding);\n  workflow.store.upsertArtifact({\n    job_id: task.job_id,\n    kind,\n    external_url: target.url,\n    ref: target.ref,\n  });\n",
     replace:
       "  workflow.store.upsertArtifact({\n    job_id: task.job_id,\n    kind,\n    external_url: target.url,\n    ref: target.ref,\n  });\n  if (binding) await bindWorkflow(workflow, binding);\n",
+  },
+  {
+    id: "W422",
+    invariant: "routerBindings::aBindingStaysBoundThroughItsDeliveries",
+    path: "src/db/bindings.ts",
+    find: "  await db.batch([unbind, ...restores, markFailed]);\n",
+    replace: "  await db.batch([unbind, markFailed]);\n",
+  },
+  {
+    id: "W423",
+    invariant: "routerBindings::aWorkflowHearsOfItsPredecessor (takeover drops it)",
+    path: "src/router/deliver.ts",
+    find: "    event,\n    taken.predecessorId,\n",
+    replace: "    event,\n    null,\n",
+  },
+  {
+    id: "W424",
+    invariant:
+      "routerBindings::aDeliveryLeavesTheBindingsOfARunningWorkflow (unconditional abandon)",
+    path: "src/db/bindings.ts",
+    find: "      exists(whileNew),\n    ),\n  );\n",
+    replace: "    ),\n  );\n",
+  },
+  {
+    id: "W428",
+    invariant: "routerBindings::aWorkflowHearsOfItsPredecessor (claim records none)",
+    path: "src/router/deliver.ts",
+    find: "    const claimWon = predecessorId\n",
+    replace: "    const claimWon = false\n",
   },
   {
     id: "F1",
@@ -955,9 +983,9 @@ export const MUTANTS: Mutant[] = [
   {
     id: "W174",
     invariant: "routerBindings::anAbandonedWorkflowKeepsNoBinding",
-    path: "src/router/deliver.ts",
-    find: "  if (!(await deleteBindingsOfNewWorkflow(db, workflowId, sources))) return;\n",
-    replace: "",
+    path: "src/db/bindings.ts",
+    find: "  await db.batch([unbind, ...restores, markFailed]);\n",
+    replace: "  await db.batch([...restores, markFailed]);\n",
   },
   {
     id: "W175",

@@ -77,6 +77,7 @@ type ObjectView = {
   hasIssueJob: boolean;
   openedPulls: PullKeyName[];
   unbound: boolean;
+  predecessor: number | null;
 };
 
 /**
@@ -86,6 +87,7 @@ type ObjectView = {
 export type RouterView = {
   bindings: Partial<Record<KeyName, number>>;
   rows: Record<number, RowStatusName>;
+  predecessors: Record<number, number>;
   objects: Record<number, ObjectView>;
   calls: Record<string, string>;
 };
@@ -179,7 +181,8 @@ function isNewObject(object: ObjectView): boolean {
     !object.ended &&
     !object.hasIssueJob &&
     object.openedPulls.length === 0 &&
-    !object.unbound
+    !object.unbound &&
+    object.predecessor === null
   );
 }
 
@@ -200,6 +203,10 @@ function specView(world: unknown): RouterView {
   for (const [workflow, status] of entries(itfField(world, "rows"))) {
     rows[itfInt(workflow)] = itfOneOf(itfVariant(status)!.tag, ROW_STATUSES);
   }
+  const predecessors: RouterView["predecessors"] = {};
+  for (const [workflow, predecessor] of entries(itfField(world, "predecessors"))) {
+    predecessors[itfInt(workflow)] = itfInt(predecessor);
+  }
   const objects: RouterView["objects"] = {};
   for (const [workflow, object] of entries(itfField(world, "objects"))) {
     const view: ObjectView = {
@@ -210,6 +217,7 @@ function specView(world: unknown): RouterView {
         .map((pull) => itfOneOf(itfVariant(pull)!.tag, PULL_KEYS))
         .toSorted(),
       unbound: itfBool(itfField(object, "unbound")),
+      predecessor: specPredecessor(itfField(object, "predecessor")),
     };
     if (!isNewObject(view)) objects[itfInt(workflow)] = view;
   }
@@ -223,7 +231,12 @@ function specView(world: unknown): RouterView {
       itfField(operation, "phase"),
     );
   }
-  return { bindings, rows, objects, calls };
+  return { bindings, rows, predecessors, objects, calls };
+}
+
+function specPredecessor(predecessor: unknown): number | null {
+  const named = itfVariant(predecessor)!;
+  return named.tag === "PredecessorOf" ? itfInt(named.value) : null;
 }
 
 function specDelivery(delivery: unknown): SpecDelivery {
@@ -243,7 +256,6 @@ function phaseWorkflow(tag: string, value: unknown): number | null {
     case "Reading":
       return null;
     case "FanningOut":
-    case "Restoring":
       return itfInt(itfField(value, "workflow"));
     default:
       return itfInt(value);
@@ -275,16 +287,13 @@ function deliveryCall(delivery: SpecDelivery): string {
     case "Rebinding":
     case "Claiming":
     case "Binding":
-    case "Restoring":
       return `ClaimBinding(${key})`;
     case "Inserting":
       return `InsertWorkflow(${delivery.workflow})`;
     case "Creating":
       return `CreateWorkflow(${delivery.workflow})`;
-    case "Unbinding":
+    case "Abandoning":
       return `DeleteBindings(${delivery.workflow})`;
-    case "MarkingFailed":
-      return `SetStatus(${delivery.workflow})`;
     case "TakingOver":
       return `TakeOverCreate(${delivery.workflow})`;
     default:
@@ -331,6 +340,16 @@ type Caller = {
   name: string;
   waiting: WaitingCall | null;
   stopped: (() => void) | null;
+};
+
+/** A D1 statement the replay holds, with what it runs. A batch runs its statements as one call named by the first. */
+type GatedStatement = {
+  sql: string;
+  params: unknown[];
+  run: () => Promise<unknown>;
+  all: () => Promise<unknown>;
+  raw: () => Promise<unknown>;
+  first: () => Promise<unknown>;
 };
 
 /** A call a caller made that has not landed. `land` runs it when the spec says it lands. */
@@ -576,6 +595,7 @@ export class RouterBindingsReplay {
           required(picks.landed, "landed"),
         );
       case "routerInvocationEndsMidCreate":
+      case "routerInvocationEndsMidRebind":
         return this.endRouterInvocation(
           `d${required(picks.delivery, "delivery")}`,
           required(picks.landed, "landed"),
@@ -613,6 +633,14 @@ export class RouterBindingsReplay {
       const workflow = workflowRow(row);
       rows[this.specIdOf(workflow.workflow_id)] = rowStatusOf(workflow.status);
     }
+    const predecessors: RouterView["predecessors"] = {};
+    for (const row of this.sqlite
+      .query("select workflow_id, predecessor_id from workflow_predecessors")
+      .all()) {
+      predecessors[this.specIdOf(itfText(itfField(row, "workflow_id")))] = this.specIdOf(
+        itfText(itfField(row, "predecessor_id")),
+      );
+    }
     const objects: RouterView["objects"] = {};
     for (const [name, runtime] of this.runtimes) {
       if (!runtime.store.workflowRow()) continue;
@@ -625,10 +653,20 @@ export class RouterBindingsReplay {
           .flatMap(({ ref }) => (ref.kind === "pull" ? [pullKeyOf(ref.number)] : []))
           .toSorted(),
         unbound: this.unbound.has(name),
+        predecessor: this.predecessorHeardBy(runtime),
       };
       objects[this.specIdOf(name)] = view;
     }
-    return { bindings, rows, objects, calls: this.gate.calls() };
+    return { bindings, rows, predecessors, objects, calls: this.gate.calls() };
+  }
+
+  /** The workflow whose end the first turn of a workflow heard it follows, by its spec id. */
+  private predecessorHeardBy(runtime: FakeRuntime): number | null {
+    const notes = runtime.noteTexts().join("\n");
+    const heard = this.workflowIds.findIndex((workflowId) =>
+      notes.includes(`workflow ${workflowId} ended here`),
+    );
+    return heard === -1 ? null : heard;
   }
 
   /** Let the calls still out fail, so no caller stays open. */
@@ -840,14 +878,17 @@ export class RouterBindingsReplay {
   }
 
   private gatedD1(): Env["DB"] {
-    const statementOf = (sql: string, params: unknown[]) => {
-      const named = this.statementCall(sql, params);
-      const execute = <Result>(run: () => Result) =>
-        this.gate.hold(named, () => {
+    const statementOf = (sql: string, params: unknown[]): GatedStatement => {
+      const execute = <Result>(run: () => Result) => {
+        const named = this.statementCall(sql, params);
+        return this.gate.hold(named, () => {
           const result = run();
           return named === FIND_PULL_WORKFLOWS ? this.inSpecOrder(result) : result;
         });
+      };
       return {
+        sql,
+        params,
         run: () =>
           execute(() => {
             const changes = this.sqlite.query(sql).run(...sqliteParams(params)).changes;
@@ -863,10 +904,24 @@ export class RouterBindingsReplay {
         first: () => execute(() => this.sqlite.query(sql).get(...sqliteParams(params))),
       };
     };
+    const runBatch = this.sqlite.transaction((statements: GatedStatement[]) =>
+      statements.map(({ sql, params }) => ({
+        success: true,
+        results: this.sqlite.query(sql).all(...sqliteParams(params)),
+        meta: {},
+      })),
+    );
     const binding: object = {
       prepare: (sql: string) => ({
         bind: (...params: unknown[]) => statementOf(sql, params),
       }),
+      batch: (statements: GatedStatement[]) => {
+        const [first] = statements;
+        if (!first) throw new Error("the router sent an empty batch");
+        return this.gate.hold(this.statementCall(first.sql, first.params), () =>
+          runBatch(statements),
+        );
+      },
     };
     return binding as Env["DB"];
   }

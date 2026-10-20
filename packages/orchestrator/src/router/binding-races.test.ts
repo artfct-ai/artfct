@@ -237,3 +237,67 @@ describe("a person's message in a chat thread whose workflow ended in its Durabl
     expect(view.bindings.Thread).toBe(1);
   });
 });
+
+describe("the router's invocation ends while it abandons the next workflow after an end", () => {
+  let message: string;
+
+  beforeEach(async () => {
+    const start = await replay.arrive("ThreadSurface", "Start");
+    await replay.landUntil(start, never);
+    const end = await replay.startWork(0, "end");
+    await replay.landUntil(end, never);
+    message = await replay.arrive("ThreadSurface", "PersonsMessage");
+    await replay.landUntil(message, (call) => call.startsWith("CreateWorkflow"));
+    await replay.failCreate(message);
+  });
+
+  describe("after the abandon landed", () => {
+    beforeEach(async () => {
+      await replay.endRouterInvocation(message, true);
+    });
+
+    it("points the thread back at the workflow that ended", () => {
+      const view = replay.project();
+      expect(view.bindings.Thread).toBe(0);
+      expect(view.rows[1]).toBe("Ended");
+    });
+  });
+
+  describe("before the abandon landed", () => {
+    beforeEach(async () => {
+      await replay.endRouterInvocation(message, false);
+    });
+
+    it("leaves the thread on the next workflow", () => {
+      expect(replay.project().bindings.Thread).toBe(1);
+    });
+
+    it("lets a person's next message create it, told of the workflow that ended", async () => {
+      const next = await replay.arrive("ThreadSurface", "PersonsMessage");
+      await replay.landUntil(next, never);
+      expect(replay.project().objects[1]).toMatchObject({ created: true, predecessor: 0 });
+    });
+  });
+});
+
+describe("a takeover of the next workflow after an end whose router invocation ended mid-create", () => {
+  let view: RouterView;
+
+  beforeEach(async () => {
+    const start = await replay.arrive("ThreadSurface", "Start");
+    await replay.landUntil(start, never);
+    const end = await replay.startWork(0, "end");
+    await replay.landUntil(end, never);
+    const message = await replay.arrive("ThreadSurface", "PersonsMessage");
+    await replay.landUntil(message, (call) => call.startsWith("CreateWorkflow"));
+    await replay.endRouterInvocation(message, false);
+    const next = await replay.arrive("ThreadSurface", "PersonsMessage");
+    await replay.landUntil(next, never);
+    view = replay.project();
+  });
+
+  it("creates the workflow with the predecessor the first create recorded", () => {
+    expect(view.predecessors).toEqual({ 1: 0 });
+    expect(view.objects[1]).toMatchObject({ created: true, predecessor: 0 });
+  });
+});
