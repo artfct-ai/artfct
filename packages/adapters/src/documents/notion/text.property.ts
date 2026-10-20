@@ -137,7 +137,10 @@ describe("Notion text invariants", () => {
           );
           notionRichTextJoinsBack(text, parts);
         }),
-        propertyRuns("notion rich text joins back", RUNS),
+        {
+          ...propertyRuns("notion rich text joins back", RUNS),
+          examples: [[`${"\u0000".repeat(1999)}\u{10000}`]],
+        },
       );
       expect(cutsInsideAPair).toBeGreaterThan(0);
     },

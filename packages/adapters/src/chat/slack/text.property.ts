@@ -165,7 +165,10 @@ describe("Slack text invariants", () => {
           if (cutFallsInsideAPair(text, limit)) cutsInsideAPair++;
           slackChunksKeepTheText(text, splitSlackText(text, limit), limit);
         }),
-        propertyRuns("slack chunks keep the text", RUNS),
+        {
+          ...propertyRuns("slack chunks keep the text", RUNS),
+          examples: [[{ text: "a😀", limit: 2 }]],
+        },
       );
       expect(cutsInsideAPair).toBeGreaterThan(0);
     },
@@ -182,7 +185,10 @@ describe("Slack text invariants", () => {
           const once = toSlackMrkdwn(text);
           slackMrkdwnIsStable(once, toSlackMrkdwn(once));
         }),
-        propertyRuns("slack mrkdwn is stable", RUNS),
+        {
+          ...propertyRuns("slack mrkdwn is stable", RUNS),
+          examples: [["***x***"], ["# *Note*"]],
+        },
       );
       expect(touchingMarkers).toBeGreaterThan(0);
     },
