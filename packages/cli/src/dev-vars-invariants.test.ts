@@ -65,9 +65,14 @@ const privateKey = fc
       `-----BEGIN RSA PRIVATE KEY-----\n${lines.join("\n")}\n-----END RSA PRIVATE KEY-----\n`,
   );
 
+const quotedStartValue = fc
+  .tuple(fc.constantFrom('"', "'"), singleLineValue)
+  .map(([quote, rest]) => `${quote}${rest}`);
+
 const devVarValue = fc.oneof(
   fc.constant(""),
   singleLineValue,
+  quotedStartValue,
   multiLineValue,
   entryLinesValue,
   privateKey,
