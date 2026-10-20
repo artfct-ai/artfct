@@ -12,7 +12,13 @@
   "tasks": {
     "transit": {
       "dependsOn": ["^transit"],
-      "inputs": ["$TURBO_DEFAULT$", "!**/*.test.ts", "!**/*.test.medium.ts"]
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!**/*.test.ts",
+        "!**/*.test.medium.ts",
+        "!**/*.property.ts",
+        "!**/*.property.medium.ts"
+      ]
     },
     "@artfct-ai/spec#transit": {
       "inputs": ["package.json"]
@@ -22,7 +28,13 @@
       "outputs": ["worker-configuration.d.ts"]
     },
     "template-config": {
-      "inputs": ["$TURBO_DEFAULT$", "!**/*.test.ts", "!**/*.test.medium.ts"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "!**/*.test.ts",
+        "!**/*.test.medium.ts",
+        "!**/*.property.ts",
+        "!**/*.property.medium.ts"
+      ],
       "outputs": ["test/template-config.json"]
     },
     "artfct-template#build": {
@@ -84,6 +96,8 @@
         "$TURBO_DEFAULT$",
         "!**/*.test.ts",
         "!**/*.test.medium.ts",
+        "!**/*.property.ts",
+        "!**/*.property.medium.ts",
         "$TURBO_ROOT$/spec/*/**/*"
       ]
     },
@@ -93,6 +107,8 @@
         "$TURBO_DEFAULT$",
         "!**/*.test.ts",
         "!**/*.test.medium.ts",
+        "!**/*.property.ts",
+        "!**/*.property.medium.ts",
         "$TURBO_ROOT$/spec/*/**/*"
       ],
       "passThroughEnv": ["PROPERTY_SEED", "GITHUB_STEP_SUMMARY"]

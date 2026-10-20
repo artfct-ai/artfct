@@ -907,7 +907,12 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
@@ -1218,7 +1223,12 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
@@ -1876,14 +1886,19 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": [
-                {
-                  "#bigint": "0"
-                },
-                {
-                  "#bigint": "1"
-                }
-              ]
+              "comments": {
+                "#set": [
+                  {
+                    "#bigint": "0"
+                  },
+                  {
+                    "#bigint": "1"
+                  }
+                ]
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
@@ -2232,17 +2247,27 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": [
-                {
-                  "#bigint": "0"
-                },
-                {
-                  "#bigint": "1"
-                }
-              ]
+              "comments": {
+                "#set": [
+                  {
+                    "#bigint": "0"
+                  },
+                  {
+                    "#bigint": "1"
+                  }
+                ]
+              },
+              "findings": {
+                "#set": []
+              }
             },
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { propertyFailureReport, propertyFailures } from "./failure-report";
-import { SPEC_REPLAY_FILES, STANDALONE_PROPERTY_FILES } from "./property-files";
+import { SPEC_REPLAY_FILES, standalonePropertyFile } from "./property-files";
 
 const BUN_OUTPUT = `src/workflow/invariants.test.ts:
 error: Property failed after 19 tests
@@ -27,7 +27,7 @@ Shrunk 6 time(s)
 Caused by: Error: messageAfterEndStartsNextWorkflow: 2 workflows started after wf_1 ended | twice
 `;
 
-const BUN_PROPERTY_OUTPUT = `src/chat/slack/inbound-invariants.test.ts:
+const BUN_PROPERTY_OUTPUT = `src/chat/slack/inbound.property.ts:
 error: Property failed after 2 tests
 { seed: 5, path: "1:1:0", endOnFailure: true }
 Counterexample: [50]
@@ -36,13 +36,13 @@ Shrunk 28 time(s)
 (fail) slack inbound mapper invariants > hold for a JSON value of any shape [1.98ms]
 `;
 
-const VITEST_PROPERTY_OUTPUT = ` FAIL  src/db/persons.property.test.medium.ts > person upserts > keep one row per group
+const VITEST_PROPERTY_OUTPUT = ` FAIL  src/db/persons.property.medium.ts > person upserts > keep one row per group
 Error: Property failed after 2 tests
 { seed: 5, path: "1:1:0", endOnFailure: true }
 Counterexample: [50]
 
 Caused by: AssertionError: expected 50 to be less than 50
- FAIL  src/router/identity.property.test.medium.ts > the access rules > resolve an actor
+ FAIL  src/router/identity.property.medium.ts > the access rules > resolve an actor
 Error: Property failed after 3 tests
 { seed: 5, path: "2:0", endOnFailure: true }
 `;
@@ -100,7 +100,7 @@ describe("propertyFailures", () => {
 
 describe("propertyFailureReport", () => {
   it("names the invariant, seed, path, and replay command of a failure", () => {
-    const report = propertyFailureReport(SPEC_REPLAY_FILES.agent_turns, -42, {
+    const report = propertyFailureReport(SPEC_REPLAY_FILES["agent-turns"]!, -42, {
       outcome: "failed",
       output: VITEST_OUTPUT,
     });
@@ -109,12 +109,12 @@ describe("propertyFailureReport", () => {
       "| messageAfterEndStartsNextWorkflow: 2 workflows started after wf_1 ended \\| twice | -42 | `23:5:8` |",
     );
     expect(report).toContain(
-      "PROPERTY_SEED=-42 PROPERTY_RUNS=300 bunx vitest run --config vitest.replay.config.ts ./src/agent/turn/agent-turns.replay.medium.ts",
+      "PROPERTY_SEED=-42 PROPERTY_RUNS=300 bunx vitest run --config vitest.property.config.ts ./src/agent/turn/agent-turns.replay.medium.ts",
     );
   });
 
   it("names the seed and replay command of a hang", () => {
-    const report = propertyFailureReport(SPEC_REPLAY_FILES.workflow_lifecycle, 9, {
+    const report = propertyFailureReport(SPEC_REPLAY_FILES["workflow-lifecycle"]!, 9, {
       outcome: "timed_out",
       output: "",
     });
@@ -128,20 +128,24 @@ describe("propertyFailureReport", () => {
   });
 
   it("names the package directory a standalone property replays from", () => {
-    const report = propertyFailureReport(STANDALONE_PROPERTY_FILES.person_upserts, 5, {
-      outcome: "failed",
-      output: "",
-    });
+    const report = propertyFailureReport(
+      standalonePropertyFile("src/db/persons.property.medium.ts")!,
+      5,
+      {
+        outcome: "failed",
+        output: "",
+      },
+    );
     expect(report).toContain("Replay it from `packages/orchestrator`:");
     expect(report).toContain(
-      "PROPERTY_SEED=5 PROPERTY_RUNS=3000 bunx vitest run ./src/db/persons.property.test.medium.ts",
+      "PROPERTY_SEED=5 PROPERTY_RUNS=3000 bunx vitest run --config vitest.property.config.ts ./src/db/persons.property.medium.ts",
     );
   });
 
   it("names the divided run count of a light run", () => {
     process.env.PROPERTY_RUNS_DIVISOR = "3";
     try {
-      const report = propertyFailureReport(SPEC_REPLAY_FILES.workflow_lifecycle, 9, {
+      const report = propertyFailureReport(SPEC_REPLAY_FILES["workflow-lifecycle"]!, 9, {
         outcome: "failed",
         output: "",
       });

@@ -36,6 +36,21 @@ jobs:
       - name: Replay the specs at their default count when the orchestrator, a package it depends on, or a spec changed, unless turbo has the result cached
         run: bunx turbo run spec:replay --affected
 
+  standalone_properties:
+    name: standalone properties
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: packages/orchestrator
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/install
+      - run: bun run template-config
+      - name: Run every standalone property file at its default count
+        timeout-minutes: 15
+        run: bun scripts/properties/pull-request-runs.ts standalone
+
   spec_changes:
     name: spec changes
     uses: ./.github/workflows/spec-changes.yml

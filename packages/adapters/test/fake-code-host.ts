@@ -64,6 +64,12 @@ export type CodeHostAnswers = {
   now?: () => number;
 };
 
+/** The token `mintToken` returns unless the answers name one. */
+export const FAKE_WORKFLOW_REPO_TOKEN = "ghs_fake";
+
+/** The token `mintAllReposReadToken` returns unless the answers name one. */
+export const FAKE_ALL_REPOS_READ_TOKEN = "ghs_read_fake";
+
 /** Methods a `FakeCodeHost` records. */
 export type CodeHostMethod = keyof CodeHost;
 
@@ -149,14 +155,14 @@ export class FakeCodeHost implements CodeHost {
     this.log.record("mintToken", repo, permissions);
     if (this.answers.token) return this.answers.token;
     const now = (this.answers.now ?? Date.now)();
-    return { token: "ghs_fake", expiresAt: now + 3_600_000 };
+    return { token: FAKE_WORKFLOW_REPO_TOKEN, expiresAt: now + 3_600_000 };
   }
 
   async mintAllReposReadToken(): Promise<MintedToken> {
     this.log.record("mintAllReposReadToken");
     if (this.answers.allReposReadToken) return this.answers.allReposReadToken;
     const now = (this.answers.now ?? Date.now)();
-    return { token: "ghs_read_fake", expiresAt: now + 3_600_000 };
+    return { token: FAKE_ALL_REPOS_READ_TOKEN, expiresAt: now + 3_600_000 };
   }
 
   async reviewerLogin(): Promise<string> {

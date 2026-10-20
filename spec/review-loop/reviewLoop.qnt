@@ -15,9 +15,10 @@ module reviewLoopTypes {
 
   /// Where a refiner run stands. `Running` while its turn runs or starts. `WaitsOnChecks` once a
   /// polisher's turn ended and the checks gate holds the revision. `TurnEndWaits` once a new
-  /// instance took over during the turn end of a findings reviewer or judge run, until the alarm
-  /// the start step armed runs that turn end. `Done`, `Cancelled` and `Failed` are final.
-  type RunStatus = Running | WaitsOnChecks | TurnEndWaits | Done | Cancelled | Failed
+  /// instance took over during the turn end of a findings reviewer or judge run, with the revision
+  /// of the artifact when its turn ended, until the alarm the start step armed runs that turn end.
+  /// `Done`, `Cancelled` and `Failed` are final.
+  type RunStatus = Running | WaitsOnChecks | TurnEndWaits(int) | Done | Cancelled | Failed
 
   /// How the lookups of the revision on the host go in one step: they give it, or they fail.
   type RevisionLookup = RevisionKnown | RevisionUnknown
@@ -94,16 +95,19 @@ module reviewLoopTypes {
   /// it, or the workflow ends.
   type AuthorEnding = TheAgentCancelsTheJob | TheAuthorFails | TheWorkflowEnds
 
+  /// A prompt that waits for the author: the person comments it carries, and the refiner runs whose
+  /// findings reach the author first in it.
+  type QueuedPrompt = { comments: Set[int], findings: Set[int] }
+
   /// The author task: where it stands, whether it is paused, how often it restarted, the prompts
-  /// that wait for it with the person comments each carries, the comments the prompt of a
-  /// model-call author's turn carries, the parts of the page a person rewrote since that turn read
-  /// it, the judge entries whose rejection it got, and the refiner runs whose findings it got in a
-  /// prompt.
+  /// that wait for it, the comments the prompt of a model-call author's turn carries, the parts of
+  /// the page a person rewrote since that turn read it, the judge entries whose rejection it got,
+  /// and the refiner runs whose findings reached it: in a prompt it took or in one still queued.
   type Author = {
     status: AuthorStatus,
     paused: bool,
     restarts: int,
-    queuedPrompts: List[Set[int]],
+    queuedPrompts: List[QueuedPrompt],
     turnComments: Set[int],
     pageEditsDuringTurn: Set[PagePart],
     rejectedBy: Set[int],
@@ -628,9 +632,18 @@ module reviewLoop {
   pure def hostRevision(loop: ReviewLoop, lookup: RevisionLookup): FiledRevision =
     if (lookup == RevisionKnown) ReadRevision(loop.artifact.revision) else UnknownRevision
 
+  /// True while the turn end of a refiner run waits for the alarm a new instance armed.
+  pure def turnEndWaits(status: RunStatus): bool =
+    match status { | TurnEndWaits(_) => true | _ => false }
+
+  /// The revision of the artifact when the turn of `refinerRun` ended: the one its cut turn end
+  /// kept, or the current one.
+  pure def revisionAtTurnEnd(loop: ReviewLoop, refinerRun: RefinerRun): int =
+    match refinerRun.status { | TurnEndWaits(revision) => revision | _ => loop.artifact.revision }
+
   /// True while a refiner run has not ended: its turn runs, or the checks gate holds it.
   pure def isUnfinished(status: RunStatus): bool =
-    status == Running or status == WaitsOnChecks or status == TurnEndWaits
+    status == Running or status == WaitsOnChecks or turnEndWaits(status)
 
   pure def unfinishedRunIds(loop: ReviewLoop): Set[int] =
     runIds(loop).filter(id => isUnfinished(loop.refinerRuns[id].status))
@@ -658,7 +671,7 @@ module reviewLoop {
   pure def turnEndWaitsOn(loop: ReviewLoop, refiner: Refiner): bool = and {
     unfinishedRunIds(loop).size() > 0,
     refinerOf(loop.refinerRuns[lastUnfinishedRun(loop)]) == refiner,
-    loop.refinerRuns[lastUnfinishedRun(loop)].status == TurnEndWaits,
+    turnEndWaits(loop.refinerRuns[lastUnfinishedRun(loop)].status),
   }
 
   pure def isOnRun(loop: ReviewLoop, id: int): bool =
@@ -885,24 +898,26 @@ module reviewLoop {
           ...loop.author,
           status: AtWork,
           queuedPrompts: loop.author.queuedPrompts.tail(),
-          turnComments: if (MODEL_CALL_AUTHOR) loop.author.queuedPrompts.head() else Set(),
+          turnComments: if (MODEL_CALL_AUTHOR) loop.author.queuedPrompts.head().comments else Set(),
           pageEditsDuringTurn: Set(),
         },
       }
     else loop
 
-  /// Queue a prompt for the author that carries these person comments.
-  pure def promptAuthorWith(loop: ReviewLoop, comments: Set[int]): ReviewLoop = {
-    val queued = { ...loop, author: { ...loop.author, queuedPrompts: loop.author.queuedPrompts.append(comments) } }
-    drainQueue(markSent(queued, comments))
+  /// Queue this prompt for the author.
+  pure def promptAuthorWith(loop: ReviewLoop, prompt: QueuedPrompt): ReviewLoop = {
+    val queued = { ...loop, author: { ...loop.author, queuedPrompts: loop.author.queuedPrompts.append(prompt) } }
+    drainQueue(markSent(queued, prompt.comments))
   }
 
-  pure def promptAuthor(loop: ReviewLoop): ReviewLoop = promptAuthorWith(loop, Set())
+  pure def promptAuthor(loop: ReviewLoop): ReviewLoop = promptAuthorWith(loop, { comments: Set(), findings: Set() })
 
-  /// The author gets one prompt that carries the findings of these reviews.
+  /// The author gets one prompt that carries the findings of these reviews. They reach it once the
+  /// prompt is queued.
   pure def sendFindingsToAuthor(loop: ReviewLoop, reviewRuns: Set[int]): ReviewLoop = {
     val withFindings = reviewRuns.filter(id => reviewHasFindings(loop.refinerRuns[id].result))
-    promptAuthor({ ...loop, author: { ...loop.author, findingsFrom: loop.author.findingsFrom.union(withFindings) } })
+    val reached = { ...loop, author: { ...loop.author, findingsFrom: loop.author.findingsFrom.union(withFindings) } }
+    promptAuthorWith(reached, { comments: Set(), findings: withFindings.exclude(loop.author.findingsFrom) })
   }
 
   /// The refiner runs whose reviews the segment that ends at `end` filed: the latest run of each
@@ -1022,15 +1037,18 @@ module reviewLoop {
     drainQueue(settleThroughTheAuthorsGate(ended, answers.gate, answers.decision, answers.lookup))
   }
 
-  /// The author ends with the status `ending`, cancelled or failed. Its queued prompts go, its
-  /// unfinished refiner run is cancelled, and the humans get the artifact blocked.
+  /// The author ends with the status `ending`, cancelled or failed. Its queued prompts go with the
+  /// findings that reached it only in them, its unfinished refiner run is cancelled, and the humans
+  /// get the artifact blocked.
   pure def endAuthor(loop: ReviewLoop, ending: AuthorStatus, lookup: RevisionLookup): ReviewLoop = {
+    val untaken = loop.author.queuedPrompts.foldl(Set(), (found, prompt) => found.union(prompt.findings))
     val stopped = {
       ...loop,
       author: {
         ...loop.author,
         status: ending,
         queuedPrompts: List(),
+        findingsFrom: loop.author.findingsFrom.exclude(untaken),
         turnComments: Set(),
         pageEditsDuringTurn: Set(),
       },
@@ -1047,7 +1065,7 @@ module reviewLoop {
     val restarted = { ...loop.author, restarts: loop.author.restarts + 1, turnComments: Set(), pageEditsDuringTurn: Set() }
     if (loop.author.restarts >= MAX_RESTARTS) endAuthor(loop, AuthorFailed, lookup)
     else if (polisherRunning(loop))
-      { ...loop, author: { ...restarted, status: InReview, queuedPrompts: if (queued.length() == 0) List(Set()) else queued } }
+      { ...loop, author: { ...restarted, status: InReview, queuedPrompts: if (queued.length() == 0) List({ comments: Set(), findings: Set() }) else queued } }
     else
       { ...loop, author: { ...restarted, status: AtWork, queuedPrompts: if (queued.length() == 0) queued else queued.tail() } }
   }
@@ -1062,7 +1080,7 @@ module reviewLoop {
 
   /// The person comments the prompts that wait for the author carry.
   pure def queuedComments(loop: ReviewLoop): Set[int] =
-    loop.author.queuedPrompts.foldl(Set(), (comments, prompt) => comments.union(prompt))
+    loop.author.queuedPrompts.foldl(Set(), (comments, prompt) => comments.union(prompt.comments))
 
   /// True when a person changed the page text since the author's turn read it.
   pure def pageTextEditedDuringTurn(loop: ReviewLoop): bool =
@@ -1149,14 +1167,15 @@ module reviewLoop {
   }
 
   /// A segment settles on the review of the latest run of each entry. A stale review runs the
-  /// list again from the segment's first entry that still has a say on the revision. No review is
-  /// stale against an unknown revision.
+  /// list again from the segment's first entry that still has a say on the revision. While the
+  /// author works, the artifact lets go of the run, so the list runs from the top once the author
+  /// is quiet. No review is stale against an unknown revision.
   pure def settleSegment(loop: ReviewLoop, end: int, lookup: RevisionLookup): ReviewLoop = {
     val start = segmentStartOf(end)
     val filed = segmentReviewRuns(loop, end)
     val stale = segmentIsStale(loop, end, lookup)
     if (filed.size() == 0) advancePastEntry(loop, end, lookup)
-    else if (stale and not(authorQuiet(loop))) settleRefiners(loop, AgentRoutes, lookup)
+    else if (stale and not(authorQuiet(loop))) settleRefiners(withoutRefinerRun(loop), AgentRoutes, lookup)
     else if (stale) runRefinersFrom(loop, start, lookup)
     else if (filed.exists(id => reviewHasFindings(loop.refinerRuns[id].result))) sendFindingsToAuthor(loop, filed)
     else advancePastEntry(loop, end, lookup)
@@ -1177,8 +1196,8 @@ module reviewLoop {
 
   /// A finished reviewer posts its review on a page first. Then it hands on while a later entry of
   /// its segment still has a say. Otherwise the segment settles, on the last findings entry of
-  /// it. A judge that ruled has no say. A pull request review names the commit it read. A page
-  /// review reads the revision from the host after its post.
+  /// it. A judge that ruled has no say. A pull request review names the commit it read when its
+  /// turn ended. A page review reads the revision from the host after its post.
   pure def findingsReviewerFinished(
     loop: ReviewLoop,
     id: int,
@@ -1188,7 +1207,7 @@ module reviewLoop {
   ): ReviewLoop = {
     val refinerRun = loop.refinerRuns[id]
     val index = refinerRun.refinerIndex
-    val reviewed = if (ON_A_PAGE) hostRevision(loop, lookup) else ReadRevision(loop.artifact.revision)
+    val reviewed = if (ON_A_PAGE) hostRevision(loop, lookup) else ReadRevision(revisionAtTurnEnd(loop, refinerRun))
     val filed = FiledReview({ revision: reviewed, findings: findings })
     val posted =
       if (ON_A_PAGE) loop.reviewComments.concat(pageReviewComments(id, findings, commenting))
@@ -1467,7 +1486,7 @@ module reviewLoop {
     val marked = screened and read == AdmittedAndAcknowledged
     val carried = if (marked) held else Set()
     val acknowledged = acknowledge(during, carried)
-    val prompted = if (agentText or marked) promptAuthorWith(acknowledged, carried) else acknowledged
+    val prompted = if (agentText or marked) promptAuthorWith(acknowledged, { comments: carried, findings: Set() }) else acknowledged
     val stayHeld = read == HostCannotBeRead or (screened and not(marked))
     { loop: prompted, carried: carried, agentHeard: if (stayHeld) Set(HeldCommentsStayHeld) else Set() }
   }
@@ -1506,7 +1525,7 @@ module reviewLoop {
     }
     else if (refused) { loop: during, page: asked, agentHeard: Set(MentionText) }
     else {
-      loop: if (carried.size() > 0) promptAuthorWith(acknowledged, carried) else acknowledged,
+      loop: if (carried.size() > 0) promptAuthorWith(acknowledged, { comments: carried, findings: Set() }) else acknowledged,
       page: asked,
       agentHeard: Set(MentionText)
         .union(if (screened) Set(HeldCommentText) else Set())
@@ -2030,7 +2049,7 @@ module reviewLoop {
     aRunningRunExists(review) or turnEndWaitsOn(review, FindingsReviewer) or turnEndWaitsOn(review, Judge),
     val id = lastUnfinishedRun(review)
     val refinerRun = review.refinerRuns[id]
-    nondet cause = (if (refinerRun.status == TurnEndWaits) Set(GivesUp) else RESTART_CAUSES).oneOf()
+    nondet cause = (if (turnEndWaits(refinerRun.status)) Set(GivesUp) else RESTART_CAUSES).oneOf()
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     moveWith(
       if (refinerRun.restarts < MAX_RESTARTS)
@@ -2112,8 +2131,8 @@ module reviewLoop {
 
   /// The start step of a new instance runs a model-call author's lost revise turn again, as a
   /// restart of the author. The turn keeps its prompt and reads the page again. A paused author
-  /// takes the prompt back at the head of its queue instead. The author fails once its restarts
-  /// are used up.
+  /// takes the prompt back at the head of its queue instead, and the findings the prompt carries
+  /// stay taken. The author fails once its restarts are used up.
   pure def runTheLostModelTurnAgain(loop: ReviewLoop, lookup: RevisionLookup): ReviewLoop = {
     val restarted = { ...loop.author, restarts: loop.author.restarts + 1, pageEditsDuringTurn: Set() }
     if (loop.author.restarts >= MAX_RESTARTS) endAuthor(loop, AuthorFailed, lookup)
@@ -2122,7 +2141,7 @@ module reviewLoop {
       author: {
         ...restarted,
         status: InReview,
-        queuedPrompts: List(loop.author.turnComments).concat(loop.author.queuedPrompts),
+        queuedPrompts: List({ comments: loop.author.turnComments, findings: Set() }).concat(loop.author.queuedPrompts),
         turnComments: Set(),
       },
     }
@@ -2238,7 +2257,7 @@ module reviewLoop {
     INSTANCE_RESTARTS,
     not(aModelTurnIsOut(review)),
     runningRunIs(review, FindingsReviewer) or runningRunIs(review, Judge),
-    val waits = withStatus(review, lastUnfinishedRun(review), TurnEndWaits)
+    val waits = withStatus(review, lastUnfinishedRun(review), TurnEndWaits(review.artifact.revision))
     moveWith(instanceTakesOver(waits, RevisionKnown), { ...quietStep(NoTurnEnd), instanceRestarted: true }),
   }
 
@@ -2453,7 +2472,7 @@ module reviewLoop {
 
   /// True when the author got a prompt in a step with findings it did not have before.
   pure def gotNewFindings(step: Transition): bool =
-    step.after.author.findingsFrom != step.before.author.findingsFrom
+    step.after.author.findingsFrom.exists(id => not(step.before.author.findingsFrom.contains(id)))
 
   /// The review comments posted in a step. A restart that cut a rejection's post posts none.
   pure def postedIn(step: Transition): List[ReviewComment] =
@@ -3059,9 +3078,9 @@ module reviewLoop {
       step.before.artifact.handoverPostWaits and step.after.artifact.handoverPosts > step.before.artifact.handoverPosts,
     aRestartCutsAReviewerTurnEnd:
       step.kind.instanceRestarted and runIds(step.after).exists(id =>
-        hadStatus(step, id, Running) and step.after.refinerRuns[id].status == TurnEndWaits),
+        hadStatus(step, id, Running) and turnEndWaits(step.after.refinerRuns[id].status)),
     aCutReviewerTurnEndRuns: match step.kind.turnEnd {
-      | RefinerTurnEnded(id) => hadStatus(step, id, TurnEndWaits)
+      | RefinerTurnEnded(id) => id < step.before.refinerRuns.length() and turnEndWaits(step.before.refinerRuns[id].status)
       | _ => false
     },
     aRestartCutsARejectionPost: step.kind.cutARejectionPost,
@@ -3343,7 +3362,7 @@ module reviewLoop {
   /// the step of the restart, so a polisher never waits this way.
   val aRestartDoesNotStrandAReviewerTurnEnd: bool =
     runIds(review).forall(id =>
-      review.refinerRuns[id].status == TurnEndWaits implies and {
+      turnEndWaits(review.refinerRuns[id].status) implies and {
         isOnRun(review, id),
         refinerOf(review.refinerRuns[id]) != Polisher,
       })

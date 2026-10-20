@@ -129,7 +129,7 @@ export async function planLocalRun(
   const capability = artifactCapability(kind);
   const credential = artifactNeedsWorkflowRepoToken(kind, config.adapters)
     ? (minted?.workflowRepoToken ?? null)
-    : await workflow.mcpCredential();
+    : await workflow.mcpCredential(capability);
   const built = buildStartSpec({
     task,
     job: workflow.store.requireJob(task.job_id),

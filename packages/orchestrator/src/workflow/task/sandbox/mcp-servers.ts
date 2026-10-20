@@ -1,8 +1,6 @@
 import type { McpServer } from "@agentclientprotocol/sdk";
 import type { McpServer as ProviderMcpServer } from "@artfct-ai/adapters/mcp";
-import type { McpServerEntry } from "../../../config/mcp-servers";
-
-const SECRET_REFERENCE = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
+import { MCP_SECRET_REFERENCE, type McpServerEntry } from "../../../config/mcp-servers";
 
 /**
  * The MCP servers a harness session connects to: the provider's, then the customer's with each
@@ -19,7 +17,7 @@ export function harnessMcpServers(options: {
   const customer = configured.flatMap((entry) => {
     const missing = new Set<string>();
     const fill = (text: string) =>
-      text.replace(SECRET_REFERENCE, (_reference, name: string) => {
+      text.replace(MCP_SECRET_REFERENCE, (_reference, name: string) => {
         const value = secret(name);
         if (value) return value;
         missing.add(name);
