@@ -6,8 +6,7 @@
     ".oxlintrc.json",
     "package.json",
     "tsconfig.base.json",
-    "tsconfig.declarations.json",
-    "template/**"
+    "tsconfig.declarations.json"
   ],
   "tasks": {
     "transit": {
@@ -33,7 +32,13 @@
         "!**/*.test.ts",
         "!**/*.test.medium.ts",
         "!**/*.property.ts",
-        "!**/*.property.medium.ts"
+        "!**/*.property.medium.ts",
+        "!scripts/properties/**",
+        "!scripts/spec/**",
+        "$TURBO_ROOT$/template/orchestrator/artfct.yaml",
+        "$TURBO_ROOT$/template/orchestrator/writing-rules.md",
+        "$TURBO_ROOT$/template/orchestrator/skills/**",
+        "$TURBO_ROOT$/template/orchestrator/workflows/**"
       ],
       "outputs": ["test/template-config.json"]
     },
@@ -43,6 +48,16 @@
     },
     "build": {
       "dependsOn": ["transit"],
+      "outputs": ["dist/**"]
+    },
+    "artfct#build": {
+      "dependsOn": ["transit"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/template/**",
+        "!$TURBO_ROOT$/template/**/node_modules/**",
+        "!$TURBO_ROOT$/template/**/dist/**"
+      ],
       "outputs": ["dist/**"]
     },
     "@artfct-ai/core#build": {
@@ -57,6 +72,7 @@
     },
     "@artfct-ai/core#types": {
       "dependsOn": ["@artfct-ai/core#build"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/template/orchestrator/wrangler.jsonc"],
       "outputs": ["worker-configuration.d.ts"]
     },
     "@artfct-ai/core#test": {
@@ -66,7 +82,13 @@
       "dependsOn": ["transit", "types", "build", "artfct-template#build"]
     },
     "artfct#test": {
-      "dependsOn": ["transit", "@artfct-ai/core#build"]
+      "dependsOn": ["transit", "@artfct-ai/core#build"],
+      "inputs": [
+        "$TURBO_DEFAULT$",
+        "$TURBO_ROOT$/template/**",
+        "!$TURBO_ROOT$/template/**/node_modules/**",
+        "!$TURBO_ROOT$/template/**/dist/**"
+      ]
     },
     "artfct#lint": {
       "dependsOn": ["transit", "types", "template-config", "@artfct-ai/core#build"]
@@ -91,24 +113,26 @@
       "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/spec/*/**/*"]
     },
     "@artfct-ai/orchestrator#spec:replay": {
-      "dependsOn": ["transit", "types", "template-config"],
+      "dependsOn": ["^transit", "types", "template-config"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "!**/*.test.ts",
         "!**/*.test.medium.ts",
         "!**/*.property.ts",
         "!**/*.property.medium.ts",
+        "!scripts/properties/mutants.ts",
         "$TURBO_ROOT$/spec/*/**/*"
       ]
     },
     "@artfct-ai/orchestrator#spec:replay:e2e": {
-      "dependsOn": ["transit", "types", "template-config"],
+      "dependsOn": ["^transit", "types", "template-config"],
       "inputs": [
         "$TURBO_DEFAULT$",
         "!**/*.test.ts",
         "!**/*.test.medium.ts",
         "!**/*.property.ts",
         "!**/*.property.medium.ts",
+        "!scripts/properties/mutants.ts",
         "$TURBO_ROOT$/spec/*/**/*"
       ],
       "passThroughEnv": ["PROPERTY_SEED", "GITHUB_STEP_SUMMARY"]
