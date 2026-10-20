@@ -196,6 +196,12 @@ describe("workflow lifecycle spec", () => {
     await replayTrace("modelCallPagesForAnIssue", traceSteps("modelCallPagesForAnIssue", trace));
   });
 
+  it("hands a model-call author's revision to the humans without running the judge that ruled again", async () => {
+    const path = join(PINNED_TRACES, "a-revision-passes-over-a-ruled-judge.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("modelCallPagesWithAJudge", traceSteps("modelCallPagesWithAJudge", trace));
+  });
+
   it("leaves the page to the teardown of an author cancelled mid-turn when its review ends", async () => {
     const path = join(
       PINNED_TRACES,

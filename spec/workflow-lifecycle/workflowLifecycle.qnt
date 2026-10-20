@@ -90,8 +90,9 @@ module workflowLifecycleTypes {
   /// What a person does to a pull on the host.
   type HostMove = Merged | ClosedUnmerged | Reopened
 
-  /// The refiner of the stage. A judge runs as a reviewer does here.
-  type Refiner = NoRefiner | AReviewer | APolisher
+  /// The refiner of the stage. A judge runs as a reviewer does, until it rules. A judge that ruled
+  /// does not run again on a later revision.
+  type Refiner = NoRefiner | AReviewer | AJudge | APolisher
 
   /// How the stage of each job ends. On a choice ending, `complete_job` checks the option a person
   /// selects from those its page lists, so it refuses a job that does not have a page yet.
@@ -433,6 +434,7 @@ module workflowLifecycleTypes {
     aWorkflowEndResumesAfterARestart: bool,
     aRestartCutsTheEndPost: bool,
     aResumedEndFindsItsPostReturned: bool,
+    aRevisionPassesOverARuledJudge: bool,
   }
 
   /// What starts a workflow end: a person's cancel, `fail_workflow`, or `finish_workflow`.
@@ -1287,18 +1289,24 @@ module workflowLifecycle {
     jobTask(flow, id).promptsQueued.length() == 0,
   }
 
+  /// True when the judge of the job ruled on its page. Its approval ends a refiner run done.
+  pure def judgeRuled(job: Job): bool = REFINER == AJudge and hasRefinerRun(job, RefinerDone)
+
   /// The settle after a turn of a model-call author on a draft: a reviewer starts on it once the
-  /// author is quiet and no refiner run is on it.
+  /// author is quiet and no refiner run is on it. A judge that ruled is passed over, so the humans
+  /// get the page.
   pure def reviewModelPage(flow: Workflow, id: int): Workflow =
     if (REFINER == NoRefiner or refinerRunning(flow.jobs[id]) or not(authorQuiet(flow, id))) flow
+    else if (judgeRuled(flow.jobs[id])) handOverPage(flow, id)
     else withJob(flow, id, startRefinerRun(flow.jobs[id]))
 
   /// The page write of a model turn returns, and the turn goes on. An author that finished
   /// meanwhile leaves its job as it was. A produce turn hands the page over. A revise turn makes
   /// the page a draft again until the author takes no further prompt. A stage with a reviewer
-  /// keeps the page a draft, and its reviewer starts once the author is quiet. The next turn
-  /// carries the event that waits on this one. Once the author takes no next turn, the agent hears
-  /// that the turn ended unless the stage runs refiners, and the event that waited tells the agent.
+  /// keeps the page a draft, and its reviewer starts once the author is quiet. A judge that ruled
+  /// does not start again, so the humans get the page. The next turn carries the event that waits
+  /// on this one. Once the author takes no next turn, the agent hears that the turn ended when the
+  /// humans have the page, and the event that waited tells the agent.
   pure def modelTurnEnds(flow: Workflow, id: int, turn: ModelTurn): Outcome = {
     val task = jobTask(flow, id)
     val inReview = withTask(flow, id, { ...task, status: InReview })
@@ -1312,7 +1320,7 @@ module workflowLifecycle {
         if (modelTurnInFlight(drained, id)) drained else handOverPage(drained, id)
       }
     val turnsEnd = isFinished(task.status) or not(modelTurnInFlight(ended, id))
-    val toldTheTurnEnd = not(isFinished(task.status)) and REFINER == NoRefiner
+    val toldTheTurnEnd = not(isFinished(task.status)) and ended.jobs[id].artifact == Ready
     { flow: ended, told: turnsEnd and (turn.eventWaits or toldTheTurnEnd) }
   }
 
@@ -3529,6 +3537,14 @@ module workflowLifecycle {
       aWorkflowEndResumesAfterARestart: step.kind == EndResumeStep,
       aRestartCutsTheEndPost: step.kind == RestartStep and endPostWaiters(step.before).size() > 0,
       aResumedEndFindsItsPostReturned: step.kind == EndResumeStep and endPostReturned(step.before),
+      aRevisionPassesOverARuledJudge: step.kind == OtherStep and jobsBefore(step).exists(id => and {
+        judgeRuled(step.before.jobs[id]),
+        pageWriteOut(step.before, id),
+        not(pageWriteOut(step.after, id)),
+        step.after.jobs[id].artifact == Ready,
+        step.after.jobs[id].refinerRuns == step.before.jobs[id].refinerRuns,
+        not(isFinished(jobTask(step.after, id).status)),
+      }),
       aMessageLandsOnAWaitingWorkflow: isPersonsMessage(step.kind) and step.before.status == WaitingInput,
       aPersonsMessageLandsDuringAnEnd: isPersonsMessage(step.kind) and workflowEnding(step.before),
       aTrackerWorkflowEndsWithoutDone: and {
@@ -3938,6 +3954,10 @@ module workflowLifecycle {
   /// Witness for `anEndedWorkflowPostsItsEndOnce`: the alarm goes on with a workflow end whose post
   /// returned before an instance restart cut its unbind.
   val aResumedEndFindsItsPostReturned: bool = lastStepReached.aResumedEndFindsItsPostReturned
+
+  /// The page write of a revise turn returns on a page whose judge ruled, and the humans get the
+  /// page without another judge run.
+  val aRevisionPassesOverARuledJudge: bool = lastStepReached.aRevisionPassesOverARuledJudge
 
   /// A prompt waits for the turn of a task to end.
   val aPromptWaits: bool = jobIds(workflow).exists(id => jobTask(workflow, id).promptsQueued.length() > 0)
