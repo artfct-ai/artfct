@@ -36,7 +36,8 @@
     "eachFailedTaskPostsItsFailureOnce",
     "aFinishedAuthorsSandboxIsDestroyed",
     "anEndedWorkflowPostsItsEndOnce",
-    "aCompletedJobEndsItsReview"
+    "aCompletedJobEndsItsReview",
+    "aDoneResearchersJobHasItsAuthor"
   ],
   "mainMinutes": {
     "pagesWithAReviewer": 1.8,
@@ -108,7 +109,8 @@
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut",
-      "aJobCompletesDuringItsReview"
+      "aJobCompletesDuringItsReview",
+      "aTaskEndAlarmFinishesACompletion"
     ],
     "pagesWithAPolisher": [
       "aPlanStartsTheWorkflow",
@@ -165,7 +167,8 @@
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut",
-      "aJobCompletesDuringItsReview"
+      "aJobCompletesDuringItsReview",
+      "aTaskEndAlarmFinishesACompletion"
     ],
     "pagesWithoutRefiners": [
       "aPlanStartsTheWorkflow",
@@ -214,7 +217,8 @@
       "aRestartCutsTheDestroyOfACompletedAuthor",
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
-      "aTaskEndAlarmFindsItsTeardownOut"
+      "aTaskEndAlarmFindsItsTeardownOut",
+      "aTaskEndAlarmFinishesACompletion"
     ],
     "pagesWithAChoice": [
       "aPlanStartsTheWorkflow",
@@ -305,7 +309,10 @@
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut",
-      "aResearcherPostsItsFailure"
+      "aResearcherPostsItsFailure",
+      "aRestartCutsTheDestroyOfAResearcherThatHandedOver",
+      "aResearcherEndAlarmDestroysTheSandboxAgain",
+      "aTaskEndAlarmFinishesACompletion"
     ],
     "pagesFromModelCalls": [
       "aPlanStartsTheWorkflow",
@@ -495,7 +502,9 @@
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut",
-      "aResearcherPostsItsFailure"
+      "aResearcherPostsItsFailure",
+      "aRestartCutsTheDestroyOfAResearcherThatHandedOver",
+      "aResearcherEndAlarmDestroysTheSandboxAgain"
     ],
     "modelCallPagesForAnIssue": [
       "aPlanStartsTheWorkflow",
@@ -627,7 +636,9 @@
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut",
-      "aStartRecordsARemovedPull"
+      "aStartRecordsARemovedPull",
+      "aTaskEndAlarmEndsASingleIssueWorkflow",
+      "aTaskEndAlarmFinishesACompletion"
     ],
     "pullsForAnEndedSubject": [
       "aPlanStartsTheWorkflow",
@@ -684,7 +695,9 @@
       "aRestartCutsTheDestroyOfACompletedAuthor",
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
-      "aTaskEndAlarmFindsItsTeardownOut"
+      "aTaskEndAlarmFindsItsTeardownOut",
+      "aTaskEndAlarmEndsASingleIssueWorkflow",
+      "aTaskEndAlarmFinishesACompletion"
     ],
     "pullsForAnEndedSubIssue": [
       "aPlanStartsTheWorkflow",
@@ -740,7 +753,8 @@
       "aRestartCutsTheDestroyOfACompletedAuthor",
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
-      "aTaskEndAlarmFindsItsTeardownOut"
+      "aTaskEndAlarmFindsItsTeardownOut",
+      "aTaskEndAlarmFinishesACompletion"
     ],
     "pullsForTwoIssues": [
       "aPlanStartsTheWorkflow",
@@ -798,7 +812,9 @@
       "aRestartCutsTheDestroyOfACompletedAuthor",
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
-      "aTaskEndAlarmFindsItsTeardownOut"
+      "aTaskEndAlarmFindsItsTeardownOut",
+      "aTaskEndAlarmEndsASingleIssueWorkflow",
+      "aTaskEndAlarmFinishesACompletion"
     ],
     "issuesForAChatRequest": [
       "aPlanStartsTheWorkflow",
@@ -853,7 +869,8 @@
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut",
-      "theWorkflowFailed"
+      "theWorkflowFailed",
+      "aTaskEndAlarmFinishesACompletion"
     ]
   },
   "maxSteps": {

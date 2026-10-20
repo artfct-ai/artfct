@@ -177,6 +177,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       },
       "probeStep": { "#bigint": "0" }
@@ -338,6 +339,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       },
       "probeStep": { "#bigint": "1" }
@@ -499,6 +501,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       },
       "probeStep": { "#bigint": "2" }
@@ -681,6 +684,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       },
       "probeStep": { "#bigint": "3" }
@@ -863,6 +867,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       },
       "probeStep": { "#bigint": "4" }
@@ -1045,6 +1050,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       },
       "probeStep": { "#bigint": "5" }
@@ -1245,6 +1251,7 @@
         "storedEnd": { "tag": "EndStored", "value": { "tag": "Failed", "value": { "#tup": [] } } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       },
       "probeStep": { "#bigint": "6" }
@@ -1430,6 +1437,7 @@
         "storedEnd": { "tag": "EndStored", "value": { "tag": "Failed", "value": { "#tup": [] } } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       },
       "probeStep": { "#bigint": "7" }
@@ -1615,6 +1623,7 @@
         "storedEnd": { "tag": "EndPosted", "value": { "tag": "Failed", "value": { "#tup": [] } } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       },
       "probeStep": { "#bigint": "8" }
@@ -1800,6 +1809,7 @@
         "storedEnd": { "tag": "EndPosted", "value": { "tag": "Failed", "value": { "#tup": [] } } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       },
       "probeStep": { "#bigint": "9" }
@@ -1982,6 +1992,7 @@
         "storedEnd": { "tag": "EndPosted", "value": { "tag": "Failed", "value": { "#tup": [] } } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       },
       "probeStep": { "#bigint": "10" }
@@ -2167,6 +2178,7 @@
         "storedEnd": { "tag": "EndPosted", "value": { "tag": "Failed", "value": { "#tup": [] } } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       },
       "probeStep": { "#bigint": "11" }
