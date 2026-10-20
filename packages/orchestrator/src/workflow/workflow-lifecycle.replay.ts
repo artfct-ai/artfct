@@ -175,6 +175,18 @@ describe("workflow lifecycle spec", () => {
     );
   });
 
+  it("keeps the status of a workflow a person ended while its subject job's destroy was out", async () => {
+    const path = join(PINNED_TRACES, "a-completion-after-the-subject-ended-keeps-its-status.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("pullsForAnEndedSubject", traceSteps("pullsForAnEndedSubject", trace));
+  });
+
+  it("keeps a pull removed when the cancel its close started finishes", async () => {
+    const path = join(PINNED_TRACES, "a-closed-pull-stays-removed-after-its-cancel.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("pullsTheHostMoves", traceSteps("pullsTheHostMoves", trace));
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,
