@@ -1266,9 +1266,9 @@ export const MUTANTS: Mutant[] = [
     id: "W139",
     invariant: "reviewLoop::aJudgeRejectionPostsItsReasonOnce",
     path: "src/workflow/refiner/loop.ts",
-    find: "  if (support.postRejection) await support.postRejection(artifact.ref, signedReason);\n",
+    find: "      ? support.postRejection(artifact.ref, signedReason)\n",
     replace:
-      "  if (support.postRejection) {\n    await support.postRejection(artifact.ref, signedReason);\n    await support.postRejection(artifact.ref, signedReason);\n  }\n",
+      "      ? support\n          .postRejection(artifact.ref, signedReason)\n          .then(() => support.postRejection?.(artifact.ref, signedReason))\n",
   },
   {
     id: "W140",
@@ -1723,6 +1723,62 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/refiner/loop.ts",
     find: "    isTaskFinished(current.status) &&\n    workflow.store.sandbox(current.task_id)?.prompt_in_flight === 1\n",
     replace: "    false\n",
+  },
+  {
+    id: "W346",
+    invariant:
+      "reviewLoop::theHumansHearOfEachHandoverOnce (no alarm is armed before the handover post)",
+    path: "src/workflow/refiner/outcome.ts",
+    find: '  const alarm = await workflow.scheduleAlarm(HANDOVER_POST_ALARM_SECONDS, "postHandover", post);\n  await postTheHandover(workflow, artifact, close);\n  await workflow.cancelAlarm(alarm);\n',
+    replace: "  await postTheHandover(workflow, artifact, close);\n",
+  },
+  {
+    id: "W347",
+    invariant:
+      "reviewLoop::theHumansHearOfEachHandoverOnce (the handover alarm stays armed after its post)",
+    path: "src/workflow/refiner/outcome.ts",
+    find: "  await postTheHandover(workflow, artifact, close);\n  await workflow.cancelAlarm(alarm);\n",
+    replace: "  await postTheHandover(workflow, artifact, close);\n",
+  },
+  {
+    id: "W348",
+    invariant:
+      "reviewLoop::theHumansHearOfEachHandoverOnce (the alarm posts the handover of a draft)",
+    path: "src/workflow/refiner/outcome.ts",
+    find: '  if (artifact?.status !== "ready") return;\n  workflow.log(null, `the handover of job',
+    replace: "  if (!artifact) return;\n  workflow.log(null, `the handover of job",
+  },
+  {
+    id: "W349",
+    invariant:
+      "reviewLoop::theHumansHearOfEachHandoverOnce (a newer handover keeps the older alarm armed)",
+    path: "src/workflow/refiner/outcome.ts",
+    find: '  await workflow.cancelAlarmsWhere(\n    "postHandover",\n    (payload) => (payload as HandoverPostAlarm).job_id === jobId,\n  );\n',
+    replace: "",
+  },
+  {
+    id: "W355",
+    invariant:
+      "reviewLoop::aRestartDoesNotStrandAReviewerTurnEnd (the start step arms no reviewer turn end)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: "    if (!sandbox || !reviewerTurnEndWaits(workflow, run)) continue;\n",
+    replace: "    continue;\n",
+  },
+  {
+    id: "W356",
+    invariant:
+      "reviewLoop::aRestartDoesNotStrandAReviewerTurnEnd (a reviewer's turn text goes at its turn end)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: '    turn_text: task.role === "reviewer" ? turnText : "",\n',
+    replace: '    turn_text: "",\n',
+  },
+  {
+    id: "W357",
+    invariant: "reviewLoop::judgeRulesAtMostOnce (the rejection posts before the author's prompt)",
+    path: "src/workflow/refiner/loop.ts",
+    find: '  await Promise.all([\n    support.postRejection\n      ? support.postRejection(artifact.ref, signedReason)\n      : workflow.post({ type: "info", text: signedReason }),\n    sendRejectionToAuthor(',
+    replace:
+      '  await (support.postRejection\n    ? support.postRejection(artifact.ref, signedReason)\n    : workflow.post({ type: "info", text: signedReason }));\n  await Promise.all([\n    sendRejectionToAuthor(',
   },
 ];
 

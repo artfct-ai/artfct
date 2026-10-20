@@ -1,7 +1,7 @@
 import { resumeLostTurn } from "../src/agent/turn/watchdog";
 import { armWorkflowEndAlarm, resumeWorkflowEnd } from "../src/workflow/lifecycle";
 import { armLostCallsAlarm, resumeLostCalls, type LostCallsAlarm } from "../src/workflow/restart";
-import { settleIdleAuthors } from "../src/workflow/task/harness/turn";
+import { resumeReviewerTurnEnds, settleIdleAuthors } from "../src/workflow/task/harness/turn";
 import { runLostModelTurnAgain, type ModelTurnAlarm } from "../src/workflow/task/model-turn";
 import { provisionQueuedTasks } from "../src/workflow/task/sandbox/sandbox";
 import type { FakeRuntime } from "./fake-runtime";
@@ -13,6 +13,7 @@ export async function startRestartedInstance(restarted: FakeRuntime): Promise<vo
   await resumeLostTurn(restarted);
   await provisionQueuedTasks(restarted);
   await settleIdleAuthors(restarted);
+  await resumeReviewerTurnEnds(restarted);
 }
 
 /**

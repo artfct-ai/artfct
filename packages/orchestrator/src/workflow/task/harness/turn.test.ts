@@ -3,8 +3,14 @@ import { harnessAdapter } from "@artfct-ai/adapters/harness/clients";
 import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
 import { beforeEach, describe, expect, it } from "bun:test";
 import { freshRuntime } from "../../../../test/fresh-runtime";
-import { loggedFailureReason, onSessionUpdate, TurnCoalescer } from "./turn";
-import { seedTask } from "../../../../test/fake-runtime";
+import {
+  loggedFailureReason,
+  onSessionUpdate,
+  resumeReviewerTurnEnd,
+  resumeReviewerTurnEnds,
+  TurnCoalescer,
+} from "./turn";
+import { REVIEW_TASK, seedReviewerRun, seedTask } from "../../../../test/fake-runtime";
 import { scenario } from "../../../../test/scenario";
 
 const TASK = "wf_x.1";
@@ -387,5 +393,58 @@ describe("TurnCoalescer", () => {
       await expect(failing).rejects.toThrow("reset");
       await expect(idle).rejects.toThrow("reset");
     });
+  });
+});
+
+function reviewerRunAfterItsTurn(promptInFlight: 0 | 1) {
+  return scenario(freshRuntime, async (workflow) => {
+    seedReviewerRun(workflow);
+    workflow.store.updateTask(REVIEW_TASK, { status: "working" });
+    workflow.store.updateSandbox(REVIEW_TASK, {
+      first_prompt_at: "2026-09-03T09:00:00.000Z",
+      prompt_in_flight: promptInFlight,
+      turn_text: "The review.",
+    });
+    await resumeReviewerTurnEnds(workflow);
+  });
+}
+
+describe("resumeReviewerTurnEnds", () => {
+  describe("a reviewer run whose turn ended before its turn end was done", () => {
+    const cut = reviewerRunAfterItsTurn(0);
+
+    it("arms the alarm that ends its turn, for its generation", () =>
+      cut((workflow) => {
+        expect(workflow.alarmsFor("resumeReviewerTurnEnd").map((alarm) => alarm.payload)).toEqual([
+          {
+            task_id: REVIEW_TASK,
+            generation: workflow.store.requireSandbox(REVIEW_TASK).generation,
+          },
+        ]);
+      }));
+  });
+
+  describe("a reviewer run with a prompt in flight", () => {
+    const working = reviewerRunAfterItsTurn(1);
+
+    it("arms nothing", () =>
+      working((workflow) => {
+        expect(workflow.alarmsFor("resumeReviewerTurnEnd")).toEqual([]);
+      }));
+  });
+});
+
+describe("resumeReviewerTurnEnd", () => {
+  describe("an alarm of an older generation", () => {
+    const stale = scenario(reviewerRunAfterItsTurn(0), async (workflow) => {
+      const { generation } = workflow.store.requireSandbox(REVIEW_TASK);
+      await resumeReviewerTurnEnd(workflow, { task_id: REVIEW_TASK, generation: generation - 1 });
+    });
+
+    it("leaves the run working", () =>
+      stale((workflow) => {
+        expect(workflow.store.requireTask(REVIEW_TASK).status).toBe("working");
+        expect(workflow.lines).not.toContain("turn end resumed: a new instance lost it");
+      }));
   });
 });

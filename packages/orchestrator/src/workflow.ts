@@ -75,6 +75,7 @@ import {
 import type { ChecksAlarm } from "./workflow/refiner/checks-gate";
 import { recheckChecks } from "./workflow/refiner/checks-recheck";
 import { settleLostJudgeRuling } from "./workflow/refiner/loop";
+import { postHandover, type HandoverPostAlarm } from "./workflow/refiner/outcome";
 import { retryQueue } from "./workflow/task/harness/prompt-queue";
 import { provision, provisionQueuedTasks } from "./workflow/task/sandbox/sandbox";
 import {
@@ -84,7 +85,13 @@ import {
   type RunAgainAlarm,
 } from "./workflow/task/model-turn";
 import { armLostCallsAlarm, resumeLostCalls, type LostCallsAlarm } from "./workflow/restart";
-import { settleIdleAuthor, settleIdleAuthors, TurnCoalescer } from "./workflow/task/harness/turn";
+import {
+  resumeReviewerTurnEnd,
+  resumeReviewerTurnEnds,
+  settleIdleAuthor,
+  settleIdleAuthors,
+  TurnCoalescer,
+} from "./workflow/task/harness/turn";
 import type {
   EventRefusal,
   ScheduledMethod,
@@ -205,6 +212,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     await resumeLostTurn(this);
     await provisionQueuedTasks(this);
     await settleIdleAuthors(this);
+    await resumeReviewerTurnEnds(this);
   }
 
   async create(
@@ -286,6 +294,18 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     return this.inSpan("alarm settleIdleAuthor", alarm.task_id, () =>
       settleIdleAuthor(this, alarm),
     );
+  }
+
+  /** Alarm: end the turn of a reviewer run whose turn end an instance restart cut. */
+  resumeReviewerTurnEnd(alarm: GenerationAlarm): Promise<void> {
+    return this.inSpan("alarm resumeReviewerTurnEnd", alarm.task_id, () =>
+      resumeReviewerTurnEnd(this, alarm),
+    );
+  }
+
+  /** Alarm: post a handover whose post an instance restart cut. */
+  postHandover(alarm: HandoverPostAlarm): Promise<void> {
+    return this.inSpan("alarm postHandover", null, () => postHandover(this, alarm));
   }
 
   /** Alarm: post a closing reply whose post an instance restart cut. */
@@ -439,6 +459,16 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
 
   async cancelAlarm(id: string): Promise<void> {
     await this.cancelSchedule(id);
+  }
+
+  async cancelAlarmsWhere(
+    method: ScheduledMethod,
+    matches: (payload: unknown) => boolean,
+  ): Promise<void> {
+    for (const scheduled of this.getSchedules()) {
+      if (scheduled.callback !== method || !matches(scheduled.payload)) continue;
+      await this.cancelSchedule(scheduled.id);
+    }
   }
 
   async startRepeatingAlarm(

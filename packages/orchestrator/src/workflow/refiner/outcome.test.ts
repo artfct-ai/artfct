@@ -5,7 +5,12 @@ import { freshRuntime } from "../../../test/fresh-runtime";
 import { scenario, type Scenario } from "../../../test/scenario";
 import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
 import type { PullRequest } from "@artfct-ai/adapters/code/types";
-import { markArtifactReady, reopenChangedArtifact, sendReviewToAuthor } from "./outcome";
+import {
+  markArtifactReady,
+  postHandover,
+  reopenChangedArtifact,
+  sendReviewToAuthor,
+} from "./outcome";
 
 const TASK = "wf_x.1";
 const JOB = "wf_x-1";
@@ -105,6 +110,58 @@ describe("markArtifactReady", () => {
     released((workflow) => {
       expect(workflow.alarmsFor("onIdle")).toHaveLength(1);
     }));
+
+  it("cancels the alarm that posts the handover again, once the post is out", () =>
+    released((workflow) => {
+      expect(workflow.alarmsFor("postHandover")).toEqual([]);
+      expect(workflow.cancelled).toHaveLength(1);
+    }));
+
+  describe("a handover whose post an instance restart cut", () => {
+    const cut: Scenario<FakeRuntime> = scenario(freshRuntime, async (workflow) => {
+      workflow.codeHostInstance = hostAt("abc123");
+      seedPullRequestTask(workflow);
+      workflow.post = () => new Promise<void>(() => undefined);
+      void markArtifactReady(workflow, JOB, { close: "ready" });
+      await new Promise((resolve) => setTimeout(resolve, 0));
+    });
+
+    it("leaves the alarm armed with the job and the close", () =>
+      cut((workflow) => {
+        expect(workflow.alarmsFor("postHandover").map((alarm) => alarm.payload)).toEqual([
+          { job_id: JOB, close: { close: "ready" } },
+        ]);
+      }));
+  });
+
+  describe("the alarm of a handover the humans still have", () => {
+    const again = scenario(released, async (workflow) => {
+      await postHandover(workflow, { job_id: JOB, close: { close: "ready" } });
+    });
+
+    it("posts the handover again", () =>
+      again((workflow) => {
+        expect(readyEvents(workflow)).toHaveLength(2);
+      }));
+
+    it("says in the log that the handover is posted again", () =>
+      again((workflow) => {
+        expect(workflow.lines).toContain("the handover of job wf_x-1 is posted again");
+      }));
+  });
+
+  describe("the alarm of a handover whose artifact is a draft again", () => {
+    const drafted = scenario(freshRuntime, async (workflow) => {
+      workflow.codeHostInstance = hostAt("abc123");
+      seedPullRequestTask(workflow);
+      await postHandover(workflow, { job_id: JOB, close: { close: "ready" } });
+    });
+
+    it("posts nothing", () =>
+      drafted((workflow) => {
+        expect(readyEvents(workflow)).toEqual([]);
+      }));
+  });
 
   describe("a second call on the same artifact", () => {
     const again = scenario(released, async (workflow) => {
