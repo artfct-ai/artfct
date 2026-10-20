@@ -216,9 +216,14 @@ module reviewLoopTypes {
   type GateOutcome = GateOpens | GateWaits | GateSendsBack | GateBlocks
 
   /// What a read of the checks did in a step: none ran, the gate settled the polisher that holds
-  /// the artifact, the gate settled the revision of the quiet author, or failed checks or a
-  /// conflict went to the idle author as a follow-up.
-  type ChecksRead = ChecksNotRead | GateSettles(GateOutcome) | GateSettlesTheAuthor(GateOutcome) | AuthorFollowedUp
+  /// the artifact, the gate settled the revision of the quiet author, failed checks or a conflict
+  /// went to the idle author as a follow-up, or a read for the idle author found the checks open.
+  type ChecksRead =
+    | ChecksNotRead
+    | GateSettles(GateOutcome)
+    | GateSettlesTheAuthor(GateOutcome)
+    | AuthorFollowedUp
+    | IdleAuthorsChecksOpen
 
   /// The turn that ended in a step, if one did, with the revision the host gave at an author's
   /// turn end. A model-call author's turn starts over when a person changed the page text while
@@ -359,6 +364,7 @@ module reviewLoopTypes {
     theAgentIsAskedToRouteAgain: bool,
     anAuthorAnswersAReviewAtTheLimit: bool,
     theRecheckAlarmStops: bool,
+    theIdleAuthorsOpenChecksStopTheRecheckAlarm: bool,
     aPersonRuled: bool,
     aReviewerApproved: bool,
     theAgentFinishedTheReview: bool,
@@ -1262,17 +1268,21 @@ module reviewLoop {
   ): ReviewLoop =
     settlePolisher(if (pushed) pageChanged(loop, part) else loop, id, outcome, lookup)
 
-  /// True when failed checks or a conflict can go to the idle author as a follow-up: the humans
-  /// hold the artifact or a reviewer reads it, and the revision did not go back yet. An ended
-  /// author does not take a follow-up.
-  pure def authorCanBeFollowedUp(loop: ReviewLoop, lookup: RevisionLookup): bool = and {
+  /// True when a checks report reads the checks of the idle author's revision for a follow-up:
+  /// the humans hold the artifact or a reviewer reads it, and the host names the revision. An
+  /// ended author does not take a follow-up.
+  pure def idleAuthorsChecksRead(loop: ReviewLoop, lookup: RevisionLookup): bool = and {
     CHECKS,
     not(drafted(loop)) or (refinerInFlight(loop) and not(polisherRunning(loop))),
     authorLive(loop),
     authorQuiet(loop),
     lookup == RevisionKnown,
-    not(sentBackOnTheRevision(loop)),
   }
+
+  /// True when failed checks or a conflict can go to the idle author as a follow-up: a report
+  /// reads its checks, and the revision did not go back yet.
+  pure def authorCanBeFollowedUp(loop: ReviewLoop, lookup: RevisionLookup): bool =
+    idleAuthorsChecksRead(loop, lookup) and not(sentBackOnTheRevision(loop))
 
   /// Failed checks or a conflict go to the author once per revision.
   pure def sendChecksBackToTheAuthor(loop: ReviewLoop): ReviewLoop =
@@ -1288,8 +1298,8 @@ module reviewLoop {
 
   /// The host reports checks, or the recheck alarm reads them. A polisher the gate holds settles,
   /// and so does an author that waits on the gate. Otherwise, failed checks or a conflict go to
-  /// an idle author as a follow-up, which stops the recheck alarm. A polisher at work settles at
-  /// its turn end, so the report changes nothing then.
+  /// an idle author as a follow-up, or its checks open. Either stops the recheck alarm. A
+  /// polisher at work settles at its turn end, so the report changes nothing then.
   pure def checksReported(
     loop: ReviewLoop,
     outcome: GateOutcome,
@@ -1304,6 +1314,8 @@ module reviewLoop {
       }
     else if (authorCanBeFollowedUp(loop, lookup) and outcome == GateSendsBack)
       { loop: sendChecksBackToTheAuthor(withRecheck(loop, false)), checks: AuthorFollowedUp }
+    else if (idleAuthorsChecksRead(loop, lookup))
+      { loop: withRecheck(loop, false), checks: IdleAuthorsChecksOpen }
     else { loop: loop, checks: ChecksNotRead }
 
   /// A polisher that stops early gives the artifact to the humans with what it pushed.
@@ -2580,11 +2592,13 @@ module reviewLoop {
   }
 
   /// A step where the checks gate waits or sends the revision back leaves the recheck alarm
-  /// armed. A step where it opens or blocks, or failed checks go to the idle author, stops it.
+  /// armed. A step where it opens or blocks, or a read for the idle author sends it failed checks
+  /// or finds them open, stops it.
   pure def recheckFollowsTheGate(step: Transition): bool = and {
     gateHeld(step.kind.checks) implies step.after.artifact.recheckArmed,
     gateLetsGo(step.kind.checks) implies not(step.after.artifact.recheckArmed),
     step.kind.checks == AuthorFollowedUp implies not(step.after.artifact.recheckArmed),
+    step.kind.checks == IdleAuthorsChecksOpen implies not(step.after.artifact.recheckArmed),
   }
 
   /// Whether one step kept each before-and-after rule.
@@ -2849,6 +2863,8 @@ module reviewLoop {
     anAuthorAnswersAReviewAtTheLimit:
       onADoneReviewAtTheLimit(step.before) and not(isOnRun(step.after, heldRun(step.before))),
     theRecheckAlarmStops: step.before.artifact.recheckArmed and not(step.after.artifact.recheckArmed),
+    theIdleAuthorsOpenChecksStopTheRecheckAlarm:
+      step.kind.checks == IdleAuthorsChecksOpen and step.before.artifact.recheckArmed,
     aPersonRuled: runIds(step.before).exists(id => and {
       not(isRuling(step.before.refinerRuns[id].result)),
       isRuling(step.after.refinerRuns[id].result),
@@ -3431,6 +3447,11 @@ module reviewLoop {
 
   /// Witness for `theRecheckAlarmRunsWhileTheGateHolds`: the recheck alarm stops.
   val theRecheckAlarmStops: bool = lastStepReached.theRecheckAlarmStops
+
+  /// Witness for `theRecheckAlarmRunsWhileTheGateHolds`: a read for the idle author finds its
+  /// checks open while the recheck alarm runs, and the alarm stops.
+  val theIdleAuthorsOpenChecksStopTheRecheckAlarm: bool =
+    lastStepReached.theIdleAuthorsOpenChecksStopTheRecheckAlarm
 
   /// Witness for `judgeRulesAtMostOnce`: a person rules on a judge run through the agent. A ruling
   /// of the decisions model takes the run off the runs the code rules on.

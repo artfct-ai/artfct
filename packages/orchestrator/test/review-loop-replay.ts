@@ -17,7 +17,7 @@ import {
 } from "../src/workflow/refiner/checks-gate";
 import { sendHeldCommentsOnRevisionRequest } from "../src/workflow/refiner/held-comments";
 import { taskQuiet } from "../src/workflow/refiner/loop";
-import { isTaskFinished } from "../src/workflow/store/state";
+import { isTaskFinished, isWorkflowFinished } from "../src/workflow/store/state";
 import type { RefinerRun, TaskRow } from "../src/workflow/store/tasks";
 import type { TaskAlarm } from "../src/workflow/task/harness/timers";
 import { taskAtWork } from "../src/workflow/task/at-work";
@@ -1202,8 +1202,9 @@ export class ReviewLoopReplay {
    * The host reports checks. A polisher the gate holds settles on checks that give the outcome
    * the spec picks, and code hears of them by a webhook or the recheck alarm. So does an author
    * that waits on the gate, by the recheck alarm only while one is armed. Failed checks or a
-   * conflict reach an idle author by a webhook. A report the spec says changes nothing either
-   * misses its webhook, or reaches a polisher at work.
+   * conflict reach an idle author by a webhook. Open checks that stop the recheck alarm reach an
+   * idle author by a webhook or the alarm, and only by the alarm once the workflow ended. A report the spec says changes nothing either misses
+   * its webhook, or reaches a polisher at work.
    */
   private checksReported(step: TraceStep, index: number): WorkflowAction {
     const before = this.trace[this.step - 1]?.review;
@@ -1233,6 +1234,20 @@ export class ReviewLoopReplay {
     if (step.review.artifact.sentBack !== before.artifact.sentBack) {
       const options = [FAILED, CONFLICTED].flatMap((checks) =>
         deliveriesOf(checks, false).map((delivery) => ({ checks, delivery })),
+      );
+      const { checks, delivery } = this.pick(options);
+      return this.hostReports(checks, delivery, index);
+    }
+    if (before.artifact.recheckArmed && !step.review.artifact.recheckArmed) {
+      const workflowEnded = isWorkflowFinished(this.world.workflow.state.status);
+      const options = hostChecksFor(
+        outcome,
+        sentBackOnTheRevision(before),
+        this.quietMsOf(this.world.taskOf(this.author)),
+      ).flatMap((checks) =>
+        deliveriesOf(checks, true)
+          .filter((delivery) => !workflowEnded || delivery === "recheck")
+          .map((delivery) => ({ checks, delivery })),
       );
       const { checks, delivery } = this.pick(options);
       return this.hostReports(checks, delivery, index);

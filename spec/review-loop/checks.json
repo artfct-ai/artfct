@@ -428,6 +428,7 @@
       "theAgentIsAskedToRoute",
       "theAgentIsAskedToRouteAgain",
       "theRecheckAlarmStops",
+      "theIdleAuthorsOpenChecksStopTheRecheckAlarm",
       "aReviewerApproved",
       "theAgentFinishedTheReview"
     ]
