@@ -7,6 +7,8 @@ import {
   seedPullRequestTask,
   seedTask,
   type FakeRuntime,
+  patchPlan,
+  patchStagePlan,
 } from "../../../test/fake-runtime";
 import { scenario } from "../../../test/scenario";
 import {
@@ -83,12 +85,12 @@ function stageLine(workflow: FakeRuntime, name: string): string | undefined {
 }
 
 const planWithTask = scenario(freshRuntime, (workflow) => {
-  workflow.patchState({ stages: ["implement"] });
+  patchStagePlan(workflow, { stages: ["implement"] });
   seedTask(workflow, { stage: "implement" });
 });
 
 const planUnderReview = scenario(freshRuntime, (workflow) => {
-  workflow.patchState({ stages: ["implement"] });
+  patchStagePlan(workflow, { stages: ["implement"] });
   seedPullRequestTask(workflow);
 });
 
@@ -102,7 +104,7 @@ describe("needsHarness", () => {
 
   describe("a plan with no task started", () => {
     const planned = scenario(freshRuntime, (workflow) => {
-      workflow.patchState({ stages: ["implement"] });
+      patchStagePlan(workflow, { stages: ["implement"] });
     });
 
     it("is false", () =>
@@ -205,7 +207,7 @@ describe("needsContext", () => {
 
   describe("a plan with no task started", () => {
     const planned = scenario(freshRuntime, (workflow) => {
-      workflow.patchState({ stages: ["implement"] });
+      patchStagePlan(workflow, { stages: ["implement"] });
     });
 
     it("is true", () =>
@@ -306,7 +308,7 @@ describe("systemPrompt", () => {
     describe("a workflow the plan named", () => {
       it("carries the name, so a replan repeats it instead of inventing one", () =>
         freshRuntime((workflow) => {
-          workflow.patchState({ name: "Flaky checkout test" });
+          patchPlan(workflow, { name: "Flaky checkout test" });
           expect(systemPrompt(workflow, NOBODY_WROTE)).toContain("\nName: Flaky checkout test\n");
         }));
     });
@@ -314,7 +316,7 @@ describe("systemPrompt", () => {
     describe("a workflow before its first plan", () => {
       it("carries the request title", () =>
         freshRuntime((workflow) => {
-          workflow.state.request = { ...workflow.state.request, title: "fix the flaky test" };
+          workflow.store.updateWorkflow({ request_title: "fix the flaky test" });
           expect(systemPrompt(workflow, NOBODY_WROTE)).toContain("\nName: fix the flaky test\n");
         }));
     });
@@ -616,7 +618,7 @@ describe("activeToolNames", () => {
 
   describe("a workflow with a root page", () => {
     const rootPage = scenario(freshRuntime, (workflow) => {
-      workflow.patchState({
+      patchStagePlan(workflow, {
         root_page: { page_id: "root-1", url: "https://docs.test/root-1", source: "container" },
       });
     });

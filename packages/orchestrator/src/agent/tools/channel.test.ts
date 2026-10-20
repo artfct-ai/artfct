@@ -4,7 +4,7 @@ import type { z } from "zod";
 import type { ChatMessageRef } from "../../workflow/store/state";
 import { acceptingD1 } from "../../../test/accepting-d1";
 import { freshRuntime } from "../../../test/fresh-runtime";
-import { FakeRuntime, seedTask } from "../../../test/fake-runtime";
+import { createFakeWorkflow, FakeRuntime, seedTask } from "../../../test/fake-runtime";
 import { openMemoryDb } from "../../../test/memory-db";
 import { scenario, type Scenario } from "../../../test/scenario";
 import { testEnv } from "../../../test/test-env";
@@ -36,6 +36,13 @@ function firstReplySchema(workflow: FakeRuntime): z.ZodType {
 
 const routedRuntime: Scenario<FakeRuntime> = async (run) => {
   await run(new FakeRuntime(openMemoryDb(), { ...testEnv(), DB: acceptingD1() }));
+};
+
+const unstartedRoutedRuntime: Scenario<FakeRuntime> = async (run) => {
+  const env = { ...testEnv(), DB: acceptingD1() };
+  const workflow = new FakeRuntime(openMemoryDb(), env, "uncreated");
+  createFakeWorkflow(workflow);
+  await run(workflow);
 };
 
 describe("acknowledgeRevisionRequest", () => {
@@ -114,7 +121,7 @@ describe("channel tools", () => {
 
       it("keeps the workflow running", () =>
         acknowledged((workflow) => {
-          expect(workflow.state.status).toBe("running");
+          expect(workflow.store.requireWorkflowRow().status).toBe("running");
         }));
     });
 
@@ -275,7 +282,7 @@ describe("channel tools", () => {
 
       it("marks the workflow as waiting for input", () =>
         asked((workflow) => {
-          expect(workflow.state.status).toBe("waiting_input");
+          expect(workflow.store.requireWorkflowRow().status).toBe("waiting_input");
         }));
 
       it("sends a question event to the channels", () =>
@@ -285,8 +292,7 @@ describe("channel tools", () => {
     });
 
     describe("while the workflow has not started", () => {
-      const asked = scenario(routedRuntime, async (workflow) => {
-        workflow.patchState({ status: "new", definition: null });
+      const asked = scenario(unstartedRoutedRuntime, async (workflow) => {
         await channelTools(workflow, workflow.transcript.answering()).ask.execute(
           { text: "Which repo?" },
           call,
@@ -295,7 +301,7 @@ describe("channel tools", () => {
 
       it("keeps the workflow new", () =>
         asked((workflow) => {
-          expect(workflow.state.status).toBe("new");
+          expect(workflow.store.requireWorkflowRow().status).toBe("new");
         }));
     });
 
@@ -310,7 +316,7 @@ describe("channel tools", () => {
 
       it("keeps the workflow running", () =>
         asked((workflow) => {
-          expect(workflow.state.status).toBe("running");
+          expect(workflow.store.requireWorkflowRow().status).toBe("running");
         }));
 
       it("sends a question event to the channels", () =>

@@ -32,7 +32,7 @@ export async function armTurnWatchdog(workflow: WorkflowRuntime): Promise<string
   const headsUp = workflow.transcript.takenMessages().length
     ? await workflow.scheduleAlarm(HEADS_UP_SECONDS, "onTurnHeadsUp", alarm)
     : null;
-  workflow.patchState({
+  workflow.store.updateWorkflow({
     turn_started_at: startedAt,
     turn_watchdog: watchdog,
     turn_heads_up: headsUp,
@@ -48,9 +48,9 @@ export async function disarmTurnWatchdog(
   workflow: WorkflowRuntime,
   startedAt: string,
 ): Promise<boolean> {
-  if (workflow.state.turn_started_at !== startedAt) return false;
+  if (workflow.store.requireWorkflowRow().turn_started_at !== startedAt) return false;
   await cancelTurnAlarms(workflow);
-  workflow.patchState({
+  workflow.store.updateWorkflow({
     turn_started_at: null,
     turn_first_row: null,
   });
@@ -63,8 +63,8 @@ export async function disarmTurnWatchdog(
  * threads and keep their working status. The turn still owes its reply.
  */
 export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {
-  if (workflow.state.turn_started_at !== alarm.started_at) return;
-  workflow.patchState({ turn_heads_up: null });
+  if (workflow.store.requireWorkflowRow().turn_started_at !== alarm.started_at) return;
+  workflow.store.updateWorkflow({ turn_heads_up: null });
   workflow.log(null, "agent turn still running, heads-up posted");
   await postKeepingWorkingStatus(workflow, HEADS_UP_TEXT);
 }
@@ -75,9 +75,9 @@ export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm)
  * threads out of their working status.
  */
 export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {
-  if (workflow.state.turn_started_at !== alarm.started_at) return;
-  const headsUp = workflow.state.turn_heads_up;
-  workflow.patchState({
+  if (workflow.store.requireWorkflowRow().turn_started_at !== alarm.started_at) return;
+  const headsUp = workflow.store.requireWorkflowRow().turn_heads_up;
+  workflow.store.updateWorkflow({
     turn_started_at: null,
     turn_watchdog: null,
     turn_heads_up: null,
@@ -86,7 +86,8 @@ export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm)
   const answering = workflow.transcript.answering();
   workflow.transcript.deleteTaken();
   if (headsUp) await workflow.cancelAlarm(headsUp);
-  if (isWorkflowFinished(workflow.state.status) && !answering.length) return workflow.release();
+  if (isWorkflowFinished(workflow.store.requireWorkflowRow().status) && !answering.length)
+    return workflow.release();
   const minutes = workflow.config().orchestrator.turn_timeout_minutes;
   workflow.log(null, `agent turn timed out after ${minutes} minutes`);
   await workflow.post({ type: "turn_failed", text: turnTimeoutText(minutes) }, { answering });
@@ -104,15 +105,18 @@ export const LOST_TURN_TEXT =
  * was resumed.
  */
 export async function resumeLostTurn(workflow: WorkflowRuntime): Promise<boolean> {
-  const startedAt = workflow.state.turn_started_at;
+  const startedAt = workflow.store.workflowRow()?.turn_started_at;
   if (!startedAt) {
     await wakeForWaitingRows(workflow);
     return false;
   }
   await cancelTurnAlarms(workflow);
-  workflow.patchState({ turn_started_at: null });
-  if (isWorkflowFinished(workflow.state.status) && !workflow.transcript.takenMessages().length) {
-    workflow.patchState({
+  workflow.store.updateWorkflow({ turn_started_at: null });
+  if (
+    isWorkflowFinished(workflow.store.requireWorkflowRow().status) &&
+    !workflow.transcript.takenMessages().length
+  ) {
+    workflow.store.updateWorkflow({
       turn_first_row: null,
     });
     workflow.transcript.deleteTaken();
@@ -138,15 +142,15 @@ async function wakeForWaitingRows(workflow: WorkflowRuntime): Promise<void> {
 }
 
 async function cancelTurnAlarms(workflow: WorkflowRuntime): Promise<void> {
-  const { turn_watchdog: watchdog, turn_heads_up: headsUp } = workflow.state;
-  workflow.patchState({ turn_watchdog: null, turn_heads_up: null });
+  const { turn_watchdog: watchdog, turn_heads_up: headsUp } = workflow.store.requireWorkflowRow();
+  workflow.store.updateWorkflow({ turn_watchdog: null, turn_heads_up: null });
   if (watchdog) await workflow.cancelAlarm(watchdog);
   if (headsUp) await workflow.cancelAlarm(headsUp);
 }
 
 /** Post to every chat thread among the reply targets and keep its working status. */
 async function postKeepingWorkingStatus(workflow: WorkflowRuntime, text: string): Promise<void> {
-  for (const target of workflow.state.reply_targets) {
+  for (const target of workflow.store.replyTargets()) {
     if (target.source !== "chat") continue;
     await workflow.post({ type: "info", text }, { reply_to: target }, { keepSession: true });
   }

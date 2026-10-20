@@ -55,6 +55,7 @@ import { InterleavedDecisions, onFirstCall, onFirstCallAsking } from "./interlea
 import { CLOSING_TEXT_MARKER, replyMarker } from "../src/prompts/model-author-prompt";
 import { EchoModel, ScriptedFailure } from "./fake-model";
 import {
+  FAKE_WORKFLOW_ID,
   fakeDocumentsOf,
   FakeRuntime,
   JUDGE_ENTRY,
@@ -63,6 +64,7 @@ import {
   patchStagePolishers,
   patchStageResearch,
   patchStageReviewers,
+  patchStagePlan,
 } from "./fake-runtime";
 import { openMemoryDb, storeRowsOf, type MemoryDb } from "./memory-db";
 import { WorkBudget } from "./work-budget";
@@ -532,7 +534,9 @@ export class WorkflowWorld {
   static async open(setup: WorldSetup): Promise<WorkflowWorld> {
     const workBudget = new WorkBudget();
     const db = openMemoryDb(workBudget);
-    const workflow = new FakeRuntime(db, { ...testEnv(), ...markedSecrets(), DB: sqliteD1() });
+    const opening = setup.opening === "request" ? "uncreated" : "running";
+    const env = { ...testEnv(), ...markedSecrets(), DB: sqliteD1() };
+    const workflow = new FakeRuntime(db, env, opening);
     const lists = REFINER_LISTS[setup.refiners];
     patchStageReviewers(workflow, lists.reviewers);
     patchStagePolishers(workflow, lists.polishers);
@@ -540,7 +544,10 @@ export class WorkflowWorld {
     if (setup.pageEnding === "choice") patchPageEnding(workflow, "choice");
     if (setup.pageAuthor === "model") patchModelPageAuthor(workflow);
     if (setup.pageBranch) patchPageBranch(workflow);
-    workflow.addWorkflowDefinition({ ...workflow.workflowDefinition(), name: SECOND_DEFINITION });
+    workflow.addWorkflowDefinition({
+      ...workflow.patchableWorkflowDefinition(),
+      name: SECOND_DEFINITION,
+    });
     const documents = pageHost();
     workflow.documentsInstance = documents;
     workflow.gatewayInstance = new FakeGateway();
@@ -551,14 +558,8 @@ export class WorkflowWorld {
       (entry) => workflow.store.writeOutbox(entry),
     );
     if (setup.opening === "request") {
-      workflow.patchState({
-        status: "new",
-        definition: null,
-        repo: { full: REPO },
-        concurrency: SLOTS,
-      });
       await createWorkflow(workflow, {
-        workflowId: workflow.state.workflow_id,
+        workflowId: FAKE_WORKFLOW_ID,
         event: requestEvent(ORIGINS[setup.origin]),
         endedWorkflowId: null,
       });
@@ -572,14 +573,13 @@ export class WorkflowWorld {
       });
     }
     const stage = STAGE_OF[setup.artifact];
-    workflow.patchState({
-      stages: [stage],
-      repo: { full: REPO },
-      request: { title: "Fix login", text: "Fix the login redirect.", links: [] },
+    workflow.store.updateWorkflow({
+      request_title: "Fix login",
+      request_text: "Fix the login redirect.",
       origin: ORIGINS[setup.origin],
-      reply_targets: [ORIGINS[setup.origin]],
-      concurrency: SLOTS,
     });
+    workflow.store.addReplyTarget(ORIGINS[setup.origin]);
+    patchStagePlan(workflow, { stages: [stage], repo: REPO, job_slots: SLOTS });
     const subject = openingSubject(setup);
     if (subject) await setWorkflowSubject(workflow, subject);
     const first = await startJob(workflow, {
@@ -1160,9 +1160,9 @@ export class WorkflowWorld {
   /** The tracker session of the author's job, or null when its job has none. */
   private jobSessionOf(author: WorldAuthor): TrackerSession | null {
     const issue = this.jobOf(author).issue_id;
-    const sessions = this.workflow.state.reply_targets.filter(
-      (target): target is TrackerSession => target.source === "tracker",
-    );
+    const sessions = this.workflow.store
+      .replyTargets()
+      .filter((target): target is TrackerSession => target.source === "tracker");
     return sessions.find((session) => issue && session.issue_id === issue) ?? null;
   }
 
@@ -1204,9 +1204,9 @@ export class WorkflowWorld {
    * sessions on the issues of its jobs. Null when the workflow has none.
    */
   trackerSessionAt(index: number): TrackerSession | null {
-    const sessions = this.workflow.state.reply_targets.filter(
-      (target): target is TrackerSession => target.source === "tracker",
-    );
+    const sessions = this.workflow.store
+      .replyTargets()
+      .filter((target): target is TrackerSession => target.source === "tracker");
     return sessions[index % sessions.length] ?? null;
   }
 
@@ -1374,7 +1374,6 @@ export class WorkflowWorld {
   storeSnapshot(): string {
     return JSON.stringify({
       rows: storeRowsOf(this.db),
-      state: this.workflow.state,
       alarms: this.workflow.alarms,
     });
   }
@@ -1387,18 +1386,18 @@ export class WorkflowWorld {
     const sent = this.bridges
       .filter((bridge) => authors.has(bridge.taskId))
       .reduce((total, bridge) => total + bridge.promptsSent, 0);
-    const { reply_targets: replyTargets } = this.workflow.state;
-    const sessions = replyTargets.filter(
-      (target): target is TrackerSession => target.source === "tracker",
-    );
-    const { stages, definition } = this.workflow.state;
+    const sessions = this.workflow.store
+      .replyTargets()
+      .filter((target): target is TrackerSession => target.source === "tracker");
+    const stages = this.workflow.store.stagePlan()?.stages ?? [];
+    const definition = this.workflow.store.plan()?.definition ?? null;
     const declared = definition ? this.workflow.workflowDefinition().stages : [];
     const issueStages = declared
       .filter((stage) => stage.artifact === "issues")
       .map((stage) => stage.name);
     const jobs = store.jobs();
     return {
-      subject: this.workflow.state.subject ?? null,
+      subject: this.workflow.store.subject() ?? null,
       lastStage: stages.at(-1) ?? null,
       plansIssues: stages.some((stage) => issueStages.includes(stage)),
       jobs: jobs.map((job) => ({
@@ -1406,8 +1405,8 @@ export class WorkflowWorld {
         issue_id: job.issue_id,
         stage: job.stage,
       })),
-      workflowStatus: this.workflow.state.status,
-      definition: this.workflow.state.definition,
+      workflowStatus: this.workflow.store.requireWorkflowRow().status,
+      definition,
       jobSessions: Object.fromEntries(
         jobs.map((job) => {
           const onIssue = sessions.find((session) => session.issue_id === job.issue_id);
@@ -1565,9 +1564,9 @@ class TurnEndingModel implements LanguageModelV4 {
 
 /** Run the author of the page stage as model calls. The world installs the page model. */
 function patchModelPageAuthor(workflow: FakeRuntime): void {
-  workflow.patchState({ page_parent: PAGE_PARENT });
+  patchStagePlan(workflow, { page_parent: PAGE_PARENT });
   workflow.patchWorkflowDefinition({
-    stages: workflow.workflowDefinition().stages.map((stage) =>
+    stages: workflow.patchableWorkflowDefinition().stages.map((stage) =>
       stage.name === STAGE_OF.page
         ? {
             ...stage,

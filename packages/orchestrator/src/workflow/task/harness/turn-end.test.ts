@@ -19,6 +19,7 @@ import {
   seedPullRequestTask,
   seedTask,
   sentMethods,
+  patchPlan,
 } from "../../../../test/fake-runtime";
 import { scenario } from "../../../../test/scenario";
 import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
@@ -686,7 +687,7 @@ describe("onTurnEnd", () => {
   describe("a turn that ended with text, a tool call and a failed tool", () => {
     const text = "Working on it.\nAll done.";
     const ended = scenario(freshRuntime, (workflow) => {
-      workflow.patchState({ name: "Flaky checkout test" });
+      patchPlan(workflow, { name: "Flaky checkout test" });
       const task = seedTask(workflow, { cost_usd: 0.7 }, { turn_text: text, prompt_in_flight: 1 });
       workflow.store.countToolCall(TASK);
       workflow.store.countToolFailure(TASK, "bash");
@@ -798,7 +799,7 @@ describe("onTurnEnd", () => {
 
   describe("a turn on a task with a Slack thread to report to", () => {
     const inThread = scenario(freshRuntime, (workflow) => {
-      workflow.state.reply_targets = [{ source: "chat", channel: "C1", thread: "1.1" }];
+      workflow.store.addReplyTarget({ source: "chat", channel: "C1", thread: "1.1" });
     });
 
     describe("once the harness has reported todos", () => {

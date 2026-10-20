@@ -25,7 +25,7 @@ import { taskSettings } from "../../src/workflow/task/settings";
 import { harnessMcpServers } from "../../src/workflow/task/sandbox/mcp-servers";
 import type { TaskRow } from "../../src/workflow/store/tasks";
 import templateConfig from "../template-config.json";
-import { FakeRuntime } from "../fake-runtime";
+import { FakeRuntime, patchPlan, patchStagePlan } from "../fake-runtime";
 import { openMemoryDb } from "../memory-db";
 import { testEnv } from "../test-env";
 
@@ -92,17 +92,23 @@ export async function planLocalRun(
   loaded: LoadedDeploymentConfig = productionConfig(),
 ): Promise<LocalRunPlan | { error: string }> {
   const { config, workflowDefinitions } = loaded;
-  const workflow = new FakeRuntime(openMemoryDb(), testEnv());
+  const workflow = new FakeRuntime(openMemoryDb(), testEnv(), "uncreated");
   workflow.configOverride = config;
   workflow.workflowDefinitionsOverride = workflowDefinitions;
   workflow.codeHostInstance = codeHost(secrets);
   workflow.documentsInstance = documents(config, secrets);
   workflow.gatewayInstance = gateway(config, secrets);
-  workflow.patchState({
+  workflow.store.createWorkflow({
     workflow_id: "local",
-    request: { title: request.title, text: request.request, links: [] },
-    repo: request.repoFull ? { full: request.repoFull } : null,
+    request_title: request.title,
+    request_text: request.request,
+    request_links: [],
+    origin: null,
+    subject: null,
   });
+  workflow.store.updateWorkflow({ status: "running" });
+  patchPlan(workflow, {});
+  patchStagePlan(workflow, { repo: request.repoFull ?? null });
 
   const seeded = await seedRun(workflow, loaded, request);
   if ("error" in seeded) return seeded;
@@ -139,10 +145,12 @@ export async function planLocalRun(
     skills: loadHarnessSkills(settings.skill),
     harness: workflow.harness(sandbox.harness),
     adapters: config.adapters,
-    workflowId: workflow.state.workflow_id,
+    workflowId: workflow.store.requireWorkflowRow().workflow_id,
     publicUrl: "",
-    repo: workflow.state.repo,
-    commitAuthor: workflow.state.repo ? ((await workflow.code()?.commitAuthor()) ?? null) : null,
+    repo: workflow.store.stagePlan()?.repo ?? null,
+    commitAuthor: workflow.store.stagePlan()?.repo
+      ? ((await workflow.code()?.commitAuthor()) ?? null)
+      : null,
     workflowRepoToken: minted?.workflowRepoToken ?? null,
     allReposReadToken: minted?.allReposReadToken ?? null,
     hostEnv: cliEnv({ capability, adapters: config.adapters, credential, log: warn }),
@@ -198,7 +206,7 @@ async function seedRun(
     const names = [...new Set(stages.map((candidate) => candidate.name))].join(", ");
     return { error: `no stage named ${request.stage}. The stages are: ${names}` };
   }
-  workflow.patchState({ definition: definition.name });
+  patchPlan(workflow, { definition: definition.name });
   const branch = stage.branch ? request.branch : null;
   if (stage.branch && (!request.repoFull || !branch)) {
     return { error: `stage ${stage.name} works on a branch. Give --repo and --branch.` };

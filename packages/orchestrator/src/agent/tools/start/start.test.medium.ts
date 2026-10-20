@@ -16,7 +16,7 @@ import {
   type WorkflowClients,
 } from "../../../../test/fresh-workflow";
 import { freshDurableRuntime } from "../../../../test/durable-runtime";
-import { seedTask } from "../../../../test/fake-runtime";
+import { seedTask, patchStagePlan } from "../../../../test/fake-runtime";
 import { scenario, type Scenario } from "../../../../test/scenario";
 import { toolText } from "../../../../test/tool-result";
 import type { Workflow } from "../../../workflow";
@@ -79,7 +79,7 @@ function subjectWorkflow(
   return (run) =>
     plannedWorkflow(concurrency, () => ({ tracker: subjectTracker(), ...clients() }))(
       async (workflow) => {
-        workflow.patchState({ subject: { kind: "issue", issue_id: "ENG-1" } });
+        workflow.store.writeSubject({ kind: "issue", issue_id: "ENG-1" });
         await run(workflow);
       },
     );
@@ -370,8 +370,8 @@ describe("start_job on an issue another workflow started a job on", () => {
   describe("after that workflow ended", () => {
     const started = issueStartedByAnotherWorkflow(async (firstWorkflow) => {
       const db = createDb(env.DB);
-      await createWorkflow(db, firstWorkflow.state.workflow_id);
-      await setWorkflowStatus(db, firstWorkflow.state.workflow_id, "done");
+      await createWorkflow(db, firstWorkflow.store.requireWorkflowRow().workflow_id);
+      await setWorkflowStatus(db, firstWorkflow.store.requireWorkflowRow().workflow_id, "done");
     });
 
     it("starts the job", () =>
@@ -382,7 +382,9 @@ describe("start_job on an issue another workflow started a job on", () => {
     it("points the issue's binding at the workflow of the new job", () =>
       started(async ({ workflow }) => {
         const issue = { source: "tracker_issue", external_id: "ENG-1" } as const;
-        expect(await findBinding(createDb(env.DB), issue)).toBe(workflow.state.workflow_id);
+        expect(await findBinding(createDb(env.DB), issue)).toBe(
+          workflow.store.requireWorkflowRow().workflow_id,
+        );
       }));
   });
 });
@@ -535,7 +537,7 @@ describe("start_job", () => {
   describe("a workflow that is done", () => {
     let result: string;
     const refused = scenario(plannedWorkflow(1), async (workflow) => {
-      workflow.patchState({ status: "done" });
+      workflow.store.updateWorkflow({ status: "done" });
       const { start_job } = startTools(workflow, [REQUEST]);
       result = toolText(await start_job.execute({ stage: "implement", brief: "more" }, call));
     });
@@ -924,7 +926,8 @@ describe("complete_job on the subject issue at the last stage of a single-issue 
       workflow.gatewayInstance = new FakeGateway({
         decisions: new FakeDecisions({ accepts: 0.9 }),
       });
-      workflow.patchState({ stages, subject: { kind: "issue", issue_id: "i1" } });
+      patchStagePlan(workflow, { stages });
+      workflow.store.writeSubject({ kind: "issue", issue_id: "i1" });
       const { complete_job } = startTools(workflow, ["Looks good, ship it."]);
       result = toolText(await complete_job.execute({ job_id: "wf_x-1", result: "Done." }, call));
     });
@@ -941,7 +944,7 @@ describe("complete_job on the subject issue at the last stage of a single-issue 
   it("completes the workflow and cancels the job still working", () =>
     finished((workflow) => {
       expect([
-        workflow.state.status,
+        workflow.store.requireWorkflowRow().status,
         workflow.store.requireTask("wf_x.1").status,
         workflow.store.requireTask("wf_x.2").status,
       ]).toEqual(["done", "done", "cancelled"]);
@@ -949,7 +952,7 @@ describe("complete_job on the subject issue at the last stage of a single-issue 
 
   it("leaves a workflow whose plan produces issues open", () =>
     onSubject(["design", "breakdown"])((workflow) => {
-      expect(workflow.state.status).not.toBe("done");
+      expect(workflow.store.requireWorkflowRow().status).not.toBe("done");
     }));
 });
 

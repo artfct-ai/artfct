@@ -246,8 +246,8 @@ export async function startRefiner(
     return;
   }
   const settings = resolveRefinerSettings(workflow.config(), refiner.entry);
-  const sequence = workflow.state.task_seq + 1;
-  const refinerRunId = makeTaskId(workflow.state.workflow_id, sequence);
+  const { workflow_id: workflowId } = workflow.store.requireWorkflowRow();
+  const refinerRunId = makeTaskId(workflowId, workflow.store.taskCount() + 1);
   workflow.store.insertTask({
     task_id: refinerRunId,
     job_id: author.job_id,
@@ -256,7 +256,6 @@ export async function startRefiner(
     sandbox: { harness: settings.harness, bridge_token: newToken() },
     model: settings.model,
   });
-  workflow.patchState({ task_seq: sequence });
   workflow.store.setArtifactRefinerRun(author.job_id, refinerRunId);
   if (refiner.role === "polisher" && workflow.store.sandbox(author.task_id)) {
     await closeContainer(workflow, workflow.store.requireTask(author.task_id), POLISH_CLOSE_REASON);

@@ -4,7 +4,7 @@ import type { TrackerIssue } from "@artfct-ai/adapters/tracker/types";
 import { describe, expect, it } from "bun:test";
 import { freshRuntime, unstartedRuntime } from "../../../test/fresh-runtime";
 import {
-  patchModelExecution,
+  patchModelAuthors,
   fakeDocumentsOf,
   patchNestingHost,
   seedTask,
@@ -63,7 +63,7 @@ describe("set_plan", () => {
   describe("on a workflow that is done", () => {
     let result: string;
     const refused = scenario(freshRuntime, async (workflow) => {
-      workflow.patchState({ status: "done" });
+      workflow.store.updateWorkflow({ status: "done" });
       const { set_plan } = planTools(workflow);
       result = toolText(
         await set_plan.execute(
@@ -87,8 +87,8 @@ describe("set_plan", () => {
 
     it("stays done with no plan", () =>
       refused((workflow) => {
-        expect(workflow.state.status).toBe("done");
-        expect(workflow.state.stages).toEqual([]);
+        expect(workflow.store.requireWorkflowRow().status).toBe("done");
+        expect(workflow.store.stagePlan()).toBeNull();
       }));
   });
 
@@ -110,7 +110,8 @@ describe("set_plan", () => {
 
     it("does not start the workflow", () =>
       named((workflow) => {
-        expect(workflow.state).toMatchObject({ status: "new", definition: null });
+        expect(workflow.store.requireWorkflowRow().status).toBe("new");
+        expect(workflow.store.plan()).toBeNull();
       }));
   });
 
@@ -142,7 +143,7 @@ describe("set_plan", () => {
             call,
           ),
         ).toBe("Unknown stages: design. Use names from workflow definition incident.");
-        expect(workflow.state.definition).toBeNull();
+        expect(workflow.store.plan()).toBeNull();
       }));
   });
 
@@ -175,8 +176,8 @@ describe("set_plan", () => {
 
     it("keeps the workflow definition and does not plan the stages", () =>
       renamed((workflow) => {
-        expect(workflow.state.definition).toBe("development");
-        expect(workflow.state.stages).toEqual([]);
+        expect(workflow.store.plan()?.definition).toBe("development");
+        expect(workflow.store.stagePlan()).toBeNull();
       }));
   });
 
@@ -220,7 +221,7 @@ describe("set_plan", () => {
 
     it("plans no stages", () =>
       planned((workflow) => {
-        expect(workflow.state.stages).toEqual([]);
+        expect(workflow.store.stagePlan()).toBeNull();
       }));
   });
 
@@ -250,7 +251,7 @@ describe("set_plan", () => {
 
     it("plans no stages", () =>
       refused((workflow) => {
-        expect(workflow.state.stages).toEqual([]);
+        expect(workflow.store.stagePlan()).toBeNull();
       }));
 
     describe("and a second call with stages that need no repository", () => {
@@ -280,12 +281,9 @@ describe("set_plan", () => {
 
       it("stores the plan without a repository", () =>
         documentsPlan((workflow) => {
-          expect(workflow.state).toMatchObject({
-            status: "running",
-            stages: ["design"],
-            repo: null,
-            reason: "docs",
-          });
+          expect(workflow.store.requireWorkflowRow().status).toBe("running");
+          expect(workflow.store.plan()?.reason).toBe("docs");
+          expect(workflow.store.stagePlan()).toMatchObject({ stages: ["design"], repo: null });
         }));
     });
   });
@@ -293,8 +291,7 @@ describe("set_plan", () => {
   describe("a stage whose author writes its page as a model call, with no page parent", () => {
     let result: string;
     const refused = scenario(freshRuntime, async (workflow) => {
-      patchModelExecution(workflow);
-      workflow.patchState({ page_parent: null });
+      patchModelAuthors(workflow);
       const { set_plan } = planTools(workflow);
       result = toolText(
         await set_plan.execute(
@@ -318,7 +315,7 @@ describe("set_plan", () => {
 
     it("plans no stages", () =>
       refused((workflow) => {
-        expect(workflow.state.stages).toEqual([]);
+        expect(workflow.store.stagePlan()).toBeNull();
       }));
 
     describe("and a second call that names one", () => {
@@ -346,7 +343,7 @@ describe("set_plan", () => {
 
       it("stores the page parent", () =>
         planned((workflow) => {
-          expect(workflow.state.page_parent).toBe("page-1");
+          expect(workflow.store.stagePlan()?.page_parent).toBe("page-1");
         }));
     });
   });
@@ -356,7 +353,7 @@ describe("set_plan", () => {
     let cap: number;
     const planned = scenario(freshRuntime, async (workflow) => {
       cap = workflow.config().orchestrator.sandbox.max_concurrency;
-      workflow.patchState({ origin: TRACKER_ORIGIN });
+      workflow.store.updateWorkflow({ origin: TRACKER_ORIGIN });
       const { set_plan } = planTools(workflow);
       result = toolText(
         await set_plan.execute(
@@ -381,12 +378,12 @@ describe("set_plan", () => {
 
     it("caps the concurrency at the limit", () =>
       planned((workflow) => {
-        expect(workflow.state.concurrency).toBe(cap);
+        expect(workflow.store.stagePlan()?.job_slots).toBe(cap);
       }));
 
     it("stores the repository", () =>
       planned((workflow) => {
-        expect(workflow.state.repo).toEqual({ full: "acme/app" });
+        expect(workflow.store.stagePlan()?.repo).toBe("acme/app");
       }));
 
     it("logs the plan it took", () =>
@@ -421,7 +418,7 @@ describe("set_plan", () => {
 
     it("keeps the concurrency as given", () =>
       planned((workflow) => {
-        expect(workflow.state.concurrency).toBe(1);
+        expect(workflow.store.stagePlan()?.job_slots).toBe(1);
       }));
 
     it("writes nothing to the outbox, since no issue started the workflow", () =>
@@ -455,7 +452,7 @@ describe("set_plan", () => {
 
     it("plans no stages", () =>
       refused((workflow) => {
-        expect(workflow.state.stages).toEqual([]);
+        expect(workflow.store.stagePlan()).toBeNull();
       }));
 
     describe("and a second call that names a granted repository", () => {
@@ -471,7 +468,7 @@ describe("set_plan", () => {
 
       it("stores the granted repository", () =>
         granted((workflow) => {
-          expect(workflow.state.repo).toEqual({ full: "acme/docs" });
+          expect(workflow.store.stagePlan()?.repo).toBe("acme/docs");
         }));
     });
   });
@@ -514,7 +511,7 @@ describe("set_plan", () => {
     let result: string;
     const replanning = scenario(freshRuntime, async (workflow) => {
       workflow.codeHostInstance = new FakeCodeHost({ repositories: ["acme/app"] });
-      workflow.patchState({ origin: TRACKER_ORIGIN });
+      workflow.store.updateWorkflow({ origin: TRACKER_ORIGIN });
       const { set_plan } = planTools(workflow);
       await set_plan.execute(
         {
@@ -573,11 +570,11 @@ describe("set_plan", () => {
 
       it("replaces the stages, the repository, and the reason", () =>
         replanned((workflow) => {
-          expect(workflow.state).toMatchObject({
-            status: "running",
+          expect(workflow.store.requireWorkflowRow().status).toBe("running");
+          expect(workflow.store.plan()?.reason).toBe("code");
+          expect(workflow.store.stagePlan()).toMatchObject({
             stages: ["implement"],
-            repo: { full: "acme/app" },
-            reason: "code",
+            repo: "acme/app",
           });
         }));
 
@@ -592,7 +589,7 @@ describe("set_plan", () => {
 describe("the name a plan gives the workflow", () => {
   describe("a first plan", () => {
     const named = scenario(freshRuntime, async (workflow) => {
-      workflow.patchState({ reply_targets: [THREAD] });
+      workflow.store.addReplyTarget(THREAD);
       const { set_plan } = planTools(workflow);
       await set_plan.execute(
         {
@@ -609,7 +606,7 @@ describe("the name a plan gives the workflow", () => {
 
     it("stores the name on the workflow", () =>
       named((workflow) => {
-        expect(workflow.state.name).toBe("Flaky checkout test");
+        expect(workflow.store.plan()?.name).toBe("Flaky checkout test");
       }));
 
     it("logs the name it took", () =>
@@ -642,7 +639,7 @@ describe("the name a plan gives the workflow", () => {
 
       it("replaces the name", () =>
         renamed((workflow) => {
-          expect(workflow.state.name).toBe("Rewrite the checkout flow");
+          expect(workflow.store.plan()?.name).toBe("Rewrite the checkout flow");
         }));
     });
   });
@@ -709,7 +706,7 @@ describe("set_plan on a document host that nests pages", () => {
 
     it("stores the root page", () =>
       planned((workflow) => {
-        expect(workflow.state.root_page).toEqual({
+        expect(workflow.store.stagePlan()?.root_page).toEqual({
           page_id: "page-1",
           url: "https://docs.test/page-1",
           source: "container",
@@ -734,7 +731,7 @@ describe("set_plan on a document host that nests pages", () => {
       it("keeps the root page and does not create another", () =>
         replanned((workflow) => {
           expect(fakeDocumentsOf(workflow).argsOf("createRootPage")).toHaveLength(1);
-          expect(workflow.state.root_page?.page_id).toBe("page-1");
+          expect(workflow.store.stagePlan()?.root_page?.page_id).toBe("page-1");
         }));
     });
   });
@@ -755,7 +752,7 @@ describe("set_plan on a document host that nests pages", () => {
 
     it("does not plan the stages", () =>
       refused((workflow) => {
-        expect(workflow.state.stages).toEqual([]);
+        expect(workflow.store.stagePlan()).toBeNull();
       }));
   });
 
@@ -784,7 +781,7 @@ describe("set_plan on a document host that nests pages", () => {
 
     it("creates the root page under the workflow definition's default", () =>
       planned((workflow) => {
-        expect(workflow.state.page_parent).toBe("db-default");
+        expect(workflow.store.stagePlan()?.page_parent).toBe("db-default");
         expect(fakeDocumentsOf(workflow).argsOf("createRootPage")[0]?.[2]).toBe("db-default");
       }));
   });
@@ -806,8 +803,8 @@ describe("set_plan on a document host that nests pages", () => {
 
     it("stores the plan and the root page", () =>
       planned((workflow) => {
-        expect(workflow.state.stages).toEqual(["plan"]);
-        expect(workflow.state.root_page).toEqual({
+        expect(workflow.store.stagePlan()?.stages).toEqual(["plan"]);
+        expect(workflow.store.stagePlan()?.root_page).toEqual({
           page_id: "page-1",
           url: "https://docs.test/page-1",
           source: "container",
@@ -846,7 +843,7 @@ describe("set_plan on a document host that nests pages", () => {
         expect(fakeDocumentsOf(workflow).argsOf("createRootPage")).toEqual([
           ["Ship it", "## Resources", "https://www.notion.so/acme/db-default"],
         ]);
-        expect(workflow.state.root_page?.source).toBe("container");
+        expect(workflow.store.stagePlan()?.root_page?.source).toBe("container");
       }));
   });
 
@@ -868,7 +865,7 @@ describe("set_plan on a document host that nests pages", () => {
 
     it("does not plan the stages or create a page", () =>
       refused((workflow) => {
-        expect(workflow.state.stages).toEqual([]);
+        expect(workflow.store.stagePlan()).toBeNull();
         expect(fakeDocumentsOf(workflow).argsOf("createRootPage")).toEqual([]);
       }));
 
@@ -879,7 +876,7 @@ describe("set_plan on a document host that nests pages", () => {
 
       it("stores the named page as the root page", () =>
         named((workflow) => {
-          expect(workflow.state.root_page).toEqual({
+          expect(workflow.store.stagePlan()?.root_page).toEqual({
             page_id: "existing-1",
             url: EXISTING_URL,
             source: "named",
@@ -903,8 +900,8 @@ describe("set_plan on a document host that nests pages", () => {
 
     it("does not set a root page", () =>
       planned((workflow) => {
-        expect(workflow.state.stages).toEqual(["implement"]);
-        expect(workflow.state.root_page).toBeNull();
+        expect(workflow.store.stagePlan()?.stages).toEqual(["implement"]);
+        expect(workflow.store.stagePlan()?.root_page).toBeNull();
       }));
   });
 });
@@ -939,18 +936,19 @@ async function planWithSubject(workflow: FakeRuntime, subject: string): Promise<
 describe("set_plan with a subject", () => {
   describe("an issue link, in a workflow from a chat thread", () => {
     const planned = scenario(freshRuntime, async (workflow) => {
-      workflow.patchState({ origin: THREAD, reply_targets: [THREAD] });
+      workflow.store.updateWorkflow({ origin: THREAD });
+      workflow.store.addReplyTarget(THREAD);
       await planWithSubject(workflow, SUBJECT_ISSUE.url);
     });
 
     it("plans the stages", () =>
       planned((workflow) => {
-        expect(workflow.state.stages).toEqual(["implement"]);
+        expect(workflow.store.stagePlan()?.stages).toEqual(["implement"]);
       }));
 
     it("makes the issue the subject", () =>
       planned((workflow) => {
-        expect(workflow.state.subject).toEqual({ kind: "issue", issue_id: "i100" });
+        expect(workflow.store.subject()).toEqual({ kind: "issue", issue_id: "i100" });
       }));
 
     it("links the chat thread to the subject issue", () =>
@@ -971,14 +969,14 @@ describe("set_plan with a subject", () => {
 
     it("makes the project the subject", () =>
       planned((workflow) => {
-        expect(workflow.state.subject).toEqual({ kind: "project", project_id: "proj-1" });
+        expect(workflow.store.subject()).toEqual({ kind: "project", project_id: "proj-1" });
       }));
   });
 
   describe("another issue, in a workflow that has a subject", () => {
     let result: string;
     const refused = scenario(freshRuntime, async (workflow) => {
-      workflow.patchState({ subject: { kind: "project", project_id: "proj-1" } });
+      workflow.store.writeSubject({ kind: "project", project_id: "proj-1" });
       result = await planWithSubject(workflow, SUBJECT_ISSUE.url);
     });
 
@@ -991,7 +989,7 @@ describe("set_plan with a subject", () => {
 
     it("keeps the subject", () =>
       refused((workflow) => {
-        expect(workflow.state.subject).toEqual({ kind: "project", project_id: "proj-1" });
+        expect(workflow.store.subject()).toEqual({ kind: "project", project_id: "proj-1" });
       }));
   });
 
@@ -1010,7 +1008,7 @@ describe("set_plan with a subject", () => {
 
     it("leaves the workflow without a subject", () =>
       refused((workflow) => {
-        expect(workflow.state.subject).toBeNull();
+        expect(workflow.store.subject()).toBeNull();
       }));
   });
 });

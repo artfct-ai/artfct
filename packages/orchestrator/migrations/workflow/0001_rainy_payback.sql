@@ -1,1 +1,0 @@
-ALTER TABLE `sandboxes` DROP COLUMN `token_used`;

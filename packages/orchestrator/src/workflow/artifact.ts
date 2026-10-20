@@ -117,7 +117,7 @@ export async function recordArtifact(
   });
   markAuthorInReview(workflow, task.task_id);
   const { ref } = target;
-  if ((ref.kind === "issue" || ref.kind === "project") && !workflow.state.subject) {
+  if ((ref.kind === "issue" || ref.kind === "project") && !workflow.store.subject()) {
     await setWorkflowSubject(workflow, subjectOfRef(ref));
   }
   const binding = workflow.artifact(kind).binding(target.ref);

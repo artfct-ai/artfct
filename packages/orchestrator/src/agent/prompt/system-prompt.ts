@@ -8,7 +8,7 @@ import { taskQuiet, heldForReview, refinerInFlight } from "../../workflow/refine
 import { runningPolisherOf } from "../../workflow/refiner/stage-refiner";
 import { taskAtWork } from "../../workflow/task/at-work";
 import type { ArtifactRow, TaskRow } from "../../workflow/store/tasks";
-import { workflowName } from "../../workflow/store/state";
+import { jobSlotsOf } from "../../workflow/store/state";
 import type { WorkflowRuntime } from "../../workflow/types";
 import { stageAfterInput } from "../message/input-artifact";
 import { RUNTIME_RULES, runtimeLines } from "./runtime";
@@ -69,7 +69,7 @@ export function needsReview(workflow: WorkflowRuntime): boolean {
 
 /** True while the plan is unset or no job runs: the turns that find context and start work. */
 export function needsContext(workflow: WorkflowRuntime): boolean {
-  return workflow.state.stages.length === 0 || !needsHarness(workflow);
+  return workflow.store.stagePlan() === null || !needsHarness(workflow);
 }
 
 /** True on a turn that may start work: the message requests it, and the plan is unset or no job runs. */
@@ -83,7 +83,7 @@ const BLOCKS: RuleBlock[] = [
   {
     rules: END_RULES,
     tools: [FINISH_WORKFLOW, FAIL_WORKFLOW],
-    needed: (workflow) => workflow.state.definition !== null,
+    needed: (workflow) => workflow.store.plan() !== null,
   },
   { rules: TASK_RULES, tools: [], needed: always },
   { rules: RUNTIME_RULES, tools: [], needed: mayStartWork },
@@ -163,7 +163,7 @@ function definitionLines(definitions: readonly WorkflowDefinition[]): string[] {
 function workLines(workflow: WorkflowRuntime, config: Config, turn: TurnFacts): string[] {
   const mayStart = mayStartWork(workflow, turn);
   const runtime = mayStart ? [...runtimeLines(config), ""] : [];
-  if (workflow.state.definition === null) {
+  if (workflow.store.plan() === null) {
     if (!turn.requestsWork) return [];
     const definitions = workflow.workflowDefinitions();
     return [
@@ -224,24 +224,32 @@ export function activeToolNames(
 }
 
 function stateLines(workflow: WorkflowRuntime, turn: TurnFacts): string[] {
-  const { state } = workflow;
-  const active = workflow.store.activeAuthorAndResearcherTasks();
+  const { store } = workflow;
+  const created = store.requireWorkflowRow();
+  const plan = store.plan();
+  const stagePlan = store.stagePlan();
+  const active = store.activeAuthorAndResearcherTasks();
   return [
     "## Current state",
     "Read from the store and the hosts for this request. Say whether a task runs, and where page comments are, only from these lines, never from earlier messages. `activity=running` means a turn of the task runs now. `activity=idle` means it runs nothing and nothing is queued for it. `held_comments` counts the comments on the page that its author has not received.",
-    `Workflow: ${state.workflow_id} status=${state.status}`,
-    state.definition === null
-      ? "Workflow definition: not set. The workflow starts when set_plan names one."
-      : `Workflow definition: ${state.definition}`,
-    `Name: ${workflowName(state)}`,
-    `Plan: ${state.stages.length ? state.stages.join(" -> ") : "not set"}`,
-    `Repository: ${state.repo?.full ?? "none"}`,
-    `Page parent: ${state.page_parent ?? "none"}`,
-    `Root page: ${state.root_page?.url ?? "none"}`,
-    `Active jobs: ${active.length} of ${state.concurrency} slots`,
+    `Workflow: ${created.workflow_id} status=${created.status}`,
+    plan
+      ? `Workflow definition: ${plan.definition}`
+      : "Workflow definition: not set. The workflow starts when set_plan names one.",
+    `Name: ${store.workflowName()}`,
+    `Plan: ${stagePlan ? stagePlan.stages.join(" -> ") : "not set"}`,
+    `Repository: ${stagePlan?.repo ?? "none"}`,
+    `Page parent: ${stagePlan?.page_parent ?? "none"}`,
+    `Root page: ${stagePlan?.root_page?.url ?? "none"}`,
+    `Active jobs: ${active.length} of ${jobSlotsOf(stagePlan)} slots`,
     ...active.map((task) => jobLine(workflow, task, turn.heldComments)),
-    `Cost so far: $${workflow.store.workflowCost().toFixed(2)}`,
-    `Reply channels: ${state.reply_targets.map((target) => target.source).join(", ") || "none"}`,
+    `Cost so far: $${store.workflowCost().toFixed(2)}`,
+    `Reply channels: ${
+      store
+        .replyTargets()
+        .map((target) => target.source)
+        .join(", ") || "none"
+    }`,
   ];
 }
 

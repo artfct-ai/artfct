@@ -1,4 +1,4 @@
-import { FakeRuntime } from "./fake-runtime";
+import { createFakeWorkflow, FakeRuntime } from "./fake-runtime";
 import { openMemoryDb } from "./memory-db";
 import type { Scenario } from "./scenario";
 import { testEnv } from "./test-env";
@@ -13,7 +13,7 @@ export const freshRuntime: Scenario<FakeRuntime> = async (run) => {
 
 /** A fresh fake runtime before the plan that starts its workflow: status `new`, without a workflow definition. */
 export const unstartedRuntime: Scenario<FakeRuntime> = async (run) => {
-  const workflow = new FakeRuntime(openMemoryDb(), testEnv());
-  workflow.patchState({ status: "new", definition: null });
+  const workflow = new FakeRuntime(openMemoryDb(), testEnv(), "uncreated");
+  createFakeWorkflow(workflow);
   await run(workflow);
 };

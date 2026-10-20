@@ -26,7 +26,7 @@ import { stageContinuesArtifact } from "../../../workflow/artifact";
 import { newPageParent } from "../../../workflow/root-page";
 import { validateIssueInSubject } from "../../../workflow/subject";
 import { artifactRefKey, jobInputFor, jobInputKey } from "../../../workflow/store/input-key";
-import { isTaskFinished, isWorkflowFinished } from "../../../workflow/store/state";
+import { isTaskFinished, isWorkflowFinished, jobSlotsOf } from "../../../workflow/store/state";
 import type { ArtifactRow, JobRow } from "../../../workflow/store/tasks";
 import type { WorkflowRuntime } from "../../../workflow/types";
 import { validateWorkflowRunning } from "../plan";
@@ -215,13 +215,13 @@ export function withRequestedRuntime(
 
 /** Validate that a slot is free. Null when a job may start. */
 export function validateFreeSlot(workflow: WorkflowRuntime): string | null {
-  const { state } = workflow;
+  const slots = jobSlotsOf(workflow.store.stagePlan());
   const active = workflow.store
     .activeAuthorAndResearcherTasks()
     .map((task) => workflow.store.requireJob(task.job_id));
-  if (active.length < state.concurrency) return null;
+  if (active.length < slots) return null;
   const ids = active.map((job) => job.job_id).join(", ");
-  return `All ${state.concurrency} slots are busy (${ids}). Wait for a job to complete.`;
+  return `All ${slots} slots are busy (${ids}). Wait for a job to complete.`;
 }
 
 /** How an error names the input artifact of a job. */
@@ -305,7 +305,7 @@ async function validateInputNotHeld(
 async function bindIssueForJob(workflow: WorkflowRuntime, issue: JobIssue): Promise<string | null> {
   const db = createDb(workflow.env.DB);
   const binding = { source: "tracker_issue" as const, external_id: issue.id };
-  const { workflow_id: workflowId } = workflow.state;
+  const { workflow_id: workflowId } = workflow.store.requireWorkflowRow();
   const boundTo = await findBinding(db, binding);
   if (boundTo === workflowId) return null;
   if (boundTo) {
@@ -394,20 +394,20 @@ function validateStart(workflow: WorkflowRuntime, input: StartInput): string | n
 
 /** Validate that a plan started the workflow from a workflow definition, before any job starts. */
 function validateWorkflowStarted(workflow: WorkflowRuntime): string | null {
-  if (workflow.state.definition !== null) return null;
+  if (workflow.store.plan() !== null) return null;
   return "The workflow has not started. Call set_plan with a workflow definition first.";
 }
 
 /** Validate that the workflow has a saved plan before a stage that writes a page starts. */
 function validatePlanSaved(workflow: WorkflowRuntime, stage: ResolvedStage): string | null {
-  if (stage.artifact !== "page" || workflow.state.stages.length > 0) return null;
+  if (stage.artifact !== "page" || workflow.store.stagePlan() !== null) return null;
   return `Stage ${stage.name} writes a page, and the workflow does not have a plan yet. Call set_plan first.`;
 }
 
 /** Validate that the plan says where the page of a model-call author goes. */
 function validatePagePlace(workflow: WorkflowRuntime, stage: ResolvedStage): string | null {
   if (stage.artifact !== "page" || stage.author.produce.execution !== "model") return null;
-  if (newPageParent(workflow.state)) return null;
+  if (newPageParent(workflow.store.stagePlan())) return null;
   return `Stage ${stage.name} writes a page, and the plan does not set a root page or a page parent. Call set_plan with stage ${stage.name}.`;
 }
 
@@ -715,7 +715,7 @@ function whatIsNext(
   if (job.issue_id || outcome.running > 0) {
     return `${done} Stage ${job.stage} stays open with ${outcome.running} running and ${outcome.slots} free slots. Start the next ready issues, or move on when the tracker shows none left.`;
   }
-  const { stages } = workflow.state;
+  const stages = workflow.store.stagePlan()?.stages ?? [];
   const index = stages.indexOf(job.stage);
   if (index === -1) {
     return `${done} Stage ${job.stage} is not in the plan, so the plan names no next stage. Call set_plan when the route changed.`;

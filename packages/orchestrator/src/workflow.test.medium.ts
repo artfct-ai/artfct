@@ -19,7 +19,15 @@ let opened = 0;
 
 async function seedProvisioningTask(workflow: Workflow, name: string): Promise<string> {
   await workflow.status();
-  workflow.patchState({ workflow_id: name, status: "running" });
+  workflow.store.createWorkflow({
+    workflow_id: name,
+    request_title: "",
+    request_text: "",
+    request_links: [],
+    origin: null,
+    subject: null,
+  });
+  workflow.store.updateWorkflow({ status: "running" });
   const taskId = `${name}.1`;
   const jobId = `${name}-1`;
   workflow.store.insertJob({

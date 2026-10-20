@@ -104,7 +104,6 @@ import type {
   WorkflowRpc,
   WorkflowRuntime,
 } from "./workflow/types";
-import { initialWorkflowState, type WorkflowState } from "./workflow/store/state";
 import { debugDump, summarize } from "./workflow/status";
 import { WorkflowStore, type JobRow, type TaskRow } from "./workflow/store/tasks";
 import {
@@ -116,8 +115,6 @@ import {
   type TaskAlarm,
 } from "./workflow/task/harness/timers";
 import { refreshToken } from "./workflow/task/sandbox/credential";
-
-export type { WorkflowState } from "./workflow/store/state";
 
 const MCP_WAIT_MS = 10_000;
 
@@ -173,8 +170,7 @@ export const defaultServices: WorkflowServices = {
  * One workflow, one Durable Object. The logic lives in `./agent/*` and `./workflow/*`. This
  * class is the runtime those modules run against, plus the RPC and alarm entry points.
  */
-export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRuntime, WorkflowRpc {
-  initialState: WorkflowState = initialWorkflowState;
+export class Workflow extends Agent<Env> implements WorkflowRuntime, WorkflowRpc {
   /** Widen the Agent's protected env so the logic modules can read bindings. */
   declare public env: Env;
   store!: WorkflowStore;
@@ -236,9 +232,9 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     return this.inSpan(`event ${event.kind}`, null, () => handleEvent(this, event));
   }
 
-  async status(): Promise<WorkflowSummary> {
+  async status(): Promise<WorkflowSummary | null> {
     await this.lifecycle.start();
-    return summarize(this);
+    return this.store.workflowRow() ? summarize(this) : null;
   }
 
   async debug(): Promise<unknown> {
@@ -375,8 +371,8 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     return false;
   }
 
-  /** Only the workflow writes its state. A state frame from a bridge socket is refused. */
-  validateStateChange(_nextState: WorkflowState, source: Connection | "server"): void {
+  /** The workflow keeps its state in its tables. A state frame from a bridge socket is refused. */
+  validateStateChange(_nextState: unknown, source: Connection | "server"): void {
     if (source !== "server") throw new Error("a bridge socket cannot write the workflow state");
   }
 
@@ -410,14 +406,11 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
   /** Run one entry point in a span that names the workflow and the task, so a trace is found by either. */
   private inSpan<Result>(name: string, taskId: string | null, run: () => Result): Result {
     return tracing.enterSpan(name, (span) => {
-      span.setAttribute("workflow.id", this.state.workflow_id);
+      const workflowId = this.store.workflowRow()?.workflow_id;
+      if (workflowId) span.setAttribute("workflow.id", workflowId);
       if (taskId) span.setAttribute("task.id", taskId);
       return run();
     });
-  }
-
-  patchState(patch: Partial<WorkflowState>): void {
-    this.setState({ ...this.state, ...patch });
   }
 
   config(): Config {
@@ -429,7 +422,10 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
   }
 
   workflowDefinition(): WorkflowDefinition {
-    return storedWorkflowDefinition(this.workflowDefinitions(), this.state.definition);
+    return storedWorkflowDefinition(
+      this.workflowDefinitions(),
+      this.store.plan()?.definition ?? null,
+    );
   }
 
   stageFor(job: JobRow): ResolvedStage {
@@ -508,9 +504,10 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
 
   log(taskId: string | null, line: string): void {
     this.store.appendLog(taskId, line);
-    const workflowId = this.state.workflow_id;
+    const workflowId = this.store.workflowRow()?.workflow_id ?? null;
+    const where = [workflowId, taskId].filter(Boolean).join("/");
     console.log({
-      message: `[${workflowId}${taskId ? `/${taskId}` : ""}] ${line}`,
+      message: `[${where}] ${line}`,
       workflow_id: workflowId,
       task_id: taskId,
     });
@@ -584,7 +581,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
       code: () => this.code(),
       documents: () => this.documents(),
       tracker: () => this.tracker(),
-      repo: () => this.state.repo?.full ?? null,
+      repo: () => this.store.stagePlan()?.repo ?? null,
       log: (line) => this.log(null, line),
     });
   }

@@ -609,11 +609,11 @@ export class SessionRoutingReplay {
   /** The workflow as the spec sees it. */
   project(): SpecRouting {
     const { workflow } = this.world;
-    const { store, state, transcript } = workflow;
+    const { store, transcript } = workflow;
     const jobs = store.jobs();
     return {
-      subject: specSubjectOf(state.subject ?? null),
-      replyTargets: state.reply_targets.map(targetName).toSorted(),
+      subject: specSubjectOf(store.subject()),
+      replyTargets: store.replyTargets().map(targetName).toSorted(),
       jobs: jobs.map((job) => {
         const author = store.authorTask(job.job_id);
         const researcher = store.researcherTask(job.job_id);
@@ -658,8 +658,8 @@ export class SessionRoutingReplay {
         )
         .filter((name, index, names) => names.indexOf(name) === index)
         .toSorted(),
-      waitsForInput: state.status === "waiting_input",
-      ended: isWorkflowFinished(state.status),
+      waitsForInput: store.requireWorkflowRow().status === "waiting_input",
+      ended: isWorkflowFinished(store.requireWorkflowRow().status),
     };
   }
 
@@ -815,7 +815,8 @@ export class SessionRoutingReplay {
       case "idleClockFiresWithoutASleep":
         return worldAction("the idle clock fires", async (world) => {
           const { workflow } = world;
-          if (workflow.state.idle_alarm) await workflow.cancelAlarm(workflow.state.idle_alarm);
+          const idleSchedule = workflow.store.requireWorkflowRow().idle_schedule;
+          if (idleSchedule) await workflow.cancelAlarm(idleSchedule);
           await onIdle(workflow);
         });
       case "boardFlushes":
@@ -894,10 +895,12 @@ export class SessionRoutingReplay {
     world: WorkflowWorld,
     issue: Issue,
   ): Extract<ReplyTarget, { source: "tracker" }> {
-    const session = world.workflow.state.reply_targets.find(
-      (target): target is Extract<ReplyTarget, { source: "tracker" }> =>
-        target.source === "tracker" && target.issue_id === ISSUE_KEY[issue],
-    );
+    const session = world.workflow.store
+      .replyTargets()
+      .find(
+        (target): target is Extract<ReplyTarget, { source: "tracker" }> =>
+          target.source === "tracker" && target.issue_id === ISSUE_KEY[issue],
+      );
     if (!session) throw new Error(`the workflow has no session on ${issue}`);
     return session;
   }
@@ -1078,7 +1081,7 @@ async function setPlan(workflow: WorkflowRuntime, named: { subject?: string }): 
       reason: "the request asks for a design",
       stages: [STAGE],
       repo: REPO,
-      page_parent: workflow.state.page_parent,
+      page_parent: workflow.store.stagePlan()?.page_parent,
       concurrency: ISSUES.length,
       ...named,
     },

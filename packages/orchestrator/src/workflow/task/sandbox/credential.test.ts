@@ -13,7 +13,12 @@ import {
   mintWorkflowRepoToken,
   TOKEN_RETRY_S,
 } from "./credential";
-import { fakeConnection, seedTask, type FakeRuntime } from "../../../../test/fake-runtime";
+import {
+  fakeConnection,
+  seedTask,
+  type FakeRuntime,
+  patchStagePlan,
+} from "../../../../test/fake-runtime";
 import { scenario, type Scenario } from "../../../../test/scenario";
 
 const TASK = "wf_x.1";
@@ -22,7 +27,7 @@ const HOUR_MS = 3_600_000;
 const CLOCK = 1_000_000_000_000;
 
 function seedPair(workflow: FakeRuntime) {
-  workflow.patchState({ repo: { full: REPO } });
+  patchStagePlan(workflow, { repo: REPO });
   const author = seedTask(workflow, { stage: "implement", branch: "artfct/wf_x-1-fix" });
   const reviewer = seedTask(workflow, {
     task_id: "wf_x.2",
@@ -173,7 +178,7 @@ function refreshing(
     freshRuntime(async (workflow) => {
       const code = makeHost();
       workflow.codeHostInstance = code;
-      workflow.patchState({ repo: { full: REPO } });
+      patchStagePlan(workflow, { repo: REPO });
       setUp(workflow);
       await refreshToken(workflow, { task_id: TASK });
       await run({ workflow, code });

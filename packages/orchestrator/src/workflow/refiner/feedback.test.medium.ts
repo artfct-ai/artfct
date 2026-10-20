@@ -1,7 +1,12 @@
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { describe, expect, it } from "vitest";
 import { freshDurableRuntime } from "../../../test/durable-runtime";
-import { patchStageReviewers, seedTask, type FakeRuntime } from "../../../test/fake-runtime";
+import {
+  patchStageReviewers,
+  seedTask,
+  type FakeRuntime,
+  patchStagePlan,
+} from "../../../test/fake-runtime";
 import { scenario, type Scenario } from "../../../test/scenario";
 import type { Applied } from "../types";
 import { appliedForAgent } from "../../../test/applied-event";
@@ -24,7 +29,7 @@ const OPENED: InboundEvent = {
 type Landed = { workflow: FakeRuntime; result: Applied };
 
 function seedAuthor(workflow: FakeRuntime) {
-  workflow.patchState({ repo: { full: "acme/app" } });
+  patchStagePlan(workflow, { repo: "acme/app" });
   return seedTask(workflow, { stage: "implement", branch: "artfct/wf_x-1-fix" });
 }
 

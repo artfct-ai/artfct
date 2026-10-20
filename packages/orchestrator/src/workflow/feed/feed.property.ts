@@ -158,12 +158,8 @@ class FeedRun {
 
   constructor(private readonly witnesses: Witnesses) {
     this.workflow = new FakeRuntime(openMemoryDb(), testEnv());
-    this.workflow.patchState({
-      status: "running",
-      created_at: new Date(TURN_START).toISOString(),
-      origin: SESSION,
-      reply_targets: [SESSION],
-    });
+    this.workflow.store.updateWorkflow({ origin: SESSION });
+    this.workflow.store.addReplyTarget(SESSION);
     this.workflow.notifier = testNotifier([], { tracker: this.tracker });
     this.workflow.trackerInstance = this.tracker;
     this.workflow.clock = TURN_START;
@@ -285,7 +281,7 @@ class FeedRun {
     this.authorFinished = true;
     this.workflowEnded = true;
     this.workflow.store.updateTask(AUTHOR, { status: "cancelled" });
-    this.workflow.patchState({ status: "done" });
+    this.workflow.store.updateWorkflow({ status: "done" });
   }
 
   private async startTurn(): Promise<void> {

@@ -98,7 +98,7 @@ const input: StartSpecInput = {
   adapters: registeredConfig().config.adapters,
   workflowId: "wf_x",
   publicUrl: "https://ao.example.com",
-  repo: { full: "acme/app" },
+  repo: "acme/app",
   commitAuthor: AUTHOR,
   workflowRepoToken: "ghs_1",
   allReposReadToken: null,

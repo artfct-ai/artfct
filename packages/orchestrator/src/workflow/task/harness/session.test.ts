@@ -20,6 +20,7 @@ import {
   seedTask,
   type SeedTaskPatch,
   sentMethods,
+  patchStagePlan,
 } from "../../../../test/fake-runtime";
 import { type Scenario, scenario } from "../../../../test/scenario";
 
@@ -74,7 +75,7 @@ describe("onBridgeHello", () => {
   describe("a reconnect whose GitHub token is about to die", () => {
     const reconnected = scenario(sessionOf(TASK), async ({ workflow, socket }) => {
       workflow.codeHostInstance = appHost();
-      workflow.patchState({ repo: { full: "acme/app" } });
+      patchStagePlan(workflow, { repo: "acme/app" });
       seedTask(
         workflow,
         {},
@@ -258,7 +259,7 @@ describe("onInitialized", () => {
   describe("a review of a pull request", () => {
     describe("with an App that mints a scoped token", () => {
       const opened = handshake(REVIEW_OF_PULL, (workflow) => {
-        workflow.patchState({ repo: { full: "acme/app" } });
+        patchStagePlan(workflow, { repo: "acme/app" });
         workflow.codeHostInstance = new FakeCodeHost({
           token: { token: "ghs_scoped", expiresAt: Date.now() + 3_600_000 },
         });
@@ -279,7 +280,7 @@ describe("onInitialized", () => {
 
     describe("when the code host will not mint a token", () => {
       const opened = handshake(REVIEW_OF_PULL, (workflow) => {
-        workflow.patchState({ repo: { full: "acme/app" } });
+        patchStagePlan(workflow, { repo: "acme/app" });
         workflow.codeHostInstance = new FakeCodeHost({ failing: true });
       });
 

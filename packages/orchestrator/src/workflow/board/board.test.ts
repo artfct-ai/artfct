@@ -13,6 +13,7 @@ import {
   seedReviewerRun,
   seedTask,
   type FakeRuntime,
+  patchPlan,
 } from "../../../test/fake-runtime";
 import { scenario } from "../../../test/scenario";
 import { completeJob, failTask } from "../lifecycle";
@@ -43,7 +44,7 @@ function useChat(workflow: FakeRuntime, tracker: FakeTracker | null = null): Fak
     { tracker: async () => tracker, chat, documents: async () => null },
     (entry) => workflow.store.writeOutbox(entry),
   );
-  workflow.state.reply_targets = [THREAD];
+  workflow.store.addReplyTarget(THREAD);
   return chat;
 }
 
@@ -81,7 +82,9 @@ describe("flushBoards", () => {
     const created = scenario(freshRuntime, async (workflow) => {
       tracker = new FakeTracker();
       chat = useChat(workflow, tracker);
-      workflow.state.reply_targets = [THREAD, SESSION, { ...SESSION, session_id: "s2" }];
+      workflow.store.addReplyTarget(THREAD);
+      workflow.store.addReplyTarget(SESSION);
+      workflow.store.addReplyTarget({ ...SESSION, session_id: "s2" });
       seedBoardTask(workflow, { issue_id: "issue-1", issue_key: "ENG-1" });
       await flushBoards(workflow, JOB);
     });
@@ -120,7 +123,7 @@ describe("flushBoards", () => {
     const flushed = scenario(freshRuntime, async (workflow) => {
       chat = useChat(workflow);
       workflow.clock = TEN_AM;
-      workflow.patchState({ name: "Fix the login redirect" });
+      patchPlan(workflow, { name: "Fix the login redirect" });
       seedBoardTask(workflow, { issue_key: "ENG-1" });
       workflow.store.setTodos(TASK, {
         entries: [
@@ -459,7 +462,7 @@ describe("the lifetime of a board", () => {
 });
 
 function seedHeldTask(workflow: FakeRuntime, seed: Parameters<typeof seedPullRequestTask>[2]) {
-  workflow.patchState({ name: "Fix the login redirect" });
+  patchPlan(workflow, { name: "Fix the login redirect" });
   return seedPullRequestTask(workflow, { issue_key: "ENG-1" }, seed);
 }
 
@@ -989,7 +992,7 @@ describe("the board header", () => {
   describe("a task at launch, before the harness reports a todo list", () => {
     const launched = scenario(freshRuntime, async (workflow) => {
       chat = useChat(workflow);
-      workflow.patchState({ name: "Fix the login redirect" });
+      patchPlan(workflow, { name: "Fix the login redirect" });
       seedTask(workflow, { issue_key: "ENG-1" });
       await flushBoards(workflow, JOB);
     });
@@ -1015,7 +1018,7 @@ describe("the board header", () => {
   describe("a task that claimed no ticket", () => {
     const untracked = scenario(freshRuntime, async (workflow) => {
       chat = useChat(workflow);
-      workflow.patchState({ name: "Fix the login redirect" });
+      patchPlan(workflow, { name: "Fix the login redirect" });
       seedBoardTask(workflow, { issue_key: null });
       await flushBoards(workflow, JOB);
     });
@@ -1033,7 +1036,8 @@ describe("the board header", () => {
     const reviewing = scenario(freshRuntime, async (workflow) => {
       tracker = new FakeTracker();
       chat = useChat(workflow, tracker);
-      workflow.state.reply_targets = [THREAD, SESSION];
+      workflow.store.addReplyTarget(THREAD);
+      workflow.store.addReplyTarget(SESSION);
       seedReviewerRun(workflow, { issue_id: "issue-1", issue_key: "ENG-1" });
       await flushBoards(workflow, REVIEW_JOB);
     });
@@ -1050,10 +1054,9 @@ describe("the board header", () => {
   describe("a workflow name that holds a link", () => {
     const named = scenario(freshRuntime, async (workflow) => {
       chat = useChat(workflow);
-      workflow.state.request = {
-        ...workflow.state.request,
-        title: "fix https://github.com/acme/app/pull/7 today",
-      };
+      workflow.store.updateWorkflow({
+        request_title: "fix https://github.com/acme/app/pull/7 today",
+      });
       seedBoardTask(workflow, { issue_key: null });
       await flushBoards(workflow, JOB);
     });
@@ -1122,7 +1125,7 @@ describe("the workflow name on a board task", () => {
   describe("a workflow whose plan named it", () => {
     it("carries the name", () =>
       freshRuntime((workflow) => {
-        workflow.patchState({ name: "Flaky checkout test" });
+        patchPlan(workflow, { name: "Flaky checkout test" });
         const task = seedTask(workflow);
         expect(boardTask(workflow, task).workflow_name).toBe("Flaky checkout test");
       }));
@@ -1131,7 +1134,7 @@ describe("the workflow name on a board task", () => {
   describe("a workflow before its first plan", () => {
     it("carries the request title", () =>
       freshRuntime((workflow) => {
-        workflow.state.request = { ...workflow.state.request, title: "fix the flaky test" };
+        workflow.store.updateWorkflow({ request_title: "fix the flaky test" });
         const task = seedTask(workflow);
         expect(boardTask(workflow, task).workflow_name).toBe("fix the flaky test");
       }));
@@ -1140,7 +1143,7 @@ describe("the workflow name on a board task", () => {
   describe("a name longer than the label budget", () => {
     it("clips it to the budget", () =>
       freshRuntime((workflow) => {
-        workflow.patchState({ name: "n".repeat(100) });
+        patchPlan(workflow, { name: "n".repeat(100) });
         const task = seedTask(workflow);
         expect(boardTask(workflow, task).workflow_name).toBe("n".repeat(60));
       }));

@@ -26,7 +26,7 @@ describe("handleEvent", () => {
 
   function appReviewed(answers: Record<string, number>) {
     return scenario(freshRuntime, async (workflow) => {
-      workflow.patchState({ status: "running" });
+      workflow.store.updateWorkflow({ status: "running" });
       workflow.codeHostInstance = new FakeCodeHost();
       workflow.gatewayInstance = new FakeGateway({ decisions: new FakeDecisions(answers) });
       seedPullRequestTask(workflow);
@@ -74,7 +74,7 @@ describe("feedback whose delivery a restart cut off", () => {
 
   async function redelivered(run: (fixture: Redelivered) => void): Promise<void> {
     await freshRuntime(async (workflow) => {
-      workflow.patchState({ status: "running" });
+      workflow.store.updateWorkflow({ status: "running" });
       workflow.codeHostInstance = new FakeCodeHost();
       workflow.gatewayInstance = new FakeGateway({ decisions: unanswered });
       seedPullRequestTask(workflow);
@@ -135,7 +135,8 @@ describe("a message a person wrote", () => {
 
   describe("in the chat thread of a running workflow", () => {
     const prompted = scenario(freshRuntime, async (workflow) => {
-      workflow.patchState({ status: "running", origin: THREAD, reply_targets: [THREAD] });
+      workflow.store.updateWorkflow({ status: "running", origin: THREAD });
+      workflow.store.addReplyTarget(THREAD);
       await handleEvent(workflow, {
         ...START,
         id: "evt-prompt",
@@ -155,7 +156,8 @@ describe("a message a person wrote", () => {
 
   describe("in a tracker session", () => {
     const prompted = scenario(freshRuntime, async (workflow) => {
-      workflow.patchState({ status: "running", origin: SESSION, reply_targets: [SESSION] });
+      workflow.store.updateWorkflow({ status: "running", origin: SESSION });
+      workflow.store.addReplyTarget(SESSION);
       await handleEvent(workflow, {
         ...START,
         id: "evt-session",
@@ -183,7 +185,8 @@ describe("a message a person wrote", () => {
 
   describe("in a tracker session whose author works", () => {
     const prompted = scenario(freshRuntime, async (workflow) => {
-      workflow.patchState({ status: "running", origin: SESSION, reply_targets: [SESSION] });
+      workflow.store.updateWorkflow({ status: "running", origin: SESSION });
+      workflow.store.addReplyTarget(SESSION);
       seedTask(workflow, { issue_id: "iss-1" }, { prompt_in_flight: 1 });
       await handleEvent(workflow, {
         ...START,
@@ -206,7 +209,8 @@ describe("a message a person wrote", () => {
 
   describe("a verbal pause in a tracker session", () => {
     const paused = scenario(freshRuntime, async (workflow) => {
-      workflow.patchState({ status: "running", origin: SESSION, reply_targets: [SESSION] });
+      workflow.store.updateWorkflow({ status: "running", origin: SESSION });
+      workflow.store.addReplyTarget(SESSION);
       seedTask(workflow, { issue_id: "iss-2" }, { prompt_in_flight: 1 });
       await handleEvent(workflow, {
         ...START,
@@ -229,7 +233,8 @@ describe("a message a person wrote", () => {
 
   describe("in a tracker session of a finished workflow", () => {
     const prompted = scenario(freshRuntime, async (workflow) => {
-      workflow.patchState({ status: "done", origin: SESSION, reply_targets: [SESSION] });
+      workflow.store.updateWorkflow({ status: "done", origin: SESSION });
+      workflow.store.addReplyTarget(SESSION);
       await handleEvent(workflow, {
         ...START,
         id: "evt-session",
@@ -257,9 +262,9 @@ function feedPayloadsOf(workflow: FakeRuntime): unknown[] {
     .map((row) => row.payload);
 }
 
-function workflowWith(createdAt: string, status: "running" | "done"): FakeRuntime {
+function workflowWith(status: "running" | "done"): FakeRuntime {
   const workflow = new FakeRuntime(openMemoryDb(), testEnv());
-  workflow.patchState({ created_at: createdAt, status });
+  workflow.store.updateWorkflow({ status });
   return workflow;
 }
 
@@ -275,7 +280,7 @@ describe("eventRefusalOf", () => {
   const STATUS: InboundEvent = { ...PROMPT, id: "evt-status", kind: "status", actor: null };
 
   describe("a workflow whose create has not returned", () => {
-    const workflow = workflowWith("", "running");
+    const workflow = new FakeRuntime(openMemoryDb(), testEnv(), "uncreated");
 
     it("refuses every event", () => {
       expect(eventRefusalOf(workflow, STATUS)).toEqual({ refused: "not_created" });
@@ -284,7 +289,7 @@ describe("eventRefusalOf", () => {
   });
 
   describe("a created workflow that ended", () => {
-    const workflow = workflowWith("2026-10-16T00:00:00.000Z", "done");
+    const workflow = workflowWith("done");
 
     it("refuses a person's message with its status", () => {
       expect(eventRefusalOf(workflow, PROMPT)).toEqual({ refused: "ended", status: "done" });
@@ -296,7 +301,7 @@ describe("eventRefusalOf", () => {
   });
 
   describe("a created workflow that runs", () => {
-    const workflow = workflowWith("2026-10-16T00:00:00.000Z", "running");
+    const workflow = workflowWith("running");
 
     it("takes a person's message", () => {
       expect(eventRefusalOf(workflow, PROMPT)).toBeNull();

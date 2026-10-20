@@ -7,7 +7,12 @@ import { findBinding } from "../db/bindings";
 import { createDb } from "../db/client";
 import { createWorkflow } from "../db/workflows";
 import { freshDurableRuntime } from "../../test/durable-runtime";
-import { patchStageReviewers, seedTask, type FakeRuntime } from "../../test/fake-runtime";
+import {
+  patchStageReviewers,
+  seedTask,
+  type FakeRuntime,
+  patchStagePlan,
+} from "../../test/fake-runtime";
 import { scenario, type Scenario } from "../../test/scenario";
 import {
   detectArtifact,
@@ -22,7 +27,7 @@ const PR_URL = "https://github.com/acme/app/pull/1";
 const TARGET = { url: PR_URL, ref: { kind: "pull" as const, repo: "acme/app", number: 1 } };
 
 function seedAuthor(workflow: FakeRuntime, patch = {}, sandbox = {}) {
-  workflow.patchState({ repo: { full: "acme/app" } });
+  patchStagePlan(workflow, { repo: "acme/app" });
   return seedTask(workflow, { stage: "implement", branch: "artfct/wf_x-1-fix", ...patch }, sandbox);
 }
 
@@ -32,7 +37,10 @@ function readyEvents(workflow: FakeRuntime) {
 
 describe("recordArtifact", () => {
   const recorded: Scenario<FakeRuntime> = scenario(freshDurableRuntime, async (workflow) => {
-    await createWorkflow(createDb(workflow.env.DB), workflow.state.workflow_id);
+    await createWorkflow(
+      createDb(workflow.env.DB),
+      workflow.store.requireWorkflowRow().workflow_id,
+    );
     await recordArtifact(workflow, seedAuthor(workflow), TARGET);
   });
 
@@ -232,7 +240,7 @@ function breakdownEnds(subject: Subject | null, turnText: string): Scenario<Fake
       ],
       projects: { a1b2c3: PROJECT, [PROJECT.id]: PROJECT },
     });
-    workflow.patchState({ subject });
+    if (subject) workflow.store.writeSubject(subject);
     const task = seedTask(workflow, { stage: "breakdown" });
     await detectArtifact(workflow, task, `The issues are in ${PROJECT.url}.`);
     await detectArtifactAfterTurn(workflow, task, turnText);
@@ -253,7 +261,7 @@ describe("the output of a breakdown author", () => {
 
     it("becomes the subject", () =>
       ended((workflow) => {
-        expect(workflow.state.subject).toEqual({ kind: "project", project_id: "proj-1" });
+        expect(workflow.store.subject()).toEqual({ kind: "project", project_id: "proj-1" });
       }));
   });
 
@@ -277,7 +285,7 @@ describe("the output of a breakdown author", () => {
 
     it("keeps the subject", () =>
       ended((workflow) => {
-        expect(workflow.state.subject).toEqual({ kind: "issue", issue_id: "i100" });
+        expect(workflow.store.subject()).toEqual({ kind: "issue", issue_id: "i100" });
       }));
   });
 

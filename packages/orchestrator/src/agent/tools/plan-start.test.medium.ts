@@ -29,7 +29,7 @@ describe("set_plan on a workflow that has not started", () => {
   describe("the call that starts a workflow from a tracker issue, without stages", () => {
     let result: string;
     const started = scenario(unstartedDurableRuntime, async (workflow) => {
-      workflow.patchState({ origin: TRACKER_ORIGIN });
+      workflow.store.updateWorkflow({ origin: TRACKER_ORIGIN });
       const { set_plan } = planTools(workflow);
       result = toolText(
         await set_plan.execute(
@@ -51,12 +51,9 @@ describe("set_plan on a workflow that has not started", () => {
 
     it("stores the workflow definition and the name, and runs without stages", () =>
       started((workflow) => {
-        expect(workflow.state).toMatchObject({
-          status: "running",
-          definition: "development",
-          name: "Ship it",
-          stages: [],
-        });
+        expect(workflow.store.requireWorkflowRow().status).toBe("running");
+        expect(workflow.store.plan()).toMatchObject({ definition: "development", name: "Ship it" });
+        expect(workflow.store.stagePlan()).toBeNull();
       }));
 
     it("moves the tracker issue to started", () =>
@@ -87,7 +84,7 @@ describe("set_plan on a workflow that has not started", () => {
       it("sets the plan", () =>
         planned((workflow) => {
           expect(result).toMatch(/^Plan set: design/);
-          expect(workflow.state.stages).toEqual(["design"]);
+          expect(workflow.store.stagePlan()?.stages).toEqual(["design"]);
         }));
 
       it("does not move the tracker issue again", () =>
@@ -99,7 +96,7 @@ describe("set_plan on a workflow that has not started", () => {
 
   describe("the call that starts a workflow from a tracker issue, with stages", () => {
     const planned = scenario(unstartedDurableRuntime, async (workflow) => {
-      workflow.patchState({ origin: TRACKER_ORIGIN });
+      workflow.store.updateWorkflow({ origin: TRACKER_ORIGIN });
       const { set_plan } = planTools(workflow);
       await set_plan.execute(
         {
@@ -116,11 +113,9 @@ describe("set_plan on a workflow that has not started", () => {
 
     it("starts the workflow and sets the plan", () =>
       planned((workflow) => {
-        expect(workflow.state).toMatchObject({
-          status: "running",
-          definition: "development",
-          stages: ["implement"],
-        });
+        expect(workflow.store.requireWorkflowRow().status).toBe("running");
+        expect(workflow.store.plan()?.definition).toBe("development");
+        expect(workflow.store.stagePlan()?.stages).toEqual(["implement"]);
       }));
 
     it("moves the tracker issue to started", () =>
@@ -157,7 +152,8 @@ describe("set_plan on a workflow that has not started", () => {
 
     it("starts the workflow on that workflow definition", () =>
       incident((workflow) => {
-        expect(workflow.state).toMatchObject({ status: "running", definition: "incident" });
+        expect(workflow.store.requireWorkflowRow().status).toBe("running");
+        expect(workflow.store.plan()?.definition).toBe("incident");
         expect(workflow.workflowDefinition().name).toBe("incident");
       }));
   });

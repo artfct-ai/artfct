@@ -15,6 +15,8 @@ import {
   patchNestingHost,
   seedModelAuthor,
   type FakeRuntime,
+  patchPlan,
+  patchStagePlan,
 } from "../../../test/fake-runtime";
 import { scenario } from "../../../test/scenario";
 import { runModelAuthorTurn } from "./model-author";
@@ -55,7 +57,6 @@ async function reviseAfterReview(workflow: FakeRuntime, closingText: string): Pr
   });
   workflow.store.setArtifactRefinerRun("wf_x-1", "wf_x.2");
   workflow.store.updateTask(author.task_id, { status: "in_review" });
-  workflow.patchState({ task_seq: 2 });
   workflow.gatewayInstance = new FakeGateway({ decisions: new ScriptedDecisions() });
   workflow.modelInstance = new EchoModel(reviseAnswer(closingText));
   await promptTask(workflow, workflow.store.requireTask(author.task_id), FINDINGS);
@@ -117,7 +118,7 @@ describe("runModelAuthorTurn", () => {
           author: { produce: { ...stage.author.produce, effort: "high" as const } },
         })),
       });
-      workflow.patchState({ name: "SSO sign-in" });
+      patchPlan(workflow, { name: "SSO sign-in" });
       answerWithDocument(workflow);
       await runModelAuthorTurn(workflow, seedModelAuthor(workflow));
     });
@@ -177,7 +178,8 @@ describe("runModelAuthorTurn", () => {
     const written = scenario(freshDurableRuntime, async (workflow) => {
       const documents = patchNestingHost(workflow);
       await documents.nesting?.createRootPage("SSO sign-in", "## Resources", PAGE_PARENT);
-      workflow.patchState({ name: "SSO sign-in", root_page: ROOT });
+      patchPlan(workflow, { name: "SSO sign-in" });
+      patchStagePlan(workflow, { root_page: ROOT });
       answerWithDocument(workflow);
       await runModelAuthorTurn(workflow, seedModelAuthor(workflow));
     });
@@ -211,8 +213,8 @@ describe("runModelAuthorTurn", () => {
       const documents = patchNestingHost(workflow);
       workflow.patchWorkflowDefinition({ documents: {} });
       documents.seedPage("root-1", "# Design\n\n## Resources");
-      workflow.patchState({
-        name: "SSO sign-in",
+      patchPlan(workflow, { name: "SSO sign-in" });
+      patchStagePlan(workflow, {
         root_page: { page_id: "root-1", url: "https://docs.test/root-1", source: "container" },
       });
       answerWithDocument(workflow);

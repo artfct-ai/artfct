@@ -303,7 +303,7 @@ export function sessionPlanOf(entries: PlanEntry[]): SessionPlanItem[] {
 
 /** As the author's turn ends, show its todo list as the plan of its job session when there is no chat thread. */
 export async function publishSessionPlan(workflow: WorkflowRuntime, task: TaskRow): Promise<void> {
-  if (hasChatThread(workflow.state)) return;
+  if (hasChatThread(workflow.store.replyTargets())) return;
   const session = feedSessionOf(workflow, task);
   const entries = workflow.store.todoRow(task.task_id)?.todos?.entries;
   if (!session || !entries) return;

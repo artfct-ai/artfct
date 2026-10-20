@@ -31,7 +31,8 @@ function turnOn(script: Action[], wake: "message" | "task_result"): Scenario<Ran
     freshDurableRuntime(async (workflow) => {
       const chat = new FakeChat();
       workflow.chatInstance = chat;
-      workflow.patchState({ status: "running", origin: THREAD, reply_targets: [THREAD] });
+      workflow.store.updateWorkflow({ status: "running", origin: THREAD });
+      workflow.store.addReplyTarget(THREAD);
       workflow.modelInstance = new ScriptedFailure(script);
       const message = eventMessage(asked, { first: false, job: null, artifact: null, notes: [] });
       if (wake === "message") {
@@ -82,7 +83,8 @@ const lostAfterItsThumbsUp: Scenario<Ran> = (run) =>
   freshDurableRuntime(async (workflow) => {
     const chat = new FakeChat();
     workflow.chatInstance = chat;
-    workflow.patchState({ status: "running", origin: THREAD, reply_targets: [THREAD] });
+    workflow.store.updateWorkflow({ status: "running", origin: THREAD });
+    workflow.store.addReplyTarget(THREAD);
     const message = eventMessage(asked, { first: false, job: null, artifact: null, notes: [] });
     workflow.transcript.enqueue(message, "message", {
       reply_to: THREAD,

@@ -15,7 +15,7 @@ export const ROOT_PAGE_RULES = `## Root Page
 
 /** True once the workflow has a root page. */
 export function hasRootPage(workflow: WorkflowRuntime): boolean {
-  return Boolean(workflow.state.root_page);
+  return Boolean(workflow.store.stagePlan()?.root_page);
 }
 
 /** The tool that moves a linked page under the root page when the requester asks. */
@@ -38,7 +38,7 @@ export async function linkInputPage(
   workflow: WorkflowRuntime,
   target: ArtifactTarget,
 ): Promise<string> {
-  const root = workflow.state.root_page;
+  const root = workflow.store.stagePlan()?.root_page;
   if (target.ref.kind !== "page" || root?.source !== "container") return "";
   const documents = await workflow.documents();
   if (!documents?.nesting) return "";
@@ -52,7 +52,7 @@ export async function linkInputPage(
 }
 
 async function movePage(workflow: WorkflowRuntime, url: string): Promise<string> {
-  const root = workflow.state.root_page;
+  const root = workflow.store.stagePlan()?.root_page;
   if (!root) return "This workflow has no root page.";
   const documents = await workflow.documents();
   if (!documents?.nesting) return "The document host does not nest pages.";
