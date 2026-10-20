@@ -19,7 +19,9 @@ describe("STANDALONE_PROPERTY_FILES", () => {
         propertyRuns: properties,
       });
     }
-    const listed = STANDALONE_PROPERTY_FILES.map((file) => join(file.packageDir, file.path));
+    const listed = Object.values(STANDALONE_PROPERTY_FILES).map((file) =>
+      join(file.packageDir, file.path),
+    );
     expect(listed.toSorted()).toEqual(propertyTests.toSorted());
   });
 });

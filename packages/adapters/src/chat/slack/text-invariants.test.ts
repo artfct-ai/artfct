@@ -78,6 +78,9 @@ const markdownBlock = fc.oneof(
   fc
     .tuple(fc.integer({ min: 1, max: 6 }), inline, fc.constantFrom("", " #", " ##"))
     .map(([level, text, closing]) => `${"#".repeat(level)} ${text}${closing}`),
+  fc
+    .tuple(fc.integer({ min: 1, max: 6 }), slackTag, inline)
+    .map(([level, tag, text]) => `${"#".repeat(level)} ${tag.slice(0, 1)}**${tag.slice(1)}${text}`),
   inline.map((text) => `- ${text}`),
   inline.map((text) => `\`\`\`\n${text}\n\`\`\``),
 );
