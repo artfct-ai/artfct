@@ -37,6 +37,7 @@ import { parseBridgePath } from "./bridge-path";
 import { onBridgeExit, onBridgeHello, onEffortSet, onInitialized, onSessionNew } from "./session";
 import { LOGGED_ERROR_CHARS, onRpcError, onSessionUpdate, onTurnEnd } from "./turn";
 import { drainQueue, RECONNECT_CEILING_MS } from "./prompt-queue";
+import { onSteerAnswer } from "./steer";
 import type { GenerationAlarm } from "./timers";
 import type { WorkflowRuntime } from "../../types";
 import { MAX_RESTARTS, failTask } from "../../lifecycle";
@@ -215,6 +216,8 @@ async function onResponse(
       const prompt = result as PromptResponse;
       return onTurnEnd(workflow, workflow.store.requireTask(task.task_id), prompt.stopReason);
     }
+    case "steer":
+      return onSteerAnswer(workflow, task, Number(id), result);
     case "cancel":
       return;
   }

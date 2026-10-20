@@ -40,6 +40,7 @@
         "aSecondDeliveryIsDropped": false
       },
       "trackerResearch::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -47,6 +48,7 @@
         "plans": [],
         "posts": [],
         "researchEnded": { "#set": [] },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": { "#set": [] },
         "turnEnded": { "#set": [] },
         "woke": false,
@@ -55,6 +57,7 @@
       "trackerResearch::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -62,6 +65,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerResearch::sessionRouting::messagesToLand": { "#map": [] },
@@ -103,6 +107,7 @@
         "aSecondDeliveryIsDropped": false
       },
       "trackerResearch::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -110,6 +115,7 @@
         "plans": [],
         "posts": [],
         "researchEnded": { "#set": [] },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": { "#set": [] },
         "turnEnded": { "#set": [] },
         "woke": false,
@@ -118,6 +124,7 @@
       "trackerResearch::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -125,6 +132,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerResearch::sessionRouting::messagesToLand": { "#map": [] },
@@ -138,10 +146,11 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": { "tag": "SubjectIssue", "value": { "#tup": [] } },
             "nudged": false,
             "paused": false,
-            "queued": { "#bigint": "0" },
+            "queued": [],
             "research": { "tag": "Researching", "value": { "#tup": [] } },
             "researcherTodos": { "tag": "NoTodos", "value": { "#tup": [] } },
             "restarts": { "#bigint": "0" },
@@ -183,6 +192,7 @@
         "aSecondDeliveryIsDropped": false
       },
       "trackerResearch::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -190,6 +200,7 @@
         "plans": [],
         "posts": [],
         "researchEnded": { "#set": [] },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": { "#set": [] },
         "turnEnded": { "#set": [] },
         "woke": false,
@@ -198,6 +209,7 @@
       "trackerResearch::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -205,6 +217,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerResearch::sessionRouting::messagesToLand": { "#map": [] },
@@ -218,10 +231,11 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": { "tag": "SubjectIssue", "value": { "#tup": [] } },
             "nudged": false,
             "paused": false,
-            "queued": { "#bigint": "0" },
+            "queued": [],
             "research": { "tag": "Researching", "value": { "#tup": [] } },
             "researcherTodos": { "tag": "NoTodos", "value": { "#tup": [] } },
             "restarts": { "#bigint": "0" },
@@ -234,10 +248,11 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": { "tag": "SubIssue", "value": { "#tup": [] } },
             "nudged": false,
             "paused": false,
-            "queued": { "#bigint": "0" },
+            "queued": [],
             "research": { "tag": "Researching", "value": { "#tup": [] } },
             "researcherTodos": { "tag": "NoTodos", "value": { "#tup": [] } },
             "restarts": { "#bigint": "0" },
@@ -279,6 +294,7 @@
         "aSecondDeliveryIsDropped": false
       },
       "trackerResearch::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -286,6 +302,7 @@
         "plans": [],
         "posts": [],
         "researchEnded": { "#set": [] },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": { "#set": [] },
         "turnEnded": { "#set": [] },
         "woke": false,
@@ -294,6 +311,7 @@
       "trackerResearch::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -301,6 +319,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerResearch::sessionRouting::messagesToLand": {
@@ -325,10 +344,11 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": { "tag": "SubjectIssue", "value": { "#tup": [] } },
             "nudged": false,
             "paused": false,
-            "queued": { "#bigint": "0" },
+            "queued": [],
             "research": { "tag": "Researching", "value": { "#tup": [] } },
             "researcherTodos": { "tag": "NoTodos", "value": { "#tup": [] } },
             "restarts": { "#bigint": "0" },
@@ -341,10 +361,11 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": { "tag": "SubIssue", "value": { "#tup": [] } },
             "nudged": false,
             "paused": false,
-            "queued": { "#bigint": "0" },
+            "queued": [],
             "research": { "tag": "Researching", "value": { "#tup": [] } },
             "researcherTodos": { "tag": "NoTodos", "value": { "#tup": [] } },
             "restarts": { "#bigint": "0" },
@@ -396,6 +417,7 @@
         "aSecondDeliveryIsDropped": false
       },
       "trackerResearch::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -410,6 +432,7 @@
             }
           ]
         },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": { "#set": [] },
         "turnEnded": { "#set": [] },
         "woke": false,
@@ -418,6 +441,7 @@
       "trackerResearch::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -425,6 +449,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerResearch::sessionRouting::messagesToLand": {
@@ -449,10 +474,11 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": { "tag": "SubjectIssue", "value": { "#tup": [] } },
             "nudged": false,
             "paused": false,
-            "queued": { "#bigint": "0" },
+            "queued": [],
             "research": { "tag": "Researching", "value": { "#tup": [] } },
             "researcherTodos": { "tag": "NoTodos", "value": { "#tup": [] } },
             "restarts": { "#bigint": "1" },
@@ -465,10 +491,11 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": { "tag": "SubIssue", "value": { "#tup": [] } },
             "nudged": false,
             "paused": false,
-            "queued": { "#bigint": "0" },
+            "queued": [],
             "research": { "tag": "Researching", "value": { "#tup": [] } },
             "researcherTodos": { "tag": "NoTodos", "value": { "#tup": [] } },
             "restarts": { "#bigint": "0" },

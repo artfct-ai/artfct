@@ -203,6 +203,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -279,6 +280,12 @@
         "destroyedSandboxes": {
           "#set": []
         },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
+        },
         "endCall": {
           "tag": "NoEndCall",
           "value": {
@@ -313,8 +320,12 @@
             "#tup": []
           }
         },
-        "status": { "tag": "New", "value": { "#tup": [] } },
-        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
+        "status": {
+          "tag": "New",
+          "value": {
+            "#tup": []
+          }
+        },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
@@ -515,6 +526,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -591,6 +603,12 @@
         "destroyedSandboxes": {
           "#set": []
         },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
+        },
         "endCall": {
           "tag": "NoEndCall",
           "value": {
@@ -625,8 +643,12 @@
             "#bigint": "2"
           }
         },
-        "status": { "tag": "Running", "value": { "#tup": [] } },
-        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
@@ -826,6 +848,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -902,6 +925,12 @@
         "destroyedSandboxes": {
           "#set": []
         },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
+        },
         "endCall": {
           "tag": "NoEndCall",
           "value": {
@@ -936,8 +965,12 @@
             "#bigint": "2"
           }
         },
-        "status": { "tag": "Running", "value": { "#tup": [] } },
-        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
@@ -1135,6 +1168,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -1215,7 +1249,13 @@
             "rest": {
               "tag": "PageWriteStarts",
               "value": {
-                "eventWaits": false
+                "eventWaits": false,
+                "prompt": {
+                  "tag": "ProducesThePage",
+                  "value": {
+                    "#tup": []
+                  }
+                }
               }
             }
           }
@@ -1228,6 +1268,12 @@
         },
         "destroyedSandboxes": {
           "#set": []
+        },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
         },
         "endCall": {
           "tag": "NoEndCall",
@@ -1267,10 +1313,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "0"
                 },
@@ -1317,8 +1367,12 @@
             "#bigint": "2"
           }
         },
-        "status": { "tag": "Running", "value": { "#tup": [] } },
-        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
@@ -1519,6 +1573,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": true,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -1599,7 +1654,13 @@
             "rest": {
               "tag": "PageWriteStarts",
               "value": {
-                "eventWaits": false
+                "eventWaits": false,
+                "prompt": {
+                  "tag": "ProducesThePage",
+                  "value": {
+                    "#tup": []
+                  }
+                }
               }
             }
           }
@@ -1612,6 +1673,12 @@
         },
         "destroyedSandboxes": {
           "#set": []
+        },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
         },
         "endCall": {
           "tag": "NoEndCall",
@@ -1651,10 +1718,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "0"
                 },
@@ -1701,8 +1772,12 @@
             "#bigint": "2"
           }
         },
-        "status": { "tag": "Running", "value": { "#tup": [] } },
-        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
@@ -1905,6 +1980,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -1985,7 +2061,13 @@
             "rest": {
               "tag": "PageWriteStarts",
               "value": {
-                "eventWaits": false
+                "eventWaits": false,
+                "prompt": {
+                  "tag": "ProducesThePage",
+                  "value": {
+                    "#tup": []
+                  }
+                }
               }
             }
           }
@@ -1998,6 +2080,12 @@
         },
         "destroyedSandboxes": {
           "#set": []
+        },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
         },
         "endCall": {
           "tag": "NoEndCall",
@@ -2037,10 +2125,21 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "1"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [
+                  {
+                    "tag": "Instruction",
+                    "value": {
+                      "#tup": []
+                    }
+                  }
+                ],
                 "promptsSent": {
                   "#bigint": "0"
                 },
@@ -2087,8 +2186,12 @@
             "#bigint": "2"
           }
         },
-        "status": { "tag": "Running", "value": { "#tup": [] } },
-        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
@@ -2288,6 +2391,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -2368,7 +2472,13 @@
             "rest": {
               "tag": "ModelTurnGoesOn",
               "value": {
-                "eventWaits": false
+                "eventWaits": false,
+                "prompt": {
+                  "tag": "ProducesThePage",
+                  "value": {
+                    "#tup": []
+                  }
+                }
               }
             }
           }
@@ -2381,6 +2491,12 @@
         },
         "destroyedSandboxes": {
           "#set": []
+        },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
         },
         "endCall": {
           "tag": "NoEndCall",
@@ -2420,10 +2536,21 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "1"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [
+                  {
+                    "tag": "Instruction",
+                    "value": {
+                      "#tup": []
+                    }
+                  }
+                ],
                 "promptsSent": {
                   "#bigint": "0"
                 },
@@ -2470,8 +2597,12 @@
             "#bigint": "2"
           }
         },
-        "status": { "tag": "Running", "value": { "#tup": [] } },
-        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
@@ -2671,6 +2802,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -2751,7 +2883,16 @@
             "rest": {
               "tag": "PageWriteStarts",
               "value": {
-                "eventWaits": false
+                "eventWaits": false,
+                "prompt": {
+                  "tag": "Revises",
+                  "value": {
+                    "tag": "Instruction",
+                    "value": {
+                      "#tup": []
+                    }
+                  }
+                }
               }
             }
           }
@@ -2764,6 +2905,12 @@
         },
         "destroyedSandboxes": {
           "#set": []
+        },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
         },
         "endCall": {
           "tag": "NoEndCall",
@@ -2803,10 +2950,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "1"
                 },
@@ -2853,8 +3004,12 @@
             "#bigint": "2"
           }
         },
-        "status": { "tag": "Running", "value": { "#tup": [] } },
-        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
@@ -3054,6 +3209,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -3134,7 +3290,16 @@
             "rest": {
               "tag": "ModelTurnGoesOn",
               "value": {
-                "eventWaits": false
+                "eventWaits": false,
+                "prompt": {
+                  "tag": "Revises",
+                  "value": {
+                    "tag": "Instruction",
+                    "value": {
+                      "#tup": []
+                    }
+                  }
+                }
               }
             }
           }
@@ -3147,6 +3312,12 @@
         },
         "destroyedSandboxes": {
           "#set": []
+        },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
         },
         "endCall": {
           "tag": "NoEndCall",
@@ -3186,10 +3357,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "1"
                 },
@@ -3236,8 +3411,12 @@
             "#bigint": "2"
           }
         },
-        "status": { "tag": "Running", "value": { "#tup": [] } },
-        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
@@ -3437,6 +3616,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -3531,6 +3711,12 @@
         "destroyedSandboxes": {
           "#set": []
         },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
+        },
         "endCall": {
           "tag": "NoEndCall",
           "value": {
@@ -3569,10 +3755,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "1"
                 },
@@ -3619,8 +3809,12 @@
             "#bigint": "2"
           }
         },
-        "status": { "tag": "Running", "value": { "#tup": [] } },
-        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
         "subject": {
           "tag": "SubjectIssue",
           "value": {

@@ -17,8 +17,13 @@ import type {
   StopReason,
 } from "@agentclientprotocol/sdk";
 import type { CompatRoute, Decisions } from "@artfct-ai/adapters/gateway/types";
+import {
+  CLAUDE_CODE_STEERING_METHOD,
+  ClaudeCodeSteering,
+} from "@artfct-ai/adapters/harness/claude-code/steering";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
+import { MockHarness } from "@artfct-ai/adapters/test/mock-harness";
 import { bridgeTokenHeaders } from "@artfct-ai/acp/bridge-token";
 import {
   isNotification,
@@ -56,7 +61,7 @@ import {
   type ConnectionState,
 } from "../src/workflow/task/harness/bridge";
 import { bridgeDialUrl } from "../src/workflow/task/harness/bridge-path";
-import { promptTask, retryQueue } from "../src/workflow/task/harness/prompt-queue";
+import { instructTask, retryQueue } from "../src/workflow/task/harness/prompt-queue";
 import {
   keepSandboxAlive,
   NUDGE_TEXT,
@@ -70,7 +75,7 @@ import { GAVE_UP_RESTART_TEXT, settleIdleAuthor } from "../src/workflow/task/har
 import { provision, sandboxStartInFlight } from "../src/workflow/task/sandbox/sandbox";
 import { taskAtWork } from "../src/workflow/task/at-work";
 import { fakeConnection, type FakeAlarm, type FakeSocket } from "./fake-runtime";
-import { itfBool, itfField, itfInt, itfList, itfOneOf, itfText, itfVariant } from "./itf";
+import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
 import { FakeSandboxProvider } from "./fake-sandbox";
 import { InterleavedDecisions } from "./interleaved-decisions";
 import { quintTraces } from "./quint-traces";
@@ -117,7 +122,8 @@ const PROMPT_KINDS = [
   "LostSandboxWake",
   "FirstPrompt",
 ] as const;
-const RPC_PURPOSES = ["Initialize", "SessionNew", "SetEffort", "Prompt"] as const;
+const RPC_PURPOSES = ["Initialize", "SessionNew", "SetEffort", "Prompt", "Steer"] as const;
+const STEER_STATUSES = ["SteerOut", "SteerTaken"] as const;
 const STAMPS = ["Unset", "Recent", "Old"] as const;
 const SOCKET_STATES = [
   "Connected",
@@ -132,16 +138,25 @@ const FINISHED_STOPS = ["EndTurn", "MaxTokens"] as const;
 const PROGRESS_REPORTS = ["ToolCall", "OpenTodoList", "FinishedTodoList"] as const;
 
 type SpecStatus = (typeof TASK_STATUSES)[number];
-type PromptKind = (typeof PROMPT_KINDS)[number];
 type SpecPurpose = (typeof RPC_PURPOSES)[number];
+type SpecSteerStatus = (typeof STEER_STATUSES)[number];
 type SocketState = (typeof SOCKET_STATES)[number];
 type CallState = (typeof CALL_STATES)[number];
 type Outcome = (typeof OUTCOMES)[number];
 type FinishedStop = (typeof FINISHED_STOPS)[number];
 type ProgressReport = (typeof PROGRESS_REPORTS)[number];
 
-/** A request a bridge passed to its harness, as the spec sees it. */
-type SpecRequest = { id: number; purpose: SpecPurpose; cancelled: boolean };
+/**
+ * A queued prompt as the spec sees it: its kind, and for a person prompt which of the person's
+ * prompts it is, such as `PersonPrompt(1)`.
+ */
+type SpecPrompt = string;
+
+/** A request a bridge passed to its harness, as the spec sees it. `carries` names its person prompt. */
+type SpecRequest = { id: number; purpose: SpecPurpose; cancelled: boolean; carries: number | null };
+
+/** A steered person prompt and the request that carried it, as the spec sees it. */
+type SpecSteer = { person: number; rpc: number; status: SpecSteerStatus };
 
 /** One bridge process, as the spec sees it. `current` says it carries the task's token. */
 type SpecBridge = {
@@ -194,8 +209,11 @@ export type SpecTask = {
   turnText: boolean;
   openTodos: boolean;
   bridgeClosedAt: (typeof STAMPS)[number];
-  queue: PromptKind[];
+  queue: SpecPrompt[];
   rpcs: { id: number; purpose: SpecPurpose }[];
+  steers: SpecSteer[];
+  delivered: number[];
+  receivedTwice: number;
   artifact: boolean;
   alarms: string[];
   slots: SpecSlots;
@@ -309,11 +327,20 @@ function specTask(world: unknown): SpecTask {
     turnText: itfBool(itfField(world, "turnText")),
     openTodos: itfBool(itfField(world, "openTodos")),
     bridgeClosedAt: itfOneOf(tagOf(itfField(world, "bridgeClosedAt")), STAMPS),
-    queue: itfList(itfField(world, "queue")).map((kind) => itfOneOf(tagOf(kind), PROMPT_KINDS)),
+    queue: itfList(itfField(world, "queue")).map(specPrompt),
     rpcs: itfList(itfField(world, "rpcs")).map((row) => ({
       id: itfInt(itfField(row, "id")),
       purpose: itfOneOf(tagOf(itfField(row, "purpose")), RPC_PURPOSES),
     })),
+    steers: sortedSteers(
+      itfSet(itfField(world, "steers")).map((row) => ({
+        person: itfInt(itfField(row, "person")),
+        rpc: itfInt(itfField(row, "rpc")),
+        status: itfOneOf(tagOf(itfField(row, "status")), STEER_STATUSES),
+      })),
+    ),
+    delivered: sortedPersons(itfSet(itfField(world, "delivered")).map(itfInt)),
+    receivedTwice: itfInt(itfField(world, "receivedTwice")),
     artifact: itfBool(itfField(world, "artifact")),
     alarms: alarms.map((alarm) => specAlarmKind(itfField(alarm, "kind"))),
     slots: {
@@ -337,6 +364,7 @@ function specTask(world: unknown): SpecTask {
         id: itfInt(itfField(request, "id")),
         purpose: itfOneOf(tagOf(itfField(request, "purpose")), RPC_PURPOSES),
         cancelled: itfBool(itfField(request, "cancelled")),
+        carries: specCarried(itfField(request, "carries")),
       })),
     })),
     calls: itfList(itfField(world, "calls")).map(specCall),
@@ -352,6 +380,29 @@ function specTask(world: unknown): SpecTask {
     stopsEnded: itfInt(itfField(world, "stopsEnded")),
     answersToOtherRequests: itfInt(itfField(world, "answersToOtherRequests")),
   };
+}
+
+function specPrompt(kind: unknown): SpecPrompt {
+  const prompt = itfVariant(kind)!;
+  const tag = itfOneOf(prompt.tag, PROMPT_KINDS);
+  return tag === "PersonPrompt" ? personPromptKind(itfInt(prompt.value)) : tag;
+}
+
+function personPromptKind(person: number): SpecPrompt {
+  return `PersonPrompt(${person})`;
+}
+
+function specCarried(carries: unknown): number | null {
+  const carried = itfVariant(carries)!;
+  return carried.tag === "Person" ? itfInt(carried.value) : null;
+}
+
+function sortedSteers(steers: SpecSteer[]): SpecSteer[] {
+  return steers.toSorted((left, right) => left.person - right.person);
+}
+
+function sortedPersons(persons: Iterable<number>): number[] {
+  return [...persons].toSorted((left, right) => left - right);
 }
 
 function specStartsOut(calls: unknown[]): number[] {
@@ -409,16 +460,31 @@ function tagOf(value: unknown): string {
   return itfVariant(value)!.tag;
 }
 
-/** One request a bridge passed to its harness. `serial` names the rpc row the orchestrator wrote for it. */
-type BridgeRequest = { id: number; serial: number; purpose: SpecPurpose; cancelled: boolean };
+/**
+ * One request a bridge passed to its harness. `serial` names the rpc row the orchestrator wrote for
+ * it, and `carries` the person prompt in its text.
+ */
+type BridgeRequest = {
+  id: number;
+  serial: number;
+  purpose: SpecPurpose;
+  cancelled: boolean;
+  carries: number | null;
+};
 
-/** One bridge process and its harness, as the replay runs it. */
+/**
+ * One bridge process and its harness, as the replay runs it. `received` holds the person prompts
+ * its harness session received outside a cancelled turn, and `inTurn` the ones its running turn
+ * received.
+ */
 type ReplayBridge = {
   generation: number;
   token: string;
   alive: boolean;
   saidHello: boolean;
   requests: BridgeRequest[];
+  received: Set<number>;
+  inTurn: Set<number>;
 };
 
 /**
@@ -516,6 +582,7 @@ class HeldSummarizationModel implements LanguageModelV4 {
 const TOOL_CALL = { toolCallId: "call-1", messages: [], context: {} };
 const ANSWERS = { for_author: 0, beyond_author: 0, rejects: 0 };
 const PERSON_TEXT = "Cover the error path too.";
+const PERSON_PROMPT = /Cover the error path too\. (\d+)/;
 const CONTINUE_TEXT = "Continue where you left off.";
 const TURN_TEXT = `I wrote the design section by section. ${"Each section names its decision and the reason for it. ".repeat(12)}`;
 const DIGEST_TEXT = "The design is written.";
@@ -551,6 +618,7 @@ const PURPOSE_OF_METHOD: Record<string, SpecPurpose> = {
   [AgentMethods.sessionNew]: "SessionNew",
   [AgentMethods.sessionSetConfigOption]: "SetEffort",
   [AgentMethods.sessionPrompt]: "Prompt",
+  [CLAUDE_CODE_STEERING_METHOD]: "Steer",
 };
 
 const SPEC_PURPOSE: Record<RpcPurpose, SpecPurpose | null> = {
@@ -558,6 +626,7 @@ const SPEC_PURPOSE: Record<RpcPurpose, SpecPurpose | null> = {
   session_new: "SessionNew",
   set_effort: "SetEffort",
   prompt: "Prompt",
+  steer: "Steer",
   cancel: null,
 };
 
@@ -622,6 +691,9 @@ export class HarnessSessionReplay {
   private eventsThatThrew = 0;
   private stopsEnded = 0;
   private answersToOtherRequests = 0;
+  private personPrompts = 0;
+  private readonly delivered = new Set<number>();
+  private receivedTwice = 0;
   private rpcSerial = 0;
   private lastRpcRow: { id: number; serial: number } | null = null;
   private readonly rowSerials = new Map<number, number>();
@@ -645,6 +717,10 @@ export class HarnessSessionReplay {
     const { workflow } = world;
     workflow.sandboxProvider = new HoldingSandboxProvider(replay);
     workflow.modelInstance = new HeldSummarizationModel(replay);
+    workflow.harnessInstance = new MockHarness(
+      workflow.store.requireSandbox(author.taskId).harness,
+      new ClaudeCodeSteering(),
+    );
     workflow.env = { ...workflow.env, DB: replay.holdingBranchBindings(workflow.env.DB) };
     const host = workflow.code();
     if (!host) throw new Error("the world has no code host");
@@ -693,6 +769,7 @@ export class HarnessSessionReplay {
     const slot = (scheduleId: string | null): number | null =>
       scheduleId === null ? null : alarms.findIndex((alarm) => alarm.id === scheduleId);
     const closedAt = sandbox.bridge_closed_at ? Date.parse(sandbox.bridge_closed_at) : null;
+    const queued = store.queue().filter((prompt) => prompt.task_id === this.taskId);
     return {
       status: SPEC_STATUS[task.status],
       restarts: task.restarts,
@@ -711,11 +788,17 @@ export class HarnessSessionReplay {
           : workflow.now() - closedAt < RECONNECT_CEILING_MS
             ? "Recent"
             : "Old",
-      queue: store
-        .queue()
-        .filter((prompt) => prompt.task_id === this.taskId)
-        .map((prompt) => promptKindOf(prompt.text)),
+      queue: queued.map((prompt) => promptKindOf(prompt.text)),
       rpcs: this.rpcs.map((row) => ({ ...row })),
+      steers: sortedSteers(
+        store.steers().map((steer) => ({
+          person: steeredPerson(queued, steer.prompt_id),
+          rpc: steer.rpc_id,
+          status: steer.status === "out" ? "SteerOut" : "SteerTaken",
+        })),
+      ),
+      delivered: sortedPersons(this.delivered),
+      receivedTwice: this.receivedTwice,
       artifact: store.artifact(task.job_id) !== null,
       alarms: alarms.map((alarm) => specAlarmOf(alarm) ?? ""),
       slots: {
@@ -733,7 +816,12 @@ export class HarnessSessionReplay {
         current: bridge.token === sandbox.bridge_token,
         alive: bridge.alive,
         saidHello: bridge.saidHello,
-        requests: bridge.requests.map(({ id, purpose, cancelled }) => ({ id, purpose, cancelled })),
+        requests: bridge.requests.map(({ id, purpose, cancelled, carries }) => ({
+          id,
+          purpose,
+          cancelled,
+          carries,
+        })),
       })),
       calls: this.calls.map(projectCall),
       promptsSent: this.promptsSent,
@@ -903,7 +991,9 @@ export class HarnessSessionReplay {
     const { workflow } = this.world;
     switch (step.action) {
       case "personPrompts":
-        return this.runStep(() => promptTask(this.world.workflow, this.task(), PERSON_TEXT));
+        return this.runStep(() =>
+          instructTask(workflow, this.task(), `${PERSON_TEXT} ${this.personPrompts++}`),
+        );
       case "agentPausesAuthor":
         return this.runStep(() => pauseTask(workflow, this.task(), []));
       case "agentResumesAuthor":
@@ -965,6 +1055,8 @@ export class HarnessSessionReplay {
           required(picks.finished),
           required(picks.endsWithText),
         );
+      case "harnessAnswersASteer":
+        return this.answerSteer(required(picks.bridge));
       case "harnessRefuses":
         return this.refuse(required(picks.bridge));
       case "harnessShowsProgress":
@@ -1056,6 +1148,8 @@ export class HarnessSessionReplay {
       alive: true,
       saidHello: false,
       requests: [],
+      received: new Set(),
+      inTurn: new Set(),
     });
   }
 
@@ -1216,8 +1310,10 @@ export class HarnessSessionReplay {
   ): Promise<void> {
     const bridge = this.bridgeAt(index);
     const socket = this.connectedSocketOf(index);
-    const request = bridge.requests.shift();
-    if (!request) throw new Error(`bridge ${index} holds no request`);
+    const request = bridge.requests.find((held) => held.purpose !== "Steer");
+    if (!request) throw new Error(`bridge ${index} holds no request besides steers`);
+    bridge.requests = bridge.requests.filter((held) => held !== request);
+    if (request.purpose === "Prompt") this.endHarnessTurn(bridge, request.cancelled);
     const endsOnItsOwn =
       request.purpose === "Prompt" && !request.cancelled && finished === "EndTurn";
     if (endsOnItsOwn && endsWithText) {
@@ -1232,6 +1328,45 @@ export class HarnessSessionReplay {
     await this.answerRequest(request, () =>
       this.deliver(socket, jsonRpcResponse(request.id, result)),
     );
+  }
+
+  /**
+   * The harness answers its oldest steer. A prompt before it runs a turn, which takes the steer.
+   * Without one the harness answers that it needs a prompt.
+   */
+  private async answerSteer(index: number): Promise<void> {
+    const bridge = this.bridgeAt(index);
+    const socket = this.connectedSocketOf(index);
+    const at = bridge.requests.findIndex((held) => held.purpose === "Steer");
+    const steer = bridge.requests[at];
+    if (!steer) throw new Error(`bridge ${index} holds no steer`);
+    const intoATurn = bridge.requests.slice(0, at).some((held) => held.purpose === "Prompt");
+    bridge.requests.splice(at, 1);
+    if (intoATurn) this.receivePerson(bridge, steer.carries);
+    const result = intoATurn
+      ? { outcome: "injected" }
+      : { outcome: "promptRequired", reason: "noRunningTurn" };
+    await this.answerRequest(steer, () => this.deliver(socket, jsonRpcResponse(steer.id, result)));
+  }
+
+  /** The harness session of `bridge` receives a person prompt, and counts one it already had. */
+  private receivePerson(bridge: ReplayBridge, person: number | null): void {
+    if (person === null) return;
+    if (bridge.received.has(person)) this.receivedTwice += 1;
+    bridge.received.add(person);
+    bridge.inTurn.add(person);
+  }
+
+  /**
+   * The harness turn of `bridge` ends. A turn that ended without a cancel delivered its person
+   * prompts. A cancelled one did not, so its session may receive them again.
+   */
+  private endHarnessTurn(bridge: ReplayBridge, cancelled: boolean): void {
+    for (const person of bridge.inTurn) {
+      if (cancelled) bridge.received.delete(person);
+      else this.delivered.add(person);
+    }
+    bridge.inTurn.clear();
   }
 
   /** Deliver the answer to one request, so a taken rpc row is checked against the row behind it. */
@@ -1277,6 +1412,8 @@ export class HarnessSessionReplay {
         };
         return ended;
       }
+      case "Steer":
+        throw new Error("the harness answers a steer apart from its turn");
       default: {
         const unreachable: never = request.purpose;
         throw new Error(`unhandled purpose ${String(unreachable)}`);
@@ -1289,6 +1426,7 @@ export class HarnessSessionReplay {
     const socket = this.connectedSocketOf(index);
     const request = bridge.requests.shift();
     if (!request) throw new Error(`bridge ${index} holds no request`);
+    if (request.purpose === "Prompt") this.endHarnessTurn(bridge, false);
     await this.answerRequest(request, () =>
       this.deliver(socket, jsonRpcErrorResponse(request.id, INTERNAL_ERROR, "the harness failed")),
     );
@@ -1394,12 +1532,14 @@ export class HarnessSessionReplay {
       if (!purpose) return;
       if (serial === undefined)
         throw new Error(`request ${message.id} went out without an rpc row`);
-      bridge.requests.push({ id: Number(message.id), serial, purpose, cancelled: false });
+      const carries = personOf(JSON.stringify(message.params));
+      bridge.requests.push({ id: Number(message.id), serial, purpose, cancelled: false, carries });
+      if (purpose === "Prompt") this.receivePerson(bridge, carries);
       return;
     }
     if (isNotification(message) && message.method === AgentMethods.sessionCancel) {
       this.cancelsDelivered += 1;
-      const head = bridge.requests[0];
+      const head = bridge.requests.find((held) => held.purpose !== "Steer");
       if (head?.purpose === "Prompt") head.cancelled = true;
     }
   }
@@ -1531,10 +1671,22 @@ function specAlarmOf(alarm: FakeAlarm): string | null {
   }
 }
 
-function promptKindOf(promptText: string): PromptKind {
+function steeredPerson(queued: { id: number; text: string }[], promptId: number): number {
+  const person = personOf(queued.find((prompt) => prompt.id === promptId)?.text ?? "");
+  if (person === null) throw new Error(`steered prompt ${promptId} is not a queued person prompt`);
+  return person;
+}
+
+/** Which of the person's prompts `text` carries, if any. */
+function personOf(text: string): number | null {
+  const match = PERSON_PROMPT.exec(text);
+  return match ? Number(match[1]) : null;
+}
+
+function promptKindOf(promptText: string): SpecPrompt {
+  const person = personOf(promptText);
+  if (person !== null) return personPromptKind(person);
   switch (promptText) {
-    case PERSON_TEXT:
-      return "PersonPrompt";
     case CONTINUE_TEXT:
       return "ContinuePrompt";
     case NUDGE_TEXT:

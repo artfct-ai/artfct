@@ -129,6 +129,13 @@ const feedAction: fc.Arbitrary<FeedAction> = fc.oneof(
   },
 );
 
+const NARRATION_DUE_WHILE_THE_QUOTA_IS_LOW: FeedAction[] = [
+  { kind: "quota", low: true },
+  { kind: "narrate", steps: 2 },
+  { kind: "wait", minutes: 5 },
+  { kind: "turn_end", reason: "end_turn" },
+];
+
 const NARRATION_OF_A_FAILED_TURN_END_BEFORE_THE_AUTHOR_FINISHES: FeedAction[] = [
   { kind: "health", health: "fails_before_storing" },
   { kind: "narrate", steps: 2 },
@@ -553,7 +560,10 @@ describe("session feed invariants", () => {
         }),
         {
           ...propertyRuns("session feed invariants", RUNS),
-          examples: [[NARRATION_OF_A_FAILED_TURN_END_BEFORE_THE_AUTHOR_FINISHES]],
+          examples: [
+            [NARRATION_OF_A_FAILED_TURN_END_BEFORE_THE_AUTHOR_FINISHES],
+            [NARRATION_DUE_WHILE_THE_QUOTA_IS_LOW],
+          ],
         },
       );
       expect(witnesses.narrationMerged).toBeGreaterThan(0);

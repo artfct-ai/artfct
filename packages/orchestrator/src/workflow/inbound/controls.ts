@@ -4,7 +4,7 @@ import type { Actor, InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbo
 import { flushBoards } from "../board/board";
 import { closeSessionFeed, STOPPED_CLOSING } from "../feed/feed";
 import { cancelTask, endWorkflow, workflowEnding } from "../lifecycle";
-import { promptTask } from "../task/harness/prompt-queue";
+import { instructTask, promptTask } from "../task/harness/prompt-queue";
 import { taskAtWork } from "../task/at-work";
 import { onBridgeLost, sendNotification } from "../task/harness/bridge";
 import { clearTaskTimers, closeContainer } from "../task/sandbox/sandbox";
@@ -39,7 +39,7 @@ export async function applyVerbalCommand(
       if (task) await resumeTask(workflow, task, { text: event.text, answering });
       return null;
     case "instruct":
-      if (task) await promptTask(workflow, task, event.text);
+      if (task) await instructTask(workflow, task, event.text);
       return null;
     default:
       return null;

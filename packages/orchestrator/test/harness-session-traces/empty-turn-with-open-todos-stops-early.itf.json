@@ -51,9 +51,12 @@
         "aLostTurnFailsTheTask": false,
         "aLostTurnIsRecovered": false,
         "aLostTurnOfATaskQueuedForARestart": false,
+        "aLostTurnReturnsATakenInstruction": false,
         "aPausedAuthorStaysPaused": false,
         "aPromptGoesOutDuringAnOutcomeCheck": false,
+        "aRestartCutsTheOutcomeCheckOfATurnThatTookAnInstruction": false,
         "aRestartDropsTheSummarization": false,
+        "aRestartLandsWhileASteerIsOut": false,
         "aResumeLandsDuringACancelledTurn": false,
         "aResumePromptIsChosen": false,
         "aSandboxStartFails": false,
@@ -64,6 +67,8 @@
         "aStaleRestartIsDropped": false,
         "aStaleSandboxStartFails": false,
         "aStaleSandboxStartFailsAtOnce": false,
+        "aSteerIsTaken": false,
+        "aSteerRacesTheTurnEnd": false,
         "aStopEndsAStartingTurn": false,
         "aStopLandsDuringATurn": false,
         "aStoppedTaskGetsTheTaskPrompt": false,
@@ -95,6 +100,8 @@
         "bridges": [],
         "calls": [],
         "cancelsDelivered": { "#bigint": "0" },
+        "delivered": { "#set": [] },
+        "discarded": { "#set": [] },
         "eventsThatThrew": { "#bigint": "0" },
         "faults": { "#bigint": "0" },
         "generation": { "#bigint": "0" },
@@ -117,6 +124,7 @@
         "promptInFlight": false,
         "promptsSent": { "#bigint": "0" },
         "queue": [],
+        "receivedTwice": { "#bigint": "0" },
         "restarts": { "#bigint": "0" },
         "resumesChosen": { "#bigint": "0" },
         "rpcs": [],
@@ -124,6 +132,7 @@
         "sockets": [],
         "socketsClosed": { "#bigint": "0" },
         "status": { "tag": "Queued", "value": { "#tup": [] } },
+        "steers": { "#set": [] },
         "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
@@ -179,9 +188,12 @@
         "aLostTurnFailsTheTask": false,
         "aLostTurnIsRecovered": false,
         "aLostTurnOfATaskQueuedForARestart": false,
+        "aLostTurnReturnsATakenInstruction": false,
         "aPausedAuthorStaysPaused": false,
         "aPromptGoesOutDuringAnOutcomeCheck": false,
+        "aRestartCutsTheOutcomeCheckOfATurnThatTookAnInstruction": false,
         "aRestartDropsTheSummarization": false,
+        "aRestartLandsWhileASteerIsOut": false,
         "aResumeLandsDuringACancelledTurn": false,
         "aResumePromptIsChosen": false,
         "aSandboxStartFails": false,
@@ -192,6 +204,8 @@
         "aStaleRestartIsDropped": false,
         "aStaleSandboxStartFails": false,
         "aStaleSandboxStartFailsAtOnce": false,
+        "aSteerIsTaken": false,
+        "aSteerRacesTheTurnEnd": false,
         "aStopEndsAStartingTurn": false,
         "aStopLandsDuringATurn": false,
         "aStoppedTaskGetsTheTaskPrompt": false,
@@ -241,6 +255,8 @@
           }
         ],
         "cancelsDelivered": { "#bigint": "0" },
+        "delivered": { "#set": [] },
+        "discarded": { "#set": [] },
         "eventsThatThrew": { "#bigint": "0" },
         "faults": { "#bigint": "0" },
         "generation": { "#bigint": "1" },
@@ -262,7 +278,8 @@
         "personPrompts": { "#bigint": "1" },
         "promptInFlight": false,
         "promptsSent": { "#bigint": "0" },
-        "queue": [{ "tag": "PersonPrompt", "value": { "#tup": [] } }],
+        "queue": [{ "tag": "PersonPrompt", "value": { "#bigint": "0" } }],
+        "receivedTwice": { "#bigint": "0" },
         "restarts": { "#bigint": "0" },
         "resumesChosen": { "#bigint": "0" },
         "rpcs": [],
@@ -270,6 +287,7 @@
         "sockets": [],
         "socketsClosed": { "#bigint": "0" },
         "status": { "tag": "Provisioning", "value": { "#tup": [] } },
+        "steers": { "#set": [] },
         "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
@@ -325,9 +343,12 @@
         "aLostTurnFailsTheTask": false,
         "aLostTurnIsRecovered": false,
         "aLostTurnOfATaskQueuedForARestart": false,
+        "aLostTurnReturnsATakenInstruction": false,
         "aPausedAuthorStaysPaused": false,
         "aPromptGoesOutDuringAnOutcomeCheck": false,
+        "aRestartCutsTheOutcomeCheckOfATurnThatTookAnInstruction": false,
         "aRestartDropsTheSummarization": false,
+        "aRestartLandsWhileASteerIsOut": false,
         "aResumeLandsDuringACancelledTurn": false,
         "aResumePromptIsChosen": false,
         "aSandboxStartFails": false,
@@ -338,6 +359,8 @@
         "aStaleRestartIsDropped": false,
         "aStaleSandboxStartFails": false,
         "aStaleSandboxStartFailsAtOnce": false,
+        "aSteerIsTaken": false,
+        "aSteerRacesTheTurnEnd": false,
         "aStopEndsAStartingTurn": false,
         "aStopLandsDuringATurn": false,
         "aStoppedTaskGetsTheTaskPrompt": false,
@@ -374,6 +397,8 @@
           {
             "alive": true,
             "generation": { "#bigint": "1" },
+            "inTurn": { "#set": [] },
+            "received": { "#set": [] },
             "requests": [],
             "saidHello": false,
             "token": { "#bigint": "1" }
@@ -381,6 +406,8 @@
         ],
         "calls": [],
         "cancelsDelivered": { "#bigint": "0" },
+        "delivered": { "#set": [] },
+        "discarded": { "#set": [] },
         "eventsThatThrew": { "#bigint": "0" },
         "faults": { "#bigint": "0" },
         "generation": { "#bigint": "1" },
@@ -402,7 +429,8 @@
         "personPrompts": { "#bigint": "1" },
         "promptInFlight": false,
         "promptsSent": { "#bigint": "0" },
-        "queue": [{ "tag": "PersonPrompt", "value": { "#tup": [] } }],
+        "queue": [{ "tag": "PersonPrompt", "value": { "#bigint": "0" } }],
+        "receivedTwice": { "#bigint": "0" },
         "restarts": { "#bigint": "0" },
         "resumesChosen": { "#bigint": "0" },
         "rpcs": [],
@@ -410,6 +438,7 @@
         "sockets": [],
         "socketsClosed": { "#bigint": "0" },
         "status": { "tag": "Provisioning", "value": { "#tup": [] } },
+        "steers": { "#set": [] },
         "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
@@ -465,9 +494,12 @@
         "aLostTurnFailsTheTask": false,
         "aLostTurnIsRecovered": false,
         "aLostTurnOfATaskQueuedForARestart": false,
+        "aLostTurnReturnsATakenInstruction": false,
         "aPausedAuthorStaysPaused": false,
         "aPromptGoesOutDuringAnOutcomeCheck": false,
+        "aRestartCutsTheOutcomeCheckOfATurnThatTookAnInstruction": false,
         "aRestartDropsTheSummarization": false,
+        "aRestartLandsWhileASteerIsOut": false,
         "aResumeLandsDuringACancelledTurn": false,
         "aResumePromptIsChosen": false,
         "aSandboxStartFails": false,
@@ -478,6 +510,8 @@
         "aStaleRestartIsDropped": false,
         "aStaleSandboxStartFails": false,
         "aStaleSandboxStartFailsAtOnce": false,
+        "aSteerIsTaken": false,
+        "aSteerRacesTheTurnEnd": false,
         "aStopEndsAStartingTurn": false,
         "aStopLandsDuringATurn": false,
         "aStoppedTaskGetsTheTaskPrompt": false,
@@ -510,9 +544,12 @@
           {
             "alive": true,
             "generation": { "#bigint": "1" },
+            "inTurn": { "#set": [] },
+            "received": { "#set": [] },
             "requests": [
               {
                 "cancelled": false,
+                "carries": { "tag": "NoPerson", "value": { "#tup": [] } },
                 "id": { "#bigint": "1" },
                 "purpose": { "tag": "Initialize", "value": { "#tup": [] } },
                 "serial": { "#bigint": "0" }
@@ -524,6 +561,8 @@
         ],
         "calls": [],
         "cancelsDelivered": { "#bigint": "0" },
+        "delivered": { "#set": [] },
+        "discarded": { "#set": [] },
         "eventsThatThrew": { "#bigint": "0" },
         "faults": { "#bigint": "0" },
         "generation": { "#bigint": "1" },
@@ -545,7 +584,8 @@
         "personPrompts": { "#bigint": "1" },
         "promptInFlight": false,
         "promptsSent": { "#bigint": "0" },
-        "queue": [{ "tag": "PersonPrompt", "value": { "#tup": [] } }],
+        "queue": [{ "tag": "PersonPrompt", "value": { "#bigint": "0" } }],
+        "receivedTwice": { "#bigint": "0" },
         "restarts": { "#bigint": "0" },
         "resumesChosen": { "#bigint": "0" },
         "rpcs": [
@@ -565,6 +605,7 @@
         ],
         "socketsClosed": { "#bigint": "0" },
         "status": { "tag": "Working", "value": { "#tup": [] } },
+        "steers": { "#set": [] },
         "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
@@ -620,9 +661,12 @@
         "aLostTurnFailsTheTask": false,
         "aLostTurnIsRecovered": false,
         "aLostTurnOfATaskQueuedForARestart": false,
+        "aLostTurnReturnsATakenInstruction": false,
         "aPausedAuthorStaysPaused": false,
         "aPromptGoesOutDuringAnOutcomeCheck": false,
+        "aRestartCutsTheOutcomeCheckOfATurnThatTookAnInstruction": false,
         "aRestartDropsTheSummarization": false,
+        "aRestartLandsWhileASteerIsOut": false,
         "aResumeLandsDuringACancelledTurn": false,
         "aResumePromptIsChosen": false,
         "aSandboxStartFails": false,
@@ -633,6 +677,8 @@
         "aStaleRestartIsDropped": false,
         "aStaleSandboxStartFails": false,
         "aStaleSandboxStartFailsAtOnce": false,
+        "aSteerIsTaken": false,
+        "aSteerRacesTheTurnEnd": false,
         "aStopEndsAStartingTurn": false,
         "aStopLandsDuringATurn": false,
         "aStoppedTaskGetsTheTaskPrompt": false,
@@ -665,9 +711,12 @@
           {
             "alive": true,
             "generation": { "#bigint": "1" },
+            "inTurn": { "#set": [] },
+            "received": { "#set": [] },
             "requests": [
               {
                 "cancelled": false,
+                "carries": { "tag": "NoPerson", "value": { "#tup": [] } },
                 "id": { "#bigint": "2" },
                 "purpose": { "tag": "SessionNew", "value": { "#tup": [] } },
                 "serial": { "#bigint": "1" }
@@ -679,6 +728,8 @@
         ],
         "calls": [],
         "cancelsDelivered": { "#bigint": "0" },
+        "delivered": { "#set": [] },
+        "discarded": { "#set": [] },
         "eventsThatThrew": { "#bigint": "0" },
         "faults": { "#bigint": "0" },
         "generation": { "#bigint": "1" },
@@ -700,7 +751,8 @@
         "personPrompts": { "#bigint": "1" },
         "promptInFlight": false,
         "promptsSent": { "#bigint": "0" },
-        "queue": [{ "tag": "PersonPrompt", "value": { "#tup": [] } }],
+        "queue": [{ "tag": "PersonPrompt", "value": { "#bigint": "0" } }],
+        "receivedTwice": { "#bigint": "0" },
         "restarts": { "#bigint": "0" },
         "resumesChosen": { "#bigint": "0" },
         "rpcs": [
@@ -720,6 +772,7 @@
         ],
         "socketsClosed": { "#bigint": "0" },
         "status": { "tag": "Working", "value": { "#tup": [] } },
+        "steers": { "#set": [] },
         "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
@@ -775,9 +828,12 @@
         "aLostTurnFailsTheTask": false,
         "aLostTurnIsRecovered": false,
         "aLostTurnOfATaskQueuedForARestart": false,
+        "aLostTurnReturnsATakenInstruction": false,
         "aPausedAuthorStaysPaused": false,
         "aPromptGoesOutDuringAnOutcomeCheck": false,
+        "aRestartCutsTheOutcomeCheckOfATurnThatTookAnInstruction": false,
         "aRestartDropsTheSummarization": false,
+        "aRestartLandsWhileASteerIsOut": false,
         "aResumeLandsDuringACancelledTurn": false,
         "aResumePromptIsChosen": false,
         "aSandboxStartFails": false,
@@ -788,6 +844,8 @@
         "aStaleRestartIsDropped": false,
         "aStaleSandboxStartFails": false,
         "aStaleSandboxStartFailsAtOnce": false,
+        "aSteerIsTaken": false,
+        "aSteerRacesTheTurnEnd": false,
         "aStopEndsAStartingTurn": false,
         "aStopLandsDuringATurn": false,
         "aStoppedTaskGetsTheTaskPrompt": false,
@@ -826,12 +884,22 @@
           {
             "alive": true,
             "generation": { "#bigint": "1" },
+            "inTurn": { "#set": [] },
+            "received": { "#set": [] },
             "requests": [
               {
                 "cancelled": false,
+                "carries": { "tag": "NoPerson", "value": { "#tup": [] } },
                 "id": { "#bigint": "3" },
                 "purpose": { "tag": "Prompt", "value": { "#tup": [] } },
                 "serial": { "#bigint": "2" }
+              },
+              {
+                "cancelled": false,
+                "carries": { "tag": "Person", "value": { "#bigint": "0" } },
+                "id": { "#bigint": "4" },
+                "purpose": { "tag": "Steer", "value": { "#tup": [] } },
+                "serial": { "#bigint": "3" }
               }
             ],
             "saidHello": true,
@@ -840,6 +908,8 @@
         ],
         "calls": [],
         "cancelsDelivered": { "#bigint": "0" },
+        "delivered": { "#set": [] },
+        "discarded": { "#set": [] },
         "eventsThatThrew": { "#bigint": "0" },
         "faults": { "#bigint": "0" },
         "generation": { "#bigint": "1" },
@@ -850,7 +920,7 @@
         "lostTurns": { "#bigint": "0" },
         "nextAlarm": { "#bigint": "6" },
         "nextCall": { "#bigint": "1" },
-        "nextSerial": { "#bigint": "3" },
+        "nextSerial": { "#bigint": "4" },
         "noProgressSlot": { "tag": "Armed", "value": { "#bigint": "3" } },
         "nudged": false,
         "openTodos": false,
@@ -861,7 +931,8 @@
         "personPrompts": { "#bigint": "1" },
         "promptInFlight": true,
         "promptsSent": { "#bigint": "1" },
-        "queue": [{ "tag": "PersonPrompt", "value": { "#tup": [] } }],
+        "queue": [{ "tag": "PersonPrompt", "value": { "#bigint": "0" } }],
+        "receivedTwice": { "#bigint": "0" },
         "restarts": { "#bigint": "0" },
         "resumesChosen": { "#bigint": "0" },
         "rpcs": [
@@ -869,6 +940,11 @@
             "id": { "#bigint": "3" },
             "purpose": { "tag": "Prompt", "value": { "#tup": [] } },
             "serial": { "#bigint": "2" }
+          },
+          {
+            "id": { "#bigint": "4" },
+            "purpose": { "tag": "Steer", "value": { "#tup": [] } },
+            "serial": { "#bigint": "3" }
           }
         ],
         "session": true,
@@ -881,6 +957,15 @@
         ],
         "socketsClosed": { "#bigint": "0" },
         "status": { "tag": "Working", "value": { "#tup": [] } },
+        "steers": {
+          "#set": [
+            {
+              "person": { "#bigint": "0" },
+              "rpc": { "#bigint": "4" },
+              "status": { "tag": "SteerOut", "value": { "#tup": [] } }
+            }
+          ]
+        },
         "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
@@ -936,9 +1021,12 @@
         "aLostTurnFailsTheTask": false,
         "aLostTurnIsRecovered": false,
         "aLostTurnOfATaskQueuedForARestart": false,
+        "aLostTurnReturnsATakenInstruction": false,
         "aPausedAuthorStaysPaused": false,
         "aPromptGoesOutDuringAnOutcomeCheck": false,
+        "aRestartCutsTheOutcomeCheckOfATurnThatTookAnInstruction": false,
         "aRestartDropsTheSummarization": false,
+        "aRestartLandsWhileASteerIsOut": false,
         "aResumeLandsDuringACancelledTurn": false,
         "aResumePromptIsChosen": false,
         "aSandboxStartFails": false,
@@ -949,6 +1037,8 @@
         "aStaleRestartIsDropped": false,
         "aStaleSandboxStartFails": false,
         "aStaleSandboxStartFailsAtOnce": false,
+        "aSteerIsTaken": false,
+        "aSteerRacesTheTurnEnd": false,
         "aStopEndsAStartingTurn": false,
         "aStopLandsDuringATurn": false,
         "aStoppedTaskGetsTheTaskPrompt": false,
@@ -987,12 +1077,22 @@
           {
             "alive": true,
             "generation": { "#bigint": "1" },
+            "inTurn": { "#set": [] },
+            "received": { "#set": [] },
             "requests": [
               {
                 "cancelled": false,
+                "carries": { "tag": "NoPerson", "value": { "#tup": [] } },
                 "id": { "#bigint": "3" },
                 "purpose": { "tag": "Prompt", "value": { "#tup": [] } },
                 "serial": { "#bigint": "2" }
+              },
+              {
+                "cancelled": false,
+                "carries": { "tag": "Person", "value": { "#bigint": "0" } },
+                "id": { "#bigint": "4" },
+                "purpose": { "tag": "Steer", "value": { "#tup": [] } },
+                "serial": { "#bigint": "3" }
               }
             ],
             "saidHello": true,
@@ -1001,6 +1101,8 @@
         ],
         "calls": [],
         "cancelsDelivered": { "#bigint": "0" },
+        "delivered": { "#set": [] },
+        "discarded": { "#set": [] },
         "eventsThatThrew": { "#bigint": "0" },
         "faults": { "#bigint": "0" },
         "generation": { "#bigint": "1" },
@@ -1011,7 +1113,7 @@
         "lostTurns": { "#bigint": "0" },
         "nextAlarm": { "#bigint": "6" },
         "nextCall": { "#bigint": "1" },
-        "nextSerial": { "#bigint": "3" },
+        "nextSerial": { "#bigint": "4" },
         "noProgressSlot": { "tag": "Armed", "value": { "#bigint": "3" } },
         "nudged": false,
         "openTodos": false,
@@ -1022,7 +1124,8 @@
         "personPrompts": { "#bigint": "1" },
         "promptInFlight": true,
         "promptsSent": { "#bigint": "1" },
-        "queue": [{ "tag": "PersonPrompt", "value": { "#tup": [] } }],
+        "queue": [{ "tag": "PersonPrompt", "value": { "#bigint": "0" } }],
+        "receivedTwice": { "#bigint": "0" },
         "restarts": { "#bigint": "0" },
         "resumesChosen": { "#bigint": "0" },
         "rpcs": [
@@ -1030,6 +1133,11 @@
             "id": { "#bigint": "3" },
             "purpose": { "tag": "Prompt", "value": { "#tup": [] } },
             "serial": { "#bigint": "2" }
+          },
+          {
+            "id": { "#bigint": "4" },
+            "purpose": { "tag": "Steer", "value": { "#tup": [] } },
+            "serial": { "#bigint": "3" }
           }
         ],
         "session": true,
@@ -1042,6 +1150,15 @@
         ],
         "socketsClosed": { "#bigint": "0" },
         "status": { "tag": "Working", "value": { "#tup": [] } },
+        "steers": {
+          "#set": [
+            {
+              "person": { "#bigint": "0" },
+              "rpc": { "#bigint": "4" },
+              "status": { "tag": "SteerOut", "value": { "#tup": [] } }
+            }
+          ]
+        },
         "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
@@ -1097,9 +1214,12 @@
         "aLostTurnFailsTheTask": false,
         "aLostTurnIsRecovered": false,
         "aLostTurnOfATaskQueuedForARestart": false,
+        "aLostTurnReturnsATakenInstruction": false,
         "aPausedAuthorStaysPaused": false,
         "aPromptGoesOutDuringAnOutcomeCheck": false,
+        "aRestartCutsTheOutcomeCheckOfATurnThatTookAnInstruction": false,
         "aRestartDropsTheSummarization": false,
+        "aRestartLandsWhileASteerIsOut": false,
         "aResumeLandsDuringACancelledTurn": false,
         "aResumePromptIsChosen": false,
         "aSandboxStartFails": false,
@@ -1110,6 +1230,8 @@
         "aStaleRestartIsDropped": false,
         "aStaleSandboxStartFails": false,
         "aStaleSandboxStartFailsAtOnce": false,
+        "aSteerIsTaken": false,
+        "aSteerRacesTheTurnEnd": false,
         "aStopEndsAStartingTurn": false,
         "aStopLandsDuringATurn": false,
         "aStoppedTaskGetsTheTaskPrompt": false,
@@ -1145,12 +1267,22 @@
           {
             "alive": true,
             "generation": { "#bigint": "1" },
+            "inTurn": { "#set": [] },
+            "received": { "#set": [] },
             "requests": [
               {
                 "cancelled": false,
+                "carries": { "tag": "NoPerson", "value": { "#tup": [] } },
                 "id": { "#bigint": "3" },
                 "purpose": { "tag": "Prompt", "value": { "#tup": [] } },
                 "serial": { "#bigint": "2" }
+              },
+              {
+                "cancelled": false,
+                "carries": { "tag": "Person", "value": { "#bigint": "0" } },
+                "id": { "#bigint": "4" },
+                "purpose": { "tag": "Steer", "value": { "#tup": [] } },
+                "serial": { "#bigint": "3" }
               }
             ],
             "saidHello": true,
@@ -1159,6 +1291,8 @@
         ],
         "calls": [],
         "cancelsDelivered": { "#bigint": "0" },
+        "delivered": { "#set": [] },
+        "discarded": { "#set": [] },
         "eventsThatThrew": { "#bigint": "0" },
         "faults": { "#bigint": "0" },
         "generation": { "#bigint": "1" },
@@ -1169,7 +1303,7 @@
         "lostTurns": { "#bigint": "0" },
         "nextAlarm": { "#bigint": "7" },
         "nextCall": { "#bigint": "1" },
-        "nextSerial": { "#bigint": "3" },
+        "nextSerial": { "#bigint": "4" },
         "noProgressSlot": { "tag": "Armed", "value": { "#bigint": "6" } },
         "nudged": false,
         "openTodos": true,
@@ -1180,7 +1314,8 @@
         "personPrompts": { "#bigint": "1" },
         "promptInFlight": true,
         "promptsSent": { "#bigint": "1" },
-        "queue": [{ "tag": "PersonPrompt", "value": { "#tup": [] } }],
+        "queue": [{ "tag": "PersonPrompt", "value": { "#bigint": "0" } }],
+        "receivedTwice": { "#bigint": "0" },
         "restarts": { "#bigint": "0" },
         "resumesChosen": { "#bigint": "0" },
         "rpcs": [
@@ -1188,6 +1323,11 @@
             "id": { "#bigint": "3" },
             "purpose": { "tag": "Prompt", "value": { "#tup": [] } },
             "serial": { "#bigint": "2" }
+          },
+          {
+            "id": { "#bigint": "4" },
+            "purpose": { "tag": "Steer", "value": { "#tup": [] } },
+            "serial": { "#bigint": "3" }
           }
         ],
         "session": true,
@@ -1200,6 +1340,15 @@
         ],
         "socketsClosed": { "#bigint": "0" },
         "status": { "tag": "Working", "value": { "#tup": [] } },
+        "steers": {
+          "#set": [
+            {
+              "person": { "#bigint": "0" },
+              "rpc": { "#bigint": "4" },
+              "status": { "tag": "SteerOut", "value": { "#tup": [] } }
+            }
+          ]
+        },
         "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": { "#bigint": "0" },
@@ -1255,9 +1404,12 @@
         "aLostTurnFailsTheTask": false,
         "aLostTurnIsRecovered": false,
         "aLostTurnOfATaskQueuedForARestart": false,
+        "aLostTurnReturnsATakenInstruction": false,
         "aPausedAuthorStaysPaused": false,
         "aPromptGoesOutDuringAnOutcomeCheck": false,
+        "aRestartCutsTheOutcomeCheckOfATurnThatTookAnInstruction": false,
         "aRestartDropsTheSummarization": false,
+        "aRestartLandsWhileASteerIsOut": false,
         "aResumeLandsDuringACancelledTurn": false,
         "aResumePromptIsChosen": false,
         "aSandboxStartFails": false,
@@ -1268,6 +1420,8 @@
         "aStaleRestartIsDropped": false,
         "aStaleSandboxStartFails": false,
         "aStaleSandboxStartFailsAtOnce": false,
+        "aSteerIsTaken": false,
+        "aSteerRacesTheTurnEnd": false,
         "aStopEndsAStartingTurn": false,
         "aStopLandsDuringATurn": false,
         "aStoppedTaskGetsTheTaskPrompt": false,
@@ -1306,12 +1460,22 @@
           {
             "alive": true,
             "generation": { "#bigint": "1" },
+            "inTurn": { "#set": [{ "#bigint": "0" }] },
+            "received": { "#set": [{ "#bigint": "0" }] },
             "requests": [
               {
                 "cancelled": false,
+                "carries": { "tag": "Person", "value": { "#bigint": "0" } },
                 "id": { "#bigint": "4" },
-                "purpose": { "tag": "Prompt", "value": { "#tup": [] } },
+                "purpose": { "tag": "Steer", "value": { "#tup": [] } },
                 "serial": { "#bigint": "3" }
+              },
+              {
+                "cancelled": false,
+                "carries": { "tag": "Person", "value": { "#bigint": "0" } },
+                "id": { "#bigint": "5" },
+                "purpose": { "tag": "Prompt", "value": { "#tup": [] } },
+                "serial": { "#bigint": "4" }
               }
             ],
             "saidHello": true,
@@ -1320,6 +1484,8 @@
         ],
         "calls": [],
         "cancelsDelivered": { "#bigint": "0" },
+        "delivered": { "#set": [] },
+        "discarded": { "#set": [] },
         "eventsThatThrew": { "#bigint": "0" },
         "faults": { "#bigint": "0" },
         "generation": { "#bigint": "1" },
@@ -1330,7 +1496,7 @@
         "lostTurns": { "#bigint": "0" },
         "nextAlarm": { "#bigint": "9" },
         "nextCall": { "#bigint": "1" },
-        "nextSerial": { "#bigint": "4" },
+        "nextSerial": { "#bigint": "5" },
         "noProgressSlot": { "tag": "Armed", "value": { "#bigint": "7" } },
         "nudged": false,
         "openTodos": true,
@@ -1341,14 +1507,20 @@
         "personPrompts": { "#bigint": "1" },
         "promptInFlight": true,
         "promptsSent": { "#bigint": "2" },
-        "queue": [],
+        "queue": [{ "tag": "PersonPrompt", "value": { "#bigint": "0" } }],
+        "receivedTwice": { "#bigint": "0" },
         "restarts": { "#bigint": "0" },
         "resumesChosen": { "#bigint": "0" },
         "rpcs": [
           {
             "id": { "#bigint": "4" },
-            "purpose": { "tag": "Prompt", "value": { "#tup": [] } },
+            "purpose": { "tag": "Steer", "value": { "#tup": [] } },
             "serial": { "#bigint": "3" }
+          },
+          {
+            "id": { "#bigint": "5" },
+            "purpose": { "tag": "Prompt", "value": { "#tup": [] } },
+            "serial": { "#bigint": "4" }
           }
         ],
         "session": true,
@@ -1361,6 +1533,15 @@
         ],
         "socketsClosed": { "#bigint": "0" },
         "status": { "tag": "Working", "value": { "#tup": [] } },
+        "steers": {
+          "#set": [
+            {
+              "person": { "#bigint": "0" },
+              "rpc": { "#bigint": "5" },
+              "status": { "tag": "SteerTaken", "value": { "#tup": [] } }
+            }
+          ]
+        },
         "stopped": false,
         "stoppedEarly": true,
         "stopsEnded": { "#bigint": "0" },

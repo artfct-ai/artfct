@@ -27,6 +27,7 @@ export class OpenCodeHarness implements HarnessAdapter {
   readonly name = "opencode";
   readonly instructionsFile = `${CONFIG_DIR}/AGENTS.md`;
   readonly skillsDir = `${CONFIG_DIR}/skills`;
+  readonly steering = null;
 
   invokeSkill(name: string): string {
     return `Call the skill tool with id "${name}" first. Then follow the skill it returns for this task.`;

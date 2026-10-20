@@ -81,17 +81,21 @@
         }
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepKept": {
+        "aCompletedJobEndsItsReview": true,
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
         "aJobStartProvisionsItsTask": true,
+        "aPersonsMessageWakesTheWorkflow": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
+        "aWorkflowEndReachesAFinishedStatus": true,
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
+        "issuesMoveOnlyAtAStartOrADoneEnd": true,
         "jobStartsOnlyIntoAFreeSlot": true,
         "nothingReopensAFinishedWorkflow": true,
         "onlyAPlanStartsTheWorkflow": true,
@@ -110,16 +114,22 @@
         "aDeadlinePassesDuringAPageWrite": false,
         "aDeadlinePassesDuringAProduceTurn": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessAuthorCompletesAfterItsDestroy": false,
+        "aHarnessAuthorPostsItsFailureAfterItsDestroy": false,
+        "aJobCompletesDuringItsReview": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
         "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageLandsOnAWaitingWorkflow": false,
         "aMessageWakesTheWorkflow": false,
+        "aModelCallHostErrorPostsAFailure": false,
         "aModelTurnOutlivesItsDeadline": false,
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -127,20 +137,32 @@
         "aPlanStartsTheWorkflow": false,
         "aPromptWaitsForAPausedTask": false,
         "aPromptWaitsForATurn": false,
+        "aResearcherEndAlarmDestroysTheSandboxAgain": false,
+        "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsTheDestroyOfAResearcherThatHandedOver": false,
+        "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
+        "aRestartLandsDuringAWorkflowEnd": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aReviseTurnIsCut": false,
         "aRunAgainAlarmFindsAStoppedAuthor": false,
         "aSessionMessageReachesAModelCallAuthorAtWork": false,
         "aStaleAlarmFindsAnEndedModelTurn": false,
         "aStaleAlarmFires": false,
         "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOnAnIssueWhoseJobCompletedIsRefused": false,
         "aStartOutsideTheSubjectIsRefused": false,
         "aStartRecordsARemovedPull": false,
         "aStopEndsAModelCall": false,
@@ -149,8 +171,14 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmEndsASingleIssueWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmFinishesACompletion": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
+        "aWorkflowEndResumesAfterARestart": false,
         "anAcceptanceCheckFails": false,
         "anAuthorFailsOnALostModelTurn": false,
         "anAuthorTakesAPromptAfterItsPolisher": false,
@@ -164,21 +192,28 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false,
-        "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false,
-        "aRestartCutsTheDestroyOfACancelledAuthor": false,
-        "aRestartCutsTheDestroyOfAFailedAuthor": false,
-        "aRestartCutsAFailurePost": false,
-        "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false,
-        "aRestartCutsTheDestroyOfACompletedAuthor": false
+        "theSubjectIssueEndCancelsTheWorkflow": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
         "calls": [],
         "definition": {
           "tag": "Unplanned",
+          "value": {
+            "#tup": []
+          }
+        },
+        "destroyedSandboxes": {
+          "#set": []
+        },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
           "value": {
             "#tup": []
           }
@@ -195,6 +230,9 @@
         "ranAgain": {
           "#set": []
         },
+        "researcherEndAlarms": {
+          "#set": []
+        },
         "restartAlarmFired": false,
         "restartAlarms": {
           "#set": []
@@ -208,30 +246,22 @@
             "#tup": []
           }
         },
-        "status": { "tag": "New", "value": { "#tup": [] } },
+        "status": {
+          "tag": "New",
+          "value": {
+            "#tup": []
+          }
+        },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
             "#bigint": "0"
           }
         },
-        "turnsToRunAgain": {
-          "#set": []
-        },
-        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
-        "endCall": {
-          "tag": "NoEndCall",
-          "value": {
-            "#tup": []
-          }
-        },
         "taskEndAlarms": {
           "#set": []
         },
-        "researcherEndAlarms": {
-          "#set": []
-        },
-        "destroyedSandboxes": {
+        "turnsToRunAgain": {
           "#set": []
         }
       }
@@ -296,17 +326,21 @@
         }
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepKept": {
+        "aCompletedJobEndsItsReview": true,
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
         "aJobStartProvisionsItsTask": true,
+        "aPersonsMessageWakesTheWorkflow": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
+        "aWorkflowEndReachesAFinishedStatus": true,
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
+        "issuesMoveOnlyAtAStartOrADoneEnd": true,
         "jobStartsOnlyIntoAFreeSlot": true,
         "nothingReopensAFinishedWorkflow": true,
         "onlyAPlanStartsTheWorkflow": true,
@@ -325,16 +359,22 @@
         "aDeadlinePassesDuringAPageWrite": false,
         "aDeadlinePassesDuringAProduceTurn": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessAuthorCompletesAfterItsDestroy": false,
+        "aHarnessAuthorPostsItsFailureAfterItsDestroy": false,
+        "aJobCompletesDuringItsReview": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
         "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageLandsOnAWaitingWorkflow": false,
         "aMessageWakesTheWorkflow": false,
+        "aModelCallHostErrorPostsAFailure": false,
         "aModelTurnOutlivesItsDeadline": false,
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -342,20 +382,32 @@
         "aPlanStartsTheWorkflow": false,
         "aPromptWaitsForAPausedTask": false,
         "aPromptWaitsForATurn": false,
+        "aResearcherEndAlarmDestroysTheSandboxAgain": false,
+        "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsTheDestroyOfAResearcherThatHandedOver": false,
+        "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
+        "aRestartLandsDuringAWorkflowEnd": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aReviseTurnIsCut": false,
         "aRunAgainAlarmFindsAStoppedAuthor": false,
         "aSessionMessageReachesAModelCallAuthorAtWork": false,
         "aStaleAlarmFindsAnEndedModelTurn": false,
         "aStaleAlarmFires": false,
         "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOnAnIssueWhoseJobCompletedIsRefused": false,
         "aStartOutsideTheSubjectIsRefused": false,
         "aStartRecordsARemovedPull": false,
         "aStopEndsAModelCall": false,
@@ -364,8 +416,14 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmEndsASingleIssueWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmFinishesACompletion": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
+        "aWorkflowEndResumesAfterARestart": false,
         "anAcceptanceCheckFails": false,
         "anAuthorFailsOnALostModelTurn": false,
         "anAuthorTakesAPromptAfterItsPolisher": false,
@@ -379,21 +437,28 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false,
-        "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false,
-        "aRestartCutsTheDestroyOfACancelledAuthor": false,
-        "aRestartCutsTheDestroyOfAFailedAuthor": false,
-        "aRestartCutsAFailurePost": false,
-        "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false,
-        "aRestartCutsTheDestroyOfACompletedAuthor": false
+        "theSubjectIssueEndCancelsTheWorkflow": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
         "calls": [],
         "definition": {
           "tag": "Unplanned",
+          "value": {
+            "#tup": []
+          }
+        },
+        "destroyedSandboxes": {
+          "#set": []
+        },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
           "value": {
             "#tup": []
           }
@@ -410,6 +475,9 @@
         "ranAgain": {
           "#set": []
         },
+        "researcherEndAlarms": {
+          "#set": []
+        },
         "restartAlarmFired": false,
         "restartAlarms": {
           "#set": []
@@ -423,30 +491,22 @@
             "#tup": []
           }
         },
-        "status": { "tag": "New", "value": { "#tup": [] } },
+        "status": {
+          "tag": "New",
+          "value": {
+            "#tup": []
+          }
+        },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
             "#bigint": "0"
           }
         },
-        "turnsToRunAgain": {
-          "#set": []
-        },
-        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
-        "endCall": {
-          "tag": "NoEndCall",
-          "value": {
-            "#tup": []
-          }
-        },
         "taskEndAlarms": {
           "#set": []
         },
-        "researcherEndAlarms": {
-          "#set": []
-        },
-        "destroyedSandboxes": {
+        "turnsToRunAgain": {
           "#set": []
         }
       }
@@ -514,17 +574,21 @@
         }
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepKept": {
+        "aCompletedJobEndsItsReview": true,
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
         "aJobStartProvisionsItsTask": true,
+        "aPersonsMessageWakesTheWorkflow": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
+        "aWorkflowEndReachesAFinishedStatus": true,
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
+        "issuesMoveOnlyAtAStartOrADoneEnd": true,
         "jobStartsOnlyIntoAFreeSlot": true,
         "nothingReopensAFinishedWorkflow": true,
         "onlyAPlanStartsTheWorkflow": true,
@@ -543,16 +607,22 @@
         "aDeadlinePassesDuringAPageWrite": false,
         "aDeadlinePassesDuringAProduceTurn": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessAuthorCompletesAfterItsDestroy": false,
+        "aHarnessAuthorPostsItsFailureAfterItsDestroy": false,
+        "aJobCompletesDuringItsReview": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
         "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageLandsOnAWaitingWorkflow": false,
         "aMessageWakesTheWorkflow": false,
+        "aModelCallHostErrorPostsAFailure": false,
         "aModelTurnOutlivesItsDeadline": false,
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -560,20 +630,32 @@
         "aPlanStartsTheWorkflow": true,
         "aPromptWaitsForAPausedTask": false,
         "aPromptWaitsForATurn": false,
+        "aResearcherEndAlarmDestroysTheSandboxAgain": false,
+        "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsTheDestroyOfAResearcherThatHandedOver": false,
+        "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
+        "aRestartLandsDuringAWorkflowEnd": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aReviseTurnIsCut": false,
         "aRunAgainAlarmFindsAStoppedAuthor": false,
         "aSessionMessageReachesAModelCallAuthorAtWork": false,
         "aStaleAlarmFindsAnEndedModelTurn": false,
         "aStaleAlarmFires": false,
         "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOnAnIssueWhoseJobCompletedIsRefused": false,
         "aStartOutsideTheSubjectIsRefused": false,
         "aStartRecordsARemovedPull": false,
         "aStopEndsAModelCall": false,
@@ -582,8 +664,14 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmEndsASingleIssueWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmFinishesACompletion": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
+        "aWorkflowEndResumesAfterARestart": false,
         "anAcceptanceCheckFails": false,
         "anAuthorFailsOnALostModelTurn": false,
         "anAuthorTakesAPromptAfterItsPolisher": false,
@@ -597,15 +685,7 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false,
-        "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false,
-        "aRestartCutsTheDestroyOfACancelledAuthor": false,
-        "aRestartCutsTheDestroyOfAFailedAuthor": false,
-        "aRestartCutsAFailurePost": false,
-        "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false,
-        "aRestartCutsTheDestroyOfACompletedAuthor": false
+        "theSubjectIssueEndCancelsTheWorkflow": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
@@ -614,6 +694,21 @@
           "tag": "Planned",
           "value": {
             "#bigint": "0"
+          }
+        },
+        "destroyedSandboxes": {
+          "#set": []
+        },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
           }
         },
         "endedIssues": {
@@ -626,6 +721,9 @@
         },
         "jobs": [],
         "ranAgain": {
+          "#set": []
+        },
+        "researcherEndAlarms": {
           "#set": []
         },
         "restartAlarmFired": false,
@@ -641,30 +739,22 @@
             "#bigint": "2"
           }
         },
-        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
             "#bigint": "0"
           }
         },
-        "turnsToRunAgain": {
-          "#set": []
-        },
-        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
-        "endCall": {
-          "tag": "NoEndCall",
-          "value": {
-            "#tup": []
-          }
-        },
         "taskEndAlarms": {
           "#set": []
         },
-        "researcherEndAlarms": {
-          "#set": []
-        },
-        "destroyedSandboxes": {
+        "turnsToRunAgain": {
           "#set": []
         }
       }
@@ -729,17 +819,21 @@
         }
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepKept": {
+        "aCompletedJobEndsItsReview": true,
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
         "aJobStartProvisionsItsTask": true,
+        "aPersonsMessageWakesTheWorkflow": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
+        "aWorkflowEndReachesAFinishedStatus": true,
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
+        "issuesMoveOnlyAtAStartOrADoneEnd": true,
         "jobStartsOnlyIntoAFreeSlot": true,
         "nothingReopensAFinishedWorkflow": true,
         "onlyAPlanStartsTheWorkflow": true,
@@ -758,16 +852,22 @@
         "aDeadlinePassesDuringAPageWrite": false,
         "aDeadlinePassesDuringAProduceTurn": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessAuthorCompletesAfterItsDestroy": false,
+        "aHarnessAuthorPostsItsFailureAfterItsDestroy": false,
+        "aJobCompletesDuringItsReview": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
         "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageLandsOnAWaitingWorkflow": false,
         "aMessageWakesTheWorkflow": false,
+        "aModelCallHostErrorPostsAFailure": false,
         "aModelTurnOutlivesItsDeadline": false,
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -775,20 +875,32 @@
         "aPlanStartsTheWorkflow": false,
         "aPromptWaitsForAPausedTask": false,
         "aPromptWaitsForATurn": false,
+        "aResearcherEndAlarmDestroysTheSandboxAgain": false,
+        "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsTheDestroyOfAResearcherThatHandedOver": false,
+        "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
+        "aRestartLandsDuringAWorkflowEnd": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aReviseTurnIsCut": false,
         "aRunAgainAlarmFindsAStoppedAuthor": false,
         "aSessionMessageReachesAModelCallAuthorAtWork": false,
         "aStaleAlarmFindsAnEndedModelTurn": false,
         "aStaleAlarmFires": false,
         "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOnAnIssueWhoseJobCompletedIsRefused": false,
         "aStartOutsideTheSubjectIsRefused": false,
         "aStartRecordsARemovedPull": false,
         "aStopEndsAModelCall": false,
@@ -797,8 +909,14 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmEndsASingleIssueWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmFinishesACompletion": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
+        "aWorkflowEndResumesAfterARestart": false,
         "anAcceptanceCheckFails": false,
         "anAuthorFailsOnALostModelTurn": false,
         "anAuthorTakesAPromptAfterItsPolisher": false,
@@ -812,15 +930,7 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false,
-        "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false,
-        "aRestartCutsTheDestroyOfACancelledAuthor": false,
-        "aRestartCutsTheDestroyOfAFailedAuthor": false,
-        "aRestartCutsAFailurePost": false,
-        "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false,
-        "aRestartCutsTheDestroyOfACompletedAuthor": false
+        "theSubjectIssueEndCancelsTheWorkflow": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
@@ -838,7 +948,13 @@
             "rest": {
               "tag": "PageWriteStarts",
               "value": {
-                "eventWaits": false
+                "eventWaits": false,
+                "prompt": {
+                  "tag": "ProducesThePage",
+                  "value": {
+                    "#tup": []
+                  }
+                }
               }
             }
           }
@@ -847,6 +963,21 @@
           "tag": "Planned",
           "value": {
             "#bigint": "0"
+          }
+        },
+        "destroyedSandboxes": {
+          "#set": []
+        },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
           }
         },
         "endedIssues": {
@@ -881,10 +1012,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "0"
                 },
@@ -915,6 +1050,9 @@
         "ranAgain": {
           "#set": []
         },
+        "researcherEndAlarms": {
+          "#set": []
+        },
         "restartAlarmFired": false,
         "restartAlarms": {
           "#set": []
@@ -928,30 +1066,22 @@
             "#bigint": "2"
           }
         },
-        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
             "#bigint": "0"
           }
         },
-        "turnsToRunAgain": {
-          "#set": []
-        },
-        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
-        "endCall": {
-          "tag": "NoEndCall",
-          "value": {
-            "#tup": []
-          }
-        },
         "taskEndAlarms": {
           "#set": []
         },
-        "researcherEndAlarms": {
-          "#set": []
-        },
-        "destroyedSandboxes": {
+        "turnsToRunAgain": {
           "#set": []
         }
       }
@@ -1019,17 +1149,21 @@
         }
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepKept": {
+        "aCompletedJobEndsItsReview": true,
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
         "aJobStartProvisionsItsTask": true,
+        "aPersonsMessageWakesTheWorkflow": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
+        "aWorkflowEndReachesAFinishedStatus": true,
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
+        "issuesMoveOnlyAtAStartOrADoneEnd": true,
         "jobStartsOnlyIntoAFreeSlot": true,
         "nothingReopensAFinishedWorkflow": true,
         "onlyAPlanStartsTheWorkflow": true,
@@ -1048,16 +1182,22 @@
         "aDeadlinePassesDuringAPageWrite": false,
         "aDeadlinePassesDuringAProduceTurn": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessAuthorCompletesAfterItsDestroy": false,
+        "aHarnessAuthorPostsItsFailureAfterItsDestroy": false,
+        "aJobCompletesDuringItsReview": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
         "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageLandsOnAWaitingWorkflow": false,
         "aMessageWakesTheWorkflow": false,
+        "aModelCallHostErrorPostsAFailure": false,
         "aModelTurnOutlivesItsDeadline": false,
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": true,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": true,
@@ -1065,20 +1205,32 @@
         "aPlanStartsTheWorkflow": false,
         "aPromptWaitsForAPausedTask": false,
         "aPromptWaitsForATurn": false,
+        "aResearcherEndAlarmDestroysTheSandboxAgain": false,
+        "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsTheDestroyOfAResearcherThatHandedOver": false,
+        "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
+        "aRestartLandsDuringAWorkflowEnd": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aReviseTurnIsCut": false,
         "aRunAgainAlarmFindsAStoppedAuthor": false,
         "aSessionMessageReachesAModelCallAuthorAtWork": false,
         "aStaleAlarmFindsAnEndedModelTurn": false,
         "aStaleAlarmFires": false,
         "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOnAnIssueWhoseJobCompletedIsRefused": false,
         "aStartOutsideTheSubjectIsRefused": false,
         "aStartRecordsARemovedPull": false,
         "aStopEndsAModelCall": false,
@@ -1087,8 +1239,14 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmEndsASingleIssueWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmFinishesACompletion": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
+        "aWorkflowEndResumesAfterARestart": false,
         "anAcceptanceCheckFails": false,
         "anAuthorFailsOnALostModelTurn": false,
         "anAuthorTakesAPromptAfterItsPolisher": false,
@@ -1102,15 +1260,7 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false,
-        "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false,
-        "aRestartCutsTheDestroyOfACancelledAuthor": false,
-        "aRestartCutsTheDestroyOfAFailedAuthor": false,
-        "aRestartCutsAFailurePost": false,
-        "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false,
-        "aRestartCutsTheDestroyOfACompletedAuthor": false
+        "theSubjectIssueEndCancelsTheWorkflow": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
@@ -1128,7 +1278,13 @@
             "rest": {
               "tag": "PageWriteStarts",
               "value": {
-                "eventWaits": false
+                "eventWaits": false,
+                "prompt": {
+                  "tag": "ProducesThePage",
+                  "value": {
+                    "#tup": []
+                  }
+                }
               }
             }
           }
@@ -1137,6 +1293,21 @@
           "tag": "Planned",
           "value": {
             "#bigint": "0"
+          }
+        },
+        "destroyedSandboxes": {
+          "#set": []
+        },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
           }
         },
         "endedIssues": {
@@ -1171,10 +1342,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "0"
                 },
@@ -1205,6 +1380,9 @@
         "ranAgain": {
           "#set": []
         },
+        "researcherEndAlarms": {
+          "#set": []
+        },
         "restartAlarmFired": false,
         "restartAlarms": {
           "#set": []
@@ -1218,30 +1396,22 @@
             "#bigint": "2"
           }
         },
-        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
             "#bigint": "0"
           }
         },
-        "turnsToRunAgain": {
-          "#set": []
-        },
-        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
-        "endCall": {
-          "tag": "NoEndCall",
-          "value": {
-            "#tup": []
-          }
-        },
         "taskEndAlarms": {
           "#set": []
         },
-        "researcherEndAlarms": {
-          "#set": []
-        },
-        "destroyedSandboxes": {
+        "turnsToRunAgain": {
           "#set": []
         }
       }
@@ -1308,17 +1478,21 @@
         }
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepKept": {
+        "aCompletedJobEndsItsReview": true,
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
         "aJobStartProvisionsItsTask": true,
+        "aPersonsMessageWakesTheWorkflow": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
+        "aWorkflowEndReachesAFinishedStatus": true,
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
+        "issuesMoveOnlyAtAStartOrADoneEnd": true,
         "jobStartsOnlyIntoAFreeSlot": true,
         "nothingReopensAFinishedWorkflow": true,
         "onlyAPlanStartsTheWorkflow": true,
@@ -1337,16 +1511,22 @@
         "aDeadlinePassesDuringAPageWrite": false,
         "aDeadlinePassesDuringAProduceTurn": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessAuthorCompletesAfterItsDestroy": false,
+        "aHarnessAuthorPostsItsFailureAfterItsDestroy": false,
+        "aJobCompletesDuringItsReview": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
         "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageLandsOnAWaitingWorkflow": false,
         "aMessageWakesTheWorkflow": false,
+        "aModelCallHostErrorPostsAFailure": false,
         "aModelTurnOutlivesItsDeadline": false,
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -1354,20 +1534,32 @@
         "aPlanStartsTheWorkflow": false,
         "aPromptWaitsForAPausedTask": false,
         "aPromptWaitsForATurn": false,
+        "aResearcherEndAlarmDestroysTheSandboxAgain": false,
+        "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsTheDestroyOfAResearcherThatHandedOver": false,
+        "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
+        "aRestartLandsDuringAWorkflowEnd": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aReviseTurnIsCut": false,
         "aRunAgainAlarmFindsAStoppedAuthor": false,
         "aSessionMessageReachesAModelCallAuthorAtWork": false,
         "aStaleAlarmFindsAnEndedModelTurn": false,
         "aStaleAlarmFires": false,
         "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOnAnIssueWhoseJobCompletedIsRefused": false,
         "aStartOutsideTheSubjectIsRefused": false,
         "aStartRecordsARemovedPull": false,
         "aStopEndsAModelCall": true,
@@ -1376,8 +1568,14 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmEndsASingleIssueWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmFinishesACompletion": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
+        "aWorkflowEndResumesAfterARestart": false,
         "anAcceptanceCheckFails": false,
         "anAuthorFailsOnALostModelTurn": false,
         "anAuthorTakesAPromptAfterItsPolisher": false,
@@ -1391,15 +1589,7 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false,
-        "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false,
-        "aRestartCutsTheDestroyOfACancelledAuthor": false,
-        "aRestartCutsTheDestroyOfAFailedAuthor": false,
-        "aRestartCutsAFailurePost": false,
-        "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false,
-        "aRestartCutsTheDestroyOfACompletedAuthor": false
+        "theSubjectIssueEndCancelsTheWorkflow": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": true,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
@@ -1417,7 +1607,13 @@
             "rest": {
               "tag": "ModelCallStopped",
               "value": {
-                "eventWaits": false
+                "eventWaits": false,
+                "prompt": {
+                  "tag": "ProducesThePage",
+                  "value": {
+                    "#tup": []
+                  }
+                }
               }
             }
           }
@@ -1426,6 +1622,21 @@
           "tag": "Planned",
           "value": {
             "#bigint": "0"
+          }
+        },
+        "destroyedSandboxes": {
+          "#set": []
+        },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
           }
         },
         "endedIssues": {
@@ -1460,10 +1671,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "0"
                 },
@@ -1494,6 +1709,9 @@
         "ranAgain": {
           "#set": []
         },
+        "researcherEndAlarms": {
+          "#set": []
+        },
         "restartAlarmFired": false,
         "restartAlarms": {
           "#set": []
@@ -1507,30 +1725,22 @@
             "#bigint": "2"
           }
         },
-        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
             "#bigint": "0"
           }
         },
-        "turnsToRunAgain": {
-          "#set": []
-        },
-        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
-        "endCall": {
-          "tag": "NoEndCall",
-          "value": {
-            "#tup": []
-          }
-        },
         "taskEndAlarms": {
           "#set": []
         },
-        "researcherEndAlarms": {
-          "#set": []
-        },
-        "destroyedSandboxes": {
+        "turnsToRunAgain": {
           "#set": []
         }
       }
@@ -1597,17 +1807,21 @@
         }
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepKept": {
+        "aCompletedJobEndsItsReview": true,
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
         "aJobStartProvisionsItsTask": true,
+        "aPersonsMessageWakesTheWorkflow": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
+        "aWorkflowEndReachesAFinishedStatus": true,
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
+        "issuesMoveOnlyAtAStartOrADoneEnd": true,
         "jobStartsOnlyIntoAFreeSlot": true,
         "nothingReopensAFinishedWorkflow": true,
         "onlyAPlanStartsTheWorkflow": true,
@@ -1626,16 +1840,22 @@
         "aDeadlinePassesDuringAPageWrite": false,
         "aDeadlinePassesDuringAProduceTurn": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessAuthorCompletesAfterItsDestroy": false,
+        "aHarnessAuthorPostsItsFailureAfterItsDestroy": false,
+        "aJobCompletesDuringItsReview": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
         "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageLandsOnAWaitingWorkflow": false,
         "aMessageWakesTheWorkflow": false,
+        "aModelCallHostErrorPostsAFailure": false,
         "aModelTurnOutlivesItsDeadline": false,
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -1643,20 +1863,32 @@
         "aPlanStartsTheWorkflow": false,
         "aPromptWaitsForAPausedTask": false,
         "aPromptWaitsForATurn": false,
+        "aResearcherEndAlarmDestroysTheSandboxAgain": false,
+        "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsTheDestroyOfAResearcherThatHandedOver": false,
+        "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
+        "aRestartLandsDuringAWorkflowEnd": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aReviseTurnIsCut": false,
         "aRunAgainAlarmFindsAStoppedAuthor": false,
         "aSessionMessageReachesAModelCallAuthorAtWork": false,
         "aStaleAlarmFindsAnEndedModelTurn": true,
         "aStaleAlarmFires": true,
         "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOnAnIssueWhoseJobCompletedIsRefused": false,
         "aStartOutsideTheSubjectIsRefused": false,
         "aStartRecordsARemovedPull": false,
         "aStopEndsAModelCall": false,
@@ -1665,8 +1897,14 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmEndsASingleIssueWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmFinishesACompletion": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
+        "aWorkflowEndResumesAfterARestart": false,
         "anAcceptanceCheckFails": false,
         "anAuthorFailsOnALostModelTurn": false,
         "anAuthorTakesAPromptAfterItsPolisher": false,
@@ -1680,15 +1918,7 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false,
-        "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false,
-        "aRestartCutsTheDestroyOfACancelledAuthor": false,
-        "aRestartCutsTheDestroyOfAFailedAuthor": false,
-        "aRestartCutsAFailurePost": false,
-        "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false,
-        "aRestartCutsTheDestroyOfACompletedAuthor": false
+        "theSubjectIssueEndCancelsTheWorkflow": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
@@ -1706,7 +1936,13 @@
             "rest": {
               "tag": "ModelCallStopped",
               "value": {
-                "eventWaits": false
+                "eventWaits": false,
+                "prompt": {
+                  "tag": "ProducesThePage",
+                  "value": {
+                    "#tup": []
+                  }
+                }
               }
             }
           }
@@ -1715,6 +1951,21 @@
           "tag": "Planned",
           "value": {
             "#bigint": "0"
+          }
+        },
+        "destroyedSandboxes": {
+          "#set": []
+        },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
           }
         },
         "endedIssues": {
@@ -1749,10 +2000,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "0"
                 },
@@ -1783,6 +2038,9 @@
         "ranAgain": {
           "#set": []
         },
+        "researcherEndAlarms": {
+          "#set": []
+        },
         "restartAlarmFired": false,
         "restartAlarms": {
           "#set": []
@@ -1796,30 +2054,22 @@
             "#bigint": "2"
           }
         },
-        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
             "#bigint": "0"
           }
         },
-        "turnsToRunAgain": {
-          "#set": []
-        },
-        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
-        "endCall": {
-          "tag": "NoEndCall",
-          "value": {
-            "#tup": []
-          }
-        },
         "taskEndAlarms": {
           "#set": []
         },
-        "researcherEndAlarms": {
-          "#set": []
-        },
-        "destroyedSandboxes": {
+        "turnsToRunAgain": {
           "#set": []
         }
       }

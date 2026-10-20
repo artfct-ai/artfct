@@ -185,8 +185,8 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "reviewLoop::authorIsIdleWhileAPolisherRuns, harnessSession::pausedAuthorGetsNoPrompt",
     path: "src/workflow/task/harness/prompt-queue.ts",
-    find: "  if (!promptsWait(workflow, task)) return sendPrompt(workflow, task, text);",
-    replace: "  return sendPrompt(workflow, task, text);",
+    find: "  if (!waits) return sendPrompt(workflow, task, { text, queued: wake });",
+    replace: "  return sendPrompt(workflow, task, { text, queued: wake });",
   },
   {
     id: "W22",
@@ -340,9 +340,9 @@ export const MUTANTS: Mutant[] = [
     id: "W42",
     invariant: "harnessSession::aHarnessSessionRunsOneTurnAtATime (effort handshake)",
     path: "src/workflow/task/harness/prompt-queue.ts",
-    find: '  if (task.status === "provisioning" || workflow.store.handshakePending(task.task_id)) {\n    return false;\n  }\n  const connected = workflow.connections(task.task_id).length > 0;\n  if (connected && sandbox.session_id) {\n    workflow.store.dequeuePrompt(next.id);\n    await sendPrompt(workflow, task, next.text);\n    return true;\n  }\n',
+    find: '  if (task.status === "provisioning" || workflow.store.handshakePending(task.task_id)) {\n    return false;\n  }\n  const connected = workflow.connections(task.task_id).length > 0;\n  if (connected && sandbox.session_id) {\n    await sendPrompt(workflow, task, { text: next.text, queued: next });\n    return true;\n  }\n',
     replace:
-      '  const connected = workflow.connections(task.task_id).length > 0;\n  if (connected && sandbox.session_id) {\n    workflow.store.dequeuePrompt(next.id);\n    await sendPrompt(workflow, task, next.text);\n    return true;\n  }\n  if (task.status === "provisioning" || workflow.store.handshakePending(task.task_id)) {\n    return false;\n  }\n',
+      '  const connected = workflow.connections(task.task_id).length > 0;\n  if (connected && sandbox.session_id) {\n    await sendPrompt(workflow, task, { text: next.text, queued: next });\n    return true;\n  }\n  if (task.status === "provisioning" || workflow.store.handshakePending(task.task_id)) {\n    return false;\n  }\n',
   },
   {
     id: "W43",
@@ -816,8 +816,8 @@ export const MUTANTS: Mutant[] = [
     id: "W112",
     invariant: "harnessSession::aTaskWithoutAnEarlierPromptGetsTheTaskPrompt",
     path: "src/workflow/task/harness/prompt-queue.ts",
-    find: "  if (sandbox.first_prompt_at === null) {\n",
-    replace: "  if (sandbox.generation <= 1) {\n",
+    find: "  if (sandbox.first_prompt_at === null) {\n    return taskPrompt(",
+    replace: "  if (sandbox.generation <= 1) {\n    return taskPrompt(",
   },
   {
     id: "W113",
@@ -2193,6 +2193,47 @@ export const MUTANTS: Mutant[] = [
     find: "  if (await requestQuotaLow(workflow)) {\n",
     replace: "  if (false && (await requestQuotaLow(workflow))) {\n",
     propertyFile: "src/workflow/feed/feed.property.ts",
+  },
+  {
+    id: "W390",
+    invariant:
+      "harnessSession::aPersonPromptDoesNotWaitForTheTurnToEnd (a running turn gets no steer)",
+    path: "src/workflow/task/harness/prompt-queue.ts",
+    find: "    steerWaitingInstructions(workflow, task);\n    return false;\n",
+    replace: "    return false;\n",
+  },
+  {
+    id: "W391",
+    invariant:
+      "harnessSession::aPersonPromptDoesNotWaitForTheTurnToEnd (a new turn does not steer the instructions that wait)",
+    path: "src/workflow/task/harness/prompt-queue.ts",
+    find: "  steerWaitingInstructions(workflow, task);\n  await armNoProgress",
+    replace: "  await armNoProgress",
+  },
+  {
+    id: "W392",
+    invariant:
+      "harnessSession::aHarnessSessionReceivesEachPersonPromptOnce (a turn that ends keeps its taken instructions)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: "  else workflow.store.dropTakenPrompts(task.task_id);\n",
+    replace: "  else workflow.store.returnSteeredPrompts(task.task_id);\n",
+  },
+  {
+    id: "W393",
+    invariant:
+      "harnessSession::aPersonPromptIsNeverDropped (a steer the turn did not take drops its instruction)",
+    path: "src/workflow/task/harness/steer.ts",
+    find: "  workflow.log(task.task_id, `the turn did not take steer ${rpcId}. it goes as the next prompt.`);\n",
+    replace:
+      "  for (const steer of workflow.store.steers()) {\n    if (steer.rpc_id === rpcId) workflow.store.dequeuePrompt(steer.prompt_id);\n  }\n",
+  },
+  {
+    id: "W394",
+    invariant:
+      "harnessSession::aPersonPromptIsNeverDropped (a cancelled turn drops its taken instructions)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: '  if (stopReason === "cancelled") workflow.store.returnSteeredPrompts(task.task_id);\n',
+    replace: '  if (stopReason === "cancelled") workflow.store.dropTakenPrompts(task.task_id);\n',
   },
   {
     id: "W405",

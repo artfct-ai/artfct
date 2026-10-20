@@ -2,6 +2,7 @@ import type { PlanEntry, SessionUpdate } from "@agentclientprotocol/sdk";
 import { planEntries } from "@artfct-ai/acp/updates";
 import type { AnthropicRoute } from "../../gateway/types";
 import { anthropicModels } from "./anthropic-models";
+import { ClaudeCodeSteering } from "./steering";
 import {
   SANDBOX_HOME,
   type Effort,
@@ -39,6 +40,7 @@ export class ClaudeCodeHarness implements HarnessAdapter {
   readonly name = "claude-code";
   readonly instructionsFile = `${SANDBOX_HOME}/.claude/CLAUDE.md`;
   readonly skillsDir = `${SANDBOX_HOME}/.claude/skills`;
+  readonly steering = new ClaudeCodeSteering();
 
   constructor(private readonly options: ClaudeCodeOptions) {}
 

@@ -13,7 +13,16 @@ import type { ChatMessageRef, RootPage, WorkflowEndStatus, WorkflowLifecycle } f
 export type RulingStatus = "asked" | "approved" | "rejected";
 
 /** Why a JSON-RPC request was sent to the harness. Decides how its response is handled. */
-export type RpcPurpose = "initialize" | "session_new" | "set_effort" | "prompt" | "cancel";
+export type RpcPurpose =
+  | "initialize"
+  | "session_new"
+  | "set_effort"
+  | "prompt"
+  | "steer"
+  | "cancel";
+
+/** Where a steered instruction stands: its steer awaits an answer, or the running turn took it. */
+export type SteerStatus = "out" | "taken";
 
 /** The workflow, from the event that created it. One row. Its existence means it was created. */
 export const workflow = sqliteTable("workflow", {
@@ -327,12 +336,25 @@ export const rpc = sqliteTable("rpc", {
   sent_at: text().notNull(),
 });
 
-/** Prompts waiting for the harness to finish its current turn. */
+/**
+ * Prompts for a task's harness session. A row waits for the next prompt, or is a steered
+ * instruction that its `promptSteers` row tracks until the turn ends.
+ */
 export const promptQueue = sqliteTable("prompt_queue", {
   id: integer().primaryKey({ autoIncrement: true }),
   task_id: text().notNull(),
   text: text().notNull(),
+  /** 1 for a person's instruction, which the running turn may take as a steer. */
+  instruction: integer().notNull().default(0),
   created_at: text().notNull(),
+});
+
+/** Queued instructions sent into the running turn. A row lives only while that turn runs. */
+export const promptSteers = sqliteTable("prompt_steers", {
+  prompt_id: integer().primaryKey(),
+  /** The steer request, or the prompt request that carried the instruction. */
+  rpc_id: integer().notNull(),
+  status: text().$type<SteerStatus>().notNull(),
 });
 
 /** The `kind` of an outbox row that records a call that failed, rather than a message. */

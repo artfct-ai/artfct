@@ -226,6 +226,7 @@ describe("debugDump", () => {
           "queue",
           "reply_targets",
           "stage_plan",
+          "steers",
           "subject",
           "tasks",
           "todos",

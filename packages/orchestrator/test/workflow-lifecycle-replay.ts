@@ -53,6 +53,12 @@ import {
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
 import { strayIssueKey, SUBJECT_ISSUE_KEY, subIssueKey } from "./world-tracker";
 import { quintTraces } from "./quint-traces";
+import {
+  SPEC_QUEUED_PROMPTS,
+  specPromptsOf,
+  specQueuedPromptOf,
+  type SpecQueuedPrompt,
+} from "./waiting-prompts";
 import { toolText } from "./tool-result";
 import { EchoModel } from "./fake-model";
 import { TAG_TO_START_AGAIN } from "../src/notify/messages";
@@ -309,6 +315,7 @@ const COMPLETION_ANSWERS = [
   "Refuses",
 ] as const;
 const ROLES = ["Researcher", "Author"] as const;
+const INSTRUCTION_HOLDS = ["NoInstructionHeld", "InstructionHeld", "HeldInACancelledTurn"] as const;
 const JOB_ROLES: readonly TaskRow["role"][] = ["researcher", "author"];
 
 /** True for a researcher that handed over to its author, which only a handover ends done. */
@@ -367,7 +374,8 @@ type SpecTask = {
   paused: boolean;
   turnRunning: boolean;
   promptsSent: number;
-  promptsQueued: number;
+  promptsQueued: SpecQueuedPrompt[];
+  instructionHold: (typeof INSTRUCTION_HOLDS)[number];
   generationClosed: boolean;
 };
 
@@ -672,7 +680,13 @@ function specJob(value: unknown): SpecJob {
       paused: itfBool(itfField(task, "paused")),
       turnRunning: itfBool(itfField(task, "turnRunning")),
       promptsSent: itfInt(itfField(task, "promptsSent")),
-      promptsQueued: itfInt(itfField(task, "promptsQueued")),
+      promptsQueued: itfList(itfField(task, "promptsQueued")).map((prompt) =>
+        itfOneOf(itfVariant(prompt)!.tag, SPEC_QUEUED_PROMPTS),
+      ),
+      instructionHold: itfOneOf(
+        itfVariant(itfField(task, "instructionHold"))!.tag,
+        INSTRUCTION_HOLDS,
+      ),
       generationClosed: itfBool(itfField(task, "generationClosed")),
     })),
     artifact: itfOneOf(itfVariant(itfField(value, "artifact"))!.tag, ARTIFACT_STATUSES),
@@ -976,7 +990,7 @@ export class WorkflowLifecycleReplay {
                 ...common,
                 turnRunning: store.sandbox(task.task_id)?.prompt_in_flight === 1,
                 promptsSent: seen ? seen.promptTexts.length - seen.queuedPrompts : 0,
-                promptsQueued: seen?.queuedPrompts ?? 0,
+                ...this.harnessPromptsOf(task),
                 generationClosed:
                   !isTaskFinished(task.status) &&
                   workflow.connections(task.task_id).length === 0 &&
@@ -1099,23 +1113,39 @@ export class WorkflowLifecycleReplay {
    */
   private modelTurnsOf(
     task: TaskRow,
-  ): Pick<SpecTask, "turnRunning" | "promptsSent" | "promptsQueued" | "generationClosed"> {
+  ): Omit<SpecTask, "role" | "startOrder" | "status" | "restarts" | "paused"> {
     const queued = this.world.workflow.store.queue().filter((row) => row.task_id === task.task_id);
-    const revising =
-      !isTaskFinished(task.status) &&
-      this.calls.some(
-        (call) =>
-          (call.kind === "ModelCall" || call.kind === "PageWrite") &&
-          call.revises?.taskId === task.task_id &&
-          call.turnId === task.model_turn_id &&
-          queued.some((row) => row.id === call.revises?.promptId),
-      );
+    const revising = isTaskFinished(task.status)
+      ? null
+      : this.calls.find(
+          (call) =>
+            (call.kind === "ModelCall" || call.kind === "PageWrite") &&
+            call.revises?.taskId === task.task_id &&
+            call.turnId === task.model_turn_id,
+        );
     const sandbox = this.world.workflow.store.sandbox(task.task_id);
     return {
       turnRunning: sandbox?.prompt_in_flight === 1,
       promptsSent: this.reviseCalls.get(task.task_id) ?? 0,
-      promptsQueued: revising ? queued.length - 1 : queued.length,
+      promptsQueued: queued
+        .filter((row) => row.id !== revising?.revises?.promptId)
+        .map(specQueuedPromptOf),
+      instructionHold: "NoInstructionHeld",
       generationClosed: sandbox !== null,
+    };
+  }
+
+  /**
+   * The prompts that wait for a harness task, and the instruction its running turn holds. A turn
+   * that a cancel reached gives the instruction back when it ends.
+   */
+  private harnessPromptsOf(task: TaskRow): Pick<SpecTask, "promptsQueued" | "instructionHold"> {
+    const { waiting, holdsInstruction } = specPromptsOf(this.world.workflow.store, task.task_id);
+    if (!holdsInstruction) return { promptsQueued: waiting, instructionHold: "NoInstructionHeld" };
+    const cancelled = this.world.runningBridgeOf(task.task_id)?.cancelRequested ?? false;
+    return {
+      promptsQueued: waiting,
+      instructionHold: cancelled ? "HeldInACancelledTurn" : "InstructionHeld",
     };
   }
 

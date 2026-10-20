@@ -20,19 +20,24 @@
     {
       "#meta": { "index": 0 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
         "health": { "tag": "TrackerUp", "value": { "#tup": [] } },
         "plans": [],
         "posts": [],
+        "researchEnded": { "#set": [] },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": { "#set": [] },
         "turnEnded": { "#set": [] },
         "woke": false,
         "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
       },
       "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -40,15 +45,16 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "chatThread::sessionRouting::routing": {
-        "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "boards": { "#set": [] },
         "ended": false,
         "jobs": [],
         "links": [],
         "replyTargets": { "#set": [{ "tag": "ChatThread", "value": { "#bigint": "0" } }] },
+        "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "waiting": { "#set": [] },
         "waitsForInput": false
       },
@@ -69,19 +75,24 @@
     {
       "#meta": { "index": 1 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
         "health": { "tag": "TrackerUp", "value": { "#tup": [] } },
         "plans": [],
         "posts": [],
+        "researchEnded": { "#set": [] },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": { "#set": [] },
         "turnEnded": { "#set": [] },
         "woke": false,
         "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
       },
       "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -89,15 +100,16 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "chatThread::sessionRouting::routing": {
-        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [] },
         "ended": false,
         "jobs": [],
         "links": [{ "tag": "SubjectIssue", "value": { "#tup": [] } }],
         "replyTargets": { "#set": [{ "tag": "ChatThread", "value": { "#bigint": "0" } }] },
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "waiting": { "#set": [] },
         "waitsForInput": false
       },
@@ -118,19 +130,24 @@
     {
       "#meta": { "index": 2 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
         "health": { "tag": "TrackerUp", "value": { "#tup": [] } },
         "plans": [],
         "posts": [],
+        "researchEnded": { "#set": [] },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": { "#set": [] },
         "turnEnded": { "#set": [] },
         "woke": false,
         "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
       },
       "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -138,10 +155,10 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "chatThread::sessionRouting::routing": {
-        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [{ "job": { "#bigint": "0" }, "thread": { "#bigint": "0" } }] },
         "ended": false,
         "jobs": [
@@ -151,10 +168,11 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": { "tag": "SubIssue", "value": { "#tup": [] } },
             "nudged": false,
             "paused": false,
-            "queued": { "#bigint": "0" },
+            "queued": [],
             "research": { "tag": "NoResearch", "value": { "#tup": [] } },
             "researcherTodos": { "tag": "NoTodos", "value": { "#tup": [] } },
             "restarts": { "#bigint": "0" },
@@ -167,6 +185,7 @@
           { "tag": "SubIssue", "value": { "#tup": [] } }
         ],
         "replyTargets": { "#set": [{ "tag": "ChatThread", "value": { "#bigint": "0" } }] },
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "waiting": { "#set": [] },
         "waitsForInput": false
       },
@@ -187,19 +206,24 @@
     {
       "#meta": { "index": 3 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
         "health": { "tag": "TrackerUp", "value": { "#tup": [] } },
         "plans": [],
         "posts": [],
+        "researchEnded": { "#set": [] },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": { "#set": [] },
         "turnEnded": { "#set": [] },
         "woke": false,
         "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
       },
       "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -207,10 +231,10 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "chatThread::sessionRouting::routing": {
-        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [{ "job": { "#bigint": "0" }, "thread": { "#bigint": "0" } }] },
         "ended": false,
         "jobs": [
@@ -220,10 +244,11 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": { "tag": "SubIssue", "value": { "#tup": [] } },
             "nudged": false,
             "paused": false,
-            "queued": { "#bigint": "0" },
+            "queued": [],
             "research": { "tag": "NoResearch", "value": { "#tup": [] } },
             "researcherTodos": { "tag": "NoTodos", "value": { "#tup": [] } },
             "restarts": { "#bigint": "0" },
@@ -241,6 +266,7 @@
             { "tag": "Session", "value": { "tag": "SubIssue", "value": { "#tup": [] } } }
           ]
         },
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "waiting": { "#set": [] },
         "waitsForInput": false
       },
@@ -261,19 +287,24 @@
     {
       "#meta": { "index": 4 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
         "health": { "tag": "TrackerUp", "value": { "#tup": [] } },
         "plans": [],
         "posts": [],
+        "researchEnded": { "#set": [] },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": { "#set": [] },
         "turnEnded": { "#set": [] },
         "woke": false,
         "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
       },
       "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -281,10 +312,10 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "chatThread::sessionRouting::routing": {
-        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [{ "job": { "#bigint": "0" }, "thread": { "#bigint": "0" } }] },
         "ended": false,
         "jobs": [
@@ -294,10 +325,11 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": { "tag": "SubIssue", "value": { "#tup": [] } },
             "nudged": false,
             "paused": false,
-            "queued": { "#bigint": "0" },
+            "queued": [],
             "research": { "tag": "NoResearch", "value": { "#tup": [] } },
             "researcherTodos": { "tag": "NoTodos", "value": { "#tup": [] } },
             "restarts": { "#bigint": "0" },
@@ -315,10 +347,11 @@
             { "tag": "Session", "value": { "tag": "SubIssue", "value": { "#tup": [] } } }
           ]
         },
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "waiting": { "#set": [] },
         "waitsForInput": false
       },
-      "mbt::actionTaken": "idleClockFires",
+      "mbt::actionTaken": "idleClockFiresWithoutASleep",
       "mbt::nondetPicks": {
         "ending": { "tag": "None", "value": { "#tup": [] } },
         "health": { "tag": "None", "value": { "#tup": [] } },
@@ -335,6 +368,7 @@
     {
       "#meta": { "index": 5 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -346,13 +380,17 @@
             "targets": { "#set": [{ "tag": "ChatThread", "value": { "#bigint": "0" } }] }
           }
         ],
+        "researchEnded": { "#set": [] },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": { "#set": [] },
         "turnEnded": { "#set": [] },
         "woke": false,
         "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
       },
       "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -360,10 +398,10 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "chatThread::sessionRouting::routing": {
-        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [{ "job": { "#bigint": "0" }, "thread": { "#bigint": "0" } }] },
         "ended": false,
         "jobs": [
@@ -373,10 +411,11 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": true,
+            "holdsInstruction": false,
             "issue": { "tag": "SubIssue", "value": { "#tup": [] } },
             "nudged": false,
             "paused": false,
-            "queued": { "#bigint": "0" },
+            "queued": [],
             "research": { "tag": "NoResearch", "value": { "#tup": [] } },
             "researcherTodos": { "tag": "NoTodos", "value": { "#tup": [] } },
             "restarts": { "#bigint": "0" },
@@ -394,6 +433,7 @@
             { "tag": "Session", "value": { "tag": "SubIssue", "value": { "#tup": [] } } }
           ]
         },
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "waiting": { "#set": [] },
         "waitsForInput": false
       },
@@ -414,19 +454,24 @@
     {
       "#meta": { "index": 6 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
         "health": { "tag": "TrackerUp", "value": { "#tup": [] } },
         "plans": [],
         "posts": [],
+        "researchEnded": { "#set": [] },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": { "#set": [] },
         "turnEnded": { "#set": [] },
         "woke": false,
         "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
       },
       "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -434,10 +479,10 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "chatThread::sessionRouting::routing": {
-        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [{ "job": { "#bigint": "0" }, "thread": { "#bigint": "0" } }] },
         "ended": false,
         "jobs": [
@@ -447,10 +492,11 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": true,
+            "holdsInstruction": false,
             "issue": { "tag": "SubIssue", "value": { "#tup": [] } },
             "nudged": false,
             "paused": false,
-            "queued": { "#bigint": "0" },
+            "queued": [],
             "research": { "tag": "NoResearch", "value": { "#tup": [] } },
             "researcherTodos": { "tag": "NoTodos", "value": { "#tup": [] } },
             "restarts": { "#bigint": "0" },
@@ -468,6 +514,7 @@
             { "tag": "Session", "value": { "tag": "SubIssue", "value": { "#tup": [] } } }
           ]
         },
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "waiting": { "#set": [] },
         "waitsForInput": false
       },
@@ -488,6 +535,7 @@
     {
       "#meta": { "index": 7 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [{ "#bigint": "0" }] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [
@@ -500,13 +548,17 @@
         "health": { "tag": "TrackerUp", "value": { "#tup": [] } },
         "plans": [],
         "posts": [],
+        "researchEnded": { "#set": [] },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": { "#set": [] },
         "turnEnded": { "#set": [{ "#bigint": "0" }] },
         "woke": false,
         "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
       },
       "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -514,10 +566,10 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "chatThread::sessionRouting::routing": {
-        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [{ "job": { "#bigint": "0" }, "thread": { "#bigint": "0" } }] },
         "ended": false,
         "jobs": [
@@ -527,10 +579,11 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": true,
+            "holdsInstruction": false,
             "issue": { "tag": "SubIssue", "value": { "#tup": [] } },
             "nudged": false,
             "paused": false,
-            "queued": { "#bigint": "0" },
+            "queued": [],
             "research": { "tag": "NoResearch", "value": { "#tup": [] } },
             "researcherTodos": { "tag": "NoTodos", "value": { "#tup": [] } },
             "restarts": { "#bigint": "0" },
@@ -548,6 +601,7 @@
             { "tag": "Session", "value": { "tag": "SubIssue", "value": { "#tup": [] } } }
           ]
         },
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "waiting": { "#set": [] },
         "waitsForInput": false
       },
@@ -568,19 +622,24 @@
     {
       "#meta": { "index": 8 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
         "health": { "tag": "TrackerUp", "value": { "#tup": [] } },
         "plans": [],
         "posts": [],
+        "researchEnded": { "#set": [] },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": { "#set": [] },
         "turnEnded": { "#set": [] },
         "woke": false,
         "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
       },
       "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -588,10 +647,10 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "chatThread::sessionRouting::routing": {
-        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [{ "job": { "#bigint": "0" }, "thread": { "#bigint": "0" } }] },
         "ended": false,
         "jobs": [
@@ -601,10 +660,11 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": true,
+            "holdsInstruction": false,
             "issue": { "tag": "SubIssue", "value": { "#tup": [] } },
             "nudged": false,
             "paused": false,
-            "queued": { "#bigint": "0" },
+            "queued": [],
             "research": { "tag": "NoResearch", "value": { "#tup": [] } },
             "researcherTodos": { "tag": "NoTodos", "value": { "#tup": [] } },
             "restarts": { "#bigint": "0" },
@@ -622,6 +682,7 @@
             { "tag": "Session", "value": { "tag": "SubIssue", "value": { "#tup": [] } } }
           ]
         },
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "waiting": { "#set": [] },
         "waitsForInput": false
       },
@@ -642,6 +703,7 @@
     {
       "#meta": { "index": 9 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -653,6 +715,8 @@
             "targets": { "#set": [{ "tag": "ChatThread", "value": { "#bigint": "0" } }] }
           }
         ],
+        "researchEnded": { "#set": [] },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": { "#set": [] },
         "turnEnded": { "#set": [] },
         "woke": false,
@@ -665,7 +729,9 @@
         }
       },
       "chatThread::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -673,10 +739,10 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "chatThread::sessionRouting::routing": {
-        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [{ "job": { "#bigint": "0" }, "thread": { "#bigint": "0" } }] },
         "ended": false,
         "jobs": [
@@ -686,10 +752,11 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": true,
+            "holdsInstruction": false,
             "issue": { "tag": "SubIssue", "value": { "#tup": [] } },
             "nudged": false,
             "paused": true,
-            "queued": { "#bigint": "0" },
+            "queued": [],
             "research": { "tag": "NoResearch", "value": { "#tup": [] } },
             "researcherTodos": { "tag": "NoTodos", "value": { "#tup": [] } },
             "restarts": { "#bigint": "0" },
@@ -707,6 +774,7 @@
             { "tag": "Session", "value": { "tag": "SubIssue", "value": { "#tup": [] } } }
           ]
         },
+        "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "waiting": { "#set": [] },
         "waitsForInput": false
       },

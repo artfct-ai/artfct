@@ -88,6 +88,7 @@ export function debugDump(workflow: WorkflowRuntime) {
     model_usage: store.modelUsage(),
     outbox: store.outbox(),
     queue: store.queue(),
+    steers: store.steers(),
     log: store.logLines(),
     inbox: [...workflow.transcript.taken(), ...workflow.transcript.inbox()],
     transcript: workflow.transcript.all(),

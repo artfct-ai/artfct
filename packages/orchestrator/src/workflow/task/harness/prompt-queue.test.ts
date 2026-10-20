@@ -268,7 +268,10 @@ const sent: Scenario<FakeRuntime> = (run) =>
     workflow.store.updateSandbox(TASK, { session_id: "s1" });
     workflow.store.advanceArtifact(JOB, ["drafted"], "ready");
     workflow.sockets.push(fakeConnection(TASK, 1).connection);
-    await sendPrompt(workflow, workflow.store.requireTask(TASK), "more work");
+    await sendPrompt(workflow, workflow.store.requireTask(TASK), {
+      text: "more work",
+      queued: null,
+    });
     await run(workflow);
   });
 
@@ -281,32 +284,34 @@ describe("sendPrompt to an author whose artifact the humans have", () => {
 
 function judgeText(workflow: FakeRuntime): string {
   patchStageReviewers(workflow, [JUDGE_ENTRY]);
-  return firstPromptText(workflow, seedReviewerRun(workflow));
+  return firstPromptText(workflow, seedReviewerRun(workflow), null);
 }
 
 describe("firstPromptText", () => {
   describe("a reviewer run on its parent's artifact", () => {
     it("names the artifact under review", () =>
       freshRuntime((workflow) => {
-        expect(firstPromptText(workflow, seedReviewerRun(workflow))).toContain("acme/app/pull/1");
+        expect(firstPromptText(workflow, seedReviewerRun(workflow), null)).toContain(
+          "acme/app/pull/1",
+        );
       }));
 
     it("reads the pull request the way the polisher does", () =>
       freshRuntime((workflow) => {
         const { read } = workflow.artifact("pull").instructions;
-        expect(firstPromptText(workflow, seedReviewerRun(workflow))).toContain(read);
+        expect(firstPromptText(workflow, seedReviewerRun(workflow), null)).toContain(read);
       }));
 
     it("tells the reviewer how to submit the review", () =>
       freshRuntime((workflow) => {
-        expect(firstPromptText(workflow, seedReviewerRun(workflow))).toContain(
+        expect(firstPromptText(workflow, seedReviewerRun(workflow), null)).toContain(
           '1. `pull_request_review_write` with `method: "create"`',
         );
       }));
 
     it("gives the reviewer the line that names its entry, run, and task", () =>
       freshRuntime((workflow) => {
-        expect(firstPromptText(workflow, seedReviewerRun(workflow))).toContain(
+        expect(firstPromptText(workflow, seedReviewerRun(workflow), null)).toContain(
           "Reviewer: Code review · run 1 · task wf_x.2",
         );
       }));
@@ -323,14 +328,14 @@ describe("firstPromptText", () => {
           job_id: first.job_id,
           refiner_index: 0,
         });
-        expect(firstPromptText(workflow, second)).toContain("run 2 · task wf_x.3");
+        expect(firstPromptText(workflow, second, null)).toContain("run 2 · task wf_x.3");
       }));
 
     it("says the entry is gone when the config no longer declares it", () =>
       freshRuntime((workflow) => {
         const reviewer = seedReviewerRun(workflow);
         patchStageReviewers(workflow, []);
-        expect(firstPromptText(workflow, reviewer)).toBe(
+        expect(firstPromptText(workflow, reviewer, null)).toBe(
           "The artifact or the reviewer entry you were started for is gone. Say so in one line and stop.",
         );
       }));
@@ -365,14 +370,14 @@ describe("firstPromptText", () => {
 
     it("tells it to run the entry skill as its whole role", () =>
       polishing((workflow) => {
-        const text = firstPromptText(workflow, seedPolisherRun(workflow));
+        const text = firstPromptText(workflow, seedPolisherRun(workflow), null);
         expect(text).toContain("Read the `technical-writer` skill");
         expect(text).toContain("You file no review.");
       }));
 
     it("names the artifact and how the kind is changed in place", () =>
       polishing((workflow) => {
-        const text = firstPromptText(workflow, seedPolisherRun(workflow));
+        const text = firstPromptText(workflow, seedPolisherRun(workflow), null);
         expect(text).toContain("acme/app/pull/1");
         expect(text).toContain("Change the files on your branch and push to that branch.");
       }));
@@ -380,7 +385,7 @@ describe("firstPromptText", () => {
     it("names the repository, the branch it commits to, and how to read the pull request", () =>
       polishing((workflow) => {
         const polisher = seedPolisherRun(workflow);
-        const text = firstPromptText(workflow, polisher);
+        const text = firstPromptText(workflow, polisher, null);
         expect(text).toContain("cloned at the current directory");
         expect(text).toContain(
           `You are on branch \`${workflow.store.requireJob(polisher.job_id).branch}\`.`,
@@ -391,7 +396,7 @@ describe("firstPromptText", () => {
     it("reads the pull request the way the reviewer does", () =>
       polishing((workflow) => {
         const { read } = workflow.artifact("pull").instructions;
-        expect(firstPromptText(workflow, seedPolisherRun(workflow))).toContain(read);
+        expect(firstPromptText(workflow, seedPolisherRun(workflow), null)).toContain(read);
       }));
 
     it("runs on a page with the page kind's own read and change text", () =>
@@ -404,14 +409,14 @@ describe("firstPromptText", () => {
           ref: { kind: "page", page_id: "0123456789abcdef0123456789abcdef" },
         });
         const { read, change } = workflow.artifact("page").instructions;
-        const text = firstPromptText(workflow, polisher);
+        const text = firstPromptText(workflow, polisher, null);
         expect(text).toContain(`## How to read the artifact\n${read}`);
         expect(text).toContain(`## How to change the artifact\n${change}`);
       }));
 
     it("asks it for the repository's lint and not its tests", () =>
       polishing((workflow) => {
-        const text = firstPromptText(workflow, seedPolisherRun(workflow));
+        const text = firstPromptText(workflow, seedPolisherRun(workflow), null);
         expect(text).toContain("run the repository's lint after you finish your edits");
         expect(text).toContain("Do not run any tests.");
       }));
@@ -420,7 +425,7 @@ describe("firstPromptText", () => {
       polishing((workflow) => {
         const polisher = seedPolisherRun(workflow);
         patchStagePolishers(workflow, []);
-        expect(firstPromptText(workflow, polisher)).toBe(
+        expect(firstPromptText(workflow, polisher, null)).toBe(
           "The artifact or the polisher entry you were started for is gone. Say so in one line and stop.",
         );
       }));
@@ -430,7 +435,7 @@ describe("firstPromptText", () => {
     it("tells it to run the stage skill the way its harness invokes one", () =>
       freshRuntime((workflow) => {
         const task = seedTask(workflow, { stage: "implement" });
-        expect(firstPromptText(workflow, task)).toContain("Read the `implement` skill");
+        expect(firstPromptText(workflow, task, null)).toContain("Read the `implement` skill");
       }));
   });
 
@@ -450,7 +455,7 @@ describe("firstPromptText", () => {
           preceding_job_id: "wf_x-1",
         });
         workflow.store.updateJobResearchPayload("wf_x-2", OWN_PAYLOAD);
-        const text = firstPromptText(workflow, author);
+        const text = firstPromptText(workflow, author, null);
         expect(text).toContain(`## Research behind the input artifact`);
         expect(text).toContain(PRECEDING_PAYLOAD);
         expect(text).toContain(OWN_PAYLOAD);
@@ -464,7 +469,7 @@ describe("firstPromptText", () => {
           role: "researcher",
           preceding_job_id: "wf_x-1",
         });
-        expect(firstPromptText(workflow, researcher)).toContain(PRECEDING_PAYLOAD);
+        expect(firstPromptText(workflow, researcher, null)).toContain(PRECEDING_PAYLOAD);
       }));
   });
 
@@ -491,7 +496,7 @@ describe("firstPromptText", () => {
           stage: "implement",
           preceding_job_id: "wf_x-1",
         });
-        const text = firstPromptText(workflow, author);
+        const text = firstPromptText(workflow, author, null);
         expect(text).toContain("## Selection behind the input artifact");
         expect(text).toContain("Rotate the token");
       }));
@@ -514,7 +519,7 @@ describe("firstPromptText", () => {
     it("gives its author no research behind an input artifact", () =>
       freshRuntime((workflow) => {
         const author = seedTask(workflow, { stage: "implement" });
-        expect(firstPromptText(workflow, author)).not.toContain(
+        expect(firstPromptText(workflow, author, null)).not.toContain(
           "## Research behind the input artifact",
         );
       }));
@@ -525,12 +530,12 @@ describe("firstPromptText of an author", () => {
   it("gives the task prompt to a task without an earlier first prompt on a later generation", () =>
     freshRuntime((workflow) => {
       const task = seedTask(workflow, {}, { generation: 3 });
-      expect(firstPromptText(workflow, task)).not.toContain("You are resuming a task");
+      expect(firstPromptText(workflow, task, null)).not.toContain("You are resuming a task");
     }));
 
   it("gives the resume prompt to a task that had a first prompt", () =>
     freshRuntime((workflow) => {
       const task = seedTask(workflow, {}, { generation: 2, first_prompt_at: secondsAgo(60) });
-      expect(firstPromptText(workflow, task)).toContain("You are resuming a task");
+      expect(firstPromptText(workflow, task, null)).toContain("You are resuming a task");
     }));
 });

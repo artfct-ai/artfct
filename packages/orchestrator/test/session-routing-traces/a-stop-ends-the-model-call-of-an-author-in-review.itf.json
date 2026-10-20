@@ -85,6 +85,9 @@
         }
       },
       "trackerModelCall::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
         "answered": {
           "#set": []
         },
@@ -100,6 +103,10 @@
         },
         "plans": [],
         "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": {
           "#set": []
         },
@@ -115,7 +122,9 @@
         }
       },
       "trackerModelCall::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -123,6 +132,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerModelCall::sessionRouting::routing": {
@@ -228,6 +238,9 @@
         }
       },
       "trackerModelCall::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
         "answered": {
           "#set": []
         },
@@ -280,6 +293,10 @@
             }
           }
         ],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": {
           "#set": []
         },
@@ -299,7 +316,9 @@
         }
       },
       "trackerModelCall::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -307,6 +326,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerModelCall::sessionRouting::routing": {
@@ -326,6 +346,7 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": true,
+            "holdsInstruction": false,
             "issue": {
               "tag": "SubjectIssue",
               "value": {
@@ -334,9 +355,7 @@
             },
             "nudged": false,
             "paused": false,
-            "queued": {
-              "#bigint": "0"
-            },
+            "queued": [],
             "research": {
               "tag": "NoResearch",
               "value": {
@@ -458,6 +477,9 @@
         }
       },
       "trackerModelCall::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
         "answered": {
           "#set": []
         },
@@ -488,6 +510,10 @@
         },
         "plans": [],
         "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": {
           "#set": [
             {
@@ -514,7 +540,9 @@
         }
       },
       "trackerModelCall::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -522,6 +550,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerModelCall::sessionRouting::routing": {
@@ -541,6 +570,7 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": true,
+            "holdsInstruction": false,
             "issue": {
               "tag": "SubjectIssue",
               "value": {
@@ -549,9 +579,7 @@
             },
             "nudged": false,
             "paused": false,
-            "queued": {
-              "#bigint": "0"
-            },
+            "queued": [],
             "research": {
               "tag": "NoResearch",
               "value": {

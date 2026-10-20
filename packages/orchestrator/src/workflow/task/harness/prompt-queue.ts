@@ -20,10 +20,11 @@ import { startFollowUp } from "../../follow-up";
 import { drainModelAuthor } from "../model-author";
 import { startSandbox } from "../sandbox/sandbox";
 import { bridgeProcessGone, sendRequest } from "./bridge";
+import { steerWaitingInstructions } from "./steer";
 import type { WorkflowRuntime } from "../../types";
 import { taskSettings } from "../settings";
 import { isTaskFinished } from "../../store/state";
-import type { SandboxRow, TaskRow } from "../../store/tasks";
+import type { QueuedPrompt, SandboxRow, TaskRow } from "../../store/tasks";
 import { armKeepAlive, armNoProgress, armWallClock, type GenerationAlarm } from "./timers";
 
 /** The bridge's reconnect backoff ceiling. Mirrors `MAX_DELAY_MS` in packages/bridge/src/backoff.ts. */
@@ -38,9 +39,29 @@ export async function promptTask(
   task: TaskRow,
   text: string,
 ): Promise<void> {
+  await queuePrompt(workflow, task, () => workflow.store.enqueuePrompt(task.task_id, text));
+}
+
+/**
+ * Queue a person's instruction. A running turn of a harness that steers gets it at once. Otherwise
+ * it goes as a prompt the way `promptTask` sends one.
+ */
+export async function instructTask(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+  text: string,
+): Promise<void> {
+  await queuePrompt(workflow, task, () => workflow.store.enqueueInstruction(task.task_id, text));
+}
+
+async function queuePrompt(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+  enqueue: () => void,
+): Promise<void> {
   if (isTaskFinished(task.status)) return;
   const followUp = startFollowUp(workflow, task);
-  workflow.store.enqueuePrompt(task.task_id, text);
+  enqueue();
   if (task.paused_at === null) await drainQueue(workflow, task);
   if (followUp) await flushBoards(workflow, task.job_id);
 }
@@ -55,8 +76,9 @@ function promptsWait(workflow: WorkflowRuntime, task: TaskRow): boolean {
 }
 
 /**
- * Send the oldest queued prompt if the harness can take one. A bridge still handshaking sends
- * it itself. Without a bridge, wake the sandbox once the reconnect window has passed.
+ * Send the oldest queued prompt if the harness can take one, or steer waiting instructions into
+ * the running turn. A bridge still handshaking sends it itself. Without a bridge, wake the sandbox
+ * once the reconnect window has passed.
  */
 export async function drainQueue(workflow: WorkflowRuntime, task: TaskRow): Promise<boolean> {
   if (isTaskFinished(task.status) || promptsWait(workflow, task)) return false;
@@ -64,7 +86,10 @@ export async function drainQueue(workflow: WorkflowRuntime, task: TaskRow): Prom
     return drainModelAuthor(workflow, task);
   }
   const sandbox = workflow.store.requireSandbox(task.task_id);
-  if (sandbox.prompt_in_flight) return false;
+  if (sandbox.prompt_in_flight) {
+    steerWaitingInstructions(workflow, task);
+    return false;
+  }
   const next = workflow.store.peekPrompt(task.task_id);
   if (!next) return false;
   if (task.status === "provisioning" || workflow.store.handshakePending(task.task_id)) {
@@ -72,8 +97,7 @@ export async function drainQueue(workflow: WorkflowRuntime, task: TaskRow): Prom
   }
   const connected = workflow.connections(task.task_id).length > 0;
   if (connected && sandbox.session_id) {
-    workflow.store.dequeuePrompt(next.id);
-    await sendPrompt(workflow, task, next.text);
+    await sendPrompt(workflow, task, { text: next.text, queued: next });
     return true;
   }
   if (connected) return false;
@@ -118,18 +142,31 @@ export async function retryQueue(workflow: WorkflowRuntime, alarm: GenerationAla
   await drainQueue(workflow, task);
 }
 
-/** Send `session/prompt`, mark the turn in flight, and arm the turn's timers and its session feed's tick. */
+/**
+ * A prompt to send, and the queued prompt it carries. A carried instruction stays queued as taken
+ * until the turn ends, and any other carried prompt leaves the queue.
+ */
+export type OutgoingPrompt = { text: string; queued: QueuedPrompt | null };
+
+/**
+ * Send `session/prompt`, mark the turn in flight, steer the instructions that still wait, and arm
+ * the turn's timers and its session feed's tick.
+ */
 export async function sendPrompt(
   workflow: WorkflowRuntime,
   task: TaskRow,
-  text: string,
+  prompt: OutgoingPrompt,
 ): Promise<void> {
   const sessionId = workflow.store.requireSandbox(task.task_id).session_id;
   if (!sessionId) return;
   workflow.store.updateSandbox(task.task_id, { prompt_in_flight: 1, turn_text: "" });
   if (task.status === "in_review") workflow.store.updateTask(task.task_id, { status: "working" });
-  const params: PromptRequest = { sessionId, prompt: [{ type: "text", text }] };
-  sendRequest(workflow, task, AgentMethods.sessionPrompt, params, "prompt");
+  const params: PromptRequest = { sessionId, prompt: [{ type: "text", text: prompt.text }] };
+  const rpcId = sendRequest(workflow, task, AgentMethods.sessionPrompt, params, "prompt");
+  const { queued } = prompt;
+  if (queued?.instruction) workflow.store.holdTakenPrompt(queued.id, rpcId);
+  else if (queued) workflow.store.dequeuePrompt(queued.id);
+  steerWaitingInstructions(workflow, task);
   await armNoProgress(workflow, workflow.store.requireSandbox(task.task_id));
   await armWallClock(workflow, workflow.store.requireSandbox(task.task_id));
   await armKeepAlive(workflow, workflow.store.requireSandbox(task.task_id));
@@ -137,23 +174,35 @@ export async function sendPrompt(
 }
 
 /**
- * Send the first prompt of a harness session that finished its handshake. A task whose prompts
- * wait holds it at the head of its queue, so the next drain sends it before the prompts that
- * waited.
+ * Send the first prompt of a harness session that finished its handshake. An author that resumes
+ * wakes with the oldest waiting prompt. A task whose prompts wait holds the first prompt at the
+ * head of its queue, so the next drain sends it before the prompts that waited.
  */
 export async function sendFirstPrompt(workflow: WorkflowRuntime, task: TaskRow): Promise<void> {
-  const text = firstPromptText(workflow, task);
-  if (workflow.store.requireSandbox(task.task_id).first_prompt_at === null) {
+  const sandbox = workflow.store.requireSandbox(task.task_id);
+  const waits = promptsWait(workflow, task);
+  const resumes = task.role === "author" && sandbox.first_prompt_at !== null;
+  const wake = resumes ? workflow.store.peekPrompt(task.task_id) : null;
+  const text = firstPromptText(workflow, task, wake?.text ?? null);
+  if (sandbox.first_prompt_at === null) {
     workflow.store.updateSandbox(task.task_id, {
       first_prompt_at: new Date(workflow.now()).toISOString(),
     });
   }
-  if (!promptsWait(workflow, task)) return sendPrompt(workflow, task, text);
+  if (!waits) return sendPrompt(workflow, task, { text, queued: wake });
+  if (wake) workflow.store.dequeuePrompt(wake.id);
   workflow.store.enqueuePromptFirst(task.task_id, text);
 }
 
-/** The task prompt of a task without an earlier first prompt, else the resume prompt. */
-export function firstPromptText(workflow: WorkflowRuntime, task: TaskRow): string {
+/**
+ * The task prompt of a task without an earlier first prompt, else the resume prompt that wakes
+ * the author with `wake`.
+ */
+export function firstPromptText(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+  wake: string | null,
+): string {
   const sandbox = workflow.store.requireSandbox(task.task_id);
   const harness = workflow.harness(sandbox.harness);
   if (task.role === "reviewer") return reviewerFirstPrompt(workflow, task, harness);
@@ -167,15 +216,13 @@ export function firstPromptText(workflow: WorkflowRuntime, task: TaskRow): strin
   if (sandbox.first_prompt_at === null) {
     return taskPrompt({ instructions, context: taskContext(workflow, task), artifact });
   }
-  const pending = workflow.store.peekPrompt(task.task_id);
-  if (pending) workflow.store.dequeuePrompt(pending.id);
   return resumePrompt({
     instructions,
     context: taskContext(workflow, task),
     artifact,
     artifactUrl: workflow.store.artifact(task.job_id)?.external_url ?? null,
     lastTurnTail: task.summary || null,
-    wake: pending?.text ?? "Resume where you left off.",
+    wake: wake ?? "Resume where you left off.",
   });
 }
 

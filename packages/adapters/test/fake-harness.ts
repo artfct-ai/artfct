@@ -6,6 +6,7 @@ import type {
   HarnessCommand,
   HarnessModels,
   HarnessSetup,
+  HarnessSteering,
   HarnessTaskInput,
 } from "../src/harness/types";
 import { CallLog, type RecordedCall } from "./calls";
@@ -20,6 +21,8 @@ export type HarnessAnswers = {
   refusal?: string | null;
   /** What `models` returns. Default null, a harness that runs the gateway's models. */
   models?: HarnessModels | null;
+  /** How it steers a running turn. Default null, a harness that cannot steer. */
+  steering?: HarnessSteering | null;
 };
 
 /** Methods a `FakeHarness` records. */
@@ -37,9 +40,11 @@ export class FakeHarness implements HarnessAdapter {
   readonly name: Harness;
   readonly instructionsFile = "/home/node/.config/fake/AGENTS.md";
   readonly skillsDir = "/home/node/.config/fake/skills";
+  readonly steering: HarnessSteering | null;
 
   constructor(private readonly answers: HarnessAnswers = {}) {
     this.name = answers.name ?? "claude-code";
+    this.steering = answers.steering ?? null;
   }
 
   get calls(): RecordedCall<HarnessMethod>[] {

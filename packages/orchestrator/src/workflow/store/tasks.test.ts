@@ -31,6 +31,10 @@ function insertAuthor(store: WorkflowStore, taskId: string, jobId: string, stage
   store.insertTask({ ...task, task_id: taskId, job_id: jobId });
 }
 
+function textsOf(store: WorkflowStore): string[] {
+  return store.queue().map((row) => row.text);
+}
+
 const artifact = {
   kind: "pull",
   external_url: "u",
@@ -355,6 +359,65 @@ describe("WorkflowStore", () => {
         store.enqueuePromptFirst("t1", "first");
         expect(store.peekPrompt("t1")?.text).toBe("first");
         expect(store.queue().map((row) => row.text)).toEqual(["first", "a", "b"]);
+      }));
+  });
+
+  describe("steered instructions", () => {
+    const steered = scenario(freshStore, (store) => {
+      store.enqueueInstruction("t1", "out");
+      store.enqueueInstruction("t1", "taken");
+      store.enqueueInstruction("t1", "waiting");
+      store.enqueuePrompt("t1", "check results");
+      store.enqueueInstruction("t2", "other task");
+      const [out, taken] = store.waitingInstructions("t1");
+      store.steerPrompt(out!.id, 10);
+      store.steerPrompt(taken!.id, 11);
+      store.takeSteer(11);
+    });
+
+    it("waits only for the instructions without a steer", () =>
+      steered((store) => {
+        expect(store.waitingInstructions("t1").map((row) => row.text)).toEqual(["waiting"]);
+        expect(store.peekPrompt("t1")?.text).toBe("waiting");
+      }));
+
+    it("takes only the steer its answer names", () =>
+      steered((store) => {
+        expect(store.steers().map((row) => [row.rpc_id, row.status])).toEqual([
+          [10, "out"],
+          [11, "taken"],
+        ]);
+      }));
+
+    it("drops the taken instruction at a turn end and lets the out one wait", () =>
+      steered((store) => {
+        store.dropTakenPrompts("t1");
+        expect(textsOf(store)).toEqual(["out", "waiting", "check results", "other task"]);
+        expect(store.steers()).toEqual([]);
+        expect(store.peekPrompt("t1")?.text).toBe("out");
+      }));
+
+    it("returns every steered instruction when the turn is cancelled or lost", () =>
+      steered((store) => {
+        store.clearRpc("t1");
+        expect(textsOf(store)).toHaveLength(5);
+        expect(store.steers()).toEqual([]);
+        expect(store.peekPrompt("t1")?.text).toBe("out");
+      }));
+
+    it("holds an instruction a prompt carried as taken", () =>
+      steered((store) => {
+        const waiting = store.peekPrompt("t1")!;
+        store.holdTakenPrompt(waiting.id, 12);
+        store.dropTakenPrompts("t1");
+        expect(textsOf(store)).toEqual(["out", "check results", "other task"]);
+      }));
+
+    it("drops the steers with the queue", () =>
+      steered((store) => {
+        store.clearPromptQueue("t1");
+        expect(textsOf(store)).toEqual(["other task"]);
+        expect(store.steers()).toEqual([]);
       }));
   });
 
