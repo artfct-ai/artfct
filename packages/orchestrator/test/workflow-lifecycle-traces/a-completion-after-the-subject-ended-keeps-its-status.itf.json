@@ -1302,7 +1302,10 @@
                 "caller": {
                   "tag": "SubjectJobCompletes",
                   "value": {
-                    "#tup": []
+                    "tag": "CompletionWaits",
+                    "value": {
+                      "#tup": []
+                    }
                   }
                 },
                 "teardown": {
@@ -1710,7 +1713,10 @@
                 "caller": {
                   "tag": "SubjectJobCompletes",
                   "value": {
-                    "#tup": []
+                    "tag": "CompletionWaits",
+                    "value": {
+                      "#tup": []
+                    }
                   }
                 },
                 "teardown": {
@@ -2131,7 +2137,10 @@
                 "caller": {
                   "tag": "SubjectJobCompletes",
                   "value": {
-                    "#tup": []
+                    "tag": "CompletionWaits",
+                    "value": {
+                      "#tup": []
+                    }
                   }
                 },
                 "teardown": {
@@ -2552,7 +2561,10 @@
                 "caller": {
                   "tag": "SubjectJobCompletes",
                   "value": {
-                    "#tup": []
+                    "tag": "CompletionWaits",
+                    "value": {
+                      "#tup": []
+                    }
                   }
                 },
                 "teardown": {

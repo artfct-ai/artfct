@@ -118,9 +118,10 @@ module workflowLifecycleTypes {
   /// A workflow end as its loop runs: the status it ends as and who waits for it.
   type EndRun = { endsAs: WorkflowStatus, waiter: EndWaiter }
 
-  /// Who ended the task: a tool call or an event, the end of the workflow, or `complete_job` on
-  /// the job of the subject issue, which ends the workflow done once the teardown went on.
-  type Caller = ToolOrEvent | WorkflowEnd(EndRun) | SubjectJobCompletes
+  /// Who ended the task: a tool call or an event, the end of the workflow, or the completion of
+  /// the job of the subject issue, which ends the workflow done once the teardown went on. That
+  /// end has `complete_job` waiting on it, or nobody once the task end alarm resumes the completion.
+  type Caller = ToolOrEvent | WorkflowEnd(EndRun) | SubjectJobCompletes(EndWaiter)
 
   /// The workflow end the store holds, with the status it ends as. The end stores it before its
   /// first cancel, records once its post returned, and drops it once the code host bindings are
@@ -1038,9 +1039,9 @@ module workflowLifecycle {
       val continued = match caller {
         | ToolOrEvent => untold(ended)
         | WorkflowEnd(endRun) => continueWorkflowEnd(ended, endRun.endsAs, endRun.waiter)
-        | SubjectJobCompletes =>
+        | SubjectJobCompletes(waiter) =>
           if (hasEnded(ended.status) or workflowEnding(ended) or ended.stagePlan == NoStages) untold(ended)
-          else continueWorkflowEnd(ended, Done, CompletionWaits)
+          else continueWorkflowEnd(ended, Done, waiter)
       }
       { ...continued, told: teardown != AfterComplete or continued.told }
     }
@@ -1085,7 +1086,7 @@ module workflowLifecycle {
     val teardown = if (task.status == TaskFailed) AfterFail else AfterCancel
     if (teardownCallOut(flow, id)) untold(flow)
     else if (task.status == TaskDone)
-      if (destroyIsACall(task)) untold(sendCall(flow, SandboxDestroy, id, CompletionResumes(completionCaller(flow, id))))
+      if (destroyIsACall(task)) untold(sendCall(flow, SandboxDestroy, id, CompletionResumes(completionCaller(flow, id, NobodyWaits))))
       else untold(cancelTaskEndAlarm(flow, id))
     else if (destroyIsACall(task))
       untold(sendCall(flow, SandboxDestroy, id, TeardownGoesOn({ teardown: teardown, caller: ToolOrEvent })))
@@ -1131,14 +1132,14 @@ module workflowLifecycle {
   pure def completesTheWorkflow(flow: Workflow, id: int): bool =
     worksOnTheSingleSubjectIssue(flow, id) and flow.stagePlan != NoStages
 
-  /// Who the completion of the job goes on for: the end of a single-issue workflow when the job
-  /// works on its subject issue, a tool call otherwise.
-  pure def completionCaller(flow: Workflow, id: int): Caller =
-    if (worksOnTheSingleSubjectIssue(flow, id)) SubjectJobCompletes else ToolOrEvent
+  /// Who the completion of the job goes on for: the end of a single-issue workflow that `waiter`
+  /// waits on when the job works on its subject issue, a tool call otherwise.
+  pure def completionCaller(flow: Workflow, id: int, waiter: EndWaiter): Caller =
+    if (worksOnTheSingleSubjectIssue(flow, id)) SubjectJobCompletes(waiter) else ToolOrEvent
 
   /// `completeJob` ends the author done with the row it read before the check.
   pure def completeAuthor(flow: Workflow, id: int): Outcome =
-    endTask(flow, id, TaskDone, AfterComplete, completionCaller(flow, id))
+    endTask(flow, id, TaskDone, AfterComplete, completionCaller(flow, id, CompletionWaits))
 
   /// `drainModelAuthor` on a model-call author that is not at work. An unpaused author in review
   /// starts a revise turn on its next prompt. An author without its page waits for its provision
@@ -2307,8 +2308,8 @@ module workflowLifecycle {
   /// True when the call goes on toward the end of the workflow that `complete_job` on the job of
   /// the subject issue starts.
   pure def completesTheSubjectsJob(call: Call): bool = match call.rest {
-    | TeardownGoesOn(teardown) => teardown.caller == SubjectJobCompletes or isEndLoopOf(teardown.caller, Done)
-    | CompletionResumes(caller) => caller == SubjectJobCompletes
+    | TeardownGoesOn(teardown) => teardown.caller == SubjectJobCompletes(CompletionWaits) or isEndLoopOf(teardown.caller, Done)
+    | CompletionResumes(caller) => caller == SubjectJobCompletes(NobodyWaits)
     | _ => false
   }
 
@@ -3008,7 +3009,7 @@ module workflowLifecycle {
     val resumesADoneEnd = step.kind == EndResumeStep and step.before.storedEnd == EndStored(Done)
     val anotherEndStored = storedEndStatus(step.before).exists(endsAs => endsAs != Done)
     val stillGoesOn =
-      callOutFor(step.after, SubjectJobCompletes) or endDestroyOut(step.after, Done)
+      callOutFor(step.after, SubjectJobCompletes(CompletionWaits)) or endDestroyOut(step.after, Done)
     val completesInThisStep = and {
       step.kind == SubjectCompletionStep,
       not(hasEnded(step.before.status)),

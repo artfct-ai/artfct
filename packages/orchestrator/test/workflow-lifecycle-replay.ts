@@ -686,11 +686,13 @@ function specJob(value: unknown): SpecJob {
 /**
  * One call the replay holds, with the step that waits on it. A model call and a page write name
  * the model turn that made them, and the task and the queued prompt when that turn revises its
- * page. A page write can land on the host without returning.
+ * page. A page write can land on the host without returning. A sandbox destroy names the task
+ * whose sandbox it removes.
  */
 type HeldCall = {
   kind: CallKind;
   jobId: string;
+  destroys: string | null;
   answer: (decisions: Decisions) => void;
   fail: (() => void) | null;
   step: Promise<unknown> | null;
@@ -975,9 +977,7 @@ export class WorkflowLifecycleReplay {
                 generationClosed:
                   !isTaskFinished(task.status) &&
                   workflow.connections(task.task_id).length === 0 &&
-                  !this.calls.some(
-                    (call) => call.kind === "SandboxDestroy" && call.jobId === job.job_id,
-                  ),
+                  !this.calls.some((call) => call.destroys === task.task_id),
               };
             }),
           artifact: artifact ? ARTIFACT_STATUS_OF[artifact.status] : "NoArtifact",
@@ -1557,6 +1557,7 @@ export class WorkflowLifecycleReplay {
         this.hold({
           kind: "FailurePost",
           jobId: event.job_id,
+          destroys: null,
           answer: () => {
             post().then(resolve, reject);
           },
@@ -1583,6 +1584,7 @@ export class WorkflowLifecycleReplay {
             this.hold({
               kind: "AcceptanceCheck",
               jobId,
+              destroys: null,
               answer: () => {
                 accepted(ref).then(resolve, reject);
               },
@@ -1791,6 +1793,10 @@ export class WorkflowLifecycleReplay {
     }
   }
 
+  /**
+   * Run `step` until it returns or waits on a held call. Branches the step runs side by side then
+   * go on until each waits on its own call, as they would in the instance.
+   */
   private async runStep(step: () => Promise<unknown>): Promise<void> {
     const held = new Promise<"held">((resolve) => {
       this.heldArrived = () => resolve("held");
@@ -1799,7 +1805,8 @@ export class WorkflowLifecycleReplay {
     this.stepOut = Promise.resolve().then(() => started.running);
     const running = step();
     started.running = running;
-    await Promise.race([held, running]);
+    const outcome = await Promise.race([held, running]);
+    if (outcome === "held") await new Promise((settled) => setTimeout(settled, 0));
     this.heldArrived = null;
     this.stepOut = null;
   }
@@ -1841,6 +1848,7 @@ export class WorkflowLifecycleReplay {
       this.hold({
         kind: "SandboxDestroy",
         jobId: task.job_id,
+        destroys: taskId,
         answer: () => release(),
         fail: null,
         turnId: null,
@@ -1856,6 +1864,7 @@ export class WorkflowLifecycleReplay {
       this.hold({
         kind: "AcceptanceCheck",
         jobId,
+        destroys: null,
         answer: release,
         fail: null,
         turnId: null,
@@ -1886,6 +1895,7 @@ export class WorkflowLifecycleReplay {
       this.hold({
         kind: "ModelCall",
         jobId: task.job_id,
+        destroys: null,
         answer: () => release(page),
         fail: () => reject(new Error("the page model is down")),
         turnId: task.model_turn_id,
@@ -1907,6 +1917,7 @@ export class WorkflowLifecycleReplay {
       this.hold({
         kind: "PageWrite",
         jobId: modelCall.jobId,
+        destroys: null,
         answer: () => {
           write().then(resolve, reject);
         },
