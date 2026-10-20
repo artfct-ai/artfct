@@ -3260,7 +3260,12 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
@@ -3586,10 +3591,20 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             },
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
@@ -3915,10 +3930,20 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             },
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
@@ -4233,7 +4258,12 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {

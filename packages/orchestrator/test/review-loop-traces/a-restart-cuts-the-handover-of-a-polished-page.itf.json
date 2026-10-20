@@ -948,7 +948,12 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
@@ -2317,17 +2322,22 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": [
-                {
-                  "#bigint": "0"
-                },
-                {
-                  "#bigint": "1"
-                },
-                {
-                  "#bigint": "2"
-                }
-              ]
+              "comments": {
+                "#set": [
+                  {
+                    "#bigint": "0"
+                  },
+                  {
+                    "#bigint": "1"
+                  },
+                  {
+                    "#bigint": "2"
+                  }
+                ]
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
@@ -2686,17 +2696,22 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": [
-                {
-                  "#bigint": "0"
-                },
-                {
-                  "#bigint": "1"
-                },
-                {
-                  "#bigint": "2"
-                }
-              ]
+              "comments": {
+                "#set": [
+                  {
+                    "#bigint": "0"
+                  },
+                  {
+                    "#bigint": "1"
+                  },
+                  {
+                    "#bigint": "2"
+                  }
+                ]
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
@@ -3086,17 +3101,22 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": [
-                {
-                  "#bigint": "0"
-                },
-                {
-                  "#bigint": "1"
-                },
-                {
-                  "#bigint": "2"
-                }
-              ]
+              "comments": {
+                "#set": [
+                  {
+                    "#bigint": "0"
+                  },
+                  {
+                    "#bigint": "1"
+                  },
+                  {
+                    "#bigint": "2"
+                  }
+                ]
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {

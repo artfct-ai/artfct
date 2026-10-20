@@ -3300,7 +3300,16 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": [
+                  {
+                    "#bigint": "0"
+                  }
+                ]
+              }
             }
           ],
           "rejectedBy": {
@@ -3683,7 +3692,16 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": [
+                  {
+                    "#bigint": "0"
+                  }
+                ]
+              }
             }
           ],
           "rejectedBy": {
@@ -4075,7 +4093,16 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": [
+                  {
+                    "#bigint": "0"
+                  }
+                ]
+              }
             }
           ],
           "rejectedBy": {
@@ -4467,10 +4494,24 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": [
+                  {
+                    "#bigint": "0"
+                  }
+                ]
+              }
             },
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
@@ -4852,10 +4893,24 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": [
+                  {
+                    "#bigint": "0"
+                  }
+                ]
+              }
             },
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
@@ -5253,10 +5308,24 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": [
+                  {
+                    "#bigint": "0"
+                  }
+                ]
+              }
             },
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
@@ -5662,13 +5731,32 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": [
+                  {
+                    "#bigint": "0"
+                  }
+                ]
+              }
             },
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             },
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
@@ -6078,13 +6166,32 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": [
+                  {
+                    "#bigint": "0"
+                  }
+                ]
+              }
             },
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             },
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
@@ -6500,10 +6607,20 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             },
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
@@ -6913,10 +7030,20 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             },
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
@@ -7326,10 +7453,20 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             },
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
@@ -7742,7 +7879,12 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {

@@ -166,6 +166,9 @@ const AUTHOR_STATUSES = [
 /** Where the author of the review stands, as the spec names it. */
 type SpecAuthorStatus = (typeof AUTHOR_STATUSES)[number];
 
+/** A prompt that waits for the author: its person comments, and the runs whose findings reach the author first in it. */
+type SpecQueuedPrompt = { comments: number[]; findings: number[] };
+
 const ARTIFACT_CLOSES = ["ClosedReady", "ClosedBlocked"] as const;
 
 /** How the handover that gave the artifact to the humans closed, as the spec names it. */
@@ -177,7 +180,7 @@ export type SpecReview = {
     status: SpecAuthorStatus;
     paused: boolean;
     restarts: number;
-    queuedPrompts: number[][];
+    queuedPrompts: SpecQueuedPrompt[];
     turnComments: number[];
     pageEditsDuringTurn: string[];
     rejectedBy: number[];
@@ -264,7 +267,10 @@ function specReview(value: unknown): SpecReview {
       status: itfOneOf(itfVariant(itfField(author, "status"))!.tag, AUTHOR_STATUSES),
       paused: itfBool(itfField(author, "paused")),
       restarts: itfInt(itfField(author, "restarts")),
-      queuedPrompts: itfList(itfField(author, "queuedPrompts")).map(sortedInts),
+      queuedPrompts: itfList(itfField(author, "queuedPrompts")).map((prompt) => ({
+        comments: sortedInts(itfField(prompt, "comments")),
+        findings: sortedInts(itfField(prompt, "findings")),
+      })),
       turnComments: sortedInts(itfField(author, "turnComments")),
       pageEditsDuringTurn: sortedTags(itfField(author, "pageEditsDuringTurn")),
       rejectedBy: sortedInts(itfField(author, "rejectedBy")),
@@ -1145,6 +1151,8 @@ export class ReviewLoopReplay {
     const delivered = artifact.delivered_revision;
     const atWork = taskAtWork(this.world.workflow, author);
     const queued = store.queue().filter((row) => row.task_id === author.task_id);
+    const waiting = (this.pageModel && atWork ? queued.slice(1) : queued).map((row) => row.text);
+    const findings = this.findingsThatReachedTheAuthor(author, runs, waiting);
     const turnAsked = this.pageModel && atWork ? this.pageModel.heldUserText : null;
     const revisionCount = (revision: string | null) =>
       revision === null ? null : this.revisionCount(revision);
@@ -1156,13 +1164,14 @@ export class ReviewLoopReplay {
         }),
         paused: author.paused_at !== null,
         restarts: author.restarts,
-        queuedPrompts: (this.pageModel && atWork ? queued.slice(1) : queued).map((row) =>
-          this.specCommentIdsIn(row.text),
-        ),
+        queuedPrompts: waiting.map((text, index) => ({
+          comments: this.specCommentIdsIn(text),
+          findings: findings.firstQueuedIn[index] ?? [],
+        })),
         turnComments: turnAsked === null ? [] : this.specCommentIdsIn(turnAsked),
         pageEditsDuringTurn: turnAsked === null ? [] : this.pagePartsEditedSinceTheCall(),
         rejectedBy: this.judgeEntriesThatRejected(author),
-        findingsFrom: this.runsWhoseFindingsReachedTheAuthor(author, runs),
+        findingsFrom: findings.reached,
       },
       artifact: {
         status:
@@ -1826,8 +1835,8 @@ export class ReviewLoopReplay {
 
   /** Keep the page text a new page model call read, for the edits that land while it is out. */
   private noteModelCall(): void {
-    if (!this.pageModel || this.pageModel.calls === this.callsSeen) return;
-    this.callsSeen = this.pageModel.calls;
+    if (!this.pageModel || this.pageModel.userTexts.length === this.callsSeen) return;
+    this.callsSeen = this.pageModel.userTexts.length;
     this.pageTextAtCall = this.pageText();
   }
 
@@ -2524,15 +2533,34 @@ export class ReviewLoopReplay {
     });
   }
 
-  private runsWhoseFindingsReachedTheAuthor(author: TaskRow, runs: RefinerRun[]): number[] {
-    const prompts = this.world.promptsQueuedFor(author.task_id);
-    return runs.flatMap((run, runId) => {
-      if (!run.review?.findings.length) return [];
-      const reached = run.review.findings.every((finding) =>
-        prompts.some((prompt) => prompt.includes(`- ${findingText(finding)}`)),
-      );
-      return reached ? [runId] : [];
+  /**
+   * The runs whose findings reached the author, in a prompt it took or in one still waiting, and
+   * for each waiting prompt the runs whose findings reach the author first in it.
+   */
+  private findingsThatReachedTheAuthor(
+    author: TaskRow,
+    runs: RefinerRun[],
+    waiting: string[],
+  ): { reached: number[]; firstQueuedIn: number[][] } {
+    const carriedBy = (text: string) =>
+      runs.flatMap((run, runId) => {
+        const findings = run.review?.findings ?? [];
+        const carried =
+          findings.length > 0 &&
+          findings.every((finding) => text.includes(`- ${findingText(finding)}`));
+        return carried ? [runId] : [];
+      });
+    const taken = [
+      ...this.world.promptsSentToHarnessOf(author.task_id),
+      ...(this.pageModel?.userTexts ?? []),
+    ];
+    const reached = new Set(taken.flatMap(carriedBy));
+    const firstQueuedIn = waiting.map((text) => {
+      const first = carriedBy(text).filter((runId) => !reached.has(runId));
+      for (const runId of first) reached.add(runId);
+      return first;
     });
+    return { reached: [...reached].toSorted((left, right) => left - right), firstQueuedIn };
   }
 
   private runIdOf(run: TaskRow): number {
