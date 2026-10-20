@@ -2,7 +2,7 @@ import type { PlanEntry, SessionUpdate, StopReason } from "@agentclientprotocol/
 import type { AgentActivityContent, SessionPlanItem } from "@artfct-ai/adapters/tracker/types";
 import type { FeedActivity } from "../../notify/notifier";
 import { hasChatThread } from "../../notify/recipients";
-import { jobSessionOf, type TrackerSession } from "../inbound/job-session";
+import { authorInSession, jobSessionOf, type TrackerSession } from "../inbound/job-session";
 import { isTaskFinished } from "../store/state";
 import type { SessionFeedRow, TaskRow } from "../store/tasks";
 import type { TaskAlarm } from "../task/harness/timers";
@@ -29,10 +29,10 @@ export const HEARTBEAT_AFTER_MS = 25 * 60_000;
 /** How often the session feed of a turn in flight looks for narration that is due and for quiet. */
 export const SESSION_FEED_TICK_SECONDS = 60;
 
-/** The share of the request quota below which the feed skips heartbeats. */
+/** The share of the request quota below which heartbeats are skipped and narration waits. */
 const LOW_QUOTA_SHARE = 0.1;
 
-/** The receipt a person gets when their message reaches a running author. */
+/** The receipt a person gets when their message reaches a running workflow. */
 export const RECEIPT_TEXT = "Got it. Working on your message.";
 
 /** The heartbeat of a turn whose todo list names no step in progress. */
@@ -94,7 +94,7 @@ export async function streamToSessionFeed(
   }
 }
 
-/** When waiting narration posts: once its interval has passed, or now, as a turn ends. */
+/** When waiting narration posts: once it is due, or now, as a turn ends. */
 type NarrationPostTime = "when_due" | "now";
 
 /** Post the narration that waits, after the narration post that is out returns. */
@@ -116,20 +116,22 @@ async function postNarrationNow(
 ): Promise<void> {
   const waiting = workflow.store.sessionFeed(task.task_id);
   if (!waiting?.narration) return;
-  if (time === "when_due" && !narrationDue(waiting, workflow.now())) return;
+  if (time === "when_due" && !(await narrationDue(workflow, waiting))) return;
   const session = feedSessionOf(workflow, task);
   if (!session) return;
   const posted = await workflow.notifier.feed(session, {
     task_id: task.task_id,
     id: crypto.randomUUID(),
     content: { type: "thought", body: waiting.narration },
-    ephemeral: false,
   });
   if (posted) workflow.store.recordNarrationPost(task.task_id, waiting.narration, isoNow(workflow));
 }
 
-function narrationDue(feed: SessionFeedRow, now: number): boolean {
-  return feed.narrated_at === null || now - Date.parse(feed.narrated_at) >= NARRATION_INTERVAL_MS;
+/** Narration is due once its interval has passed, while the request quota is not low. */
+async function narrationDue(workflow: WorkflowRuntime, feed: SessionFeedRow): Promise<boolean> {
+  const sinceLastPost =
+    feed.narrated_at === null ? Infinity : workflow.now() - Date.parse(feed.narrated_at);
+  return sinceLastPost >= NARRATION_INTERVAL_MS && !(await requestQuotaLow(workflow));
 }
 
 function isoNow(workflow: WorkflowRuntime): string {
@@ -171,12 +173,7 @@ async function postHeartbeatAfterQuiet(workflow: WorkflowRuntime, task: TaskRow)
     workflow.log(task.task_id, "heartbeat skipped: the tracker's request quota is low");
     return;
   }
-  await workflow.notifier.feed(session, {
-    task_id: task.task_id,
-    id: crypto.randomUUID(),
-    content: { type: "thought", body: heartbeatText(workflow, task) },
-    ephemeral: true,
-  });
+  await workflow.notifier.ephemeralThought(session, heartbeatText(workflow, task));
   workflow.store.touchSessionFeed(task.task_id, isoNow(workflow));
 }
 
@@ -194,19 +191,17 @@ function heartbeatText(workflow: WorkflowRuntime, task: TaskRow): string {
   return current ? `Working on: ${current.content}` : STILL_WORKING_TEXT;
 }
 
-/** Tell a person in a job session that their message reached its running author. */
+/**
+ * Tell a person in a tracker session that their message reached the workflow. It counts as
+ * activity of the session's author.
+ */
 export async function postReceipt(
   workflow: WorkflowRuntime,
-  author: TaskRow,
   session: TrackerSession,
 ): Promise<void> {
-  await workflow.notifier.feed(session, {
-    task_id: author.task_id,
-    id: crypto.randomUUID(),
-    content: { type: "thought", body: RECEIPT_TEXT },
-    ephemeral: true,
-  });
-  if (workflow.store.sessionFeed(author.task_id)) {
+  await workflow.notifier.ephemeralThought(session, RECEIPT_TEXT);
+  const author = authorInSession(workflow, session);
+  if (author && workflow.store.sessionFeed(author.task_id)) {
     workflow.store.touchSessionFeed(author.task_id, isoNow(workflow));
   }
 }
@@ -265,7 +260,7 @@ export async function closeSessionFeed(
   const content = closingContent(closing, message);
   const reply: ClosingReplyAlarm = {
     session,
-    activity: { task_id: task.task_id, id: crypto.randomUUID(), content, ephemeral: false },
+    activity: { task_id: task.task_id, id: crypto.randomUUID(), content },
   };
   const alarm = await workflow.scheduleAlarm(
     CLOSING_REPLY_ALARM_SECONDS,

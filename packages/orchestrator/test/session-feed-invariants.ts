@@ -12,7 +12,8 @@ export type FeedStepKind =
 
 /**
  * One activity the tracker stored. `acknowledged` is false when the orchestrator never saw the
- * tracker take it: a restart cut the post, or the tracker failed after it stored it.
+ * tracker take it: a restart cut the post, or the tracker failed after it stored it. `quotaLow`
+ * is true when the request quota was low as its step began.
  */
 export type FeedPost = {
   at: number;
@@ -21,6 +22,7 @@ export type FeedPost = {
   body: string;
   ephemeral: boolean;
   acknowledged: boolean;
+  quotaLow: boolean;
 };
 
 /** The text that joins the narration lines one post carries. */
@@ -112,46 +114,90 @@ export function aQuietTurnGetsAHeartbeat(
   }
 }
 
-/** A tick posts the narration that is due, whatever the quota. Only heartbeats wait on it. */
-export function onlyHeartbeatsWaitOnTheQuota(dueNarrationWaits: boolean, quotaLow: boolean): void {
-  if (dueNarrationWaits) {
+/**
+ * Heartbeats are the only posts the request quota skips. A turn end posts its closing once, and
+ * no narration waits after it, whatever the quota. Receipts are checked with the instruction.
+ */
+export function heartbeatsAreTheOnlyPostsTheQuotaSkips(
+  turnEndPosts: FeedPost[],
+  narrationStillWaits: boolean,
+): void {
+  const closings = turnEndPosts.filter((post) => post.type === "response" || post.type === "error");
+  if (closings.length !== 1) {
     violated(
-      "onlyHeartbeatsWaitOnTheQuota",
-      `due narration still waits after a tick, with the quota ${quotaLow ? "low" : "not low"}`,
+      "heartbeatsAreTheOnlyPostsTheQuotaSkips",
+      `the turn end posted ${closings.length} closings`,
     );
   }
-}
-
-/** A tick while the quota is low posts no heartbeat. */
-export function heartbeatsWaitWhileTheQuotaIsLow(tickPosts: FeedPost[], quotaLow: boolean): void {
-  const heartbeat = tickPosts.find((post) => post.ephemeral);
-  if (quotaLow && heartbeat) {
-    violated("heartbeatsWaitWhileTheQuotaIsLow", `a heartbeat posted: ${heartbeat.body}`);
+  if (narrationStillWaits) {
+    violated("heartbeatsAreTheOnlyPostsTheQuotaSkips", "narration still waits after the turn end");
   }
 }
 
 /**
- * A person's message to a running author reaches the author's prompt queue, and the person gets
- * one receipt as an ephemeral thought.
+ * While the quota is low, a heartbeat does not post, and narration waits for the turn end. It
+ * then posts merged with the lines after it.
  */
-export function everyInstructionToARunningAuthorGetsAReceipt(
-  stepPosts: FeedPost[],
-  queued: boolean,
+export function heartbeatsAndNarrationWaitWhileTheQuotaIsLow(posts: FeedPost[]): void {
+  for (const post of posts.filter((posted) => posted.quotaLow)) {
+    if (post.ephemeral && post.step === "tick") {
+      violated("heartbeatsAndNarrationWaitWhileTheQuotaIsLow", `a heartbeat posted: ${post.body}`);
+    }
+    if (isNarration(post) && post.step !== "turn_end" && post.step !== "stop") {
+      violated(
+        "heartbeatsAndNarrationWaitWhileTheQuotaIsLow",
+        `narration posted on a ${post.step} step: ${post.body}`,
+      );
+    }
+  }
+}
+
+/** What one person's message in the job session did. */
+export type InstructionOutcome = {
+  /** The workflow had not ended when the message arrived. */
+  workflowRuns: boolean;
+  /** The session's author was in a turn when the message arrived. */
+  authorInTurn: boolean;
+  /** The message is in the author's prompt queue. */
+  reachedTheAuthor: boolean;
+  /** The agent got the message with a wake, so its turn answers the person. */
+  wokeTheAgent: boolean;
+  /** What the tracker stored as the message arrived. */
+  posts: FeedPost[];
+};
+
+/**
+ * A person's message to a running workflow gets one receipt, an ephemeral thought. It reaches
+ * the author in its turn as a prompt, or else wakes the agent, whose turn answers. A message to a
+ * finished workflow gets the reply that it ended instead.
+ */
+export function everyInstructionGetsAReceipt(
+  outcome: InstructionOutcome,
   receiptText: string,
 ): void {
-  if (!queued) {
-    violated(
-      "everyInstructionToARunningAuthorGetsAReceipt",
-      "the message did not reach the author",
-    );
-  }
-  const receipts = stepPosts.filter(
+  const receipts = outcome.posts.filter(
     (post) => post.type === "thought" && post.ephemeral && post.body === receiptText,
   );
-  if (receipts.length !== 1 || stepPosts.length !== 1) {
+  if (!outcome.workflowRuns) {
+    const replies = outcome.posts.filter((post) => post.type === "response");
+    if (receipts.length > 0 || replies.length !== 1) {
+      violated(
+        "everyInstructionGetsAReceipt",
+        `a finished workflow posted ${JSON.stringify(outcome.posts.map((post) => post.body))}`,
+      );
+    }
+    return;
+  }
+  if (receipts.length !== 1 || outcome.posts.length !== 1) {
     violated(
-      "everyInstructionToARunningAuthorGetsAReceipt",
-      `the message posted ${JSON.stringify(stepPosts.map((post) => post.body))}`,
+      "everyInstructionGetsAReceipt",
+      `the message posted ${JSON.stringify(outcome.posts.map((post) => post.body))}`,
     );
+  }
+  if (outcome.authorInTurn && (!outcome.reachedTheAuthor || outcome.wokeTheAgent)) {
+    violated("everyInstructionGetsAReceipt", "the message did not reach the author in its turn");
+  }
+  if (!outcome.authorInTurn && !outcome.wokeTheAgent) {
+    violated("everyInstructionGetsAReceipt", "the message did not wake the agent");
   }
 }

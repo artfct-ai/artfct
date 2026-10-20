@@ -3,7 +3,6 @@ import { noteMessage } from "../../agent/transcript/envelope";
 import { parseVerbalCommand } from "./verbal-command";
 import { applyVerbalCommand, stopAuthor, type StopOutcome } from "./controls";
 import { authorInSession, runningAuthorInSession } from "./job-session";
-import { postReceipt } from "../feed/feed";
 import { promptTask } from "../task/harness/prompt-queue";
 import { applyArtifactEvent } from "../refiner/feedback";
 import type { Applied, WorkflowRuntime } from "../types";
@@ -98,8 +97,8 @@ async function executeVerbalCommand(
 }
 
 /**
- * A reply in a job session whose author runs goes to that author as a prompt, and the person gets
- * a receipt. Null when the event is not a person's reply in such a session.
+ * A reply in a job session whose author runs goes to that author as a prompt. Null when the event
+ * is not a person's reply in such a session.
  */
 async function forwardToRunningAuthor(
   workflow: WorkflowRuntime,
@@ -110,7 +109,6 @@ async function forwardToRunningAuthor(
   if (!author) return null;
   await promptTask(workflow, author, event.text);
   workflow.log(author.task_id, "a reply in its job session reached the author");
-  await postReceipt(workflow, author, event.reply_to);
   const note = `The author ${author.task_id} got this message as a prompt. The person got a receipt.`;
   return { notes: [note], wake: "none" };
 }

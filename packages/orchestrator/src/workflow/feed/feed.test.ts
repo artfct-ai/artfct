@@ -6,7 +6,7 @@ import { seedTask, type FakeRuntime } from "../../../test/fake-runtime";
 import { freshRuntime } from "../../../test/fresh-runtime";
 import { testNotifier } from "../../../test/notifier-fixture";
 import { SessionTracker } from "../../../test/session-tracker";
-import { FEED_POST_ATTEMPTS, type FeedActivity, type OutboxEntry } from "../../notify/notifier";
+import { FEED_POST_ATTEMPTS, type OutboxEntry } from "../../notify/notifier";
 import type { TodoSnapshot } from "../board/types";
 import type { TaskRow } from "../store/tasks";
 import {
@@ -103,11 +103,7 @@ async function stream(fixture: Fixture, updates: SessionUpdate[]): Promise<void>
 }
 
 function ephemeralFlags(fixture: Fixture): boolean[] {
-  return fixture.outbox.flatMap((entry) =>
-    entry.channel === "feed" && entry.kind !== "delivery_error"
-      ? [(entry.payload as FeedActivity).ephemeral]
-      : [],
-  );
+  return fixture.tracker.stored.map((activity) => activity.ephemeral);
 }
 
 function at(fixture: Fixture, msAfterTurnStart: number): void {
@@ -249,22 +245,20 @@ describe("the session feed", () => {
         expect(stored(fixture)).toEqual([{ type: "thought", body: STILL_WORKING_TEXT }]);
       }));
 
-    it("is skipped while the tracker's request quota is low, unlike narration", () =>
+    it("is skipped while the tracker's request quota is low, and narration waits", () =>
       linearOnly(async (fixture) => {
         await startSessionFeedTurn(fixture.workflow, fixture.author);
-        await stream(fixture, [
-          say("First."),
-          edit("c1", "a.ts"),
-          say("Second."),
-          edit("c2", "a.ts"),
-        ]);
+        await stream(fixture, [say("First."), edit("c1", "a.ts")]);
         fixture.tracker.quota = { remaining: 499, limit: 5000, resets_at: TURN_START + 3_600_000 };
+        await stream(fixture, [say("Second."), edit("c2", "a.ts")]);
         at(fixture, NARRATION_INTERVAL_MS + HEARTBEAT_AFTER_MS);
         await tendSessionFeed(fixture.workflow, { task_id: fixture.author.task_id });
-        await tendSessionFeed(fixture.workflow, { task_id: fixture.author.task_id });
+        expect(stored(fixture)).toEqual([{ type: "thought", body: "First." }]);
+        await closeSessionFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
         expect(stored(fixture)).toEqual([
           { type: "thought", body: "First." },
           { type: "thought", body: "Second." },
+          { type: "response", body: DONE_TEXT },
         ]);
       }));
 
@@ -308,7 +302,7 @@ describe("the session feed", () => {
       linearOnly(async (fixture) => {
         await startSessionFeedTurn(fixture.workflow, fixture.author);
         at(fixture, HEARTBEAT_AFTER_MS - 1);
-        await postReceipt(fixture.workflow, fixture.author, STARTING);
+        await postReceipt(fixture.workflow, STARTING);
         at(fixture, HEARTBEAT_AFTER_MS);
         await tendSessionFeed(fixture.workflow, { task_id: fixture.author.task_id });
         expect(stored(fixture)).toEqual([{ type: "thought", body: RECEIPT_TEXT }]);

@@ -11,9 +11,10 @@ export const ALLOWED_WORDS: AllowedWord[] = [
     paths: [
       "packages/orchestrator/src/workflow/feed/feed.ts",
       "packages/orchestrator/src/workflow/inbound/apply.ts",
+      "packages/orchestrator/src/workflow/inbound/events.ts",
     ],
     reason:
-      "The session feed's receipt for a message that reached a running author. The owner approved the word for the session feed. Acknowledgement stays the chat thread's.",
+      "The session feed's receipt for a person's message in a tracker session. The owner approved the word for the session feed. Acknowledgement stays the chat thread's.",
   },
   { word: "log", paths: "everywhere", reason: "Logging through `workflow.log` and the console." },
   { word: "write", paths: "everywhere", reason: "Writing files, rows, tokens, and prose." },

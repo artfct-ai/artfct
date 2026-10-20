@@ -33,7 +33,10 @@ type Route =
   | ({ kind: "create" } & RouteRead)
   | { kind: "drop"; reason: string };
 
-/** Route an event to its workflow, or start the next one, and acknowledge it on its surface. */
+/**
+ * Route an event to its workflow, or start the next one, and acknowledge it on its surface. A
+ * person's message in a tracker session that no workflow takes is told so.
+ */
 export async function deliver(
   env: Env,
   event: InboundEvent,
@@ -43,11 +46,17 @@ export async function deliver(
   if (event.pull?.action === "base_moved") return fanOutBaseMoved(env, db, event, event.pull);
   const route = await routeOf(db, event);
   const sessionId = startingSessionOf(event, route);
+  const messageSessionId = messageSessionOf(event);
+  if (!sessionId && route.kind === "drop" && messageSessionId) {
+    const acking = await ackingTracker(env, ackTracker);
+    await postTrackerAck(acking, messageSessionId, { type: "error", body: NOTHING_TO_JOIN });
+    return { dropped: route.reason };
+  }
   if (!sessionId) {
     const chatClient = chat(env, registeredConfig().config.adapters.chat.provider);
     return deliverWithChatAck(chatClient, event, () => follow(env, db, event, route));
   }
-  const acking = ackTracker === undefined ? await tracker(env) : ackTracker;
+  const acking = await ackingTracker(env, ackTracker);
   await postStartingThought(acking, sessionId);
   const delivery = await follow(env, db, event, route);
   if (!event.actor && "dropped" in delivery) {
@@ -60,6 +69,17 @@ export async function deliver(
 function startingSessionOf(event: InboundEvent, route: Route): string | null {
   if (event.reply_to?.source !== "tracker") return null;
   return event.kind === "start" || route.kind === "create" ? event.reply_to.session_id : null;
+}
+
+/** The tracker that acknowledges on sessions: the one the caller passed, else the installed one. */
+function ackingTracker(env: Env, ackTracker: Tracker | null | undefined): Promise<Tracker | null> {
+  return ackTracker === undefined ? tracker(env) : Promise.resolve(ackTracker);
+}
+
+/** The tracker session of a person's prompt or status question, or null. */
+function messageSessionOf(event: InboundEvent): string | null {
+  if (!event.actor || (event.kind !== "prompt" && event.kind !== "status")) return null;
+  return event.reply_to?.source === "tracker" ? event.reply_to.session_id : null;
 }
 
 /** Read every binding of the event, then decide where it goes. */

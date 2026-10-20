@@ -9,11 +9,11 @@ import { openMemoryDb } from "../../../test/memory-db";
 import {
   aQuietTurnGetsAHeartbeat,
   aToolCallNeverPosts,
-  everyInstructionToARunningAuthorGetsAReceipt,
+  everyInstructionGetsAReceipt,
   everyNarrationLinePostsInOrder,
-  heartbeatsWaitWhileTheQuotaIsLow,
+  heartbeatsAndNarrationWaitWhileTheQuotaIsLow,
+  heartbeatsAreTheOnlyPostsTheQuotaSkips,
   narrationPostsAtMostOncePerInterval,
-  onlyHeartbeatsWaitOnTheQuota,
   theReplyNeverPostsAsNarration,
   type FeedPost,
   type FeedStepKind,
@@ -21,7 +21,7 @@ import {
 import { testNotifier } from "../../../test/notifier-fixture";
 import { SessionTracker, type TrackerHealth } from "../../../test/session-tracker";
 import { testEnv } from "../../../test/test-env";
-import { applyEvent } from "../inbound/apply";
+import { handleEvent } from "../inbound/events";
 import {
   HEARTBEAT_AFTER_MS,
   NARRATION_INTERVAL_MS,
@@ -53,6 +53,8 @@ type FeedAction =
   | { kind: "instruction" }
   | { kind: "turn_end"; reason: StopReason }
   | { kind: "stop" }
+  | { kind: "author_finishes" }
+  | { kind: "workflow_ends" }
   | { kind: "turn_start" }
   | { kind: "restart" }
   | { kind: "restart_mid_narration"; stored: boolean };
@@ -95,7 +97,7 @@ const feedAction: fc.Arbitrary<FeedAction> = fc.oneof(
       ),
     }),
   },
-  { weight: 1, arbitrary: fc.constant({ kind: "instruction" as const }) },
+  { weight: 2, arbitrary: fc.constant({ kind: "instruction" as const }) },
   {
     weight: 1,
     arbitrary: fc.record({
@@ -104,6 +106,8 @@ const feedAction: fc.Arbitrary<FeedAction> = fc.oneof(
     }),
   },
   { weight: 1, arbitrary: fc.constant({ kind: "stop" as const }) },
+  { weight: 1, arbitrary: fc.constant({ kind: "author_finishes" as const }) },
+  { weight: 1, arbitrary: fc.constant({ kind: "workflow_ends" as const }) },
   { weight: 2, arbitrary: fc.constant({ kind: "turn_start" as const }) },
   { weight: 1, arbitrary: fc.constant({ kind: "restart" as const }) },
   {
@@ -118,8 +122,12 @@ const feedAction: fc.Arbitrary<FeedAction> = fc.oneof(
 type Witnesses = {
   narrationMerged: number;
   dueNarrationWhileQuotaLow: number;
+  turnEndsWithWaitingNarrationWhileQuotaLow: number;
   heartbeats: number;
-  receipts: number;
+  receiptsInATurn: number;
+  receiptsBetweenTurns: number;
+  receiptsAfterTheAuthorFinished: number;
+  repliesOfAnEndedWorkflow: number;
   repostedAfterARestart: number;
 };
 
@@ -141,6 +149,8 @@ class FeedRun {
   readonly toolTitles: string[] = [];
   private message = "";
   private inFlight = true;
+  private authorFinished = false;
+  private workflowEnded = false;
   private quietSince = TURN_START;
   private lineCount = 0;
   private toolCount = 0;
@@ -148,7 +158,12 @@ class FeedRun {
 
   constructor(private readonly witnesses: Witnesses) {
     this.workflow = new FakeRuntime(openMemoryDb(), testEnv());
-    this.workflow.patchState({ origin: SESSION, reply_targets: [SESSION] });
+    this.workflow.patchState({
+      status: "running",
+      created_at: new Date(TURN_START).toISOString(),
+      origin: SESSION,
+      reply_targets: [SESSION],
+    });
     this.workflow.notifier = testNotifier([], { tracker: this.tracker });
     this.workflow.trackerInstance = this.tracker;
     this.workflow.clock = TURN_START;
@@ -180,15 +195,19 @@ class FeedRun {
     await streamToSessionFeed(this.workflow, this.author(), update);
   }
 
-  private async record(step: FeedStepKind, run: () => Promise<void>): Promise<FeedPost[]> {
+  private async record(step: FeedStepKind, run: () => Promise<unknown>): Promise<FeedPost[]> {
     const before = this.tracker.stored.length;
     const acknowledged = this.tracker.health === "up";
+    const quotaLow = this.quotaLow();
     await run();
-    const landed = this.tracker.stored
-      .slice(before)
-      .map((stored) =>
-        feedPostOf(stored.content, stored.ephemeral, { at: this.now(), step, acknowledged }),
-      );
+    const landed = this.tracker.stored.slice(before).map((stored) =>
+      feedPostOf(stored.content, stored.ephemeral, {
+        at: this.now(),
+        step,
+        acknowledged,
+        quotaLow,
+      }),
+    );
     this.posts.push(...landed);
     if (landed.length > 0) this.quietSince = this.now();
     return landed;
@@ -227,14 +246,7 @@ class FeedRun {
       tendSessionFeed(this.workflow, { task_id: AUTHOR }),
     );
     this.witnesses.heartbeats += tickPosts.filter((post) => post.ephemeral).length;
-    heartbeatsWaitWhileTheQuotaIsLow(tickPosts, lowBefore);
     if (!this.inFlight || this.tracker.health !== "up") return;
-    const after = this.workflow.store.sessionFeed(AUTHOR);
-    const stillDue =
-      !!after?.narration &&
-      (after.narrated_at === null ||
-        this.now() - Date.parse(after.narrated_at) >= NARRATION_INTERVAL_MS);
-    onlyHeartbeatsWaitOnTheQuota(stillDue, lowBefore);
     if (!lowBefore) aQuietTurnGetsAHeartbeat(this.now(), this.quietSince, HEARTBEAT_AFTER_MS);
   }
 
@@ -242,19 +254,45 @@ class FeedRun {
     if (!this.inFlight) return;
     this.inFlight = false;
     this.workflow.store.updateSandbox(AUTHOR, { prompt_in_flight: 0 });
+    this.workflow.store.updateTask(AUTHOR, { status: "in_review" });
     const reply = this.message.trim();
     this.message = "";
     if (reason === "end_turn" && reply) this.replies.push(reply);
     const closing = reason === "stop" ? STOPPED_CLOSING : feedClosingOf(reason);
-    await this.record(reason === "stop" ? "stop" : "turn_end", () =>
+    const narrationWaits = !!this.workflow.store.sessionFeed(AUTHOR)?.narration;
+    if (narrationWaits && this.quotaLow())
+      this.witnesses.turnEndsWithWaitingNarrationWhileQuotaLow += 1;
+    const posts = await this.record(reason === "stop" ? "stop" : "turn_end", () =>
       closeSessionFeed(this.workflow, this.author(), closing),
     );
+    if (this.tracker.health !== "up") return;
+    const stillWaits = !!this.workflow.store.sessionFeed(AUTHOR)?.narration;
+    heartbeatsAreTheOnlyPostsTheQuotaSkips(posts, stillWaits);
+  }
+
+  /** The author finishes at a turn end the tracker takes, so no narration waits after it. */
+  private async finishAuthor(): Promise<void> {
+    if (this.authorFinished || this.tracker.health !== "up") return;
+    await this.endTurn("end_turn");
+    this.authorFinished = true;
+    this.workflow.store.updateTask(AUTHOR, { status: "done" });
+  }
+
+  /** The workflow ends, and its author's turn stops, while the tracker takes posts. */
+  private async endWorkflow(): Promise<void> {
+    if (this.workflowEnded || this.tracker.health !== "up") return;
+    await this.endTurn("stop");
+    this.authorFinished = true;
+    this.workflowEnded = true;
+    this.workflow.store.updateTask(AUTHOR, { status: "cancelled" });
+    this.workflow.patchState({ status: "done" });
   }
 
   private async startTurn(): Promise<void> {
-    if (this.inFlight) return;
+    if (this.inFlight || this.authorFinished) return;
     this.inFlight = true;
     this.workflow.store.updateSandbox(AUTHOR, { prompt_in_flight: 1 });
+    this.workflow.store.updateTask(AUTHOR, { status: "working" });
     const queued = this.workflow.store.peekPrompt(AUTHOR);
     if (queued) this.workflow.store.dequeuePrompt(queued.id);
     this.quietSince = this.now();
@@ -262,16 +300,33 @@ class FeedRun {
   }
 
   private async instruct(): Promise<void> {
-    if (!this.inFlight) return;
     this.instructionCount += 1;
     const text = `instruction-${this.instructionCount}`;
-    const posts = await this.record("instruction", async () => {
-      await applyEvent(this.workflow, instructionEvent(text));
-    });
+    const notesBefore = this.workflow.notes.length;
+    const posts = await this.record("instruction", () =>
+      handleEvent(this.workflow, instructionEvent(text)),
+    );
     if (this.tracker.health !== "up") return;
-    this.witnesses.receipts += 1;
-    const queued = this.workflow.store.queue().some((row) => row.text === text);
-    everyInstructionToARunningAuthorGetsAReceipt(posts, queued, RECEIPT_TEXT);
+    this.countInstruction();
+    everyInstructionGetsAReceipt(
+      {
+        workflowRuns: !this.workflowEnded,
+        authorInTurn: this.inFlight,
+        reachedTheAuthor: this.workflow.store.queue().some((row) => row.text === text),
+        wokeTheAgent: this.workflow.notes
+          .slice(notesBefore)
+          .some((note) => note.wake === "message"),
+        posts,
+      },
+      RECEIPT_TEXT,
+    );
+  }
+
+  private countInstruction(): void {
+    if (this.workflowEnded) this.witnesses.repliesOfAnEndedWorkflow += 1;
+    else if (this.authorFinished) this.witnesses.receiptsAfterTheAuthorFinished += 1;
+    else if (this.inFlight) this.witnesses.receiptsInATurn += 1;
+    else this.witnesses.receiptsBetweenTurns += 1;
   }
 
   private restart(): void {
@@ -287,6 +342,7 @@ class FeedRun {
     this.message += `[line-${this.lineCount}]`;
     await this.stream(say(`[line-${this.lineCount}]`));
     const before = this.tracker.stored.length;
+    const quotaLow = this.quotaLow();
     const toolCall = this.toolCall(true, "completed").then(() => "ended" as const);
     const outcome = await Promise.race([wasCut, toolCall]);
     this.tracker.cutNextActivity({ types: [], stored: false, cut: () => {} });
@@ -295,6 +351,7 @@ class FeedRun {
         at: this.now(),
         step: "stream",
         acknowledged: outcome !== "cut" && this.tracker.health === "up",
+        quotaLow,
       }),
     );
     this.posts.push(...landed);
@@ -345,6 +402,10 @@ class FeedRun {
         return this.endTurn(action.reason);
       case "stop":
         return this.endTurn("stop");
+      case "author_finishes":
+        return this.finishAuthor();
+      case "workflow_ends":
+        return this.endWorkflow();
       case "turn_start":
         return this.startTurn();
       case "restart":
@@ -412,7 +473,7 @@ function bodyOf(content: AgentActivityContent): string {
 function feedPostOf(
   content: AgentActivityContent,
   ephemeral: boolean,
-  landing: Pick<FeedPost, "at" | "step" | "acknowledged">,
+  landing: Pick<FeedPost, "at" | "step" | "acknowledged" | "quotaLow">,
 ): FeedPost {
   return { ...landing, type: content.type, body: bodyOf(content), ephemeral };
 }
@@ -424,8 +485,12 @@ describe("session feed invariants", () => {
       const witnesses: Witnesses = {
         narrationMerged: 0,
         dueNarrationWhileQuotaLow: 0,
+        turnEndsWithWaitingNarrationWhileQuotaLow: 0,
         heartbeats: 0,
-        receipts: 0,
+        receiptsInATurn: 0,
+        receiptsBetweenTurns: 0,
+        receiptsAfterTheAuthorFinished: 0,
+        repliesOfAnEndedWorkflow: 0,
         repostedAfterARestart: 0,
       };
       await fc.assert(
@@ -438,13 +503,18 @@ describe("session feed invariants", () => {
           narrationPostsAtMostOncePerInterval(run.posts, NARRATION_INTERVAL_MS);
           theReplyNeverPostsAsNarration(run.posts, run.replies);
           everyNarrationLinePostsInOrder(run.posts, run.written);
+          heartbeatsAndNarrationWaitWhileTheQuotaIsLow(run.posts);
         }),
         propertyRuns("session feed invariants", RUNS),
       );
       expect(witnesses.narrationMerged).toBeGreaterThan(0);
       expect(witnesses.dueNarrationWhileQuotaLow).toBeGreaterThan(0);
       expect(witnesses.heartbeats).toBeGreaterThan(0);
-      expect(witnesses.receipts).toBeGreaterThan(0);
+      expect(witnesses.turnEndsWithWaitingNarrationWhileQuotaLow).toBeGreaterThan(0);
+      expect(witnesses.receiptsInATurn).toBeGreaterThan(0);
+      expect(witnesses.receiptsBetweenTurns).toBeGreaterThan(0);
+      expect(witnesses.receiptsAfterTheAuthorFinished).toBeGreaterThan(0);
+      expect(witnesses.repliesOfAnEndedWorkflow).toBeGreaterThan(0);
       expect(witnesses.repostedAfterARestart).toBeGreaterThan(0);
     },
     propertyTimeoutMs(30_000, RUNS),

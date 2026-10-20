@@ -458,6 +458,40 @@ describe("deliver a stop from a session no workflow claimed", () => {
   });
 });
 
+describe("deliver a person's message in a session no workflow claimed", () => {
+  let tracker: FakeTracker;
+  let delivery: Delivery;
+
+  beforeEach(async () => {
+    tracker = new FakeTracker();
+    delivery = await deliver(
+      env,
+      { ...linearStart, id: "evt-linear-orphan", kind: "prompt", text: "also add docs" },
+      tracker,
+    );
+  });
+
+  it("drops it", () => {
+    expect(delivery).toEqual({ dropped: "no workflow bound for prompt" });
+  });
+
+  it("tells the person that no workflow is working on the issue", () => {
+    expect(activities(tracker)).toEqual([
+      [
+        "sess-7",
+        {
+          type: "error",
+          body: "No workflow is working on this issue. Delegate it to me or mention me to start one.",
+        },
+      ],
+    ]);
+  });
+
+  it("starts no workflow", async () => {
+    expect(await listBindings(db)).toEqual([]);
+  });
+});
+
 describe("deliver a Linear session start", () => {
   let tracker: FakeTracker;
   let delivery: Delivery;
@@ -651,6 +685,35 @@ describe("deliver a Linear session start", () => {
 
     it("posts nothing on the session", () => {
       expect(activities(tracker)).toEqual([]);
+    });
+  });
+
+  describe("a status question in a session whose workflow ended", () => {
+    beforeEach(async () => {
+      await createWorkflow(db, "wf_session_asked");
+      await seedBinding({ source: "tracker_session", external_id: "sess-7" }, "wf_session_asked");
+      await setWorkflowStatus(db, "wf_session_asked", "done");
+      delivery = await deliver(
+        env,
+        { ...linearStart, id: "evt-linear-status-late", kind: "status", text: "status" },
+        tracker,
+      );
+    });
+
+    it("drops it without starting a workflow", () => {
+      expect(delivery).toEqual({ dropped: "workflow wf_session_asked is done" });
+    });
+
+    it("tells the person that no workflow is working on the issue", () => {
+      expect(activities(tracker)).toEqual([
+        [
+          "sess-7",
+          {
+            type: "error",
+            body: "No workflow is working on this issue. Delegate it to me or mention me to start one.",
+          },
+        ],
+      ]);
     });
   });
 

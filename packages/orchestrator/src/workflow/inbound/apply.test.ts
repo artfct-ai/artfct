@@ -16,7 +16,7 @@ import {
   type FakeSocket,
 } from "../../../test/fake-runtime";
 import { freshRuntime } from "../../../test/fresh-runtime";
-import { RECEIPT_TEXT, STOPPED_TEXT } from "../feed/feed";
+import { STOPPED_TEXT } from "../feed/feed";
 
 const TASK = "wf_x.1";
 const JOB = "wf_x-1";
@@ -511,11 +511,6 @@ describe("applyEvent", () => {
     it("posts nothing to the humans", () =>
       forwarded(({ workflow }) => {
         expect(workflow.posted).toEqual([]);
-      }));
-
-    it("gives the person a receipt in the session feed", () =>
-      forwarded(({ workflow }) => {
-        expect(feedPostsOf(workflow)).toEqual([{ type: "thought", body: RECEIPT_TEXT }]);
       }));
 
     it("tells the agent without a wake", () =>

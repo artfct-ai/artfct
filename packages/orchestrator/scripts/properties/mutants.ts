@@ -959,9 +959,8 @@ export const MUTANTS: Mutant[] = [
     id: "W176",
     invariant: "sessionRouting::feedActivityPostsOnce",
     path: "src/notify/notifier.ts",
-    find: "await tracker.activity(session.session_id, content, { id, ephemeral });",
-    replace:
-      "await tracker.activity(session.session_id, content, { id: crypto.randomUUID(), ephemeral });",
+    find: "await tracker.activity(session.session_id, content, { id });",
+    replace: "await tracker.activity(session.session_id, content, { id: crypto.randomUUID() });",
   },
   {
     id: "W177",
@@ -1459,9 +1458,9 @@ export const MUTANTS: Mutant[] = [
     id: "W238",
     invariant: "sessionRouting::sessionFeedEndsWhenItsAuthorIdles (restart mid feed post)",
     path: "src/notify/notifier.ts",
-    find: '    this.outbox({ channel: "feed", kind: content.type, target: session, payload: activity });\n    const tracker = await this.tracker();\n    if (!tracker) return false;\n    for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {\n      try {\n        await tracker.activity(session.session_id, content, { id, ephemeral });\n',
+    find: '    this.outbox({ channel: "feed", kind: content.type, target: session, payload: activity });\n    const tracker = await this.tracker();\n    if (!tracker) return false;\n    for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {\n      try {\n        await tracker.activity(session.session_id, content, { id });\n',
     replace:
-      '    const row = { channel: "feed", kind: content.type, target: session, payload: activity };\n    const tracker = await this.tracker();\n    if (!tracker) return false;\n    for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {\n      try {\n        await tracker\n          .activity(session.session_id, content, { id, ephemeral })\n          .finally(() => attempt === 1 && this.outbox(row));\n',
+      '    const row = { channel: "feed", kind: content.type, target: session, payload: activity };\n    const tracker = await this.tracker();\n    if (!tracker) return false;\n    for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {\n      try {\n        await tracker\n          .activity(session.session_id, content, { id })\n          .finally(() => attempt === 1 && this.outbox(row));\n',
   },
   {
     id: "W244",
@@ -2104,15 +2103,15 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/feed/feed.ts",
     find: '    case "tool_call": {\n      const line = feed.message.trim();\n',
     replace:
-      '    case "tool_call": {\n      await workflow.notifier.feed(feedSessionOf(workflow, task)!, {\n        task_id: task.task_id,\n        id: crypto.randomUUID(),\n        content: { type: "action", action: "Used", parameter: update.title },\n        ephemeral: false,\n      });\n      const line = feed.message.trim();\n',
+      '    case "tool_call": {\n      await workflow.notifier.feed(feedSessionOf(workflow, task)!, {\n        task_id: task.task_id,\n        id: crypto.randomUUID(),\n        content: { type: "action", action: "Used", parameter: update.title },\n      });\n      const line = feed.message.trim();\n',
     propertyFile: "src/workflow/feed/feed.property.ts",
   },
   {
     id: "W381",
     invariant: "sessionFeedInvariants::narrationPostsAtMostOncePerInterval",
     path: "src/workflow/feed/feed.ts",
-    find: '  if (time === "when_due" && !narrationDue(waiting, workflow.now())) return;\n',
-    replace: "",
+    find: "  return sinceLastPost >= NARRATION_INTERVAL_MS && !(await requestQuotaLow(workflow));\n",
+    replace: "  return !(await requestQuotaLow(workflow));\n",
     propertyFile: "src/workflow/feed/feed.property.ts",
   },
   {
@@ -2143,18 +2142,18 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W385",
-    invariant: "sessionFeedInvariants::onlyHeartbeatsWaitOnTheQuota",
+    invariant:
+      "sessionFeedInvariants::heartbeatsAreTheOnlyPostsTheQuotaSkips (the closing waits on the quota)",
     path: "src/workflow/feed/feed.ts",
-    find: '  await postWaitingNarration(workflow, task, "when_due");\n  await postHeartbeatAfterQuiet(workflow, task);\n',
-    replace:
-      '  if (!(await requestQuotaLow(workflow))) await postWaitingNarration(workflow, task, "when_due");\n  await postHeartbeatAfterQuiet(workflow, task);\n',
+    find: "  if (!session || !closing) return;\n",
+    replace: "  if (!session || !closing || (await requestQuotaLow(workflow))) return;\n",
     propertyFile: "src/workflow/feed/feed.property.ts",
   },
   {
     id: "W386",
-    invariant: "sessionFeedInvariants::everyInstructionToARunningAuthorGetsAReceipt",
-    path: "src/workflow/inbound/apply.ts",
-    find: "  await postReceipt(workflow, author, event.reply_to);\n",
+    invariant: "sessionFeedInvariants::everyInstructionGetsAReceipt",
+    path: "src/workflow/inbound/events.ts",
+    find: "    if (instructed) await postReceipt(workflow, instructed);\n",
     replace: "",
     propertyFile: "src/workflow/feed/feed.property.ts",
   },
@@ -2178,7 +2177,8 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W389",
-    invariant: "sessionFeedInvariants::heartbeatsWaitWhileTheQuotaIsLow",
+    invariant:
+      "sessionFeedInvariants::heartbeatsAndNarrationWaitWhileTheQuotaIsLow (a heartbeat ignores the quota)",
     path: "src/workflow/feed/feed.ts",
     find: "  if (await requestQuotaLow(workflow)) {\n",
     replace: "  if (false && (await requestQuotaLow(workflow))) {\n",

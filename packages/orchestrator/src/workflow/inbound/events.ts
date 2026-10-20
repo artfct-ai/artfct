@@ -5,6 +5,7 @@ import { pullDetailOf } from "../../artifact/pull";
 import type { PostOptions } from "../../notify/notifier";
 import type { Recipients } from "../../notify/recipients";
 import { applyEvent, stopSessionAuthor } from "./apply";
+import { postReceipt } from "../feed/feed";
 import { armIdle, changeWorkflowStatus } from "../lifecycle";
 import {
   firstLine,
@@ -16,10 +17,20 @@ import {
 import { statusText, summarize } from "../status";
 import { originSubject } from "../subject";
 import { jobForEvent } from "./lookup";
+import type { TrackerSession } from "./job-session";
 import type { Applied, EventRefusal, WorkflowRuntime } from "../types";
 
 const ACK: RpcAck = { ok: true };
 const DUPLICATE: RpcAck = { ok: true, duplicate: true };
+
+/**
+ * The tracker session of a person's prompt or status question to a running workflow, which gets a
+ * receipt. Null for any other event. The router already acknowledges a start.
+ */
+function instructedSessionOf(event: InboundEvent): TrackerSession | null {
+  if (event.actor === null || (event.kind !== "prompt" && event.kind !== "status")) return null;
+  return event.reply_to?.source === "tracker" ? event.reply_to : null;
+}
 
 /** True when a person wrote to the workflow: a message in its chat thread or tracker session. */
 function isMessage(event: InboundEvent): boolean {
@@ -113,6 +124,8 @@ export async function handleEvent(workflow: WorkflowRuntime, event: InboundEvent
   if (!isWorkflowFinished(workflow.state.status)) {
     if (isMessage(event)) await wakeWorkflow(workflow);
     await acknowledge(workflow, event);
+    const instructed = instructedSessionOf(event);
+    if (instructed) await postReceipt(workflow, instructed);
   }
   if (!routesBeforeItIsSeen(workflow, event) && !workflow.store.markEventSeen(event)) {
     return DUPLICATE;
