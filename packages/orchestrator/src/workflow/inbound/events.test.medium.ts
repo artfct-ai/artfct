@@ -8,6 +8,7 @@ import type { Workflow } from "../../workflow";
 import { failWorkflow } from "../lifecycle";
 import { type Scenario, scenario } from "../../../test/scenario";
 import { startWorkflow } from "../../../test/fresh-workflow";
+import { jobInputKey } from "../store/input-key";
 
 type Outbox = Array<{ kind: string; payload: Record<string, unknown> }>;
 
@@ -284,7 +285,8 @@ const reviewedTask = scenario(freshWorkflow, async (workflow) => {
     stage: "implement",
     issue_id: null,
     issue_key: null,
-    input_key: null,
+    input_kind: "request",
+    input_key: jobInputKey({ kind: "request", text: "Fix the login redirect." }),
     preceding_job_id: null,
     branch: null,
     brief: "",

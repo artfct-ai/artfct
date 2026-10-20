@@ -80,7 +80,7 @@ export class CloudflareDecisions implements Decisions {
           model: workersAi,
           input_tokens: result.usage.input_tokens,
           output_tokens: result.usage.output_tokens,
-          cost_usd: 0,
+          cost_usd: null,
         },
       };
     });

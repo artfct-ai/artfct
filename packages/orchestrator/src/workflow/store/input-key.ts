@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { ArtifactTarget } from "../../artifact/types";
+import type { ArtifactRef, ArtifactTarget } from "../../artifact/types";
 import type { JobInput, JobIssue } from "../lifecycle";
 import type { WorkflowRuntime } from "../types";
 
@@ -43,6 +43,11 @@ export function jobInputKey(input: JobInput): string {
  * A ref of kind `issues` has no fields, so its link is the key.
  */
 export function artifactRefKey({ ref, url }: ArtifactTarget): string {
+  return ref.kind === "issues" ? `issues:${url}` : namedArtifactRefKey(ref);
+}
+
+/** The key of an artifact ref that names its artifact by its fields alone. */
+export function namedArtifactRefKey(ref: Exclude<ArtifactRef, { kind: "issues" }>): string {
   switch (ref.kind) {
     case "page":
       return `page:${ref.page_id}`;
@@ -52,8 +57,6 @@ export function artifactRefKey({ ref, url }: ArtifactTarget): string {
       return ref.issue_id;
     case "project":
       return `project:${ref.project_id}`;
-    case "issues":
-      return `issues:${url}`;
     default: {
       const unreachable: never = ref;
       throw new Error(`unhandled artifact ref ${String(unreachable)}`);
