@@ -11,9 +11,12 @@ const SESSION_TITLE_LIMIT = 200;
 /** Most characters one Slack message carries. Slack itself refuses text above 4000. */
 const SLACK_TEXT_LIMIT = 3900;
 
+/** The last whitespace character of a span. */
+const LAST_WHITESPACE = /\s\S*$/;
+
 /**
- * Split text into chunks under `limit` at paragraph boundaries, then line boundaries. A hard cut
- * never splits a surrogate pair.
+ * Split text into chunks under `limit` at the last paragraph break, else the last whitespace, else
+ * just after the last period. A cut at the limit never splits a surrogate pair.
  */
 export function splitSlackText(text: string, limit = SLACK_TEXT_LIMIT): string[] {
   if (text.length <= limit) return [text];
@@ -32,8 +35,10 @@ export function splitSlackText(text: string, limit = SLACK_TEXT_LIMIT): string[]
 function boundaryBefore(text: string, limit: number): number {
   const paragraph = text.lastIndexOf("\n\n", limit);
   if (paragraph > 0) return paragraph;
-  const line = text.lastIndexOf("\n", limit);
-  if (line > 0) return line;
+  const whitespace = text.slice(0, limit + 1).search(LAST_WHITESPACE);
+  if (whitespace > 0) return whitespace;
+  const period = text.lastIndexOf(".", limit - 1);
+  if (period !== -1) return period + 1;
   const lastUnit = text.charCodeAt(limit - 1);
   return lastUnit >= 0xd800 && lastUnit <= 0xdbff ? limit - 1 : limit;
 }
