@@ -22,7 +22,7 @@ const MESSAGES = ["What is the status?"];
 const FIRST_ROW = 7;
 
 function takeMessage(workflow: FakeRuntime): void {
-  workflow.transcript.enqueue(MESSAGES[0]!, "message", { reply_to: THREAD });
+  workflow.transcript.enqueue(MESSAGES[0]!, "message", { body: MESSAGES[0]!, reply_to: THREAD });
   workflow.transcript.takeInbox();
 }
 

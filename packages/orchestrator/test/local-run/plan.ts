@@ -28,6 +28,7 @@ import templateConfig from "../template-config.json";
 import { FakeRuntime, patchPlan } from "../fake-runtime";
 import { openMemoryDb } from "../memory-db";
 import { testEnv } from "../test-env";
+import { jobInputKey } from "../../src/workflow/store/input-key";
 
 /** The role name that picks the author of the stage. Any other name picks a refiner of it. */
 const AUTHOR_ROLE = "author";
@@ -217,7 +218,8 @@ async function seedRun(
     stage: stage.name,
     issue_id: null,
     issue_key: null,
-    input_key: null,
+    input_kind: "request",
+    input_key: jobInputKey({ kind: "request", text: request.request }),
     preceding_job_id: null,
     branch,
     brief: request.brief,

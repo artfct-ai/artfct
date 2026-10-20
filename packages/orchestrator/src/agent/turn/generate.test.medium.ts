@@ -84,8 +84,8 @@ describe("generateSteps", () => {
       expect(steps[0]!.messages.map((message) => message.role)).toEqual(["assistant", "tool"]);
     });
 
-    it("reports no usage, since the fake model bills nothing", () => {
-      expect(steps[0]!.usage).toEqual({ input_tokens: 0, output_tokens: 0, cost_usd: 0 });
+    it("reports no tokens and no cost, since the fake model reports none", () => {
+      expect(steps[0]!.usage).toEqual({ input_tokens: 0, output_tokens: 0, cost_usd: null });
     });
 
     describe("and a second attempt that carries the step forward", () => {

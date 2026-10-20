@@ -37,6 +37,7 @@ function turnOn(script: Action[], wake: "message" | "task_result"): Scenario<Ran
       const message = eventMessage(asked, { first: false, job: null, artifact: null, notes: [] });
       if (wake === "message") {
         workflow.transcript.enqueue(message, "message", {
+          body: asked.text,
           reply_to: THREAD,
           chat_message: { channel: "C1", message: "1757000001.000100" },
         });
@@ -87,6 +88,7 @@ const lostAfterItsThumbsUp: Scenario<Ran> = (run) =>
     workflow.store.addReplyTarget(THREAD);
     const message = eventMessage(asked, { first: false, job: null, artifact: null, notes: [] });
     workflow.transcript.enqueue(message, "message", {
+      body: asked.text,
       reply_to: THREAD,
       chat_message: { channel: "C1", message: "1757000001.000100" },
     });

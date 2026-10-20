@@ -451,7 +451,7 @@ class ReplayTranscript extends TranscriptStore {
     super(db);
   }
 
-  override enqueue(text: string, wake: Wake, from: WroteFrom = {}): void {
+  override enqueue(text: string, wake: Wake, from?: WroteFrom): void {
     super.enqueue(text, wake, from);
     const row = this.inbox().at(-1)!;
     this.ledger.inboxIds.set(row.id, this.ledger.nextInboxId);
@@ -1182,18 +1182,15 @@ export class AgentTurnsReplay {
     const target = ORIGIN_TARGETS[origin];
     const id = this.ledger.nextInboxId;
     const message = `17580${String(id).padStart(5, "0")}.000000`;
+    const body = `Fix the flaky test with ${NAMED_MODEL} (inbox ${id}).${LONG_DETAIL}`;
     const from: WroteFrom =
       target.source === "chat"
-        ? { reply_to: target, chat_message: { channel: target.channel, message } }
-        : { reply_to: target };
+        ? { body, reply_to: target, chat_message: { channel: target.channel, message } }
+        : { body, reply_to: target };
     if (target.source === "chat") {
       await this.runtime.notifier.acknowledge(target, { message, user: "U1" }, "Replay");
     }
-    await this.runtime.tellAgent(
-      `[event kind=message]\n\nFix the flaky test with ${NAMED_MODEL} (inbox ${id}).${LONG_DETAIL}`,
-      "message",
-      from,
-    );
+    await this.runtime.tellAgent(`[event kind=message]\n\n${body}`, "message", from);
   }
 
   private async land(phase: string, landing: Landing): Promise<void> {

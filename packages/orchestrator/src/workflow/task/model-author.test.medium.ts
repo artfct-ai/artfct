@@ -21,6 +21,7 @@ import {
 import { scenario } from "../../../test/scenario";
 import { runModelAuthorTurn } from "./model-author";
 import { promptTask } from "./harness/prompt-queue";
+import { jobInputKey } from "../store/input-key";
 
 const DOCUMENT = "## Goal\nLet people sign in with SSO.";
 
@@ -240,7 +241,8 @@ describe("runModelAuthorTurn", () => {
         stage: "design",
         issue_id: null,
         issue_key: null,
-        input_key: null,
+        input_kind: "request",
+        input_key: jobInputKey({ kind: "request", text: "Write the design." }),
         preceding_job_id: null,
         branch: null,
         brief: "",

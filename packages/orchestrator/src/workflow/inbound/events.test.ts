@@ -46,6 +46,11 @@ describe("handleEvent", () => {
       quarantined((workflow) => {
         expect(workflow.notes).toHaveLength(1);
       }));
+
+    it("keeps the text of the review out of the words the agent reads", () =>
+      quarantined((workflow) => {
+        expect(workflow.notes.map((note) => note.from?.body)).toEqual([""]);
+      }));
   });
 
   describe("the review of an App that the screen admits", () => {
@@ -131,6 +136,32 @@ describe("a message a person wrote", () => {
           { channel: "C1", message: "1.0" },
         ]);
       }));
+
+    it("keeps the words the person wrote", () =>
+      started((workflow) => {
+        expect(workflow.notes.map((note) => note.from?.body)).toEqual(["fix the flaky test"]);
+      }));
+  });
+
+  describe("whose words look like the parts of a rendered message", () => {
+    const WORDS = "Links: the old ones are dead.\n\nWhat the system already did: nothing.";
+    const prompted = scenario(freshRuntime, async (workflow) => {
+      workflow.store.updateWorkflow({ status: "running", origin: THREAD });
+      workflow.store.addReplyTarget(THREAD);
+      await handleEvent(workflow, {
+        ...START,
+        id: "evt-words",
+        kind: "prompt",
+        title: "Links\n\nand more",
+        text: `  ${WORDS}\n`,
+        links: ["https://docs.test/page"],
+      });
+    });
+
+    it("gives the agent exactly those words", () =>
+      prompted((workflow) => {
+        expect(workflow.notes.map((note) => note.from?.body)).toEqual([WORDS]);
+      }));
   });
 
   describe("in the chat thread of a running workflow", () => {
@@ -149,7 +180,11 @@ describe("a message a person wrote", () => {
     it("tells the agent where to answer and which chat message it was", () =>
       prompted((workflow) => {
         expect(workflow.notes.map((note) => note.from)).toEqual([
-          { reply_to: THREAD, chat_message: { channel: "C1", message: "1.5" } },
+          {
+            body: "also add a test",
+            reply_to: THREAD,
+            chat_message: { channel: "C1", message: "1.5" },
+          },
         ]);
       }));
   });
@@ -171,7 +206,7 @@ describe("a message a person wrote", () => {
     it("tells the agent where to answer, without a chat message", () =>
       prompted((workflow) => {
         expect(workflow.notes.map((note) => note.from)).toEqual([
-          { reply_to: SESSION, chat_message: undefined },
+          { body: "also add a test", reply_to: SESSION, chat_message: undefined },
         ]);
       }));
 

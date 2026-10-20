@@ -25,7 +25,7 @@ import {
 } from "../src/prompts/model-author-prompt";
 import { taskTools } from "../src/agent/tools/task";
 import type { SandboxRef } from "../src/sandbox/spec";
-import { artifactRefKey, jobInputKey } from "../src/workflow/store/input-key";
+import { jobInputKey } from "../src/workflow/store/input-key";
 import type { ArtifactRow } from "../src/workflow/store/records";
 import {
   failTask,
@@ -1122,22 +1122,34 @@ export class WorkflowLifecycleReplay {
   }
 
   private inputOf(job: JobRow, jobs: JobRow[]): SpecJob["input"] {
-    const built = jobs.findIndex((earlier) => job.input_key === `artifact:${earlier.job_id}`);
-    if (built !== -1) return { from: "artifact", job: built };
-    const issue = ISSUE_KEYS.findIndex((key) => key === job.input_key);
-    if (issue !== -1) return { from: "issue", issue };
-    const continued = jobs.findIndex((earlier) => {
-      const artifact = this.world.workflow.store.artifact(earlier.job_id);
-      return (
-        artifact !== null &&
-        artifactRefKey({ ref: artifact.ref, url: artifact.external_url }) === job.input_key
-      );
-    });
-    if (continued !== -1) return { from: "artifact", job: continued };
-    const request = REQUEST_TEXTS.findIndex(
-      (requestText) => jobInputKey({ kind: "request", text: requestText }) === job.input_key,
-    );
-    return { from: "request", request };
+    const { store } = this.world.workflow;
+    switch (job.input_kind) {
+      case "artifact":
+        return {
+          from: "artifact",
+          job: jobs.findIndex((earlier) => earlier.job_id === job.preceding_job_id),
+        };
+      case "issue":
+        return { from: "issue", issue: ISSUE_KEYS.findIndex((key) => key === job.issue_id) };
+      case "target":
+        return {
+          from: "artifact",
+          job: jobs.findIndex(
+            (earlier) => store.artifact(earlier.job_id)?.ref_key === job.input_key,
+          ),
+        };
+      case "request":
+        return {
+          from: "request",
+          request: REQUEST_TEXTS.findIndex(
+            (requestText) => jobInputKey({ kind: "request", text: requestText }) === job.input_key,
+          ),
+        };
+      default: {
+        const unreachable: never = job.input_kind;
+        throw new Error(`unhandled job input ${String(unreachable)}`);
+      }
+    }
   }
 
   private actionFor(step: TraceStep): WorkflowAction {

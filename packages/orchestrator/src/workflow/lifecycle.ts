@@ -94,6 +94,7 @@ export async function startJob(
     stage: stage.name,
     issue_id: issue?.id ?? null,
     issue_key: issue?.key ?? null,
+    input_kind: input.kind,
     input_key: jobInputKey(input),
     preceding_job_id: input.kind === "artifact" ? input.jobId : null,
     input_ref: target?.ref ?? null,

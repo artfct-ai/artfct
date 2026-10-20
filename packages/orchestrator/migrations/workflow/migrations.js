@@ -1,5 +1,5 @@
 import journal from './meta/_journal.json';
-import m0000 from './0000_melodic_stark_industries.sql';
+import m0000 from './0000_dark_princess_powerful.sql';
 
   export default {
     journal,

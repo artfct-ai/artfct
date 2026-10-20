@@ -47,6 +47,7 @@ import {
   type StagePlan,
   type WorkflowPlan,
 } from "../src/workflow/store/state";
+import { artifactRefKey, jobInputKey } from "../src/workflow/store/input-key";
 import {
   WorkflowStore,
   type JobRow,
@@ -498,6 +499,26 @@ export function patchStagePlan(workflow: FakeRuntime, patch: Partial<StagePlan>)
 /** A task row patch, with the fields of the job the seeded task belongs to. */
 export type SeedTaskPatch = Partial<TaskRow> & Partial<NewJob>;
 
+/** The request a seeded job works from when the patch names no other input. */
+const SEEDED_REQUEST = "Seeded request.";
+
+/** The input kind and key of a seeded job, from the input columns the patch sets. */
+export function seededJobInput(job: Partial<NewJob>): Pick<NewJob, "input_kind" | "input_key"> {
+  if (job.issue_id) return { input_kind: "issue", input_key: job.input_key ?? job.issue_id };
+  if (job.preceding_job_id) {
+    const jobId = job.preceding_job_id;
+    return { input_kind: "artifact", input_key: jobInputKey({ kind: "artifact", jobId }) };
+  }
+  if (job.input_ref && job.input_url) {
+    const target = { ref: job.input_ref, url: job.input_url };
+    return { input_kind: "target", input_key: job.input_key ?? artifactRefKey(target) };
+  }
+  return {
+    input_kind: "request",
+    input_key: job.input_key ?? jobInputKey({ kind: "request", text: SEEDED_REQUEST }),
+  };
+}
+
 /** The job id a seeded task belongs to unless the patch names one: `wf_x.3` belongs to `wf_x-3`. */
 function seedJobId(taskId: string): string {
   return taskId.replace(/\.(\d+)$/, "-$1");
@@ -528,7 +549,7 @@ export function seedTask(
       stage: stage ?? "design",
       issue_id: issue_id ?? null,
       issue_key: issue_key ?? null,
-      input_key: input_key ?? issue_id ?? null,
+      ...seededJobInput({ issue_id, input_key, preceding_job_id, input_ref, input_url }),
       preceding_job_id: preceding_job_id ?? null,
       input_ref: input_ref ?? null,
       input_url: input_url ?? null,
@@ -758,11 +779,11 @@ export function seedModelAuthor(workflow: FakeRuntime, job: Partial<NewJob> = {}
     stage: "design",
     issue_id: null,
     issue_key: null,
-    input_key: null,
     preceding_job_id: null,
     branch: null,
     brief: "",
     ...job,
+    ...seededJobInput(job),
   });
   workflow.store.insertTask({
     task_id: "wf_x.1",

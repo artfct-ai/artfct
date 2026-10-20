@@ -825,21 +825,22 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/inbound/events.ts",
     find: "  if (workflow.store.eventSeen(event.id)) return DUPLICATE;\n",
     replace:
-      "  if (!workflow.store.markEventSeen(event)) return DUPLICATE;\n  event = { ...event, id: `${event.id}:landed` };\n",
+      "  if (!workflow.store.markEventSeen(event.id)) return DUPLICATE;\n  event = { ...event, id: `${event.id}:landed` };\n",
   },
   {
     id: "W118",
     invariant: "sessionRouting::everySessionMessageLandsOnce (lands twice)",
     path: "src/workflow/inbound/events.ts",
-    find: "  if (!routesBeforeItIsSeen(workflow, event) && !workflow.store.markEventSeen(event)) {\n    return DUPLICATE;\n  }\n",
-    replace: "  if (!routesBeforeItIsSeen(workflow, event)) workflow.store.markEventSeen(event);\n",
+    find: "  if (!routesBeforeItIsSeen(workflow, event) && !workflow.store.markEventSeen(event.id)) {\n    return DUPLICATE;\n  }\n",
+    replace:
+      "  if (!routesBeforeItIsSeen(workflow, event)) workflow.store.markEventSeen(event.id);\n",
   },
   {
     id: "W115",
     invariant: "feedbackRouting::everyFeedbackIsRoutedOnce (seen on arrival)",
     path: "src/workflow/inbound/events.ts",
     find: "  if (workflow.store.eventSeen(event.id)) return DUPLICATE;\n",
-    replace: "  if (!workflow.store.markEventSeen(event)) return DUPLICATE;\n",
+    replace: "  if (!workflow.store.markEventSeen(event.id)) return DUPLICATE;\n",
   },
   {
     id: "W116",
@@ -1535,7 +1536,7 @@ export const MUTANTS: Mutant[] = [
     id: "W271",
     invariant: "reviewLoop replay: the store records the send-back of each revision",
     path: "src/workflow/refiner/checks-gate.ts",
-    find: '  return workflow.store.markEventSeen({ id, kind: "checks_sent_back" });\n',
+    find: "  return workflow.store.markEventSeen(id);\n",
     replace: "  return !workflow.store.eventSeen(id);\n",
   },
   {

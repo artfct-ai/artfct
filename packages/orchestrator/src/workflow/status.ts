@@ -27,7 +27,7 @@ function jobSummary(workflow: WorkflowRuntime, task: TaskRow): JobSummary {
   const jobCost = workflow.store
     .tasks()
     .filter((jobTask) => jobTask.job_id === job.job_id)
-    .reduce((total, jobTask) => total + jobTask.cost_usd, 0);
+    .reduce((total, jobTask) => total + (jobTask.cost_usd ?? 0), 0);
   return {
     job_id: job.job_id,
     stage: job.stage,

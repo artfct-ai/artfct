@@ -279,7 +279,7 @@ async function validateEarlierOutputRemoved(
     if (!artifact || artifact.status === "removed") continue;
     const author = workflow.store.authorTaskOf(job.job_id);
     if (!isTaskFinished(author.status)) continue;
-    if (artifactRefKey({ ref: artifact.ref, url: artifact.external_url }) === inputKey) continue;
+    if (artifact.ref_key === inputKey) continue;
     if (await removedOnHost(workflow, artifact)) continue;
     const held = `Job ${job.job_id} (${author.status}) already produced ${artifact.external_url} from ${inputName(input)}, and the host still holds it (${artifact.status}).`;
     if (artifact.status !== "accepted" && workflow.artifact(artifact.kind).branch) {
@@ -347,7 +347,7 @@ async function continuedBranch(
   const key = artifactRefKey(target);
   const holder = workflow.store
     .artifacts()
-    .filter((row) => artifactRefKey({ ref: row.ref, url: row.external_url }) === key)
+    .filter((row) => row.ref_key === key)
     .map((row) => workflow.store.authorTaskOf(row.job_id))
     .find((author) => !isTaskFinished(author.status));
   if (holder) {

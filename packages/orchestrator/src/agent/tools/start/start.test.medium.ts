@@ -37,6 +37,7 @@ function seedJob(workflow: Workflow, jobId: string, taskId: string, seed: JobSee
     stage: seed.stage ?? "implement",
     issue_id: seed.issue?.id ?? null,
     issue_key: seed.issue?.key ?? null,
+    input_kind: seed.issue ? "issue" : "request",
     input_key: seed.issue?.id ?? jobInputKey({ kind: "request", text: REQUEST }),
     preceding_job_id: null,
     branch: null,
@@ -598,6 +599,7 @@ describe("start_job", () => {
       it("records the page as the input of the job", () =>
         started(({ workflow }) => {
           expect(workflow.store.jobs().at(-1)).toMatchObject({
+            input_kind: "target",
             input_key: "page:page-7",
             input_ref: { kind: "page", page_id: "page-7" },
             input_url: PAGE_URL,
@@ -632,6 +634,7 @@ describe("start_job", () => {
       it("records the pull request as the input of the job", () =>
         started(({ workflow }) => {
           expect(workflow.store.jobs().at(-1)).toMatchObject({
+            input_kind: "target",
             input_key: "pull:acme/app#1",
             input_ref: { kind: "pull", repo: "acme/app", number: 1 },
             input_url: PULL_URL,

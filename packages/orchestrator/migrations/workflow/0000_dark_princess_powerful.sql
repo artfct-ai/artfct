@@ -2,6 +2,7 @@ CREATE TABLE `agent_inbox` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`at` text NOT NULL,
 	`text` text NOT NULL,
+	`body` text,
 	`wake` text DEFAULT 'none' NOT NULL,
 	`reply_to` text,
 	`chat_message` text,
@@ -14,6 +15,7 @@ CREATE TABLE `artifacts` (
 	`kind` text NOT NULL,
 	`external_url` text NOT NULL,
 	`ref` text NOT NULL,
+	`ref_key` text NOT NULL,
 	`status` text DEFAULT 'drafted' NOT NULL,
 	`refiner_task_id` text,
 	`delivered_to_humans_at` text,
@@ -36,8 +38,7 @@ CREATE TABLE `boards` (
 --> statement-breakpoint
 CREATE TABLE `events` (
 	`id` text PRIMARY KEY NOT NULL,
-	`at` text NOT NULL,
-	`kind` text NOT NULL
+	`at` text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `jobs` (
@@ -45,7 +46,8 @@ CREATE TABLE `jobs` (
 	`stage` text NOT NULL,
 	`issue_id` text,
 	`issue_key` text,
-	`input_key` text,
+	`input_kind` text NOT NULL,
+	`input_key` text NOT NULL,
 	`preceding_job_id` text,
 	`input_ref` text,
 	`input_url` text,
@@ -72,7 +74,7 @@ CREATE TABLE `model_usage` (
 	`model` text NOT NULL,
 	`input_tokens` integer DEFAULT 0 NOT NULL,
 	`output_tokens` integer DEFAULT 0 NOT NULL,
-	`cost_usd` real DEFAULT 0 NOT NULL
+	`cost_usd` real
 );
 --> statement-breakpoint
 CREATE TABLE `outbox` (
@@ -176,7 +178,7 @@ CREATE TABLE `tasks` (
 	`model` text NOT NULL,
 	`status` text NOT NULL,
 	`paused_at` text,
-	`cost_usd` real DEFAULT 0 NOT NULL,
+	`cost_usd` real,
 	`started_at` text NOT NULL,
 	`summary` text DEFAULT '' NOT NULL,
 	`model_turn_id` text,
