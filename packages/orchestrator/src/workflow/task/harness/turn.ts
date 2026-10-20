@@ -331,34 +331,40 @@ export async function settleIdleAuthor(
 }
 
 /**
- * Arm the turn end alarm of every reviewer run whose turn ended without its turn end done. A
- * restart of the Durable Object during the turn end of a reviewer run drops the rest of it.
+ * Arm the turn end alarm of every refiner run whose turn ended without its turn end done. A
+ * restart of the Durable Object during the turn end of a refiner run drops the rest of it.
  */
-export async function resumeReviewerTurnEnds(workflow: WorkflowRuntime): Promise<void> {
+export async function resumeRefinerTurnEnds(workflow: WorkflowRuntime): Promise<void> {
   for (const run of workflow.store.tasks()) {
     const sandbox = workflow.store.sandbox(run.task_id);
-    if (!sandbox || !reviewerTurnEndWaits(workflow, run)) continue;
+    if (!sandbox || !refinerTurnEndWaits(workflow, run)) continue;
     const alarm: GenerationAlarm = { task_id: run.task_id, generation: sandbox.generation };
-    await workflow.scheduleAlarmOnce("resumeReviewerTurnEnd", alarm);
+    await workflow.scheduleAlarmOnce("resumeRefinerTurnEnd", alarm);
   }
 }
 
-/** Alarm: end the turn of a reviewer run of the alarm's generation whose turn end a restart cut. */
-export async function resumeReviewerTurnEnd(
+/**
+ * Alarm: end the turn of a refiner run of the alarm's generation whose turn end a restart cut. A
+ * polisher that waits on its checks looks the same, so a polisher settles through the checks gate
+ * again, as a recheck does.
+ */
+export async function resumeRefinerTurnEnd(
   workflow: WorkflowRuntime,
   alarm: GenerationAlarm,
 ): Promise<void> {
   const run = workflow.store.task(alarm.task_id);
   const sandbox = workflow.store.sandbox(alarm.task_id);
   if (!run || !sandbox || sandbox.generation !== alarm.generation) return;
-  if (!reviewerTurnEndWaits(workflow, run)) return;
+  if (!refinerTurnEndWaits(workflow, run)) return;
   workflow.log(run.task_id, "turn end resumed: a new instance lost it");
+  if (run.role === "polisher") return settlePolisherTurn(workflow, run);
   await endRefinerTurn(workflow, run, "end_turn", sandbox.turn_text);
 }
 
-/** True for a working reviewer run that had a prompt and has none in flight or queued. */
-export function reviewerTurnEndWaits(workflow: WorkflowRuntime, run: TaskRow): boolean {
-  if (run.role !== "reviewer" || run.status !== "working") return false;
+/** True for a working reviewer or polisher run that had a prompt and has none in flight or queued. */
+export function refinerTurnEndWaits(workflow: WorkflowRuntime, run: TaskRow): boolean {
+  if (run.role !== "reviewer" && run.role !== "polisher") return false;
+  if (run.status !== "working") return false;
   const sandbox = workflow.store.sandbox(run.task_id);
   return sandbox?.first_prompt_at != null && taskQuiet(workflow, run);
 }

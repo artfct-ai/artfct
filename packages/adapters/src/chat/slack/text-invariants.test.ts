@@ -104,6 +104,8 @@ const chunkPiece = fc.oneof(
 
 const chunkText = fc.array(chunkPiece, { maxLength: 40 }).map((pieces) => pieces.join(""));
 
+const runWithoutABreak = fc.constantFrom("a", "b", "-", "#");
+
 const textAndLimit = fc.integer({ min: 2, max: 60 }).chain((limit) =>
   fc.record({
     limit: fc.constant(limit),
@@ -116,12 +118,23 @@ const textAndLimit = fc.integer({ min: 2, max: 60 }).chain((limit) =>
           chunkText,
         )
         .map((parts) => parts.join("")),
+      {
+        weight: 2,
+        arbitrary: fc
+          .tuple(
+            fc.string({ unit: runWithoutABreak, minLength: limit - 2, maxLength: limit + 2 }),
+            fc.oneof(emoji, fc.constantFrom(" ", ".")),
+            chunkText,
+          )
+          .map((parts) => parts.join("")),
+      },
     ),
   }),
 );
 
 function cutFallsInsideAPair(text: string, limit: number): boolean {
-  if (text.length <= limit || text.slice(0, limit + 1).includes("\n")) return false;
+  if (text.length <= limit || /\s/.test(text.slice(1, limit + 1))) return false;
+  if (text.slice(0, limit).includes(".")) return false;
   const unit = text.charCodeAt(limit - 1);
   return unit >= 0xd800 && unit <= 0xdbff;
 }

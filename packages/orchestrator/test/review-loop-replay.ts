@@ -21,7 +21,7 @@ import { postHandover, type HandoverPostAlarm } from "../src/workflow/refiner/ou
 import { isTaskFinished, isWorkflowFinished } from "../src/workflow/store/state";
 import type { RefinerRun, TaskRow } from "../src/workflow/store/tasks";
 import type { GenerationAlarm, TaskAlarm } from "../src/workflow/task/harness/timers";
-import { resumeReviewerTurnEnd, reviewerTurnEndWaits } from "../src/workflow/task/harness/turn";
+import { resumeRefinerTurnEnd, refinerTurnEndWaits } from "../src/workflow/task/harness/turn";
 import { taskAtWork } from "../src/workflow/task/at-work";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
 import { quintTraces } from "./quint-traces";
@@ -1042,6 +1042,7 @@ export class ReviewLoopReplay {
     if (action === "instanceRestartsWhileAReviewerTurnEnds") {
       return this.instanceRestarts(() => this.untilAReviewerTurnEndIsCut());
     }
+    if (action === "instanceRestartsWhileAPolisherTurnEnds") return this.polisherTurnEndIsCut(step);
     if (action === "theHandoverPostAlarmFires") {
       await this.world.apply(handoverPostAlarmFires(this.world.taskOf(this.author).job_id));
       return;
@@ -1183,7 +1184,7 @@ export class ReviewLoopReplay {
       refinerRuns: runs.map((run) =>
         specRunOf(run, revisionCount, {
           quiet: taskQuiet(this.world.workflow, run),
-          turnEndWaits: reviewerTurnEndWaits(this.world.workflow, run),
+          turnEndWaits: refinerTurnEndWaits(this.world.workflow, run),
         }),
       ),
       judgeRunsCodeRulesOn: [...this.held.keys()].toSorted((left, right) => left - right),
@@ -2264,11 +2265,20 @@ export class ReviewLoopReplay {
    */
   private async untilAReviewerTurnEndIsCut(): Promise<void> {
     const run = this.world.refinerRunOf(this.author);
+    if (!run) throw new Error("no refiner run is unfinished");
+    await this.untilARefinerTurnEndIsCut(cutTurnClosing(this.laterTurnEndOf(this.runIdOf(run))));
+  }
+
+  /**
+   * The turn of the refiner run of the author ends with what `end` says. The first call of its
+   * turn end never returns.
+   */
+  private async untilARefinerTurnEndIsCut(end: RefinerRunEnd): Promise<void> {
+    const run = this.world.refinerRunOf(this.author);
     const bridge = run ? await this.world.bridgeWithRunningTurn(run.task_id) : null;
     if (!run || !bridge) throw new Error("no refiner run has a running turn");
-    const finish = this.laterTurnEndOf(this.runIdOf(run));
     const turn = { author: this.author, run, bridge };
-    await closeRefinerRunTurn(this.world, turn, cutTurnClosing(finish), this.authorIndex());
+    await closeRefinerRunTurn(this.world, turn, end, this.authorIndex());
     this.world.pageHost.commenting = "takes";
     const cut = this.cutOnce();
     this.world.workflow.gatewayInstance = new FakeGateway({ decisions: { decide: cut.reach } });
@@ -2279,6 +2289,27 @@ export class ReviewLoopReplay {
     } finally {
       restore();
     }
+  }
+
+  /**
+   * The polisher's turn ends after it pushed or not, and a restart cuts its turn end at its first
+   * call. The alarm the start step armed then settles the polisher on what the host says, which
+   * gives the gate outcome the spec picks.
+   */
+  private async polisherTurnEndIsCut(step: TraceStep): Promise<void> {
+    const run = this.world.refinerRunOf(this.author);
+    if (!run) throw new Error("no polisher holds the artifact");
+    const pushed = itfBool(pickOf(step, "pushed"));
+    if (this.revisions.kind === "pull") {
+      if (pushed) this.world.changeRevision(this.author);
+      const outcome = pickTag(step, "outcome");
+      const sentBackAlready = sentBackOnTheRevision(step.review);
+      this.hostSays(this.pick(hostChecksFor(outcome, sentBackAlready, this.polisherQuietMs())));
+    } else if (pushed) {
+      await this.editPage(pickTag(step, "part"));
+    }
+    await this.instanceRestarts(() => this.untilARefinerTurnEndIsCut(cutTurnClosing(null)));
+    await this.world.apply(cutTurnEndAlarmFires(run.task_id));
   }
 
   /** The alarm runs the turn end of the run `runId` that a restart cut, the way this step ends it. */
@@ -2711,11 +2742,11 @@ function cutTurnEndAlarmFires(taskId: string): WorkflowAction {
     toString: () => `the turn end alarm of ${taskId} fires`,
     run: async (world) => {
       const alarm = world.workflow
-        .alarmsFor("resumeReviewerTurnEnd")
+        .alarmsFor("resumeRefinerTurnEnd")
         .find((armed) => (armed.payload as GenerationAlarm).task_id === taskId);
       if (!alarm) throw new Error(`no turn end alarm is armed for ${taskId}`);
       await world.workflow.cancelAlarm(alarm.id);
-      await resumeReviewerTurnEnd(world.workflow, alarm.payload as GenerationAlarm);
+      await resumeRefinerTurnEnd(world.workflow, alarm.payload as GenerationAlarm);
     },
   };
 }

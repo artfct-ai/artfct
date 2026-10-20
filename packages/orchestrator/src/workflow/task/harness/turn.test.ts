@@ -6,8 +6,8 @@ import { freshRuntime } from "../../../../test/fresh-runtime";
 import {
   loggedFailureReason,
   onSessionUpdate,
-  resumeReviewerTurnEnd,
-  resumeReviewerTurnEnds,
+  resumeRefinerTurnEnd,
+  resumeRefinerTurnEnds,
   TurnCoalescer,
 } from "./turn";
 import { REVIEW_TASK, seedReviewerRun, seedTask } from "../../../../test/fake-runtime";
@@ -405,17 +405,17 @@ function reviewerRunAfterItsTurn(promptInFlight: 0 | 1) {
       prompt_in_flight: promptInFlight,
       turn_text: "The review.",
     });
-    await resumeReviewerTurnEnds(workflow);
+    await resumeRefinerTurnEnds(workflow);
   });
 }
 
-describe("resumeReviewerTurnEnds", () => {
+describe("resumeRefinerTurnEnds", () => {
   describe("a reviewer run whose turn ended before its turn end was done", () => {
     const cut = reviewerRunAfterItsTurn(0);
 
     it("arms the alarm that ends its turn, for its generation", () =>
       cut((workflow) => {
-        expect(workflow.alarmsFor("resumeReviewerTurnEnd").map((alarm) => alarm.payload)).toEqual([
+        expect(workflow.alarmsFor("resumeRefinerTurnEnd").map((alarm) => alarm.payload)).toEqual([
           {
             task_id: REVIEW_TASK,
             generation: workflow.store.requireSandbox(REVIEW_TASK).generation,
@@ -429,16 +429,16 @@ describe("resumeReviewerTurnEnds", () => {
 
     it("arms nothing", () =>
       working((workflow) => {
-        expect(workflow.alarmsFor("resumeReviewerTurnEnd")).toEqual([]);
+        expect(workflow.alarmsFor("resumeRefinerTurnEnd")).toEqual([]);
       }));
   });
 });
 
-describe("resumeReviewerTurnEnd", () => {
+describe("resumeRefinerTurnEnd", () => {
   describe("an alarm of an older generation", () => {
     const stale = scenario(reviewerRunAfterItsTurn(0), async (workflow) => {
       const { generation } = workflow.store.requireSandbox(REVIEW_TASK);
-      await resumeReviewerTurnEnd(workflow, { task_id: REVIEW_TASK, generation: generation - 1 });
+      await resumeRefinerTurnEnd(workflow, { task_id: REVIEW_TASK, generation: generation - 1 });
     });
 
     it("leaves the run working", () =>

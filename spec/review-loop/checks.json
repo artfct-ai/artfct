@@ -86,7 +86,9 @@
       "theHandoverAlarmPostsAHandover",
       "aRestartCutsAReviewerTurnEnd",
       "aCutReviewerTurnEndRuns",
-      "aRestartCutsARejectionPost"
+      "aRestartCutsARejectionPost",
+      "aRestartCutsTheHandoverOfAnEndedAuthor",
+      "aRestartCutsAPolisherTurnEnd"
     ],
     "reviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -124,7 +126,9 @@
       "aRestartCutsAHandoverPost",
       "theHandoverAlarmPostsAHandover",
       "aRestartCutsAReviewerTurnEnd",
-      "aCutReviewerTurnEndRuns"
+      "aCutReviewerTurnEndRuns",
+      "aRestartCutsAPolisherTurnEnd",
+      "aRestartCutsTheHandoverOfAnEndedAuthor"
     ],
     "judgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -164,7 +168,8 @@
       "theHandoverAlarmPostsAHandover",
       "aRestartCutsAReviewerTurnEnd",
       "aCutReviewerTurnEndRuns",
-      "aRestartCutsARejectionPost"
+      "aRestartCutsARejectionPost",
+      "aRestartCutsTheHandoverOfAnEndedAuthor"
     ],
     "modelCallAuthorWithTwoReviewers": [
       "aRefinerRunIsUnfinished",
@@ -253,7 +258,8 @@
       "aRestartCutsAHandoverPost",
       "theHandoverAlarmPostsAHandover",
       "aRestartCutsAReviewerTurnEnd",
-      "aCutReviewerTurnEndRuns"
+      "aCutReviewerTurnEndRuns",
+      "aRestartCutsAPolisherTurnEnd"
     ],
     "pageJudgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -303,7 +309,8 @@
       "theHandoverAlarmPostsAHandover",
       "aRestartCutsAReviewerTurnEnd",
       "aCutReviewerTurnEndRuns",
-      "aRestartCutsARejectionPost"
+      "aRestartCutsARejectionPost",
+      "aRestartCutsTheHandoverOfAnEndedAuthor"
     ],
     "pausedModelCallAuthor": [
       "aRefinerRunIsUnfinished",
@@ -484,7 +491,8 @@
       "aRestartCutsAHandoverPost",
       "theHandoverAlarmPostsAHandover",
       "aRestartCutsAReviewerTurnEnd",
-      "aCutReviewerTurnEndRuns"
+      "aCutReviewerTurnEndRuns",
+      "aRestartCutsAPolisherTurnEnd"
     ]
   },
   "maxSteps": {

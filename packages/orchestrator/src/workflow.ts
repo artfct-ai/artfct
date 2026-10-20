@@ -86,8 +86,8 @@ import {
 } from "./workflow/task/model-turn";
 import { armLostCallsAlarm, resumeLostCalls, type LostCallsAlarm } from "./workflow/restart";
 import {
-  resumeReviewerTurnEnd,
-  resumeReviewerTurnEnds,
+  resumeRefinerTurnEnd,
+  resumeRefinerTurnEnds,
   settleIdleAuthor,
   settleIdleAuthors,
   TurnCoalescer,
@@ -212,7 +212,7 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     await resumeLostTurn(this);
     await provisionQueuedTasks(this);
     await settleIdleAuthors(this);
-    await resumeReviewerTurnEnds(this);
+    await resumeRefinerTurnEnds(this);
   }
 
   async create(
@@ -296,10 +296,10 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     );
   }
 
-  /** Alarm: end the turn of a reviewer run whose turn end an instance restart cut. */
-  resumeReviewerTurnEnd(alarm: GenerationAlarm): Promise<void> {
-    return this.inSpan("alarm resumeReviewerTurnEnd", alarm.task_id, () =>
-      resumeReviewerTurnEnd(this, alarm),
+  /** Alarm: end the turn of a refiner run whose turn end an instance restart cut. */
+  resumeRefinerTurnEnd(alarm: GenerationAlarm): Promise<void> {
+    return this.inSpan("alarm resumeRefinerTurnEnd", alarm.task_id, () =>
+      resumeRefinerTurnEnd(this, alarm),
     );
   }
 

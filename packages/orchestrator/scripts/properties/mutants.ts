@@ -1781,7 +1781,7 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "reviewLoop::aRestartDoesNotStrandAReviewerTurnEnd (the start step arms no reviewer turn end)",
     path: "src/workflow/task/harness/turn.ts",
-    find: "    if (!sandbox || !reviewerTurnEndWaits(workflow, run)) continue;\n",
+    find: "    if (!sandbox || !refinerTurnEndWaits(workflow, run)) continue;\n",
     replace: "    continue;\n",
   },
   {
@@ -1791,6 +1791,14 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/task/harness/turn.ts",
     find: '    turn_text: task.role === "reviewer" ? turnText : "",\n',
     replace: '    turn_text: "",\n',
+  },
+  {
+    id: "W350",
+    invariant:
+      "reviewLoop::aRestartDoesNotStrandAReviewerTurnEnd (the start step arms no polisher turn end)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: '  if (run.role !== "reviewer" && run.role !== "polisher") return false;\n',
+    replace: '  if (run.role !== "reviewer") return false;\n',
   },
   {
     id: "W357",
@@ -1822,6 +1830,22 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/chat/slack/chat.ts",
     find: "  return lastUnit >= 0xd800 && lastUnit <= 0xdbff ? limit - 1 : limit;\n",
     replace: "  return limit;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
+  },
+  {
+    id: "W296",
+    invariant: "slackTextInvariants::slackChunksKeepTheText (whitespace one past the limit)",
+    path: "../adapters/src/chat/slack/chat.ts",
+    find: "  const whitespace = text.slice(0, limit + 1).search(LAST_WHITESPACE);\n",
+    replace: "  const whitespace = text.slice(0, limit + 2).search(LAST_WHITESPACE);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
+  },
+  {
+    id: "W297",
+    invariant: "slackTextInvariants::slackChunksKeepTheText (period at the limit)",
+    path: "../adapters/src/chat/slack/chat.ts",
+    find: '  const period = text.lastIndexOf(".", limit - 1);\n',
+    replace: '  const period = text.lastIndexOf(".", limit);\n',
     propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
   },
   {
@@ -1974,6 +1998,50 @@ export const MUTANTS: Mutant[] = [
     replace:
       "  return Math.abs(Math.floor(nowMs / 1000) - Number(timestamp)) <= REPLAY_WINDOW_SECONDS;\n",
     propertyFile: STANDALONE_PROPERTY_FILES.webhook_signatures,
+  },
+  {
+    id: "W315",
+    invariant:
+      "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (chunk decoded without streaming)",
+    path: "../bridge/src/line-reader.ts",
+    find: "    for (const line of splitter.push(decoder.decode(value, { stream: true }))) onLine(line);\n",
+    replace: "    for (const line of splitter.push(decoder.decode(value))) onLine(line);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.bridge_line_reader,
+  },
+  {
+    id: "W316",
+    invariant:
+      "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (lone carriage return ends a line)",
+    path: "../bridge/src/line-reader.ts",
+    find: "    this.buffer += chunk;\n",
+    replace: '    this.buffer += chunk.replaceAll("\\r", "\\n");\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.bridge_line_reader,
+  },
+  {
+    id: "W317",
+    invariant:
+      "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (unended last line not trimmed)",
+    path: "../bridge/src/line-reader.ts",
+    find: "    const tail = this.buffer.trim();\n",
+    replace: "    const tail = this.buffer;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.bridge_line_reader,
+  },
+  {
+    id: "W318",
+    invariant: "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (bytes decoded as Latin-1)",
+    path: "../bridge/src/line-reader.ts",
+    find: "  const decoder = new TextDecoder();\n",
+    replace: '  const decoder = new TextDecoder("latin1");\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.bridge_line_reader,
+  },
+  {
+    id: "W319",
+    invariant: "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (fresh decoder per chunk)",
+    path: "../bridge/src/line-reader.ts",
+    find: "    for (const line of splitter.push(decoder.decode(value, { stream: true }))) onLine(line);\n",
+    replace:
+      "    for (const line of splitter.push(new TextDecoder().decode(value, { stream: true }))) onLine(line);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.bridge_line_reader,
   },
   {
     id: "W335",

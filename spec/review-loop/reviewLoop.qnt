@@ -238,7 +238,8 @@ module reviewLoopTypes {
 
   /// What a new instance cut of a findings reviewer or polisher run that ended done in the last
   /// step: nothing, the first call its routing awaits after the run's done write, the post of the
-  /// handover its routing made, or the destroy of its sandbox.
+  /// handover its routing made, or the destroy of its sandbox. The post of the handover that the
+  /// teardown of an ended author made counts as a handover post cut too.
   type DoneRunCut = NoDoneRunCut | ItsRoutingIsCut | ItsHandoverPostIsCut | ItsDestroyIsCut
 
   /// The post of the reason of a judge's rejection that is out after the step that ruled it, with
@@ -350,6 +351,8 @@ module reviewLoopTypes {
     theHandoverAlarmPostsAHandover: bool,
     aRestartCutsAReviewerTurnEnd: bool,
     aCutReviewerTurnEndRuns: bool,
+    aRestartCutsTheHandoverOfAnEndedAuthor: bool,
+    aRestartCutsAPolisherTurnEnd: bool,
     aRestartCutsARejectionPost: bool,
     aRulingCallReturnsAfterTheAuthorEnded: bool,
     aModelTurnIsLostWithTheInstance: bool,
@@ -565,10 +568,12 @@ module reviewLoop {
   /// How often a new instance took over the workflow, a counter that model checking bounds.
   var instanceRestartCount: int
   /// True after a step in which a findings reviewer or polisher run ended done, while the destroy
-  /// of its sandbox, the last part of its end, is out.
+  /// of its sandbox, the last part of its end, is out. The spec does not cut the calls of a step
+  /// in which a new instance took over.
   var aDoneRunsSandboxIsOut: bool
-  /// True after a step in which the routing of a findings reviewer or polisher run that ended done
-  /// handed the artifact over, while the handover post, the last call of that routing, is out.
+  /// True after a step in which the routing of a findings reviewer or polisher run that ended done,
+  /// or the teardown of a cancelled or failed harness author, handed the artifact over, while the
+  /// handover post, the last call of that routing or teardown, is out.
   var aHandoverPostIsOut: bool
   /// The post of the reason of a rejection that the decisions model ruled in the last step and
   /// that reached a live author. The post is the last call of that ruling.
@@ -1561,6 +1566,16 @@ module reviewLoop {
   /// True when the artifact went from a draft to the humans in the step.
   pure def handedOverIn(step: Transition): bool = drafted(step.before) and not(drafted(step.after))
 
+  /// True when a harness author was cancelled or failed in the step and its teardown handed the
+  /// artifact over. The handover post is the last call of that teardown that changes what the
+  /// review holds.
+  pure def anEndedAuthorsHandoverPosts(step: Transition): bool = and {
+    not(MODEL_CALL_AUTHOR),
+    endsTheAuthor(step),
+    handedOverIn(step),
+    step.after.author.status == AuthorCancelled or step.after.author.status == AuthorFailed,
+  }
+
   /// The post of a rejection's reason that is out after the step: one the decisions model ruled
   /// in the step, when the rejection reached a live author whose model turn did not start.
   pure def rejectionPostOutAfter(step: Transition): RejectionPostCall =
@@ -1582,8 +1597,17 @@ module reviewLoop {
       lastStepKept' = rulesKeptBy(step),
       lastStepReached' = witnessesReachedBy(step),
       agentHeard' = kind.agentHeard,
-      aDoneRunsSandboxIsOut' = aRunEndedDoneIn(step),
-      aHandoverPostIsOut' = (aRunEndedDoneIn(step) and handsOverWithItsPostLast(step)),
+      aDoneRunsSandboxIsOut' = and {
+        not(kind.instanceRestarted),
+        aRunEndedDoneIn(step),
+      },
+      aHandoverPostIsOut' = and {
+        not(kind.instanceRestarted),
+        or {
+          aRunEndedDoneIn(step) and handsOverWithItsPostLast(step),
+          anEndedAuthorsHandoverPosts(step),
+        },
+      },
       rejectionPostOut' = rejectionPostOutAfter(step),
       instanceRestartCount' = if (kind.instanceRestarted) instanceRestartCount + 1 else instanceRestartCount,
       checksReportCount' = if (kind.checksReported) checksReportCount + 1 else checksReportCount,
@@ -2173,8 +2197,9 @@ module reviewLoop {
   }
 
   /// A new instance takes over while the handover post of the routing of a findings reviewer or
-  /// polisher run that ended done in the last step is out. The handover was recorded, and the
-  /// alarm that posts it again was armed, before the post. The humans have not heard of it.
+  /// polisher run that ended done in the last step, or of the teardown of an author that ended in
+  /// it, is out. The handover was recorded, and the alarm that posts it again was armed, before
+  /// the post. The humans have not heard of it.
   action instanceRestartsWhileAHandoverPosts: bool = all {
     INSTANCE_RESTARTS,
     aHandoverPostIsOut,
@@ -2229,6 +2254,32 @@ module reviewLoop {
     runningRunIs(review, FindingsReviewer) or runningRunIs(review, Judge),
     val waits = withStatus(review, lastUnfinishedRun(review), TurnEndWaits(review.artifact.revision))
     moveWith(instanceTakesOver(waits, RevisionKnown), { ...quietStep(NoTurnEnd), instanceRestarted: true }),
+  }
+
+  /// A new instance takes over during a polisher's turn end, after its turn ended and before its
+  /// first call returned. The start step arms an alarm, and the alarm settles the polisher through
+  /// the checks gate, as its turn end would have. Its turn text is not read again. A polisher
+  /// that waits on its checks looks the same to the start step, and its alarm settles it as a
+  /// recheck does, so this step folds the alarm into the restart.
+  action instanceRestartsWhileAPolisherTurnEnds: bool = all {
+    INSTANCE_RESTARTS,
+    not(aModelTurnIsOut(review)),
+    runningRunIs(review, Polisher),
+    nondet pushed = Set(true, false).oneOf()
+    nondet part = REVISION_PARTS.oneOf()
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
+    val id = lastUnfinishedRun(review)
+    val left = if (pushed) pageChanged(review, part) else review
+    nondet outcome = gateOutcomes(left, id, revisionLookup).oneOf()
+    moveWith(
+      polisherFinished(instanceTakesOver(review, RevisionKnown), id, pushed, part, outcome, revisionLookup),
+      {
+        ...quietStep(RefinerTurnEnded(id)),
+        instanceRestarted: true,
+        revisionLookup: revisionLookup,
+        checks: GateSettles(outcome),
+      },
+    ),
   }
 
   /// A new instance takes over while a model-call author's revise turn writes the page. The turn's
@@ -2359,6 +2410,7 @@ module reviewLoop {
     theHandoverPostAlarmFires,
     instanceRestartsWhileARejectionPosts,
     instanceRestartsWhileAReviewerTurnEnds,
+    instanceRestartsWhileAPolisherTurnEnds,
     authorPaused,
     authorResumed,
     personInstructs,
@@ -3027,6 +3079,15 @@ module reviewLoop {
       | _ => false
     },
     aRestartCutsARejectionPost: step.kind.cutARejectionPost,
+    aRestartCutsAPolisherTurnEnd: and {
+      step.kind.instanceRestarted,
+      match step.kind.turnEnd {
+        | RefinerTurnEnded(id) => refinerOf(step.after.refinerRuns[id]) == Polisher
+        | _ => false
+      },
+    },
+    aRestartCutsTheHandoverOfAnEndedAuthor:
+      step.kind.cutOfADoneRun == ItsHandoverPostIsCut and not(authorLive(step.before)),
     aModelTurnIsLostWithTheInstance: step.kind.instanceRestarted and aModelTurnIsOut(step.before),
     aPausedAuthorsModelTurnIsLost:
       step.kind.instanceRestarted and aModelTurnIsOut(step.before) and step.before.author.paused,
@@ -3290,7 +3351,8 @@ module reviewLoop {
     })
 
   /// A findings reviewer or judge run whose turn end a restart cut is still the run the artifact is
-  /// on, so the alarm the start step armed runs its turn end.
+  /// on, so the alarm the start step armed runs its turn end. A polisher's cut turn end settles in
+  /// the step of the restart, so a polisher never waits this way.
   val aRestartDoesNotStrandAReviewerTurnEnd: bool =
     runIds(review).forall(id =>
       turnEndWaits(review.refinerRuns[id].status) implies and {
@@ -3621,6 +3683,14 @@ module reviewLoop {
   /// Witness for `aRestartDoesNotStrandAReviewerTurnEnd`: the alarm runs the turn end of a run whose
   /// turn end a restart cut.
   val aCutReviewerTurnEndRuns: bool = lastStepReached.aCutReviewerTurnEndRuns
+
+  /// Witness for `aRestartDoesNotStrandAReviewerTurnEnd`: a new instance takes over during a
+  /// polisher's turn end, and the alarm the start step armed settles the polisher.
+  val aRestartCutsAPolisherTurnEnd: bool = lastStepReached.aRestartCutsAPolisherTurnEnd
+
+  /// Witness for `theHumansHearOfEachHandoverOnce`: a new instance takes over while the handover
+  /// post of the teardown of a cancelled or failed author is out.
+  val aRestartCutsTheHandoverOfAnEndedAuthor: bool = lastStepReached.aRestartCutsTheHandoverOfAnEndedAuthor
 
   /// Witness for `judgeRulesAtMostOnce`: a new instance takes over while the post of the reason of
   /// a rejection that reached the author is out.
