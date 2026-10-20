@@ -15,7 +15,14 @@ import { taskSettings } from "../task/settings";
 import type { TaskAlarm } from "../task/harness/timers";
 import type { WorkflowRuntime } from "../types";
 import { checksGate } from "./checks-gate";
-import { markArtifactReady, sendRejectionToAuthor, sendReviewToAuthor } from "./outcome";
+import {
+  artifactRevision,
+  handOverArtifactAt,
+  markArtifactReady,
+  revisionOfTheJobsArtifact,
+  sendRejectionToAuthor,
+  sendReviewToAuthor,
+} from "./outcome";
 import {
   judgeRuled,
   refinerIndexOf,
@@ -128,7 +135,7 @@ export async function runRefinersFrom(
   }
   const next = refinerAt(stage, nextIndex);
   if (!next) {
-    await markArtifactReady(workflow, author.job_id, { close: "ready" });
+    await handOverArtifactAt(workflow, author.job_id, { close: { close: "ready" }, revision });
     return `The humans have the artifact of job ${author.job_id}.`;
   }
   await startRefiner(workflow, author, nextIndex);
@@ -276,26 +283,29 @@ export async function onReviewerFinished(
     !entry || entry.mode === "judge"
       ? { filedNone: true }
       : await readReview(workflow, reviewer, entry, turnText);
-  await finishTask(workflow, reviewer, () => routeReview(workflow, reviewer, entry, read));
+  const revision =
+    entry?.mode === "judge" ? null : await revisionOfTheJobsArtifact(workflow, reviewer.job_id);
+  await finishTask(workflow, reviewer, () =>
+    routeReview(workflow, reviewer, { entry, read, revision }),
+  );
 }
 
 /**
- * Route the review of a reviewer run that ended done. Code rules on a judge entry. A findings
- * entry hands its review to the next entry, or settles its segment when it is the last one. A
- * review that cannot be read hands the artifact over blocked.
+ * Route the review of a reviewer run that ended done, on the revision read before it ended. Code
+ * rules on a judge entry. A findings entry hands its review to the next entry, or settles its
+ * segment when it is the last one. A review that cannot be read hands the artifact over blocked.
  */
 async function routeReview(
   workflow: WorkflowRuntime,
   reviewer: TaskRow,
-  entry: ReviewerEntry | null,
-  read: ReviewRead,
+  ended: { entry: ReviewerEntry | null; read: ReviewRead; revision: string | null },
 ): Promise<void> {
+  const { entry, read, revision } = ended;
   if ("readFailed" in read)
-    return handOverBlockedFromReviewer(
-      workflow,
-      reviewer,
-      `The reviewer's review could not be read (${read.readFailed}).`,
-    );
+    return handOverBlockedFromReviewer(workflow, reviewer, {
+      reason: `The reviewer's review could not be read (${read.readFailed}).`,
+      revision,
+    });
   if ("review" in read) workflow.store.fileReview(reviewer.task_id, read.review);
   const author = workflow.store.authorTaskOf(reviewer.job_id);
   const artifact = workflow.store.artifact(reviewer.job_id);
@@ -317,7 +327,6 @@ async function routeReview(
   if (entry?.mode === "judge") return settleJudgeEntry(workflow, author, reviewer, entry);
   const entries = workflow.stageForTask(author).reviewers;
   const index = refinerIndexOf(reviewer);
-  const revision = await artifactRevision(workflow, artifact);
   const runs = workflow.store.refinerRunsOf(author.job_id);
   const end = segmentEndOf(index, entries);
   const next = nextEntryToRun({ entries, runs, from: index + 1, revision });
@@ -533,15 +542,6 @@ function segmentReview(
   return { review, stale };
 }
 
-/** The revision the host gives the artifact now. Null when its kind has no reviewer or the host cannot say. */
-export async function artifactRevision(
-  workflow: WorkflowRuntime,
-  artifact: ArtifactRow,
-): Promise<string | null> {
-  const support = reviewSupportOf(workflow, artifact);
-  return support ? support.revision(artifact.ref) : null;
-}
-
 /**
  * The segment's review: findings in list order, summaries joined under entry names, and
  * blocking when any of them is. Null when no entry of the segment filed one.
@@ -590,14 +590,20 @@ export async function onReviewerFailed(
   reviewer: TaskRow,
   reason: string,
 ): Promise<void> {
-  await handOverBlockedFromReviewer(workflow, reviewer, `The reviewer could not run (${reason}).`);
+  await handOverBlockedFromReviewer(workflow, reviewer, {
+    reason: `The reviewer could not run (${reason}).`,
+    revision: await revisionOfTheJobsArtifact(workflow, reviewer.job_id),
+  });
 }
 
-/** Hand the drafted artifact the reviewer holds over blocked, with `reason` in place of the ready line. */
+/**
+ * Hand the drafted artifact the reviewer holds over blocked at `revision`, with `reason` in place
+ * of the ready line.
+ */
 async function handOverBlockedFromReviewer(
   workflow: WorkflowRuntime,
   reviewer: TaskRow,
-  reason: string,
+  blocked: { reason: string; revision: string | null },
 ): Promise<void> {
   const author = workflow.store.authorTaskOf(reviewer.job_id);
   const artifact = workflow.store.artifact(reviewer.job_id);
@@ -617,5 +623,8 @@ async function handOverBlockedFromReviewer(
     );
     return;
   }
-  await markArtifactReady(workflow, author.job_id, { close: "blocked", reason });
+  await handOverArtifactAt(workflow, author.job_id, {
+    close: { close: "blocked", reason: blocked.reason },
+    revision: blocked.revision,
+  });
 }

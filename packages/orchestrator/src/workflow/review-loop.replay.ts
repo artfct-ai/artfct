@@ -169,6 +169,10 @@ describe("review loop spec", () => {
     );
   });
 
+  it("routes each done refiner run before the first call a restart cuts", async () => {
+    await replayPinnedTrace("a-restart-cuts-the-routing-of-each-done-run", "reviewerThenPolisher");
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,

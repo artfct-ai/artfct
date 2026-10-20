@@ -908,13 +908,14 @@ export class ReviewLoopReplay {
     this.heardSteps.push(heard);
     this.heardNow = heard;
     const notesBefore = this.world.workflow.notes.length;
-    const destroyIsCut =
-      this.trace[this.step + 1]?.action === "instanceRestartsWhileADoneRunsSandboxIsDestroyed";
-    await this.whileRevisionLookupsGo(step, () =>
-      destroyIsCut
-        ? this.untilADoneRunsDestroy(() => this.takeAction(step))
-        : this.takeAction(step),
-    );
+    const next = this.trace[this.step + 1]?.action;
+    await this.whileRevisionLookupsGo(step, () => {
+      if (next === "instanceRestartsWhileADoneRunsSandboxIsDestroyed")
+        return this.untilADoneRunsDestroy(() => this.takeAction(step));
+      if (next === "instanceRestartsWhileADoneRunRoutes")
+        return this.untilADoneRunRoutes(() => this.takeAction(step));
+      return this.takeAction(step);
+    });
     for (const task of this.world.tasksAwaitingSandbox()) {
       await this.world.startSandboxOf(task.task_id);
     }
@@ -991,7 +992,10 @@ export class ReviewLoopReplay {
     if (action === "instanceRestarts") {
       return this.instanceRestarts(() => this.untilTheRestartMoment());
     }
-    if (action === "instanceRestartsWhileADoneRunsSandboxIsDestroyed") {
+    if (
+      action === "instanceRestartsWhileADoneRunsSandboxIsDestroyed" ||
+      action === "instanceRestartsWhileADoneRunRoutes"
+    ) {
       return this.instanceRestarts(async () => {});
     }
     if (action === "instanceRestartsWhileThePageIsWritten") {
@@ -2014,34 +2018,117 @@ export class ReviewLoopReplay {
    * the destroy never returns.
    */
   private async untilADoneRunsDestroy(work: () => Promise<void>): Promise<void> {
-    const world = this.world;
-    const { store, sandboxProvider } = world.workflow;
+    const { store, sandboxProvider } = this.world.workflow;
     const destroy = sandboxProvider.destroy.bind(sandboxProvider);
-    const apply = world.apply.bind(world);
+    const cut = this.cutOnce();
+    sandboxProvider.destroy = async (sandbox) => {
+      const task = store.task(sandbox.id);
+      if (task?.role === "author" || task?.status !== "done") return destroy(sandbox);
+      sandboxProvider.destroy = destroy;
+      return cut.reach();
+    };
+    try {
+      await this.untilCut(cut, work);
+    } finally {
+      sandboxProvider.destroy = destroy;
+    }
+    if (!cut.reached()) throw new Error("the step ended without the destroy of a done run");
+  }
+
+  /**
+   * Run `work` until the first call that a world action makes to a host or to a sandbox after a
+   * findings reviewer or polisher run ended done in it. That action stops there, as its instance
+   * does at a restart, and the call never returns. A chat post is not cut, because the spec does
+   * not model its delivery.
+   */
+  private async untilADoneRunRoutes(work: () => Promise<void>): Promise<void> {
+    const workflow = this.world.workflow;
+    const { store, sandboxProvider } = workflow;
+    const doneBefore = new Set(
+      store
+        .tasks()
+        .filter((task) => task.status === "done")
+        .map((task) => task.task_id),
+    );
+    const aRunEndedDone = () =>
+      store
+        .tasks()
+        .some(
+          (task) =>
+            task.role !== "author" && task.status === "done" && !doneBefore.has(task.task_id),
+        );
+    const cut = this.cutOnce();
+    const cutAfterTheDoneWrite = <Call extends (...args: never[]) => Promise<unknown>>(
+      call: Call,
+    ): Call =>
+      ((...args: Parameters<Call>) =>
+        aRunEndedDone() && !cut.reached() ? cut.reach() : call(...args)) as Call;
+    const hostWithCut = <Host extends object>(host: Host): Host =>
+      new Proxy(host, {
+        get: (target, name, receiver) => {
+          const value: unknown = Reflect.get(target, name, receiver);
+          if (typeof value !== "function") return value;
+          return cutAfterTheDoneWrite((...args: never[]) =>
+            Promise.resolve(value.apply(target, args) as unknown),
+          );
+        },
+      });
+    const { code, documents } = workflow;
+    const destroy = sandboxProvider.destroy;
+    workflow.code = () => {
+      const host = code.call(workflow);
+      return host ? hostWithCut(host) : null;
+    };
+    workflow.documents = async () => {
+      const host = await documents.call(workflow);
+      return host ? hostWithCut(host) : null;
+    };
+    sandboxProvider.destroy = cutAfterTheDoneWrite(destroy.bind(sandboxProvider));
+    try {
+      await this.untilCut(cut, work);
+    } finally {
+      Object.assign(workflow, { code, documents });
+      sandboxProvider.destroy = destroy;
+    }
+    if (!cut.reached()) throw new Error("the step ended without a call after a done run");
+  }
+
+  /** A cut a world action reaches once. The call that reaches it never returns. */
+  private cutOnce(): { reach: () => Promise<never>; reached: () => boolean; out: Promise<void> } {
     let reached = false;
-    const destroyOut = new Promise<void>((reach) => {
-      sandboxProvider.destroy = async (sandbox) => {
-        const task = store.task(sandbox.id);
-        if (task?.role === "author" || task?.status !== "done") return destroy(sandbox);
-        sandboxProvider.destroy = destroy;
+    let reach = () => {};
+    const out = new Promise<void>((resolve) => {
+      reach = resolve;
+    });
+    return {
+      reach: () => {
         reached = true;
         reach();
-        return new Promise(() => {});
-      };
-    });
+        return new Promise<never>(() => {});
+      },
+      reached: () => reached,
+      out,
+    };
+  }
+
+  /** Run `work`, and stop each world action it applies where the action reaches `cut`. */
+  private async untilCut(
+    cut: { reached: () => boolean; out: Promise<void> },
+    work: () => Promise<void>,
+  ): Promise<void> {
+    const world = this.world;
+    const apply = world.apply.bind(world);
     world.apply = (action) =>
       apply({
         run: (inWorld) =>
-          reached ? action.run(inWorld) : Promise.race([action.run(inWorld), destroyOut]),
+          cut.reached() ? action.run(inWorld) : Promise.race([action.run(inWorld), cut.out]),
         toString: () => String(action),
       });
     try {
       await work();
     } finally {
-      sandboxProvider.destroy = destroy;
       world.apply = apply;
     }
-    if (!reached) throw new Error("the step ended without the destroy of a done run");
   }
 
   /** Reach the moment of a restart between steps that the seeded pick chooses. */

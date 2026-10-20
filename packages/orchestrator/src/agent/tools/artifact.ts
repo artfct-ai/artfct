@@ -3,12 +3,12 @@ import { z } from "zod";
 import {
   advanceArtifactPastEntry,
   applyJudgeRuling,
-  artifactRevision,
   taskQuiet,
   heldForReview,
   refinerInFlight,
   runRefinersFrom,
 } from "../../workflow/refiner/loop";
+import { artifactRevision } from "../../workflow/refiner/outcome";
 import { polisherRefusal } from "../../workflow/refiner/polish";
 import { reviewLimitReached } from "../../workflow/refiner/review-limit";
 import {

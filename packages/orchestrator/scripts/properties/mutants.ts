@@ -1698,6 +1698,22 @@ export const MUTANTS: Mutant[] = [
     find: "  if (!claimed || !isTaskFinished(author.status)) return;\n",
     replace: "  return;\n",
   },
+  {
+    id: "W343",
+    invariant: "reviewLoop::aDoneRefinerRunRoutesItsReview (reviewer reads the revision after its done write)",
+    path: "src/workflow/refiner/loop.ts",
+    find: "  await finishTask(workflow, reviewer, () =>\n    routeReview(workflow, reviewer, { entry, read, revision }),\n  );\n",
+    replace:
+      "  await finishTask(workflow, reviewer, async () =>\n    routeReview(workflow, reviewer, {\n      entry,\n      read,\n      revision: (await revisionOfTheJobsArtifact(workflow, reviewer.job_id)) ?? revision,\n    }),\n  );\n",
+  },
+  {
+    id: "W344",
+    invariant: "reviewLoop::aDoneRefinerRunRoutesItsReview (polisher reads the revision after its done write)",
+    path: "src/workflow/refiner/polish.ts",
+    find: "    await handOnFromPolisher(workflow, { author, polisher, outcome, revision });\n",
+    replace:
+      "    const read = await revisionOfTheJobsArtifact(workflow, polisher.job_id);\n    await handOnFromPolisher(workflow, { author, polisher, outcome, revision: read ?? revision });\n",
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */
