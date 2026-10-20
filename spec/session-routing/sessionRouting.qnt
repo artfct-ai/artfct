@@ -862,8 +862,14 @@ module sessionRouting {
   /// A person writes in a session of a running workflow where no author runs on the issue, so the
   /// message wakes the agent or runs a verbal command. The step also lists `personWritesInSession`,
   /// and this copy raises how often the agent answers a person in a session.
-  action aPersonWritesWhereNoAuthorRuns: bool = {
-    val quietIssues = ISSUES.filter(issue =>
+  action aPersonWritesWhereNoAuthorRuns: bool = aPersonWritesInAQuietSessionOn(ISSUES)
+
+  /// Like `aPersonWritesWhereNoAuthorRuns`, on the sub-issue alone. This copy raises how often a
+  /// person waits for the agent in a session other than the starting one.
+  action aPersonWritesInTheQuietSubIssueSession: bool = aPersonWritesInAQuietSessionOn(Set(SubIssue))
+
+  action aPersonWritesInAQuietSessionOn(issues: Set[Issue]): bool = {
+    val quietIssues = issues.filter(issue =>
       routing.replyTargets.contains(Session(issue)) and runningSessionJob(routing, issue).size() == 0)
     all {
       not(routing.ended),
@@ -956,6 +962,18 @@ module sessionRouting {
   /// turn answers. A question while no job is unfinished puts the workflow to sleep.
   action agentTurnEnds: bool = {
     nondet outcome = Set(Answers, Asks, TimesOut).oneOf()
+    theAgentTurnEndsWith(outcome)
+  }
+
+  /// The watchdog posts the timeout text while a person waits in the session on the sub-issue. The
+  /// step also lists `agentTurnEnds`, and this copy raises how often the timeout text reaches a
+  /// session other than the starting one.
+  action theTurnTimesOutWhileTheSubIssueSessionWaits: bool = all {
+    routing.waiting.contains(Session(SubIssue)),
+    theAgentTurnEndsWith(TimesOut),
+  }
+
+  action theAgentTurnEndsWith(outcome: TurnOutcome): bool = {
     val kind = match outcome {
       | Answers => InfoPost
       | Asks => QuestionPost
@@ -1383,6 +1401,7 @@ module sessionRouting {
   action step: bool = any {
     personWritesInSession,
     aPersonWritesWhereNoAuthorRuns,
+    aPersonWritesInTheQuietSubIssueSession,
     personSendsInSession,
     trackerDeliversAgain,
     aSessionMessageLands,
@@ -1398,6 +1417,7 @@ module sessionRouting {
     personStops,
     personStopsAModelCall,
     theAgentTurnEndsOrTheInstanceRestarts,
+    theTurnTimesOutWhileTheSubIssueSessionWaits,
     closingReplyAlarmFires,
     researcherReportsTodos,
     researcherHandsOver,
@@ -1585,6 +1605,10 @@ module sessionRouting {
   /// Witness for `linearOnlyAsksReachTheStartingSession`: the timeout text reached the starting session.
   val theTimeoutTextReachesTheStartingSession: bool =
     postsOf(lastStep).exists(posted => posted.kind == TurnFailedPost and posted.targets.contains(STARTING_SESSION))
+
+  /// Witness for `sessionMessageWithoutAnAuthorIsAnswered`: the timeout text reached a person in the session on the sub-issue.
+  val theTimeoutTextReachesASubIssueSession: bool =
+    postsOf(lastStep).exists(posted => posted.kind == TurnFailedPost and posted.targets.contains(Session(SubIssue)))
 
   /// Witness for `orchestratorStaysOutOfSessionsWhenChatExists`: a workflow with a chat thread and a session posted.
   val aPostLandsBesideASession: bool =

@@ -26,7 +26,7 @@ if (
 let failed = false;
 const files = names.flatMap((name) =>
   name === "standalone"
-    ? STANDALONE_PROPERTY_FILES
+    ? Object.values(STANDALONE_PROPERTY_FILES)
     : [SPEC_REPLAY_FILES[name as keyof typeof SPEC_REPLAY_FILES]],
 );
 for (const file of files) {

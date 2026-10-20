@@ -1,21 +1,41 @@
 #!/usr/bin/env bun
 /**
- * Applies each hand-written mutant to the orchestrator source, one at a time, and runs the spec
- * replays against it on `PROPERTY_SEED`. A mutant that every spec replay passes survives. When a
- * mutant survives or no longer applies, the report goes to the path in the first argument.
+ * Applies each hand-written mutant to the source, one at a time, and runs its property files
+ * against it on `PROPERTY_SEED`: the standalone property file it names, or else every spec replay.
+ * A mutant that each of its property files passes survives. When a mutant survives or no longer
+ * applies, the report goes to the path in the first argument.
  * Usage: PROPERTY_SEED=<integer> bun scripts/properties/mutants.ts <report-path>
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { SPEC_REPLAY_FILES, runPropertyFile } from "./property-files";
+import {
+  SPEC_REPLAY_FILES,
+  STANDALONE_PROPERTY_FILES,
+  runPropertyFile,
+  type PropertyFile,
+} from "./property-files";
 
-/** A one-place change to the source that breaks the invariant it names. */
-export type Mutant = { id: string; invariant: string; path: string; find: string; replace: string };
+/**
+ * A one-place change to the source that breaks the invariant it names. Its path is relative to the
+ * orchestrator package. A mutant of a standalone property invariant names the property file that
+ * kills it.
+ */
+export type Mutant = {
+  id: string;
+  invariant: string;
+  path: string;
+  find: string;
+  replace: string;
+  propertyFile?: PropertyFile;
+};
 
-/** What the spec replays did to a mutant. */
-export type MutantResult = { mutant: Mutant; status: "killed" | "survived" | "not_applied" };
+/** What a mutant's property files did to it. */
+export type MutantResult = {
+  mutant: Mutant;
+  status: "killed" | "survived" | "not_applied";
+};
 
-/** The hand-written mutants. Each one breaks the spec rule it names, which its spec replay is meant to catch. */
+/** The hand-written mutants. Each one breaks the rule it names, which its property files are meant to catch. */
 export const MUTANTS: Mutant[] = [
   {
     id: "W1",
@@ -1796,6 +1816,222 @@ export const MUTANTS: Mutant[] = [
     replace:
       '  await (support.postRejection\n    ? support.postRejection(artifact.ref, signedReason)\n    : workflow.post({ type: "info", text: signedReason }));\n  await Promise.all([\n    sendRejectionToAuthor(',
   },
+  {
+    id: "W290",
+    invariant: "slackTextInvariants::slackTextNeverNotifies",
+    path: "../adapters/src/chat/slack/mrkdwn.ts",
+    find: '      if (heading !== undefined) return `*${toSlackMrkdwn(heading.replaceAll("**", ""))}*`;\n',
+    replace: '      if (heading !== undefined) return `*${heading.replaceAll("**", "")}*`;\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
+  },
+  {
+    id: "W291",
+    invariant: "slackTextInvariants::slackChunksKeepTheText",
+    path: "../adapters/src/chat/slack/chat.ts",
+    find: '  const paragraph = text.lastIndexOf("\\n\\n", limit);\n',
+    replace: '  const paragraph = text.lastIndexOf("\\n\\n", limit + 1);\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
+  },
+  {
+    id: "W292",
+    invariant: "slackTextInvariants::slackChunksKeepTheText (surrogate pair)",
+    path: "../adapters/src/chat/slack/chat.ts",
+    find: "  return lastUnit >= 0xd800 && lastUnit <= 0xdbff ? limit - 1 : limit;\n",
+    replace: "  return limit;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
+  },
+  {
+    id: "W293",
+    invariant: "slackTextInvariants::slackMrkdwnIsStable",
+    path: "../adapters/src/chat/slack/mrkdwn.ts",
+    find: "  let previous: string;\n  do {\n    previous = mrkdwn;\n    mrkdwn = markdownToMrkdwnOnce(previous);\n  } while (mrkdwn !== previous);\n  return mrkdwn;\n",
+    replace: "  return markdownToMrkdwnOnce(mrkdwn);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
+  },
+  {
+    id: "W294",
+    invariant: "inboundInvariants::inboundMapperNeverThrows",
+    path: "../adapters/src/chat/slack/inbound.ts",
+    find: "  const parsed = slackEventCallbackSchema.safeParse(payload);\n  if (!parsed.success) return UNHANDLED_EVENT;\n  const callback = parsed.data;\n",
+    replace: "  const callback = slackEventCallbackSchema.parse(payload);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.slack_inbound,
+  },
+  {
+    id: "W300",
+    invariant: "githubCodeInvariants::githubFailedCheckWinsInAnyOrder (running before stopped)",
+    path: "../adapters/src/code/github/commit-checks.ts",
+    find: '  const stopped = failuresOf(reported, "stopped");\n  if (stopped.length) return { state: "stopped", failures: stopped };\n  if (reported.some((check) => check.standing === "running")) return { state: "running" };\n',
+    replace:
+      '  if (reported.some((check) => check.standing === "running")) return { state: "running" };\n  const stopped = failuresOf(reported, "stopped");\n  if (stopped.length) return { state: "stopped", failures: stopped };\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.github_code,
+  },
+  {
+    id: "W301",
+    invariant:
+      "githubCodeInvariants::githubFailedCheckWinsInAnyOrder (error status reads as failed)",
+    path: "../adapters/src/code/github/commit-checks.ts",
+    find: '    standing: status.state === "failure" ? "failed" : "stopped",\n',
+    replace: '    standing: "failed",\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.github_code,
+  },
+  {
+    id: "W302",
+    invariant: "githubCodeInvariants::githubPullLinkNamesOnlyAGithubPull (unanchored reader)",
+    path: "../adapters/src/code/github/url.ts",
+    find: "const GITHUB_PULL = /^https:\\/\\/github\\.com\\/([\\w.-]+\\/[\\w.-]+)\\/pull\\/(\\d+)(?:[/?#]|$)/;\n",
+    replace: "const GITHUB_PULL = /github\\.com\\/([\\w.-]+\\/[\\w.-]+)\\/pull\\/(\\d+)/;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.github_code,
+  },
+  {
+    id: "W303",
+    invariant: "githubCodeInvariants::githubPullLinkNamesOnlyAGithubPull (inexact number)",
+    path: "../adapters/src/code/github/url.ts",
+    find: "  if (!Number.isSafeInteger(number)) return null;\n",
+    replace: "",
+    propertyFile: STANDALONE_PROPERTY_FILES.github_code,
+  },
+  {
+    id: "W304",
+    invariant: "githubCodeInvariants::githubFailedCheckWinsInAnyOrder (run detail not clipped)",
+    path: "../adapters/src/code/github/commit-checks.ts",
+    find: "      detail: detail.slice(0, DETAIL_CHARS),\n",
+    replace: "      detail,\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.github_code,
+  },
+  {
+    id: "W325",
+    invariant: "githubCodeInvariants::githubPullLinkRoundTrips",
+    path: "../adapters/src/code/github/url.ts",
+    find: "\\/pull\\/(\\d+)(?:[/?#]|$)/;\n",
+    replace: "\\/pull\\/(\\d+)(?:[/?]|$)/;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.github_code,
+  },
+  {
+    id: "W310",
+    invariant: "documentsInvariants::notionPageLinkNamesItsPage",
+    path: "../adapters/src/documents/notion/page-id.ts",
+    find: "const PAGE_ID = /([0-9a-f]{32})(?:[?#/]|$)/;\n",
+    replace: "const PAGE_ID = /([0-9a-f]{32})/;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.notion_text,
+  },
+  {
+    id: "W311",
+    invariant: "documentsInvariants::notionRichTextJoinsBack (cut past the limit)",
+    path: "../adapters/src/documents/notion/rich-text.ts",
+    find: "    const end = richTextItemEnd(text, start + NOTION_RICH_TEXT_CHARS);\n",
+    replace: "    const end = richTextItemEnd(text, start + NOTION_RICH_TEXT_CHARS + 1);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.notion_text,
+  },
+  {
+    id: "W312",
+    invariant: "documentsInvariants::notionRichTextJoinsBack (surrogate pair)",
+    path: "../adapters/src/documents/notion/rich-text.ts",
+    find: "  return lastUnit >= 0xd800 && lastUnit <= 0xdbff ? limit - 1 : limit;\n",
+    replace: "  return limit;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.notion_text,
+  },
+  {
+    id: "W313",
+    invariant:
+      "documentsInvariants::linearWriteKeepsTheConcurrentEdit (edits applied to the text read)",
+    path: "../adapters/src/documents/linear/documents.ts",
+    find: "  return applyPageTextEdits(current, update.edits);\n",
+    replace: "  return applyPageTextEdits(change.before, update.edits);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.linear_document_write,
+  },
+  {
+    id: "W314",
+    invariant:
+      "documentsInvariants::linearWriteKeepsTheConcurrentEdit (whole text over the current content)",
+    path: "../adapters/src/documents/linear/documents.ts",
+    find: "    return { text: current.trim() ? `${update.whole}\\n${current}` : update.whole };\n",
+    replace: "    return { text: update.whole };\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.linear_document_write,
+  },
+  {
+    id: "W305",
+    invariant: "webhookInvariants::genuineWebhookDelivers (data by character code)",
+    path: "../adapters/src/hmac.ts",
+    find: '  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(data));\n',
+    replace:
+      '  const signature = await crypto.subtle.sign(\n    "HMAC",\n    key,\n    Uint8Array.from(data, (char) => char.charCodeAt(0)),\n  );\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.webhook_signatures,
+  },
+  {
+    id: "W306",
+    invariant: "webhookInvariants::genuineWebhookDelivers (secret by character code)",
+    path: "../adapters/src/hmac.ts",
+    find: "    encoder.encode(secret),\n",
+    replace: "    Uint8Array.from(secret, (char) => char.charCodeAt(0)),\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.webhook_signatures,
+  },
+  {
+    id: "W307",
+    invariant: "webhookInvariants::genuineWebhookDelivers (Linear body as Latin-1)",
+    path: "../adapters/src/tracker/linear/webhook.ts",
+    find: "new LinearWebhookClient(secret).verify(Buffer.from(body), signature)",
+    replace: 'new LinearWebhookClient(secret).verify(Buffer.from(body, "latin1"), signature)',
+    propertyFile: STANDALONE_PROPERTY_FILES.webhook_signatures,
+  },
+  {
+    id: "W308",
+    invariant: "webhookInvariants::genuineWebhookDelivers (GitHub verifies the parsed body)",
+    path: "../ingress/src/routes/github.ts",
+    find: "  if (!(await verifyGithubWebhook(secret, body, ctx.req.raw.headers)))\n",
+    replace:
+      "  if (!(await verifyGithubWebhook(secret, JSON.stringify(JSON.parse(body)), ctx.req.raw.headers)))\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.webhook_signatures,
+  },
+  {
+    id: "W309",
+    invariant: "webhookInvariants::badSignatureNeverDelivers",
+    path: "../adapters/src/chat/slack/webhook.ts",
+    find: "  return Math.abs(nowMs / 1000 - Number(timestamp)) <= REPLAY_WINDOW_SECONDS;\n",
+    replace:
+      "  return Math.abs(Math.floor(nowMs / 1000) - Number(timestamp)) <= REPLAY_WINDOW_SECONDS;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.webhook_signatures,
+  },
+  {
+    id: "W335",
+    invariant: "orchestratorTextInvariants::verbalCommandOnlyFromAnExactWord (words before it)",
+    path: "src/workflow/inbound/verbal-command.ts",
+    find: "const BARE_VERB = /^(cancel|",
+    replace: "const BARE_VERB = /(cancel|",
+    propertyFile: STANDALONE_PROPERTY_FILES.verbal_command,
+  },
+  {
+    id: "W336",
+    invariant: "orchestratorTextInvariants::verbalCommandOnlyFromAnExactWord (text after it)",
+    path: "src/workflow/inbound/verbal-command.ts",
+    find: "\\s*[.!?]*$/i;\n",
+    replace: "\\s*[.!?]*/i;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.verbal_command,
+  },
+  {
+    id: "W337",
+    invariant:
+      "orchestratorTextInvariants::verbalCommandOnlyFromAnExactWord (longer instruct word)",
+    path: "src/workflow/inbound/verbal-command.ts",
+    find: "const INSTRUCT = /^instruct\\b[:\\s]*/i;\n",
+    replace: "const INSTRUCT = /^instruct[:\\s]*/i;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.verbal_command,
+  },
+  {
+    id: "W338",
+    invariant: "orchestratorTextInvariants::screenPartsHoldEverySpanWhole",
+    path: "src/decisions/screen.ts",
+    find: "const PART_OVERLAP_CHARS = 1_000;\n",
+    replace: "const PART_OVERLAP_CHARS = 500;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.screen_parts,
+  },
+  {
+    id: "W339",
+    invariant: "orchestratorTextInvariants::taskDigestStaysWithinItsCap",
+    path: "src/workflow/task/harness/digest.ts",
+    find: '  return clipHead(headLines(input).join("\\n"), DIGEST_MAX_CHARS - tail.length - newlineBeforeTail);\n',
+    replace: '  return headLines(input).join("\\n");\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.task_digest,
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */
@@ -1815,15 +2051,16 @@ export function mutantReport(results: MutantResult[], seed: number): string | nu
   );
   return [
     "## Surviving mutants",
-    `The nightly mutant run on seed ${seed} found mutants the spec replays did not kill.`,
+    `The nightly mutant run on seed ${seed} found mutants their property files did not kill.`,
     ["| Mutant | Invariant | File | Result |", "| --- | --- | --- | --- |", ...rows].join("\n"),
     "A surviving mutant shows a rule the generators do not reach. Update a mutant that no longer applies in `packages/orchestrator/scripts/properties/mutants.ts`.",
     "",
   ].join("\n\n");
 }
 
-async function killedByASpecReplay(seed: number): Promise<boolean> {
-  for (const file of Object.values(SPEC_REPLAY_FILES)) {
+async function killedByItsPropertyFiles(mutant: Mutant, seed: number): Promise<boolean> {
+  const files = mutant.propertyFile ? [mutant.propertyFile] : Object.values(SPEC_REPLAY_FILES);
+  for (const file of files) {
     const run = await runPropertyFile(file, seed);
     if (run.outcome !== "passed") return true;
   }
@@ -1837,7 +2074,10 @@ async function runMutant(mutant: Mutant, seed: number): Promise<MutantResult> {
   if (mutated === null) return { mutant, status: "not_applied" };
   writeFileSync(path, mutated);
   try {
-    return { mutant, status: (await killedByASpecReplay(seed)) ? "killed" : "survived" };
+    return {
+      mutant,
+      status: (await killedByItsPropertyFiles(mutant, seed)) ? "killed" : "survived",
+    };
   } finally {
     writeFileSync(path, original);
   }
