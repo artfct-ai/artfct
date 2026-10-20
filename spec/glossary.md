@@ -16,8 +16,8 @@ A code name is one type, table, column, or function. A code name that needs a co
 | workflow definition | A named set of stages in config. A deployment may hold several. A workflow runs the one its plan names. | `WorkflowDefinition`, `workflows/<name>.yaml`, `set_plan` `definition` | |
 | stage | One step of a workflow. It produces one artifact. Config declares it. | `Stage` | |
 | job | The execution of one stage. Its tasks belong to it, and it holds what they produce. | `jobs` row | |
-| job slot | One job a workflow may run at a time. The plan sets the number of job slots. | `stage_plan.job_slots`, `set_plan` `concurrency` | task slot, concurrency slot |
-| stage plan | The stages, job slots, repository and pages a plan sets. A workflow has none until a plan names stages. A later plan with stages replaces it. | `stage_plan`, `StagePlan` | |
+| job slot | One job a workflow may run at a time. A plan with stages sets the number of job slots. Before it, the workflow holds two. | `stage_plan.job_slots`, `UNPLANNED_JOB_SLOTS`, `set_plan` `concurrency` | task slot, concurrency slot |
+| stage plan | The stages, job slots and pages a plan sets. A workflow has none until a plan names stages. A later plan with stages replaces it. | `stage_plan`, `StagePlan` | |
 | task | One execution of a role in a job. | `tasks` row | |
 | paused task | A task held by a person or the agent. It keeps its queued prompts and takes none until it resumes. | `tasks.paused_at`, `pauseTask`, `resumeTask` | |
 | model-call task | A task that runs as model calls through the gateway, with no sandbox and no harness session. Its task status is `working` from the start of a turn until its page waits in review. A model turn is in flight while it is `working`, except after a stop ended its first turn before the page existed. | `AuthorActivity.execution "model"`, no sandboxes row | |

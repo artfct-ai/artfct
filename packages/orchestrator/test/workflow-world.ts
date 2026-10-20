@@ -64,6 +64,7 @@ import {
   patchStagePolishers,
   patchStageResearch,
   patchStageReviewers,
+  patchPlan,
   patchStagePlan,
 } from "./fake-runtime";
 import { openMemoryDb, storeRowsOf, type MemoryDb } from "./memory-db";
@@ -579,7 +580,12 @@ export class WorkflowWorld {
       origin: ORIGINS[setup.origin],
     });
     workflow.store.addReplyTarget(ORIGINS[setup.origin]);
-    patchStagePlan(workflow, { stages: [stage], repo: REPO, job_slots: SLOTS });
+    patchPlan(workflow, { repo: REPO });
+    patchStagePlan(workflow, {
+      stages: [stage],
+      job_slots: SLOTS,
+      page_parent: setup.pageAuthor === "model" ? PAGE_PARENT : null,
+    });
     const subject = openingSubject(setup);
     if (subject) await setWorkflowSubject(workflow, subject);
     const first = await startJob(workflow, {
@@ -1564,7 +1570,6 @@ class TurnEndingModel implements LanguageModelV4 {
 
 /** Run the author of the page stage as model calls. The world installs the page model. */
 function patchModelPageAuthor(workflow: FakeRuntime): void {
-  patchStagePlan(workflow, { page_parent: PAGE_PARENT });
   workflow.patchWorkflowDefinition({
     stages: workflow.patchableWorkflowDefinition().stages.map((stage) =>
       stage.name === STAGE_OF.page
@@ -1588,7 +1593,7 @@ function patchModelPageAuthor(workflow: FakeRuntime): void {
 function patchPageBranch(workflow: FakeRuntime): void {
   workflow.patchWorkflowDefinition({
     stages: workflow
-      .workflowDefinition()
+      .patchableWorkflowDefinition()
       .stages.map((stage) => (stage.name === STAGE_OF.page ? { ...stage, branch: true } : stage)),
   });
 }
@@ -1596,7 +1601,7 @@ function patchPageBranch(workflow: FakeRuntime): void {
 function patchPageEnding(workflow: FakeRuntime, ending: PageEnding): void {
   workflow.patchWorkflowDefinition({
     stages: workflow
-      .workflowDefinition()
+      .patchableWorkflowDefinition()
       .stages.map((stage) => (stage.name === STAGE_OF.page ? { ...stage, ending } : stage)),
   });
 }

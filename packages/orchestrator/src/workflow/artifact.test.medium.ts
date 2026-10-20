@@ -11,7 +11,7 @@ import {
   patchStageReviewers,
   seedTask,
   type FakeRuntime,
-  patchStagePlan,
+  patchPlan,
 } from "../../test/fake-runtime";
 import { scenario, type Scenario } from "../../test/scenario";
 import {
@@ -27,7 +27,7 @@ const PR_URL = "https://github.com/acme/app/pull/1";
 const TARGET = { url: PR_URL, ref: { kind: "pull" as const, repo: "acme/app", number: 1 } };
 
 function seedAuthor(workflow: FakeRuntime, patch = {}, sandbox = {}) {
-  patchStagePlan(workflow, { repo: "acme/app" });
+  patchPlan(workflow, { repo: "acme/app" });
   return seedTask(workflow, { stage: "implement", branch: "artfct/wf_x-1-fix", ...patch }, sandbox);
 }
 

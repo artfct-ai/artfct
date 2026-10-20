@@ -18,7 +18,7 @@ import { saveLinearInstall } from "../db/linear-installs";
 import { createWorkflow } from "../db/workflows";
 import { WORKER_SECRETS } from "../env";
 import { FakeBridge } from "../../test/fake-bridge";
-import { FakeRuntime, seedTask, patchStagePlan } from "../../test/fake-runtime";
+import { FakeRuntime, seedTask, patchPlan } from "../../test/fake-runtime";
 import { openMemoryDb } from "../../test/memory-db";
 import {
   DEV_VAR_HANDLING,
@@ -207,7 +207,7 @@ async function startDeployment(
     allReposReadToken: minted(READ_TOKEN),
     failing: setup.hostFails,
   });
-  patchStagePlan(workflow, { repo: "acme/app" });
+  patchPlan(workflow, { repo: "acme/app" });
   const stage = STAGE_OF[setup.artifact];
   seedTask(
     workflow,

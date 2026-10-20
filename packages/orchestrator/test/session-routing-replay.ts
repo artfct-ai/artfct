@@ -20,7 +20,7 @@ import { onWallClock } from "../src/workflow/task/harness/timers";
 import type { TaskEvent } from "../src/workflow/task/events";
 import type { WorkflowRuntime } from "../src/workflow/types";
 import { Deferred } from "./deferred";
-import { FakeRuntime } from "./fake-runtime";
+import { FakeRuntime, PAGE_PARENT } from "./fake-runtime";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
 import { quintTraces } from "./quint-traces";
 import type { TrackerHealth } from "./session-tracker";
@@ -531,7 +531,10 @@ export class SessionRoutingReplay {
       }
       return FakeRuntime.prototype.scheduleAlarm.apply(this, alarm);
     };
-    await world.apply(worldAction("the agent sets the plan", () => setPlan(workflow, {})));
+    const pageParent = SPEC_SETUPS[setup].pageAuthor === "model" ? PAGE_PARENT : undefined;
+    await world.apply(
+      worldAction("the agent sets the plan", () => setPlan(workflow, { page_parent: pageParent })),
+    );
     return replay;
   }
 
@@ -1073,7 +1076,10 @@ export class SessionRoutingReplay {
 }
 
 /** The agent sets the plan of the one stage, and names `subject` when given. */
-async function setPlan(workflow: WorkflowRuntime, named: { subject?: string }): Promise<void> {
+async function setPlan(
+  workflow: WorkflowRuntime,
+  named: { subject?: string; page_parent?: string },
+): Promise<void> {
   await planTools(workflow).set_plan.execute(
     {
       name: "Fix login",
@@ -1081,7 +1087,7 @@ async function setPlan(workflow: WorkflowRuntime, named: { subject?: string }): 
       reason: "the request asks for a design",
       stages: [STAGE],
       repo: REPO,
-      page_parent: workflow.store.stagePlan()?.page_parent,
+      page_parent: workflow.store.stagePlan()?.page_parent ?? undefined,
       concurrency: ISSUES.length,
       ...named,
     },

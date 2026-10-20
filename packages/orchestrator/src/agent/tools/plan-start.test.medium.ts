@@ -1,3 +1,4 @@
+import { FakeCodeHost } from "@artfct-ai/adapters/test/fake-code-host";
 import { describe, expect, it } from "vitest";
 import { unstartedDurableRuntime } from "../../../test/durable-runtime";
 import { scenario } from "../../../test/scenario";
@@ -24,6 +25,42 @@ describe("set_plan on a workflow that has not started", () => {
         );
         expect(workflow.store.jobs()).toEqual([]);
       }));
+  });
+
+  describe("a first plan without stages that names a repository", () => {
+    let result: string;
+    const startInput = { name: "Fix it", definition: "development", reason: "test" };
+    const started = scenario(unstartedDurableRuntime, async (workflow) => {
+      workflow.codeHostInstance = new FakeCodeHost({ repositories: ["acme/app"] });
+      const { set_plan } = planTools(workflow);
+      result = toolText(await set_plan.execute({ ...startInput, repo: "acme/app" }, call));
+    });
+
+    it("starts the workflow", () =>
+      started((workflow) => {
+        expect(result).toMatch(/^Workflow started/);
+        expect(workflow.store.requireWorkflowRow().status).toBe("running");
+      }));
+
+    it("stores the repository without a stage plan", () =>
+      started((workflow) => {
+        expect(workflow.store.plan()?.repo).toBe("acme/app");
+        expect(workflow.store.stagePlan()).toBeNull();
+      }));
+
+    describe("one the code host does not grant", () => {
+      const refused = scenario(unstartedDurableRuntime, async (workflow) => {
+        workflow.codeHostInstance = new FakeCodeHost({ repositories: ["acme/app"] });
+        const { set_plan } = planTools(workflow);
+        result = toolText(await set_plan.execute({ ...startInput, repo: "acme/other" }, call));
+      });
+
+      it("refuses and does not start the workflow", () =>
+        refused((workflow) => {
+          expect(result).toMatch(/^Repository acme\/other is not reachable/);
+          expect(workflow.store.plan()).toBeNull();
+        }));
+    });
   });
 
   describe("the call that starts a workflow from a tracker issue, without stages", () => {

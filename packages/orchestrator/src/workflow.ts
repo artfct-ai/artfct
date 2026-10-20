@@ -581,7 +581,7 @@ export class Workflow extends Agent<Env> implements WorkflowRuntime, WorkflowRpc
       code: () => this.code(),
       documents: () => this.documents(),
       tracker: () => this.tracker(),
-      repo: () => this.store.stagePlan()?.repo ?? null,
+      repo: () => this.store.plan()?.repo ?? null,
       log: (line) => this.log(null, line),
     });
   }

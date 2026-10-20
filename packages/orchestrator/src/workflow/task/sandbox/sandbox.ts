@@ -77,7 +77,7 @@ async function bindBranchOfJob(
   task: TaskRow,
   job: JobRow,
 ): Promise<boolean> {
-  const repo = workflow.store.stagePlan()?.repo;
+  const repo = workflow.store.plan()?.repo;
   if (!job.branch || !repo) return true;
   try {
     await bindWorkflow(workflow, { source: "code_branch", repo, branch: job.branch });
@@ -167,7 +167,7 @@ async function startGeneration(
   });
   let commitAuthor: CommitAuthor | null;
   try {
-    commitAuthor = workflow.store.stagePlan()?.repo
+    commitAuthor = workflow.store.plan()?.repo
       ? ((await workflow.code()?.commitAuthor()) ?? null)
       : null;
   } catch (error) {
@@ -202,7 +202,7 @@ async function startGeneration(
     adapters: config.adapters,
     workflowId: workflow.store.requireWorkflowRow().workflow_id,
     publicUrl: workflow.env.PUBLIC_URL ?? "",
-    repo: workflow.store.stagePlan()?.repo ?? null,
+    repo: workflow.store.plan()?.repo ?? null,
     commitAuthor,
     workflowRepoToken: githubTokens?.workflowRepoToken ?? null,
     allReposReadToken: githubTokens?.allReposReadToken ?? null,

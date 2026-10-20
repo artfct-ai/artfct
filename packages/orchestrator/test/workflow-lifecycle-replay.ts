@@ -1442,7 +1442,6 @@ export class WorkflowLifecycleReplay {
           : (world.workflow.workflowDefinitions()[0]?.name ?? "");
     const stages = {
       stages: [this.stage],
-      repo: REPO,
       page_parent: this.modelAuthor ? PAGE_PARENT : null,
       concurrency: jobSlots,
     };
@@ -1452,6 +1451,7 @@ export class WorkflowLifecycleReplay {
         name: "Fix login",
         definition: name,
         reason: "the request asks for a design",
+        repo: REPO,
         ...(withStages ? stages : {}),
         ...(subject ? { subject: world.trackerLinkUrl(subject, 0) } : {}),
       },

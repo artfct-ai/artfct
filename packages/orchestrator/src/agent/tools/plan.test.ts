@@ -282,8 +282,8 @@ describe("set_plan", () => {
       it("stores the plan without a repository", () =>
         documentsPlan((workflow) => {
           expect(workflow.store.requireWorkflowRow().status).toBe("running");
-          expect(workflow.store.plan()?.reason).toBe("docs");
-          expect(workflow.store.stagePlan()).toMatchObject({ stages: ["design"], repo: null });
+          expect(workflow.store.plan()).toMatchObject({ reason: "docs", repo: null });
+          expect(workflow.store.stagePlan()?.stages).toEqual(["design"]);
         }));
     });
   });
@@ -383,7 +383,7 @@ describe("set_plan", () => {
 
     it("stores the repository", () =>
       planned((workflow) => {
-        expect(workflow.store.stagePlan()?.repo).toBe("acme/app");
+        expect(workflow.store.plan()?.repo).toBe("acme/app");
       }));
 
     it("logs the plan it took", () =>
@@ -468,7 +468,7 @@ describe("set_plan", () => {
 
       it("stores the granted repository", () =>
         granted((workflow) => {
-          expect(workflow.store.stagePlan()?.repo).toBe("acme/docs");
+          expect(workflow.store.plan()?.repo).toBe("acme/docs");
         }));
     });
   });
@@ -571,11 +571,8 @@ describe("set_plan", () => {
       it("replaces the stages, the repository, and the reason", () =>
         replanned((workflow) => {
           expect(workflow.store.requireWorkflowRow().status).toBe("running");
-          expect(workflow.store.plan()?.reason).toBe("code");
-          expect(workflow.store.stagePlan()).toMatchObject({
-            stages: ["implement"],
-            repo: "acme/app",
-          });
+          expect(workflow.store.plan()).toMatchObject({ reason: "code", repo: "acme/app" });
+          expect(workflow.store.stagePlan()?.stages).toEqual(["implement"]);
         }));
 
       it("does not move the tracker issue", () =>

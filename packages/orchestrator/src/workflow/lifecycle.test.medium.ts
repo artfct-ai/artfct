@@ -4,7 +4,13 @@ import { describe, expect, it } from "vitest";
 import { listBindings } from "../db/bindings";
 import { createDb } from "../db/client";
 import { createWorkflow } from "../db/workflows";
-import { FakeRuntime, type SeedTaskPatch, seedTask, patchStagePlan } from "../../test/fake-runtime";
+import {
+  FakeRuntime,
+  type SeedTaskPatch,
+  seedTask,
+  patchStagePlan,
+  patchPlan,
+} from "../../test/fake-runtime";
 import { FakeSandboxProvider } from "../../test/fake-sandbox";
 import { gate } from "../../test/scripted-chat";
 import { testNotifier } from "../../test/notifier-fixture";
@@ -578,7 +584,7 @@ describe("startJob", () => {
   describe("a stage the config names", () => {
     const started = acting(async (workflow) => {
       planned(workflow);
-      patchStagePlan(workflow, { repo: "acme/app" });
+      patchPlan(workflow, { repo: "acme/app" });
       workflow.store.updateWorkflow({ request_title: "Fix it", request_text: "Fix it please" });
       await createWorkflow(db, workflow.store.requireWorkflowRow().workflow_id);
       return startJob(workflow, {

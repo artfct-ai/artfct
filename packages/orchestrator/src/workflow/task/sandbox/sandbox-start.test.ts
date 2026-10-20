@@ -14,7 +14,7 @@ import { sqliteD1 } from "../../../../test/sqlite-d1";
 import { MAX_RESTARTS } from "../../lifecycle";
 import { freshRuntime } from "../../../../test/fresh-runtime";
 import { FakeSandboxProvider } from "../../../../test/fake-sandbox";
-import { seedTask, type FakeRuntime, patchStagePlan } from "../../../../test/fake-runtime";
+import { seedTask, type FakeRuntime, patchPlan } from "../../../../test/fake-runtime";
 import { scenario } from "../../../../test/scenario";
 import { provision, restartSandbox, sandboxStartInFlight, startSandbox } from "./sandbox";
 import { onHelloTimeout } from "../harness/timers";
@@ -31,7 +31,7 @@ async function seedQueuedTaskOnABranch(workflow: FakeRuntime, restarts: number):
   workflow.env = { ...workflow.env, DB: db };
   await createWorkflow(createDb(db), workflow.store.requireWorkflowRow().workflow_id);
   workflow.codeHostInstance = new FakeCodeHost();
-  patchStagePlan(workflow, { repo: "acme/app" });
+  patchPlan(workflow, { repo: "acme/app" });
   seedTask(workflow, { status: "queued", stage: "design", branch: BRANCH, restarts });
 }
 
@@ -561,7 +561,7 @@ describe("startSandbox", () => {
   describe("a code host that refuses the commit author lookup", () => {
     const started = scenario(freshRuntime, (workflow) => {
       workflow.codeHostInstance = new RefusesCommitAuthor();
-      patchStagePlan(workflow, { repo: "acme/app" });
+      patchPlan(workflow, { repo: "acme/app" });
       return startSandbox(workflow, seedTask(workflow, { status: "queued" }), false);
     });
 
@@ -759,7 +759,7 @@ describe("startSandbox", () => {
   describe("a document stage on a workflow with a repository", () => {
     const started = scenario(freshRuntime, (workflow) => {
       workflow.codeHostInstance = new FakeCodeHost();
-      patchStagePlan(workflow, { repo: "acme/app" });
+      patchPlan(workflow, { repo: "acme/app" });
       return startSandbox(
         workflow,
         seedTask(workflow, { status: "queued", stage: "design", branch: null }),
@@ -791,7 +791,7 @@ describe("startSandbox", () => {
         token: { token: "ghs_1", expiresAt: workflow.clock + ttlMs },
         allReposReadToken: { token: "ghs_read", expiresAt: workflow.clock + ttlMs / 2 },
       });
-      patchStagePlan(workflow, { repo: "acme/app" });
+      patchPlan(workflow, { repo: "acme/app" });
       return startSandbox(
         workflow,
         seedTask(workflow, { status: "queued", stage: "implement", branch: "artfct/wf_x-1-fix" }),
@@ -822,7 +822,7 @@ describe("startSandbox", () => {
       workflow.codeHostInstance = new FakeCodeHost({
         token: { token: "ghs_1", expiresAt: workflow.clock + ttlMs },
       });
-      patchStagePlan(workflow, { repo: "acme/app" });
+      patchPlan(workflow, { repo: "acme/app" });
       return startSandbox(
         workflow,
         seedTask(workflow, { status: "queued", stage: "implement", branch: "artfct/wf_x-1-fix" }),
@@ -877,7 +877,7 @@ describe("startSandbox", () => {
   describe("a code stage whose first token mint fails", () => {
     const started = scenario(freshRuntime, (workflow) => {
       workflow.codeHostInstance = new RefusesMint();
-      patchStagePlan(workflow, { repo: "acme/app" });
+      patchPlan(workflow, { repo: "acme/app" });
       return startSandbox(
         workflow,
         seedTask(workflow, { status: "queued", stage: "implement", branch: "artfct/wf_x-1-fix" }),
@@ -910,7 +910,7 @@ describe("startSandbox", () => {
     const restarted = scenario(freshRuntime, async (workflow) => {
       code = new CountingMints();
       workflow.codeHostInstance = code;
-      patchStagePlan(workflow, { repo: "acme/app" });
+      patchPlan(workflow, { repo: "acme/app" });
       const seeded = seedTask(workflow, { status: "queued", stage: "design", branch: null });
       await startSandbox(workflow, seeded, false);
       await startSandbox(workflow, workflow.store.requireTask(TASK), true);

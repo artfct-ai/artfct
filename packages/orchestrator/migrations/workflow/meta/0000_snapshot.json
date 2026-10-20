@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "822c4b33-f028-4dde-aa09-fdba982227c8",
+  "id": "b1e7235e-dec4-4d3a-bbfe-7300c269b7e1",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "agent_inbox": {
@@ -938,13 +938,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "repo": {
-          "name": "repo",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
         "page_parent": {
           "name": "page_parent",
           "type": "text",
@@ -1334,6 +1327,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "repo": {
+          "name": "repo",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         }
       },

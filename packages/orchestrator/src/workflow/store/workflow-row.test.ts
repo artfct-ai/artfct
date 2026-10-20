@@ -71,7 +71,12 @@ describe("a created workflow", () => {
 
 describe("a workflow whose plan names it", () => {
   const named = scenario(created, (store) => {
-    store.writePlan({ definition: "development", name: "Login redirect", reason: "asked" });
+    store.writePlan({
+      definition: "development",
+      name: "Login redirect",
+      reason: "asked",
+      repo: "acme/app",
+    });
   });
 
   it("is named by its plan", () =>
@@ -81,11 +86,17 @@ describe("a workflow whose plan names it", () => {
 
   it("takes a later plan whole", () =>
     named((store) => {
-      store.writePlan({ definition: "development", name: "Login fix", reason: "renamed" });
+      store.writePlan({
+        definition: "development",
+        name: "Login fix",
+        reason: "renamed",
+        repo: null,
+      });
       expect(store.plan()).toEqual({
         definition: "development",
         name: "Login fix",
         reason: "renamed",
+        repo: null,
       });
     }));
 });
@@ -95,7 +106,6 @@ describe("a workflow whose plan names stages", () => {
     store.writeStagePlan({
       stages: ["implement"],
       job_slots: 2,
-      repo: "acme/app",
       page_parent: null,
       root_page: null,
     });
@@ -106,14 +116,12 @@ describe("a workflow whose plan names stages", () => {
       store.writeStagePlan({
         stages: ["design", "implement"],
         job_slots: 1,
-        repo: null,
         page_parent: "project-1",
         root_page: null,
       });
       expect(store.stagePlan()).toEqual({
         stages: ["design", "implement"],
         job_slots: 1,
-        repo: null,
         page_parent: "project-1",
         root_page: null,
       });

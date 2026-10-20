@@ -218,7 +218,7 @@ function polisherFirstPrompt(
   const artifact = workflow.store.artifact(job.job_id);
   const refiner = refinerAt(workflow.stageFor(job), refinerIndexOf(task));
   const created = workflow.store.requireWorkflowRow();
-  const repo = workflow.store.stagePlan()?.repo;
+  const repo = workflow.store.plan()?.repo;
   const kind = artifact ? workflow.artifact(artifact.kind) : null;
   if (!artifact || !kind || refiner?.role !== "polisher") {
     return "The artifact or the polisher entry you were started for is gone. Say so in one line and stop.";
@@ -238,7 +238,7 @@ function polisherFirstPrompt(
 /** What a task reads about its job. */
 export function taskContext(workflow: WorkflowRuntime, task: TaskRow): TaskContext {
   const created = workflow.store.requireWorkflowRow();
-  const repo = workflow.store.stagePlan()?.repo;
+  const repo = workflow.store.plan()?.repo;
   const job = workflow.store.requireJob(task.job_id);
   const kind = workflow.artifact(workflow.stageFor(job).artifact);
   const precedingJob = job.preceding_job_id

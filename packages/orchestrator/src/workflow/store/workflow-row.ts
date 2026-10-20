@@ -104,8 +104,8 @@ export class WorkflowRowStore extends BoardStore {
 
   /** The plan that started the workflow. Null before it. */
   plan(): WorkflowPlan | null {
-    const { definition, name, reason } = workflowPlan;
-    return this.db.select({ definition, name, reason }).from(workflowPlan).get() ?? null;
+    const { definition, name, reason, repo } = workflowPlan;
+    return this.db.select({ definition, name, reason, repo }).from(workflowPlan).get() ?? null;
   }
 
   /** Write the plan, or replace the one a former plan wrote. */
@@ -119,10 +119,9 @@ export class WorkflowRowStore extends BoardStore {
 
   /** What the last plan with stages set. Null before such a plan. */
   stagePlan(): StagePlan | null {
-    const { stages, job_slots, repo, page_parent, root_page } = stagePlan;
+    const { stages, job_slots, page_parent, root_page } = stagePlan;
     return (
-      this.db.select({ stages, job_slots, repo, page_parent, root_page }).from(stagePlan).get() ??
-      null
+      this.db.select({ stages, job_slots, page_parent, root_page }).from(stagePlan).get() ?? null
     );
   }
 

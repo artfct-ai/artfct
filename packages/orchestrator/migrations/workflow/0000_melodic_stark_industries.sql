@@ -153,7 +153,6 @@ CREATE TABLE `stage_plan` (
 	`workflow_id` text PRIMARY KEY NOT NULL,
 	`stages` text NOT NULL,
 	`job_slots` integer NOT NULL,
-	`repo` text,
 	`page_parent` text,
 	`root_page` text
 );
@@ -217,7 +216,8 @@ CREATE TABLE `workflow_plan` (
 	`workflow_id` text PRIMARY KEY NOT NULL,
 	`definition` text NOT NULL,
 	`name` text NOT NULL,
-	`reason` text NOT NULL
+	`reason` text NOT NULL,
+	`repo` text
 );
 --> statement-breakpoint
 CREATE TABLE `workflow_subject` (

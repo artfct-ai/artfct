@@ -127,7 +127,7 @@ export async function startJob(
       await workflow.notifier.linkChatThread(ref, origin);
     }
   }
-  const repo = store.stagePlan()?.repo;
+  const repo = store.plan()?.repo;
   if (branch && repo) {
     await bindWorkflow(workflow, { source: "code_branch", repo, branch });
   }

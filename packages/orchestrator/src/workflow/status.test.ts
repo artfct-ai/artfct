@@ -79,8 +79,8 @@ describe("statusText", () => {
 describe("summarize", () => {
   describe("one job in review and one done", () => {
     const summarized = scenario(freshRuntime, (workflow) => {
-      patchPlan(workflow, { reason: "default" });
-      patchStagePlan(workflow, { stages: ["design", "implement"], job_slots: 2, repo: "acme/app" });
+      patchPlan(workflow, { reason: "default", repo: "acme/app" });
+      patchStagePlan(workflow, { stages: ["design", "implement"], job_slots: 2 });
       workflow.store.recordModelUsage({
         purpose: "orchestrator",
         model: "m",

@@ -238,7 +238,7 @@ function stateLines(workflow: WorkflowRuntime, turn: TurnFacts): string[] {
       : "Workflow definition: not set. The workflow starts when set_plan names one.",
     `Name: ${store.workflowName()}`,
     `Plan: ${stagePlan ? stagePlan.stages.join(" -> ") : "not set"}`,
-    `Repository: ${stagePlan?.repo ?? "none"}`,
+    `Repository: ${plan?.repo ?? "none"}`,
     `Page parent: ${stagePlan?.page_parent ?? "none"}`,
     `Root page: ${stagePlan?.root_page?.url ?? "none"}`,
     `Active jobs: ${active.length} of ${jobSlotsOf(stagePlan)} slots`,

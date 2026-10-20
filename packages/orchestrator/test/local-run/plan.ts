@@ -25,7 +25,7 @@ import { taskSettings } from "../../src/workflow/task/settings";
 import { harnessMcpServers } from "../../src/workflow/task/sandbox/mcp-servers";
 import type { TaskRow } from "../../src/workflow/store/tasks";
 import templateConfig from "../template-config.json";
-import { FakeRuntime, patchPlan, patchStagePlan } from "../fake-runtime";
+import { FakeRuntime, patchPlan } from "../fake-runtime";
 import { openMemoryDb } from "../memory-db";
 import { testEnv } from "../test-env";
 
@@ -108,7 +108,7 @@ export async function planLocalRun(
   });
   workflow.store.updateWorkflow({ status: "running" });
   patchPlan(workflow, {});
-  patchStagePlan(workflow, { repo: request.repoFull ?? null });
+  patchPlan(workflow, { repo: request.repoFull ?? null });
 
   const seeded = await seedRun(workflow, loaded, request);
   if ("error" in seeded) return seeded;
@@ -147,8 +147,8 @@ export async function planLocalRun(
     adapters: config.adapters,
     workflowId: workflow.store.requireWorkflowRow().workflow_id,
     publicUrl: "",
-    repo: workflow.store.stagePlan()?.repo ?? null,
-    commitAuthor: workflow.store.stagePlan()?.repo
+    repo: workflow.store.plan()?.repo ?? null,
+    commitAuthor: workflow.store.plan()?.repo
       ? ((await workflow.code()?.commitAuthor()) ?? null)
       : null,
     workflowRepoToken: minted?.workflowRepoToken ?? null,

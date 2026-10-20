@@ -102,7 +102,7 @@ async function assertNothingWoke(options: {
 }) {
   const { before, taskId, startsBefore } = options;
   await Bun.sleep(SETTLE_MS);
-  const after = await fetchWorkflowDebug(before.state.workflow_id);
+  const after = await fetchWorkflowDebug(before.workflow.workflow_id);
   assertEqual(countTurns(after), countTurns(before), "no GitHub event prompted the harness");
   assertEqual(
     after.artifacts.length,

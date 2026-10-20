@@ -7,6 +7,7 @@ import type { WorkflowRuntime } from "./types";
 export function summarize(workflow: WorkflowRuntime): WorkflowSummary {
   const { store } = workflow;
   const { workflow_id, status } = store.requireWorkflowRow();
+  const plan = store.plan();
   const stagePlan = store.stagePlan();
   return {
     workflow_id,
@@ -15,8 +16,8 @@ export function summarize(workflow: WorkflowRuntime): WorkflowSummary {
     jobs: store.activeAuthorAndResearcherTasks().map((task) => jobSummary(workflow, task)),
     concurrency: jobSlotsOf(stagePlan),
     cost_usd: store.workflowCost(),
-    repo: stagePlan?.repo ? { full: stagePlan.repo } : null,
-    reason: store.plan()?.reason ?? null,
+    repo: plan?.repo ? { full: plan.repo } : null,
+    reason: plan?.reason ?? null,
   };
 }
 

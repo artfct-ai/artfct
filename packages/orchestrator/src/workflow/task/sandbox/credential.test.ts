@@ -17,7 +17,7 @@ import {
   fakeConnection,
   seedTask,
   type FakeRuntime,
-  patchStagePlan,
+  patchPlan,
 } from "../../../../test/fake-runtime";
 import { scenario, type Scenario } from "../../../../test/scenario";
 
@@ -27,7 +27,7 @@ const HOUR_MS = 3_600_000;
 const CLOCK = 1_000_000_000_000;
 
 function seedPair(workflow: FakeRuntime) {
-  patchStagePlan(workflow, { repo: REPO });
+  patchPlan(workflow, { repo: REPO });
   const author = seedTask(workflow, { stage: "implement", branch: "artfct/wf_x-1-fix" });
   const reviewer = seedTask(workflow, {
     task_id: "wf_x.2",
@@ -178,7 +178,7 @@ function refreshing(
     freshRuntime(async (workflow) => {
       const code = makeHost();
       workflow.codeHostInstance = code;
-      patchStagePlan(workflow, { repo: REPO });
+      patchPlan(workflow, { repo: REPO });
       setUp(workflow);
       await refreshToken(workflow, { task_id: TASK });
       await run({ workflow, code });

@@ -72,6 +72,8 @@ export const workflowPlan = sqliteTable("workflow_plan", {
   name: text().notNull(),
   /** Why the last plan was set. */
   reason: text().notNull(),
+  /** The full name of the repository. Null when the last plan did not name one. */
+  repo: text(),
 });
 
 /** The stage plan: what a plan with stages set. At most one row, replaced by each such plan. */
@@ -81,8 +83,6 @@ export const stagePlan = sqliteTable("stage_plan", {
   stages: text({ mode: "json" }).$type<string[]>().notNull(),
   /** The jobs that may run at once, capped by `sandbox.max_concurrency`. */
   job_slots: integer().notNull(),
-  /** The full name of the repository. Null when the plan did not name one. */
-  repo: text(),
   /** Null when the plan and the workflow definition did not name one. */
   page_parent: text(),
   /** Null until the plan made or named a root page. */

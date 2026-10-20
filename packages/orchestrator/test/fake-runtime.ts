@@ -174,7 +174,7 @@ export class FakeRuntime implements WorkflowRuntime {
     if (opening === "running" && !this.store.workflowRow()) {
       createFakeWorkflow(this);
       this.store.updateWorkflow({ status: "running" });
-      this.store.writePlan({ definition: TEST_DEFINITION_NAME, name: "", reason: "" });
+      this.store.writePlan({ definition: TEST_DEFINITION_NAME, name: "", reason: "", repo: null });
     }
   }
 
@@ -405,7 +405,7 @@ export class FakeRuntime implements WorkflowRuntime {
       code: () => this.code(),
       documents: () => this.documents(),
       tracker: () => this.tracker(),
-      repo: () => this.store.stagePlan()?.repo ?? null,
+      repo: () => this.store.plan()?.repo ?? null,
       log: (line) => this.log(null, line),
     });
   }
@@ -476,19 +476,19 @@ export function patchPlan(workflow: WorkflowRuntime, patch: Partial<WorkflowPlan
     definition: TEST_DEFINITION_NAME,
     name: "",
     reason: "",
+    repo: null,
   };
   workflow.store.writePlan({ ...current, ...patch });
 }
 
 /**
  * Merge a patch into the stage plan. A workflow without one gets the stages of its workflow
- * definition, one job slot, and no repository or pages.
+ * definition, the unplanned job slots, and no pages.
  */
 export function patchStagePlan(workflow: FakeRuntime, patch: Partial<StagePlan>): void {
   const current = workflow.store.stagePlan() ?? {
     stages: workflow.patchableWorkflowDefinition().stages.map((stage) => stage.name),
     job_slots: UNPLANNED_JOB_SLOTS,
-    repo: null,
     page_parent: null,
     root_page: null,
   };
@@ -555,7 +555,7 @@ export function seedPullRequestTask(
   patch: SeedTaskPatch = {},
   seed: SeedArtifact = {},
 ): TaskRow {
-  patchStagePlan(workflow, { repo: "acme/app" });
+  patchPlan(workflow, { repo: "acme/app" });
   const task = seedTask(workflow, { stage: "implement", branch: "artfct/wf_x-1-fix", ...patch });
   const number = seed.number ?? 1;
   workflow.store.upsertArtifact({

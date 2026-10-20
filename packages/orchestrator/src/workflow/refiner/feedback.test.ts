@@ -9,7 +9,7 @@ import {
   seedReviewerRun,
   seedTask,
   type FakeRuntime,
-  patchStagePlan,
+  patchPlan,
 } from "../../../test/fake-runtime";
 import { freshRuntime } from "../../../test/fresh-runtime";
 import type { Scenario } from "../../../test/scenario";
@@ -572,7 +572,7 @@ const BASE_MOVED: Partial<InboundEvent> = {
 };
 
 function twoActiveAuthors(workflow: FakeRuntime, withArtifact: boolean): void {
-  patchStagePlan(workflow, { repo: "acme/app" });
+  patchPlan(workflow, { repo: "acme/app" });
   if (withArtifact) seedPullRequestTask(workflow, { task_id: "wf_x.1" }, { status: "ready" });
   else seedTask(workflow, { task_id: "wf_x.1", stage: "implement" });
   seedTask(workflow, { task_id: "wf_x.2", stage: "implement", branch: "artfct/wf_x-2-fix" });

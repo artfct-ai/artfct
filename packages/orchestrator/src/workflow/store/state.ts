@@ -32,22 +32,23 @@ export type WorkflowEnd = {
 };
 
 /** The plan that started the workflow: its workflow definition, its name, and why. */
-export type WorkflowPlan = { definition: string; name: string; reason: string };
+export type WorkflowPlan = {
+  definition: string;
+  name: string;
+  reason: string;
+  repo: string | null;
+};
 
-/**
- * What a plan with stages set: the stages, the job slots, the repository by its full name, the
- * page parent, and the root page.
- */
+/** What a plan with stages set: the stages, the job slots, the page parent, and the root page. */
 export type StagePlan = {
   stages: string[];
   job_slots: number;
-  repo: string | null;
   page_parent: string | null;
   root_page: RootPage | null;
 };
 
 /** The job slots of a workflow whose plan did not set stages yet. */
-export const UNPLANNED_JOB_SLOTS = 1;
+export const UNPLANNED_JOB_SLOTS = 2;
 
 /** The job slots of the workflow: those the stage plan set, else `UNPLANNED_JOB_SLOTS`. */
 export function jobSlotsOf(plan: StagePlan | null): number {
