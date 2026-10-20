@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "1d994c2d-515e-48dc-81ce-75622790c1be",
+  "id": "9cb50937-0897-4f17-908e-45f2b4257689",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "bindings": {
@@ -150,6 +150,30 @@
         },
         "created_at": {
           "name": "created_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "workflow_predecessors": {
+      "name": "workflow_predecessors",
+      "columns": {
+        "workflow_id": {
+          "name": "workflow_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "predecessor_id": {
+          "name": "predecessor_id",
           "type": "text",
           "primaryKey": false,
           "notNull": true,
