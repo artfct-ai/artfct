@@ -1,7 +1,10 @@
 import type { CommentObjectResponse } from "@notionhq/client";
 import { describe, expect, it } from "bun:test";
 import fc from "fast-check";
+import { propertyRuns, propertyTimeoutMs } from "../../../test/property-runs";
 import { NOTION_ACKNOWLEDGEMENT, notionHeldComments } from "./held-comments";
+
+const RUNS = 100;
 
 const BOT = "bot1";
 
@@ -136,14 +139,19 @@ describe("notionHeldComments on any thread of comments", () => {
     .array(anyComment, { maxLength: 12 })
     .map((comments) => comments.map((options, index) => comment({ id: `c${index}`, ...options })));
 
-  it("never holds a comment the bot wrote", () => {
-    fc.assert(
-      fc.property(anyThread, (comments) => {
-        const botIds = new Set(
-          comments.filter((listed) => listed.created_by.id === BOT).map((listed) => listed.id),
-        );
-        expect(heldIds(comments).filter((id) => botIds.has(id))).toEqual([]);
-      }),
-    );
-  });
+  it(
+    "never holds a comment the bot wrote",
+    () => {
+      fc.assert(
+        fc.property(anyThread, (comments) => {
+          const botIds = new Set(
+            comments.filter((listed) => listed.created_by.id === BOT).map((listed) => listed.id),
+          );
+          expect(heldIds(comments).filter((id) => botIds.has(id))).toEqual([]);
+        }),
+        propertyRuns("notion held comments", RUNS),
+      );
+    },
+    propertyTimeoutMs(5_000, RUNS),
+  );
 });

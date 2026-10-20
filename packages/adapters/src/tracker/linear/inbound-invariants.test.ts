@@ -1,11 +1,13 @@
 import { describe, it } from "bun:test";
 import fc from "fast-check";
-import { propertyRuns } from "../../../test/property-runs";
+import { propertyRuns, propertyTimeoutMs } from "../../../test/property-runs";
 import { fakeUserActor } from "../../../test/fake-actors";
 import { inboundMapperNeverThrows, mapperOutcome } from "../../../test/inbound-invariants";
 import { anyJsonValue, mutatedPayload } from "../../../test/payload-mutations";
 import { linearInbound } from "./inbound";
 import type { TrackerInboundContext } from "../types";
+
+const RUNS = 100;
 
 const WORKSPACE_ID = "org_acme";
 
@@ -79,18 +81,26 @@ async function checkPayload(payload: unknown, deliveryId: string | null): Promis
 
 describe("linear inbound mapper invariants", () => {
   for (const [name, payload] of Object.entries(realPayloads)) {
-    it(`hold for a ${name} webhook with fields removed or retyped`, async () => {
-      await fc.assert(
-        fc.asyncProperty(mutatedPayload(payload), anyDeliveryId, checkPayload),
-        propertyRuns(`linear ${name}`, 100),
-      );
-    });
+    it(
+      `hold for a ${name} webhook with fields removed or retyped`,
+      async () => {
+        await fc.assert(
+          fc.asyncProperty(mutatedPayload(payload), anyDeliveryId, checkPayload),
+          propertyRuns(`linear ${name}`, RUNS),
+        );
+      },
+      propertyTimeoutMs(5_000, RUNS),
+    );
   }
 
-  it("hold for a JSON value of any shape", async () => {
-    await fc.assert(
-      fc.asyncProperty(anyJsonValue, anyDeliveryId, checkPayload),
-      propertyRuns("linear any JSON", 100),
-    );
-  });
+  it(
+    "hold for a JSON value of any shape",
+    async () => {
+      await fc.assert(
+        fc.asyncProperty(anyJsonValue, anyDeliveryId, checkPayload),
+        propertyRuns("linear any JSON", RUNS),
+      );
+    },
+    propertyTimeoutMs(5_000, RUNS),
+  );
 });

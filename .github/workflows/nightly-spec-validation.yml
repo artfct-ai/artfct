@@ -235,9 +235,39 @@ jobs:
           path: ${{ runner.temp }}/findings
           if-no-files-found: ignore
 
+  standalone_properties:
+    name: standalone properties
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 40
+    defaults:
+      run:
+        working-directory: packages/orchestrator
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.commit }}
+      - uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+        with:
+          bun-version-file: package.json
+      - run: bun install --frozen-lockfile
+      - run: bun run template-config
+      - name: Seed the properties from the run id
+        run: |
+          echo "PROPERTY_SEED=$(( GITHUB_RUN_ID % 2147483648 ))" >> "$GITHUB_ENV"
+          mkdir -p "$RUNNER_TEMP/findings"
+      - name: Run every standalone property at its nightly count
+        timeout-minutes: 30
+        run: GITHUB_STEP_SUMMARY="$RUNNER_TEMP/findings/standalone_properties.md" bun scripts/properties/e2e-property-test.ts standalone
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: nightly-findings-standalone-properties
+          path: ${{ runner.temp }}/findings
+          if-no-files-found: ignore
+
   nightly_issue:
     name: nightly spec issue
-    needs: [quint_nightly, tlc_nightly, spec_validation, spec_replays]
+    needs: [quint_nightly, tlc_nightly, spec_validation, spec_replays, standalone_properties]
     if: ${{ !cancelled() && !inputs.commit }}
     runs-on: ubuntu-24.04-arm
     timeout-minutes: 10

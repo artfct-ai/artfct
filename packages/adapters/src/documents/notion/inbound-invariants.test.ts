@@ -1,12 +1,14 @@
 import { describe, it } from "bun:test";
 import fc from "fast-check";
-import { propertyRuns } from "../../../test/property-runs";
+import { propertyRuns, propertyTimeoutMs } from "../../../test/property-runs";
 import { fakeUserActor } from "../../../test/fake-actors";
 import { FakeDocuments } from "../../../test/fake-documents";
 import { inboundMapperNeverThrows, mapperOutcome } from "../../../test/inbound-invariants";
 import { anyJsonValue, mutatedPayload } from "../../../test/payload-mutations";
 import { notionInbound } from "./inbound";
 import type { DocumentsInboundContext } from "../types";
+
+const RUNS = 100;
 
 const PAGE_ID = "1f2e3d4c-5b6a-7988-9a0b-1c2d3e4f5a6b";
 
@@ -53,18 +55,26 @@ async function checkPayload(payload: unknown): Promise<void> {
 
 describe("notion inbound mapper invariants", () => {
   for (const [name, payload] of Object.entries(realPayloads)) {
-    it(`hold for a ${name} webhook with fields removed or retyped`, async () => {
-      await fc.assert(
-        fc.asyncProperty(mutatedPayload(payload), checkPayload),
-        propertyRuns(`notion ${name}`, 100),
-      );
-    });
+    it(
+      `hold for a ${name} webhook with fields removed or retyped`,
+      async () => {
+        await fc.assert(
+          fc.asyncProperty(mutatedPayload(payload), checkPayload),
+          propertyRuns(`notion ${name}`, RUNS),
+        );
+      },
+      propertyTimeoutMs(5_000, RUNS),
+    );
   }
 
-  it("hold for a JSON value of any shape", async () => {
-    await fc.assert(
-      fc.asyncProperty(anyJsonValue, checkPayload),
-      propertyRuns("notion any JSON", 100),
-    );
-  });
+  it(
+    "hold for a JSON value of any shape",
+    async () => {
+      await fc.assert(
+        fc.asyncProperty(anyJsonValue, checkPayload),
+        propertyRuns("notion any JSON", RUNS),
+      );
+    },
+    propertyTimeoutMs(5_000, RUNS),
+  );
 });
