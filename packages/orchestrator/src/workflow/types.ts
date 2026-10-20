@@ -51,6 +51,7 @@ export type ScheduledMethod =
   | "flushBoard"
   | "onIdle"
   | "recheckChecks"
+  | "tendSessionFeed"
   | "onModelTurnDeadline"
   | "resumeLostCalls"
   | "resumeWorkflowEnd"

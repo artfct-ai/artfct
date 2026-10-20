@@ -213,6 +213,23 @@ describe("Notifier.post to Linear", () => {
   });
 });
 
+describe("Notifier.ephemeralThought", () => {
+  it("posts a thought the next activity replaces, without an id", async () => {
+    const tracker = new FakeTracker();
+    await testNotifier([], { tracker }).ephemeralThought(linearTarget, "Got it.");
+    expect(tracker.argsOf("activity")).toEqual([
+      ["sess-1", { type: "thought", body: "Got it." }, { ephemeral: true }],
+    ]);
+  });
+
+  it("records a failed post and never throws", async () => {
+    const outbox: OutboxEntry[] = [];
+    const tracker = new FakeTracker({ failing: true });
+    await testNotifier(outbox, { tracker }).ephemeralThought(linearTarget, "Got it.");
+    expect(outbox.map((entry) => entry.kind)).toEqual(["thought", "delivery_error"]);
+  });
+});
+
 describe("Notifier.post to Notion", () => {
   const pageTarget = { source: "documents", page_id: "page-1" } as const;
   let documents: FakeDocuments;

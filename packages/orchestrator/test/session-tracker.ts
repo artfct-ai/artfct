@@ -11,10 +11,18 @@ export type StoredActivity = {
   session_id: string;
   id: string | null;
   content: AgentActivityContent;
+  ephemeral: boolean;
 };
 
-/** The next activity post that the Durable Object's restart cuts, and whether the tracker stores it first. */
-export type ActivityCut = { stored: boolean; cut: () => void };
+/**
+ * The next activity post of one of `types` that the Durable Object's restart cuts, and whether the
+ * tracker stores it first.
+ */
+export type ActivityCut = {
+  types: AgentActivityContent["type"][];
+  stored: boolean;
+  cut: () => void;
+};
 
 export class SessionTracker extends FakeTracker {
   health: TrackerHealth = "up";
@@ -31,21 +39,27 @@ export class SessionTracker extends FakeTracker {
     content: AgentActivityContent,
     options: ActivityOptions = {},
   ): Promise<void> {
-    const cut = this.nextCut;
-    this.nextCut = null;
+    const cut = this.nextCut?.types.includes(content.type) ? this.nextCut : null;
     if (cut) {
-      if (cut.stored) this.store(sessionId, content, options.id ?? null);
+      this.nextCut = null;
+      if (cut.stored) this.store(sessionId, content, options);
       cut.cut();
       await new Promise<never>(() => {});
     }
     if (this.health === "fails_before_storing") throw new Error("tracker unavailable");
-    this.store(sessionId, content, options.id ?? null);
+    this.store(sessionId, content, options);
     if (this.health === "fails_after_storing") throw new Error("tracker timed out");
   }
 
-  private store(sessionId: string, content: AgentActivityContent, id: string | null): void {
+  private store(sessionId: string, content: AgentActivityContent, options: ActivityOptions): void {
+    const id = options.id ?? null;
     if (!id || !this.stored.some((activity) => activity.id === id)) {
-      this.stored.push({ session_id: sessionId, id, content });
+      this.stored.push({
+        session_id: sessionId,
+        id,
+        content,
+        ephemeral: options.ephemeral ?? false,
+      });
     }
   }
 

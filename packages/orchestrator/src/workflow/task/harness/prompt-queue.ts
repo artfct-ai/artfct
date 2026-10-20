@@ -14,6 +14,7 @@ import {
   runningPolisherOf,
 } from "../../refiner/stage-refiner";
 import { flushBoards } from "../../board/board";
+import { startSessionFeedTurn } from "../../feed/feed";
 import { newPageParent } from "../../root-page";
 import { startFollowUp } from "../../follow-up";
 import { drainModelAuthor } from "../model-author";
@@ -117,7 +118,7 @@ export async function retryQueue(workflow: WorkflowRuntime, alarm: GenerationAla
   await drainQueue(workflow, task);
 }
 
-/** Send `session/prompt`, mark the turn in flight, and arm the turn's timers. */
+/** Send `session/prompt`, mark the turn in flight, and arm the turn's timers and its session feed's tick. */
 export async function sendPrompt(
   workflow: WorkflowRuntime,
   task: TaskRow,
@@ -132,6 +133,7 @@ export async function sendPrompt(
   await armNoProgress(workflow, workflow.store.requireSandbox(task.task_id));
   await armWallClock(workflow, workflow.store.requireSandbox(task.task_id));
   await armKeepAlive(workflow, workflow.store.requireSandbox(task.task_id));
+  await startSessionFeedTurn(workflow, task);
 }
 
 /**

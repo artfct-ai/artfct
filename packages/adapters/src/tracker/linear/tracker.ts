@@ -3,6 +3,7 @@
  * from `./types`. SDK model classes stay inside this file.
  */
 import { LinearSdk, type LinearOptions, type TokenSource } from "./sdk";
+import { linearRequestQuota } from "./rate-limit";
 import {
   fetchIssue,
   fetchProject,
@@ -16,6 +17,7 @@ import type {
   AppUser,
   ExternalUrl,
   IssueUpdate,
+  RequestQuota,
   SessionPlanItem,
   TeamMembership,
   Tracker,
@@ -56,6 +58,11 @@ function messageOf(item: unknown): string {
   return String(item);
 }
 
+/** Posts one agent activity. Named as the SDK names it. */
+const CREATE_AGENT_ACTIVITY = `mutation createAgentActivity($input: AgentActivityCreateInput!) {
+  agentActivityCreate(input: $input) { success }
+}`;
+
 /** Linear requires a label on every session link. The URL stands in when the caller has none. */
 function toExternalUrlInput(url: ExternalUrl): { url: string; label: string } {
   return { url: url.url, label: url.label ?? url.url };
@@ -69,6 +76,7 @@ export class LinearTracker implements Tracker {
   /** The agent's user id under an app-actor install. Null under a personal API key. */
   readonly appUserId: string | null;
   private readonly sdk: LinearSdk;
+  private quota: RequestQuota | null = null;
 
   constructor(token: string | TokenSource, options: LinearTrackerOptions = {}) {
     this.appUserId = options.appUserId ?? null;
@@ -89,6 +97,7 @@ export class LinearTracker implements Tracker {
       query,
       variables,
     );
+    this.quota = linearRequestQuota(response.headers) ?? this.quota;
     if (response.data === undefined) throw new Error("linear: response without data");
     return response.data;
   };
@@ -174,18 +183,19 @@ export class LinearTracker implements Tracker {
     content: AgentActivityContent,
     options: ActivityOptions = {},
   ): Promise<void> {
-    const client = await this.client();
+    const input = {
+      agentSessionId: sessionId,
+      content,
+      ephemeral: options.ephemeral ?? false,
+      ...(options.id ? { id: options.id } : {}),
+    };
     try {
-      await client.createAgentActivity({
-        agentSessionId: sessionId,
-        content,
-        ephemeral: options.ephemeral ?? false,
-        ...(options.id ? { id: options.id } : {}),
-      });
+      await this.raw(CREATE_AGENT_ACTIVITY, { input });
     } catch (error) {
       if (!options.id || !isRepeatedActivity(error)) throw error;
     }
     if (!options.externalUrls?.length) return;
+    const client = await this.client();
     await client.updateAgentSession(sessionId, {
       addedExternalUrls: options.externalUrls.map(toExternalUrlInput),
     });
@@ -194,5 +204,10 @@ export class LinearTracker implements Tracker {
   async setSessionPlan(sessionId: string, plan: SessionPlanItem[]): Promise<void> {
     const client = await this.client();
     await client.updateAgentSession(sessionId, { plan });
+  }
+
+  /** Read from the rate limit headers of the last answer that came through the raw transport. */
+  requestQuota(): RequestQuota | null {
+    return this.quota;
   }
 }

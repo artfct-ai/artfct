@@ -4,11 +4,12 @@ import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import { describe, expect, it } from "bun:test";
-import { FakeRuntime, seedPullRequestTask } from "../../../test/fake-runtime";
+import { FakeRuntime, seedPullRequestTask, seedTask } from "../../../test/fake-runtime";
 import { freshRuntime } from "../../../test/fresh-runtime";
 import { scenario } from "../../../test/scenario";
 import { openMemoryDb } from "../../../test/memory-db";
 import { testEnv } from "../../../test/test-env";
+import { RECEIPT_TEXT } from "../feed/feed";
 import { createWorkflow, eventRefusalOf, handleEvent } from "./events";
 
 describe("handleEvent", () => {
@@ -171,8 +172,90 @@ describe("a message a person wrote", () => {
           { reply_to: SESSION, chat_message: undefined },
         ]);
       }));
+
+    it("gives the person one receipt as an ephemeral thought", () =>
+      prompted((workflow) => {
+        expect(feedPayloadsOf(workflow)).toEqual([
+          { content: { type: "thought", body: RECEIPT_TEXT }, ephemeral: true },
+        ]);
+      }));
+  });
+
+  describe("in a tracker session whose author works", () => {
+    const prompted = scenario(freshRuntime, async (workflow) => {
+      workflow.patchState({ status: "running", origin: SESSION, reply_targets: [SESSION] });
+      seedTask(workflow, { issue_id: "iss-1" }, { prompt_in_flight: 1 });
+      await handleEvent(workflow, {
+        ...START,
+        id: "evt-session",
+        kind: "prompt",
+        text: "also add a test",
+        reply_to: SESSION,
+        acknowledge: undefined,
+      });
+    });
+
+    it("queues it for the author and gives the person one receipt", () =>
+      prompted((workflow) => {
+        expect(workflow.store.queue().map((row) => row.text)).toEqual(["also add a test"]);
+        expect(feedPayloadsOf(workflow)).toEqual([
+          { content: { type: "thought", body: RECEIPT_TEXT }, ephemeral: true },
+        ]);
+      }));
+  });
+
+  describe("a verbal pause in a tracker session", () => {
+    const paused = scenario(freshRuntime, async (workflow) => {
+      workflow.patchState({ status: "running", origin: SESSION, reply_targets: [SESSION] });
+      seedTask(workflow, { issue_id: "iss-2" }, { prompt_in_flight: 1 });
+      await handleEvent(workflow, {
+        ...START,
+        id: "evt-session",
+        kind: "prompt",
+        text: "pause",
+        reply_to: SESSION,
+        acknowledge: undefined,
+      });
+    });
+
+    it("answers with the pause and posts no receipt", () =>
+      paused((workflow) => {
+        expect(workflow.posted).toEqual([
+          { type: "info", text: 'Paused wf_x.1. Reply "resume" to continue.' },
+        ]);
+        expect(feedPayloadsOf(workflow)).toEqual([]);
+      }));
+  });
+
+  describe("in a tracker session of a finished workflow", () => {
+    const prompted = scenario(freshRuntime, async (workflow) => {
+      workflow.patchState({ status: "done", origin: SESSION, reply_targets: [SESSION] });
+      await handleEvent(workflow, {
+        ...START,
+        id: "evt-session",
+        kind: "prompt",
+        text: "also add a test",
+        reply_to: SESSION,
+        acknowledge: undefined,
+      });
+    });
+
+    it("tells the person the workflow ended, without a receipt", () =>
+      prompted((workflow) => {
+        expect(feedPayloadsOf(workflow)).toEqual([]);
+        expect(workflow.posted).toEqual([
+          { type: "info", text: "This workflow is done. Start a new request for more work." },
+        ]);
+      }));
   });
 });
+
+function feedPayloadsOf(workflow: FakeRuntime): unknown[] {
+  return workflow.store
+    .outbox()
+    .filter((row) => row.channel === "feed")
+    .map((row) => row.payload);
+}
 
 function workflowWith(createdAt: string, status: "running" | "done"): FakeRuntime {
   const workflow = new FakeRuntime(openMemoryDb(), testEnv());

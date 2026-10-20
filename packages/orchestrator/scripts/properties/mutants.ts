@@ -973,7 +973,7 @@ export const MUTANTS: Mutant[] = [
     id: "W178",
     invariant: "sessionRouting::todoListIsFixedAfterFirstArtifact",
     path: "src/workflow/board/board-store.ts",
-    find: "    if (author && this.artifact(author.job_id)) return false;\n",
+    find: "    if (author && this.artifact(author.job_id)) return;\n",
     replace: "",
   },
   {
@@ -1458,9 +1458,9 @@ export const MUTANTS: Mutant[] = [
     id: "W238",
     invariant: "sessionRouting::sessionFeedEndsWhenItsAuthorIdles (restart mid feed post)",
     path: "src/notify/notifier.ts",
-    find: '    this.outbox({ channel: "feed", kind: content.type, target: session, payload: activity });\n    const tracker = await this.tracker();\n    if (!tracker) return;\n    for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {\n      try {\n        await tracker.activity(session.session_id, content, { id });\n',
+    find: '    this.outbox({ channel: "feed", kind: content.type, target: session, payload: activity });\n    const tracker = await this.tracker();\n    if (!tracker) return false;\n    for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {\n      try {\n        await tracker.activity(session.session_id, content, { id });\n',
     replace:
-      '    const row = { channel: "feed", kind: content.type, target: session, payload: activity };\n    const tracker = await this.tracker();\n    if (!tracker) return;\n    for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {\n      try {\n        await tracker\n          .activity(session.session_id, content, { id })\n          .finally(() => attempt === 1 && this.outbox(row));\n',
+      '    const row = { channel: "feed", kind: content.type, target: session, payload: activity };\n    const tracker = await this.tracker();\n    if (!tracker) return false;\n    for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {\n      try {\n        await tracker\n          .activity(session.session_id, content, { id })\n          .finally(() => attempt === 1 && this.outbox(row));\n',
   },
   {
     id: "W244",
@@ -1650,8 +1650,8 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "harnessSession::anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone (todo list not stored)",
     path: "src/workflow/task/harness/turn.ts",
-    find: "    const stored = workflow.store.setTodos(task.task_id, { entries });",
-    replace: "    const stored = false;",
+    find: "    workflow.store.setTodos(task.task_id, { entries });\n",
+    replace: "",
   },
   {
     id: "W240",
@@ -2096,6 +2096,93 @@ export const MUTANTS: Mutant[] = [
     find: '  return clipHead(headLines(input).join("\\n"), DIGEST_MAX_CHARS - tail.length - newlineBeforeTail);\n',
     replace: '  return headLines(input).join("\\n");\n',
     propertyFile: "src/workflow/task/harness/digest.property.ts",
+  },
+  {
+    id: "W380",
+    invariant: "sessionFeedInvariants::aToolCallNeverPosts (a completed tool call posts its title)",
+    path: "src/workflow/feed/feed.ts",
+    find: '    case "tool_call": {\n      const line = feed.message.trim();\n',
+    replace:
+      '    case "tool_call": {\n      await workflow.notifier.feed(feedSessionOf(workflow, task)!, {\n        task_id: task.task_id,\n        id: crypto.randomUUID(),\n        content: { type: "action", action: "Used", parameter: update.title },\n      });\n      const line = feed.message.trim();\n',
+    propertyFile: "src/workflow/feed/feed.property.ts",
+  },
+  {
+    id: "W381",
+    invariant: "sessionFeedInvariants::narrationPostsAtMostOncePerInterval",
+    path: "src/workflow/feed/feed.ts",
+    find: "  return sinceLastPost >= NARRATION_INTERVAL_MS && !(await requestQuotaLow(workflow));\n",
+    replace: "  return !(await requestQuotaLow(workflow));\n",
+    propertyFile: "src/workflow/feed/feed.property.ts",
+  },
+  {
+    id: "W382",
+    invariant:
+      "sessionFeedInvariants::everyNarrationLinePostsInOrder (a new line overwrites the waiting ones)",
+    path: "src/workflow/store/tasks.ts",
+    find: "    const narration = waiting ? `${waiting}${NARRATION_LINE_SEPARATOR}${line}` : line;\n",
+    replace: "    const narration = waiting ? line : line;\n",
+    propertyFile: "src/workflow/feed/feed.property.ts",
+  },
+  {
+    id: "W383",
+    invariant: "sessionFeedInvariants::theReplyNeverPostsAsNarration",
+    path: "src/workflow/feed/feed.ts",
+    find: '  const message = workflow.sessionFeeds.get(task.task_id)?.message ?? "";\n  await postWaitingNarration(workflow, task, "now");\n',
+    replace:
+      '  const message = workflow.sessionFeeds.get(task.task_id)?.message ?? "";\n  if (message.trim()) workflow.store.appendNarration(task.task_id, message.trim(), isoNow(workflow));\n  await postWaitingNarration(workflow, task, "now");\n',
+    propertyFile: "src/workflow/feed/feed.property.ts",
+  },
+  {
+    id: "W384",
+    invariant: "sessionFeedInvariants::aQuietTurnGetsAHeartbeat",
+    path: "src/workflow/feed/feed.ts",
+    find: "  if (workflow.now() - Date.parse(feed.active_at) < HEARTBEAT_AFTER_MS) return;\n",
+    replace: "  if (workflow.now() - Date.parse(feed.active_at) <= HEARTBEAT_AFTER_MS) return;\n",
+    propertyFile: "src/workflow/feed/feed.property.ts",
+  },
+  {
+    id: "W385",
+    invariant:
+      "sessionFeedInvariants::heartbeatsAreTheOnlyPostsTheQuotaSkips (the closing waits on the quota)",
+    path: "src/workflow/feed/feed.ts",
+    find: "  if (!session || !closing) return;\n",
+    replace: "  if (!session || !closing || (await requestQuotaLow(workflow))) return;\n",
+    propertyFile: "src/workflow/feed/feed.property.ts",
+  },
+  {
+    id: "W386",
+    invariant: "sessionFeedInvariants::everyInstructionGetsAReceipt",
+    path: "src/workflow/inbound/events.ts",
+    find: "    if (instructed) await postReceipt(workflow, instructed);\n",
+    replace: "",
+    propertyFile: "src/workflow/feed/feed.property.ts",
+  },
+  {
+    id: "W387",
+    invariant: "sessionRouting::sessionPlanSetsOnlyWhenATurnEnds",
+    path: "src/workflow/task/harness/turn.ts",
+    find: "    await markBoardDirty(workflow, task.job_id);\n  }\n  countToolActivity",
+    replace:
+      "    await markBoardDirty(workflow, task.job_id);\n    await publishSessionPlan(workflow, task);\n  }\n  countToolActivity",
+  },
+  {
+    id: "W388",
+    invariant:
+      "sessionFeedInvariants::everyNarrationLinePostsInOrder (recorded before its post lands)",
+    path: "src/workflow/feed/feed.ts",
+    find: "  const posted = await workflow.notifier.feed(session, {\n",
+    replace:
+      "  workflow.store.recordNarrationPost(task.task_id, waiting.narration, isoNow(workflow));\n  const posted = await workflow.notifier.feed(session, {\n",
+    propertyFile: "src/workflow/feed/feed.property.ts",
+  },
+  {
+    id: "W389",
+    invariant:
+      "sessionFeedInvariants::heartbeatsAndNarrationWaitWhileTheQuotaIsLow (a heartbeat ignores the quota)",
+    path: "src/workflow/feed/feed.ts",
+    find: "  if (await requestQuotaLow(workflow)) {\n",
+    replace: "  if (false && (await requestQuotaLow(workflow))) {\n",
+    propertyFile: "src/workflow/feed/feed.property.ts",
   },
   {
     id: "W360",

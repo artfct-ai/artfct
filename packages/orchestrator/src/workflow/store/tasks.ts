@@ -3,7 +3,17 @@ import type { Review } from "../../artifact/types";
 import type { TaskRole } from "../task/events";
 import { TURN_PURPOSE } from "../../agent/model/usage";
 import { BoardStore } from "../board/board-store";
-import { jobs, modelUsage, promptQueue, reviews, rpc, rulings, sandboxes, tasks } from "./schema";
+import {
+  jobs,
+  modelUsage,
+  promptQueue,
+  reviews,
+  rpc,
+  rulings,
+  sandboxes,
+  sessionFeeds,
+  tasks,
+} from "./schema";
 import type { RpcPurpose } from "./schema";
 import { FINISHED_TASK_STATUSES, now } from "./state";
 
@@ -11,6 +21,7 @@ export type { ArtifactRow } from "./records";
 export type JobRow = typeof jobs.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;
 export type SandboxRow = typeof sandboxes.$inferSelect;
+export type SessionFeedRow = typeof sessionFeeds.$inferSelect;
 export type QueuedPrompt = Pick<typeof promptQueue.$inferSelect, "id" | "text">;
 export type PendingRpc = Pick<typeof rpc.$inferSelect, "purpose" | "method">;
 export type ModelUsageRow = typeof modelUsage.$inferSelect;
@@ -79,6 +90,9 @@ export type NewTask = Pick<TaskRow, "task_id" | "job_id" | "model"> & {
 
 /** How much of a turn's text is kept: enough for the summary, artifact scan, and report. */
 export const TURN_TEXT_CHARS = 12_000;
+
+/** What joins two narration lines in one post. */
+const NARRATION_LINE_SEPARATOR = "\n\n";
 
 const JOB_ROLES: TaskRole[] = ["author", "researcher"];
 const REFINER_ROLES: TaskRole[] = ["reviewer", "polisher"];
@@ -439,6 +453,47 @@ export class WorkflowStore extends BoardStore {
   /** Drop every queued prompt of a task. For teardown. */
   clearPromptQueue(taskId: string): void {
     this.db.delete(promptQueue).where(eq(promptQueue.task_id, taskId)).run();
+  }
+
+  /** The session feed of an author. Null before its first turn or narration in a job session. */
+  sessionFeed(taskId: string): SessionFeedRow | null {
+    return (
+      this.db.select().from(sessionFeeds).where(eq(sessionFeeds.task_id, taskId)).get() ?? null
+    );
+  }
+
+  /** The feed showed activity at `at`: a post, or the start of a turn. */
+  touchSessionFeed(taskId: string, at: string): void {
+    this.db
+      .insert(sessionFeeds)
+      .values({ task_id: taskId, active_at: at })
+      .onConflictDoUpdate({ target: sessionFeeds.task_id, set: { active_at: at } })
+      .run();
+  }
+
+  /** Add a narration line after the lines that wait for their post. */
+  appendNarration(taskId: string, line: string, at: string): void {
+    const waiting = this.sessionFeed(taskId)?.narration ?? "";
+    const narration = waiting ? `${waiting}${NARRATION_LINE_SEPARATOR}${line}` : line;
+    this.db
+      .insert(sessionFeeds)
+      .values({ task_id: taskId, narration, active_at: at })
+      .onConflictDoUpdate({ target: sessionFeeds.task_id, set: { narration } })
+      .run();
+  }
+
+  /** Narration posted at `at`. The lines it carried stop waiting, and both feed clocks move. */
+  recordNarrationPost(taskId: string, posted: string, at: string): void {
+    const waiting = this.sessionFeed(taskId)?.narration ?? "";
+    const rest = waiting.startsWith(posted) ? waiting.slice(posted.length) : waiting;
+    const narration = rest.startsWith(NARRATION_LINE_SEPARATOR)
+      ? rest.slice(NARRATION_LINE_SEPARATOR.length)
+      : rest;
+    this.db
+      .update(sessionFeeds)
+      .set({ narration, narrated_at: at, active_at: at })
+      .where(eq(sessionFeeds.task_id, taskId))
+      .run();
   }
 
   queue(): (typeof promptQueue.$inferSelect)[] {

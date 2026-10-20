@@ -82,13 +82,7 @@ const POST_KINDS = [
   "InfoPost",
   "TurnFailedPost",
 ] as const;
-const FEED_KINDS = [
-  "ActionActivity",
-  "ReplyActivity",
-  "DoneActivity",
-  "StoppedActivity",
-  "ErrorActivity",
-] as const;
+const FEED_KINDS = ["ReplyActivity", "DoneActivity", "StoppedActivity", "ErrorActivity"] as const;
 const SESSION_TEXTS = ["Question", "StatusRequest", "PauseCommand", "CancelCommand"] as const;
 const OUTCOMES = ["Answers", "Asks", "TimesOut"] as const;
 const ENDINGS = ["Finishes", "Fails"] as const;
@@ -144,6 +138,9 @@ const TRACKER_HEALTH: Record<Exclude<Health, RestartMidPost>, TrackerHealth> = {
   FailsBeforeStoring: "fails_before_storing",
   FailsAfterStoring: "fails_after_storing",
 };
+
+/** The activity types of the closings the spec models. A restart cuts only their posts. */
+const CLOSING_TYPES: AgentActivityContent["type"][] = ["response", "error"];
 
 /** Whether the tracker stores the activity that a restart cuts. */
 const STORED_BEFORE_THE_RESTART: Record<RestartMidPost, boolean> = {
@@ -438,7 +435,8 @@ const RESEARCH_OF: Record<TaskStatus, SpecJob["research"]> = {
   failed: "ResearchFailed",
 };
 
-const NOT_FEED_ACTIVITIES = ["plan", "delivery_error"];
+/** Outbox kinds of the feed that the spec does not model. A thought is narration, a receipt, or a heartbeat. */
+const NOT_FEED_ACTIVITIES = ["plan", "delivery_error", "thought"];
 
 function worldAction(label: string, run: (world: WorkflowWorld) => Promise<void>): WorkflowAction {
   return { run, toString: () => label };
@@ -470,7 +468,6 @@ function issueKeyOfTarget(target: unknown): string | null {
 }
 
 function feedKindOf(content: AgentActivityContent): FeedKind {
-  if (content.type === "action") return "ActionActivity";
   if (content.type === "error") return "ErrorActivity";
   if (content.type !== "response") throw new Error(`the spec has no feed kind ${content.type}`);
   if (content.body === STOPPED_TEXT) return "StoppedActivity";
@@ -866,6 +863,7 @@ export class SessionRoutingReplay {
       async (world) => {
         const cut = new Deferred<"cut">();
         world.tracker.cutNextActivity({
+          types: CLOSING_TYPES,
           stored: STORED_BEFORE_THE_RESTART[health],
           cut: () => cut.resolve("cut"),
         });

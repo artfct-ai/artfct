@@ -508,7 +508,7 @@ describe("applyEvent", () => {
         expect(workflow.store.queue().map((row) => row.text)).toEqual(["also add docs"]);
       }));
 
-    it("posts nothing", () =>
+    it("posts nothing to the humans", () =>
       forwarded(({ workflow }) => {
         expect(workflow.posted).toEqual([]);
       }));
@@ -516,7 +516,7 @@ describe("applyEvent", () => {
     it("tells the agent without a wake", () =>
       forwarded(({ result }) => {
         expect(result).toEqual({
-          notes: ["The author wf_x.1 got this message as a prompt. Nothing was posted."],
+          notes: ["The author wf_x.1 got this message as a prompt. The person got a receipt."],
           wake: "none",
         });
       }));

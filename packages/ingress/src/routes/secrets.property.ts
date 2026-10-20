@@ -20,7 +20,7 @@ import {
   slackMention,
 } from "../../test/webhook-fixtures";
 
-const RUNS = 300;
+const RUNS = 1000;
 
 const CONSOLE_METHODS = ["log", "info", "warn", "error", "debug"] as const;
 

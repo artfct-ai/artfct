@@ -582,6 +582,40 @@ describe("LinearTracker writes", () => {
     });
   });
 
+  describe("an activity answered with rate limit headers", () => {
+    let tracker: LinearTracker;
+
+    beforeEach(async () => {
+      fakeLinear(
+        { createAgentActivity: { agentActivityCreate: { success: true } } },
+        {
+          "X-RateLimit-Requests-Limit": "5000",
+          "X-RateLimit-Requests-Remaining": "412",
+          "X-RateLimit-Requests-Reset": "1792500000000",
+        },
+      );
+      tracker = new LinearTracker("lin_api_x");
+      await tracker.activity("sess", { type: "thought", body: "hi" });
+    });
+
+    it("reports the quota the headers name", () => {
+      expect(tracker.requestQuota()).toEqual({
+        remaining: 412,
+        limit: 5000,
+        resets_at: 1792500000000,
+      });
+    });
+  });
+
+  describe("an activity answered without rate limit headers", () => {
+    it("reports no quota", async () => {
+      fakeLinear({ createAgentActivity: { agentActivityCreate: { success: true } } });
+      const tracker = new LinearTracker("lin_api_x");
+      await tracker.activity("sess", { type: "thought", body: "hi" });
+      expect(tracker.requestQuota()).toBeNull();
+    });
+  });
+
   describe("a session plan", () => {
     let calls: Call[];
 

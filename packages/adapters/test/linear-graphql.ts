@@ -35,9 +35,9 @@ function operationName(query: string): string {
 
 /**
  * Stub `globalThis.fetch` with a Linear API fake. It records every call and answers from the
- * operation table. An answer of `{ errors }` is sent as a GraphQL error response.
+ * operation table with `headers`. An answer of `{ errors }` is sent as a GraphQL error response.
  */
-export function fakeLinear(answers: Answers): Call[] {
+export function fakeLinear(answers: Answers, headers: Record<string, string> = {}): Call[] {
   const calls: Call[] = [];
   const fetchFake = async (input: string | URL | Request, init?: RequestInit) => {
     const body = JSON.parse(fetchBody(init)) as {
@@ -54,10 +54,10 @@ export function fakeLinear(answers: Answers): Call[] {
     calls.push(call);
     const answer = answers[call.operation];
     if (answer === undefined)
-      return Response.json({ errors: [{ message: `unknown ${call.operation}` }] });
+      return Response.json({ errors: [{ message: `unknown ${call.operation}` }] }, { headers });
     const data = typeof answer === "function" ? answer(call) : answer;
-    if ("errors" in data) return Response.json(data);
-    return Response.json({ data });
+    if ("errors" in data) return Response.json(data, { headers });
+    return Response.json({ data }, { headers });
   };
   spyOn(globalThis, "fetch").mockImplementation(fetchFake);
   return calls;

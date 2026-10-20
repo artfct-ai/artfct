@@ -181,16 +181,16 @@ export class Notifier {
     await this.setChatSession(target, finished ? "closed" : "active", { title });
   }
 
-  /** Post one activity of an author's session feed under its id. */
-  async feed(session: TrackerTarget, activity: FeedActivity): Promise<void> {
+  /** Post one activity of an author's session feed under its id. True once the tracker took it. */
+  async feed(session: TrackerTarget, activity: FeedActivity): Promise<boolean> {
     const { id, content } = activity;
     this.outbox({ channel: "feed", kind: content.type, target: session, payload: activity });
     const tracker = await this.tracker();
-    if (!tracker) return;
+    if (!tracker) return false;
     for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {
       try {
         await tracker.activity(session.session_id, content, { id });
-        return;
+        return true;
       } catch (error) {
         this.outbox({
           channel: "feed",
@@ -199,6 +199,24 @@ export class Notifier {
           payload: String(error),
         });
       }
+    }
+    return false;
+  }
+
+  /** Post a thought in a tracker session that the next activity replaces. One attempt. Never throws. */
+  async ephemeralThought(session: TrackerTarget, body: string): Promise<void> {
+    const content: AgentActivityContent = { type: "thought", body };
+    const payload = { content, ephemeral: true };
+    this.outbox({ channel: "feed", kind: content.type, target: session, payload });
+    try {
+      await (await this.tracker())?.activity(session.session_id, content, { ephemeral: true });
+    } catch (error) {
+      this.outbox({
+        channel: "feed",
+        kind: DELIVERY_ERROR,
+        target: session,
+        payload: String(error),
+      });
     }
   }
 
