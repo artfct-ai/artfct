@@ -40,18 +40,18 @@
   ],
   "mainMinutes": {
     "pagesWithAReviewer": 1.8,
-    "pagesWithAPolisher": 2.0,
+    "pagesWithAPolisher": 2.4,
     "pagesWithoutRefiners": 1.9,
     "pagesWithAChoice": 2.0,
     "issuesForAChatRequest": 1.9,
-    "pagesAfterResearch": 1.8,
+    "pagesAfterResearch": 2.6,
     "pagesFromModelCalls": 2.0,
     "modelCallPagesWithAReviewer": 1.9,
-    "modelCallPagesAfterResearch": 1.9,
+    "modelCallPagesAfterResearch": 2.7,
     "modelCallPagesForAnIssue": 1.9,
-    "pullsTheHostMoves": 1.9,
+    "pullsTheHostMoves": 3.1,
     "pullsForAnEndedSubject": 2.0,
-    "pullsForAnEndedSubIssue": 1.9,
+    "pullsForAnEndedSubIssue": 2.3,
     "pullsForTwoIssues": 1.9
   },
   "witnesses": {
