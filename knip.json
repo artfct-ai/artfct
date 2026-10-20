@@ -18,7 +18,6 @@
         "src/**/*.{replay,property}{,.medium}.ts",
         "vitest.{config,property.config,setup}.ts",
         "drizzle.*.config.ts",
-        "migrations/workflow/migrations.d.ts",
         "scripts/**/*.ts",
         "test/{dev,smoke}-worker.ts"
       ],

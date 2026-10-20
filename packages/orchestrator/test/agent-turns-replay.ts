@@ -129,11 +129,7 @@ export type TurnsView = {
   turn: string;
   inbox: string[];
   transcript: string[];
-  startedAt: number | null;
-  watchdog: number | null;
-  headsUp: number | null;
-  firstRow: number | null;
-  boardChanged: boolean;
+  storedTurn: StoredTurnView | null;
   runAgentAlarms: number;
   lastInputOverLimit: boolean;
   chat: string;
@@ -144,6 +140,18 @@ export type TurnsView = {
   decisionsEvents: string[];
   runtimeRequestOut: boolean;
 };
+
+/** The agent turn record. Alarms and start times are turn start numbers. */
+type StoredTurnView =
+  | {
+      status: "running";
+      startedAt: number;
+      watchdog: number | null;
+      headsUp: number | null;
+      firstRow: number;
+      boardChanged: boolean;
+    }
+  | { status: "lost"; firstRow: number; boardChanged: boolean };
 
 /** One state of a trace: the action that led to it, what it picked, and the view after it. */
 export type TraceStep = { action: string; picks: StepPicks; view: TurnsView };
@@ -264,11 +272,7 @@ function specView(workflow: unknown): TurnsView {
     transcript: itfList(itfField(store, "transcript")).map(
       (row) => `${itfInt(itfField(row, "id"))} ${specEntry(itfField(row, "entry"))}`,
     ),
-    startedAt: armedFor(itfField(store, "startedAt"), "StartedAt"),
-    watchdog: armedFor(itfField(store, "watchdog"), "ArmedFor"),
-    headsUp: armedFor(itfField(store, "headsUp"), "ArmedFor"),
-    firstRow: armedFor(itfField(store, "firstRow"), "FirstRowIs"),
-    boardChanged: itfBool(itfField(store, "boardChanged")),
+    storedTurn: specStoredTurn(itfField(store, "turn")),
     runAgentAlarms:
       itfInt(itfField(store, "runAgentAlarms")) + (itfBool(itfField(store, "backupAlarm")) ? 1 : 0),
     lastInputOverLimit: itfBool(itfField(store, "lastInputOverLimit")),
@@ -285,15 +289,38 @@ function specView(workflow: unknown): TurnsView {
   };
 }
 
+function specStoredTurn(value: unknown): StoredTurnView | null {
+  const turn = itfVariant(value)!;
+  switch (turn.tag) {
+    case "TurnRunning":
+      return {
+        status: "running",
+        startedAt: itfInt(itfField(turn.value, "startedAt")),
+        watchdog: armedFor(itfField(turn.value, "watchdog"), "ArmedFor"),
+        headsUp: armedFor(itfField(turn.value, "headsUp"), "ArmedFor"),
+        firstRow: itfInt(itfField(turn.value, "firstRow")),
+        boardChanged: itfBool(itfField(turn.value, "boardChanged")),
+      };
+    case "TurnLost":
+      return {
+        status: "lost",
+        firstRow: itfInt(itfField(turn.value, "firstRow")),
+        boardChanged: itfBool(itfField(turn.value, "boardChanged")),
+      };
+    default:
+      return null;
+  }
+}
+
 function specAnsweredBy(slot: unknown): number[] {
   const turn = itfVariant(slot)!;
-  if (turn.tag === "NoTurn") return [];
+  if (turn.tag === "Idle") return [];
   return itfList(itfField(itfField(turn.value, "record"), "answeredBy")).map(itfInt);
 }
 
 function specDecisionsEvents(slot: unknown): string[] {
   const turn = itfVariant(slot)!;
-  if (turn.tag === "NoTurn") return [];
+  if (turn.tag === "Idle") return [];
   return itfList(itfField(itfField(turn.value, "record"), "decisionsEvents")).map(tagOf);
 }
 
@@ -304,7 +331,7 @@ function specRuntimeRequestOut(slot: unknown): boolean {
 
 function specTurn(slot: unknown): string {
   const turn = itfVariant(slot)!;
-  if (turn.tag === "NoTurn") return "NoTurn";
+  if (turn.tag === "Idle") return "Idle";
   const phase = itfVariant(itfField(turn.value, "phase"))!;
   if (phase.tag === "Concluding") return `Concluding(${tagOf(phase.value)})`;
   return phase.tag;
@@ -432,8 +459,7 @@ class ReplayLedger {
     });
   }
 
-  startNumberOf(startedAt: string | null): number | null {
-    if (startedAt === null) return null;
+  startNumberOf(startedAt: string): number {
     const known = this.startNumbers.get(startedAt);
     if (known !== undefined) return known;
     const assigned = this.startNumbers.size + 1;
@@ -1120,7 +1146,6 @@ export class AgentTurnsReplay {
   /** The agent turns as the code left them, in the terms of the spec. */
   view(): TurnsView {
     const { runtime, ledger } = this;
-    const turn = runtime.store.requireWorkflowRow();
     const rows = runtime.transcript.all();
     const inbox = [...runtime.transcript.taken(), ...runtime.transcript.inbox()]
       .map((row) => ({
@@ -1134,11 +1159,7 @@ export class AgentTurnsReplay {
       turn: ledger.held?.phase ?? this.turnWithoutHeldCall(),
       inbox: inbox.map(inboxLine),
       transcript: rows.map((row, index) => `${row.id} ${entryName(row, rows[index - 1], ledger)}`),
-      startedAt: ledger.startNumberOf(turn.turn_started_at),
-      watchdog: this.armedStart(turn.turn_watchdog),
-      headsUp: this.armedStart(turn.turn_heads_up),
-      firstRow: turn.turn_first_row,
-      boardChanged: turn.turn_board_changed,
+      storedTurn: this.storedTurn(),
       runAgentAlarms: runtime.alarmsFor("runAgent").length,
       lastInputOverLimit: runtime.store.lastTurnInputTokens() > CONTEXT_TOKENS,
       chat: chatStatus(runtime.chatSession),
@@ -1156,8 +1177,24 @@ export class AgentTurnsReplay {
     return [...this.ledger.failures];
   }
 
+  private storedTurn(): StoredTurnView | null {
+    const turn = this.runtime.store.agentTurn();
+    if (!turn) return null;
+    if (turn.status === "lost") {
+      return { status: "lost", firstRow: turn.first_row, boardChanged: turn.board_changed };
+    }
+    return {
+      status: "running",
+      startedAt: this.ledger.startNumberOf(turn.started_at),
+      watchdog: this.armedStart(turn.watchdog_schedule),
+      headsUp: this.armedStart(turn.heads_up_schedule),
+      firstRow: turn.first_row,
+      boardChanged: turn.board_changed,
+    };
+  }
+
   private turnWithoutHeldCall(): string {
-    if (!this.runtime.turnActive) return "NoTurn";
+    if (!this.runtime.turnActive) return "Idle";
     return this.ledger.runtimeRequest ? "AwaitingRuntimeRequest" : "Busy";
   }
 

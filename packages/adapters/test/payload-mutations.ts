@@ -19,6 +19,11 @@ export const anyJsonValue: fc.Arbitrary<unknown> = fc.oneof(
   oversizedString,
 );
 
+/** An email in any mix of upper and lower case, as a vendor may report it. */
+export const anyCaseEmail: fc.Arbitrary<string> = fc.stringMatching(
+  /^[A-Za-z][A-Za-z.]{0,7}@[A-Za-z]{1,8}\.[A-Za-z]{2,4}$/,
+);
+
 /**
  * A payload derived from `base`, a real vendor payload, with fields removed or replaced by a
  * value of any type. Each mutation picks one field anywhere in the tree, nested ones included.

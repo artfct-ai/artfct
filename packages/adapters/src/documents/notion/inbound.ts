@@ -68,5 +68,5 @@ async function resolveAuthor(
 ): Promise<Actor | null> {
   if (!author) return null;
   const email = author.email ?? (await context.documents.userEmail(author.id).catch(() => null));
-  return context.resolveActor({ id: author.id, email });
+  return context.resolveActor({ id: author.id, email: email?.toLowerCase() ?? null });
 }

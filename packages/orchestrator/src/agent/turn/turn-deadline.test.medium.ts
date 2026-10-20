@@ -70,7 +70,7 @@ describe("a turn whose decisions call never returns", () => {
 
   it("lets go of the turn", () =>
     stuck(({ workflow }) => {
-      expect(workflow.store.requireWorkflowRow().turn_started_at).toBeNull();
+      expect(workflow.store.agentTurn()).toBeNull();
     }));
 });
 
