@@ -4,7 +4,7 @@ This file lists each effect a person sees or the system relies on, and the invar
 
 Effects use the terms of the glossary. A guard is the exact function name of an invariant. A guard written `module::name` is an invariant of that Quint spec module. A guard written `world::name` is a check the workflow world in `packages/orchestrator/test/workflow-world.ts` makes on every step, so every property test and replay that drives the world makes it. A guard written `tests::path` names the example tests in that test file. A row with an empty guard list is unguarded.
 
-The router binding invariants live in the Quint spec at `spec/router-bindings/routerBindings.qnt`. The review loop invariants live in the Quint spec at `spec/review-loop/reviewLoop.qnt`, the workflow lifecycle invariants in `spec/workflow-lifecycle/workflowLifecycle.qnt`, the harness session invariants in `spec/harness-session/harnessSession.qnt`, the agent turns invariants in `spec/agent-turns/agentTurns.qnt`, the chat acknowledgement invariants in `spec/chat-acknowledgement/chatAcknowledgement.qnt`, the session routing invariants in `spec/session-routing/sessionRouting.qnt`, and the feedback routing invariants in `spec/feedback-routing/feedbackRouting.qnt`. A guard written `webhookInvariants::name` is a webhook invariant in `packages/ingress/test/webhook-invariants.ts`, and one written `inboundInvariants::name` is an inbound mapper invariant in `packages/adapters/test/inbound-invariants.ts`.
+The router binding invariants live in the Quint spec at `spec/router-bindings/routerBindings.qnt`. The review loop invariants live in the Quint spec at `spec/review-loop/reviewLoop.qnt`, the workflow lifecycle invariants in `spec/workflow-lifecycle/workflowLifecycle.qnt`, the harness session invariants in `spec/harness-session/harnessSession.qnt`, the agent turns invariants in `spec/agent-turns/agentTurns.qnt`, the chat acknowledgement invariants in `spec/chat-acknowledgement/chatAcknowledgement.qnt`, the session routing invariants in `spec/session-routing/sessionRouting.qnt`, and the feedback routing invariants in `spec/feedback-routing/feedbackRouting.qnt`. A guard written `webhookInvariants::name` is a webhook invariant in `packages/ingress/test/webhook-invariants.ts`, and one written `inboundInvariants::name` is an inbound mapper invariant in `packages/adapters/test/inbound-invariants.ts`. A guard written `slackTextInvariants::name` is a Slack text invariant in `packages/adapters/test/slack-text-invariants.ts`.
 
 ## Workflow, tasks and statuses
 
@@ -234,6 +234,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | C17 | A reply target on a document page gets a page comment. A progress post skips the page. | |
 | C18 | The chat eyes reaction marks a delivery slower than 3 seconds and comes off when it settles. A settled delivery waits at most 3 seconds for an eyes add that has not answered. Then it logs the add, leaves the eyes as the chat left them, and returns. The caller gets what the delivery gave. | `chatAcknowledgement::eyesNeverOutliveTheDelivery`, `chatAcknowledgement::eyesMarkOnlyASlowChatDelivery`, `chatAcknowledgement::theCallerGetsWhatTheDeliveryGave` |
 | C19 | A received chat message sets the thread to its working status. | |
+| C20 | Agent text posted to Slack does not notify a person or a channel, whatever Markdown it holds. The Markdown becomes mrkdwn once, so converting the posted text again changes nothing. | `slackTextInvariants::slackTextNeverNotifies`, `slackTextInvariants::slackMrkdwnIsStable` |
 
 ## Tracker output
 
@@ -300,7 +301,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| X1 | Slack thread replies split into chunks. A failure partway leaves the first chunks posted. Every Slack write throws on error. | `tests::packages/adapters/src/chat/slack/chat.test.ts` |
+| X1 | Slack thread replies split into chunks. Each chunk holds at most the chunk limit and does not end inside a surrogate pair. The chunks keep the text in order. A failure partway leaves the first chunks posted. Every Slack write throws on error. | `tests::packages/adapters/src/chat/slack/chat.test.ts`, `slackTextInvariants::slackChunksKeepTheText` |
 | X2 | Linear issue updates, activities, plans and thread sync throw on an error. A thread sync of an issue already synced to another thread links the thread URL instead. An activity conflict is swallowed only when the post names an activity id, so a retried post is idempotent. The SDK `success` flag is not read. | `sessionRouting::feedActivityPostsOnce` |
 | X3 | GitHub writes are a pull request comment, a comment reaction and token minting. Paged reads stop at 10 pages and repository lists at 100. | `tests::packages/adapters/src/code/github/code-host.test.ts` |
 | X4 | Notion page create, page text change, move, rename, comment, acknowledgement and reply throw on error. Inline findings swallow only a Notion client error per block and come back unposted. A page Notion does not find, or one in the trash, reads as removed. | |
