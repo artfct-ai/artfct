@@ -77,6 +77,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -153,6 +154,12 @@
         "destroyedSandboxes": {
           "#set": []
         },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
+        },
         "endCall": {
           "tag": "NoEndCall",
           "value": {
@@ -189,12 +196,6 @@
         },
         "status": {
           "tag": "New",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
           "value": {
             "#tup": []
           }
@@ -398,6 +399,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -474,6 +476,12 @@
         "destroyedSandboxes": {
           "#set": []
         },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
+        },
         "endCall": {
           "tag": "NoEndCall",
           "value": {
@@ -510,12 +518,6 @@
         },
         "status": {
           "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
           "value": {
             "#tup": []
           }
@@ -720,6 +722,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -795,6 +798,12 @@
         },
         "destroyedSandboxes": {
           "#set": []
+        },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
         },
         "endCall": {
           "tag": "NoEndCall",
@@ -890,12 +899,6 @@
         },
         "status": {
           "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
           "value": {
             "#tup": []
           }
@@ -1097,6 +1100,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -1172,6 +1176,12 @@
         },
         "destroyedSandboxes": {
           "#set": []
+        },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
         },
         "endCall": {
           "tag": "NoEndCall",
@@ -1267,12 +1277,6 @@
         },
         "status": {
           "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
           "value": {
             "#tup": []
           }
@@ -1476,6 +1480,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -1581,6 +1586,12 @@
         "destroyedSandboxes": {
           "#set": []
         },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
+        },
         "endCall": {
           "tag": "NoEndCall",
           "value": {
@@ -1675,12 +1686,6 @@
         },
         "status": {
           "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
           "value": {
             "#tup": []
           }
@@ -1891,6 +1896,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -1970,6 +1976,12 @@
               "#bigint": "0"
             }
           ]
+        },
+        "end": {
+          "tag": "NoEnd",
+          "value": {
+            "#tup": []
+          }
         },
         "endCall": {
           "tag": "NoEndCall",
@@ -2065,12 +2077,6 @@
         },
         "status": {
           "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
           "value": {
             "#tup": []
           }

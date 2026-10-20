@@ -269,7 +269,7 @@ describe("completeJob", () => {
 
       it("ends the workflow done with the result", () =>
         resumed((workflow) => {
-          expect(workflow.store.requireWorkflowRow().status).toBe("done");
+          expect(workflow.store.workflowStatus()).toBe("done");
           expect(workflow.posted).toEqual([{ type: "done", result: "designed" }]);
         }));
 

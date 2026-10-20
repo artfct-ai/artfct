@@ -97,7 +97,7 @@ export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm)
   const answering = workflow.transcript.answering();
   workflow.transcript.deleteTaken();
   if (turn.heads_up_schedule) await workflow.cancelAlarm(turn.heads_up_schedule);
-  if (isWorkflowFinished(workflow.store.requireWorkflowRow().status) && !answering.length)
+  if (isWorkflowFinished(workflow.store.workflowStatus()) && !answering.length)
     return workflow.release();
   const minutes = workflow.config().orchestrator.turn_timeout_minutes;
   workflow.log(null, `agent turn timed out after ${minutes} minutes`);
@@ -124,7 +124,7 @@ export async function resumeLostTurn(workflow: WorkflowRuntime): Promise<boolean
   workflow.store.markTurnLost();
   await cancelTurnAlarms(workflow, turn);
   if (
-    isWorkflowFinished(workflow.store.requireWorkflowRow().status) &&
+    isWorkflowFinished(workflow.store.workflowStatus()) &&
     !workflow.transcript.takenMessages().length
   ) {
     workflow.store.deleteAgentTurn();

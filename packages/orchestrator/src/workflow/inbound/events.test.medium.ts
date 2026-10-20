@@ -421,7 +421,7 @@ describe("finished workflows", () => {
 
   it("reports the failure", () =>
     failed((workflow) => {
-      expect(workflow.store.requireWorkflowRow().status).toBe("failed");
+      expect(workflow.store.workflowStatus()).toBe("failed");
     }));
 
   describe("a message from a person", () => {
@@ -440,7 +440,7 @@ describe("finished workflows", () => {
 
     it("stays failed", () =>
       answered((workflow) => {
-        expect(workflow.store.requireWorkflowRow().status).toBe("failed");
+        expect(workflow.store.workflowStatus()).toBe("failed");
       }));
 
     it("refuses it with the status, so the router starts the next workflow", () =>
@@ -544,7 +544,7 @@ describe("finished workflows", () => {
 
       it("stays failed", () =>
         stillIgnored((workflow) => {
-          expect(workflow.store.requireWorkflowRow().status).toBe("failed");
+          expect(workflow.store.workflowStatus()).toBe("failed");
         }));
 
       it("posts nothing", () =>
@@ -580,7 +580,7 @@ describe("finished workflows", () => {
 
         it("stays failed, so a question reopens nothing", () =>
           asked((workflow) => {
-            expect(workflow.store.requireWorkflowRow().status).toBe("failed");
+            expect(workflow.store.workflowStatus()).toBe("failed");
           }));
       });
     });

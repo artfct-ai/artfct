@@ -540,7 +540,7 @@ describe("applyEvent", () => {
     it("leaves the workflow and the task running", () =>
       forwarded(({ workflow }) => {
         expect(workflow.store.requireTask(TASK).status).toBe("working");
-        expect(workflow.store.requireWorkflowRow().status).not.toBe("cancelled");
+        expect(workflow.store.workflowStatus()).not.toBe("cancelled");
       }));
   });
 

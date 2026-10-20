@@ -20,7 +20,7 @@ import { settlePolisherTurn } from "./polish";
 export async function recheckChecks(workflow: WorkflowRuntime, alarm: ChecksAlarm): Promise<void> {
   const status = workflow.store.artifact(alarm.job_id)?.status;
   const open = status === "drafted" || status === "ready";
-  if (!open || isWorkflowFinished(workflow.store.requireWorkflowRow().status)) {
+  if (!open || isWorkflowFinished(workflow.store.workflowStatus())) {
     return workflow.stopRepeatingAlarm("recheckChecks", alarm);
   }
   await settleChecks(workflow, alarm.job_id);

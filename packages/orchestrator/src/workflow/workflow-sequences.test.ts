@@ -353,7 +353,7 @@ describe("the shortest traces of the workflow lifecycle spec", () => {
   it("refuses a job start while the workflow fails", async () => {
     const world = await worldAfter([pageSetup, [workflowEndsWhile("agent_fails", "agent_starts")]]);
     expect(world.steps.at(-1)?.start).toEqual({ refused: true });
-    expect(world.workflow.store.requireWorkflowRow().status).toBe("failed");
+    expect(world.workflow.store.workflowStatus()).toBe("failed");
     expect(authorStatuses(world)).toEqual(["cancelled"]);
   });
 
@@ -362,7 +362,7 @@ describe("the shortest traces of the workflow lifecycle spec", () => {
       pageSetup,
       [workflowEndsWhile("agent_fails", "agent_finishes")],
     ]);
-    expect(world.workflow.store.requireWorkflowRow().status).toBe("failed");
+    expect(world.workflow.store.workflowStatus()).toBe("failed");
     expect(authorStatuses(world)).toEqual(["cancelled"]);
   });
 

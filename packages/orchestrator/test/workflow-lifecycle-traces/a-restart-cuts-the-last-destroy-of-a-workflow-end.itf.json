@@ -97,6 +97,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -166,6 +167,7 @@
         "calls": [],
         "definition": { "tag": "Unplanned", "value": { "#tup": [] } },
         "destroyedSandboxes": { "#set": [] },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
         "endedIssues": { "#set": [] },
         "endingPosts": [],
@@ -179,7 +181,6 @@
         "runAgainAlarms": { "#set": [] },
         "stagePlan": { "tag": "NoStages", "value": { "#tup": [] } },
         "status": { "tag": "New", "value": { "#tup": [] } },
-        "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
@@ -263,6 +264,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -332,6 +334,7 @@
         "calls": [],
         "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
         "destroyedSandboxes": { "#set": [] },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
         "endedIssues": { "#set": [] },
         "endingPosts": [],
@@ -345,7 +348,6 @@
         "runAgainAlarms": { "#set": [] },
         "stagePlan": { "tag": "StagesPlanned", "value": { "#bigint": "2" } },
         "status": { "tag": "Running", "value": { "#tup": [] } },
-        "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
@@ -429,6 +431,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -498,6 +501,7 @@
         "calls": [],
         "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
         "destroyedSandboxes": { "#set": [] },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
         "endedIssues": { "#set": [] },
         "endingPosts": [],
@@ -533,7 +537,6 @@
         "runAgainAlarms": { "#set": [] },
         "stagePlan": { "tag": "StagesPlanned", "value": { "#bigint": "2" } },
         "status": { "tag": "Running", "value": { "#tup": [] } },
-        "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
@@ -617,6 +620,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": true,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -686,6 +690,7 @@
         "calls": [],
         "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
         "destroyedSandboxes": { "#set": [] },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
         "endedIssues": { "#set": [] },
         "endingPosts": [],
@@ -721,7 +726,6 @@
         "runAgainAlarms": { "#set": [] },
         "stagePlan": { "tag": "StagesPlanned", "value": { "#bigint": "2" } },
         "status": { "tag": "Running", "value": { "#tup": [] } },
-        "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
@@ -805,6 +809,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -892,6 +897,10 @@
         ],
         "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
         "destroyedSandboxes": { "#set": [] },
+        "end": {
+          "tag": "End",
+          "value": { "endsAs": { "tag": "Cancelled", "value": { "#tup": [] } }, "posted": false }
+        },
         "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
         "endedIssues": { "#set": [] },
         "endingPosts": [],
@@ -926,11 +935,7 @@
         "restartAlarms": { "#set": [] },
         "runAgainAlarms": { "#set": [] },
         "stagePlan": { "tag": "StagesPlanned", "value": { "#bigint": "2" } },
-        "status": { "tag": "Running", "value": { "#tup": [] } },
-        "storedEnd": {
-          "tag": "EndStored",
-          "value": { "tag": "Cancelled", "value": { "#tup": [] } }
-        },
+        "status": { "tag": "Ending", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
         "turnsToRunAgain": { "#set": [] }
@@ -1014,6 +1019,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -1083,6 +1089,10 @@
         "calls": [],
         "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
         "destroyedSandboxes": { "#set": [] },
+        "end": {
+          "tag": "End",
+          "value": { "endsAs": { "tag": "Cancelled", "value": { "#tup": [] } }, "posted": false }
+        },
         "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
         "endedIssues": { "#set": [] },
         "endingPosts": [],
@@ -1117,11 +1127,7 @@
         "restartAlarms": { "#set": [] },
         "runAgainAlarms": { "#set": [] },
         "stagePlan": { "tag": "StagesPlanned", "value": { "#bigint": "2" } },
-        "status": { "tag": "Running", "value": { "#tup": [] } },
-        "storedEnd": {
-          "tag": "EndStored",
-          "value": { "tag": "Cancelled", "value": { "#tup": [] } }
-        },
+        "status": { "tag": "Ending", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
         "turnsToRunAgain": { "#set": [] }
@@ -1205,6 +1211,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -1274,6 +1281,10 @@
         "calls": [],
         "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
         "destroyedSandboxes": { "#set": [] },
+        "end": {
+          "tag": "End",
+          "value": { "endsAs": { "tag": "Cancelled", "value": { "#tup": [] } }, "posted": false }
+        },
         "endCall": {
           "tag": "EndPostOut",
           "value": { "tag": "NobodyWaits", "value": { "#tup": [] } }
@@ -1311,11 +1322,7 @@
         "restartAlarms": { "#set": [] },
         "runAgainAlarms": { "#set": [] },
         "stagePlan": { "tag": "StagesPlanned", "value": { "#bigint": "2" } },
-        "status": { "tag": "Cancelled", "value": { "#tup": [] } },
-        "storedEnd": {
-          "tag": "EndStored",
-          "value": { "tag": "Cancelled", "value": { "#tup": [] } }
-        },
+        "status": { "tag": "Ending", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
         "turnsToRunAgain": { "#set": [] }
@@ -1399,6 +1406,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -1468,6 +1476,10 @@
         "calls": [],
         "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
         "destroyedSandboxes": { "#set": [] },
+        "end": {
+          "tag": "End",
+          "value": { "endsAs": { "tag": "Cancelled", "value": { "#tup": [] } }, "posted": true }
+        },
         "endCall": {
           "tag": "CodeHostUnbindOut",
           "value": { "tag": "NobodyWaits", "value": { "#tup": [] } }
@@ -1505,11 +1517,7 @@
         "restartAlarms": { "#set": [] },
         "runAgainAlarms": { "#set": [] },
         "stagePlan": { "tag": "StagesPlanned", "value": { "#bigint": "2" } },
-        "status": { "tag": "Cancelled", "value": { "#tup": [] } },
-        "storedEnd": {
-          "tag": "EndPosted",
-          "value": { "tag": "Cancelled", "value": { "#tup": [] } }
-        },
+        "status": { "tag": "Ending", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
         "turnsToRunAgain": { "#set": [] }
@@ -1593,6 +1601,7 @@
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
         "aPersonPausesAResearcher": false,
+        "aPersonsMessageLandsDuringAnEnd": false,
         "aPlanLandsOnAStartedWorkflow": false,
         "aPlanLeavesFewerSlotsThanJobs": false,
         "aPlanNamesAnotherSubject": false,
@@ -1662,6 +1671,10 @@
         "calls": [],
         "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
         "destroyedSandboxes": { "#set": [] },
+        "end": {
+          "tag": "End",
+          "value": { "endsAs": { "tag": "Cancelled", "value": { "#tup": [] } }, "posted": true }
+        },
         "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
         "endedIssues": { "#set": [] },
         "endingPosts": [],
@@ -1696,8 +1709,7 @@
         "restartAlarms": { "#set": [] },
         "runAgainAlarms": { "#set": [] },
         "stagePlan": { "tag": "StagesPlanned", "value": { "#bigint": "2" } },
-        "status": { "tag": "Cancelled", "value": { "#tup": [] } },
-        "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
+        "status": { "tag": "Ended", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
         "turnsToRunAgain": { "#set": [] }

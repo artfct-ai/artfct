@@ -159,8 +159,8 @@ export function planTools(workflow: WorkflowRuntime) {
  * Null while it runs.
  */
 export function validateWorkflowRunning(workflow: WorkflowRuntime): string | null {
-  const { status } = workflow.store.requireWorkflowRow();
   if (workflowEnding(workflow)) return "The workflow is ending. A workflow that ends stays ended.";
+  const status = workflow.store.workflowStatus();
   if (!isWorkflowFinished(status)) return null;
   return `The workflow is ${status}. A finished workflow stays finished.`;
 }
