@@ -12,7 +12,7 @@ import { TAG_TO_START_AGAIN } from "../../notify/messages";
 const TASK = "wf_x.1";
 const JOB = "wf_x-1";
 const SECOND_TASK = "wf_x.2";
-const actor = { person_id: "p1", email: "dev@acme.test", display_name: "Dev" };
+const actor = { email: "dev@acme.test", display_name: "Dev" };
 const db = createDb(env.DB);
 
 function controlEvent(

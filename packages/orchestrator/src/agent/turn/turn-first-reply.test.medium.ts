@@ -17,7 +17,7 @@ const RESTART = "Durable Object reset because its code was updated.";
 const asked: InboundEvent = {
   id: "evt-asked",
   kind: "prompt",
-  actor: { person_id: "p1", email: "dev@acme.test", display_name: "Dev" },
+  actor: { email: "dev@acme.test", display_name: "Dev" },
   bindings: [],
   links: [],
   text: "Fix the flaky test.",

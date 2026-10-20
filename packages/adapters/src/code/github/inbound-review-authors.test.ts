@@ -117,7 +117,7 @@ describe("github reviews from another App", () => {
     });
 
     it("vouches for the App as the actor", () => {
-      expect(event.actor?.person_id).toBe("p_coderabbitai[bot]");
+      expect(event.actor?.display_name).toBe("coderabbitai[bot]");
     });
 
     it("names the App as the reviewer", () => {
@@ -141,7 +141,7 @@ describe("github reviews from another App", () => {
           pull_request: pr,
         }),
       );
-      expect(event.actor?.person_id).toBe("p_coderabbitai[bot]");
+      expect(event.actor?.display_name).toBe("coderabbitai[bot]");
     });
   });
 
@@ -166,7 +166,7 @@ describe("github reviews from another App", () => {
     });
 
     it("vouches for the App as the actor", () => {
-      expect(event.actor?.person_id).toBe("p_coderabbitai[bot]");
+      expect(event.actor?.display_name).toBe("coderabbitai[bot]");
     });
 
     it("carries the comment with its file and line", () => {

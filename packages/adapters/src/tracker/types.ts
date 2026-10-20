@@ -88,7 +88,6 @@ export type SessionPlanItem = {
 export type TrackerTokens = {
   access_token: string;
   refresh_token?: string;
-  scope?: string;
   expires_in: number;
 };
 

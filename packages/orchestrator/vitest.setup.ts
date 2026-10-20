@@ -2,7 +2,7 @@ import type { D1Migration } from "cloudflare:test";
 import { env } from "cloudflare:workers";
 import { beforeEach } from "vitest";
 import { createDb } from "./src/db/client";
-import { bindings, linearInstalls, linearOauthStates, persons, workflows } from "./src/db/schema";
+import { bindings, linearInstalls, linearOauthStates, workflows } from "./src/db/schema";
 import "./test/register-config";
 
 declare global {
@@ -28,7 +28,6 @@ await env.DB.batch(statements);
 beforeEach(async () => {
   const db = createDb(env.DB);
   await db.delete(bindings);
-  await db.delete(persons);
   await db.delete(workflows);
   await db.delete(linearInstalls);
   await db.delete(linearOauthStates);

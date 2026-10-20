@@ -78,7 +78,7 @@ function fromLine(event: InboundEvent): string {
 
 function actorName(event: InboundEvent): string {
   if (!event.actor) return "the system, not a person";
-  return event.actor.display_name ?? event.actor.email ?? event.actor.person_id;
+  return event.actor.display_name ?? event.actor.email ?? "an unnamed person";
 }
 
 function pullRequestLine(pull: PullEventDetail, action: string): string {

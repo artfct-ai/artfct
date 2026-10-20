@@ -358,7 +358,7 @@ export type DecisionAnswers =
  */
 export type WorldAuthor = { taskId: string; kind: ArtifactKind; pullNumber: number };
 
-const PERSON = { person_id: "p1", email: "dev@acme.test", display_name: "Dev" };
+const PERSON = { email: "dev@acme.test", display_name: "Dev" };
 
 function requestEvent(origin: ReplyTarget): InboundEvent {
   return {

@@ -86,7 +86,7 @@ describe("eventBody", () => {
     ...base,
     kind: "prompt",
     pull: undefined,
-    actor: { person_id: "person-1", display_name: "Alex", email: null },
+    actor: { display_name: "Alex", email: null },
     title: "Passes",
     text: "lets move to a plan\n\nand keep it short",
     links: ["https://example.test/doc"],

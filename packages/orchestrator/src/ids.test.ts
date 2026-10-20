@@ -3,7 +3,6 @@ import {
   branchName,
   jobId,
   jobIdFromBranch,
-  newPersonId,
   newToken,
   newWorkflowId,
   sequenceFromJobId,
@@ -15,10 +14,6 @@ import {
 describe("id generators", () => {
   it("builds a prefixed base32 workflow id", () => {
     expect(newWorkflowId()).toMatch(/^wf_[a-z2-7]{10}$/);
-  });
-
-  it("builds a prefixed base32 person id", () => {
-    expect(newPersonId()).toMatch(/^p_[a-z2-7]{10}$/);
   });
 
   it("builds a base32 token with no prefix", () => {

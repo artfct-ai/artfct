@@ -17,17 +17,10 @@ export type WorkflowId = string;
 export type TaskId = string;
 /** Job ID. Format `<workflowId>-<sequence>`. */
 export type JobId = string;
-/** Person ID. Format `p_<base32>`. */
-export type PersonId = string;
 
 /** New random workflow ID. */
 export function newWorkflowId(): WorkflowId {
   return `wf_${randomBase32(10)}`;
-}
-
-/** New random person ID. */
-export function newPersonId(): PersonId {
-  return `p_${randomBase32(10)}`;
 }
 
 /** Task IDs embed the workflow ID and a sequence number. */

@@ -36,6 +36,7 @@ An orchestrator agent that runs a control loop for software development agents o
   - A harness session gets every skill, so a skill applies another by naming it. A model call reads only its own skill and its activity's `preload_skills`.
 - A workflow definition in `orchestrator/workflows/<name>.yaml` may define any stages, with any names, in any order. Code, schemas, prompts, and tests never assume today's stages. What belongs to a kind of work, such as a document's sections and which comes first, lives in that work's skill, not in the stage.
 - Each database belongs to one package, through Drizzle. Do not write raw SQL in packages. `bun run db:generate` writes the migrations. Never hand-edit one.
+- Until v1, D1 keeps one baseline migration. A D1 schema change deletes the D1 migrations and regenerates the baseline with `bun run db:generate`.
 - Durable Object logic lives in `packages/orchestrator/src/workflow/*` and `packages/orchestrator/src/agent/*` as functions over `WorkflowRuntime`. The `Workflow` class only wires them.
 - Do not build anything in Docker. `SANDBOX_VERSION` in the sandbox `Dockerfile` equals the orchestrator's `@cloudflare/sandbox` version.
 - `packages/orchestrator/sandbox/NOTICES.md` lists each prebuilt program the `Dockerfile` copies or downloads, with its license text. Update it when that list changes.

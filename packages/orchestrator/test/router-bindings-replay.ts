@@ -466,7 +466,7 @@ function pullTarget(pull: PullKeyName): ArtifactTarget {
   };
 }
 
-const PERSON: Actor = { person_id: "p1", email: "dev@acme.test", display_name: "Dev" };
+const PERSON: Actor = { email: "dev@acme.test", display_name: "Dev" };
 
 /** The spec key of each binding, by source and external id as the router stores them. */
 const BINDING_KEYS: Record<string, KeyName> = {

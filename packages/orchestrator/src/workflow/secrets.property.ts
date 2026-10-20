@@ -183,7 +183,6 @@ async function startDeployment(
       access_token: LINEAR_ACCESS_TOKEN,
       refresh_token: LINEAR_REFRESH_TOKEN,
       expires_at: new Date(FAR_FUTURE).toISOString(),
-      scope: "read,write",
       organization_id: "org_acme",
       organization_name: "Acme",
       app_user_id: "app1",
