@@ -649,6 +649,21 @@ export const MUTANTS: Mutant[] = [
     replace: "",
   },
   {
+    id: "W420",
+    invariant: "routerBindings::aPersonsEventCreatesTheWorkflowItFindsUncreated",
+    path: "src/router/deliver.ts",
+    find: "        return isPersonsStartOrMessage(event)\n",
+    replace: "        return false\n",
+  },
+  {
+    id: "W421",
+    invariant: "routerBindings::aRecordedPullRequestIsBoundToItsWorkflow",
+    path: "src/workflow/artifact.ts",
+    find: "  if (binding) await bindWorkflow(workflow, binding);\n  workflow.store.upsertArtifact({\n    job_id: task.job_id,\n    kind,\n    external_url: target.url,\n    ref: target.ref,\n  });\n",
+    replace:
+      "  workflow.store.upsertArtifact({\n    job_id: task.job_id,\n    kind,\n    external_url: target.url,\n    ref: target.ref,\n  });\n  if (binding) await bindWorkflow(workflow, binding);\n",
+  },
+  {
     id: "F1",
     invariant:
       "feedbackRouting::unadmittedFeedbackReachesNobody, reviewLoop::unadmittedFeedbackReachesNobody",

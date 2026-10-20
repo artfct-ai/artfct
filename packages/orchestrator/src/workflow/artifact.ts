@@ -99,9 +99,10 @@ export function markAuthorInReview(workflow: WorkflowRuntime, taskId: string): v
 }
 
 /**
- * Store the artifact of the author's job and bind it for routing. A stage that declares refiners
- * keeps it a draft until they settle. Anything else goes to the humans now. The host can open an
- * artifact for an author that is already over, so the row is stored and bound either way.
+ * Bind the artifact of the author's job for routing, then store it. A restart between the two
+ * leaves it unstored, so the next detection binds it again. A stage that declares refiners keeps
+ * it a draft until they settle. Anything else goes to the humans now. The host can open an
+ * artifact for an author that is already over, so it is bound and stored either way.
  */
 export async function recordArtifact(
   workflow: WorkflowRuntime,
@@ -109,6 +110,8 @@ export async function recordArtifact(
   target: ArtifactTarget,
 ): Promise<void> {
   const kind = workflow.stageForTask(task).artifact;
+  const binding = workflow.artifact(kind).binding(target.ref);
+  if (binding) await bindWorkflow(workflow, binding);
   workflow.store.upsertArtifact({
     job_id: task.job_id,
     kind,
@@ -120,8 +123,6 @@ export async function recordArtifact(
   if ((ref.kind === "issue" || ref.kind === "project") && !workflow.state.subject) {
     await setWorkflowSubject(workflow, subjectOfRef(ref));
   }
-  const binding = workflow.artifact(kind).binding(target.ref);
-  if (binding) await bindWorkflow(workflow, binding);
   workflow.log(task.task_id, `artifact ${kind} ${target.url}`);
   workflow.store.completeTodos(task.task_id);
   await flushBoards(workflow, task.job_id);

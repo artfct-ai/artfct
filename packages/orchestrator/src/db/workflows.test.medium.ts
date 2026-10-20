@@ -36,21 +36,14 @@ describe("workflows", () => {
       });
     });
 
-    describe("created a second time under the same id", () => {
-      let failure: unknown;
+    describe("created a second time after a takeover marked it running", () => {
       beforeEach(async () => {
-        failure = await createWorkflow(db, "wf_1").then(
-          () => null,
-          (reason: unknown) => reason,
-        );
-      });
-
-      it("refuses the second row", () => {
-        expect(failure).toBeInstanceOf(Error);
+        await setWorkflowStatus(db, "wf_1", "running");
+        await createWorkflow(db, "wf_1");
       });
 
       it("keeps the status of the first", async () => {
-        expect((await findWorkflow(db, "wf_1"))?.status).toBe("new");
+        expect((await findWorkflow(db, "wf_1"))?.status).toBe("running");
       });
     });
   });

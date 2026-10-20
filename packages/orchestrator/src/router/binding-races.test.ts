@@ -55,10 +55,32 @@ describe("a message in a chat thread whose workflow has not returned from its cr
     await replay.landUntil(message, never);
   });
 
-  it("is dropped, since the workflow refuses it", () => {
-    expect(replay.deliveryOf(message)).toEqual({
-      dropped: expect.stringContaining("is not created yet"),
-    });
+  it("takes the create over and creates the workflow", () => {
+    expect(replay.deliveryOf(message)).toMatchObject({ created: true });
+    expect(replay.project().objects[0]?.created).toBe(true);
+  });
+});
+
+describe("a person's message in a chat thread whose router invocation ended mid-create", () => {
+  let message: string;
+
+  beforeEach(async () => {
+    const start = await replay.arrive("ThreadSurface", "Start");
+    await replay.landUntil(start, (call) => call.startsWith("CreateWorkflow"));
+    await replay.endRouterInvocation(start, false);
+    message = await replay.arrive("ThreadSurface", "PersonsMessage");
+    await replay.landUntil(message, never);
+  });
+
+  it("creates the workflow the thread is bound to", () => {
+    const view = replay.project();
+    expect(view.bindings.Thread).toBe(0);
+    expect(view.objects[0]?.created).toBe(true);
+    expect(replay.deliveryOf(message)).toMatchObject({ created: true });
+  });
+
+  it("marks the workflow's row running", () => {
+    expect(replay.project().rows[0]).toBe("Live");
   });
 });
 
@@ -82,10 +104,30 @@ describe("a start that joins a workflow whose create then fails", () => {
     expect(bound.filter((workflow) => isAbandoned(view, workflow))).toEqual([]);
   });
 
-  it("drops the joining start", () => {
-    expect(replay.deliveryOf(joiner)).toEqual({
-      dropped: expect.stringContaining("is not created yet"),
-    });
+  it("starts the next workflow from the joining start", () => {
+    expect(replay.deliveryOf(joiner)).toMatchObject({ created: true });
+    expect(view.bindings.Thread).toBe(1);
+    expect(view.objects[1]?.created).toBe(true);
+  });
+});
+
+describe("a pull request bind that an instance restart cuts off", () => {
+  let view: RouterView;
+
+  beforeEach(async () => {
+    const start = await replay.arrive("SessionASurface", "Start");
+    await replay.landUntil(start, never);
+    const cut = await replay.startWork(0, "pull_request");
+    await replay.landUntil(cut, (call) => call.startsWith("BindWorkflow"));
+    await replay.restartDuringPullRequestBind(cut, false);
+    const found = await replay.startWork(0, "pull_request");
+    await replay.landUntil(found, never);
+    view = replay.project();
+  });
+
+  it("binds the pull request when the workflow finds it again", () => {
+    expect(view.bindings.Pull).toBe(0);
+    expect(view.objects[0]?.openedPulls).toEqual(["Pull"]);
   });
 });
 
