@@ -275,11 +275,11 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 
 | ID | Effect | Guarded by |
 |---|---|---|
-| I1 | The Linear webhook checks the HMAC and a 60 second timestamp window, then maps the payload and delivers one event. A bad signature gets 401. | `webhookInvariants::badSignatureNeverDelivers` |
-| I2 | The GitHub webhook checks the HMAC on the raw body without a timestamp window, then delivers one event. A missing delivery id gets a random event id. | `webhookInvariants::badSignatureNeverDelivers` |
-| I3 | The Slack webhook checks the HMAC and a 300 second window. The route answers 200 at once and maps and delivers after the reply. Every Slack retry is dropped. A failed delivery is only logged. | `webhookInvariants::badSignatureNeverDelivers` |
+| I1 | The Linear webhook checks the HMAC and a 60 second timestamp window, then maps the payload and delivers one event. A bad signature gets 401. | `webhookInvariants::badSignatureNeverDelivers`, `webhookInvariants::genuineWebhookDelivers` |
+| I2 | The GitHub webhook checks the HMAC on the raw body without a timestamp window, then delivers one event. A missing delivery id gets a random event id. | `webhookInvariants::badSignatureNeverDelivers`, `webhookInvariants::genuineWebhookDelivers` |
+| I3 | The Slack webhook checks the HMAC and a 300 second window. The route answers 200 at once and maps and delivers after the reply. Every Slack retry is dropped. A failed delivery is only logged. | `webhookInvariants::badSignatureNeverDelivers`, `webhookInvariants::genuineWebhookDelivers` |
 | I4 | The app posts a Slack greeting when it joins a channel. | |
-| I5 | The Notion webhook answers the unsigned subscription request while the verification token is unset, and refuses that request once the token is set. Then it checks the HMAC without a window. Only `comment.created` maps. The mapper fetches the comment before delivery, so the webhook refuses a comment while the Notion token is missing. | `webhookInvariants::badSignatureNeverDelivers` |
+| I5 | The Notion webhook answers the unsigned subscription request while the verification token is unset, and refuses that request once the token is set. Then it checks the HMAC without a window. Only `comment.created` maps. The mapper fetches the comment before delivery, so the webhook refuses a comment while the Notion token is missing. | `webhookInvariants::badSignatureNeverDelivers`, `webhookInvariants::genuineWebhookDelivers` |
 | I6 | The Linear OAuth callback relies on the single-use state. | |
 | I7 | The admin install link and the debug dumps need the admin token. The dumps answer 404 unless debug is on. | |
 | I8 | Bridge WebSocket upgrades pass to the orchestrator, which checks the bridge token. | `harnessSession::aBridgeConnectsOnlyWithTheCurrentToken` |

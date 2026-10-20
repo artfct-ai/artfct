@@ -7,6 +7,15 @@ export type TamperedWebhook = {
   calls: string[];
 };
 
+/** One webhook request the vendor signed with the right secret inside its time window, and what reached the orchestrator. */
+export type GenuineWebhook = {
+  vendor: string;
+  /** The body the vendor signed and sent. */
+  body: string;
+  /** Every orchestrator RPC method the route called, in order. */
+  calls: string[];
+};
+
 function violated(name: string, detail: string): never {
   throw new Error(`${name}: ${detail}`);
 }
@@ -20,5 +29,18 @@ export function badSignatureNeverDelivers(record: TamperedWebhook): void {
   violated(
     "badSignatureNeverDelivers",
     `a ${record.vendor} webhook with ${record.tamper} reached the orchestrator through ${record.calls.join(", ")}`,
+  );
+}
+
+/**
+ * A webhook signed with the right secret over any body, inside the vendor's time window,
+ * delivers exactly one event.
+ */
+export function genuineWebhookDelivers(record: GenuineWebhook): void {
+  const deliveries = record.calls.filter((call) => call === "deliver").length;
+  if (deliveries === 1) return;
+  violated(
+    "genuineWebhookDelivers",
+    `a genuine ${record.vendor} webhook delivered ${deliveries} times through [${record.calls.join(", ")}]: ${JSON.stringify(record.body)}`,
   );
 }
