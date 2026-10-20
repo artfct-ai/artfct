@@ -26,7 +26,10 @@
     "anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone",
     "theHelloTimeoutWaitsWhileItsStartIsOut",
     "aStoppedAuthorStaysQuiet",
-    "aTaskWithoutAnEarlierPromptGetsTheTaskPrompt"
+    "aTaskWithoutAnEarlierPromptGetsTheTaskPrompt",
+    "aPersonPromptDoesNotWaitForTheTurnToEnd",
+    "aHarnessSessionReceivesEachPersonPromptOnce",
+    "aPersonPromptIsNeverDropped"
   ],
   "mainMinutes": {
     "harnessDefaultEffort": 1.0,
@@ -77,7 +80,11 @@
       "aStaleSandboxStartFailsAtOnce",
       "aHelloTimeoutFiresWhileItsStartIsOut",
       "aStoppedAuthorHasACallOut",
-      "aStoppedTaskGetsTheTaskPrompt"
+      "aStoppedTaskGetsTheTaskPrompt",
+      "aSteerIsTaken",
+      "aSteerRacesTheTurnEnd",
+      "aRestartLandsWhileASteerIsOut",
+      "aLostTurnReturnsATakenInstruction"
     ],
     "stageAsksForEffort": [
       "aFinishedTaskIsInAStep",
@@ -121,7 +128,11 @@
       "theEffortIsSet",
       "aHelloTimeoutFiresWhileItsStartIsOut",
       "aStoppedAuthorHasACallOut",
-      "aStoppedTaskGetsTheTaskPrompt"
+      "aStoppedTaskGetsTheTaskPrompt",
+      "aSteerIsTaken",
+      "aSteerRacesTheTurnEnd",
+      "aRestartLandsWhileASteerIsOut",
+      "aLostTurnReturnsATakenInstruction"
     ],
     "agentPausesRunningTurns": [
       "aFinishedTaskIsInAStep",
@@ -165,7 +176,11 @@
       "aStaleSandboxStartFailsAtOnce",
       "aHelloTimeoutFiresWhileItsStartIsOut",
       "aStoppedAuthorHasACallOut",
-      "aStoppedTaskGetsTheTaskPrompt"
+      "aStoppedTaskGetsTheTaskPrompt",
+      "aSteerIsTaken",
+      "aSteerRacesTheTurnEnd",
+      "aRestartLandsWhileASteerIsOut",
+      "aLostTurnReturnsATakenInstruction"
     ],
     "interruptionsAfterTheFirstPrompt": [
       "theWallClockFiresDuringARestart",
@@ -178,7 +193,12 @@
       "theAgentWakesForAnIdleHarness",
       "aHarnessExitRestartsAnIdleAuthor",
       "anEmptyTurnStopsEarly",
-      "theAgentWakesAfterAnEmptyTurn"
+      "theAgentWakesAfterAnEmptyTurn",
+      "aSteerIsTaken",
+      "aSteerRacesTheTurnEnd",
+      "aRestartLandsWhileASteerIsOut",
+      "aRestartCutsTheOutcomeCheckOfATurnThatTookAnInstruction",
+      "aLostTurnReturnsATakenInstruction"
     ],
     "jobOnABranch": [
       "theProvisionAlarmFires",

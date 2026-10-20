@@ -6,19 +6,23 @@ import {
   type HarnessAdapter,
   type HarnessCommand,
   type HarnessSetup,
+  type HarnessSteering,
   type HarnessTaskInput,
 } from "../src/harness/types";
 
 /**
  * The harness adapter of the smoke run and the workerd tests. It stands in for every harness name,
- * and the sandbox runs the bridge's in-process mock harness for it.
+ * and the sandbox runs the bridge's in-process mock harness for it. A test that plays the harness
+ * itself may give it steering.
  */
 export class MockHarness implements HarnessAdapter {
-  constructor(readonly name: Harness) {}
+  constructor(
+    readonly name: Harness,
+    readonly steering: HarnessSteering | null = null,
+  ) {}
 
   readonly instructionsFile = `${SANDBOX_HOME}/.config/artfct-mock/AGENTS.md`;
   readonly skillsDir = `${SANDBOX_HOME}/.config/artfct-mock/skills`;
-  readonly steering = null;
 
   invokeSkill(name: string): string {
     return `Read the \`${name}\` skill and follow it for this task.`;

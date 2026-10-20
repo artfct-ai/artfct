@@ -8,14 +8,17 @@
 /// Any alarm may fire at any step, also before its delay ran out. Time moves only when
 /// `timePasses` takes the clock past the reconnect ceiling.
 /// The bridge and its harness are modelled from the outside. A bridge sends a frame only on a
-/// socket that both ends hold open. The harness answers its requests in the order they came.
+/// socket that both ends hold open. The harness answers its prompts and handshake requests in the
+/// order they came. It answers a steer apart from them, and it answers a steer it took before it
+/// ends that turn.
 module harnessSessionTypes {
   /// The status of the author task. A task in this model cannot finish done.
   type TaskStatus = Queued | Provisioning | Working | InReview | Cancelled | Failed
 
-  /// What a queued prompt is, by the code that queued it.
+  /// What a queued prompt is, by the code that queued it. A person prompt names which of the
+  /// person's prompts it is.
   type PromptKind =
-    | PersonPrompt
+    | PersonPrompt(int)
     | ContinuePrompt
     | NudgePrompt
     | GaveUpWake
@@ -23,7 +26,17 @@ module harnessSessionTypes {
     | FirstPrompt
 
   /// Why the orchestrator sent a JSON-RPC request to the harness.
-  type RpcPurpose = Initialize | SessionNew | SetEffort | Prompt
+  type RpcPurpose = Initialize | SessionNew | SetEffort | Prompt | Steer
+
+  /// The person prompt a request carries to the harness session, if any.
+  type Carried = NoPerson | Person(int)
+
+  /// A steered person prompt: its steer request is out, or the running turn took it.
+  type SteerStatus = SteerOut | SteerTaken
+
+  /// A queued person prompt that a request carried into the running turn. `rpc` is the id of that
+  /// request: a steer, or the prompt that started the turn.
+  type SteerRow = { person: int, rpc: int, status: SteerStatus }
 
   /// A request the orchestrator waits on. `serial` names the request itself, and the code does not
   /// see it. The store never gives an rpc id twice, so the id is the serial plus one.
@@ -59,15 +72,19 @@ module harnessSessionTypes {
   type Socket = { bridge: int, generation: int, state: SocketState }
 
   /// A request a bridge passed to its harness. The harness has not answered it yet.
-  type Request = { id: int, purpose: RpcPurpose, cancelled: bool, serial: int }
+  type Request = { id: int, purpose: RpcPurpose, cancelled: bool, serial: int, carries: Carried }
 
-  /// One bridge process and its harness. `token` is the bridge token it started with.
+  /// One bridge process and its harness. `token` is the bridge token it started with. `received`
+  /// holds the person prompts its harness session received, except those of a cancelled turn.
+  /// `inTurn` holds the ones its running turn received.
   type Bridge = {
     generation: int,
     token: int,
     alive: bool,
     saidHello: bool,
     requests: List[Request],
+    received: Set[int],
+    inTurn: Set[int],
   }
 
   /// What runs after the call that returns, innermost first. `CloseFeedWithoutStopReason` throws
@@ -117,7 +134,10 @@ module harnessSessionTypes {
   /// it, and the calls out. The counters and the stop flag at the end are what an observer records.
   /// `lostTurns` counts the lost turns the code handled: each one recovered, or failed its task.
   /// `turnText` says the turn so far printed text. `openTodos` says the stored todo list of the task
-  /// has open entries.
+  /// has open entries. `steers` holds the steered person prompts. `delivered` holds the person
+  /// prompts a harness turn received and ended without a cancel. `discarded` holds the ones a stop
+  /// or the end of the task dropped. `receivedTwice` counts a harness session that received a
+  /// person prompt it already had.
   type World = {
     status: TaskStatus,
     restarts: int,
@@ -135,6 +155,7 @@ module harnessSessionTypes {
     lastProgressAt: Stamp,
     queue: List[PromptKind],
     rpcs: List[RpcRow],
+    steers: Set[SteerRow],
     artifact: bool,
     helloSlot: Slot,
     noProgressSlot: Slot,
@@ -159,6 +180,9 @@ module harnessSessionTypes {
     agentWakes: int,
     eventsThatThrew: int,
     personPrompts: int,
+    delivered: Set[int],
+    discarded: Set[int],
+    receivedTwice: int,
     resumesChosen: int,
     faults: int,
     actions: int,
@@ -182,6 +206,7 @@ module harnessSessionTypes {
     | DialStep
     | DurableObjectRestartStep
     | AnswerStep({ reachedItsOwnRow: bool, purpose: RpcPurpose })
+    | SteerAnswerStep({ injected: bool, reachedItsRow: bool })
     | EmptyTurnEndStep
     | OutcomeStep({ laterPromptInFlight: bool })
 
@@ -254,6 +279,11 @@ module harnessSessionTypes {
     aRestartDropsTheSummarization: bool,
     aTaskLeftQueuedDuringItsBranchBinding: bool,
     theBranchBindingFails: bool,
+    aSteerIsTaken: bool,
+    aSteerRacesTheTurnEnd: bool,
+    aRestartLandsWhileASteerIsOut: bool,
+    aRestartCutsTheOutcomeCheckOfATurnThatTookAnInstruction: bool,
+    aLostTurnReturnsATakenInstruction: bool,
   }
 }
 
@@ -303,6 +333,7 @@ module harnessSession {
     lastProgressAt: Recent,
     queue: List(),
     rpcs: List(),
+    steers: Set(),
     artifact: false,
     helloSlot: Unarmed,
     noProgressSlot: Unarmed,
@@ -327,6 +358,9 @@ module harnessSession {
     agentWakes: 0,
     eventsThatThrew: 0,
     personPrompts: 0,
+    delivered: Set(),
+    discarded: Set(),
+    receivedTwice: 0,
     resumesChosen: 0,
     faults: 0,
     actions: 0,
@@ -349,7 +383,8 @@ module harnessSession {
 
   pure def connected(w: World): bool = listedSockets(w) > 0
 
-  pure def handshakePending(w: World): bool = w.rpcs.select(row => row.purpose != Prompt).length() > 0
+  pure def handshakePending(w: World): bool =
+    w.rpcs.select(row => row.purpose != Prompt and row.purpose != Steer).length() > 0
 
   pure def issued(before: World, after: World): bool = after.nextCall > before.nextCall
 
@@ -420,26 +455,51 @@ module harnessSession {
     { ...cancelled, noProgressSlot: Unarmed, wallSlot: Unarmed, helloSlot: Unarmed, keepAliveSlot: Unarmed }
   }
 
-  /// Write a request to every listed socket. Only a connected socket carries it to its bridge.
-  pure def sendRequest(w: World, purpose: RpcPurpose): World = {
+  /// The harness session of `bridge` receives the person prompt a request carries. It counts a
+  /// person prompt it already had.
+  pure def receivePerson(w: World, bridge: int, carries: Carried): World = match carries {
+    | NoPerson => w
+    | Person(person) =>
+      val again = w.bridges[bridge].received.contains(person)
+      val received = changeBridges(w, Set(bridge), process => {
+        ...process,
+        received: process.received.union(Set(person)),
+        inTurn: process.inTurn.union(Set(person)),
+      })
+      { ...received, receivedTwice: w.receivedTwice + (if (again) 1 else 0) }
+  }
+
+  /// Write a request that carries `carries` to every listed socket. Only a connected socket carries
+  /// it to its bridge. A harness session receives the person prompt of a prompt as it reads it.
+  pure def sendRequestCarrying(w: World, purpose: RpcPurpose, carries: Carried): World = {
     val id = w.nextSerial + 1
     val stored = {
       ...w,
       rpcs: w.rpcs.append({ id: id, purpose: purpose, serial: w.nextSerial }),
       nextSerial: w.nextSerial + 1,
     }
-    val request = { id: id, purpose: purpose, cancelled: false, serial: w.nextSerial }
-    changeBridges(stored, bridgesOn(stored, Connected), bridge =>
-      { ...bridge, requests: bridge.requests.append(request) })
+    val request = { id: id, purpose: purpose, cancelled: false, serial: w.nextSerial, carries: carries }
+    bridgesOn(stored, Connected).fold(stored, (sent, bridge) => {
+      val read = changeBridges(sent, Set(bridge), process => { ...process, requests: process.requests.append(request) })
+      if (purpose == Prompt) receivePerson(read, bridge, carries) else read
+    })
   }
+
+  pure def sendRequest(w: World, purpose: RpcPurpose): World = sendRequestCarrying(w, purpose, NoPerson)
+
+  /// The requests of a bridge other than its steers: its handshake and its prompts, in order.
+  pure def turnRequests(bridge: Bridge): List[Request] = bridge.requests.select(request => request.purpose != Steer)
 
   /// Write `session/cancel` to every listed socket. A harness that runs a prompt cancels its turn.
   pure def sendCancel(w: World): World = {
     val reached = bridgesOn(w, Connected)
-    val marked = changeBridges(w, reached, bridge =>
-      if (bridge.requests.length() > 0 and bridge.requests[0].purpose == Prompt)
-        { ...bridge, requests: bridge.requests.replaceAt(0, { ...bridge.requests[0], cancelled: true }) }
-      else bridge)
+    val marked = changeBridges(w, reached, bridge => {
+      val turn = turnRequests(bridge)
+      if (turn.length() > 0 and turn[0].purpose == Prompt)
+        { ...bridge, requests: bridge.requests.foldl(List(), (requests, request) =>
+          requests.append(if (request.serial == turn[0].serial) { ...request, cancelled: true } else request)) }
+      else bridge
+    })
     { ...marked, cancelsDelivered: w.cancelsDelivered + reached.size() }
   }
 
@@ -467,6 +527,7 @@ module harnessSession {
       bridgeClosedAt: Unset,
       nudged: false,
       rpcs: List(),
+      steers: Set(),
     }
   }
 
@@ -515,9 +576,20 @@ module harnessSession {
     )
   }
 
+  /// The person prompts in the queue.
+  pure def queuedPersons(w: World): Set[int] =
+    w.queue.foldl(Set(), (persons, kind) => match kind {
+      | PersonPrompt(person) => persons.union(Set(person))
+      | _ => persons
+    })
+
+  /// `clearPromptQueue`: drop every queued prompt with its steer.
+  pure def discardQueue(w: World): World =
+    { ...w, queue: List(), steers: Set(), discarded: w.discarded.union(queuedPersons(w)) }
+
   /// `finishTask`: the status is written before the sandbox goes.
   pure def finishTask(w: World, status: TaskStatus, rest: List[Frame]): World =
-    closeContainer({ ...clearTaskTimers({ ...w, status: status }), queue: List() }, rest)
+    closeContainer(discardQueue(clearTaskTimers({ ...w, status: status })), rest)
 
   pure def failTask(w: World, rest: List[Frame]): World =
     if (isFinished(w.status)) w else finishTask(w, Failed, rest)
@@ -537,8 +609,41 @@ module harnessSession {
       closeContainer(restarting, List(RestartAfterClose({ generation: w.generation, restarts: w.restarts })).concat(rest))
     }
 
-  /// `sendPrompt`: the turn goes in flight and arms its timers.
-  pure def sendPrompt(w: World): World =
+  pure def steered(w: World, person: int): bool = w.steers.exists(row => row.person == person)
+
+  pure def waits(w: World, kind: PromptKind): bool = match kind {
+    | PersonPrompt(person) => not(steered(w, person))
+    | _ => true
+  }
+
+  /// `peekPrompt`: the queued prompts that wait for the next turn. A steered person prompt does not.
+  pure def waiting(w: World): List[PromptKind] = w.queue.select(kind => waits(w, kind))
+
+  /// The queue without its oldest waiting prompt.
+  pure def withoutFirstWaiting(w: World): World = {
+    val kept = w.queue.foldl({ removed: false, queue: List() }, (progress, kind) =>
+      if (not(progress.removed) and waits(w, kind)) { ...progress, removed: true }
+      else { ...progress, queue: progress.queue.append(kind) })
+    { ...w, queue: kept.queue }
+  }
+
+  /// `steerWaitingInstructions`: steer each waiting person prompt into the running turn of a
+  /// harness session with an open bridge.
+  pure def steerWaiting(w: World): World =
+    if (not(w.session) or not(connected(w))) w
+    else w.queue.foldl(w, (steering, kind) => match kind {
+      | PersonPrompt(person) =>
+        if (steered(steering, person)) steering
+        else {
+          val out = { ...steering, steers: steering.steers.union(Set({ person: person, rpc: steering.nextSerial + 1, status: SteerOut })) }
+          sendRequestCarrying(out, Steer, Person(person))
+        }
+      | _ => steering
+    })
+
+  /// `sendPrompt`: the turn goes in flight. A person prompt it carries stays queued as taken. The
+  /// person prompts that still wait are steered into the turn, and the turn arms its timers.
+  pure def sendPrompt(w: World, carried: Carried): World =
     if (not(w.session)) w
     else {
       val inFlight = {
@@ -548,17 +653,29 @@ module harnessSession {
         status: if (w.status == InReview) Working else w.status,
         promptsSent: w.promptsSent + 1,
       }
-      armKeepAlive(armWallClock(armNoProgress(sendRequest(inFlight, Prompt))))
+      val held = match carried {
+        | NoPerson => inFlight
+        | Person(person) =>
+          { ...inFlight, steers: inFlight.steers.union(Set({ person: person, rpc: inFlight.nextSerial + 1, status: SteerTaken })) }
+      }
+      armKeepAlive(armWallClock(armNoProgress(steerWaiting(sendRequestCarrying(held, Prompt, carried)))))
     }
 
-  /// `sendFirstPrompt`: a task that had a first prompt before resumes, and takes the head of the
-  /// queue as its wake text. A paused task keeps the first prompt at the head of its queue.
+  /// Send the oldest waiting prompt. A person prompt goes held as taken, and any other leaves the queue.
+  pure def sendWaitingHead(w: World): World = match waiting(w)[0] {
+    | PersonPrompt(person) => sendPrompt(w, Person(person))
+    | _ => sendPrompt(withoutFirstWaiting(w), NoPerson)
+  }
+
+  /// `sendFirstPrompt`: a task that had a first prompt before resumes, and takes the oldest waiting
+  /// prompt as its wake text. A paused task keeps the first prompt at the head of its queue and
+  /// does not take a wake.
   pure def sendFirstPrompt(w: World): World = {
     val resumes = w.hadPrompt
     val chosen = { ...w, hadPrompt: true, resumesChosen: if (resumes) w.resumesChosen + 1 else w.resumesChosen }
-    val woken = if (resumes and chosen.queue.length() > 0) { ...chosen, queue: chosen.queue.tail() } else chosen
-    if (not(woken.paused)) sendPrompt(woken)
-    else { ...woken, queue: List(FirstPrompt).concat(woken.queue) }
+    if (chosen.paused) { ...chosen, queue: List(FirstPrompt).concat(chosen.queue) }
+    else if (resumes and waiting(chosen).length() > 0) sendWaitingHead(chosen)
+    else sendPrompt(chosen, NoPerson)
   }
 
   pure def wakeOrWait(w: World, rest: List[Frame]): World =
@@ -568,10 +685,10 @@ module harnessSession {
 
   pure def drainQueue(w: World, rest: List[Frame]): World =
     if (isFinished(w.status) or w.paused) w
-    else if (w.promptInFlight) w
-    else if (w.queue.length() == 0) w
+    else if (w.promptInFlight) steerWaiting(w)
+    else if (waiting(w).length() == 0) w
     else if (w.status == Provisioning or handshakePending(w)) w
-    else if (connected(w) and w.session) sendPrompt({ ...w, queue: w.queue.tail() })
+    else if (connected(w) and w.session) sendWaitingHead(w)
     else if (connected(w)) w
     else wakeOrWait(w, rest)
 
@@ -620,6 +737,7 @@ module harnessSession {
         ...counted,
         restarts: if (restartWritten) w.restarts else w.restarts + 1,
         rpcs: List(),
+        steers: Set(),
         promptInFlight: false,
         turnText: false,
         session: false,
@@ -660,7 +778,7 @@ module harnessSession {
     val greeted = { ...cancelSlot(w, w.helloSlot), helloSlot: Unarmed, bridgeClosedAt: Unset }
     val working = if (greeted.status == Provisioning) { ...greeted, status: Working } else greeted
     if (working.session and not(fresh)) drainQueue(working, List())
-    else sendRequest({ ...working, rpcs: List(), session: false, promptInFlight: false }, Initialize)
+    else sendRequest({ ...working, rpcs: List(), steers: Set(), session: false, promptInFlight: false }, Initialize)
   }
 
   /// `onSessionNew`: the harness session opens. A stage that asks for an effort sets it first.
@@ -674,7 +792,8 @@ module harnessSession {
   /// without text skips the check. Every text a harness prints is longer than the room the digest
   /// has for it, so the wake after a turn with text waits on its summarization.
   pure def onTurnEnd(w: World, stop: StopReason): World = {
-    val ended = { ...w, promptInFlight: false, stoppedEarly: false, turnText: false }
+    val stopped = { ...w, promptInFlight: false, stoppedEarly: false, turnText: false }
+    val ended = if (stop == CancelledTurn) { ...stopped, steers: Set() } else dropTaken(stopped)
     if (stop != EndTurn) settleThenWake(ended, w.turnText)
     else if (w.turnText) issueCall(ended, OutcomeCheck({ promptsSent: ended.promptsSent, generation: ended.generation }), List())
     else onOutcome(ended, emptyTurnOutcome(ended), false)
@@ -689,10 +808,21 @@ module harnessSession {
   pure def closeFeedWithoutStopReason(w: World): World =
     if (w.promptInFlight) w else { ...w, eventsThatThrew: w.eventsThatThrew + 1 }
 
+  /// `dropTakenPrompts`: the person prompts the turn took leave the queue, and the steered ones it
+  /// did not take wait again.
+  pure def dropTaken(w: World): World = {
+    val taken = w.steers.filter(row => row.status == SteerTaken).map(row => row.person)
+    val kept = w.queue.select(kind => match kind {
+      | PersonPrompt(person) => not(taken.contains(person))
+      | _ => true
+    })
+    { ...w, queue: kept, steers: Set() }
+  }
+
   /// An answer to another request reaches a prompt row. The turn ends and settles like a turn
   /// without an outcome check, then the event throws if the author is idle.
   pure def endTurnWithoutStopReason(w: World): World = {
-    val ended = { ...w, promptInFlight: false, stoppedEarly: false, turnText: false }
+    val ended = dropTaken({ ...w, promptInFlight: false, stoppedEarly: false, turnText: false })
     val settled = settleAndResumeAuthor(ended, List(CloseFeedWithoutStopReason))
     if (issued(ended, settled)) settled else closeFeedWithoutStopReason(settled)
   }
@@ -710,8 +840,9 @@ module harnessSession {
     | SessionNew => restartOrFailTask(w, List())
     | SetEffort => sendFirstPrompt(w)
     | Prompt =>
-      val refused = { ...w, promptInFlight: false }
+      val refused = dropTaken({ ...w, promptInFlight: false })
       if (refused.stoppedEarly) settleStoppedEarlyAuthor(refused, false) else settleThenWake(refused, false)
+    | Steer => w
   }
 
   pure def onBridgeExit(w: World): World =
@@ -757,7 +888,18 @@ module harnessSession {
   pure def withoutCall(w: World, callId: int): World = { ...w, calls: w.calls.select(call => call.id != callId) }
 
   pure def launchBridge(w: World, generation: int, token: int): World =
-    { ...w, bridges: w.bridges.append({ generation: generation, token: token, alive: true, saidHello: false, requests: List() }) }
+    {
+      ...w,
+      bridges: w.bridges.append({
+        generation: generation,
+        token: token,
+        alive: true,
+        saidHello: false,
+        requests: List(),
+        received: Set(),
+        inTurn: Set(),
+      }),
+    }
 
   /// The bridge process ends. Its connected socket is left to the orchestrator to close.
   pure def bridgeEnds(w: World, bridge: int): World = {
@@ -781,16 +923,29 @@ module harnessSession {
   pure def runsATurn(w: World, bridge: int): bool = and {
     w.bridges[bridge].alive,
     connectedSocketsOf(w, bridge).length() > 0,
-    w.bridges[bridge].requests.length() > 0,
-    w.bridges[bridge].requests[0].purpose == Prompt,
+    turnRequests(w.bridges[bridge]).length() > 0,
+    turnRequests(w.bridges[bridge])[0].purpose == Prompt,
   }
 
   /// True when the frame a bridge sends lands on a socket of the current generation.
   pure def served(w: World, bridge: int): bool =
     connectedSocketsOf(w, bridge).select(socket => socket.generation == w.generation).length() > 0
 
-  pure def withoutFirstRequest(w: World, bridge: int): World =
-    changeBridges(w, Set(bridge), process => { ...process, requests: process.requests.tail() })
+  pure def withoutRequest(w: World, bridge: int, answered: Request): World =
+    changeBridges(w, Set(bridge), process =>
+      { ...process, requests: process.requests.select(request => request.serial != answered.serial) })
+
+  /// The harness turn of `bridge` ends. A turn that ended without a cancel delivered the person
+  /// prompts it received. A cancelled turn did not, so its harness session may receive them again.
+  pure def endHarnessTurn(w: World, bridge: int, cancelled: bool): World = {
+    val inTurn = w.bridges[bridge].inTurn
+    val ended = changeBridges(w, Set(bridge), process => {
+      ...process,
+      received: if (cancelled) process.received.exclude(inTurn) else process.received,
+      inTurn: Set(),
+    })
+    { ...ended, delivered: if (cancelled) w.delivered else w.delivered.union(inTurn) }
+  }
 
   /// A harness turn runs: a prompt is in flight and a connected bridge of the task works on one.
   pure def turnRunning(w: World): bool =
@@ -1106,6 +1261,17 @@ module harnessSession {
     aTaskLeftQueuedDuringItsBranchBinding:
       step.kind == BranchBindingReturnStep and step.before.status != Queued,
     theBranchBindingFails: step.kind == BranchBindingReturnStep and step.after.faults > step.before.faults,
+    aSteerIsTaken: step.kind == SteerAnswerStep({ injected: true, reachedItsRow: true }),
+    aSteerRacesTheTurnEnd: step.kind == SteerAnswerStep({ injected: false, reachedItsRow: true }),
+    aRestartLandsWhileASteerIsOut:
+      step.kind == DurableObjectRestartStep and step.before.steers.exists(row => row.status == SteerOut),
+    aRestartCutsTheOutcomeCheckOfATurnThatTookAnInstruction: and {
+      step.kind == DurableObjectRestartStep,
+      outCalls(step.before, isOutcomeCheck).size() > 0,
+      step.before.delivered.size() > 0,
+    },
+    aLostTurnReturnsATakenInstruction:
+      handledALostTurn(step) and step.before.steers.exists(row => row.status == SteerTaken),
   }
 
   /// Write the world after a step, and which rules and witnesses that step kept and showed.
@@ -1129,10 +1295,17 @@ module harnessSession {
     }
   }
 
-  /// A person writes to the author: a reply in its job session or the agent's `prompt_task`.
+  /// A person instructs the author: a reply in its job session, or an instruct command. A finished
+  /// task drops it.
   action personPrompts: bool = all {
     world.personPrompts < MAX_PERSON_PROMPTS,
-    move(promptTask({ ...world, personPrompts: world.personPrompts + 1, stopped: false }, PersonPrompt, List()), OtherStep),
+    val person = world.personPrompts
+    val prompted = { ...world, personPrompts: person + 1, stopped: false }
+    move(
+      if (isFinished(world.status)) { ...prompted, discarded: prompted.discarded.union(Set(person)) }
+      else promptTask(prompted, PersonPrompt(person), List()),
+      OtherStep,
+    ),
   }
 
   /// The agent calls `pause_task`. The tool refuses a finished task.
@@ -1160,6 +1333,7 @@ module harnessSession {
     {
       ...w,
       rpcs: List(),
+      steers: Set(),
       promptInFlight: false,
       turnText: false,
       status: if (starting) Working else w.status,
@@ -1172,7 +1346,7 @@ module harnessSession {
   /// ends the generation of an unfinished author, also an idle one, and closes its container even
   /// when the cancel is lost.
   action personStops: bool = {
-    val cleared = { ...world, queue: List(), stoppedEarly: false, stopped: true }
+    val cleared = { ...discardQueue(world), stoppedEarly: false, stopped: true }
     val cancelled = if (connected(cleared) and cleared.session and cleared.promptInFlight) sendCancel(cleared) else cleared
     if (not(isFinished(cancelled.status)))
       move(closeContainer(endStoppedTurn(clearTaskTimers(cancelled)), List()), StopStep)
@@ -1549,10 +1723,25 @@ module harnessSession {
     move(onBridgeClosed(reacted, socket.generation), OtherStep),
   }
 
-  pure def answerable(w: World, bridge: int): bool = and {
+  /// A bridge that holds a connected socket and a request.
+  pure def holdsARequest(w: World, bridge: int): bool = and {
     w.bridges[bridge].alive,
     connectedSocketsOf(w, bridge).length() > 0,
     w.bridges[bridge].requests.length() > 0,
+  }
+
+  /// A bridge that holds a connected socket and a handshake request or a prompt.
+  pure def answerable(w: World, bridge: int): bool = and {
+    w.bridges[bridge].alive,
+    connectedSocketsOf(w, bridge).length() > 0,
+    turnRequests(w.bridges[bridge]).length() > 0,
+  }
+
+  /// A bridge that holds a connected socket and a steer.
+  pure def steerable(w: World, bridge: int): bool = and {
+    w.bridges[bridge].alive,
+    connectedSocketsOf(w, bridge).length() > 0,
+    w.bridges[bridge].requests.select(request => request.purpose == Steer).length() > 0,
   }
 
   pure def rowsWith(w: World, id: int): List[RpcRow] = w.rpcs.select(row => row.id == id)
@@ -1575,18 +1764,21 @@ module harnessSession {
         else { ...taken, eventsThatThrew: taken.eventsThatThrew + 1 }
       | SetEffort => sendFirstPrompt(taken)
       | Prompt => if (request.purpose == Prompt) onTurnEnd(taken, stop) else endTurnWithoutStopReason(taken)
+      | Steer => taken
     })
 
-  /// The harness answers its oldest request. A prompt ends its turn, cancelled when a cancel
-  /// reached it. A turn that ends on its own prints its closing text first, or ends without text.
+  /// The harness answers its oldest handshake request or prompt. A prompt ends its turn, cancelled
+  /// when a cancel reached it. A turn that ends on its own prints its closing text first, or ends
+  /// without text.
   action harnessAnswers: bool = all {
     world.bridges.indices().exists(bridge => answerable(world, bridge)),
     nondet bridge = world.bridges.indices().filter(index => answerable(world, index)).oneOf()
     nondet finished = Set(EndTurn, MaxTokens).oneOf()
     nondet endsWithText = Set(true, false).oneOf()
-    val request = world.bridges[bridge].requests[0]
+    val request = turnRequests(world.bridges[bridge])[0]
     val stop = if (request.cancelled) CancelledTurn else finished
-    val answered = withoutFirstRequest(world, bridge)
+    val removed = withoutRequest(world, bridge, request)
+    val answered = if (request.purpose == Prompt) endHarnessTurn(removed, bridge, stop == CancelledTurn) else removed
     val printed = { ...answered, turnText: world.turnText or (endsWithText and request.purpose == Prompt and stop == EndTurn) }
     val ownRow = served(world, bridge) and world.rpcs.select(row => row.serial == request.serial).length() > 0
     val endsATurn = request.purpose == Prompt and rowsWith(world, request.id).select(row => row.purpose == Prompt).length() > 0
@@ -1597,18 +1789,55 @@ module harnessSession {
     ),
   }
 
-  /// The harness answers its oldest request with an error.
+  /// The harness answers its oldest request with an error. A refused prompt ends its turn, and the
+  /// person prompts it received count as delivered.
   action harnessRefuses: bool = all {
     world.faults < MAX_FAULTS,
-    world.bridges.indices().exists(bridge => answerable(world, bridge)),
-    nondet bridge = world.bridges.indices().filter(index => answerable(world, index)).oneOf()
+    world.bridges.indices().exists(bridge => holdsARequest(world, bridge)),
+    nondet bridge = world.bridges.indices().filter(index => holdsARequest(world, index)).oneOf()
     val request = world.bridges[bridge].requests[0]
-    val answered = { ...withoutFirstRequest(world, bridge), faults: world.faults + 1 }
+    val removed = withoutRequest(world, bridge, request)
+    val ended = if (request.purpose == Prompt) endHarnessTurn(removed, bridge, false) else removed
+    val answered = { ...ended, faults: world.faults + 1 }
     val refused =
       if (not(served(world, bridge))) answered
       else rowsWith(answered, request.id).foldl(takeRow(answered, request), (taken, row) => onRpcError(taken, row.purpose))
     val promptRefused = served(world, bridge) and rowsWith(world, request.id).select(row => row.purpose == Prompt).length() > 0
     move(refused, if (promptRefused) PromptRefusedStep else OtherStep),
+  }
+
+  /// The oldest steer a bridge holds, and whether a prompt came before it, so the turn of that
+  /// prompt runs when the harness reads the steer.
+  pure def oldestSteer(bridge: Bridge): { steer: Request, intoATurn: bool } = {
+    val scan = bridge.requests.foldl({ found: false, steer: bridge.requests[0], intoATurn: false, promptBefore: false }, (progress, request) =>
+      if (progress.found) progress
+      else if (request.purpose == Steer) { ...progress, found: true, steer: request, intoATurn: progress.promptBefore }
+      else { ...progress, promptBefore: progress.promptBefore or request.purpose == Prompt })
+    { steer: scan.steer, intoATurn: scan.intoATurn }
+  }
+
+  /// `onSteerAnswer`: the running turn took the person prompt of an injected steer. A steer the
+  /// turn did not take changes nothing, and its person prompt waits for the turn end.
+  pure def onSteerAnswer(w: World, request: Request, injected: bool): World =
+    rowsWith(w, request.id).foldl(takeRow(w, request), (taken, row) =>
+      if (row.purpose == Steer and injected)
+        { ...taken, steers: taken.steers.map(steer => if (steer.rpc == request.id) { ...steer, status: SteerTaken } else steer) }
+      else taken)
+
+  /// The harness answers its oldest steer. A turn that runs takes it and its harness session
+  /// receives the person prompt. Without a running turn, the harness answers that it needs a
+  /// prompt.
+  action harnessAnswersASteer: bool = all {
+    world.bridges.indices().exists(bridge => steerable(world, bridge)),
+    nondet bridge = world.bridges.indices().filter(index => steerable(world, index)).oneOf()
+    val oldest = oldestSteer(world.bridges[bridge])
+    val removed = withoutRequest(world, bridge, oldest.steer)
+    val answered = if (oldest.intoATurn) receivePerson(removed, bridge, oldest.steer.carries) else removed
+    val reachedItsRow = served(world, bridge) and rowsWith(world, oldest.steer.id).length() > 0
+    move(
+      if (served(world, bridge)) onSteerAnswer(answered, oldest.steer, oldest.intoATurn) else answered,
+      SteerAnswerStep({ injected: oldest.intoATurn, reachedItsRow: reachedItsRow }),
+    ),
   }
 
   /// `setTodos`: the todo list of an author is fixed once its job has an artifact.
@@ -1735,6 +1964,7 @@ module harnessSession {
     bridgeDials,
     socketCloseLands,
     harnessAnswers,
+    harnessAnswersASteer,
     harnessWritesThePage,
     theHarnessReportsItsWork,
     theAgentPausesARunningTurn,
@@ -1802,14 +2032,14 @@ module harnessSession {
       w.bridges[bridge].alive,
       w.bridges[bridge].generation == w.generation,
       w.bridges[bridge].token == w.token,
-      canDial(w, bridge) or (connectedSocketsOf(w, bridge).length() > 0 and w.bridges[bridge].requests.length() > 0),
+      canDial(w, bridge) or (connectedSocketsOf(w, bridge).length() > 0 and turnRequests(w.bridges[bridge]).length() > 0),
     })
 
   /// True when draining the queue now sends a prompt or starts a sandbox. A drain that only arms
   /// the next retry does not move the task.
   pure def drainMovesTheTask(w: World): bool = {
     val drained = drainQueue(w, List())
-    drained.queue != w.queue or issued(w, drained)
+    drained.promptsSent > w.promptsSent or issued(w, drained)
   }
 
   /// An alarm whose handler moves the task in the state it would fire in now.
@@ -1893,6 +2123,30 @@ module harnessSession {
   /// took the same rpc id.
   val anAnswerReachesOnlyItsOwnRequest: bool = world.answersToOtherRequests == 0
 
+  pure def isPersonPrompt(kind: PromptKind): bool = match kind {
+    | PersonPrompt(_) => true
+    | _ => false
+  }
+
+  /// K10. While a turn runs and the task is not paused, every queued person prompt has a steer out
+  /// or is taken. A harness that cannot steer keeps its queue, and this spec does not model one.
+  val aPersonPromptDoesNotWaitForTheTurnToEnd: bool =
+    (turnRunning(world) and not(world.paused) and not(isFinished(world.status))) implies
+      waiting(world).select(isPersonPrompt).length() == 0
+
+  /// K15. A harness session receives each person prompt at most once, by steer or as a prompt,
+  /// unless the turn that received it was cancelled.
+  val aHarnessSessionReceivesEachPersonPromptOnce: bool = world.receivedTwice == 0
+
+  /// K15. Each person prompt is queued, delivered by a harness turn that ended without a cancel, or
+  /// dropped by a stop or the end of its task.
+  val aPersonPromptIsNeverDropped: bool =
+    0.to(MAX_PERSON_PROMPTS - 1).forall(person => person < world.personPrompts implies or {
+      queuedPersons(world).contains(person),
+      world.delivered.contains(person),
+      world.discarded.contains(person),
+    })
+
   /// Every mirrored invariant, for one check of all of them.
   val invariants: bool = and {
     finishedTaskKeepsItsStatus,
@@ -1926,6 +2180,9 @@ module harnessSession {
     theHelloTimeoutWaitsWhileItsStartIsOut,
     aStoppedAuthorStaysQuiet,
     aTaskWithoutAnEarlierPromptGetsTheTaskPrompt,
+    aPersonPromptDoesNotWaitForTheTurnToEnd,
+    aHarnessSessionReceivesEachPersonPromptOnce,
+    aPersonPromptIsNeverDropped,
   }
 
   /// Witness for `finishedTaskKeepsItsStatus`: a finished task is there before a step.
@@ -2098,6 +2355,25 @@ module harnessSession {
 
   /// The router write of the branch binding fails.
   val theBranchBindingFails: bool = stepWitnesses.theBranchBindingFails
+
+  /// Witness for `aPersonPromptDoesNotWaitForTheTurnToEnd`: the running turn takes a steer.
+  val aSteerIsTaken: bool = stepWitnesses.aSteerIsTaken
+
+  /// Witness for `aPersonPromptIsNeverDropped`: a steer reaches the harness after its turn ended,
+  /// so its person prompt goes as the next prompt.
+  val aSteerRacesTheTurnEnd: bool = stepWitnesses.aSteerRacesTheTurnEnd
+
+  /// Witness for `aPersonPromptIsNeverDropped`: the Durable Object restarts while a steer is out.
+  val aRestartLandsWhileASteerIsOut: bool = stepWitnesses.aRestartLandsWhileASteerIsOut
+
+  /// Witness for `aHarnessSessionReceivesEachPersonPromptOnce`: a restart of the Durable Object cuts
+  /// the outcome check of a turn end after a harness turn delivered a person prompt.
+  val aRestartCutsTheOutcomeCheckOfATurnThatTookAnInstruction: bool =
+    stepWitnesses.aRestartCutsTheOutcomeCheckOfATurnThatTookAnInstruction
+
+  /// Witness for `aPersonPromptIsNeverDropped`: a lost turn returns a taken person prompt to the
+  /// queue.
+  val aLostTurnReturnsATakenInstruction: bool = stepWitnesses.aLostTurnReturnsATakenInstruction
 
   /// The author was nudged.
   val theAuthorWasNudged: bool = world.nudged

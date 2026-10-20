@@ -2185,6 +2185,47 @@ export const MUTANTS: Mutant[] = [
     propertyFile: "src/workflow/feed/feed.property.ts",
   },
   {
+    id: "W390",
+    invariant:
+      "harnessSession::aPersonPromptDoesNotWaitForTheTurnToEnd (a running turn gets no steer)",
+    path: "src/workflow/task/harness/prompt-queue.ts",
+    find: "    steerWaitingInstructions(workflow, task);\n    return false;\n",
+    replace: "    return false;\n",
+  },
+  {
+    id: "W391",
+    invariant:
+      "harnessSession::aPersonPromptDoesNotWaitForTheTurnToEnd (a new turn does not steer the instructions that wait)",
+    path: "src/workflow/task/harness/prompt-queue.ts",
+    find: "  steerWaitingInstructions(workflow, task);\n  await armNoProgress",
+    replace: "  await armNoProgress",
+  },
+  {
+    id: "W392",
+    invariant:
+      "harnessSession::aHarnessSessionReceivesEachPersonPromptOnce (a turn that ends keeps its taken instructions)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: "  else workflow.store.dropTakenPrompts(task.task_id);\n",
+    replace: "  else workflow.store.returnSteeredPrompts(task.task_id);\n",
+  },
+  {
+    id: "W393",
+    invariant:
+      "harnessSession::aPersonPromptIsNeverDropped (a steer the turn did not take drops its instruction)",
+    path: "src/workflow/task/harness/steer.ts",
+    find: "  workflow.log(task.task_id, `the turn did not take steer ${rpcId}. it goes as the next prompt.`);\n",
+    replace:
+      "  for (const steer of workflow.store.steers()) {\n    if (steer.rpc_id === rpcId) workflow.store.dequeuePrompt(steer.prompt_id);\n  }\n",
+  },
+  {
+    id: "W394",
+    invariant:
+      "harnessSession::aPersonPromptIsNeverDropped (a cancelled turn drops its taken instructions)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: '  if (stopReason === "cancelled") workflow.store.returnSteeredPrompts(task.task_id);\n',
+    replace: '  if (stopReason === "cancelled") workflow.store.dropTakenPrompts(task.task_id);\n',
+  },
+  {
     id: "W360",
     invariant: "cliSecretInvariants::cliNeverShowsASecret (parse error of the conversion body)",
     path: "../cli/src/connect/code/github/exchange.ts",

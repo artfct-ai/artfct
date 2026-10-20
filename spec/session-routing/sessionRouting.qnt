@@ -1455,9 +1455,9 @@ module sessionRouting {
   /// other post only after a person wrote there.
   val linearOnlyAsksReachTheStartingSession: bool = lastStepKept.linearOnlyAsksReachTheStartingSession
 
-  /// A person's message in the job session of a running author reaches that author as a prompt.
-  /// A paused author holds it in its queue. The orchestrator does not post and does not wake the
-  /// agent. The person's receipt is a thought in the feed, which this spec does not model.
+  /// A person's message in the job session of an author in its turn reaches the running turn as a
+  /// steer. A paused author holds it in its queue. The orchestrator does not post and does not
+  /// wake the agent. The person's receipt is a thought in the feed, which this spec does not model.
   val sessionMessageReachesItsRunningAuthorSilently: bool =
     lastStepKept.sessionMessageReachesItsRunningAuthorSilently
 
