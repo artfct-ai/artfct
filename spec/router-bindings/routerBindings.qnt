@@ -979,8 +979,8 @@ module routerBindings {
   /// them threw and the router's invocation did not end mid-create.
   val aPersonsEventCreatesTheWorkflowItFindsUncreated: bool = {
     val batch = history.lastBatch
-    (not(batch.createFailed) and not(batch.routerDied)) implies
-      batch.reachedBeforeCreate.forall(workflow => objectOf(world, workflow).created)
+    val excused = batch.createFailed or batch.routerDied
+    not(excused) implies batch.reachedBeforeCreate.forall(workflow => objectOf(world, workflow).created)
   }
 
   /// A running workflow's recorded pull request is bound to it.

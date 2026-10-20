@@ -960,7 +960,7 @@ export const MUTANTS: Mutant[] = [
     id: "W174",
     invariant: "routerBindings::anAbandonedWorkflowKeepsNoBinding",
     path: "src/router/deliver.ts",
-    find: "  await deleteBindings(db, workflowId, sources);\n",
+    find: "  if (!(await deleteBindingsOfNewWorkflow(db, workflowId, sources))) return;\n",
     replace: "",
   },
   {
