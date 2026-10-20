@@ -25,8 +25,8 @@ const DUPLICATE: RpcAck = { ok: true, duplicate: true };
 
 /**
  * The tracker session of a person's prompt or status question to a running workflow, which gets a
- * receipt. Null for any other event. The router already acknowledges a start. A cancel, pause or
- * resume that runs at once answers the person itself.
+ * receipt. Null for any other event. The router already acknowledges a start. A verbal command
+ * other than instruct that runs at once answers the person itself.
  */
 function instructedSessionOf(
   workflow: WorkflowRuntime,
