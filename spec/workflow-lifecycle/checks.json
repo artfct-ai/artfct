@@ -511,8 +511,7 @@
       "aModelCallHostErrorPostsAFailure",
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
-      "aTaskEndAlarmFindsItsTeardownOut",
-      "aRevisionPassesOverARuledJudge"
+      "aTaskEndAlarmFindsItsTeardownOut"
     ],
     "modelCallPagesAfterResearch": [
       "aPlanStartsTheWorkflow",

@@ -434,7 +434,6 @@ module workflowLifecycleTypes {
     aWorkflowEndResumesAfterARestart: bool,
     aRestartCutsTheEndPost: bool,
     aResumedEndFindsItsPostReturned: bool,
-    aRevisionPassesOverARuledJudge: bool,
   }
 
   /// What starts a workflow end: a person's cancel, `fail_workflow`, or `finish_workflow`.
@@ -3537,14 +3536,6 @@ module workflowLifecycle {
       aWorkflowEndResumesAfterARestart: step.kind == EndResumeStep,
       aRestartCutsTheEndPost: step.kind == RestartStep and endPostWaiters(step.before).size() > 0,
       aResumedEndFindsItsPostReturned: step.kind == EndResumeStep and endPostReturned(step.before),
-      aRevisionPassesOverARuledJudge: step.kind == OtherStep and jobsBefore(step).exists(id => and {
-        judgeRuled(step.before.jobs[id]),
-        pageWriteOut(step.before, id),
-        not(pageWriteOut(step.after, id)),
-        step.after.jobs[id].artifact == Ready,
-        step.after.jobs[id].refinerRuns == step.before.jobs[id].refinerRuns,
-        not(isFinished(jobTask(step.after, id).status)),
-      }),
       aMessageLandsOnAWaitingWorkflow: isPersonsMessage(step.kind) and step.before.status == WaitingInput,
       aPersonsMessageLandsDuringAnEnd: isPersonsMessage(step.kind) and workflowEnding(step.before),
       aTrackerWorkflowEndsWithoutDone: and {
@@ -3954,10 +3945,6 @@ module workflowLifecycle {
   /// Witness for `anEndedWorkflowPostsItsEndOnce`: the alarm goes on with a workflow end whose post
   /// returned before an instance restart cut its unbind.
   val aResumedEndFindsItsPostReturned: bool = lastStepReached.aResumedEndFindsItsPostReturned
-
-  /// The page write of a revise turn returns on a page whose judge ruled, and the humans get the
-  /// page without another judge run.
-  val aRevisionPassesOverARuledJudge: bool = lastStepReached.aRevisionPassesOverARuledJudge
 
   /// A prompt waits for the turn of a task to end.
   val aPromptWaits: bool = jobIds(workflow).exists(id => jobTask(workflow, id).promptsQueued.length() > 0)
