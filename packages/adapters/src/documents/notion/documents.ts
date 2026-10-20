@@ -95,15 +95,16 @@ export class NotionDocuments implements Documents {
 
   /**
    * Search-and-replace edits on the lines that changed, in one request, so Notion keeps every
-   * other block and the comments on it. A page without text gets the whole new text.
+   * other block and the comments on it. A page read without text gets the whole new text at its
+   * start, so the blocks a person wrote since the read stay after it.
    */
   async updatePageContent(pageId: string, change: PageTextChange): Promise<void> {
     const update = planPageTextUpdate(change, NOTION_CONTENT_UPDATES_MAX);
     if ("whole" in update) {
       await this.client.pages.updateMarkdown({
         page_id: pageId,
-        type: "replace_content",
-        replace_content: { new_str: update.whole },
+        type: "insert_content",
+        insert_content: { content: update.whole, position: { type: "start" } },
       });
       return;
     }
@@ -226,7 +227,7 @@ export class NotionDocuments implements Documents {
       if (!isFullBlock(block)) continue;
       const text = notionBlockText(block);
       const rewritten =
-        "whole" in update || update.edits.some((edit) => textHoldsPassage(edit.find, text));
+        "edits" in update && update.edits.some((edit) => textHoldsPassage(edit.find, text));
       if (rewritten) removed.push(commentId);
     }
     return removed;

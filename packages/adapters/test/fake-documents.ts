@@ -263,9 +263,12 @@ export class FakeDocuments implements Documents {
     if (removed.length) this.events.push({ kind: "lines_removed", pageId, lineIds: removed });
   }
 
+  /** A page read without text gets the whole new text at its start, as a Notion insert does. */
   private plannedLines(lines: FakeLine[], change: PageTextChange): FakeLine[] {
     const update = planPageTextUpdate(change, FAKE_EDITS_MAX);
-    return "whole" in update ? this.newLines(update.whole) : this.editedLines(lines, update.edits);
+    if ("edits" in update) return this.editedLines(lines, update.edits);
+    const pageHoldsText = lines.some((line) => line.text.trim());
+    return [...this.newLines(update.whole), ...(pageHoldsText ? lines : [])];
   }
 
   private editedLines(lines: FakeLine[], edits: PageTextEdit[]): FakeLine[] {
