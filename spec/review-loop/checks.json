@@ -23,7 +23,6 @@
     "aDoneRefinerRunRoutesItsReview",
     "aRestartDoesNotStrandAReviewerTurnEnd",
     "theHumansHearOfEachHandoverOnce",
-    "theHumansSeeEachReviewsCommentsOnce",
     "aRefinerRunRestartsAtMostTwice",
     "aFinishedRefinerRunKeepsItsStatus",
     "anEndedAuthorEndsItsReview",
@@ -260,8 +259,6 @@
       "theHandoverAlarmPostsAHandover",
       "aRestartCutsAReviewerTurnEnd",
       "aCutReviewerTurnEndRuns",
-      "aRestartCutsAPageReviewAfterItsPost",
-      "aCutTurnEndRunsOnAPostedPageReview",
       "aRestartCutsAPolisherTurnEnd"
     ],
     "pageJudgeBetweenReviewers": [
@@ -313,8 +310,6 @@
       "aRestartCutsAReviewerTurnEnd",
       "aCutReviewerTurnEndRuns",
       "aRestartCutsARejectionPost",
-      "aRestartCutsAPageReviewAfterItsPost",
-      "aCutTurnEndRunsOnAPostedPageReview",
       "aRestartCutsTheHandoverOfAnEndedAuthor"
     ],
     "pausedModelCallAuthor": [

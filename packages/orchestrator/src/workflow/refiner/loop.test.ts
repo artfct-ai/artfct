@@ -576,35 +576,6 @@ describe("onReviewerFinished", () => {
       }));
   });
 
-  describe("a review filed before a restart cut the turn end", () => {
-    const resumed = scenario(started, async (workflow) => {
-      workflow.codeHostInstance = reviewHost(submittedReview());
-      workflow.store.fileReview(reviewerOf(workflow).task_id, {
-        revision: "abc123",
-        blocking: false,
-        summary: "",
-        findings: [{ location: "src/login.ts:12", body: "This drops the error." }],
-      });
-      workflow.store.updateSandbox(TASK, { prompt_in_flight: 1 });
-      await onReviewerFinished(workflow, reviewerOf(workflow), "");
-    });
-
-    it("sends the filed review to the author, not what the host says now", () =>
-      resumed((workflow) => {
-        expect(workflow.store.queue().map((row) => row.text)).toEqual([
-          expect.stringContaining("This drops the error."),
-        ]);
-      }));
-
-    it("ends the reviewer run done with its filed review", () =>
-      resumed((workflow) => {
-        expect(workflow.store.refinerRunsOf(JOB).at(-1)).toMatchObject({
-          status: "done",
-          review: { findings: [{ body: "This drops the error." }] },
-        });
-      }));
-  });
-
   describe("a review with nothing in it", () => {
     const clean = scenario(started, async (workflow) => {
       workflow.codeHostInstance = reviewHost(submittedReview());

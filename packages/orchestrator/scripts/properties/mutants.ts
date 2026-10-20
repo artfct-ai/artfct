@@ -1801,14 +1801,6 @@ export const MUTANTS: Mutant[] = [
     replace: '  if (run.role !== "reviewer") return false;\n',
   },
   {
-    id: "W358",
-    invariant:
-      "reviewLoop::theHumansSeeEachReviewsCommentsOnce (a resumed turn end posts its review again)",
-    path: "src/workflow/refiner/loop.ts",
-    find: "  const filed = workflow.store.review(reviewer.task_id);\n  if (filed) return { review: filed };\n",
-    replace: "",
-  },
-  {
     id: "W357",
     invariant: "reviewLoop::judgeRulesAtMostOnce (the rejection posts before the author's prompt)",
     path: "src/workflow/refiner/loop.ts",

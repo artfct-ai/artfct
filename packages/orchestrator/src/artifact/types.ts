@@ -109,7 +109,7 @@ export interface ReviewSupport {
   /**
    * The newest review this reviewer filed for this turn, none when it filed none, or the reason
    * the read failed. A kind whose reviewer ends its turn with the review posts it on the host
-   * as its last call, when it has a place for it.
+   * first, when it has a place for it.
    */
   postedReview(ref: ArtifactRef, input: ReviewInput): Promise<ReviewRead>;
   /**

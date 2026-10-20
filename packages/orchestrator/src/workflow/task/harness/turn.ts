@@ -118,8 +118,7 @@ function countToolActivity(workflow: WorkflowRuntime, task: TaskRow, update: Ses
  * A refiner run's turn finished. The nudge cancels a silent turn and queues its own prompt, so a
  * cancelled turn with something queued sends that instead: the refiner is not over, and ending it
  * here would destroy its container along with work it never pushed. A turn the harness did not
- * finish fails the run, and so does turn text that says the refiner gave up. A run that filed its
- * review passed that check before a restart cut its turn end.
+ * finish fails the run, and so does turn text that says the refiner gave up.
  */
 async function endRefinerTurn(
   workflow: WorkflowRuntime,
@@ -133,8 +132,7 @@ async function endRefinerTurn(
     return;
   }
   if (isTaskFinished(run.status)) return;
-  const reviewFiled = workflow.store.review(run.task_id) !== null;
-  if (!reviewFiled && (await restartIfTurnUnfinished(workflow, run, stopReason))) return;
+  if (await restartIfTurnUnfinished(workflow, run, stopReason)) return;
   if (run.role === "polisher") return settlePolisherTurn(workflow, run);
   await onReviewerFinished(workflow, run, turnText);
 }

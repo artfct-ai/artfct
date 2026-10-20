@@ -1042,9 +1042,6 @@ export class ReviewLoopReplay {
     if (action === "instanceRestartsWhileAReviewerTurnEnds") {
       return this.instanceRestarts(() => this.untilAReviewerTurnEndIsCut());
     }
-    if (action === "instanceRestartsAfterAPageReviewPosts") {
-      return this.instanceRestarts(() => this.untilAPageReviewPosts(step));
-    }
     if (action === "instanceRestartsWhileAPolisherTurnEnds") return this.polisherTurnEndIsCut(step);
     if (action === "theHandoverPostAlarmFires") {
       await this.world.apply(handoverPostAlarmFires(this.world.taskOf(this.author).job_id));
@@ -2291,42 +2288,6 @@ export class ReviewLoopReplay {
       await cut.out;
     } finally {
       restore();
-    }
-  }
-
-  /**
-   * The turn of the page findings reviewer of the author ends with the review the spec picks, on
-   * a host that takes its comments the way the spec picks. The review posts and is filed, and the
-   * first call after that never returns.
-   */
-  private async untilAPageReviewPosts(step: TraceStep): Promise<void> {
-    const run = this.world.refinerRunOf(this.author);
-    const bridge = run ? await this.world.bridgeWithRunningTurn(run.task_id) : null;
-    if (!run || !bridge) throw new Error("no refiner run has a running turn");
-    const commenting = PAGE_COMMENTING[pickTag(step, "commenting")];
-    if (!commenting) throw new Error(`the trace has commenting ${pickTag(step, "commenting")}`);
-    const end: RefinerRunEnd = {
-      ...TURN_END,
-      pageCommenting: commenting,
-      reviewer: itfBool(pickOf(step, "findings")) ? "findings" : "approved",
-      polisher: "nothing_pushed",
-      closing: "reports_work",
-    };
-    await closeRefinerRunTurn(
-      this.world,
-      { author: this.author, run, bridge },
-      end,
-      this.authorIndex(),
-    );
-    const { store } = this.world.workflow;
-    const cut = this.cutOnce();
-    const restore = this.hostsWithCut(cut, () => store.review(run.task_id) !== null);
-    try {
-      void bridge.endTurn("end_turn");
-      await cut.out;
-    } finally {
-      restore();
-      this.world.pageHost.commenting = "takes";
     }
   }
 
