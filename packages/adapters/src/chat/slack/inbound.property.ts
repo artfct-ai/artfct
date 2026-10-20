@@ -1,18 +1,27 @@
 import { describe, expect, it } from "bun:test";
 import fc from "fast-check";
 import { propertyRuns, propertyTimeoutMs } from "../../../test/property-runs";
-import { fakeUserActor } from "../../../test/fake-actors";
-import { inboundMapperNeverThrows, mapperOutcome } from "../../../test/inbound-invariants";
-import { anyJsonValue, mutatedPayload } from "../../../test/payload-mutations";
+import { recordingUserActor } from "../../../test/fake-actors";
+import {
+  actorEmailIsLowercase,
+  inboundMapperNeverThrows,
+  mapperOutcome,
+} from "../../../test/inbound-invariants";
+import { anyCaseEmail, anyJsonValue, mutatedPayload } from "../../../test/payload-mutations";
 import { appJoinedChannel, slackInbound } from "./inbound";
+import type { ExternalUser } from "@artfct-ai/contracts/types";
 import type { ChatInboundContext, ChatLookup } from "../types";
 
 const RUNS = 100;
 
-const lookup: ChatLookup = {
-  user: async (userId) => ({ id: userId, email: "dev@acme.test", member_of_team: "T1" }),
-  threadRootTs: async () => "1756893600.000100",
-};
+const reportedEmail = fc.option(anyCaseEmail);
+
+function lookupReporting(email: string | null): ChatLookup {
+  return {
+    user: async (userId) => ({ id: userId, email, name: "Dev", member_of_team: "T1" }),
+    threadRootTs: async () => "1756893600.000100",
+  };
+}
 
 const envelope = {
   token: "verification-token-legacy",
@@ -67,13 +76,19 @@ function isChannelOrNull(value: unknown): boolean {
   return value === null || typeof value === "string";
 }
 
-async function checkPayload(payload: unknown, withBot: boolean): Promise<void> {
+async function checkPayload(
+  payload: unknown,
+  withBot: boolean,
+  email: string | null,
+): Promise<void> {
+  const asked: ExternalUser[] = [];
   const context: ChatInboundContext = {
-    resolveActor: fakeUserActor(),
-    chat: withBot ? lookup : null,
+    resolveActor: recordingUserActor(asked),
+    chat: withBot ? lookupReporting(email) : null,
     reaction: "white_check_mark",
   };
   inboundMapperNeverThrows(await mapperOutcome(() => slackInbound(payload, context)));
+  actorEmailIsLowercase(asked);
   const joined = await mapperOutcome(() => appJoinedChannel(payload));
   expect(joined.kind === "returned" && isChannelOrNull(joined.value)).toBe(true);
 }
@@ -84,7 +99,7 @@ describe("slack inbound mapper invariants", () => {
       `hold for a ${name} callback with fields removed or retyped`,
       async () => {
         await fc.assert(
-          fc.asyncProperty(mutatedPayload(payload), fc.boolean(), checkPayload),
+          fc.asyncProperty(mutatedPayload(payload), fc.boolean(), reportedEmail, checkPayload),
           propertyRuns(`slack ${name}`, RUNS),
         );
       },
@@ -96,7 +111,7 @@ describe("slack inbound mapper invariants", () => {
     "hold for a JSON value of any shape",
     async () => {
       await fc.assert(
-        fc.asyncProperty(anyJsonValue, fc.boolean(), checkPayload),
+        fc.asyncProperty(anyJsonValue, fc.boolean(), reportedEmail, checkPayload),
         propertyRuns("slack any JSON", RUNS),
       );
     },

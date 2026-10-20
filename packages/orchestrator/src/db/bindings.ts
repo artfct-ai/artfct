@@ -1,5 +1,6 @@
 import type { Binding, BindingSource } from "@artfct-ai/contracts/sources";
-import { and, eq, inArray, notInArray, sql } from "drizzle-orm";
+import type { WorkflowStatus } from "@artfct-ai/contracts/types";
+import { and, eq, exists, inArray, notInArray, sql } from "drizzle-orm";
 import { FINISHED_WORKFLOW_STATUSES } from "../workflow/store/state";
 import { nowIso, type Database } from "./client";
 import { bindings, workflows } from "./schema";
@@ -122,6 +123,71 @@ export async function deleteBindings(
   await db
     .delete(bindings)
     .where(and(eq(bindings.workflow_id, workflowId), inArray(bindings.source, sources)));
+}
+
+/**
+ * Drop the bindings a new workflow took on `sources` while its row is still `new`, so the router
+ * abandons it. False when a takeover of its create marked the row first, and the bindings stay.
+ */
+export async function deleteBindingsOfNewWorkflow(
+  db: Database,
+  workflowId: string,
+  sources: BindingSource[],
+): Promise<boolean> {
+  const stillNew = db
+    .select({ workflow_id: workflows.workflow_id })
+    .from(workflows)
+    .where(and(eq(workflows.workflow_id, workflowId), eq(workflows.status, "new")));
+  const deleted = await db
+    .delete(bindings)
+    .where(
+      and(
+        eq(bindings.workflow_id, workflowId),
+        inArray(bindings.source, sources),
+        exists(stillNew),
+      ),
+    )
+    .returning({ workflow_id: bindings.workflow_id });
+  return deleted.length > 0;
+}
+
+/**
+ * Take over the create of a workflow whose create has not returned. Its row turns `running`, or is
+ * inserted when missing, while `binding` still points at the workflow. False when the binding moved
+ * or the row ended, such as when an abandon marked it failed.
+ */
+export async function takeOverWorkflowCreate(
+  db: Database,
+  binding: Binding,
+  workflowId: string,
+): Promise<boolean> {
+  const timestamp = nowIso();
+  const running: WorkflowStatus = "running";
+  const stillBound = db
+    .select({
+      workflow_id: bindings.workflow_id,
+      status: sql<WorkflowStatus>`${running}`.as("status"),
+      created_at: sql<string>`${timestamp}`.as("created_at"),
+      updated_at: sql<string>`${timestamp}`.as("updated_at"),
+    })
+    .from(bindings)
+    .where(
+      and(
+        eq(bindings.source, binding.source),
+        eq(bindings.external_id, externalId(binding)),
+        eq(bindings.workflow_id, workflowId),
+      ),
+    );
+  const taken = await db
+    .insert(workflows)
+    .select(stillBound)
+    .onConflictDoUpdate({
+      target: workflows.workflow_id,
+      set: { status: running, updated_at: timestamp },
+      setWhere: notInArray(workflows.status, FINISHED_WORKFLOW_STATUSES),
+    })
+    .returning({ workflow_id: workflows.workflow_id });
+  return taken.length > 0;
 }
 
 /** Every binding, oldest first. */

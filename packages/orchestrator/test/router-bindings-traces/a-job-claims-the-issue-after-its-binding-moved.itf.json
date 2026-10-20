@@ -1991,7 +1991,7 @@
         "nextWorkflow": { "#bigint": "3" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [[{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }]] }
+        "rows": { "#map": [[{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]] }
       }
     },
     {
@@ -2128,8 +2128,8 @@
         "operations": { "#map": [] },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       }
@@ -2268,9 +2268,9 @@
         "operations": { "#map": [] },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "2" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "2" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       }
@@ -2409,9 +2409,9 @@
         "operations": { "#map": [] },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "2" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "2" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       }
@@ -2560,9 +2560,9 @@
         },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "2" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "2" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       }
@@ -2714,9 +2714,9 @@
         },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "2" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "2" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       }
@@ -2869,9 +2869,9 @@
         },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "2" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "2" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       }
@@ -3011,9 +3011,9 @@
         "operations": { "#map": [] },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "2" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "2" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       }

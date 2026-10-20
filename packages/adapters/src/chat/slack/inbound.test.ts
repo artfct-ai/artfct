@@ -24,7 +24,7 @@ function fakeLookup(root: string | null): { chat: ChatLookup; seen: Seen } {
   const chat: ChatLookup = {
     user: async (userId) => {
       seen.userIds.push(userId);
-      return { id: userId, email: "dev@acme.test", member_of_team: "T1" };
+      return { id: userId, email: "Dev@Acme.test", name: "Dev", member_of_team: "T1" };
     },
     threadRootTs: async (channel, ts) => {
       seen.roots.push({ channel, ts });
@@ -237,8 +237,12 @@ describe("slack mentions", () => {
       expect(seen.userIds).toEqual(["U1"]);
     });
 
-    it("puts the profile email on the actor", () => {
+    it("puts the profile email on the actor, lowercased", () => {
       expect(event.actor?.email).toBe("dev@acme.test");
+    });
+
+    it("puts the profile name on the actor", () => {
+      expect(event.actor?.display_name).toBe("Dev");
     });
   });
 
@@ -263,7 +267,9 @@ describe("slack mentions", () => {
 
     it("carries the team the lookup reports", async () => {
       await normalize(mention, { chat: fakeLookup("1700.1").chat, resolveActor: resolveNobody });
-      expect(asked).toEqual([{ id: "U1", email: "dev@acme.test", member_of_team: "T1" }]);
+      expect(asked).toEqual([
+        { id: "U1", email: "dev@acme.test", name: "Dev", member_of_team: "T1" },
+      ]);
     });
 
     it("is a member of no team without a lookup", async () => {

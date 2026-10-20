@@ -194,10 +194,11 @@ async function threadRoot(chat: ChatLookup, channel: string, ts: string): Promis
   return chat.threadRootTs(channel, ts).catch(() => ts);
 }
 
-/** The sender's email and team come from the user lookup, which needs a bot token. */
+/** The sender's name, email and team come from the user lookup, which needs a bot token. */
 async function resolveActor(context: SlackContext, userId: string) {
   const user = context.chat ? await context.chat.user(userId).catch(() => null) : null;
-  return context.resolveActor(user ?? { id: userId, email: null, member_of_team: null });
+  if (!user) return context.resolveActor({ id: userId, email: null, member_of_team: null });
+  return context.resolveActor({ ...user, email: user.email?.toLowerCase() ?? null });
 }
 
 /**

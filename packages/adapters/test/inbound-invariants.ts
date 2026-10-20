@@ -1,3 +1,5 @@
+import type { ExternalUser } from "@artfct-ai/contracts/types";
+
 /** What one inbound mapper did with one payload: the value it returned, or what it threw. */
 export type MapperOutcome =
   | { kind: "returned"; value: unknown }
@@ -17,6 +19,18 @@ export function inboundMapperNeverThrows(outcome: MapperOutcome): void {
   }
   if (isEventOrIgnore(outcome.value)) return;
   violated("inboundMapperNeverThrows", `the mapper returned ${describe(outcome.value)}`);
+}
+
+/**
+ * Every email an inbound mapper hands the actor resolver is lowercase, so the email join does not
+ * depend on the case a vendor reports.
+ */
+export function actorEmailIsLowercase(asked: ExternalUser[]): void {
+  for (const user of asked) {
+    if (user.email && user.email !== user.email.toLowerCase()) {
+      violated("actorEmailIsLowercase", `the mapper asked about ${user.email}`);
+    }
+  }
 }
 
 /** Runs one mapper call and records how it settled. */
