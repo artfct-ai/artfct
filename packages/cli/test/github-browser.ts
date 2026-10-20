@@ -37,13 +37,17 @@ function matchOrThrow(text: string, pattern: RegExp): string {
   return unescapeHtml(value);
 }
 
-/** Load the manifest form page as a browser would, without submitting it. */
-export async function readGithubManifestForm(url: string): Promise<GithubManifestFormSeen> {
-  const page = await (await fetch(url)).text();
+/** Read the form action, the manifest, and the state GitHub brings back from the manifest form page. */
+export function parseGithubManifestForm(page: string): GithubManifestFormSeen {
   const formAction = matchOrThrow(page, /action="([^"]*)"/);
   const manifest: GithubAppManifestSeen = JSON.parse(matchOrThrow(page, /value="([^"]*)"/));
   const state = new URL(formAction).searchParams.get("state") ?? "";
   return { formAction, manifest, state };
+}
+
+/** Load the manifest form page as a browser would, without submitting it. */
+export async function readGithubManifestForm(url: string): Promise<GithubManifestFormSeen> {
+  return parseGithubManifestForm(await (await fetch(url)).text());
 }
 
 /** A browser stand-in that submits the manifest form, then follows the install redirect with the given query. */

@@ -88,6 +88,7 @@
       "aCutReviewerTurnEndRuns",
       "aRestartCutsARejectionPost",
       "aRestartCutsTheHandoverOfAnEndedAuthor",
+      "aRestartCutsTheHandoverAtTheWorkflowEnd",
       "aRestartCutsAPolisherTurnEnd"
     ],
     "reviewerThenPolisher": [
@@ -128,7 +129,8 @@
       "aRestartCutsAReviewerTurnEnd",
       "aCutReviewerTurnEndRuns",
       "aRestartCutsAPolisherTurnEnd",
-      "aRestartCutsTheHandoverOfAnEndedAuthor"
+      "aRestartCutsTheHandoverOfAnEndedAuthor",
+      "aRestartCutsTheHandoverAtTheWorkflowEnd"
     ],
     "judgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -169,7 +171,8 @@
       "aRestartCutsAReviewerTurnEnd",
       "aCutReviewerTurnEndRuns",
       "aRestartCutsARejectionPost",
-      "aRestartCutsTheHandoverOfAnEndedAuthor"
+      "aRestartCutsTheHandoverOfAnEndedAuthor",
+      "aRestartCutsTheHandoverAtTheWorkflowEnd"
     ],
     "modelCallAuthorWithTwoReviewers": [
       "aRefinerRunIsUnfinished",
@@ -346,7 +349,8 @@
       "aRestartCutsTheDestroyOfADoneRefinerRun",
       "aRestartCutsTheRoutingOfADoneRefinerRun",
       "aRestartCutsAHandoverPost",
-      "theHandoverAlarmPostsAHandover"
+      "theHandoverAlarmPostsAHandover",
+      "aRestartCutsTheHandoverOfAnEndedAuthor"
     ],
     "checksOnAPolishedPull": [
       "aRefinerRunIsUnfinished",
@@ -441,7 +445,8 @@
       "aRestartCutsAHandoverPost",
       "theHandoverAlarmPostsAHandover",
       "aRestartCutsAReviewerTurnEnd",
-      "aCutReviewerTurnEndRuns"
+      "aCutReviewerTurnEndRuns",
+      "aRestartCutsTheHandoverOfAnEndedAuthor"
     ],
     "checksOnAReviewedPull": [
       "aRefinerRunIsUnfinished",

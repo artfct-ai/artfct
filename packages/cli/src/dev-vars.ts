@@ -1,6 +1,11 @@
 import { chmodSync, existsSync, readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 
 const OWNER_ONLY = 0o600;
+
+function devVarsPath(workerDir: string): string {
+  return join(workerDir, ".dev.vars");
+}
 
 function formatDevVar(name: string, value: string): string {
   return value.includes("\n") ? `${name}="${value.trim()}"` : `${name}=${value}`;
@@ -36,15 +41,22 @@ export function readDevVar(text: string, name: string): string | undefined {
   return value || undefined;
 }
 
-function readDevVarsBase(path: string): string {
-  if (existsSync(path)) return readFileSync(path, "utf8");
-  const examplePath = `${path}.example`;
-  return existsSync(examplePath) ? readFileSync(examplePath, "utf8") : "";
+function readTextFile(path: string): string | undefined {
+  return existsSync(path) ? readFileSync(path, "utf8") : undefined;
 }
 
-/** Write values into a `.dev.vars` file that only its owner can read. A missing file starts from its `.example`. */
-export function writeDevVarsFile(path: string, values: Record<string, string>): void {
-  const text = setDevVars(readDevVarsBase(path), values);
+/** The text of a Worker's `.dev.vars` file. Undefined when the Worker has none. */
+export function readDevVarsFile(workerDir: string): string | undefined {
+  return readTextFile(devVarsPath(workerDir));
+}
+
+/**
+ * Write values into a Worker's `.dev.vars` file and make it readable only by its owner. A missing
+ * file starts from its `.example`.
+ */
+export function writeDevVarsFile(workerDir: string, values: Record<string, string>): void {
+  const path = devVarsPath(workerDir);
+  const base = readTextFile(path) ?? readTextFile(`${path}.example`) ?? "";
   if (existsSync(path)) chmodSync(path, OWNER_ONLY);
-  writeFileSync(path, text, { mode: OWNER_ONLY });
+  writeFileSync(path, setDevVars(base, values), { mode: OWNER_ONLY });
 }

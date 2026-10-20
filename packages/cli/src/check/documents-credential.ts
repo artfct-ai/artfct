@@ -1,7 +1,5 @@
-import { existsSync, readFileSync } from "node:fs";
-import { join } from "node:path";
 import { type Config, loadDeploymentConfig, readDeploymentConfig } from "@artfct-ai/core/config";
-import { readDevVar } from "../dev-vars";
+import { readDevVar, readDevVarsFile } from "../dev-vars";
 import type { CheckOutcome } from "./types";
 
 type DocumentsProvider = Config["adapters"]["documents"]["provider"];
@@ -25,11 +23,11 @@ export function checkDocumentsCredential(configDir: string): CheckOutcome {
   if (!secret) {
     return { outcome: "skipped", detail: "Linear documents use the Linear install" };
   }
-  const devVarsPath = join(configDir, ".dev.vars");
-  if (!existsSync(devVarsPath)) {
+  const devVars = readDevVarsFile(configDir);
+  if (devVars === undefined) {
     return { outcome: "skipped", detail: "orchestrator/.dev.vars is missing" };
   }
-  if (readDevVar(readFileSync(devVarsPath, "utf8"), secret)) {
+  if (readDevVar(devVars, secret)) {
     return { outcome: "passed", detail: `${secret} is set` };
   }
   const pageStages = [

@@ -10,5 +10,10 @@ export async function exchangeGithubManifestCode(code: string): Promise<unknown>
   if (!response.ok) {
     throw new Error(`GitHub rejected the manifest code with ${response.status}.`);
   }
-  return response.json();
+  const text = await response.text();
+  try {
+    return JSON.parse(text);
+  } catch {
+    throw new Error("GitHub answered the manifest code with a body that is not JSON.");
+  }
 }

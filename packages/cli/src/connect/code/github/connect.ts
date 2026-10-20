@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { existsSync, readFileSync } from "node:fs";
+import { existsSync } from "node:fs";
 import { createServer, type IncomingMessage, type ServerResponse } from "node:http";
 import type { AddressInfo } from "node:net";
 import { basename, join } from "node:path";
 import { describeError } from "../../../describe-error";
-import { readDevVar, writeDevVarsFile } from "../../../dev-vars";
+import { readDevVar, readDevVarsFile, writeDevVarsFile } from "../../../dev-vars";
 import {
   consumeGithubCallbackState,
   parseGithubAppConversion,
@@ -23,25 +23,25 @@ export type ConnectGithubEnvironment = {
 };
 
 type DeploymentPaths = {
-  orchestratorDevVars: string;
-  ingressDevVars: string;
+  orchestratorDir: string;
+  ingressDir: string;
   ingressConfig: string;
 };
 
 function deploymentPaths(repoDir: string): DeploymentPaths {
   return {
-    orchestratorDevVars: join(repoDir, "orchestrator/.dev.vars"),
-    ingressDevVars: join(repoDir, "ingress/.dev.vars"),
+    orchestratorDir: join(repoDir, "orchestrator"),
+    ingressDir: join(repoDir, "ingress"),
     ingressConfig: join(repoDir, "ingress/wrangler.jsonc"),
   };
 }
 
-function readIngressUrl(orchestratorDevVars: string): string {
-  const text = existsSync(orchestratorDevVars) ? readFileSync(orchestratorDevVars, "utf8") : "";
-  const publicUrl = readDevVar(text, "PUBLIC_URL");
-  if (publicUrl === undefined || !URL.canParse(publicUrl)) {
+function readIngressUrl(orchestratorDir: string): string {
+  const publicUrl = readDevVar(readDevVarsFile(orchestratorDir) ?? "", "PUBLIC_URL");
+  const protocol = publicUrl === undefined ? undefined : URL.parse(publicUrl)?.protocol;
+  if (publicUrl === undefined || (protocol !== "https:" && protocol !== "http:")) {
     throw new Error(
-      `Set PUBLIC_URL in ${orchestratorDevVars} to the ingress origin, such as https://artfct-ingress.example.workers.dev.`,
+      "Set PUBLIC_URL in orchestrator/.dev.vars to the ingress origin, such as https://artfct-ingress.example.workers.dev.",
     );
   }
   return publicUrl;
@@ -92,7 +92,7 @@ function listenOnLoopback(server: ReturnType<typeof createServer>): Promise<stri
  */
 export async function connectGithubApp(environment: ConnectGithubEnvironment): Promise<void> {
   const paths = deploymentPaths(environment.repoDir);
-  const ingressUrl = readIngressUrl(paths.orchestratorDevVars);
+  const ingressUrl = readIngressUrl(paths.orchestratorDir);
   if (!existsSync(paths.ingressConfig)) {
     throw new Error(`${paths.ingressConfig} is missing. Run the command in a deployment repo.`);
   }
@@ -113,11 +113,11 @@ export async function connectGithubApp(environment: ConnectGithubEnvironment): P
       const credentials = parseGithubAppConversion(
         await environment.exchangeManifestCode(url.searchParams.get("code") ?? ""),
       );
-      writeDevVarsFile(paths.orchestratorDevVars, {
+      writeDevVarsFile(paths.orchestratorDir, {
         GITHUB_APP_ID: credentials.appId,
         GITHUB_PRIVATE_KEY: credentials.privateKey,
       });
-      writeDevVarsFile(paths.ingressDevVars, { GITHUB_WEBHOOK_SECRET: credentials.webhookSecret });
+      writeDevVarsFile(paths.ingressDir, { GITHUB_WEBHOOK_SECRET: credentials.webhookSecret });
       writeIngressAppLogin(paths.ingressConfig, credentials.slug);
       return credentials.slug;
     } catch (error) {
@@ -143,7 +143,7 @@ export async function connectGithubApp(environment: ConnectGithubEnvironment): P
   function handleInstalled(url: URL, response: ServerResponse): void {
     const redirect = parseGithubInstallRedirect(url);
     if (redirect.outcome === "failed") throw new Error(redirect.problem);
-    writeDevVarsFile(paths.orchestratorDevVars, {
+    writeDevVarsFile(paths.orchestratorDir, {
       GITHUB_INSTALLATION_ID: redirect.installationId,
     });
     respond(response, 200, "<!doctype html><p>artfct is connected. Close this tab.</p>\n");
@@ -157,20 +157,25 @@ export async function connectGithubApp(environment: ConnectGithubEnvironment): P
       respond(response, 400, "This address is not the one artfct opened.\n");
       return;
     }
+    if (url.pathname !== "/" && url.pathname !== "/created" && url.pathname !== "/installed") {
+      respond(response, 404, "Not found\n");
+      return;
+    }
+    const state = url.searchParams.get("state");
+    const stateMatches =
+      url.pathname === "/"
+        ? state === createdState
+        : consumeGithubCallbackState(awaitedStates, url.pathname, state);
+    if (!stateMatches) {
+      respond(response, 400, "The state does not match this run.\n");
+      return;
+    }
     if (url.pathname === "/") {
       respond(
         response,
         200,
         manifestFormPage(githubNewAppUrl(environment.org, createdState), manifest),
       );
-      return;
-    }
-    if (url.pathname !== "/created" && url.pathname !== "/installed") {
-      respond(response, 404, "Not found\n");
-      return;
-    }
-    if (!consumeGithubCallbackState(awaitedStates, url.pathname, url.searchParams.get("state"))) {
-      respond(response, 400, "The state does not match this run.\n");
       return;
     }
     try {
@@ -184,8 +189,9 @@ export async function connectGithubApp(environment: ConnectGithubEnvironment): P
   }
 
   server.on("request", (request, response) => void handleRequest(request, response));
-  environment.log(`Opening ${origin}/ in the browser. Open it yourself if no browser appears.`);
-  environment.openBrowser(`${origin}/`).catch(() => {});
+  const launchUrl = `${origin}/?state=${createdState}`;
+  environment.log(`Opening ${launchUrl} in the browser. Open it yourself if no browser appears.`);
+  environment.openBrowser(launchUrl).catch(() => {});
   try {
     await setupFinished.promise;
   } finally {

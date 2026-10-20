@@ -64,6 +64,26 @@ const digestInput: fc.Arbitrary<DigestInput> = fc.record({
   now: fc.integer({ min: -Number.MAX_SAFE_INTEGER, max: Number.MAX_SAFE_INTEGER }),
 });
 
+const TASK_ID_PAST_THE_CAP: DigestInput = {
+  task: {
+    task_id: " ".repeat(371),
+    number: 0,
+    ticket_key: null,
+    workflow_name: "",
+    work: { stage: "" },
+    status: "working",
+    paused: false,
+    started_at: "",
+    cost_usd: 0,
+  },
+  artifact: null,
+  todos: null,
+  counters: { tool_calls: 0, tool_failures: 0, failed_tools: [] },
+  last: null,
+  note: null,
+  now: 0,
+};
+
 function headFieldChars(input: DigestInput): number {
   return (
     input.task.task_id.length +
@@ -83,7 +103,10 @@ describe("task digest invariants", () => {
           if (headFieldChars(input) > 500) headFieldsPastTheCap++;
           taskDigestStaysWithinItsCap(taskDigest(input));
         }),
-        propertyRuns("task digest stays within its cap", RUNS),
+        {
+          ...propertyRuns("task digest stays within its cap", RUNS),
+          examples: [[TASK_ID_PAST_THE_CAP]],
+        },
       );
       expect(headFieldsPastTheCap).toBeGreaterThan(0);
     },

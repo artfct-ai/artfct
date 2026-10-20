@@ -95,16 +95,19 @@ module reviewLoopTypes {
   /// it, or the workflow ends.
   type AuthorEnding = TheAgentCancelsTheJob | TheAuthorFails | TheWorkflowEnds
 
+  /// A prompt that waits for the author: the person comments it carries, and the refiner runs whose
+  /// findings reach the author first in it.
+  type QueuedPrompt = { comments: Set[int], findings: Set[int] }
+
   /// The author task: where it stands, whether it is paused, how often it restarted, the prompts
-  /// that wait for it with the person comments each carries, the comments the prompt of a
-  /// model-call author's turn carries, the parts of the page a person rewrote since that turn read
-  /// it, the judge entries whose rejection it got, and the refiner runs whose findings it got in a
-  /// prompt.
+  /// that wait for it, the comments the prompt of a model-call author's turn carries, the parts of
+  /// the page a person rewrote since that turn read it, the judge entries whose rejection it got,
+  /// and the refiner runs whose findings reached it: in a prompt it took or in one still queued.
   type Author = {
     status: AuthorStatus,
     paused: bool,
     restarts: int,
-    queuedPrompts: List[Set[int]],
+    queuedPrompts: List[QueuedPrompt],
     turnComments: Set[int],
     pageEditsDuringTurn: Set[PagePart],
     rejectedBy: Set[int],
@@ -352,6 +355,7 @@ module reviewLoopTypes {
     aRestartCutsAReviewerTurnEnd: bool,
     aCutReviewerTurnEndRuns: bool,
     aRestartCutsTheHandoverOfAnEndedAuthor: bool,
+    aRestartCutsTheHandoverAtTheWorkflowEnd: bool,
     aRestartCutsAPolisherTurnEnd: bool,
     aRestartCutsARejectionPost: bool,
     aRulingCallReturnsAfterTheAuthorEnded: bool,
@@ -572,8 +576,8 @@ module reviewLoop {
   /// in which a new instance took over.
   var aDoneRunsSandboxIsOut: bool
   /// True after a step in which the routing of a findings reviewer or polisher run that ended done,
-  /// or the teardown of a cancelled or failed harness author, handed the artifact over, while the
-  /// handover post, the last call of that routing or teardown, is out.
+  /// or the teardown of an author that ended, handed the artifact over, while the handover post,
+  /// the last call of that routing or teardown, is out.
   var aHandoverPostIsOut: bool
   /// The post of the reason of a rejection that the decisions model ruled in the last step and
   /// that reached a live author. The post is the last call of that ruling.
@@ -894,24 +898,26 @@ module reviewLoop {
           ...loop.author,
           status: AtWork,
           queuedPrompts: loop.author.queuedPrompts.tail(),
-          turnComments: if (MODEL_CALL_AUTHOR) loop.author.queuedPrompts.head() else Set(),
+          turnComments: if (MODEL_CALL_AUTHOR) loop.author.queuedPrompts.head().comments else Set(),
           pageEditsDuringTurn: Set(),
         },
       }
     else loop
 
-  /// Queue a prompt for the author that carries these person comments.
-  pure def promptAuthorWith(loop: ReviewLoop, comments: Set[int]): ReviewLoop = {
-    val queued = { ...loop, author: { ...loop.author, queuedPrompts: loop.author.queuedPrompts.append(comments) } }
-    drainQueue(markSent(queued, comments))
+  /// Queue this prompt for the author.
+  pure def promptAuthorWith(loop: ReviewLoop, prompt: QueuedPrompt): ReviewLoop = {
+    val queued = { ...loop, author: { ...loop.author, queuedPrompts: loop.author.queuedPrompts.append(prompt) } }
+    drainQueue(markSent(queued, prompt.comments))
   }
 
-  pure def promptAuthor(loop: ReviewLoop): ReviewLoop = promptAuthorWith(loop, Set())
+  pure def promptAuthor(loop: ReviewLoop): ReviewLoop = promptAuthorWith(loop, { comments: Set(), findings: Set() })
 
-  /// The author gets one prompt that carries the findings of these reviews.
+  /// The author gets one prompt that carries the findings of these reviews. They reach it once the
+  /// prompt is queued.
   pure def sendFindingsToAuthor(loop: ReviewLoop, reviewRuns: Set[int]): ReviewLoop = {
     val withFindings = reviewRuns.filter(id => reviewHasFindings(loop.refinerRuns[id].result))
-    promptAuthor({ ...loop, author: { ...loop.author, findingsFrom: loop.author.findingsFrom.union(withFindings) } })
+    val reached = { ...loop, author: { ...loop.author, findingsFrom: loop.author.findingsFrom.union(withFindings) } }
+    promptAuthorWith(reached, { comments: Set(), findings: withFindings.exclude(loop.author.findingsFrom) })
   }
 
   /// The refiner runs whose reviews the segment that ends at `end` filed: the latest run of each
@@ -1031,15 +1037,18 @@ module reviewLoop {
     drainQueue(settleThroughTheAuthorsGate(ended, answers.gate, answers.decision, answers.lookup))
   }
 
-  /// The author ends with the status `ending`, cancelled or failed. Its queued prompts go, its
-  /// unfinished refiner run is cancelled, and the humans get the artifact blocked.
+  /// The author ends with the status `ending`, cancelled or failed. Its queued prompts go with the
+  /// findings that reached it only in them, its unfinished refiner run is cancelled, and the humans
+  /// get the artifact blocked.
   pure def endAuthor(loop: ReviewLoop, ending: AuthorStatus, lookup: RevisionLookup): ReviewLoop = {
+    val untaken = loop.author.queuedPrompts.foldl(Set(), (found, prompt) => found.union(prompt.findings))
     val stopped = {
       ...loop,
       author: {
         ...loop.author,
         status: ending,
         queuedPrompts: List(),
+        findingsFrom: loop.author.findingsFrom.exclude(untaken),
         turnComments: Set(),
         pageEditsDuringTurn: Set(),
       },
@@ -1056,7 +1065,7 @@ module reviewLoop {
     val restarted = { ...loop.author, restarts: loop.author.restarts + 1, turnComments: Set(), pageEditsDuringTurn: Set() }
     if (loop.author.restarts >= MAX_RESTARTS) endAuthor(loop, AuthorFailed, lookup)
     else if (polisherRunning(loop))
-      { ...loop, author: { ...restarted, status: InReview, queuedPrompts: if (queued.length() == 0) List(Set()) else queued } }
+      { ...loop, author: { ...restarted, status: InReview, queuedPrompts: if (queued.length() == 0) List({ comments: Set(), findings: Set() }) else queued } }
     else
       { ...loop, author: { ...restarted, status: AtWork, queuedPrompts: if (queued.length() == 0) queued else queued.tail() } }
   }
@@ -1071,7 +1080,7 @@ module reviewLoop {
 
   /// The person comments the prompts that wait for the author carry.
   pure def queuedComments(loop: ReviewLoop): Set[int] =
-    loop.author.queuedPrompts.foldl(Set(), (comments, prompt) => comments.union(prompt))
+    loop.author.queuedPrompts.foldl(Set(), (comments, prompt) => comments.union(prompt.comments))
 
   /// True when a person changed the page text since the author's turn read it.
   pure def pageTextEditedDuringTurn(loop: ReviewLoop): bool =
@@ -1477,7 +1486,7 @@ module reviewLoop {
     val marked = screened and read == AdmittedAndAcknowledged
     val carried = if (marked) held else Set()
     val acknowledged = acknowledge(during, carried)
-    val prompted = if (agentText or marked) promptAuthorWith(acknowledged, carried) else acknowledged
+    val prompted = if (agentText or marked) promptAuthorWith(acknowledged, { comments: carried, findings: Set() }) else acknowledged
     val stayHeld = read == HostCannotBeRead or (screened and not(marked))
     { loop: prompted, carried: carried, agentHeard: if (stayHeld) Set(HeldCommentsStayHeld) else Set() }
   }
@@ -1516,7 +1525,7 @@ module reviewLoop {
     }
     else if (refused) { loop: during, page: asked, agentHeard: Set(MentionText) }
     else {
-      loop: if (carried.size() > 0) promptAuthorWith(acknowledged, carried) else acknowledged,
+      loop: if (carried.size() > 0) promptAuthorWith(acknowledged, { comments: carried, findings: Set() }) else acknowledged,
       page: asked,
       agentHeard: Set(MentionText)
         .union(if (screened) Set(HeldCommentText) else Set())
@@ -1567,15 +1576,10 @@ module reviewLoop {
   /// True when the artifact went from a draft to the humans in the step.
   pure def handedOverIn(step: Transition): bool = drafted(step.before) and not(drafted(step.after))
 
-  /// True when a harness author was cancelled or failed in the step and its teardown handed the
-  /// artifact over. The handover post is the last call of that teardown that changes what the
-  /// review holds.
-  pure def anEndedAuthorsHandoverPosts(step: Transition): bool = and {
-    not(MODEL_CALL_AUTHOR),
-    endsTheAuthor(step),
-    handedOverIn(step),
-    step.after.author.status == AuthorCancelled or step.after.author.status == AuthorFailed,
-  }
+  /// True when a harness or model-call author ended in the step, cancelled, failed, or cancelled by
+  /// the workflow end, and its teardown handed the artifact over. The handover post is the last
+  /// call of that teardown that changes what the review holds.
+  pure def anEndedAuthorsHandoverPosts(step: Transition): bool = endsTheAuthor(step) and handedOverIn(step)
 
   /// The post of a rejection's reason that is out after the step: one the decisions model ruled
   /// in the step, when the rejection reached a live author whose model turn did not start.
@@ -2127,8 +2131,8 @@ module reviewLoop {
 
   /// The start step of a new instance runs a model-call author's lost revise turn again, as a
   /// restart of the author. The turn keeps its prompt and reads the page again. A paused author
-  /// takes the prompt back at the head of its queue instead. The author fails once its restarts
-  /// are used up.
+  /// takes the prompt back at the head of its queue instead, and the findings the prompt carries
+  /// stay taken. The author fails once its restarts are used up.
   pure def runTheLostModelTurnAgain(loop: ReviewLoop, lookup: RevisionLookup): ReviewLoop = {
     val restarted = { ...loop.author, restarts: loop.author.restarts + 1, pageEditsDuringTurn: Set() }
     if (loop.author.restarts >= MAX_RESTARTS) endAuthor(loop, AuthorFailed, lookup)
@@ -2137,7 +2141,7 @@ module reviewLoop {
       author: {
         ...restarted,
         status: InReview,
-        queuedPrompts: List(loop.author.turnComments).concat(loop.author.queuedPrompts),
+        queuedPrompts: List({ comments: loop.author.turnComments, findings: Set() }).concat(loop.author.queuedPrompts),
         turnComments: Set(),
       },
     }
@@ -2468,7 +2472,7 @@ module reviewLoop {
 
   /// True when the author got a prompt in a step with findings it did not have before.
   pure def gotNewFindings(step: Transition): bool =
-    step.after.author.findingsFrom != step.before.author.findingsFrom
+    step.after.author.findingsFrom.exists(id => not(step.before.author.findingsFrom.contains(id)))
 
   /// The review comments posted in a step. A restart that cut a rejection's post posts none.
   pure def postedIn(step: Transition): List[ReviewComment] =
@@ -2784,7 +2788,7 @@ module reviewLoop {
   pure def keepsTheFirstHandover(step: Transition): bool =
     step.before.artifact.deliveredToHumans implies step.after.artifact.deliveredToHumans
 
-  /// True when the author was live before a step and is cancelled or failed after it.
+  /// True when the author was live before a step and has ended after it.
   pure def endsTheAuthor(step: Transition): bool = authorLive(step.before) and not(authorLive(step.after))
 
   /// True when the humans have the artifact from a handover that closed blocked.
@@ -3089,6 +3093,8 @@ module reviewLoop {
     },
     aRestartCutsTheHandoverOfAnEndedAuthor:
       step.kind.cutOfADoneRun == ItsHandoverPostIsCut and not(authorLive(step.before)),
+    aRestartCutsTheHandoverAtTheWorkflowEnd:
+      step.kind.cutOfADoneRun == ItsHandoverPostIsCut and step.before.author.status == AuthorCancelledByTheWorkflowEnd,
     aModelTurnIsLostWithTheInstance: step.kind.instanceRestarted and aModelTurnIsOut(step.before),
     aPausedAuthorsModelTurnIsLost:
       step.kind.instanceRestarted and aModelTurnIsOut(step.before) and step.before.author.paused,
@@ -3690,8 +3696,12 @@ module reviewLoop {
   val aRestartCutsAPolisherTurnEnd: bool = lastStepReached.aRestartCutsAPolisherTurnEnd
 
   /// Witness for `theHumansHearOfEachHandoverOnce`: a new instance takes over while the handover
-  /// post of the teardown of a cancelled or failed author is out.
+  /// post of the teardown of an author that ended is out. A model-call author's teardown counts.
   val aRestartCutsTheHandoverOfAnEndedAuthor: bool = lastStepReached.aRestartCutsTheHandoverOfAnEndedAuthor
+
+  /// Witness for `theHumansHearOfEachHandoverOnce`: a new instance takes over while the handover
+  /// post of the teardown of an author that the workflow end cancelled is out.
+  val aRestartCutsTheHandoverAtTheWorkflowEnd: bool = lastStepReached.aRestartCutsTheHandoverAtTheWorkflowEnd
 
   /// Witness for `judgeRulesAtMostOnce`: a new instance takes over while the post of the reason of
   /// a rejection that reached the author is out.

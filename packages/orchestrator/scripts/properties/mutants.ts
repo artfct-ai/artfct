@@ -1773,6 +1773,24 @@ export const MUTANTS: Mutant[] = [
     replace: "",
   },
   {
+    id: "W351",
+    invariant:
+      "reviewLoop::theHumansHearOfEachHandoverOnce (the workflow end drops the handover alarm)",
+    path: "src/workflow/lifecycle.ts",
+    find: "  await writeWorkflowStatus(workflow, end.status);\n  if (!end.posted)",
+    replace:
+      '  await workflow.cancelAlarmsWhere("postHandover", () => true);\n  await writeWorkflowStatus(workflow, end.status);\n  if (!end.posted)',
+  },
+  {
+    id: "W352",
+    invariant:
+      "reviewLoop::theHumansHearOfEachHandoverOnce (the handover alarm posts only while the workflow runs)",
+    path: "src/workflow/refiner/outcome.ts",
+    find: '  if (artifact?.status !== "ready") return;\n  workflow.log(null, `the handover of job',
+    replace:
+      '  if (artifact?.status !== "ready" || workflow.state.status !== "running") return;\n  workflow.log(null, `the handover of job',
+  },
+  {
     id: "W355",
     invariant:
       "reviewLoop::aRestartDoesNotStrandAReviewerTurnEnd (the start step arms no reviewer turn end)",
@@ -2165,6 +2183,183 @@ export const MUTANTS: Mutant[] = [
     find: "  if (await requestQuotaLow(workflow)) {\n",
     replace: "  if (false && (await requestQuotaLow(workflow))) {\n",
     propertyFile: "src/workflow/feed/feed.property.ts",
+  },
+  {
+    id: "W360",
+    invariant: "cliSecretInvariants::cliNeverShowsASecret (parse error of the conversion body)",
+    path: "../cli/src/connect/code/github/exchange.ts",
+    find: '  const text = await response.text();\n  try {\n    return JSON.parse(text);\n  } catch {\n    throw new Error("GitHub answered the manifest code with a body that is not JSON.");\n  }\n',
+    replace: "  return response.json();\n",
+    propertyFile: "../cli/src/secrets.property.ts",
+  },
+  {
+    id: "W361",
+    invariant: "cliSecretInvariants::cliNeverShowsASecret (documents credential detail)",
+    path: "../cli/src/check/documents-credential.ts",
+    find: '    return { outcome: "passed", detail: `${secret} is set` };\n',
+    replace:
+      '    return { outcome: "passed", detail: `${secret} is set to ${readDevVar(devVars, secret)}` };\n',
+    propertyFile: "../cli/src/secrets.property.ts",
+  },
+  {
+    id: "W362",
+    invariant: "cliSecretInvariants::cliWritesASecretOnlyToItsOwnDevVars (wider file kept)",
+    path: "../cli/src/dev-vars.ts",
+    find: "  if (existsSync(path)) chmodSync(path, OWNER_ONLY);\n",
+    replace: "",
+    propertyFile: "../cli/src/secrets.property.ts",
+  },
+  {
+    id: "W363",
+    invariant: "cliSecretInvariants::cliWritesASecretOnlyToItsOwnDevVars (new file mode)",
+    path: "../cli/src/dev-vars.ts",
+    find: "  writeFileSync(path, setDevVars(base, values), { mode: OWNER_ONLY });\n",
+    replace: "  writeFileSync(path, setDevVars(base, values));\n",
+    propertyFile: "../cli/src/secrets.property.ts",
+  },
+  {
+    id: "W364",
+    invariant: "cliSecretInvariants::cliWritesASecretOnlyToItsOwnDevVars (another Worker's file)",
+    path: "../cli/src/connect/code/github/connect.ts",
+    find: "      writeDevVarsFile(paths.ingressDir, { GITHUB_WEBHOOK_SECRET: credentials.webhookSecret });\n",
+    replace:
+      "      writeDevVarsFile(paths.orchestratorDir, { GITHUB_WEBHOOK_SECRET: credentials.webhookSecret });\n",
+    propertyFile: "../cli/src/secrets.property.ts",
+  },
+  {
+    id: "W365",
+    invariant: "cliSecretInvariants::cliSendsNoSecret",
+    path: "../cli/src/connect/code/github/connect.ts",
+    find: "      writeIngressAppLogin(paths.ingressConfig, credentials.slug);\n",
+    replace:
+      '      await fetch("https://api.github.com/app", { headers: { authorization: `Bearer ${credentials.privateKey}` } });\n      writeIngressAppLogin(paths.ingressConfig, credentials.slug);\n',
+    propertyFile: "../cli/src/secrets.property.ts",
+  },
+  {
+    id: "W366",
+    invariant: "cliSecretInvariants::loopbackServerAnswersOnlyItsOwnFlow (every interface)",
+    path: "../cli/src/connect/code/github/connect.ts",
+    find: '    server.listen(0, "127.0.0.1", () => {\n',
+    replace: "    server.listen(0, () => {\n",
+    propertyFile: "../cli/src/secrets.property.ts",
+  },
+  {
+    id: "W367",
+    invariant: "cliSecretInvariants::loopbackServerAnswersOnlyItsOwnFlow (another Host header)",
+    path: "../cli/src/connect/code/github/connect.ts",
+    find: "    if (request.headers.host !== url.host) {\n",
+    replace: "    if (request.headers.host === undefined) {\n",
+    propertyFile: "../cli/src/secrets.property.ts",
+  },
+  {
+    id: "W368",
+    invariant: "cliSecretInvariants::loopbackServerAnswersOnlyItsOwnFlow (any state)",
+    path: "../cli/src/connect/code/github/callback.ts",
+    find: "  if (awaitedStates.get(path) !== state) return false;\n",
+    replace: "  if (!awaitedStates.has(path)) return false;\n",
+    propertyFile: "../cli/src/secrets.property.ts",
+  },
+  {
+    id: "W369",
+    invariant: "cliSecretInvariants::gitIgnoresEveryDevVars",
+    path: "../cli/src/init/packaged-template.ts",
+    find: '    to: join(repoDir, entry === PACKAGED_GITIGNORE ? ".gitignore" : entry),\n',
+    replace: "    to: join(repoDir, entry),\n",
+    propertyFile: "../cli/src/secrets.property.ts",
+  },
+  {
+    id: "W370",
+    invariant:
+      "orchestratorSecretInvariants::secretsReachOnlyTheirDestinations (an MCP server reads a Worker secret)",
+    path: "src/config/mcp-servers.ts",
+    find: "    if (workerSecrets.length) {\n",
+    replace: "    if (workerSecrets.length && !workerSecrets.length) {\n",
+    propertyFile: "src/workflow/secrets.property.ts",
+  },
+  {
+    id: "W371",
+    invariant:
+      "orchestratorSecretInvariants::secretsReachOnlyTheirDestinations (the debug dump shows the bridge token)",
+    path: "src/workflow/status.ts",
+    find: 'bridge_token: "***" }',
+    replace: "bridge_token: sandbox.bridge_token }",
+    propertyFile: "src/workflow/secrets.property.ts",
+  },
+  {
+    id: "W372",
+    invariant:
+      "orchestratorSecretInvariants::secretsReachOnlyTheirDestinations (a failed refresh logs the repo token)",
+    path: "src/workflow/task/sandbox/credential.ts",
+    find: "`credential refresh failed: ${String(error).slice(0, 200)}`",
+    replace:
+      "`credential refresh failed: ${String(error).slice(0, 200)} ${tokens.workflowRepoToken}`",
+    propertyFile: "src/workflow/secrets.property.ts",
+  },
+  {
+    id: "W373",
+    invariant:
+      "orchestratorSecretInvariants::secretsReachOnlyTheirDestinations (the documents CLI gets the chat token)",
+    path: "src/clients.ts",
+    find: "      return env.NOTION_TOKEN || null;\n",
+    replace: "      return env.NOTION_TOKEN || env.SLACK_BOT_TOKEN || null;\n",
+    propertyFile: "src/workflow/secrets.property.ts",
+  },
+  {
+    id: "W374",
+    invariant:
+      "orchestratorSecretInvariants::secretsReachOnlyTheirDestinations (a failed start names the bridge token)",
+    path: "src/workflow/task/sandbox/sandbox.ts",
+    find: '      loggedFailureReason(fresh.task_id, "The sandbox start"),\n',
+    replace: "      loggedFailureReason(fresh.task_id, `The sandbox start ${built.spec.token}`),\n",
+    propertyFile: "src/workflow/secrets.property.ts",
+  },
+  {
+    id: "W379",
+    invariant:
+      "orchestratorSecretInvariants::secretsReachOnlyTheirDestinations (a sandbox start logs the private key)",
+    path: "src/workflow/task/sandbox/sandbox.ts",
+    find: "`sandbox started gen=${sandbox.generation} resume=${resume}`",
+    replace:
+      "`sandbox started gen=${sandbox.generation} resume=${resume} ${workflow.env.GITHUB_PRIVATE_KEY}`",
+    propertyFile: "src/workflow/secrets.property.ts",
+  },
+  {
+    id: "W375",
+    invariant:
+      "ingressSecretInvariants::ingressSecretsReachNoOutput (a bad signature echoes the secret)",
+    path: "../ingress/src/routes/github.ts",
+    find: '    return ctx.text("bad signature", 401);\n',
+    replace: "    return ctx.text(`bad signature, expected one made with ${secret}`, 401);\n",
+    propertyFile: "../ingress/src/routes/secrets.property.ts",
+  },
+  {
+    id: "W376",
+    invariant:
+      "ingressSecretInvariants::ingressSecretsReachNoOutput (a refused handshake logs the token)",
+    path: "../ingress/src/routes/notion.ts",
+    find: '    console.error("notion handshake refused. NOTION_VERIFICATION_TOKEN is already set.");\n',
+    replace:
+      "    console.error(`notion handshake refused. NOTION_VERIFICATION_TOKEN is already ${secret}.`);\n",
+    propertyFile: "../ingress/src/routes/secrets.property.ts",
+  },
+  {
+    id: "W377",
+    invariant:
+      "ingressSecretInvariants::ingressSecretsReachNoOutput (a failed callback logs the bot token)",
+    path: "../ingress/src/routes/slack.ts",
+    find: "    console.error(`slack ${callback.event_id}: ${String(error)}`);\n",
+    replace:
+      "    console.error(`slack ${callback.event_id}: ${String(error)} ${ctx.env.SLACK_BOT_TOKEN}`);\n",
+    propertyFile: "../ingress/src/routes/secrets.property.ts",
+  },
+  {
+    id: "W378",
+    invariant:
+      "ingressSecretInvariants::ingressSecretsReachNoOutput (an admin refusal echoes the token)",
+    path: "../ingress/src/routes/admin.ts",
+    find: 'return ctx.text("unauthorized", 401);',
+    replace: "return ctx.text(`unauthorized, use ${ADMIN_TOKEN}`, 401);",
+    propertyFile: "../ingress/src/routes/secrets.property.ts",
   },
 ];
 

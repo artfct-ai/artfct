@@ -4,6 +4,7 @@ import { FakeChat } from "@artfct-ai/adapters/test/fake-chat";
 import { FakeDocuments } from "@artfct-ai/adapters/test/fake-documents";
 import type { ChannelClients } from "../src/clients";
 import type { Env, HonoEnv } from "../src/env";
+import type { IngressSecret } from "./ingress-secret-invariants";
 import app from "../src/index";
 import {
   fakeOrchestrator,
@@ -34,8 +35,8 @@ export type Harness = {
 export type HarnessOptions = FakeOrchestratorOptions & {
   clients?: Partial<ChannelClients>;
   adminDebug?: boolean;
-  /** Secrets that replace the test values. */
-  secrets?: Partial<typeof SECRETS>;
+  /** Secrets that replace the test values. An undefined value unsets one. */
+  secrets?: Partial<Record<IngressSecret, string | undefined>>;
 };
 
 /**

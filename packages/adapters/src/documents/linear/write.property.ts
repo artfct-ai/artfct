@@ -38,6 +38,14 @@ const writeCase = fc.record({
 
 type WriteCase = typeof writeCase extends fc.Arbitrary<infer Case> ? Case : never;
 
+const AUTHOR_WRITES_AFTER_AN_EMPTY_READ: WriteCase = {
+  readLines: [],
+  leadingInserts: 1,
+  changes: Array.from({ length: 10 }, () => ({ keep: "kept", inserted: 0 })),
+  personGap: 0,
+  personWords: "a",
+};
+
 function documentVersions(write: WriteCase) {
   let lineNumber = 0;
   const newLine = (text: string) => `L${(lineNumber += 1)}: ${text}`;
@@ -124,7 +132,10 @@ describe("Linear document write invariants", () => {
             outcome: await writeOutcome(versions.before, versions.after),
           });
         }),
-        propertyRuns("linear write keeps the concurrent edit", RUNS),
+        {
+          ...propertyRuns("linear write keeps the concurrent edit", RUNS),
+          examples: [[AUTHOR_WRITES_AFTER_AN_EMPTY_READ]],
+        },
       );
       expect(farFromEveryChange).toBeGreaterThan(0);
       expect(readEmpty).toBeGreaterThan(0);

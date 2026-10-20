@@ -134,7 +134,9 @@
     "//#knip": {
       "inputs": ["$TURBO_DEFAULT$", "packages/**", "template/**"]
     },
-    "//#test:root": {},
+    "//#test:root": {
+      "inputs": ["$TURBO_DEFAULT$", "packages/cli/src/**", "packages/cli/scripts/**"]
+    },
     "//#fmt:check": {}
   }
 }

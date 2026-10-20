@@ -1,4 +1,5 @@
 import { afterAll, afterEach, describe, expect, it } from "bun:test";
+import { spawnSync } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, readdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -84,6 +85,18 @@ describe("runInit", () => {
       expect(readFileSync(join(repoDir, ".gitignore"), "utf8")).toBe(
         readFileSync(join(TEMPLATE_DIR, ".gitignore"), "utf8"),
       );
+    });
+
+    it("keeps the .dev.vars examples tracked by git", async () => {
+      const repoDir = emptyRepo();
+      await runInit(environment(repoDir).init);
+      spawnSync("git", ["init", "-q"], { cwd: repoDir });
+      const ignored = spawnSync(
+        "git",
+        ["check-ignore", "orchestrator/.dev.vars.example", "ingress/.dev.vars.example"],
+        { cwd: repoDir, encoding: "utf8" },
+      );
+      expect(ignored.stdout).toBe("");
     });
 
     it("creates the database with wrangler and nothing else", async () => {
