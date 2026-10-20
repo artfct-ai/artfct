@@ -1,7 +1,7 @@
 import { hmacSha256Hex } from "@artfct-ai/adapters/hmac";
 import { describe, expect, it } from "bun:test";
 import fc from "fast-check";
-import { propertyRuns } from "@artfct-ai/adapters/test/property-runs";
+import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/property-runs";
 import { fakeDocuments, harness, SECRETS } from "../../test/app-harness";
 import { badSignatureNeverDelivers } from "../../test/webhook-invariants";
 import {
@@ -10,6 +10,8 @@ import {
   notionCommentCreated,
   slackMention,
 } from "../../test/webhook-fixtures";
+
+const RUNS = 100;
 
 type Vendor = "github" | "linear" | "slack" | "notion";
 
@@ -229,18 +231,22 @@ async function orchestratorCalls(vendor: Vendor, text: string, tamper: Tamper | 
 }
 
 describe("webhook invariants", () => {
-  it("hold for every vendor route and every tamper", async () => {
-    await fc.assert(
-      fc.asyncProperty(webhookCase, async ({ vendor, text, tamper }) => {
-        const untampered = await orchestratorCalls(vendor, text, null);
-        expect(untampered.filter((call) => call === "deliver")).toHaveLength(1);
-        badSignatureNeverDelivers({
-          vendor,
-          tamper: tamper.kind,
-          calls: await orchestratorCalls(vendor, text, tamper),
-        });
-      }),
-      propertyRuns("webhook signatures", 100),
-    );
-  });
+  it(
+    "hold for every vendor route and every tamper",
+    async () => {
+      await fc.assert(
+        fc.asyncProperty(webhookCase, async ({ vendor, text, tamper }) => {
+          const untampered = await orchestratorCalls(vendor, text, null);
+          expect(untampered.filter((call) => call === "deliver")).toHaveLength(1);
+          badSignatureNeverDelivers({
+            vendor,
+            tamper: tamper.kind,
+            calls: await orchestratorCalls(vendor, text, tamper),
+          });
+        }),
+        propertyRuns("webhook signatures", RUNS),
+      );
+    },
+    propertyTimeoutMs(5_000, RUNS),
+  );
 });

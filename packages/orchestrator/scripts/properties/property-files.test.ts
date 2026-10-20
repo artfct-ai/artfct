@@ -1,5 +1,28 @@
 import { describe, expect, it } from "bun:test";
-import { SPEC_REPLAY_FILES, propertyParts } from "./property-files";
+import { join } from "node:path";
+import { SPEC_REPLAY_FILES, STANDALONE_PROPERTY_FILES, propertyParts } from "./property-files";
+
+const PACKAGES_DIR = join(import.meta.dirname, "../../..");
+
+describe("STANDALONE_PROPERTY_FILES", () => {
+  it("lists every test file with a fast-check property, and each property reads its runs through propertyRuns", async () => {
+    const propertyTests: string[] = [];
+    for await (const path of new Bun.Glob("*/src/**/*.{test.ts,test.medium.ts}").scan(
+      PACKAGES_DIR,
+    )) {
+      const text = await Bun.file(join(PACKAGES_DIR, path)).text();
+      const properties = text.split("fc.assert(").length - 1;
+      if (!properties) continue;
+      propertyTests.push(path);
+      expect({ path, propertyRuns: text.split("propertyRuns(").length - 1 }).toEqual({
+        path,
+        propertyRuns: properties,
+      });
+    }
+    const listed = STANDALONE_PROPERTY_FILES.map((file) => join(file.packageDir, file.path));
+    expect(listed.toSorted()).toEqual(propertyTests.toSorted());
+  });
+});
 
 describe("propertyParts", () => {
   it("runs a file without setups in one process", () => {

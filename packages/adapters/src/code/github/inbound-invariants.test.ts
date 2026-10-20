@@ -1,12 +1,14 @@
 import { describe, it } from "bun:test";
 import fc from "fast-check";
-import { propertyRuns } from "../../../test/property-runs";
+import { propertyRuns, propertyTimeoutMs } from "../../../test/property-runs";
 import { fakeLoginActor } from "../../../test/fake-actors";
 import { branch, pr, repo, sam } from "../../../test/github-inbound-fixtures";
 import { inboundMapperNeverThrows, mapperOutcome } from "../../../test/inbound-invariants";
 import { anyJsonValue, mutatedPayload } from "../../../test/payload-mutations";
 import { githubInbound } from "./inbound";
 import { ownGithubLogins } from "./inbound-shared";
+
+const RUNS = 100;
 
 const pullRequest = { ...pr, user: { login: "artfct[bot]", type: "Bot" }, merged: false };
 
@@ -74,19 +76,31 @@ async function checkWebhook(eventName: string, payload: unknown): Promise<void> 
 
 describe("github inbound mapper invariants", () => {
   for (const [name, payload] of Object.entries(realWebhooks)) {
-    it(`hold for a ${name} webhook with fields removed or retyped`, async () => {
-      const eventName = fc.oneof({ weight: 4, arbitrary: fc.constant(name) }, anyEventName);
-      await fc.assert(
-        fc.asyncProperty(eventName, mutatedPayload({ repository: repo, ...payload }), checkWebhook),
-        propertyRuns(`github ${name}`, 100),
-      );
-    });
+    it(
+      `hold for a ${name} webhook with fields removed or retyped`,
+      async () => {
+        const eventName = fc.oneof({ weight: 4, arbitrary: fc.constant(name) }, anyEventName);
+        await fc.assert(
+          fc.asyncProperty(
+            eventName,
+            mutatedPayload({ repository: repo, ...payload }),
+            checkWebhook,
+          ),
+          propertyRuns(`github ${name}`, RUNS),
+        );
+      },
+      propertyTimeoutMs(5_000, RUNS),
+    );
   }
 
-  it("hold for a JSON value of any shape", async () => {
-    await fc.assert(
-      fc.asyncProperty(anyEventName, anyJsonValue, checkWebhook),
-      propertyRuns("github any JSON", 100),
-    );
-  });
+  it(
+    "hold for a JSON value of any shape",
+    async () => {
+      await fc.assert(
+        fc.asyncProperty(anyEventName, anyJsonValue, checkWebhook),
+        propertyRuns("github any JSON", RUNS),
+      );
+    },
+    propertyTimeoutMs(5_000, RUNS),
+  );
 });
