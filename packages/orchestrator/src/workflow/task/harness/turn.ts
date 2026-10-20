@@ -206,6 +206,8 @@ export async function onTurnEnd(
     turn_text: task.role === "reviewer" ? turnText : "",
     stopped_early: 0,
   });
+  if (stopReason === "cancelled") workflow.store.returnSteeredPrompts(task.task_id);
+  else workflow.store.dropTakenPrompts(task.task_id);
   workflow.store.updateTask(task.task_id, { summary: turnText.slice(-SUMMARY_CHARS) });
   if (task.role === "researcher") return endResearcherTurn(workflow, task, stopReason);
   if (task.role !== "author") return endRefinerTurn(workflow, task, stopReason, turnText);
@@ -481,6 +483,7 @@ export async function onRpcError(
   }
   if (purpose !== "prompt") return;
   workflow.store.updateSandbox(task.task_id, { prompt_in_flight: 0 });
+  workflow.store.dropTakenPrompts(task.task_id);
   const note = loggedFailureReason(task.task_id, "The prompt");
   await workflow.post({ type: "progress", task_id: task.task_id, text: note });
   workflow.store.patchTodoRow(task.task_id, { note });

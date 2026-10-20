@@ -18,6 +18,7 @@ export class MockHarness implements HarnessAdapter {
 
   readonly instructionsFile = `${SANDBOX_HOME}/.config/artfct-mock/AGENTS.md`;
   readonly skillsDir = `${SANDBOX_HOME}/.config/artfct-mock/skills`;
+  readonly steering = null;
 
   invokeSkill(name: string): string {
     return `Read the \`${name}\` skill and follow it for this task.`;

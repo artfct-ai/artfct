@@ -164,7 +164,7 @@ export async function planLocalRun(
       secret: (name) => secrets[name],
       log: warn,
     }),
-    firstPrompt: firstPromptText(workflow, task),
+    firstPrompt: firstPromptText(workflow, task, null),
   };
 }
 

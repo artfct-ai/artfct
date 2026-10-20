@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, notInArray, sql, type SQL } from "drizzle-orm";
 import type { Review } from "../../artifact/types";
 import type { TaskRole } from "../task/events";
 import { TURN_PURPOSE } from "../../agent/model/usage";
@@ -7,6 +7,7 @@ import {
   jobs,
   modelUsage,
   promptQueue,
+  promptSteers,
   reviews,
   rpc,
   rulings,
@@ -22,7 +23,8 @@ export type JobRow = typeof jobs.$inferSelect;
 export type TaskRow = typeof tasks.$inferSelect;
 export type SandboxRow = typeof sandboxes.$inferSelect;
 export type SessionFeedRow = typeof sessionFeeds.$inferSelect;
-export type QueuedPrompt = Pick<typeof promptQueue.$inferSelect, "id" | "text">;
+export type QueuedPrompt = Pick<typeof promptQueue.$inferSelect, "id" | "text" | "instruction">;
+export type PromptSteerRow = typeof promptSteers.$inferSelect;
 export type PendingRpc = Pick<typeof rpc.$inferSelect, "purpose" | "method">;
 export type ModelUsageRow = typeof modelUsage.$inferSelect;
 export type NewModelUsage = Omit<ModelUsageRow, "id" | "at">;
@@ -409,8 +411,10 @@ export class WorkflowStore extends BoardStore {
     return pending;
   }
 
+  /** Forget every request out to a task's harness. Its steered instructions wait again. */
   clearRpc(taskId: string): void {
     this.db.delete(rpc).where(eq(rpc.task_id, taskId)).run();
+    this.returnSteeredPrompts(taskId);
   }
 
   /** True while a request sent before the first prompt awaits its response. */
@@ -420,6 +424,14 @@ export class WorkflowStore extends BoardStore {
 
   enqueuePrompt(taskId: string, text: string): void {
     this.db.insert(promptQueue).values({ task_id: taskId, text, created_at: now() }).run();
+  }
+
+  /** Queue a person's instruction, which the running turn may take as a steer. */
+  enqueueInstruction(taskId: string, text: string): void {
+    this.db
+      .insert(promptQueue)
+      .values({ task_id: taskId, text, instruction: 1, created_at: now() })
+      .run();
   }
 
   /** Queue a prompt ahead of every prompt that waits. */
@@ -434,16 +446,70 @@ export class WorkflowStore extends BoardStore {
     this.db.insert(promptQueue).values({ id, task_id: taskId, text, created_at: now() }).run();
   }
 
+  /** The oldest prompt that waits for the next turn. A steered instruction does not wait. */
   peekPrompt(taskId: string): QueuedPrompt | null {
-    return (
-      this.db
-        .select({ id: promptQueue.id, text: promptQueue.text })
-        .from(promptQueue)
-        .where(eq(promptQueue.task_id, taskId))
-        .orderBy(promptQueue.id)
-        .limit(1)
-        .get() ?? null
-    );
+    return this.waitingPrompts(taskId).limit(1).get() ?? null;
+  }
+
+  /** The person instructions that wait, oldest first. */
+  waitingInstructions(taskId: string): QueuedPrompt[] {
+    return this.waitingPrompts(taskId, eq(promptQueue.instruction, 1)).all();
+  }
+
+  private waitingPrompts(taskId: string, ...filters: SQL[]) {
+    return this.db
+      .select({ id: promptQueue.id, text: promptQueue.text, instruction: promptQueue.instruction })
+      .from(promptQueue)
+      .leftJoin(promptSteers, eq(promptSteers.prompt_id, promptQueue.id))
+      .where(and(eq(promptQueue.task_id, taskId), isNull(promptSteers.prompt_id), ...filters))
+      .orderBy(promptQueue.id);
+  }
+
+  /** The steer request `rpcId` carries a queued instruction into the running turn. */
+  steerPrompt(promptId: number, rpcId: number): void {
+    this.db
+      .insert(promptSteers)
+      .values({ prompt_id: promptId, rpc_id: rpcId, status: "out" })
+      .run();
+  }
+
+  /** The prompt request `rpcId` carried a queued instruction, so the turn it starts holds it. */
+  holdTakenPrompt(promptId: number, rpcId: number): void {
+    this.db
+      .insert(promptSteers)
+      .values({ prompt_id: promptId, rpc_id: rpcId, status: "taken" })
+      .run();
+  }
+
+  /** The running turn took the instruction that the steer request `rpcId` carried. */
+  takeSteer(rpcId: number): void {
+    this.db
+      .update(promptSteers)
+      .set({ status: "taken" })
+      .where(and(eq(promptSteers.rpc_id, rpcId), eq(promptSteers.status, "out")))
+      .run();
+  }
+
+  /** The turn ended on its own. Its taken instructions leave the queue, and the rest wait again. */
+  dropTakenPrompts(taskId: string): void {
+    const taken = this.db
+      .select({ id: promptQueue.id })
+      .from(promptQueue)
+      .innerJoin(promptSteers, eq(promptSteers.prompt_id, promptQueue.id))
+      .where(and(eq(promptQueue.task_id, taskId), eq(promptSteers.status, "taken")))
+      .all()
+      .map((row) => row.id);
+    this.returnSteeredPrompts(taskId);
+    this.db.delete(promptQueue).where(inArray(promptQueue.id, taken)).run();
+  }
+
+  /** The turn was cancelled or lost. Every instruction it was sent waits again. */
+  returnSteeredPrompts(taskId: string): void {
+    const ofTask = this.db
+      .select({ id: promptQueue.id })
+      .from(promptQueue)
+      .where(eq(promptQueue.task_id, taskId));
+    this.db.delete(promptSteers).where(inArray(promptSteers.prompt_id, ofTask)).run();
   }
 
   dequeuePrompt(id: number): void {
@@ -452,6 +518,7 @@ export class WorkflowStore extends BoardStore {
 
   /** Drop every queued prompt of a task. For teardown. */
   clearPromptQueue(taskId: string): void {
+    this.returnSteeredPrompts(taskId);
     this.db.delete(promptQueue).where(eq(promptQueue.task_id, taskId)).run();
   }
 
@@ -498,5 +565,10 @@ export class WorkflowStore extends BoardStore {
 
   queue(): (typeof promptQueue.$inferSelect)[] {
     return this.allQueued.all();
+  }
+
+  /** Every steered instruction, for the debug dump. */
+  steers(): PromptSteerRow[] {
+    return this.db.select().from(promptSteers).orderBy(promptSteers.prompt_id).all();
   }
 }

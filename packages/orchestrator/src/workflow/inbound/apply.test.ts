@@ -516,7 +516,9 @@ describe("applyEvent", () => {
     it("tells the agent without a wake", () =>
       forwarded(({ result }) => {
         expect(result).toEqual({
-          notes: ["The author wf_x.1 got this message as a prompt. The person got a receipt."],
+          notes: [
+            "The author wf_x.1 got this message in its running turn, or as its next prompt. The person got a receipt.",
+          ],
           wake: "none",
         });
       }));

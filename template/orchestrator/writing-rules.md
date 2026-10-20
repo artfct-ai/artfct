@@ -48,3 +48,4 @@ You must NEVER use the following words/terms: latch, sentinel, land/landed, "smo
 
 **4. Closing Account**
 When you work in a sandbox session, end each turn with a short account in plain sentences. State what you found, what you chose and why, and what you did. A person reads it in the issue's agent session.
+When a person's message arrives during your work, answer it in a sentence or two before you continue.

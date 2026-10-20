@@ -558,6 +558,7 @@ const SPEC_PURPOSE: Record<RpcPurpose, SpecPurpose | null> = {
   session_new: "SessionNew",
   set_effort: "SetEffort",
   prompt: "Prompt",
+  steer: null,
   cancel: null,
 };
 

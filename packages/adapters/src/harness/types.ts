@@ -70,6 +70,17 @@ export type ModelsLineContext = {
 /** The models a harness runs by their vendor's own ids, and that vendor, as a gateway names it. */
 export type HarnessModels = { vendor: string; models: ListedModel[] };
 
+/** One request the orchestrator sends the harness session over ACP. */
+export type HarnessRequest = { method: string; params: unknown };
+
+/** How a harness takes a person's instruction into the turn it runs. */
+export interface HarnessSteering {
+  /** The request that steers `text` into the running turn of `sessionId`. */
+  request(sessionId: string, text: string): HarnessRequest;
+  /** True when the answer to that request says the running turn took the instruction. */
+  taken(result: unknown): boolean;
+}
+
 /** What the orchestrator and the bridge ask of a harness. */
 export interface HarnessAdapter {
   readonly name: Harness;
@@ -91,4 +102,6 @@ export interface HarnessAdapter {
   setup(input: HarnessTaskInput): HarnessSetup;
   /** The harness's todo list in an update, or null when the update carries none. */
   plan(update: SessionUpdate): PlanEntry[] | null;
+  /** How it takes a person's instruction into its running turn, or null when it cannot. */
+  readonly steering: HarnessSteering | null;
 }

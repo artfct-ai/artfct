@@ -185,8 +185,8 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "reviewLoop::authorIsIdleWhileAPolisherRuns, harnessSession::pausedAuthorGetsNoPrompt",
     path: "src/workflow/task/harness/prompt-queue.ts",
-    find: "  if (!promptsWait(workflow, task)) return sendPrompt(workflow, task, text);",
-    replace: "  return sendPrompt(workflow, task, text);",
+    find: "  if (!waits) return sendPrompt(workflow, task, { text, queued: wake });",
+    replace: "  return sendPrompt(workflow, task, { text, queued: wake });",
   },
   {
     id: "W22",
@@ -340,9 +340,9 @@ export const MUTANTS: Mutant[] = [
     id: "W42",
     invariant: "harnessSession::aHarnessSessionRunsOneTurnAtATime (effort handshake)",
     path: "src/workflow/task/harness/prompt-queue.ts",
-    find: '  if (task.status === "provisioning" || workflow.store.handshakePending(task.task_id)) {\n    return false;\n  }\n  const connected = workflow.connections(task.task_id).length > 0;\n  if (connected && sandbox.session_id) {\n    workflow.store.dequeuePrompt(next.id);\n    await sendPrompt(workflow, task, next.text);\n    return true;\n  }\n',
+    find: '  if (task.status === "provisioning" || workflow.store.handshakePending(task.task_id)) {\n    return false;\n  }\n  const connected = workflow.connections(task.task_id).length > 0;\n  if (connected && sandbox.session_id) {\n    await sendPrompt(workflow, task, { text: next.text, queued: next });\n    return true;\n  }\n',
     replace:
-      '  const connected = workflow.connections(task.task_id).length > 0;\n  if (connected && sandbox.session_id) {\n    workflow.store.dequeuePrompt(next.id);\n    await sendPrompt(workflow, task, next.text);\n    return true;\n  }\n  if (task.status === "provisioning" || workflow.store.handshakePending(task.task_id)) {\n    return false;\n  }\n',
+      '  const connected = workflow.connections(task.task_id).length > 0;\n  if (connected && sandbox.session_id) {\n    await sendPrompt(workflow, task, { text: next.text, queued: next });\n    return true;\n  }\n  if (task.status === "provisioning" || workflow.store.handshakePending(task.task_id)) {\n    return false;\n  }\n',
   },
   {
     id: "W43",
@@ -807,8 +807,8 @@ export const MUTANTS: Mutant[] = [
     id: "W112",
     invariant: "harnessSession::aTaskWithoutAnEarlierPromptGetsTheTaskPrompt",
     path: "src/workflow/task/harness/prompt-queue.ts",
-    find: "  if (sandbox.first_prompt_at === null) {\n",
-    replace: "  if (sandbox.generation <= 1) {\n",
+    find: "  if (sandbox.first_prompt_at === null) {\n    return taskPrompt(",
+    replace: "  if (sandbox.generation <= 1) {\n    return taskPrompt(",
   },
   {
     id: "W113",

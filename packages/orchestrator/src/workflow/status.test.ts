@@ -185,6 +185,7 @@ describe("debugDump", () => {
           "outbox",
           "queue",
           "state",
+          "steers",
           "tasks",
           "todos",
           "transcript",
