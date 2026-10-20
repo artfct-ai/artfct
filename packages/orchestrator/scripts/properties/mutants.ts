@@ -1931,6 +1931,50 @@ export const MUTANTS: Mutant[] = [
     propertyFile: "../ingress/src/routes/webhook.property.ts",
   },
   {
+    id: "W315",
+    invariant:
+      "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (chunk decoded without streaming)",
+    path: "../bridge/src/line-reader.ts",
+    find: "    for (const line of splitter.push(decoder.decode(value, { stream: true }))) onLine(line);\n",
+    replace: "    for (const line of splitter.push(decoder.decode(value))) onLine(line);\n",
+    propertyFile: "../bridge/src/line-reader.property.ts",
+  },
+  {
+    id: "W316",
+    invariant:
+      "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (lone carriage return ends a line)",
+    path: "../bridge/src/line-reader.ts",
+    find: "    this.buffer += chunk;\n",
+    replace: '    this.buffer += chunk.replaceAll("\\r", "\\n");\n',
+    propertyFile: "../bridge/src/line-reader.property.ts",
+  },
+  {
+    id: "W317",
+    invariant:
+      "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (unended last line not trimmed)",
+    path: "../bridge/src/line-reader.ts",
+    find: "    const tail = this.buffer.trim();\n",
+    replace: "    const tail = this.buffer;\n",
+    propertyFile: "../bridge/src/line-reader.property.ts",
+  },
+  {
+    id: "W318",
+    invariant: "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (bytes decoded as Latin-1)",
+    path: "../bridge/src/line-reader.ts",
+    find: "  const decoder = new TextDecoder();\n",
+    replace: '  const decoder = new TextDecoder("latin1");\n',
+    propertyFile: "../bridge/src/line-reader.property.ts",
+  },
+  {
+    id: "W319",
+    invariant: "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (fresh decoder per chunk)",
+    path: "../bridge/src/line-reader.ts",
+    find: "    for (const line of splitter.push(decoder.decode(value, { stream: true }))) onLine(line);\n",
+    replace:
+      "    for (const line of splitter.push(new TextDecoder().decode(value, { stream: true }))) onLine(line);\n",
+    propertyFile: "../bridge/src/line-reader.property.ts",
+  },
+  {
     id: "W335",
     invariant: "orchestratorTextInvariants::verbalCommandOnlyFromAnExactWord (words before it)",
     path: "src/workflow/inbound/verbal-command.ts",
