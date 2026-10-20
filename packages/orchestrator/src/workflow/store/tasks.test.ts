@@ -413,6 +413,20 @@ describe("WorkflowStore", () => {
         expect(textsOf(store)).toEqual(["out", "check results", "other task"]);
       }));
 
+    it("lets the instruction of a declined steer wait again", () =>
+      steered((store) => {
+        store.declineSteer(10);
+        store.declineSteer(11);
+        expect(store.steers().map((row) => [row.rpc_id, row.status])).toEqual([[11, "taken"]]);
+        expect(store.peekPrompt("t1")?.text).toBe("out");
+      }));
+
+    it("counts the prompts that wait apart from the steered and taken instructions", () =>
+      steered((store) => {
+        expect(store.promptCounts("t1")).toEqual({ waiting: 2, steered: 1, taken: 1 });
+        expect(store.promptCounts("t2")).toEqual({ waiting: 1, steered: 0, taken: 0 });
+      }));
+
     it("drops the steers with the queue", () =>
       steered((store) => {
         store.clearPromptQueue("t1");

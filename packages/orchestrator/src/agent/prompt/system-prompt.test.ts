@@ -735,6 +735,20 @@ describe("the activity on a job line", () => {
       expect(jobLineOf(workflow, NOBODY_WROTE)).toContain(" activity=prompt_queued ");
     }));
 
+  it("counts the instructions of a running turn apart from the prompts that wait", () =>
+    freshRuntime((workflow) => {
+      seedTask(workflow, {}, { prompt_in_flight: 1 });
+      workflow.store.enqueueInstruction("wf_x.1", "taken");
+      workflow.store.enqueueInstruction("wf_x.1", "steered");
+      workflow.store.enqueuePrompt("wf_x.1", "Fix the title.");
+      const [taken, steered] = workflow.store.waitingInstructions("wf_x.1");
+      workflow.store.holdTakenPrompt(taken!.id, 1);
+      workflow.store.steerPrompt(steered!.id, 2);
+      expect(jobLineOf(workflow, NOBODY_WROTE)).toContain(
+        " activity=running queued_prompts=1 taken_instructions=1 steered_instructions=1 harness=",
+      );
+    }));
+
   it("is paused for a paused task", () =>
     freshRuntime((workflow) => {
       seedTask(workflow, { paused_at: "2026-10-13T20:00:00.000Z" }, { prompt_in_flight: 1 });

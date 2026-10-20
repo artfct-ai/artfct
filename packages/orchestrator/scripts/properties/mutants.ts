@@ -2223,9 +2223,9 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "harnessSession::aPersonPromptIsNeverDropped (a steer the turn did not take drops its instruction)",
     path: "src/workflow/task/harness/steer.ts",
-    find: "  workflow.log(task.task_id, `the turn did not take steer ${rpcId}. it goes as the next prompt.`);\n",
+    find: "  workflow.store.declineSteer(rpcId);\n",
     replace:
-      "  for (const steer of workflow.store.steers()) {\n    if (steer.rpc_id === rpcId) workflow.store.dequeuePrompt(steer.prompt_id);\n  }\n",
+      "  for (const steer of workflow.store.steers()) {\n    if (steer.rpc_id === rpcId) workflow.store.dequeuePrompt(steer.prompt_id);\n  }\n  workflow.store.declineSteer(rpcId);\n",
   },
   {
     id: "W394",
@@ -2234,6 +2234,22 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/task/harness/turn.ts",
     find: '  if (stopReason === "cancelled") workflow.store.returnSteeredPrompts(task.task_id);\n',
     replace: '  if (stopReason === "cancelled") workflow.store.dropTakenPrompts(task.task_id);\n',
+  },
+  {
+    id: "W326",
+    invariant:
+      "harnessSession::aPersonPromptDoesNotWaitForTheTurnToEnd (a progress report does not steer a declined instruction again)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: "    if (sandbox.prompt_in_flight) await drainQueue(workflow, task);\n",
+    replace: "",
+  },
+  {
+    id: "W327",
+    invariant:
+      "harnessSession::aPersonPromptDoesNotWaitForTheTurnToEnd (a declined steer keeps its instruction out until the turn ends)",
+    path: "src/workflow/task/harness/steer.ts",
+    find: "  workflow.store.declineSteer(rpcId);\n",
+    replace: "",
   },
   {
     id: "W405",

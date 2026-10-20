@@ -51,6 +51,23 @@ describe("read_task", () => {
       }));
   });
 
+  describe("a running turn that took one instruction and has a steer out for another", () => {
+    it("counts them apart from the prompt that waits", () =>
+      freshRuntime(async (workflow) => {
+        seedTask(workflow, {}, { prompt_in_flight: 1 });
+        workflow.store.enqueueInstruction("wf_x.1", "taken");
+        workflow.store.enqueueInstruction("wf_x.1", "steered");
+        workflow.store.enqueuePrompt("wf_x.1", "later");
+        const [taken, steered] = workflow.store.waitingInstructions("wf_x.1");
+        workflow.store.holdTakenPrompt(taken!.id, 1);
+        workflow.store.steerPrompt(steered!.id, 2);
+        const { read_task } = readTools(workflow);
+        expect(toolText(await read_task.execute({ task_id: "wf_x.1" }, call))).toContain(
+          "Prompt in flight: yes. Queued prompts: 1. Instructions in the running turn: 1 taken, which the author has read, and 1 steered, which its harness has not answered yet.",
+        );
+      }));
+  });
+
   describe("a task whose harness reported a cost", () => {
     it("shows the cost", () =>
       freshRuntime(async (workflow) => {

@@ -21,7 +21,8 @@ export function steerWaitingInstructions(workflow: WorkflowRuntime, task: TaskRo
 
 /**
  * The harness answered steer `rpcId`. A taken instruction leaves the queue when its turn ends on
- * its own. One the turn did not take goes as the next prompt.
+ * its own. A declined steer reached the harness before its turn started or after it ended. Its
+ * instruction waits again, for the running turn's next progress report or the next prompt.
  */
 export function onSteerAnswer(
   workflow: WorkflowRuntime,
@@ -35,5 +36,6 @@ export function onSteerAnswer(
     workflow.log(task.task_id, `the running turn took steer ${rpcId}`);
     return;
   }
-  workflow.log(task.task_id, `the turn did not take steer ${rpcId}. it goes as the next prompt.`);
+  workflow.store.declineSteer(rpcId);
+  workflow.log(task.task_id, `the harness declined steer ${rpcId}. its instruction waits again.`);
 }

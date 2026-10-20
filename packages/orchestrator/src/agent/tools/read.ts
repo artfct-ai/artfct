@@ -2,6 +2,7 @@ import { tool } from "ai";
 import { z } from "zod";
 import { taskCostText } from "../../workflow/cost";
 import { statusText, summarize } from "../../workflow/status";
+import type { PromptCounts } from "../../workflow/store/tasks";
 import type { WorkflowRuntime } from "../../workflow/types";
 
 const MAX_LOG_LINES = 200;
@@ -52,7 +53,7 @@ export function readTools(workflow: WorkflowRuntime) {
     }),
     read_task: tool({
       description:
-        "One task in detail: status, branch, queued prompts, and the harness's last output.",
+        "One task in detail: status, branch, queued prompts, the instructions in its running turn, and the harness's last output.",
       inputSchema: z.object({ task_id: taskIdField }),
       execute: async ({ task_id }) => readTask(workflow, task_id),
     }),
@@ -73,7 +74,7 @@ function readTask(workflow: WorkflowRuntime, taskId: string): string {
   if (!task) return `Task ${taskId} does not exist.`;
   const job = workflow.store.requireJob(task.job_id);
   const sandbox = workflow.store.sandbox(task.task_id);
-  const queued = workflow.store.queue().filter((item) => item.task_id === task.task_id);
+  const prompts = workflow.store.promptCounts(task.task_id);
   const runsOn = sandbox
     ? {
         field: `harness=${sandbox.harness}`,
@@ -88,10 +89,16 @@ function readTask(workflow: WorkflowRuntime, taskId: string): string {
   return [
     `Task ${task.task_id} job=${job.job_id} stage=${job.stage} role=${task.role} issue=${job.issue_key ?? "-"} status=${task.status} ${runsOn.field} model=${task.model}`,
     `Branch: ${job.branch ?? "none"}. Cost: ${taskCostText(task.cost_usd)}. Restarts: ${task.restarts}.${runsOn.runs}`,
-    `${runsOn.inFlight}Queued prompts: ${queued.length}.`,
+    `${runsOn.inFlight}Queued prompts: ${prompts.waiting}.${instructionsInTurn(prompts)}`,
     ...(task.paused_at
       ? [`Paused since ${task.paused_at}. Queued prompts wait for resume_task.`]
       : []),
     task.summary ? `Last output:\n${task.summary}` : "No output yet.",
   ].join("\n");
+}
+
+/** The person instructions in the running turn, apart from the prompts that wait for the next one. */
+function instructionsInTurn({ taken, steered }: PromptCounts): string {
+  if (taken + steered === 0) return "";
+  return ` Instructions in the running turn: ${taken} taken, which the author has read, and ${steered} steered, which its harness has not answered yet.`;
 }

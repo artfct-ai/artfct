@@ -246,6 +246,7 @@ type SpecPicks = {
   endsWithText: boolean | null;
   report: ProgressReport | null;
   offersAllow: boolean | null;
+  beforeItsTurnStarts: boolean | null;
 };
 
 /** One state of a trace: the action that led to it, its picks, and the task. */
@@ -283,6 +284,7 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
     const endsWithText = picked("endsWithText");
     const report = picked("report");
     const offersAllow = picked("offersAllow");
+    const beforeItsTurnStarts = picked("beforeItsTurnStarts");
     return {
       action: itfText(itfField(state, "mbt::actionTaken")),
       picks: {
@@ -296,6 +298,7 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
         endsWithText: endsWithText === null ? null : itfBool(endsWithText),
         report: report === null ? null : itfOneOf(itfVariant(report)!.tag, PROGRESS_REPORTS),
         offersAllow: offersAllow === null ? null : itfBool(offersAllow),
+        beforeItsTurnStarts: beforeItsTurnStarts === null ? null : itfBool(beforeItsTurnStarts),
       },
       task: specTask(itfField(state, `${setup}::harnessSession::world`)),
     };
@@ -485,6 +488,7 @@ type ReplayBridge = {
   requests: BridgeRequest[];
   received: Set<number>;
   inTurn: Set<number>;
+  turnShowedProgress: boolean;
 };
 
 /**
@@ -1056,11 +1060,12 @@ export class HarnessSessionReplay {
           required(picks.endsWithText),
         );
       case "harnessAnswersASteer":
-        return this.answerSteer(required(picks.bridge));
+        return this.answerSteer(required(picks.bridge), required(picks.beforeItsTurnStarts));
       case "harnessRefuses":
         return this.refuse(required(picks.bridge));
       case "harnessShowsProgress":
       case "theHarnessListsItsTodos":
+        this.bridgeAt(required(picks.bridge)).turnShowedProgress = true;
         return this.update(required(picks.bridge), this.progressOf(required(picks.report)));
       case "harnessWritesThePage": {
         const author = this.world.authors[0]!;
@@ -1150,6 +1155,7 @@ export class HarnessSessionReplay {
       requests: [],
       received: new Set(),
       inTurn: new Set(),
+      turnShowedProgress: false,
     });
   }
 
@@ -1332,18 +1338,21 @@ export class HarnessSessionReplay {
 
   /**
    * The harness answers its oldest steer. A prompt before it runs a turn, which takes the steer.
-   * Without one the harness answers that it needs a prompt.
+   * Without one the harness answers that it needs a prompt. It answers so too when the turn has
+   * not reported progress and has not started yet.
    */
-  private async answerSteer(index: number): Promise<void> {
+  private async answerSteer(index: number, beforeItsTurnStarts: boolean): Promise<void> {
     const bridge = this.bridgeAt(index);
     const socket = this.connectedSocketOf(index);
     const at = bridge.requests.findIndex((held) => held.purpose === "Steer");
     const steer = bridge.requests[at];
     if (!steer) throw new Error(`bridge ${index} holds no steer`);
     const intoATurn = bridge.requests.slice(0, at).some((held) => held.purpose === "Prompt");
+    const notStarted = beforeItsTurnStarts && !bridge.turnShowedProgress;
+    const injected = intoATurn && !notStarted;
     bridge.requests.splice(at, 1);
-    if (intoATurn) this.receivePerson(bridge, steer.carries);
-    const result = intoATurn
+    if (injected) this.receivePerson(bridge, steer.carries);
+    const result = injected
       ? { outcome: "injected" }
       : { outcome: "promptRequired", reason: "noRunningTurn" };
     await this.answerRequest(steer, () => this.deliver(socket, jsonRpcResponse(steer.id, result)));
@@ -1367,6 +1376,7 @@ export class HarnessSessionReplay {
       else this.delivered.add(person);
     }
     bridge.inTurn.clear();
+    bridge.turnShowedProgress = false;
   }
 
   /** Deliver the answer to one request, so a taken rpc row is checked against the row behind it. */

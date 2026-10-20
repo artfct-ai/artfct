@@ -72,6 +72,7 @@ const TOOL_UPDATES: SessionUpdate["sessionUpdate"][] = ["tool_call", "tool_call_
 /**
  * Stream text into the turn buffer, watch for artifacts, and keep the board's todo list and
  * the digest counters up to date. Only a tool call or a todo list change counts as progress.
+ * Progress in a turn steers the instructions that wait, such as one whose steer was declined.
  */
 export async function onSessionUpdate(
   workflow: WorkflowRuntime,
@@ -83,6 +84,7 @@ export async function onSessionUpdate(
   const entries = workflow.harness(sandbox.harness).plan(update);
   if (entries || TOOL_UPDATES.includes(update.sessionUpdate)) {
     await touchProgress(workflow, sandbox);
+    if (sandbox.prompt_in_flight) await drainQueue(workflow, task);
   }
   await streamToSessionFeed(workflow, task, update);
   const text = updateText(update);
