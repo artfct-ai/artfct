@@ -8,6 +8,7 @@
   "include": [
     "src",
     "test",
+    "migrations",
     "drizzle.d1.config.ts",
     "drizzle.workflow.config.ts",
     "vitest.config.ts",
