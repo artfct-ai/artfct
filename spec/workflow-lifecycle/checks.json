@@ -104,6 +104,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut",
       "aJobCompletesDuringItsReview"
@@ -159,6 +160,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut",
       "aJobCompletesDuringItsReview"
@@ -207,6 +209,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut"
     ],
@@ -254,6 +257,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut"
     ],
@@ -615,6 +619,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut",
       "aStartRecordsARemovedPull"
@@ -671,6 +676,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut"
     ],
@@ -725,6 +731,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut"
     ],
@@ -781,6 +788,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut"
     ],
@@ -833,17 +841,25 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut",
       "theWorkflowFailed"
     ]
   },
   "maxSteps": {
-    "modelCallPagesAfterResearch": 40,
-    "pagesWithAReviewer": 40
+    "modelCallPagesAfterResearch": 35,
+    "pagesAfterResearch": 35,
+    "pagesWithAPolisher": 30,
+    "pullsForAnEndedSubIssue": 30,
+    "pullsTheHostMoves": 40
   },
   "tlc": {
-    "ignoredVariables": ["lastStepReached", "lastStepToldTheAgent", "lastStepAnswered"],
+    "ignoredVariables": [
+      "lastStepReached",
+      "lastStepToldTheAgent",
+      "lastStepAnswered"
+    ],
     "bounds": {
       "pagesWithAReviewer": {
         "pr": {

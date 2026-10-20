@@ -1123,7 +1123,9 @@ export class WorkflowLifecycleReplay {
   private actionFor(step: TraceStep): WorkflowAction {
     const { picks } = step;
     switch (step.action) {
-      case "agentSetsPlan": case "theAgentPlansFewerSlotsThanJobsRun":
+      case "agentSetsPlan":
+      case "theAgentPlansTheWorkflow":
+      case "theAgentPlansFewerSlotsThanJobsRun":
         return worldAction(
           `agent sets the plan of definition ${picks.definition}, with stages ${picks.withStages}`,
           (world) =>
@@ -1134,7 +1136,9 @@ export class WorkflowLifecycleReplay {
               subject: trackerLinkOf(required(picks.subjectLink)),
             }),
         );
-      case "agentStartsJob": case "agentStartsJobOnADonePage":
+      case "agentStartsJob":
+      case "theAgentStartsAJobOnARequest":
+      case "agentStartsJobOnADonePage":
         return worldAction(`agent starts a job on request ${picks.request}`, (world) =>
           this.startJob(required(picks.routerWriteFails), async () => {
             const requestText = REQUEST_TEXTS[required(picks.request)] ?? REQUEST_TEXTS[0];
@@ -1143,6 +1147,8 @@ export class WorkflowLifecycleReplay {
           }),
         );
       case "agentStartsJobOnAnIssue":
+      case "theAgentStartsAJobOnAnIssue":
+      case "agentStartsJobAgainOnAnIssue":
       case "agentStartsJobOnAnIssueWithAClosedPull":
         return worldAction(`agent starts a job on issue ${picks.issue}`, (world) =>
           this.runStep(() =>
@@ -1160,6 +1166,7 @@ export class WorkflowLifecycleReplay {
           ),
         );
       case "agentContinuesAPull":
+      case "agentContinuesTheOpenPullOfAFinishedJob":
         return worldAction(`agent continues the pull of job ${picks.id}`, (world) =>
           this.runStep(() =>
             this.startJob(required(picks.routerWriteFails), async () => {
@@ -1173,6 +1180,8 @@ export class WorkflowLifecycleReplay {
           ),
         );
       case "theHostMovesAPull":
+      case "theHostClosesAContinuedPull":
+      case "theHostReopensAClosedPull":
         return worldAction(
           `the host moves the pull of job ${picks.id}: ${picks.hostMove}`,
           (world) =>
@@ -1210,6 +1219,7 @@ export class WorkflowLifecycleReplay {
           endRefinerRunTurn(world, this.worldAuthorOf(required(picks.id)), REFINER_APPROVES, 0),
         );
       case "refinerRunFails":
+      case "aRefinerRunFailsDuringAModelTurn":
         return worldAction(`refiner run of job ${picks.id} fails`, (world) =>
           this.runStep(() =>
             failTask(world.workflow, this.refinerRunOf(required(picks.id)), "the sandbox died"),
@@ -1261,6 +1271,7 @@ export class WorkflowLifecycleReplay {
           }),
         );
       case "agentCompletesJob":
+      case "theAgentCompletesAJobUnderReview":
       case "theAgentCompletesAJobWithAnArtifact":
         return worldAction(`agent completes job ${picks.id}`, (world) =>
           this.runStep(async () => {
@@ -1283,7 +1294,8 @@ export class WorkflowLifecycleReplay {
           return this.returnCall(callId, CHECK_DECISIONS[checkAnswer]());
         });
       }
-      case "sandboxDestroyReturns": case "theSandboxOfAStalledTaskCloses":
+      case "sandboxDestroyReturns":
+      case "theSandboxOfAnEndingTaskCloses":
         return worldAction(`sandbox destroy ${picks.callId} returns`, () =>
           this.returnCall(required(picks.callId), new FakeDecisions(ANSWERS)),
         );
@@ -1334,7 +1346,8 @@ export class WorkflowLifecycleReplay {
           this.staleModelTurnDeadlineFires(world, required(picks.id)),
         );
       case "workflowRestarts":
-      case "anInstanceRestartsDuringAModelTurn":
+      case "anInstanceRestartsWhileATaskRecovers":
+      case "anInstanceRestartsDuringAFailurePost":
         return worldAction(
           `the workflow restarts, and a page write out ${picks.landed ? "landed" : "did not land"}`,
           (world) => this.restart(world, required(picks.landed)),
@@ -1349,6 +1362,7 @@ export class WorkflowLifecycleReplay {
           this.restartAlarmFiresAgain(world),
         );
       case "lostModelTurnRunsAgain":
+      case "theRunAgainAlarmOfAStoppedAuthorFires":
         return worldAction(`the lost model turn of job ${picks.id} runs again`, (world) =>
           this.lostModelTurnRunsAgain(world, required(picks.id)),
         );
