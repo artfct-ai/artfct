@@ -132,6 +132,7 @@ export const ALLOWED_WORDS: AllowedWord[] = [
       "packages/adapters/src/harness/claude-code/harness.ts",
       "packages/adapters/src/harness/opencode/harness.ts",
       "packages/adapters/src/harness/types.ts",
+      "packages/orchestrator/src/sandbox/container.ts",
       "packages/orchestrator/src/sandbox/spec.ts",
     ],
     reason: "The home directory of the sandbox user.",
@@ -150,7 +151,6 @@ export const ALLOWED_WORDS: AllowedWord[] = [
     word: "round",
     paths: [
       "packages/orchestrator/src/config/duration.ts",
-      "packages/orchestrator/src/sandbox/cloudflare.ts",
       "packages/orchestrator/src/workflow/store/schema.ts",
     ],
     reason: "Rounding a number, and a round trip.",

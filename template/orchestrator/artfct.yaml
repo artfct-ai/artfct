@@ -52,7 +52,7 @@ orchestrator:
       # A harness turn that sends no update for this long is nudged, then restarted.
       no_progress_minutes: 10
   sandbox:
-    # An idle sandbox sleeps after this long.
+    # An idle sandbox sleeps after this long, at most 6h. 0 never sleeps.
     sleep_after: 30m
     # Max time for clone and harness setup.
     startup_timeout: 10m

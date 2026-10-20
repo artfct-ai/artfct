@@ -21,10 +21,6 @@ export class FakeSandboxProvider implements SandboxProvider {
     this.specs.push(spec);
   }
 
-  async setEnv(sandbox: SandboxRef): Promise<void> {
-    this.calls.push(`setEnv ${sandbox.id}`);
-  }
-
   async refreshGithubTokens(
     sandbox: SandboxRef,
     token: string,
