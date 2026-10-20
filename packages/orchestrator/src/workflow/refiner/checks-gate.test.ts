@@ -395,6 +395,20 @@ describe("recheckChecks", () => {
       }));
   });
 
+  describe("open checks after the author failed with its turn in flight", () => {
+    const failed = scenario(heldByHumans(null), async (workflow) => {
+      workflow.store.updateSandbox(TASK, { prompt_in_flight: 1 });
+      workflow.store.updateTask(TASK, { status: "failed" });
+      workflow.codeHostInstance = hostWith(PASSED);
+      await recheckChecks(workflow, ALARM);
+    });
+
+    it("stops the recheck alarm", () =>
+      failed((workflow) => {
+        expect(recheckAlarms(workflow)).toEqual([]);
+      }));
+  });
+
   describe("an artifact the host accepted while it waited", () => {
     const accepted = waitingOn({ [REVISION]: { state: "running" } });
 

@@ -466,6 +466,14 @@ describe("taskQuiet", () => {
       expect(taskQuiet(workflow, task)).toBe(false);
     }));
 
+  it("is true once the author failed with its turn in flight", () =>
+    freshRuntime((workflow) => {
+      seedPullRequestTask(workflow);
+      workflow.store.updateSandbox(TASK, { prompt_in_flight: 1 });
+      workflow.store.updateTask(TASK, { status: "failed" });
+      expect(taskQuiet(workflow, workflow.store.requireTask(TASK))).toBe(true);
+    }));
+
   it("is true once the author takes no prompts", () =>
     freshRuntime((workflow) => {
       expect(taskQuiet(workflow, seedPullRequestTask(workflow))).toBe(true);

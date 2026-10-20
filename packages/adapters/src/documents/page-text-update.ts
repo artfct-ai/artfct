@@ -5,8 +5,9 @@ import type { PageTextChange } from "./types";
 export type PageTextEdit = { find: string; replace: string };
 
 /**
- * How a host writes a page text change. A page without text gets the whole new text, since an
- * edit needs text to find. Any other page gets edits in page order, empty when the text did not change.
+ * How a host writes a page text change. A page read without text gets the whole new text, since
+ * an edit needs text to find. The host writes it ahead of any text a person wrote since the read.
+ * Any other page gets edits in page order, empty when the text did not change.
  */
 export type PageTextUpdate = { whole: string } | { edits: PageTextEdit[] };
 

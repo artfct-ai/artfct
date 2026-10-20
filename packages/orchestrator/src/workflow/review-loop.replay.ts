@@ -146,6 +146,22 @@ describe("review loop spec", () => {
     );
   });
 
+  it("stops the recheck alarm when checks open while a reviewer reads a held revision", async () => {
+    await replayPinnedTrace(
+      "checks-open-while-a-reviewer-reads-a-held-revision",
+      "checksOnAReviewedPull",
+      36,
+    );
+  });
+
+  it("stops the recheck alarm when checks open after the author failed with its turn in flight", async () => {
+    await replayPinnedTrace(
+      "checks-open-after-the-author-failed",
+      "checksOnAPolishedPull",
+      334481550,
+    );
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,

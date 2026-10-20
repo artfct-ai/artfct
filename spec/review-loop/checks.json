@@ -342,7 +342,8 @@
       "checksGoBackToTheAuthorAtItsTurnEnd",
       "checksGoBackToAWaitingAuthor",
       "aRefinerRunStartsWhenTheAuthorsGateOpens",
-      "theRecheckAlarmStops"
+      "theRecheckAlarmStops",
+      "anEndedAuthorsOpenChecksStopTheRecheckAlarm"
     ],
     "modelCallJudgeThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -436,6 +437,7 @@
       "theAgentIsAskedToRoute",
       "theAgentIsAskedToRouteAgain",
       "theRecheckAlarmStops",
+      "theIdleAuthorsOpenChecksStopTheRecheckAlarm",
       "aReviewerApproved",
       "theAgentFinishedTheReview",
       "aRestartCutsTheDestroyOfADoneRefinerRun"

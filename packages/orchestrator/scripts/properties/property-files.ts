@@ -133,6 +133,20 @@ export const STANDALONE_PROPERTY_FILES: PropertyFile[] = [
     e2eRuns: 200_000,
   },
   {
+    title: "notion text properties",
+    packageDir: "adapters",
+    path: "./src/documents/notion/text-invariants.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 100_000,
+  },
+  {
+    title: "linear document write property",
+    packageDir: "adapters",
+    path: "./src/documents/linear/write-invariants.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 100_000,
+  },
+  {
     title: "page text update properties",
     packageDir: "adapters",
     path: "./src/documents/page-text-update.test.ts",
