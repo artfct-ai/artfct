@@ -218,13 +218,13 @@ describe("review", () => {
     });
   });
 
-  it("posts the quoted finding inline and the outcome on the page, then reads the revision", async () => {
+  it("reads the revision, then posts the quoted finding inline and the outcome on the page", async () => {
     const { sent, overrides } = recording();
     const read = await build(overrides).review!.postedReview(ref, REVIEW_INPUT);
     expect(sent).toEqual([
+      "read revision",
       `inline ${PAGE_ID} Each team owns its rollout`,
       expect.stringMatching(new RegExp(`^page ${PAGE_ID} Review: findings`)),
-      "read revision",
     ]);
     expect(read).toMatchObject({ review: { revision: "rev-3" } });
   });

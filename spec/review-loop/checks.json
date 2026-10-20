@@ -23,6 +23,7 @@
     "aDoneRefinerRunRoutesItsReview",
     "aRestartDoesNotStrandAReviewerTurnEnd",
     "theHumansHearOfEachHandoverOnce",
+    "theHumansSeeEachReviewsCommentsOnce",
     "aRefinerRunRestartsAtMostTwice",
     "aFinishedRefinerRunKeepsItsStatus",
     "anEndedAuthorEndsItsReview",
@@ -86,7 +87,9 @@
       "theHandoverAlarmPostsAHandover",
       "aRestartCutsAReviewerTurnEnd",
       "aCutReviewerTurnEndRuns",
-      "aRestartCutsARejectionPost"
+      "aRestartCutsARejectionPost",
+      "aRestartCutsTheHandoverOfAnEndedAuthor",
+      "aRestartCutsAPolisherTurnEnd"
     ],
     "reviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -124,7 +127,9 @@
       "aRestartCutsAHandoverPost",
       "theHandoverAlarmPostsAHandover",
       "aRestartCutsAReviewerTurnEnd",
-      "aCutReviewerTurnEndRuns"
+      "aCutReviewerTurnEndRuns",
+      "aRestartCutsAPolisherTurnEnd",
+      "aRestartCutsTheHandoverOfAnEndedAuthor"
     ],
     "judgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -164,7 +169,8 @@
       "theHandoverAlarmPostsAHandover",
       "aRestartCutsAReviewerTurnEnd",
       "aCutReviewerTurnEndRuns",
-      "aRestartCutsARejectionPost"
+      "aRestartCutsARejectionPost",
+      "aRestartCutsTheHandoverOfAnEndedAuthor"
     ],
     "modelCallAuthorWithTwoReviewers": [
       "aRefinerRunIsUnfinished",
@@ -253,7 +259,10 @@
       "aRestartCutsAHandoverPost",
       "theHandoverAlarmPostsAHandover",
       "aRestartCutsAReviewerTurnEnd",
-      "aCutReviewerTurnEndRuns"
+      "aCutReviewerTurnEndRuns",
+      "aRestartCutsAPageReviewAfterItsPost",
+      "aCutTurnEndRunsOnAPostedPageReview",
+      "aRestartCutsAPolisherTurnEnd"
     ],
     "pageJudgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -303,7 +312,10 @@
       "theHandoverAlarmPostsAHandover",
       "aRestartCutsAReviewerTurnEnd",
       "aCutReviewerTurnEndRuns",
-      "aRestartCutsARejectionPost"
+      "aRestartCutsARejectionPost",
+      "aRestartCutsAPageReviewAfterItsPost",
+      "aCutTurnEndRunsOnAPostedPageReview",
+      "aRestartCutsTheHandoverOfAnEndedAuthor"
     ],
     "pausedModelCallAuthor": [
       "aRefinerRunIsUnfinished",
@@ -484,7 +496,8 @@
       "aRestartCutsAHandoverPost",
       "theHandoverAlarmPostsAHandover",
       "aRestartCutsAReviewerTurnEnd",
-      "aCutReviewerTurnEndRuns"
+      "aCutReviewerTurnEndRuns",
+      "aRestartCutsAPolisherTurnEnd"
     ]
   },
   "maxSteps": {

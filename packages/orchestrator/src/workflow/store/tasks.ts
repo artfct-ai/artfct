@@ -107,6 +107,11 @@ export class WorkflowStore extends BoardStore {
     .where(and(eq(tasks.job_id, sql.placeholder("jobId")), inArray(tasks.role, REFINER_ROLES)))
     .orderBy(tasks.started_at)
     .prepare();
+  private readonly reviewOfTask = this.db
+    .select()
+    .from(reviews)
+    .where(eq(reviews.task_id, sql.placeholder("taskId")))
+    .prepare();
   private readonly rulingOfTask = this.db
     .select()
     .from(rulings)
@@ -188,6 +193,12 @@ export class WorkflowStore extends BoardStore {
       .insert(reviews)
       .values({ task_id: taskId, ...review })
       .run();
+  }
+
+  /** The review a findings reviewer run filed. Null while it has not filed one. */
+  review(taskId: string): Review | null {
+    const row = this.reviewOfTask.get({ taskId });
+    return row ? reviewOf(row) : null;
   }
 
   /** Where the ruling on a judge run stands. Null while it is not decided and no person is asked. */

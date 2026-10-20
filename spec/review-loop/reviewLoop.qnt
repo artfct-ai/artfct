@@ -16,7 +16,8 @@ module reviewLoopTypes {
   /// Where a refiner run stands. `Running` while its turn runs or starts. `WaitsOnChecks` once a
   /// polisher's turn ended and the checks gate holds the revision. `TurnEndWaits` once a new
   /// instance took over during the turn end of a findings reviewer or judge run, until the alarm
-  /// the start step armed runs that turn end. `Done`, `Cancelled` and `Failed` are final.
+  /// the start step armed runs that turn end. A page findings reviewer may have posted and filed
+  /// its review by then. `Done`, `Cancelled` and `Failed` are final.
   type RunStatus = Running | WaitsOnChecks | TurnEndWaits | Done | Cancelled | Failed
 
   /// How the lookups of the revision on the host go in one step: they give it, or they fail.
@@ -237,7 +238,8 @@ module reviewLoopTypes {
 
   /// What a new instance cut of a findings reviewer or polisher run that ended done in the last
   /// step: nothing, the first call its routing awaits after the run's done write, the post of the
-  /// handover its routing made, or the destroy of its sandbox.
+  /// handover its routing made, or the destroy of its sandbox. The post of the handover that the
+  /// teardown of an ended author made counts as a handover post cut too.
   type DoneRunCut = NoDoneRunCut | ItsRoutingIsCut | ItsHandoverPostIsCut | ItsDestroyIsCut
 
   /// The post of the reason of a judge's rejection that is out after the step that ruled it, with
@@ -349,6 +351,10 @@ module reviewLoopTypes {
     theHandoverAlarmPostsAHandover: bool,
     aRestartCutsAReviewerTurnEnd: bool,
     aCutReviewerTurnEndRuns: bool,
+    aRestartCutsAPageReviewAfterItsPost: bool,
+    aCutTurnEndRunsOnAPostedPageReview: bool,
+    aRestartCutsTheHandoverOfAnEndedAuthor: bool,
+    aRestartCutsAPolisherTurnEnd: bool,
     aRestartCutsARejectionPost: bool,
     aRulingCallReturnsAfterTheAuthorEnded: bool,
     aModelTurnIsLostWithTheInstance: bool,
@@ -564,10 +570,12 @@ module reviewLoop {
   /// How often a new instance took over the workflow, a counter that model checking bounds.
   var instanceRestartCount: int
   /// True after a step in which a findings reviewer or polisher run ended done, while the destroy
-  /// of its sandbox, the last part of its end, is out.
+  /// of its sandbox, the last part of its end, is out. The spec does not cut the calls of a step
+  /// in which a new instance took over.
   var aDoneRunsSandboxIsOut: bool
-  /// True after a step in which the routing of a findings reviewer or polisher run that ended done
-  /// handed the artifact over, while the handover post, the last call of that routing, is out.
+  /// True after a step in which the routing of a findings reviewer or polisher run that ended done,
+  /// or the teardown of a cancelled or failed harness author, handed the artifact over, while the
+  /// handover post, the last call of that routing or teardown, is out.
   var aHandoverPostIsOut: bool
   /// The post of the reason of a rejection that the decisions model ruled in the last step and
   /// that reached a live author. The post is the last call of that ruling.
@@ -1172,7 +1180,8 @@ module reviewLoop {
   /// A finished reviewer posts its review on a page first. Then it hands on while a later entry of
   /// its segment still has a say. Otherwise the segment settles, on the last findings entry of
   /// it. A judge that ruled has no say. A pull request review names the commit it read. A page
-  /// review reads the revision from the host after its post.
+  /// review reads the revision from the host before its post. A run that filed its review before
+  /// a restart cut its turn end routes that review and does not post again.
   pure def findingsReviewerFinished(
     loop: ReviewLoop,
     id: int,
@@ -1183,9 +1192,10 @@ module reviewLoop {
     val refinerRun = loop.refinerRuns[id]
     val index = refinerRun.refinerIndex
     val reviewed = if (ON_A_PAGE) hostRevision(loop, lookup) else ReadRevision(loop.artifact.revision)
-    val filed = FiledReview({ revision: reviewed, findings: findings })
+    val alreadyFiled = isReview(refinerRun.result)
+    val filed = if (alreadyFiled) refinerRun.result else FiledReview({ revision: reviewed, findings: findings })
     val posted =
-      if (ON_A_PAGE) loop.reviewComments.concat(pageReviewComments(id, findings, commenting))
+      if (ON_A_PAGE and not(alreadyFiled)) loop.reviewComments.concat(pageReviewComments(id, findings, commenting))
       else loop.reviewComments
     val done = withRun({ ...loop, reviewComments: posted }, id, { ...refinerRun, status: Done, result: filed })
     val end = segmentEndOf(index)
@@ -1551,6 +1561,16 @@ module reviewLoop {
   /// True when the artifact went from a draft to the humans in the step.
   pure def handedOverIn(step: Transition): bool = drafted(step.before) and not(drafted(step.after))
 
+  /// True when a harness author was cancelled or failed in the step and its teardown handed the
+  /// artifact over. The handover post is the last call of that teardown that changes what the
+  /// review holds.
+  pure def anEndedAuthorsHandoverPosts(step: Transition): bool = and {
+    not(MODEL_CALL_AUTHOR),
+    endsTheAuthor(step),
+    handedOverIn(step),
+    step.after.author.status == AuthorCancelled or step.after.author.status == AuthorFailed,
+  }
+
   /// The post of a rejection's reason that is out after the step: one the decisions model ruled
   /// in the step, when the rejection reached a live author whose model turn did not start.
   pure def rejectionPostOutAfter(step: Transition): RejectionPostCall =
@@ -1572,8 +1592,11 @@ module reviewLoop {
       lastStepKept' = rulesKeptBy(step),
       lastStepReached' = witnessesReachedBy(step),
       agentHeard' = kind.agentHeard,
-      aDoneRunsSandboxIsOut' = aRunEndedDoneIn(step),
-      aHandoverPostIsOut' = (aRunEndedDoneIn(step) and handsOverWithItsPostLast(step)),
+      aDoneRunsSandboxIsOut' = not(kind.instanceRestarted) and aRunEndedDoneIn(step),
+      aHandoverPostIsOut' = not(kind.instanceRestarted) and or {
+        aRunEndedDoneIn(step) and handsOverWithItsPostLast(step),
+        anEndedAuthorsHandoverPosts(step),
+      },
       rejectionPostOut' = rejectionPostOutAfter(step),
       instanceRestartCount' = if (kind.instanceRestarted) instanceRestartCount + 1 else instanceRestartCount,
       checksReportCount' = if (kind.checksReported) checksReportCount + 1 else checksReportCount,
@@ -1739,30 +1762,51 @@ module reviewLoop {
     moveWith(ended.loop, { ...quietStep(ended.turnEnd), write: AnswerDoesNotValidate(flaw), revisionLookup: revisionLookup }),
   }
 
-  /// A findings reviewer files a review with findings, and its turn ends.
+  /// A findings reviewer files a review with findings, and its turn ends. A review filed before a
+  /// restart cut its turn end is the one it routes.
   action findingsReviewerLeavesFindings: bool = all {
     turnEndsOn(review, FindingsReviewer),
+    filedReviewAllows(review, true),
     nondet commenting = COMMENTINGS.oneOf()
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val id = lastUnfinishedRun(review)
-    val page = if (ON_A_PAGE) PageReviewPosted(commenting) else NoPageFact
+    val page = if (ON_A_PAGE and not(isReview(review.refinerRuns[id].result))) PageReviewPosted(commenting) else NoPageFact
     moveWith(
       findingsReviewerFinished(review, id, true, commenting, revisionLookup),
       { ...quietStep(RefinerTurnEnded(id)), page: page, revisionLookup: revisionLookup },
     ),
   }
 
-  /// A findings reviewer files an approving review, and its turn ends.
+  /// A findings reviewer files an approving review, and its turn ends. A review filed before a
+  /// restart cut its turn end is the one it routes.
   action findingsReviewerApproves: bool = all {
     turnEndsOn(review, FindingsReviewer),
+    filedReviewAllows(review, false),
     nondet commenting = COMMENTINGS.oneOf()
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val id = lastUnfinishedRun(review)
-    val page = if (ON_A_PAGE) PageReviewPosted(commenting) else NoPageFact
+    val page = if (ON_A_PAGE and not(isReview(review.refinerRuns[id].result))) PageReviewPosted(commenting) else NoPageFact
     moveWith(
       findingsReviewerFinished(review, id, false, commenting, revisionLookup),
       { ...quietStep(RefinerTurnEnded(id)), page: page, revisionLookup: revisionLookup },
     ),
+  }
+
+  /// True when the unfinished run has not filed a review, or filed one whose findings are
+  /// `findings`.
+  pure def filedReviewAllows(loop: ReviewLoop, findings: bool): bool = {
+    val result = loop.refinerRuns[lastUnfinishedRun(loop)].result
+    not(isReview(result)) or reviewHasFindings(result) == findings
+  }
+
+  /// True when the turn text of the unfinished run can still say that it gave up: its turn runs,
+  /// or its turn end waits for its alarm without a review filed.
+  pure def turnCanGiveUp(loop: ReviewLoop): bool = or {
+    aRunningRunExists(loop),
+    and {
+      turnEndWaitsOn(loop, FindingsReviewer) or turnEndWaitsOn(loop, Judge),
+      not(isReview(loop.refinerRuns[lastUnfinishedRun(loop)].result)),
+    },
   }
 
   /// A pull request findings reviewer's turn ends, and the read of its review fails.
@@ -1978,7 +2022,7 @@ module reviewLoop {
   /// A refiner run that restarted hits another failure it may recover from. It is a copy of
   /// `refinerRunHitsARecoverableFailure` that a step picks as often as any other action.
   action aRestartedRefinerRunHitsAFailure: bool = all {
-    aRunningRunExists(review) or turnEndWaitsOn(review, FindingsReviewer) or turnEndWaitsOn(review, Judge),
+    turnCanGiveUp(review),
     review.refinerRuns[lastUnfinishedRun(review)].restarts > 0,
     refinerRunHitsARecoverableFailure,
   }
@@ -2005,9 +2049,10 @@ module reviewLoop {
 
   /// The unfinished refiner run hits a failure it may recover from. It restarts while it has
   /// restarts left, and fails after that. A run whose turn end waits for its alarm already ended
-  /// its turn, so only its turn text can say that it gave up.
+  /// its turn, so only its turn text can say that it gave up. A run that filed its review passed
+  /// that check before the restart.
   action refinerRunHitsARecoverableFailure: bool = all {
-    aRunningRunExists(review) or turnEndWaitsOn(review, FindingsReviewer) or turnEndWaitsOn(review, Judge),
+    turnCanGiveUp(review),
     val id = lastUnfinishedRun(review)
     val refinerRun = review.refinerRuns[id]
     nondet cause = (if (refinerRun.status == TurnEndWaits) Set(GivesUp) else RESTART_CAUSES).oneOf()
@@ -2163,8 +2208,9 @@ module reviewLoop {
   }
 
   /// A new instance takes over while the handover post of the routing of a findings reviewer or
-  /// polisher run that ended done in the last step is out. The handover was recorded, and the
-  /// alarm that posts it again was armed, before the post. The humans have not heard of it.
+  /// polisher run that ended done in the last step, or of the teardown of an author that ended in
+  /// it, is out. The handover was recorded, and the alarm that posts it again was armed, before
+  /// the post. The humans have not heard of it.
   action instanceRestartsWhileAHandoverPosts: bool = all {
     INSTANCE_RESTARTS,
     aHandoverPostIsOut,
@@ -2219,6 +2265,59 @@ module reviewLoop {
     runningRunIs(review, FindingsReviewer) or runningRunIs(review, Judge),
     val waits = withStatus(review, lastUnfinishedRun(review), TurnEndWaits)
     moveWith(instanceTakesOver(waits, RevisionKnown), { ...quietStep(NoTurnEnd), instanceRestarted: true }),
+  }
+
+  /// A new instance takes over during a polisher's turn end, after its turn ended and before its
+  /// first call returned. The start step arms an alarm, and the alarm settles the polisher through
+  /// the checks gate, as its turn end would have. Its turn text is not read again. A polisher
+  /// that waits on its checks looks the same to the start step, and its alarm settles it as a
+  /// recheck does, so this step folds the alarm into the restart.
+  action instanceRestartsWhileAPolisherTurnEnds: bool = all {
+    INSTANCE_RESTARTS,
+    not(aModelTurnIsOut(review)),
+    runningRunIs(review, Polisher),
+    nondet pushed = Set(true, false).oneOf()
+    nondet part = REVISION_PARTS.oneOf()
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
+    val id = lastUnfinishedRun(review)
+    val left = if (pushed) pageChanged(review, part) else review
+    nondet outcome = gateOutcomes(left, id, revisionLookup).oneOf()
+    moveWith(
+      polisherFinished(instanceTakesOver(review, RevisionKnown), id, pushed, part, outcome, revisionLookup),
+      {
+        ...quietStep(RefinerTurnEnded(id)),
+        instanceRestarted: true,
+        revisionLookup: revisionLookup,
+        checks: GateSettles(outcome),
+      },
+    ),
+  }
+
+  /// A new instance takes over during the turn end of a page findings reviewer, after its review
+  /// comments posted and its review was filed, at the first call after the post. The review read
+  /// the revision before the post. The start step arms an alarm that runs the rest of that turn
+  /// end.
+  action instanceRestartsAfterAPageReviewPosts: bool = all {
+    INSTANCE_RESTARTS,
+    ON_A_PAGE,
+    not(aModelTurnIsOut(review)),
+    runningRunIs(review, FindingsReviewer),
+    nondet findings = Set(true, false).oneOf()
+    nondet commenting = COMMENTINGS.oneOf()
+    nondet revisionLookup = REVISION_LOOKUPS.oneOf()
+    val id = lastUnfinishedRun(review)
+    val filed = FiledReview({ revision: hostRevision(review, revisionLookup), findings: findings })
+    val posted = { ...review, reviewComments: review.reviewComments.concat(pageReviewComments(id, findings, commenting)) }
+    val waits = withRun(posted, id, { ...review.refinerRuns[id], status: TurnEndWaits, result: filed })
+    moveWith(
+      instanceTakesOver(waits, RevisionKnown),
+      {
+        ...quietStep(NoTurnEnd),
+        instanceRestarted: true,
+        page: PageReviewPosted(commenting),
+        revisionLookup: revisionLookup,
+      },
+    ),
   }
 
   /// A new instance takes over while a model-call author's revise turn writes the page. The turn's
@@ -2349,6 +2448,8 @@ module reviewLoop {
     theHandoverPostAlarmFires,
     instanceRestartsWhileARejectionPosts,
     instanceRestartsWhileAReviewerTurnEnds,
+    instanceRestartsAfterAPageReviewPosts,
+    instanceRestartsWhileAPolisherTurnEnds,
     authorPaused,
     authorResumed,
     personInstructs,
@@ -3017,6 +3118,24 @@ module reviewLoop {
       | _ => false
     },
     aRestartCutsARejectionPost: step.kind.cutARejectionPost,
+    aRestartCutsAPageReviewAfterItsPost: and {
+      step.kind.instanceRestarted,
+      postedIn(step).length() > 0,
+      runIds(step.after).exists(id => step.after.refinerRuns[id].status == TurnEndWaits),
+    },
+    aRestartCutsAPolisherTurnEnd: step.kind.instanceRestarted and match step.kind.turnEnd {
+      | RefinerTurnEnded(id) => refinerOf(step.after.refinerRuns[id]) == Polisher
+      | _ => false
+    },
+    aRestartCutsTheHandoverOfAnEndedAuthor:
+      step.kind.cutOfADoneRun == ItsHandoverPostIsCut and not(authorLive(step.before)),
+    aCutTurnEndRunsOnAPostedPageReview: and {
+      ARTIFACT == Page,
+      match step.kind.turnEnd {
+        | RefinerTurnEnded(id) => hadStatus(step, id, TurnEndWaits) and isReview(step.before.refinerRuns[id].result)
+        | _ => false
+      },
+    },
     aModelTurnIsLostWithTheInstance: step.kind.instanceRestarted and aModelTurnIsOut(step.before),
     aPausedAuthorsModelTurnIsLost:
       step.kind.instanceRestarted and aModelTurnIsOut(step.before) and step.before.author.paused,
@@ -3280,13 +3399,34 @@ module reviewLoop {
     })
 
   /// A findings reviewer or judge run whose turn end a restart cut is still the run the artifact is
-  /// on, so the alarm the start step armed runs its turn end.
+  /// on, so the alarm the start step armed runs its turn end. A polisher's cut turn end settles in
+  /// the step of the restart, so a polisher never waits this way.
   val aRestartDoesNotStrandAReviewerTurnEnd: bool =
     runIds(review).forall(id =>
       review.refinerRuns[id].status == TurnEndWaits implies and {
         isOnRun(review, id),
         refinerOf(review.refinerRuns[id]) != Polisher,
       })
+
+  /// True when code posted `comment` for the refiner run `id`.
+  pure def postedFor(comment: ReviewComment, id: int): bool =
+    match comment {
+      | InlineFinding(inline) => inline.refinerRun == id
+      | OutcomeComment(outcome) => outcome.refinerRun == id
+      | RejectionComment(judgeRun) => judgeRun == id
+    }
+
+  /// The humans see each review's comments once: a refiner run has at most one outcome comment,
+  /// and each finding of its review sits at most once among its comments, also when a restart cut
+  /// its turn end after the post.
+  val theHumansSeeEachReviewsCommentsOnce: bool =
+    runIds(review).forall(id => {
+      val own = review.reviewComments.select(comment => postedFor(comment, id))
+      and {
+        countOf(own, isOutcomeComment) <= 1,
+        REVIEW_PASSAGES.forall(passage => findingLanded(own, passage) <= 1),
+      }
+    })
 
   /// The humans hear of each handover once: a handover whose post a restart cut waits for its
   /// alarm while the artifact is with them, and the alarm posts it.
@@ -3407,6 +3547,7 @@ module reviewLoop {
     aDoneRefinerRunRoutesItsReview,
     aRestartDoesNotStrandAReviewerTurnEnd,
     theHumansHearOfEachHandoverOnce,
+    theHumansSeeEachReviewsCommentsOnce,
     aRefinerRunRestartsAtMostTwice,
     aFinishedRefinerRunKeepsItsStatus,
     anEndedAuthorEndsItsReview,
@@ -3611,6 +3752,22 @@ module reviewLoop {
   /// Witness for `aRestartDoesNotStrandAReviewerTurnEnd`: the alarm runs the turn end of a run whose
   /// turn end a restart cut.
   val aCutReviewerTurnEndRuns: bool = lastStepReached.aCutReviewerTurnEndRuns
+
+  /// Witness for `aRestartDoesNotStrandAReviewerTurnEnd`: a new instance takes over during a
+  /// polisher's turn end, and the alarm the start step armed settles the polisher.
+  val aRestartCutsAPolisherTurnEnd: bool = lastStepReached.aRestartCutsAPolisherTurnEnd
+
+  /// Witness for `theHumansHearOfEachHandoverOnce`: a new instance takes over while the handover
+  /// post of the teardown of a cancelled or failed author is out.
+  val aRestartCutsTheHandoverOfAnEndedAuthor: bool = lastStepReached.aRestartCutsTheHandoverOfAnEndedAuthor
+
+  /// Witness for `theHumansSeeEachReviewsCommentsOnce`: a new instance takes over during the turn
+  /// end of a page findings reviewer after its review comments posted.
+  val aRestartCutsAPageReviewAfterItsPost: bool = lastStepReached.aRestartCutsAPageReviewAfterItsPost
+
+  /// Witness for `theHumansSeeEachReviewsCommentsOnce`: the alarm runs the turn end of a page
+  /// findings reviewer whose review comments posted before a restart cut it.
+  val aCutTurnEndRunsOnAPostedPageReview: bool = lastStepReached.aCutTurnEndRunsOnAPostedPageReview
 
   /// Witness for `judgeRulesAtMostOnce`: a new instance takes over while the post of the reason of
   /// a rejection that reached the author is out.

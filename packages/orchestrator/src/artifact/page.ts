@@ -122,8 +122,9 @@ async function pageRevision(clients: PageClients, ref: ArtifactRef): Promise<str
 }
 
 /**
- * The review the reviewer ended its turn with, posted on the page first. None when the turn
- * text does not carry one. The revision is read after the post.
+ * The review the reviewer ended its turn with, posted on the page. None when the turn text does
+ * not carry one. The revision is read before the post, so the post is the last call and the
+ * caller can file the review before it awaits anything else.
  */
 async function fileReview(
   clients: PageClients,
@@ -133,12 +134,13 @@ async function fileReview(
   if (ref.kind !== "page") return { filedNone: true };
   const parsed = parseTurnTextReview(input.turnText);
   if (!parsed) return { filedNone: true };
+  const revision = await pageRevision(clients, ref);
   await postPageReview(clients, {
     pageId: ref.page_id,
     review: parsed,
     signature: input.signature,
   });
-  return { review: { revision: await pageRevision(clients, ref), ...parsed } };
+  return { review: { revision, ...parsed } };
 }
 
 /**

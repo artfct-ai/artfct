@@ -279,10 +279,7 @@ export async function onReviewerFinished(
   const reviewer = workflow.store.requireTask(refinerRun.task_id);
   if (isTaskFinished(reviewer.status)) return;
   const entry = reviewerEntryOf(workflow, reviewer);
-  const read: ReviewRead =
-    !entry || entry.mode === "judge"
-      ? { filedNone: true }
-      : await readReview(workflow, reviewer, entry, turnText);
+  const read = await fileReviewOfTurn(workflow, reviewer, entry, turnText);
   const revision =
     entry?.mode === "judge" ? null : await revisionOfTheJobsArtifact(workflow, reviewer.job_id);
   await finishTask(workflow, reviewer, () =>
@@ -306,7 +303,6 @@ async function routeReview(
       reason: `The reviewer's review could not be read (${read.readFailed}).`,
       revision,
     });
-  if ("review" in read) workflow.store.fileReview(reviewer.task_id, read.review);
   const author = workflow.store.authorTaskOf(reviewer.job_id);
   const artifact = workflow.store.artifact(reviewer.job_id);
   if (!artifact) return;
@@ -573,21 +569,28 @@ function mergeReviews(entries: ReviewerEntry[], reviews: FiledReview[]): Review 
   };
 }
 
-/** What the reviewer filed since it started: its review, none, or a read that failed. */
-async function readReview(
+/**
+ * What the reviewer filed since it started: its review, none, or a read that failed. The review
+ * is stored before the next await, so a turn end a restart cut after the post reuses it.
+ */
+async function fileReviewOfTurn(
   workflow: WorkflowRuntime,
   reviewer: TaskRow,
-  entry: ReviewerEntry,
+  entry: ReviewerEntry | null,
   turnText: string,
 ): Promise<ReviewRead> {
+  const filed = workflow.store.review(reviewer.task_id);
+  if (filed) return { review: filed };
   const artifact = workflow.store.artifact(reviewer.job_id);
   const support = artifact ? reviewSupportOf(workflow, artifact) : null;
-  if (!artifact || !support) return { filedNone: true };
-  return support.postedReview(artifact.ref, {
+  if (!entry || entry.mode === "judge" || !artifact || !support) return { filedNone: true };
+  const read = await support.postedReview(artifact.ref, {
     since: reviewer.started_at,
     turnText,
     signature: reviewerSignature(workflow, entry, reviewer),
   });
+  if ("review" in read) workflow.store.fileReview(reviewer.task_id, read.review);
+  return read;
 }
 
 /** How this artifact's kind is reviewed. Null for a kind with no reviewer. */

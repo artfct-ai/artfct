@@ -1761,7 +1761,7 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "reviewLoop::aRestartDoesNotStrandAReviewerTurnEnd (the start step arms no reviewer turn end)",
     path: "src/workflow/task/harness/turn.ts",
-    find: "    if (!sandbox || !reviewerTurnEndWaits(workflow, run)) continue;\n",
+    find: "    if (!sandbox || !refinerTurnEndWaits(workflow, run)) continue;\n",
     replace: "    continue;\n",
   },
   {
@@ -1771,6 +1771,22 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/task/harness/turn.ts",
     find: '    turn_text: task.role === "reviewer" ? turnText : "",\n',
     replace: '    turn_text: "",\n',
+  },
+  {
+    id: "W350",
+    invariant:
+      "reviewLoop::aRestartDoesNotStrandAReviewerTurnEnd (the start step arms no polisher turn end)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: '  if (run.role !== "reviewer" && run.role !== "polisher") return false;\n',
+    replace: '  if (run.role !== "reviewer") return false;\n',
+  },
+  {
+    id: "W358",
+    invariant:
+      "reviewLoop::theHumansSeeEachReviewsCommentsOnce (a resumed turn end posts its review again)",
+    path: "src/workflow/refiner/loop.ts",
+    find: "  const filed = workflow.store.review(reviewer.task_id);\n  if (filed) return { review: filed };\n",
+    replace: "",
   },
   {
     id: "W357",
