@@ -17,13 +17,15 @@ import {
 } from "../src/workflow/refiner/checks-gate";
 import { sendHeldCommentsOnRevisionRequest } from "../src/workflow/refiner/held-comments";
 import { taskQuiet } from "../src/workflow/refiner/loop";
+import { postHandover, type HandoverPostAlarm } from "../src/workflow/refiner/outcome";
 import { isTaskFinished, isWorkflowFinished } from "../src/workflow/store/state";
 import type { RefinerRun, TaskRow } from "../src/workflow/store/tasks";
-import type { TaskAlarm } from "../src/workflow/task/harness/timers";
+import type { GenerationAlarm, TaskAlarm } from "../src/workflow/task/harness/timers";
+import { resumeRefinerTurnEnd, refinerTurnEndWaits } from "../src/workflow/task/harness/turn";
 import { taskAtWork } from "../src/workflow/task/at-work";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
 import { quintTraces } from "./quint-traces";
-import { JUDGE_CONCLUSION, MODEL_AUTHOR_MODEL } from "./fake-runtime";
+import { JUDGE_CONCLUSION, MODEL_AUTHOR_MODEL, type FakeRuntime } from "./fake-runtime";
 import { HeldPageModel } from "./held-page-model";
 import { InterleavedDecisions, onFirstCallAsking } from "./interleaved-decisions";
 import { toolText } from "./tool-result";
@@ -42,7 +44,9 @@ import {
   authorPromptFails,
   authorTurnEnds,
   authorTurnIsCancelled,
+  closeRefinerRunTurn,
   firstArtifactAppears,
+  GAVE_UP_ANSWERS,
   personCancels,
   personRules,
   personSendsControl,
@@ -188,6 +192,8 @@ export type SpecReview = {
     refinerRun: number | null;
     sentBack: number | null;
     recheckArmed: boolean;
+    handoverPosts: number;
+    handoverPostWaits: boolean;
   };
   refinerRuns: SpecRun[];
   judgeRunsCodeRulesOn: number[];
@@ -278,6 +284,8 @@ function specReview(value: unknown): SpecReview {
       refinerRun: refinerRun.tag === "OnRefinerRun" ? itfInt(refinerRun.value) : null,
       sentBack: sentBack.tag === "SentBackOn" ? itfInt(sentBack.value) : null,
       recheckArmed: itfBool(itfField(artifact, "recheckArmed")),
+      handoverPosts: itfInt(itfField(artifact, "handoverPosts")),
+      handoverPostWaits: itfBool(itfField(artifact, "handoverPostWaits")),
     },
     refinerRuns: itfList(itfField(value, "refinerRuns")).map(specRun),
     judgeRunsCodeRulesOn: sortedInts(itfField(value, "judgeRunsCodeRulesOn")),
@@ -361,7 +369,14 @@ function specRun(value: unknown): SpecRun {
   };
 }
 
-const RUN_STATUSES = ["Running", "WaitsOnChecks", "Done", "Cancelled", "Failed"] as const;
+const RUN_STATUSES = [
+  "Running",
+  "WaitsOnChecks",
+  "TurnEndWaits",
+  "Done",
+  "Cancelled",
+  "Failed",
+] as const;
 const RULINGS = ["Approved", "Rejected"] as const;
 
 function specResult(result: { tag: string; value: unknown }): SpecRun["result"] {
@@ -737,6 +752,8 @@ export class ReviewLoopReplay {
   private readonly heardSteps: HeardInStep[] = [];
   private heardNow: HeardInStep | null = null;
   private readonly readyLine: string;
+  private hungHandoverPost: string | null = null;
+  private hungRejectionPost: string | null = null;
 
   private constructor(options: ReplayOptions & { readyLine: string }) {
     this.readyLine = options.readyLine;
@@ -926,6 +943,8 @@ export class ReviewLoopReplay {
         return this.untilADoneRunsDestroy(() => this.takeAction(step));
       if (next === "instanceRestartsWhileADoneRunRoutes")
         return this.untilADoneRunRoutes(() => this.takeAction(step));
+      if (next === "instanceRestartsWhileAHandoverPosts")
+        return this.untilAHandoverPosts(() => this.takeAction(step));
       return this.takeAction(step);
     });
     for (const task of this.world.tasksAwaitingSandbox()) {
@@ -993,6 +1012,8 @@ export class ReviewLoopReplay {
 
   private async takeAction(step: TraceStep): Promise<void> {
     const { action } = step;
+    const waiting = this.runWhoseTurnEndWaits();
+    if (waiting !== null && endsACutTurn(step)) return this.resumeTheCutTurnEnd(step, waiting);
     if (action === "judgeTurnEnds") return this.judgeTurnEnds();
     if (action === "theReviewReadFails") {
       const ends = findingsReviewerEnds(this.authorIndex(), "findings", "TakesAll");
@@ -1009,6 +1030,22 @@ export class ReviewLoopReplay {
       action === "instanceRestartsWhileADoneRunRoutes"
     ) {
       return this.instanceRestarts(async () => {});
+    }
+    if (action === "instanceRestartsWhileAHandoverPosts") {
+      this.hungHandoverPost = null;
+      return this.instanceRestarts(async () => {});
+    }
+    if (action === "instanceRestartsWhileARejectionPosts") {
+      this.hungRejectionPost = null;
+      return this.instanceRestarts(async () => {});
+    }
+    if (action === "instanceRestartsWhileAReviewerTurnEnds") {
+      return this.instanceRestarts(() => this.untilAReviewerTurnEndIsCut());
+    }
+    if (action === "instanceRestartsWhileAPolisherTurnEnds") return this.polisherTurnEndIsCut(step);
+    if (action === "theHandoverPostAlarmFires") {
+      await this.world.apply(handoverPostAlarmFires(this.world.taskOf(this.author).job_id));
+      return;
     }
     if (action === "instanceRestartsWhileThePageIsWritten") {
       return this.instanceRestarts(() =>
@@ -1101,6 +1138,10 @@ export class ReviewLoopReplay {
     if (!artifact) throw new Error("the author has no artifact");
     const runs = store.refinerRunsOf(author.job_id);
     const pointer = runs.findIndex((run) => run.task_id === artifact.refiner_task_id);
+    const handoverPosted = this.world.workflow.posted.filter(
+      (event) => event.type === "artifact_ready" && event.job_id === author.job_id,
+    );
+    const handoverAlarm = handoverPostAlarmOf(this.world.workflow, author.job_id);
     const delivered = artifact.delivered_revision;
     const atWork = taskAtWork(this.world.workflow, author);
     const queued = store.queue().filter((row) => row.task_id === author.task_id);
@@ -1137,9 +1178,14 @@ export class ReviewLoopReplay {
         refinerRun: pointer === -1 ? null : pointer,
         sentBack: this.sentBackRevision(author.job_id),
         recheckArmed: this.world.workflow.alarmsFor("recheckChecks").length > 0,
+        handoverPosts: handoverPosted.length + (this.hungHandoverPost === null ? 0 : 1),
+        handoverPostWaits: this.hungHandoverPost === null && handoverAlarm !== null,
       },
       refinerRuns: runs.map((run) =>
-        specRunOf(run, revisionCount, taskQuiet(this.world.workflow, run)),
+        specRunOf(run, revisionCount, {
+          quiet: taskQuiet(this.world.workflow, run),
+          turnEndWaits: refinerTurnEndWaits(this.world.workflow, run),
+        }),
       ),
       judgeRunsCodeRulesOn: [...this.held.keys()].toSorted((left, right) => left - right),
       reviewComments: this.reviewComments(runs),
@@ -1162,13 +1208,22 @@ export class ReviewLoopReplay {
     return last === undefined ? null : this.revisionCount(last);
   }
 
-  /** How the last handover of the job closed. A healthy one starts with the ready line of its kind. */
+  /**
+   * How the last handover of the job closed: its post that is out, the alarm that posts it after
+   * a restart cut its post, or its last post. A healthy one starts with the ready line of its kind.
+   */
   private handoverClose(jobId: string): SpecClose {
+    const alarm = handoverPostAlarmOf(this.world.workflow, jobId);
+    if (this.hungHandoverPost === null && alarm) {
+      return alarm.close.close === "ready" ? "ClosedReady" : "ClosedBlocked";
+    }
     const handover = this.world.workflow.posted.findLast(
       (event) => event.type === "artifact_ready" && event.job_id === jobId,
     );
-    if (handover?.type !== "artifact_ready") throw new Error(`job ${jobId} was not handed over`);
-    return handover.text.startsWith(this.readyLine) ? "ClosedReady" : "ClosedBlocked";
+    const text =
+      this.hungHandoverPost ?? (handover?.type === "artifact_ready" ? handover.text : null);
+    if (text === null) throw new Error(`job ${jobId} was not handed over`);
+    return text.startsWith(this.readyLine) ? "ClosedReady" : "ClosedBlocked";
   }
 
   private worldActionFor(step: TraceStep): WorkflowAction {
@@ -1928,15 +1983,24 @@ export class ReviewLoopReplay {
 
   /** The comments code posted on the page for refiner runs, oldest first. */
   private reviewComments(runs: RefinerRun[]): SpecReviewComment[] {
+    const hung = this.hungRejectionPost;
     if (this.revisions.kind !== "page") {
-      return this.world.pullComments.flatMap((posted): SpecReviewComment[] => {
+      const pullComments = [
+        ...this.world.pullComments,
+        ...(hung === null ? [] : [{ number: this.author.pullNumber, body: hung }]),
+      ];
+      return pullComments.flatMap((posted): SpecReviewComment[] => {
         if (posted.number !== this.author.pullNumber) return [];
         const run = signedRun(runs, posted.body);
         return run === -1 ? [] : [rejectionCommentOf(runs, run, posted.body)];
       });
     }
     const { pageId } = this.revisions;
-    return this.host().postedComments.flatMap((posted): SpecReviewComment[] => {
+    const pageComments = [
+      ...this.host().postedComments,
+      ...(hung === null ? [] : [{ pageId, passage: null, text: hung }]),
+    ];
+    return pageComments.flatMap((posted): SpecReviewComment[] => {
       if (posted.pageId !== pageId) return [];
       const run = signedRun(runs, posted.text);
       if (run === -1) return [];
@@ -2075,23 +2139,45 @@ export class ReviewLoopReplay {
           (task) => endedDoneInTheStep(task) && store.artifact(task.job_id)?.status === "drafted",
         );
     const cut = this.cutOnce();
+    const restoreHosts = this.hostsWithCut(cut, () => routingIsOut());
+    const restoreDestroy = restorerOf(sandboxProvider, "destroy");
+    const destroy = sandboxProvider.destroy.bind(sandboxProvider);
+    sandboxProvider.destroy = async (sandbox) => {
+      const cutsHere = routingIsOut() || endedDoneInTheStep(store.task(sandbox.id));
+      return cutsHere && !cut.reached() ? cut.reach() : destroy(sandbox);
+    };
+    try {
+      await this.untilCut(cut, work);
+    } finally {
+      restoreHosts();
+      restoreDestroy();
+    }
+    if (!cut.reached()) throw new Error("the step ended without a call after a done run");
+  }
+
+  /**
+   * Make each call to the code or documents host that `cuts` picks reach `cut`, until the
+   * returned function puts the hosts back. A call that reaches the cut never returns.
+   */
+  private hostsWithCut(
+    cut: { reach: () => Promise<never>; reached: () => boolean },
+    cuts: (method: string, args: unknown[]) => boolean,
+  ): () => void {
+    const workflow = this.world.workflow;
     const hostWithCut = <Host extends object>(host: Host): Host =>
       new Proxy(host, {
         get: (target, name, receiver) => {
           const value: unknown = Reflect.get(target, name, receiver);
           if (typeof value !== "function") return value;
           return (...args: never[]) =>
-            routingIsOut() && !cut.reached() ? cut.reach() : (value.apply(target, args) as unknown);
+            !cut.reached() && cuts(String(name), args)
+              ? cut.reach()
+              : (value.apply(target, args) as unknown);
         },
       });
-    const restores = [
-      restorerOf(workflow, "code"),
-      restorerOf(workflow, "documents"),
-      restorerOf(sandboxProvider, "destroy"),
-    ];
+    const restores = [restorerOf(workflow, "code"), restorerOf(workflow, "documents")];
     const code = workflow.code.bind(workflow);
     const documents = workflow.documents.bind(workflow);
-    const destroy = sandboxProvider.destroy.bind(sandboxProvider);
     workflow.code = () => {
       const host = code();
       return host ? hostWithCut(host) : null;
@@ -2100,16 +2186,163 @@ export class ReviewLoopReplay {
       const host = await documents();
       return host ? hostWithCut(host) : null;
     };
-    sandboxProvider.destroy = async (sandbox) => {
-      const cutsHere = routingIsOut() || endedDoneInTheStep(store.task(sandbox.id));
-      return cutsHere && !cut.reached() ? cut.reach() : destroy(sandbox);
+    return () => {
+      for (const restore of restores) restore();
+    };
+  }
+
+  /**
+   * Run `work` until a world action it applies posts the handover of this author's job. That
+   * action stops there, as its instance does at a restart, and the post never returns.
+   */
+  private async untilAHandoverPosts(work: () => Promise<void>): Promise<void> {
+    const workflow = this.world.workflow;
+    const jobId = this.world.taskOf(this.author).job_id;
+    const restore = restorerOf(workflow, "post");
+    const post = workflow.post.bind(workflow);
+    const cut = this.cutOnce();
+    workflow.post = (event, to, options) => {
+      if (cut.reached() || event.type !== "artifact_ready" || event.job_id !== jobId) {
+        return post(event, to, options);
+      }
+      this.hungHandoverPost = event.text;
+      return cut.reach();
     };
     try {
       await this.untilCut(cut, work);
     } finally {
-      for (const restore of restores) restore();
+      restore();
     }
-    if (!cut.reached()) throw new Error("the step ended without a call after a done run");
+    if (!cut.reached()) throw new Error("the step ended without a handover post");
+  }
+
+  /**
+   * The ruling the decisions model holds lands, and the post of the rejection's reason never
+   * returns. Every other call of the ruling returns. A post the host would take counts as posted
+   * until the restart.
+   */
+  private async untilTheRejectionPosts(held: HeldRuling, action: RulingAction, post: string) {
+    const cut = this.cutOnce();
+    let reason: string | null = null;
+    const restore = this.hostsWithCut(cut, (method, args) => {
+      if (method !== "commentOnPull" && method !== "comment") return false;
+      reason = String(args.at(-1));
+      return true;
+    });
+    try {
+      held.release(action);
+      await Promise.race([held.turnEnd, cut.out]);
+      await new Promise((settled) => setTimeout(settled, 0));
+    } finally {
+      restore();
+    }
+    if (!cut.reached()) throw new Error("the ruling ended without a rejection post");
+    if (post === "HostTakes") this.hungRejectionPost = reason;
+  }
+
+  /** The refiner run whose turn end a restart cut before this step, as the spec says. */
+  private runWhoseTurnEndWaits(): number | null {
+    const before = this.trace[this.step - 1];
+    const runId = before?.review.refinerRuns.findIndex((run) => run.status === "TurnEndWaits");
+    return runId === undefined || runId === -1 ? null : runId;
+  }
+
+  /**
+   * The step that runs the turn end of the run `runId` that this step cuts. Null when the run
+   * stops another way first, or the trace ends while it waits.
+   */
+  private laterTurnEndOf(runId: number): TraceStep | null {
+    for (const later of this.trace.slice(this.step + 1)) {
+      if (later.review.refinerRuns[runId]?.status === "TurnEndWaits") continue;
+      return endsACutTurn(later) ? later : null;
+    }
+    return null;
+  }
+
+  /**
+   * The turn of the findings reviewer or judge run of the author ends, with what the step that
+   * later runs its turn end needs. The first call of its turn end never returns.
+   */
+  private async untilAReviewerTurnEndIsCut(): Promise<void> {
+    const run = this.world.refinerRunOf(this.author);
+    if (!run) throw new Error("no refiner run is unfinished");
+    await this.untilARefinerTurnEndIsCut(cutTurnClosing(this.laterTurnEndOf(this.runIdOf(run))));
+  }
+
+  /**
+   * The turn of the refiner run of the author ends with what `end` says. The first call of its
+   * turn end never returns.
+   */
+  private async untilARefinerTurnEndIsCut(end: RefinerRunEnd): Promise<void> {
+    const run = this.world.refinerRunOf(this.author);
+    const bridge = run ? await this.world.bridgeWithRunningTurn(run.task_id) : null;
+    if (!run || !bridge) throw new Error("no refiner run has a running turn");
+    const turn = { author: this.author, run, bridge };
+    await closeRefinerRunTurn(this.world, turn, end, this.authorIndex());
+    this.world.pageHost.commenting = "takes";
+    const cut = this.cutOnce();
+    this.world.workflow.gatewayInstance = new FakeGateway({ decisions: { decide: cut.reach } });
+    const restore = this.hostsWithCut(cut, () => true);
+    try {
+      void bridge.endTurn("end_turn");
+      await cut.out;
+    } finally {
+      restore();
+    }
+  }
+
+  /**
+   * The polisher's turn ends after it pushed or not, and a restart cuts its turn end at its first
+   * call. The alarm the start step armed then settles the polisher on what the host says, which
+   * gives the gate outcome the spec picks.
+   */
+  private async polisherTurnEndIsCut(step: TraceStep): Promise<void> {
+    const run = this.world.refinerRunOf(this.author);
+    if (!run) throw new Error("no polisher holds the artifact");
+    const pushed = itfBool(pickOf(step, "pushed"));
+    if (this.revisions.kind === "pull") {
+      if (pushed) this.world.changeRevision(this.author);
+      const outcome = pickTag(step, "outcome");
+      const sentBackAlready = sentBackOnTheRevision(step.review);
+      this.hostSays(this.pick(hostChecksFor(outcome, sentBackAlready, this.polisherQuietMs())));
+    } else if (pushed) {
+      await this.editPage(pickTag(step, "part"));
+    }
+    await this.instanceRestarts(() => this.untilARefinerTurnEndIsCut(cutTurnClosing(null)));
+    await this.world.apply(cutTurnEndAlarmFires(run.task_id));
+  }
+
+  /** The alarm runs the turn end of the run `runId` that a restart cut, the way this step ends it. */
+  private async resumeTheCutTurnEnd(step: TraceStep, runId: number): Promise<void> {
+    const job = this.world.taskOf(this.author).job_id;
+    const run = this.world.workflow.store.refinerRunsOf(job)[runId];
+    if (!run) throw new Error(`the job has no refiner run ${runId}`);
+    const fires = () => this.world.apply(cutTurnEndAlarmFires(run.task_id));
+    switch (step.action) {
+      case "judgeTurnEnds": {
+        const path = this.rulingPathOf(runId);
+        const held = await this.untilRulingCall({ taskId: run.task_id, path }, fires);
+        if (held) this.held.set(runId, held);
+        return;
+      }
+      case "theReviewReadFails":
+        return this.world.whilePullReviewsAreUnreadable(() => this.untilModelCall(fires));
+      case "findingsReviewerLeavesFindings":
+      case "findingsReviewerApproves": {
+        const commenting = PAGE_COMMENTING[pickTag(step, "commenting")];
+        if (!commenting) throw new Error(`the trace has commenting ${pickTag(step, "commenting")}`);
+        if (this.revisions.kind === "page") this.world.pageHost.commenting = commenting;
+        try {
+          await this.untilModelCall(fires);
+        } finally {
+          this.world.pageHost.commenting = "takes";
+        }
+        return;
+      }
+      default:
+        this.world.answerDecisionsWith(GAVE_UP_ANSWERS);
+        return this.untilModelCall(fires);
+    }
   }
 
   /** A cut a world action reaches once. The call that reaches it never returns. */
@@ -2272,8 +2505,11 @@ export class ReviewLoopReplay {
     if (judgeRun === null || !held) throw new Error(`no ruling is held for ${judgeRun}`);
     this.held.delete(judgeRun);
     const post = action === "decisionsModelCannotRule" ? "HostTakes" : pickTag(step, "post");
+    const cutsThePost =
+      this.trace[this.step + 1]?.action === "instanceRestartsWhileARejectionPosts";
     await this.whileRejectionPosts(post, () =>
       this.untilModelCall(async () => {
+        if (cutsThePost) return this.untilTheRejectionPosts(held, action, post);
         held.release(action);
         await held.turnEnd;
       }),
@@ -2461,6 +2697,83 @@ function authorIndexOf(world: WorkflowWorld, author: WorldAuthor): number {
   throw new Error(`no index of the world names the author ${author.taskId}`);
 }
 
+/** The spec actions that run the turn end of a findings reviewer or judge run. */
+const REVIEWER_TURN_ENDS = [
+  "findingsReviewerLeavesFindings",
+  "findingsReviewerApproves",
+  "theReviewReadFails",
+  "judgeTurnEnds",
+] as const;
+
+/** True for a step that runs the turn end of a run whose turn end a restart cut. */
+function endsACutTurn(step: TraceStep): boolean {
+  if ((REVIEWER_TURN_ENDS as readonly string[]).includes(step.action)) return true;
+  const fails =
+    step.action === "refinerRunHitsARecoverableFailure" ||
+    step.action === "aRestartedRefinerRunHitsAFailure";
+  return fails && pickTag(step, "cause") === "GivesUp";
+}
+
+/** What the turn of a run says before a restart cuts its turn end, for the step that runs it later. */
+function cutTurnClosing(finish: TraceStep | null): RefinerRunEnd {
+  const end: RefinerRunEnd = {
+    ...TURN_END,
+    pageCommenting: "takes",
+    reviewer: "approved",
+    polisher: "nothing_pushed",
+    closing: "reports_work",
+  };
+  switch (finish?.action) {
+    case "findingsReviewerLeavesFindings":
+    case "theReviewReadFails":
+      return { ...end, reviewer: "findings" };
+    case "findingsReviewerApproves":
+    case "judgeTurnEnds":
+    case undefined:
+      return end;
+    default:
+      return { ...end, reviewer: "no_review", closing: "gives_up" };
+  }
+}
+
+/** The alarm that runs the turn end a restart cut of the refiner run `taskId` fires. */
+function cutTurnEndAlarmFires(taskId: string): WorkflowAction {
+  return {
+    toString: () => `the turn end alarm of ${taskId} fires`,
+    run: async (world) => {
+      const alarm = world.workflow
+        .alarmsFor("resumeRefinerTurnEnd")
+        .find((armed) => (armed.payload as GenerationAlarm).task_id === taskId);
+      if (!alarm) throw new Error(`no turn end alarm is armed for ${taskId}`);
+      await world.workflow.cancelAlarm(alarm.id);
+      await resumeRefinerTurnEnd(world.workflow, alarm.payload as GenerationAlarm);
+    },
+  };
+}
+
+/** The alarm that posts the handover of the job `jobId` after a restart cut its post. */
+function handoverPostAlarmOf(workflow: FakeRuntime, jobId: string): HandoverPostAlarm | null {
+  const payloads = workflow
+    .alarmsFor("postHandover")
+    .map((alarm) => alarm.payload as HandoverPostAlarm);
+  return payloads.find((payload) => payload.job_id === jobId) ?? null;
+}
+
+/** The alarm that posts the handover of the job `jobId` fires. */
+function handoverPostAlarmFires(jobId: string): WorkflowAction {
+  return {
+    toString: () => `the handover post alarm of ${jobId} fires`,
+    run: async (world) => {
+      const alarm = world.workflow
+        .alarmsFor("postHandover")
+        .find((armed) => (armed.payload as HandoverPostAlarm).job_id === jobId);
+      if (!alarm) throw new Error(`no handover post alarm is armed for ${jobId}`);
+      await world.workflow.cancelAlarm(alarm.id);
+      await postHandover(world.workflow, alarm.payload as HandoverPostAlarm);
+    },
+  };
+}
+
 /** The judge closes with `conclusion`, or with no text when it is empty. */
 function judgeCloses(run: TaskRow, conclusion: string): WorkflowAction {
   const said = conclusion ? "its conclusion" : "no conclusion";
@@ -2475,17 +2788,20 @@ function judgeCloses(run: TaskRow, conclusion: string): WorkflowAction {
   };
 }
 
-/** A refiner run as the spec sees it. A quiet polisher that has not finished waits on its checks. */
+/**
+ * A refiner run as the spec sees it. A quiet polisher that has not finished waits on its checks.
+ * A reviewer run whose turn end a restart cut waits for the alarm that runs it.
+ */
 function specRunOf(
   run: RefinerRun,
   revisionCount: (revision: string | null) => number | null,
-  quiet: boolean,
+  seen: { quiet: boolean; turnEndWaits: boolean },
 ): SpecRun {
   const status = SPEC_STATUSES[run.status];
-  const waits = status === "Running" && run.role === "polisher" && quiet;
+  const waits = status === "Running" && run.role === "polisher" && seen.quiet;
   return {
     refinerIndex: run.refiner_index ?? 0,
-    status: waits ? "WaitsOnChecks" : status,
+    status: waits ? "WaitsOnChecks" : seen.turnEndWaits ? "TurnEndWaits" : status,
     result: specResultOf(run, revisionCount),
     restarts: run.restarts,
   };

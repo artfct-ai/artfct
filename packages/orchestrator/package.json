@@ -20,7 +20,7 @@
     "test": "bun test",
     "test:medium": "vitest run",
     "lint": "oxlint",
-    "spec:replay": "bun scripts/properties/spec-replays.ts",
+    "spec:replay": "bun scripts/properties/pull-request-runs.ts replays",
     "spec:replay:e2e": "bun scripts/properties/e2e-property-test.ts"
   },
   "dependencies": {

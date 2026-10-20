@@ -130,7 +130,14 @@
             "value": {
               "#tup": []
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "0"
+          },
+          "handoverPosts": {
+            "#bigint": "0"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -370,7 +377,14 @@
             "value": {
               "#tup": []
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "0"
+          },
+          "handoverPosts": {
+            "#bigint": "0"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -640,7 +654,14 @@
             "value": {
               "#tup": []
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "0"
+          },
+          "handoverPosts": {
+            "#bigint": "0"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -921,7 +942,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -1199,7 +1227,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -1477,7 +1512,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -1755,7 +1797,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -2033,7 +2082,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -2311,7 +2367,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -2589,7 +2652,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -2867,7 +2937,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -3145,7 +3222,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -3423,7 +3507,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -3701,7 +3792,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -3979,7 +4077,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -4257,7 +4362,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -4535,7 +4647,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -4813,7 +4932,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -5091,7 +5217,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -5369,7 +5502,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -5647,7 +5787,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -5925,7 +6072,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -6203,7 +6357,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -6481,7 +6642,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -6759,7 +6927,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {
@@ -7037,7 +7212,14 @@
                 }
               }
             }
-          }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
         },
         "author": {
           "findingsFrom": {

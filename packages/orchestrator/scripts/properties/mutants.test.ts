@@ -2,6 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { MUTANTS, applyMutant, mutantReport, type Mutant } from "./mutants";
+import { standalonePropertyFile } from "./property-files";
 
 const MUTANT: Mutant = {
   id: "X1",
@@ -51,6 +52,13 @@ describe("MUTANTS", () => {
         applyMutant(readFileSync(join(orchestratorRoot, mutant.path), "utf8"), mutant) === null,
     ).map((mutant) => mutant.id);
     expect(stale).toEqual([]);
+  });
+
+  it("each name a standalone property file when they name one", () => {
+    const unknown = MUTANTS.filter(
+      (mutant) => mutant.propertyFile && !standalonePropertyFile(mutant.propertyFile),
+    ).map((mutant) => mutant.id);
+    expect(unknown).toEqual([]);
   });
 
   it("have unique ids", () => {

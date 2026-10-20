@@ -1,5 +1,5 @@
 import { availableParallelism } from "node:os";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import type { Subprocess } from "bun";
 
 /** A property test file, the package directory it runs from, and the runs each property in it takes per full e2e run. */
@@ -14,222 +14,71 @@ export type PropertyFile = {
 /** The outcome of one property file run, with everything it printed. */
 export type PropertyRun = { outcome: "passed" | "failed" | "timed_out"; output: string };
 
-/** The spec replay files, which the `spec:replay` task, the CI replay jobs and the mutant run use. */
-export const SPEC_REPLAY_FILES = {
-  chat_acknowledgement: {
-    title: "chat acknowledgement spec replay",
-    packageDir: "orchestrator",
-    path: "./src/router/chat-acknowledgement.replay.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 3000,
-  },
-  router_bindings: {
-    title: "router bindings spec replay",
-    packageDir: "orchestrator",
-    path: "./src/router/router-bindings.replay.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 3000,
-  },
-  review_loop: {
-    title: "review loop spec replay",
-    packageDir: "orchestrator",
-    path: "./src/workflow/review-loop.replay.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 300,
-  },
-  workflow_lifecycle: {
-    title: "workflow lifecycle spec replay",
-    packageDir: "orchestrator",
-    path: "./src/workflow/workflow-lifecycle.replay.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 1000,
-  },
-  harness_session: {
-    title: "harness session spec replay",
-    packageDir: "orchestrator",
-    path: "./src/workflow/task/harness/harness-session.replay.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 3000,
-  },
-  agent_turns: {
-    title: "agent turns spec replay",
-    packageDir: "orchestrator",
-    path: "./src/agent/turn/agent-turns.replay.medium.ts",
-    runner: ["bunx", "vitest", "run", "--config", "vitest.replay.config.ts"],
-    e2eRuns: 300,
-  },
-  session_routing: {
-    title: "session routing spec replay",
-    packageDir: "orchestrator",
-    path: "./src/workflow/session-routing.replay.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 3000,
-  },
-  feedback_routing: {
-    title: "feedback routing spec replay",
-    packageDir: "orchestrator",
-    path: "./src/workflow/refiner/feedback-routing.replay.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 3000,
-  },
-} satisfies Record<string, PropertyFile>;
+const ORCHESTRATOR_DIR = join(import.meta.dirname, "../..");
+const PACKAGES_DIR = join(ORCHESTRATOR_DIR, "..");
 
-/** The property test files that check logic the Quint specs do not model, for the main and nightly property jobs and the mutants that name them. */
-export const STANDALONE_PROPERTY_FILES = {
-  slack_inbound: {
-    title: "slack inbound mapper properties",
-    packageDir: "adapters",
-    path: "./src/chat/slack/inbound-invariants.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 100_000,
-  },
-  slack_text: {
-    title: "slack text properties",
-    packageDir: "adapters",
-    path: "./src/chat/slack/text-invariants.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 100_000,
-  },
-  github_inbound: {
-    title: "github inbound mapper properties",
-    packageDir: "adapters",
-    path: "./src/code/github/inbound-invariants.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 100_000,
-  },
-  github_code: {
-    title: "github code properties",
-    packageDir: "adapters",
-    path: "./src/code/github/code-invariants.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 100_000,
-  },
-  linear_inbound: {
-    title: "linear inbound mapper properties",
-    packageDir: "adapters",
-    path: "./src/tracker/linear/inbound-invariants.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 100_000,
-  },
-  notion_inbound: {
-    title: "notion inbound mapper properties",
-    packageDir: "adapters",
-    path: "./src/documents/notion/inbound-invariants.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 100_000,
-  },
-  linear_held_comments: {
-    title: "linear held comments properties",
-    packageDir: "adapters",
-    path: "./src/documents/linear/held-comments.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 200_000,
-  },
-  notion_held_comments: {
-    title: "notion held comments properties",
-    packageDir: "adapters",
-    path: "./src/documents/notion/held-comments.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 200_000,
-  },
-  notion_text: {
-    title: "notion text properties",
-    packageDir: "adapters",
-    path: "./src/documents/notion/text-invariants.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 100_000,
-  },
-  linear_document_write: {
-    title: "linear document write property",
-    packageDir: "adapters",
-    path: "./src/documents/linear/write-invariants.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 100_000,
-  },
-  page_text_update: {
-    title: "page text update properties",
-    packageDir: "adapters",
-    path: "./src/documents/page-text-update.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 100_000,
-  },
-  webhook_signatures: {
-    title: "webhook signature properties",
-    packageDir: "ingress",
-    path: "./src/routes/webhook-invariants.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 100_000,
-  },
-  verbal_command: {
-    title: "verbal command property",
-    packageDir: "orchestrator",
-    path: "./src/workflow/inbound/verbal-command-invariants.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 100_000,
-  },
-  screen_parts: {
-    title: "screen parts property",
-    packageDir: "orchestrator",
-    path: "./src/decisions/screen-invariants.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 20_000,
-  },
-  worker_secrets: {
-    title: "orchestrator secret properties",
-    packageDir: "orchestrator",
-    path: "./src/workflow/worker-secret-invariants.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 2_000,
-  },
-  ingress_secrets: {
-    title: "ingress secret properties",
-    packageDir: "ingress",
-    path: "./src/routes/secret-invariants.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 20_000,
-  },
-  task_digest: {
-    title: "task digest property",
-    packageDir: "orchestrator",
-    path: "./src/workflow/task/harness/digest-invariants.test.ts",
-    runner: ["bun", "test"],
-    e2eRuns: 100_000,
-  },
-  condensed_tool_result: {
-    title: "condensed tool result property",
-    packageDir: "orchestrator",
-    path: "./src/agent/tools/condensed.property.test.medium.ts",
-    runner: ["bunx", "vitest", "run"],
-    e2eRuns: 20_000,
-  },
-  person_upserts: {
-    title: "person upserts property",
-    packageDir: "orchestrator",
-    path: "./src/db/persons.property.test.medium.ts",
-    runner: ["bunx", "vitest", "run"],
-    e2eRuns: 3_000,
-  },
-  token_refresh: {
-    title: "tracker install token refresh property",
-    packageDir: "orchestrator",
-    path: "./src/oauth/token.property.test.medium.ts",
-    runner: ["bunx", "vitest", "run"],
-    e2eRuns: 5_000,
-  },
-  access_rules: {
-    title: "access rules property",
-    packageDir: "orchestrator",
-    path: "./src/router/identity.property.test.medium.ts",
-    runner: ["bunx", "vitest", "run"],
-    e2eRuns: 50_000,
-  },
-} satisfies Record<string, PropertyFile>;
+const SPEC_REPLAY_PATTERN = "*/src/**/*.replay{,.medium}.ts";
+const STANDALONE_PROPERTY_PATTERN = "*/src/**/*.property{,.medium}.ts";
+
+/**
+ * The runs each property of a file takes in an e2e run, for a file whose count differs from the
+ * 3,000 of a spec replay or the 100,000 of a standalone property file. Keys are paths under `packages/`.
+ */
+export const E2E_RUNS_BY_FILE: Record<string, number> = {
+  "orchestrator/src/workflow/review-loop.replay.ts": 300,
+  "orchestrator/src/workflow/workflow-lifecycle.replay.ts": 1000,
+  "orchestrator/src/agent/turn/agent-turns.replay.medium.ts": 300,
+  "adapters/src/documents/linear/held-comments.property.ts": 200_000,
+  "adapters/src/documents/notion/held-comments.property.ts": 200_000,
+  "orchestrator/src/agent/tools/condensed.property.medium.ts": 20_000,
+  "orchestrator/src/decisions/screen.property.ts": 20_000,
+  "orchestrator/src/db/persons.property.medium.ts": 3_000,
+  "orchestrator/src/oauth/token.property.medium.ts": 5_000,
+  "orchestrator/src/router/identity.property.medium.ts": 50_000,
+  "orchestrator/src/workflow/secrets.property.ts": 2_000,
+  "ingress/src/routes/secrets.property.ts": 20_000,
+};
+
+function propertyFilesMatching(pattern: string, defaultE2eRuns: number): PropertyFile[] {
+  return [...new Bun.Glob(pattern).scanSync(PACKAGES_DIR)].toSorted().map((pathUnderPackages) => {
+    const packageEnd = pathUnderPackages.indexOf("/");
+    const path = `./${pathUnderPackages.slice(packageEnd + 1)}`;
+    return {
+      title: `${pathUnderPackages} properties`,
+      packageDir: pathUnderPackages.slice(0, packageEnd),
+      path,
+      runner: path.endsWith(".medium.ts")
+        ? ["bunx", "vitest", "run", "--config", "vitest.property.config.ts"]
+        : ["bun", "test"],
+      e2eRuns: E2E_RUNS_BY_FILE[pathUnderPackages] ?? defaultE2eRuns,
+    };
+  });
+}
+
+/** The spec replay files by spec name, which the `spec:replay` task, the CI replay jobs and the mutant run use. */
+export const SPEC_REPLAY_FILES: Record<string, PropertyFile> = Object.fromEntries(
+  propertyFilesMatching(SPEC_REPLAY_PATTERN, 3000).map((file) => {
+    const spec = basename(file.path).replace(/\.replay(\.medium)?\.ts$/, "");
+    return [spec, { ...file, title: `${spec.replaceAll("-", " ")} spec replay` }];
+  }),
+);
+
+/** The property test files that check logic the Quint specs do not model, for the property jobs and the mutants that name them. */
+export const STANDALONE_PROPERTY_FILES: PropertyFile[] = propertyFilesMatching(
+  STANDALONE_PROPERTY_PATTERN,
+  100_000,
+);
+
+/** The standalone property file at a path relative to the orchestrator package, as a mutant names it. */
+export function standalonePropertyFile(pathFromOrchestrator: string): PropertyFile | undefined {
+  const wanted = join(ORCHESTRATOR_DIR, pathFromOrchestrator);
+  return STANDALONE_PROPERTY_FILES.find(
+    (file) => join(PACKAGES_DIR, file.packageDir, file.path) === wanted,
+  );
+}
 
 /** A property file run past this is a hang, reported with its seed. */
 export const PROPERTY_FILE_TIMEOUT_MINUTES = 20;
-
-const ORCHESTRATOR_DIR = join(import.meta.dirname, "../..");
-const PACKAGES_DIR = join(ORCHESTRATOR_DIR, "..");
 
 /** The runs each property of a file takes in an e2e run, divided by `PROPERTY_RUNS_DIVISOR` for a light run. */
 function e2eRunCount(file: PropertyFile): number {
