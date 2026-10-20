@@ -641,7 +641,7 @@ export function personWrites(kind: "prompt" | "start" | "status"): WorkflowActio
 /** A person cancels the workflow where it started. */
 export function personCancels(via: "control" | "word"): WorkflowAction {
   return action(`a person cancels with the ${via}`, (world) => {
-    const reply_to = world.workflow.state.origin ?? undefined;
+    const reply_to = world.workflow.store.requireWorkflowRow().origin ?? undefined;
     if (via === "control")
       return world.deliver({ kind: "control", control: "cancel", text: "", reply_to });
     return world.deliver({ kind: "prompt", text: "cancel", reply_to });

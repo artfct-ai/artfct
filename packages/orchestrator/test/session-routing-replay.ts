@@ -20,7 +20,7 @@ import { onWallClock } from "../src/workflow/task/harness/timers";
 import type { TaskEvent } from "../src/workflow/task/events";
 import type { WorkflowRuntime } from "../src/workflow/types";
 import { Deferred } from "./deferred";
-import { FakeRuntime } from "./fake-runtime";
+import { FakeRuntime, PAGE_PARENT } from "./fake-runtime";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
 import { quintTraces } from "./quint-traces";
 import type { TrackerHealth } from "./session-tracker";
@@ -563,7 +563,10 @@ export class SessionRoutingReplay {
       }
       return FakeRuntime.prototype.scheduleAlarm.apply(this, alarm);
     };
-    await world.apply(worldAction("the agent sets the plan", () => setPlan(workflow, {})));
+    const pageParent = SPEC_SETUPS[setup].pageAuthor === "model" ? PAGE_PARENT : undefined;
+    await world.apply(
+      worldAction("the agent sets the plan", () => setPlan(workflow, { page_parent: pageParent })),
+    );
     return replay;
   }
 
@@ -655,11 +658,11 @@ export class SessionRoutingReplay {
   /** The workflow as the spec sees it. */
   project(): SpecRouting {
     const { workflow } = this.world;
-    const { store, state, transcript } = workflow;
+    const { store, transcript } = workflow;
     const jobs = store.jobs();
     return {
-      subject: specSubjectOf(state.subject ?? null),
-      replyTargets: state.reply_targets.map(targetName).toSorted(),
+      subject: specSubjectOf(store.subject()),
+      replyTargets: store.replyTargets().map(targetName).toSorted(),
       jobs: jobs.map((job) => {
         const author = store.authorTask(job.job_id);
         const researcher = store.researcherTask(job.job_id);
@@ -704,8 +707,8 @@ export class SessionRoutingReplay {
         )
         .filter((name, index, names) => names.indexOf(name) === index)
         .toSorted(),
-      waitsForInput: state.status === "waiting_input",
-      ended: isWorkflowFinished(state.status),
+      waitsForInput: store.requireWorkflowRow().status === "waiting_input",
+      ended: isWorkflowFinished(store.requireWorkflowRow().status),
     };
   }
 
@@ -861,7 +864,8 @@ export class SessionRoutingReplay {
       case "idleClockFiresWithoutASleep":
         return worldAction("the idle clock fires", async (world) => {
           const { workflow } = world;
-          if (workflow.state.idle_alarm) await workflow.cancelAlarm(workflow.state.idle_alarm);
+          const idleSchedule = workflow.store.requireWorkflowRow().idle_schedule;
+          if (idleSchedule) await workflow.cancelAlarm(idleSchedule);
           await onIdle(workflow);
         });
       case "boardFlushes":
@@ -940,10 +944,12 @@ export class SessionRoutingReplay {
     world: WorkflowWorld,
     issue: Issue,
   ): Extract<ReplyTarget, { source: "tracker" }> {
-    const session = world.workflow.state.reply_targets.find(
-      (target): target is Extract<ReplyTarget, { source: "tracker" }> =>
-        target.source === "tracker" && target.issue_id === ISSUE_KEY[issue],
-    );
+    const session = world.workflow.store
+      .replyTargets()
+      .find(
+        (target): target is Extract<ReplyTarget, { source: "tracker" }> =>
+          target.source === "tracker" && target.issue_id === ISSUE_KEY[issue],
+      );
     if (!session) throw new Error(`the workflow has no session on ${issue}`);
     return session;
   }
@@ -1116,7 +1122,10 @@ export class SessionRoutingReplay {
 }
 
 /** The agent sets the plan of the one stage, and names `subject` when given. */
-async function setPlan(workflow: WorkflowRuntime, named: { subject?: string }): Promise<void> {
+async function setPlan(
+  workflow: WorkflowRuntime,
+  named: { subject?: string; page_parent?: string },
+): Promise<void> {
   await planTools(workflow).set_plan.execute(
     {
       name: "Fix login",
@@ -1124,7 +1133,7 @@ async function setPlan(workflow: WorkflowRuntime, named: { subject?: string }): 
       reason: "the request asks for a design",
       stages: [STAGE],
       repo: REPO,
-      page_parent: workflow.state.page_parent,
+      page_parent: workflow.store.stagePlan()?.page_parent ?? undefined,
       concurrency: ISSUES.length,
       ...named,
     },

@@ -6,10 +6,13 @@ import { MockHarness } from "@artfct-ai/adapters/test/mock-harness";
 import { OPTIONS_HEADING } from "../../../artifact/options";
 import { freshRuntime } from "../../../../test/fresh-runtime";
 import {
+  PAGE_PARENT,
+  patchModelAuthors,
   patchModelExecution,
   patchStageResearch,
   seedTask,
   type FakeRuntime,
+  patchStagePlan,
 } from "../../../../test/fake-runtime";
 import { scenario } from "../../../../test/scenario";
 import { toolText } from "../../../../test/tool-result";
@@ -146,7 +149,7 @@ describe("complete_job", () => {
 
     it("names the next stage of the plan", () =>
       pageInReview(0.9)(async (workflow) => {
-        workflow.patchState({ stages: ["design", "implement"] });
+        patchStagePlan(workflow, { stages: ["design", "implement"] });
         const { complete_job } = startTools(workflow, ["Looks good, ship it."]);
         expect(await complete_job.execute({ job_id: "wf_x-1", result: "Done." }, call)).toBe(
           "Job wf_x-1 done. Next stage: implement. Call start_job with stage implement and a brief for it.",
@@ -155,7 +158,7 @@ describe("complete_job", () => {
 
     it("names no next stage for a job whose stage is outside the plan", () =>
       pageInReview(0.9)(async (workflow) => {
-        workflow.patchState({ stages: ["breakdown", "implement"] });
+        patchStagePlan(workflow, { stages: ["breakdown", "implement"] });
         const { complete_job } = startTools(workflow, ["Looks good, ship it."]);
         expect(await complete_job.execute({ job_id: "wf_x-1", result: "Done." }, call)).toBe(
           "Job wf_x-1 done. Stage design is not in the plan, so the plan names no next stage. Call set_plan when the route changed.",
@@ -322,7 +325,7 @@ describe("cancel_job", () => {
 
     it("leaves the workflow open", () =>
       cancelledNow((workflow) => {
-        expect(workflow.state.status).toBe("running");
+        expect(workflow.store.requireWorkflowRow().status).toBe("running");
       }));
 
     it("tells the agent why the job ended", () =>
@@ -366,7 +369,7 @@ describe("cancel_job", () => {
 describe("validateFreeSlot", () => {
   it("counts a job whose researcher holds its slot", () =>
     researching((workflow) => {
-      workflow.patchState({ concurrency: 1 });
+      patchStagePlan(workflow, { job_slots: 1 });
       expect(validateFreeSlot(workflow)).toBe(
         "All 1 slots are busy (wf_x-1). Wait for a job to complete.",
       );
@@ -374,18 +377,18 @@ describe("validateFreeSlot", () => {
 
   it("lets a job start into a free slot", () =>
     researching((workflow) => {
-      workflow.patchState({ concurrency: 2 });
+      patchStagePlan(workflow, { job_slots: 2 });
       expect(validateFreeSlot(workflow)).toBeNull();
     }));
 });
 
 const modelStage = scenario(freshRuntime, (workflow) => {
   patchModelExecution(workflow);
-  workflow.patchState({ stages: ["design"] });
+  patchStagePlan(workflow, { stages: ["design"] });
 });
 
 const designPlanned = scenario(freshRuntime, (workflow) => {
-  workflow.patchState({ stages: ["design"] });
+  patchStagePlan(workflow, { stages: ["design"] });
 });
 
 describe("start_job after a cancelled job on the same request left a page", () => {
@@ -528,7 +531,7 @@ async function startDesign(workflow: FakeRuntime): Promise<string> {
 
 describe("start_job on a page stage whose researcher runs first", () => {
   const researchedModelStage = scenario(freshRuntime, (workflow) => {
-    patchModelExecution(workflow);
+    patchModelAuthors(workflow);
     patchStageResearch(workflow);
   });
 
@@ -555,7 +558,7 @@ describe("start_job on a page stage whose researcher runs first", () => {
   describe("with a plan that does not set a root page or a page parent", () => {
     let result: string;
     const refused = scenario(researchedModelStage, async (workflow) => {
-      workflow.patchState({ stages: ["implement"], page_parent: null, root_page: null });
+      patchStagePlan(workflow, { stages: ["implement"], page_parent: null, root_page: null });
       result = await startDesign(workflow);
     });
 
@@ -575,7 +578,7 @@ describe("start_job on a page stage whose researcher runs first", () => {
 
   describe("with a plan that has a root page", () => {
     const started = scenario(researchedModelStage, async (workflow) => {
-      workflow.patchState({
+      patchStagePlan(workflow, {
         stages: ["design"],
         page_parent: null,
         root_page: { page_id: "root-1", url: "https://docs.test/root-1", source: "container" },
@@ -591,7 +594,7 @@ describe("start_job on a page stage whose researcher runs first", () => {
 
   describe("with a plan that has a page parent", () => {
     const started = scenario(researchedModelStage, async (workflow) => {
-      workflow.patchState({ stages: ["design"] });
+      patchStagePlan(workflow, { stages: ["design"], page_parent: PAGE_PARENT });
       await startDesign(workflow);
     });
 

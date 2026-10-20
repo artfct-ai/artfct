@@ -44,7 +44,7 @@ export default class Orchestrator extends WorkerEntrypoint<Env> implements Orche
     return install?.organization_id ?? null;
   }
 
-  status(workflowId: string): Promise<WorkflowSummary> {
+  status(workflowId: string): Promise<WorkflowSummary | null> {
     return this.env.Workflow.getByName(workflowId).status();
   }
 

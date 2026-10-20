@@ -21,7 +21,6 @@ import { bindWorkflow, failTask, MAX_RESTARTS, restartOrFailTask } from "../../l
 import { runModelAuthorTurn } from "../model-author";
 import type { WorkflowRuntime } from "../../types";
 import { taskSettings } from "../settings";
-import type { RepoRef } from "../../store/state";
 import type { JobRow, SandboxRow, TaskRow } from "../../store/tasks";
 import { sandboxRefOf, sandboxSizeOf } from "./size";
 
@@ -78,10 +77,10 @@ async function bindBranchOfJob(
   task: TaskRow,
   job: JobRow,
 ): Promise<boolean> {
-  const { repo } = workflow.state;
+  const repo = workflow.store.plan()?.repo;
   if (!job.branch || !repo) return true;
   try {
-    await bindWorkflow(workflow, { source: "code_branch", repo: repo.full, branch: job.branch });
+    await bindWorkflow(workflow, { source: "code_branch", repo, branch: job.branch });
     return true;
   } catch (error) {
     workflow.log(
@@ -168,7 +167,9 @@ async function startGeneration(
   });
   let commitAuthor: CommitAuthor | null;
   try {
-    commitAuthor = workflow.state.repo ? ((await workflow.code()?.commitAuthor()) ?? null) : null;
+    commitAuthor = workflow.store.plan()?.repo
+      ? ((await workflow.code()?.commitAuthor()) ?? null)
+      : null;
   } catch (error) {
     workflow.log(
       fresh.task_id,
@@ -199,9 +200,9 @@ async function startGeneration(
     skills,
     harness: workflow.harness(sandbox.harness),
     adapters: config.adapters,
-    workflowId: workflow.state.workflow_id,
+    workflowId: workflow.store.requireWorkflowRow().workflow_id,
     publicUrl: workflow.env.PUBLIC_URL ?? "",
-    repo: workflow.state.repo,
+    repo: workflow.store.plan()?.repo ?? null,
     commitAuthor,
     workflowRepoToken: githubTokens?.workflowRepoToken ?? null,
     allReposReadToken: githubTokens?.allReposReadToken ?? null,
@@ -275,7 +276,8 @@ export type StartSpecInput = {
   adapters: Adapters;
   workflowId: string;
   publicUrl: string;
-  repo: RepoRef | null;
+  /** The full name of the workflow's repository. Null when the plan did not name one. */
+  repo: string | null;
   commitAuthor: CommitAuthor | null;
   workflowRepoToken: string | null;
   allReposReadToken: AllReposReadToken | null;
@@ -300,7 +302,7 @@ export function buildStartSpec(
   const setup = input.harness.setup({
     model: task.model,
     effort: input.effort ?? null,
-    repoFull: repo?.full ?? null,
+    repoFull: repo,
     gateway: input.gateway,
   });
   if ("error" in setup) return { error: setup.error };
@@ -318,7 +320,7 @@ export function buildStartSpec(
     workspace: WORKSPACE,
     repo: repo
       ? {
-          clone_url: cloneUrl(input.adapters, repo.full),
+          clone_url: cloneUrl(input.adapters, repo),
           branch: job.branch,
           author: input.commitAuthor,
         }
@@ -330,7 +332,7 @@ export function buildStartSpec(
         workflowId: input.workflowId,
         taskId: task.task_id,
         stageName: job.stage,
-        repoFull: repo?.full ?? null,
+        repoFull: repo,
       }),
       ...input.hostEnv,
       ...setup.env,
@@ -372,7 +374,7 @@ function gatewayRouting(
   const gateway = workflow.gateway(workflow.config().adapters.gateway.provider);
   if (!gateway) return null;
   const metadata = {
-    workflow_id: workflow.state.workflow_id,
+    workflow_id: workflow.store.requireWorkflowRow().workflow_id,
     task_id: task.task_id,
     stage: job.stage,
   };

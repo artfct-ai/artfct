@@ -2,7 +2,7 @@ import { env } from "cloudflare:workers";
 import { describe, expect, it } from "vitest";
 import { claimBinding, listBindings } from "../db/bindings";
 import { createDb } from "../db/client";
-import { type FakeRuntime, seedTask } from "../../test/fake-runtime";
+import { type FakeRuntime, seedTask, patchStagePlan } from "../../test/fake-runtime";
 import { freshDurableRuntime } from "../../test/durable-runtime";
 import { scenario } from "../../test/scenario";
 import { completeWorkflow, failWorkflow } from "./lifecycle";
@@ -45,7 +45,8 @@ async function boundSources(): Promise<string[]> {
 }
 
 function planned(workflow: FakeRuntime, concurrency = 3): void {
-  workflow.patchState({ stages: STAGES, concurrency, status: "running" });
+  workflow.store.updateWorkflow({ status: "running" });
+  patchStagePlan(workflow, { stages: STAGES, job_slots: concurrency });
 }
 
 describe("completeWorkflow", () => {
@@ -57,7 +58,7 @@ describe("completeWorkflow", () => {
 
     it("marks the workflow done", () =>
       finished((workflow) => {
-        expect(workflow.state.status).toBe("done");
+        expect(workflow.store.requireWorkflowRow().status).toBe("done");
       }));
 
     it("posts the result", () =>
@@ -99,7 +100,7 @@ describe("failWorkflow", () => {
 
     it("marks the workflow failed", () =>
       failed((workflow) => {
-        expect(workflow.state.status).toBe("failed");
+        expect(workflow.store.requireWorkflowRow().status).toBe("failed");
       }));
 
     it("cancels the active task and leaves the done one", () =>

@@ -1,6 +1,10 @@
 import { beforeEach, describe, expect, it } from "bun:test";
 import { adminGet, harness, type Harness } from "../test/app-harness";
-import { DEFAULT_INSTALL_LINK, FAKE_BINDINGS } from "../test/fake-orchestrator";
+import {
+  DEFAULT_INSTALL_LINK,
+  FAKE_BINDINGS,
+  UNCREATED_WORKFLOW_ID,
+} from "../test/fake-orchestrator";
 
 describe("linear install", () => {
   describe("an admin who asks for the install link", () => {
@@ -150,6 +154,11 @@ describe("admin routes", () => {
       app = harness({ adminDebug: true });
       debug = await app.request(adminGet("/workflows/wf_2/debug"));
       bindings = await app.request(adminGet("/bindings"));
+    });
+
+    it("answers not found for a workflow that was never created", async () => {
+      const status = await app.request(adminGet(`/workflows/${UNCREATED_WORKFLOW_ID}`));
+      expect(status.status).toBe(404);
     });
 
     it("answers the debug state the orchestrator reported", async () => {

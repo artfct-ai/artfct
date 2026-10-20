@@ -4,7 +4,13 @@ import { describe, expect, it } from "vitest";
 import { listBindings } from "../db/bindings";
 import { createDb } from "../db/client";
 import { createWorkflow } from "../db/workflows";
-import { FakeRuntime, type SeedTaskPatch, seedTask } from "../../test/fake-runtime";
+import {
+  FakeRuntime,
+  type SeedTaskPatch,
+  seedTask,
+  patchStagePlan,
+  patchPlan,
+} from "../../test/fake-runtime";
 import { FakeSandboxProvider } from "../../test/fake-sandbox";
 import { gate } from "../../test/scripted-chat";
 import { testNotifier } from "../../test/notifier-fixture";
@@ -38,7 +44,8 @@ const ISSUE = {
 const db = createDb(env.DB);
 
 function planned(workflow: FakeRuntime, concurrency = 3): void {
-  workflow.patchState({ stages: STAGES, concurrency, status: "running" });
+  workflow.store.updateWorkflow({ status: "running" });
+  patchStagePlan(workflow, { stages: STAGES, job_slots: concurrency });
 }
 
 function cutOffDuring(
@@ -112,7 +119,7 @@ describe("completeJob", () => {
 
     it("leaves the workflow running", () =>
       completed(({ workflow }) => {
-        expect(workflow.state.status).toBe("running");
+        expect(workflow.store.requireWorkflowRow().status).toBe("running");
       }));
 
     it("logs the summary", () =>
@@ -142,7 +149,7 @@ describe("completeJob", () => {
 
     it("leaves the workflow running", () =>
       completed(({ workflow }) => {
-        expect(workflow.state.status).toBe("running");
+        expect(workflow.store.requireWorkflowRow().status).toBe("running");
       }));
   });
 
@@ -235,7 +242,7 @@ describe("completeJob", () => {
 
       it("leaves the workflow running", () =>
         resumed((workflow) => {
-          expect(workflow.state.status).toBe("running");
+          expect(workflow.store.requireWorkflowRow().status).toBe("running");
         }));
     });
   });
@@ -243,11 +250,9 @@ describe("completeJob", () => {
   describe("a completion of the subject issue's job cut off in a single-issue workflow", () => {
     const restarted = cutOffDuring(
       async (workflow, task) => {
-        workflow.patchState({
-          stages: ["design"],
-          status: "running",
-          subject: { kind: "issue", issue_id: ISSUE.id },
-        });
+        workflow.store.updateWorkflow({ status: "running" });
+        patchStagePlan(workflow, { stages: ["design"] });
+        workflow.store.writeSubject({ kind: "issue", issue_id: ISSUE.id });
         await completeJob(workflow, task, "designed");
       },
       "destroy",
@@ -256,7 +261,7 @@ describe("completeJob", () => {
 
     it("leaves the workflow running", () =>
       restarted((workflow) => {
-        expect(workflow.state.status).toBe("running");
+        expect(workflow.store.requireWorkflowRow().status).toBe("running");
       }));
 
     describe("and the task end alarm fires", () => {
@@ -264,7 +269,7 @@ describe("completeJob", () => {
 
       it("ends the workflow done with the result", () =>
         resumed((workflow) => {
-          expect(workflow.state.status).toBe("done");
+          expect(workflow.store.requireWorkflowRow().status).toBe("done");
           expect(workflow.posted).toEqual([{ type: "done", result: "designed" }]);
         }));
 
@@ -579,11 +584,9 @@ describe("startJob", () => {
   describe("a stage the config names", () => {
     const started = acting(async (workflow) => {
       planned(workflow);
-      workflow.patchState({
-        repo: { full: "acme/app" },
-        request: { title: "Fix it", text: "Fix it please", links: [] },
-      });
-      await createWorkflow(db, workflow.state.workflow_id);
+      patchPlan(workflow, { repo: "acme/app" });
+      workflow.store.updateWorkflow({ request_title: "Fix it", request_text: "Fix it please" });
+      await createWorkflow(db, workflow.store.requireWorkflowRow().workflow_id);
       return startJob(workflow, {
         stage: "implement",
         brief: "Make the test pass.",
@@ -628,7 +631,9 @@ describe("startJob", () => {
 
     it("advances the job and task sequences and keeps the workflow running", () =>
       started(({ workflow }) => {
-        expect(workflow.state).toMatchObject({ job_seq: 1, task_seq: 1, status: "running" });
+        expect(workflow.store.jobCount()).toBe(1);
+        expect(workflow.store.taskCount()).toBe(1);
+        expect(workflow.store.requireWorkflowRow().status).toBe("running");
       }));
 
     it("posts the start", () =>
@@ -655,7 +660,7 @@ describe("startJob", () => {
   describe("a job that claims an issue for a request that came from chat", () => {
     const claimed = acting((workflow) => {
       planned(workflow);
-      workflow.patchState({ origin: { source: "chat", channel: "C1", thread: "1.2" } });
+      workflow.store.updateWorkflow({ origin: { source: "chat", channel: "C1", thread: "1.2" } });
       return startJob(workflow, {
         stage: "implement",
         brief: "Fix it.",
@@ -685,7 +690,7 @@ describe("startJob", () => {
   describe("a second job on an issue a chat request already linked", () => {
     const claimedAgain = acting(async (workflow) => {
       planned(workflow);
-      workflow.patchState({ origin: { source: "chat", channel: "C1", thread: "1.2" } });
+      workflow.store.updateWorkflow({ origin: { source: "chat", channel: "C1", thread: "1.2" } });
       const input = { kind: "issue", issue: ISSUE } as const;
       await startJob(workflow, { stage: "implement", brief: "Fix it.", input });
       return startJob(workflow, { stage: "implement", brief: "Fix it again.", input });
@@ -703,7 +708,7 @@ describe("startJob", () => {
   describe("a job that claims an issue for a request that came from the tracker", () => {
     const claimed = acting((workflow) => {
       planned(workflow);
-      workflow.patchState({
+      workflow.store.updateWorkflow({
         origin: { source: "tracker", session_id: "sess-1", issue_id: "issue-1" },
       });
       return startJob(workflow, {
@@ -736,7 +741,7 @@ describe("startJob", () => {
 
     it("leaves the workflow running", () =>
       refused(({ workflow }) => {
-        expect(workflow.state.status).toBe("running");
+        expect(workflow.store.requireWorkflowRow().status).toBe("running");
       }));
 
     it("writes no task row", () =>
@@ -757,11 +762,12 @@ describe("completeWorkflow", () => {
   const tracker = new FakeTracker();
   const completed = scenario(freshDurableRuntime, async (workflow) => {
     workflow.notifier = testNotifier([], { tracker });
-    workflow.patchState({
-      reply_targets: [
-        { source: "chat", channel: "C1", thread: "1.0" },
-        { source: "tracker", session_id: "sess-1", issue_id: "issue-1", team_id: "team-1" },
-      ],
+    workflow.store.addReplyTarget({ source: "chat", channel: "C1", thread: "1.0" });
+    workflow.store.addReplyTarget({
+      source: "tracker",
+      session_id: "sess-1",
+      issue_id: "issue-1",
+      team_id: "team-1",
     });
     await completeWorkflow(workflow, "Merged.");
   });

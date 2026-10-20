@@ -58,7 +58,8 @@ export type WorkflowSummary = {
   concurrency: number;
   cost_usd: number;
   repo: { full: string } | null;
-  reason: string;
+  /** Why the last plan was set. Null before the plan that starts the workflow. */
+  reason: string | null;
 };
 
 /** A user as reported by an external system. */
@@ -116,7 +117,8 @@ export interface OrchestratorRpc {
   resolveActor(query: IdentityQuery): Promise<Actor | null>;
   /** The id of the tracker workspace the deployment is installed in. Null before the install. */
   trackerWorkspace(): Promise<string | null>;
-  status(workflowId: string): Promise<WorkflowSummary>;
+  /** The status summary of a workflow. Null when the id names a workflow that was never created. */
+  status(workflowId: string): Promise<WorkflowSummary | null>;
   debug(workflowId: string): Promise<unknown>;
   bindings(): Promise<BindingRecord[]>;
   /** A fresh Linear authorize link for an app-actor install. The state inside it works once. */

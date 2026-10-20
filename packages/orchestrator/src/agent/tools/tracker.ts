@@ -38,7 +38,7 @@ export function trackerTools(workflow: WorkflowRuntime) {
 async function listReady(workflow: WorkflowRuntime): Promise<string> {
   const tracker = await workflow.tracker();
   if (!tracker) return "The tracker is not configured.";
-  const subject = workflow.state.subject ?? null;
+  const subject = workflow.store.subject();
   if (!subject) {
     return `This workflow does not have a subject yet. ${SET_SUBJECT_FIRST}`;
   }

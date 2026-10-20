@@ -377,7 +377,7 @@ describe("recheckChecks", () => {
 
   describe("a workflow that finished while the host worked the merge out", () => {
     const finished = scenario(heldByHumans(null), async (workflow) => {
-      workflow.patchState({ status: "cancelled" });
+      workflow.store.updateWorkflow({ status: "cancelled" });
       workflow.store.updateTask(TASK, { status: "cancelled" });
       workflow.codeHostInstance = hostWith(PASSED, false);
       await recheckChecks(workflow, ALARM);

@@ -126,11 +126,12 @@ export async function runAgentTurn(workflow: WorkflowRuntime): Promise<void> {
   const prompts = messages.length ? messages : taken.map((row) => row.text);
   workflow.log(null, `agent turn started${messages.length ? " on a person's message" : ""}`);
   const startedAt = await armTurnWatchdog(workflow);
-  const lostFirstRow = workflow.state.turn_first_row ?? null;
+  const lostFirstRow = workflow.store.requireWorkflowRow().turn_first_row;
   const firstRow = lostFirstRow ?? takenRow;
-  workflow.patchState({
+  workflow.store.updateWorkflow({
     turn_first_row: firstRow,
-    turn_board_changed: lostFirstRow !== null && workflow.state.turn_board_changed === true,
+    turn_board_changed:
+      lostFirstRow !== null && workflow.store.requireWorkflowRow().turn_board_changed,
   });
   const answering = workflow.transcript.answering();
   const outcome = await boundedAttempt(workflow, {
@@ -282,7 +283,7 @@ async function generate(
     if (signal.aborted) return "timed_out";
   }
   if (pass.endedByTool || !pass.text) return "silent";
-  const boardChanged = workflow.state.turn_board_changed === true;
+  const boardChanged = workflow.store.requireWorkflowRow().turn_board_changed;
   const withheld = closingTextWithheld(reply ? reply.owed : null, boardChanged);
   if (withheld) {
     workflow.log(null, `closing text not posted, ${withheld}: ${pass.text.slice(0, 200)}`);
@@ -322,7 +323,9 @@ async function sendHeldCommentsForRevision(
  * turn or of the lost turn it resumes.
  */
 function replied(workflow: WorkflowRuntime, pass: ModelPass): boolean {
-  return pass.text !== "" || pass.endedByTool || workflow.state.turn_board_changed === true;
+  return (
+    pass.text !== "" || pass.endedByTool || workflow.store.requireWorkflowRow().turn_board_changed
+  );
 }
 
 /**
@@ -347,7 +350,7 @@ async function modelPass(
     tools,
     activeTools: () => (awaitingFirstReply() ? firstReplyTools : activeTools),
     maxSteps: config.max_steps,
-    identity: orchestratorIdentity(workflow.state.workflow_id),
+    identity: orchestratorIdentity(workflow.store.requireWorkflowRow().workflow_id),
     abortSignal: signal,
     stopTools: endingTools,
     onStep: async (step) => {
@@ -360,9 +363,9 @@ async function modelPass(
         if (
           turn.personWrote &&
           REPLYING_TOOLS.includes(call.toolName) &&
-          hasChatThread(workflow.state)
+          hasChatThread(workflow.store.replyTargets())
         ) {
-          workflow.patchState({ turn_board_changed: true });
+          workflow.store.updateWorkflow({ turn_board_changed: true });
         }
         if (FIRST_REPLY_TOOLS.includes(call.toolName)) progress.firstReplied = true;
       }

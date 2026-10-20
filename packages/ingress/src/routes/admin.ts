@@ -15,9 +15,11 @@ adminRoutes.use("*", async (ctx, next) => {
   return next();
 });
 
-adminRoutes.get("/workflows/:id", async (ctx) =>
-  ctx.json(await ctx.env.ORCHESTRATOR.status(ctx.req.param("id"))),
-);
+adminRoutes.get("/workflows/:id", async (ctx) => {
+  const summary = await ctx.env.ORCHESTRATOR.status(ctx.req.param("id"));
+  if (!summary) return ctx.notFound();
+  return ctx.json(summary);
+});
 
 adminRoutes.get("/workflows/:id/debug", async (ctx) =>
   ctx.json(await ctx.env.ORCHESTRATOR.debug(ctx.req.param("id"))),

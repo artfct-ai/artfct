@@ -29,7 +29,6 @@ import type { Env } from "../env";
 import type { Notifier, PostOptions } from "../notify/notifier";
 import type { Recipients } from "../notify/recipients";
 import type { SandboxProvider } from "../sandbox/provider";
-import type { WorkflowState } from "./store/state";
 import type { JobRow, TaskRow, WorkflowStore } from "./store/tasks";
 import type { TurnCoalescer } from "./task/harness/turn";
 
@@ -80,7 +79,6 @@ export type Applied = { notes: string[]; wake: Wake };
 /** What the workflow logic modules need from the Durable Object, and tests fake. */
 export interface WorkflowRuntime {
   readonly env: Env;
-  readonly state: WorkflowState;
   readonly store: WorkflowStore;
   readonly notifier: Notifier;
   readonly transcript: TranscriptStore;
@@ -88,7 +86,6 @@ export interface WorkflowRuntime {
   readonly sessionFeeds: Map<string, AuthorFeed>;
   /** The model turns of this instance whose page write is out, by turn id. A stop leaves them in flight. */
   readonly pageWritesOut: Set<string>;
-  patchState(patch: Partial<WorkflowState>): void;
   config(): Config;
   /** The workflow definitions of the deployment. A plan names one of them. */
   workflowDefinitions(): readonly WorkflowDefinition[];
@@ -177,6 +174,7 @@ export interface WorkflowRpc {
   create(workflowId: string, event: InboundEvent, endedWorkflowId: string | null): Promise<RpcAck>;
   /** Take a later event, or refuse it so the router routes it elsewhere. */
   handle(event: InboundEvent): Promise<RpcAck | EventRefusal>;
-  status(): Promise<WorkflowSummary>;
+  /** The status summary. Null before the create. */
+  status(): Promise<WorkflowSummary | null>;
   debug(): Promise<unknown>;
 }

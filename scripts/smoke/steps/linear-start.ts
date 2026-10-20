@@ -90,9 +90,9 @@ export async function runLinearStart(): Promise<LinearStartResult> {
     async () => {
       const debug = await fetchWorkflowDebug(workflowId);
       const isPlanned =
-        debug.state.status === "running" &&
-        debug.state.stages.join(",") === STAGE_NAMES.join(",") &&
-        debug.state.repo?.full === REPO_FULL_NAME &&
+        debug.workflow.status === "running" &&
+        debug.stage_plan?.stages.join(",") === STAGE_NAMES.join(",") &&
+        debug.plan?.repo === REPO_FULL_NAME &&
         hasOutboxMessage(
           debug,
           (message) => message.kind === "issue_update" && message.payload.to === "started",
@@ -100,7 +100,7 @@ export async function runLinearStart(): Promise<LinearStartResult> {
       return isPlanned ? debug : null;
     },
   );
-  assertEqual(planned.state.reply_targets.length, 1, "one reply target (the Linear session)");
+  assertEqual(planned.reply_targets.length, 1, "one reply target (the Linear session)");
   await assertLinearSideEffects();
 
   const taskRow = await waitUntil(

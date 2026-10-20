@@ -80,9 +80,9 @@ export function historyTools(workflow: WorkflowRuntime, turn?: TurnDecisions) {
 
 /** The chat thread the request came from: its origin when that is chat, else any chat target. */
 function chatTarget(workflow: WorkflowRuntime): ChatTarget | null {
-  const { origin, reply_targets } = workflow.state;
+  const { origin } = workflow.store.requireWorkflowRow();
   if (origin?.source === "chat") return origin;
-  return reply_targets.find((target) => target.source === "chat") ?? null;
+  return workflow.store.replyTargets().find((target) => target.source === "chat") ?? null;
 }
 
 /** What the model reads in place of a message the screen did not admit. It never holds the message. */

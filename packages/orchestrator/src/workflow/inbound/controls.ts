@@ -66,7 +66,7 @@ async function cancel(
     workflow.log(null, `cancel ignored: ${why} (${reason})`);
     return why;
   }
-  const subject = workflow.state.subject ?? null;
+  const subject = workflow.store.subject();
   const subjectIssue = subject?.kind === "issue" ? subject.issue_id : null;
   if (owner && owner.issue_id !== subjectIssue) {
     const task = workflow.store.authorOrResearcherTaskOf(owner.job_id);
@@ -84,7 +84,7 @@ async function cancel(
     workflow.log(null, `cancel ignored: ${why} (${reason})`);
     return why;
   }
-  await endWorkflow(workflow, { status: "cancelled", reason, answering });
+  await endWorkflow(workflow, { ends_as: "cancelled", reason, answering, posted: false });
   return null;
 }
 
