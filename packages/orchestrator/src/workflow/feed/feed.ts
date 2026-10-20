@@ -47,8 +47,18 @@ export type ClosingReplyAlarm = { session: TrackerSession; activity: FeedActivit
  */
 export type AuthorFeed = { message: string; narrationPost: Promise<void> };
 
-/** How the session feed ends a turn. */
-export type FeedClosing = { kind: "reply" } | { kind: "stopped" } | { kind: "error"; text: string };
+/**
+ * How the session feed ends a turn. `narrated_account` is the turn end of an author that goes
+ * straight into its next turn: its closing account posts as narration, not as a response.
+ */
+export type FeedClosing =
+  | { kind: "reply" }
+  | { kind: "narrated_account" }
+  | { kind: "stopped" }
+  | { kind: "error"; text: string };
+
+/** A closing that posts as a response or an error and ends the feed's turn. */
+type PostedClosing = Exclude<FeedClosing, { kind: "narrated_account" }>;
 
 /** The closing of a stopped turn or a cancelled task. */
 export const STOPPED_CLOSING: FeedClosing = { kind: "stopped" };
@@ -227,7 +237,16 @@ export function feedClosingOf(stopReason: StopReason): FeedClosing {
   }
 }
 
-function closingContent(closing: FeedClosing, message: string): AgentActivityContent {
+/**
+ * The closing of a turn whose author goes straight into its next turn. A response would mark the
+ * job session complete while the work goes on, so the reply's account posts as narration. A stop
+ * or an error does not post.
+ */
+export function closingWhenTheAuthorGoesOn(closing: FeedClosing): FeedClosing | null {
+  return closing.kind === "reply" ? { kind: "narrated_account" } : null;
+}
+
+function closingContent(closing: PostedClosing, message: string): AgentActivityContent {
   switch (closing.kind) {
     case "reply":
       return { type: "response", body: message || DONE_TEXT };
@@ -243,9 +262,9 @@ function closingContent(closing: FeedClosing, message: string): AgentActivityCon
 }
 
 /**
- * End the author's session feed for this turn, and post the closing when one is given. The
- * reply's alarm is armed before the post and cancelled once it returns, so an instance restart
- * in between does not lose the reply.
+ * End the author's session feed for this turn, and post the closing when one is given. A narrated
+ * account joins the narration that waits. The reply's alarm is armed before the post and
+ * cancelled once it returns, so an instance restart in between does not lose the reply.
  */
 export async function closeSessionFeed(
   workflow: WorkflowRuntime,
@@ -253,10 +272,12 @@ export async function closeSessionFeed(
   closing: FeedClosing | null,
 ): Promise<void> {
   const message = workflow.sessionFeeds.get(task.task_id)?.message ?? "";
+  const account = closing?.kind === "narrated_account" ? message.trim() : "";
+  if (account) workflow.store.appendNarration(task.task_id, account, isoNow(workflow));
   await postWaitingNarration(workflow, task, "now");
   workflow.sessionFeeds.delete(task.task_id);
   const session = feedSessionOf(workflow, task);
-  if (!session || !closing) return;
+  if (!session || !closing || closing.kind === "narrated_account") return;
   const content = closingContent(closing, message);
   const reply: ClosingReplyAlarm = {
     session,

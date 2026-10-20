@@ -82,7 +82,13 @@ const POST_KINDS = [
   "InfoPost",
   "TurnFailedPost",
 ] as const;
-const FEED_KINDS = ["ReplyActivity", "DoneActivity", "StoppedActivity", "ErrorActivity"] as const;
+const FEED_KINDS = [
+  "ReplyActivity",
+  "DoneActivity",
+  "StoppedActivity",
+  "ErrorActivity",
+  "NarratedAccount",
+] as const;
 const SESSION_TEXTS = ["Question", "StatusRequest", "PauseCommand", "CancelCommand"] as const;
 const OUTCOMES = ["Answers", "Asks", "TimesOut"] as const;
 const ENDINGS = ["Finishes", "Fails"] as const;
@@ -467,7 +473,9 @@ function issueKeyOfTarget(target: unknown): string | null {
   return typeof target.issue_id === "string" ? target.issue_id : null;
 }
 
+/** The spec's kind of a feed activity. The only thought the spec's feed takes is a narrated account. */
 function feedKindOf(content: AgentActivityContent): FeedKind {
+  if (content.type === "thought") return "NarratedAccount";
   if (content.type === "error") return "ErrorActivity";
   if (content.type !== "response") throw new Error(`the spec has no feed kind ${content.type}`);
   if (content.body === STOPPED_TEXT) return "StoppedActivity";
@@ -478,6 +486,30 @@ function feedKindOf(content: AgentActivityContent): FeedKind {
 function feedActivityOf(payload: unknown): FeedActivity {
   if (typeof payload !== "object" || payload === null) throw new Error("a feed row has no payload");
   return payload as FeedActivity;
+}
+
+/**
+ * The narration posts of a turn end that carry the closing account. A turn end posts the narration
+ * that waited before it, so a post that carries more holds the account.
+ */
+function narratedAccounts(
+  rows: { channel: string; kind: string; payload: unknown }[],
+  narrationBefore: Map<string, string>,
+): FeedActivity[] {
+  return rows
+    .filter((row) => row.channel === "feed" && row.kind === "thought")
+    .map((row) => row.payload)
+    .filter(isPersistentActivity)
+    .filter(
+      (activity) =>
+        activity.content.type === "thought" &&
+        activity.content.body !== narrationBefore.get(activity.task_id),
+    );
+}
+
+/** A persistent feed activity carries its id. An ephemeral thought does not. */
+function isPersistentActivity(payload: unknown): payload is FeedActivity {
+  return typeof payload === "object" && payload !== null && "id" in payload;
 }
 
 function todosOf(workflow: WorkflowRuntime, task: TaskRow | null): SpecTodos {
@@ -537,6 +569,7 @@ export class SessionRoutingReplay {
 
   /** Take one spec action, then bring up every sandbox that waits. Returns what the step sent. */
   async take(step: Pick<TraceStep, "action" | "picks">): Promise<SpecOutput> {
+    const narrationBefore = this.waitingNarration();
     const deliveriesBefore = this.world.workflow.deliveries.length;
     const outboxBefore = this.world.lastOutboxId();
     const health = step.picks.health ?? "TrackerUp";
@@ -557,6 +590,7 @@ export class SessionRoutingReplay {
     const feed = rows
       .filter((row) => row.channel === "feed" && !NOT_FEED_ACTIVITIES.includes(row.kind))
       .map((row) => feedActivityOf(row.payload));
+    if (step.action === "authorTurnEnds") feed.push(...narratedAccounts(rows, narrationBefore));
     if (isRestartMidPost(health) && step.action !== "closingReplyAlarmFires") {
       this.cutReplies.push(
         ...this.closingReplyAlarms()
@@ -576,6 +610,18 @@ export class SessionRoutingReplay {
         .map((row) => issueOfKey(issueKeyOfTarget(row.target)))
         .toSorted(),
     };
+  }
+
+  /** The narration that waits for each author, by task. */
+  private waitingNarration(): Map<string, string> {
+    const { store } = this.world.workflow;
+    return new Map(
+      store.jobs().flatMap((job) => {
+        const author = store.authorTask(job.job_id);
+        if (!author) return [];
+        return [[author.task_id, store.sessionFeed(author.task_id)?.narration ?? ""] as const];
+      }),
+    );
   }
 
   /** The session messages as the spec sees them, in the order they were sent. */

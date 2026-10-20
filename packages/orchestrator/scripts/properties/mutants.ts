@@ -110,7 +110,7 @@ export const MUTANTS: Mutant[] = [
     id: "W11",
     invariant: "sessionRouting::sessionFeedEndsWhenItsAuthorIdles",
     path: "src/workflow/task/harness/turn.ts",
-    find: "  await closeSessionFeed(workflow, task, busy ? null : feedClosingOf(stopReason));\n  if (!busy)",
+    find: "  await closeSessionFeed(workflow, task, busy ? closingWhenTheAuthorGoesOn(closing) : closing);\n  if (!busy)",
     replace: "  if (!busy)",
   },
   {
@@ -2127,9 +2127,8 @@ export const MUTANTS: Mutant[] = [
     id: "W383",
     invariant: "sessionFeedInvariants::theReplyNeverPostsAsNarration",
     path: "src/workflow/feed/feed.ts",
-    find: '  const message = workflow.sessionFeeds.get(task.task_id)?.message ?? "";\n  await postWaitingNarration(workflow, task, "now");\n',
-    replace:
-      '  const message = workflow.sessionFeeds.get(task.task_id)?.message ?? "";\n  if (message.trim()) workflow.store.appendNarration(task.task_id, message.trim(), isoNow(workflow));\n  await postWaitingNarration(workflow, task, "now");\n',
+    find: '  const account = closing?.kind === "narrated_account" ? message.trim() : "";\n',
+    replace: "  const account = message.trim();\n",
     propertyFile: "src/workflow/feed/feed.property.ts",
   },
   {
@@ -2145,8 +2144,9 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "sessionFeedInvariants::heartbeatsAreTheOnlyPostsTheQuotaSkips (the closing waits on the quota)",
     path: "src/workflow/feed/feed.ts",
-    find: "  if (!session || !closing) return;\n",
-    replace: "  if (!session || !closing || (await requestQuotaLow(workflow))) return;\n",
+    find: '  if (!session || !closing || closing.kind === "narrated_account") return;\n',
+    replace:
+      '  if (!session || !closing || closing.kind === "narrated_account" || (await requestQuotaLow(workflow))) return;\n',
     propertyFile: "src/workflow/feed/feed.property.ts",
   },
   {
@@ -2183,6 +2183,13 @@ export const MUTANTS: Mutant[] = [
     find: "  if (await requestQuotaLow(workflow)) {\n",
     replace: "  if (false && (await requestQuotaLow(workflow))) {\n",
     propertyFile: "src/workflow/feed/feed.property.ts",
+  },
+  {
+    id: "W395",
+    invariant: "sessionRouting::aTurnEndNeverDropsItsAccount",
+    path: "src/workflow/task/harness/turn.ts",
+    find: "  await closeSessionFeed(workflow, task, busy ? closingWhenTheAuthorGoesOn(closing) : closing);\n",
+    replace: "  await closeSessionFeed(workflow, task, busy ? null : closing);\n",
   },
   {
     id: "W360",
