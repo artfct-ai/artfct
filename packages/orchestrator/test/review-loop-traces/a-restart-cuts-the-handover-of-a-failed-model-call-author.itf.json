@@ -1,0 +1,846 @@
+{
+  "#meta": {
+    "format": "ITF",
+    "format-description": "https://apalache-mc.org/docs/adr/015adr-trace.html",
+    "source": "../../spec/review-loop/modelCallJudgeThenPolisher.qnt",
+    "description": "Written from the review loop spec by hand. It holds the variables the replay reads."
+  },
+  "vars": [
+    "modelCallJudgeThenPolisher::reviewLoop::review",
+    "modelCallJudgeThenPolisher::reviewLoop::agentHeard",
+    "modelCallJudgeThenPolisher::reviewLoop::instanceRestartCount",
+    "mbt::actionTaken",
+    "mbt::nondetPicks"
+  ],
+  "states": [
+    {
+      "#meta": {
+        "index": 0
+      },
+      "modelCallJudgeThenPolisher::reviewLoop::agentHeard": {
+        "#set": []
+      },
+      "modelCallJudgeThenPolisher::reviewLoop::instanceRestartCount": {
+        "#bigint": "0"
+      },
+      "modelCallJudgeThenPolisher::reviewLoop::review": {
+        "artifact": {
+          "deliveredToHumans": false,
+          "recheckArmed": false,
+          "refinerRun": {
+            "tag": "NoRefinerRun",
+            "value": {
+              "#tup": []
+            }
+          },
+          "revision": {
+            "#bigint": "0"
+          },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
+          "status": {
+            "tag": "Drafted",
+            "value": {
+              "#tup": []
+            }
+          },
+          "handovers": {
+            "#bigint": "0"
+          },
+          "handoverPosts": {
+            "#bigint": "0"
+          },
+          "handoverPostWaits": false
+        },
+        "author": {
+          "findingsFrom": {
+            "#set": []
+          },
+          "pageEditsDuringTurn": {
+            "#set": []
+          },
+          "paused": false,
+          "queuedPrompts": [],
+          "rejectedBy": {
+            "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "AtWork",
+            "value": {
+              "#tup": []
+            }
+          },
+          "turnComments": {
+            "#set": []
+          }
+        },
+        "judgeRunsCodeRulesOn": {
+          "#set": []
+        },
+        "personComments": [
+          {
+            "acknowledged": false,
+            "answered": false,
+            "commentThread": {
+              "tag": "OpenedBy",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            "gone": false,
+            "mentions": false,
+            "onTheBlock": false,
+            "sent": false
+          }
+        ],
+        "refinerRuns": [],
+        "reviewComments": []
+      },
+      "mbt::actionTaken": "init",
+      "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "commenting": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "cut": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "decision": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "failure": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "flaw": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "judgeRun": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "meanwhile": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "part": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "place": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "post": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "read": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "route": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 1
+      },
+      "modelCallJudgeThenPolisher::reviewLoop::agentHeard": {
+        "#set": []
+      },
+      "modelCallJudgeThenPolisher::reviewLoop::instanceRestartCount": {
+        "#bigint": "0"
+      },
+      "modelCallJudgeThenPolisher::reviewLoop::review": {
+        "artifact": {
+          "deliveredToHumans": true,
+          "recheckArmed": false,
+          "refinerRun": {
+            "tag": "NoRefinerRun",
+            "value": {
+              "#tup": []
+            }
+          },
+          "revision": {
+            "#bigint": "0"
+          },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
+          "status": {
+            "tag": "Ready",
+            "value": {
+              "close": {
+                "tag": "ClosedBlocked",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "deliveredRevision": {
+                "tag": "ReadRevision",
+                "value": {
+                  "#bigint": "0"
+                }
+              }
+            }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
+        },
+        "author": {
+          "findingsFrom": {
+            "#set": []
+          },
+          "pageEditsDuringTurn": {
+            "#set": []
+          },
+          "paused": false,
+          "queuedPrompts": [],
+          "rejectedBy": {
+            "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "AuthorFailed",
+            "value": {
+              "#tup": []
+            }
+          },
+          "turnComments": {
+            "#set": []
+          }
+        },
+        "judgeRunsCodeRulesOn": {
+          "#set": []
+        },
+        "personComments": [
+          {
+            "acknowledged": false,
+            "answered": false,
+            "commentThread": {
+              "tag": "OpenedBy",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            "gone": false,
+            "mentions": false,
+            "onTheBlock": false,
+            "sent": false
+          }
+        ],
+        "refinerRuns": [],
+        "reviewComments": []
+      },
+      "mbt::actionTaken": "theHostFailsAModelCallAuthorsWrite",
+      "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "commenting": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "cut": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "decision": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "failure": {
+          "tag": "Some",
+          "value": {
+            "tag": "UpdateFails",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "flaw": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "judgeRun": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "meanwhile": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "part": {
+          "tag": "Some",
+          "value": {
+            "tag": "Body",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "place": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "post": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "read": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "revisionLookup": {
+          "tag": "Some",
+          "value": {
+            "tag": "RevisionKnown",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "route": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 2
+      },
+      "modelCallJudgeThenPolisher::reviewLoop::agentHeard": {
+        "#set": []
+      },
+      "modelCallJudgeThenPolisher::reviewLoop::instanceRestartCount": {
+        "#bigint": "1"
+      },
+      "modelCallJudgeThenPolisher::reviewLoop::review": {
+        "artifact": {
+          "deliveredToHumans": true,
+          "recheckArmed": false,
+          "refinerRun": {
+            "tag": "NoRefinerRun",
+            "value": {
+              "#tup": []
+            }
+          },
+          "revision": {
+            "#bigint": "0"
+          },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
+          "status": {
+            "tag": "Ready",
+            "value": {
+              "close": {
+                "tag": "ClosedBlocked",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "deliveredRevision": {
+                "tag": "ReadRevision",
+                "value": {
+                  "#bigint": "0"
+                }
+              }
+            }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "0"
+          },
+          "handoverPostWaits": true
+        },
+        "author": {
+          "findingsFrom": {
+            "#set": []
+          },
+          "pageEditsDuringTurn": {
+            "#set": []
+          },
+          "paused": false,
+          "queuedPrompts": [],
+          "rejectedBy": {
+            "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "AuthorFailed",
+            "value": {
+              "#tup": []
+            }
+          },
+          "turnComments": {
+            "#set": []
+          }
+        },
+        "judgeRunsCodeRulesOn": {
+          "#set": []
+        },
+        "personComments": [
+          {
+            "acknowledged": false,
+            "answered": false,
+            "commentThread": {
+              "tag": "OpenedBy",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            "gone": false,
+            "mentions": false,
+            "onTheBlock": false,
+            "sent": false
+          }
+        ],
+        "refinerRuns": [],
+        "reviewComments": []
+      },
+      "mbt::actionTaken": "instanceRestartsWhileAHandoverPosts",
+      "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "commenting": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "cut": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "decision": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "failure": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "flaw": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "judgeRun": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "meanwhile": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "part": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "place": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "post": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "read": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "revisionLookup": {
+          "tag": "Some",
+          "value": {
+            "tag": "RevisionKnown",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "route": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 3
+      },
+      "modelCallJudgeThenPolisher::reviewLoop::agentHeard": {
+        "#set": []
+      },
+      "modelCallJudgeThenPolisher::reviewLoop::instanceRestartCount": {
+        "#bigint": "1"
+      },
+      "modelCallJudgeThenPolisher::reviewLoop::review": {
+        "artifact": {
+          "deliveredToHumans": true,
+          "recheckArmed": false,
+          "refinerRun": {
+            "tag": "NoRefinerRun",
+            "value": {
+              "#tup": []
+            }
+          },
+          "revision": {
+            "#bigint": "0"
+          },
+          "sentBack": {
+            "tag": "NotSentBack",
+            "value": {
+              "#tup": []
+            }
+          },
+          "status": {
+            "tag": "Ready",
+            "value": {
+              "close": {
+                "tag": "ClosedBlocked",
+                "value": {
+                  "#tup": []
+                }
+              },
+              "deliveredRevision": {
+                "tag": "ReadRevision",
+                "value": {
+                  "#bigint": "0"
+                }
+              }
+            }
+          },
+          "handovers": {
+            "#bigint": "1"
+          },
+          "handoverPosts": {
+            "#bigint": "1"
+          },
+          "handoverPostWaits": false
+        },
+        "author": {
+          "findingsFrom": {
+            "#set": []
+          },
+          "pageEditsDuringTurn": {
+            "#set": []
+          },
+          "paused": false,
+          "queuedPrompts": [],
+          "rejectedBy": {
+            "#set": []
+          },
+          "restarts": {
+            "#bigint": "0"
+          },
+          "status": {
+            "tag": "AuthorFailed",
+            "value": {
+              "#tup": []
+            }
+          },
+          "turnComments": {
+            "#set": []
+          }
+        },
+        "judgeRunsCodeRulesOn": {
+          "#set": []
+        },
+        "personComments": [
+          {
+            "acknowledged": false,
+            "answered": false,
+            "commentThread": {
+              "tag": "OpenedBy",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            "gone": false,
+            "mentions": false,
+            "onTheBlock": false,
+            "sent": false
+          }
+        ],
+        "refinerRuns": [],
+        "reviewComments": []
+      },
+      "mbt::actionTaken": "theHandoverPostAlarmFires",
+      "mbt::nondetPicks": {
+        "cause": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "commenting": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "cut": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "decision": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "failure": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "flaw": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "judgeRun": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "meanwhile": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "part": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "place": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "post": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "read": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "revisionLookup": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "route": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    }
+  ]
+}

@@ -16,6 +16,7 @@ import {
   checksSendBackEventId,
 } from "../src/workflow/refiner/checks-gate";
 import { sendHeldCommentsOnRevisionRequest } from "../src/workflow/refiner/held-comments";
+import { workflowEnding } from "../src/workflow/lifecycle";
 import { taskQuiet } from "../src/workflow/refiner/loop";
 import { postHandover, type HandoverPostAlarm } from "../src/workflow/refiner/outcome";
 import { isTaskFinished, isWorkflowFinished } from "../src/workflow/store/state";
@@ -759,6 +760,7 @@ export class ReviewLoopReplay {
   private heardNow: HeardInStep | null = null;
   private readonly readyLine: string;
   private hungHandoverPost: string | null = null;
+  private cutReached: Promise<void> | null = null;
   private hungRejectionPost: string | null = null;
 
   private constructor(options: ReplayOptions & { readyLine: string }) {
@@ -1160,7 +1162,9 @@ export class ReviewLoopReplay {
       author: {
         status: specAuthorStatusOf(author, {
           atWork,
-          workflowEnded: isWorkflowFinished(this.world.workflow.state.status),
+          workflowEnded:
+            isWorkflowFinished(this.world.workflow.state.status) ||
+            workflowEnding(this.world.workflow),
         }),
         paused: author.paused_at !== null,
         restarts: author.restarts,
@@ -1840,15 +1844,16 @@ export class ReviewLoopReplay {
     this.pageTextAtCall = this.pageText();
   }
 
-  /** Answer the call the page model holds, then let the turn it ends run on. */
+  /** Answer the call the page model holds, then let the turn it ends run on until the step's cut. */
   private async answerModelCall(answer: string): Promise<void> {
     const pageModel = this.pageModel;
     if (!pageModel || pageModel.heldUserText === null) throw new Error("no page model call is out");
     const turn = this.modelTurn;
     this.modelTurn = null;
+    const cutReached = this.cutReached;
     await this.untilModelCall(async () => {
       pageModel.answer(answer);
-      await turn?.work;
+      await (cutReached ? Promise.race([turn?.work, cutReached]) : turn?.work);
     });
   }
 
@@ -2372,7 +2377,10 @@ export class ReviewLoopReplay {
     };
   }
 
-  /** Run `work`, and stop each world action it applies where the action reaches `cut`. */
+  /**
+   * Run `work`, and stop each world action it applies where the action reaches `cut`. A model
+   * turn that `work` lets run on stops there too.
+   */
   private async untilCut(
     cut: { reached: () => boolean; out: Promise<void> },
     work: () => Promise<void>,
@@ -2385,10 +2393,12 @@ export class ReviewLoopReplay {
           cut.reached() ? action.run(inWorld) : Promise.race([action.run(inWorld), cut.out]),
         toString: () => String(action),
       });
+    this.cutReached = cut.out;
     try {
       await work();
     } finally {
       world.apply = apply;
+      this.cutReached = null;
     }
   }
 

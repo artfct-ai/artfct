@@ -355,6 +355,7 @@ module reviewLoopTypes {
     aRestartCutsAReviewerTurnEnd: bool,
     aCutReviewerTurnEndRuns: bool,
     aRestartCutsTheHandoverOfAnEndedAuthor: bool,
+    aRestartCutsTheHandoverAtTheWorkflowEnd: bool,
     aRestartCutsAPolisherTurnEnd: bool,
     aRestartCutsARejectionPost: bool,
     aRulingCallReturnsAfterTheAuthorEnded: bool,
@@ -575,8 +576,8 @@ module reviewLoop {
   /// in which a new instance took over.
   var aDoneRunsSandboxIsOut: bool
   /// True after a step in which the routing of a findings reviewer or polisher run that ended done,
-  /// or the teardown of a cancelled or failed harness author, handed the artifact over, while the
-  /// handover post, the last call of that routing or teardown, is out.
+  /// or the teardown of an author that ended, handed the artifact over, while the handover post,
+  /// the last call of that routing or teardown, is out.
   var aHandoverPostIsOut: bool
   /// The post of the reason of a rejection that the decisions model ruled in the last step and
   /// that reached a live author. The post is the last call of that ruling.
@@ -1575,15 +1576,10 @@ module reviewLoop {
   /// True when the artifact went from a draft to the humans in the step.
   pure def handedOverIn(step: Transition): bool = drafted(step.before) and not(drafted(step.after))
 
-  /// True when a harness author was cancelled or failed in the step and its teardown handed the
-  /// artifact over. The handover post is the last call of that teardown that changes what the
-  /// review holds.
-  pure def anEndedAuthorsHandoverPosts(step: Transition): bool = and {
-    not(MODEL_CALL_AUTHOR),
-    endsTheAuthor(step),
-    handedOverIn(step),
-    step.after.author.status == AuthorCancelled or step.after.author.status == AuthorFailed,
-  }
+  /// True when a harness or model-call author ended in the step, cancelled, failed, or cancelled by
+  /// the workflow end, and its teardown handed the artifact over. The handover post is the last
+  /// call of that teardown that changes what the review holds.
+  pure def anEndedAuthorsHandoverPosts(step: Transition): bool = endsTheAuthor(step) and handedOverIn(step)
 
   /// The post of a rejection's reason that is out after the step: one the decisions model ruled
   /// in the step, when the rejection reached a live author whose model turn did not start.
@@ -2792,7 +2788,7 @@ module reviewLoop {
   pure def keepsTheFirstHandover(step: Transition): bool =
     step.before.artifact.deliveredToHumans implies step.after.artifact.deliveredToHumans
 
-  /// True when the author was live before a step and is cancelled or failed after it.
+  /// True when the author was live before a step and has ended after it.
   pure def endsTheAuthor(step: Transition): bool = authorLive(step.before) and not(authorLive(step.after))
 
   /// True when the humans have the artifact from a handover that closed blocked.
@@ -3097,6 +3093,8 @@ module reviewLoop {
     },
     aRestartCutsTheHandoverOfAnEndedAuthor:
       step.kind.cutOfADoneRun == ItsHandoverPostIsCut and not(authorLive(step.before)),
+    aRestartCutsTheHandoverAtTheWorkflowEnd:
+      step.kind.cutOfADoneRun == ItsHandoverPostIsCut and step.before.author.status == AuthorCancelledByTheWorkflowEnd,
     aModelTurnIsLostWithTheInstance: step.kind.instanceRestarted and aModelTurnIsOut(step.before),
     aPausedAuthorsModelTurnIsLost:
       step.kind.instanceRestarted and aModelTurnIsOut(step.before) and step.before.author.paused,
@@ -3698,8 +3696,12 @@ module reviewLoop {
   val aRestartCutsAPolisherTurnEnd: bool = lastStepReached.aRestartCutsAPolisherTurnEnd
 
   /// Witness for `theHumansHearOfEachHandoverOnce`: a new instance takes over while the handover
-  /// post of the teardown of a cancelled or failed author is out.
+  /// post of the teardown of an author that ended is out. A model-call author's teardown counts.
   val aRestartCutsTheHandoverOfAnEndedAuthor: bool = lastStepReached.aRestartCutsTheHandoverOfAnEndedAuthor
+
+  /// Witness for `theHumansHearOfEachHandoverOnce`: a new instance takes over while the handover
+  /// post of the teardown of an author that the workflow end cancelled is out.
+  val aRestartCutsTheHandoverAtTheWorkflowEnd: bool = lastStepReached.aRestartCutsTheHandoverAtTheWorkflowEnd
 
   /// Witness for `judgeRulesAtMostOnce`: a new instance takes over while the post of the reason of
   /// a rejection that reached the author is out.
