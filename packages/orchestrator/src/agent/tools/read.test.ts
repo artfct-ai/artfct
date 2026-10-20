@@ -89,6 +89,16 @@ describe("read_log", () => {
       }));
   });
 
+  describe("a log shorter than the lines asked for", () => {
+    it("returns every line, oldest first", () =>
+      freshRuntime(async (workflow) => {
+        for (let index = 1; index <= 3; index += 1) workflow.log(null, `line ${index}`);
+        const { read_log } = readTools(workflow);
+        const lines = toolText(await read_log.execute({ lines: 40 }, call)).split("\n");
+        expect(lines.map((line) => line.split(" - ")[1])).toEqual(["line 1", "line 2", "line 3"]);
+      }));
+  });
+
   describe("the line count the agent may ask for", () => {
     it("falls back to 40 lines", () =>
       freshRuntime((workflow) => {
