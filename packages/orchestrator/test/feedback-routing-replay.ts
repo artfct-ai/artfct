@@ -394,6 +394,7 @@ export class FeedbackRoutingReplay {
         return;
       case "feedbackIsRouted":
       case "aDeliveryIsRoutedPastTheHost":
+      case "aDeliveryReachesTheAuthorWithNothingHeld":
         await this.feedbackIsRouted(step.picks);
         return;
       case "personLeavesAPageComment":
