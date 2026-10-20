@@ -34,7 +34,7 @@
     "aPersonsMessageWakesTheWorkflow",
     "issuesMoveOnlyAtAStartOrADoneEnd",
     "eachFailedTaskPostsItsFailureOnce",
-    "aCancelledOrFailedAuthorsSandboxIsDestroyed",
+    "aFinishedAuthorsSandboxIsDestroyed",
     "anEndedWorkflowPostsItsEndOnce",
     "aCompletedJobEndsItsReview"
   ],
@@ -102,6 +102,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsTheDestroyOfACompletedAuthor",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut",
       "aJobCompletesDuringItsReview"
@@ -155,6 +156,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsTheDestroyOfACompletedAuthor",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut",
       "aJobCompletesDuringItsReview"
@@ -201,6 +203,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsTheDestroyOfACompletedAuthor",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut"
     ],
@@ -284,6 +287,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsTheDestroyOfACompletedAuthor",
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut",
@@ -603,6 +607,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsTheDestroyOfACompletedAuthor",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut"
     ],
@@ -656,6 +661,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsTheDestroyOfACompletedAuthor",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut"
     ],
@@ -708,6 +714,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsTheDestroyOfACompletedAuthor",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut"
     ],
@@ -762,6 +769,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsTheDestroyOfACompletedAuthor",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut"
     ],
@@ -812,6 +820,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsTheDestroyOfACompletedAuthor",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut",
       "theWorkflowFailed"

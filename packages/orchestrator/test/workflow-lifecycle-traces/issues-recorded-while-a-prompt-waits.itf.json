@@ -118,7 +118,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -339,7 +340,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -558,7 +560,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -777,7 +780,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -999,7 +1003,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -1272,7 +1277,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -1548,7 +1554,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -1823,7 +1830,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -2096,7 +2104,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -2369,7 +2378,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": false,
       "issuesForAChatRequest::workflowLifecycle::workflow": {
@@ -2644,7 +2654,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "issuesForAChatRequest::workflowLifecycle::lastStepToldTheAgent": true,
       "issuesForAChatRequest::workflowLifecycle::workflow": {

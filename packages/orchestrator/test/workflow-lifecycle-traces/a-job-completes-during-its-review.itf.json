@@ -146,7 +146,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -297,7 +298,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -448,7 +450,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -599,7 +602,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -750,7 +754,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -901,7 +906,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -1052,7 +1058,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -1203,7 +1210,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -1354,7 +1362,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -1505,7 +1514,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -1656,7 +1666,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -1828,7 +1839,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -2020,7 +2032,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -2218,7 +2231,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -2416,7 +2430,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -2608,7 +2623,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -2800,7 +2816,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -2998,7 +3015,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -3196,7 +3214,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -3394,7 +3413,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -3467,7 +3487,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "taskEndAlarms": { "#set": [] },
+        "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -3598,7 +3618,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -3671,7 +3692,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "taskEndAlarms": { "#set": [] },
+        "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -3802,7 +3823,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -3875,7 +3897,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "taskEndAlarms": { "#set": [] },
+        "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -4006,7 +4028,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -4079,7 +4102,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "taskEndAlarms": { "#set": [] },
+        "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -4210,7 +4233,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -4283,7 +4307,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "taskEndAlarms": { "#set": [] },
+        "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -4414,7 +4438,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -4476,7 +4501,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
-        "destroyedSandboxes": { "#set": [] }
+        "destroyedSandboxes": { "#set": [{ "#bigint": "0" }] }
       }
     }
   ]
