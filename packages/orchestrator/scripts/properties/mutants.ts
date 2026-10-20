@@ -1916,6 +1916,47 @@ export const MUTANTS: Mutant[] = [
     replace: "    !/[#\\r\\n]/.test(value) && value.trim() === value\n",
     propertyFile: STANDALONE_PROPERTY_FILES.cli_dev_vars,
   },
+  {
+    id: "W335",
+    invariant: "orchestratorTextInvariants::verbalCommandOnlyFromAnExactWord (words before it)",
+    path: "src/workflow/inbound/verbal-command.ts",
+    find: "const BARE_VERB = /^(cancel|",
+    replace: "const BARE_VERB = /(cancel|",
+    propertyFile: STANDALONE_PROPERTY_FILES.verbal_command,
+  },
+  {
+    id: "W336",
+    invariant: "orchestratorTextInvariants::verbalCommandOnlyFromAnExactWord (text after it)",
+    path: "src/workflow/inbound/verbal-command.ts",
+    find: "\\s*[.!?]*$/i;\n",
+    replace: "\\s*[.!?]*/i;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.verbal_command,
+  },
+  {
+    id: "W337",
+    invariant:
+      "orchestratorTextInvariants::verbalCommandOnlyFromAnExactWord (longer instruct word)",
+    path: "src/workflow/inbound/verbal-command.ts",
+    find: "const INSTRUCT = /^instruct\\b[:\\s]*/i;\n",
+    replace: "const INSTRUCT = /^instruct[:\\s]*/i;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.verbal_command,
+  },
+  {
+    id: "W338",
+    invariant: "orchestratorTextInvariants::screenPartsHoldEverySpanWhole",
+    path: "src/decisions/screen.ts",
+    find: "const PART_OVERLAP_CHARS = 1_000;\n",
+    replace: "const PART_OVERLAP_CHARS = 500;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.screen_parts,
+  },
+  {
+    id: "W339",
+    invariant: "orchestratorTextInvariants::taskDigestStaysWithinItsCap",
+    path: "src/workflow/task/harness/digest.ts",
+    find: '  return clipHead(headLines(input).join("\\n"), DIGEST_MAX_CHARS - tail.length - newlineBeforeTail);\n',
+    replace: '  return headLines(input).join("\\n");\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.task_digest,
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */
