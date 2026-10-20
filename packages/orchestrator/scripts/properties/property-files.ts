@@ -98,6 +98,13 @@ export const STANDALONE_PROPERTY_FILES: PropertyFile[] = [
     e2eRuns: 100_000,
   },
   {
+    title: "github code properties",
+    packageDir: "adapters",
+    path: "./src/code/github/code-invariants.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 100_000,
+  },
+  {
     title: "linear inbound mapper properties",
     packageDir: "adapters",
     path: "./src/tracker/linear/inbound-invariants.test.ts",

@@ -1,10 +1,12 @@
-const GITHUB_PULL = /github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)/;
+const GITHUB_PULL = /^https:\/\/github\.com\/([\w.-]+\/[\w.-]+)\/pull\/(\d+)(?:[/?#]|$)/;
 
 /** The repo and number a GitHub pull request URL names. Null for any other URL. */
 export function githubPullFromUrl(url: string): { repo: string; number: number } | null {
   const match = GITHUB_PULL.exec(url);
   if (!match || !match[1] || !match[2]) return null;
-  return { repo: match[1], number: Number(match[2]) };
+  const number = Number(match[2]);
+  if (!Number.isSafeInteger(number)) return null;
+  return { repo: match[1], number };
 }
 
 /** The canonical GitHub URL of a pull request. */
