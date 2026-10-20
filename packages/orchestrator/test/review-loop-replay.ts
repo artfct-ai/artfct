@@ -2309,7 +2309,7 @@ export class ReviewLoopReplay {
       await this.editPage(pickTag(step, "part"));
     }
     await this.instanceRestarts(() => this.untilARefinerTurnEndIsCut(cutTurnClosing(null)));
-    await this.world.apply(cutTurnEndAlarmFires(run.task_id));
+    await this.untilModelCall(() => this.world.apply(cutTurnEndAlarmFires(run.task_id)));
   }
 
   /** The alarm runs the turn end of the run `runId` that a restart cut, the way this step ends it. */
