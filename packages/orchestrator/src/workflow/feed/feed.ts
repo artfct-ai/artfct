@@ -160,18 +160,22 @@ export async function startSessionFeedTurn(
 }
 
 /**
- * Alarm: post the narration that is due, and a heartbeat after a quiet stretch. The tick stops
- * once no turn of the author is in flight.
+ * Alarm: post the narration that is due, and a heartbeat after a quiet stretch of a turn. The tick
+ * outlives the turn while narration waits, such as after a turn end the tracker failed.
  */
 export async function tendSessionFeed(workflow: WorkflowRuntime, alarm: TaskAlarm): Promise<void> {
   const task = workflow.store.task(alarm.task_id);
-  const inFlight = workflow.store.sandbox(alarm.task_id)?.prompt_in_flight === 1;
-  if (!task || !inFlight || isTaskFinished(task.status)) {
+  const inTurn =
+    !!task &&
+    !isTaskFinished(task.status) &&
+    workflow.store.sandbox(alarm.task_id)?.prompt_in_flight === 1;
+  const narrationWaits = !!workflow.store.sessionFeed(alarm.task_id)?.narration;
+  if (!task || (!inTurn && !narrationWaits)) {
     await workflow.stopRepeatingAlarm("tendSessionFeed", alarm);
     return;
   }
   await postWaitingNarration(workflow, task, "when_due");
-  await postHeartbeatAfterQuiet(workflow, task);
+  if (inTurn) await postHeartbeatAfterQuiet(workflow, task);
 }
 
 async function postHeartbeatAfterQuiet(workflow: WorkflowRuntime, task: TaskRow): Promise<void> {

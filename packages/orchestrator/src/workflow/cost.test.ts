@@ -105,7 +105,11 @@ describe("taskCostText", () => {
     expect(taskCostText(0.42)).toBe("$0.42");
   });
 
-  it("calls zero unknown", () => {
-    expect(taskCostText(0)).toBe("unknown");
+  it("prints a reported zero", () => {
+    expect(taskCostText(0)).toBe("$0.00");
+  });
+
+  it("calls a cost nobody reported unknown", () => {
+    expect(taskCostText(null)).toBe("unknown");
   });
 });

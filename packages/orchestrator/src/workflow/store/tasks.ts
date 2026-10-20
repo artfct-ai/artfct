@@ -368,7 +368,7 @@ export class WorkflowStore extends BoardStore {
   workflowCost(): number {
     const calls = this.db.select({ cost_usd: modelUsage.cost_usd }).from(modelUsage).all();
     const harnesses = this.db.select({ cost_usd: tasks.cost_usd }).from(tasks).all();
-    return [...calls, ...harnesses].reduce((total, row) => total + row.cost_usd, 0);
+    return [...calls, ...harnesses].reduce((total, row) => total + (row.cost_usd ?? 0), 0);
   }
 
   modelUsage(): ModelUsageRow[] {

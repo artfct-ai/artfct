@@ -42,6 +42,7 @@ const AUTHOR = "wf_x.1";
 const TURN_START = Date.parse("2026-10-20T12:00:00.000Z");
 const MINUTE_MS = 60_000;
 const QUOTA_LIMIT = 5000;
+const FINAL_TICKS = 90;
 
 type FeedAction =
   | { kind: "say" }
@@ -128,6 +129,15 @@ const feedAction: fc.Arbitrary<FeedAction> = fc.oneof(
   },
 );
 
+const NARRATION_OF_A_FAILED_TURN_END_BEFORE_THE_AUTHOR_FINISHES: FeedAction[] = [
+  { kind: "health", health: "fails_before_storing" },
+  { kind: "narrate", steps: 2 },
+  { kind: "turn_end", reason: "end_turn" },
+  { kind: "health", health: "up" },
+  { kind: "author_finishes" },
+  { kind: "health", health: "up" },
+];
+
 type Witnesses = {
   narrationMerged: number;
   dueNarrationWhileQuotaLow: number;
@@ -138,6 +148,7 @@ type Witnesses = {
   receiptsAfterTheAuthorFinished: number;
   repliesOfAnEndedWorkflow: number;
   repostedAfterARestart: number;
+  narrationPostedAfterTheTurn: number;
   accountsNarrated: number;
 };
 
@@ -256,6 +267,8 @@ class FeedRun {
       tendSessionFeed(this.workflow, { task_id: AUTHOR }),
     );
     this.witnesses.heartbeats += tickPosts.filter((post) => post.ephemeral).length;
+    if (!this.inFlight && tickPosts.some((post) => !post.ephemeral))
+      this.witnesses.narrationPostedAfterTheTurn += 1;
     if (!this.inFlight || this.tracker.health !== "up") return;
     if (!lowBefore) aQuietTurnGetsAHeartbeat(this.now(), this.quietSince, HEARTBEAT_AFTER_MS);
   }
@@ -472,6 +485,11 @@ class FeedRun {
     this.tracker.health = "up";
     await this.startTurn();
     await this.endTurn("end_turn");
+    for (let tick = 0; tick < FINAL_TICKS && this.feedTicks(); tick += 1) await this.tick();
+  }
+
+  private feedTicks(): boolean {
+    return this.workflow.alarmsFor("tendSessionFeed").length > 0;
   }
 }
 
@@ -522,6 +540,7 @@ describe("session feed invariants", () => {
         receiptsAfterTheAuthorFinished: 0,
         repliesOfAnEndedWorkflow: 0,
         repostedAfterARestart: 0,
+        narrationPostedAfterTheTurn: 0,
         accountsNarrated: 0,
       };
       await fc.assert(
@@ -536,7 +555,10 @@ describe("session feed invariants", () => {
           everyNarrationLinePostsInOrder(run.posts, run.written);
           heartbeatsAndNarrationWaitWhileTheQuotaIsLow(run.posts);
         }),
-        propertyRuns("session feed invariants", RUNS),
+        {
+          ...propertyRuns("session feed invariants", RUNS),
+          examples: [[NARRATION_OF_A_FAILED_TURN_END_BEFORE_THE_AUTHOR_FINISHES]],
+        },
       );
       expect(witnesses.narrationMerged).toBeGreaterThan(0);
       expect(witnesses.dueNarrationWhileQuotaLow).toBeGreaterThan(0);
@@ -547,6 +569,7 @@ describe("session feed invariants", () => {
       expect(witnesses.receiptsAfterTheAuthorFinished).toBeGreaterThan(0);
       expect(witnesses.repliesOfAnEndedWorkflow).toBeGreaterThan(0);
       expect(witnesses.repostedAfterARestart).toBeGreaterThan(0);
+      expect(witnesses.narrationPostedAfterTheTurn).toBeGreaterThan(0);
       expect(witnesses.accountsNarrated).toBeGreaterThan(0);
     },
     propertyTimeoutMs(30_000, RUNS),

@@ -144,7 +144,7 @@ function claimChecksSendBack(
   revision: string,
 ): boolean {
   const id = checksSendBackEventId(artifact.job_id, revision);
-  return workflow.store.markEventSeen({ id, kind: "checks_sent_back" });
+  return workflow.store.markEventSeen(id);
 }
 
 /** The id of the event that records the one send-back a revision of the job's artifact gets. */

@@ -297,8 +297,15 @@ describe("taskDigest", () => {
 
   describe("a task the harness reported no cost for", () => {
     it("says the cost is unknown", () => {
-      const unknown = taskDigest({ ...input, task: { ...input.task, cost_usd: 0 } });
+      const unknown = taskDigest({ ...input, task: { ...input.task, cost_usd: null } });
       expect(line(unknown, "cost:")).toBe("cost: unknown · 18 min");
+    });
+  });
+
+  describe("a task the harness reported a zero cost for", () => {
+    it("says the cost is zero", () => {
+      const free = taskDigest({ ...input, task: { ...input.task, cost_usd: 0 } });
+      expect(line(free, "cost:")).toBe("cost: $0.00 · 18 min");
     });
   });
 });

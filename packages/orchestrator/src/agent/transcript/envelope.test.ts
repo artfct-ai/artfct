@@ -1,6 +1,6 @@
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { describe, expect, it } from "bun:test";
-import { eventBody, eventMessage, noteMessage, parseHeader } from "./envelope";
+import { eventMessage, parseHeader } from "./envelope";
 
 const base: InboundEvent = {
   id: "evt-1",
@@ -77,41 +77,6 @@ describe("eventMessage", () => {
 
     it("names the merge as the action", () => {
       expect(parseHeader(first)?.pull_action).toBe("merged");
-    });
-  });
-});
-
-describe("eventBody", () => {
-  const prompt: InboundEvent = {
-    ...base,
-    kind: "prompt",
-    pull: undefined,
-    actor: { person_id: "person-1", display_name: "Alex", email: null },
-    title: "Passes",
-    text: "lets move to a plan\n\nand keep it short",
-    links: ["https://example.test/doc"],
-  };
-  const context = { first: false, job: null, artifact: null, notes: ["Recorded the link."] };
-
-  describe("a person's message with links and system notes", () => {
-    it("is the words the person wrote, paragraphs kept", () => {
-      expect(eventBody(eventMessage(prompt, context))).toBe(
-        "lets move to a plan\n\nand keep it short",
-      );
-    });
-  });
-
-  describe("a note", () => {
-    it("has no body", () => {
-      expect(eventBody(noteMessage("turn ended"))).toBe("");
-    });
-  });
-});
-
-describe("noteMessage", () => {
-  describe("a note to the agent", () => {
-    it("has no header", () => {
-      expect(parseHeader(noteMessage("turn ended"))).toBeNull();
     });
   });
 });

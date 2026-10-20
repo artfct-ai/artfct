@@ -5,7 +5,7 @@ import { labeledPageCommentIds } from "../../artifact/page-comment-label";
 import { aboveResources, splitAtResources } from "../../artifact/resources-section";
 import type { ArtifactTarget } from "../../artifact/types";
 import { noteMessage } from "../../agent/transcript/envelope";
-import { stepsUsage } from "../../agent/model/usage";
+import { addReportedCosts, stepsUsage } from "../../agent/model/usage";
 import { runUnderDeadline } from "../../agent/turn/deadline";
 import { registeredConfig } from "../../config/register-config";
 import { skillPromptText } from "../../config/skills";
@@ -343,7 +343,9 @@ async function callAuthorModel(
   const result = bounded.result;
   const { cost_usd } = stepsUsage(result.steps);
   const counted = workflow.store.requireTask(task.task_id);
-  workflow.store.updateTask(task.task_id, { cost_usd: counted.cost_usd + cost_usd });
+  workflow.store.updateTask(task.task_id, {
+    cost_usd: addReportedCosts(counted.cost_usd, cost_usd),
+  });
   if (isTaskFinished(counted.status)) {
     workflow.log(task.task_id, `model call ended after the task was ${counted.status}. no change.`);
     return null;

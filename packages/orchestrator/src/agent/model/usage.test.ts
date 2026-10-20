@@ -25,23 +25,27 @@ describe("callUsage", () => {
   });
 
   describe("usage without a usable cost", () => {
-    it("costs zero when the provider reports none", () => {
-      expect(callUsage(usage(1, 2)).cost_usd).toBe(0);
+    it("has no cost when the provider reports none", () => {
+      expect(callUsage(usage(1, 2)).cost_usd).toBeNull();
     });
 
-    it("costs zero when the cost is not a number", () => {
-      expect(callUsage(usage(1, 2, { cost: "free" })).cost_usd).toBe(0);
+    it("has no cost when the cost is not a number", () => {
+      expect(callUsage(usage(1, 2, { cost: "free" })).cost_usd).toBeNull();
     });
 
-    it("costs zero when the cost is NaN", () => {
-      expect(callUsage(usage(1, 2, { cost: Number.NaN })).cost_usd).toBe(0);
+    it("has no cost when the cost is NaN", () => {
+      expect(callUsage(usage(1, 2, { cost: Number.NaN })).cost_usd).toBeNull();
+    });
+
+    it("keeps a reported zero", () => {
+      expect(callUsage(usage(1, 2, { cost: 0 })).cost_usd).toBe(0);
     });
   });
 
   describe("usage that reports no tokens", () => {
     it("counts the missing tokens as zero", () => {
       const empty = { ...usage(0, 0), inputTokens: undefined, outputTokens: undefined };
-      expect(callUsage(empty)).toEqual({ input_tokens: 0, output_tokens: 0, cost_usd: 0 });
+      expect(callUsage(empty)).toEqual({ input_tokens: 0, output_tokens: 0, cost_usd: null });
     });
   });
 });
@@ -58,9 +62,17 @@ describe("stepsUsage", () => {
     });
   });
 
+  describe("a call of two steps where only one reports a cost", () => {
+    const steps = [{ usage: usage(10, 2) }, { usage: usage(20, 3, { cost: 0.02 }) }];
+
+    it("counts the reported cost", () => {
+      expect(stepsUsage(steps).cost_usd).toBe(0.02);
+    });
+  });
+
   describe("a call with no step", () => {
-    it("is zero", () => {
-      expect(stepsUsage([])).toEqual({ input_tokens: 0, output_tokens: 0, cost_usd: 0 });
+    it("uses no tokens and has no cost", () => {
+      expect(stepsUsage([])).toEqual({ input_tokens: 0, output_tokens: 0, cost_usd: null });
     });
   });
 });
