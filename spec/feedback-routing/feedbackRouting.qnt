@@ -402,7 +402,7 @@ module feedbackRouting {
     nondet screen = Set(Admitted, NotAdmitted, Unreadable).oneOf()
     nondet ack = Set(AckSucceeds, AckFails).oneOf()
     nondet heldRead = heldReadsOf(KIND).oneOf()
-    nondet answer = Set(ForTheAuthor, AsksForNothing, BeyondTheAuthor, Unsure, CallFails).oneOf()
+    nondet answer = ROUTE_ANSWERS.oneOf()
     val picks = { form: w.forms.get(id), screen: screen, ack: ack, heldRead: heldRead, answer: answer }
     val ignored = routed(w, id, picks)
     if (isSeen(w, id)) recordStep({ ...w, undelivered: w.undelivered.exclude(Set(id)) }, NoFeedback)
@@ -461,36 +461,39 @@ module feedbackRouting {
 
   /// A delivery in flight is screened, marked read on the host, and routed. A delivery of a
   /// feedback another delivery routed already is dropped before it reads anything.
-  action feedbackIsRouted: bool = {
-    val waiting = world.inFlight.keys().filter(id => isInFlight(world, id))
-    all {
-      waiting != Set(),
-      nondet id = waiting.oneOf()
-      nondet screen = Set(Admitted, NotAdmitted, Unreadable).oneOf()
-      nondet ack = Set(AckSucceeds, AckFails).oneOf()
-      nondet heldRead = heldReadsOf(KIND).oneOf()
-      nondet answer = Set(ForTheAuthor, AsksForNothing, BeyondTheAuthor, Unsure, CallFails).oneOf()
-      val rest = { ...world, inFlight: world.inFlight.put(id, world.inFlight.get(id) - 1) }
-      val picks = { form: world.forms.get(id), screen: screen, ack: ack, heldRead: heldRead, answer: answer }
-      val result = routed(rest, id, picks)
-      if (isSeen(world, id)) recordStep(rest, DuplicateDropped)
-      else if (world.undelivered.contains(id)) recordRedelivery(result.after, FeedbackArrived(result.arrival))
-      else recordStep(result.after, FeedbackArrived(result.arrival)),
-    }
-  }
+  action feedbackIsRouted: bool =
+    aDeliveryIsRoutedWith(Set(AckSucceeds, AckFails), heldReadsOf(KIND), ROUTE_ANSWERS)
 
   /// A delivery in flight is routed while the host marks it read and shows the held comments, so the
   /// screen and the decisions model pick the route. The step also lists `feedbackIsRouted`, and
   /// this copy raises how often a feedback reaches each route.
-  action aDeliveryIsRoutedPastTheHost: bool = {
+  action aDeliveryIsRoutedPastTheHost: bool =
+    aDeliveryIsRoutedWith(Set(AckSucceeds), Set(HeldReadable), ROUTE_ANSWERS)
+
+  /// A delivery in flight goes to the author while the page holds no comment. The step also lists
+  /// `feedbackIsRouted`, and this copy raises how often a page mention reaches the author without
+  /// held comments to screen.
+  action aDeliveryReachesTheAuthorWithNothingHeld: bool = all {
+    KIND == Page,
+    not(world.heldOnPage),
+    aDeliveryIsRoutedWith(Set(AckSucceeds), Set(HeldReadable), Set(ForTheAuthor)),
+  }
+
+  pure val ROUTE_ANSWERS: Set[RouteAnswer] = Set(ForTheAuthor, AsksForNothing, BeyondTheAuthor, Unsure, CallFails)
+
+  action aDeliveryIsRoutedWith(
+    acks: Set[Acknowledge],
+    heldReads: Set[HeldRead],
+    answers: Set[RouteAnswer],
+  ): bool = {
     val waiting = world.inFlight.keys().filter(id => isInFlight(world, id))
     all {
       waiting != Set(),
       nondet id = waiting.oneOf()
       nondet screen = Set(Admitted, NotAdmitted, Unreadable).oneOf()
-      nondet ack = Set(AckSucceeds).oneOf()
-      nondet heldRead = Set(HeldReadable).oneOf()
-      nondet answer = Set(ForTheAuthor, AsksForNothing, BeyondTheAuthor, Unsure, CallFails).oneOf()
+      nondet ack = acks.oneOf()
+      nondet heldRead = heldReads.oneOf()
+      nondet answer = answers.oneOf()
       val rest = { ...world, inFlight: world.inFlight.put(id, world.inFlight.get(id) - 1) }
       val picks = { form: world.forms.get(id), screen: screen, ack: ack, heldRead: heldRead, answer: answer }
       val result = routed(rest, id, picks)
@@ -578,6 +581,7 @@ module feedbackRouting {
     instanceRestarts,
     feedbackIsRouted,
     aDeliveryIsRoutedPastTheHost,
+    aDeliveryReachesTheAuthorWithNothingHeld,
     personLeavesAPageComment,
     authorRecordsItsPullRequest,
     authorTurnEnds,

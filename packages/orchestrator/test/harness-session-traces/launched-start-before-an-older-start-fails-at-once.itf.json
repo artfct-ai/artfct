@@ -2,10 +2,10 @@
   "#meta": {
     "format": "ITF",
     "format-description": "https://apalache-mc.org/docs/adr/015adr-trace.html",
-    "source": "/Users/matt/code/artfct-wt/own-214/spec/harness-session/harnessDefaultEffort.qnt",
-    "status": "ok",
-    "description": "Created by Quint on Mon Oct 19 2026 11:22:59 GMT-0400 (Eastern Daylight Time)",
-    "timestamp": 1792423379176
+    "source": "harnessDefaultEffort.qnt",
+    "status": "violation",
+    "description": "Created by Quint on Tue Oct 20 2026 01:25:01 GMT-0400 (Eastern Daylight Time)",
+    "timestamp": 1792473901015
   },
   "vars": [
     "harnessDefaultEffort::harnessSession::world",
@@ -24,7 +24,7 @@
         "aFailedSandboxStartRestartsOrFails": true,
         "aHarnessExitCountsOneRestart": true,
         "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn": true,
-        "aLostTurnIsRecoveredWithoutARestart": true,
+        "aLostTurnCountsOneRestart": true,
         "aRefusedPromptLeavesTheTurn": true,
         "aSandboxStartBeginsAFreshGeneration": true,
         "aStartingTaskWorksOnlyAfterItsHello": true,
@@ -42,11 +42,15 @@
         "aCallWasDropped": false,
         "aDialIsRefused": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessExitFailsTheTask": false,
+        "aHarnessExitRestartsAnIdleAuthor": false,
         "aHarnessExitRestartsTheTask": false,
         "aHelloMovesTheTaskToWorking": false,
         "aHelloTimeoutFiresWhileItsStartIsOut": false,
         "aLaterGenerationBegins": false,
+        "aLostTurnFailsTheTask": false,
         "aLostTurnIsRecovered": false,
+        "aLostTurnOfATaskQueuedForARestart": false,
         "aPausedAuthorStaysPaused": false,
         "aPromptGoesOutDuringAnOutcomeCheck": false,
         "aRestartDropsTheSummarization": false,
@@ -63,10 +67,14 @@
         "aStopEndsAStartingTurn": false,
         "aStopLandsDuringATurn": false,
         "aStoppedTaskGetsTheTaskPrompt": false,
+        "aTaskLeftQueuedDuringItsBranchBinding": false,
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
+        "theBranchBindingFails": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
         "theInstanceRestartsWithoutACallOut": false,
@@ -138,7 +146,7 @@
             "#tup": []
           }
         },
-        "lostTurnsRecovered": {
+        "lostTurns": {
           "#bigint": "0"
         },
         "nextAlarm": {
@@ -157,6 +165,7 @@
           }
         },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": {
           "#bigint": "0"
@@ -201,6 +210,7 @@
         "token": {
           "#bigint": "0"
         },
+        "turnText": false,
         "wallSlot": {
           "tag": "Unarmed",
           "value": {
@@ -228,6 +238,12 @@
             "#tup": []
           }
         },
+        "endsWithText": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "finished": {
           "tag": "None",
           "value": {
@@ -257,6 +273,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "report": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -269,7 +291,7 @@
         "aFailedSandboxStartRestartsOrFails": true,
         "aHarnessExitCountsOneRestart": true,
         "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn": true,
-        "aLostTurnIsRecoveredWithoutARestart": true,
+        "aLostTurnCountsOneRestart": true,
         "aRefusedPromptLeavesTheTurn": true,
         "aSandboxStartBeginsAFreshGeneration": true,
         "aStartingTaskWorksOnlyAfterItsHello": true,
@@ -287,11 +309,15 @@
         "aCallWasDropped": false,
         "aDialIsRefused": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessExitFailsTheTask": false,
+        "aHarnessExitRestartsAnIdleAuthor": false,
         "aHarnessExitRestartsTheTask": false,
         "aHelloMovesTheTaskToWorking": false,
         "aHelloTimeoutFiresWhileItsStartIsOut": false,
         "aLaterGenerationBegins": false,
+        "aLostTurnFailsTheTask": false,
         "aLostTurnIsRecovered": false,
+        "aLostTurnOfATaskQueuedForARestart": false,
         "aPausedAuthorStaysPaused": false,
         "aPromptGoesOutDuringAnOutcomeCheck": false,
         "aRestartDropsTheSummarization": false,
@@ -308,15 +334,19 @@
         "aStopEndsAStartingTurn": false,
         "aStopLandsDuringATurn": false,
         "aStoppedTaskGetsTheTaskPrompt": false,
+        "aTaskLeftQueuedDuringItsBranchBinding": false,
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
+        "theBranchBindingFails": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
         "theInstanceRestartsWithoutACallOut": false,
         "theKeepAliveFiresOnATurn": false,
-        "theProvisionAlarmFires": false,
+        "theProvisionAlarmFires": true,
         "theWallClockFailsATurn": false,
         "theWallClockFiresDuringARestart": false
       },
@@ -330,12 +360,12 @@
         "alarms": [
           {
             "id": {
-              "#bigint": "0"
+              "#bigint": "1"
             },
             "kind": {
-              "tag": "Provision",
+              "tag": "HelloTimeout",
               "value": {
-                "#tup": []
+                "#bigint": "1"
               }
             }
           }
@@ -351,7 +381,53 @@
           }
         },
         "bridges": [],
-        "calls": [],
+        "calls": [
+          {
+            "id": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "SandboxStart",
+              "value": {
+                "generation": {
+                  "#bigint": "1"
+                },
+                "launched": false,
+                "token": {
+                  "#bigint": "1"
+                }
+              }
+            },
+            "rest": [
+              {
+                "tag": "StartEnds",
+                "value": {
+                  "#bigint": "1"
+                }
+              },
+              {
+                "tag": "AlarmEnds",
+                "value": {
+                  "id": {
+                    "#bigint": "0"
+                  },
+                  "kind": {
+                    "tag": "Provision",
+                    "value": {
+                      "#tup": []
+                    }
+                  }
+                }
+              }
+            ],
+            "state": {
+              "tag": "Out",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
         "cancelsDelivered": {
           "#bigint": "0"
         },
@@ -362,13 +438,13 @@
           "#bigint": "0"
         },
         "generation": {
-          "#bigint": "0"
+          "#bigint": "1"
         },
         "hadPrompt": false,
         "helloSlot": {
-          "tag": "Unarmed",
+          "tag": "Armed",
           "value": {
-            "#tup": []
+            "#bigint": "1"
           }
         },
         "keepAliveSlot": {
@@ -378,19 +454,19 @@
           }
         },
         "lastProgressAt": {
-          "tag": "Old",
+          "tag": "Recent",
           "value": {
             "#tup": []
           }
         },
-        "lostTurnsRecovered": {
+        "lostTurns": {
           "#bigint": "0"
         },
         "nextAlarm": {
-          "#bigint": "1"
+          "#bigint": "2"
         },
         "nextCall": {
-          "#bigint": "0"
+          "#bigint": "1"
         },
         "nextSerial": {
           "#bigint": "0"
@@ -402,6 +478,7 @@
           }
         },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": {
           "#bigint": "0"
@@ -433,301 +510,6 @@
           "#bigint": "0"
         },
         "status": {
-          "tag": "Queued",
-          "value": {
-            "#tup": []
-          }
-        },
-        "stopped": false,
-        "stoppedEarly": false,
-        "stopsEnded": {
-          "#bigint": "0"
-        },
-        "token": {
-          "#bigint": "0"
-        },
-        "wallSlot": {
-          "tag": "Unarmed",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "mbt::actionTaken": "timePasses",
-      "mbt::nondetPicks": {
-        "alarmIndex": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "bridge": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "finished": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "index": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "offersAllow": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ok": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outcome": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 2
-      },
-      "harnessDefaultEffort::harnessSession::rulesKept": {
-        "aBridgeConnectsOnlyWithTheCurrentToken": true,
-        "aFailedSandboxStartRestartsOrFails": true,
-        "aHarnessExitCountsOneRestart": true,
-        "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn": true,
-        "aLostTurnIsRecoveredWithoutARestart": true,
-        "aRefusedPromptLeavesTheTurn": true,
-        "aSandboxStartBeginsAFreshGeneration": true,
-        "aStartingTaskWorksOnlyAfterItsHello": true,
-        "aTaskWithoutAnEarlierPromptGetsTheTaskPrompt": true,
-        "anAuthorInReviewWorksOnlyWithAPrompt": true,
-        "finishedTaskKeepsItsStatus": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "provisionStartsOnlyAQueuedTask": true,
-        "staleAlarmIsIgnored": true,
-        "stopEndsTheAuthorsTurn": true,
-        "theHelloTimeoutWaitsWhileItsStartIsOut": true,
-        "wallClockFailsWithoutARestart": true
-      },
-      "harnessDefaultEffort::harnessSession::stepWitnesses": {
-        "aCallWasDropped": false,
-        "aDialIsRefused": false,
-        "aFinishedTaskIsInAStep": false,
-        "aHarnessExitRestartsTheTask": false,
-        "aHelloMovesTheTaskToWorking": false,
-        "aHelloTimeoutFiresWhileItsStartIsOut": false,
-        "aLaterGenerationBegins": false,
-        "aLostTurnIsRecovered": false,
-        "aPausedAuthorStaysPaused": false,
-        "aPromptGoesOutDuringAnOutcomeCheck": false,
-        "aRestartDropsTheSummarization": false,
-        "aResumeLandsDuringACancelledTurn": false,
-        "aResumePromptIsChosen": false,
-        "aSandboxStartFails": false,
-        "aSandboxStartFailsAtOnce": false,
-        "aSocketIsReplaced": false,
-        "aStaleAlarmFires": false,
-        "aStaleOutcomeCheckIsDropped": false,
-        "aStaleRestartIsDropped": false,
-        "aStaleSandboxStartFails": false,
-        "aStaleSandboxStartFailsAtOnce": false,
-        "aStopEndsAStartingTurn": false,
-        "aStopLandsDuringATurn": false,
-        "aStoppedTaskGetsTheTaskPrompt": false,
-        "anAlarmRunsAgainAfterARestart": false,
-        "anAnswerArrivesAfterItsRowWasCleared": false,
-        "anAuthorInReviewTakesAPrompt": false,
-        "theAgentWakesForAnIdleHarness": false,
-        "theEffortIsSet": false,
-        "theHarnessRefusesAPrompt": false,
-        "theInstanceRestartsWithoutACallOut": false,
-        "theKeepAliveFiresOnATurn": false,
-        "theProvisionAlarmFires": false,
-        "theWallClockFailsATurn": false,
-        "theWallClockFiresDuringARestart": false
-      },
-      "harnessDefaultEffort::harnessSession::world": {
-        "actions": {
-          "#bigint": "2"
-        },
-        "agentWakes": {
-          "#bigint": "0"
-        },
-        "alarms": [
-          {
-            "id": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "Provision",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "1"
-            },
-            "kind": {
-              "tag": "HelloTimeout",
-              "value": {
-                "#bigint": "1"
-              }
-            }
-          }
-        ],
-        "answersToOtherRequests": {
-          "#bigint": "0"
-        },
-        "artifact": false,
-        "bridgeClosedAt": {
-          "tag": "Unset",
-          "value": {
-            "#tup": []
-          }
-        },
-        "bridges": [],
-        "calls": [
-          {
-            "id": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "SandboxStart",
-              "value": {
-                "generation": {
-                  "#bigint": "1"
-                },
-                "launched": false,
-                "token": {
-                  "#bigint": "1"
-                }
-              }
-            },
-            "rest": [
-              {
-                "tag": "StartEnds",
-                "value": {
-                  "#bigint": "1"
-                }
-              }
-            ],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          }
-        ],
-        "cancelsDelivered": {
-          "#bigint": "0"
-        },
-        "eventsThatThrew": {
-          "#bigint": "0"
-        },
-        "faults": {
-          "#bigint": "0"
-        },
-        "generation": {
-          "#bigint": "1"
-        },
-        "hadPrompt": false,
-        "helloSlot": {
-          "tag": "Armed",
-          "value": {
-            "#bigint": "1"
-          }
-        },
-        "keepAliveSlot": {
-          "tag": "Unarmed",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lastProgressAt": {
-          "tag": "Old",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lostTurnsRecovered": {
-          "#bigint": "0"
-        },
-        "nextAlarm": {
-          "#bigint": "2"
-        },
-        "nextCall": {
-          "#bigint": "1"
-        },
-        "nextSerial": {
-          "#bigint": "0"
-        },
-        "noProgressSlot": {
-          "tag": "Unarmed",
-          "value": {
-            "#tup": []
-          }
-        },
-        "nudged": false,
-        "paused": false,
-        "permissionsAllowed": {
-          "#bigint": "0"
-        },
-        "permissionsAsked": {
-          "#bigint": "0"
-        },
-        "permissionsWithAnAllowOption": {
-          "#bigint": "0"
-        },
-        "personPrompts": {
-          "#bigint": "1"
-        },
-        "promptInFlight": false,
-        "promptsSent": {
-          "#bigint": "0"
-        },
-        "queue": [
-          {
-            "tag": "PersonPrompt",
-            "value": {
-              "#tup": []
-            }
-          }
-        ],
-        "restarts": {
-          "#bigint": "0"
-        },
-        "resumesChosen": {
-          "#bigint": "0"
-        },
-        "rpcs": [],
-        "session": false,
-        "sockets": [],
-        "socketsClosed": {
-          "#bigint": "0"
-        },
-        "status": {
           "tag": "Provisioning",
           "value": {
             "#tup": []
@@ -741,585 +523,7 @@
         "token": {
           "#bigint": "1"
         },
-        "wallSlot": {
-          "tag": "Unarmed",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "mbt::actionTaken": "personPrompts",
-      "mbt::nondetPicks": {
-        "alarmIndex": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "bridge": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "finished": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "index": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "offersAllow": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ok": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outcome": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 3
-      },
-      "harnessDefaultEffort::harnessSession::rulesKept": {
-        "aBridgeConnectsOnlyWithTheCurrentToken": true,
-        "aFailedSandboxStartRestartsOrFails": true,
-        "aHarnessExitCountsOneRestart": true,
-        "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn": true,
-        "aLostTurnIsRecoveredWithoutARestart": true,
-        "aRefusedPromptLeavesTheTurn": true,
-        "aSandboxStartBeginsAFreshGeneration": true,
-        "aStartingTaskWorksOnlyAfterItsHello": true,
-        "aTaskWithoutAnEarlierPromptGetsTheTaskPrompt": true,
-        "anAuthorInReviewWorksOnlyWithAPrompt": true,
-        "finishedTaskKeepsItsStatus": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "provisionStartsOnlyAQueuedTask": true,
-        "staleAlarmIsIgnored": true,
-        "stopEndsTheAuthorsTurn": true,
-        "theHelloTimeoutWaitsWhileItsStartIsOut": true,
-        "wallClockFailsWithoutARestart": true
-      },
-      "harnessDefaultEffort::harnessSession::stepWitnesses": {
-        "aCallWasDropped": false,
-        "aDialIsRefused": false,
-        "aFinishedTaskIsInAStep": false,
-        "aHarnessExitRestartsTheTask": false,
-        "aHelloMovesTheTaskToWorking": false,
-        "aHelloTimeoutFiresWhileItsStartIsOut": false,
-        "aLaterGenerationBegins": false,
-        "aLostTurnIsRecovered": false,
-        "aPausedAuthorStaysPaused": false,
-        "aPromptGoesOutDuringAnOutcomeCheck": false,
-        "aRestartDropsTheSummarization": false,
-        "aResumeLandsDuringACancelledTurn": false,
-        "aResumePromptIsChosen": false,
-        "aSandboxStartFails": false,
-        "aSandboxStartFailsAtOnce": false,
-        "aSocketIsReplaced": false,
-        "aStaleAlarmFires": false,
-        "aStaleOutcomeCheckIsDropped": false,
-        "aStaleRestartIsDropped": false,
-        "aStaleSandboxStartFails": false,
-        "aStaleSandboxStartFailsAtOnce": false,
-        "aStopEndsAStartingTurn": false,
-        "aStopLandsDuringATurn": false,
-        "aStoppedTaskGetsTheTaskPrompt": false,
-        "anAlarmRunsAgainAfterARestart": false,
-        "anAnswerArrivesAfterItsRowWasCleared": false,
-        "anAuthorInReviewTakesAPrompt": false,
-        "theAgentWakesForAnIdleHarness": false,
-        "theEffortIsSet": false,
-        "theHarnessRefusesAPrompt": false,
-        "theInstanceRestartsWithoutACallOut": false,
-        "theKeepAliveFiresOnATurn": false,
-        "theProvisionAlarmFires": false,
-        "theWallClockFailsATurn": false,
-        "theWallClockFiresDuringARestart": false
-      },
-      "harnessDefaultEffort::harnessSession::world": {
-        "actions": {
-          "#bigint": "3"
-        },
-        "agentWakes": {
-          "#bigint": "0"
-        },
-        "alarms": [
-          {
-            "id": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "Provision",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "1"
-            },
-            "kind": {
-              "tag": "HelloTimeout",
-              "value": {
-                "#bigint": "1"
-              }
-            }
-          }
-        ],
-        "answersToOtherRequests": {
-          "#bigint": "0"
-        },
-        "artifact": false,
-        "bridgeClosedAt": {
-          "tag": "Unset",
-          "value": {
-            "#tup": []
-          }
-        },
-        "bridges": [],
-        "calls": [
-          {
-            "id": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "SandboxStart",
-              "value": {
-                "generation": {
-                  "#bigint": "1"
-                },
-                "launched": false,
-                "token": {
-                  "#bigint": "1"
-                }
-              }
-            },
-            "rest": [
-              {
-                "tag": "StartEnds",
-                "value": {
-                  "#bigint": "1"
-                }
-              }
-            ],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          }
-        ],
-        "cancelsDelivered": {
-          "#bigint": "0"
-        },
-        "eventsThatThrew": {
-          "#bigint": "0"
-        },
-        "faults": {
-          "#bigint": "0"
-        },
-        "generation": {
-          "#bigint": "1"
-        },
-        "hadPrompt": false,
-        "helloSlot": {
-          "tag": "Armed",
-          "value": {
-            "#bigint": "1"
-          }
-        },
-        "keepAliveSlot": {
-          "tag": "Unarmed",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lastProgressAt": {
-          "tag": "Old",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lostTurnsRecovered": {
-          "#bigint": "0"
-        },
-        "nextAlarm": {
-          "#bigint": "2"
-        },
-        "nextCall": {
-          "#bigint": "1"
-        },
-        "nextSerial": {
-          "#bigint": "0"
-        },
-        "noProgressSlot": {
-          "tag": "Unarmed",
-          "value": {
-            "#tup": []
-          }
-        },
-        "nudged": false,
-        "paused": false,
-        "permissionsAllowed": {
-          "#bigint": "0"
-        },
-        "permissionsAsked": {
-          "#bigint": "0"
-        },
-        "permissionsWithAnAllowOption": {
-          "#bigint": "0"
-        },
-        "personPrompts": {
-          "#bigint": "1"
-        },
-        "promptInFlight": false,
-        "promptsSent": {
-          "#bigint": "0"
-        },
-        "queue": [
-          {
-            "tag": "PersonPrompt",
-            "value": {
-              "#tup": []
-            }
-          }
-        ],
-        "restarts": {
-          "#bigint": "0"
-        },
-        "resumesChosen": {
-          "#bigint": "0"
-        },
-        "rpcs": [],
-        "session": false,
-        "sockets": [],
-        "socketsClosed": {
-          "#bigint": "0"
-        },
-        "status": {
-          "tag": "Provisioning",
-          "value": {
-            "#tup": []
-          }
-        },
-        "stopped": false,
-        "stoppedEarly": false,
-        "stopsEnded": {
-          "#bigint": "0"
-        },
-        "token": {
-          "#bigint": "1"
-        },
-        "wallSlot": {
-          "tag": "Unarmed",
-          "value": {
-            "#tup": []
-          }
-        }
-      },
-      "mbt::actionTaken": "agentResumesAuthor",
-      "mbt::nondetPicks": {
-        "alarmIndex": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "bridge": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "finished": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "index": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "offersAllow": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ok": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outcome": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
-      }
-    },
-    {
-      "#meta": {
-        "index": 4
-      },
-      "harnessDefaultEffort::harnessSession::rulesKept": {
-        "aBridgeConnectsOnlyWithTheCurrentToken": true,
-        "aFailedSandboxStartRestartsOrFails": true,
-        "aHarnessExitCountsOneRestart": true,
-        "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn": true,
-        "aLostTurnIsRecoveredWithoutARestart": true,
-        "aRefusedPromptLeavesTheTurn": true,
-        "aSandboxStartBeginsAFreshGeneration": true,
-        "aStartingTaskWorksOnlyAfterItsHello": true,
-        "aTaskWithoutAnEarlierPromptGetsTheTaskPrompt": true,
-        "anAuthorInReviewWorksOnlyWithAPrompt": true,
-        "finishedTaskKeepsItsStatus": true,
-        "pausedAuthorGetsNoPrompt": true,
-        "provisionStartsOnlyAQueuedTask": true,
-        "staleAlarmIsIgnored": true,
-        "stopEndsTheAuthorsTurn": true,
-        "theHelloTimeoutWaitsWhileItsStartIsOut": true,
-        "wallClockFailsWithoutARestart": true
-      },
-      "harnessDefaultEffort::harnessSession::stepWitnesses": {
-        "aCallWasDropped": false,
-        "aDialIsRefused": false,
-        "aFinishedTaskIsInAStep": false,
-        "aHarnessExitRestartsTheTask": false,
-        "aHelloMovesTheTaskToWorking": false,
-        "aHelloTimeoutFiresWhileItsStartIsOut": false,
-        "aLaterGenerationBegins": false,
-        "aLostTurnIsRecovered": false,
-        "aPausedAuthorStaysPaused": false,
-        "aPromptGoesOutDuringAnOutcomeCheck": false,
-        "aRestartDropsTheSummarization": false,
-        "aResumeLandsDuringACancelledTurn": false,
-        "aResumePromptIsChosen": false,
-        "aSandboxStartFails": false,
-        "aSandboxStartFailsAtOnce": false,
-        "aSocketIsReplaced": false,
-        "aStaleAlarmFires": false,
-        "aStaleOutcomeCheckIsDropped": false,
-        "aStaleRestartIsDropped": false,
-        "aStaleSandboxStartFails": false,
-        "aStaleSandboxStartFailsAtOnce": false,
-        "aStopEndsAStartingTurn": false,
-        "aStopLandsDuringATurn": false,
-        "aStoppedTaskGetsTheTaskPrompt": false,
-        "anAlarmRunsAgainAfterARestart": false,
-        "anAnswerArrivesAfterItsRowWasCleared": false,
-        "anAuthorInReviewTakesAPrompt": false,
-        "theAgentWakesForAnIdleHarness": false,
-        "theEffortIsSet": false,
-        "theHarnessRefusesAPrompt": false,
-        "theInstanceRestartsWithoutACallOut": false,
-        "theKeepAliveFiresOnATurn": false,
-        "theProvisionAlarmFires": true,
-        "theWallClockFailsATurn": false,
-        "theWallClockFiresDuringARestart": false
-      },
-      "harnessDefaultEffort::harnessSession::world": {
-        "actions": {
-          "#bigint": "4"
-        },
-        "agentWakes": {
-          "#bigint": "0"
-        },
-        "alarms": [
-          {
-            "id": {
-              "#bigint": "1"
-            },
-            "kind": {
-              "tag": "HelloTimeout",
-              "value": {
-                "#bigint": "1"
-              }
-            }
-          }
-        ],
-        "answersToOtherRequests": {
-          "#bigint": "0"
-        },
-        "artifact": false,
-        "bridgeClosedAt": {
-          "tag": "Unset",
-          "value": {
-            "#tup": []
-          }
-        },
-        "bridges": [],
-        "calls": [
-          {
-            "id": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "SandboxStart",
-              "value": {
-                "generation": {
-                  "#bigint": "1"
-                },
-                "launched": false,
-                "token": {
-                  "#bigint": "1"
-                }
-              }
-            },
-            "rest": [
-              {
-                "tag": "StartEnds",
-                "value": {
-                  "#bigint": "1"
-                }
-              }
-            ],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          }
-        ],
-        "cancelsDelivered": {
-          "#bigint": "0"
-        },
-        "eventsThatThrew": {
-          "#bigint": "0"
-        },
-        "faults": {
-          "#bigint": "0"
-        },
-        "generation": {
-          "#bigint": "1"
-        },
-        "hadPrompt": false,
-        "helloSlot": {
-          "tag": "Armed",
-          "value": {
-            "#bigint": "1"
-          }
-        },
-        "keepAliveSlot": {
-          "tag": "Unarmed",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lastProgressAt": {
-          "tag": "Old",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lostTurnsRecovered": {
-          "#bigint": "0"
-        },
-        "nextAlarm": {
-          "#bigint": "2"
-        },
-        "nextCall": {
-          "#bigint": "1"
-        },
-        "nextSerial": {
-          "#bigint": "0"
-        },
-        "noProgressSlot": {
-          "tag": "Unarmed",
-          "value": {
-            "#tup": []
-          }
-        },
-        "nudged": false,
-        "paused": false,
-        "permissionsAllowed": {
-          "#bigint": "0"
-        },
-        "permissionsAsked": {
-          "#bigint": "0"
-        },
-        "permissionsWithAnAllowOption": {
-          "#bigint": "0"
-        },
-        "personPrompts": {
-          "#bigint": "1"
-        },
-        "promptInFlight": false,
-        "promptsSent": {
-          "#bigint": "0"
-        },
-        "queue": [
-          {
-            "tag": "PersonPrompt",
-            "value": {
-              "#tup": []
-            }
-          }
-        ],
-        "restarts": {
-          "#bigint": "0"
-        },
-        "resumesChosen": {
-          "#bigint": "0"
-        },
-        "rpcs": [],
-        "session": false,
-        "sockets": [],
-        "socketsClosed": {
-          "#bigint": "0"
-        },
-        "status": {
-          "tag": "Provisioning",
-          "value": {
-            "#tup": []
-          }
-        },
-        "stopped": false,
-        "stoppedEarly": false,
-        "stopsEnded": {
-          "#bigint": "0"
-        },
-        "token": {
-          "#bigint": "1"
-        },
+        "turnText": false,
         "wallSlot": {
           "tag": "Unarmed",
           "value": {
@@ -1347,6 +551,12 @@
             "#tup": []
           }
         },
+        "endsWithText": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "finished": {
           "tag": "None",
           "value": {
@@ -1376,19 +586,25 @@
           "value": {
             "#tup": []
           }
+        },
+        "report": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
     {
       "#meta": {
-        "index": 5
+        "index": 2
       },
       "harnessDefaultEffort::harnessSession::rulesKept": {
         "aBridgeConnectsOnlyWithTheCurrentToken": true,
         "aFailedSandboxStartRestartsOrFails": true,
         "aHarnessExitCountsOneRestart": true,
         "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn": true,
-        "aLostTurnIsRecoveredWithoutARestart": true,
+        "aLostTurnCountsOneRestart": true,
         "aRefusedPromptLeavesTheTurn": true,
         "aSandboxStartBeginsAFreshGeneration": true,
         "aStartingTaskWorksOnlyAfterItsHello": true,
@@ -1406,17 +622,21 @@
         "aCallWasDropped": false,
         "aDialIsRefused": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessExitFailsTheTask": false,
+        "aHarnessExitRestartsAnIdleAuthor": false,
         "aHarnessExitRestartsTheTask": false,
         "aHelloMovesTheTaskToWorking": false,
-        "aHelloTimeoutFiresWhileItsStartIsOut": false,
+        "aHelloTimeoutFiresWhileItsStartIsOut": true,
         "aLaterGenerationBegins": false,
+        "aLostTurnFailsTheTask": false,
         "aLostTurnIsRecovered": false,
+        "aLostTurnOfATaskQueuedForARestart": false,
         "aPausedAuthorStaysPaused": false,
         "aPromptGoesOutDuringAnOutcomeCheck": false,
         "aRestartDropsTheSummarization": false,
         "aResumeLandsDuringACancelledTurn": false,
         "aResumePromptIsChosen": false,
-        "aSandboxStartFails": true,
+        "aSandboxStartFails": false,
         "aSandboxStartFailsAtOnce": false,
         "aSocketIsReplaced": false,
         "aStaleAlarmFires": false,
@@ -1427,10 +647,14 @@
         "aStopEndsAStartingTurn": false,
         "aStopLandsDuringATurn": false,
         "aStoppedTaskGetsTheTaskPrompt": false,
+        "aTaskLeftQueuedDuringItsBranchBinding": false,
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
+        "theBranchBindingFails": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
         "theInstanceRestartsWithoutACallOut": false,
@@ -1441,7 +665,7 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "5"
+          "#bigint": "2"
         },
         "agentWakes": {
           "#bigint": "0"
@@ -1449,7 +673,7 @@
         "alarms": [
           {
             "id": {
-              "#bigint": "1"
+              "#bigint": "2"
             },
             "kind": {
               "tag": "HelloTimeout",
@@ -1473,30 +697,39 @@
         "calls": [
           {
             "id": {
-              "#bigint": "1"
+              "#bigint": "0"
             },
             "kind": {
-              "tag": "SandboxDestroy",
+              "tag": "SandboxStart",
               "value": {
-                "#bigint": "1"
+                "generation": {
+                  "#bigint": "1"
+                },
+                "launched": false,
+                "token": {
+                  "#bigint": "1"
+                }
               }
             },
             "rest": [
               {
-                "tag": "RestartAfterClose",
-                "value": {
-                  "generation": {
-                    "#bigint": "1"
-                  },
-                  "restarts": {
-                    "#bigint": "0"
-                  }
-                }
-              },
-              {
                 "tag": "StartEnds",
                 "value": {
                   "#bigint": "1"
+                }
+              },
+              {
+                "tag": "AlarmEnds",
+                "value": {
+                  "id": {
+                    "#bigint": "0"
+                  },
+                  "kind": {
+                    "tag": "Provision",
+                    "value": {
+                      "#tup": []
+                    }
+                  }
                 }
               }
             ],
@@ -1515,7 +748,7 @@
           "#bigint": "0"
         },
         "faults": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "generation": {
           "#bigint": "1"
@@ -1524,7 +757,7 @@
         "helloSlot": {
           "tag": "Armed",
           "value": {
-            "#bigint": "1"
+            "#bigint": "2"
           }
         },
         "keepAliveSlot": {
@@ -1534,19 +767,19 @@
           }
         },
         "lastProgressAt": {
-          "tag": "Old",
+          "tag": "Recent",
           "value": {
             "#tup": []
           }
         },
-        "lostTurnsRecovered": {
+        "lostTurns": {
           "#bigint": "0"
         },
         "nextAlarm": {
-          "#bigint": "2"
+          "#bigint": "3"
         },
         "nextCall": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "nextSerial": {
           "#bigint": "0"
@@ -1558,6 +791,7 @@
           }
         },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": {
           "#bigint": "0"
@@ -1569,22 +803,15 @@
           "#bigint": "0"
         },
         "personPrompts": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "promptInFlight": false,
         "promptsSent": {
           "#bigint": "0"
         },
-        "queue": [
-          {
-            "tag": "PersonPrompt",
-            "value": {
-              "#tup": []
-            }
-          }
-        ],
+        "queue": [],
         "restarts": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "resumesChosen": {
           "#bigint": "0"
@@ -1596,7 +823,7 @@
           "#bigint": "0"
         },
         "status": {
-          "tag": "Queued",
+          "tag": "Provisioning",
           "value": {
             "#tup": []
           }
@@ -1607,8 +834,613 @@
           "#bigint": "0"
         },
         "token": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
+        "turnText": false,
+        "wallSlot": {
+          "tag": "Unarmed",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "mbt::actionTaken": "alarmFires",
+      "mbt::nondetPicks": {
+        "alarmIndex": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "bridge": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "callId": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "endsWithText": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "finished": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "index": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "offersAllow": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ok": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "report": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 3
+      },
+      "harnessDefaultEffort::harnessSession::rulesKept": {
+        "aBridgeConnectsOnlyWithTheCurrentToken": true,
+        "aFailedSandboxStartRestartsOrFails": true,
+        "aHarnessExitCountsOneRestart": true,
+        "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn": true,
+        "aLostTurnCountsOneRestart": true,
+        "aRefusedPromptLeavesTheTurn": true,
+        "aSandboxStartBeginsAFreshGeneration": true,
+        "aStartingTaskWorksOnlyAfterItsHello": true,
+        "aTaskWithoutAnEarlierPromptGetsTheTaskPrompt": true,
+        "anAuthorInReviewWorksOnlyWithAPrompt": true,
+        "finishedTaskKeepsItsStatus": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "provisionStartsOnlyAQueuedTask": true,
+        "staleAlarmIsIgnored": true,
+        "stopEndsTheAuthorsTurn": true,
+        "theHelloTimeoutWaitsWhileItsStartIsOut": true,
+        "wallClockFailsWithoutARestart": true
+      },
+      "harnessDefaultEffort::harnessSession::stepWitnesses": {
+        "aCallWasDropped": false,
+        "aDialIsRefused": false,
+        "aFinishedTaskIsInAStep": false,
+        "aHarnessExitFailsTheTask": false,
+        "aHarnessExitRestartsAnIdleAuthor": false,
+        "aHarnessExitRestartsTheTask": false,
+        "aHelloMovesTheTaskToWorking": false,
+        "aHelloTimeoutFiresWhileItsStartIsOut": false,
+        "aLaterGenerationBegins": false,
+        "aLostTurnFailsTheTask": false,
+        "aLostTurnIsRecovered": false,
+        "aLostTurnOfATaskQueuedForARestart": false,
+        "aPausedAuthorStaysPaused": false,
+        "aPromptGoesOutDuringAnOutcomeCheck": false,
+        "aRestartDropsTheSummarization": false,
+        "aResumeLandsDuringACancelledTurn": false,
+        "aResumePromptIsChosen": false,
+        "aSandboxStartFails": false,
+        "aSandboxStartFailsAtOnce": false,
+        "aSocketIsReplaced": false,
+        "aStaleAlarmFires": false,
+        "aStaleOutcomeCheckIsDropped": false,
+        "aStaleRestartIsDropped": false,
+        "aStaleSandboxStartFails": false,
+        "aStaleSandboxStartFailsAtOnce": false,
+        "aStopEndsAStartingTurn": false,
+        "aStopLandsDuringATurn": false,
+        "aStoppedTaskGetsTheTaskPrompt": false,
+        "aTaskLeftQueuedDuringItsBranchBinding": false,
+        "anAlarmRunsAgainAfterARestart": false,
+        "anAnswerArrivesAfterItsRowWasCleared": false,
+        "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
+        "theAgentWakesForAnIdleHarness": false,
+        "theBranchBindingFails": false,
+        "theEffortIsSet": false,
+        "theHarnessRefusesAPrompt": false,
+        "theInstanceRestartsWithoutACallOut": false,
+        "theKeepAliveFiresOnATurn": false,
+        "theProvisionAlarmFires": false,
+        "theWallClockFailsATurn": false,
+        "theWallClockFiresDuringARestart": false
+      },
+      "harnessDefaultEffort::harnessSession::world": {
+        "actions": {
+          "#bigint": "3"
+        },
+        "agentWakes": {
+          "#bigint": "0"
+        },
+        "alarms": [
+          {
+            "id": {
+              "#bigint": "2"
+            },
+            "kind": {
+              "tag": "HelloTimeout",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          }
+        ],
+        "answersToOtherRequests": {
+          "#bigint": "0"
+        },
+        "artifact": false,
+        "bridgeClosedAt": {
+          "tag": "Unset",
+          "value": {
+            "#tup": []
+          }
+        },
+        "bridges": [
+          {
+            "alive": true,
+            "generation": {
+              "#bigint": "1"
+            },
+            "requests": [],
+            "saidHello": false,
+            "token": {
+              "#bigint": "1"
+            }
+          }
+        ],
+        "calls": [
+          {
+            "id": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "SandboxStart",
+              "value": {
+                "generation": {
+                  "#bigint": "1"
+                },
+                "launched": true,
+                "token": {
+                  "#bigint": "1"
+                }
+              }
+            },
+            "rest": [
+              {
+                "tag": "StartEnds",
+                "value": {
+                  "#bigint": "1"
+                }
+              },
+              {
+                "tag": "AlarmEnds",
+                "value": {
+                  "id": {
+                    "#bigint": "0"
+                  },
+                  "kind": {
+                    "tag": "Provision",
+                    "value": {
+                      "#tup": []
+                    }
+                  }
+                }
+              }
+            ],
+            "state": {
+              "tag": "Out",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "cancelsDelivered": {
+          "#bigint": "0"
+        },
+        "eventsThatThrew": {
+          "#bigint": "0"
+        },
+        "faults": {
+          "#bigint": "0"
+        },
+        "generation": {
+          "#bigint": "1"
+        },
+        "hadPrompt": false,
+        "helloSlot": {
+          "tag": "Armed",
+          "value": {
+            "#bigint": "2"
+          }
+        },
+        "keepAliveSlot": {
+          "tag": "Unarmed",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lastProgressAt": {
+          "tag": "Recent",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostTurns": {
+          "#bigint": "0"
+        },
+        "nextAlarm": {
+          "#bigint": "3"
+        },
+        "nextCall": {
+          "#bigint": "1"
+        },
+        "nextSerial": {
+          "#bigint": "0"
+        },
+        "noProgressSlot": {
+          "tag": "Unarmed",
+          "value": {
+            "#tup": []
+          }
+        },
+        "nudged": false,
+        "openTodos": false,
+        "paused": false,
+        "permissionsAllowed": {
+          "#bigint": "0"
+        },
+        "permissionsAsked": {
+          "#bigint": "0"
+        },
+        "permissionsWithAnAllowOption": {
+          "#bigint": "0"
+        },
+        "personPrompts": {
+          "#bigint": "0"
+        },
+        "promptInFlight": false,
+        "promptsSent": {
+          "#bigint": "0"
+        },
+        "queue": [],
+        "restarts": {
+          "#bigint": "0"
+        },
+        "resumesChosen": {
+          "#bigint": "0"
+        },
+        "rpcs": [],
+        "session": false,
+        "sockets": [],
+        "socketsClosed": {
+          "#bigint": "0"
+        },
+        "status": {
+          "tag": "Provisioning",
+          "value": {
+            "#tup": []
+          }
+        },
+        "stopped": false,
+        "stoppedEarly": false,
+        "stopsEnded": {
+          "#bigint": "0"
+        },
+        "token": {
+          "#bigint": "1"
+        },
+        "turnText": false,
+        "wallSlot": {
+          "tag": "Unarmed",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "mbt::actionTaken": "sandboxStartLaunchesBridge",
+      "mbt::nondetPicks": {
+        "alarmIndex": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "bridge": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "callId": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "endsWithText": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "finished": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "index": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "offersAllow": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ok": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "report": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 4
+      },
+      "harnessDefaultEffort::harnessSession::rulesKept": {
+        "aBridgeConnectsOnlyWithTheCurrentToken": true,
+        "aFailedSandboxStartRestartsOrFails": true,
+        "aHarnessExitCountsOneRestart": true,
+        "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn": true,
+        "aLostTurnCountsOneRestart": true,
+        "aRefusedPromptLeavesTheTurn": true,
+        "aSandboxStartBeginsAFreshGeneration": true,
+        "aStartingTaskWorksOnlyAfterItsHello": true,
+        "aTaskWithoutAnEarlierPromptGetsTheTaskPrompt": true,
+        "anAuthorInReviewWorksOnlyWithAPrompt": true,
+        "finishedTaskKeepsItsStatus": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "provisionStartsOnlyAQueuedTask": true,
+        "staleAlarmIsIgnored": true,
+        "stopEndsTheAuthorsTurn": true,
+        "theHelloTimeoutWaitsWhileItsStartIsOut": true,
+        "wallClockFailsWithoutARestart": true
+      },
+      "harnessDefaultEffort::harnessSession::stepWitnesses": {
+        "aCallWasDropped": false,
+        "aDialIsRefused": false,
+        "aFinishedTaskIsInAStep": false,
+        "aHarnessExitFailsTheTask": false,
+        "aHarnessExitRestartsAnIdleAuthor": false,
+        "aHarnessExitRestartsTheTask": false,
+        "aHelloMovesTheTaskToWorking": false,
+        "aHelloTimeoutFiresWhileItsStartIsOut": false,
+        "aLaterGenerationBegins": false,
+        "aLostTurnFailsTheTask": false,
+        "aLostTurnIsRecovered": false,
+        "aLostTurnOfATaskQueuedForARestart": false,
+        "aPausedAuthorStaysPaused": false,
+        "aPromptGoesOutDuringAnOutcomeCheck": false,
+        "aRestartDropsTheSummarization": false,
+        "aResumeLandsDuringACancelledTurn": false,
+        "aResumePromptIsChosen": false,
+        "aSandboxStartFails": false,
+        "aSandboxStartFailsAtOnce": false,
+        "aSocketIsReplaced": false,
+        "aStaleAlarmFires": false,
+        "aStaleOutcomeCheckIsDropped": false,
+        "aStaleRestartIsDropped": false,
+        "aStaleSandboxStartFails": false,
+        "aStaleSandboxStartFailsAtOnce": false,
+        "aStopEndsAStartingTurn": false,
+        "aStopLandsDuringATurn": false,
+        "aStoppedTaskGetsTheTaskPrompt": false,
+        "aTaskLeftQueuedDuringItsBranchBinding": false,
+        "anAlarmRunsAgainAfterARestart": false,
+        "anAnswerArrivesAfterItsRowWasCleared": false,
+        "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
+        "theAgentWakesForAnIdleHarness": false,
+        "theBranchBindingFails": false,
+        "theEffortIsSet": false,
+        "theHarnessRefusesAPrompt": false,
+        "theInstanceRestartsWithoutACallOut": false,
+        "theKeepAliveFiresOnATurn": false,
+        "theProvisionAlarmFires": false,
+        "theWallClockFailsATurn": false,
+        "theWallClockFiresDuringARestart": false
+      },
+      "harnessDefaultEffort::harnessSession::world": {
+        "actions": {
+          "#bigint": "4"
+        },
+        "agentWakes": {
+          "#bigint": "0"
+        },
+        "alarms": [
+          {
+            "id": {
+              "#bigint": "3"
+            },
+            "kind": {
+              "tag": "HelloTimeout",
+              "value": {
+                "#bigint": "1"
+              }
+            }
+          }
+        ],
+        "answersToOtherRequests": {
+          "#bigint": "0"
+        },
+        "artifact": false,
+        "bridgeClosedAt": {
+          "tag": "Unset",
+          "value": {
+            "#tup": []
+          }
+        },
+        "bridges": [
+          {
+            "alive": true,
+            "generation": {
+              "#bigint": "1"
+            },
+            "requests": [],
+            "saidHello": false,
+            "token": {
+              "#bigint": "1"
+            }
+          }
+        ],
+        "calls": [],
+        "cancelsDelivered": {
+          "#bigint": "0"
+        },
+        "eventsThatThrew": {
+          "#bigint": "0"
+        },
+        "faults": {
+          "#bigint": "0"
+        },
+        "generation": {
+          "#bigint": "1"
+        },
+        "hadPrompt": false,
+        "helloSlot": {
+          "tag": "Armed",
+          "value": {
+            "#bigint": "3"
+          }
+        },
+        "keepAliveSlot": {
+          "tag": "Unarmed",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lastProgressAt": {
+          "tag": "Recent",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostTurns": {
+          "#bigint": "0"
+        },
+        "nextAlarm": {
+          "#bigint": "4"
+        },
+        "nextCall": {
+          "#bigint": "1"
+        },
+        "nextSerial": {
+          "#bigint": "0"
+        },
+        "noProgressSlot": {
+          "tag": "Unarmed",
+          "value": {
+            "#tup": []
+          }
+        },
+        "nudged": false,
+        "openTodos": false,
+        "paused": false,
+        "permissionsAllowed": {
+          "#bigint": "0"
+        },
+        "permissionsAsked": {
+          "#bigint": "0"
+        },
+        "permissionsWithAnAllowOption": {
+          "#bigint": "0"
+        },
+        "personPrompts": {
+          "#bigint": "0"
+        },
+        "promptInFlight": false,
+        "promptsSent": {
+          "#bigint": "0"
+        },
+        "queue": [],
+        "restarts": {
+          "#bigint": "0"
+        },
+        "resumesChosen": {
+          "#bigint": "0"
+        },
+        "rpcs": [],
+        "session": false,
+        "sockets": [],
+        "socketsClosed": {
+          "#bigint": "0"
+        },
+        "status": {
+          "tag": "Provisioning",
+          "value": {
+            "#tup": []
+          }
+        },
+        "stopped": false,
+        "stoppedEarly": false,
+        "stopsEnded": {
+          "#bigint": "0"
+        },
+        "token": {
+          "#bigint": "1"
+        },
+        "turnText": false,
         "wallSlot": {
           "tag": "Unarmed",
           "value": {
@@ -1636,6 +1468,12 @@
             "#bigint": "0"
           }
         },
+        "endsWithText": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "finished": {
           "tag": "None",
           "value": {
@@ -1656,9 +1494,15 @@
         },
         "ok": {
           "tag": "Some",
-          "value": false
+          "value": true
         },
         "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "report": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -1668,14 +1512,14 @@
     },
     {
       "#meta": {
-        "index": 6
+        "index": 5
       },
       "harnessDefaultEffort::harnessSession::rulesKept": {
         "aBridgeConnectsOnlyWithTheCurrentToken": true,
         "aFailedSandboxStartRestartsOrFails": true,
         "aHarnessExitCountsOneRestart": true,
         "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn": true,
-        "aLostTurnIsRecoveredWithoutARestart": true,
+        "aLostTurnCountsOneRestart": true,
         "aRefusedPromptLeavesTheTurn": true,
         "aSandboxStartBeginsAFreshGeneration": true,
         "aStartingTaskWorksOnlyAfterItsHello": true,
@@ -1693,11 +1537,15 @@
         "aCallWasDropped": false,
         "aDialIsRefused": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessExitFailsTheTask": false,
+        "aHarnessExitRestartsAnIdleAuthor": false,
         "aHarnessExitRestartsTheTask": false,
         "aHelloMovesTheTaskToWorking": false,
         "aHelloTimeoutFiresWhileItsStartIsOut": false,
-        "aLaterGenerationBegins": true,
+        "aLaterGenerationBegins": false,
+        "aLostTurnFailsTheTask": false,
         "aLostTurnIsRecovered": false,
+        "aLostTurnOfATaskQueuedForARestart": false,
         "aPausedAuthorStaysPaused": false,
         "aPromptGoesOutDuringAnOutcomeCheck": false,
         "aRestartDropsTheSummarization": false,
@@ -1714,10 +1562,14 @@
         "aStopEndsAStartingTurn": false,
         "aStopLandsDuringATurn": false,
         "aStoppedTaskGetsTheTaskPrompt": false,
+        "aTaskLeftQueuedDuringItsBranchBinding": false,
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
+        "theBranchBindingFails": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
         "theInstanceRestartsWithoutACallOut": false,
@@ -1728,7 +1580,7 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "6"
+          "#bigint": "5"
         },
         "agentWakes": {
           "#bigint": "0"
@@ -1736,12 +1588,12 @@
         "alarms": [
           {
             "id": {
-              "#bigint": "2"
+              "#bigint": "3"
             },
             "kind": {
               "tag": "HelloTimeout",
               "value": {
-                "#bigint": "2"
+                "#bigint": "1"
               }
             }
           }
@@ -1756,46 +1608,20 @@
             "#tup": []
           }
         },
-        "bridges": [],
-        "calls": [
+        "bridges": [
           {
-            "id": {
-              "#bigint": "2"
+            "alive": false,
+            "generation": {
+              "#bigint": "1"
             },
-            "kind": {
-              "tag": "SandboxStart",
-              "value": {
-                "generation": {
-                  "#bigint": "2"
-                },
-                "launched": false,
-                "token": {
-                  "#bigint": "3"
-                }
-              }
-            },
-            "rest": [
-              {
-                "tag": "StartEnds",
-                "value": {
-                  "#bigint": "2"
-                }
-              },
-              {
-                "tag": "StartEnds",
-                "value": {
-                  "#bigint": "1"
-                }
-              }
-            ],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
+            "requests": [],
+            "saidHello": false,
+            "token": {
+              "#bigint": "1"
             }
           }
         ],
+        "calls": [],
         "cancelsDelivered": {
           "#bigint": "0"
         },
@@ -1806,13 +1632,13 @@
           "#bigint": "1"
         },
         "generation": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "hadPrompt": false,
         "helloSlot": {
           "tag": "Armed",
           "value": {
-            "#bigint": "2"
+            "#bigint": "3"
           }
         },
         "keepAliveSlot": {
@@ -1822,19 +1648,19 @@
           }
         },
         "lastProgressAt": {
-          "tag": "Old",
+          "tag": "Recent",
           "value": {
             "#tup": []
           }
         },
-        "lostTurnsRecovered": {
+        "lostTurns": {
           "#bigint": "0"
         },
         "nextAlarm": {
-          "#bigint": "3"
+          "#bigint": "4"
         },
         "nextCall": {
-          "#bigint": "3"
+          "#bigint": "1"
         },
         "nextSerial": {
           "#bigint": "0"
@@ -1846,6 +1672,7 @@
           }
         },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": {
           "#bigint": "0"
@@ -1857,22 +1684,15 @@
           "#bigint": "0"
         },
         "personPrompts": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "promptInFlight": false,
         "promptsSent": {
           "#bigint": "0"
         },
-        "queue": [
-          {
-            "tag": "PersonPrompt",
-            "value": {
-              "#tup": []
-            }
-          }
-        ],
+        "queue": [],
         "restarts": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "resumesChosen": {
           "#bigint": "0"
@@ -1895,8 +1715,9 @@
           "#bigint": "0"
         },
         "token": {
-          "#bigint": "3"
+          "#bigint": "1"
         },
+        "turnText": false,
         "wallSlot": {
           "tag": "Unarmed",
           "value": {
@@ -1904,7 +1725,7 @@
           }
         }
       },
-      "mbt::actionTaken": "sandboxDestroyReturns",
+      "mbt::actionTaken": "bridgeDies",
       "mbt::nondetPicks": {
         "alarmIndex": {
           "tag": "None",
@@ -1913,15 +1734,21 @@
           }
         },
         "bridge": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "callId": {
           "tag": "None",
           "value": {
             "#tup": []
           }
         },
-        "callId": {
-          "tag": "Some",
+        "endsWithText": {
+          "tag": "None",
           "value": {
-            "#bigint": "1"
+            "#tup": []
           }
         },
         "finished": {
@@ -1953,19 +1780,25 @@
           "value": {
             "#tup": []
           }
+        },
+        "report": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
     {
       "#meta": {
-        "index": 7
+        "index": 6
       },
       "harnessDefaultEffort::harnessSession::rulesKept": {
         "aBridgeConnectsOnlyWithTheCurrentToken": true,
         "aFailedSandboxStartRestartsOrFails": true,
         "aHarnessExitCountsOneRestart": true,
         "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn": true,
-        "aLostTurnIsRecoveredWithoutARestart": true,
+        "aLostTurnCountsOneRestart": true,
         "aRefusedPromptLeavesTheTurn": true,
         "aSandboxStartBeginsAFreshGeneration": true,
         "aStartingTaskWorksOnlyAfterItsHello": true,
@@ -1983,11 +1816,15 @@
         "aCallWasDropped": false,
         "aDialIsRefused": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessExitFailsTheTask": false,
+        "aHarnessExitRestartsAnIdleAuthor": false,
         "aHarnessExitRestartsTheTask": false,
         "aHelloMovesTheTaskToWorking": false,
         "aHelloTimeoutFiresWhileItsStartIsOut": false,
         "aLaterGenerationBegins": true,
+        "aLostTurnFailsTheTask": false,
         "aLostTurnIsRecovered": false,
+        "aLostTurnOfATaskQueuedForARestart": false,
         "aPausedAuthorStaysPaused": false,
         "aPromptGoesOutDuringAnOutcomeCheck": false,
         "aRestartDropsTheSummarization": false,
@@ -2004,10 +1841,14 @@
         "aStopEndsAStartingTurn": true,
         "aStopLandsDuringATurn": false,
         "aStoppedTaskGetsTheTaskPrompt": false,
+        "aTaskLeftQueuedDuringItsBranchBinding": false,
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
+        "theBranchBindingFails": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
         "theInstanceRestartsWithoutACallOut": false,
@@ -2018,7 +1859,7 @@
       },
       "harnessDefaultEffort::harnessSession::world": {
         "actions": {
-          "#bigint": "7"
+          "#bigint": "6"
         },
         "agentWakes": {
           "#bigint": "0"
@@ -2034,53 +1875,28 @@
             "#tup": []
           }
         },
-        "bridges": [],
+        "bridges": [
+          {
+            "alive": false,
+            "generation": {
+              "#bigint": "1"
+            },
+            "requests": [],
+            "saidHello": false,
+            "token": {
+              "#bigint": "1"
+            }
+          }
+        ],
         "calls": [
           {
             "id": {
-              "#bigint": "2"
-            },
-            "kind": {
-              "tag": "SandboxStart",
-              "value": {
-                "generation": {
-                  "#bigint": "2"
-                },
-                "launched": false,
-                "token": {
-                  "#bigint": "3"
-                }
-              }
-            },
-            "rest": [
-              {
-                "tag": "StartEnds",
-                "value": {
-                  "#bigint": "2"
-                }
-              },
-              {
-                "tag": "StartEnds",
-                "value": {
-                  "#bigint": "1"
-                }
-              }
-            ],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "3"
+              "#bigint": "1"
             },
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "3"
+                "#bigint": "2"
               }
             },
             "rest": [],
@@ -2102,7 +1918,7 @@
           "#bigint": "1"
         },
         "generation": {
-          "#bigint": "3"
+          "#bigint": "2"
         },
         "hadPrompt": false,
         "helloSlot": {
@@ -2118,19 +1934,19 @@
           }
         },
         "lastProgressAt": {
-          "tag": "Old",
+          "tag": "Recent",
           "value": {
             "#tup": []
           }
         },
-        "lostTurnsRecovered": {
+        "lostTurns": {
           "#bigint": "0"
         },
         "nextAlarm": {
-          "#bigint": "3"
+          "#bigint": "4"
         },
         "nextCall": {
-          "#bigint": "4"
+          "#bigint": "2"
         },
         "nextSerial": {
           "#bigint": "0"
@@ -2142,6 +1958,7 @@
           }
         },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": {
           "#bigint": "0"
@@ -2153,7 +1970,7 @@
           "#bigint": "0"
         },
         "personPrompts": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "promptInFlight": false,
         "promptsSent": {
@@ -2161,7 +1978,7 @@
         },
         "queue": [],
         "restarts": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "resumesChosen": {
           "#bigint": "0"
@@ -2184,8 +2001,9 @@
           "#bigint": "1"
         },
         "token": {
-          "#bigint": "4"
+          "#bigint": "2"
         },
+        "turnText": false,
         "wallSlot": {
           "tag": "Unarmed",
           "value": {
@@ -2213,6 +2031,12 @@
             "#tup": []
           }
         },
+        "endsWithText": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "finished": {
           "tag": "None",
           "value": {
@@ -2242,19 +2066,25 @@
           "value": {
             "#tup": []
           }
+        },
+        "report": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
     {
       "#meta": {
-        "index": 8
+        "index": 7
       },
       "harnessDefaultEffort::harnessSession::rulesKept": {
         "aBridgeConnectsOnlyWithTheCurrentToken": true,
         "aFailedSandboxStartRestartsOrFails": true,
         "aHarnessExitCountsOneRestart": true,
         "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn": true,
-        "aLostTurnIsRecoveredWithoutARestart": true,
+        "aLostTurnCountsOneRestart": true,
         "aRefusedPromptLeavesTheTurn": true,
         "aSandboxStartBeginsAFreshGeneration": true,
         "aStartingTaskWorksOnlyAfterItsHello": true,
@@ -2272,11 +2102,15 @@
         "aCallWasDropped": false,
         "aDialIsRefused": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessExitFailsTheTask": false,
+        "aHarnessExitRestartsAnIdleAuthor": false,
         "aHarnessExitRestartsTheTask": false,
         "aHelloMovesTheTaskToWorking": false,
         "aHelloTimeoutFiresWhileItsStartIsOut": false,
-        "aLaterGenerationBegins": true,
+        "aLaterGenerationBegins": false,
+        "aLostTurnFailsTheTask": false,
         "aLostTurnIsRecovered": false,
+        "aLostTurnOfATaskQueuedForARestart": false,
         "aPausedAuthorStaysPaused": false,
         "aPromptGoesOutDuringAnOutcomeCheck": false,
         "aRestartDropsTheSummarization": false,
@@ -2293,10 +2127,300 @@
         "aStopEndsAStartingTurn": false,
         "aStopLandsDuringATurn": false,
         "aStoppedTaskGetsTheTaskPrompt": false,
+        "aTaskLeftQueuedDuringItsBranchBinding": false,
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
+        "theBranchBindingFails": false,
+        "theEffortIsSet": false,
+        "theHarnessRefusesAPrompt": false,
+        "theInstanceRestartsWithoutACallOut": false,
+        "theKeepAliveFiresOnATurn": false,
+        "theProvisionAlarmFires": false,
+        "theWallClockFailsATurn": false,
+        "theWallClockFiresDuringARestart": false
+      },
+      "harnessDefaultEffort::harnessSession::world": {
+        "actions": {
+          "#bigint": "7"
+        },
+        "agentWakes": {
+          "#bigint": "0"
+        },
+        "alarms": [],
+        "answersToOtherRequests": {
+          "#bigint": "0"
+        },
+        "artifact": false,
+        "bridgeClosedAt": {
+          "tag": "Unset",
+          "value": {
+            "#tup": []
+          }
+        },
+        "bridges": [
+          {
+            "alive": false,
+            "generation": {
+              "#bigint": "1"
+            },
+            "requests": [],
+            "saidHello": false,
+            "token": {
+              "#bigint": "1"
+            }
+          }
+        ],
+        "calls": [
+          {
+            "id": {
+              "#bigint": "1"
+            },
+            "kind": {
+              "tag": "SandboxDestroy",
+              "value": {
+                "#bigint": "2"
+              }
+            },
+            "rest": [],
+            "state": {
+              "tag": "Out",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "cancelsDelivered": {
+          "#bigint": "0"
+        },
+        "eventsThatThrew": {
+          "#bigint": "0"
+        },
+        "faults": {
+          "#bigint": "1"
+        },
+        "generation": {
+          "#bigint": "2"
+        },
+        "hadPrompt": false,
+        "helloSlot": {
+          "tag": "Unarmed",
+          "value": {
+            "#tup": []
+          }
+        },
+        "keepAliveSlot": {
+          "tag": "Unarmed",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lastProgressAt": {
+          "tag": "Old",
+          "value": {
+            "#tup": []
+          }
+        },
+        "lostTurns": {
+          "#bigint": "0"
+        },
+        "nextAlarm": {
+          "#bigint": "4"
+        },
+        "nextCall": {
+          "#bigint": "2"
+        },
+        "nextSerial": {
+          "#bigint": "0"
+        },
+        "noProgressSlot": {
+          "tag": "Unarmed",
+          "value": {
+            "#tup": []
+          }
+        },
+        "nudged": false,
+        "openTodos": false,
+        "paused": false,
+        "permissionsAllowed": {
+          "#bigint": "0"
+        },
+        "permissionsAsked": {
+          "#bigint": "0"
+        },
+        "permissionsWithAnAllowOption": {
+          "#bigint": "0"
+        },
+        "personPrompts": {
+          "#bigint": "0"
+        },
+        "promptInFlight": false,
+        "promptsSent": {
+          "#bigint": "0"
+        },
+        "queue": [],
+        "restarts": {
+          "#bigint": "0"
+        },
+        "resumesChosen": {
+          "#bigint": "0"
+        },
+        "rpcs": [],
+        "session": false,
+        "sockets": [],
+        "socketsClosed": {
+          "#bigint": "0"
+        },
+        "status": {
+          "tag": "Working",
+          "value": {
+            "#tup": []
+          }
+        },
+        "stopped": true,
+        "stoppedEarly": false,
+        "stopsEnded": {
+          "#bigint": "1"
+        },
+        "token": {
+          "#bigint": "2"
+        },
+        "turnText": false,
+        "wallSlot": {
+          "tag": "Unarmed",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "mbt::actionTaken": "timePasses",
+      "mbt::nondetPicks": {
+        "alarmIndex": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "bridge": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "callId": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "endsWithText": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "finished": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "index": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "offersAllow": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ok": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "report": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 8
+      },
+      "harnessDefaultEffort::harnessSession::rulesKept": {
+        "aBridgeConnectsOnlyWithTheCurrentToken": true,
+        "aFailedSandboxStartRestartsOrFails": true,
+        "aHarnessExitCountsOneRestart": true,
+        "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn": true,
+        "aLostTurnCountsOneRestart": true,
+        "aRefusedPromptLeavesTheTurn": true,
+        "aSandboxStartBeginsAFreshGeneration": true,
+        "aStartingTaskWorksOnlyAfterItsHello": true,
+        "aTaskWithoutAnEarlierPromptGetsTheTaskPrompt": true,
+        "anAuthorInReviewWorksOnlyWithAPrompt": true,
+        "finishedTaskKeepsItsStatus": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "provisionStartsOnlyAQueuedTask": true,
+        "staleAlarmIsIgnored": true,
+        "stopEndsTheAuthorsTurn": true,
+        "theHelloTimeoutWaitsWhileItsStartIsOut": true,
+        "wallClockFailsWithoutARestart": true
+      },
+      "harnessDefaultEffort::harnessSession::stepWitnesses": {
+        "aCallWasDropped": false,
+        "aDialIsRefused": false,
+        "aFinishedTaskIsInAStep": false,
+        "aHarnessExitFailsTheTask": false,
+        "aHarnessExitRestartsAnIdleAuthor": false,
+        "aHarnessExitRestartsTheTask": false,
+        "aHelloMovesTheTaskToWorking": false,
+        "aHelloTimeoutFiresWhileItsStartIsOut": false,
+        "aLaterGenerationBegins": true,
+        "aLostTurnFailsTheTask": false,
+        "aLostTurnIsRecovered": false,
+        "aLostTurnOfATaskQueuedForARestart": false,
+        "aPausedAuthorStaysPaused": false,
+        "aPromptGoesOutDuringAnOutcomeCheck": false,
+        "aRestartDropsTheSummarization": false,
+        "aResumeLandsDuringACancelledTurn": false,
+        "aResumePromptIsChosen": false,
+        "aSandboxStartFails": false,
+        "aSandboxStartFailsAtOnce": false,
+        "aSocketIsReplaced": false,
+        "aStaleAlarmFires": false,
+        "aStaleOutcomeCheckIsDropped": false,
+        "aStaleRestartIsDropped": false,
+        "aStaleSandboxStartFails": false,
+        "aStaleSandboxStartFailsAtOnce": false,
+        "aStopEndsAStartingTurn": false,
+        "aStopLandsDuringATurn": false,
+        "aStoppedTaskGetsTheTaskPrompt": false,
+        "aTaskLeftQueuedDuringItsBranchBinding": false,
+        "anAlarmRunsAgainAfterARestart": false,
+        "anAnswerArrivesAfterItsRowWasCleared": false,
+        "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
+        "theAgentWakesForAnIdleHarness": false,
+        "theBranchBindingFails": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
         "theInstanceRestartsWithoutACallOut": false,
@@ -2315,12 +2439,12 @@
         "alarms": [
           {
             "id": {
-              "#bigint": "3"
+              "#bigint": "4"
             },
             "kind": {
               "tag": "HelloTimeout",
               "value": {
-                "#bigint": "4"
+                "#bigint": "3"
               }
             }
           }
@@ -2335,53 +2459,28 @@
             "#tup": []
           }
         },
-        "bridges": [],
+        "bridges": [
+          {
+            "alive": false,
+            "generation": {
+              "#bigint": "1"
+            },
+            "requests": [],
+            "saidHello": false,
+            "token": {
+              "#bigint": "1"
+            }
+          }
+        ],
         "calls": [
           {
             "id": {
-              "#bigint": "2"
-            },
-            "kind": {
-              "tag": "SandboxStart",
-              "value": {
-                "generation": {
-                  "#bigint": "2"
-                },
-                "launched": false,
-                "token": {
-                  "#bigint": "3"
-                }
-              }
-            },
-            "rest": [
-              {
-                "tag": "StartEnds",
-                "value": {
-                  "#bigint": "2"
-                }
-              },
-              {
-                "tag": "StartEnds",
-                "value": {
-                  "#bigint": "1"
-                }
-              }
-            ],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "3"
+              "#bigint": "1"
             },
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "3"
+                "#bigint": "2"
               }
             },
             "rest": [],
@@ -2394,17 +2493,17 @@
           },
           {
             "id": {
-              "#bigint": "4"
+              "#bigint": "2"
             },
             "kind": {
               "tag": "SandboxStart",
               "value": {
                 "generation": {
-                  "#bigint": "4"
+                  "#bigint": "3"
                 },
                 "launched": false,
                 "token": {
-                  "#bigint": "5"
+                  "#bigint": "3"
                 }
               }
             },
@@ -2412,7 +2511,7 @@
               {
                 "tag": "StartEnds",
                 "value": {
-                  "#bigint": "4"
+                  "#bigint": "3"
                 }
               }
             ],
@@ -2434,13 +2533,13 @@
           "#bigint": "1"
         },
         "generation": {
-          "#bigint": "4"
+          "#bigint": "3"
         },
         "hadPrompt": false,
         "helloSlot": {
           "tag": "Armed",
           "value": {
-            "#bigint": "3"
+            "#bigint": "4"
           }
         },
         "keepAliveSlot": {
@@ -2455,14 +2554,14 @@
             "#tup": []
           }
         },
-        "lostTurnsRecovered": {
+        "lostTurns": {
           "#bigint": "0"
         },
         "nextAlarm": {
-          "#bigint": "4"
+          "#bigint": "5"
         },
         "nextCall": {
-          "#bigint": "5"
+          "#bigint": "3"
         },
         "nextSerial": {
           "#bigint": "0"
@@ -2474,6 +2573,7 @@
           }
         },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": {
           "#bigint": "0"
@@ -2485,7 +2585,7 @@
           "#bigint": "0"
         },
         "personPrompts": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "promptInFlight": false,
         "promptsSent": {
@@ -2500,7 +2600,7 @@
           }
         ],
         "restarts": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "resumesChosen": {
           "#bigint": "0"
@@ -2523,8 +2623,9 @@
           "#bigint": "1"
         },
         "token": {
-          "#bigint": "5"
+          "#bigint": "3"
         },
+        "turnText": false,
         "wallSlot": {
           "tag": "Unarmed",
           "value": {
@@ -2552,6 +2653,12 @@
             "#tup": []
           }
         },
+        "endsWithText": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "finished": {
           "tag": "None",
           "value": {
@@ -2581,6 +2688,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "report": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -2593,7 +2706,7 @@
         "aFailedSandboxStartRestartsOrFails": true,
         "aHarnessExitCountsOneRestart": true,
         "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn": true,
-        "aLostTurnIsRecoveredWithoutARestart": true,
+        "aLostTurnCountsOneRestart": true,
         "aRefusedPromptLeavesTheTurn": true,
         "aSandboxStartBeginsAFreshGeneration": true,
         "aStartingTaskWorksOnlyAfterItsHello": true,
@@ -2611,11 +2724,15 @@
         "aCallWasDropped": false,
         "aDialIsRefused": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessExitFailsTheTask": false,
+        "aHarnessExitRestartsAnIdleAuthor": false,
         "aHarnessExitRestartsTheTask": false,
         "aHelloMovesTheTaskToWorking": false,
         "aHelloTimeoutFiresWhileItsStartIsOut": false,
         "aLaterGenerationBegins": true,
+        "aLostTurnFailsTheTask": false,
         "aLostTurnIsRecovered": false,
+        "aLostTurnOfATaskQueuedForARestart": false,
         "aPausedAuthorStaysPaused": false,
         "aPromptGoesOutDuringAnOutcomeCheck": false,
         "aRestartDropsTheSummarization": false,
@@ -2632,10 +2749,14 @@
         "aStopEndsAStartingTurn": true,
         "aStopLandsDuringATurn": false,
         "aStoppedTaskGetsTheTaskPrompt": false,
+        "aTaskLeftQueuedDuringItsBranchBinding": false,
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
+        "theBranchBindingFails": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
         "theInstanceRestartsWithoutACallOut": false,
@@ -2662,8 +2783,38 @@
             "#tup": []
           }
         },
-        "bridges": [],
+        "bridges": [
+          {
+            "alive": false,
+            "generation": {
+              "#bigint": "1"
+            },
+            "requests": [],
+            "saidHello": false,
+            "token": {
+              "#bigint": "1"
+            }
+          }
+        ],
         "calls": [
+          {
+            "id": {
+              "#bigint": "1"
+            },
+            "kind": {
+              "tag": "SandboxDestroy",
+              "value": {
+                "#bigint": "2"
+              }
+            },
+            "rest": [],
+            "state": {
+              "tag": "Out",
+              "value": {
+                "#tup": []
+              }
+            }
+          },
           {
             "id": {
               "#bigint": "2"
@@ -2672,7 +2823,7 @@
               "tag": "SandboxStart",
               "value": {
                 "generation": {
-                  "#bigint": "2"
+                  "#bigint": "3"
                 },
                 "launched": false,
                 "token": {
@@ -2684,13 +2835,7 @@
               {
                 "tag": "StartEnds",
                 "value": {
-                  "#bigint": "2"
-                }
-              },
-              {
-                "tag": "StartEnds",
-                "value": {
-                  "#bigint": "1"
+                  "#bigint": "3"
                 }
               }
             ],
@@ -2708,56 +2853,7 @@
             "kind": {
               "tag": "SandboxDestroy",
               "value": {
-                "#bigint": "3"
-              }
-            },
-            "rest": [],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "4"
-            },
-            "kind": {
-              "tag": "SandboxStart",
-              "value": {
-                "generation": {
-                  "#bigint": "4"
-                },
-                "launched": false,
-                "token": {
-                  "#bigint": "5"
-                }
-              }
-            },
-            "rest": [
-              {
-                "tag": "StartEnds",
-                "value": {
-                  "#bigint": "4"
-                }
-              }
-            ],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "5"
-            },
-            "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "5"
+                "#bigint": "4"
               }
             },
             "rest": [],
@@ -2779,7 +2875,7 @@
           "#bigint": "1"
         },
         "generation": {
-          "#bigint": "5"
+          "#bigint": "4"
         },
         "hadPrompt": false,
         "helloSlot": {
@@ -2800,14 +2896,14 @@
             "#tup": []
           }
         },
-        "lostTurnsRecovered": {
+        "lostTurns": {
           "#bigint": "0"
         },
         "nextAlarm": {
-          "#bigint": "4"
+          "#bigint": "5"
         },
         "nextCall": {
-          "#bigint": "6"
+          "#bigint": "4"
         },
         "nextSerial": {
           "#bigint": "0"
@@ -2819,6 +2915,7 @@
           }
         },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": {
           "#bigint": "0"
@@ -2830,7 +2927,7 @@
           "#bigint": "0"
         },
         "personPrompts": {
-          "#bigint": "2"
+          "#bigint": "1"
         },
         "promptInFlight": false,
         "promptsSent": {
@@ -2838,7 +2935,7 @@
         },
         "queue": [],
         "restarts": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "resumesChosen": {
           "#bigint": "0"
@@ -2861,8 +2958,9 @@
           "#bigint": "2"
         },
         "token": {
-          "#bigint": "6"
+          "#bigint": "4"
         },
+        "turnText": false,
         "wallSlot": {
           "tag": "Unarmed",
           "value": {
@@ -2890,6 +2988,12 @@
             "#tup": []
           }
         },
+        "endsWithText": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "finished": {
           "tag": "None",
           "value": {
@@ -2915,6 +3019,12 @@
           }
         },
         "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "report": {
           "tag": "None",
           "value": {
             "#tup": []
@@ -2931,7 +3041,7 @@
         "aFailedSandboxStartRestartsOrFails": true,
         "aHarnessExitCountsOneRestart": true,
         "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn": true,
-        "aLostTurnIsRecoveredWithoutARestart": true,
+        "aLostTurnCountsOneRestart": true,
         "aRefusedPromptLeavesTheTurn": true,
         "aSandboxStartBeginsAFreshGeneration": true,
         "aStartingTaskWorksOnlyAfterItsHello": true,
@@ -2949,11 +3059,15 @@
         "aCallWasDropped": false,
         "aDialIsRefused": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessExitFailsTheTask": false,
+        "aHarnessExitRestartsAnIdleAuthor": false,
         "aHarnessExitRestartsTheTask": false,
         "aHelloMovesTheTaskToWorking": false,
         "aHelloTimeoutFiresWhileItsStartIsOut": false,
-        "aLaterGenerationBegins": false,
+        "aLaterGenerationBegins": true,
+        "aLostTurnFailsTheTask": false,
         "aLostTurnIsRecovered": false,
+        "aLostTurnOfATaskQueuedForARestart": false,
         "aPausedAuthorStaysPaused": false,
         "aPromptGoesOutDuringAnOutcomeCheck": false,
         "aRestartDropsTheSummarization": false,
@@ -2970,10 +3084,14 @@
         "aStopEndsAStartingTurn": false,
         "aStopLandsDuringATurn": false,
         "aStoppedTaskGetsTheTaskPrompt": false,
+        "aTaskLeftQueuedDuringItsBranchBinding": false,
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
+        "theBranchBindingFails": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
         "theInstanceRestartsWithoutACallOut": false,
@@ -2989,7 +3107,19 @@
         "agentWakes": {
           "#bigint": "0"
         },
-        "alarms": [],
+        "alarms": [
+          {
+            "id": {
+              "#bigint": "5"
+            },
+            "kind": {
+              "tag": "HelloTimeout",
+              "value": {
+                "#bigint": "5"
+              }
+            }
+          }
+        ],
         "answersToOtherRequests": {
           "#bigint": "0"
         },
@@ -3000,8 +3130,38 @@
             "#tup": []
           }
         },
-        "bridges": [],
+        "bridges": [
+          {
+            "alive": false,
+            "generation": {
+              "#bigint": "1"
+            },
+            "requests": [],
+            "saidHello": false,
+            "token": {
+              "#bigint": "1"
+            }
+          }
+        ],
         "calls": [
+          {
+            "id": {
+              "#bigint": "1"
+            },
+            "kind": {
+              "tag": "SandboxDestroy",
+              "value": {
+                "#bigint": "2"
+              }
+            },
+            "rest": [],
+            "state": {
+              "tag": "Out",
+              "value": {
+                "#tup": []
+              }
+            }
+          },
           {
             "id": {
               "#bigint": "2"
@@ -3010,7 +3170,7 @@
               "tag": "SandboxStart",
               "value": {
                 "generation": {
-                  "#bigint": "2"
+                  "#bigint": "3"
                 },
                 "launched": false,
                 "token": {
@@ -3022,16 +3182,28 @@
               {
                 "tag": "StartEnds",
                 "value": {
-                  "#bigint": "2"
-                }
-              },
-              {
-                "tag": "StartEnds",
-                "value": {
-                  "#bigint": "1"
+                  "#bigint": "3"
                 }
               }
             ],
+            "state": {
+              "tag": "Out",
+              "value": {
+                "#tup": []
+              }
+            }
+          },
+          {
+            "id": {
+              "#bigint": "3"
+            },
+            "kind": {
+              "tag": "SandboxDestroy",
+              "value": {
+                "#bigint": "4"
+              }
+            },
+            "rest": [],
             "state": {
               "tag": "Out",
               "value": {
@@ -3047,7 +3219,7 @@
               "tag": "SandboxStart",
               "value": {
                 "generation": {
-                  "#bigint": "4"
+                  "#bigint": "5"
                 },
                 "launched": false,
                 "token": {
@@ -3059,28 +3231,10 @@
               {
                 "tag": "StartEnds",
                 "value": {
-                  "#bigint": "4"
+                  "#bigint": "5"
                 }
               }
             ],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "5"
-            },
-            "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "5"
-              }
-            },
-            "rest": [],
             "state": {
               "tag": "Out",
               "value": {
@@ -3103,9 +3257,9 @@
         },
         "hadPrompt": false,
         "helloSlot": {
-          "tag": "Unarmed",
+          "tag": "Armed",
           "value": {
-            "#tup": []
+            "#bigint": "5"
           }
         },
         "keepAliveSlot": {
@@ -3120,14 +3274,14 @@
             "#tup": []
           }
         },
-        "lostTurnsRecovered": {
+        "lostTurns": {
           "#bigint": "0"
         },
         "nextAlarm": {
-          "#bigint": "4"
+          "#bigint": "6"
         },
         "nextCall": {
-          "#bigint": "6"
+          "#bigint": "5"
         },
         "nextSerial": {
           "#bigint": "0"
@@ -3139,6 +3293,7 @@
           }
         },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": {
           "#bigint": "0"
@@ -3156,9 +3311,16 @@
         "promptsSent": {
           "#bigint": "0"
         },
-        "queue": [],
+        "queue": [
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
         "restarts": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "resumesChosen": {
           "#bigint": "0"
@@ -3170,19 +3332,20 @@
           "#bigint": "0"
         },
         "status": {
-          "tag": "Working",
+          "tag": "Provisioning",
           "value": {
             "#tup": []
           }
         },
-        "stopped": true,
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "2"
         },
         "token": {
-          "#bigint": "6"
+          "#bigint": "5"
         },
+        "turnText": false,
         "wallSlot": {
           "tag": "Unarmed",
           "value": {
@@ -3190,7 +3353,7 @@
           }
         }
       },
-      "mbt::actionTaken": "sandboxDestroyReturns",
+      "mbt::actionTaken": "personPrompts",
       "mbt::nondetPicks": {
         "alarmIndex": {
           "tag": "None",
@@ -3205,9 +3368,15 @@
           }
         },
         "callId": {
-          "tag": "Some",
+          "tag": "None",
           "value": {
-            "#bigint": "3"
+            "#tup": []
+          }
+        },
+        "endsWithText": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "finished": {
@@ -3239,6 +3408,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "report": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -3251,7 +3426,7 @@
         "aFailedSandboxStartRestartsOrFails": true,
         "aHarnessExitCountsOneRestart": true,
         "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn": true,
-        "aLostTurnIsRecoveredWithoutARestart": true,
+        "aLostTurnCountsOneRestart": true,
         "aRefusedPromptLeavesTheTurn": true,
         "aSandboxStartBeginsAFreshGeneration": true,
         "aStartingTaskWorksOnlyAfterItsHello": true,
@@ -3269,11 +3444,15 @@
         "aCallWasDropped": false,
         "aDialIsRefused": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessExitFailsTheTask": false,
+        "aHarnessExitRestartsAnIdleAuthor": false,
         "aHarnessExitRestartsTheTask": false,
         "aHelloMovesTheTaskToWorking": false,
         "aHelloTimeoutFiresWhileItsStartIsOut": false,
         "aLaterGenerationBegins": false,
+        "aLostTurnFailsTheTask": false,
         "aLostTurnIsRecovered": false,
+        "aLostTurnOfATaskQueuedForARestart": false,
         "aPausedAuthorStaysPaused": false,
         "aPromptGoesOutDuringAnOutcomeCheck": false,
         "aRestartDropsTheSummarization": false,
@@ -3290,10 +3469,14 @@
         "aStopEndsAStartingTurn": false,
         "aStopLandsDuringATurn": false,
         "aStoppedTaskGetsTheTaskPrompt": false,
+        "aTaskLeftQueuedDuringItsBranchBinding": false,
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
+        "theBranchBindingFails": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
         "theInstanceRestartsWithoutACallOut": false,
@@ -3309,7 +3492,19 @@
         "agentWakes": {
           "#bigint": "0"
         },
-        "alarms": [],
+        "alarms": [
+          {
+            "id": {
+              "#bigint": "5"
+            },
+            "kind": {
+              "tag": "HelloTimeout",
+              "value": {
+                "#bigint": "5"
+              }
+            }
+          }
+        ],
         "answersToOtherRequests": {
           "#bigint": "0"
         },
@@ -3322,9 +3517,20 @@
         },
         "bridges": [
           {
+            "alive": false,
+            "generation": {
+              "#bigint": "1"
+            },
+            "requests": [],
+            "saidHello": false,
+            "token": {
+              "#bigint": "1"
+            }
+          },
+          {
             "alive": true,
             "generation": {
-              "#bigint": "4"
+              "#bigint": "5"
             },
             "requests": [],
             "saidHello": false,
@@ -3336,13 +3542,31 @@
         "calls": [
           {
             "id": {
+              "#bigint": "1"
+            },
+            "kind": {
+              "tag": "SandboxDestroy",
+              "value": {
+                "#bigint": "2"
+              }
+            },
+            "rest": [],
+            "state": {
+              "tag": "Out",
+              "value": {
+                "#tup": []
+              }
+            }
+          },
+          {
+            "id": {
               "#bigint": "2"
             },
             "kind": {
               "tag": "SandboxStart",
               "value": {
                 "generation": {
-                  "#bigint": "2"
+                  "#bigint": "3"
                 },
                 "launched": false,
                 "token": {
@@ -3354,16 +3578,28 @@
               {
                 "tag": "StartEnds",
                 "value": {
-                  "#bigint": "2"
-                }
-              },
-              {
-                "tag": "StartEnds",
-                "value": {
-                  "#bigint": "1"
+                  "#bigint": "3"
                 }
               }
             ],
+            "state": {
+              "tag": "Out",
+              "value": {
+                "#tup": []
+              }
+            }
+          },
+          {
+            "id": {
+              "#bigint": "3"
+            },
+            "kind": {
+              "tag": "SandboxDestroy",
+              "value": {
+                "#bigint": "4"
+              }
+            },
+            "rest": [],
             "state": {
               "tag": "Out",
               "value": {
@@ -3379,7 +3615,7 @@
               "tag": "SandboxStart",
               "value": {
                 "generation": {
-                  "#bigint": "4"
+                  "#bigint": "5"
                 },
                 "launched": true,
                 "token": {
@@ -3391,28 +3627,10 @@
               {
                 "tag": "StartEnds",
                 "value": {
-                  "#bigint": "4"
+                  "#bigint": "5"
                 }
               }
             ],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "5"
-            },
-            "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "5"
-              }
-            },
-            "rest": [],
             "state": {
               "tag": "Out",
               "value": {
@@ -3435,9 +3653,9 @@
         },
         "hadPrompt": false,
         "helloSlot": {
-          "tag": "Unarmed",
+          "tag": "Armed",
           "value": {
-            "#tup": []
+            "#bigint": "5"
           }
         },
         "keepAliveSlot": {
@@ -3452,14 +3670,14 @@
             "#tup": []
           }
         },
-        "lostTurnsRecovered": {
+        "lostTurns": {
           "#bigint": "0"
         },
         "nextAlarm": {
-          "#bigint": "4"
+          "#bigint": "6"
         },
         "nextCall": {
-          "#bigint": "6"
+          "#bigint": "5"
         },
         "nextSerial": {
           "#bigint": "0"
@@ -3471,6 +3689,7 @@
           }
         },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": {
           "#bigint": "0"
@@ -3488,9 +3707,16 @@
         "promptsSent": {
           "#bigint": "0"
         },
-        "queue": [],
+        "queue": [
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
         "restarts": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "resumesChosen": {
           "#bigint": "0"
@@ -3502,19 +3728,20 @@
           "#bigint": "0"
         },
         "status": {
-          "tag": "Working",
+          "tag": "Provisioning",
           "value": {
             "#tup": []
           }
         },
-        "stopped": true,
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "2"
         },
         "token": {
-          "#bigint": "6"
+          "#bigint": "5"
         },
+        "turnText": false,
         "wallSlot": {
           "tag": "Unarmed",
           "value": {
@@ -3542,6 +3769,12 @@
             "#bigint": "4"
           }
         },
+        "endsWithText": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "finished": {
           "tag": "None",
           "value": {
@@ -3571,6 +3804,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "report": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
         }
       }
     },
@@ -3583,7 +3822,7 @@
         "aFailedSandboxStartRestartsOrFails": true,
         "aHarnessExitCountsOneRestart": true,
         "aLaterPromptSurvivesTheOutcomeOfAnEarlierTurn": true,
-        "aLostTurnIsRecoveredWithoutARestart": true,
+        "aLostTurnCountsOneRestart": true,
         "aRefusedPromptLeavesTheTurn": true,
         "aSandboxStartBeginsAFreshGeneration": true,
         "aStartingTaskWorksOnlyAfterItsHello": true,
@@ -3601,11 +3840,15 @@
         "aCallWasDropped": false,
         "aDialIsRefused": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessExitFailsTheTask": false,
+        "aHarnessExitRestartsAnIdleAuthor": false,
         "aHarnessExitRestartsTheTask": false,
         "aHelloMovesTheTaskToWorking": false,
         "aHelloTimeoutFiresWhileItsStartIsOut": false,
         "aLaterGenerationBegins": false,
+        "aLostTurnFailsTheTask": false,
         "aLostTurnIsRecovered": false,
+        "aLostTurnOfATaskQueuedForARestart": false,
         "aPausedAuthorStaysPaused": false,
         "aPromptGoesOutDuringAnOutcomeCheck": false,
         "aRestartDropsTheSummarization": false,
@@ -3622,10 +3865,14 @@
         "aStopEndsAStartingTurn": false,
         "aStopLandsDuringATurn": false,
         "aStoppedTaskGetsTheTaskPrompt": false,
+        "aTaskLeftQueuedDuringItsBranchBinding": false,
         "anAlarmRunsAgainAfterARestart": false,
         "anAnswerArrivesAfterItsRowWasCleared": false,
         "anAuthorInReviewTakesAPrompt": false,
+        "anEmptyTurnStopsEarly": false,
+        "theAgentWakesAfterAnEmptyTurn": false,
         "theAgentWakesForAnIdleHarness": false,
+        "theBranchBindingFails": false,
         "theEffortIsSet": false,
         "theHarnessRefusesAPrompt": false,
         "theInstanceRestartsWithoutACallOut": false,
@@ -3641,7 +3888,19 @@
         "agentWakes": {
           "#bigint": "0"
         },
-        "alarms": [],
+        "alarms": [
+          {
+            "id": {
+              "#bigint": "5"
+            },
+            "kind": {
+              "tag": "HelloTimeout",
+              "value": {
+                "#bigint": "5"
+              }
+            }
+          }
+        ],
         "answersToOtherRequests": {
           "#bigint": "0"
         },
@@ -3654,9 +3913,20 @@
         },
         "bridges": [
           {
+            "alive": false,
+            "generation": {
+              "#bigint": "1"
+            },
+            "requests": [],
+            "saidHello": false,
+            "token": {
+              "#bigint": "1"
+            }
+          },
+          {
             "alive": true,
             "generation": {
-              "#bigint": "4"
+              "#bigint": "5"
             },
             "requests": [],
             "saidHello": false,
@@ -3668,13 +3938,49 @@
         "calls": [
           {
             "id": {
+              "#bigint": "1"
+            },
+            "kind": {
+              "tag": "SandboxDestroy",
+              "value": {
+                "#bigint": "2"
+              }
+            },
+            "rest": [],
+            "state": {
+              "tag": "Out",
+              "value": {
+                "#tup": []
+              }
+            }
+          },
+          {
+            "id": {
+              "#bigint": "3"
+            },
+            "kind": {
+              "tag": "SandboxDestroy",
+              "value": {
+                "#bigint": "4"
+              }
+            },
+            "rest": [],
+            "state": {
+              "tag": "Out",
+              "value": {
+                "#tup": []
+              }
+            }
+          },
+          {
+            "id": {
               "#bigint": "4"
             },
             "kind": {
               "tag": "SandboxStart",
               "value": {
                 "generation": {
-                  "#bigint": "4"
+                  "#bigint": "5"
                 },
                 "launched": true,
                 "token": {
@@ -3686,28 +3992,10 @@
               {
                 "tag": "StartEnds",
                 "value": {
-                  "#bigint": "4"
+                  "#bigint": "5"
                 }
               }
             ],
-            "state": {
-              "tag": "Out",
-              "value": {
-                "#tup": []
-              }
-            }
-          },
-          {
-            "id": {
-              "#bigint": "5"
-            },
-            "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#bigint": "5"
-              }
-            },
-            "rest": [],
             "state": {
               "tag": "Out",
               "value": {
@@ -3730,9 +4018,9 @@
         },
         "hadPrompt": false,
         "helloSlot": {
-          "tag": "Unarmed",
+          "tag": "Armed",
           "value": {
-            "#tup": []
+            "#bigint": "5"
           }
         },
         "keepAliveSlot": {
@@ -3747,14 +4035,14 @@
             "#tup": []
           }
         },
-        "lostTurnsRecovered": {
+        "lostTurns": {
           "#bigint": "0"
         },
         "nextAlarm": {
-          "#bigint": "4"
+          "#bigint": "6"
         },
         "nextCall": {
-          "#bigint": "6"
+          "#bigint": "5"
         },
         "nextSerial": {
           "#bigint": "0"
@@ -3766,6 +4054,7 @@
           }
         },
         "nudged": false,
+        "openTodos": false,
         "paused": false,
         "permissionsAllowed": {
           "#bigint": "0"
@@ -3783,9 +4072,16 @@
         "promptsSent": {
           "#bigint": "0"
         },
-        "queue": [],
+        "queue": [
+          {
+            "tag": "PersonPrompt",
+            "value": {
+              "#tup": []
+            }
+          }
+        ],
         "restarts": {
-          "#bigint": "1"
+          "#bigint": "0"
         },
         "resumesChosen": {
           "#bigint": "0"
@@ -3797,19 +4093,20 @@
           "#bigint": "0"
         },
         "status": {
-          "tag": "Working",
+          "tag": "Provisioning",
           "value": {
             "#tup": []
           }
         },
-        "stopped": true,
+        "stopped": false,
         "stoppedEarly": false,
         "stopsEnded": {
           "#bigint": "2"
         },
         "token": {
-          "#bigint": "6"
+          "#bigint": "5"
         },
+        "turnText": false,
         "wallSlot": {
           "tag": "Unarmed",
           "value": {
@@ -3837,6 +4134,12 @@
             "#bigint": "2"
           }
         },
+        "endsWithText": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "finished": {
           "tag": "None",
           "value": {
@@ -3862,6 +4165,12 @@
           }
         },
         "outcome": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "report": {
           "tag": "None",
           "value": {
             "#tup": []
