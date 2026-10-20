@@ -1592,10 +1592,16 @@ module reviewLoop {
       lastStepKept' = rulesKeptBy(step),
       lastStepReached' = witnessesReachedBy(step),
       agentHeard' = kind.agentHeard,
-      aDoneRunsSandboxIsOut' = not(kind.instanceRestarted) and aRunEndedDoneIn(step),
-      aHandoverPostIsOut' = not(kind.instanceRestarted) and or {
-        aRunEndedDoneIn(step) and handsOverWithItsPostLast(step),
-        anEndedAuthorsHandoverPosts(step),
+      aDoneRunsSandboxIsOut' = and {
+        not(kind.instanceRestarted),
+        aRunEndedDoneIn(step),
+      },
+      aHandoverPostIsOut' = and {
+        not(kind.instanceRestarted),
+        or {
+          aRunEndedDoneIn(step) and handsOverWithItsPostLast(step),
+          anEndedAuthorsHandoverPosts(step),
+        },
       },
       rejectionPostOut' = rejectionPostOutAfter(step),
       instanceRestartCount' = if (kind.instanceRestarted) instanceRestartCount + 1 else instanceRestartCount,
@@ -3123,9 +3129,12 @@ module reviewLoop {
       postedIn(step).length() > 0,
       runIds(step.after).exists(id => step.after.refinerRuns[id].status == TurnEndWaits),
     },
-    aRestartCutsAPolisherTurnEnd: step.kind.instanceRestarted and match step.kind.turnEnd {
-      | RefinerTurnEnded(id) => refinerOf(step.after.refinerRuns[id]) == Polisher
-      | _ => false
+    aRestartCutsAPolisherTurnEnd: and {
+      step.kind.instanceRestarted,
+      match step.kind.turnEnd {
+        | RefinerTurnEnded(id) => refinerOf(step.after.refinerRuns[id]) == Polisher
+        | _ => false
+      },
     },
     aRestartCutsTheHandoverOfAnEndedAuthor:
       step.kind.cutOfADoneRun == ItsHandoverPostIsCut and not(authorLive(step.before)),
