@@ -147,6 +147,13 @@ export const STANDALONE_PROPERTY_FILES: PropertyFile[] = [
     e2eRuns: 100_000,
   },
   {
+    title: "bridge line reader properties",
+    packageDir: "bridge",
+    path: "./src/line-reader-invariants.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 100_000,
+  },
+  {
     title: "condensed tool result property",
     packageDir: "orchestrator",
     path: "./src/agent/tools/condensed.property.test.medium.ts",
