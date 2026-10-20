@@ -701,6 +701,7 @@ export class SessionRoutingReplay {
     switch (step.action) {
       case "personWritesInSession":
       case "aPersonWritesWhereNoAuthorRuns":
+      case "aPersonWritesInTheQuietSubIssueSession":
         return worldAction(
           `a person says ${picks.text} in the session on ${picks.issue}`,
           (world) => this.personWritesInSession(world, required(picks.issue), required(picks.text)),
@@ -724,6 +725,10 @@ export class SessionRoutingReplay {
       case "agentTurnEnds":
         return worldAction(`the agent turn ends: ${picks.outcome}`, (world) =>
           this.agentTurnEnds(world, required(picks.outcome)),
+        );
+      case "theTurnTimesOutWhileTheSubIssueSessionWaits":
+        return worldAction("the agent turn times out while the sub-issue session waits", (world) =>
+          this.agentTurnEnds(world, "TimesOut"),
         );
       case "agentStartsJob":
         return worldAction(`the agent starts a job on ${picks.issue}`, async (world) => {
