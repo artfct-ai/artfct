@@ -183,6 +183,24 @@ describe("connectGithubApp", () => {
     expect(await reboundStatus.promise).toBe(400);
   });
 
+  it("refuses the form page without the state of the URL it opened", async () => {
+    const repoDir = deploymentRepo("https://ingress.acme.dev");
+    const browser = fakeGithubBrowser("installation_id=987654&setup_action=install");
+    const statelessStatus = Promise.withResolvers<number>();
+    await connectGithubApp({
+      repoDir,
+      org: undefined,
+      openBrowser: async (url) => {
+        statelessStatus.resolve((await fetch(new URL("/", url))).status);
+        await browser.openBrowser(url);
+      },
+      exchangeManifestCode: async () => CONVERSION,
+      log: () => {},
+    });
+
+    expect(await statelessStatus.promise).toBe(400);
+  });
+
   it("refuses a replayed /created", async () => {
     const repoDir = deploymentRepo("https://ingress.acme.dev");
     const browser = fakeGithubBrowser("installation_id=987654&setup_action=install");
@@ -309,6 +327,23 @@ describe("connectGithubApp", () => {
 
   it("stops before the browser when PUBLIC_URL is unset", async () => {
     const repoDir = deploymentRepo("");
+    const opened: string[] = [];
+    await expect(
+      connectGithubApp({
+        repoDir,
+        org: undefined,
+        openBrowser: async (url) => {
+          opened.push(url);
+        },
+        exchangeManifestCode: async () => CONVERSION,
+        log: () => {},
+      }),
+    ).rejects.toThrow("Set PUBLIC_URL");
+    expect(opened).toEqual([]);
+  });
+
+  it("stops before the browser when PUBLIC_URL is not an http URL", async () => {
+    const repoDir = deploymentRepo("localhost:8787");
     const opened: string[] = [];
     await expect(
       connectGithubApp({

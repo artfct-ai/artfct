@@ -40,7 +40,7 @@
       "ignoreDependencies": [".+"]
     },
     "packages/cli": {
-      "entry": ["src/artfct.ts"]
+      "entry": ["src/artfct.ts", "src/**/*.property.ts"]
     },
     "template": {
       "entry": ["*/index.ts"],
