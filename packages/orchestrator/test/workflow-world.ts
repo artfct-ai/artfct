@@ -1347,6 +1347,13 @@ export class WorkflowWorld {
     }
   }
 
+  /** The text of every prompt the task's harness sessions were sent. */
+  promptsSentToHarnessOf(taskId: string): string[] {
+    return this.bridges
+      .filter((bridge) => bridge.taskId === taskId)
+      .flatMap((bridge) => bridge.promptTexts);
+  }
+
   private promptsSentTo(taskId: string): number {
     return this.bridges
       .filter((bridge) => bridge.taskId === taskId)
@@ -1420,9 +1427,7 @@ export class WorkflowWorld {
           turnRunning: promptInFlight && this.runningBridgeOf(task.task_id) !== null,
           promptTexts: [
             ...queue.filter((row) => row.task_id === task.task_id).map((row) => row.text),
-            ...this.bridges
-              .filter((bridge) => bridge.taskId === task.task_id)
-              .flatMap((bridge) => bridge.promptTexts),
+            ...this.promptsSentToHarnessOf(task.task_id),
             ...(this.modelPromptTexts.get(task.task_id) ?? []),
           ],
           promptsQueued: this.promptsQueuedFor(task.task_id),

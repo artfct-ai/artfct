@@ -3981,17 +3981,22 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": [
-                {
-                  "#bigint": "1"
-                },
-                {
-                  "#bigint": "2"
-                },
-                {
-                  "#bigint": "3"
-                }
-              ]
+              "comments": {
+                "#set": [
+                  {
+                    "#bigint": "1"
+                  },
+                  {
+                    "#bigint": "2"
+                  },
+                  {
+                    "#bigint": "3"
+                  }
+                ]
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
@@ -4426,17 +4431,22 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": [
-                {
-                  "#bigint": "1"
-                },
-                {
-                  "#bigint": "2"
-                },
-                {
-                  "#bigint": "3"
-                }
-              ]
+              "comments": {
+                "#set": [
+                  {
+                    "#bigint": "1"
+                  },
+                  {
+                    "#bigint": "2"
+                  },
+                  {
+                    "#bigint": "3"
+                  }
+                ]
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
@@ -4884,17 +4894,22 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": [
-                {
-                  "#bigint": "1"
-                },
-                {
-                  "#bigint": "2"
-                },
-                {
-                  "#bigint": "3"
-                }
-              ]
+              "comments": {
+                "#set": [
+                  {
+                    "#bigint": "1"
+                  },
+                  {
+                    "#bigint": "2"
+                  },
+                  {
+                    "#bigint": "3"
+                  }
+                ]
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {

@@ -20,8 +20,8 @@ export class HeldPageModel implements LanguageModelV4 {
   readonly supportedUrls = {};
   private held: HeldCall | null = null;
   private onCallOut: (() => void) | null = null;
-  /** How many calls went out. */
-  calls = 0;
+  /** The user text of every call that went out, also one a restart dropped. */
+  readonly userTexts: string[] = [];
 
   /** Resolves once the next call is out. */
   nextCall(): Promise<"call_out"> {
@@ -53,7 +53,7 @@ export class HeldPageModel implements LanguageModelV4 {
       .flatMap((message) => (message.role === "user" ? message.content : []))
       .map((part) => (part.type === "text" ? part.text : ""))
       .join("");
-    this.calls += 1;
+    this.userTexts.push(userText);
     const text = await new Promise<string>((answer) => {
       this.held = { userText, answer };
       const callOut = this.onCallOut;
