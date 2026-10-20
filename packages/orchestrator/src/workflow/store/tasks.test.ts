@@ -4,13 +4,15 @@ import { freshStore } from "../../../test/fresh-store";
 import { scenario } from "../../../test/scenario";
 import { DELIVERY_ERROR } from "./schema";
 import { TURN_TEXT_CHARS, type NewJob, type NewTask, type WorkflowStore } from "./tasks";
+import { jobInputKey } from "./input-key";
 
 const job: NewJob = {
   job_id: "j1",
   stage: "implement",
   issue_id: null,
   issue_key: null,
-  input_key: null,
+  input_kind: "request",
+  input_key: jobInputKey({ kind: "request", text: "Fix the login redirect." }),
   preceding_job_id: null,
   branch: null,
   brief: "",
@@ -162,6 +164,33 @@ describe("WorkflowStore", () => {
         expect(store.artifactByPull("acme/app", 9)).toBeNull();
       }));
 
+    it("keys the artifact by its ref", () =>
+      finishedTask((store) => {
+        expect(store.artifact("j1")?.ref_key).toBe("pull:acme/app#1");
+      }));
+
+    describe("with a page artifact of another job", () => {
+      const withPage = scenario(finishedTask, (store) => {
+        insertAuthor(store, "t2", "j2");
+        store.upsertArtifact({
+          job_id: "j2",
+          kind: "page",
+          external_url: "https://docs.test/page-7",
+          ref: { kind: "page", page_id: "page-7" },
+        });
+      });
+
+      it("finds the page by its id", () =>
+        withPage((store) => {
+          expect(store.artifactByPage("page-7")?.job_id).toBe("j2");
+        }));
+
+      it("still finds the pull request under its own job", () =>
+        withPage((store) => {
+          expect(store.artifactByPull("acme/app", 1)?.job_id).toBe("j1");
+        }));
+    });
+
     describe("with a newer running job on the same pull request", () => {
       const runningTask = scenario(finishedTask, (store) => {
         insertAuthor(store, "t2", "j2");
@@ -226,13 +255,13 @@ describe("WorkflowStore", () => {
   describe("event dedupe", () => {
     it("admits an event the first time", () =>
       freshStore((store) => {
-        expect(store.markEventSeen({ id: "e1", kind: "start" })).toBe(true);
+        expect(store.markEventSeen("e1")).toBe(true);
       }));
 
     it("rejects an event it has seen", () =>
       freshStore((store) => {
-        store.markEventSeen({ id: "e1", kind: "start" });
-        expect(store.markEventSeen({ id: "e1", kind: "start" })).toBe(false);
+        store.markEventSeen("e1");
+        expect(store.markEventSeen("e1")).toBe(false);
       }));
   });
 
