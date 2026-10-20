@@ -26,7 +26,11 @@ function dashed(id: string): string {
 
 const titleWord = fc.oneof(
   fc.constantFrom("add", "a", "cafe", "deadbeef", "ABCDEF", "Design", "2026", "f00d", "Ünïcødé"),
-  fc.string({ unit: fc.constantFrom(..."0123456789abcdef".split("")), minLength: 1, maxLength: 40 }),
+  fc.string({
+    unit: fc.constantFrom(..."0123456789abcdef".split("")),
+    minLength: 1,
+    maxLength: 40,
+  }),
   fc
     .string({ unit: "grapheme", minLength: 1, maxLength: 8 })
     .filter((word) => !/[\s/?#%-]/.test(word)),

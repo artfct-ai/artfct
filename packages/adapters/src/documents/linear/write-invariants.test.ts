@@ -14,7 +14,10 @@ afterAll(() => mock.restore());
 
 type LineChange = { keep: "kept" | "deleted" | "replaced"; inserted: number };
 
-const words = fc.string({ unit: fc.constantFrom("a", "b", "c", " ", "x", "y", "z"), maxLength: 12 });
+const words = fc.string({
+  unit: fc.constantFrom("a", "b", "c", " ", "x", "y", "z"),
+  maxLength: 12,
+});
 
 const writeCase = fc.record({
   readLines: fc.oneof(
