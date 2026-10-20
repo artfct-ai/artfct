@@ -147,6 +147,7 @@ export class SlackChat implements Chat {
     return link.permalink;
   }
 
+  /** The name is the display name Slack shows in mentions, else the real name. An empty one is unset. */
   async user(userId: string): Promise<ChatUser | null> {
     const info = await this.web.users.info({ user: userId }).catch(() => null);
     const user = info?.user;
@@ -156,6 +157,7 @@ export class SlackChat implements Chat {
     return {
       id: userId,
       email: user.profile?.email ?? null,
+      name: user.profile?.display_name || user.profile?.real_name || null,
       member_of_team: guestOrBot ? null : (user.team_id ?? null),
     };
   }

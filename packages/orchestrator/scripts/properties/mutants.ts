@@ -2379,6 +2379,30 @@ export const MUTANTS: Mutant[] = [
     replace: "return ctx.text(`unauthorized, use ${ADMIN_TOKEN}`, 401);",
     propertyFile: "../ingress/src/routes/secrets.property.ts",
   },
+  {
+    id: "W425",
+    invariant: "inboundInvariants::actorEmailIsLowercase (Slack)",
+    path: "../adapters/src/chat/slack/inbound.ts",
+    find: "  return context.resolveActor({ ...user, email: user.email?.toLowerCase() ?? null });\n",
+    replace: "  return context.resolveActor(user);\n",
+    propertyFile: "../adapters/src/chat/slack/inbound.property.ts",
+  },
+  {
+    id: "W426",
+    invariant: "inboundInvariants::actorEmailIsLowercase (Linear)",
+    path: "../adapters/src/tracker/linear/inbound-payloads.ts",
+    find: "  email: z.string().toLowerCase().nullish(),\n",
+    replace: "  email: z.string().nullish(),\n",
+    propertyFile: "../adapters/src/tracker/linear/inbound.property.ts",
+  },
+  {
+    id: "W427",
+    invariant: "inboundInvariants::actorEmailIsLowercase (Notion)",
+    path: "../adapters/src/documents/notion/inbound.ts",
+    find: "  return context.resolveActor({ id: author.id, email: email?.toLowerCase() ?? null });\n",
+    replace: "  return context.resolveActor({ id: author.id, email });\n",
+    propertyFile: "../adapters/src/documents/notion/inbound.property.ts",
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */
