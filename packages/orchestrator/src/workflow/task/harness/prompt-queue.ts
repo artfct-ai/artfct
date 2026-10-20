@@ -182,7 +182,7 @@ export async function sendFirstPrompt(workflow: WorkflowRuntime, task: TaskRow):
   const sandbox = workflow.store.requireSandbox(task.task_id);
   const waits = promptsWait(workflow, task);
   const resumes = task.role === "author" && sandbox.first_prompt_at !== null;
-  const wake = resumes && !waits ? workflow.store.peekPrompt(task.task_id) : null;
+  const wake = resumes ? workflow.store.peekPrompt(task.task_id) : null;
   const text = firstPromptText(workflow, task, wake?.text ?? null);
   if (sandbox.first_prompt_at === null) {
     workflow.store.updateSandbox(task.task_id, {
@@ -190,6 +190,7 @@ export async function sendFirstPrompt(workflow: WorkflowRuntime, task: TaskRow):
     });
   }
   if (!waits) return sendPrompt(workflow, task, { text, queued: wake });
+  if (wake) workflow.store.dequeuePrompt(wake.id);
   workflow.store.enqueuePromptFirst(task.task_id, text);
 }
 
