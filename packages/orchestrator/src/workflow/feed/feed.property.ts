@@ -28,6 +28,7 @@ import {
   RECEIPT_TEXT,
   STOPPED_CLOSING,
   closeSessionFeed,
+  closingWhenTheAuthorGoesOn,
   feedClosingOf,
   startSessionFeedTurn,
   streamToSessionFeed,
@@ -53,6 +54,7 @@ type FeedAction =
   | { kind: "health"; health: TrackerHealth }
   | { kind: "instruction" }
   | { kind: "turn_end"; reason: StopReason }
+  | { kind: "turn_end_going_on"; reason: StopReason }
   | { kind: "stop" }
   | { kind: "author_finishes" }
   | { kind: "workflow_ends" }
@@ -106,6 +108,13 @@ const feedAction: fc.Arbitrary<FeedAction> = fc.oneof(
       reason: fc.constantFrom<StopReason>("end_turn", "end_turn", "cancelled", "max_tokens"),
     }),
   },
+  {
+    weight: 1,
+    arbitrary: fc.record({
+      kind: fc.constant("turn_end_going_on" as const),
+      reason: fc.constantFrom<StopReason>("end_turn", "end_turn", "cancelled", "max_tokens"),
+    }),
+  },
   { weight: 1, arbitrary: fc.constant({ kind: "stop" as const }) },
   { weight: 1, arbitrary: fc.constant({ kind: "author_finishes" as const }) },
   { weight: 1, arbitrary: fc.constant({ kind: "workflow_ends" as const }) },
@@ -140,6 +149,7 @@ type Witnesses = {
   repliesOfAnEndedWorkflow: number;
   repostedAfterARestart: number;
   narrationPostedAfterTheTurn: number;
+  accountsNarrated: number;
 };
 
 /** A session feed under test: the runtime, the tracker, and what the property expects of them. */
@@ -283,6 +293,24 @@ class FeedRun {
     heartbeatsAreTheOnlyPostsTheQuotaSkips(posts, stillWaits);
   }
 
+  /**
+   * The turn ends while a prompt waits, so the author goes straight into its next turn. The
+   * account of a turn that ended on its own is a narration line.
+   */
+  private async endTurnGoingOn(reason: StopReason): Promise<void> {
+    if (!this.inFlight) return;
+    const account = this.message.trim();
+    this.message = "";
+    if (reason === "end_turn" && account) {
+      this.written.push(account);
+      this.witnesses.accountsNarrated += 1;
+    }
+    const closing = closingWhenTheAuthorGoesOn(feedClosingOf(reason));
+    await this.record("turn_end", () => closeSessionFeed(this.workflow, this.author(), closing));
+    this.quietSince = this.now();
+    await this.record("turn_start", () => startSessionFeedTurn(this.workflow, this.author()));
+  }
+
   /** The author finishes at a turn end the tracker takes, so no narration waits after it. */
   private async finishAuthor(): Promise<void> {
     if (this.authorFinished || this.tracker.health !== "up") return;
@@ -413,6 +441,8 @@ class FeedRun {
         return this.instruct();
       case "turn_end":
         return this.endTurn(action.reason);
+      case "turn_end_going_on":
+        return this.endTurnGoingOn(action.reason);
       case "stop":
         return this.endTurn("stop");
       case "author_finishes":
@@ -511,6 +541,7 @@ describe("session feed invariants", () => {
         repliesOfAnEndedWorkflow: 0,
         repostedAfterARestart: 0,
         narrationPostedAfterTheTurn: 0,
+        accountsNarrated: 0,
       };
       await fc.assert(
         fc.asyncProperty(fc.array(feedAction, { minLength: 1, maxLength: 60 }), async (actions) => {
@@ -539,6 +570,7 @@ describe("session feed invariants", () => {
       expect(witnesses.repliesOfAnEndedWorkflow).toBeGreaterThan(0);
       expect(witnesses.repostedAfterARestart).toBeGreaterThan(0);
       expect(witnesses.narrationPostedAfterTheTurn).toBeGreaterThan(0);
+      expect(witnesses.accountsNarrated).toBeGreaterThan(0);
     },
     propertyTimeoutMs(30_000, RUNS),
   );
