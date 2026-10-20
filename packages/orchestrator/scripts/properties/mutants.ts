@@ -821,7 +821,7 @@ export const MUTANTS: Mutant[] = [
     id: "W114",
     invariant: "reviewLoop::aStoppedRefinerRunHandsOverBlocked (review read)",
     path: "src/workflow/refiner/loop.ts",
-    find: '  if ("readFailed" in read)\n    return handOverBlockedFromReviewer(\n      workflow,\n      reviewer,\n      `The reviewer\'s review could not be read (${read.readFailed}).`,\n    );\n',
+    find: '  if ("readFailed" in read)\n    return handOverBlockedFromReviewer(workflow, reviewer, {\n      reason: `The reviewer\'s review could not be read (${read.readFailed}).`,\n      revision,\n    });\n',
     replace: "",
   },
   {
@@ -1377,9 +1377,9 @@ export const MUTANTS: Mutant[] = [
     id: "W320",
     invariant: "reviewLoop::theRecheckAlarmRunsWhileTheGateHolds (idle author's open checks)",
     path: "src/workflow/refiner/checks-recheck.ts",
-    find: '  await workflow.stopRepeatingAlarm("recheckChecks", alarm);\n  if (checks?.state === "failed") {\n',
+    find: '  await workflow.stopRepeatingAlarm("recheckChecks", alarm);\n  if (checks?.state === "failed" && !isTaskFinished(author.status)) {\n',
     replace:
-      '  if (checks?.state === "failed" || checks?.state === "conflicted") {\n    await workflow.stopRepeatingAlarm("recheckChecks", alarm);\n  }\n  if (checks?.state === "failed") {\n',
+      '  if (checks?.state === "failed" || checks?.state === "conflicted") {\n    await workflow.stopRepeatingAlarm("recheckChecks", alarm);\n  }\n  if (checks?.state === "failed" && !isTaskFinished(author.status)) {\n',
   },
   {
     id: "W321",
@@ -1617,17 +1617,17 @@ export const MUTANTS: Mutant[] = [
     id: "W280",
     invariant: "reviewLoop::aDoneRefinerRunRoutesItsReview (reviewer destroyed before routing)",
     path: "src/workflow/refiner/loop.ts",
-    find: "  await finishTask(workflow, reviewer, () => routeReview(workflow, reviewer, entry, read));\n",
+    find: "  await finishTask(workflow, reviewer, () =>\n    routeReview(workflow, reviewer, { entry, read, revision }),\n  );\n",
     replace:
-      "  await finishTask(workflow, reviewer, async () => {});\n  await routeReview(workflow, reviewer, entry, read);\n",
+      "  await finishTask(workflow, reviewer, async () => {});\n  await routeReview(workflow, reviewer, { entry, read, revision });\n",
   },
   {
     id: "W281",
     invariant: "reviewLoop::aDoneRefinerRunRoutesItsReview (polisher destroyed before hand-on)",
     path: "src/workflow/refiner/polish.ts",
-    find: "  await finishTask(workflow, polisher, async () => {\n    const author = workflow.store.authorTaskOf(polisher.job_id);\n    await handOnFromPolisher(workflow, author, polisher, outcome);\n    await drainQueue(workflow, workflow.store.requireTask(author.task_id));\n  });\n",
+    find: "  await finishTask(workflow, polisher, async () => {\n    const author = workflow.store.authorTaskOf(polisher.job_id);\n    await handOnFromPolisher(workflow, { author, polisher, outcome, revision });\n    await drainQueue(workflow, workflow.store.requireTask(author.task_id));\n  });\n",
     replace:
-      "  await finishTask(workflow, polisher, async () => {});\n  const author = workflow.store.authorTaskOf(polisher.job_id);\n  await handOnFromPolisher(workflow, author, polisher, outcome);\n  await drainQueue(workflow, workflow.store.requireTask(author.task_id));\n",
+      "  await finishTask(workflow, polisher, async () => {});\n  const author = workflow.store.authorTaskOf(polisher.job_id);\n  await handOnFromPolisher(workflow, { author, polisher, outcome, revision });\n  await drainQueue(workflow, workflow.store.requireTask(author.task_id));\n",
   },
   {
     id: "W214",
@@ -1693,6 +1693,53 @@ export const MUTANTS: Mutant[] = [
     replace: "  for (const turn of turns) await resumeLostModelTurn(workflow, turn);\n",
   },
   {
+    id: "W340",
+    invariant: "workflowLifecycle::eachFailedTaskPostsItsFailureOnce (failed page write)",
+    path: "src/workflow/task/model-author.ts",
+    find: "  await documents.updatePageContent(ref.page_id, change);\n",
+    replace: "  await documents.updatePageContent(ref.page_id, change).catch(() => undefined);\n",
+  },
+  {
+    id: "W341",
+    invariant: "reviewLoop::checksGoBackOncePerRevision (failed checks of an ended author)",
+    path: "src/workflow/refiner/checks-recheck.ts",
+    find: '  if (checks?.state === "failed" && !isTaskFinished(author.status)) {\n',
+    replace: '  if (checks?.state === "failed") {\n',
+  },
+  {
+    id: "W342",
+    invariant: "reviewLoop::checksGoBackOncePerRevision (conflict of an ended author)",
+    path: "src/workflow/refiner/checks-recheck.ts",
+    find: "  if (!claimed || !isTaskFinished(author.status)) return;\n",
+    replace: "  return;\n",
+  },
+  {
+    id: "W343",
+    invariant:
+      "reviewLoop::aDoneRefinerRunRoutesItsReview (reviewer reads the revision after its done write)",
+    path: "src/workflow/refiner/loop.ts",
+    find: "  await finishTask(workflow, reviewer, () =>\n    routeReview(workflow, reviewer, { entry, read, revision }),\n  );\n",
+    replace:
+      "  await finishTask(workflow, reviewer, async () =>\n    routeReview(workflow, reviewer, {\n      entry,\n      read,\n      revision: (await revisionOfTheJobsArtifact(workflow, reviewer.job_id)) ?? revision,\n    }),\n  );\n",
+  },
+  {
+    id: "W344",
+    invariant:
+      "reviewLoop::aDoneRefinerRunRoutesItsReview (polisher reads the revision after its done write)",
+    path: "src/workflow/refiner/polish.ts",
+    find: "    await handOnFromPolisher(workflow, { author, polisher, outcome, revision });\n",
+    replace:
+      "    const read = await revisionOfTheJobsArtifact(workflow, polisher.job_id);\n    await handOnFromPolisher(workflow, { author, polisher, outcome, revision: read ?? revision });\n",
+  },
+  {
+    id: "W345",
+    invariant:
+      "reviewLoop::anEndedAuthorEndsItsReview (review ends after its author ended mid-turn)",
+    path: "src/workflow/refiner/loop.ts",
+    find: "    isTaskFinished(current.status) &&\n    workflow.store.sandbox(current.task_id)?.prompt_in_flight === 1\n",
+    replace: "    false\n",
+  },
+  {
     id: "W290",
     invariant: "slackTextInvariants::slackTextNeverNotifies",
     path: "../adapters/src/chat/slack/mrkdwn.ts",
@@ -1715,6 +1762,22 @@ export const MUTANTS: Mutant[] = [
     find: "  return lastUnit >= 0xd800 && lastUnit <= 0xdbff ? limit - 1 : limit;\n",
     replace: "  return limit;\n",
     propertyFile: "../adapters/src/chat/slack/text.property.ts",
+  },
+  {
+    id: "W296",
+    invariant: "slackTextInvariants::slackChunksKeepTheText (whitespace one past the limit)",
+    path: "../adapters/src/chat/slack/chat.ts",
+    find: "  const whitespace = text.slice(0, limit + 1).search(LAST_WHITESPACE);\n",
+    replace: "  const whitespace = text.slice(0, limit + 2).search(LAST_WHITESPACE);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
+  },
+  {
+    id: "W297",
+    invariant: "slackTextInvariants::slackChunksKeepTheText (period at the limit)",
+    path: "../adapters/src/chat/slack/chat.ts",
+    find: '  const period = text.lastIndexOf(".", limit - 1);\n',
+    replace: '  const period = text.lastIndexOf(".", limit);\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
   },
   {
     id: "W293",

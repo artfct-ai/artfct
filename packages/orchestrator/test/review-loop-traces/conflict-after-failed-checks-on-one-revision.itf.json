@@ -1217,7 +1217,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -1495,7 +1495,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -1773,7 +1773,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -2051,7 +2051,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -2329,7 +2329,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -2607,7 +2607,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -2885,7 +2885,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -3163,7 +3163,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -3441,7 +3441,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -3719,7 +3719,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -3997,7 +3997,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -4275,7 +4275,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -4553,7 +4553,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -4831,7 +4831,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -5109,7 +5109,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -5387,7 +5387,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -5665,7 +5665,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -5943,7 +5943,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -6221,7 +6221,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -6499,7 +6499,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -6777,7 +6777,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }
@@ -7055,7 +7055,7 @@
             "#bigint": "0"
           },
           "status": {
-            "tag": "AuthorCancelled",
+            "tag": "AuthorCancelledByTheWorkflowEnd",
             "value": {
               "#tup": []
             }

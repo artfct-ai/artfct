@@ -175,6 +175,36 @@ describe("workflow lifecycle spec", () => {
     );
   });
 
+  it("keeps the status of a workflow a person ended while its subject job's destroy was out", async () => {
+    const path = join(
+      PINNED_TRACES,
+      "a-completion-after-the-subject-ended-keeps-its-status.itf.json",
+    );
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("pullsForAnEndedSubject", traceSteps("pullsForAnEndedSubject", trace));
+  });
+
+  it("keeps a pull removed when the cancel its close started finishes", async () => {
+    const path = join(PINNED_TRACES, "a-closed-pull-stays-removed-after-its-cancel.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("pullsTheHostMoves", traceSteps("pullsTheHostMoves", trace));
+  });
+
+  it("fails a model-call author whose page write the document host fails", async () => {
+    const path = join(PINNED_TRACES, "a-failed-page-write-fails-its-author.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("modelCallPagesForAnIssue", traceSteps("modelCallPagesForAnIssue", trace));
+  });
+
+  it("leaves the page to the teardown of an author cancelled mid-turn when its review ends", async () => {
+    const path = join(
+      PINNED_TRACES,
+      "a-review-ends-after-its-author-was-cancelled-mid-turn.itf.json",
+    );
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("pagesWithAReviewer", traceSteps("pagesWithAReviewer", trace));
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,

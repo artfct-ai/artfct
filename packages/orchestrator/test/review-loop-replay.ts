@@ -151,7 +151,13 @@ export type SpecPersonComment = {
   answered: boolean;
 };
 
-const AUTHOR_STATUSES = ["AtWork", "InReview", "AuthorCancelled", "AuthorFailed"] as const;
+const AUTHOR_STATUSES = [
+  "AtWork",
+  "InReview",
+  "AuthorCancelled",
+  "AuthorCancelledByTheWorkflowEnd",
+  "AuthorFailed",
+] as const;
 
 /** Where the author of the review stands, as the spec names it. */
 type SpecAuthorStatus = (typeof AUTHOR_STATUSES)[number];
@@ -474,6 +480,11 @@ function polisherWaitsIn(review: SpecReview): boolean {
   return held !== null && review.refinerRuns[held]?.status === "WaitsOnChecks";
 }
 
+/** True while the author in a spec state is neither cancelled nor failed. */
+function authorLiveIn(review: SpecReview): boolean {
+  return review.author.status === "AtWork" || review.author.status === "InReview";
+}
+
 /** True when a polisher run holds the artifact in a spec state and its turn runs. */
 function polisherWorksIn(review: SpecReview): boolean {
   const held = review.artifact.refinerRun;
@@ -640,6 +651,18 @@ type HeardInStep = {
 };
 
 /** The page host methods a step can make fail. */
+/** Put back the property `name` of `target` as it is now, own or inherited, after an override. */
+function restorerOf<Target extends object>(
+  target: Target,
+  name: keyof Target & string,
+): () => void {
+  const own = Object.getOwnPropertyDescriptor(target, name);
+  return () => {
+    if (own) Object.defineProperty(target, name, own);
+    else Reflect.deleteProperty(target, name);
+  };
+}
+
 type FailingHostMethod =
   | "heldComments"
   | "acknowledgeComment"
@@ -897,13 +920,14 @@ export class ReviewLoopReplay {
     this.heardSteps.push(heard);
     this.heardNow = heard;
     const notesBefore = this.world.workflow.notes.length;
-    const destroyIsCut =
-      this.trace[this.step + 1]?.action === "instanceRestartsWhileADoneRunsSandboxIsDestroyed";
-    await this.whileRevisionLookupsGo(step, () =>
-      destroyIsCut
-        ? this.untilADoneRunsDestroy(() => this.takeAction(step))
-        : this.takeAction(step),
-    );
+    const next = this.trace[this.step + 1]?.action;
+    await this.whileRevisionLookupsGo(step, () => {
+      if (next === "instanceRestartsWhileADoneRunsSandboxIsDestroyed")
+        return this.untilADoneRunsDestroy(() => this.takeAction(step));
+      if (next === "instanceRestartsWhileADoneRunRoutes")
+        return this.untilADoneRunRoutes(() => this.takeAction(step));
+      return this.takeAction(step);
+    });
     for (const task of this.world.tasksAwaitingSandbox()) {
       await this.world.startSandboxOf(task.task_id);
     }
@@ -980,7 +1004,10 @@ export class ReviewLoopReplay {
     if (action === "instanceRestarts") {
       return this.instanceRestarts(() => this.untilTheRestartMoment());
     }
-    if (action === "instanceRestartsWhileADoneRunsSandboxIsDestroyed") {
+    if (
+      action === "instanceRestartsWhileADoneRunsSandboxIsDestroyed" ||
+      action === "instanceRestartsWhileADoneRunRoutes"
+    ) {
       return this.instanceRestarts(async () => {});
     }
     if (action === "instanceRestartsWhileThePageIsWritten") {
@@ -1082,7 +1109,10 @@ export class ReviewLoopReplay {
       revision === null ? null : this.revisionCount(revision);
     return {
       author: {
-        status: specAuthorStatusOf(author, atWork),
+        status: specAuthorStatusOf(author, {
+          atWork,
+          workflowEnded: isWorkflowFinished(this.world.workflow.state.status),
+        }),
         paused: author.paused_at !== null,
         restarts: author.restarts,
         queuedPrompts: (this.pageModel && atWork ? queued.slice(1) : queued).map((row) =>
@@ -1211,8 +1241,10 @@ export class ReviewLoopReplay {
    * The host reports checks. A polisher the gate holds settles on checks that give the outcome
    * the spec picks, and code hears of them by a webhook or the recheck alarm. So does an author
    * that waits on the gate, by the recheck alarm only while one is armed. Failed checks or a
-   * conflict reach an idle author by a webhook. Open checks that stop the recheck alarm reach an
-   * idle or ended author by a webhook or the alarm, and only by the alarm once the workflow ended.
+   * conflict reach an idle author by a webhook, and so does the conflict of an ended author, which
+   * the agent hears of. Open checks that stop the recheck alarm reach an idle or ended author by a
+   * webhook or the alarm, and only by the alarm once the workflow ended. Failed checks of an ended
+   * author count as open.
    * A report the spec says changes nothing either misses its webhook, or reaches a polisher at
    * work.
    */
@@ -1241,8 +1273,9 @@ export class ReviewLoopReplay {
       const { checks, delivery } = this.pick(options);
       return this.hostReports(checks, delivery, index);
     }
+    const authorEnded = !authorLiveIn(before);
     if (step.review.artifact.sentBack !== before.artifact.sentBack) {
-      const options = [FAILED, CONFLICTED].flatMap((checks) =>
+      const options = (authorEnded ? [CONFLICTED] : [FAILED, CONFLICTED]).flatMap((checks) =>
         deliveriesOf(checks, false).map((delivery) => ({ checks, delivery })),
       );
       const { checks, delivery } = this.pick(options);
@@ -1250,11 +1283,14 @@ export class ReviewLoopReplay {
     }
     if (before.artifact.recheckArmed && !step.review.artifact.recheckArmed) {
       const workflowEnded = isWorkflowFinished(this.world.workflow.state.status);
-      const options = hostChecksFor(
-        outcome,
-        sentBackOnTheRevision(before),
-        this.quietMsOf(this.world.taskOf(this.author)),
-      ).flatMap((checks) =>
+      const options = [
+        ...hostChecksFor(
+          outcome,
+          sentBackOnTheRevision(before),
+          this.quietMsOf(this.world.taskOf(this.author)),
+        ),
+        ...(authorEnded ? [FAILED] : []),
+      ].flatMap((checks) =>
         deliveriesOf(checks, true)
           .filter((delivery) => !workflowEnded || delivery === "recheck")
           .map((delivery) => ({ checks, delivery })),
@@ -1994,34 +2030,124 @@ export class ReviewLoopReplay {
    * the destroy never returns.
    */
   private async untilADoneRunsDestroy(work: () => Promise<void>): Promise<void> {
-    const world = this.world;
-    const { store, sandboxProvider } = world.workflow;
+    const { store, sandboxProvider } = this.world.workflow;
     const destroy = sandboxProvider.destroy.bind(sandboxProvider);
-    const apply = world.apply.bind(world);
+    const cut = this.cutOnce();
+    sandboxProvider.destroy = async (sandbox) => {
+      const task = store.task(sandbox.id);
+      if (task?.role === "author" || task?.status !== "done") return destroy(sandbox);
+      sandboxProvider.destroy = destroy;
+      return cut.reach();
+    };
+    try {
+      await this.untilCut(cut, work);
+    } finally {
+      sandboxProvider.destroy = destroy;
+    }
+    if (!cut.reached()) throw new Error("the step ended without the destroy of a done run");
+  }
+
+  /**
+   * Run `work` until the first call that a world action makes to a host or to a sandbox while a
+   * findings reviewer or polisher run that ended done in it holds a drafted artifact, or until the
+   * destroy of that run's sandbox. That action stops there, as its instance does at a restart, and
+   * the call never returns. The calls of a handover post are not cut, because the spec does not
+   * model its delivery.
+   */
+  private async untilADoneRunRoutes(work: () => Promise<void>): Promise<void> {
+    const workflow = this.world.workflow;
+    const { store, sandboxProvider } = workflow;
+    const doneBefore = new Set(
+      store
+        .tasks()
+        .filter((task) => task.status === "done")
+        .map((task) => task.task_id),
+    );
+    const endedDoneInTheStep = (task: TaskRow | null) =>
+      task !== null &&
+      task.role !== "author" &&
+      task.status === "done" &&
+      !doneBefore.has(task.task_id);
+    const routingIsOut = () =>
+      store
+        .tasks()
+        .some(
+          (task) => endedDoneInTheStep(task) && store.artifact(task.job_id)?.status === "drafted",
+        );
+    const cut = this.cutOnce();
+    const hostWithCut = <Host extends object>(host: Host): Host =>
+      new Proxy(host, {
+        get: (target, name, receiver) => {
+          const value: unknown = Reflect.get(target, name, receiver);
+          if (typeof value !== "function") return value;
+          return (...args: never[]) =>
+            routingIsOut() && !cut.reached() ? cut.reach() : (value.apply(target, args) as unknown);
+        },
+      });
+    const restores = [
+      restorerOf(workflow, "code"),
+      restorerOf(workflow, "documents"),
+      restorerOf(sandboxProvider, "destroy"),
+    ];
+    const code = workflow.code.bind(workflow);
+    const documents = workflow.documents.bind(workflow);
+    const destroy = sandboxProvider.destroy.bind(sandboxProvider);
+    workflow.code = () => {
+      const host = code();
+      return host ? hostWithCut(host) : null;
+    };
+    workflow.documents = async () => {
+      const host = await documents();
+      return host ? hostWithCut(host) : null;
+    };
+    sandboxProvider.destroy = async (sandbox) => {
+      const cutsHere = routingIsOut() || endedDoneInTheStep(store.task(sandbox.id));
+      return cutsHere && !cut.reached() ? cut.reach() : destroy(sandbox);
+    };
+    try {
+      await this.untilCut(cut, work);
+    } finally {
+      for (const restore of restores) restore();
+    }
+    if (!cut.reached()) throw new Error("the step ended without a call after a done run");
+  }
+
+  /** A cut a world action reaches once. The call that reaches it never returns. */
+  private cutOnce(): { reach: () => Promise<never>; reached: () => boolean; out: Promise<void> } {
     let reached = false;
-    const destroyOut = new Promise<void>((reach) => {
-      sandboxProvider.destroy = async (sandbox) => {
-        const task = store.task(sandbox.id);
-        if (task?.role === "author" || task?.status !== "done") return destroy(sandbox);
-        sandboxProvider.destroy = destroy;
-        reached = true;
-        reach();
-        return new Promise(() => {});
-      };
+    let reachOut!: () => void;
+    const out = new Promise<void>((resolve) => {
+      reachOut = resolve;
     });
+    return {
+      reach: () => {
+        reached = true;
+        reachOut();
+        return new Promise<never>(() => {});
+      },
+      reached: () => reached,
+      out,
+    };
+  }
+
+  /** Run `work`, and stop each world action it applies where the action reaches `cut`. */
+  private async untilCut(
+    cut: { reached: () => boolean; out: Promise<void> },
+    work: () => Promise<void>,
+  ): Promise<void> {
+    const world = this.world;
+    const apply = world.apply.bind(world);
     world.apply = (action) =>
       apply({
         run: (inWorld) =>
-          reached ? action.run(inWorld) : Promise.race([action.run(inWorld), destroyOut]),
+          cut.reached() ? action.run(inWorld) : Promise.race([action.run(inWorld), cut.out]),
         toString: () => String(action),
       });
     try {
       await work();
     } finally {
-      sandboxProvider.destroy = destroy;
       world.apply = apply;
     }
-    if (!reached) throw new Error("the step ended without the destroy of a done run");
   }
 
   /** Reach the moment of a restart between steps that the seeded pick chooses. */
@@ -2205,6 +2331,7 @@ function agentHeardOf(heard: string, said: Pick<HeardInStep, "heldTexts" | "ment
   if (heard.includes("They stay held")) notes.push("HeldCommentsStayHeld");
   if (said.mention !== null && heard.includes(said.mention)) notes.push("MentionText");
   if (heard.includes(ROUTE_NOTE_TEXT)) notes.push("RouteNote");
+  if (heard.includes("so nobody was sent the conflict")) notes.push("EndedAuthorsConflict");
   return notes;
 }
 
@@ -2364,10 +2491,15 @@ function specRunOf(
   };
 }
 
-function specAuthorStatusOf(author: TaskRow, atWork: boolean): SpecAuthorStatus {
+function specAuthorStatusOf(
+  author: TaskRow,
+  seen: { atWork: boolean; workflowEnded: boolean },
+): SpecAuthorStatus {
   if (author.status === "failed") return "AuthorFailed";
-  if (author.status === "cancelled") return "AuthorCancelled";
-  return atWork ? "AtWork" : "InReview";
+  if (author.status === "cancelled") {
+    return seen.workflowEnded ? "AuthorCancelledByTheWorkflowEnd" : "AuthorCancelled";
+  }
+  return seen.atWork ? "AtWork" : "InReview";
 }
 
 /** True when a step of the trace ends the workflow, so no other author can share its world. */
