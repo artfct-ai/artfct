@@ -205,7 +205,7 @@ describe("linear agent sessions", () => {
         payload.agentSession.creator = null;
         payload.agentActivity = {
           content: { type: "prompt", body: "ship it" },
-          user: { id: "u2", email: "lead@acme.test", name: "Lead" },
+          user: { id: "u2", email: "Lead@Acme.test", name: "Lead" },
         };
         event = expectEvent(await linearInbound(payload, context)).event;
       });
@@ -214,7 +214,7 @@ describe("linear agent sessions", () => {
         expect(event.kind).toBe("prompt");
       });
 
-      it("is from the prompt author, not from the session opener", () => {
+      it("is from the prompt author, not from the session opener, with the email lowercased", () => {
         expect(event.actor).toEqual({
           email: "lead@acme.test",
           display_name: "Lead",

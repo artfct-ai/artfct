@@ -447,14 +447,17 @@ describe("SlackChat.user", () => {
     beforeEach(async () => {
       const slack = slackChat(() => ({
         ok: true,
-        user: { team_id: "T1", profile: { email: "ann@x.y" } },
+        user: {
+          team_id: "T1",
+          profile: { email: "ann@x.y", display_name: "annie", real_name: "Ann Lee" },
+        },
       }));
       user = await slack.chat.user("U1");
       calls = slack.calls;
     });
 
-    it("answers the email and the team they are a member of", () => {
-      expect(user).toEqual({ id: "U1", email: "ann@x.y", member_of_team: "T1" });
+    it("answers the display name, the email and the team they are a member of", () => {
+      expect(user).toEqual({ id: "U1", email: "ann@x.y", name: "annie", member_of_team: "T1" });
     });
 
     it("reads the user through users.info", () => {
@@ -469,7 +472,27 @@ describe("SlackChat.user", () => {
   describe("a profile that hides the email", () => {
     it("answers a null email", async () => {
       const { chat } = slackChat(() => ({ ok: true, user: { team_id: "T1", profile: {} } }));
-      expect(await chat.user("U1")).toEqual({ id: "U1", email: null, member_of_team: "T1" });
+      expect((await chat.user("U1"))?.email).toBeNull();
+    });
+  });
+
+  describe("a profile with an empty display name", () => {
+    it("answers the real name", async () => {
+      const { chat } = slackChat(() => ({
+        ok: true,
+        user: { team_id: "T1", profile: { display_name: "", real_name: "Ann Lee" } },
+      }));
+      expect((await chat.user("U1"))?.name).toBe("Ann Lee");
+    });
+  });
+
+  describe("a profile without a display name or a real name", () => {
+    it("answers a null name", async () => {
+      const { chat } = slackChat(() => ({
+        ok: true,
+        user: { team_id: "T1", name: "ann", profile: { display_name: "", real_name: "" } },
+      }));
+      expect((await chat.user("U1"))?.name).toBeNull();
     });
   });
 
