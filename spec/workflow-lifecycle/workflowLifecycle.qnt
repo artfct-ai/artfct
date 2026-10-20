@@ -2173,14 +2173,19 @@ module workflowLifecycle {
 
   /// The no progress alarm finds the harness turn of the job's task stalled after a nudge. The
   /// task restarts in a fresh sandbox once its container is destroyed, or fails once its restarts
-  /// are used up. The restart tells the agent before its container goes.
+  /// are used up. The restart tells the agent before its container goes. A turn a pause cancelled
+  /// goes with its container, so the instruction it held waits for the next generation.
   action taskStalls: bool = onJobWhere(id => taskStuck(workflow, id), id => {
     val task = jobTask(workflow, id)
     val queued = withTask(workflow, id, { ...task, promptsQueued: task.promptsQueued.append(OtherPrompt) })
     move(
       if (task.restarts >= MAX_RESTARTS) endTask(workflow, id, TaskFailed, AfterFail, ToolOrEvent)
       else {
-        val counted = withTask(queued, id, { ...jobTask(queued, id), restarts: task.restarts + 1 })
+        val counted = withTask(queued, id, {
+          ...jobTask(queued, id),
+          restarts: task.restarts + 1,
+          instructionHold: if (task.instructionHold == HeldInACancelledTurn) InstructionHeld else task.instructionHold,
+        })
         {
           flow: if (destroyIsACall(task)) sendCall(counted, SandboxDestroy, id, RestartGoesOn)
             else restartGoesOn(counted, id),

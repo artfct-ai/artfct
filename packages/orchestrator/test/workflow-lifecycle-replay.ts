@@ -1143,13 +1143,12 @@ export class WorkflowLifecycleReplay {
    */
   private harnessPromptsOf(task: TaskRow): Pick<SpecTask, "promptsQueued" | "instructionHold"> {
     const { waiting, holdsInstruction } = specPromptsOf(this.world.workflow.store, task.task_id);
+    if (!holdsInstruction) return { promptsQueued: waiting, instructionHold: "NoInstructionHeld" };
     const cancelled = this.world.runningBridgeOf(task.task_id)?.cancelRequested ?? false;
-    const instructionHold = !holdsInstruction
-      ? "NoInstructionHeld"
-      : cancelled
-        ? "HeldInACancelledTurn"
-        : "InstructionHeld";
-    return { promptsQueued: waiting, instructionHold };
+    return {
+      promptsQueued: waiting,
+      instructionHold: cancelled ? "HeldInACancelledTurn" : "InstructionHeld",
+    };
   }
 
   private inputOf(job: JobRow, jobs: JobRow[]): SpecJob["input"] {
