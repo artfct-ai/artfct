@@ -1,7 +1,9 @@
 import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
+import type { WorkflowStatus } from "@artfct-ai/contracts/types";
 import { BoardStore } from "../board/board-store";
 import { replyTargetKey } from "./reply-target-key";
 import {
+  agentTurn,
   replyTargets,
   stagePlan,
   workflow,
@@ -9,10 +11,22 @@ import {
   workflowPlan,
   workflowSubject,
 } from "./schema";
-import type { StagePlan, Subject, WorkflowEnd, WorkflowPlan } from "./state";
+import {
+  workflowStatusOf,
+  type StagePlan,
+  type Subject,
+  type WorkflowEnd,
+  type WorkflowPlan,
+} from "./state";
 
-/** The one row of the workflow: its status, request, origin, and the running agent turn. */
+/** The one row of the workflow: its status, request, origin, and idle alarm. */
 export type WorkflowRow = typeof workflow.$inferSelect;
+
+/** The agent turn record: the turn that runs, or the turn a restart lost. */
+export type AgentTurnRow = typeof agentTurn.$inferSelect;
+
+/** What a turn start records about the turn that runs. */
+export type RunningTurn = Omit<AgentTurnRow, "workflow_id" | "status">;
 
 /** What the event that creates a workflow sets. */
 export type NewWorkflow = Pick<
@@ -42,7 +56,7 @@ function subjectTrackerId(subject: Subject): string {
 
 /**
  * Typed access to the workflow row and the tables that hold one fact about the whole workflow:
- * its end, its plan, its stage plan, its subject, and its reply targets.
+ * its end, its plan, its stage plan, its subject, its reply targets, and its agent turn record.
  */
 export class WorkflowRowStore extends BoardStore {
   /** The workflow. Null before the event that creates it. */
@@ -78,28 +92,29 @@ export class WorkflowRowStore extends BoardStore {
     return this.plan()?.name || this.requireWorkflowRow().request_title;
   }
 
-  /** The workflow end that runs. Null while the workflow is not ending. */
+  /** The status every reader outside the store sees: the end's status from the start of the end. */
+  workflowStatus(): WorkflowStatus {
+    return workflowStatusOf(this.requireWorkflowRow().status, this.workflowEnd());
+  }
+
+  /** The workflow end. Null before an end starts. */
   workflowEnd(): WorkflowEnd | null {
     const { ends_as, reason, answering, posted } = workflowEnd;
     return this.db.select({ ends_as, reason, answering, posted }).from(workflowEnd).get() ?? null;
   }
 
-  /** Record the end before its first cancel, so a restart goes on with it. */
-  recordWorkflowEnd(end: WorkflowEnd): void {
+  /** Start the end: record it and move the workflow to `ending`, so a restart goes on with it. */
+  startWorkflowEnd(end: WorkflowEnd): void {
     this.db
       .insert(workflowEnd)
       .values({ ...end, workflow_id: this.requireWorkflowRow().workflow_id })
       .run();
+    this.updateWorkflow({ status: "ending" });
   }
 
   /** The channels heard the end, so a resumed end does not post again. */
   markWorkflowEndPosted(): void {
     this.db.update(workflowEnd).set({ posted: true }).run();
-  }
-
-  /** The end finished its last step. */
-  clearWorkflowEnd(): void {
-    this.db.delete(workflowEnd).run();
   }
 
   /** The plan that started the workflow. Null before it. */
@@ -150,6 +165,44 @@ export class WorkflowRowStore extends BoardStore {
         tracker_id: subjectTrackerId(subject),
       })
       .run();
+  }
+
+  /** The agent turn record. Null while no turn runs or waits to resume. */
+  agentTurn(): AgentTurnRow | null {
+    return this.db.select().from(agentTurn).get() ?? null;
+  }
+
+  /** Record the turn that starts, in place of the lost turn it resumes. */
+  recordRunningTurn(turn: RunningTurn): void {
+    const running = { ...turn, status: "running" as const };
+    this.db
+      .insert(agentTurn)
+      .values({ ...running, workflow_id: this.requireWorkflowRow().workflow_id })
+      .onConflictDoUpdate({ target: agentTurn.workflow_id, set: running })
+      .run();
+  }
+
+  /** The heads-up of the running turn fired. */
+  clearHeadsUpSchedule(): void {
+    this.db.update(agentTurn).set({ heads_up_schedule: null }).run();
+  }
+
+  /** The running turn started or prompted a task, so the board change may be its reply. */
+  markTurnBoardChanged(): void {
+    this.db.update(agentTurn).set({ board_changed: true }).run();
+  }
+
+  /** A restart cut the running turn off. It keeps its first row and board change for the next start. */
+  markTurnLost(): void {
+    this.db
+      .update(agentTurn)
+      .set({ status: "lost", watchdog_schedule: null, heads_up_schedule: null })
+      .run();
+  }
+
+  /** The turn ended, its watchdog fired, or a finished workflow dropped the lost turn. */
+  deleteAgentTurn(): void {
+    this.db.delete(agentTurn).run();
   }
 
   /** The places the workflow replies to, in the order they joined. */

@@ -16,6 +16,12 @@ export type RootPage = { page_id: string; url: string; source: "container" | "na
  */
 export type Subject = { kind: "issue"; issue_id: string } | { kind: "project"; project_id: string };
 
+/**
+ * Where the workflow stands in the store. It is `ending` from the start of its end until the end's
+ * last step, and `ended` after it. Both hold a workflow end.
+ */
+export type WorkflowLifecycle = "new" | "running" | "waiting_input" | "ending" | "ended";
+
 /** The statuses a workflow end ends as. */
 export type WorkflowEndStatus = Extract<WorkflowStatus, "done" | "failed" | "cancelled">;
 
@@ -30,6 +36,19 @@ export type WorkflowEnd = {
   answering: ReplyTarget[];
   posted: boolean;
 };
+
+/**
+ * The status every reader outside the store sees. An ending or ended workflow shows the status its
+ * end ends as, from the start of the end.
+ */
+export function workflowStatusOf(
+  lifecycle: WorkflowLifecycle,
+  end: WorkflowEnd | null,
+): WorkflowStatus {
+  if (lifecycle !== "ending" && lifecycle !== "ended") return lifecycle;
+  if (!end) throw new Error(`the workflow is ${lifecycle} without its end`);
+  return end.ends_as;
+}
 
 /** The plan that started the workflow: its workflow definition, its name, and why. */
 export type WorkflowPlan = {
@@ -58,7 +77,10 @@ export function jobSlotsOf(plan: StagePlan | null): number {
 /** Workflow statuses a workflow never leaves. */
 export const FINISHED_WORKFLOW_STATUSES: WorkflowStatus[] = ["done", "cancelled", "failed"];
 
-/** True when the workflow ended. It stays ended: every later event gets the finished reply or is dropped. */
+/**
+ * True when the workflow shows a finished status, from the start of its end. It stays finished:
+ * every later event gets the finished reply or is dropped.
+ */
 export function isWorkflowFinished(status: WorkflowStatus): boolean {
   return FINISHED_WORKFLOW_STATUSES.includes(status);
 }

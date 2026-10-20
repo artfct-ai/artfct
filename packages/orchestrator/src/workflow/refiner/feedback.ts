@@ -41,7 +41,7 @@ export async function applyArtifactEvent(
     if (!author) continue;
     const change = await changeFor(workflow, author, workflow.store.artifact(job.job_id), event);
     if (!change) continue;
-    if (isWorkflowFinished(workflow.store.requireWorkflowRow().status)) return "handled";
+    if (isWorkflowFinished(workflow.store.workflowStatus())) return "handled";
     const task = workflow.store.requireTask(author.task_id);
     const result = await applyChange(workflow, task, workflow.store.artifact(job.job_id), change);
     if (result === "handled") handled = true;

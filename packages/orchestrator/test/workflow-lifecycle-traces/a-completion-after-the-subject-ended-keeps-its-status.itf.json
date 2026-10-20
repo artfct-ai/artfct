@@ -313,18 +313,8 @@
             "#tup": []
           }
         },
-        "status": {
-          "tag": "New",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "New", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
@@ -635,18 +625,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
@@ -1008,18 +988,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
@@ -1415,18 +1385,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "SubjectIssue",
           "value": {
@@ -1833,20 +1793,10 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Cancelled",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "EndStored",
-          "value": {
-            "tag": "Cancelled",
-            "value": {
-              "#tup": []
-            }
-          }
+        "status": { "tag": "Ending", "value": { "#tup": [] } },
+        "end": {
+          "tag": "End",
+          "value": { "endsAs": { "tag": "Cancelled", "value": { "#tup": [] } }, "posted": false }
         },
         "subject": {
           "tag": "SubjectIssue",
@@ -2257,20 +2207,10 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Cancelled",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "EndPosted",
-          "value": {
-            "tag": "Cancelled",
-            "value": {
-              "#tup": []
-            }
-          }
+        "status": { "tag": "Ending", "value": { "#tup": [] } },
+        "end": {
+          "tag": "End",
+          "value": { "endsAs": { "tag": "Cancelled", "value": { "#tup": [] } }, "posted": true }
         },
         "subject": {
           "tag": "SubjectIssue",
@@ -2678,17 +2618,10 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Cancelled",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
+        "status": { "tag": "Ended", "value": { "#tup": [] } },
+        "end": {
+          "tag": "End",
+          "value": { "endsAs": { "tag": "Cancelled", "value": { "#tup": [] } }, "posted": true }
         },
         "subject": {
           "tag": "SubjectIssue",
@@ -3065,17 +2998,10 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Cancelled",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
+        "status": { "tag": "Ended", "value": { "#tup": [] } },
+        "end": {
+          "tag": "End",
+          "value": { "endsAs": { "tag": "Cancelled", "value": { "#tup": [] } }, "posted": true }
         },
         "subject": {
           "tag": "SubjectIssue",

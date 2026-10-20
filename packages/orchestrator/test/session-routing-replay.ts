@@ -708,7 +708,7 @@ export class SessionRoutingReplay {
         .filter((name, index, names) => names.indexOf(name) === index)
         .toSorted(),
       waitsForInput: store.requireWorkflowRow().status === "waiting_input",
-      ended: isWorkflowFinished(store.requireWorkflowRow().status),
+      ended: isWorkflowFinished(store.workflowStatus()),
     };
   }
 
@@ -1013,7 +1013,7 @@ export class SessionRoutingReplay {
 
   private async agentTurnEnds(world: WorkflowWorld, outcome: Outcome): Promise<void> {
     const { workflow } = world;
-    workflow.transcript.takeInbox();
+    const takenRow = workflow.transcript.takeInbox();
     switch (outcome) {
       case "Answers":
         await channelTools(workflow, workflow.transcript.answering()).tell.execute(
@@ -1030,7 +1030,10 @@ export class SessionRoutingReplay {
         workflow.transcript.deleteTaken();
         return;
       case "TimesOut": {
-        const startedAt = await armTurnWatchdog(workflow);
+        if (takenRow === null)
+          workflow.transcript.enqueue("[note]\nThe turn runs on a note.", "none");
+        const firstRow = takenRow ?? workflow.transcript.takeInbox()!;
+        const { startedAt } = await armTurnWatchdog(workflow, firstRow);
         await onTurnTimeout(workflow, { started_at: startedAt });
         return;
       }

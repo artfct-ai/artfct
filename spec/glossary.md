@@ -11,7 +11,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | Term | Meaning | Code name | Do not say |
 |---|---|---|---|
 | workflow | A workstream that a person requests in a conversation or a tracker session. It runs one workflow definition and works on the issues of its subject, and on the pull requests and pages they need. It starts when the agent sets a plan that names a definition. It runs until done, cancelled, or failed. | `workflow`, `workflow_plan.definition` | |
-| workflow end | The end of a workflow as done, failed or cancelled. The store records it before the first cancel. It cancels the unfinished tasks, writes the status, posts the end and moves the tracker issues of a done workflow. A restart during it does not drop it. The start step arms an alarm that goes on with it. While it runs, the workflow refuses a plan, a job start, another end and a cancel. | `workflow_end`, `endWorkflow`, `resumeWorkflowEnd` | |
+| workflow end | The end of a workflow as done, failed or cancelled. The store records it before the first cancel and keeps it after the end. From its start the workflow is `ending` and shows the status it ends as. It cancels the unfinished tasks, posts the end, moves the tracker issues of a done workflow and unbinds the code host. Its last step moves the workflow to `ended`. A restart during it does not drop it. The start step arms an alarm that goes on with it. While it runs, the workflow refuses a plan, a job start, another end and a cancel, and a person's message does not wake it. | `workflow_end`, `endWorkflow`, `startWorkflowEnd`, `resumeWorkflowEnd` | |
 | subject | The one issue or tracker project a workflow works on. A tracker origin sets it, else the plan, else the breakdown output. It never changes. An issue subject covers the issue and its direct sub-issues. A project subject covers the project's issues. | `workflow_subject` | binding, scope, root issue |
 | workflow definition | A named set of stages in config. A deployment may hold several. A workflow runs the one its plan names. | `WorkflowDefinition`, `workflows/<name>.yaml`, `set_plan` `definition` | |
 | stage | One step of a workflow. It produces one artifact. Config declares it. | `Stage` | |
@@ -157,9 +157,9 @@ A code name is one type, table, column, or function. A code name that needs a co
 | requested runtime | The harness and model a person's message names for the work, resolved to a model the harness runs. It replaces the stage's pair for the author of the job it starts. | `RequestedRuntime` | |
 | closing text | The text the model ends a turn with. It is posted only as the answer to a person who wrote. | `ModelPass.text` | |
 | deadline | The in-process timer that aborts every model and decisions call of an agent turn once the turn timeout passes, so the turn ends and posts the timeout text itself. | `runUnderDeadline`, `boundedAttempt` | |
-| watchdog | The alarm armed at the start of each agent turn that, when the turn still runs after the turn timeout, posts the timeout text, deletes the inbox rows the turn took, and records that no turn is running. | `armTurnWatchdog`, `onTurnTimeout`, `workflow.turn_watchdog` | |
+| watchdog | The alarm armed at the start of each agent turn that, when the turn still runs after the turn timeout, posts the timeout text, deletes the inbox rows the turn took, and deletes the agent turn record. | `armTurnWatchdog`, `onTurnTimeout`, `agent_turn.watchdog_schedule` | |
 | backup alarm | The zero-delay `runAgent` alarm a wake arms before its turn lane runs. The lane cancels it when it returns. A restart keeps it, so the turn the restart lost still runs. | `tellAgent`, `runAgent` | |
-| heads-up | The line posted to the chat threads, with their working status kept, when an agent turn on a person's message still runs a minute after it started. It posts at most once per turn. | `HEADS_UP_TEXT`, `onTurnHeadsUp`, `workflow.turn_heads_up` | |
+| heads-up | The line posted to the chat threads, with their working status kept, when an agent turn on a person's message still runs a minute after it started. It posts at most once per turn. | `HEADS_UP_TEXT`, `onTurnHeadsUp`, `agent_turn.heads_up_schedule` | |
 | stale alarm | A watchdog or heads-up alarm that fires for a turn that no longer runs: one that ended, one a restart lost, or one before the turn that runs now. Its start time does not match the running turn, so it changes nothing. | `TurnAlarm.started_at` | late alarm |
 | restart notice | The line posted to the chat threads, with their working status kept, when a new Durable Object instance resumes a lost turn that took a person's message. | `LOST_PLACE_TEXT`, `resumeLostTurn` | |
 | transcript | The stored conversation of the orchestrator agent. The only part of the context that persists across agent turns. | `transcript` table, `TranscriptStore` | history, memory |
@@ -175,6 +175,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 
 | Status | Meaning |
 |---|---|
+| workflow `ended` | The workflow end ran its last step. The workflow shows the status the end ended as, and the store keeps the end and its reason. |
 | task `in_review` | The author is idle and its artifact is out. The status says nothing about what the humans do with it. |
 | artifact `drafted` | The refiners hold the artifact, or it waits for them. |
 | artifact `ready` | The humans have the artifact. |

@@ -50,9 +50,9 @@ export const MUTANTS: Mutant[] = [
     id: "W3",
     invariant: "workflowLifecycle::nothingReopensAFinishedWorkflow",
     path: "src/workflow/inbound/events.ts",
-    find: "  if (isWorkflowFinished(workflow.store.requireWorkflowRow().status)) {\n    await replyFinished",
+    find: "  if (isWorkflowFinished(workflow.store.workflowStatus())) {\n    await replyFinished",
     replace:
-      '  if (isWorkflowFinished(workflow.store.requireWorkflowRow().status) && event.kind !== "prompt") {\n    await replyFinished',
+      '  if (isWorkflowFinished(workflow.store.workflowStatus()) && event.kind !== "prompt") {\n    await replyFinished',
   },
   {
     id: "W4",
@@ -444,9 +444,9 @@ export const MUTANTS: Mutant[] = [
   {
     id: "A6",
     invariant: "agentTurns::closingTextAnswersOnlyAPersonWhoWrote",
-    path: "src/agent/turn/turn.ts",
-    find: "    turn_board_changed:\n      lostFirstRow !== null && workflow.store.requireWorkflowRow().turn_board_changed,\n",
-    replace: "    turn_board_changed: false,\n",
+    path: "src/agent/turn/watchdog.ts",
+    find: "    boardChanged: lost?.board_changed ?? false,\n",
+    replace: "    boardChanged: false,\n",
   },
   {
     id: "A7",
@@ -518,41 +518,40 @@ export const MUTANTS: Mutant[] = [
     id: "W184",
     invariant: "agentTurns::theWorkingStatusNeverOutlivesItsTurn (watchdog of a finished workflow)",
     path: "src/agent/turn/watchdog.ts",
-    find: "  if (isWorkflowFinished(workflow.store.requireWorkflowRow().status) && !answering.length)\n    return workflow.release();\n",
+    find: "  if (isWorkflowFinished(workflow.store.workflowStatus()) && !answering.length)\n    return workflow.release();\n",
     replace:
-      "  if (isWorkflowFinished(workflow.store.requireWorkflowRow().status) && !answering.length)\n    return;\n",
+      "  if (isWorkflowFinished(workflow.store.workflowStatus()) && !answering.length)\n    return;\n",
   },
   {
     id: "W185",
     invariant: "agentTurns::aPersonsTurnNeverEndsUnanswered (sent held comments as the reply)",
     path: "src/agent/turn/turn.ts",
-    find: '    sent.notes.map((note) => ({ role: "user" as const, content: noteMessage(note) })),\n  );\n',
+    find: "    await sendHeldCommentsForRevision(workflow, decisions);\n",
     replace:
-      '    sent.notes.map((note) => ({ role: "user" as const, content: noteMessage(note) })),\n  );\n  if (sent.prompted.length) workflow.store.updateWorkflow({ turn_board_changed: true });\n',
+      "    await sendHeldCommentsForRevision(workflow, decisions);\n    progress.boardChanged = true;\n",
   },
   {
     id: "W186",
     invariant: "agentTurns::aPersonsTurnNeverEndsUnanswered (watchdog of a finished workflow)",
     path: "src/agent/turn/watchdog.ts",
-    find: "  if (isWorkflowFinished(workflow.store.requireWorkflowRow().status) && !answering.length)\n    return workflow.release();\n",
+    find: "  if (isWorkflowFinished(workflow.store.workflowStatus()) && !answering.length)\n    return workflow.release();\n",
     replace:
-      "  if (isWorkflowFinished(workflow.store.requireWorkflowRow().status)) return workflow.release();\n",
+      "  if (isWorkflowFinished(workflow.store.workflowStatus())) return workflow.release();\n",
   },
   {
     id: "W250",
     invariant: "agentTurns::aStaleTurnAlarmChangesNothing (heads-up)",
     path: "src/agent/turn/watchdog.ts",
-    find: "export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n  if (workflow.store.requireWorkflowRow().turn_started_at !== alarm.started_at) return;\n",
-    replace:
-      "export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n",
+    find: "  if (!runningTurnOf(workflow, alarm.started_at)) return;\n  workflow.store.clearHeadsUpSchedule();\n",
+    replace: "  workflow.store.clearHeadsUpSchedule();\n",
   },
   {
     id: "W251",
     invariant: "agentTurns::aStaleTurnAlarmChangesNothing (watchdog)",
     path: "src/agent/turn/watchdog.ts",
-    find: "export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n  if (workflow.store.requireWorkflowRow().turn_started_at !== alarm.started_at) return;\n",
+    find: "  const turn = runningTurnOf(workflow, alarm.started_at);\n  if (!turn) return;\n  workflow.store.deleteAgentTurn();\n  const answering",
     replace:
-      "export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n",
+      "  const turn = workflow.store.agentTurn() ?? { heads_up_schedule: null };\n  workflow.store.deleteAgentTurn();\n  const answering",
   },
   {
     id: "W252",
@@ -572,9 +571,9 @@ export const MUTANTS: Mutant[] = [
     id: "W254",
     invariant: "agentTurns::theHeadsUpPostsOnceToChatInAPersonsTurn (once per turn)",
     path: "src/agent/turn/watchdog.ts",
-    find: '  workflow.store.updateWorkflow({ turn_heads_up: null });\n  workflow.log(null, "agent turn still running, heads-up posted");\n',
+    find: "  workflow.store.clearHeadsUpSchedule();\n",
     replace:
-      '  workflow.store.updateWorkflow({\n    turn_heads_up: await workflow.scheduleAlarm(HEADS_UP_SECONDS, "onTurnHeadsUp", alarm),\n  });\n',
+      '  workflow.store.recordRunningTurn({\n    ...workflow.store.agentTurn()!,\n    heads_up_schedule: await workflow.scheduleAlarm(HEADS_UP_SECONDS, "onTurnHeadsUp", alarm),\n  });\n',
   },
   {
     id: "W255",
@@ -588,8 +587,8 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "agentTurns::aPersonsMessageLeavesTheInboxOnlyWithItsTurn (restart of a finished workflow)",
     path: "src/agent/turn/watchdog.ts",
-    find: "  if (\n    isWorkflowFinished(workflow.store.requireWorkflowRow().status) &&\n    !workflow.transcript.takenMessages().length\n  ) {\n",
-    replace: "  if (isWorkflowFinished(workflow.store.requireWorkflowRow().status)) {\n",
+    find: "  if (\n    isWorkflowFinished(workflow.store.workflowStatus()) &&\n    !workflow.transcript.takenMessages().length\n  ) {\n",
+    replace: "  if (isWorkflowFinished(workflow.store.workflowStatus())) {\n",
   },
   {
     id: "W257",
@@ -639,8 +638,8 @@ export const MUTANTS: Mutant[] = [
     id: "W239",
     invariant: "routerBindings::theRouterRowMatchesTheWorkflowEnd",
     path: "src/workflow/lifecycle.ts",
-    find: "  await writeWorkflowStatus(workflow, end.ends_as);",
-    replace: "  await changeWorkflowStatus(workflow, end.ends_as);",
+    find: "  await writeRouterWorkflowStatus(workflow);\n  if (!end.posted)",
+    replace: "  if (!end.posted)",
   },
   {
     id: "W420",
@@ -969,8 +968,8 @@ export const MUTANTS: Mutant[] = [
     id: "W172",
     invariant: "routerBindings::aWorkflowGetsEventsOnlyOnceCreated",
     path: "src/workflow/inbound/events.ts",
-    find: '  if (!created) return { refused: "not_created" };\n',
-    replace: "  if (!created) return null;\n",
+    find: '  if (!workflow.store.workflowRow()) return { refused: "not_created" };\n',
+    replace: "  if (!workflow.store.workflowRow()) return null;\n",
   },
   {
     id: "W173",
@@ -1107,8 +1106,8 @@ export const MUTANTS: Mutant[] = [
     id: "W161",
     invariant: "agentTurns::everyInboxRowReachesTheTranscriptOnce",
     path: "src/agent/turn/watchdog.ts",
-    find: "  workflow.transcript.deleteTaken();\n  return true;",
-    replace: "  return true;",
+    find: "  workflow.transcript.deleteTaken();\n  await cancelTurnAlarms(workflow, turn);\n  return true;",
+    replace: "  await cancelTurnAlarms(workflow, turn);\n  return true;",
   },
   {
     id: "W162",
@@ -1129,8 +1128,8 @@ export const MUTANTS: Mutant[] = [
     id: "W164",
     invariant: "agentTurns::aPersonsTurnNeverEndsUnanswered",
     path: "src/agent/turn/turn.ts",
-    find: "  if (reply && !replied(workflow, pass)) {",
-    replace: "  if (false && reply && !replied(workflow, pass)) {",
+    find: "  if (reply && !replied(pass, progress)) {",
+    replace: "  if (false && reply && !replied(pass, progress)) {",
   },
   {
     id: "W165",
@@ -1174,8 +1173,8 @@ export const MUTANTS: Mutant[] = [
     id: "W170",
     invariant: "agentTurns::oneTurnRunsAtATime",
     path: "src/agent/turn/watchdog.ts",
-    find: "  workflow.store.updateWorkflow({\n    turn_started_at: null,\n    turn_watchdog: null,",
-    replace: "  workflow.store.updateWorkflow({\n    turn_watchdog: null,",
+    find: "  workflow.store.deleteAgentTurn();\n  const answering = workflow.transcript.answering();\n",
+    replace: "  const answering = workflow.transcript.answering();\n",
   },
   {
     id: "W120",
@@ -1246,7 +1245,7 @@ export const MUTANTS: Mutant[] = [
     id: "W129",
     invariant: "workflowLifecycle::finishedWorkflowKeepsItsStatus",
     path: "src/workflow/lifecycle.ts",
-    find: "  if (workflowEnding(workflow) || isWorkflowFinished(status)) return false;\n",
+    find: "  if (isWorkflowFinished(workflow.store.workflowStatus())) return false;\n",
     replace: "  if (workflowEnding(workflow)) return false;\n",
   },
   {
@@ -1815,9 +1814,9 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "reviewLoop::theHumansHearOfEachHandoverOnce (the workflow end drops the handover alarm)",
     path: "src/workflow/lifecycle.ts",
-    find: "  await writeWorkflowStatus(workflow, end.ends_as);\n  if (!end.posted)",
+    find: "  await writeRouterWorkflowStatus(workflow);\n  if (!end.posted)",
     replace:
-      '  await workflow.cancelAlarmsWhere("postHandover", () => true);\n  await writeWorkflowStatus(workflow, end.ends_as);\n  if (!end.posted)',
+      '  await workflow.cancelAlarmsWhere("postHandover", () => true);\n  await writeRouterWorkflowStatus(workflow);\n  if (!end.posted)',
   },
   {
     id: "W352",
@@ -2224,6 +2223,14 @@ export const MUTANTS: Mutant[] = [
     propertyFile: "src/workflow/feed/feed.property.ts",
   },
   {
+    id: "W405",
+    invariant: "workflowLifecycle::aPersonsMessageWakesTheWorkflow (a message during an end)",
+    path: "src/workflow/inbound/events.ts",
+    find: "  if (!isWorkflowFinished(workflow.store.workflowStatus())) {\n    if (isMessage(event)) await wakeWorkflow(workflow);\n",
+    replace:
+      '  if (isMessage(event) && workflow.store.requireWorkflowRow().status === "ending")\n    await changeWorkflowStatus(workflow, "running");\n  if (!isWorkflowFinished(workflow.store.workflowStatus())) {\n    if (isMessage(event)) await wakeWorkflow(workflow);\n',
+  },
+  {
     id: "W395",
     invariant: "sessionRouting::aTurnEndNeverDropsItsAccount",
     path: "src/workflow/task/harness/turn.ts",
@@ -2406,6 +2413,38 @@ export const MUTANTS: Mutant[] = [
     find: 'return ctx.text("unauthorized", 401);',
     replace: "return ctx.text(`unauthorized, use ${ADMIN_TOKEN}`, 401);",
     propertyFile: "../ingress/src/routes/secrets.property.ts",
+  },
+  {
+    id: "W410",
+    invariant:
+      "agentTurns::compactionReplacesOnlyEarlierRows (a resumed turn forgets the lost turn's first row)",
+    path: "src/agent/turn/watchdog.ts",
+    find: "    firstRow: lost?.first_row ?? takenRow,\n",
+    replace: "    firstRow: takenRow,\n",
+  },
+  {
+    id: "W411",
+    invariant:
+      "agentTurns::closingTextAnswersOnlyAPersonWhoWrote (a restart drops the lost turn record)",
+    path: "src/agent/turn/watchdog.ts",
+    find: "  workflow.store.markTurnLost();\n",
+    replace: "  workflow.store.deleteAgentTurn();\n",
+  },
+  {
+    id: "W412",
+    invariant:
+      "agentTurns::closingTextAnswersOnlyAPersonWhoWrote (the record misses the board change)",
+    path: "src/agent/turn/turn.ts",
+    find: "          progress.boardChanged = true;\n          workflow.store.markTurnBoardChanged();\n",
+    replace: "          progress.boardChanged = true;\n",
+  },
+  {
+    id: "W413",
+    invariant:
+      "agentTurns::closingTextAnswersOnlyAPersonWhoWrote (the turn forgets its board change)",
+    path: "src/agent/turn/turn.ts",
+    find: "          progress.boardChanged = true;\n          workflow.store.markTurnBoardChanged();\n",
+    replace: "          workflow.store.markTurnBoardChanged();\n",
   },
   {
     id: "W425",

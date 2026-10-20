@@ -646,7 +646,7 @@ export class RouterBindingsReplay {
       if (!runtime.store.workflowRow()) continue;
       const view: ObjectView = {
         created: true,
-        ended: isWorkflowFinished(runtime.store.requireWorkflowRow().status),
+        ended: isWorkflowFinished(runtime.store.workflowStatus()),
         hasIssueJob: validateInputNotInWork(runtime, ISSUE_INPUT) !== null,
         openedPulls: runtime.store
           .artifacts()

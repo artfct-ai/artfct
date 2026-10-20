@@ -25,7 +25,7 @@ describe("applyEvent", () => {
 
     it("cancels the workflow", () =>
       stopped(({ workflow }) => {
-        expect(workflow.store.requireWorkflowRow().status).toBe("cancelled");
+        expect(workflow.store.workflowStatus()).toBe("cancelled");
       }));
   });
 });

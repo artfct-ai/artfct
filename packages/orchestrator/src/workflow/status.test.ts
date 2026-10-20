@@ -135,6 +135,42 @@ describe("summarize", () => {
   });
 });
 
+describe("summarize a workflow whose end started", () => {
+  const ending = scenario(freshRuntime, (workflow) => {
+    patchPlan(workflow, { reason: "default" });
+    workflow.store.startWorkflowEnd({
+      ends_as: "failed",
+      reason: "The build broke.",
+      answering: [],
+      posted: false,
+    });
+  });
+
+  it("reports the status it ends as", () =>
+    ending((workflow) => {
+      expect(summarize(workflow).status).toBe("failed");
+    }));
+
+  it("reports the reason of the end", () =>
+    ending((workflow) => {
+      expect(summarize(workflow).reason).toBe("The build broke.");
+    }));
+
+  describe("and ended", () => {
+    const ended = scenario(ending, (workflow) => {
+      workflow.store.updateWorkflow({ status: "ended" });
+    });
+
+    it("keeps the status and the reason of the end", () =>
+      ended((workflow) => {
+        expect(summarize(workflow)).toMatchObject({
+          status: "failed",
+          reason: "The build broke.",
+        });
+      }));
+  });
+});
+
 describe("summarize a job whose researcher finished and whose author runs", () => {
   const authoring = scenario(freshRuntime, (workflow) => {
     seedTask(workflow, { stage: "implement", status: "done", cost_usd: 0.25 });
@@ -177,6 +213,7 @@ describe("debugDump", () => {
     it("dumps every table", () =>
       dumped((workflow) => {
         expect(Object.keys(debugDump(workflow)).toSorted()).toEqual([
+          "agent_turn",
           "artifacts",
           "boards",
           "connections",

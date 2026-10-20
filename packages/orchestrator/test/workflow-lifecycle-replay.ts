@@ -6,7 +6,7 @@ import type {
   LanguageModelV4StreamResult,
 } from "@ai-sdk/provider";
 import type { Decisions } from "@artfct-ai/adapters/gateway/types";
-import type { TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
+import type { TaskStatus } from "@artfct-ai/contracts/types";
 import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import { planTools } from "../src/agent/tools/plan";
@@ -31,10 +31,16 @@ import {
   failTask,
   resumeTaskEnd,
   resumeWorkflowEnd,
+  workflowEnding,
   type TaskEndAlarm,
 } from "../src/workflow/lifecycle";
 import { resumeLostCalls, type LostCallsAlarm } from "../src/workflow/restart";
-import { isTaskFinished, isWorkflowFinished, type Subject } from "../src/workflow/store/state";
+import {
+  isTaskFinished,
+  type Subject,
+  type WorkflowEndStatus,
+  type WorkflowLifecycle,
+} from "../src/workflow/store/state";
 import type { JobRow, TaskRow } from "../src/workflow/store/tasks";
 import type { TaskEvent } from "../src/workflow/task/events";
 import type { ConnectionState } from "../src/workflow/task/harness/bridge";
@@ -249,14 +255,8 @@ const STEP_MS = 10 * 60_000;
 const REPLAY_START = Date.parse("2026-01-01T00:00:00.000Z");
 
 const TASK_STATUSES = ["Busy", "InReview", "TaskDone", "TaskCancelled", "TaskFailed"] as const;
-const WORKFLOW_STATUSES = [
-  "New",
-  "Running",
-  "WaitingInput",
-  "Done",
-  "Failed",
-  "Cancelled",
-] as const;
+const WORKFLOW_STATUSES = ["New", "Running", "WaitingInput", "Ending", "Ended"] as const;
+const END_STATUSES = ["Done", "Failed", "Cancelled"] as const;
 const ARTIFACT_STATUSES = ["NoArtifact", "Drafted", "Ready", "Accepted", "Removed"] as const;
 const PULLS_ON_HOST = ["NoPull", "PullOpen", "PullMerged", "PullClosed"] as const;
 const HOST_MOVES = ["Merged", "ClosedUnmerged", "Reopened"] as const;
@@ -424,7 +424,7 @@ export type SpecWorkflow = {
   turnsToRunAgain: number[];
   restartAlarmFired: boolean;
   ranAgain: number[];
-  storedEnd: { endsAs: (typeof WORKFLOW_STATUSES)[number]; posted: boolean } | null;
+  end: { endsAs: (typeof END_STATUSES)[number]; posted: boolean } | null;
   endCall: (typeof END_CALLS)[number];
 };
 
@@ -555,7 +555,7 @@ function specWorkflow(value: unknown): SpecWorkflow {
   const jobs = itfList(itfField(value, "jobs")).map(specJob);
   const definition = itfVariant(itfField(value, "definition"))!;
   const stagePlan = itfVariant(itfField(value, "stagePlan"))!;
-  const storedEnd = itfVariant(itfField(value, "storedEnd"))!;
+  const end = itfVariant(itfField(value, "end"))!;
   return {
     status: itfOneOf(itfVariant(itfField(value, "status"))!.tag, WORKFLOW_STATUSES),
     definition: definition.tag === "Planned" ? itfInt(definition.value) : null,
@@ -575,12 +575,12 @@ function specWorkflow(value: unknown): SpecWorkflow {
     turnsToRunAgain: sortedInts(itfField(value, "turnsToRunAgain")),
     restartAlarmFired: itfBool(itfField(value, "restartAlarmFired")),
     ranAgain: sortedInts(itfField(value, "ranAgain")),
-    storedEnd:
-      storedEnd.tag === "NoStoredEnd"
+    end:
+      end.tag === "NoEnd"
         ? null
         : {
-            endsAs: itfOneOf(itfVariant(storedEnd.value)!.tag, WORKFLOW_STATUSES),
-            posted: storedEnd.tag === "EndPosted",
+            endsAs: itfOneOf(itfVariant(itfField(end.value, "endsAs"))!.tag, END_STATUSES),
+            posted: itfBool(itfField(end.value, "posted")),
           },
     endCall: itfOneOf(itfVariant(itfField(value, "endCall"))!.tag, END_CALLS),
   };
@@ -939,7 +939,7 @@ export class WorkflowLifecycleReplay {
     const plan = store.plan();
     const stagePlan = store.stagePlan();
     const jobs = store.jobs();
-    const storedEnd = store.workflowEnd();
+    const end = store.workflowEnd();
     const observed = this.world.steps.at(-1)?.after.tasks ?? [];
     const started = store
       .tasks()
@@ -1014,9 +1014,7 @@ export class WorkflowLifecycleReplay {
         .toSorted((left, right) => left - right),
       restartAlarmFired: this.firedRestartAlarm !== null,
       ranAgain: [...this.ranAgain.keys()].toSorted((left, right) => left - right),
-      storedEnd: storedEnd
-        ? { endsAs: WORKFLOW_STATUS_OF[storedEnd.ends_as], posted: storedEnd.posted }
-        : null,
+      end: end ? { endsAs: END_STATUS_OF[end.ends_as], posted: end.posted } : null,
       endCall: this.endCall?.kind ?? "NoEndCall",
     };
   }
@@ -1949,13 +1947,11 @@ export class WorkflowLifecycleReplay {
   }
 
   /**
-   * Hold `run` as the call `kind` of the workflow end once its status is written, until the replay
+   * Hold `run` as the call `kind` of the workflow end while the workflow ends, until the replay
    * returns it. Any other post or binding delete runs at once.
    */
   holdEndCall<Result>(kind: HeldEndCall["kind"], run: () => Promise<Result>): Promise<Result> {
-    const { store } = this.world.workflow;
-    const ending = store.workflowEnd() !== null;
-    if (!ending || !isWorkflowFinished(store.requireWorkflowRow().status)) return run();
+    if (!workflowEnding(this.world.workflow)) return run();
     if (this.endCall)
       throw new Error(`the workflow end sent ${kind} while ${this.endCall.kind} is out`);
     return new Promise<Result>((resolve, reject) => {
@@ -2066,10 +2062,15 @@ const ARTIFACT_STATUS_OF: Record<ArtifactRow["status"], SpecJob["artifact"]> = {
   removed: "Removed",
 };
 
-const WORKFLOW_STATUS_OF: Record<WorkflowStatus, SpecWorkflow["status"]> = {
+const WORKFLOW_STATUS_OF: Record<WorkflowLifecycle, SpecWorkflow["status"]> = {
   new: "New",
   running: "Running",
   waiting_input: "WaitingInput",
+  ending: "Ending",
+  ended: "Ended",
+};
+
+const END_STATUS_OF: Record<WorkflowEndStatus, (typeof END_STATUSES)[number]> = {
   done: "Done",
   failed: "Failed",
   cancelled: "Cancelled",

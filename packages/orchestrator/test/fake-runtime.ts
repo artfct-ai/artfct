@@ -45,6 +45,7 @@ import { postToRecipients, releaseChatThreads, showWorking } from "../src/workfl
 import {
   UNPLANNED_JOB_SLOTS,
   type StagePlan,
+  type WorkflowEndStatus,
   type WorkflowPlan,
 } from "../src/workflow/store/state";
 import { artifactRefKey, jobInputKey } from "../src/workflow/store/input-key";
@@ -469,6 +470,17 @@ export function createFakeWorkflow(workflow: FakeRuntime): void {
     origin: null,
     subject: null,
   });
+}
+
+/** Move the workflow past the last step of its end, ended as `endsAs` with the end posted. */
+export function seedEndedWorkflow(workflow: WorkflowRuntime, endsAs: WorkflowEndStatus): void {
+  workflow.store.startWorkflowEnd({
+    ends_as: endsAs,
+    reason: `The seeded workflow is ${endsAs}.`,
+    answering: [],
+    posted: true,
+  });
+  workflow.store.updateWorkflow({ status: "ended" });
 }
 
 /** Merge a patch into the plan. A workflow without one gets the test workflow definition. */
