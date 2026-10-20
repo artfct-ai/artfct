@@ -16,7 +16,7 @@ import {
   type WorkflowClients,
 } from "../../../../test/fresh-workflow";
 import { freshDurableRuntime } from "../../../../test/durable-runtime";
-import { seedTask, patchStagePlan } from "../../../../test/fake-runtime";
+import { seedEndedWorkflow, seedTask, patchStagePlan } from "../../../../test/fake-runtime";
 import { scenario, type Scenario } from "../../../../test/scenario";
 import { toolText } from "../../../../test/tool-result";
 import type { Workflow } from "../../../workflow";
@@ -538,7 +538,7 @@ describe("start_job", () => {
   describe("a workflow that is done", () => {
     let result: string;
     const refused = scenario(plannedWorkflow(1), async (workflow) => {
-      workflow.store.updateWorkflow({ status: "done" });
+      seedEndedWorkflow(workflow, "done");
       const { start_job } = startTools(workflow, [REQUEST]);
       result = toolText(await start_job.execute({ stage: "implement", brief: "more" }, call));
     });
@@ -947,7 +947,7 @@ describe("complete_job on the subject issue at the last stage of a single-issue 
   it("completes the workflow and cancels the job still working", () =>
     finished((workflow) => {
       expect([
-        workflow.store.requireWorkflowRow().status,
+        workflow.store.workflowStatus(),
         workflow.store.requireTask("wf_x.1").status,
         workflow.store.requireTask("wf_x.2").status,
       ]).toEqual(["done", "done", "cancelled"]);
@@ -955,7 +955,7 @@ describe("complete_job on the subject issue at the last stage of a single-issue 
 
   it("leaves a workflow whose plan produces issues open", () =>
     onSubject(["design", "breakdown"])((workflow) => {
-      expect(workflow.store.requireWorkflowRow().status).not.toBe("done");
+      expect(workflow.store.workflowStatus()).not.toBe("done");
     }));
 });
 

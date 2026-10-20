@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { freshDurableRuntime } from "../../../test/durable-runtime";
-import { seedTask } from "../../../test/fake-runtime";
+import { seedEndedWorkflow, seedTask } from "../../../test/fake-runtime";
 import { scenario } from "../../../test/scenario";
 import { toolText } from "../../../test/tool-result";
 import { planTools } from "./plan";
@@ -24,7 +24,7 @@ describe("fail_workflow", () => {
 
     it("marks the workflow failed", () =>
       failed((workflow) => {
-        expect(workflow.store.requireWorkflowRow().status).toBe("failed");
+        expect(workflow.store.workflowStatus()).toBe("failed");
       }));
 
     it("cancels the active task", () =>
@@ -56,7 +56,7 @@ describe("fail_workflow", () => {
   describe("a workflow that is done", () => {
     let refusal: string;
     const refused = scenario(freshDurableRuntime, async (workflow) => {
-      workflow.store.updateWorkflow({ status: "done" });
+      seedEndedWorkflow(workflow, "done");
       const { fail_workflow } = planTools(workflow);
       refusal = toolText(await fail_workflow.execute({ reason: "cannot build" }, call));
     });
@@ -64,7 +64,7 @@ describe("fail_workflow", () => {
     it("refuses and stays done", () =>
       refused((workflow) => {
         expect(refusal).toBe("The workflow is done. A finished workflow stays finished.");
-        expect(workflow.store.requireWorkflowRow().status).toBe("done");
+        expect(workflow.store.workflowStatus()).toBe("done");
       }));
   });
 });
@@ -83,7 +83,7 @@ describe("finish_workflow", () => {
 
   it("marks the workflow done", () =>
     finished((workflow) => {
-      expect(workflow.store.requireWorkflowRow().status).toBe("done");
+      expect(workflow.store.workflowStatus()).toBe("done");
     }));
 
   it("posts the result to the channels", () =>
@@ -114,7 +114,7 @@ describe("finish_workflow", () => {
 
     it("leaves the workflow open", () =>
       refused((workflow) => {
-        expect(workflow.store.requireWorkflowRow().status).not.toBe("done");
+        expect(workflow.store.workflowStatus()).not.toBe("done");
       }));
 
     it("posts nothing", () =>
@@ -126,7 +126,7 @@ describe("finish_workflow", () => {
   describe("on a cancelled workflow", () => {
     let refusal: string;
     const refused = scenario(freshDurableRuntime, async (workflow) => {
-      workflow.store.updateWorkflow({ status: "cancelled" });
+      seedEndedWorkflow(workflow, "cancelled");
       const { finish_workflow } = planTools(workflow);
       refusal = toolText(await finish_workflow.execute({ result: "Shipped." }, call));
     });
@@ -138,7 +138,7 @@ describe("finish_workflow", () => {
 
     it("stays cancelled", () =>
       refused((workflow) => {
-        expect(workflow.store.requireWorkflowRow().status).toBe("cancelled");
+        expect(workflow.store.workflowStatus()).toBe("cancelled");
       }));
   });
 });

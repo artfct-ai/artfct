@@ -1411,7 +1411,7 @@ export class WorkflowWorld {
         issue_id: job.issue_id,
         stage: job.stage,
       })),
-      workflowStatus: this.workflow.store.requireWorkflowRow().status,
+      workflowStatus: this.workflow.store.workflowStatus(),
       definition,
       jobSessions: Object.fromEntries(
         jobs.map((job) => {

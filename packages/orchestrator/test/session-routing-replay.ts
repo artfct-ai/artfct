@@ -708,7 +708,7 @@ export class SessionRoutingReplay {
         .filter((name, index, names) => names.indexOf(name) === index)
         .toSorted(),
       waitsForInput: store.requireWorkflowRow().status === "waiting_input",
-      ended: isWorkflowFinished(store.requireWorkflowRow().status),
+      ended: isWorkflowFinished(store.workflowStatus()),
     };
   }
 

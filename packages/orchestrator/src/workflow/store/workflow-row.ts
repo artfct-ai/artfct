@@ -1,4 +1,5 @@
 import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
+import type { WorkflowStatus } from "@artfct-ai/contracts/types";
 import { BoardStore } from "../board/board-store";
 import { replyTargetKey } from "./reply-target-key";
 import {
@@ -9,7 +10,13 @@ import {
   workflowPlan,
   workflowSubject,
 } from "./schema";
-import type { StagePlan, Subject, WorkflowEnd, WorkflowPlan } from "./state";
+import {
+  workflowStatusOf,
+  type StagePlan,
+  type Subject,
+  type WorkflowEnd,
+  type WorkflowPlan,
+} from "./state";
 
 /** The one row of the workflow: its status, request, origin, and the running agent turn. */
 export type WorkflowRow = typeof workflow.$inferSelect;
@@ -78,28 +85,29 @@ export class WorkflowRowStore extends BoardStore {
     return this.plan()?.name || this.requireWorkflowRow().request_title;
   }
 
-  /** The workflow end that runs. Null while the workflow is not ending. */
+  /** The status every reader outside the store sees: the end's status from the start of the end. */
+  workflowStatus(): WorkflowStatus {
+    return workflowStatusOf(this.requireWorkflowRow().status, this.workflowEnd());
+  }
+
+  /** The workflow end. Null before an end starts. */
   workflowEnd(): WorkflowEnd | null {
     const { ends_as, reason, answering, posted } = workflowEnd;
     return this.db.select({ ends_as, reason, answering, posted }).from(workflowEnd).get() ?? null;
   }
 
-  /** Record the end before its first cancel, so a restart goes on with it. */
-  recordWorkflowEnd(end: WorkflowEnd): void {
+  /** Start the end: record it and move the workflow to `ending`, so a restart goes on with it. */
+  startWorkflowEnd(end: WorkflowEnd): void {
     this.db
       .insert(workflowEnd)
       .values({ ...end, workflow_id: this.requireWorkflowRow().workflow_id })
       .run();
+    this.updateWorkflow({ status: "ending" });
   }
 
   /** The channels heard the end, so a resumed end does not post again. */
   markWorkflowEndPosted(): void {
     this.db.update(workflowEnd).set({ posted: true }).run();
-  }
-
-  /** The end finished its last step. */
-  clearWorkflowEnd(): void {
-    this.db.delete(workflowEnd).run();
   }
 
   /** The plan that started the workflow. Null before it. */

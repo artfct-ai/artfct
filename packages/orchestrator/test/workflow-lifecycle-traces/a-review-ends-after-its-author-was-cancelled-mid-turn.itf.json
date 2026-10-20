@@ -187,18 +187,8 @@
             "#tup": []
           }
         },
-        "status": {
-          "tag": "New",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "New", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -508,18 +498,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -830,18 +810,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -1205,18 +1175,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -1596,18 +1556,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -1971,18 +1921,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -2351,18 +2291,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -2751,18 +2681,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -3151,18 +3071,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -3552,18 +3462,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -3955,18 +3855,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -4355,18 +4245,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -4756,18 +4636,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -5185,18 +5055,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -5617,18 +5477,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -6050,18 +5900,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -6482,18 +6322,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {

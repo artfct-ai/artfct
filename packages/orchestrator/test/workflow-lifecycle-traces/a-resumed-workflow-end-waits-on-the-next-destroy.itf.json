@@ -283,18 +283,8 @@
             "#tup": []
           }
         },
-        "status": {
-          "tag": "New",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "New", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -586,18 +576,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -940,18 +920,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -1347,18 +1317,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -1763,18 +1723,8 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -2222,20 +2172,10 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "EndStored",
-          "value": {
-            "tag": "Failed",
-            "value": {
-              "#tup": []
-            }
-          }
+        "status": { "tag": "Ending", "value": { "#tup": [] } },
+        "end": {
+          "tag": "End",
+          "value": { "endsAs": { "tag": "Failed", "value": { "#tup": [] } }, "posted": false }
         },
         "subject": {
           "tag": "NoSubject",
@@ -2643,20 +2583,10 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "EndStored",
-          "value": {
-            "tag": "Failed",
-            "value": {
-              "#tup": []
-            }
-          }
+        "status": { "tag": "Ending", "value": { "#tup": [] } },
+        "end": {
+          "tag": "End",
+          "value": { "endsAs": { "tag": "Failed", "value": { "#tup": [] } }, "posted": false }
         },
         "subject": {
           "tag": "NoSubject",
@@ -3109,20 +3039,10 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "EndStored",
-          "value": {
-            "tag": "Failed",
-            "value": {
-              "#tup": []
-            }
-          }
+        "status": { "tag": "Ending", "value": { "#tup": [] } },
+        "end": {
+          "tag": "End",
+          "value": { "endsAs": { "tag": "Failed", "value": { "#tup": [] } }, "posted": false }
         },
         "subject": {
           "tag": "NoSubject",

@@ -4,7 +4,7 @@ import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/proper
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { describe, expect, it } from "bun:test";
 import fc from "fast-check";
-import { FakeRuntime, seedTask } from "../../../test/fake-runtime";
+import { FakeRuntime, seedEndedWorkflow, seedTask } from "../../../test/fake-runtime";
 import { openMemoryDb } from "../../../test/memory-db";
 import {
   aQuietTurnGetsAHeartbeat,
@@ -322,7 +322,7 @@ class FeedRun {
     this.authorFinished = true;
     this.workflowEnded = true;
     this.workflow.store.updateTask(AUTHOR, { status: "cancelled" });
-    this.workflow.store.updateWorkflow({ status: "done" });
+    seedEndedWorkflow(this.workflow, "done");
   }
 
   private async startTurn(): Promise<void> {

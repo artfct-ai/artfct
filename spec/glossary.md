@@ -11,7 +11,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | Term | Meaning | Code name | Do not say |
 |---|---|---|---|
 | workflow | A workstream that a person requests in a conversation or a tracker session. It runs one workflow definition and works on the issues of its subject, and on the pull requests and pages they need. It starts when the agent sets a plan that names a definition. It runs until done, cancelled, or failed. | `workflow`, `workflow_plan.definition` | |
-| workflow end | The end of a workflow as done, failed or cancelled. The store records it before the first cancel. It cancels the unfinished tasks, writes the status, posts the end and moves the tracker issues of a done workflow. A restart during it does not drop it. The start step arms an alarm that goes on with it. While it runs, the workflow refuses a plan, a job start, another end and a cancel. | `workflow_end`, `endWorkflow`, `resumeWorkflowEnd` | |
+| workflow end | The end of a workflow as done, failed or cancelled. The store records it before the first cancel and keeps it after the end. From its start the workflow is `ending` and shows the status it ends as. It cancels the unfinished tasks, posts the end, moves the tracker issues of a done workflow and unbinds the code host. Its last step moves the workflow to `ended`. A restart during it does not drop it. The start step arms an alarm that goes on with it. While it runs, the workflow refuses a plan, a job start, another end and a cancel, and a person's message does not wake it. | `workflow_end`, `endWorkflow`, `startWorkflowEnd`, `resumeWorkflowEnd` | |
 | subject | The one issue or tracker project a workflow works on. A tracker origin sets it, else the plan, else the breakdown output. It never changes. An issue subject covers the issue and its direct sub-issues. A project subject covers the project's issues. | `workflow_subject` | binding, scope, root issue |
 | workflow definition | A named set of stages in config. A deployment may hold several. A workflow runs the one its plan names. | `WorkflowDefinition`, `workflows/<name>.yaml`, `set_plan` `definition` | |
 | stage | One step of a workflow. It produces one artifact. Config declares it. | `Stage` | |
@@ -173,6 +173,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 
 | Status | Meaning |
 |---|---|
+| workflow `ended` | The workflow end ran its last step. The workflow shows the status the end ended as, and the store keeps the end and its reason. |
 | task `in_review` | The author is idle and its artifact is out. The status says nothing about what the humans do with it. |
 | artifact `drafted` | The refiners hold the artifact, or it waits for them. |
 | artifact `ready` | The humans have the artifact. |

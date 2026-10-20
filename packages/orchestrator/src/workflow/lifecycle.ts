@@ -1,6 +1,5 @@
 import type { Harness } from "@artfct-ai/adapters/harness/types";
 import type { Binding, BindingSource } from "@artfct-ai/contracts/sources";
-import type { WorkflowStatus } from "@artfct-ai/contracts/types";
 import type { ArtifactClose, ArtifactTarget } from "../artifact/types";
 import { branchName, jobId as makeJobId, newToken, taskId as makeTaskId } from "../ids";
 import { resolveStage, type ResolvedStage } from "../config/stage";
@@ -19,7 +18,13 @@ import { jobCompletesSingleIssueWorkflow } from "./subject";
 import type { Wake, WorkflowRuntime } from "./types";
 import type { JobRow, NewTask, TaskRow } from "./store/tasks";
 import { jobInputKey } from "./store/input-key";
-import { isTaskFinished, isWorkflowFinished, jobSlotsOf, type WorkflowEnd } from "./store/state";
+import {
+  isTaskFinished,
+  isWorkflowFinished,
+  jobSlotsOf,
+  type WorkflowEnd,
+  type WorkflowLifecycle,
+} from "./store/state";
 import {
   clearTaskTimers,
   closeContainer,
@@ -577,43 +582,42 @@ export async function failWorkflow(workflow: WorkflowRuntime, reason: string): P
   await endWorkflow(workflow, { ends_as: "failed", reason, answering: [], posted: false });
 }
 
-/** True from the request of a workflow end until the channels heard it. */
+/** True from the start of a workflow end until its last step. */
 export function workflowEnding(workflow: WorkflowRuntime): boolean {
-  return workflow.store.workflowEnd() !== null;
+  return workflow.store.requireWorkflowRow().status === "ending";
 }
 
 /**
- * Record the workflow end in the store before its first cancel, then go on with it. False when the workflow
- * already ended or another end runs, so the caller says nothing.
+ * Start the workflow end in the store before its first cancel, then go on with it. False when the
+ * workflow already ended or another end runs, so the caller says nothing.
  */
 export async function endWorkflow(workflow: WorkflowRuntime, end: WorkflowEnd): Promise<boolean> {
-  const { status } = workflow.store.requireWorkflowRow();
-  if (workflowEnding(workflow) || isWorkflowFinished(status)) return false;
-  workflow.store.recordWorkflowEnd(end);
+  if (isWorkflowFinished(workflow.store.workflowStatus())) return false;
+  workflow.store.startWorkflowEnd(end);
   await goOnWithWorkflowEnd(workflow, end);
   return true;
 }
 
 /**
- * Start step: arm the alarm that goes on with the workflow end the store holds. A later restart
+ * Start step: arm the alarm that goes on with the end of an ending workflow. A later restart
  * before it fires leaves the one alarm armed.
  */
 export async function armWorkflowEndAlarm(workflow: WorkflowRuntime): Promise<void> {
-  if (!workflowEnding(workflow)) return;
+  if (workflow.store.workflowRow()?.status !== "ending") return;
   await workflow.scheduleAlarmOnce("resumeWorkflowEnd", {});
 }
 
 /** Alarm: go on with the workflow end that an instance restart cut off. */
 export async function resumeWorkflowEnd(workflow: WorkflowRuntime): Promise<void> {
   const end = workflow.store.workflowEnd();
-  if (end) await goOnWithWorkflowEnd(workflow, end);
+  if (end && workflowEnding(workflow)) await goOnWithWorkflowEnd(workflow, end);
 }
 
 /**
- * Cancel every active task, author and researcher tasks first, then set the final status and tell
- * the channels. Each cancel reads the active tasks again, so an author that starts after research
- * meanwhile ends too, and so does a task an earlier instance did not reach. An end that posted
- * before an instance restart does not post again.
+ * Cancel every active task, author and researcher tasks first, then write the final status to the
+ * router and tell the channels. Each cancel reads the active tasks again, so an author that starts
+ * after research meanwhile ends too, and so does a task an earlier instance did not reach. An end
+ * that posted before an instance restart does not post again. The last step moves it to `ended`.
  */
 async function goOnWithWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEnd): Promise<void> {
   const reason = end.ends_as === "done" ? "the workflow is done" : end.reason;
@@ -622,11 +626,11 @@ async function goOnWithWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEnd):
     await cancelTask(workflow, task, reason);
   }
   for (const task of workflow.store.activeRefinerRuns()) await cancelTask(workflow, task, reason);
-  await writeWorkflowStatus(workflow, end.ends_as);
+  await mirrorWorkflowStatus(workflow);
   if (!end.posted) await postWorkflowEnd(workflow, end);
   if (end.ends_as === "done") await completeTrackerIssues(workflow);
   await unbindCodeHost(workflow);
-  workflow.store.clearWorkflowEnd();
+  workflow.store.updateWorkflow({ status: "ended" });
 }
 
 /** Tell the channels how the workflow ended, and record in the workflow end that it posted. */
@@ -664,29 +668,25 @@ export async function bindWorkflow(workflow: WorkflowRuntime, binding: Binding):
   await bindInDb(db, binding, workflow.store.requireWorkflowRow().workflow_id);
 }
 
-/**
- * Move the workflow to a new status. The router reads the D1 copy to drop machine events on a
- * finished workflow without waking it.
- */
+/** Move a workflow whose end has not started between running and waiting for input. */
 export async function changeWorkflowStatus(
   workflow: WorkflowRuntime,
-  status: WorkflowStatus,
+  status: Extract<WorkflowLifecycle, "running" | "waiting_input">,
 ): Promise<void> {
   if (workflow.store.requireWorkflowRow().status === status) return;
-  await writeWorkflowStatus(workflow, status);
+  workflow.store.updateWorkflow({ status });
+  await mirrorWorkflowStatus(workflow);
 }
 
 /**
- * The only writer of the status and its D1 copy. A resumed workflow end writes both even when the
- * instance holds the status, since an instance restart may have cut off the D1 write.
+ * Copy the status every reader sees to D1, which the router reads to drop machine events on a
+ * finished workflow without waking it. A resumed workflow end writes it again, since an instance
+ * restart may have cut off the write.
  */
-async function writeWorkflowStatus(
-  workflow: WorkflowRuntime,
-  status: WorkflowStatus,
-): Promise<void> {
-  workflow.store.updateWorkflow({ status });
+async function mirrorWorkflowStatus(workflow: WorkflowRuntime): Promise<void> {
   const db = createDb(workflow.env.DB);
-  await setWorkflowStatus(db, workflow.store.requireWorkflowRow().workflow_id, status);
+  const { workflow_id } = workflow.store.requireWorkflowRow();
+  await setWorkflowStatus(db, workflow_id, workflow.store.workflowStatus());
 }
 
 /** The bindings a workflow takes on the code host: its branches and its pull requests. */

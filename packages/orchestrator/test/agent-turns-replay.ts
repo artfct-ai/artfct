@@ -51,7 +51,7 @@ import { openWorkflowDb, type WorkflowDb } from "../src/workflow/store/db";
 import type { TaskEvent } from "../src/workflow/task/events";
 import type { ScheduledMethod, Wake } from "../src/workflow/types";
 import { SCRIPTED_CLOSING_TEXT, SCRIPTED_PAGE_URL, SCRIPTED_TASK } from "./fake-model";
-import { FakeRuntime, seedTask } from "./fake-runtime";
+import { FakeRuntime, seedEndedWorkflow, seedTask } from "./fake-runtime";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
 
 const THREAD: ReplyTarget = { source: "chat", channel: "C1", thread: "1.0" };
@@ -1207,7 +1207,7 @@ export class AgentTurnsReplay {
     for (const task of this.runtime.store.activeAuthorAndResearcherTasks()) {
       this.runtime.store.updateTask(task.task_id, { status: "cancelled" });
     }
-    this.runtime.store.updateWorkflow({ status: "done" });
+    seedEndedWorkflow(this.runtime, "done");
   }
 
   private async landRuntimeRequest(): Promise<void> {

@@ -124,7 +124,7 @@ describe("control", () => {
 
       it("closes the workflow", () =>
         cancelled((workflow) => {
-          expect(workflow.store.requireWorkflowRow().status).toBe("cancelled");
+          expect(workflow.store.workflowStatus()).toBe("cancelled");
         }));
 
       it("says the workflow is cancelled", () =>
@@ -209,7 +209,7 @@ describe("control", () => {
 
       it("leaves the workflow open", () =>
         ignored(({ workflow }) => {
-          expect(workflow.store.requireWorkflowRow().status).not.toBe("cancelled");
+          expect(workflow.store.workflowStatus()).not.toBe("cancelled");
         }));
 
       it("posts nothing", () =>
@@ -246,7 +246,7 @@ describe("control", () => {
 
       it("leaves the workflow open", () =>
         cancelled(({ workflow }) => {
-          expect(workflow.store.requireWorkflowRow().status).not.toBe("cancelled");
+          expect(workflow.store.workflowStatus()).not.toBe("cancelled");
         }));
 
       it("destroys the sandbox of that task alone", () =>
@@ -324,7 +324,7 @@ describe("control", () => {
 
       it("closes the workflow", () =>
         cancelled(({ workflow }) => {
-          expect(workflow.store.requireWorkflowRow().status).toBe("cancelled");
+          expect(workflow.store.workflowStatus()).toBe("cancelled");
         }));
 
       it("names the person and the reason in the note", () =>

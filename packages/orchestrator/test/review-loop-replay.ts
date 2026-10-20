@@ -16,7 +16,6 @@ import {
   checksSendBackEventId,
 } from "../src/workflow/refiner/checks-gate";
 import { sendHeldCommentsOnRevisionRequest } from "../src/workflow/refiner/held-comments";
-import { workflowEnding } from "../src/workflow/lifecycle";
 import { taskQuiet } from "../src/workflow/refiner/loop";
 import { postHandover, type HandoverPostAlarm } from "../src/workflow/refiner/outcome";
 import { isTaskFinished, isWorkflowFinished } from "../src/workflow/store/state";
@@ -1162,9 +1161,7 @@ export class ReviewLoopReplay {
       author: {
         status: specAuthorStatusOf(author, {
           atWork,
-          workflowEnded:
-            isWorkflowFinished(this.world.workflow.store.requireWorkflowRow().status) ||
-            workflowEnding(this.world.workflow),
+          workflowEnded: isWorkflowFinished(this.world.workflow.store.workflowStatus()),
         }),
         paused: author.paused_at !== null,
         restarts: author.restarts,
@@ -1350,9 +1347,7 @@ export class ReviewLoopReplay {
       return this.hostReports(checks, delivery, index);
     }
     if (before.artifact.recheckArmed && !step.review.artifact.recheckArmed) {
-      const workflowEnded = isWorkflowFinished(
-        this.world.workflow.store.requireWorkflowRow().status,
-      );
+      const workflowEnded = isWorkflowFinished(this.world.workflow.store.workflowStatus());
       const options = [
         ...hostChecksFor(
           outcome,
