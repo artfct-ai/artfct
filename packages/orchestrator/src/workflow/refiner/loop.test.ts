@@ -730,6 +730,11 @@ describe("onReviewerFinished", () => {
           expect(workflow.store.activeRefinerRuns()).toHaveLength(0);
           expect(workflow.notes).toEqual([]);
         }));
+
+      it("lets go of the reviewer, so the list runs from the top once the author is quiet", () =>
+        busy((workflow) => {
+          expect(workflow.store.artifact(JOB)?.refiner_task_id).toBeNull();
+        }));
     });
   });
 
