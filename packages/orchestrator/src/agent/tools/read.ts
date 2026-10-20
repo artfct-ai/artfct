@@ -61,8 +61,7 @@ export function readTools(workflow: WorkflowRuntime) {
       inputSchema: z.object({ lines: z.number().int().positive().max(MAX_LOG_LINES).default(40) }),
       execute: async ({ lines }) =>
         workflow.store
-          .logLines()
-          .slice(-lines)
+          .lastLogLines(lines)
           .map((entry) => `${entry.at} ${entry.task_id ?? "-"} ${entry.line}`)
           .join("\n"),
     }),

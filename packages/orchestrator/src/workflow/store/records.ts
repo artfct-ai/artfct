@@ -17,6 +17,7 @@ const SILENT_KINDS = ["acknowledge", "working", "release", "issue_update", DELIV
 const authorTaskOfArtifact = and(eq(tasks.job_id, artifacts.job_id), eq(tasks.role, "author"));
 
 export type ArtifactRow = typeof artifacts.$inferSelect;
+type LogLine = Pick<typeof log.$inferSelect, "at" | "task_id" | "line">;
 
 function sameArtifactAs(row: ArtifactRow): (other: ArtifactRow) => boolean {
   const key = artifactRefKey({ ref: row.ref, url: row.external_url });
@@ -198,11 +199,22 @@ export class RecordStore {
     this.db.insert(log).values({ at: now(), task_id: taskId, line }).run();
   }
 
-  logLines(): Array<Pick<typeof log.$inferSelect, "at" | "task_id" | "line">> {
+  logLines(): LogLine[] {
     return this.db
       .select({ at: log.at, task_id: log.task_id, line: log.line })
       .from(log)
       .orderBy(log.id)
       .all();
+  }
+
+  /** The newest `lineCount` log lines, oldest first. */
+  lastLogLines(lineCount: number): LogLine[] {
+    return this.db
+      .select({ at: log.at, task_id: log.task_id, line: log.line })
+      .from(log)
+      .orderBy(desc(log.id))
+      .limit(lineCount)
+      .all()
+      .toReversed();
   }
 }
