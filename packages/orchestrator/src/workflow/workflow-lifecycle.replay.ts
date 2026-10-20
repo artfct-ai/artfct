@@ -187,6 +187,12 @@ describe("workflow lifecycle spec", () => {
     await replayTrace("pullsTheHostMoves", traceSteps("pullsTheHostMoves", trace));
   });
 
+  it("fails a model-call author whose page write the document host fails", async () => {
+    const path = join(PINNED_TRACES, "a-failed-page-write-fails-its-author.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("modelCallPagesForAnIssue", traceSteps("modelCallPagesForAnIssue", trace));
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,

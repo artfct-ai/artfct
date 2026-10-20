@@ -1677,6 +1677,13 @@ export const MUTANTS: Mutant[] = [
     find: "  await Promise.all(turns.map((turn) => resumeLostModelTurn(workflow, turn)));\n",
     replace: "  for (const turn of turns) await resumeLostModelTurn(workflow, turn);\n",
   },
+  {
+    id: "W340",
+    invariant: "workflowLifecycle::eachFailedTaskPostsItsFailureOnce (failed page write)",
+    path: "src/workflow/task/model-author.ts",
+    find: "  await documents.updatePageContent(ref.page_id, change);\n",
+    replace: "  await documents.updatePageContent(ref.page_id, change).catch(() => undefined);\n",
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */

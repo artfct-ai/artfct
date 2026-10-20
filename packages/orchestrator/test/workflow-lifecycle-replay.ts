@@ -1337,7 +1337,11 @@ export class WorkflowLifecycleReplay {
         );
       case "modelCallFails":
         return worldAction(`model call ${picks.callId} fails`, () =>
-          this.failModelCall(required(picks.callId)),
+          this.failModelTurnCall(required(picks.callId)),
+        );
+      case "pageWriteFails":
+        return worldAction(`page write ${picks.callId} fails`, () =>
+          this.failModelTurnCall(required(picks.callId)),
         );
       case "pageWriteReturns":
         return worldAction(`page write ${picks.callId} returns`, () =>
@@ -1806,9 +1810,9 @@ export class WorkflowLifecycleReplay {
     this.answeredModelCall = null;
   }
 
-  private async failModelCall(callId: number): Promise<void> {
+  private async failModelTurnCall(callId: number): Promise<void> {
     const [call] = this.calls.splice(callId, 1);
-    if (!call?.fail) throw new Error(`no model call ${callId} is out`);
+    if (!call?.fail) throw new Error(`no model call or page write ${callId} is out`);
     const { fail, step: rest } = call;
     await this.runStep(async () => {
       fail();
@@ -1900,7 +1904,7 @@ export class WorkflowLifecycleReplay {
         answer: () => {
           write().then(resolve, reject);
         },
-        fail: null,
+        fail: () => reject(new Error("the document host is down")),
         turnId: modelCall.turnId,
         revises: modelCall.revises,
         land: async () => {

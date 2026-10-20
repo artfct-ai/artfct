@@ -239,7 +239,7 @@ module workflowLifecycleTypes {
   /// `RunAgainStep` is the alarm that runs the lost model turn of the job again, also once more.
   /// `LostTurnDeadlineStep` is the deadline alarm of the lost model turn of the job, which fires
   /// while its author waits for the alarm that runs the turn again. `HostErrorStep` is the page
-  /// model failing the model call of the job.
+  /// model failing the model call of the job, or the document host failing its page write.
   /// `EndResumeStep` is the alarm that goes on with a workflow end an instance restart cut off.
   /// `EndPostReturnStep` is the return of the post of a workflow end, and `UnbindReturnStep` the
   /// return of the unbind of its code host bindings.
@@ -2325,6 +2325,20 @@ module workflowLifecycle {
     }
   }
 
+  /// The document host fails the page write of an unfinished model-call author. The author fails
+  /// at once, and its failure posts.
+  action pageWriteFails: bool = {
+    val failing = outCalls(workflow, PageWrite).filter(callId =>
+      not(isFinished(jobTask(workflow, workflow.calls[callId].job).status))
+    )
+    all {
+      failing.size() > 0,
+      nondet callId = failing.oneOf()
+      val id = workflow.calls[callId].job
+      move(endTask(withoutCall(workflow, callId), id, TaskFailed, AfterFail, ToolOrEvent), HostErrorStep(id)),
+    }
+  }
+
   /// The document host returns from the page write of a model-call author.
   action pageWriteReturns: bool = all {
     outCalls(workflow, PageWrite).size() > 0,
@@ -2716,8 +2730,9 @@ module workflowLifecycle {
   /// The agent cancels or completes a job.
   action theAgentEndsAJob: bool = any { agentCancelsJob, agentCompletesJob }
 
-  /// The page model fails a model call, or the deadline of its model turn passes first.
-  action aModelTurnFails: bool = any { modelCallFails, modelTurnOutlivesItsDeadline }
+  /// The page model fails a model call, the document host fails a page write, or the deadline of
+  /// its model turn passes first.
+  action aModelTurnFails: bool = any { modelCallFails, pageWriteFails, modelTurnOutlivesItsDeadline }
 
   /// A message, an alarm, a stop, or a move on the host or the tracker reaches the workflow.
   action anOutsideEventLands: bool = any {
@@ -4106,8 +4121,8 @@ module workflowLifecycle {
   /// Witness for `eachFailedTaskPostsItsFailureOnce`: a researcher fails past its restarts and posts.
   val aResearcherPostsItsFailure: bool = lastStepReached.aResearcherPostsItsFailure
 
-  /// Witness for `eachFailedTaskPostsItsFailureOnce`: the page model fails a model call, and its
-  /// author sends its failure post.
+  /// Witness for `eachFailedTaskPostsItsFailureOnce`: the page model fails a model call, or the
+  /// document host fails a page write, and its author sends its failure post.
   val aModelCallHostErrorPostsAFailure: bool = lastStepReached.aModelCallHostErrorPostsAFailure
 
   /// Witness for `aFinishedAuthorsSandboxIsDestroyed`: a restart of the Durable Object cuts the
