@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "bun:test";
 import { mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { readDevVar, setDevVars, writeDevVarsFile } from "./dev-vars";
+import { readDevVar, readDevVarsFile, setDevVars, writeDevVarsFile } from "./dev-vars";
 
 const dirs: string[] = [];
 
@@ -48,11 +48,20 @@ describe("readDevVar", () => {
   });
 });
 
+describe("readDevVarsFile", () => {
+  it("reads the text of a Worker's .dev.vars and nothing for a Worker without one", () => {
+    const dir = tempDir();
+    expect(readDevVarsFile(dir)).toBeUndefined();
+    writeFileSync(join(dir, ".dev.vars"), "KEY=v\n");
+    expect(readDevVarsFile(dir)).toBe("KEY=v\n");
+  });
+});
+
 describe("writeDevVarsFile", () => {
   it("starts a missing file from its example and makes it readable only by its owner", () => {
     const dir = tempDir();
     writeFileSync(join(dir, ".dev.vars.example"), "# Secrets\nKEY=\n");
-    writeDevVarsFile(join(dir, ".dev.vars"), { KEY: "v" });
+    writeDevVarsFile(dir, { KEY: "v" });
     expect(readFileSync(join(dir, ".dev.vars"), "utf8")).toBe("# Secrets\nKEY=v\n");
     expect(statSync(join(dir, ".dev.vars")).mode & 0o777).toBe(0o600);
   });
@@ -60,7 +69,7 @@ describe("writeDevVarsFile", () => {
   it("narrows the mode of an existing file", () => {
     const dir = tempDir();
     writeFileSync(join(dir, ".dev.vars"), "KEY=old\n", { mode: 0o644 });
-    writeDevVarsFile(join(dir, ".dev.vars"), { KEY: "new" });
+    writeDevVarsFile(dir, { KEY: "new" });
     expect(readFileSync(join(dir, ".dev.vars"), "utf8")).toBe("KEY=new\n");
     expect(statSync(join(dir, ".dev.vars")).mode & 0o777).toBe(0o600);
   });

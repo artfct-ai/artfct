@@ -1,0 +1,14 @@
+# The CLI's secret handling, its tests, and its boundary need the repository owner's review.
+/CODEOWNERS @kuritz
+/packages/cli/src/artfct.ts @kuritz
+/packages/cli/src/dev-vars.ts @kuritz
+/packages/cli/src/dev-vars.test.ts @kuritz
+/packages/cli/src/describe-error.ts @kuritz
+/packages/cli/src/connect/code/github/ @kuritz
+/packages/cli/src/check/documents-credential.ts @kuritz
+/packages/cli/src/init/packaged-template.ts @kuritz
+/packages/cli/src/secret-invariants.test.ts @kuritz
+/packages/cli/test/cli-secret-invariants.ts @kuritz
+/packages/cli/test/github-browser.ts @kuritz
+/scripts/entrypoints/dev-vars-boundary.test.ts @kuritz
+/template/.gitignore @kuritz

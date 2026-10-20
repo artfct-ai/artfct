@@ -209,6 +209,13 @@ export const STANDALONE_PROPERTY_FILES = {
     runner: ["bunx", "vitest", "run"],
     e2eRuns: 50_000,
   },
+  cli_secrets: {
+    title: "cli secret properties",
+    packageDir: "cli",
+    path: "./src/secret-invariants.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 3_000,
+  },
 } satisfies Record<string, PropertyFile>;
 
 /** A property file run past this is a hang, reported with its seed. */
