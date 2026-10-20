@@ -1832,6 +1832,12 @@
             "#tup": []
           }
         },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
+        },
         "taskEndAlarms": {
           "#set": []
         },
@@ -3832,6 +3838,12 @@
             "value": {
               "#tup": []
             }
+          }
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
           }
         },
         "taskEndAlarms": {
