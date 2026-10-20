@@ -1158,14 +1158,15 @@ module reviewLoop {
   }
 
   /// A segment settles on the review of the latest run of each entry. A stale review runs the
-  /// list again from the segment's first entry that still has a say on the revision. No review is
-  /// stale against an unknown revision.
+  /// list again from the segment's first entry that still has a say on the revision. While the
+  /// author works, the artifact lets go of the run, so the list runs from the top once the author
+  /// is quiet. No review is stale against an unknown revision.
   pure def settleSegment(loop: ReviewLoop, end: int, lookup: RevisionLookup): ReviewLoop = {
     val start = segmentStartOf(end)
     val filed = segmentReviewRuns(loop, end)
     val stale = segmentIsStale(loop, end, lookup)
     if (filed.size() == 0) advancePastEntry(loop, end, lookup)
-    else if (stale and not(authorQuiet(loop))) settleRefiners(loop, AgentRoutes, lookup)
+    else if (stale and not(authorQuiet(loop))) settleRefiners(withoutRefinerRun(loop), AgentRoutes, lookup)
     else if (stale) runRefinersFrom(loop, start, lookup)
     else if (filed.exists(id => reviewHasFindings(loop.refinerRuns[id].result))) sendFindingsToAuthor(loop, filed)
     else advancePastEntry(loop, end, lookup)

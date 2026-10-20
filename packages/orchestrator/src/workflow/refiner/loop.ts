@@ -339,7 +339,10 @@ async function routeReview(
   if (settled.stale) {
     workflow.log(author.task_id, "reviewer run dropped: the artifact moved while the reviewer ran");
     const current = workflow.store.requireTask(author.task_id);
-    if (!taskQuiet(workflow, current)) return settleRefinersForAuthor(workflow, current);
+    if (!taskQuiet(workflow, current)) {
+      workflow.store.setArtifactRefinerRun(author.job_id, null);
+      return settleRefinersForAuthor(workflow, current);
+    }
     await runRefinersFrom(workflow, current, segmentStartOf(end, entries), revision);
     return;
   }
