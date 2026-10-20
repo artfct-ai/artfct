@@ -640,7 +640,7 @@ export const MUTANTS: Mutant[] = [
     id: "W239",
     invariant: "routerBindings::theRouterRowMatchesTheWorkflowEnd",
     path: "src/workflow/lifecycle.ts",
-    find: "  await mirrorWorkflowStatus(workflow);\n  if (!end.posted)",
+    find: "  await writeRouterWorkflowStatus(workflow);\n  if (!end.posted)",
     replace: "  if (!end.posted)",
   },
   {
@@ -1787,9 +1787,9 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "reviewLoop::theHumansHearOfEachHandoverOnce (the workflow end drops the handover alarm)",
     path: "src/workflow/lifecycle.ts",
-    find: "  await mirrorWorkflowStatus(workflow);\n  if (!end.posted)",
+    find: "  await writeRouterWorkflowStatus(workflow);\n  if (!end.posted)",
     replace:
-      '  await workflow.cancelAlarmsWhere("postHandover", () => true);\n  await mirrorWorkflowStatus(workflow);\n  if (!end.posted)',
+      '  await workflow.cancelAlarmsWhere("postHandover", () => true);\n  await writeRouterWorkflowStatus(workflow);\n  if (!end.posted)',
   },
   {
     id: "W352",

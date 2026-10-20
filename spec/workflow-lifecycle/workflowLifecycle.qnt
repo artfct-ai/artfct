@@ -3012,9 +3012,9 @@ module workflowLifecycle {
 
   /// The workflow becomes done only on `finish_workflow` or on `complete_job` of the subject
   /// issue's job. The spec splits that `complete_job` at each call it waits on. The step that
-  /// leaves none of them out is the one the code takes. There the workflow shows done and its end
-  /// sends its post, unless the workflow ended, another end runs, or its end went past its cancels
-  /// before the step.
+  /// leaves none of them out is the one the code takes. There the workflow shows done, unless
+  /// another end started before the step. When no end started before the step, the end also
+  /// finished its cancels and sends its post.
   pure def isDoneWithTheSubjectsJob(step: Transition): bool = {
     val becameDone = workflowStatusOf(step.before) != EndedAs(Done) and workflowStatusOf(step.after) == EndedAs(Done)
     val endsDoneHere = step.kind == FinishStep or step.kind == SubjectCompletionStep
@@ -3022,15 +3022,13 @@ module workflowLifecycle {
       callOutFor(step.after, SubjectJobCompletes(CompletionWaits)) or endDestroyOut(step.after, Done)
     val completesInThisStep = and {
       step.kind == SubjectCompletionStep,
-      step.before.status != Ended,
-      step.before.endCall == NoEndCall,
-      not(endPostReturned(step.before)),
       endsAsOf(step.before).forall(endsAs => endsAs == Done),
       not(stillGoesOn),
     }
     and {
       becameDone implies endsDoneHere,
-      completesInThisStep implies (workflowStatusOf(step.after) == EndedAs(Done) and step.after.endCall != NoEndCall),
+      completesInThisStep implies workflowStatusOf(step.after) == EndedAs(Done),
+      (completesInThisStep and not(hasEnded(step.before))) implies step.after.endCall != NoEndCall,
     }
   }
 

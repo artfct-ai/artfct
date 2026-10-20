@@ -626,7 +626,7 @@ async function goOnWithWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEnd):
     await cancelTask(workflow, task, reason);
   }
   for (const task of workflow.store.activeRefinerRuns()) await cancelTask(workflow, task, reason);
-  await mirrorWorkflowStatus(workflow);
+  await writeRouterWorkflowStatus(workflow);
   if (!end.posted) await postWorkflowEnd(workflow, end);
   if (end.ends_as === "done") await completeTrackerIssues(workflow);
   await unbindCodeHost(workflow);
@@ -675,7 +675,7 @@ export async function changeWorkflowStatus(
 ): Promise<void> {
   if (workflow.store.requireWorkflowRow().status === status) return;
   workflow.store.updateWorkflow({ status });
-  await mirrorWorkflowStatus(workflow);
+  await writeRouterWorkflowStatus(workflow);
 }
 
 /**
@@ -683,7 +683,7 @@ export async function changeWorkflowStatus(
  * finished workflow without waking it. A resumed workflow end writes it again, since an instance
  * restart may have cut off the write.
  */
-async function mirrorWorkflowStatus(workflow: WorkflowRuntime): Promise<void> {
+async function writeRouterWorkflowStatus(workflow: WorkflowRuntime): Promise<void> {
   const db = createDb(workflow.env.DB);
   const { workflow_id } = workflow.store.requireWorkflowRow();
   await setWorkflowStatus(db, workflow_id, workflow.store.workflowStatus());
