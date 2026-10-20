@@ -34,6 +34,8 @@ export type Harness = {
 export type HarnessOptions = FakeOrchestratorOptions & {
   clients?: Partial<ChannelClients>;
   adminDebug?: boolean;
+  /** Secrets that replace the test values. */
+  secrets?: Partial<typeof SECRETS>;
 };
 
 /**
@@ -61,7 +63,12 @@ export function harness(options: HarnessOptions = {}): Harness {
       };
     },
   });
-  const env: Env = { ORCHESTRATOR: recorded, GITHUB_APP_LOGIN: "artfct", ...SECRETS };
+  const env: Env = {
+    ORCHESTRATOR: recorded,
+    GITHUB_APP_LOGIN: "artfct",
+    ...SECRETS,
+    ...options.secrets,
+  };
   if (options.adminDebug) env.ADMIN_DEBUG = "true";
   const background: Promise<unknown>[] = [];
   const executionCtx: ExecutionContext = {
