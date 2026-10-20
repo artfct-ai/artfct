@@ -41,7 +41,12 @@ const digestInput: fc.Arbitrary<DigestInput> = fc.record({
         .map((date) => date.toISOString()),
       anyText(30),
     ),
-    cost_usd: fc.oneof(fc.constant(0), fc.double(), fc.double({ min: 0, max: 1000 })),
+    cost_usd: fc.oneof(
+      fc.constant(null),
+      fc.constant(0),
+      fc.double(),
+      fc.double({ min: 0, max: 1000 }),
+    ),
   }),
   artifact: fc.option(
     fc.record({

@@ -52,14 +52,14 @@ export type YesNoQuestion = { instructions: string; yes: string; no: string };
 export type DecisionState = Record<string, string>;
 
 /**
- * What one decisions call used, and the decisions model that answered it. A provider that
- * reports no cost costs zero.
+ * What one decisions call used, and the decisions model that answered it. The cost is null when
+ * the provider reported none.
  */
 export type DecisionsUsage = {
   model: string;
   input_tokens: number;
   output_tokens: number;
-  cost_usd: number;
+  cost_usd: number | null;
 };
 
 /** The decisions models a deployment names on its gateway, in the order a call tries them. */

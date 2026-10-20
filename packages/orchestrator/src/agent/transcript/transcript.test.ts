@@ -1,4 +1,4 @@
-import type { ModelMessage } from "ai";
+import { modelMessageSchema, type ModelMessage } from "ai";
 import { describe, expect, it } from "bun:test";
 import { freshRuntime } from "../../../test/fresh-runtime";
 import { scenario } from "../../../test/scenario";
@@ -112,6 +112,7 @@ describe("TranscriptStore", () => {
   describe("a message a person wrote in a chat thread", () => {
     const queued = scenario(freshRuntime, (workflow) => {
       workflow.transcript.enqueue("fix it", "message", {
+        body: "fix it",
         reply_to: { source: "chat", channel: "C1", thread: "1.0" },
         chat_message: { channel: "C1", message: "1.5" },
       });
@@ -205,5 +206,28 @@ describe("TranscriptStore", () => {
           }));
       });
     });
+  });
+
+  describe("rows stored in the shape of ai 7", () => {
+    const STORED_ROWS = [
+      '{"role":"user","content":"[event kind=request job=none task=none artifact=none status=none pull_action=none]\\nFrom: Alex via chat\\n\\nFix the login redirect."}',
+      '{"role":"assistant","content":[{"type":"text","text":"Starting the job."},{"type":"tool-call","toolCallId":"call-1","toolName":"start_job","input":{"stage":"implement","brief":"Fix the redirect."}}]}',
+      '{"role":"tool","content":[{"type":"tool-result","toolCallId":"call-1","toolName":"start_job","output":{"type":"text","value":"Started job wf_x-1."}}]}',
+      '{"role":"tool","content":[{"type":"tool-result","toolCallId":"call-2","toolName":"read_task","output":{"type":"json","value":{"status":"running"}}}]}',
+      '{"role":"assistant","content":[{"type":"reasoning","text":"The job runs."},{"type":"text","text":"Started the job."}]}',
+    ];
+
+    const stored = scenario(freshRuntime, (workflow) => {
+      workflow.transcript.append(STORED_ROWS.map((row) => JSON.parse(row)));
+    });
+
+    it("reads back every row as a model message", () =>
+      stored((workflow) => {
+        const unreadable = workflow.transcript
+          .all()
+          .filter((row) => !modelMessageSchema.safeParse(row.message).success)
+          .map((row) => row.message);
+        expect(unreadable).toEqual([]);
+      }));
   });
 });

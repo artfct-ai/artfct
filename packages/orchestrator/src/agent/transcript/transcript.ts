@@ -12,8 +12,11 @@ import { now, type ChatMessageRef } from "../../workflow/store/state";
  */
 export type InboxRow = typeof agentInbox.$inferSelect;
 
-/** Where a person wrote an inbox row from: where they wait for the answer, and their chat message. */
-export type WroteFrom = { reply_to?: ReplyTarget; chat_message?: ChatMessageRef };
+/**
+ * What a person wrote an inbox row from: their own words, where they wait for the answer, and
+ * their chat message.
+ */
+export type WroteFrom = { body: string; reply_to?: ReplyTarget; chat_message?: ChatMessageRef };
 
 /** One persisted model message with its row id. Compaction cuts on ids. */
 export type TranscriptRow = { id: number; at: string; message: ModelMessage };
@@ -34,16 +37,17 @@ export class TranscriptStore {
       .prepare();
   }
 
-  /** Queue text for the next turn. `from` says where the person who wrote it wrote from. */
-  enqueue(text: string, wake: Wake, from: WroteFrom = {}): void {
+  /** Queue text for the next turn. `from` is what the person who wrote it wrote, when one did. */
+  enqueue(text: string, wake: Wake, from?: WroteFrom): void {
     this.db
       .insert(agentInbox)
       .values({
         at: now(),
         text,
+        body: from?.body ?? null,
         wake,
-        reply_to: from.reply_to ?? null,
-        chat_message: from.chat_message ?? null,
+        reply_to: from?.reply_to ?? null,
+        chat_message: from?.chat_message ?? null,
       })
       .run();
   }

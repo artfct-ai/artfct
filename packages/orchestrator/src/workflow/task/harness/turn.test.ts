@@ -165,7 +165,7 @@ describe("onSessionUpdate", () => {
 
     it("leaves the task cost unknown", () =>
       used((workflow) => {
-        expect(workflow.store.requireTask(TASK).cost_usd).toBe(0);
+        expect(workflow.store.requireTask(TASK).cost_usd).toBeNull();
       }));
 
     it("posts nothing", () =>

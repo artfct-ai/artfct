@@ -22,6 +22,7 @@ import { freshStore } from "../../../../test/fresh-store";
 import { scenario, type Scenario } from "../../../../test/scenario";
 import { RECONNECT_CEILING_MS } from "./prompt-queue";
 import { MAX_RESTARTS } from "../../lifecycle";
+import { jobInputKey } from "../../store/input-key";
 
 const TASK = "wf_x.1";
 const ALARM = { task_id: TASK, generation: 1 };
@@ -383,7 +384,8 @@ describe("authorizeBridge", () => {
       stage: "implement",
       issue_id: null,
       issue_key: null,
-      input_key: null,
+      input_kind: "request",
+      input_key: jobInputKey({ kind: "request", text: "Fix the login redirect." }),
       preceding_job_id: null,
       branch: null,
       brief: "",

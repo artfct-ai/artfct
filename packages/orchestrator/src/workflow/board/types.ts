@@ -88,7 +88,7 @@ export type TaskCounters = {
 
 /** Everything the digest reads. Pure data, no I/O. */
 export type DigestInput = {
-  task: BoardTask & { cost_usd: number };
+  task: BoardTask & { cost_usd: number | null };
   artifact: { kind: string; external_url: string; status: string } | null;
   todos: TodoSnapshot | null;
   counters: TaskCounters;

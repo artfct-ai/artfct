@@ -123,7 +123,7 @@ describe("CloudflareDecisions", () => {
     expect(seen[0]!.gateway).toBe("gw");
   });
 
-  test("returns the probability of yes and the usage at no cost", async () => {
+  test("returns the probability of yes and the usage without a cost", async () => {
     const { decisions } = decisionsAnswering({ wants_answer: { type: "noul", noul: 0.9 } });
 
     const answered = await decisions.decide(
@@ -136,7 +136,7 @@ describe("CloudflareDecisions", () => {
       model: "@cf/cloudflare/clef",
       input_tokens: 40,
       output_tokens: 2,
-      cost_usd: 0,
+      cost_usd: null,
     });
   });
 

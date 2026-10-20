@@ -2,7 +2,7 @@ import type { LanguageModel, ToolSet } from "ai";
 import type { WorkflowRuntime } from "../../workflow/types";
 import { orchestratorIdentity } from "../model/agent-identity";
 import { runUnderDeadline } from "./deadline";
-import { eventBody, noteMessage } from "../transcript/envelope";
+import { noteMessage } from "../transcript/envelope";
 import { generateSteps } from "./generate";
 import { closingTextWithheld, readPersonMessage, type PersonMessage } from "../message/owed-reply";
 import { requestedRuntime, type RuntimeRequest } from "../message/requested-runtime";
@@ -120,7 +120,9 @@ export async function runAgentTurn(workflow: WorkflowRuntime): Promise<void> {
   const takenRow = workflow.transcript.takeInbox();
   if (takenRow === null) return;
   const taken = workflow.transcript.taken();
-  const messages = workflow.transcript.takenMessages().map((row) => eventBody(row.text));
+  const messages = workflow.transcript
+    .takenMessages()
+    .flatMap((row) => (row.body === null ? [] : [row.body]));
   const prompts = messages.length ? messages : taken.map((row) => row.text);
   workflow.log(null, `agent turn started${messages.length ? " on a person's message" : ""}`);
   const startedAt = await armTurnWatchdog(workflow);
