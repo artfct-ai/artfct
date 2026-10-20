@@ -166,6 +166,15 @@ describe("workflow lifecycle spec", () => {
     await replayTrace("modelCallPagesForAnIssue", traceSteps("modelCallPagesForAnIssue", trace));
   });
 
+  it("restarts the author of every job whose model turn an instance restart lost", async () => {
+    const path = join(PINNED_TRACES, "a-restart-loses-the-turns-of-two-jobs.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace(
+      "modelCallPagesWithAReviewer",
+      traceSteps("modelCallPagesWithAReviewer", trace),
+    );
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,

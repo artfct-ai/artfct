@@ -1141,7 +1141,7 @@ export const MUTANTS: Mutant[] = [
     id: "W122",
     invariant: "workflowLifecycle::aRestartDoesNotLoseAModelTurn",
     path: "src/workflow/task/model-turn.ts",
-    find: '    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", rerun);\n',
+    find: '  await workflow.scheduleAlarm(0, "runLostModelTurnAgain", rerun);\n',
     replace: "",
   },
   {
@@ -1482,8 +1482,8 @@ export const MUTANTS: Mutant[] = [
     id: "W267",
     invariant: "workflowLifecycle::aTurnThatWaitsToRunAgainHasItsAlarm",
     path: "src/workflow/task/model-turn.ts",
-    find: '    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", rerun);\n',
-    replace: '    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", turn);\n',
+    find: '  await workflow.scheduleAlarm(0, "runLostModelTurnAgain", rerun);\n',
+    replace: '  await workflow.scheduleAlarm(0, "runLostModelTurnAgain", turn);\n',
   },
   {
     id: "W268",
@@ -1613,6 +1613,14 @@ export const MUTANTS: Mutant[] = [
     find: "  const to = { answering: end.answering };\n  switch (end.status) {\n",
     replace:
       "  const to = { answering: end.answering };\n  workflow.patchState({ workflow_end: { ...end, posted: true } });\n  switch (end.status) {\n",
+  },
+  {
+    id: "W295",
+    invariant:
+      "workflowLifecycle::aRestartDoesNotLoseAModelTurn (a failure post holds up the next lost turn)",
+    path: "src/workflow/task/model-turn.ts",
+    find: "  await Promise.all(turns.map((turn) => resumeLostModelTurn(workflow, turn)));\n",
+    replace: "  for (const turn of turns) await resumeLostModelTurn(workflow, turn);\n",
   },
 ];
 
