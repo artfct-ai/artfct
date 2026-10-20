@@ -128,10 +128,10 @@ describe("propertyFailureReport", () => {
   });
 
   it("names the package directory a standalone property replays from", () => {
-    const persons = STANDALONE_PROPERTY_FILES.find(
-      (file) => file.title === "person upserts property",
-    )!;
-    const report = propertyFailureReport(persons, 5, { outcome: "failed", output: "" });
+    const report = propertyFailureReport(STANDALONE_PROPERTY_FILES.person_upserts, 5, {
+      outcome: "failed",
+      output: "",
+    });
     expect(report).toContain("Replay it from `packages/orchestrator`:");
     expect(report).toContain(
       "PROPERTY_SEED=5 PROPERTY_RUNS=3000 bunx vitest run ./src/db/persons.property.test.medium.ts",
