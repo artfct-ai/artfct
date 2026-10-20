@@ -121,7 +121,6 @@
         "!**/*.property.ts",
         "!**/*.property.medium.ts",
         "!scripts/properties/mutants.ts",
-        "!scripts/spec/**",
         "$TURBO_ROOT$/spec/*/**/*"
       ]
     },
@@ -134,7 +133,6 @@
         "!**/*.property.ts",
         "!**/*.property.medium.ts",
         "!scripts/properties/mutants.ts",
-        "!scripts/spec/**",
         "$TURBO_ROOT$/spec/*/**/*"
       ],
       "passThroughEnv": ["PROPERTY_SEED", "GITHUB_STEP_SUMMARY"]
