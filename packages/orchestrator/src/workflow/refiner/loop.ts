@@ -9,7 +9,8 @@ import { markBoardDirty } from "../board/board";
 import { isTaskFinished } from "../store/state";
 import type { ArtifactRow, TaskRow } from "../store/tasks";
 import { taskAtWork } from "../task/at-work";
-import { clearTaskTimers, closeContainer, destroySandbox } from "../task/sandbox/sandbox";
+import { finishTask } from "../lifecycle";
+import { closeContainer } from "../task/sandbox/sandbox";
 import { taskSettings } from "../task/settings";
 import type { TaskAlarm } from "../task/harness/timers";
 import type { WorkflowRuntime } from "../types";
@@ -276,7 +277,7 @@ export async function onReviewerFinished(
     !entry || entry.mode === "judge"
       ? { filedNone: true }
       : await readReview(workflow, reviewer, entry, turnText);
-  await finishRefinerRun(workflow, reviewer);
+  await finishTask(workflow, reviewer, "done");
   if ("readFailed" in read)
     return handOverBlockedFromReviewer(
       workflow,
@@ -569,14 +570,6 @@ async function readReview(
 /** How this artifact's kind is reviewed. Null for a kind with no reviewer. */
 function reviewSupportOf(workflow: WorkflowRuntime, artifact: ArtifactRow): ReviewSupport | null {
   return workflow.artifact(artifact.kind).review ?? null;
-}
-
-/** Stop a refiner run and destroy its sandbox. The run is over either way. */
-export async function finishRefinerRun(workflow: WorkflowRuntime, run: TaskRow): Promise<void> {
-  if (isTaskFinished(run.status)) return;
-  workflow.store.updateTask(run.task_id, { status: "done" });
-  await clearTaskTimers(workflow, workflow.store.requireSandbox(run.task_id));
-  await destroySandbox(workflow, run);
 }
 
 /** The reviewer run died. The humans get the artifact, with the reason said. */

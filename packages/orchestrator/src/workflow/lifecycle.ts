@@ -207,13 +207,25 @@ async function removeSandbox(workflow: WorkflowRuntime, task: TaskRow): Promise<
   await destroySandbox(workflow, task);
 }
 
-/** End the task done and destroy its sandbox, unless it had already finished. */
-async function finishTask(workflow: WorkflowRuntime, task: TaskRow, status: "done"): Promise<void> {
-  if (markTaskFinished(workflow, task, status)) await removeSandbox(workflow, task);
+/**
+ * End the task done and destroy its sandbox, unless it had already finished. Its task end alarm
+ * stays armed until the destroy returns.
+ */
+export async function finishTask(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+  status: "done",
+): Promise<void> {
+  if (!markTaskFinished(workflow, task, status)) return;
+  const teardown = await removeSandboxOfEndedTask(workflow, task, { task_id: task.task_id });
+  await closeTeardown(workflow, task, teardown);
 }
 
-/** The payload of a task end alarm: the cancelled or failed task, and why it ended. */
-export type TaskEndAlarm = { task_id: string; reason: string };
+/**
+ * The payload of a task end alarm: the finished task, and why a cancelled or failed one ended. A
+ * done task has no reason, and its alarm covers only the destroy.
+ */
+export type TaskEndAlarm = { task_id: string } | { task_id: string; reason: string };
 
 /** The task end alarm that a teardown this instance runs holds now. */
 type TaskTeardown = { alarmId: string };
@@ -234,7 +246,7 @@ async function endTask(
   reason: string,
 ): Promise<TaskTeardown | null> {
   if (!markTaskFinished(workflow, task, status)) return null;
-  return removeSandboxOfEndedTask(workflow, task, reason);
+  return removeSandboxOfEndedTask(workflow, task, { task_id: task.task_id, reason });
 }
 
 /**
@@ -244,9 +256,8 @@ async function endTask(
 async function removeSandboxOfEndedTask(
   workflow: WorkflowRuntime,
   task: TaskRow,
-  reason: string,
+  alarm: TaskEndAlarm,
 ): Promise<TaskTeardown> {
-  const alarm: TaskEndAlarm = { task_id: task.task_id, reason };
   const teardown = {
     alarmId: await workflow.scheduleAlarm(TASK_END_ALARM_SECONDS, "resumeTaskEnd", alarm),
   };
@@ -272,17 +283,27 @@ async function finishTeardown(
     ended === "cancelled"
       ? await endWorkOfCancelledTask(workflow, task, reason)
       : await endWorkOfFailedTask(workflow, task, reason);
+  await closeTeardown(workflow, task, teardown);
+  if (note) await workflow.tellAgent(note.text, note.wake);
+}
+
+/** The last call of the teardown returned, so its task end alarm is cancelled. */
+async function closeTeardown(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+  teardown: TaskTeardown,
+): Promise<void> {
   teardownsInFlight.get(workflow)?.delete(task.task_id);
   await workflow.cancelAlarm(teardown.alarmId);
-  if (note) await workflow.tellAgent(note.text, note.wake);
 }
 
 /** What the agent hears once the teardown of a task finished. */
 type EndNote = { text: string; wake: Wake };
 
 /**
- * Alarm: go on with the teardown of a cancelled or failed task that an instance restart cut off.
- * While this instance still runs that teardown, the alarm is armed again instead.
+ * Alarm: go on with the teardown of a finished task that an instance restart cut off. A done task
+ * only destroys its sandbox again. While this instance still runs that teardown, the alarm is
+ * armed again instead.
  */
 export async function resumeTaskEnd(workflow: WorkflowRuntime, alarm: TaskEndAlarm): Promise<void> {
   const task = workflow.store.requireTask(alarm.task_id);
@@ -294,8 +315,9 @@ export async function resumeTaskEnd(workflow: WorkflowRuntime, alarm: TaskEndAla
     else await workflow.cancelAlarm(rearmed);
     return;
   }
-  const teardown = await removeSandboxOfEndedTask(workflow, task, alarm.reason);
-  await finishTeardown(workflow, task, teardown, alarm.reason);
+  const teardown = await removeSandboxOfEndedTask(workflow, task, alarm);
+  if ("reason" in alarm) await finishTeardown(workflow, task, teardown, alarm.reason);
+  else await closeTeardown(workflow, task, teardown);
 }
 
 /**

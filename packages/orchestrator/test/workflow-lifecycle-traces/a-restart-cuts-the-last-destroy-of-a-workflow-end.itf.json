@@ -4,8 +4,8 @@
     "format-description": "https://apalache-mc.org/docs/adr/015adr-trace.html",
     "source": "../../spec/workflow-lifecycle/pagesWithAReviewer.qnt",
     "status": "violation",
-    "description": "Created by Quint on Mon Oct 19 2026 20:34:54 GMT-0400 (Eastern Daylight Time)",
-    "timestamp": 1792456494719
+    "description": "Created by Quint on Mon Oct 19 2026 21:51:29 GMT-0400 (Eastern Daylight Time)",
+    "timestamp": 1792461089462
   },
   "vars": [
     "mbt::actionTaken",
@@ -15,7 +15,6 @@
     "pagesWithAReviewer::workflowLifecycle::lastStepReached",
     "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent",
     "pagesWithAReviewer::workflowLifecycle::workflow",
-    "probeStep",
     "mbt::actionTaken",
     "mbt::nondetPicks"
   ],
@@ -115,6 +114,7 @@
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
         "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
@@ -178,8 +178,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
-      },
-      "probeStep": { "#bigint": "0" }
+      }
     },
     {
       "#meta": { "index": 1 },
@@ -276,6 +275,7 @@
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
         "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
@@ -339,8 +339,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
-      },
-      "probeStep": { "#bigint": "1" }
+      }
     },
     {
       "#meta": { "index": 2 },
@@ -437,6 +436,7 @@
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
         "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
@@ -521,8 +521,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
-      },
-      "probeStep": { "#bigint": "2" }
+      }
     },
     {
       "#meta": { "index": 3 },
@@ -547,7 +546,7 @@
         "subjectLink": { "tag": "Some", "value": { "tag": "NoSubject", "value": { "#tup": [] } } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
         "waiter": { "tag": "None", "value": { "#tup": [] } },
-        "withStages": { "tag": "Some", "value": true }
+        "withStages": { "tag": "Some", "value": false }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
         "tag": "NotAnswered",
@@ -619,6 +618,7 @@
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
         "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
@@ -703,8 +703,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
-      },
-      "probeStep": { "#bigint": "3" }
+      }
     },
     {
       "#meta": { "index": 4 },
@@ -801,6 +800,7 @@
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
         "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
@@ -906,8 +906,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
         "turnsToRunAgain": { "#set": [] }
-      },
-      "probeStep": { "#bigint": "4" }
+      }
     },
     {
       "#meta": { "index": 5 },
@@ -1004,6 +1003,7 @@
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
         "aRestartCutsTheDestroyOfACancelledAuthor": true,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
@@ -1091,8 +1091,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
         "turnsToRunAgain": { "#set": [] }
-      },
-      "probeStep": { "#bigint": "5" }
+      }
     },
     {
       "#meta": { "index": 6 },
@@ -1189,6 +1188,7 @@
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
         "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
@@ -1279,8 +1279,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
         "turnsToRunAgain": { "#set": [] }
-      },
-      "probeStep": { "#bigint": "6" }
+      }
     },
     {
       "#meta": { "index": 7 },
@@ -1377,6 +1376,7 @@
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
         "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
@@ -1467,8 +1467,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
         "turnsToRunAgain": { "#set": [] }
-      },
-      "probeStep": { "#bigint": "7" }
+      }
     },
     {
       "#meta": { "index": 8 },
@@ -1565,6 +1564,7 @@
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
         "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
@@ -1649,8 +1649,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
         "turnsToRunAgain": { "#set": [] }
-      },
-      "probeStep": { "#bigint": "8" }
+      }
     }
   ]
 }

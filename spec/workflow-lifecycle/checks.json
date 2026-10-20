@@ -34,7 +34,7 @@
     "aPersonsMessageWakesTheWorkflow",
     "issuesMoveOnlyAtAStartOrADoneEnd",
     "eachFailedTaskPostsItsFailureOnce",
-    "aCancelledOrFailedAuthorsSandboxIsDestroyed",
+    "aFinishedAuthorsSandboxIsDestroyed",
     "anEndedWorkflowPostsItsEndOnce",
     "aCompletedJobEndsItsReview"
   ],
@@ -104,6 +104,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsTheDestroyOfACompletedAuthor",
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut",
@@ -160,6 +161,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsTheDestroyOfACompletedAuthor",
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut",
@@ -209,6 +211,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsTheDestroyOfACompletedAuthor",
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut"
@@ -298,6 +301,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsTheDestroyOfACompletedAuthor",
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut",
@@ -619,6 +623,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsTheDestroyOfACompletedAuthor",
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut",
@@ -676,6 +681,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsTheDestroyOfACompletedAuthor",
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut"
@@ -731,6 +737,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsTheDestroyOfACompletedAuthor",
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut"
@@ -788,6 +795,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsTheDestroyOfACompletedAuthor",
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut"
@@ -841,6 +849,7 @@
       "aHarnessAuthorCompletesAfterItsDestroy",
       "aRestartCutsTheDestroyOfACancelledAuthor",
       "aRestartCutsTheDestroyOfAFailedAuthor",
+      "aRestartCutsTheDestroyOfACompletedAuthor",
       "aRestartCutsAFailurePost",
       "aTaskEndAlarmResumesATeardown",
       "aTaskEndAlarmFindsItsTeardownOut",
@@ -855,11 +864,7 @@
     "pullsTheHostMoves": 40
   },
   "tlc": {
-    "ignoredVariables": [
-      "lastStepReached",
-      "lastStepToldTheAgent",
-      "lastStepAnswered"
-    ],
+    "ignoredVariables": ["lastStepReached", "lastStepToldTheAgent", "lastStepAnswered"],
     "bounds": {
       "pagesWithAReviewer": {
         "pr": {

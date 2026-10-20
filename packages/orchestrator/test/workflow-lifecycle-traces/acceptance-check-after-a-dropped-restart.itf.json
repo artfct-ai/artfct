@@ -177,7 +177,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
@@ -406,7 +407,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
@@ -636,7 +638,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
@@ -863,7 +866,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
@@ -1146,7 +1150,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": true,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
@@ -1429,7 +1434,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
@@ -1712,7 +1718,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
@@ -1995,7 +2002,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": true,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
@@ -2297,7 +2305,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
@@ -2599,7 +2608,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
@@ -2900,7 +2910,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
@@ -3199,7 +3210,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
@@ -3483,7 +3495,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
@@ -3766,7 +3779,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {

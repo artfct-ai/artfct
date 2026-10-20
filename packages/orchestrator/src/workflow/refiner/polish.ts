@@ -1,6 +1,7 @@
 import { drainQueue } from "../task/harness/prompt-queue";
 import { checksGate, type ChecksGate } from "./checks-gate";
-import { advanceArtifactPastEntry, artifactRevision, finishRefinerRun } from "./loop";
+import { finishTask } from "../lifecycle";
+import { advanceArtifactPastEntry, artifactRevision } from "./loop";
 import { markArtifactReady } from "./outcome";
 import { refinerIndexOf, refinerAt, runningPolisherOf } from "./stage-refiner";
 import type { TaskRow } from "../store/tasks";
@@ -55,7 +56,7 @@ export async function endPolisherRun(
   polisher: TaskRow,
   outcome: PolishOutcome,
 ): Promise<void> {
-  await finishRefinerRun(workflow, workflow.store.requireTask(polisher.task_id));
+  await finishTask(workflow, polisher, "done");
   const author = workflow.store.authorTaskOf(polisher.job_id);
   await handOnFromPolisher(workflow, author, polisher, outcome);
   await drainQueue(workflow, workflow.store.requireTask(author.task_id));

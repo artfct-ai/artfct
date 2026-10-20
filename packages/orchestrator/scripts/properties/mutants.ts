@@ -1288,9 +1288,9 @@ export const MUTANTS: Mutant[] = [
   {
     id: "W142",
     invariant: "reviewLoop::aFinishedRefinerRunKeepsItsStatus",
-    path: "src/workflow/refiner/loop.ts",
-    find: '  if (isTaskFinished(run.status)) return;\n  workflow.store.updateTask(run.task_id, { status: "done" });\n',
-    replace: '  workflow.store.updateTask(run.task_id, { status: "done" });\n',
+    path: "src/workflow/lifecycle.ts",
+    find: "  if (isTaskFinished(workflow.store.requireTask(task.task_id).status)) return false;\n",
+    replace: "",
   },
   {
     id: "W143",
@@ -1515,7 +1515,7 @@ export const MUTANTS: Mutant[] = [
   },
   {
     id: "W272",
-    invariant: "workflowLifecycle::aCancelledOrFailedAuthorsSandboxIsDestroyed",
+    invariant: "workflowLifecycle::aFinishedAuthorsSandboxIsDestroyed",
     path: "src/workflow/lifecycle.ts",
     find: '    alarmId: await workflow.scheduleAlarm(TASK_END_ALARM_SECONDS, "resumeTaskEnd", alarm),\n',
     replace: '    alarmId: "",\n',
@@ -1543,6 +1543,21 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/lifecycle.ts",
     find: "  await workflow.cancelAlarm(teardown.alarmId);\n",
     replace: "",
+  },
+  {
+    id: "W277",
+    invariant: "workflowLifecycle::aFinishedAuthorsSandboxIsDestroyed (done task arms no alarm)",
+    path: "src/workflow/lifecycle.ts",
+    find: "  const teardown = await removeSandboxOfEndedTask(workflow, task, { task_id: task.task_id });\n  await closeTeardown(workflow, task, teardown);\n",
+    replace: "  await removeSandbox(workflow, task);\n",
+  },
+  {
+    id: "W278",
+    invariant:
+      "workflowLifecycle::eachFailedTaskPostsItsFailureOnce (done task alarm runs a failure teardown)",
+    path: "src/workflow/lifecycle.ts",
+    find: '  if ("reason" in alarm) await finishTeardown(workflow, task, teardown, alarm.reason);\n',
+    replace: '  if (alarm) await finishTeardown(workflow, task, teardown, "reason");\n',
   },
   {
     id: "W214",
