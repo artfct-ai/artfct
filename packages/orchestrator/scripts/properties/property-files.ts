@@ -167,6 +167,27 @@ export const STANDALONE_PROPERTY_FILES = {
     runner: ["bun", "test"],
     e2eRuns: 100_000,
   },
+  verbal_command: {
+    title: "verbal command property",
+    packageDir: "orchestrator",
+    path: "./src/workflow/inbound/verbal-command-invariants.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 100_000,
+  },
+  screen_parts: {
+    title: "screen parts property",
+    packageDir: "orchestrator",
+    path: "./src/decisions/screen-invariants.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 20_000,
+  },
+  task_digest: {
+    title: "task digest property",
+    packageDir: "orchestrator",
+    path: "./src/workflow/task/harness/digest-invariants.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 100_000,
+  },
   condensed_tool_result: {
     title: "condensed tool result property",
     packageDir: "orchestrator",
