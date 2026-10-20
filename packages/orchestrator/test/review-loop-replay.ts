@@ -1203,8 +1203,9 @@ export class ReviewLoopReplay {
    * the spec picks, and code hears of them by a webhook or the recheck alarm. So does an author
    * that waits on the gate, by the recheck alarm only while one is armed. Failed checks or a
    * conflict reach an idle author by a webhook. Open checks that stop the recheck alarm reach an
-   * idle author by a webhook or the alarm, and only by the alarm once the workflow ended. A report the spec says changes nothing either misses
-   * its webhook, or reaches a polisher at work.
+   * idle or ended author by a webhook or the alarm, and only by the alarm once the workflow ended.
+   * A report the spec says changes nothing either misses its webhook, or reaches a polisher at
+   * work.
    */
   private checksReported(step: TraceStep, index: number): WorkflowAction {
     const before = this.trace[this.step - 1]?.review;

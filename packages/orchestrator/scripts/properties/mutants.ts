@@ -1367,6 +1367,13 @@ export const MUTANTS: Mutant[] = [
       '  if (checks?.state === "failed" || checks?.state === "conflicted") {\n    await workflow.stopRepeatingAlarm("recheckChecks", alarm);\n  }\n  if (checks?.state === "failed") {\n',
   },
   {
+    id: "W321",
+    invariant: "reviewLoop::theRecheckAlarmRunsWhileTheGateHolds (ended author's open checks)",
+    path: "src/workflow/task/at-work.ts",
+    find: "  if (isTaskFinished(task.status)) return false;\n",
+    replace: "",
+  },
+  {
     id: "W227",
     invariant: "reviewLoop::anAnswerAtTheReviewLimitMovesOn",
     path: "src/workflow/refiner/loop.ts",
