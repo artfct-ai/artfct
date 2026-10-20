@@ -1428,9 +1428,41 @@ export const MUTANTS: Mutant[] = [
     id: "W238",
     invariant: "sessionRouting::sessionFeedEndsWhenItsAuthorIdles (restart mid feed post)",
     path: "src/notify/notifier.ts",
-    find: '    this.outbox({\n      channel: "feed",\n      kind: content.type,\n      target: session,\n      payload: { task_id: taskId, id, content },\n    });\n    const tracker = await this.tracker();\n    if (!tracker) return;\n    for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {\n      try {\n        await tracker.activity(session.session_id, content, { id });\n',
+    find: '    this.outbox({ channel: "feed", kind: content.type, target: session, payload: activity });\n    const tracker = await this.tracker();\n    if (!tracker) return;\n    for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {\n      try {\n        await tracker.activity(session.session_id, content, { id });\n',
     replace:
-      '    const row = {\n      channel: "feed",\n      kind: content.type,\n      target: session,\n      payload: { task_id: taskId, id, content },\n    };\n    const tracker = await this.tracker();\n    if (!tracker) return;\n    for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {\n      try {\n        await tracker\n          .activity(session.session_id, content, { id })\n          .finally(() => attempt === 1 && this.outbox(row));\n',
+      '    const row = { channel: "feed", kind: content.type, target: session, payload: activity };\n    const tracker = await this.tracker();\n    if (!tracker) return;\n    for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {\n      try {\n        await tracker\n          .activity(session.session_id, content, { id })\n          .finally(() => attempt === 1 && this.outbox(row));\n',
+  },
+  {
+    id: "W244",
+    invariant: "sessionRouting::closingReplyPostsOnceAfterAnInstanceRestart (alarm armed)",
+    path: "src/workflow/feed/feed.ts",
+    find: '  const alarm = await workflow.scheduleAlarm(\n    CLOSING_REPLY_ALARM_SECONDS,\n    "postClosingReply",\n    reply,\n  );\n  await postClosingReply(workflow, reply);\n  await workflow.cancelAlarm(alarm);\n',
+    replace: "  await postClosingReply(workflow, reply);\n",
+  },
+  {
+    id: "W245",
+    invariant: "sessionRouting::closingReplyPostsOnceAfterAnInstanceRestart (same activity id)",
+    path: "src/workflow/feed/feed.ts",
+    find: "  await workflow.notifier.feed(reply.session, reply.activity);\n",
+    replace:
+      "  await workflow.notifier.feed(reply.session, { ...reply.activity, id: crypto.randomUUID() });\n",
+  },
+  {
+    id: "W246",
+    invariant:
+      "sessionRouting::closingReplyPostsOnceAfterAnInstanceRestart (alarm cancelled once posted)",
+    path: "src/workflow/feed/feed.ts",
+    find: "  await postClosingReply(workflow, reply);\n  await workflow.cancelAlarm(alarm);\n",
+    replace: "  await postClosingReply(workflow, reply);\n",
+  },
+  {
+    id: "W247",
+    invariant:
+      "sessionRouting::closingReplyPostsOnceAfterAnInstanceRestart (alarm armed before the post)",
+    path: "src/workflow/feed/feed.ts",
+    find: '  const alarm = await workflow.scheduleAlarm(\n    CLOSING_REPLY_ALARM_SECONDS,\n    "postClosingReply",\n    reply,\n  );\n  await postClosingReply(workflow, reply);\n',
+    replace:
+      '  await postClosingReply(workflow, reply);\n  const alarm = await workflow.scheduleAlarm(\n    CLOSING_REPLY_ALARM_SECONDS,\n    "postClosingReply",\n    reply,\n  );\n',
   },
   {
     id: "W265",
@@ -1480,6 +1512,61 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/refiner/checks-gate.ts",
     find: '  return workflow.store.markEventSeen({ id, kind: "checks_sent_back" });\n',
     replace: "  return !workflow.store.eventSeen(id);\n",
+  },
+  {
+    id: "W272",
+    invariant: "workflowLifecycle::aCancelledOrFailedAuthorsSandboxIsDestroyed",
+    path: "src/workflow/lifecycle.ts",
+    find: '    alarmId: await workflow.scheduleAlarm(TASK_END_ALARM_SECONDS, "resumeTaskEnd", alarm),\n',
+    replace: '    alarmId: "",\n',
+  },
+  {
+    id: "W273",
+    invariant:
+      "workflowLifecycle::eachFailedTaskPostsItsFailureOnce (alarm cancelled before the post)",
+    path: "src/workflow/lifecycle.ts",
+    find: "  const ended = workflow.store.requireTask(task.task_id).status;\n",
+    replace:
+      "  await workflow.cancelAlarm(teardown.alarmId);\n  const ended = workflow.store.requireTask(task.task_id).status;\n",
+  },
+  {
+    id: "W274",
+    invariant:
+      "workflowLifecycle::eachFailedTaskPostsItsFailureOnce (alarm reruns a teardown in flight)",
+    path: "src/workflow/lifecycle.ts",
+    find: "  if (running) {\n",
+    replace: "  if (running && !running) {\n",
+  },
+  {
+    id: "W275",
+    invariant: "workflowLifecycle::eachFailedTaskPostsItsFailureOnce (alarm left armed)",
+    path: "src/workflow/lifecycle.ts",
+    find: "  await workflow.cancelAlarm(teardown.alarmId);\n",
+    replace: "",
+  },
+  {
+    id: "W214",
+    invariant:
+      "harnessSession::anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone (empty turn with open todos)",
+    path: "src/workflow/task/author-turn.ts",
+    find: '    unfinished && !workflow.store.artifact(author.job_id) ? "stopped_early" : "finished";',
+    replace: '    "finished";',
+  },
+  {
+    id: "W215",
+    invariant:
+      "harnessSession::anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone (decisions asked about an empty turn)",
+    path: "src/workflow/task/author-turn.ts",
+    find: "  const answered = author.summary.trim() ? await askAuthorTurn(workflow, author) : null;",
+    replace: "  const answered = await askAuthorTurn(workflow, author);",
+  },
+  {
+    id: "W276",
+    invariant:
+      "harnessSession::anIdleAuthorWithUnfinishedWorkIsNeverLeftAlone (todo list not stored)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: "    const stored = workflow.store.setTodos(task.task_id, { entries });",
+    replace: "    const stored = false;",
   },
   {
     id: "W240",

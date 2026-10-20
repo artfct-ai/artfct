@@ -187,6 +187,14 @@ describe("SleepAfter", () => {
     it("rejects zero with a unit", () => {
       expect(SleepAfter.safeParse("0s").success).toBe(false);
     });
+
+    it("allows six hours", () => {
+      expect(SleepAfter.parse("6h")).toBe(21_600_000);
+    });
+
+    it("rejects more than six hours", () => {
+      expect(SleepAfter.safeParse("361m").success).toBe(false);
+    });
   });
 
   describe("a config that sets sleep_after to 0", () => {

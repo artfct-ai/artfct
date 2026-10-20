@@ -24,7 +24,7 @@ export type LocalContainer = {
 };
 
 /**
- * Start a container and prepare it in the order `CloudflareSandboxProvider.start` does: env,
+ * Start a container and prepare it in the order `startSandbox` does: env,
  * token file, harness files, then the startup script.
  */
 export async function startLocalContainer(spec: SandboxStartSpec): Promise<LocalContainer> {

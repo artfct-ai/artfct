@@ -33,16 +33,16 @@
     "anAnswerAtTheReviewLimitMovesOn"
   ],
   "mainMinutes": {
-    "judgeThenPolisher": 2.2,
-    "reviewerThenPolisher": 2.3,
-    "judgeBetweenReviewers": 2.2,
-    "modelCallAuthorWithTwoReviewers": 4.2,
-    "pageReviewerThenPolisher": 2.8,
-    "pageJudgeBetweenReviewers": 2.8,
-    "pausedModelCallAuthor": 2.4,
-    "checksOnAPolishedPull": 2.2,
-    "modelCallJudgeThenPolisher": 2.6,
-    "checksOnAReviewedPull": 2.3
+    "judgeThenPolisher": 1.9,
+    "reviewerThenPolisher": 1.8,
+    "judgeBetweenReviewers": 2.0,
+    "modelCallAuthorWithTwoReviewers": 3.3,
+    "pageReviewerThenPolisher": 2.2,
+    "pageJudgeBetweenReviewers": 1.9,
+    "pausedModelCallAuthor": 2.0,
+    "checksOnAPolishedPull": 1.8,
+    "modelCallJudgeThenPolisher": 2.0,
+    "checksOnAReviewedPull": 2.1
   },
   "witnesses": {
     "judgeThenPolisher": [

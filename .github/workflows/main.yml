@@ -34,7 +34,7 @@ jobs:
     uses: ./.github/workflows/quint.yml
     with:
       specs: ${{ needs.spec_changes.outputs.specs }}
-      shards: "[1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]"
+      shards: "[1, 2, 3, 4, 5, 6, 7, 8]"
       samples: 100000
 
   spec_replays:
@@ -50,8 +50,10 @@ jobs:
             replays: workflow_lifecycle
           - name: session routing
             replays: session_routing
-          - name: the rest
-            replays: router_bindings review_loop harness_session agent_turns chat_acknowledgement feedback_routing
+          - name: harness session and agent turns
+            replays: harness_session agent_turns
+          - name: router, review loop, and feedback
+            replays: router_bindings review_loop feedback_routing chat_acknowledgement
     defaults:
       run:
         shell: bash

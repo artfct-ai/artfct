@@ -7,6 +7,7 @@ import type {
 import type {
   InitializeResponse,
   NewSessionResponse,
+  PlanEntry,
   PromptResponse,
   RequestPermissionRequest,
   SessionConfigOption,
@@ -42,6 +43,7 @@ import { startTools } from "../src/agent/tools/start/start";
 import type { Env } from "../src/env";
 import type { SandboxRef, SandboxStartSpec } from "../src/sandbox/spec";
 import { pauseTask, resumeTask, stopAuthor } from "../src/workflow/inbound/controls";
+import { openEntryCount } from "../src/workflow/board/render";
 import type { RpcPurpose } from "../src/workflow/store/schema";
 import type { TaskRow } from "../src/workflow/store/tasks";
 import {
@@ -127,6 +129,7 @@ const SOCKET_STATES = [
 const CALL_STATES = ["Out", "Dropped"] as const;
 const OUTCOMES = ["Finished", "WaitsOnPerson", "Blocked", "StoppedEarly"] as const;
 const FINISHED_STOPS = ["EndTurn", "MaxTokens"] as const;
+const PROGRESS_REPORTS = ["ToolCall", "OpenTodoList", "FinishedTodoList"] as const;
 
 type SpecStatus = (typeof TASK_STATUSES)[number];
 type PromptKind = (typeof PROMPT_KINDS)[number];
@@ -135,6 +138,7 @@ type SocketState = (typeof SOCKET_STATES)[number];
 type CallState = (typeof CALL_STATES)[number];
 type Outcome = (typeof OUTCOMES)[number];
 type FinishedStop = (typeof FINISHED_STOPS)[number];
+type ProgressReport = (typeof PROGRESS_REPORTS)[number];
 
 /** A request a bridge passed to its harness, as the spec sees it. */
 type SpecRequest = { id: number; purpose: SpecPurpose; cancelled: boolean };
@@ -187,6 +191,8 @@ export type SpecTask = {
   promptInFlight: boolean;
   nudged: boolean;
   stoppedEarly: boolean;
+  turnText: boolean;
+  openTodos: boolean;
   bridgeClosedAt: (typeof STAMPS)[number];
   queue: PromptKind[];
   rpcs: { id: number; purpose: SpecPurpose }[];
@@ -219,6 +225,8 @@ type SpecPicks = {
   bridge: number | null;
   index: number | null;
   finished: FinishedStop | null;
+  endsWithText: boolean | null;
+  report: ProgressReport | null;
   offersAllow: boolean | null;
 };
 
@@ -254,6 +262,8 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
     const ok = picked("ok");
     const outcome = picked("outcome");
     const finished = picked("finished");
+    const endsWithText = picked("endsWithText");
+    const report = picked("report");
     const offersAllow = picked("offersAllow");
     return {
       action: itfText(itfField(state, "mbt::actionTaken")),
@@ -265,6 +275,8 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
         bridge: optionalInt(picked("bridge")),
         index: optionalInt(picked("index")),
         finished: finished === null ? null : itfOneOf(itfVariant(finished)!.tag, FINISHED_STOPS),
+        endsWithText: endsWithText === null ? null : itfBool(endsWithText),
+        report: report === null ? null : itfOneOf(itfVariant(report)!.tag, PROGRESS_REPORTS),
         offersAllow: offersAllow === null ? null : itfBool(offersAllow),
       },
       task: specTask(itfField(state, `${setup}::harnessSession::world`)),
@@ -294,6 +306,8 @@ function specTask(world: unknown): SpecTask {
     promptInFlight: itfBool(itfField(world, "promptInFlight")),
     nudged: itfBool(itfField(world, "nudged")),
     stoppedEarly: itfBool(itfField(world, "stoppedEarly")),
+    turnText: itfBool(itfField(world, "turnText")),
+    openTodos: itfBool(itfField(world, "openTodos")),
     bridgeClosedAt: itfOneOf(tagOf(itfField(world, "bridgeClosedAt")), STAMPS),
     queue: itfList(itfField(world, "queue")).map((kind) => itfOneOf(tagOf(kind), PROMPT_KINDS)),
     rpcs: itfList(itfField(world, "rpcs")).map((row) => ({
@@ -505,6 +519,11 @@ const PERSON_TEXT = "Cover the error path too.";
 const CONTINUE_TEXT = "Continue where you left off.";
 const TURN_TEXT = `I wrote the design section by section. ${"Each section names its decision and the reason for it. ".repeat(12)}`;
 const DIGEST_TEXT = "The design is written.";
+const OPEN_TODOS: PlanEntry[] = [
+  { content: "Write the design", priority: "high", status: "in_progress" },
+  { content: "Check the design", priority: "medium", status: "pending" },
+];
+const FINISHED_TODOS: PlanEntry[] = OPEN_TODOS.map((entry) => ({ ...entry, status: "completed" }));
 const AGENT_WAKE_TEXTS = ["Harness turn ended (", "The harness is idle."];
 const LOST_TURN_LINES = [
   "bridge lost with a prompt in flight. restarting the sandbox.",
@@ -684,6 +703,8 @@ export class HarnessSessionReplay {
       promptInFlight: sandbox.prompt_in_flight === 1,
       nudged: sandbox.nudged === 1,
       stoppedEarly: sandbox.stopped_early === 1,
+      turnText: sandbox.turn_text !== "",
+      openTodos: openEntryCount(store.todoRow(this.taskId)?.todos ?? null) > 0,
       bridgeClosedAt:
         closedAt === null
           ? "Unset"
@@ -939,21 +960,22 @@ export class HarnessSessionReplay {
       case "socketCloseLands":
         return this.landClose(required(picks.index));
       case "harnessAnswers":
-        return this.answer(required(picks.bridge), required(picks.finished));
+        return this.answer(
+          required(picks.bridge),
+          required(picks.finished),
+          required(picks.endsWithText),
+        );
       case "harnessRefuses":
         return this.refuse(required(picks.bridge));
       case "harnessShowsProgress":
-        return this.update(required(picks.bridge), {
-          sessionUpdate: "tool_call",
-          toolCallId: `tool-${this.permissionSeq++}`,
-          title: "Edit the design",
-          kind: "edit",
-        });
+      case "theHarnessListsItsTodos":
+        return this.update(required(picks.bridge), this.progressOf(required(picks.report)));
       case "harnessWritesThePage": {
         const author = this.world.authors[0]!;
+        const link = `I wrote ${this.world.artifactUrlOf(author)} for this.`;
         return this.update(required(picks.bridge), {
           sessionUpdate: "agent_message_chunk",
-          content: { type: "text", text: `I wrote ${this.world.artifactUrlOf(author)} for this.` },
+          content: { type: "text", text: `${link} ${TURN_TEXT}` },
         });
       }
       case "harnessAsksPermission":
@@ -1183,12 +1205,18 @@ export class HarnessSessionReplay {
     await this.runStep(() => onBridgeClosed(this.world.workflow, state));
   }
 
-  private async answer(index: number, finished: FinishedStop): Promise<void> {
+  private async answer(
+    index: number,
+    finished: FinishedStop,
+    endsWithText: boolean,
+  ): Promise<void> {
     const bridge = this.bridgeAt(index);
     const socket = this.connectedSocketOf(index);
     const request = bridge.requests.shift();
     if (!request) throw new Error(`bridge ${index} holds no request`);
-    if (request.purpose === "Prompt" && !request.cancelled && finished === "EndTurn") {
+    const endsOnItsOwn =
+      request.purpose === "Prompt" && !request.cancelled && finished === "EndTurn";
+    if (endsOnItsOwn && endsWithText) {
       await this.runStep(() =>
         this.deliverUpdate(socket, {
           sessionUpdate: "agent_message_chunk",
@@ -1260,6 +1288,26 @@ export class HarnessSessionReplay {
     await this.answerRequest(request, () =>
       this.deliver(socket, jsonRpcErrorResponse(request.id, INTERNAL_ERROR, "the harness failed")),
     );
+  }
+
+  private progressOf(report: ProgressReport): SessionUpdate {
+    switch (report) {
+      case "ToolCall":
+        return {
+          sessionUpdate: "tool_call",
+          toolCallId: `tool-${this.permissionSeq++}`,
+          title: "Edit the design",
+          kind: "edit",
+        };
+      case "OpenTodoList":
+        return { sessionUpdate: "plan", entries: OPEN_TODOS };
+      case "FinishedTodoList":
+        return { sessionUpdate: "plan", entries: FINISHED_TODOS };
+      default: {
+        const unreachable: never = report;
+        throw new Error(`unhandled report ${String(unreachable)}`);
+      }
+    }
   }
 
   private update(index: number, update: SessionUpdate): Promise<void> {

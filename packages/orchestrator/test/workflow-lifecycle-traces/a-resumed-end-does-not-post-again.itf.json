@@ -4,8 +4,8 @@
     "format-description": "https://apalache-mc.org/docs/adr/015adr-trace.html",
     "source": "../../spec/workflow-lifecycle/pagesWithoutRefiners.qnt",
     "status": "violation",
-    "description": "Created by Quint on Mon Oct 19 2026 19:00:15 GMT-0400 (Eastern Daylight Time)",
-    "timestamp": 1792450815535
+    "description": "Created by Quint on Mon Oct 19 2026 20:34:57 GMT-0400 (Eastern Daylight Time)",
+    "timestamp": 1792456497595
   },
   "vars": [
     "mbt::actionTaken",
@@ -15,6 +15,7 @@
     "pagesWithoutRefiners::workflowLifecycle::lastStepReached",
     "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent",
     "pagesWithoutRefiners::workflowLifecycle::workflow",
+    "probeStep",
     "mbt::actionTaken",
     "mbt::nondetPicks"
   ],
@@ -61,7 +62,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -108,13 +108,15 @@
         "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
         "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aRestartLandsDuringAWorkflowEnd": false,
@@ -134,6 +136,8 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
         "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
@@ -157,6 +161,7 @@
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
         "calls": [],
         "definition": { "tag": "Unplanned", "value": { "#tup": [] } },
+        "destroyedSandboxes": { "#set": [] },
         "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
         "endedIssues": { "#set": [] },
         "endingPosts": [],
@@ -171,8 +176,10 @@
         "status": { "tag": "New", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
-      }
+      },
+      "probeStep": { "#bigint": "0" }
     },
     {
       "#meta": { "index": 1 },
@@ -180,7 +187,7 @@
       "mbt::nondetPicks": {
         "answer": { "tag": "None", "value": { "#tup": [] } },
         "callId": { "tag": "None", "value": { "#tup": [] } },
-        "command": { "tag": "Some", "value": { "tag": "Instruct", "value": { "#tup": [] } } },
+        "command": { "tag": "Some", "value": { "tag": "Resume", "value": { "#tup": [] } } },
         "definition": { "tag": "None", "value": { "#tup": [] } },
         "ending": { "tag": "None", "value": { "#tup": [] } },
         "endsAs": { "tag": "None", "value": { "#tup": [] } },
@@ -216,7 +223,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -263,13 +269,15 @@
         "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
         "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aRestartLandsDuringAWorkflowEnd": false,
@@ -289,6 +297,8 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
         "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
@@ -312,6 +322,7 @@
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
         "calls": [],
         "definition": { "tag": "Unplanned", "value": { "#tup": [] } },
+        "destroyedSandboxes": { "#set": [] },
         "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
         "endedIssues": { "#set": [] },
         "endingPosts": [],
@@ -326,8 +337,10 @@
         "status": { "tag": "New", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
-      }
+      },
+      "probeStep": { "#bigint": "1" }
     },
     {
       "#meta": { "index": 2 },
@@ -336,7 +349,7 @@
         "answer": { "tag": "None", "value": { "#tup": [] } },
         "callId": { "tag": "None", "value": { "#tup": [] } },
         "command": { "tag": "None", "value": { "#tup": [] } },
-        "definition": { "tag": "Some", "value": { "#bigint": "0" } },
+        "definition": { "tag": "Some", "value": { "#bigint": "1" } },
         "ending": { "tag": "None", "value": { "#tup": [] } },
         "endsAs": { "tag": "None", "value": { "#tup": [] } },
         "hostMove": { "tag": "None", "value": { "#tup": [] } },
@@ -371,7 +384,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -418,13 +430,15 @@
         "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
         "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aRestartLandsDuringAWorkflowEnd": false,
@@ -444,6 +458,8 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
         "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
@@ -466,7 +482,8 @@
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
         "calls": [],
-        "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
+        "definition": { "tag": "Planned", "value": { "#bigint": "1" } },
+        "destroyedSandboxes": { "#set": [] },
         "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
         "endedIssues": { "#set": [] },
         "endingPosts": [],
@@ -481,8 +498,10 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
-      }
+      },
+      "probeStep": { "#bigint": "2" }
     },
     {
       "#meta": { "index": 3 },
@@ -501,8 +520,8 @@
         "landed": { "tag": "None", "value": { "#tup": [] } },
         "lostJobs": { "tag": "None", "value": { "#tup": [] } },
         "outputLink": { "tag": "None", "value": { "#tup": [] } },
-        "request": { "tag": "Some", "value": { "#bigint": "0" } },
-        "routerWriteFails": { "tag": "Some", "value": false },
+        "request": { "tag": "Some", "value": { "#bigint": "1" } },
+        "routerWriteFails": { "tag": "Some", "value": true },
         "sandbox": { "tag": "None", "value": { "#tup": [] } },
         "subjectLink": { "tag": "None", "value": { "#tup": [] } },
         "timer": { "tag": "None", "value": { "#tup": [] } },
@@ -526,7 +545,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -553,7 +571,7 @@
         "aJobCompletesDuringItsReview": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
-        "aJobStartsPastAFailedRouterWrite": false,
+        "aJobStartsPastAFailedRouterWrite": true,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
         "aMessageLandsOnAWaitingWorkflow": false,
@@ -573,13 +591,15 @@
         "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
         "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aRestartLandsDuringAWorkflowEnd": false,
@@ -599,6 +619,8 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
         "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
@@ -621,7 +643,8 @@
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
         "calls": [],
-        "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
+        "definition": { "tag": "Planned", "value": { "#bigint": "1" } },
+        "destroyedSandboxes": { "#set": [] },
         "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
         "endedIssues": { "#set": [] },
         "endingPosts": [],
@@ -630,7 +653,7 @@
         "jobs": [
           {
             "artifact": { "tag": "NoArtifact", "value": { "#tup": [] } },
-            "input": { "tag": "FromRequest", "value": { "#bigint": "0" } },
+            "input": { "tag": "FromRequest", "value": { "#bigint": "1" } },
             "pullOnHost": { "tag": "NoPull", "value": { "#tup": [] } },
             "refinerRuns": [],
             "tasks": [
@@ -657,8 +680,10 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
-      }
+      },
+      "probeStep": { "#bigint": "3" }
     },
     {
       "#meta": { "index": 4 },
@@ -702,7 +727,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -749,13 +773,15 @@
         "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
         "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aRestartLandsDuringAWorkflowEnd": false,
@@ -775,6 +801,8 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
         "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
@@ -797,7 +825,8 @@
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": true,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
         "calls": [],
-        "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
+        "definition": { "tag": "Planned", "value": { "#bigint": "1" } },
+        "destroyedSandboxes": { "#set": [] },
         "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
         "endedIssues": { "#set": [] },
         "endingPosts": [],
@@ -806,7 +835,7 @@
         "jobs": [
           {
             "artifact": { "tag": "NoArtifact", "value": { "#tup": [] } },
-            "input": { "tag": "FromRequest", "value": { "#bigint": "0" } },
+            "input": { "tag": "FromRequest", "value": { "#bigint": "1" } },
             "pullOnHost": { "tag": "NoPull", "value": { "#tup": [] } },
             "refinerRuns": [],
             "tasks": [
@@ -833,8 +862,10 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
-      }
+      },
+      "probeStep": { "#bigint": "4" }
     },
     {
       "#meta": { "index": 5 },
@@ -843,7 +874,7 @@
         "answer": { "tag": "None", "value": { "#tup": [] } },
         "callId": { "tag": "None", "value": { "#tup": [] } },
         "command": { "tag": "None", "value": { "#tup": [] } },
-        "definition": { "tag": "Some", "value": { "#bigint": "1" } },
+        "definition": { "tag": "Some", "value": { "#bigint": "0" } },
         "ending": { "tag": "None", "value": { "#tup": [] } },
         "endsAs": { "tag": "None", "value": { "#tup": [] } },
         "hostMove": { "tag": "None", "value": { "#tup": [] } },
@@ -878,7 +909,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -925,13 +955,15 @@
         "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
         "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aRestartLandsDuringAWorkflowEnd": false,
@@ -951,6 +983,8 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
         "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
@@ -973,7 +1007,8 @@
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
         "calls": [],
-        "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
+        "definition": { "tag": "Planned", "value": { "#bigint": "1" } },
+        "destroyedSandboxes": { "#set": [] },
         "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
         "endedIssues": { "#set": [] },
         "endingPosts": [],
@@ -982,7 +1017,7 @@
         "jobs": [
           {
             "artifact": { "tag": "NoArtifact", "value": { "#tup": [] } },
-            "input": { "tag": "FromRequest", "value": { "#bigint": "0" } },
+            "input": { "tag": "FromRequest", "value": { "#bigint": "1" } },
             "pullOnHost": { "tag": "NoPull", "value": { "#tup": [] } },
             "refinerRuns": [],
             "tasks": [
@@ -1009,8 +1044,10 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
-      }
+      },
+      "probeStep": { "#bigint": "5" }
     },
     {
       "#meta": { "index": 6 },
@@ -1054,7 +1091,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -1101,13 +1137,15 @@
         "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
         "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aRestartLandsDuringAWorkflowEnd": false,
@@ -1127,6 +1165,8 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
         "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
@@ -1167,7 +1207,8 @@
             }
           }
         ],
-        "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
+        "definition": { "tag": "Planned", "value": { "#bigint": "1" } },
+        "destroyedSandboxes": { "#set": [] },
         "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
         "endedIssues": { "#set": [] },
         "endingPosts": [],
@@ -1176,7 +1217,7 @@
         "jobs": [
           {
             "artifact": { "tag": "NoArtifact", "value": { "#tup": [] } },
-            "input": { "tag": "FromRequest", "value": { "#bigint": "0" } },
+            "input": { "tag": "FromRequest", "value": { "#bigint": "1" } },
             "pullOnHost": { "tag": "NoPull", "value": { "#tup": [] } },
             "refinerRuns": [],
             "tasks": [
@@ -1203,8 +1244,10 @@
         "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": { "tag": "EndStored", "value": { "tag": "Failed", "value": { "#tup": [] } } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
         "turnsToRunAgain": { "#set": [] }
-      }
+      },
+      "probeStep": { "#bigint": "6" }
     },
     {
       "#meta": { "index": 7 },
@@ -1248,7 +1291,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -1295,13 +1337,15 @@
         "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
         "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aRestartLandsDuringAWorkflowEnd": false,
@@ -1321,6 +1365,8 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
         "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
@@ -1343,7 +1389,8 @@
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": true,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
         "calls": [],
-        "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
+        "definition": { "tag": "Planned", "value": { "#bigint": "1" } },
+        "destroyedSandboxes": { "#set": [{ "#bigint": "0" }] },
         "endCall": {
           "tag": "EndPostOut",
           "value": { "tag": "NobodyWaits", "value": { "#tup": [] } }
@@ -1355,7 +1402,7 @@
         "jobs": [
           {
             "artifact": { "tag": "NoArtifact", "value": { "#tup": [] } },
-            "input": { "tag": "FromRequest", "value": { "#bigint": "0" } },
+            "input": { "tag": "FromRequest", "value": { "#bigint": "1" } },
             "pullOnHost": { "tag": "NoPull", "value": { "#tup": [] } },
             "refinerRuns": [],
             "tasks": [
@@ -1382,8 +1429,10 @@
         "status": { "tag": "Failed", "value": { "#tup": [] } },
         "storedEnd": { "tag": "EndStored", "value": { "tag": "Failed", "value": { "#tup": [] } } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
-      }
+      },
+      "probeStep": { "#bigint": "7" }
     },
     {
       "#meta": { "index": 8 },
@@ -1427,7 +1476,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -1474,13 +1522,15 @@
         "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
         "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aRestartLandsDuringAWorkflowEnd": false,
@@ -1500,6 +1550,8 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
         "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
@@ -1522,7 +1574,8 @@
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
         "calls": [],
-        "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
+        "definition": { "tag": "Planned", "value": { "#bigint": "1" } },
+        "destroyedSandboxes": { "#set": [{ "#bigint": "0" }] },
         "endCall": {
           "tag": "CodeHostUnbindOut",
           "value": { "tag": "NobodyWaits", "value": { "#tup": [] } }
@@ -1534,7 +1587,7 @@
         "jobs": [
           {
             "artifact": { "tag": "NoArtifact", "value": { "#tup": [] } },
-            "input": { "tag": "FromRequest", "value": { "#bigint": "0" } },
+            "input": { "tag": "FromRequest", "value": { "#bigint": "1" } },
             "pullOnHost": { "tag": "NoPull", "value": { "#tup": [] } },
             "refinerRuns": [],
             "tasks": [
@@ -1561,8 +1614,10 @@
         "status": { "tag": "Failed", "value": { "#tup": [] } },
         "storedEnd": { "tag": "EndPosted", "value": { "tag": "Failed", "value": { "#tup": [] } } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
-      }
+      },
+      "probeStep": { "#bigint": "8" }
     },
     {
       "#meta": { "index": 9 },
@@ -1606,7 +1661,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -1653,13 +1707,15 @@
         "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
         "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aRestartLandsDuringAWorkflowEnd": false,
@@ -1679,6 +1735,8 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
         "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
@@ -1701,7 +1759,8 @@
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
         "calls": [],
-        "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
+        "definition": { "tag": "Planned", "value": { "#bigint": "1" } },
+        "destroyedSandboxes": { "#set": [{ "#bigint": "0" }] },
         "endCall": {
           "tag": "CodeHostUnbindOut",
           "value": { "tag": "NobodyWaits", "value": { "#tup": [] } }
@@ -1713,7 +1772,7 @@
         "jobs": [
           {
             "artifact": { "tag": "NoArtifact", "value": { "#tup": [] } },
-            "input": { "tag": "FromRequest", "value": { "#bigint": "0" } },
+            "input": { "tag": "FromRequest", "value": { "#bigint": "1" } },
             "pullOnHost": { "tag": "NoPull", "value": { "#tup": [] } },
             "refinerRuns": [],
             "tasks": [
@@ -1740,8 +1799,10 @@
         "status": { "tag": "Failed", "value": { "#tup": [] } },
         "storedEnd": { "tag": "EndPosted", "value": { "tag": "Failed", "value": { "#tup": [] } } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
-      }
+      },
+      "probeStep": { "#bigint": "9" }
     },
     {
       "#meta": { "index": 10 },
@@ -1757,7 +1818,7 @@
         "id": { "tag": "None", "value": { "#tup": [] } },
         "issue": { "tag": "None", "value": { "#tup": [] } },
         "jobSlots": { "tag": "None", "value": { "#tup": [] } },
-        "landed": { "tag": "Some", "value": false },
+        "landed": { "tag": "Some", "value": true },
         "lostJobs": { "tag": "None", "value": { "#tup": [] } },
         "outputLink": { "tag": "None", "value": { "#tup": [] } },
         "request": { "tag": "None", "value": { "#tup": [] } },
@@ -1785,7 +1846,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -1832,13 +1892,15 @@
         "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
         "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aRestartLandsDuringAWorkflowEnd": true,
@@ -1858,6 +1920,8 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
         "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
@@ -1880,7 +1944,8 @@
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
         "calls": [],
-        "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
+        "definition": { "tag": "Planned", "value": { "#bigint": "1" } },
+        "destroyedSandboxes": { "#set": [{ "#bigint": "0" }] },
         "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
         "endedIssues": { "#set": [] },
         "endingPosts": [{ "tag": "WorkflowFailurePost", "value": { "#tup": [] } }],
@@ -1889,7 +1954,7 @@
         "jobs": [
           {
             "artifact": { "tag": "NoArtifact", "value": { "#tup": [] } },
-            "input": { "tag": "FromRequest", "value": { "#bigint": "0" } },
+            "input": { "tag": "FromRequest", "value": { "#bigint": "1" } },
             "pullOnHost": { "tag": "NoPull", "value": { "#tup": [] } },
             "refinerRuns": [],
             "tasks": [
@@ -1916,8 +1981,10 @@
         "status": { "tag": "Failed", "value": { "#tup": [] } },
         "storedEnd": { "tag": "EndPosted", "value": { "tag": "Failed", "value": { "#tup": [] } } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
-      }
+      },
+      "probeStep": { "#bigint": "10" }
     },
     {
       "#meta": { "index": 11 },
@@ -1961,7 +2028,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -2008,13 +2074,15 @@
         "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
         "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsTheEndPost": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aRestartLandsDuringAWorkflowEnd": false,
@@ -2034,6 +2102,8 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
         "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
@@ -2056,7 +2126,8 @@
       "pagesWithoutRefiners::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithoutRefiners::workflowLifecycle::workflow": {
         "calls": [],
-        "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
+        "definition": { "tag": "Planned", "value": { "#bigint": "1" } },
+        "destroyedSandboxes": { "#set": [{ "#bigint": "0" }] },
         "endCall": {
           "tag": "CodeHostUnbindOut",
           "value": { "tag": "NobodyWaits", "value": { "#tup": [] } }
@@ -2068,7 +2139,7 @@
         "jobs": [
           {
             "artifact": { "tag": "NoArtifact", "value": { "#tup": [] } },
-            "input": { "tag": "FromRequest", "value": { "#bigint": "0" } },
+            "input": { "tag": "FromRequest", "value": { "#bigint": "1" } },
             "pullOnHost": { "tag": "NoPull", "value": { "#tup": [] } },
             "refinerRuns": [],
             "tasks": [
@@ -2095,8 +2166,10 @@
         "status": { "tag": "Failed", "value": { "#tup": [] } },
         "storedEnd": { "tag": "EndPosted", "value": { "tag": "Failed", "value": { "#tup": [] } } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
-      }
+      },
+      "probeStep": { "#bigint": "11" }
     }
   ]
 }

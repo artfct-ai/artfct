@@ -1,13 +1,19 @@
 import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { RpcAck, TaskStatus } from "@artfct-ai/contracts/types";
 import type { AgentActivityContent } from "@artfct-ai/adapters/tracker/types";
+import type { FeedActivity } from "../src/notify/notifier";
 import { channelTools } from "../src/agent/tools/channel";
 import { planTools } from "../src/agent/tools/plan";
 import { startTools } from "../src/agent/tools/start/start";
 import { armTurnWatchdog, onTurnTimeout } from "../src/agent/turn/watchdog";
 import { flushBoards } from "../src/workflow/board/board";
 import { onIdle } from "../src/workflow/lifecycle";
-import { DONE_TEXT, STOPPED_TEXT } from "../src/workflow/feed/feed";
+import {
+  DONE_TEXT,
+  postClosingReply,
+  STOPPED_TEXT,
+  type ClosingReplyAlarm,
+} from "../src/workflow/feed/feed";
 import { isTaskFinished, isWorkflowFinished, type Subject } from "../src/workflow/store/state";
 import type { TaskRow } from "../src/workflow/store/tasks";
 import { onWallClock } from "../src/workflow/task/harness/timers";
@@ -202,6 +208,9 @@ export type SpecRouting = {
 /** The deliveries of one session message in flight, and whether it was marked seen. */
 export type SpecMessage = { inFlight: number; seen: boolean };
 
+/** A closing reply whose post an instance restart cut, and whether its alarm is still armed. */
+export type SpecCutClosingReply = SpecFeedPost & { armed: boolean };
+
 /** The values the spec picked for one action. */
 export type SpecPicks = {
   subject: SpecSubject | null;
@@ -216,12 +225,13 @@ export type SpecPicks = {
   todos: number | null;
   message: number | null;
   researchEnding: ResearchEnding | null;
+  reply: number | null;
 };
 
 /**
  * One state of a trace: the action that led to it, its picks, what its step sent, the workflow,
- * and the session messages that waited on the idle clock. A pinned trace that predates them has
- * none.
+ * the session messages that waited on the idle clock, and the closing replies an instance restart
+ * cut. A pinned trace that predates the last two has none.
  */
 export type TraceStep = {
   action: string;
@@ -229,6 +239,7 @@ export type TraceStep = {
   output: SpecOutput;
   routing: SpecRouting;
   messages: SpecMessage[] | null;
+  cutClosingReplies: SpecCutClosingReply[] | null;
 };
 
 /** Run the spec of one setup for `count` traces from `seed`. */
@@ -264,7 +275,9 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
     const id = pickOf("id");
     const todos = pickOf("todos");
     const message = pickOf("message");
+    const reply = pickOf("reply");
     const messages = itfField(state, `${setup}::sessionRouting::sessionMessages`, true);
+    const cut = itfField(state, `${setup}::sessionRouting::cutClosingReplies`, true);
     const facts = itfField(state, `${setup}::sessionRouting::lastStep`);
     return {
       action: itfText(itfField(state, "mbt::actionTaken")),
@@ -281,6 +294,7 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
         todos: todos === null ? null : specTodos(todos),
         message: message === null ? null : itfInt(message),
         researchEnding: picked("researchEnding", RESEARCH_ENDINGS),
+        reply: reply === null ? null : itfInt(reply),
       },
       output: {
         posts: itfList(itfField(facts, "posts")).map((post) => ({
@@ -300,8 +314,24 @@ export function traceSteps(setup: SpecSetup, trace: unknown): TraceStep[] {
       },
       routing: specRouting(itfField(state, `${setup}::sessionRouting::routing`)),
       messages: messages === null ? null : specMessages(messages),
+      cutClosingReplies: cut === null ? null : specCutClosingReplies(cut),
     };
   });
+}
+
+function specCutClosingReplies(value: unknown): SpecCutClosingReply[] {
+  return itfList(itfField(value, "#map"))
+    .map((pair) => {
+      const [reply, cut] = itfList(pair);
+      return { reply: itfInt(reply), cut };
+    })
+    .toSorted((left, right) => left.reply - right.reply)
+    .map(({ cut }) => ({
+      job: itfInt(itfField(cut, "job")),
+      kind: itfOneOf(itfVariant(itfField(cut, "kind"))!.tag, FEED_KINDS),
+      stored: itfInt(itfField(cut, "stored")),
+      armed: itfBool(itfField(cut, "armed")),
+    }));
 }
 
 function specMessages(value: unknown): SpecMessage[] {
@@ -448,12 +478,9 @@ function feedKindOf(content: AgentActivityContent): FeedKind {
   return "ReplyActivity";
 }
 
-/** The fields of a feed row the notifier wrote: its task, its activity id, and its content. */
-type FeedPayload = { task_id: string; id: string; content: AgentActivityContent };
-
-function feedPayloadOf(payload: unknown): FeedPayload {
+function feedActivityOf(payload: unknown): FeedActivity {
   if (typeof payload !== "object" || payload === null) throw new Error("a feed row has no payload");
-  return payload as FeedPayload;
+  return payload as FeedActivity;
 }
 
 function todosOf(workflow: WorkflowRuntime, task: TaskRow | null): SpecTodos {
@@ -482,6 +509,7 @@ type IdleClockGate = { arrived: () => void; landed: Promise<void> };
  */
 export class SessionRoutingReplay {
   private readonly sent: SentMessage[] = [];
+  private readonly cutReplies: FeedActivity[] = [];
   private readonly gates: { next: IdleClockGate | null } = { next: null };
 
   private constructor(readonly world: WorkflowWorld) {}
@@ -529,17 +557,23 @@ export class SessionRoutingReplay {
     );
     const deliveries = this.world.workflow.deliveries.slice(deliveriesBefore);
     const rows = this.world.outboxRowsAfter(outboxBefore);
+    const feed = rows
+      .filter((row) => row.channel === "feed" && !NOT_FEED_ACTIVITIES.includes(row.kind))
+      .map((row) => feedActivityOf(row.payload));
+    if (isRestartMidPost(health) && step.action !== "closingReplyAlarmFires") {
+      this.cutReplies.push(
+        ...this.closingReplyAlarms()
+          .map((alarm) => alarm.payload.activity)
+          .filter((armed) => !this.cutReplies.some((cut) => cut.id === armed.id)),
+      );
+    }
     return {
       posts: deliveries.map(({ event, targets }) => {
         const kind = POST_KIND_OF[event.type];
         if (!kind) throw new Error(`the spec has no post kind for ${event.type}`);
         return { kind, targets: targets.map(targetName).toSorted() };
       }),
-      feed: byJob(
-        rows
-          .filter((row) => row.channel === "feed" && !NOT_FEED_ACTIVITIES.includes(row.kind))
-          .map((row) => this.feedPostOf(feedPayloadOf(row.payload))),
-      ),
+      feed: byJob(feed.map((activity) => this.feedPostOf(activity))),
       plans: rows
         .filter((row) => row.channel === "feed" && row.kind === "plan")
         .map((row) => issueOfKey(issueKeyOfTarget(row.target)))
@@ -554,6 +588,25 @@ export class SessionRoutingReplay {
       inFlight: held.length,
       seen: store.eventSeen(event.id),
     }));
+  }
+
+  /**
+   * The closing replies whose post an instance restart cut, in the order of the cuts, then the
+   * alarm of any other closing reply that is still armed.
+   */
+  cutClosingReplies(): SpecCutClosingReply[] {
+    const armed = this.closingReplyAlarms().map((alarm) => alarm.payload.activity);
+    const isArmed = (activity: FeedActivity) => armed.some((other) => other.id === activity.id);
+    const isCut = (activity: FeedActivity) => this.cutReplies.some((cut) => cut.id === activity.id);
+    return [
+      ...this.cutReplies.map((activity) => ({
+        ...this.feedPostOf(activity),
+        armed: isArmed(activity),
+      })),
+      ...armed
+        .filter((activity) => !isCut(activity))
+        .map((activity) => ({ ...this.feedPostOf(activity), armed: true })),
+    ];
   }
 
   /** The workflow as the spec sees it. */
@@ -635,12 +688,12 @@ export class SessionRoutingReplay {
     }
   }
 
-  private feedPostOf(payload: FeedPayload): SpecFeedPost {
+  private feedPostOf(activity: FeedActivity): SpecFeedPost {
     const { store } = this.world.workflow;
-    const task = store.requireTask(payload.task_id);
+    const task = store.requireTask(activity.task_id);
     const job = store.jobs().findIndex((row) => row.job_id === task.job_id);
-    const stored = this.world.tracker.stored.filter((activity) => activity.id === payload.id);
-    return { job, kind: feedKindOf(payload.content), stored: stored.length };
+    const stored = this.world.tracker.stored.filter((posted) => posted.id === activity.id);
+    return { job, kind: feedKindOf(activity.content), stored: stored.length };
   }
 
   private actionFor(step: Pick<TraceStep, "action" | "picks">): WorkflowAction {
@@ -732,6 +785,10 @@ export class SessionRoutingReplay {
         );
       case "workflowRestarts":
         return worldAction("the workflow restarts", (world) => this.restart(world));
+      case "closingReplyAlarmFires":
+        return worldAction(`the alarm of cut closing reply ${picks.reply} fires`, (world) =>
+          this.closingReplyAlarmFires(world, required(picks.reply)),
+        );
       case "researcherReportsTodos":
         return researcherReportsTodos(
           this.researcherIndexOf(required(picks.id)),
@@ -776,6 +833,25 @@ export class SessionRoutingReplay {
   private async restart(world: WorkflowWorld): Promise<void> {
     for (const message of this.sent) message.held = [];
     await world.restart();
+  }
+
+  /**
+   * The alarm of a closing reply that a restart cut posts it. The platform drops a one-shot alarm
+   * once its callback returns.
+   */
+  private async closingReplyAlarmFires(world: WorkflowWorld, replyIndex: number): Promise<void> {
+    const cut = this.cutReplies[replyIndex];
+    if (!cut) throw new Error(`no closing reply ${replyIndex} was cut`);
+    const alarm = this.closingReplyAlarms().find((armed) => armed.payload.activity.id === cut.id);
+    if (!alarm) throw new Error(`the cut closing reply ${replyIndex} has no alarm armed`);
+    await postClosingReply(world.workflow, alarm.payload);
+    await world.workflow.cancelAlarm(alarm.id);
+  }
+
+  private closingReplyAlarms(): { id: string; payload: ClosingReplyAlarm }[] {
+    return this.world.workflow
+      .alarmsFor("postClosingReply")
+      .map((alarm) => ({ id: alarm.id, payload: alarm.payload as ClosingReplyAlarm }));
   }
 
   /** Run `action`, and restart the workflow while its feed activity is out. */

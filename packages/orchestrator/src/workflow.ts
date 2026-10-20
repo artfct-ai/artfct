@@ -27,7 +27,7 @@ import type { LanguageModelV4 } from "@ai-sdk/provider";
 import type { JSONValue, ToolSet } from "ai";
 import { allowedMcpTools, connectOrchestratorMcp } from "./agent/tools/mcp";
 import { TranscriptStore, type WroteFrom } from "./agent/transcript/transcript";
-import type { AuthorFeed } from "./workflow/feed/feed";
+import { postClosingReply, type AuthorFeed, type ClosingReplyAlarm } from "./workflow/feed/feed";
 import {
   onTurnHeadsUp,
   onTurnTimeout,
@@ -65,7 +65,13 @@ import { onFlushBoard, type BoardAlarm } from "./workflow/board/board";
 import { postToRecipients, releaseChatThreads, showWorking } from "./workflow/posts";
 import { openWorkflowDb } from "./workflow/store/db";
 import { createWorkflow, eventRefusalOf, handleEvent } from "./workflow/inbound/events";
-import { armWorkflowEndAlarm, onIdle, resumeWorkflowEnd } from "./workflow/lifecycle";
+import {
+  armWorkflowEndAlarm,
+  onIdle,
+  resumeTaskEnd,
+  resumeWorkflowEnd,
+  type TaskEndAlarm,
+} from "./workflow/lifecycle";
 import type { ChecksAlarm } from "./workflow/refiner/checks-gate";
 import { recheckChecks } from "./workflow/refiner/checks-recheck";
 import { settleLostJudgeRuling } from "./workflow/refiner/loop";
@@ -282,6 +288,13 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
     );
   }
 
+  /** Alarm: post a closing reply whose post an instance restart cut. */
+  postClosingReply(alarm: ClosingReplyAlarm): Promise<void> {
+    return this.inSpan("alarm postClosingReply", alarm.activity.task_id, () =>
+      postClosingReply(this, alarm),
+    );
+  }
+
   settleLostJudgeRuling(alarm: TaskAlarm): Promise<void> {
     return this.inSpan("alarm settleLostJudgeRuling", alarm.task_id, () =>
       settleLostJudgeRuling(this, alarm),
@@ -306,6 +319,10 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
 
   resumeWorkflowEnd(): Promise<void> {
     return this.inSpan("alarm resumeWorkflowEnd", null, () => resumeWorkflowEnd(this));
+  }
+
+  resumeTaskEnd(alarm: TaskEndAlarm): Promise<void> {
+    return this.inSpan("alarm resumeTaskEnd", alarm.task_id, () => resumeTaskEnd(this, alarm));
   }
 
   resumeLostCalls(alarm: LostCallsAlarm): Promise<void> {

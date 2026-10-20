@@ -7,6 +7,7 @@
   "exports": {
     ".": "./src/index.ts",
     "./workflow": "./src/workflow.ts",
+    "./sandbox": "./src/sandbox/durable-object.ts",
     "./config/*": "./src/config/*.ts"
   },
   "scripts": {
@@ -30,7 +31,7 @@
     "@artfct-ai/acp": "workspace:*",
     "@artfct-ai/adapters": "workspace:*",
     "@artfct-ai/contracts": "workspace:*",
-    "@cloudflare/sandbox": "^0.12.11",
+    "@cloudflare/sandbox": "^1.0.1",
     "agents": "^0.28.1",
     "ai": "^7.0.145",
     "drizzle-orm": "^0.45.4",

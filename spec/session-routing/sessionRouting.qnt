@@ -193,6 +193,10 @@ module sessionRoutingTypes {
   /// Whether the last step landed a message the tracker delivered again after a restart, or
   /// dropped a second delivery of a message that landed.
   type DeliveryWitnesses = { aRedeliveredMessageLands: bool, aSecondDeliveryIsDropped: bool }
+
+  /// A closing reply whose post an instance restart cut: its job, its kind, how many activities
+  /// the tracker stored under its activity id, and whether its alarm is still armed.
+  type CutClosingReply = { job: int, kind: FeedKind, stored: int, armed: bool }
 }
 
 /// Routing in a workflow that starts from a chat thread or from a tracker session.
@@ -297,6 +301,9 @@ module sessionRouting {
 
   /// What the last step did with a delivery of a session message.
   var lastDelivery: DeliveryWitnesses
+
+  /// The closing replies whose post an instance restart cut, by the order of the cuts.
+  var cutClosingReplies: int -> CutClosingReply
 
   pure def isChatThread(target: Target): bool = match target {
     | ChatThread(_) => true
@@ -595,6 +602,7 @@ module sessionRouting {
     messagesAfter: int -> SessionMessage,
     toLandAfter: int -> MessageToLand,
     delivery: DeliveryWitnesses,
+    repliesAfter: int -> CutClosingReply,
   ): bool = all {
     routing' = after,
     lastStepKept' = rulesKeptBy(routing, after, facts),
@@ -602,10 +610,11 @@ module sessionRouting {
     sessionMessages' = messagesAfter,
     messagesToLand' = toLandAfter,
     lastDelivery' = delivery,
+    cutClosingReplies' = repliesAfter,
   }
 
   action move(after: Routing, facts: StepFacts): bool =
-    moveMessages(after, facts, sessionMessages, messagesToLand, NO_DELIVERY_WITNESSES)
+    moveMessages(after, facts, sessionMessages, messagesToLand, NO_DELIVERY_WITNESSES, cutClosingReplies)
 
   /// The session feeds live in memory, so a restart loses every kept message.
   pure def restartedRouting(state: Routing): Routing =
@@ -627,22 +636,32 @@ module sessionRouting {
       { ...waiting, failedByARestart: waiting.failedByARestart or failedByTheRestart(messages).contains(message) }
     })
 
-  /// The Durable Object restarts after the step's state is written.
-  action restartAfter(after: Routing, facts: StepFacts): bool =
+  /// The Durable Object restarts after the step's state is written. The alarms stay armed.
+  action restartAfter(after: Routing, facts: StepFacts, repliesAfter: int -> CutClosingReply): bool =
     moveMessages(
       restartedRouting(after),
       facts,
       messagesAfterRestart(sessionMessages),
       toLandAfterRestart(sessionMessages, messagesToLand),
       NO_DELIVERY_WITNESSES,
+      repliesAfter,
     )
 
+  /// The closing replies whose post a restart cut, with each closing reply of `feed` added. The
+  /// alarm a closing reply armed before its post stays armed.
+  pure def withCutClosingReplies(replies: int -> CutClosingReply, feed: List[FeedPost]): int -> CutClosingReply =
+    feed.foldl(replies, (cut, posted) =>
+      if (isClosing(posted.kind))
+        cut.put(cut.keys().size(), { job: posted.job, kind: posted.kind, stored: posted.stored, armed: true })
+      else cut)
+
   /// A step that posts one feed activity last. On a restart mid post, the step's state is
-  /// written, the Durable Object restarts, and nothing retries the activity.
+  /// written and the Durable Object restarts. The notifier does not retry the activity, and the
+  /// alarm of a closing reply stays armed.
   action moveWithFeed(after: Routing, facts: StepFacts): bool =
     if (RESTARTS_MID_POST.contains(facts.health)) all {
       facts.feed.length() == 1,
-      restartAfter(after, facts),
+      restartAfter(after, facts, withCutClosingReplies(cutClosingReplies, facts.feed)),
     }
     else move(after, facts)
 
@@ -653,6 +672,7 @@ module sessionRouting {
     sessionMessages' = Map(),
     messagesToLand' = Map(),
     lastDelivery' = NO_DELIVERY_WITNESSES,
+    cutClosingReplies' = Map(),
   }
 
   /// `settleAndResumeAuthor` and the feed closing after it. The next queued prompt goes out, and
@@ -870,6 +890,7 @@ module sessionRouting {
         sessionMessages.put(message, { inFlight: 1, owed: false, landed: 0 }),
         messagesToLand.put(message, { issue: issue, text: text, failedByARestart: false }),
         NO_DELIVERY_WITNESSES,
+        cutClosingReplies,
       ),
     }
   }
@@ -885,6 +906,7 @@ module sessionRouting {
       sessionMessages.put(message, { ...sent, landed: sent.landed + 1 }),
       messagesToLand.keys().exclude(Set(message)).mapBy(other => messagesToLand.get(other)),
       { ...NO_DELIVERY_WITNESSES, aRedeliveredMessageLands: toLand.failedByARestart },
+      cutClosingReplies,
     )
   }
 
@@ -898,11 +920,11 @@ module sessionRouting {
     all {
       sent.owed or sent.inFlight > 0,
       if (sent.landed > 0)
-        moveMessages(routing, NO_FACTS, sessionMessages.put(message, delivered), messagesToLand, { ...NO_DELIVERY_WITNESSES, aSecondDeliveryIsDropped: true })
+        moveMessages(routing, NO_FACTS, sessionMessages.put(message, delivered), messagesToLand, { ...NO_DELIVERY_WITNESSES, aSecondDeliveryIsDropped: true }, cutClosingReplies)
       else if (routing.ended)
         landMessage(message, delivered)
       else
-        moveMessages(routing, NO_FACTS, sessionMessages.put(message, { ...delivered, inFlight: sent.inFlight + 1 }), messagesToLand, NO_DELIVERY_WITNESSES),
+        moveMessages(routing, NO_FACTS, sessionMessages.put(message, { ...delivered, inFlight: sent.inFlight + 1 }), messagesToLand, NO_DELIVERY_WITNESSES, cutClosingReplies),
     }
   }
 
@@ -922,6 +944,7 @@ module sessionRouting {
           sessionMessages.put(message, delivered),
           messagesToLand,
           { ...NO_DELIVERY_WITNESSES, aSecondDeliveryIsDropped: true },
+          cutClosingReplies,
         )
       else
         landMessage(message, delivered),
@@ -1187,7 +1210,31 @@ module sessionRouting {
   }
 
   /// The Durable Object restarts between steps.
-  action workflowRestarts: bool = restartAfter(routing, NO_FACTS)
+  action workflowRestarts: bool = restartAfter(routing, NO_FACTS, cutClosingReplies)
+
+  /// The alarm of a closing reply whose post a restart cut fires, and posts the reply again under
+  /// its activity id, so the tracker stores it once. The alarm is done once the post returns. A
+  /// restart while the post is out keeps the alarm armed, and it fires again.
+  action closingReplyAlarmFires: bool = {
+    nondet reply = cutClosingReplies.keys().oneOf()
+    nondet health = Set(TrackerUp).union(RESTARTS_MID_POST).oneOf()
+    val cut = cutClosingReplies.get(reply)
+    val posted = { ...cut, stored: if (cut.stored > 0) cut.stored else storedAcrossAttempts(health) }
+    val facts = { ...NO_FACTS, feed: List({ job: cut.job, kind: cut.kind, stored: posted.stored }), health: health }
+    all {
+      cut.armed,
+      if (RESTARTS_MID_POST.contains(health)) restartAfter(routing, facts, cutClosingReplies.set(reply, posted))
+      else
+        moveMessages(
+          routing,
+          facts,
+          sessionMessages,
+          messagesToLand,
+          NO_DELIVERY_WITNESSES,
+          cutClosingReplies.set(reply, { ...posted, armed: false }),
+        ),
+    }
+  }
 
   /// A researcher reports its todo list.
   action researcherReportsTodos: bool = {
@@ -1351,6 +1398,7 @@ module sessionRouting {
     personStops,
     personStopsAModelCall,
     theAgentTurnEndsOrTheInstanceRestarts,
+    closingReplyAlarmFires,
     researcherReportsTodos,
     researcherHandsOver,
     researcherLeavesNoPayload,
@@ -1465,6 +1513,19 @@ module sessionRouting {
     }
   })
 
+  /// Every closing reply whose post an instance restart cut is stored once, unless its alarm is
+  /// still armed.
+  val closingReplyPostsOnceAfterAnInstanceRestart: bool = cutClosingReplies.keys().forall(reply => {
+    val cut = cutClosingReplies.get(reply)
+    and {
+      cut.stored <= 1,
+      not(cut.armed) implies cut.stored == 1,
+    }
+  })
+
+  /// The closing replies whose post an instance restart cut, which model checking bounds.
+  val closingRepliesCut: int = cutClosingReplies.keys().size()
+
   /// The session messages sent, which model checking bounds.
   val sessionMessagesSent: int = sessionMessages.keys().size()
 
@@ -1573,13 +1634,21 @@ module sessionRouting {
   /// Witness for `feedActivityPostsOnce`: the Durable Object restarts while a tool call's action is out.
   val aRestartCutsAToolCallPost: bool = RESTARTS_MID_POST.contains(lastStep.health) and feedHas(lastStep, ActionActivity)
 
-  /// Witness for `sessionFeedEndsWhenItsAuthorIdles`: the Durable Object restarts before the tracker stores a closing reply.
-  val aRestartLosesAClosingReply: bool =
+  /// Witness for `closingReplyPostsOnceAfterAnInstanceRestart`: the Durable Object restarts before the tracker stores a closing reply.
+  val aRestartCutsAClosingReplyBeforeItIsStored: bool =
     lastStep.health == RestartsBeforeStoring and lastStep.turnEnded.size() > 0 and lastStep.feed.length() > 0
 
-  /// Witness for `sessionFeedEndsWhenItsAuthorIdles`: the Durable Object restarts after the tracker stores a closing reply.
+  /// Witness for `closingReplyPostsOnceAfterAnInstanceRestart`: the Durable Object restarts after the tracker stores a closing reply.
   val aRestartFollowsAStoredClosingReply: bool =
     lastStep.health == RestartsAfterStoring and lastStep.turnEnded.size() > 0 and lastStep.feed.length() > 0
+
+  /// Witness for `closingReplyPostsOnceAfterAnInstanceRestart`: the alarm of a closing reply that a restart cut posts it.
+  val aCutClosingReplyPostsOnItsAlarm: bool =
+    cutClosingReplies.keys().exists(reply => not(cutClosingReplies.get(reply).armed))
+
+  /// Witness for `closingReplyPostsOnceAfterAnInstanceRestart`: the Durable Object restarts while the alarm of a closing reply posts it.
+  val aRestartCutsTheAlarmOfAClosingReply: bool =
+    RESTARTS_MID_POST.contains(lastStep.health) and lastStep.turnEnded.size() == 0 and lastStep.feed.select(posted => isClosing(posted.kind)).length() > 0
 
   /// Witness for `feedActivityPostsOnce`: a tool call's action reaches the job session.
   val aToolCallReachesTheFeed: bool = feedHas(lastStep, ActionActivity)

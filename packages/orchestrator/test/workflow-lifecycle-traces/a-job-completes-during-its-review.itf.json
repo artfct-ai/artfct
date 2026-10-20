@@ -59,7 +59,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -111,7 +110,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -146,7 +144,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -166,7 +169,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -209,7 +214,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -261,7 +265,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -296,7 +299,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -316,7 +324,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -359,7 +369,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -411,7 +420,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -446,7 +454,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -466,7 +479,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -509,7 +524,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -561,7 +575,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -596,7 +609,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -616,7 +634,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -659,7 +679,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -711,7 +730,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -746,7 +764,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -766,7 +789,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -809,7 +834,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -861,7 +885,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -896,7 +919,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -916,7 +944,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -959,7 +989,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -1011,7 +1040,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -1046,7 +1074,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -1066,7 +1099,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -1109,7 +1144,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -1161,7 +1195,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -1196,7 +1229,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -1216,7 +1254,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -1259,7 +1299,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -1311,7 +1350,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -1346,7 +1384,12 @@
         "theSleepMessagePosts": true,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -1366,7 +1409,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -1409,7 +1454,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -1461,7 +1505,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -1496,7 +1539,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -1516,7 +1564,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -1559,7 +1609,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -1611,7 +1660,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -1646,7 +1694,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -1687,7 +1740,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -1730,7 +1785,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -1782,7 +1836,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -1817,7 +1870,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -1878,7 +1936,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -1921,7 +1981,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -1973,7 +2032,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -2008,7 +2066,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -2075,7 +2138,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -2118,7 +2183,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -2170,7 +2234,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -2205,7 +2268,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -2272,7 +2340,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -2315,7 +2385,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -2367,7 +2436,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -2402,7 +2470,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -2463,7 +2536,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -2506,7 +2581,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -2558,7 +2632,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -2593,7 +2666,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -2654,7 +2732,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -2697,7 +2777,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -2749,7 +2828,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -2784,7 +2862,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -2851,7 +2934,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -2894,7 +2979,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -2946,7 +3030,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -2981,7 +3064,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -3048,7 +3136,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -3091,7 +3181,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -3143,7 +3232,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -3178,7 +3266,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -3245,7 +3338,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -3288,7 +3383,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -3340,7 +3434,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -3375,7 +3468,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -3448,7 +3546,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -3491,7 +3591,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -3543,7 +3642,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -3578,7 +3676,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -3651,7 +3754,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -3694,7 +3799,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -3746,7 +3850,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -3781,7 +3884,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": true,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -3854,7 +3962,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -3897,7 +4007,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -3949,7 +4058,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -3984,7 +4092,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -4057,7 +4170,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -4100,7 +4215,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -4152,7 +4266,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -4187,7 +4300,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -4260,7 +4378,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     },
     {
@@ -4303,7 +4423,6 @@
         "anAcceptedArtifactNeverMovesBack": true,
         "anUndeclaredPlanChangesNothing": true,
         "artifactStatusMovesAreLegal": true,
-        "eachFailedTaskPostsItsFailureOnce": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
         "issuesMoveOnlyAtAStartOrADoneEnd": true,
@@ -4355,7 +4474,6 @@
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
-        "aRestartDropsAFailurePost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aReviseTurnIsCut": false,
@@ -4390,7 +4508,12 @@
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
         "aRestartCutsTheEndPost": false,
-        "aResumedEndFindsItsPostReturned": false
+        "aResumedEndFindsItsPostReturned": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
@@ -4451,7 +4574,9 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
-        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } }
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "destroyedSandboxes": { "#set": [] }
       }
     }
   ]

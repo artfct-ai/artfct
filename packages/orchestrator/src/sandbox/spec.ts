@@ -4,6 +4,9 @@ import { SANDBOX_HOME, type HarnessFile } from "@artfct-ai/adapters/harness/type
 /** How much compute a sandbox has. `small` has 2 vCPU and `large` has 4. */
 export type SandboxSize = "small" | "large";
 
+/** The longest inactivity timeout a container takes: six hours. */
+export const CONTAINER_MAX_INACTIVITY_MS = 21_600_000;
+
 /** One sandbox as a provider addresses it. */
 export type SandboxRef = { id: string; size: SandboxSize };
 

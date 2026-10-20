@@ -29,11 +29,11 @@
     "aTaskWithoutAnEarlierPromptGetsTheTaskPrompt"
   ],
   "mainMinutes": {
-    "harnessDefaultEffort": 1.3,
-    "stageAsksForEffort": 1.3,
-    "agentPausesRunningTurns": 1.3,
-    "interruptionsAfterTheFirstPrompt": 1.3,
-    "jobOnABranch": 1.3
+    "harnessDefaultEffort": 1.0,
+    "stageAsksForEffort": 1.0,
+    "agentPausesRunningTurns": 1.0,
+    "interruptionsAfterTheFirstPrompt": 1.1,
+    "jobOnABranch": 1.0
   },
   "witnesses": {
     "harnessDefaultEffort": [
@@ -176,7 +176,9 @@
       "aResumePromptIsChosen",
       "aStaleOutcomeCheckIsDropped",
       "theAgentWakesForAnIdleHarness",
-      "aHarnessExitRestartsAnIdleAuthor"
+      "aHarnessExitRestartsAnIdleAuthor",
+      "anEmptyTurnStopsEarly",
+      "theAgentWakesAfterAnEmptyTurn"
     ],
     "jobOnABranch": [
       "theProvisionAlarmFires",
