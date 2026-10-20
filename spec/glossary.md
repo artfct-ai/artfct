@@ -54,7 +54,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | Term | Meaning | Code name | Do not say |
 |---|---|---|---|
 | artifact | A pull request, page, issue, or tracker project. A job works from one and produces one. | `ArtifactRef`, `artifacts` row | |
-| input artifact | The artifact a task works from. | `jobs.issue_id` when the input is an issue, `jobs.input_ref` when the input is an artifact no job of the workflow produced | |
+| input artifact | The artifact a task works from. | `JobInput`, `jobs.input_kind` | |
 | output artifact | The artifact a task produces. The refiners run on it, and the handover delivers it. | `artifacts` row | |
 | revision | The ID that the code host or document host gives the current content of an artifact: the head commit of a pull request or the revision of a page. It is unknown when the lookup fails, and always unknown for an issue. | `ReviewSupport.revision` | version |
 | handover | The artifact reaches the humans. A changed revision is handed over again. | `markArtifactReady`, `delivered_to_humans_at` | review loop closed |
@@ -140,7 +140,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 
 | Term | Meaning | Code name | Do not say |
 |---|---|---|---|
-| inbox | The events that wait for the next agent turn. | `agent_inbox` | |
+| inbox | The events that wait for the next agent turn. A row a person wrote keeps their words as they wrote them. | `agent_inbox`, `agent_inbox.body` | |
 | wake | How strongly an event asks for an agent turn. | `Wake` | |
 | context | Everything one model request of the orchestrator agent holds: the system prompt, the tool set, and the transcript. | arguments of `generateSteps` | context window, history |
 | system prompt | The part of the context that states the role, the stages, the rule blocks, and the current state. Rebuilt for each model request. Never stored. | `systemPrompt` | |

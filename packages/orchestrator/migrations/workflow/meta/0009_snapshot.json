@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "98302972-9e1e-402c-ba2e-658be3b2775d",
+  "id": "d07c2f67-14d1-4aa5-9b61-afdeac867836",
   "prevId": "1134bc7e-e55c-4f7e-b556-af62169936df",
   "tables": {
     "agent_inbox": {
@@ -102,6 +102,13 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true,
+          "autoincrement": false
+        },
+        "ref_key": {
+          "name": "ref_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
           "autoincrement": false
         },
         "status": {
@@ -294,6 +301,13 @@
         },
         "input_key": {
           "name": "input_key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "input_kind": {
+          "name": "input_kind",
           "type": "text",
           "primaryKey": false,
           "notNull": false,
@@ -553,47 +567,8 @@
           "notNull": true,
           "autoincrement": false
         },
-        "instruction": {
-          "name": "instruction",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": 0
-        },
         "created_at": {
           "name": "created_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
-      "checkConstraints": {}
-    },
-    "prompt_steers": {
-      "name": "prompt_steers",
-      "columns": {
-        "prompt_id": {
-          "name": "prompt_id",
-          "type": "integer",
-          "primaryKey": true,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "rpc_id": {
-          "name": "rpc_id",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
-        "status": {
-          "name": "status",
           "type": "text",
           "primaryKey": false,
           "notNull": true,

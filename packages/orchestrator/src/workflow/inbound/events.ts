@@ -70,7 +70,7 @@ export async function createWorkflow(
   { workflowId, event, endedWorkflowId }: WorkflowStart,
 ): Promise<RpcAck> {
   if (workflow.state.created_at) return handleEvent(workflow, event);
-  if (!workflow.store.markEventSeen(event)) return DUPLICATE;
+  if (!workflow.store.markEventSeen(event.id)) return DUPLICATE;
   const origin = event.reply_to ?? null;
   workflow.patchState({
     workflow_id: workflowId,
@@ -88,7 +88,7 @@ export async function createWorkflow(
   await workflow.tellAgent(
     eventMessage(event, { first: true, job: null, artifact: null, notes }),
     "message",
-    { chat_message: chatMessageOf(event) },
+    { body: event.text.trim(), chat_message: chatMessageOf(event) },
   );
   return { ok: true, workflow_id: workflowId };
 }
@@ -133,7 +133,7 @@ export async function handleEvent(workflow: WorkflowRuntime, event: InboundEvent
     const instructed = instructedSessionOf(workflow, event);
     if (instructed) await postReceipt(workflow, instructed);
   }
-  if (!routesBeforeItIsSeen(workflow, event) && !workflow.store.markEventSeen(event)) {
+  if (!routesBeforeItIsSeen(workflow, event) && !workflow.store.markEventSeen(event.id)) {
     return DUPLICATE;
   }
   if (isWorkflowFinished(workflow.state.status)) {
@@ -142,7 +142,7 @@ export async function handleEvent(workflow: WorkflowRuntime, event: InboundEvent
   }
   const postedBefore = workflow.store.postedCount();
   const applied = await applyEvent(workflow, event);
-  workflow.store.markEventSeen(event);
+  workflow.store.markEventSeen(event.id);
   if (applied !== "handled") await tellAgentAbout(workflow, event, applied);
   const wake = applied === "handled" ? "none" : applied.wake;
   if (wake === "none") await releaseIfSilent(workflow, event, postedBefore);
@@ -167,7 +167,9 @@ async function tellAgentAbout(
       notes: applied.notes,
     }),
     applied.wake,
-    event.actor ? { reply_to: event.reply_to, chat_message: chatMessageOf(event) } : undefined,
+    event.actor
+      ? { body: told.text.trim(), reply_to: event.reply_to, chat_message: chatMessageOf(event) }
+      : undefined,
   );
 }
 

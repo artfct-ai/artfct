@@ -137,7 +137,7 @@ function decisionsUsage(model: string, usage: DecisionsResponse["usage"]): Decis
     model,
     input_tokens: usage.inputTokens,
     output_tokens: usage.outputTokens,
-    cost_usd: usage.cost ?? 0,
+    cost_usd: usage.cost ?? null,
   };
 }
 

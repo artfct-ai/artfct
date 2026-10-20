@@ -2,6 +2,7 @@ import { HARNESSES } from "@artfct-ai/adapters/harness/types";
 import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { ArtifactKind, ArtifactStatus, TaskStatus } from "@artfct-ai/contracts/types";
 import type { ArtifactRef, Finding } from "../../artifact/types";
+import type { JobInput } from "../lifecycle";
 import type { TaskRole } from "../task/events";
 import { integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import type { BoardChannel, TodoSnapshot } from "../board/types";
@@ -30,11 +31,10 @@ export const jobs = sqliteTable("jobs", {
   /** The tracker issue the job works from: its id (for event routing) and identifier (for humans). */
   issue_id: text(),
   issue_key: text(),
-  /**
-   * What identifies the input artifact of the job. `jobInputKey` writes it. Null on a job written
-   * before the column existed.
-   */
-  input_key: text(),
+  /** Which arm of `JobInput` the job works from. The arm's columns are set only on its jobs. */
+  input_kind: text().$type<JobInput["kind"]>().notNull(),
+  /** What identifies the input artifact of the job. `jobInputKey` writes it. */
+  input_key: text().notNull(),
   /** The job whose artifact this job works from. Null when the job works from anything else. */
   preceding_job_id: text(),
   /**
@@ -62,9 +62,8 @@ export const jobs = sqliteTable("jobs", {
 /** One execution of a role in a job. The sandbox id is the task id. */
 export const tasks = sqliteTable("tasks", {
   task_id: text().primaryKey(),
-  job_id: text()
-    .notNull()
-    .references(() => jobs.job_id),
+  /** The job the task belongs to. */
+  job_id: text().notNull(),
   /** What the task is for. An `author` produces the artifact of its job. A refiner run runs one refiner of its stage. */
   role: text().$type<TaskRole>().notNull().default("author"),
   /** The position in the stage's refiner list this task runs. Null on an author task. */
@@ -73,8 +72,8 @@ export const tasks = sqliteTable("tasks", {
   status: text().$type<TaskStatus>().notNull(),
   /** When a person paused the task. Null while it is not paused. The status stays as it was. */
   paused_at: text(),
-  /** What the harness reported over ACP. Zero means no figure arrived yet, so the cost is unknown. */
-  cost_usd: real().notNull().default(0),
+  /** What the harness or the model provider reported. Null until a figure arrives. */
+  cost_usd: real(),
   started_at: text().notNull(),
   summary: text().notNull().default(""),
   /** The id of the model turn in flight of a model-call task. Null while it does not run one. */
@@ -85,9 +84,8 @@ export const tasks = sqliteTable("tasks", {
 
 /** The review a findings reviewer run filed on its artifact. One per run that filed one. */
 export const reviews = sqliteTable("reviews", {
-  task_id: text()
-    .primaryKey()
-    .references(() => tasks.task_id),
+  /** The findings reviewer run that filed the review. */
+  task_id: text().primaryKey(),
   /** The revision the review read. Null when the host could not say. */
   revision: text(),
   blocking: integer({ mode: "boolean" }).notNull(),
@@ -101,9 +99,8 @@ export const reviews = sqliteTable("reviews", {
  * asked a person yet.
  */
 export const rulings = sqliteTable("rulings", {
-  task_id: text()
-    .primaryKey()
-    .references(() => tasks.task_id),
+  /** The judge run the ruling is on. */
+  task_id: text().primaryKey(),
   status: text().$type<RulingStatus>().notNull(),
   /** The revision the judge ruled on. Null while a person is asked, or when the host could not say. */
   revision: text(),
@@ -159,7 +156,8 @@ export const modelUsage = sqliteTable("model_usage", {
   model: text().notNull(),
   input_tokens: integer().notNull().default(0),
   output_tokens: integer().notNull().default(0),
-  cost_usd: real().notNull().default(0),
+  /** What the provider reported. Null when it did not report a cost. */
+  cost_usd: real(),
 });
 
 /**
@@ -210,6 +208,8 @@ export const artifacts = sqliteTable("artifacts", {
   kind: text().$type<ArtifactKind>().notNull(),
   external_url: text().notNull(),
   ref: text({ mode: "json" }).$type<ArtifactRef>().notNull(),
+  /** What identifies the artifact. `artifactRefKey` writes it, and lookups by ref read it. */
+  ref_key: text().notNull(),
   status: text().$type<ArtifactStatus>().notNull().default("drafted"),
   /**
    * The refiner run the artifact is on, or the last one that ran. Kept after a refiner ends, so
@@ -275,7 +275,6 @@ export const outbox = sqliteTable("outbox", {
 export const events = sqliteTable("events", {
   id: text().primaryKey(),
   at: text().notNull(),
-  kind: text().notNull(),
 });
 
 /** Text for the orchestrator agent that arrived since its last turn. */
@@ -283,6 +282,8 @@ export const agentInbox = sqliteTable("agent_inbox", {
   id: integer().primaryKey({ autoIncrement: true }),
   at: text().notNull(),
   text: text().notNull(),
+  /** The words the person wrote, as they wrote them. Null on a row no person wrote. */
+  body: text(),
   wake: text().$type<Wake>().notNull().default("none"),
   /** Where the person who wrote the text waits for the answer. Null for anything else. */
   reply_to: text({ mode: "json" }).$type<ReplyTarget>(),

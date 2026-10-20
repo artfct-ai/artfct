@@ -8,7 +8,9 @@ import m0005 from './0005_brainy_stranger.sql';
 import m0006 from './0006_foamy_war_machine.sql';
 import m0007 from './0007_perpetual_celestials.sql';
 import m0008 from './0008_slow_the_order.sql';
-import m0009 from './0009_sturdy_landau.sql';
+import m0009 from './0009_tan_skrulls.sql';
+import m0010 from './0010_warm_nebula.sql';
+import m0011 from './0011_bitter_callisto.sql';
 
   export default {
     journal,
@@ -22,7 +24,9 @@ m0005,
 m0006,
 m0007,
 m0008,
-m0009
+m0009,
+m0010,
+m0011
     }
   }
   
