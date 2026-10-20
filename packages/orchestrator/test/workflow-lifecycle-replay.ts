@@ -1281,6 +1281,7 @@ export class WorkflowLifecycleReplay {
       }
       case "taskStalls":
       case "aRestartedTaskStalls":
+      case "aTaskOutOfRestartsStalls":
       case "anAuthorAfterResearchStalls":
         return worldAction(`task of job ${picks.id} stalls`, (world) =>
           this.taskStalls(world, required(picks.id)),

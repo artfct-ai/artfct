@@ -11,6 +11,7 @@ import type { ChecksAlarm } from "../src/workflow/refiner/checks-gate";
 import { recheckChecks } from "../src/workflow/refiner/checks-recheck";
 import { failTask, onIdle, restartOrFailTask } from "../src/workflow/lifecycle";
 import { isTaskFinished } from "../src/workflow/store/state";
+import type { TaskRow } from "../src/workflow/store/tasks";
 import type { AuthorTurnOutcome } from "../src/workflow/task/author-turn";
 import { onBridgeLost } from "../src/workflow/task/harness/bridge";
 import { sendHeldCommentsOnRevisionRequest } from "../src/workflow/refiner/held-comments";
@@ -79,7 +80,8 @@ type Closing = "reports_work" | "gives_up";
 
 const GAVE_UP_TEXT = "I could not check out the branch, so I did not do the work.";
 const REPORTS_WORK_ANSWERS = { for_author: 0, beyond_author: 0, rejects: 0 };
-const GAVE_UP_ANSWERS = { ...REPORTS_WORK_ANSWERS, gave_up: 0.9 };
+/** What the decisions model says of the turn text of a run that gave up. */
+export const GAVE_UP_ANSWERS = { ...REPORTS_WORK_ANSWERS, gave_up: 0.9 };
 
 /** How the host revision stands when an author turn ends. */
 export type RevisionAtTurnEnd = "changed" | "same" | "unreadable";
@@ -471,6 +473,22 @@ export async function endRefinerRunTurn(
   const run = world.refinerRunOf(author);
   const bridge = run ? await world.bridgeWithRunningTurn(run.task_id) : null;
   if (!run || !bridge) return;
+  await closeRefinerRunTurn(world, { author, run, bridge }, end, index);
+  await bridge.endTurn(end.stopReason);
+  world.pageHost.commenting = "takes";
+}
+
+/**
+ * The running turn of the refiner run `run` of `author` leaves what `end` says, and the decisions
+ * model and the page host get ready to answer its turn end. The turn has not ended yet.
+ */
+export async function closeRefinerRunTurn(
+  world: WorkflowWorld,
+  turn: { author: WorldAuthor; run: TaskRow; bridge: FakeBridge },
+  end: RefinerRunEnd,
+  index: number,
+): Promise<void> {
+  const { author, run, bridge } = turn;
   const mode = world.reviewerEntryOf(run)?.mode ?? "polisher";
   const refinesPage = author.kind === "page" && (mode === "findings" || mode === "judge");
   if (refinesPage) world.pageHost.commenting = end.pageCommenting;
@@ -481,8 +499,6 @@ export async function endRefinerRunTurn(
     world.answerDecisionsWith(GAVE_UP_ANSWERS);
     await bridge.say(GAVE_UP_TEXT);
   }
-  await bridge.endTurn(end.stopReason);
-  world.pageHost.commenting = "takes";
 }
 
 async function fileFindingsReview(

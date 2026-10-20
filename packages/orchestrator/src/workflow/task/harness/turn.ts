@@ -6,7 +6,12 @@ import { DIGEST_TURN_TEXT_PROMPT } from "../../../prompts/summarization-prompt";
 import { boardTask, flushBoards, markBoardDirty } from "../../board/board";
 import { openEntryCount } from "../../board/render";
 import type { DigestInput } from "../../board/types";
-import { heldForReview, onReviewerFinished, settleRefinersForAuthor } from "../../refiner/loop";
+import {
+  heldForReview,
+  onReviewerFinished,
+  settleRefinersForAuthor,
+  taskQuiet,
+} from "../../refiner/loop";
 import { settlePolisherTurn } from "../../refiner/polish";
 import { clipHead, collapse, lastBudget, taskDigest } from "./digest";
 import { restartOrFailTask, startAuthorAfterResearch } from "../../lifecycle";
@@ -187,7 +192,8 @@ async function endResearcherTurn(
 /**
  * A turn finished. Keep a summary, find the artifact, flush the board, and send the next
  * queued prompt. The model wakes with a digest for a result or an idle harness. An author turn
- * that ended on its own restarts a blocked author, and an author that stopped early stalled.
+ * that ended on its own restarts a blocked author, and an author that stopped early stalled. A
+ * reviewer run keeps its turn text, so a new instance can end a turn that a restart cut.
  */
 export async function onTurnEnd(
   workflow: WorkflowRuntime,
@@ -198,7 +204,7 @@ export async function onTurnEnd(
   const turnText = workflow.store.requireSandbox(task.task_id).turn_text;
   workflow.store.updateSandbox(task.task_id, {
     prompt_in_flight: 0,
-    turn_text: "",
+    turn_text: task.role === "reviewer" ? turnText : "",
     stopped_early: 0,
   });
   workflow.store.updateTask(task.task_id, { summary: turnText.slice(-SUMMARY_CHARS) });
@@ -322,6 +328,45 @@ export async function settleIdleAuthor(
   if (task.status !== "working" || sandbox.prompt_in_flight === 1) return;
   await reopenChangedArtifact(workflow, task.job_id);
   await settleAndResumeAuthor(workflow, task.task_id);
+}
+
+/**
+ * Arm the turn end alarm of every refiner run whose turn ended without its turn end done. A
+ * restart of the Durable Object during the turn end of a refiner run drops the rest of it.
+ */
+export async function resumeRefinerTurnEnds(workflow: WorkflowRuntime): Promise<void> {
+  for (const run of workflow.store.tasks()) {
+    const sandbox = workflow.store.sandbox(run.task_id);
+    if (!sandbox || !refinerTurnEndWaits(workflow, run)) continue;
+    const alarm: GenerationAlarm = { task_id: run.task_id, generation: sandbox.generation };
+    await workflow.scheduleAlarmOnce("resumeRefinerTurnEnd", alarm);
+  }
+}
+
+/**
+ * Alarm: end the turn of a refiner run of the alarm's generation whose turn end a restart cut. A
+ * polisher that waits on its checks looks the same, so a polisher settles through the checks gate
+ * again, as a recheck does.
+ */
+export async function resumeRefinerTurnEnd(
+  workflow: WorkflowRuntime,
+  alarm: GenerationAlarm,
+): Promise<void> {
+  const run = workflow.store.task(alarm.task_id);
+  const sandbox = workflow.store.sandbox(alarm.task_id);
+  if (!run || !sandbox || sandbox.generation !== alarm.generation) return;
+  if (!refinerTurnEndWaits(workflow, run)) return;
+  workflow.log(run.task_id, "turn end resumed: a new instance lost it");
+  if (run.role === "polisher") return settlePolisherTurn(workflow, run);
+  await endRefinerTurn(workflow, run, "end_turn", sandbox.turn_text);
+}
+
+/** True for a working reviewer or polisher run that had a prompt and has none in flight or queued. */
+export function refinerTurnEndWaits(workflow: WorkflowRuntime, run: TaskRow): boolean {
+  if (run.role !== "reviewer" && run.role !== "polisher") return false;
+  if (run.status !== "working") return false;
+  const sandbox = workflow.store.sandbox(run.task_id);
+  return sandbox?.first_prompt_at != null && taskQuiet(workflow, run);
 }
 
 /**

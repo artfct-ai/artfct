@@ -110,6 +110,16 @@ export async function handOverArtifactAt(
   await announceHandover(workflow, { artifact, ...handover });
 }
 
+/** How long a handover's alarm waits to post it again. Longer than the notifier's attempts take. */
+const HANDOVER_POST_ALARM_SECONDS = 60;
+
+/** The payload of a handover's alarm: the job whose artifact the humans got, and how it closed. */
+export type HandoverPostAlarm = { job_id: string; close: ArtifactClose };
+
+/**
+ * Record the handover, then post it. An alarm armed before the post posts it again when an
+ * instance restart cuts it. A newer handover of the job cancels the alarm of an older one.
+ */
 async function announceHandover(
   workflow: WorkflowRuntime,
   handover: { artifact: ArtifactRow; close: ArtifactClose; revision: string | null },
@@ -118,15 +128,42 @@ async function announceHandover(
   const jobId = artifact.job_id;
   workflow.log(null, `the artifact of job ${jobId} is handed over`);
   workflow.store.recordHandover(jobId, revision);
-  await markBoardDirty(workflow, jobId);
+  await workflow.cancelAlarmsWhere(
+    "postHandover",
+    (payload) => (payload as HandoverPostAlarm).job_id === jobId,
+  );
+  const post: HandoverPostAlarm = { job_id: jobId, close };
+  const alarm = await workflow.scheduleAlarm(HANDOVER_POST_ALARM_SECONDS, "postHandover", post);
+  await postTheHandover(workflow, artifact, close);
+  await workflow.cancelAlarm(alarm);
+  await armIdle(workflow);
+}
+
+/** Alarm: post a handover that an instance restart cut, while the humans have the artifact. */
+export async function postHandover(
+  workflow: WorkflowRuntime,
+  alarm: HandoverPostAlarm,
+): Promise<void> {
+  const artifact = workflow.store.artifact(alarm.job_id);
+  if (artifact?.status !== "ready") return;
+  workflow.log(null, `the handover of job ${alarm.job_id} is posted again`);
+  await postTheHandover(workflow, artifact, alarm.close);
+  await armIdle(workflow);
+}
+
+async function postTheHandover(
+  workflow: WorkflowRuntime,
+  artifact: ArtifactRow,
+  close: ArtifactClose,
+): Promise<void> {
+  await markBoardDirty(workflow, artifact.job_id);
   await workflow.post({
     type: "artifact_ready",
-    job_id: jobId,
+    job_id: artifact.job_id,
     artifact_kind: artifact.kind,
     url: artifact.external_url,
     text: await handoverText(workflow, artifact, close),
   });
-  await armIdle(workflow);
 }
 
 /**

@@ -490,13 +490,17 @@ export async function applyJudgeRuling(
   });
   const { reason } = input;
   const signedReason = `${reason}\n\n${reviewerSignature(workflow, entry, reviewer)}`;
-  if (support.postRejection) await support.postRejection(artifact.ref, signedReason);
-  else await workflow.post({ type: "info", text: signedReason });
-  await sendRejectionToAuthor(workflow, author, artifact, {
-    entry: entry.name,
-    reason,
-    review: reviewAsksTheAuthor(review) ? review : null,
-  });
+  // Both start before either awaits, so the prompt is stored before a restart can cut the post.
+  await Promise.all([
+    support.postRejection
+      ? support.postRejection(artifact.ref, signedReason)
+      : workflow.post({ type: "info", text: signedReason }),
+    sendRejectionToAuthor(workflow, author, artifact, {
+      entry: entry.name,
+      reason,
+      review: reviewAsksTheAuthor(review) ? review : null,
+    }),
+  ]);
   return `The author ${author.task_id} has the rejection. The ${entry.name} judge has ruled, so the next entry runs when its turn ends.`;
 }
 

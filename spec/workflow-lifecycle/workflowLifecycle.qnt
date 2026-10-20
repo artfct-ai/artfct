@@ -2140,6 +2140,13 @@ module workflowLifecycle {
     taskStalls,
   }
 
+  /// A task that used up its restarts stalls again and fails. It is a copy of `taskStalls` that a
+  /// step picks as often as any other kind of step, so a failure post goes out more often.
+  action aTaskOutOfRestartsStalls: bool = all {
+    jobIds(workflow).exists(id => taskStuck(workflow, id) and jobTask(workflow, id).restarts >= MAX_RESTARTS),
+    taskStalls,
+  }
+
   /// The harness turn of an author after research stalls. It is a copy of `taskStalls` that a
   /// step picks as often as any other kind of step, so the author runs out of restarts and fails.
   action anAuthorAfterResearchStalls: bool = all {
@@ -2743,6 +2750,7 @@ module workflowLifecycle {
     theRestartAlarmFires,
     anAlarmOfARestartFires,
     aRestartedTaskStalls,
+    aTaskOutOfRestartsStalls,
     theSandboxOfAnEndingTaskCloses,
     agentStartsJobOnADonePage,
     theAgentPlansFewerSlotsThanJobsRun,
