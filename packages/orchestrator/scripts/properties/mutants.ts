@@ -901,8 +901,8 @@ export const MUTANTS: Mutant[] = [
     id: "W204",
     invariant: "workflowLifecycle::aCompletedJobEndsItsReview",
     path: "src/workflow/lifecycle.ts",
-    find: '  await finishTask(workflow, author, "done");\n  await endReviewAndBoard(workflow, author.job_id, {\n    reason: "the job is complete",\n    close: { close: "ready" },\n  });\n',
-    replace: '  await finishTask(workflow, author, "done");\n',
+    find: '  await endReviewAndBoard(workflow, author.job_id, {\n    reason: "the job is complete",\n    close: { close: "ready" },\n  });\n  await closeTeardown(workflow, author, teardown);\n',
+    replace: "  await closeTeardown(workflow, author, teardown);\n",
   },
   {
     id: "W171",
@@ -1548,8 +1548,8 @@ export const MUTANTS: Mutant[] = [
     id: "W277",
     invariant: "workflowLifecycle::aFinishedAuthorsSandboxIsDestroyed (done task arms no alarm)",
     path: "src/workflow/lifecycle.ts",
-    find: "  const teardown = await removeSandboxOfEndedTask(workflow, task, { task_id: task.task_id });\n  await closeTeardown(workflow, task, teardown);\n",
-    replace: "  await removeSandbox(workflow, task);\n",
+    find: "  const teardown = finished\n    ? await armTaskEndAlarm(workflow, task, { task_id: task.task_id })\n    : null;\n  await handOn();\n  if (!teardown) return;\n  await removeSandbox(workflow, task);\n  await closeTeardown(workflow, task, teardown);\n",
+    replace: "  await handOn();\n  if (finished) await removeSandbox(workflow, task);\n",
   },
   {
     id: "W278",
@@ -1558,6 +1558,46 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/lifecycle.ts",
     find: '  if ("reason" in alarm) await finishTeardown(workflow, task, teardown, alarm.reason);\n',
     replace: '  if (alarm) await finishTeardown(workflow, task, teardown, "reason");\n',
+  },
+  {
+    id: "W279",
+    invariant:
+      "workflowLifecycle::aDoneResearchersJobHasItsAuthor (author queued after the researcher's destroy)",
+    path: "src/workflow/lifecycle.ts",
+    find: '  await finishTask(workflow, researcher, async () => {\n    workflow.store.completeTodos(researcher.task_id);\n    const job = workflow.store.requireJob(researcher.job_id);\n    const authorId = insertJobTask(workflow, authorTaskOf(workflow.stageFor(job), job));\n    await workflow.scheduleAlarm(0, "provision", { task_id: authorId });\n    await dropBoardFlush(workflow, researcher.task_id);\n    await flushBoards(workflow, researcher.job_id);\n  });\n',
+    replace:
+      '  await finishTask(workflow, researcher, async () => {});\n  workflow.store.completeTodos(researcher.task_id);\n  const job = workflow.store.requireJob(researcher.job_id);\n  const authorId = insertJobTask(workflow, authorTaskOf(workflow.stageFor(job), job));\n  await workflow.scheduleAlarm(0, "provision", { task_id: authorId });\n  await dropBoardFlush(workflow, researcher.task_id);\n  await flushBoards(workflow, researcher.job_id);\n',
+  },
+  {
+    id: "W248",
+    invariant: "workflowLifecycle::aCompletedJobEndsItsReview (task end alarm only destroys)",
+    path: "src/workflow/lifecycle.ts",
+    find: '  else if ("result" in alarm) await finishCompletion(workflow, task, teardown, alarm.result);\n',
+    replace: "",
+  },
+  {
+    id: "W249",
+    invariant:
+      "workflowLifecycle::aSingleIssueWorkflowIsDoneWithItsSubjectsJob (completion alarm without its result)",
+    path: "src/workflow/lifecycle.ts",
+    find: "    const alarm = { task_id: author.task_id, result };\n",
+    replace: "    const alarm = { task_id: author.task_id };\n",
+  },
+  {
+    id: "W280",
+    invariant: "reviewLoop::aDoneRefinerRunRoutesItsReview (reviewer destroyed before routing)",
+    path: "src/workflow/refiner/loop.ts",
+    find: "  await finishTask(workflow, reviewer, () => routeReview(workflow, reviewer, entry, read));\n",
+    replace:
+      "  await finishTask(workflow, reviewer, async () => {});\n  await routeReview(workflow, reviewer, entry, read);\n",
+  },
+  {
+    id: "W281",
+    invariant: "reviewLoop::aDoneRefinerRunRoutesItsReview (polisher destroyed before hand-on)",
+    path: "src/workflow/refiner/polish.ts",
+    find: "  await finishTask(workflow, polisher, async () => {\n    const author = workflow.store.authorTaskOf(polisher.job_id);\n    await handOnFromPolisher(workflow, author, polisher, outcome);\n    await drainQueue(workflow, workflow.store.requireTask(author.task_id));\n  });\n",
+    replace:
+      "  await finishTask(workflow, polisher, async () => {});\n  const author = workflow.store.authorTaskOf(polisher.job_id);\n  await handOnFromPolisher(workflow, author, polisher, outcome);\n  await drainQueue(workflow, workflow.store.requireTask(author.task_id));\n",
   },
   {
     id: "W214",

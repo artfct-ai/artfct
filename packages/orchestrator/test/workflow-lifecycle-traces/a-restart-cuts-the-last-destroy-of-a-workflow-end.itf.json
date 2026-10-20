@@ -299,6 +299,9 @@
         "taskEndAlarms": {
           "#set": []
         },
+        "researcherEndAlarms": {
+          "#set": []
+        },
         "destroyedSandboxes": {
           "#set": []
         }
@@ -583,6 +586,9 @@
           "#set": []
         },
         "taskEndAlarms": {
+          "#set": []
+        },
+        "researcherEndAlarms": {
           "#set": []
         },
         "destroyedSandboxes": {
@@ -920,6 +926,9 @@
           "#set": []
         },
         "taskEndAlarms": {
+          "#set": []
+        },
+        "researcherEndAlarms": {
           "#set": []
         },
         "destroyedSandboxes": {
@@ -1260,6 +1269,9 @@
           "#set": []
         },
         "taskEndAlarms": {
+          "#set": []
+        },
+        "researcherEndAlarms": {
           "#set": []
         },
         "destroyedSandboxes": {
@@ -1643,6 +1655,9 @@
             }
           ]
         },
+        "researcherEndAlarms": {
+          "#set": []
+        },
         "destroyedSandboxes": {
           "#set": []
         }
@@ -1986,6 +2001,9 @@
               "#bigint": "0"
             }
           ]
+        },
+        "researcherEndAlarms": {
+          "#set": []
         },
         "destroyedSandboxes": {
           "#set": []
@@ -2332,6 +2350,9 @@
               "#bigint": "0"
             }
           ]
+        },
+        "researcherEndAlarms": {
+          "#set": []
         },
         "destroyedSandboxes": {
           "#set": []

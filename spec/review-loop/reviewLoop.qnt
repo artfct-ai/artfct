@@ -232,16 +232,17 @@ module reviewLoopTypes {
 
   /// What an observer knows about the last step besides the reviews around it: the turn that
   /// ended, what happened on the document host, whether the host took a model-call author's
-  /// writes, what the agent read about page comments, whether a new instance took over, the
-  /// refiner run that hit a failure it may recover from, how the lookups of the revision went,
-  /// what a read of the checks did, whether the host reported checks, and how the read of a
-  /// pull request review went.
+  /// writes, what the agent read about page comments, whether a new instance took over and
+  /// whether it cut the destroy of the sandbox of a run that ended done, the refiner run that hit
+  /// a failure it may recover from, how the lookups of the revision went, what a read of the
+  /// checks did, whether the host reported checks, and how the read of a pull request review went.
   type StepKind = {
     turnEnd: TurnEnd,
     page: PageFact,
     write: PageWrite,
     agentHeard: Set[AgentNote],
     instanceRestarted: bool,
+    cutsTheDestroyOfADoneRun: bool,
     recoverableFailure: RecoverableFailure,
     revisionLookup: RevisionLookup,
     checks: ChecksRead,
@@ -315,6 +316,7 @@ module reviewLoopTypes {
     aPersonEditsDuringAModelCallTurn: bool,
     aModelCallTurnStartsOver: bool,
     aRulingCallIsLostWithTheInstance: bool,
+    aRestartCutsTheDestroyOfADoneRefinerRun: bool,
     aRulingCallReturnsAfterTheAuthorEnded: bool,
     aModelTurnIsLostWithTheInstance: bool,
     aPausedAuthorsModelTurnIsLost: bool,
@@ -519,6 +521,9 @@ module reviewLoop {
   var agentHeard: Set[AgentNote]
   /// How often a new instance took over the workflow, a counter that model checking bounds.
   var instanceRestartCount: int
+  /// True after a step in which a findings reviewer or polisher run ended done, while the destroy
+  /// of its sandbox, the last part of its end, is out.
+  var aDoneRunsSandboxIsOut: bool
   /// How often the host reported checks, a counter that model checking bounds.
   var checksReportCount: int
 
@@ -1415,12 +1420,24 @@ module reviewLoop {
       write: WritesLand,
       agentHeard: Set(),
       instanceRestarted: false,
+      cutsTheDestroyOfADoneRun: false,
       recoverableFailure: NoRecoverableFailure,
       revisionLookup: RevisionKnown,
       checks: ChecksNotRead,
       checksReported: false,
       reviewRead: ReviewReadOk,
     }
+
+  /// True when a findings reviewer or polisher run ended done in the step, and the destroy of its
+  /// sandbox is out. Its review is routed first, and the destroy goes out last. A judge run's
+  /// sandbox goes after its ruling, and a run whose routing prompts a model-call author waits on
+  /// that model call.
+  pure def aRunEndedDoneIn(step: Transition): bool =
+    not(aModelTurnIsOut(step.after)) and runIds(step.after).exists(id => and {
+      step.after.refinerRuns[id].status == Done,
+      refinerOf(step.after.refinerRuns[id]) != Judge,
+      if (id < step.before.refinerRuns.length()) step.before.refinerRuns[id].status != Done else true,
+    })
 
   action moveWith(after: ReviewLoop, kind: StepKind): bool = {
     val step = { before: review, after: after, kind: kind }
@@ -1429,6 +1446,7 @@ module reviewLoop {
       lastStepKept' = rulesKeptBy(step),
       lastStepReached' = witnessesReachedBy(step),
       agentHeard' = kind.agentHeard,
+      aDoneRunsSandboxIsOut' = aRunEndedDoneIn(step),
       instanceRestartCount' = if (kind.instanceRestarted) instanceRestartCount + 1 else instanceRestartCount,
       checksReportCount' = if (kind.checksReported) checksReportCount + 1 else checksReportCount,
     }
@@ -1451,6 +1469,7 @@ module reviewLoop {
       lastStepKept' = rulesKeptBy(step),
       lastStepReached' = witnessesReachedBy(step),
       agentHeard' = Set(),
+      aDoneRunsSandboxIsOut' = false,
       instanceRestartCount' = 0,
       checksReportCount' = 0,
     }
@@ -1866,6 +1885,23 @@ module reviewLoop {
     ),
   }
 
+  /// A new instance takes over while the destroy of the sandbox of a findings reviewer or polisher
+  /// run that ended done in the last step is out. The run routed its review before the destroy.
+  action instanceRestartsWhileADoneRunsSandboxIsDestroyed: bool = all {
+    INSTANCE_RESTARTS,
+    aDoneRunsSandboxIsOut,
+    nondet revisionLookup = restartLookups(review).oneOf()
+    moveWith(
+      instanceTakesOver(review, revisionLookup),
+      {
+        ...quietStep(NoTurnEnd),
+        instanceRestarted: true,
+        cutsTheDestroyOfADoneRun: true,
+        revisionLookup: revisionLookup,
+      },
+    ),
+  }
+
   /// A new instance takes over while a model-call author's revise turn writes the page. The turn's
   /// comment replies landed, and its page text change landed too or was still out.
   action instanceRestartsWhileThePageIsWritten: bool = all {
@@ -1965,6 +2001,7 @@ module reviewLoop {
     personEditsThePage,
     instanceRestarts,
     instanceRestartsWhileThePageIsWritten,
+    instanceRestartsWhileADoneRunsSandboxIsDestroyed,
     authorEnds,
     authorRestarts,
     authorPaused,
@@ -2597,6 +2634,7 @@ module reviewLoop {
     aModelCallTurnStartsOver: step.kind.turnEnd == AuthorTurnStartsOver,
     aRulingCallIsLostWithTheInstance:
       step.kind.instanceRestarted and step.before.judgeRunsCodeRulesOn.exists(id => isOnRun(step.before, id)),
+    aRestartCutsTheDestroyOfADoneRefinerRun: step.kind.cutsTheDestroyOfADoneRun,
     aModelTurnIsLostWithTheInstance: step.kind.instanceRestarted and aModelTurnIsOut(step.before),
     aPausedAuthorsModelTurnIsLost:
       step.kind.instanceRestarted and aModelTurnIsOut(step.before) and step.before.author.paused,
@@ -2834,6 +2872,31 @@ module reviewLoop {
       review.refinerRuns[id].result == RulingAsked,
     })
 
+  /// True when a drafted artifact on the done run `id` waits there: on a judge run's ruling, or on
+  /// the author's answer to the review of the last findings entry of the run's segment.
+  pure def waitsOnItsDoneRun(loop: ReviewLoop, id: int): bool = {
+    val index = loop.refinerRuns[id].refinerIndex
+    match ENTRIES[index] {
+      | Judge => true
+      | Polisher => false
+      | FindingsReviewer => {
+        val end = segmentEndOf(index)
+        index == (if (ENTRIES[end] == Judge) end - 1 else end)
+      }
+    }
+  }
+
+  /// A done refiner run routes its review before its sandbox goes, so a restart in the destroy
+  /// does not lose it. A drafted artifact stays on a done run only while it waits there.
+  val aDoneRefinerRunRoutesItsReview: bool = {
+    val restsOnADoneRun = and {
+      drafted(review),
+      holdsARun(review),
+      review.refinerRuns[heldRun(review)].status == Done,
+    }
+    restsOnADoneRun implies waitsOnItsDoneRun(review, heldRun(review))
+  }
+
   /// A refiner run restarts at most `MAX_RESTARTS` times. A failure after that fails it.
   val aRefinerRunRestartsAtMostTwice: bool = and {
     runIds(review).forall(id => review.refinerRuns[id].restarts <= MAX_RESTARTS),
@@ -2916,6 +2979,7 @@ module reviewLoop {
     aHeldCommentStaysHeldUntilItReachesTheAuthor,
     aModelCallAuthorFailsOnlyOnAHostError,
     aRestartDoesNotStrandAJudgeRun,
+    aDoneRefinerRunRoutesItsReview,
     aRefinerRunRestartsAtMostTwice,
     aFinishedRefinerRunKeepsItsStatus,
     anEndedAuthorEndsItsReview,
@@ -3090,6 +3154,10 @@ module reviewLoop {
   /// Witness for `aRestartDoesNotStrandAJudgeRun`: a new instance takes over while the ruling call
   /// of the judge run the artifact is on is out.
   val aRulingCallIsLostWithTheInstance: bool = lastStepReached.aRulingCallIsLostWithTheInstance
+
+  /// Witness for `aDoneRefinerRunRoutesItsReview`: a new instance takes over while the destroy of
+  /// the sandbox of a findings reviewer or polisher run that ended done is out.
+  val aRestartCutsTheDestroyOfADoneRefinerRun: bool = lastStepReached.aRestartCutsTheDestroyOfADoneRefinerRun
 
   /// Witness for `aJudgeRejectionPostsItsReasonOnce`: a ruling call returns after the author
   /// ended, so its ruling does not land.

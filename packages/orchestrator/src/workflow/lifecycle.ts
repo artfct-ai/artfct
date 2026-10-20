@@ -15,6 +15,7 @@ import { onReviewerFailed } from "./refiner/loop";
 import { endPolisherRun } from "./refiner/polish";
 import { refinerRunOf } from "./refiner/stage-refiner";
 import { markArtifactReady } from "./refiner/outcome";
+import { jobCompletesSingleIssueWorkflow } from "./subject";
 import type { Wake, WorkflowRuntime } from "./types";
 import type { JobRow, NewTask, TaskRow } from "./store/tasks";
 import { jobInputKey } from "./store/input-key";
@@ -170,17 +171,23 @@ export async function startAuthorAfterResearch(
 ): Promise<void> {
   workflow.store.updateJobResearchPayload(researcher.job_id, payload);
   workflow.log(researcher.task_id, `research payload stored (${payload.length} chars)`);
-  await finishTask(workflow, researcher, "done");
-  workflow.store.completeTodos(researcher.task_id);
-  await dropBoardFlush(workflow, researcher.task_id);
-  const job = workflow.store.requireJob(researcher.job_id);
-  const authorId = insertJobTask(workflow, authorTaskOf(workflow.stageFor(job), job));
-  await flushBoards(workflow, researcher.job_id);
-  await workflow.scheduleAlarm(0, "provision", { task_id: authorId });
+  await finishTask(workflow, researcher, async () => {
+    workflow.store.completeTodos(researcher.task_id);
+    const job = workflow.store.requireJob(researcher.job_id);
+    const authorId = insertJobTask(workflow, authorTaskOf(workflow.stageFor(job), job));
+    await workflow.scheduleAlarm(0, "provision", { task_id: authorId });
+    await dropBoardFlush(workflow, researcher.task_id);
+    await flushBoards(workflow, researcher.job_id);
+  });
 }
 
-/** What is left after a job completed: the author tasks still active and the free slots. */
-export type CompleteOutcome = { running: number; slots: number };
+/**
+ * What is left after a job completed: the workflow it ended, or the author tasks still active and
+ * the free slots.
+ */
+export type CompleteOutcome =
+  | { ended: "workflow" }
+  | { ended: "job"; running: number; slots: number };
 
 /**
  * Write the status that ends the task, and with it end the model turn of a model-call task. False
@@ -208,24 +215,32 @@ async function removeSandbox(workflow: WorkflowRuntime, task: TaskRow): Promise<
 }
 
 /**
- * End the task done and destroy its sandbox, unless it had already finished. Its task end alarm
- * stays armed until the destroy returns.
+ * End the task done, run `handOn`, then destroy its sandbox. The task end alarm stays armed until
+ * the destroy returns, so a restart during the destroy loses only the destroy, which the alarm runs again.
  */
 export async function finishTask(
   workflow: WorkflowRuntime,
   task: TaskRow,
-  status: "done",
+  handOn: () => Promise<void>,
 ): Promise<void> {
-  if (!markTaskFinished(workflow, task, status)) return;
-  const teardown = await removeSandboxOfEndedTask(workflow, task, { task_id: task.task_id });
+  const finished = markTaskFinished(workflow, task, "done");
+  const teardown = finished
+    ? await armTaskEndAlarm(workflow, task, { task_id: task.task_id })
+    : null;
+  await handOn();
+  if (!teardown) return;
+  await removeSandbox(workflow, task);
   await closeTeardown(workflow, task, teardown);
 }
 
 /**
- * The payload of a task end alarm: the finished task, and why a cancelled or failed one ended. A
- * done task has no reason, and its alarm covers only the destroy.
+ * The payload of a task end alarm: the finished task, why a cancelled or failed one ended, and the
+ * result of the job a done author completed. Any other done task only destroys its sandbox again.
  */
-export type TaskEndAlarm = { task_id: string } | { task_id: string; reason: string };
+export type TaskEndAlarm =
+  | { task_id: string }
+  | { task_id: string; reason: string }
+  | { task_id: string; result: string };
 
 /** The task end alarm that a teardown this instance runs holds now. */
 type TaskTeardown = { alarmId: string };
@@ -258,13 +273,23 @@ async function removeSandboxOfEndedTask(
   task: TaskRow,
   alarm: TaskEndAlarm,
 ): Promise<TaskTeardown> {
+  const teardown = await armTaskEndAlarm(workflow, task, alarm);
+  await removeSandbox(workflow, task);
+  return teardown;
+}
+
+/** Arm the task end alarm of a finished task, and note that this instance runs its teardown. */
+async function armTaskEndAlarm(
+  workflow: WorkflowRuntime,
+  task: TaskRow,
+  alarm: TaskEndAlarm,
+): Promise<TaskTeardown> {
   const teardown = {
     alarmId: await workflow.scheduleAlarm(TASK_END_ALARM_SECONDS, "resumeTaskEnd", alarm),
   };
   const inFlight = teardownsInFlight.get(workflow) ?? new Map<string, TaskTeardown>();
   teardownsInFlight.set(workflow, inFlight);
   inFlight.set(task.task_id, teardown);
-  await removeSandbox(workflow, task);
   return teardown;
 }
 
@@ -301,9 +326,9 @@ async function closeTeardown(
 type EndNote = { text: string; wake: Wake };
 
 /**
- * Alarm: go on with the teardown of a finished task that an instance restart cut off. A done task
- * only destroys its sandbox again. While this instance still runs that teardown, the alarm is
- * armed again instead.
+ * Alarm: go on with the teardown of a finished task that an instance restart cut off. A completed
+ * job ends its review again, and any other done task only destroys its sandbox again. While this
+ * instance still runs that teardown, the alarm is armed again instead.
  */
 export async function resumeTaskEnd(workflow: WorkflowRuntime, alarm: TaskEndAlarm): Promise<void> {
   const task = workflow.store.requireTask(alarm.task_id);
@@ -317,6 +342,7 @@ export async function resumeTaskEnd(workflow: WorkflowRuntime, alarm: TaskEndAla
   }
   const teardown = await removeSandboxOfEndedTask(workflow, task, alarm);
   if ("reason" in alarm) await finishTeardown(workflow, task, teardown, alarm.reason);
+  else if ("result" in alarm) await finishCompletion(workflow, task, teardown, alarm.result);
   else await closeTeardown(workflow, task, teardown);
 }
 
@@ -334,20 +360,47 @@ async function endReviewAndBoard(
   await flushBoards(workflow, jobId);
 }
 
-/** The agent judged the job done. Tear its author task down and say how many slots are left. */
+/**
+ * The agent judged the job done. Tear its author task down, then end the workflow when the job
+ * completes a single-issue workflow, or say how many slots are left.
+ */
 export async function completeJob(
   workflow: WorkflowRuntime,
   author: TaskRow,
   result: string,
 ): Promise<CompleteOutcome> {
   workflow.log(author.task_id, `done: ${result}`);
-  await finishTask(workflow, author, "done");
+  if (markTaskFinished(workflow, author, "done")) {
+    const alarm = { task_id: author.task_id, result };
+    const teardown = await removeSandboxOfEndedTask(workflow, author, alarm);
+    await finishCompletion(workflow, author, teardown, result);
+  }
+  if (jobCompletesSingleIssueWorkflow(workflow, workflow.store.requireJob(author.job_id))) {
+    return { ended: "workflow" };
+  }
+  const running = workflow.store.activeAuthorAndResearcherTasks().length;
+  return { ended: "job", running, slots: Math.max(0, workflow.state.concurrency - running) };
+}
+
+/**
+ * Finish the teardown of a completed job once its author's sandbox is gone: end the review, cancel
+ * the task end alarm, then end the workflow when the job completes a single-issue workflow. Each
+ * part does nothing the second time, so the task end alarm can run them again.
+ */
+async function finishCompletion(
+  workflow: WorkflowRuntime,
+  author: TaskRow,
+  teardown: TaskTeardown,
+  result: string,
+): Promise<void> {
   await endReviewAndBoard(workflow, author.job_id, {
     reason: "the job is complete",
     close: { close: "ready" },
   });
-  const running = workflow.store.activeAuthorAndResearcherTasks().length;
-  return { running, slots: Math.max(0, workflow.state.concurrency - running) };
+  await closeTeardown(workflow, author, teardown);
+  if (jobCompletesSingleIssueWorkflow(workflow, workflow.store.requireJob(author.job_id))) {
+    await completeWorkflow(workflow, result);
+  }
 }
 
 /**

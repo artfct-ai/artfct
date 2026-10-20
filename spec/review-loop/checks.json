@@ -20,6 +20,7 @@
     "aHeldCommentStaysHeldUntilItReachesTheAuthor",
     "aModelCallAuthorFailsOnlyOnAHostError",
     "aRestartDoesNotStrandAJudgeRun",
+    "aDoneRefinerRunRoutesItsReview",
     "aRefinerRunRestartsAtMostTwice",
     "aFinishedRefinerRunKeepsItsStatus",
     "anEndedAuthorEndsItsReview",
@@ -75,7 +76,8 @@
       "aReviewerRunFailsOnADraftedArtifact",
       "aDraftWasDeliveredBefore",
       "aRulingCallReturnsAfterTheAuthorEnded",
-      "anAuthorTurnEndsOnTheDeliveredRevision"
+      "anAuthorTurnEndsOnTheDeliveredRevision",
+      "aRestartCutsTheDestroyOfADoneRefinerRun"
     ],
     "reviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -105,7 +107,8 @@
       "aDraftWasDeliveredBefore",
       "anAuthorTurnEndsOnTheDeliveredRevision",
       "anAuthorAnswersAReviewAtTheLimit",
-      "theAgentIsAskedToRoute"
+      "theAgentIsAskedToRoute",
+      "aRestartCutsTheDestroyOfADoneRefinerRun"
     ],
     "judgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -135,7 +138,8 @@
       "aDraftWasDeliveredBefore",
       "aRulingCallReturnsAfterTheAuthorEnded",
       "anAuthorTurnEndsOnTheDeliveredRevision",
-      "theAgentIsAskedToRoute"
+      "theAgentIsAskedToRoute",
+      "aRestartCutsTheDestroyOfADoneRefinerRun"
     ],
     "modelCallAuthorWithTwoReviewers": [
       "aRefinerRunIsUnfinished",
@@ -214,7 +218,8 @@
       "anAuthorTurnEndsOnTheDeliveredRevision",
       "anAuthorAnswersAReviewAtTheLimit",
       "theAgentIsAskedToRoute",
-      "aMentionCarriesTheHeldComments"
+      "aMentionCarriesTheHeldComments",
+      "aRestartCutsTheDestroyOfADoneRefinerRun"
     ],
     "pageJudgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -254,7 +259,8 @@
       "anAuthorFailsPastItsRestarts",
       "anAuthorTurnEndsOnTheDeliveredRevision",
       "theAgentIsAskedToRoute",
-      "aMentionCarriesTheHeldComments"
+      "aMentionCarriesTheHeldComments",
+      "aRestartCutsTheDestroyOfADoneRefinerRun"
     ],
     "pausedModelCallAuthor": [
       "aRefinerRunIsUnfinished",
@@ -286,7 +292,8 @@
       "aPageTextChangeLandsBeforeTheInstanceRestarts",
       "aModelCallAuthorFailsOnALostTurn",
       "aPausedAuthorsModelTurnIsLost",
-      "anAuthorTurnEndsOnTheDeliveredRevision"
+      "anAuthorTurnEndsOnTheDeliveredRevision",
+      "aRestartCutsTheDestroyOfADoneRefinerRun"
     ],
     "checksOnAPolishedPull": [
       "aRefinerRunIsUnfinished",
@@ -372,7 +379,8 @@
       "aModelCallAuthorFailsOnALostTurn",
       "anAuthorTurnEndsOnTheDeliveredRevision",
       "aMentionCarriesTheHeldComments",
-      "aFailedReplyLeavesAQueuedCommentUnanswered"
+      "aFailedReplyLeavesAQueuedCommentUnanswered",
+      "aRestartCutsTheDestroyOfADoneRefinerRun"
     ],
     "checksOnAReviewedPull": [
       "aRefinerRunIsUnfinished",
@@ -413,7 +421,8 @@
       "anAuthorAnswersAReviewAtTheLimit",
       "theAgentIsAskedToRoute",
       "theAgentIsAskedToRouteAgain",
-      "theRecheckAlarmStops"
+      "theRecheckAlarmStops",
+      "aRestartCutsTheDestroyOfADoneRefinerRun"
     ]
   },
   "tlc": {

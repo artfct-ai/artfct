@@ -168,6 +168,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -320,6 +321,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -472,6 +474,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -624,6 +627,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -776,6 +780,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -928,6 +933,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -1080,6 +1086,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -1232,6 +1239,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -1384,6 +1392,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -1536,6 +1545,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -1709,6 +1719,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -1902,6 +1913,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -2101,6 +2113,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -2300,6 +2313,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -2493,6 +2507,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -2686,6 +2701,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -2885,6 +2901,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -3084,6 +3101,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -3283,6 +3301,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -3488,6 +3507,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -3693,6 +3713,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -3898,6 +3919,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -4103,6 +4125,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -4308,6 +4331,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [] }
       }
     },
@@ -4501,6 +4525,7 @@
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "turnsToRunAgain": { "#set": [] },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "destroyedSandboxes": { "#set": [{ "#bigint": "0" }] }
       }
     }

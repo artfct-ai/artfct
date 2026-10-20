@@ -236,6 +236,9 @@
         "taskEndAlarms": {
           "#set": []
         },
+        "researcherEndAlarms": {
+          "#set": []
+        },
         "destroyedSandboxes": {
           "#set": []
         }
@@ -457,6 +460,9 @@
           }
         },
         "taskEndAlarms": {
+          "#set": []
+        },
+        "researcherEndAlarms": {
           "#set": []
         },
         "destroyedSandboxes": {
@@ -682,6 +688,9 @@
         "taskEndAlarms": {
           "#set": []
         },
+        "researcherEndAlarms": {
+          "#set": []
+        },
         "destroyedSandboxes": {
           "#set": []
         }
@@ -902,6 +911,9 @@
           }
         },
         "taskEndAlarms": {
+          "#set": []
+        },
+        "researcherEndAlarms": {
           "#set": []
         },
         "destroyedSandboxes": {
@@ -1125,6 +1137,9 @@
           }
         },
         "taskEndAlarms": {
+          "#set": []
+        },
+        "researcherEndAlarms": {
           "#set": []
         },
         "destroyedSandboxes": {
@@ -1401,6 +1416,9 @@
         "taskEndAlarms": {
           "#set": []
         },
+        "researcherEndAlarms": {
+          "#set": []
+        },
         "destroyedSandboxes": {
           "#set": []
         }
@@ -1503,6 +1521,337 @@
         "aDeadlinePassesDuringAPageWrite": false,
         "aDeadlinePassesDuringAProduceTurn": false,
         "aFinishedTaskIsInAStep": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aJobStartsPastAFailedRouterWrite": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
+      },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesAfterResearch::workflowLifecycle::workflow": {
+        "calls": [
+          {
+            "job": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "SandboxDestroy",
+              "value": {
+                "#tup": []
+              }
+            },
+            "rest": {
+              "tag": "ResearcherSandboxGone",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "definition": {
+          "tag": "Planned",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "endedIssues": {
+          "#set": []
+        },
+        "endingPosts": [],
+        "idleArmed": true,
+        "issueMoves": {
+          "#bigint": "0"
+        },
+        "jobs": [
+          {
+            "artifact": {
+              "tag": "NoArtifact",
+              "value": {
+                "#tup": []
+              }
+            },
+            "input": {
+              "tag": "FromRequest",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            },
+            "refinerRuns": [],
+            "tasks": [
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "1"
+                },
+                "restarts": {
+                  "#bigint": "0"
+                },
+                "role": {
+                  "tag": "Researcher",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "0"
+                },
+                "status": {
+                  "tag": "TaskDone",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "stopped": false,
+                "turnRunning": false
+              },
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "1"
+                },
+                "restarts": {
+                  "#bigint": "0"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "1"
+                },
+                "status": {
+                  "tag": "Busy",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "stopped": false,
+                "turnRunning": true
+              }
+            ]
+          }
+        ],
+        "ranAgain": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnsToRunAgain": {
+          "#set": []
+        },
+        "storedEnd": {
+          "tag": "NoStoredEnd",
+          "value": {
+            "#tup": []
+          }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "researcherEndAlarms": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        },
+        "destroyedSandboxes": {
+          "#set": []
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 7
+      },
+      "mbt::actionTaken": "sandboxDestroyReturns",
+      "mbt::nondetPicks": {
+        "callId": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "definition": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "routerWriteFails": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "pagesAfterResearch::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aJobStartProvisionsItsTask": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": true,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
         "aJobStartsPastAFailedRouterWrite": false,
@@ -1707,6 +2056,9 @@
         "taskEndAlarms": {
           "#set": []
         },
+        "researcherEndAlarms": {
+          "#set": []
+        },
         "destroyedSandboxes": {
           "#set": []
         }
@@ -1714,7 +2066,7 @@
     },
     {
       "#meta": {
-        "index": 7
+        "index": 8
       },
       "mbt::actionTaken": "agentStartsJob",
       "mbt::nondetPicks": {
@@ -2064,6 +2416,9 @@
         "taskEndAlarms": {
           "#set": []
         },
+        "researcherEndAlarms": {
+          "#set": []
+        },
         "destroyedSandboxes": {
           "#set": []
         }
@@ -2071,7 +2426,7 @@
     },
     {
       "#meta": {
-        "index": 8
+        "index": 9
       },
       "mbt::actionTaken": "workflowEnds",
       "mbt::nondetPicks": {
@@ -2465,6 +2820,9 @@
             }
           ]
         },
+        "researcherEndAlarms": {
+          "#set": []
+        },
         "destroyedSandboxes": {
           "#set": []
         }
@@ -2472,7 +2830,7 @@
     },
     {
       "#meta": {
-        "index": 9
+        "index": 10
       },
       "mbt::actionTaken": "idleAlarmFires",
       "mbt::nondetPicks": {
@@ -2863,6 +3221,9 @@
             }
           ]
         },
+        "researcherEndAlarms": {
+          "#set": []
+        },
         "destroyedSandboxes": {
           "#set": []
         }
@@ -2870,7 +3231,7 @@
     },
     {
       "#meta": {
-        "index": 10
+        "index": 11
       },
       "mbt::actionTaken": "researcherHandsOver",
       "mbt::nondetPicks": {
@@ -2896,6 +3257,458 @@
           "tag": "Some",
           "value": {
             "#bigint": "1"
+          }
+        },
+        "jobSlots": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "request": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "routerWriteFails": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subjectLink": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "withStages": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        }
+      },
+      "pagesAfterResearch::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": {
+          "#tup": []
+        }
+      },
+      "pagesAfterResearch::workflowLifecycle::lastStepKept": {
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aJobStartProvisionsItsTask": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "pagesAfterResearch::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": true,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aJobStartsPastAFailedRouterWrite": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
+      },
+      "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesAfterResearch::workflowLifecycle::workflow": {
+        "calls": [
+          {
+            "job": {
+              "#bigint": "0"
+            },
+            "kind": {
+              "tag": "SandboxDestroy",
+              "value": {
+                "#tup": []
+              }
+            },
+            "rest": {
+              "tag": "TeardownGoesOn",
+              "value": {
+                "caller": {
+                  "tag": "WorkflowEnd",
+                  "value": {
+                    "tag": "Cancelled",
+                    "value": {
+                      "#tup": []
+                    }
+                  }
+                },
+                "teardown": {
+                  "tag": "AfterCancel",
+                  "value": {
+                    "#tup": []
+                  }
+                }
+              }
+            }
+          },
+          {
+            "job": {
+              "#bigint": "1"
+            },
+            "kind": {
+              "tag": "SandboxDestroy",
+              "value": {
+                "#tup": []
+              }
+            },
+            "rest": {
+              "tag": "ResearcherSandboxGone",
+              "value": {
+                "#tup": []
+              }
+            }
+          }
+        ],
+        "definition": {
+          "tag": "Planned",
+          "value": {
+            "#bigint": "0"
+          }
+        },
+        "endedIssues": {
+          "#set": []
+        },
+        "endingPosts": [],
+        "idleArmed": false,
+        "issueMoves": {
+          "#bigint": "0"
+        },
+        "jobs": [
+          {
+            "artifact": {
+              "tag": "NoArtifact",
+              "value": {
+                "#tup": []
+              }
+            },
+            "input": {
+              "tag": "FromRequest",
+              "value": {
+                "#bigint": "0"
+              }
+            },
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            },
+            "refinerRuns": [],
+            "tasks": [
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "1"
+                },
+                "restarts": {
+                  "#bigint": "0"
+                },
+                "role": {
+                  "tag": "Researcher",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "0"
+                },
+                "status": {
+                  "tag": "TaskDone",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "stopped": false,
+                "turnRunning": false
+              },
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "1"
+                },
+                "restarts": {
+                  "#bigint": "0"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "1"
+                },
+                "status": {
+                  "tag": "TaskCancelled",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "stopped": false,
+                "turnRunning": true
+              }
+            ]
+          },
+          {
+            "artifact": {
+              "tag": "NoArtifact",
+              "value": {
+                "#tup": []
+              }
+            },
+            "input": {
+              "tag": "FromRequest",
+              "value": {
+                "#bigint": "1"
+              }
+            },
+            "pullOnHost": {
+              "tag": "NoPull",
+              "value": {
+                "#tup": []
+              }
+            },
+            "refinerRuns": [],
+            "tasks": [
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "1"
+                },
+                "restarts": {
+                  "#bigint": "0"
+                },
+                "role": {
+                  "tag": "Researcher",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "2"
+                },
+                "status": {
+                  "tag": "TaskDone",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "stopped": false,
+                "turnRunning": false
+              },
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": {
+                  "#bigint": "0"
+                },
+                "promptsSent": {
+                  "#bigint": "1"
+                },
+                "restarts": {
+                  "#bigint": "0"
+                },
+                "role": {
+                  "tag": "Author",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "startOrder": {
+                  "#bigint": "3"
+                },
+                "status": {
+                  "tag": "Busy",
+                  "value": {
+                    "#tup": []
+                  }
+                },
+                "stopped": false,
+                "turnRunning": true
+              }
+            ]
+          }
+        ],
+        "ranAgain": {
+          "#set": []
+        },
+        "restartAlarmFired": false,
+        "restartAlarms": {
+          "#set": []
+        },
+        "runAgainAlarms": {
+          "#set": []
+        },
+        "stagePlan": {
+          "tag": "StagesPlanned",
+          "value": {
+            "#bigint": "2"
+          }
+        },
+        "status": {
+          "tag": "Running",
+          "value": {
+            "#tup": []
+          }
+        },
+        "subject": {
+          "tag": "NoSubject",
+          "value": {
+            "#tup": []
+          }
+        },
+        "turnsToRunAgain": {
+          "#set": []
+        },
+        "storedEnd": {
+          "tag": "EndStored",
+          "value": {
+            "tag": "Cancelled",
+            "value": {
+              "#tup": []
+            }
+          }
+        },
+        "taskEndAlarms": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        },
+        "researcherEndAlarms": {
+          "#set": [
+            {
+              "#bigint": "1"
+            }
+          ]
+        },
+        "destroyedSandboxes": {
+          "#set": []
+        }
+      }
+    },
+    {
+      "#meta": {
+        "index": 12
+      },
+      "mbt::actionTaken": "sandboxDestroyReturns",
+      "mbt::nondetPicks": {
+        "callId": {
+          "tag": "Some",
+          "value": {
+            "#bigint": "1"
+          }
+        },
+        "definition": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "ending": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
+        "id": {
+          "tag": "None",
+          "value": {
+            "#tup": []
           }
         },
         "jobSlots": {
@@ -3291,6 +4104,9 @@
             }
           ]
         },
+        "researcherEndAlarms": {
+          "#set": []
+        },
         "destroyedSandboxes": {
           "#set": []
         }
@@ -3298,7 +4114,7 @@
     },
     {
       "#meta": {
-        "index": 11
+        "index": 13
       },
       "mbt::actionTaken": "sandboxDestroyReturns",
       "mbt::nondetPicks": {
@@ -3718,6 +4534,9 @@
               "#bigint": "1"
             }
           ]
+        },
+        "researcherEndAlarms": {
+          "#set": []
         },
         "destroyedSandboxes": {
           "#set": [
