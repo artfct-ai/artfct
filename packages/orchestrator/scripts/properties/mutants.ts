@@ -8,17 +8,12 @@
  */
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import {
-  SPEC_REPLAY_FILES,
-  STANDALONE_PROPERTY_FILES,
-  runPropertyFile,
-  type PropertyFile,
-} from "./property-files";
+import { SPEC_REPLAY_FILES, runPropertyFile, standalonePropertyFile } from "./property-files";
 
 /**
  * A one-place change to the source that breaks the invariant it names. Its path is relative to the
  * orchestrator package. A mutant of a standalone property invariant names the property file that
- * kills it.
+ * kills it, by its path relative to the orchestrator package.
  */
 export type Mutant = {
   id: string;
@@ -26,7 +21,7 @@ export type Mutant = {
   path: string;
   find: string;
   replace: string;
-  propertyFile?: PropertyFile;
+  propertyFile?: string;
 };
 
 /** What a mutant's property files did to it. */
@@ -1703,7 +1698,7 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/chat/slack/mrkdwn.ts",
     find: '      if (heading !== undefined) return `*${toSlackMrkdwn(heading.replaceAll("**", ""))}*`;\n',
     replace: '      if (heading !== undefined) return `*${heading.replaceAll("**", "")}*`;\n',
-    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
+    propertyFile: "../adapters/src/chat/slack/text.property.ts",
   },
   {
     id: "W291",
@@ -1711,7 +1706,7 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/chat/slack/chat.ts",
     find: '  const paragraph = text.lastIndexOf("\\n\\n", limit);\n',
     replace: '  const paragraph = text.lastIndexOf("\\n\\n", limit + 1);\n',
-    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
+    propertyFile: "../adapters/src/chat/slack/text.property.ts",
   },
   {
     id: "W292",
@@ -1719,7 +1714,7 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/chat/slack/chat.ts",
     find: "  return lastUnit >= 0xd800 && lastUnit <= 0xdbff ? limit - 1 : limit;\n",
     replace: "  return limit;\n",
-    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
+    propertyFile: "../adapters/src/chat/slack/text.property.ts",
   },
   {
     id: "W293",
@@ -1727,7 +1722,7 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/chat/slack/mrkdwn.ts",
     find: "  let previous: string;\n  do {\n    previous = mrkdwn;\n    mrkdwn = markdownToMrkdwnOnce(previous);\n  } while (mrkdwn !== previous);\n  return mrkdwn;\n",
     replace: "  return markdownToMrkdwnOnce(mrkdwn);\n",
-    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
+    propertyFile: "../adapters/src/chat/slack/text.property.ts",
   },
   {
     id: "W294",
@@ -1735,7 +1730,7 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/chat/slack/inbound.ts",
     find: "  const parsed = slackEventCallbackSchema.safeParse(payload);\n  if (!parsed.success) return UNHANDLED_EVENT;\n  const callback = parsed.data;\n",
     replace: "  const callback = slackEventCallbackSchema.parse(payload);\n",
-    propertyFile: STANDALONE_PROPERTY_FILES.slack_inbound,
+    propertyFile: "../adapters/src/chat/slack/inbound.property.ts",
   },
   {
     id: "W300",
@@ -1744,7 +1739,7 @@ export const MUTANTS: Mutant[] = [
     find: '  const stopped = failuresOf(reported, "stopped");\n  if (stopped.length) return { state: "stopped", failures: stopped };\n  if (reported.some((check) => check.standing === "running")) return { state: "running" };\n',
     replace:
       '  if (reported.some((check) => check.standing === "running")) return { state: "running" };\n  const stopped = failuresOf(reported, "stopped");\n  if (stopped.length) return { state: "stopped", failures: stopped };\n',
-    propertyFile: STANDALONE_PROPERTY_FILES.github_code,
+    propertyFile: "../adapters/src/code/github/code.property.ts",
   },
   {
     id: "W301",
@@ -1753,7 +1748,7 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/code/github/commit-checks.ts",
     find: '    standing: status.state === "failure" ? "failed" : "stopped",\n',
     replace: '    standing: "failed",\n',
-    propertyFile: STANDALONE_PROPERTY_FILES.github_code,
+    propertyFile: "../adapters/src/code/github/code.property.ts",
   },
   {
     id: "W302",
@@ -1761,7 +1756,7 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/code/github/url.ts",
     find: "const GITHUB_PULL = /^https:\\/\\/github\\.com\\/([\\w.-]+\\/[\\w.-]+)\\/pull\\/(\\d+)(?:[/?#]|$)/;\n",
     replace: "const GITHUB_PULL = /github\\.com\\/([\\w.-]+\\/[\\w.-]+)\\/pull\\/(\\d+)/;\n",
-    propertyFile: STANDALONE_PROPERTY_FILES.github_code,
+    propertyFile: "../adapters/src/code/github/code.property.ts",
   },
   {
     id: "W303",
@@ -1769,7 +1764,7 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/code/github/url.ts",
     find: "  if (!Number.isSafeInteger(number)) return null;\n",
     replace: "",
-    propertyFile: STANDALONE_PROPERTY_FILES.github_code,
+    propertyFile: "../adapters/src/code/github/code.property.ts",
   },
   {
     id: "W304",
@@ -1777,7 +1772,7 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/code/github/commit-checks.ts",
     find: "      detail: detail.slice(0, DETAIL_CHARS),\n",
     replace: "      detail,\n",
-    propertyFile: STANDALONE_PROPERTY_FILES.github_code,
+    propertyFile: "../adapters/src/code/github/code.property.ts",
   },
   {
     id: "W325",
@@ -1785,7 +1780,7 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/code/github/url.ts",
     find: "\\/pull\\/(\\d+)(?:[/?#]|$)/;\n",
     replace: "\\/pull\\/(\\d+)(?:[/?]|$)/;\n",
-    propertyFile: STANDALONE_PROPERTY_FILES.github_code,
+    propertyFile: "../adapters/src/code/github/code.property.ts",
   },
   {
     id: "W310",
@@ -1793,7 +1788,7 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/documents/notion/page-id.ts",
     find: "const PAGE_ID = /([0-9a-f]{32})(?:[?#/]|$)/;\n",
     replace: "const PAGE_ID = /([0-9a-f]{32})/;\n",
-    propertyFile: STANDALONE_PROPERTY_FILES.notion_text,
+    propertyFile: "../adapters/src/documents/notion/text.property.ts",
   },
   {
     id: "W311",
@@ -1801,7 +1796,7 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/documents/notion/rich-text.ts",
     find: "    const end = richTextItemEnd(text, start + NOTION_RICH_TEXT_CHARS);\n",
     replace: "    const end = richTextItemEnd(text, start + NOTION_RICH_TEXT_CHARS + 1);\n",
-    propertyFile: STANDALONE_PROPERTY_FILES.notion_text,
+    propertyFile: "../adapters/src/documents/notion/text.property.ts",
   },
   {
     id: "W312",
@@ -1809,7 +1804,7 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/documents/notion/rich-text.ts",
     find: "  return lastUnit >= 0xd800 && lastUnit <= 0xdbff ? limit - 1 : limit;\n",
     replace: "  return limit;\n",
-    propertyFile: STANDALONE_PROPERTY_FILES.notion_text,
+    propertyFile: "../adapters/src/documents/notion/text.property.ts",
   },
   {
     id: "W313",
@@ -1818,7 +1813,7 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/documents/linear/documents.ts",
     find: "  return applyPageTextEdits(current, update.edits);\n",
     replace: "  return applyPageTextEdits(change.before, update.edits);\n",
-    propertyFile: STANDALONE_PROPERTY_FILES.linear_document_write,
+    propertyFile: "../adapters/src/documents/linear/write.property.ts",
   },
   {
     id: "W314",
@@ -1827,7 +1822,7 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/documents/linear/documents.ts",
     find: "    return { text: current.trim() ? `${update.whole}\\n${current}` : update.whole };\n",
     replace: "    return { text: update.whole };\n",
-    propertyFile: STANDALONE_PROPERTY_FILES.linear_document_write,
+    propertyFile: "../adapters/src/documents/linear/write.property.ts",
   },
   {
     id: "W305",
@@ -1836,7 +1831,7 @@ export const MUTANTS: Mutant[] = [
     find: '  const signature = await crypto.subtle.sign("HMAC", key, encoder.encode(data));\n',
     replace:
       '  const signature = await crypto.subtle.sign(\n    "HMAC",\n    key,\n    Uint8Array.from(data, (char) => char.charCodeAt(0)),\n  );\n',
-    propertyFile: STANDALONE_PROPERTY_FILES.webhook_signatures,
+    propertyFile: "../ingress/src/routes/webhook.property.ts",
   },
   {
     id: "W306",
@@ -1844,7 +1839,7 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/hmac.ts",
     find: "    encoder.encode(secret),\n",
     replace: "    Uint8Array.from(secret, (char) => char.charCodeAt(0)),\n",
-    propertyFile: STANDALONE_PROPERTY_FILES.webhook_signatures,
+    propertyFile: "../ingress/src/routes/webhook.property.ts",
   },
   {
     id: "W307",
@@ -1852,7 +1847,7 @@ export const MUTANTS: Mutant[] = [
     path: "../adapters/src/tracker/linear/webhook.ts",
     find: "new LinearWebhookClient(secret).verify(Buffer.from(body), signature)",
     replace: 'new LinearWebhookClient(secret).verify(Buffer.from(body, "latin1"), signature)',
-    propertyFile: STANDALONE_PROPERTY_FILES.webhook_signatures,
+    propertyFile: "../ingress/src/routes/webhook.property.ts",
   },
   {
     id: "W308",
@@ -1861,7 +1856,7 @@ export const MUTANTS: Mutant[] = [
     find: "  if (!(await verifyGithubWebhook(secret, body, ctx.req.raw.headers)))\n",
     replace:
       "  if (!(await verifyGithubWebhook(secret, JSON.stringify(JSON.parse(body)), ctx.req.raw.headers)))\n",
-    propertyFile: STANDALONE_PROPERTY_FILES.webhook_signatures,
+    propertyFile: "../ingress/src/routes/webhook.property.ts",
   },
   {
     id: "W309",
@@ -1870,7 +1865,7 @@ export const MUTANTS: Mutant[] = [
     find: "  return Math.abs(nowMs / 1000 - Number(timestamp)) <= REPLAY_WINDOW_SECONDS;\n",
     replace:
       "  return Math.abs(Math.floor(nowMs / 1000) - Number(timestamp)) <= REPLAY_WINDOW_SECONDS;\n",
-    propertyFile: STANDALONE_PROPERTY_FILES.webhook_signatures,
+    propertyFile: "../ingress/src/routes/webhook.property.ts",
   },
 ];
 
@@ -1898,8 +1893,16 @@ export function mutantReport(results: MutantResult[], seed: number): string | nu
   ].join("\n\n");
 }
 
+function mutantPropertyFile(path: string) {
+  const file = standalonePropertyFile(path);
+  if (!file) throw new Error(`A mutant names ${path}, which is not a standalone property file.`);
+  return file;
+}
+
 async function killedByItsPropertyFiles(mutant: Mutant, seed: number): Promise<boolean> {
-  const files = mutant.propertyFile ? [mutant.propertyFile] : Object.values(SPEC_REPLAY_FILES);
+  const files = mutant.propertyFile
+    ? [mutantPropertyFile(mutant.propertyFile)]
+    : Object.values(SPEC_REPLAY_FILES);
   for (const file of files) {
     const run = await runPropertyFile(file, seed);
     if (run.outcome !== "passed") return true;

@@ -44,7 +44,13 @@
       }
     },
     {
-      "files": ["src/clients.ts", "**/*.test.ts", "**/*.test.medium.ts", "test/**"],
+      "files": [
+        "src/clients.ts",
+        "**/*.test.ts",
+        "**/*.test.medium.ts",
+        "**/*.property.ts",
+        "test/**"
+      ],
       "rules": {
         "no-restricted-imports": [
           "error",
