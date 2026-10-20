@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { availableParallelism } from "node:os";
 import { basename, join } from "node:path";
 import type { Subprocess } from "bun";
@@ -183,6 +184,50 @@ export function runPropertyFile(file: PropertyFile, seed: number): Promise<Prope
   });
 }
 
+type PackageManifest = {
+  name: string;
+  scripts?: Record<string, string>;
+  dependencies?: Record<string, string>;
+  devDependencies?: Record<string, string>;
+};
+
+function readPackageManifest(packageDir: string): PackageManifest {
+  return JSON.parse(readFileSync(join(PACKAGES_DIR, packageDir, "package.json"), "utf8"));
+}
+
+const packagesWithBuiltDependencies = new Set<string>();
+
+/**
+ * Builds the workspace packages a property file's package imports from their build output, as
+ * turbo does before the package's tests. It runs turbo once per package per process.
+ */
+function buildWorkspaceDependencies(packageDir: string): void {
+  if (packagesWithBuiltDependencies.has(packageDir)) return;
+  const manifest = readPackageManifest(packageDir);
+  const dependencyNames = new Set(
+    Object.keys({ ...manifest.dependencies, ...manifest.devDependencies }),
+  );
+  const needsBuild = [...new Bun.Glob("*/package.json").scanSync(PACKAGES_DIR)]
+    .map((path) => readPackageManifest(path.slice(0, path.indexOf("/"))))
+    .some((dependency) => dependencyNames.has(dependency.name) && dependency.scripts?.build);
+  if (needsBuild) {
+    const build = Bun.spawnSync(
+      [
+        "bunx",
+        "turbo",
+        "run",
+        "build",
+        `--filter=${manifest.name}^...`,
+        "--output-logs=errors-only",
+      ],
+      { cwd: ORCHESTRATOR_DIR, stdout: "inherit", stderr: "inherit" },
+    );
+    if (build.exitCode !== 0)
+      throw new Error(`Building the dependencies of ${manifest.name} failed.`);
+  }
+  packagesWithBuiltDependencies.add(packageDir);
+}
+
 /**
  * Runs one property file with the property variables `vars`, and echoes its output as it runs. A
  * spec replay runs each setup in its own process, as many at once as the machine has cores.
@@ -191,6 +236,7 @@ export async function runPropertyParts(
   file: PropertyFile,
   vars: Record<string, string>,
 ): Promise<PropertyRun> {
+  buildWorkspaceDependencies(file.packageDir);
   const parts = propertyParts(file, replayedSetups(file));
   const children = new Set<Subprocess>();
   let timedOut = false;
