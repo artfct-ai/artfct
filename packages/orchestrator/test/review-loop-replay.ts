@@ -2048,10 +2048,11 @@ export class ReviewLoopReplay {
   }
 
   /**
-   * Run `work` until the first call that a world action makes to a host or to a sandbox after a
-   * findings reviewer or polisher run ended done in it. That action stops there, as its instance
-   * does at a restart, and the call never returns. A chat post is not cut, because the spec does
-   * not model its delivery.
+   * Run `work` until the first call that a world action makes to a host or to a sandbox while a
+   * findings reviewer or polisher run that ended done in it holds a drafted artifact, or until the
+   * destroy of that run's sandbox. That action stops there, as its instance does at a restart, and
+   * the call never returns. The calls of a handover post are not cut, because the spec does not
+   * model its delivery.
    */
   private async untilADoneRunRoutes(work: () => Promise<void>): Promise<void> {
     const workflow = this.world.workflow;
@@ -2062,27 +2063,25 @@ export class ReviewLoopReplay {
         .filter((task) => task.status === "done")
         .map((task) => task.task_id),
     );
-    const aRunEndedDone = () =>
+    const endedDoneInTheStep = (task: TaskRow | null) =>
+      task !== null &&
+      task.role !== "author" &&
+      task.status === "done" &&
+      !doneBefore.has(task.task_id);
+    const routingIsOut = () =>
       store
         .tasks()
         .some(
-          (task) =>
-            task.role !== "author" && task.status === "done" && !doneBefore.has(task.task_id),
+          (task) => endedDoneInTheStep(task) && store.artifact(task.job_id)?.status === "drafted",
         );
     const cut = this.cutOnce();
-    const cutAfterTheDoneWrite = <Call extends (...args: never[]) => Promise<unknown>>(
-      call: Call,
-    ): Call =>
-      ((...args: Parameters<Call>) =>
-        aRunEndedDone() && !cut.reached() ? cut.reach() : call(...args)) as Call;
     const hostWithCut = <Host extends object>(host: Host): Host =>
       new Proxy(host, {
         get: (target, name, receiver) => {
           const value: unknown = Reflect.get(target, name, receiver);
           if (typeof value !== "function") return value;
-          return cutAfterTheDoneWrite((...args: never[]) =>
-            Promise.resolve(value.apply(target, args) as unknown),
-          );
+          return (...args: never[]) =>
+            routingIsOut() && !cut.reached() ? cut.reach() : (value.apply(target, args) as unknown);
         },
       });
     const restores = [
@@ -2101,7 +2100,10 @@ export class ReviewLoopReplay {
       const host = await documents();
       return host ? hostWithCut(host) : null;
     };
-    sandboxProvider.destroy = cutAfterTheDoneWrite(destroy);
+    sandboxProvider.destroy = async (sandbox) => {
+      const cutsHere = routingIsOut() || endedDoneInTheStep(store.task(sandbox.id));
+      return cutsHere && !cut.reached() ? cut.reach() : destroy(sandbox);
+    };
     try {
       await this.untilCut(cut, work);
     } finally {

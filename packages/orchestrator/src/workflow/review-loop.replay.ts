@@ -173,6 +173,13 @@ describe("review loop spec", () => {
     await replayPinnedTrace("a-restart-cuts-the-routing-of-each-done-run", "reviewerThenPolisher");
   });
 
+  it("posts the handover of a polished page before a restart cuts the polisher's destroy", async () => {
+    await replayPinnedTrace(
+      "a-restart-cuts-the-handover-of-a-polished-page",
+      "pageReviewerThenPolisher",
+    );
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,
