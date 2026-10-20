@@ -250,6 +250,7 @@ The router binding invariants live in the Quint spec at `spec/router-bindings/ro
 | K9 | A chat workflow links an issue subject and each issue a job works on to its chat thread once. A tracker workflow does not link any. | `sessionRouting::eachIssueLinksTheChatThreadOnce` |
 | K10 | A session message to a running author goes to that author as a prompt, does not post, and does not wake a turn. A paused author holds it in its queue. A prompt queued for an unpaused model-call author waits on an author at work. | `sessionRouting::sessionMessageReachesItsRunningAuthorSilently`, `workflowLifecycle::aQueuedPromptReachesItsModelCallAuthor` |
 | K11 | A session message without a running author wakes an agent turn, and the turn's answer, question or timeout text reaches that session or the chat threads. A verbal command that runs answers the person itself. A finished workflow replies at once. | `sessionRouting::sessionMessageWithoutAnAuthorIsAnswered` |
+| K12 | A closing reply arms its alarm before its post and cancels the alarm once the post returns. An instance restart while the post is out keeps the alarm, which posts the reply again under the same activity id. The tracker stores the reply once. | `sessionRouting::closingReplyPostsOnceAfterAnInstanceRestart` |
 
 ## Router, identity and install
 

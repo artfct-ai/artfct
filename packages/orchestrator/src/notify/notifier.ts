@@ -29,6 +29,9 @@ type OutboxTarget = ReplyTarget | IssueRef | BoardChannel;
 
 export type OutboxEntry = { channel: string; kind: string; target: OutboxTarget; payload: unknown };
 export type OutboxWriter = (entry: OutboxEntry) => void;
+
+/** One activity of an author's session feed: its task, the id every post of it carries, and its content. */
+export type FeedActivity = { task_id: string; id: string; content: AgentActivityContent };
 export type IssueTransition = "started" | "completed";
 
 /** One issue update: a state transition, a delegation to the agent, or both. */
@@ -178,15 +181,10 @@ export class Notifier {
     await this.setChatSession(target, finished ? "closed" : "active", { title });
   }
 
-  /** Post one activity of an author's session feed. */
-  async feed(session: TrackerTarget, taskId: string, content: AgentActivityContent): Promise<void> {
-    const id = crypto.randomUUID();
-    this.outbox({
-      channel: "feed",
-      kind: content.type,
-      target: session,
-      payload: { task_id: taskId, id, content },
-    });
+  /** Post one activity of an author's session feed under its id. */
+  async feed(session: TrackerTarget, activity: FeedActivity): Promise<void> {
+    const { id, content } = activity;
+    this.outbox({ channel: "feed", kind: content.type, target: session, payload: activity });
     const tracker = await this.tracker();
     if (!tracker) return;
     for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {

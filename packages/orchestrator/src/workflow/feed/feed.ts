@@ -1,5 +1,6 @@
 import type { PlanEntry, SessionUpdate, StopReason, ToolKind } from "@agentclientprotocol/sdk";
 import type { AgentActivityContent, SessionPlanItem } from "@artfct-ai/adapters/tracker/types";
+import type { FeedActivity } from "../../notify/notifier";
 import { hasChatThread } from "../../notify/recipients";
 import { jobSessionOf, type TrackerSession } from "../inbound/job-session";
 import type { TaskRow } from "../store/tasks";
@@ -13,6 +14,12 @@ export const DONE_TEXT = "Done.";
 
 /** The longest author message the feed keeps for the closing reply. */
 const FEED_BODY_CHARS = 10_000;
+
+/** How long a closing reply's alarm waits to post the reply again. Longer than the notifier's attempts take. */
+const CLOSING_REPLY_ALARM_SECONDS = 60;
+
+/** The payload of a closing reply's alarm: the job session and the reply under its activity id. */
+export type ClosingReplyAlarm = { session: TrackerSession; activity: FeedActivity };
 
 /** What the session feed keeps in memory during one author turn. */
 export type AuthorFeed = {
@@ -94,7 +101,11 @@ async function postEndedTool(
     parameter: title,
     ...(update.status === "failed" ? { result: "failed" } : {}),
   };
-  await workflow.notifier.feed(session, task.task_id, content);
+  await workflow.notifier.feed(session, {
+    task_id: task.task_id,
+    id: crypto.randomUUID(),
+    content,
+  });
 }
 
 /** The closing for a turn that ended with this stop reason. */
@@ -133,7 +144,11 @@ function closingContent(closing: FeedClosing, message: string): AgentActivityCon
   }
 }
 
-/** End the author's session feed for this turn, and post the closing when one is given. */
+/**
+ * End the author's session feed for this turn, and post the closing when one is given. The
+ * reply's alarm is armed before the post and cancelled once it returns, so an instance restart
+ * in between does not lose the reply.
+ */
 export async function closeSessionFeed(
   workflow: WorkflowRuntime,
   task: TaskRow,
@@ -143,7 +158,26 @@ export async function closeSessionFeed(
   workflow.sessionFeeds.delete(task.task_id);
   const session = feedSessionOf(workflow, task);
   if (!session || !closing) return;
-  await workflow.notifier.feed(session, task.task_id, closingContent(closing, message));
+  const content = closingContent(closing, message);
+  const reply: ClosingReplyAlarm = {
+    session,
+    activity: { task_id: task.task_id, id: crypto.randomUUID(), content },
+  };
+  const alarm = await workflow.scheduleAlarm(
+    CLOSING_REPLY_ALARM_SECONDS,
+    "postClosingReply",
+    reply,
+  );
+  await postClosingReply(workflow, reply);
+  await workflow.cancelAlarm(alarm);
+}
+
+/** Post a closing reply under its activity id, so the tracker stores it once however often it posts. */
+export async function postClosingReply(
+  workflow: WorkflowRuntime,
+  reply: ClosingReplyAlarm,
+): Promise<void> {
+  await workflow.notifier.feed(reply.session, reply.activity);
 }
 
 /** Close the session feed of an author task that ends for good in the middle of a turn. */

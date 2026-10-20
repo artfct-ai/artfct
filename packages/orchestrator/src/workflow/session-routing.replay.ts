@@ -41,6 +41,9 @@ async function replayTrace(setup: SpecSetup, trace: TraceStep[]): Promise<void> 
     expect(output, divergence(step)).toEqual(step.output);
     expect(replay.project(), divergence(step)).toEqual(step.routing);
     if (step.messages) expect(replay.messages(), divergence(step)).toEqual(step.messages);
+    if (step.cutClosingReplies) {
+      expect(replay.cutClosingReplies(), divergence(step)).toEqual(step.cutClosingReplies);
+    }
   }
   replay = null;
 }
@@ -107,9 +110,9 @@ const PINNED: { name: string; setup: SpecSetup; file: string }[] = [
     file: "a-researcher-stopped-on-a-limit-restarts",
   },
   {
-    name: "loses the closing reply of a cancelled turn when the workflow restarts before the tracker stores it",
+    name: "posts the closing reply of a cancelled turn once on its alarm after restarts cut its posts",
     setup: "trackerOnly",
-    file: "a-restart-loses-the-closing-reply-of-a-cancelled-turn",
+    file: "a-closing-reply-cut-by-restarts-posts-once-on-its-alarm",
   },
   {
     name: "ends the feed on the stopped reply when a stop lands during the model call of an author in review",

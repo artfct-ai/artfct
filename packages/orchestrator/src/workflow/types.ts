@@ -54,7 +54,8 @@ export type ScheduledMethod =
   | "onModelTurnDeadline"
   | "resumeLostCalls"
   | "resumeWorkflowEnd"
-  | "runLostModelTurnAgain";
+  | "runLostModelTurnAgain"
+  | "postClosingReply";
 
 /**
  * Why the orchestrator model is needed now. Every caller of `tellAgent` declares one.
