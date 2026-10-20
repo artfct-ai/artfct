@@ -169,6 +169,14 @@ describe("review loop spec", () => {
     );
   });
 
+  it("posts a judge rejection on a page after a restart cut a review the host refused", async () => {
+    await replayPinnedTrace(
+      "a-restart-cuts-a-review-the-host-refused",
+      "pageJudgeBetweenReviewers",
+      805378938,
+    );
+  });
+
   it("routes each done refiner run before the first call a restart cuts", async () => {
     await replayPinnedTrace("a-restart-cuts-the-routing-of-each-done-run", "reviewerThenPolisher");
   });
