@@ -1722,6 +1722,22 @@ export const MUTANTS: Mutant[] = [
     propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
   },
   {
+    id: "W296",
+    invariant: "slackTextInvariants::slackChunksKeepTheText (whitespace one past the limit)",
+    path: "../adapters/src/chat/slack/chat.ts",
+    find: "  const whitespace = text.slice(0, limit + 1).search(LAST_WHITESPACE);\n",
+    replace: "  const whitespace = text.slice(0, limit + 2).search(LAST_WHITESPACE);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
+  },
+  {
+    id: "W297",
+    invariant: "slackTextInvariants::slackChunksKeepTheText (period at the limit)",
+    path: "../adapters/src/chat/slack/chat.ts",
+    find: '  const period = text.lastIndexOf(".", limit - 1);\n',
+    replace: '  const period = text.lastIndexOf(".", limit);\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.slack_text,
+  },
+  {
     id: "W293",
     invariant: "slackTextInvariants::slackMrkdwnIsStable",
     path: "../adapters/src/chat/slack/mrkdwn.ts",
