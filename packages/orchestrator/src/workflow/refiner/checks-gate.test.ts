@@ -4,6 +4,7 @@ import { describe, expect, it } from "bun:test";
 import {
   patchStagePolishers,
   patchStageReviewers,
+  seedEndedWorkflow,
   seedPullRequestTask,
   type FakeRuntime,
 } from "../../../test/fake-runtime";
@@ -377,7 +378,7 @@ describe("recheckChecks", () => {
 
   describe("a workflow that finished while the host worked the merge out", () => {
     const finished = scenario(heldByHumans(null), async (workflow) => {
-      workflow.store.updateWorkflow({ status: "cancelled" });
+      seedEndedWorkflow(workflow, "cancelled");
       workflow.store.updateTask(TASK, { status: "cancelled" });
       workflow.codeHostInstance = hostWith(PASSED, false);
       await recheckChecks(workflow, ALARM);

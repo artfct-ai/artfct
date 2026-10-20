@@ -4,7 +4,12 @@ import { FakeDecisions } from "@artfct-ai/adapters/test/fake-decisions";
 import { FakeGateway } from "@artfct-ai/adapters/test/fake-gateway";
 import type { InboundEvent, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import { describe, expect, it } from "bun:test";
-import { FakeRuntime, seedPullRequestTask, seedTask } from "../../../test/fake-runtime";
+import {
+  FakeRuntime,
+  seedEndedWorkflow,
+  seedPullRequestTask,
+  seedTask,
+} from "../../../test/fake-runtime";
 import { freshRuntime } from "../../../test/fresh-runtime";
 import { scenario } from "../../../test/scenario";
 import { openMemoryDb } from "../../../test/memory-db";
@@ -189,6 +194,41 @@ describe("a message a person wrote", () => {
       }));
   });
 
+  describe("in the chat thread of a sleeping workflow whose end started", () => {
+    const prompted = scenario(freshRuntime, async (workflow) => {
+      workflow.store.updateWorkflow({ status: "waiting_input", origin: THREAD });
+      workflow.store.addReplyTarget(THREAD);
+      workflow.store.startWorkflowEnd({
+        ends_as: "cancelled",
+        reason: "Cancelled by Dev.",
+        answering: [],
+        posted: false,
+      });
+      await handleEvent(workflow, {
+        ...START,
+        id: "evt-prompt",
+        kind: "prompt",
+        text: "also add a test",
+        acknowledge: { message: "1.5", user: "U1" },
+      });
+    });
+
+    it("leaves the workflow ending", () =>
+      prompted((workflow) => {
+        expect(workflow.store.requireWorkflowRow().status).toBe("ending");
+      }));
+
+    it("does not arm the idle alarm", () =>
+      prompted((workflow) => {
+        expect(workflow.alarmsFor("onIdle")).toEqual([]);
+      }));
+
+    it("does not tell the agent", () =>
+      prompted((workflow) => {
+        expect(workflow.notes).toEqual([]);
+      }));
+  });
+
   describe("in a tracker session", () => {
     const prompted = scenario(freshRuntime, async (workflow) => {
       workflow.store.updateWorkflow({ status: "running", origin: SESSION });
@@ -268,7 +308,8 @@ describe("a message a person wrote", () => {
 
   describe("in a tracker session of a finished workflow", () => {
     const prompted = scenario(freshRuntime, async (workflow) => {
-      workflow.store.updateWorkflow({ status: "done", origin: SESSION });
+      workflow.store.updateWorkflow({ origin: SESSION });
+      seedEndedWorkflow(workflow, "done");
       workflow.store.addReplyTarget(SESSION);
       await handleEvent(workflow, {
         ...START,
@@ -297,9 +338,15 @@ function feedPayloadsOf(workflow: FakeRuntime): unknown[] {
     .map((row) => row.payload);
 }
 
-function workflowWith(status: "running" | "done"): FakeRuntime {
+function runningWorkflow(): FakeRuntime {
   const workflow = new FakeRuntime(openMemoryDb(), testEnv());
-  workflow.store.updateWorkflow({ status });
+  workflow.store.updateWorkflow({ status: "running" });
+  return workflow;
+}
+
+function doneWorkflow(): FakeRuntime {
+  const workflow = new FakeRuntime(openMemoryDb(), testEnv());
+  seedEndedWorkflow(workflow, "done");
   return workflow;
 }
 
@@ -324,7 +371,7 @@ describe("eventRefusalOf", () => {
   });
 
   describe("a created workflow that ended", () => {
-    const workflow = workflowWith("done");
+    const workflow = doneWorkflow();
 
     it("refuses a person's message with its status", () => {
       expect(eventRefusalOf(workflow, PROMPT)).toEqual({ refused: "ended", status: "done" });
@@ -335,8 +382,22 @@ describe("eventRefusalOf", () => {
     });
   });
 
+  describe("a created workflow whose end started", () => {
+    const workflow = runningWorkflow();
+    workflow.store.startWorkflowEnd({
+      ends_as: "failed",
+      reason: "The build broke.",
+      answering: [],
+      posted: false,
+    });
+
+    it("refuses a person's message with the status it ends as", () => {
+      expect(eventRefusalOf(workflow, PROMPT)).toEqual({ refused: "ended", status: "failed" });
+    });
+  });
+
   describe("a created workflow that runs", () => {
-    const workflow = workflowWith("running");
+    const workflow = runningWorkflow();
 
     it("takes a person's message", () => {
       expect(eventRefusalOf(workflow, PROMPT)).toBeNull();

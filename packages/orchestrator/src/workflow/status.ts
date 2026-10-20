@@ -3,21 +3,21 @@ import { jobSlotsOf } from "./store/state";
 import type { TaskRow } from "./store/tasks";
 import type { WorkflowRuntime } from "./types";
 
-/** Status summary: the plan, the active jobs with their artifacts, and the cost. */
+/** Status summary: the plan, the active jobs with their artifacts, the cost, and the end. */
 export function summarize(workflow: WorkflowRuntime): WorkflowSummary {
   const { store } = workflow;
-  const { workflow_id, status } = store.requireWorkflowRow();
+  const { workflow_id } = store.requireWorkflowRow();
   const plan = store.plan();
   const stagePlan = store.stagePlan();
   return {
     workflow_id,
-    status,
+    status: store.workflowStatus(),
     stages: stagePlan?.stages ?? [],
     jobs: store.activeAuthorAndResearcherTasks().map((task) => jobSummary(workflow, task)),
     concurrency: jobSlotsOf(stagePlan),
     cost_usd: store.workflowCost(),
     repo: plan?.repo ? { full: plan.repo } : null,
-    reason: plan?.reason ?? null,
+    reason: store.workflowEnd()?.reason ?? plan?.reason ?? null,
   };
 }
 

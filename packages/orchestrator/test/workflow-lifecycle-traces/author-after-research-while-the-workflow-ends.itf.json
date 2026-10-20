@@ -220,12 +220,7 @@
             "#tup": []
           }
         },
-        "status": {
-          "tag": "New",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "New", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -235,12 +230,7 @@
         "turnsToRunAgain": {
           "#set": []
         },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "endCall": {
           "tag": "NoEndCall",
           "value": {
@@ -460,12 +450,7 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -475,12 +460,7 @@
         "turnsToRunAgain": {
           "#set": []
         },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "endCall": {
           "tag": "NoEndCall",
           "value": {
@@ -700,12 +680,7 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -715,12 +690,7 @@
         "turnsToRunAgain": {
           "#set": []
         },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "endCall": {
           "tag": "NoEndCall",
           "value": {
@@ -939,12 +909,7 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -954,12 +919,7 @@
         "turnsToRunAgain": {
           "#set": []
         },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "endCall": {
           "tag": "NoEndCall",
           "value": {
@@ -1179,12 +1139,7 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -1194,12 +1149,7 @@
         "turnsToRunAgain": {
           "#set": []
         },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "endCall": {
           "tag": "NoEndCall",
           "value": {
@@ -1470,12 +1420,7 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -1485,12 +1430,7 @@
         "turnsToRunAgain": {
           "#set": []
         },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "endCall": {
           "tag": "NoEndCall",
           "value": {
@@ -1811,12 +1751,7 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -1826,12 +1761,7 @@
         "turnsToRunAgain": {
           "#set": []
         },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "endCall": {
           "tag": "NoEndCall",
           "value": {
@@ -2130,12 +2060,7 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -2145,12 +2070,7 @@
         "turnsToRunAgain": {
           "#set": []
         },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "endCall": {
           "tag": "NoEndCall",
           "value": {
@@ -2504,12 +2424,7 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -2519,12 +2434,7 @@
         "turnsToRunAgain": {
           "#set": []
         },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
+        "end": { "tag": "NoEnd", "value": { "#tup": [] } },
         "endCall": {
           "tag": "NoEndCall",
           "value": {
@@ -2923,12 +2833,7 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Ending", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -2938,14 +2843,9 @@
         "turnsToRunAgain": {
           "#set": []
         },
-        "storedEnd": {
-          "tag": "EndStored",
-          "value": {
-            "tag": "Cancelled",
-            "value": {
-              "#tup": []
-            }
-          }
+        "end": {
+          "tag": "End",
+          "value": { "endsAs": { "tag": "Cancelled", "value": { "#tup": [] } }, "posted": false }
         },
         "endCall": {
           "tag": "NoEndCall",
@@ -3346,12 +3246,7 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Ending", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -3361,14 +3256,9 @@
         "turnsToRunAgain": {
           "#set": []
         },
-        "storedEnd": {
-          "tag": "EndStored",
-          "value": {
-            "tag": "Cancelled",
-            "value": {
-              "#tup": []
-            }
-          }
+        "end": {
+          "tag": "End",
+          "value": { "endsAs": { "tag": "Cancelled", "value": { "#tup": [] } }, "posted": false }
         },
         "endCall": {
           "tag": "NoEndCall",
@@ -3816,12 +3706,7 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Ending", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -3831,14 +3716,9 @@
         "turnsToRunAgain": {
           "#set": []
         },
-        "storedEnd": {
-          "tag": "EndStored",
-          "value": {
-            "tag": "Cancelled",
-            "value": {
-              "#tup": []
-            }
-          }
+        "end": {
+          "tag": "End",
+          "value": { "endsAs": { "tag": "Cancelled", "value": { "#tup": [] } }, "posted": false }
         },
         "endCall": {
           "tag": "NoEndCall",
@@ -4257,12 +4137,7 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Ending", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -4272,14 +4147,9 @@
         "turnsToRunAgain": {
           "#set": []
         },
-        "storedEnd": {
-          "tag": "EndStored",
-          "value": {
-            "tag": "Cancelled",
-            "value": {
-              "#tup": []
-            }
-          }
+        "end": {
+          "tag": "End",
+          "value": { "endsAs": { "tag": "Cancelled", "value": { "#tup": [] } }, "posted": false }
         },
         "endCall": {
           "tag": "NoEndCall",
@@ -4710,12 +4580,7 @@
             "#bigint": "2"
           }
         },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
+        "status": { "tag": "Ending", "value": { "#tup": [] } },
         "subject": {
           "tag": "NoSubject",
           "value": {
@@ -4725,14 +4590,9 @@
         "turnsToRunAgain": {
           "#set": []
         },
-        "storedEnd": {
-          "tag": "EndStored",
-          "value": {
-            "tag": "Cancelled",
-            "value": {
-              "#tup": []
-            }
-          }
+        "end": {
+          "tag": "End",
+          "value": { "endsAs": { "tag": "Cancelled", "value": { "#tup": [] } }, "posted": false }
         },
         "endCall": {
           "tag": "NoEndCall",

@@ -45,6 +45,6 @@ describe("a turn of a running workflow that calls finish_workflow", () => {
 
   it("ends the workflow", () =>
     finished((workflow) => {
-      expect(workflow.store.requireWorkflowRow().status).toBe("done");
+      expect(workflow.store.workflowStatus()).toBe("done");
     }));
 });

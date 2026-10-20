@@ -153,7 +153,7 @@ describe("a reply target that joins", () => {
 
 describe("a workflow end", () => {
   const ending = scenario(created, (store) => {
-    store.recordWorkflowEnd({ ends_as: "done", reason: "Merged.", answering: [], posted: false });
+    store.startWorkflowEnd({ ends_as: "done", reason: "Merged.", answering: [], posted: false });
   });
 
   it("is recorded unposted", () =>
@@ -166,15 +166,22 @@ describe("a workflow end", () => {
       });
     }));
 
+  it("moves the workflow to ending, which shows the status it ends as", () =>
+    ending((store) => {
+      expect(store.requireWorkflowRow().status).toBe("ending");
+      expect(store.workflowStatus()).toBe("done");
+    }));
+
   it("records its post", () =>
     ending((store) => {
       store.markWorkflowEndPosted();
       expect(store.workflowEnd()?.posted).toBe(true);
     }));
 
-  it("is gone once it finished", () =>
+  it("stays once the workflow ended", () =>
     ending((store) => {
-      store.clearWorkflowEnd();
-      expect(store.workflowEnd()).toBeNull();
+      store.updateWorkflow({ status: "ended" });
+      expect(store.workflowEnd()?.reason).toBe("Merged.");
+      expect(store.workflowStatus()).toBe("done");
     }));
 });

@@ -58,7 +58,10 @@ export type WorkflowSummary = {
   concurrency: number;
   cost_usd: number;
   repo: { full: string } | null;
-  /** Why the last plan was set. Null before the plan that starts the workflow. */
+  /**
+   * Why the workflow ended, or its result, from the start of its end. Before it, why the last plan
+   * was set. Null before the plan that starts the workflow.
+   */
   reason: string | null;
 };
 

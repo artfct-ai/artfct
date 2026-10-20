@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
-import type { FakeRuntime } from "../../../test/fake-runtime";
+import { seedEndedWorkflow, type FakeRuntime } from "../../../test/fake-runtime";
 import { freshRuntime } from "../../../test/fresh-runtime";
 import { scenario } from "../../../test/scenario";
 import {
@@ -146,7 +146,7 @@ describe("turn watchdog", () => {
       const firedOnFinished = scenario(armed, async (workflow) => {
         await workingThread(workflow);
         const startedAt = workflow.store.agentTurn()!.started_at;
-        workflow.store.updateWorkflow({ status: "cancelled" });
+        seedEndedWorkflow(workflow, "cancelled");
         await onTurnTimeout(workflow, { started_at: startedAt });
       });
 
@@ -490,7 +490,7 @@ describe("resumeLostTurn", () => {
       workflow.transcript.enqueue("The author finished.", "blocked");
       workflow.transcript.takeInbox();
       await armTurnWatchdog(workflow, FIRST_ROW);
-      workflow.store.updateWorkflow({ status: "done" });
+      seedEndedWorkflow(workflow, "done");
       resumed = await resumeLostTurn(workflow);
     });
 
@@ -523,7 +523,7 @@ describe("resumeLostTurn", () => {
       await workingThread(workflow);
       takeMessage(workflow);
       await armTurnWatchdog(workflow, FIRST_ROW);
-      workflow.store.updateWorkflow({ status: "done" });
+      seedEndedWorkflow(workflow, "done");
       resumed = await resumeLostTurn(workflow);
     });
 

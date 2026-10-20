@@ -58,7 +58,7 @@ describe("completeWorkflow", () => {
 
     it("marks the workflow done", () =>
       finished((workflow) => {
-        expect(workflow.store.requireWorkflowRow().status).toBe("done");
+        expect(workflow.store.workflowStatus()).toBe("done");
       }));
 
     it("posts the result", () =>
@@ -100,7 +100,7 @@ describe("failWorkflow", () => {
 
     it("marks the workflow failed", () =>
       failed((workflow) => {
-        expect(workflow.store.requireWorkflowRow().status).toBe("failed");
+        expect(workflow.store.workflowStatus()).toBe("failed");
       }));
 
     it("cancels the active task and leaves the done one", () =>

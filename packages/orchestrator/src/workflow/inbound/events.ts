@@ -39,15 +39,14 @@ function isMessage(event: InboundEvent): boolean {
 
 /**
  * Why the workflow refuses an event the router hands it, or null when it takes it. It refuses
- * every event before its create, and a person's message once it ended.
+ * every event before its create, and a person's message once its end started.
  */
 export function eventRefusalOf(
   workflow: WorkflowRuntime,
   event: InboundEvent,
 ): EventRefusal | null {
-  const created = workflow.store.workflowRow();
-  if (!created) return { refused: "not_created" };
-  const { status } = created;
+  if (!workflow.store.workflowRow()) return { refused: "not_created" };
+  const status = workflow.store.workflowStatus();
   if (isWorkflowFinished(status) && isMessage(event)) return { refused: "ended", status };
   return null;
 }
@@ -105,9 +104,7 @@ function earlierMessagesNote(endedWorkflowId: string, origin: ReplyTarget | null
  * delivery that a restart cut off routes when the host delivers it again.
  */
 function routesBeforeItIsSeen(workflow: WorkflowRuntime, event: InboundEvent): boolean {
-  return (
-    event.kind === "feedback" && !isWorkflowFinished(workflow.store.requireWorkflowRow().status)
-  );
+  return event.kind === "feedback" && !isWorkflowFinished(workflow.store.workflowStatus());
 }
 
 /**
@@ -123,7 +120,7 @@ export async function handleEvent(workflow: WorkflowRuntime, event: InboundEvent
   const task = job ? workflow.store.authorOrResearcherTaskOf(job.job_id) : null;
   workflow.log(task?.task_id ?? null, `event ${event.kind}${controlSuffix}`);
 
-  if (!isWorkflowFinished(workflow.store.requireWorkflowRow().status)) {
+  if (!isWorkflowFinished(workflow.store.workflowStatus())) {
     if (isMessage(event)) await wakeWorkflow(workflow);
     await acknowledge(workflow, event);
     const instructed = instructedSessionOf(workflow, event);
@@ -132,7 +129,7 @@ export async function handleEvent(workflow: WorkflowRuntime, event: InboundEvent
   if (!routesBeforeItIsSeen(workflow, event) && !workflow.store.markEventSeen(event.id)) {
     return DUPLICATE;
   }
-  if (isWorkflowFinished(workflow.store.requireWorkflowRow().status)) {
+  if (isWorkflowFinished(workflow.store.workflowStatus())) {
     await replyFinished(workflow, event);
     return ACK;
   }
@@ -204,7 +201,7 @@ async function wakeWorkflow(workflow: WorkflowRuntime): Promise<void> {
  * author's session feed.
  */
 async function replyFinished(workflow: WorkflowRuntime, event: InboundEvent): Promise<void> {
-  const { status } = workflow.store.requireWorkflowRow();
+  const status = workflow.store.workflowStatus();
   if (event.kind === "stop") {
     await stopSessionAuthor(workflow, event);
     return;

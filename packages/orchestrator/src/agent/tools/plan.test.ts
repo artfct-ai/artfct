@@ -7,6 +7,7 @@ import {
   patchModelAuthors,
   fakeDocumentsOf,
   patchNestingHost,
+  seedEndedWorkflow,
   seedTask,
   type FakeRuntime,
 } from "../../../test/fake-runtime";
@@ -63,7 +64,7 @@ describe("set_plan", () => {
   describe("on a workflow that is done", () => {
     let result: string;
     const refused = scenario(freshRuntime, async (workflow) => {
-      workflow.store.updateWorkflow({ status: "done" });
+      seedEndedWorkflow(workflow, "done");
       const { set_plan } = planTools(workflow);
       result = toolText(
         await set_plan.execute(
@@ -87,7 +88,7 @@ describe("set_plan", () => {
 
     it("stays done with no plan", () =>
       refused((workflow) => {
-        expect(workflow.store.requireWorkflowRow().status).toBe("done");
+        expect(workflow.store.workflowStatus()).toBe("done");
         expect(workflow.store.stagePlan()).toBeNull();
       }));
   });

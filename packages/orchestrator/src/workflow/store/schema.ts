@@ -1,18 +1,13 @@
 import { HARNESSES } from "@artfct-ai/adapters/harness/types";
 import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
-import type {
-  ArtifactKind,
-  ArtifactStatus,
-  TaskStatus,
-  WorkflowStatus,
-} from "@artfct-ai/contracts/types";
+import type { ArtifactKind, ArtifactStatus, TaskStatus } from "@artfct-ai/contracts/types";
 import type { ArtifactRef, Finding } from "../../artifact/types";
 import type { JobInput } from "../lifecycle";
 import type { TaskRole } from "../task/events";
 import { integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import type { BoardChannel, TodoSnapshot } from "../board/types";
 import type { Wake } from "../types";
-import type { ChatMessageRef, RootPage, WorkflowEndStatus } from "./state";
+import type { ChatMessageRef, RootPage, WorkflowEndStatus, WorkflowLifecycle } from "./state";
 
 /** Where a judge run's ruling stands: a person is asked for it, or the judge ruled. */
 export type RulingStatus = "asked" | "approved" | "rejected";
@@ -24,7 +19,7 @@ export type RpcPurpose = "initialize" | "session_new" | "set_effort" | "prompt" 
 export const workflow = sqliteTable("workflow", {
   /** The router's name for the Durable Object. */
   workflow_id: text().primaryKey(),
-  status: text().$type<WorkflowStatus>().notNull(),
+  status: text().$type<WorkflowLifecycle>().notNull(),
   /** The title of the starting event, or the first line of its text. */
   request_title: text().notNull(),
   request_text: text().notNull(),
@@ -64,8 +59,9 @@ export const agentTurn = sqliteTable("agent_turn", {
 });
 
 /**
- * The workflow end, from its request until the channels heard it. At most one row. `answering`
- * is where the people who asked for the end wait. `posted` is true once the channels heard it.
+ * The workflow end, from its start on. It stays after the end's last step. At most one row.
+ * `answering` is where the people who asked for the end wait. `posted` is true once the channels
+ * heard it.
  */
 export const workflowEnd = sqliteTable("workflow_end", {
   workflow_id: text().primaryKey(),
