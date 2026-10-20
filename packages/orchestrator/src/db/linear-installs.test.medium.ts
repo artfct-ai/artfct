@@ -19,7 +19,6 @@ function install(patch: Partial<LinearInstallInput> = {}): LinearInstallInput {
     access_token: "lin_oauth_a",
     refresh_token: "r1",
     expires_at: "2026-09-04T10:00:00.000Z",
-    scope: "read,write",
     ...patch,
   };
 }
@@ -28,7 +27,6 @@ const refreshed = {
   access_token: "lin_oauth_c",
   refresh_token: "r2",
   expires_at: "2026-09-05T10:00:00.000Z",
-  scope: "read,write",
 };
 
 describe("linear installs", () => {

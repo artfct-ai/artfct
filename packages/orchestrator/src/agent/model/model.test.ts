@@ -5,7 +5,8 @@ import type { GatewayProvider } from "../../config/gateway";
 import { generateText } from "ai";
 import { beforeEach, describe, expect, it } from "bun:test";
 import { testEnv } from "../../../test/test-env";
-import { initialWorkflowState } from "../../workflow/store/state";
+import { openMemoryDb } from "../../../test/memory-db";
+import { WorkflowStore } from "../../workflow/store/tasks";
 import type { WorkflowRuntime } from "../../workflow/types";
 import { orchestratorModel } from "./model";
 
@@ -19,9 +20,18 @@ function runtime(
   requests: GatewayProvider[] = [],
 ): WorkflowRuntime {
   const config = loadConfig(`orchestrator: ${orchestrator}`);
-  const slice: Pick<WorkflowRuntime, "env" | "state" | "config" | "gateway"> = {
+  const store = new WorkflowStore(openMemoryDb());
+  store.createWorkflow({
+    workflow_id: "wf_model",
+    request_title: "",
+    request_text: "",
+    request_links: [],
+    origin: null,
+    subject: null,
+  });
+  const slice: Pick<WorkflowRuntime, "env" | "store" | "config" | "gateway"> = {
     env,
-    state: { ...initialWorkflowState, workflow_id: "wf_model" },
+    store,
     config: () => config,
     gateway: (provider) => {
       requests.push(provider);

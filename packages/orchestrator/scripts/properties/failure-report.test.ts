@@ -36,7 +36,7 @@ Shrunk 28 time(s)
 (fail) slack inbound mapper invariants > hold for a JSON value of any shape [1.98ms]
 `;
 
-const VITEST_PROPERTY_OUTPUT = ` FAIL  src/db/persons.property.medium.ts > person upserts > keep one row per group
+const VITEST_PROPERTY_OUTPUT = ` FAIL  src/oauth/token.property.medium.ts > token refreshes > keep one stored token
 Error: Property failed after 2 tests
 { seed: 5, path: "1:1:0", endOnFailure: true }
 Counterexample: [50]
@@ -88,7 +88,7 @@ describe("propertyFailures", () => {
 
   it("names a vitest counterexample without an invariant error by its failing test", () => {
     expect(propertyFailures(VITEST_PROPERTY_OUTPUT)).toEqual([
-      { invariant: "person upserts > keep one row per group", seed: 5, path: "1:1:0" },
+      { invariant: "token refreshes > keep one stored token", seed: 5, path: "1:1:0" },
       { invariant: "the access rules > resolve an actor", seed: 5, path: "2:0" },
     ]);
   });
@@ -129,7 +129,7 @@ describe("propertyFailureReport", () => {
 
   it("names the package directory a standalone property replays from", () => {
     const report = propertyFailureReport(
-      standalonePropertyFile("src/db/persons.property.medium.ts")!,
+      standalonePropertyFile("src/oauth/token.property.medium.ts")!,
       5,
       {
         outcome: "failed",
@@ -138,7 +138,7 @@ describe("propertyFailureReport", () => {
     );
     expect(report).toContain("Replay it from `packages/orchestrator`:");
     expect(report).toContain(
-      "PROPERTY_SEED=5 PROPERTY_RUNS=3000 bunx vitest run --config vitest.property.config.ts ./src/db/persons.property.medium.ts",
+      "PROPERTY_SEED=5 PROPERTY_RUNS=5000 bunx vitest run --config vitest.property.config.ts ./src/oauth/token.property.medium.ts",
     );
   });
 

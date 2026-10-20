@@ -948,19 +948,22 @@ export class WorkflowLifecycleReplay {
   /** The store as the spec sees it. */
   project(): SpecWorkflow {
     const { workflow } = this.world;
-    const { store, state } = workflow;
+    const { store } = workflow;
+    const created = store.requireWorkflowRow();
+    const plan = store.plan();
+    const stagePlan = store.stagePlan();
     const jobs = store.jobs();
-    const storedEnd = state.workflow_end;
+    const storedEnd = store.workflowEnd();
     const observed = this.world.steps.at(-1)?.after.tasks ?? [];
     const started = store
       .tasks()
       .filter((task) => JOB_ROLES.includes(task.role))
       .map((task) => task.task_id);
     return {
-      status: WORKFLOW_STATUS_OF[state.status],
-      definition: state.definition === null ? null : state.definition === SECOND_DEFINITION ? 1 : 0,
-      jobSlots: state.stages.length > 0 ? state.concurrency : null,
-      subject: specSubjectOf(state.subject ?? null),
+      status: WORKFLOW_STATUS_OF[created.status],
+      definition: plan === null ? null : plan.definition === SECOND_DEFINITION ? 1 : 0,
+      jobSlots: stagePlan?.job_slots ?? null,
+      subject: specSubjectOf(store.subject()),
       idleArmed: workflow.alarmsFor("onIdle").length > 0,
       jobs: jobs.map((job, index) => {
         const artifact = store.artifact(job.job_id);
@@ -1026,7 +1029,7 @@ export class WorkflowLifecycleReplay {
       restartAlarmFired: this.firedRestartAlarm !== null,
       ranAgain: [...this.ranAgain.keys()].toSorted((left, right) => left - right),
       storedEnd: storedEnd
-        ? { endsAs: WORKFLOW_STATUS_OF[storedEnd.status], posted: storedEnd.posted === true }
+        ? { endsAs: WORKFLOW_STATUS_OF[storedEnd.ends_as], posted: storedEnd.posted }
         : null,
       endCall: this.endCall?.kind ?? "NoEndCall",
     };
@@ -1317,7 +1320,7 @@ export class WorkflowLifecycleReplay {
             world.deliver({
               kind: "prompt",
               text: VERBAL_COMMAND_TEXT[command],
-              reply_to: world.workflow.state.origin ?? undefined,
+              reply_to: world.workflow.store.requireWorkflowRow().origin ?? undefined,
             }),
           ),
         );
@@ -1482,7 +1485,6 @@ export class WorkflowLifecycleReplay {
           : (world.workflow.workflowDefinitions()[0]?.name ?? "");
     const stages = {
       stages: [this.stage],
-      repo: REPO,
       page_parent: this.modelAuthor ? PAGE_PARENT : null,
       concurrency: jobSlots,
     };
@@ -1492,6 +1494,7 @@ export class WorkflowLifecycleReplay {
         name: "Fix login",
         definition: name,
         reason: "the request asks for a design",
+        repo: REPO,
         ...(withStages ? stages : {}),
         ...(subject ? { subject: world.trackerLinkUrl(subject, 0) } : {}),
       },
@@ -1503,7 +1506,9 @@ export class WorkflowLifecycleReplay {
     switch (ending) {
       case "PersonCancels":
         await personCancels(
-          world.workflow.state.origin?.source === "tracker" ? "word" : "control",
+          world.workflow.store.requireWorkflowRow().origin?.source === "tracker"
+            ? "word"
+            : "control",
         ).run(world);
         return;
       case "AgentFails":
@@ -1979,8 +1984,9 @@ export class WorkflowLifecycleReplay {
    * returns it. Any other post or binding delete runs at once.
    */
   holdEndCall<Result>(kind: HeldEndCall["kind"], run: () => Promise<Result>): Promise<Result> {
-    const { state } = this.world.workflow;
-    if (!state.workflow_end || !isWorkflowFinished(state.status)) return run();
+    const { store } = this.world.workflow;
+    const ending = store.workflowEnd() !== null;
+    if (!ending || !isWorkflowFinished(store.requireWorkflowRow().status)) return run();
     if (this.endCall)
       throw new Error(`the workflow end sent ${kind} while ${this.endCall.kind} is out`);
     return new Promise<Result>((resolve, reject) => {

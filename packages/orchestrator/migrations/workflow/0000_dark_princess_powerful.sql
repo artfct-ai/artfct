@@ -2,7 +2,12 @@ CREATE TABLE `agent_inbox` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`at` text NOT NULL,
 	`text` text NOT NULL,
-	`wake` text DEFAULT 'none' NOT NULL
+	`body` text,
+	`wake` text DEFAULT 'none' NOT NULL,
+	`reply_to` text,
+	`chat_message` text,
+	`taken` integer DEFAULT false NOT NULL,
+	`reacted` integer DEFAULT false NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `artifacts` (
@@ -10,6 +15,7 @@ CREATE TABLE `artifacts` (
 	`kind` text NOT NULL,
 	`external_url` text NOT NULL,
 	`ref` text NOT NULL,
+	`ref_key` text NOT NULL,
 	`status` text DEFAULT 'drafted' NOT NULL,
 	`refiner_task_id` text,
 	`delivered_to_humans_at` text,
@@ -32,8 +38,7 @@ CREATE TABLE `boards` (
 --> statement-breakpoint
 CREATE TABLE `events` (
 	`id` text PRIMARY KEY NOT NULL,
-	`at` text NOT NULL,
-	`kind` text NOT NULL
+	`at` text NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `jobs` (
@@ -41,7 +46,8 @@ CREATE TABLE `jobs` (
 	`stage` text NOT NULL,
 	`issue_id` text,
 	`issue_key` text,
-	`input_key` text,
+	`input_kind` text NOT NULL,
+	`input_key` text NOT NULL,
 	`preceding_job_id` text,
 	`input_ref` text,
 	`input_url` text,
@@ -68,7 +74,7 @@ CREATE TABLE `model_usage` (
 	`model` text NOT NULL,
 	`input_tokens` integer DEFAULT 0 NOT NULL,
 	`output_tokens` integer DEFAULT 0 NOT NULL,
-	`cost_usd` real DEFAULT 0 NOT NULL
+	`cost_usd` real
 );
 --> statement-breakpoint
 CREATE TABLE `outbox` (
@@ -87,12 +93,34 @@ CREATE TABLE `prompt_queue` (
 	`created_at` text NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE `reply_targets` (
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
+	`target_key` text NOT NULL,
+	`target` text NOT NULL
+);
+--> statement-breakpoint
+CREATE UNIQUE INDEX `reply_targets_target_key_unique` ON `reply_targets` (`target_key`);--> statement-breakpoint
+CREATE TABLE `reviews` (
+	`task_id` text PRIMARY KEY NOT NULL,
+	`revision` text,
+	`blocking` integer NOT NULL,
+	`summary` text NOT NULL,
+	`findings` text NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE `rpc` (
-	`id` integer PRIMARY KEY NOT NULL,
+	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`task_id` text NOT NULL,
 	`method` text NOT NULL,
 	`purpose` text NOT NULL,
 	`sent_at` text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `rulings` (
+	`task_id` text PRIMARY KEY NOT NULL,
+	`status` text NOT NULL,
+	`revision` text,
+	`reason` text
 );
 --> statement-breakpoint
 CREATE TABLE `sandboxes` (
@@ -100,8 +128,8 @@ CREATE TABLE `sandboxes` (
 	`harness` text NOT NULL,
 	`generation` integer DEFAULT 0 NOT NULL,
 	`bridge_token` text NOT NULL,
-	`token_used` integer DEFAULT 0 NOT NULL,
 	`session_id` text,
+	`first_prompt_at` text,
 	`last_progress_at` text NOT NULL,
 	`prompt_in_flight` integer DEFAULT 0 NOT NULL,
 	`turn_text` text DEFAULT '' NOT NULL,
@@ -113,7 +141,22 @@ CREATE TABLE `sandboxes` (
 	`token_schedule` text,
 	`credential_expires_at` text,
 	`nudged` integer DEFAULT 0 NOT NULL,
-	`restarts` integer DEFAULT 0 NOT NULL
+	`stopped_early` integer DEFAULT 0 NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `session_feeds` (
+	`task_id` text PRIMARY KEY NOT NULL,
+	`narration` text DEFAULT '' NOT NULL,
+	`narrated_at` text,
+	`active_at` text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `stage_plan` (
+	`workflow_id` text PRIMARY KEY NOT NULL,
+	`stages` text NOT NULL,
+	`job_slots` integer NOT NULL,
+	`page_parent` text,
+	`root_page` text
 );
 --> statement-breakpoint
 CREATE TABLE `task_todos` (
@@ -132,18 +175,55 @@ CREATE TABLE `tasks` (
 	`job_id` text NOT NULL,
 	`role` text DEFAULT 'author' NOT NULL,
 	`refiner_index` integer,
-	`result` text,
 	`model` text NOT NULL,
 	`status` text NOT NULL,
 	`paused_at` text,
-	`cost_usd` real DEFAULT 0 NOT NULL,
+	`cost_usd` real,
 	`started_at` text NOT NULL,
 	`summary` text DEFAULT '' NOT NULL,
-	FOREIGN KEY (`job_id`) REFERENCES `jobs`(`job_id`) ON UPDATE no action ON DELETE no action
+	`model_turn_id` text,
+	`restarts` integer DEFAULT 0 NOT NULL
 );
 --> statement-breakpoint
 CREATE TABLE `transcript` (
 	`id` integer PRIMARY KEY AUTOINCREMENT NOT NULL,
 	`at` text NOT NULL,
 	`message` text NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `workflow` (
+	`workflow_id` text PRIMARY KEY NOT NULL,
+	`status` text NOT NULL,
+	`request_title` text NOT NULL,
+	`request_text` text NOT NULL,
+	`request_links` text NOT NULL,
+	`origin` text,
+	`idle_schedule` text,
+	`turn_started_at` text,
+	`turn_watchdog` text,
+	`turn_heads_up` text,
+	`turn_first_row` integer,
+	`turn_board_changed` integer DEFAULT false NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `workflow_end` (
+	`workflow_id` text PRIMARY KEY NOT NULL,
+	`ends_as` text NOT NULL,
+	`reason` text NOT NULL,
+	`answering` text NOT NULL,
+	`posted` integer DEFAULT false NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE `workflow_plan` (
+	`workflow_id` text PRIMARY KEY NOT NULL,
+	`definition` text NOT NULL,
+	`name` text NOT NULL,
+	`reason` text NOT NULL,
+	`repo` text
+);
+--> statement-breakpoint
+CREATE TABLE `workflow_subject` (
+	`workflow_id` text PRIMARY KEY NOT NULL,
+	`kind` text NOT NULL,
+	`tracker_id` text NOT NULL
 );

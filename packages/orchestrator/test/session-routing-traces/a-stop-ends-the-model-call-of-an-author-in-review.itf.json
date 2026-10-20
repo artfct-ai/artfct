@@ -85,6 +85,9 @@
         }
       },
       "trackerModelCall::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
         "answered": {
           "#set": []
         },
@@ -121,6 +124,7 @@
       "trackerModelCall::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -234,6 +238,9 @@
         }
       },
       "trackerModelCall::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
         "answered": {
           "#set": []
         },
@@ -311,6 +318,7 @@
       "trackerModelCall::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -469,6 +477,9 @@
         }
       },
       "trackerModelCall::sessionRouting::lastStep": {
+        "accounts": {
+          "#set": []
+        },
         "answered": {
           "#set": []
         },
@@ -531,6 +542,7 @@
       "trackerModelCall::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,

@@ -687,7 +687,7 @@
         "nextWorkflow": { "#bigint": "1" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [[{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }]] }
+        "rows": { "#map": [[{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }]] }
       },
       "mbt::actionTaken": "deliveryResumes",
       "mbt::nondetPicks": {
@@ -801,7 +801,7 @@
         "nextWorkflow": { "#bigint": "2" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [[{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }]] }
+        "rows": { "#map": [[{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }]] }
       },
       "mbt::actionTaken": "deliveryResumes",
       "mbt::nondetPicks": {
@@ -918,7 +918,7 @@
         "nextWorkflow": { "#bigint": "2" },
         "objects": { "#map": [] },
         "operations": { "#map": [] },
-        "rows": { "#map": [[{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }]] }
+        "rows": { "#map": [[{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }]] }
       },
       "mbt::actionTaken": "deliveryResumes",
       "mbt::nondetPicks": {
@@ -1037,8 +1037,8 @@
         "operations": { "#map": [] },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       },
@@ -1159,8 +1159,8 @@
         "operations": { "#map": [] },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       },
@@ -1294,8 +1294,8 @@
         "operations": { "#map": [] },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       },
@@ -1420,7 +1420,7 @@
                 "created": true,
                 "ended": false,
                 "hasIssueJob": false,
-                "openedPulls": { "#set": [{ "tag": "Pull", "value": { "#tup": [] } }] },
+                "openedPulls": { "#set": [] },
                 "unbound": false
               }
             ]
@@ -1442,8 +1442,8 @@
         },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       },
@@ -1578,8 +1578,8 @@
         "operations": { "#map": [] },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       },
@@ -1715,8 +1715,8 @@
         "operations": { "#map": [] },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       },
@@ -1862,8 +1862,8 @@
         },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       },
@@ -2003,8 +2003,8 @@
         },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       },
@@ -2115,7 +2115,7 @@
                 "created": true,
                 "ended": false,
                 "hasIssueJob": false,
-                "openedPulls": { "#set": [{ "tag": "SecondPull", "value": { "#tup": [] } }] },
+                "openedPulls": { "#set": [] },
                 "unbound": false
               }
             ],
@@ -2154,8 +2154,8 @@
         },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       },
@@ -2279,7 +2279,7 @@
                 "created": true,
                 "ended": false,
                 "hasIssueJob": false,
-                "openedPulls": { "#set": [{ "tag": "SecondPull", "value": { "#tup": [] } }] },
+                "openedPulls": { "#set": [] },
                 "unbound": false
               }
             ],
@@ -2318,8 +2318,8 @@
         },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       },
@@ -2443,7 +2443,7 @@
                 "created": true,
                 "ended": false,
                 "hasIssueJob": false,
-                "openedPulls": { "#set": [{ "tag": "SecondPull", "value": { "#tup": [] } }] },
+                "openedPulls": { "#set": [] },
                 "unbound": false
               }
             ],
@@ -2482,8 +2482,8 @@
         },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       },
@@ -2607,7 +2607,7 @@
                 "created": true,
                 "ended": false,
                 "hasIssueJob": false,
-                "openedPulls": { "#set": [{ "tag": "SecondPull", "value": { "#tup": [] } }] },
+                "openedPulls": { "#set": [] },
                 "unbound": false
               }
             ],
@@ -2639,8 +2639,8 @@
         },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       },
@@ -2784,8 +2784,8 @@
         "operations": { "#map": [] },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       },
@@ -2939,8 +2939,8 @@
         },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       },
@@ -3100,8 +3100,8 @@
         },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       },
@@ -3261,8 +3261,8 @@
         },
         "rows": {
           "#map": [
-            [{ "#bigint": "0" }, { "tag": "Live", "value": { "#tup": [] } }],
-            [{ "#bigint": "1" }, { "tag": "Live", "value": { "#tup": [] } }]
+            [{ "#bigint": "0" }, { "tag": "New", "value": { "#tup": [] } }],
+            [{ "#bigint": "1" }, { "tag": "New", "value": { "#tup": [] } }]
           ]
         }
       },

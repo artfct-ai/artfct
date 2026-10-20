@@ -21,7 +21,7 @@ export type WorkflowClients = {
 const START_EVENT: InboundEvent = {
   id: "evt-start",
   kind: "start",
-  actor: { person_id: "p1", email: "dev@acme.test", display_name: "Dev" },
+  actor: { email: "dev@acme.test", display_name: "Dev" },
   bindings: [],
   links: ["https://github.com/acme/app"],
   text: "ship it",

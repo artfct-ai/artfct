@@ -6,15 +6,20 @@ export function fakeUserActor(options: { authorized?: boolean } = {}) {
   const authorized = options.authorized ?? true;
   return async (user: ExternalUser): Promise<Actor | null> => {
     if (!authorized) return null;
-    return {
-      person_id: `p_${user.id}`,
-      email: user.email ?? null,
-      display_name: user.name ?? null,
-    };
+    return { email: user.email ?? null, display_name: user.name ?? null };
+  };
+}
+
+/** Resolves every external user to a member actor, and records each user it is asked about. */
+export function recordingUserActor(asked: ExternalUser[]) {
+  const resolve = fakeUserActor();
+  return async (user: ExternalUser): Promise<Actor | null> => {
+    asked.push(user);
+    return resolve(user);
   };
 }
 
 /** Resolves every code host user to an actor named after the login. */
 export async function fakeLoginActor(user: CodeUser): Promise<Actor | null> {
-  return { person_id: `p_${user.login}`, email: null, display_name: user.login };
+  return { email: null, display_name: user.login };
 }

@@ -2,7 +2,7 @@ import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
 import { destinationFor } from "../notify/destination";
 import type { PostOptions } from "../notify/notifier";
 import { recipientsOf, type Recipients } from "../notify/recipients";
-import { isWorkflowFinished, workflowName } from "./store/state";
+import { isWorkflowFinished } from "./store/state";
 import type { TaskEvent } from "./task/events";
 import type { WorkflowRuntime } from "./types";
 
@@ -16,9 +16,13 @@ export async function postToRecipients(
   to: Recipients = { answering: [] },
   options: PostOptions = {},
 ): Promise<void> {
-  const targets = recipientsOf(workflow.state, event, to);
-  const finished = isWorkflowFinished(workflow.state.status);
-  const title = workflowName(workflow.state);
+  const audience = {
+    origin: workflow.store.requireWorkflowRow().origin,
+    replyTargets: workflow.store.replyTargets(),
+  };
+  const targets = recipientsOf(audience, event, to);
+  const finished = isWorkflowFinished(workflow.store.requireWorkflowRow().status);
+  const title = workflow.store.workflowName();
   const destination = destinationFor(event);
   for (const target of targets) {
     if (destination === "channel") {
@@ -34,9 +38,9 @@ export async function releaseChatThreads(
   workflow: WorkflowRuntime,
   only?: ReplyTarget,
 ): Promise<void> {
-  const targets = only ? [only] : workflow.state.reply_targets;
-  const finished = isWorkflowFinished(workflow.state.status);
-  const title = workflowName(workflow.state);
+  const targets = only ? [only] : workflow.store.replyTargets();
+  const finished = isWorkflowFinished(workflow.store.requireWorkflowRow().status);
+  const title = workflow.store.workflowName();
   for (const target of targets) {
     if (target.source === "chat") await workflow.notifier.release(target, finished, title);
   }
@@ -44,7 +48,7 @@ export async function releaseChatThreads(
 
 /** Show every chat thread among the reply targets what the agent is doing now. */
 export async function showWorking(workflow: WorkflowRuntime, text: string): Promise<void> {
-  for (const target of workflow.state.reply_targets) {
+  for (const target of workflow.store.replyTargets()) {
     if (target.source === "chat") await workflow.notifier.working(target, text);
   }
 }

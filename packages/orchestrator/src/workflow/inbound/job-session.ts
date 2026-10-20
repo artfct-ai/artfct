@@ -14,10 +14,12 @@ const RUNNING_AUTHOR_STATUSES: TaskStatus[] = ["queued", "provisioning", "workin
 export function jobSessionOf(workflow: WorkflowRuntime, job: JobRow): TrackerSession | null {
   if (!job.issue_id) return null;
   return (
-    workflow.state.reply_targets.find(
-      (target): target is TrackerSession =>
-        target.source === "tracker" && target.issue_id === job.issue_id,
-    ) ?? null
+    workflow.store
+      .replyTargets()
+      .find(
+        (target): target is TrackerSession =>
+          target.source === "tracker" && target.issue_id === job.issue_id,
+      ) ?? null
   );
 }
 

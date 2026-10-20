@@ -20,6 +20,7 @@
     {
       "#meta": { "index": 0 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -36,6 +37,7 @@
       "chatThread::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -73,6 +75,7 @@
     {
       "#meta": { "index": 1 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -89,6 +92,7 @@
       "chatThread::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -126,6 +130,7 @@
     {
       "#meta": { "index": 2 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -142,6 +147,7 @@
       "chatThread::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -200,6 +206,7 @@
     {
       "#meta": { "index": 3 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -216,6 +223,7 @@
       "chatThread::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -279,6 +287,7 @@
     {
       "#meta": { "index": 4 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -295,6 +304,7 @@
       "chatThread::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -358,6 +368,7 @@
     {
       "#meta": { "index": 5 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -379,6 +390,7 @@
       "chatThread::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -442,6 +454,7 @@
     {
       "#meta": { "index": 6 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -458,6 +471,7 @@
       "chatThread::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -521,6 +535,7 @@
     {
       "#meta": { "index": 7 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [{ "#bigint": "0" }] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [
@@ -543,6 +558,7 @@
       "chatThread::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -606,6 +622,7 @@
     {
       "#meta": { "index": 8 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -622,6 +639,7 @@
       "chatThread::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -685,6 +703,7 @@
     {
       "#meta": { "index": 9 },
       "chatThread::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -712,6 +731,7 @@
       "chatThread::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,

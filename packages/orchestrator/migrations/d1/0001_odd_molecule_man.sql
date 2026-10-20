@@ -1,1 +1,0 @@
-ALTER TABLE `persons` DROP COLUMN `team_member`;

@@ -39,10 +39,10 @@ const THREAD = page([
 ]);
 
 function slackChat(workflow: FakeRuntime, answers: ChatAnswers): FakeChat {
-  workflow.patchState({
+  workflow.store.updateWorkflow({
     origin: { source: "chat", channel: "C1", thread: REQUEST_THREAD },
-    reply_targets: [{ source: "chat", channel: "C1", thread: REQUEST_THREAD }],
   });
+  workflow.store.addReplyTarget({ source: "chat", channel: "C1", thread: REQUEST_THREAD });
   const chat = new FakeChat(answers);
   workflow.chatInstance = chat;
   workflow.gatewayInstance = new FakeGateway({ decisions: new FakeDecisions({}) });
@@ -356,9 +356,7 @@ describe("read_channel", () => {
   describe("a Slack reply target with no Slack client", () => {
     it("says chat is not configured", () =>
       freshRuntime(async (workflow) => {
-        workflow.patchState({
-          reply_targets: [{ source: "chat", channel: "C1", thread: "1.1" }],
-        });
+        workflow.store.addReplyTarget({ source: "chat", channel: "C1", thread: "1.1" });
         const { read_channel } = historyTools(workflow);
         expect(toolText(await read_channel.execute({ limit: 30 }, call))).toBe(
           "Chat is not configured.",
@@ -370,7 +368,9 @@ describe("read_channel", () => {
     it("reads the channel of the reply target", () =>
       freshRuntime(async (workflow) => {
         const chat = slackChat(workflow, { history: CHANNEL });
-        workflow.patchState({ origin: { source: "tracker", session_id: "s1", issue_id: "i1" } });
+        workflow.store.updateWorkflow({
+          origin: { source: "tracker", session_id: "s1", issue_id: "i1" },
+        });
         const { read_channel } = historyTools(workflow);
         await read_channel.execute({ limit: 30 }, call);
         expect(chat.argsOf("channelHistory")[0]?.[0]).toBe("C1");

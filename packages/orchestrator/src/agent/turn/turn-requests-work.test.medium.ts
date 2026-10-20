@@ -12,7 +12,7 @@ import { runAgentTurn } from "./turn";
 const wrote: InboundEvent = {
   id: "evt-wrote",
   kind: "start",
-  actor: { person_id: "p1", email: "dev@acme.test", display_name: "Dev" },
+  actor: { email: "dev@acme.test", display_name: "Dev" },
   bindings: [],
   links: [],
   text: "how does the refiner work?",

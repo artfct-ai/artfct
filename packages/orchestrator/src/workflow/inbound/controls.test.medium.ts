@@ -12,7 +12,7 @@ import { TAG_TO_START_AGAIN } from "../../notify/messages";
 const TASK = "wf_x.1";
 const JOB = "wf_x-1";
 const SECOND_TASK = "wf_x.2";
-const actor = { person_id: "p1", email: "dev@acme.test", display_name: "Dev" };
+const actor = { email: "dev@acme.test", display_name: "Dev" };
 const db = createDb(env.DB);
 
 function controlEvent(
@@ -86,7 +86,7 @@ describe("control", () => {
 
     it("leaves the workflow running", () =>
       refused((workflow) => {
-        expect(workflow.state.status).toBe("running");
+        expect(workflow.store.requireWorkflowRow().status).toBe("running");
       }));
   });
 
@@ -124,7 +124,7 @@ describe("control", () => {
 
       it("closes the workflow", () =>
         cancelled((workflow) => {
-          expect(workflow.state.status).toBe("cancelled");
+          expect(workflow.store.requireWorkflowRow().status).toBe("cancelled");
         }));
 
       it("says the workflow is cancelled", () =>
@@ -209,7 +209,7 @@ describe("control", () => {
 
       it("leaves the workflow open", () =>
         ignored(({ workflow }) => {
-          expect(workflow.state.status).not.toBe("cancelled");
+          expect(workflow.store.requireWorkflowRow().status).not.toBe("cancelled");
         }));
 
       it("posts nothing", () =>
@@ -246,7 +246,7 @@ describe("control", () => {
 
       it("leaves the workflow open", () =>
         cancelled(({ workflow }) => {
-          expect(workflow.state.status).not.toBe("cancelled");
+          expect(workflow.store.requireWorkflowRow().status).not.toBe("cancelled");
         }));
 
       it("destroys the sandbox of that task alone", () =>
@@ -302,10 +302,10 @@ describe("control", () => {
     describe("from the subject issue", () => {
       const cancelled = controlling(
         (workflow) => {
-          workflow.patchState({
+          workflow.store.updateWorkflow({
             origin: { source: "tracker", session_id: "sess", issue_id: "iss1", team_id: "team" },
-            subject: { kind: "issue", issue_id: "iss1" },
           });
+          workflow.store.writeSubject({ kind: "issue", issue_id: "iss1" });
           seedTask(workflow, { issue_id: "iss1", issue_key: "ENG-1" });
           seedTask(workflow, { task_id: SECOND_TASK, issue_id: "iss2", issue_key: "ENG-2" });
         },
@@ -324,7 +324,7 @@ describe("control", () => {
 
       it("closes the workflow", () =>
         cancelled(({ workflow }) => {
-          expect(workflow.state.status).toBe("cancelled");
+          expect(workflow.store.requireWorkflowRow().status).toBe("cancelled");
         }));
 
       it("names the person and the reason in the note", () =>

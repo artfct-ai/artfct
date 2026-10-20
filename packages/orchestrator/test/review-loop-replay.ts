@@ -1163,7 +1163,7 @@ export class ReviewLoopReplay {
         status: specAuthorStatusOf(author, {
           atWork,
           workflowEnded:
-            isWorkflowFinished(this.world.workflow.state.status) ||
+            isWorkflowFinished(this.world.workflow.store.requireWorkflowRow().status) ||
             workflowEnding(this.world.workflow),
         }),
         paused: author.paused_at !== null,
@@ -1350,7 +1350,9 @@ export class ReviewLoopReplay {
       return this.hostReports(checks, delivery, index);
     }
     if (before.artifact.recheckArmed && !step.review.artifact.recheckArmed) {
-      const workflowEnded = isWorkflowFinished(this.world.workflow.state.status);
+      const workflowEnded = isWorkflowFinished(
+        this.world.workflow.store.requireWorkflowRow().status,
+      );
       const options = [
         ...hostChecksFor(
           outcome,

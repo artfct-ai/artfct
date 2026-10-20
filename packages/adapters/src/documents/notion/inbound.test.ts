@@ -62,7 +62,7 @@ describe("notionInbound", () => {
     });
 
     it("names the comment author as the actor", () => {
-      expect(event.actor?.person_id).toBe("p_n1");
+      expect(event.actor?.email).toBe("dev@acme.test");
     });
   });
 
@@ -79,7 +79,7 @@ describe("notionInbound", () => {
   });
 
   describe("a comment whose author carries no email", () => {
-    it("asks the host for the profile email", async () => {
+    it("asks the host for the profile email and lowercases it", async () => {
       const host = new FakeDocuments({
         comments: {
           cmt1: {
@@ -88,7 +88,7 @@ describe("notionInbound", () => {
             mentions: [],
           },
         },
-        emails: { n2: "ann@acme.test" },
+        emails: { n2: "Ann@Acme.test" },
       });
       const event = expectEvent(
         await notionInbound(comment({ page_id: DASHED_PAGE }), {

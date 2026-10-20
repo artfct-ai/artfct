@@ -31,6 +31,7 @@
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
       },
       "trackerOnly::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -47,6 +48,7 @@
       "trackerOnly::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -88,6 +90,7 @@
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
       },
       "trackerOnly::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -110,6 +113,7 @@
       "trackerOnly::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,
@@ -155,6 +159,7 @@
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
       },
       "trackerOnly::sessionRouting::lastStep": {
+        "accounts": { "#set": [] },
         "answered": {
           "#set": [
             { "tag": "Session", "value": { "tag": "SubjectIssue", "value": { "#tup": [] } } }
@@ -184,6 +189,7 @@
       "trackerOnly::sessionRouting::lastStepKept": {
         "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
+        "aTurnEndNeverDropsItsAccount": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
         "linearOnlyAsksReachTheStartingSession": true,

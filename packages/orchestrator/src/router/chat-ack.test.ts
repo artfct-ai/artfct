@@ -6,7 +6,7 @@ import { deliverWithChatAck } from "./chat-ack";
 const SLACK_PROMPT: InboundEvent = {
   id: "evt-1",
   kind: "prompt",
-  actor: { person_id: "p1", email: "dev@acme.test", display_name: "Dev" },
+  actor: { email: "dev@acme.test", display_name: "Dev" },
   bindings: [],
   links: [],
   text: "also add a test",

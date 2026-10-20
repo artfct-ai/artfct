@@ -2,14 +2,11 @@ import { FakeCodeHost } from "@artfct-ai/adapters/test/fake-code-host";
 import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/property-runs";
 import type { Actor } from "@artfct-ai/contracts/inbound";
-import { env } from "cloudflare:workers";
 import fc from "fast-check";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { Access } from "../config/config";
-import { createDb } from "../db/client";
 import { Identity, resolveCodeActor } from "./identity";
 
-const db = createDb(env.DB);
 const RUNS = 200;
 const TRACKER_TEAM = "team-1";
 const CHAT_TEAM = "T1";
@@ -122,7 +119,7 @@ async function resolveScenario(scenario: AccessCase): Promise<Actor | null> {
           failing: scenario.trackerLookup === "fails",
         });
   const userEmail = scenario.hasEmail ? email : null;
-  const identity = new Identity(scenario.access, db, tracker);
+  const identity = new Identity(scenario.access, tracker);
   switch (scenario.source) {
     case "tracker":
       return identity.fromTracker({ id: linearUserId, email: userEmail, name: "Person" });
@@ -144,7 +141,7 @@ async function resolveScenario(scenario: AccessCase): Promise<Actor | null> {
               pushers: scenario.mayPush ? [login] : [],
               failing: scenario.codeLookup === "fails",
             });
-      return resolveCodeActor(db, code, { login, repo: "acme/app", app: scenario.codeApp });
+      return resolveCodeActor(code, { login, repo: "acme/app", app: scenario.codeApp });
     }
     default: {
       const unhandled: never = scenario.source;

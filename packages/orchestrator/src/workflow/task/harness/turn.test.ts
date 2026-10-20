@@ -10,7 +10,7 @@ import {
   resumeRefinerTurnEnds,
   TurnCoalescer,
 } from "./turn";
-import { REVIEW_TASK, seedReviewerRun, seedTask } from "../../../../test/fake-runtime";
+import { REVIEW_TASK, seedReviewerRun, seedTask, patchPlan } from "../../../../test/fake-runtime";
 import { scenario } from "../../../../test/scenario";
 
 const TASK = "wf_x.1";
@@ -297,7 +297,7 @@ describe("onSessionUpdate", () => {
   describe("streamed text of a pull request author that prints no link", () => {
     const BRANCH = "artfct/wf_x-1-fix";
     const streamed = scenario(freshRuntime, async (workflow) => {
-      workflow.patchState({ repo: { full: "acme/app" } });
+      patchPlan(workflow, { repo: "acme/app" });
       workflow.codeHostInstance = new FakeCodeHost({
         pulls: [pullRequest({ head: { ref: BRANCH, sha: "abc" } })],
       });

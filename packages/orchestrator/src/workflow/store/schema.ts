@@ -1,13 +1,18 @@
 import { HARNESSES } from "@artfct-ai/adapters/harness/types";
 import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
-import type { ArtifactKind, ArtifactStatus, TaskStatus } from "@artfct-ai/contracts/types";
+import type {
+  ArtifactKind,
+  ArtifactStatus,
+  TaskStatus,
+  WorkflowStatus,
+} from "@artfct-ai/contracts/types";
 import type { ArtifactRef, Finding } from "../../artifact/types";
 import type { JobInput } from "../lifecycle";
 import type { TaskRole } from "../task/events";
 import { integer, primaryKey, real, sqliteTable, text } from "drizzle-orm/sqlite-core";
 import type { BoardChannel, TodoSnapshot } from "../board/types";
 import type { Wake } from "../types";
-import type { ChatMessageRef } from "./state";
+import type { ChatMessageRef, RootPage, WorkflowEndStatus } from "./state";
 
 /** Where a judge run's ruling stands: a person is asked for it, or the judge ruled. */
 export type RulingStatus = "asked" | "approved" | "rejected";
@@ -23,6 +28,92 @@ export type RpcPurpose =
 
 /** Where a steered instruction stands: its steer awaits an answer, or the running turn took it. */
 export type SteerStatus = "out" | "taken";
+
+/** The workflow, from the event that created it. One row. Its existence means it was created. */
+export const workflow = sqliteTable("workflow", {
+  /** The router's name for the Durable Object. */
+  workflow_id: text().primaryKey(),
+  status: text().$type<WorkflowStatus>().notNull(),
+  /** The title of the starting event, or the first line of its text. */
+  request_title: text().notNull(),
+  request_text: text().notNull(),
+  request_links: text({ mode: "json" }).$type<string[]>().notNull(),
+  /** Where the workflow started. Null when the starting event did not name a place. */
+  origin: text({ mode: "json" }).$type<ReplyTarget>(),
+  /** The schedule id of the idle alarm that posts the sleep note. Null while it is not armed. */
+  idle_schedule: text(),
+  /** When the agent turn now running began. Null between turns. */
+  turn_started_at: text(),
+  /** The schedule id of the turn watchdog alarm. Null between turns. */
+  turn_watchdog: text(),
+  /** The schedule id of the heads-up alarm of a turn on a person's message. Null when not armed. */
+  turn_heads_up: text(),
+  /**
+   * The id of the running turn's first transcript row, or the lost turn's in a resumed turn.
+   * Compaction keeps it and every row after it. Null once a turn ends.
+   */
+  turn_first_row: integer(),
+  /**
+   * True once the running turn on a person's message, or the lost turn it resumes, started or
+   * prompted a task in a workflow with a chat thread.
+   */
+  turn_board_changed: integer({ mode: "boolean" }).notNull().default(false),
+});
+
+/**
+ * The workflow end, from its request until the channels heard it. At most one row. `answering`
+ * is where the people who asked for the end wait. `posted` is true once the channels heard it.
+ */
+export const workflowEnd = sqliteTable("workflow_end", {
+  workflow_id: text().primaryKey(),
+  ends_as: text().$type<WorkflowEndStatus>().notNull(),
+  /** The result of a done workflow, or why it failed or was cancelled. */
+  reason: text().notNull(),
+  answering: text({ mode: "json" }).$type<ReplyTarget[]>().notNull(),
+  posted: integer({ mode: "boolean" }).notNull().default(false),
+});
+
+/** The plan that started the workflow. At most one row, written by the first plan. */
+export const workflowPlan = sqliteTable("workflow_plan", {
+  workflow_id: text().primaryKey(),
+  /** The workflow definition the workflow runs. A later plan cannot change it. */
+  definition: text().notNull(),
+  /** The display name of the workflow. A later plan may change it. */
+  name: text().notNull(),
+  /** Why the last plan was set. */
+  reason: text().notNull(),
+  /** The full name of the repository. Null when the last plan did not name one. */
+  repo: text(),
+});
+
+/** The stage plan: what a plan with stages set. At most one row, replaced by each such plan. */
+export const stagePlan = sqliteTable("stage_plan", {
+  workflow_id: text().primaryKey(),
+  /** The planned stages in order. A guide for the agent, which may run any configured stage. */
+  stages: text({ mode: "json" }).$type<string[]>().notNull(),
+  /** The jobs that may run at once, capped by `sandbox.max_concurrency`. */
+  job_slots: integer().notNull(),
+  /** Null when the plan and the workflow definition did not name one. */
+  page_parent: text(),
+  /** Null until the plan made or named a root page. */
+  root_page: text({ mode: "json" }).$type<RootPage>(),
+});
+
+/** The one issue or tracker project the workflow works on. At most one row, written once. */
+export const workflowSubject = sqliteTable("workflow_subject", {
+  workflow_id: text().primaryKey(),
+  kind: text().$type<"issue" | "project">().notNull(),
+  /** The issue id or the project id. */
+  tracker_id: text().notNull(),
+});
+
+/** The places the workflow replies to, in the order they joined. The first is where it started. */
+export const replyTargets = sqliteTable("reply_targets", {
+  id: integer().primaryKey({ autoIncrement: true }),
+  /** `replyTargetKey` writes it, so one place joins once. */
+  target_key: text().notNull().unique(),
+  target: text({ mode: "json" }).$type<ReplyTarget>().notNull(),
+});
 
 /** The execution of one stage. Its tasks belong to it, and it holds what they produce. */
 export const jobs = sqliteTable("jobs", {

@@ -7,7 +7,7 @@ import {
 } from "../artifact/resources-section";
 import type { Stage } from "../config/stage";
 import type { WorkflowDefinition } from "../config/workflow-definition";
-import type { RootPage, WorkflowState } from "./store/state";
+import type { RootPage, StagePlan } from "./store/state";
 
 /** A page on the document host, by the id `pageFromUrl` gives and its link. */
 export type HostPage = { page_id: string; url: string };
@@ -18,8 +18,8 @@ export function rootPageStage({ documents, stages }: WorkflowDefinition): Stage 
 }
 
 /** Where a new page of the workflow goes: under the root page once there is one, else the page parent. */
-export function newPageParent(state: WorkflowState): string | null {
-  return state.root_page?.page_id ?? state.page_parent ?? null;
+export function newPageParent(plan: StagePlan | null): string | null {
+  return plan?.root_page?.page_id ?? plan?.page_parent ?? null;
 }
 
 /**

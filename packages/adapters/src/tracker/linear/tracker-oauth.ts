@@ -17,7 +17,6 @@ export type LinearTokens = {
   access_token: string;
   expires_in?: number;
   refresh_token?: string;
-  scope?: string;
 };
 
 /** The OAuth app as registered in Linear. */
@@ -78,12 +77,11 @@ async function tokenRequest(
   });
   const text = await response.text();
   const payload = parseTokenBody(text);
-  const { access_token, refresh_token, scope, expires_in } = payload;
+  const { access_token, refresh_token, expires_in } = payload;
   if (response.ok && access_token) {
     return {
       access_token,
       refresh_token,
-      scope,
       expires_in: expires_in ?? DEFAULT_TOKEN_LIFETIME_S,
     };
   }

@@ -5,12 +5,14 @@ import {
   bindWorkflow,
   claimBinding,
   deleteBindings,
+  deleteBindingsOfNewWorkflow,
   findBinding,
   listBindings,
+  takeOverWorkflowCreate,
   workflowsWithPullsInRepo,
 } from "./bindings";
 import { createDb } from "./client";
-import { createWorkflow, setWorkflowStatus } from "./workflows";
+import { createWorkflow, findWorkflow, setWorkflowStatus } from "./workflows";
 
 const db = createDb(env.DB);
 const issue = { source: "tracker_issue", external_id: "ISS-1" } as const;
@@ -201,6 +203,81 @@ describe("deleteBindings", () => {
         "chat_thread:wf_1",
         "code_pull:wf_2",
       ]);
+    });
+  });
+});
+
+describe("deleteBindingsOfNewWorkflow", () => {
+  beforeEach(async () => {
+    await createWorkflow(db, "wf_1");
+    await seed(thread, "wf_1");
+  });
+
+  describe("a workflow whose row is new", () => {
+    it("drops its bindings", async () => {
+      expect(await deleteBindingsOfNewWorkflow(db, "wf_1", ["chat_thread"])).toBe(true);
+      expect(await findBinding(db, thread)).toBeNull();
+    });
+  });
+
+  describe("a workflow whose create a takeover marked running", () => {
+    beforeEach(async () => {
+      await setWorkflowStatus(db, "wf_1", "running");
+    });
+
+    it("keeps its bindings", async () => {
+      expect(await deleteBindingsOfNewWorkflow(db, "wf_1", ["chat_thread"])).toBe(false);
+      expect(await findBinding(db, thread)).toBe("wf_1");
+    });
+  });
+});
+
+describe("takeOverWorkflowCreate", () => {
+  describe("a binding whose workflow has no row", () => {
+    beforeEach(async () => {
+      await seed(thread, "wf_1");
+    });
+
+    it("inserts the row running", async () => {
+      expect(await takeOverWorkflowCreate(db, thread, "wf_1")).toBe(true);
+      expect((await findWorkflow(db, "wf_1"))?.status).toBe("running");
+    });
+  });
+
+  describe("a binding whose workflow row is new", () => {
+    beforeEach(async () => {
+      await createWorkflow(db, "wf_1");
+      await seed(thread, "wf_1");
+    });
+
+    it("marks the row running", async () => {
+      expect(await takeOverWorkflowCreate(db, thread, "wf_1")).toBe(true);
+      expect((await findWorkflow(db, "wf_1"))?.status).toBe("running");
+    });
+  });
+
+  describe("a binding that moved to another workflow", () => {
+    beforeEach(async () => {
+      await createWorkflow(db, "wf_1");
+      await seed(thread, "wf_2");
+    });
+
+    it("refuses and leaves the row new", async () => {
+      expect(await takeOverWorkflowCreate(db, thread, "wf_1")).toBe(false);
+      expect((await findWorkflow(db, "wf_1"))?.status).toBe("new");
+    });
+  });
+
+  describe("a workflow an abandon marked failed", () => {
+    beforeEach(async () => {
+      await createWorkflow(db, "wf_1");
+      await seed(thread, "wf_1");
+      await setWorkflowStatus(db, "wf_1", "failed");
+    });
+
+    it("refuses and leaves the row failed", async () => {
+      expect(await takeOverWorkflowCreate(db, thread, "wf_1")).toBe(false);
+      expect((await findWorkflow(db, "wf_1"))?.status).toBe("failed");
     });
   });
 });

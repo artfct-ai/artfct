@@ -79,7 +79,7 @@ describe("ready_issues", () => {
       seedTask(workflow, { task_id: "wf_x.2", issue_id: "i2", status: "failed" });
       tracker = projectTracker();
       workflow.trackerInstance = tracker;
-      workflow.patchState({ subject: { kind: "project", project_id: "proj-1" } });
+      workflow.store.writeSubject({ kind: "project", project_id: "proj-1" });
       const { ready_issues } = trackerTools(workflow);
       lines = toolText(await ready_issues.execute({}, call)).split("\n");
     });
@@ -115,7 +115,7 @@ describe("ready_issues", () => {
         ],
       });
       workflow.trackerInstance = tracker;
-      workflow.patchState({ subject: { kind: "issue", issue_id: "i10" } });
+      workflow.store.writeSubject({ kind: "issue", issue_id: "i10" });
       const { ready_issues } = trackerTools(workflow);
       lines = toolText(await ready_issues.execute({}, call)).split("\n");
     });
@@ -144,7 +144,7 @@ describe("ready_issues", () => {
     const listed = scenario(freshRuntime, async (workflow) => {
       seedTask(workflow, { task_id: "wf_x.1", issue_id: "i2", role: "researcher" });
       workflow.trackerInstance = projectTracker();
-      workflow.patchState({ subject: { kind: "project", project_id: "proj-1" } });
+      workflow.store.writeSubject({ kind: "project", project_id: "proj-1" });
       const { ready_issues } = trackerTools(workflow);
       lines = toolText(await ready_issues.execute({}, call)).split("\n");
     });

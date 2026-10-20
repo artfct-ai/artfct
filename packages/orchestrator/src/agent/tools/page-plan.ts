@@ -32,7 +32,7 @@ export async function planPages(
   const nesting = documents?.nesting;
   const rootPageStageName = rootPageStage(input.definition)?.name;
   if (!documents || !nesting || !rootPageStageName) return flatPagePlan(input, pageParent);
-  const current = workflow.state.root_page ?? null;
+  const current = workflow.store.stagePlan()?.root_page ?? null;
   if (current) {
     const named = input.root_page ? await documents.pageFromUrl(input.root_page) : null;
     if (input.root_page && named?.page_id !== current.page_id) {

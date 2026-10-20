@@ -12,7 +12,7 @@ const PAGE_URL = "https://www.notion.so/acme/Design-0123456789abcdef0123456789ab
 const PAGE_ID = "0123456789abcdef0123456789abcdef";
 const SELF_ID = "bot-1";
 const SIGNATURE = "Reviewer: facts · run 1 · task t9";
-const ACTOR = { person_id: "p1", email: "dev@acme.test", display_name: "Dev" };
+const ACTOR = { email: "dev@acme.test", display_name: "Dev" };
 
 const REVIEW_TEXT = [
   "Read the page.",

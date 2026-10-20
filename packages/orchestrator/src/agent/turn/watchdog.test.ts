@@ -28,7 +28,8 @@ function takeMessage(workflow: FakeRuntime): void {
 
 async function workingThread(workflow: FakeRuntime): Promise<void> {
   workflow.postThroughChat();
-  workflow.patchState({ reply_targets: [THREAD, ISSUE] });
+  workflow.store.addReplyTarget(THREAD);
+  workflow.store.addReplyTarget(ISSUE);
   await workflow.working("reading the board");
 }
 
@@ -40,7 +41,9 @@ describe("turn watchdog", () => {
 
     it("returns the start time it wrote to the state", () =>
       freshRuntime(async (workflow) => {
-        expect(await armTurnWatchdog(workflow)).toBe(workflow.state.turn_started_at!);
+        expect(await armTurnWatchdog(workflow)).toBe(
+          workflow.store.requireWorkflowRow().turn_started_at!,
+        );
       }));
 
     it("arms one alarm at the configured timeout", () =>
@@ -52,13 +55,15 @@ describe("turn watchdog", () => {
     it("carries the turn's start time on the alarm", () =>
       armed((workflow) => {
         const [alarm] = workflow.alarmsFor("onTurnTimeout");
-        expect(alarm?.payload).toEqual({ started_at: workflow.state.turn_started_at });
+        expect(alarm?.payload).toEqual({
+          started_at: workflow.store.requireWorkflowRow().turn_started_at,
+        });
       }));
 
     it("holds the alarm id in the state", () =>
       armed((workflow) => {
         const [alarm] = workflow.alarmsFor("onTurnTimeout");
-        expect(workflow.state.turn_watchdog).toBe(alarm!.id);
+        expect(workflow.store.requireWorkflowRow().turn_watchdog).toBe(alarm!.id);
       }));
 
     describe("when the turn ends in time", () => {
@@ -66,7 +71,10 @@ describe("turn watchdog", () => {
       let stopped: boolean | undefined;
       const disarmed = scenario(armed, async (workflow) => {
         armedAlarm = workflow.alarmsFor("onTurnTimeout")[0]!.id;
-        stopped = await disarmTurnWatchdog(workflow, workflow.state.turn_started_at!);
+        stopped = await disarmTurnWatchdog(
+          workflow,
+          workflow.store.requireWorkflowRow().turn_started_at!,
+        );
       });
 
       it("reports that it stopped the watchdog", () =>
@@ -81,8 +89,8 @@ describe("turn watchdog", () => {
 
       it("forgets the turn and its alarm", () =>
         disarmed((workflow) => {
-          expect(workflow.state.turn_started_at).toBeNull();
-          expect(workflow.state.turn_watchdog).toBeNull();
+          expect(workflow.store.requireWorkflowRow().turn_started_at).toBeNull();
+          expect(workflow.store.requireWorkflowRow().turn_watchdog).toBeNull();
         }));
 
       it("tells nobody about the turn", () =>
@@ -94,7 +102,7 @@ describe("turn watchdog", () => {
     describe("when the alarm fires on a turn that still runs", () => {
       let startedAt = "";
       const fired = scenario(armed, async (workflow) => {
-        startedAt = workflow.state.turn_started_at!;
+        startedAt = workflow.store.requireWorkflowRow().turn_started_at!;
         await onTurnTimeout(workflow, { started_at: startedAt });
       });
 
@@ -108,7 +116,7 @@ describe("turn watchdog", () => {
 
       it("forgets the turn", () =>
         fired((workflow) => {
-          expect(workflow.state.turn_started_at).toBeNull();
+          expect(workflow.store.requireWorkflowRow().turn_started_at).toBeNull();
         }));
 
       describe("when the late turn ends after that", () => {
@@ -132,8 +140,8 @@ describe("turn watchdog", () => {
     describe("when the workflow finished while the turn was lost", () => {
       const firedOnFinished = scenario(armed, async (workflow) => {
         await workingThread(workflow);
-        const startedAt = workflow.state.turn_started_at!;
-        workflow.patchState({ status: "cancelled" });
+        const startedAt = workflow.store.requireWorkflowRow().turn_started_at!;
+        workflow.store.updateWorkflow({ status: "cancelled" });
         await onTurnTimeout(workflow, { started_at: startedAt });
       });
 
@@ -150,7 +158,7 @@ describe("turn watchdog", () => {
 
       it("forgets the turn", () =>
         firedOnFinished((workflow) => {
-          expect(workflow.state.turn_started_at).toBeNull();
+          expect(workflow.store.requireWorkflowRow().turn_started_at).toBeNull();
         }));
     });
   });
@@ -183,7 +191,7 @@ describe("turn watchdog", () => {
 
       it("leaves the later turn running", () =>
         laterTurn((workflow) => {
-          expect(workflow.state.turn_started_at).toBe(second);
+          expect(workflow.store.requireWorkflowRow().turn_started_at).toBe(second);
         }));
     });
   });
@@ -201,8 +209,10 @@ describe("turn heads-up", () => {
       armed((workflow) => {
         const [alarm] = workflow.alarmsFor("onTurnHeadsUp");
         expect(alarm?.delay).toBe(HEADS_UP_SECONDS);
-        expect(alarm?.payload).toEqual({ started_at: workflow.state.turn_started_at });
-        expect(workflow.state.turn_heads_up).toBe(alarm!.id);
+        expect(alarm?.payload).toEqual({
+          started_at: workflow.store.requireWorkflowRow().turn_started_at,
+        });
+        expect(workflow.store.requireWorkflowRow().turn_heads_up).toBe(alarm!.id);
       }));
 
     it("keeps what the person wrote in the rows the turn took", () =>
@@ -213,7 +223,7 @@ describe("turn heads-up", () => {
     describe("when the heads-up fires while the turn runs", () => {
       let startedAt = "";
       const fired = scenario(armed, async (workflow) => {
-        startedAt = workflow.state.turn_started_at!;
+        startedAt = workflow.store.requireWorkflowRow().turn_started_at!;
         await onTurnHeadsUp(workflow, { started_at: startedAt });
       });
 
@@ -237,8 +247,8 @@ describe("turn heads-up", () => {
       let headsUpAlarm = "";
       const ended = scenario(armed, async (workflow) => {
         headsUpAlarm = workflow.alarmsFor("onTurnHeadsUp")[0]!.id;
-        workflow.patchState({ turn_first_row: FIRST_ROW });
-        const startedAt = workflow.state.turn_started_at!;
+        workflow.store.updateWorkflow({ turn_first_row: FIRST_ROW });
+        const startedAt = workflow.store.requireWorkflowRow().turn_started_at!;
         await disarmTurnWatchdog(workflow, startedAt);
         await onTurnHeadsUp(workflow, { started_at: startedAt });
       });
@@ -246,13 +256,13 @@ describe("turn heads-up", () => {
       it("cancels the heads-up", () =>
         ended((workflow) => {
           expect(workflow.cancelled).toContain(headsUpAlarm);
-          expect(workflow.state.turn_heads_up).toBeNull();
+          expect(workflow.store.requireWorkflowRow().turn_heads_up).toBeNull();
         }));
 
       it("deletes the rows the turn took and forgets where its transcript rows begin", () =>
         ended((workflow) => {
           expect(workflow.transcript.taken()).toEqual([]);
-          expect(workflow.state.turn_first_row).toBeNull();
+          expect(workflow.store.requireWorkflowRow().turn_first_row).toBeNull();
         }));
 
       it("posts nothing for a late heads-up", () =>
@@ -264,7 +274,7 @@ describe("turn heads-up", () => {
     describe("when a later turn armed the watchdog again", () => {
       let first = "";
       const laterTurn = scenario(armed, async (workflow) => {
-        first = workflow.state.turn_started_at!;
+        first = workflow.store.requireWorkflowRow().turn_started_at!;
         await disarmTurnWatchdog(workflow, first);
         workflow.clock = workflow.now() + 1000;
         takeMessage(workflow);
@@ -282,7 +292,9 @@ describe("turn heads-up", () => {
       let headsUpAlarm = "";
       const timedOut = scenario(armed, async (workflow) => {
         headsUpAlarm = workflow.alarmsFor("onTurnHeadsUp")[0]!.id;
-        await onTurnTimeout(workflow, { started_at: workflow.state.turn_started_at! });
+        await onTurnTimeout(workflow, {
+          started_at: workflow.store.requireWorkflowRow().turn_started_at!,
+        });
       });
 
       it("cancels the heads-up", () =>
@@ -305,7 +317,7 @@ describe("turn heads-up", () => {
     it("arms no heads-up", () =>
       unprompted((workflow) => {
         expect(workflow.alarmsFor("onTurnHeadsUp")).toEqual([]);
-        expect(workflow.state.turn_heads_up).toBeNull();
+        expect(workflow.store.requireWorkflowRow().turn_heads_up).toBeNull();
       }));
   });
 });
@@ -317,7 +329,7 @@ describe("resumeLostTurn", () => {
       await workingThread(workflow);
       takeMessage(workflow);
       await armTurnWatchdog(workflow);
-      workflow.patchState({ turn_first_row: FIRST_ROW });
+      workflow.store.updateWorkflow({ turn_first_row: FIRST_ROW });
       alarms = workflow.alarms.map((alarm) => alarm.id);
       await resumeLostTurn(workflow);
     });
@@ -335,13 +347,13 @@ describe("resumeLostTurn", () => {
     it("leaves what the person wrote and the lost turn's rows for the resumed turn", () =>
       lostTurn((workflow) => {
         expect(workflow.transcript.taken().map((row) => row.text)).toEqual(MESSAGES);
-        expect(workflow.state.turn_first_row).toBe(FIRST_ROW);
+        expect(workflow.store.requireWorkflowRow().turn_first_row).toBe(FIRST_ROW);
       }));
 
     it("cancels the watchdog and the heads-up", () =>
       lostTurn((workflow) => {
         expect(workflow.cancelled).toEqual(alarms);
-        expect(workflow.state.turn_heads_up).toBeNull();
+        expect(workflow.store.requireWorkflowRow().turn_heads_up).toBeNull();
       }));
   });
 
@@ -362,8 +374,8 @@ describe("resumeLostTurn", () => {
 
     it("forgets the turn and its alarm", () =>
       lostTurn((workflow) => {
-        expect(workflow.state.turn_started_at).toBeNull();
-        expect(workflow.state.turn_watchdog).toBeNull();
+        expect(workflow.store.requireWorkflowRow().turn_started_at).toBeNull();
+        expect(workflow.store.requireWorkflowRow().turn_watchdog).toBeNull();
       }));
 
     it("cancels the alarm", () =>
@@ -427,7 +439,7 @@ describe("resumeLostTurn", () => {
       workflow.transcript.enqueue("The author finished.", "blocked");
       workflow.transcript.takeInbox();
       await armTurnWatchdog(workflow);
-      workflow.patchState({ status: "done", turn_first_row: FIRST_ROW });
+      workflow.store.updateWorkflow({ status: "done", turn_first_row: FIRST_ROW });
       resumed = await resumeLostTurn(workflow);
     });
 
@@ -440,7 +452,7 @@ describe("resumeLostTurn", () => {
     it("deletes the rows the turn took and forgets where its transcript rows begin", () =>
       finished((workflow) => {
         expect(workflow.transcript.taken()).toEqual([]);
-        expect(workflow.state.turn_first_row).toBeNull();
+        expect(workflow.store.requireWorkflowRow().turn_first_row).toBeNull();
       }));
 
     it("reports that it resumed nothing", () =>
@@ -450,7 +462,7 @@ describe("resumeLostTurn", () => {
 
     it("forgets the turn", () =>
       finished((workflow) => {
-        expect(workflow.state.turn_started_at).toBeNull();
+        expect(workflow.store.requireWorkflowRow().turn_started_at).toBeNull();
       }));
 
     it("wakes nobody", () =>
@@ -465,7 +477,7 @@ describe("resumeLostTurn", () => {
       await workingThread(workflow);
       takeMessage(workflow);
       await armTurnWatchdog(workflow);
-      workflow.patchState({ status: "done", turn_first_row: FIRST_ROW });
+      workflow.store.updateWorkflow({ status: "done", turn_first_row: FIRST_ROW });
       resumed = await resumeLostTurn(workflow);
     });
 

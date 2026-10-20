@@ -15,7 +15,9 @@ const ON_ISSUE: TrackerSession = { source: "tracker", session_id: "s-issue", iss
 const THREAD: ReplyTarget = { source: "chat", channel: "C1", thread: "1.0" };
 
 function fromSession(workflow: FakeRuntime): void {
-  workflow.patchState({ origin: STARTING, reply_targets: [STARTING, ON_ISSUE] });
+  workflow.store.updateWorkflow({ origin: STARTING });
+  workflow.store.addReplyTarget(STARTING);
+  workflow.store.addReplyTarget(ON_ISSUE);
 }
 
 describe("jobSessionOf", () => {
@@ -69,7 +71,8 @@ describe("jobSessionOf", () => {
 
   describe("a job of a workflow that started in chat", () => {
     const seeded = scenario(freshRuntime, (workflow) => {
-      workflow.patchState({ origin: THREAD, reply_targets: [THREAD] });
+      workflow.store.updateWorkflow({ origin: THREAD });
+      workflow.store.addReplyTarget(THREAD);
       seedTask(workflow);
     });
 

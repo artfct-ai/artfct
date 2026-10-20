@@ -49,7 +49,8 @@ const STARTING_SESSION = {
 } as const;
 
 function authorWorksInStartingSession(workflow: FakeRuntime): void {
-  workflow.patchState({ origin: STARTING_SESSION, reply_targets: [STARTING_SESSION] });
+  workflow.store.updateWorkflow({ origin: STARTING_SESSION });
+  workflow.store.addReplyTarget(STARTING_SESSION);
   seedTask(workflow, { issue_id: "ENG-1" }, { session_id: "acp-1", prompt_in_flight: 1 });
 }
 
@@ -539,7 +540,7 @@ describe("applyEvent", () => {
     it("leaves the workflow and the task running", () =>
       forwarded(({ workflow }) => {
         expect(workflow.store.requireTask(TASK).status).toBe("working");
-        expect(workflow.state.status).not.toBe("cancelled");
+        expect(workflow.store.requireWorkflowRow().status).not.toBe("cancelled");
       }));
   });
 
@@ -583,7 +584,8 @@ describe("applyEvent", () => {
       freshRuntime,
       { kind: "prompt", text: "what changed?", reply_to: STARTING_SESSION },
       (workflow) => {
-        workflow.patchState({ origin: STARTING_SESSION, reply_targets: [STARTING_SESSION] });
+        workflow.store.updateWorkflow({ origin: STARTING_SESSION });
+        workflow.store.addReplyTarget(STARTING_SESSION);
         seedTask(workflow, {}, { session_id: "acp-1", prompt_in_flight: 1 });
       },
     );
@@ -605,7 +607,8 @@ describe("applyEvent", () => {
       freshRuntime,
       { kind: "stop", text: "", reply_to: STARTING_SESSION },
       (workflow) => {
-        workflow.patchState({ origin: STARTING_SESSION, reply_targets: [STARTING_SESSION] });
+        workflow.store.updateWorkflow({ origin: STARTING_SESSION });
+        workflow.store.addReplyTarget(STARTING_SESSION);
         seedTask(workflow, {}, { session_id: "acp-1", prompt_in_flight: 1 });
         socket = fakeConnection(TASK, 1);
         workflow.sockets.push(socket.connection);

@@ -17,7 +17,7 @@ const RESTART = "Durable Object reset because its code was updated.";
 const asked: InboundEvent = {
   id: "evt-asked",
   kind: "prompt",
-  actor: { person_id: "p1", email: "dev@acme.test", display_name: "Dev" },
+  actor: { email: "dev@acme.test", display_name: "Dev" },
   bindings: [],
   links: [],
   text: "Fix the flaky test.",
@@ -31,7 +31,8 @@ function turnOn(script: Action[], wake: "message" | "task_result"): Scenario<Ran
     freshDurableRuntime(async (workflow) => {
       const chat = new FakeChat();
       workflow.chatInstance = chat;
-      workflow.patchState({ status: "running", origin: THREAD, reply_targets: [THREAD] });
+      workflow.store.updateWorkflow({ status: "running", origin: THREAD });
+      workflow.store.addReplyTarget(THREAD);
       workflow.modelInstance = new ScriptedFailure(script);
       const message = eventMessage(asked, { first: false, job: null, artifact: null, notes: [] });
       if (wake === "message") {
@@ -83,7 +84,8 @@ const lostAfterItsThumbsUp: Scenario<Ran> = (run) =>
   freshDurableRuntime(async (workflow) => {
     const chat = new FakeChat();
     workflow.chatInstance = chat;
-    workflow.patchState({ status: "running", origin: THREAD, reply_targets: [THREAD] });
+    workflow.store.updateWorkflow({ status: "running", origin: THREAD });
+    workflow.store.addReplyTarget(THREAD);
     const message = eventMessage(asked, { first: false, job: null, artifact: null, notes: [] });
     workflow.transcript.enqueue(message, "message", {
       body: asked.text,

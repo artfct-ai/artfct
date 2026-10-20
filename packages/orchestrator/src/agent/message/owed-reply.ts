@@ -108,7 +108,7 @@ export function namesModelFrom(probabilities: { names_model: number }): boolean 
 
 /** The stages a plan may name: those of the running workflow definition, or of every one before the start. */
 function stagesToPlanFrom(workflow: WorkflowRuntime): readonly Stage[] {
-  if (workflow.state.definition !== null) return workflow.workflowDefinition().stages;
+  if (workflow.store.plan() !== null) return workflow.workflowDefinition().stages;
   return workflow.workflowDefinitions().flatMap((definition) => definition.stages);
 }
 

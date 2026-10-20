@@ -1,8 +1,9 @@
 import { z } from "zod";
 
+/** A Linear user. The email is lowercased here, so the email join downstream trusts its case. */
 const externalUserSchema = z.object({
   id: z.string(),
-  email: z.string().nullish(),
+  email: z.string().toLowerCase().nullish(),
   name: z.string().nullish(),
 });
 

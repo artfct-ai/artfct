@@ -1,7 +1,7 @@
 import type { TrackerIssue } from "@artfct-ai/adapters/tracker/types";
 import { describe, expect, it } from "bun:test";
 import { freshRuntime } from "../../test/fresh-runtime";
-import { seedTask, type FakeRuntime } from "../../test/fake-runtime";
+import { seedTask, type FakeRuntime, patchStagePlan } from "../../test/fake-runtime";
 import type { Subject } from "./store/state";
 import {
   issueInSubject,
@@ -69,9 +69,9 @@ describe("issueInSubject", () => {
 describe("setWorkflowSubject", () => {
   it("links the chat thread of a chat workflow to an issue subject", () =>
     freshRuntime(async (workflow) => {
-      workflow.patchState({ origin: THREAD });
+      workflow.store.updateWorkflow({ origin: THREAD });
       await setWorkflowSubject(workflow, ISSUE_SUBJECT);
-      expect([workflow.state.subject, chatThreadLinks(workflow)]).toEqual([
+      expect([workflow.store.subject(), chatThreadLinks(workflow)]).toEqual([
         ISSUE_SUBJECT,
         [{ issue_id: "i1" }],
       ]);
@@ -79,14 +79,14 @@ describe("setWorkflowSubject", () => {
 
   it("links nothing for a project subject", () =>
     freshRuntime(async (workflow) => {
-      workflow.patchState({ origin: THREAD });
+      workflow.store.updateWorkflow({ origin: THREAD });
       await setWorkflowSubject(workflow, PROJECT_SUBJECT);
       expect(chatThreadLinks(workflow)).toEqual([]);
     }));
 
   it("links nothing in a workflow from a tracker session", () =>
     freshRuntime(async (workflow) => {
-      workflow.patchState({ origin: SESSION });
+      workflow.store.updateWorkflow({ origin: SESSION });
       await setWorkflowSubject(workflow, ISSUE_SUBJECT);
       expect(chatThreadLinks(workflow)).toEqual([]);
     }));
@@ -95,25 +95,29 @@ describe("setWorkflowSubject", () => {
 describe("a single-issue workflow", () => {
   it("has an issue subject and plans no stage that produces issues", () =>
     freshRuntime((workflow) => {
-      workflow.patchState({ subject: ISSUE_SUBJECT, stages: ["design", "implement"] });
+      patchStagePlan(workflow, { stages: ["design", "implement"] });
+      workflow.store.writeSubject(ISSUE_SUBJECT);
       expect(isSingleIssueWorkflow(workflow)).toBe(true);
     }));
 
   it("is not one when a planned stage produces issues", () =>
     freshRuntime((workflow) => {
-      workflow.patchState({ subject: ISSUE_SUBJECT, stages: ["design", "breakdown"] });
+      patchStagePlan(workflow, { stages: ["design", "breakdown"] });
+      workflow.store.writeSubject(ISSUE_SUBJECT);
       expect(isSingleIssueWorkflow(workflow)).toBe(false);
     }));
 
   it("is not one with a project subject", () =>
     freshRuntime((workflow) => {
-      workflow.patchState({ subject: PROJECT_SUBJECT, stages: ["implement"] });
+      patchStagePlan(workflow, { stages: ["implement"] });
+      workflow.store.writeSubject(PROJECT_SUBJECT);
       expect(isSingleIssueWorkflow(workflow)).toBe(false);
     }));
 
   it("is completed by the job on the subject issue at the last planned stage", () =>
     freshRuntime((workflow) => {
-      workflow.patchState({ subject: ISSUE_SUBJECT, stages: ["design", "implement"] });
+      patchStagePlan(workflow, { stages: ["design", "implement"] });
+      workflow.store.writeSubject(ISSUE_SUBJECT);
       seedTask(workflow, { task_id: "wf_x.1", stage: "implement", issue_id: "i1" });
       seedTask(workflow, { task_id: "wf_x.2", stage: "design", issue_id: "i1" });
       seedTask(workflow, { task_id: "wf_x.3", stage: "implement", issue_id: "i2" });

@@ -1,7 +1,6 @@
 import type { PlanEntry } from "@agentclientprotocol/sdk";
 import { sequenceFromJobId } from "../../ids";
 import { refinerIndexOf, refinerRunOf, reviewerEntryOf } from "../refiner/stage-refiner";
-import { workflowName } from "../store/state";
 import type { ArtifactRow, JobRow, TaskRow } from "../store/tasks";
 import { authorBusy } from "../follow-up";
 import type { WorkflowRuntime } from "../types";
@@ -55,7 +54,7 @@ export function boardTask(workflow: WorkflowRuntime, task: TaskRow): BoardTask {
     task_id: task.task_id,
     number: sequenceFromJobId(job.job_id) ?? 0,
     ticket_key: job.issue_key,
-    workflow_name: boardText(workflowName(workflow.state)).slice(0, NAME_CHARS),
+    workflow_name: boardText(workflow.store.workflowName()).slice(0, NAME_CHARS),
     work: boardWork(task, job),
     status: task.status,
     paused: task.paused_at !== null,
@@ -280,7 +279,7 @@ export async function markBoardDirty(workflow: WorkflowRuntime, jobId: string): 
 /** Every chat thread among the reply targets. A board lives only in chat, one per thread. */
 function boardChannels(workflow: WorkflowRuntime): BoardChannel[] {
   const channels = new Map<string, BoardChannel>();
-  for (const target of workflow.state.reply_targets) {
+  for (const target of workflow.store.replyTargets()) {
     if (target.source !== "chat") continue;
     const channel = { source: target.source, channel: target.channel, thread: target.thread };
     channels.set(channelKey(channel), channel);

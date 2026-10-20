@@ -17,7 +17,7 @@ const DECISIONS_DEADLINE_MS = 5;
 const asked: InboundEvent = {
   id: "evt-asked",
   kind: "prompt",
-  actor: { person_id: "p1", email: "dev@acme.test", display_name: "Dev" },
+  actor: { email: "dev@acme.test", display_name: "Dev" },
   bindings: [],
   links: [],
   text: "What is the status?",
@@ -70,7 +70,7 @@ describe("a turn whose decisions call never returns", () => {
 
   it("lets go of the turn", () =>
     stuck(({ workflow }) => {
-      expect(workflow.state.turn_started_at).toBeNull();
+      expect(workflow.store.requireWorkflowRow().turn_started_at).toBeNull();
     }));
 });
 

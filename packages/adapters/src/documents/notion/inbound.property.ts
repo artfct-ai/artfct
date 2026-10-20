@@ -1,11 +1,16 @@
 import { describe, it } from "bun:test";
 import fc from "fast-check";
 import { propertyRuns, propertyTimeoutMs } from "../../../test/property-runs";
-import { fakeUserActor } from "../../../test/fake-actors";
+import { recordingUserActor } from "../../../test/fake-actors";
 import { FakeDocuments } from "../../../test/fake-documents";
-import { inboundMapperNeverThrows, mapperOutcome } from "../../../test/inbound-invariants";
-import { anyJsonValue, mutatedPayload } from "../../../test/payload-mutations";
+import {
+  actorEmailIsLowercase,
+  inboundMapperNeverThrows,
+  mapperOutcome,
+} from "../../../test/inbound-invariants";
+import { anyCaseEmail, anyJsonValue, mutatedPayload } from "../../../test/payload-mutations";
 import { notionInbound } from "./inbound";
+import type { ExternalUser } from "@artfct-ai/contracts/types";
 import type { DocumentsInboundContext } from "../types";
 
 const RUNS = 100;
@@ -41,16 +46,28 @@ const realPayloads: Record<string, unknown> = {
   },
 };
 
-const context: DocumentsInboundContext = {
-  resolveActor: fakeUserActor(),
-  documents: new FakeDocuments({
-    comments: { cmt1: { text: "lgtm", author: { id: "n1", email: null }, mentions: [] } },
-    emails: { n1: "dev@acme.test" },
-  }),
-};
+/** Where the host reports the author's email: on the comment, from a user fetch, or nowhere. */
+const reportedEmail = fc.record({
+  onComment: fc.option(anyCaseEmail),
+  fetched: fc.option(anyCaseEmail),
+});
 
-async function checkPayload(payload: unknown): Promise<void> {
+async function checkPayload(
+  payload: unknown,
+  email: { onComment: string | null; fetched: string | null },
+): Promise<void> {
+  const asked: ExternalUser[] = [];
+  const context: DocumentsInboundContext = {
+    resolveActor: recordingUserActor(asked),
+    documents: new FakeDocuments({
+      comments: {
+        cmt1: { text: "lgtm", author: { id: "n1", email: email.onComment }, mentions: [] },
+      },
+      emails: email.fetched ? { n1: email.fetched } : {},
+    }),
+  };
   inboundMapperNeverThrows(await mapperOutcome(() => notionInbound(payload, context)));
+  actorEmailIsLowercase(asked);
 }
 
 describe("notion inbound mapper invariants", () => {
@@ -59,7 +76,7 @@ describe("notion inbound mapper invariants", () => {
       `hold for a ${name} webhook with fields removed or retyped`,
       async () => {
         await fc.assert(
-          fc.asyncProperty(mutatedPayload(payload), checkPayload),
+          fc.asyncProperty(mutatedPayload(payload), reportedEmail, checkPayload),
           propertyRuns(`notion ${name}`, RUNS),
         );
       },
@@ -71,7 +88,7 @@ describe("notion inbound mapper invariants", () => {
     "hold for a JSON value of any shape",
     async () => {
       await fc.assert(
-        fc.asyncProperty(anyJsonValue, checkPayload),
+        fc.asyncProperty(anyJsonValue, reportedEmail, checkPayload),
         propertyRuns("notion any JSON", RUNS),
       );
     },

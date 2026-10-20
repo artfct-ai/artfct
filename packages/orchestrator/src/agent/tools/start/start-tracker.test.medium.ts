@@ -48,7 +48,7 @@ function startedOnIssue(issue: TrackerIssue | null, setup: StartSetup = {}): Sce
       });
       return { tracker };
     })(async (workflow) => {
-      workflow.patchState({ subject });
+      if (subject) workflow.store.writeSubject(subject);
       const { start_job } = startTools(workflow);
       const result = toolText(
         await start_job.execute({ stage: "implement", brief: "x", issue: "ENG-9" }, call),

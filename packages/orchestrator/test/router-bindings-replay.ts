@@ -16,7 +16,7 @@ import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVaria
 import { quintTraces } from "./quint-traces";
 import { runStartStep } from "./restart";
 import { migratedD1Database, sqliteParams } from "./sqlite-d1";
-import { FakeRuntime, seedTask } from "./fake-runtime";
+import { FakeRuntime, seedTask, patchPlan, patchStagePlan } from "./fake-runtime";
 import { openMemoryDb } from "./memory-db";
 import { testEnv } from "./test-env";
 
@@ -85,10 +85,15 @@ type ObjectView = {
  */
 export type RouterView = {
   bindings: Partial<Record<KeyName, number>>;
-  rows: Record<number, "Live" | "Ended">;
+  rows: Record<number, RowStatusName>;
   objects: Record<number, ObjectView>;
   calls: Record<string, string>;
 };
+
+const ROW_STATUSES = ["New", "Live", "Ended"] as const;
+
+/** The status of a workflow row in D1, as the spec names it. */
+type RowStatusName = (typeof ROW_STATUSES)[number];
 
 /** What a spec action picked. */
 type SpecPicks = {
@@ -193,7 +198,7 @@ function specView(world: unknown): RouterView {
   }
   const rows: RouterView["rows"] = {};
   for (const [workflow, status] of entries(itfField(world, "rows"))) {
-    rows[itfInt(workflow)] = itfVariant(status)!.tag === "Ended" ? "Ended" : "Live";
+    rows[itfInt(workflow)] = itfOneOf(itfVariant(status)!.tag, ROW_STATUSES);
   }
   const objects: RouterView["objects"] = {};
   for (const [workflow, object] of entries(itfField(world, "objects"))) {
@@ -280,6 +285,8 @@ function deliveryCall(delivery: SpecDelivery): string {
       return `DeleteBindings(${delivery.workflow})`;
     case "MarkingFailed":
       return `SetStatus(${delivery.workflow})`;
+    case "TakingOver":
+      return `TakeOverCreate(${delivery.workflow})`;
     default:
       throw new Error(`the trace has the delivery phase ${delivery.phase}`);
   }
@@ -466,7 +473,7 @@ function pullTarget(pull: PullKeyName): ArtifactTarget {
   };
 }
 
-const PERSON: Actor = { person_id: "p1", email: "dev@acme.test", display_name: "Dev" };
+const PERSON: Actor = { email: "dev@acme.test", display_name: "Dev" };
 
 /** The spec key of each binding, by source and external id as the router stores them. */
 const BINDING_KEYS: Record<string, KeyName> = {
@@ -563,6 +570,16 @@ export class RouterBindingsReplay {
           `o${required(picks.operation, "operation")}`,
           required(picks.landed, "landed"),
         );
+      case "instanceRestartCutsThePullRequestBind":
+        return this.restartDuringPullRequestBind(
+          `o${required(picks.operation, "operation")}`,
+          required(picks.landed, "landed"),
+        );
+      case "routerInvocationEndsMidCreate":
+        return this.endRouterInvocation(
+          `d${required(picks.delivery, "delivery")}`,
+          required(picks.landed, "landed"),
+        );
       case "workflowEnds":
         await this.startWork(required(picks.workflow, "workflow"), "end");
         return;
@@ -594,16 +611,14 @@ export class RouterBindingsReplay {
     const rows: RouterView["rows"] = {};
     for (const row of this.sqlite.query("select workflow_id, status from workflows").all()) {
       const workflow = workflowRow(row);
-      rows[this.specIdOf(workflow.workflow_id)] = isWorkflowFinished(workflow.status)
-        ? "Ended"
-        : "Live";
+      rows[this.specIdOf(workflow.workflow_id)] = rowStatusOf(workflow.status);
     }
     const objects: RouterView["objects"] = {};
     for (const [name, runtime] of this.runtimes) {
-      if (!runtime.state.created_at) continue;
+      if (!runtime.store.workflowRow()) continue;
       const view: ObjectView = {
         created: true,
-        ended: isWorkflowFinished(runtime.state.status),
+        ended: isWorkflowFinished(runtime.store.requireWorkflowRow().status),
         hasIssueJob: validateInputNotInWork(runtime, ISSUE_INPUT) !== null,
         openedPulls: runtime.store
           .artifacts()
@@ -672,6 +687,11 @@ export class RouterBindingsReplay {
     }
   }
 
+  /** The router's invocation ends while `delivery` waits on a call, which lands first when `landed` is set. */
+  async endRouterInvocation(delivery: string, landed: boolean): Promise<void> {
+    await this.gate.drop(delivery, landed);
+  }
+
   /** Throw from the Durable Object create a delivery waits on. */
   async failCreate(delivery: string): Promise<void> {
     await this.gate.fail(delivery, new Error("Durable Object reset"));
@@ -688,7 +708,7 @@ export class RouterBindingsReplay {
   ): Promise<string> {
     const name = this.workflowIds[workflow];
     const runtime = name ? this.runtimes.get(name) : undefined;
-    if (!name || !runtime?.state.created_at) {
+    if (!name || !runtime?.store.workflowRow()) {
       throw new Error(`workflow ${workflow} has no created Durable Object`);
     }
     const operation = `o${this.nextOperation}`;
@@ -721,11 +741,29 @@ export class RouterBindingsReplay {
     });
   }
 
+  /**
+   * The Durable Object of the workflow whose pull request bind `operation` waits on restarts. The
+   * bind lands first when `landed` is set. Every call the workflow has out is lost, and the new
+   * instance has not recorded the pull request.
+   */
+  async restartDuringPullRequestBind(operation: string, landed: boolean): Promise<void> {
+    const name = this.operationWorkflows.get(operation);
+    const runtime = name ? this.runtimes.get(name) : undefined;
+    if (!name || !runtime) throw new Error(`${operation} is not the work of a workflow`);
+    await this.gate.drop(operation, landed);
+    for (const [other, workflow] of this.operationWorkflows) {
+      if (other !== operation && workflow === name && this.gate.calls()[other]) {
+        await this.gate.drop(other, false);
+      }
+    }
+    this.runtimes.set(name, runtime.restarted());
+  }
+
   private async endWorkflow(runtime: FakeRuntime): Promise<void> {
     const status = ENDED_STATUSES[this.nextEndedStatus % ENDED_STATUSES.length]!;
     this.nextEndedStatus += 1;
     await this.endWorkflowWith(runtime, status);
-    this.unbound.add(runtime.state.workflow_id);
+    this.unbound.add(runtime.store.requireWorkflowRow().workflow_id);
   }
 
   private async endWorkflowWith(runtime: FakeRuntime, status: EndedStatus): Promise<void> {
@@ -762,21 +800,25 @@ export class RouterBindingsReplay {
     );
   }
 
+  /** The author finds its pull request. One whose earlier find a restart cut off finds it again. */
   private async openPullRequest(runtime: FakeRuntime, pull: PullKeyName): Promise<void> {
-    const author = seedTask(runtime, {
-      task_id: `${runtime.state.workflow_id}.9`,
-      job_id: `${runtime.state.workflow_id}-9`,
-      stage: "implement",
-    });
+    const workflowId = runtime.store.requireWorkflowRow().workflow_id;
+    const taskId = `${workflowId}.9`;
+    const author =
+      runtime.store.task(taskId) ??
+      seedTask(runtime, { task_id: taskId, job_id: `${workflowId}-9`, stage: "implement" });
     await recordArtifact(runtime, author, pullTarget(pull));
   }
 
   /** The real create path. The subject is the issue, as the plan of a workflow from a thread names it. */
   private async createRuntime(name: string, start: WorkflowStart): Promise<RpcAck> {
     const runtime = this.runtimeOf(name);
-    runtime.patchState({ concurrency: 2 });
     const created = await createWorkflow(runtime, start);
-    runtime.patchState({ subject: { kind: "issue", issue_id: ISSUE.id } });
+    if (!runtime.store.workflowRow() || runtime.store.plan()) return created;
+    runtime.store.updateWorkflow({ status: "running" });
+    patchPlan(runtime, {});
+    patchStagePlan(runtime, { job_slots: 2 });
+    if (!runtime.store.subject()) runtime.store.writeSubject({ kind: "issue", issue_id: ISSUE.id });
     return created;
   }
 
@@ -784,8 +826,7 @@ export class RouterBindingsReplay {
   private runtimeOf(name: string): FakeRuntime {
     const known = this.runtimes.get(name);
     if (known) return known;
-    const runtime = new FakeRuntime(openMemoryDb(), this.env);
-    runtime.patchState({ workflow_id: name });
+    const runtime = new FakeRuntime(openMemoryDb(), this.env, "uncreated");
     runtime.trackerInstance = new FakeTracker({ issues: [ISSUE] });
     this.runtimes.set(name, runtime);
     return runtime;
@@ -856,6 +897,9 @@ export class RouterBindingsReplay {
       return `ClaimBinding(${bindingKeyOf(params.slice(2))})`;
     if (sql.startsWith('insert into "bindings"'))
       return `BindWorkflow(${bindingKeyOf(params)}, ${ids[0]})`;
+    if (sql.startsWith('insert into "workflows"') && sql.includes(" select ")) {
+      return `TakeOverCreate(${ids[0]})`;
+    }
     if (sql.startsWith('insert into "workflows"')) return `InsertWorkflow(${ids[0]})`;
     if (sql.startsWith('delete from "bindings"')) return `DeleteBindings(${ids[0]})`;
     if (sql.startsWith('update "workflows"')) return `SetStatus(${ids[0]})`;
@@ -926,6 +970,11 @@ const WORKFLOW_STATUSES: readonly WorkflowStatus[] = [
   "failed",
   "cancelled",
 ];
+
+function rowStatusOf(status: WorkflowStatus): RowStatusName {
+  if (status === "new") return "New";
+  return isWorkflowFinished(status) ? "Ended" : "Live";
+}
 
 function workflowRow(row: unknown): { workflow_id: string; status: WorkflowStatus } {
   return {

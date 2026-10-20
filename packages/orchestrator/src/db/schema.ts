@@ -2,18 +2,6 @@ import type { BindingSource } from "@artfct-ai/contracts/sources";
 import type { WorkflowStatus } from "@artfct-ai/contracts/types";
 import { index, primaryKey, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
-/** People known to the orchestrator, joined across the tracker, chat, code host, and documents. */
-export const persons = sqliteTable("persons", {
-  person_id: text().primaryKey(),
-  email: text().unique(),
-  linear_user_id: text().unique(),
-  slack_user_id: text().unique(),
-  github_login: text().unique(),
-  display_name: text(),
-  created_at: text().notNull(),
-  updated_at: text().notNull(),
-});
-
 /** External ids that route inbound events to a workflow. */
 export const bindings = sqliteTable(
   "bindings",
@@ -49,7 +37,6 @@ export const linearInstalls = sqliteTable("linear_installs", {
   access_token: text().notNull(),
   refresh_token: text(),
   expires_at: text().notNull(),
-  scope: text().notNull(),
   created_at: text().notNull(),
   updated_at: text().notNull(),
 });

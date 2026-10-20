@@ -38,6 +38,7 @@ import {
 } from "./timers";
 import {
   closeSessionFeed,
+  closingWhenTheAuthorGoesOn,
   feedClosingOf,
   publishSessionPlan,
   streamToSessionFeed,
@@ -235,7 +236,8 @@ export async function onTurnEnd(
   workflow.store.patchTodoRow(task.task_id, { note: null });
   if (!recordedNow) await reopenChangedArtifact(workflow, task.job_id);
   const busy = await settleAndResumeAuthor(workflow, task.task_id);
-  await closeSessionFeed(workflow, task, busy ? null : feedClosingOf(stopReason));
+  const closing = feedClosingOf(stopReason);
+  await closeSessionFeed(workflow, task, busy ? closingWhenTheAuthorGoesOn(closing) : closing);
   if (!busy) await announceReopenedDraft(workflow, task.job_id);
   const wake = wakeAfterTurn(workflow, task.job_id, recordedNow, busy);
   if (wake === "none") return;

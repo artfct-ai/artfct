@@ -6,15 +6,18 @@ import { workflows } from "./schema";
 /** One row of the workflows table. */
 export type WorkflowRow = typeof workflows.$inferSelect;
 
-/** Insert a workflow row in status `new`. */
+/** Insert a workflow row in status `new`. A row that a takeover of the create inserted stays. */
 export async function createWorkflow(db: Database, workflowId: string): Promise<void> {
   const timestamp = nowIso();
-  await db.insert(workflows).values({
-    workflow_id: workflowId,
-    status: "new",
-    created_at: timestamp,
-    updated_at: timestamp,
-  });
+  await db
+    .insert(workflows)
+    .values({
+      workflow_id: workflowId,
+      status: "new",
+      created_at: timestamp,
+      updated_at: timestamp,
+    })
+    .onConflictDoNothing();
 }
 
 /** Record a new status on a workflow row. The router reads it to drop events on finished workflows. */

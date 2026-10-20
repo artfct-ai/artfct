@@ -1,19 +1,23 @@
 import type { JobSummary, WorkflowSummary } from "@artfct-ai/contracts/types";
+import { jobSlotsOf } from "./store/state";
 import type { TaskRow } from "./store/tasks";
 import type { WorkflowRuntime } from "./types";
 
 /** Status summary: the plan, the active jobs with their artifacts, and the cost. */
 export function summarize(workflow: WorkflowRuntime): WorkflowSummary {
-  const { state } = workflow;
+  const { store } = workflow;
+  const { workflow_id, status } = store.requireWorkflowRow();
+  const plan = store.plan();
+  const stagePlan = store.stagePlan();
   return {
-    workflow_id: state.workflow_id,
-    status: state.status,
-    stages: state.stages,
-    jobs: workflow.store.activeAuthorAndResearcherTasks().map((task) => jobSummary(workflow, task)),
-    concurrency: state.concurrency,
-    cost_usd: workflow.store.workflowCost(),
-    repo: state.repo,
-    reason: state.reason,
+    workflow_id,
+    status,
+    stages: stagePlan?.stages ?? [],
+    jobs: store.activeAuthorAndResearcherTasks().map((task) => jobSummary(workflow, task)),
+    concurrency: jobSlotsOf(stagePlan),
+    cost_usd: store.workflowCost(),
+    repo: plan?.repo ? { full: plan.repo } : null,
+    reason: plan?.reason ?? null,
   };
 }
 
@@ -66,7 +70,12 @@ function artifactText(job: JobSummary): string {
 export function debugDump(workflow: WorkflowRuntime) {
   const { store } = workflow;
   return {
-    state: workflow.state,
+    workflow: store.workflowRow(),
+    workflow_end: store.workflowEnd(),
+    plan: store.plan(),
+    stage_plan: store.stagePlan(),
+    subject: store.subject(),
+    reply_targets: store.replyTargets(),
     jobs: store.jobs(),
     tasks: store.tasks().map((task) => {
       const sandbox = store.sandbox(task.task_id);

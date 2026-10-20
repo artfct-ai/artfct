@@ -992,7 +992,9 @@ export class AgentTurnsReplay {
         external_url: `https://www.notion.so/acme/${PAGE_ID}`,
         ref: { kind: "page", page_id: PAGE_ID },
       });
-      runtime.patchState(SPEC_SETUPS[setup]);
+      const { origin, reply_targets: targets } = SPEC_SETUPS[setup];
+      runtime.store.updateWorkflow({ origin });
+      for (const target of targets) runtime.store.addReplyTarget(target);
       const { orchestrator } = runtime.config();
       runtime.patchConfig({
         orchestrator: {
@@ -1118,7 +1120,7 @@ export class AgentTurnsReplay {
   /** The agent turns as the code left them, in the terms of the spec. */
   view(): TurnsView {
     const { runtime, ledger } = this;
-    const { state } = runtime;
+    const turn = runtime.store.requireWorkflowRow();
     const rows = runtime.transcript.all();
     const inbox = [...runtime.transcript.taken(), ...runtime.transcript.inbox()]
       .map((row) => ({
@@ -1132,11 +1134,11 @@ export class AgentTurnsReplay {
       turn: ledger.held?.phase ?? this.turnWithoutHeldCall(),
       inbox: inbox.map(inboxLine),
       transcript: rows.map((row, index) => `${row.id} ${entryName(row, rows[index - 1], ledger)}`),
-      startedAt: ledger.startNumberOf(state.turn_started_at ?? null),
-      watchdog: this.armedStart(state.turn_watchdog ?? null),
-      headsUp: this.armedStart(state.turn_heads_up ?? null),
-      firstRow: state.turn_first_row ?? null,
-      boardChanged: state.turn_board_changed === true,
+      startedAt: ledger.startNumberOf(turn.turn_started_at),
+      watchdog: this.armedStart(turn.turn_watchdog),
+      headsUp: this.armedStart(turn.turn_heads_up),
+      firstRow: turn.turn_first_row,
+      boardChanged: turn.turn_board_changed,
       runAgentAlarms: runtime.alarmsFor("runAgent").length,
       lastInputOverLimit: runtime.store.lastTurnInputTokens() > CONTEXT_TOKENS,
       chat: chatStatus(runtime.chatSession),
@@ -1205,7 +1207,7 @@ export class AgentTurnsReplay {
     for (const task of this.runtime.store.activeAuthorAndResearcherTasks()) {
       this.runtime.store.updateTask(task.task_id, { status: "cancelled" });
     }
-    this.runtime.patchState({ status: "done" });
+    this.runtime.store.updateWorkflow({ status: "done" });
   }
 
   private async landRuntimeRequest(): Promise<void> {
