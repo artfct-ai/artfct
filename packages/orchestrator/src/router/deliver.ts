@@ -6,8 +6,9 @@ import { chat, tracker } from "../clients";
 import { registeredConfig } from "../config/register-config";
 import {
   claimBinding,
-  deleteBindings,
+  deleteBindingsOfNewWorkflow,
   findBinding,
+  takeOverWorkflowCreate,
   workflowsWithPullsInRepo,
 } from "../db/bindings";
 import { createDb, type Database } from "../db/client";
@@ -29,7 +30,7 @@ type RouteRead = { bound: BoundBinding[]; replaced: EndedBinding | null };
 
 /** Where an event goes: to the running workflow at one of its bindings, to a new one, or nowhere. */
 type Route =
-  | ({ kind: "join"; index: number; workflowId: string } & RouteRead)
+  | ({ kind: "join"; index: number; binding: Binding; workflowId: string } & RouteRead)
   | ({ kind: "create" } & RouteRead)
   | { kind: "drop"; reason: string };
 
@@ -103,10 +104,10 @@ async function routeFrom(
   from: number,
 ): Promise<Route> {
   let { replaced } = read;
-  for (const [index, { workflowId }] of read.bound.entries()) {
+  for (const [index, { binding, workflowId }] of read.bound.entries()) {
     if (index < from || !workflowId) continue;
     const ended = await endedStatus(db, workflowId);
-    if (!ended) return { kind: "join", index, workflowId, ...read, replaced };
+    if (!ended) return { kind: "join", index, binding, workflowId, ...read, replaced };
     replaced ??= { index, workflowId, status: ended };
   }
   const personWrote = event.kind === "prompt" && event.actor !== null;
@@ -183,7 +184,8 @@ async function startNextWorkflow(
 
 /**
  * Undo a workflow whose Durable Object never started. The bindings it won go, and each points
- * back at the workflow it pointed at, unless another delivery bound it since.
+ * back at the workflow it pointed at, unless another delivery bound it since. A takeover of the
+ * create that came first keeps the workflow, so nothing is undone.
  */
 async function abandonWorkflow(
   db: Database,
@@ -191,7 +193,7 @@ async function abandonWorkflow(
   won: BoundBinding[],
 ): Promise<void> {
   const sources = won.map(({ binding }) => binding.source);
-  await deleteBindings(db, workflowId, sources);
+  if (!(await deleteBindingsOfNewWorkflow(db, workflowId, sources))) return;
   for (const { binding, workflowId: restored } of won) {
     if (restored) await claimBinding(db, binding, { previous: null, workflowId: restored });
   }
@@ -199,10 +201,10 @@ async function abandonWorkflow(
 }
 
 /**
- * Hand the event to the running workflow. A workflow not created yet refuses it, and the event
- * is dropped. A workflow that ended refuses a person's message, and the route goes on from the
- * next binding. A start the workflow took points its unbound bindings, and those whose workflow
- * ended, at it.
+ * Hand the event to the running workflow. A workflow not created yet refuses it. A person's start
+ * or message then takes its create over, and every other event is dropped. A workflow that ended
+ * refuses a person's message, and the route goes on from the next binding. A start the workflow
+ * took points its unbound bindings, and those whose workflow ended, at it.
  */
 async function joinWorkflow(
   env: Env,
@@ -215,7 +217,9 @@ async function joinWorkflow(
   if ("refused" in answer) {
     switch (answer.refused) {
       case "not_created":
-        return { dropped: `workflow ${workflowId} is not created yet` };
+        return isPersonsStartOrMessage(event)
+          ? takeOverCreate(env, db, event, route)
+          : { dropped: `workflow ${workflowId} is not created yet` };
       case "ended": {
         const ended = { index: route.index, workflowId, status: answer.status };
         const read = { bound: route.bound, replaced: route.replaced ?? ended };
@@ -235,6 +239,30 @@ async function joinWorkflow(
     }
   }
   return { workflow_id: workflowId, created: false, joined, result: answer };
+}
+
+/** A start or a message that a person wrote. */
+function isPersonsStartOrMessage(event: InboundEvent): boolean {
+  return event.actor !== null && (event.kind === "start" || event.kind === "prompt");
+}
+
+/**
+ * Create a workflow whose create has not returned with a person's event, such as one whose router
+ * invocation ended mid-create. The row marks the takeover first, so an abandon of the first create
+ * keeps the bindings. A takeover that a moved binding or an abandon refuses reads the route again.
+ */
+async function takeOverCreate(
+  env: Env,
+  db: Database,
+  event: InboundEvent,
+  route: Extract<Route, { kind: "join" }>,
+): Promise<Delivery> {
+  const { binding, workflowId } = route;
+  if (!(await takeOverWorkflowCreate(db, binding, workflowId))) {
+    return follow(env, db, event, await routeOf(db, event));
+  }
+  const result = await env.Workflow.getByName(workflowId).create(workflowId, event, null);
+  return { workflow_id: workflowId, created: true, result };
 }
 
 /** The status a bound workflow ended with, or null while it runs. */
