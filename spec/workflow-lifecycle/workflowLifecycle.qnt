@@ -22,10 +22,19 @@ module workflowLifecycleTypes {
   /// The role of a job task: the researcher that runs before the author, or the author.
   type Role = Researcher | Author
 
+  /// A prompt queued for a task: a person's instruction, or another prompt.
+  type QueuedPrompt = Instruction | OtherPrompt
+
+  /// The instruction that the running turn of a harness task took. It stays queued until the turn
+  /// ends. `HeldInACancelledTurn` is one whose turn a pause cancelled, so it waits again once
+  /// that turn ends.
+  type InstructionHold = NoInstructionHeld | InstructionHeld | HeldInACancelledTurn
+
   /// A researcher or author task. `turnRunning` holds while a prompt is in flight in its harness,
   /// also after the task finished. `promptsSent` counts the prompts the workflow sent the task:
   /// those its harness got, and for a model-call author those a model turn started on.
-  /// `promptsQueued` counts the prompts that wait for a turn. `generationClosed` holds while the
+  /// `promptsQueued` lists the prompts that wait for a turn, oldest first. `instructionHold` is
+  /// the instruction the running harness turn took. `generationClosed` holds while the
   /// container of the task's generation is closed and the task waits for a prompt to start the
   /// next one. A restart of a paused task closes it, and so does a polisher as it starts.
   /// `startOrder` is the place of the task among the researchers and authors of the workflow, in
@@ -40,7 +49,8 @@ module workflowLifecycleTypes {
     paused: bool,
     turnRunning: bool,
     promptsSent: int,
-    promptsQueued: int,
+    promptsQueued: List[QueuedPrompt],
+    instructionHold: InstructionHold,
     generationClosed: bool,
     stopped: bool,
   }
@@ -159,8 +169,13 @@ module workflowLifecycleTypes {
     | StoppedTurnGoesOn(ModelTurn)
 
   /// A model turn in flight. `eventWaits` is true when a person's event started it with a prompt
-  /// and waits for the turn to end before it tells the agent.
-  type ModelTurn = { eventWaits: bool }
+  /// and waits for the turn to end before it tells the agent. `prompt` is the queued prompt a
+  /// revise turn runs on.
+  type ModelTurn = { eventWaits: bool, prompt: TurnPrompt }
+
+  /// What a model turn runs on: nothing when it produces the page, a queued prompt when it
+  /// revises it.
+  type TurnPrompt = ProducesThePage | Revises(QueuedPrompt)
 
   /// A call that is out. It leaves the list when it returns, or when a restart of the Durable
   /// Object drops it.
@@ -687,12 +702,6 @@ module workflowLifecycle {
   pure def stoppedPageWritesOut(flow: Workflow): int =
     flow.calls.indices().filter(callId => isStoppedPageWrite(flow.calls[callId])).size()
 
-  /// True when the model turn of the job in flight keeps the prompt it runs on queued: a stop did
-  /// not reach its page write.
-  pure def keepsItsPrompt(flow: Workflow, id: int): bool =
-    not(flow.calls.indices().exists(callId =>
-      isStoppedPageWrite(flow.calls[callId]) and flow.calls[callId].job == id))
-
   pure def modelTurnsInFlight(flow: Workflow): Set[int] =
     jobIds(flow).filter(id => modelTurnInFlight(flow, id))
 
@@ -712,7 +721,8 @@ module workflowLifecycle {
       paused: false,
       turnRunning: harness,
       promptsSent: if (harness) 1 else 0,
-      promptsQueued: 0,
+      promptsQueued: List(),
+      instructionHold: NoInstructionHeld,
       generationClosed: false,
       stopped: false,
     }
@@ -720,7 +730,7 @@ module workflowLifecycle {
 
   /// The model call a task sends as it starts, when it is a model-call author.
   pure def sendFirstModelCall(flow: Workflow, id: int): Workflow =
-    if (runsAsModelCalls(jobTask(flow, id))) sendCall(flow, ModelCall, id, PageWriteStarts({ eventWaits: false }))
+    if (runsAsModelCalls(jobTask(flow, id))) sendCall(flow, ModelCall, id, PageWriteStarts({ eventWaits: false, prompt: ProducesThePage }))
     else flow
 
   /// The part of a step that does not tell the agent.
@@ -733,7 +743,8 @@ module workflowLifecycle {
     withoutLostModelTurn(withTask(flow, id, {
       ...jobTask(flow, id),
       status: status,
-      promptsQueued: 0,
+      promptsQueued: List(),
+      instructionHold: NoInstructionHeld,
       generationClosed: false,
     }), id)
 
@@ -1098,22 +1109,46 @@ module workflowLifecycle {
   /// queue as it is.
   pure def wakesWithAQueuedPrompt(task: Task): bool = task.role == Author
 
+  /// `sendPrompt` with the oldest queued prompt. A harness task's turn holds an instruction it
+  /// takes.
+  pure def takeQueuedPrompt(task: Task): Task = {
+    ...task,
+    promptsQueued: task.promptsQueued.tail(),
+    instructionHold:
+      if (not(runsAsModelCalls(task)) and task.promptsQueued.head() == Instruction) InstructionHeld
+      else NoInstructionHeld,
+  }
+
+  /// A new generation forgets the turn of the old one, and the instruction that turn held waits
+  /// again at the head of the queue.
+  pure def returnHeldInstruction(task: Task): Task =
+    if (task.instructionHold == NoInstructionHeld) task
+    else { ...task, promptsQueued: List(Instruction).concat(task.promptsQueued), instructionHold: NoInstructionHeld }
+
+  /// `onTurnEnd` drops the instruction a turn held, unless a pause cancelled the turn. Then it
+  /// waits again at the head of the queue.
+  pure def endHeldTurn(task: Task): Task =
+    if (task.instructionHold == HeldInACancelledTurn) returnHeldInstruction(task)
+    else { ...task, instructionHold: NoInstructionHeld }
+
   /// The restart reads the task again once its old container went. The restart counted before
   /// the destroy. A finished task stays finished. A paused task waits for its resume to start the
-  /// next generation. Otherwise the sandbox comes up and the harness gets its first prompt.
+  /// next generation. Otherwise the sandbox comes up, the instruction the old turn held waits
+  /// again, and the harness gets its first prompt.
   pure def restartGoesOn(flow: Workflow, id: int): Workflow = {
     val task = jobTask(flow, id)
+    val returned = returnHeldInstruction(task)
+    val woken =
+      if (wakesWithAQueuedPrompt(task) and returned.promptsQueued.length() > 0) takeQueuedPrompt(returned)
+      else returned
     if (isFinished(task.status)) flow
     else if (task.paused) withTask(flow, id, { ...task, generationClosed: true })
     else
       withTask(flow, id, {
-        ...task,
+        ...woken,
         status: Busy,
         turnRunning: true,
         promptsSent: task.promptsSent + 1,
-        promptsQueued:
-          if (wakesWithAQueuedPrompt(task) and task.promptsQueued > 0) task.promptsQueued - 1
-          else task.promptsQueued,
       })
   }
 
@@ -1146,18 +1181,17 @@ module workflowLifecycle {
   /// alarm to produce it. `eventWaits` is true when a person's event waits for the turn to end.
   pure def takeNextModelTurn(flow: Workflow, id: int, eventWaits: bool): Workflow = {
     val task = jobTask(flow, id)
-    if (task.paused or task.status != InReview or task.promptsQueued == 0) flow
+    if (task.paused or task.status != InReview or task.promptsQueued.length() == 0) flow
     else
       sendCall(
         withTask(flow, id, {
-          ...task,
+          ...takeQueuedPrompt(task),
           status: Busy,
           promptsSent: task.promptsSent + 1,
-          promptsQueued: task.promptsQueued - 1,
         }),
         ModelCall,
         id,
-        PageWriteStarts({ eventWaits: eventWaits }),
+        PageWriteStarts({ eventWaits: eventWaits, prompt: Revises(task.promptsQueued.head()) }),
       )
   }
 
@@ -1176,15 +1210,27 @@ module workflowLifecycle {
   pure def startQueuedModelAuthors(flow: Workflow, drained: Set[int]): Workflow =
     unfinishedJobsInStartOrder(flow).foldl(flow, (starting, id) =>
       if (drained.contains(id) and waitsToProduce(starting, id))
-        sendCall(starting, ModelCall, id, PageWriteStarts({ eventWaits: false }))
+        sendCall(starting, ModelCall, id, PageWriteStarts({ eventWaits: false, prompt: ProducesThePage }))
       else starting)
 
-  /// The prompt of a revise turn that was cut waits again when the turn kept it, since a revise
-  /// keeps its prompt queued until it applies the answer.
-  pure def requeueCutPrompt(flow: Workflow, id: int, promptKept: bool): Workflow = {
-    val task = jobTask(flow, id)
-    if (flow.jobs[id].artifact == NoArtifact or not(promptKept)) flow
-    else withTask(flow, id, { ...task, promptsQueued: task.promptsQueued + 1 })
+  /// The prompt that the model turn of the call keeps queued until it applies its answer: the
+  /// prompt of a revise turn whose page write a stop did not reach.
+  pure def keptPrompt(call: Call): List[QueuedPrompt] = {
+    val turnPrompt = match call.rest {
+      | PageWriteStarts(turn) => turn.prompt
+      | ModelTurnGoesOn(turn) => turn.prompt
+      | _ => ProducesThePage
+    }
+    match turnPrompt {
+      | Revises(prompt) => List(prompt)
+      | ProducesThePage => List()
+    }
+  }
+
+  /// The prompt that the cut model turn of the call kept waits again at the head of the queue.
+  pure def requeueCutPrompt(flow: Workflow, call: Call): Workflow = {
+    val task = jobTask(flow, call.job)
+    withTask(flow, call.job, { ...task, promptsQueued: keptPrompt(call).concat(task.promptsQueued) })
   }
 
   /// `restartLostModelTurn`: past its restarts the author fails. Otherwise the restart counts, and
@@ -1223,7 +1269,7 @@ module workflowLifecycle {
   pure def authorQuiet(flow: Workflow, id: int): bool = and {
     not(jobTask(flow, id).turnRunning),
     not(modelTurnInFlight(flow, id)),
-    jobTask(flow, id).promptsQueued == 0,
+    jobTask(flow, id).promptsQueued.length() == 0,
   }
 
   /// The settle after a turn of a model-call author on a draft: a reviewer starts on it once the
@@ -1285,7 +1331,7 @@ module workflowLifecycle {
   pure def stoppedTurnEnds(flow: Workflow, id: int, turn: ModelTurn): Outcome = {
     val ended = modelTurnEnds(flow, id, turn)
     val task = jobTask(ended.flow, id)
-    if (isFinished(task.status) or modelTurnInFlight(ended.flow, id) or task.promptsQueued > 0) ended
+    if (isFinished(task.status) or modelTurnInFlight(ended.flow, id) or task.promptsQueued.length() > 0) ended
     else { ...ended, flow: withTask(ended.flow, id, { ...task, stopped: true }) }
   }
 
@@ -1311,8 +1357,8 @@ module workflowLifecycle {
   pure def restartWorkflow(flow: Workflow): Workflow = {
     val held = modelTurnsInFlight(flow)
     val cut = held.filter(id => not(lostModelTurn(flow, id)) and not(flow.turnsToRunAgain.contains(id)))
-    val requeued = cut.fold(dropCalls(flow), (requeuing, id) =>
-      requeueCutPrompt(requeuing, id, keepsItsPrompt(flow, id)))
+    val requeued = flow.calls.foldl(dropCalls(flow), (requeuing, call) =>
+      if (isModelTurnCall(call) and cut.contains(call.job)) requeueCutPrompt(requeuing, call) else requeuing)
     if (held.size() == 0) requeued else { ...requeued, restartAlarms: requeued.restartAlarms.union(Set(held)) }
   }
 
@@ -1349,24 +1395,27 @@ module workflowLifecycle {
   /// prompt waits.
   pure def resumeHarnessTask(flow: Workflow, id: int): Workflow = {
     val task = jobTask(flow, id)
-    val closing = flow.calls.indices().exists(callId =>
-      flow.calls[callId].job == id and flow.calls[callId].kind == SandboxDestroy and
-        flow.calls[callId].rest == RestartGoesOn)
-    val waits = task.turnRunning and not(task.generationClosed) and not(closing)
+    val waits = task.turnRunning and not(task.generationClosed) and not(restartClosesTheContainer(flow, id))
+    val queued = { ...task, promptsQueued: task.promptsQueued.append(OtherPrompt) }
     val calls = flow.calls.foldl(List(), (calls, call) => calls.append(
       if (call.job == id and call.rest == RestartGoesOn)
         { ...call, rest: RestartAfterWake }
       else call))
     withTask({ ...flow, calls: calls }, id, {
-      ...task,
+      ...if (waits) queued else takeQueuedPrompt(returnHeldInstruction(queued)),
       paused: false,
       turnRunning: true,
       promptsSent: if (waits) task.promptsSent else task.promptsSent + 1,
-      promptsQueued: if (waits) task.promptsQueued + 1 else task.promptsQueued,
       generationClosed: false,
       status: if (task.status == InReview) Busy else task.status,
     })
   }
+
+  /// True while the destroy of the old container of the job's restarting task is out.
+  pure def restartClosesTheContainer(flow: Workflow, id: int): bool =
+    flow.calls.indices().exists(callId =>
+      flow.calls[callId].job == id and flow.calls[callId].kind == SandboxDestroy and
+        flow.calls[callId].rest == RestartGoesOn)
 
   /// True while a polisher runs on the page of the job's author and holds the author's prompts.
   pure def polisherHoldsPrompts(flow: Workflow, id: int): bool = and {
@@ -1380,9 +1429,10 @@ module workflowLifecycle {
   /// runs, in a new generation when its container is closed. A model-call author that is not at
   /// work takes its next turn, or produces its page first. `eventWaits` is true when the prompt
   /// comes from a person's event, which waits for the turn it starts.
-  pure def promptTask(flow: Workflow, id: int, eventWaits: bool): Workflow = {
+  pure def promptTask(flow: Workflow, id: int, eventWaits: bool, prompt: QueuedPrompt): Workflow = {
     val task = jobTask(flow, id)
-    val queued = withTask(flow, id, { ...task, promptsQueued: task.promptsQueued + 1, stopped: false })
+    val queuedTask = { ...task, promptsQueued: task.promptsQueued.append(prompt), stopped: false }
+    val queued = withTask(flow, id, queuedTask)
     if (isFinished(task.status)) flow
     else if (task.paused or polisherHoldsPrompts(flow, id)) queued
     else if (runsAsModelCalls(task)) {
@@ -1392,7 +1442,7 @@ module workflowLifecycle {
     else if (task.turnRunning) queued
     else
       withTask(flow, id, {
-        ...task,
+        ...takeQueuedPrompt(queuedTask),
         status: Busy,
         turnRunning: true,
         promptsSent: task.promptsSent + 1,
@@ -1404,22 +1454,32 @@ module workflowLifecycle {
   /// in a new generation.
   pure def takePromptAfterPolisher(flow: Workflow, id: int): Workflow = {
     val task = jobTask(flow, id)
-    if (REFINER != APolisher or isFinished(task.status) or task.paused or task.promptsQueued == 0) flow
+    if (REFINER != APolisher or isFinished(task.status) or task.paused or task.promptsQueued.length() == 0) flow
     else
       withTask(flow, id, {
-        ...task,
+        ...takeQueuedPrompt(task),
         status: Busy,
         turnRunning: true,
         promptsSent: task.promptsSent + 1,
-        promptsQueued: task.promptsQueued - 1,
         generationClosed: false,
       })
   }
 
-  /// `pauseTask`: an unfinished task that is not paused holds its prompts from now on.
+  /// `pauseTask`: an unfinished task that is not paused holds its prompts from now on. It cancels
+  /// the turn its harness runs, unless a restart is closing the container of that turn.
   pure def pauseTask(flow: Workflow, id: int): Workflow = {
     val task = jobTask(flow, id)
-    if (isFinished(task.status) or task.paused) flow else withTask(flow, id, { ...task, paused: true })
+    val cancels = and {
+      task.instructionHold == InstructionHeld,
+      not(task.generationClosed),
+      not(restartClosesTheContainer(flow, id)),
+    }
+    if (isFinished(task.status) or task.paused) flow
+    else withTask(flow, id, {
+      ...task,
+      paused: true,
+      instructionHold: if (cancels) HeldInACancelledTurn else task.instructionHold,
+    })
   }
 
   /// `resumeTask`: a paused task goes on with the resume prompt. A model-call author takes it as
@@ -1428,7 +1488,7 @@ module workflowLifecycle {
     val task = jobTask(flow, id)
     val unpaused = withTask(flow, id, { ...task, paused: false })
     if (isFinished(task.status) or not(task.paused)) flow
-    else if (runsAsModelCalls(task) or polisherHoldsPrompts(flow, id)) promptTask(unpaused, id, eventWaits)
+    else if (runsAsModelCalls(task) or polisherHoldsPrompts(flow, id)) promptTask(unpaused, id, eventWaits, OtherPrompt)
     else resumeHarnessTask(flow, id)
   }
 
@@ -1444,7 +1504,7 @@ module workflowLifecycle {
     else match command {
       | Pause => pauseTask(flow, active[0])
       | Resume => resumeTask(flow, active[0], true)
-      | Instruct => promptTask(flow, active[0], true)
+      | Instruct => promptTask(flow, active[0], true, Instruction)
     }
   }
 
@@ -1453,15 +1513,11 @@ module workflowLifecycle {
   /// closes the author's container as it starts.
   pure def pageWritten(flow: Workflow, id: int): Workflow = {
     val job = flow.jobs[id]
-    val author = jobTask(flow, id)
-    val queued = author.promptsQueued > 0
+    val author = endHeldTurn(jobTask(flow, id))
+    val queued = author.promptsQueued.length() > 0
     val wrote =
       if (queued)
-        withTask(flow, id, {
-          ...author,
-          promptsSent: author.promptsSent + 1,
-          promptsQueued: author.promptsQueued - 1,
-        })
+        withTask(flow, id, { ...takeQueuedPrompt(author), promptsSent: author.promptsSent + 1 })
       else withTask(flow, id, { ...author, status: InReview, turnRunning: false })
     val tasks = wrote.jobs[id].tasks
     if (REFINER == NoRefiner) { ...withJob(wrote, id, { ...job, tasks: tasks, artifact: Ready }), idleArmed: true }
@@ -1637,7 +1693,7 @@ module workflowLifecycle {
         | ModelTurnGoesOn(turn) => { ...call, rest: StoppedTurnGoesOn(turn) }
         | _ => call
       }))
-    val dropped = { ...task, promptsQueued: 0 }
+    val dropped = { ...task, promptsQueued: List(), instructionHold: NoInstructionHeld }
     val quiet = { ...dropped, stopped: runsAsModelCalls(task) }
     if (not(modelTurnInFlight(flow, id))) withTask(flow, id, quiet)
     else if (pageWriteOut(flow, id)) withTask({ ...flow, calls: stoppedCalls }, id, dropped)
@@ -2020,7 +2076,7 @@ module workflowLifecycle {
     move(
       {
         flow: if (opensAPull) withPullOnHost(written, id, PullOpen) else written,
-        told: REFINER == NoRefiner and jobTask(workflow, id).promptsQueued == 0,
+        told: REFINER == NoRefiner and not(jobTask(written, id).turnRunning),
       },
       OtherStep,
     )
@@ -2042,7 +2098,8 @@ module workflowLifecycle {
       nondet outputLink = TRACKER_LINKS.oneOf()
       val author = jobTask(workflow, id)
       val otherSubject = workflow.subject != NoSubject and outputLink != workflow.subject
-      val refused = withTask(workflow, id, { ...author, promptsSent: author.promptsSent + 1 })
+      val reason = { ...endHeldTurn(author), promptsQueued: endHeldTurn(author).promptsQueued.append(OtherPrompt) }
+      val refused = withTask(workflow, id, { ...takeQueuedPrompt(reason), promptsSent: author.promptsSent + 1 })
       val recorded = { ...pageWritten(workflow, id), subject: outputLink }
       move(
         if (otherSubject) untold(refused)
@@ -2090,7 +2147,7 @@ module workflowLifecycle {
       runsAsModelCalls(jobTask(workflow, id)),
       not(isFinished(jobTask(workflow, id).status)),
     },
-    id => move(untold(promptTask(workflow, id, false)), PromptStep),
+    id => move(untold(promptTask(workflow, id, false, OtherPrompt)), PromptStep),
   )
 
   /// The agent calls `pause_task` on the job's task. A researcher is refused, and a finished or
@@ -2110,7 +2167,7 @@ module workflowLifecycle {
   /// The agent calls `prompt_task` on the job's task. A researcher and a finished author are
   /// refused.
   action agentPromptsAuthor: bool = onJob(id => move(
-    untold(if (jobTask(workflow, id).role == Author) promptTask(workflow, id, false) else workflow),
+    untold(if (jobTask(workflow, id).role == Author) promptTask(workflow, id, false, OtherPrompt) else workflow),
     PromptStep,
   ))
 
@@ -2119,7 +2176,7 @@ module workflowLifecycle {
   /// are used up. The restart tells the agent before its container goes.
   action taskStalls: bool = onJobWhere(id => taskStuck(workflow, id), id => {
     val task = jobTask(workflow, id)
-    val queued = withTask(workflow, id, { ...task, promptsQueued: task.promptsQueued + 1 })
+    val queued = withTask(workflow, id, { ...task, promptsQueued: task.promptsQueued.append(OtherPrompt) })
     move(
       if (task.restarts >= MAX_RESTARTS) endTask(workflow, id, TaskFailed, AfterFail, ToolOrEvent)
       else {
@@ -2413,7 +2470,7 @@ module workflowLifecycle {
       inFlight.size() > 0,
       nondet callId = inFlight.oneOf()
       val id = workflow.calls[callId].job
-      val cut = requeueCutPrompt(withoutCall(workflow, callId), id, not(isStoppedPageWrite(workflow.calls[callId])))
+      val cut = requeueCutPrompt(withoutCall(workflow, callId), workflow.calls[callId])
       val restarted = restartLostModelTurn(cut, id)
       move({ ...restarted, flow: runLostModelTurnAgain(restarted.flow, id) }, DeadlineStep(id)),
     }
@@ -2438,7 +2495,7 @@ module workflowLifecycle {
     val forwarded = forwardedToTheSessionAuthor(woke)
     val handled =
       if (hasEnded(workflow.status)) workflow
-      else if (forwarded.length() > 0) promptTask(woke, forwarded[0], true)
+      else if (forwarded.length() > 0) promptTask(woke, forwarded[0], true, Instruction)
       else verbalCommandActs(woke, command)
     move(eventHandled(workflow, untold(handled)), VerbalCommandStep(command))
   }
@@ -2457,7 +2514,7 @@ module workflowLifecycle {
   pure def cancelWordInTheSession(flow: Workflow): Outcome = {
     val woke = messageWakes(flow)
     val forwarded = forwardedToTheSessionAuthor(woke)
-    if (forwarded.length() > 0) untold(promptTask(woke, forwarded[0], true)) else cancelUnlessEnding(woke)
+    if (forwarded.length() > 0) untold(promptTask(woke, forwarded[0], true, Instruction)) else cancelUnlessEnding(woke)
   }
 
   /// The workflow ends once a job started. A person sends the cancel verbal command where the
@@ -2968,7 +3025,7 @@ module workflowLifecycle {
       val revised = step.before.jobs[id].artifact != NoArtifact
       or {
         modelTurnInFlight(step.after, id),
-        after.status == InReview and not(revised and after.promptsQueued > before.promptsQueued),
+        after.status == InReview and not(revised and after.promptsQueued.length() > before.promptsQueued.length()),
         after.paused,
         after.status == TaskFailed and failurePostOut(step.after, id),
       }
@@ -3271,11 +3328,11 @@ module workflowLifecycle {
       }),
       aPromptWaitsForAPausedTask: isPromptStep(step.kind) and jobIds(step.before).exists(id => and {
         jobTask(step.after, id).paused,
-        jobTask(step.after, id).promptsQueued > jobTask(step.before, id).promptsQueued,
+        jobTask(step.after, id).promptsQueued.length() > jobTask(step.before, id).promptsQueued.length(),
       }),
       aPromptWaitsForATurn: isPromptStep(step.kind) and jobIds(step.before).exists(id => and {
         not(jobTask(step.after, id).paused),
-        jobTask(step.after, id).promptsQueued > jobTask(step.before, id).promptsQueued,
+        jobTask(step.after, id).promptsQueued.length() > jobTask(step.before, id).promptsQueued.length(),
       }),
       aVerbalCommandFindsSeveralJobs: match step.kind {
         | VerbalCommandStep(_) => not(hasEnded(step.before.status)) and unfinishedCount(step.before) > 1
@@ -3358,8 +3415,8 @@ module workflowLifecycle {
       },
       aCancelWordReachesTheSubjectsAuthor: step.kind == EventStep and jobIds(step.before).exists(id => and {
         step.before.jobs[id].input == FromIssue(SUBJECT_ISSUE),
-        jobTask(step.after, id).promptsSent + jobTask(step.after, id).promptsQueued >
-          jobTask(step.before, id).promptsSent + jobTask(step.before, id).promptsQueued,
+        jobTask(step.after, id).promptsSent + jobTask(step.after, id).promptsQueued.length() >
+          jobTask(step.before, id).promptsSent + jobTask(step.before, id).promptsQueued.length(),
       }),
       aStartBeforeTheSubjectIsRefused: issueStartMayStart(step) and step.before.subject == NoSubject,
       aStartOutsideTheSubjectIsRefused: match step.kind {
@@ -3721,7 +3778,7 @@ module workflowLifecycle {
         runsAsModelCalls(task),
         not(isFinished(task.status)),
         not(task.paused),
-        task.promptsQueued > 0,
+        task.promptsQueued.length() > 0,
       }
       waiting implies modelTurnInFlight(workflow, id)
     })
@@ -3764,7 +3821,7 @@ module workflowLifecycle {
   /// The prompts that wait for a turn, a counter that model checking bounds. Each resume of an
   /// author at work queues one more.
   val promptsWaiting: int =
-    jobIds(workflow).fold(0, (total, id) => total + jobTask(workflow, id).promptsQueued)
+    jobIds(workflow).fold(0, (total, id) => total + jobTask(workflow, id).promptsQueued.length())
 
   /// The calls that are out, a counter that model checking bounds.
   val callsOut: int = workflow.calls.length()
@@ -3869,7 +3926,7 @@ module workflowLifecycle {
   val aResumedEndFindsItsPostReturned: bool = lastStepReached.aResumedEndFindsItsPostReturned
 
   /// A prompt waits for the turn of a task to end.
-  val aPromptWaits: bool = jobIds(workflow).exists(id => jobTask(workflow, id).promptsQueued > 0)
+  val aPromptWaits: bool = jobIds(workflow).exists(id => jobTask(workflow, id).promptsQueued.length() > 0)
 
   /// An author failed once its restarts were used up.
   val anAuthorFailed: bool = jobIds(workflow).exists(id =>
@@ -3894,7 +3951,7 @@ module workflowLifecycle {
   val aPolisherHoldsAPrompt: bool = jobIds(workflow).exists(id => and {
     polisherHoldsPrompts(workflow, id),
     not(jobTask(workflow, id).paused),
-    jobTask(workflow, id).promptsQueued > 0,
+    jobTask(workflow, id).promptsQueued.length() > 0,
   })
 
   /// The polisher ends and its author takes a prompt that waited for it, in a new generation.
@@ -3983,7 +4040,7 @@ module workflowLifecycle {
     runsAsModelCalls(jobTask(workflow, id)),
     not(isFinished(jobTask(workflow, id).status)),
     not(jobTask(workflow, id).paused),
-    jobTask(workflow, id).promptsQueued > 0,
+    jobTask(workflow, id).promptsQueued.length() > 0,
   })
 
   /// Witness for `aModelCallAuthorWorksOnlyWhileItsCallIsOut`: a paused model-call author waits
@@ -4056,7 +4113,7 @@ module workflowLifecycle {
   /// page write a stop reached.
   val aPromptWaitsForAStoppedPageWrite: bool = workflow.calls.indices().exists(callId => and {
     isStoppedPageWrite(workflow.calls[callId]),
-    jobTask(workflow, workflow.calls[callId].job).promptsQueued > 0,
+    jobTask(workflow, workflow.calls[callId].job).promptsQueued.length() > 0,
   })
 
   /// Witness for `aModelCallAuthorWorksOnlyWhileItsCallIsOut`: an unpaused model-call author that a

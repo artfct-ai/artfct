@@ -15,7 +15,7 @@ import {
   type ClosingReplyAlarm,
 } from "../src/workflow/feed/feed";
 import { isTaskFinished, isWorkflowFinished, type Subject } from "../src/workflow/store/state";
-import type { TaskRow } from "../src/workflow/store/tasks";
+import type { TaskRow, WorkflowStore } from "../src/workflow/store/tasks";
 import { onWallClock } from "../src/workflow/task/harness/timers";
 import type { TaskEvent } from "../src/workflow/task/events";
 import type { WorkflowRuntime } from "../src/workflow/types";
@@ -47,6 +47,7 @@ import {
   type WorkflowAction,
   type WorldSetup,
 } from "./workflow-world";
+import { SPEC_QUEUED_PROMPTS, specPromptsOf, type SpecQueuedPrompt } from "./waiting-prompts";
 import { SUBJECT_ISSUE_KEY, subIssueKey, WORLD_PROJECT, worldIssueUrl } from "./world-tracker";
 
 /** The setup modules of the session routing spec: where each workflow starts, and who authors. */
@@ -168,7 +169,8 @@ type SpecTodos = number | null;
 type SpecJob = {
   issue: Issue;
   author: (typeof AUTHOR_STATUSES)[number];
-  queued: number;
+  queued: SpecQueuedPrompt[];
+  holdsInstruction: boolean;
   handedOver: boolean;
   buffered: boolean;
   todos: SpecTodos;
@@ -366,7 +368,10 @@ function specRouting(value: unknown): SpecRouting {
     jobs: itfList(itfField(value, "jobs")).map((job) => ({
       issue: itfOneOf(itfVariant(itfField(job, "issue"))!.tag, ISSUES),
       author: itfOneOf(itfVariant(itfField(job, "author"))!.tag, AUTHOR_STATUSES),
-      queued: itfInt(itfField(job, "queued")),
+      queued: itfList(itfField(job, "queued")).map((prompt) =>
+        itfOneOf(itfVariant(prompt)!.tag, SPEC_QUEUED_PROMPTS),
+      ),
+      holdsInstruction: itfBool(itfField(job, "holdsInstruction")),
       handedOver: itfBool(itfField(job, "handedOver")),
       buffered: itfBool(itfField(job, "buffered")),
       todos: specTodos(itfField(job, "todos")),
@@ -478,6 +483,16 @@ function feedKindOf(content: AgentActivityContent): FeedKind {
 function feedActivityOf(payload: unknown): FeedActivity {
   if (typeof payload !== "object" || payload === null) throw new Error("a feed row has no payload");
   return payload as FeedActivity;
+}
+
+/** The prompts that wait for the author, and whether its running turn holds an instruction. */
+function promptsOfAuthor(
+  store: WorkflowStore,
+  author: TaskRow | null,
+): Pick<SpecJob, "queued" | "holdsInstruction"> {
+  if (!author) return { queued: [], holdsInstruction: false };
+  const { waiting, holdsInstruction } = specPromptsOf(store, author.task_id);
+  return { queued: waiting, holdsInstruction };
 }
 
 function todosOf(workflow: WorkflowRuntime, task: TaskRow | null): SpecTodos {
@@ -622,7 +637,7 @@ export class SessionRoutingReplay {
         return {
           issue: issueOfKey(job.issue_id),
           author: status,
-          queued: author ? store.queue().filter((row) => row.task_id === author.task_id).length : 0,
+          ...promptsOfAuthor(store, author),
           handedOver: Boolean(store.artifact(job.job_id)?.delivered_to_humans_at),
           buffered: Boolean(author && workflow.sessionFeeds.get(author.task_id)?.message),
           todos: todosOf(workflow, author),

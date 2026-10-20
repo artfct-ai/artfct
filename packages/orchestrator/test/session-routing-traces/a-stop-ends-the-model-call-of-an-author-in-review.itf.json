@@ -100,6 +100,10 @@
         },
         "plans": [],
         "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": {
           "#set": []
         },
@@ -115,6 +119,7 @@
         }
       },
       "trackerModelCall::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
@@ -123,6 +128,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerModelCall::sessionRouting::routing": {
@@ -280,6 +286,10 @@
             }
           }
         ],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": {
           "#set": []
         },
@@ -299,6 +309,7 @@
         }
       },
       "trackerModelCall::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
@@ -307,6 +318,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerModelCall::sessionRouting::routing": {
@@ -326,6 +338,7 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": true,
+            "holdsInstruction": false,
             "issue": {
               "tag": "SubjectIssue",
               "value": {
@@ -334,9 +347,7 @@
             },
             "nudged": false,
             "paused": false,
-            "queued": {
-              "#bigint": "0"
-            },
+            "queued": [],
             "research": {
               "tag": "NoResearch",
               "value": {
@@ -488,6 +499,10 @@
         },
         "plans": [],
         "posts": [],
+        "researchEnded": {
+          "#set": []
+        },
+        "startRefusedBesideTheIssuesJob": false,
         "stoppedIn": {
           "#set": [
             {
@@ -514,6 +529,7 @@
         }
       },
       "trackerModelCall::sessionRouting::lastStepKept": {
+        "aResearcherThatDidNotFinishRestartsOrFails": true,
         "aStopAnswersOnlyInTheFeed": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
@@ -522,6 +538,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerModelCall::sessionRouting::routing": {
@@ -541,6 +558,7 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": true,
+            "holdsInstruction": false,
             "issue": {
               "tag": "SubjectIssue",
               "value": {
@@ -549,9 +567,7 @@
             },
             "nudged": false,
             "paused": false,
-            "queued": {
-              "#bigint": "0"
-            },
+            "queued": [],
             "research": {
               "tag": "NoResearch",
               "value": {

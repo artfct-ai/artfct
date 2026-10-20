@@ -70,6 +70,7 @@ import { markedSecrets, type Credential } from "./orchestrator-secret-invariants
 import { SecretWatch } from "./secret-watch";
 import { SessionTracker, type TrackerHealth } from "./session-tracker";
 import { testEnv } from "./test-env";
+import { waitingPromptsInQueue } from "./waiting-prompts";
 import {
   strayIssueKey,
   SUBJECT_ISSUE_KEY,
@@ -1382,7 +1383,7 @@ export class WorkflowWorld {
   private observe(): Observation {
     const { store } = this.workflow;
     const authors = new Set(this.authors.map((author) => author.taskId));
-    const queue = store.queue();
+    const queue = waitingPromptsInQueue(store);
     const queued = queue.filter((row) => authors.has(row.task_id)).length;
     const sent = this.bridges
       .filter((bridge) => authors.has(bridge.taskId))

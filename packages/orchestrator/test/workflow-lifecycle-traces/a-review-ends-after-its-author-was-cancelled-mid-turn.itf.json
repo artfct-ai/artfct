@@ -1155,10 +1155,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "1"
                 },
@@ -1546,10 +1550,21 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "1"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [
+                  {
+                    "tag": "OtherPrompt",
+                    "value": {
+                      "#tup": []
+                    }
+                  }
+                ],
                 "promptsSent": {
                   "#bigint": "1"
                 },
@@ -1921,10 +1936,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "2"
                 },
@@ -2301,10 +2320,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "2"
                 },
@@ -2701,10 +2724,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "2"
                 },
@@ -3101,10 +3128,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "2"
                 },
@@ -3502,10 +3533,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "2"
                 },
@@ -3905,10 +3940,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "3"
                 },
@@ -4305,10 +4344,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "3"
                 },
@@ -4706,10 +4749,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "3"
                 },
@@ -5135,10 +5182,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "3"
                 },
@@ -5567,10 +5618,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "3"
                 },
@@ -6000,10 +6055,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "3"
                 },
@@ -6432,10 +6491,14 @@
             "tasks": [
               {
                 "generationClosed": false,
-                "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
+                "instructionHold": {
+                  "tag": "NoInstructionHeld",
+                  "value": {
+                    "#tup": []
+                  }
                 },
+                "paused": false,
+                "promptsQueued": [],
                 "promptsSent": {
                   "#bigint": "3"
                 },

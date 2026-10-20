@@ -155,6 +155,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::messagesToLand": {
@@ -337,6 +338,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::messagesToLand": {
@@ -552,6 +554,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::messagesToLand": {
@@ -595,6 +598,7 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": {
               "tag": "SubIssue",
               "value": {
@@ -603,9 +607,7 @@
             },
             "nudged": false,
             "paused": false,
-            "queued": {
-              "#bigint": "0"
-            },
+            "queued": [],
             "research": {
               "tag": "NoResearch",
               "value": {
@@ -821,6 +823,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::messagesToLand": {
@@ -843,6 +846,7 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": {
               "tag": "SubIssue",
               "value": {
@@ -851,9 +855,7 @@
             },
             "nudged": false,
             "paused": false,
-            "queued": {
-              "#bigint": "0"
-            },
+            "queued": [],
             "research": {
               "tag": "NoResearch",
               "value": {
@@ -1068,6 +1070,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::messagesToLand": {
@@ -1090,6 +1093,7 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": {
               "tag": "SubIssue",
               "value": {
@@ -1098,9 +1102,7 @@
             },
             "nudged": false,
             "paused": false,
-            "queued": {
-              "#bigint": "0"
-            },
+            "queued": [],
             "research": {
               "tag": "NoResearch",
               "value": {
@@ -1330,6 +1332,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::messagesToLand": {
@@ -1352,6 +1355,7 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": {
               "tag": "SubIssue",
               "value": {
@@ -1360,9 +1364,7 @@
             },
             "nudged": false,
             "paused": false,
-            "queued": {
-              "#bigint": "0"
-            },
+            "queued": [],
             "research": {
               "tag": "NoResearch",
               "value": {
@@ -1598,6 +1600,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::messagesToLand": {
@@ -1629,6 +1632,7 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": {
               "tag": "SubIssue",
               "value": {
@@ -1637,9 +1641,7 @@
             },
             "nudged": false,
             "paused": false,
-            "queued": {
-              "#bigint": "0"
-            },
+            "queued": [],
             "research": {
               "tag": "NoResearch",
               "value": {
@@ -1894,6 +1896,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::messagesToLand": {
@@ -1925,6 +1928,7 @@
             "cancelSent": true,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": {
               "tag": "SubIssue",
               "value": {
@@ -1933,9 +1937,7 @@
             },
             "nudged": false,
             "paused": true,
-            "queued": {
-              "#bigint": "0"
-            },
+            "queued": [],
             "research": {
               "tag": "NoResearch",
               "value": {
@@ -2171,6 +2173,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::messagesToLand": {
@@ -2202,6 +2205,7 @@
             "cancelSent": true,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": {
               "tag": "SubIssue",
               "value": {
@@ -2210,9 +2214,7 @@
             },
             "nudged": false,
             "paused": true,
-            "queued": {
-              "#bigint": "0"
-            },
+            "queued": [],
             "research": {
               "tag": "NoResearch",
               "value": {
@@ -2498,6 +2500,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::messagesToLand": {
@@ -2529,6 +2532,7 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": {
               "tag": "SubIssue",
               "value": {
@@ -2537,9 +2541,7 @@
             },
             "nudged": false,
             "paused": true,
-            "queued": {
-              "#bigint": "0"
-            },
+            "queued": [],
             "research": {
               "tag": "NoResearch",
               "value": {
@@ -2814,6 +2816,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::messagesToLand": {
@@ -2845,6 +2848,7 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": {
               "tag": "SubIssue",
               "value": {
@@ -2853,9 +2857,7 @@
             },
             "nudged": false,
             "paused": true,
-            "queued": {
-              "#bigint": "0"
-            },
+            "queued": [],
             "research": {
               "tag": "NoResearch",
               "value": {
@@ -3130,6 +3132,7 @@
         "sessionFeedEndsWhenItsAuthorIdles": true,
         "sessionMessageReachesItsRunningAuthorSilently": true,
         "sessionMessageWithoutAnAuthorIsAnswered": true,
+        "sessionPlanSetsOnlyWhenATurnEnds": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
       "trackerOnly::sessionRouting::messagesToLand": {
@@ -3161,6 +3164,7 @@
             "cancelSent": false,
             "containerClosed": false,
             "handedOver": false,
+            "holdsInstruction": false,
             "issue": {
               "tag": "SubIssue",
               "value": {
@@ -3169,9 +3173,7 @@
             },
             "nudged": false,
             "paused": true,
-            "queued": {
-              "#bigint": "0"
-            },
+            "queued": [],
             "research": {
               "tag": "NoResearch",
               "value": {
