@@ -33,22 +33,34 @@ export const workflow = sqliteTable("workflow", {
   origin: text({ mode: "json" }).$type<ReplyTarget>(),
   /** The schedule id of the idle alarm that posts the sleep note. Null while it is not armed. */
   idle_schedule: text(),
-  /** When the agent turn now running began. Null between turns. */
-  turn_started_at: text(),
-  /** The schedule id of the turn watchdog alarm. Null between turns. */
-  turn_watchdog: text(),
-  /** The schedule id of the heads-up alarm of a turn on a person's message. Null when not armed. */
-  turn_heads_up: text(),
+});
+
+/** Where the agent turn record stands: its turn runs, or a restart lost it. */
+export type AgentTurnStatus = "running" | "lost";
+
+/**
+ * The agent turn record. At most one row. A running turn writes it at its start, and its end or
+ * its watchdog deletes it. A restart marks it lost, and the next turn start resumes that turn.
+ */
+export const agentTurn = sqliteTable("agent_turn", {
+  workflow_id: text().primaryKey(),
+  status: text().$type<AgentTurnStatus>().notNull(),
+  /** When the turn began. A turn alarm armed for another start is stale. */
+  started_at: text().notNull(),
   /**
-   * The id of the running turn's first transcript row, or the lost turn's in a resumed turn.
-   * Compaction keeps it and every row after it. Null once a turn ends.
+   * The id of the turn's first transcript row, or the lost turn's in a resumed turn. Compaction
+   * keeps it and every row after it.
    */
-  turn_first_row: integer(),
+  first_row: integer().notNull(),
   /**
-   * True once the running turn on a person's message, or the lost turn it resumes, started or
-   * prompted a task in a workflow with a chat thread.
+   * True once the turn on a person's message, or the lost turn it resumes, started or prompted a
+   * task in a workflow with a chat thread.
    */
-  turn_board_changed: integer({ mode: "boolean" }).notNull().default(false),
+  board_changed: integer({ mode: "boolean" }).notNull(),
+  /** The schedule id of the watchdog alarm. Null once the turn is lost. */
+  watchdog_schedule: text(),
+  /** The schedule id of the heads-up alarm. Null when not armed, once it fired, and once lost. */
+  heads_up_schedule: text(),
 });
 
 /**

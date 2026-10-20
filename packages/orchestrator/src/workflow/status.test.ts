@@ -177,6 +177,7 @@ describe("debugDump", () => {
     it("dumps every table", () =>
       dumped((workflow) => {
         expect(Object.keys(debugDump(workflow)).toSorted()).toEqual([
+          "agent_turn",
           "artifacts",
           "boards",
           "connections",

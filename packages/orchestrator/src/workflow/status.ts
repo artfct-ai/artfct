@@ -72,6 +72,7 @@ export function debugDump(workflow: WorkflowRuntime) {
   return {
     workflow: store.workflowRow(),
     workflow_end: store.workflowEnd(),
+    agent_turn: store.agentTurn(),
     plan: store.plan(),
     stage_plan: store.stagePlan(),
     subject: store.subject(),
