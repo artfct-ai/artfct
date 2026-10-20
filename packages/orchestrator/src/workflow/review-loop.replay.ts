@@ -162,6 +162,13 @@ describe("review loop spec", () => {
     );
   });
 
+  it("tells the agent of a conflict on an ended author's revision after its failed checks", async () => {
+    await replayPinnedTrace(
+      "the-agent-hears-of-an-ended-authors-conflict",
+      "checksOnAPolishedPull",
+    );
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,

@@ -1684,6 +1684,20 @@ export const MUTANTS: Mutant[] = [
     find: "  await documents.updatePageContent(ref.page_id, change);\n",
     replace: "  await documents.updatePageContent(ref.page_id, change).catch(() => undefined);\n",
   },
+  {
+    id: "W341",
+    invariant: "reviewLoop::checksGoBackOncePerRevision (failed checks of an ended author)",
+    path: "src/workflow/refiner/checks-recheck.ts",
+    find: '  if (checks?.state === "failed" && !isTaskFinished(author.status)) {\n',
+    replace: '  if (checks?.state === "failed") {\n',
+  },
+  {
+    id: "W342",
+    invariant: "reviewLoop::checksGoBackOncePerRevision (conflict of an ended author)",
+    path: "src/workflow/refiner/checks-recheck.ts",
+    find: "  if (!claimed || !isTaskFinished(author.status)) return;\n",
+    replace: "  return;\n",
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */

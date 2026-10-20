@@ -343,7 +343,8 @@
       "checksGoBackToAWaitingAuthor",
       "aRefinerRunStartsWhenTheAuthorsGateOpens",
       "theRecheckAlarmStops",
-      "anEndedAuthorsOpenChecksStopTheRecheckAlarm"
+      "anEndedAuthorsOpenChecksStopTheRecheckAlarm",
+      "theAgentHearsOfAnEndedAuthorsConflict"
     ],
     "modelCallJudgeThenPolisher": [
       "aRefinerRunIsUnfinished",

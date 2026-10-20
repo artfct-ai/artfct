@@ -151,7 +151,13 @@ export type SpecPersonComment = {
   answered: boolean;
 };
 
-const AUTHOR_STATUSES = ["AtWork", "InReview", "AuthorCancelled", "AuthorFailed"] as const;
+const AUTHOR_STATUSES = [
+  "AtWork",
+  "InReview",
+  "AuthorCancelled",
+  "AuthorCancelledByTheWorkflowEnd",
+  "AuthorFailed",
+] as const;
 
 /** Where the author of the review stands, as the spec names it. */
 type SpecAuthorStatus = (typeof AUTHOR_STATUSES)[number];
@@ -472,6 +478,11 @@ function deliveriesOf(checks: HostChecks, recheckArmed: boolean): ChecksDelivery
 function polisherWaitsIn(review: SpecReview): boolean {
   const held = review.artifact.refinerRun;
   return held !== null && review.refinerRuns[held]?.status === "WaitsOnChecks";
+}
+
+/** True while the author in a spec state is neither cancelled nor failed. */
+function authorLiveIn(review: SpecReview): boolean {
+  return review.author.status === "AtWork" || review.author.status === "InReview";
 }
 
 /** True when a polisher run holds the artifact in a spec state and its turn runs. */
@@ -1082,7 +1093,10 @@ export class ReviewLoopReplay {
       revision === null ? null : this.revisionCount(revision);
     return {
       author: {
-        status: specAuthorStatusOf(author, atWork),
+        status: specAuthorStatusOf(author, {
+          atWork,
+          workflowEnded: isWorkflowFinished(this.world.workflow.state.status),
+        }),
         paused: author.paused_at !== null,
         restarts: author.restarts,
         queuedPrompts: (this.pageModel && atWork ? queued.slice(1) : queued).map((row) =>
@@ -1211,8 +1225,10 @@ export class ReviewLoopReplay {
    * The host reports checks. A polisher the gate holds settles on checks that give the outcome
    * the spec picks, and code hears of them by a webhook or the recheck alarm. So does an author
    * that waits on the gate, by the recheck alarm only while one is armed. Failed checks or a
-   * conflict reach an idle author by a webhook. Open checks that stop the recheck alarm reach an
-   * idle or ended author by a webhook or the alarm, and only by the alarm once the workflow ended.
+   * conflict reach an idle author by a webhook, and so does the conflict of an ended author, which
+   * the agent hears of. Open checks that stop the recheck alarm reach an idle or ended author by a
+   * webhook or the alarm, and only by the alarm once the workflow ended. Failed checks of an ended
+   * author count as open.
    * A report the spec says changes nothing either misses its webhook, or reaches a polisher at
    * work.
    */
@@ -1241,8 +1257,9 @@ export class ReviewLoopReplay {
       const { checks, delivery } = this.pick(options);
       return this.hostReports(checks, delivery, index);
     }
+    const authorEnded = !authorLiveIn(before);
     if (step.review.artifact.sentBack !== before.artifact.sentBack) {
-      const options = [FAILED, CONFLICTED].flatMap((checks) =>
+      const options = (authorEnded ? [CONFLICTED] : [FAILED, CONFLICTED]).flatMap((checks) =>
         deliveriesOf(checks, false).map((delivery) => ({ checks, delivery })),
       );
       const { checks, delivery } = this.pick(options);
@@ -1250,11 +1267,14 @@ export class ReviewLoopReplay {
     }
     if (before.artifact.recheckArmed && !step.review.artifact.recheckArmed) {
       const workflowEnded = isWorkflowFinished(this.world.workflow.state.status);
-      const options = hostChecksFor(
-        outcome,
-        sentBackOnTheRevision(before),
-        this.quietMsOf(this.world.taskOf(this.author)),
-      ).flatMap((checks) =>
+      const options = [
+        ...hostChecksFor(
+          outcome,
+          sentBackOnTheRevision(before),
+          this.quietMsOf(this.world.taskOf(this.author)),
+        ),
+        ...(authorEnded ? [FAILED] : []),
+      ].flatMap((checks) =>
         deliveriesOf(checks, true)
           .filter((delivery) => !workflowEnded || delivery === "recheck")
           .map((delivery) => ({ checks, delivery })),
@@ -2205,6 +2225,7 @@ function agentHeardOf(heard: string, said: Pick<HeardInStep, "heldTexts" | "ment
   if (heard.includes("They stay held")) notes.push("HeldCommentsStayHeld");
   if (said.mention !== null && heard.includes(said.mention)) notes.push("MentionText");
   if (heard.includes(ROUTE_NOTE_TEXT)) notes.push("RouteNote");
+  if (heard.includes("so nobody was sent the conflict")) notes.push("EndedAuthorsConflict");
   return notes;
 }
 
@@ -2364,10 +2385,15 @@ function specRunOf(
   };
 }
 
-function specAuthorStatusOf(author: TaskRow, atWork: boolean): SpecAuthorStatus {
+function specAuthorStatusOf(
+  author: TaskRow,
+  seen: { atWork: boolean; workflowEnded: boolean },
+): SpecAuthorStatus {
   if (author.status === "failed") return "AuthorFailed";
-  if (author.status === "cancelled") return "AuthorCancelled";
-  return atWork ? "AtWork" : "InReview";
+  if (author.status === "cancelled") {
+    return seen.workflowEnded ? "AuthorCancelledByTheWorkflowEnd" : "AuthorCancelled";
+  }
+  return seen.atWork ? "AtWork" : "InReview";
 }
 
 /** True when a step of the trace ends the workflow, so no other author can share its world. */
