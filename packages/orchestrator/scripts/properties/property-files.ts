@@ -84,6 +84,13 @@ export const STANDALONE_PROPERTY_FILES: PropertyFile[] = [
     e2eRuns: 100_000,
   },
   {
+    title: "slack text properties",
+    packageDir: "adapters",
+    path: "./src/chat/slack/text-invariants.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 100_000,
+  },
+  {
     title: "github inbound mapper properties",
     packageDir: "adapters",
     path: "./src/code/github/inbound-invariants.test.ts",
