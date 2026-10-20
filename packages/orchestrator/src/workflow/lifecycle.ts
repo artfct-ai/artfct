@@ -19,7 +19,7 @@ import { jobCompletesSingleIssueWorkflow } from "./subject";
 import type { Wake, WorkflowRuntime } from "./types";
 import type { JobRow, NewTask, TaskRow } from "./store/tasks";
 import { jobInputKey } from "./store/input-key";
-import { isTaskFinished, isWorkflowFinished, type WorkflowEnd } from "./store/state";
+import { isTaskFinished, isWorkflowFinished, jobSlotsOf, type WorkflowEnd } from "./store/state";
 import {
   clearTaskTimers,
   closeContainer,
@@ -69,7 +69,8 @@ export async function startJob(
   workflow: WorkflowRuntime,
   options: StartJobOptions,
 ): Promise<JobRow | null> {
-  const { state } = workflow;
+  const { store } = workflow;
+  const created = store.requireWorkflowRow();
   const stageDefinition = workflow
     .workflowDefinition()
     .stages.find((stage) => stage.name === options.stage);
@@ -81,12 +82,11 @@ export async function startJob(
     return null;
   }
   const stage = resolveStage(workflow.config(), stageDefinition);
-  const jobSequence = (state.job_seq ?? 0) + 1;
-  const jobId = makeJobId(state.workflow_id, jobSequence);
+  const jobId = makeJobId(created.workflow_id, store.jobCount() + 1);
   const { input } = options;
   const issue = input.kind === "issue" ? input.issue : null;
   const target = input.kind === "target" ? input.target : null;
-  const title = issue?.title ?? options.title ?? state.request.title;
+  const title = issue?.title ?? options.title ?? created.request_title;
   const branch = stage.branch ? (options.continued_branch ?? branchName(jobId, title)) : null;
   const issueLinked = issue !== null && workflow.store.jobByIssue(issue.id) !== null;
   workflow.store.insertJob({
@@ -94,6 +94,7 @@ export async function startJob(
     stage: stage.name,
     issue_id: issue?.id ?? null,
     issue_key: issue?.key ?? null,
+    input_kind: input.kind,
     input_key: jobInputKey(input),
     preceding_job_id: input.kind === "artifact" ? input.jobId : null,
     input_ref: target?.ref ?? null,
@@ -103,7 +104,6 @@ export async function startJob(
     author_harness: options.harness ?? null,
     author_model: options.model ?? null,
   });
-  workflow.patchState({ job_seq: jobSequence });
   const job = workflow.store.requireJob(jobId);
   const taskId = insertJobTask(
     workflow,
@@ -121,14 +121,16 @@ export async function startJob(
   if (issue) {
     const ref = { issue_id: issue.id, team_id: issue.team_id };
     await workflow.notifier.claimIssue(ref, { started: issue.started });
-    const { origin, subject } = state;
+    const { origin } = created;
+    const subject = store.subject();
     const syncedAsSubject = subject?.kind === "issue" && subject.issue_id === issue.id;
     if (origin?.source === "chat" && !issueLinked && !syncedAsSubject) {
       await workflow.notifier.linkChatThread(ref, origin);
     }
   }
-  if (branch && state.repo) {
-    await bindWorkflow(workflow, { source: "code_branch", repo: state.repo.full, branch });
+  const repo = store.plan()?.repo;
+  if (branch && repo) {
+    await bindWorkflow(workflow, { source: "code_branch", repo, branch });
   }
   await workflow.post({ type: "started", stage: stage.name, job_id: jobId });
   await flushBoards(workflow, jobId);
@@ -154,12 +156,11 @@ type JobTask = Pick<NewTask, "job_id" | "model"> & {
 
 /** Insert the next task of a job under a fresh task id, and return that id. */
 function insertJobTask(workflow: WorkflowRuntime, task: JobTask): string {
-  const taskSequence = workflow.state.task_seq + 1;
-  const taskId = makeTaskId(workflow.state.workflow_id, taskSequence);
+  const { workflow_id: workflowId } = workflow.store.requireWorkflowRow();
+  const taskId = makeTaskId(workflowId, workflow.store.taskCount() + 1);
   const { harness, ...fields } = task;
   const sandbox = harness === null ? null : { harness, bridge_token: newToken() };
   workflow.store.insertTask({ ...fields, task_id: taskId, sandbox });
-  workflow.patchState({ task_seq: taskSequence });
   return taskId;
 }
 
@@ -379,7 +380,11 @@ export async function completeJob(
     return { ended: "workflow" };
   }
   const running = workflow.store.activeAuthorAndResearcherTasks().length;
-  return { ended: "job", running, slots: Math.max(0, workflow.state.concurrency - running) };
+  return {
+    ended: "job",
+    running,
+    slots: Math.max(0, jobSlotsOf(workflow.store.stagePlan()) - running),
+  };
 }
 
 /**
@@ -408,7 +413,7 @@ async function finishCompletion(
  * session's issue completes.
  */
 export async function completeWorkflow(workflow: WorkflowRuntime, result: string): Promise<void> {
-  await endWorkflow(workflow, { status: "done", reason: result, answering: [] });
+  await endWorkflow(workflow, { ends_as: "done", reason: result, answering: [], posted: false });
 }
 
 /**
@@ -569,27 +574,28 @@ export async function restartOrFailTask(
  * bindings stay, so a person's next message on them starts a new workflow.
  */
 export async function failWorkflow(workflow: WorkflowRuntime, reason: string): Promise<void> {
-  await endWorkflow(workflow, { status: "failed", reason, answering: [] });
+  await endWorkflow(workflow, { ends_as: "failed", reason, answering: [], posted: false });
 }
 
 /** True from the request of a workflow end until the channels heard it. */
 export function workflowEnding(workflow: WorkflowRuntime): boolean {
-  return (workflow.state.workflow_end ?? null) !== null;
+  return workflow.store.workflowEnd() !== null;
 }
 
 /**
- * Record the workflow end in the workflow state before its first cancel, then go on with it. False when the workflow
+ * Record the workflow end in the store before its first cancel, then go on with it. False when the workflow
  * already ended or another end runs, so the caller says nothing.
  */
 export async function endWorkflow(workflow: WorkflowRuntime, end: WorkflowEnd): Promise<boolean> {
-  if (workflowEnding(workflow) || isWorkflowFinished(workflow.state.status)) return false;
-  workflow.patchState({ workflow_end: end });
+  const { status } = workflow.store.requireWorkflowRow();
+  if (workflowEnding(workflow) || isWorkflowFinished(status)) return false;
+  workflow.store.recordWorkflowEnd(end);
   await goOnWithWorkflowEnd(workflow, end);
   return true;
 }
 
 /**
- * Start step: arm the alarm that goes on with the workflow end the workflow state holds. A later restart
+ * Start step: arm the alarm that goes on with the workflow end the store holds. A later restart
  * before it fires leaves the one alarm armed.
  */
 export async function armWorkflowEndAlarm(workflow: WorkflowRuntime): Promise<void> {
@@ -599,7 +605,7 @@ export async function armWorkflowEndAlarm(workflow: WorkflowRuntime): Promise<vo
 
 /** Alarm: go on with the workflow end that an instance restart cut off. */
 export async function resumeWorkflowEnd(workflow: WorkflowRuntime): Promise<void> {
-  const end = workflow.state.workflow_end;
+  const end = workflow.store.workflowEnd();
   if (end) await goOnWithWorkflowEnd(workflow, end);
 }
 
@@ -610,23 +616,23 @@ export async function resumeWorkflowEnd(workflow: WorkflowRuntime): Promise<void
  * before an instance restart does not post again.
  */
 async function goOnWithWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEnd): Promise<void> {
-  const reason = end.status === "done" ? "the workflow is done" : end.reason;
+  const reason = end.ends_as === "done" ? "the workflow is done" : end.reason;
   const nextActive = () => workflow.store.activeAuthorAndResearcherTasks()[0];
   for (let task = nextActive(); task; task = nextActive()) {
     await cancelTask(workflow, task, reason);
   }
   for (const task of workflow.store.activeRefinerRuns()) await cancelTask(workflow, task, reason);
-  await writeWorkflowStatus(workflow, end.status);
+  await writeWorkflowStatus(workflow, end.ends_as);
   if (!end.posted) await postWorkflowEnd(workflow, end);
-  if (end.status === "done") await completeTrackerIssues(workflow);
+  if (end.ends_as === "done") await completeTrackerIssues(workflow);
   await unbindCodeHost(workflow);
-  workflow.patchState({ workflow_end: null });
+  workflow.store.clearWorkflowEnd();
 }
 
 /** Tell the channels how the workflow ended, and record in the workflow end that it posted. */
 async function postWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEnd): Promise<void> {
   const to = { answering: end.answering };
-  switch (end.status) {
+  switch (end.ends_as) {
     case "done":
       workflow.log(null, `finished: ${end.reason}`);
       await workflow.post({ type: "done", result: end.reason }, to);
@@ -638,16 +644,16 @@ async function postWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEnd): Pro
       await workflow.post({ type: "info", text: `Cancelled. ${TAG_TO_START_AGAIN}` }, to);
       break;
     default: {
-      const unhandled: never = end.status;
+      const unhandled: never = end.ends_as;
       throw new Error(`unknown workflow end status ${String(unhandled)}`);
     }
   }
-  workflow.patchState({ workflow_end: { ...end, posted: true } });
+  workflow.store.markWorkflowEndPosted();
 }
 
 /** A done workflow completes each session's issue. */
 async function completeTrackerIssues(workflow: WorkflowRuntime): Promise<void> {
-  for (const target of workflow.state.reply_targets) {
+  for (const target of workflow.store.replyTargets()) {
     if (target.source === "tracker") await workflow.notifier.moveIssue(target, "completed");
   }
 }
@@ -655,7 +661,7 @@ async function completeTrackerIssues(workflow: WorkflowRuntime): Promise<void> {
 /** Point an external object (pull, branch, page) at this workflow so ingress can route to it. */
 export async function bindWorkflow(workflow: WorkflowRuntime, binding: Binding): Promise<void> {
   const db = createDb(workflow.env.DB);
-  await bindInDb(db, binding, workflow.state.workflow_id);
+  await bindInDb(db, binding, workflow.store.requireWorkflowRow().workflow_id);
 }
 
 /**
@@ -666,7 +672,7 @@ export async function changeWorkflowStatus(
   workflow: WorkflowRuntime,
   status: WorkflowStatus,
 ): Promise<void> {
-  if (workflow.state.status === status) return;
+  if (workflow.store.requireWorkflowRow().status === status) return;
   await writeWorkflowStatus(workflow, status);
 }
 
@@ -678,9 +684,9 @@ async function writeWorkflowStatus(
   workflow: WorkflowRuntime,
   status: WorkflowStatus,
 ): Promise<void> {
-  workflow.patchState({ status });
+  workflow.store.updateWorkflow({ status });
   const db = createDb(workflow.env.DB);
-  await setWorkflowStatus(db, workflow.state.workflow_id, status);
+  await setWorkflowStatus(db, workflow.store.requireWorkflowRow().workflow_id, status);
 }
 
 /** The bindings a workflow takes on the code host: its branches and its pull requests. */
@@ -692,7 +698,7 @@ const CODE_SOURCES: BindingSource[] = ["code_branch", "code_pull"];
  */
 async function unbindCodeHost(workflow: WorkflowRuntime): Promise<void> {
   const db = createDb(workflow.env.DB);
-  await deleteBindings(db, workflow.state.workflow_id, CODE_SOURCES);
+  await deleteBindings(db, workflow.store.requireWorkflowRow().workflow_id, CODE_SOURCES);
 }
 
 /** What the agent says when the humans have been silent for `orchestrator.idle_hours`. */
@@ -705,17 +711,18 @@ const BUSY = new Set(["queued", "provisioning", "working"]);
 /** Start the idle clock over. One alarm at a time: the previous one is cancelled first. */
 export async function armIdle(workflow: WorkflowRuntime): Promise<void> {
   const hours = workflow.config().orchestrator.idle_hours;
-  if (workflow.state.idle_alarm) await workflow.cancelAlarm(workflow.state.idle_alarm);
+  const armed = workflow.store.requireWorkflowRow().idle_schedule;
+  if (armed) await workflow.cancelAlarm(armed);
   if (!hours) return;
   const id = await workflow.scheduleAlarm(hours * 3600, "onIdle", {});
-  workflow.patchState({ idle_alarm: id });
+  workflow.store.updateWorkflow({ idle_schedule: id });
 }
 
 /** Put a running workflow to sleep when no harness is at work. */
 export async function onIdle(workflow: WorkflowRuntime): Promise<void> {
-  workflow.patchState({ idle_alarm: null });
+  workflow.store.updateWorkflow({ idle_schedule: null });
   if (workflow.store.activeAuthorAndResearcherTasks().some((task) => BUSY.has(task.status))) return;
-  if (workflow.state.status !== "running") return;
+  if (workflow.store.requireWorkflowRow().status !== "running") return;
   workflow.log(null, "idle. going to sleep.");
   await changeWorkflowStatus(workflow, "waiting_input");
   await workflow.post({ type: "info", text: SLEEP_TEXT });

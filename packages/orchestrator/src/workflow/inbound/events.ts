@@ -7,13 +7,7 @@ import type { Recipients } from "../../notify/recipients";
 import { applyEvent, stopSessionAuthor, verbalCommandToRun } from "./apply";
 import { postReceipt } from "../feed/feed";
 import { armIdle, changeWorkflowStatus } from "../lifecycle";
-import {
-  firstLine,
-  isWorkflowFinished,
-  now,
-  workflowName,
-  type ChatMessageRef,
-} from "../store/state";
+import { firstLine, isWorkflowFinished, type ChatMessageRef } from "../store/state";
 import { statusText, summarize } from "../status";
 import { originSubject } from "../subject";
 import { jobForEvent } from "./lookup";
@@ -51,8 +45,9 @@ export function eventRefusalOf(
   workflow: WorkflowRuntime,
   event: InboundEvent,
 ): EventRefusal | null {
-  const { created_at, status } = workflow.state;
-  if (!created_at) return { refused: "not_created" };
+  const created = workflow.store.workflowRow();
+  if (!created) return { refused: "not_created" };
+  const { status } = created;
   if (isWorkflowFinished(status) && isMessage(event)) return { refused: "ended", status };
   return null;
 }
@@ -69,17 +64,16 @@ export async function createWorkflow(
   workflow: WorkflowRuntime,
   { workflowId, event, endedWorkflowId }: WorkflowStart,
 ): Promise<RpcAck> {
-  if (workflow.state.created_at) return handleEvent(workflow, event);
-  if (!workflow.store.markEventSeen(event)) return DUPLICATE;
+  if (workflow.store.workflowRow()) return handleEvent(workflow, event);
+  if (!workflow.store.markEventSeen(event.id)) return DUPLICATE;
   const origin = event.reply_to ?? null;
-  workflow.patchState({
+  workflow.store.createWorkflow({
     workflow_id: workflowId,
-    starter: event.actor,
+    request_title: event.title || firstLine(event.text),
+    request_text: event.text,
+    request_links: event.links,
     origin,
     subject: originSubject(origin),
-    reply_targets: origin ? [origin] : [],
-    request: { title: event.title || firstLine(event.text), text: event.text, links: event.links },
-    created_at: now(),
   });
   workflow.log(null, `created from ${event.kind}`);
   await acknowledge(workflow, event);
@@ -88,7 +82,7 @@ export async function createWorkflow(
   await workflow.tellAgent(
     eventMessage(event, { first: true, job: null, artifact: null, notes }),
     "message",
-    { chat_message: chatMessageOf(event) },
+    { body: event.text.trim(), chat_message: chatMessageOf(event) },
   );
   return { ok: true, workflow_id: workflowId };
 }
@@ -111,7 +105,9 @@ function earlierMessagesNote(endedWorkflowId: string, origin: ReplyTarget | null
  * delivery that a restart cut off routes when the host delivers it again.
  */
 function routesBeforeItIsSeen(workflow: WorkflowRuntime, event: InboundEvent): boolean {
-  return event.kind === "feedback" && !isWorkflowFinished(workflow.state.status);
+  return (
+    event.kind === "feedback" && !isWorkflowFinished(workflow.store.requireWorkflowRow().status)
+  );
 }
 
 /**
@@ -121,28 +117,28 @@ function routesBeforeItIsSeen(workflow: WorkflowRuntime, event: InboundEvent): b
  */
 export async function handleEvent(workflow: WorkflowRuntime, event: InboundEvent): Promise<RpcAck> {
   if (workflow.store.eventSeen(event.id)) return DUPLICATE;
-  addReplyTarget(workflow, event.reply_to);
+  if (event.reply_to) workflow.store.addReplyTarget(event.reply_to);
   const job = jobForEvent(workflow, event);
   const controlSuffix = event.control ? `:${event.control}` : "";
   const task = job ? workflow.store.authorOrResearcherTaskOf(job.job_id) : null;
   workflow.log(task?.task_id ?? null, `event ${event.kind}${controlSuffix}`);
 
-  if (!isWorkflowFinished(workflow.state.status)) {
+  if (!isWorkflowFinished(workflow.store.requireWorkflowRow().status)) {
     if (isMessage(event)) await wakeWorkflow(workflow);
     await acknowledge(workflow, event);
     const instructed = instructedSessionOf(workflow, event);
     if (instructed) await postReceipt(workflow, instructed);
   }
-  if (!routesBeforeItIsSeen(workflow, event) && !workflow.store.markEventSeen(event)) {
+  if (!routesBeforeItIsSeen(workflow, event) && !workflow.store.markEventSeen(event.id)) {
     return DUPLICATE;
   }
-  if (isWorkflowFinished(workflow.state.status)) {
+  if (isWorkflowFinished(workflow.store.requireWorkflowRow().status)) {
     await replyFinished(workflow, event);
     return ACK;
   }
   const postedBefore = workflow.store.postedCount();
   const applied = await applyEvent(workflow, event);
-  workflow.store.markEventSeen(event);
+  workflow.store.markEventSeen(event.id);
   if (applied !== "handled") await tellAgentAbout(workflow, event, applied);
   const wake = applied === "handled" ? "none" : applied.wake;
   if (wake === "none") await releaseIfSilent(workflow, event, postedBefore);
@@ -167,7 +163,9 @@ async function tellAgentAbout(
       notes: applied.notes,
     }),
     applied.wake,
-    event.actor ? { reply_to: event.reply_to, chat_message: chatMessageOf(event) } : undefined,
+    event.actor
+      ? { body: told.text.trim(), reply_to: event.reply_to, chat_message: chatMessageOf(event) }
+      : undefined,
   );
 }
 
@@ -190,14 +188,15 @@ async function releaseIfSilent(
 /** Show the chat thread the message was received by putting it in its working status. */
 async function acknowledge(workflow: WorkflowRuntime, event: InboundEvent): Promise<void> {
   if (!event.acknowledge || event.reply_to?.source !== "chat") return;
-  const title = workflowName(workflow.state);
+  const title = workflow.store.workflowName();
   await workflow.notifier.acknowledge(event.reply_to, event.acknowledge, title);
 }
 
 /** A message wakes a sleeping workflow and starts the idle clock over. */
 async function wakeWorkflow(workflow: WorkflowRuntime): Promise<void> {
   await armIdle(workflow);
-  if (workflow.state.status === "waiting_input") await changeWorkflowStatus(workflow, "running");
+  if (workflow.store.requireWorkflowRow().status === "waiting_input")
+    await changeWorkflowStatus(workflow, "running");
 }
 
 /**
@@ -205,7 +204,7 @@ async function wakeWorkflow(workflow: WorkflowRuntime): Promise<void> {
  * author's session feed.
  */
 async function replyFinished(workflow: WorkflowRuntime, event: InboundEvent): Promise<void> {
-  const { status } = workflow.state;
+  const { status } = workflow.store.requireWorkflowRow();
   if (event.kind === "stop") {
     await stopSessionAuthor(workflow, event);
     return;
@@ -231,12 +230,4 @@ async function postStatus(
   options?: PostOptions,
 ): Promise<void> {
   await workflow.post({ type: "status", text: statusText(summarize(workflow)) }, to, options);
-}
-
-function addReplyTarget(workflow: WorkflowRuntime, target?: ReplyTarget): void {
-  if (!target) return;
-  const key = JSON.stringify(target);
-  const known = workflow.state.reply_targets.some((existing) => JSON.stringify(existing) === key);
-  if (known) return;
-  workflow.patchState({ reply_targets: [...workflow.state.reply_targets, target] });
 }

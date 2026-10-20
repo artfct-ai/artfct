@@ -10,13 +10,14 @@ A code name is one type, table, column, or function. A code name that needs a co
 
 | Term | Meaning | Code name | Do not say |
 |---|---|---|---|
-| workflow | A workstream that a person requests in a conversation or a tracker session. It runs one workflow definition and works on the issues of its subject, and on the pull requests and pages they need. It starts when the agent sets a plan that names a definition. It runs until done, cancelled, or failed. | `WorkflowState`, `WorkflowState.definition` | |
-| workflow end | The end of a workflow as done, failed or cancelled. The workflow state records it before the first cancel. It cancels the unfinished tasks, writes the status, posts the end and moves the tracker issues of a done workflow. A restart during it does not drop it. The start step arms an alarm that goes on with it. While it runs, the workflow refuses a plan, a job start, another end and a cancel. | `workflow_end`, `endWorkflow`, `resumeWorkflowEnd` | |
-| subject | The one issue or tracker project a workflow works on. A tracker origin sets it, else the plan, else the breakdown output. It never changes. An issue subject covers the issue and its direct sub-issues. A project subject covers the project's issues. | `WorkflowState.subject` | binding, scope, root issue |
+| workflow | A workstream that a person requests in a conversation or a tracker session. It runs one workflow definition and works on the issues of its subject, and on the pull requests and pages they need. It starts when the agent sets a plan that names a definition. It runs until done, cancelled, or failed. | `workflow`, `workflow_plan.definition` | |
+| workflow end | The end of a workflow as done, failed or cancelled. The store records it before the first cancel. It cancels the unfinished tasks, writes the status, posts the end and moves the tracker issues of a done workflow. A restart during it does not drop it. The start step arms an alarm that goes on with it. While it runs, the workflow refuses a plan, a job start, another end and a cancel. | `workflow_end`, `endWorkflow`, `resumeWorkflowEnd` | |
+| subject | The one issue or tracker project a workflow works on. A tracker origin sets it, else the plan, else the breakdown output. It never changes. An issue subject covers the issue and its direct sub-issues. A project subject covers the project's issues. | `workflow_subject` | binding, scope, root issue |
 | workflow definition | A named set of stages in config. A deployment may hold several. A workflow runs the one its plan names. | `WorkflowDefinition`, `workflows/<name>.yaml`, `set_plan` `definition` | |
 | stage | One step of a workflow. It produces one artifact. Config declares it. | `Stage` | |
 | job | The execution of one stage. Its tasks belong to it, and it holds what they produce. | `jobs` row | |
-| job slot | One job a workflow may run at a time. The plan sets the number of job slots. | `WorkflowState.concurrency`, `set_plan` `concurrency` | task slot, concurrency slot |
+| job slot | One job a workflow may run at a time. A plan with stages sets the number of job slots. Before it, the workflow holds two. | `stage_plan.job_slots`, `UNPLANNED_JOB_SLOTS`, `set_plan` `concurrency` | task slot, concurrency slot |
+| stage plan | The stages, job slots and pages a plan sets. A workflow has none until a plan names stages. A later plan with stages replaces it. | `stage_plan`, `StagePlan` | |
 | task | One execution of a role in a job. | `tasks` row | |
 | paused task | A task held by a person or the agent. It keeps its queued prompts and takes none until it resumes. | `tasks.paused_at`, `pauseTask`, `resumeTask` | |
 | model-call task | A task that runs as model calls through the gateway, with no sandbox and no harness session. Its task status is `working` from the start of a turn until its page waits in review. A model turn is in flight while it is `working`, except after a stop ended its first turn before the page existed. | `AuthorActivity.execution "model"`, no sandboxes row | |
@@ -45,8 +46,8 @@ A code name is one type, table, column, or function. A code name that needs a co
 | segment | Consecutive reviewers that settle together. A judge or the end of the list ends it. | `segmentStartOf`, `endsSegment` | |
 | phase | A group of refiners on the board. Agent review, then polish. | `RefinerPhase` | |
 | milestone | A delivery slice in a plan document. | plan skill text | phase |
-| page parent | Where the document host puts the pages of a workflow. The plan names it, the way it names the repository. On a host that nests pages, it is the page or database that holds the root page, and a request that names none gets the default from the workflow definition. On a host that does not, it is the tracker project of the issue, or the agent asks. | `WorkflowState.page_parent`, `set_plan page_parent`, `documents.page_parent` in the workflow definition | docs.parent, folder |
-| root page | The page a person reads first, on a document host that nests pages. It is the page of the stage that `documents.root_page` names in the workflow definition. It starts as an empty container and holds every other page of the workflow, as a subpage or as a link. | `documents.root_page` in the workflow definition, `WorkflowState.root_page` | root stage |
+| page parent | Where the document host puts the pages of a workflow. The plan names it, the way it names the repository. On a host that nests pages, it is the page or database that holds the root page, and a request that names none gets the default from the workflow definition. On a host that does not, it is the tracker project of the issue, or the agent asks. | `stage_plan.page_parent`, `set_plan page_parent`, `documents.page_parent` in the workflow definition | docs.parent, folder |
+| root page | The page a person reads first, on a document host that nests pages. It is the page of the stage that `documents.root_page` names in the workflow definition. It starts as an empty container and holds every other page of the workflow, as a subpage or as a link. | `documents.root_page` in the workflow definition, `stage_plan.root_page` | root stage |
 | resources section | The last section of the root page. It lists the subpages and the linked pages. Code writes it, and an author never changes it. | `RESOURCES_HEADING` | |
 
 ## Artifacts
@@ -54,7 +55,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 | Term | Meaning | Code name | Do not say |
 |---|---|---|---|
 | artifact | A pull request, page, issue, or tracker project. A job works from one and produces one. | `ArtifactRef`, `artifacts` row | |
-| input artifact | The artifact a task works from. | `jobs.issue_id` when the input is an issue, `jobs.input_ref` when the input is an artifact no job of the workflow produced | |
+| input artifact | The artifact a task works from. | `JobInput`, `jobs.input_kind` | |
 | output artifact | The artifact a task produces. The refiners run on it, and the handover delivers it. | `artifacts` row | |
 | revision | The ID that the code host or document host gives the current content of an artifact: the head commit of a pull request or the revision of a page. It is unknown when the lookup fails, and always unknown for an issue. | `ReviewSupport.revision` | version |
 | handover | The artifact reaches the humans. A changed revision is handed over again. | `markArtifactReady`, `delivered_to_humans_at` | review loop closed |
@@ -113,9 +114,9 @@ A code name is one type, table, column, or function. A code name that needs a co
 | MCP server | A tool server a harness session connects to. Each provider supplies an MCP server or a CLI, and the deployment config lists the customer's own. | `McpServer`, `mcp_servers` | integration, tool server |
 | tracker session | The agent session of the tracker that a reply goes to. | `tracker_session` | session |
 | job session | The tracker session on the job's input issue. A job whose input artifact is not an issue does not have one. | `jobSessionOf` | home |
-| reply target | A place the workflow replies to, such as a chat thread, a tracker session or a page. The place the workflow started is the first one. A chat thread or session that joins the work adds one. | `WorkflowState.reply_targets`, `ReplyTarget` | |
+| reply target | A place the workflow replies to, such as a chat thread, a tracker session or a page. The place the workflow started is the first one. A chat thread or session that joins the work adds one. Two targets that name the same place, such as one tracker session, are one reply target. | `reply_targets`, `ReplyTarget`, `replyTargetKey` | |
 | starting session | The tracker session a workflow started from. Without a chat thread, it gets every ask and failure, the stuck text and the timeout text included, as well as the answers to what a person wrote there. | `Audience.origin` | |
-| session feed | The author's narration, its closing account, its plan when the turn ends, a receipt for each instruction, and a heartbeat during long turns. Tool calls and thoughts are not posted. | `streamToSessionFeed`, `session_feeds` | transcript, mirror, log |
+| session feed | The author's narration, its closing account, its plan when the turn ends, a receipt for each instruction, and a heartbeat during long turns. Tool calls and thoughts are not posted. A turn that goes straight into the next turn posts its closing account as narration. | `streamToSessionFeed`, `session_feeds` | transcript, mirror, log |
 | narration | Text the author writes in a turn before its next tool call. It posts as a thought, merged at most once per 5 minutes. | `appendNarration`, `session_feeds.narration` | interim message, progress note |
 | heartbeat | An ephemeral activity naming the current plan item, posted after 25 minutes without activity in a turn. | `tendSessionFeed` | interim message, progress note |
 | feed activity | One post of a session feed under one id: narration as a thought, or a response or an error that ends a turn. The notifier retries with that id, so the tracker stores it at most once. A receipt or a heartbeat is an ephemeral thought, posted once without an id. | `AgentActivityContent`, `Notifier.feed`, `Notifier.ephemeralThought` | feed event, feed message |
@@ -137,7 +138,7 @@ A code name is one type, table, column, or function. A code name that needs a co
 
 | Term | Meaning | Code name | Do not say |
 |---|---|---|---|
-| inbox | The events that wait for the next agent turn. | `agent_inbox` | |
+| inbox | The events that wait for the next agent turn. A row a person wrote keeps their words as they wrote them. | `agent_inbox`, `agent_inbox.body` | |
 | wake | How strongly an event asks for an agent turn. | `Wake` | |
 | context | Everything one model request of the orchestrator agent holds: the system prompt, the tool set, and the transcript. | arguments of `generateSteps` | context window, history |
 | system prompt | The part of the context that states the role, the stages, the rule blocks, and the current state. Rebuilt for each model request. Never stored. | `systemPrompt` | |
@@ -154,9 +155,9 @@ A code name is one type, table, column, or function. A code name that needs a co
 | requested runtime | The harness and model a person's message names for the work, resolved to a model the harness runs. It replaces the stage's pair for the author of the job it starts. | `RequestedRuntime` | |
 | closing text | The text the model ends a turn with. It is posted only as the answer to a person who wrote. | `ModelPass.text` | |
 | deadline | The in-process timer that aborts every model and decisions call of an agent turn once the turn timeout passes, so the turn ends and posts the timeout text itself. | `runUnderDeadline`, `boundedAttempt` | |
-| watchdog | The alarm armed at the start of each agent turn that, when the turn still runs after the turn timeout, posts the timeout text, deletes the inbox rows the turn took, and records that no turn is running. | `armTurnWatchdog`, `onTurnTimeout`, `WorkflowState.turn_watchdog` | |
+| watchdog | The alarm armed at the start of each agent turn that, when the turn still runs after the turn timeout, posts the timeout text, deletes the inbox rows the turn took, and records that no turn is running. | `armTurnWatchdog`, `onTurnTimeout`, `workflow.turn_watchdog` | |
 | backup alarm | The zero-delay `runAgent` alarm a wake arms before its turn lane runs. The lane cancels it when it returns. A restart keeps it, so the turn the restart lost still runs. | `tellAgent`, `runAgent` | |
-| heads-up | The line posted to the chat threads, with their working status kept, when an agent turn on a person's message still runs a minute after it started. It posts at most once per turn. | `HEADS_UP_TEXT`, `onTurnHeadsUp`, `WorkflowState.turn_heads_up` | |
+| heads-up | The line posted to the chat threads, with their working status kept, when an agent turn on a person's message still runs a minute after it started. It posts at most once per turn. | `HEADS_UP_TEXT`, `onTurnHeadsUp`, `workflow.turn_heads_up` | |
 | stale alarm | A watchdog or heads-up alarm that fires for a turn that no longer runs: one that ended, one a restart lost, or one before the turn that runs now. Its start time does not match the running turn, so it changes nothing. | `TurnAlarm.started_at` | late alarm |
 | restart notice | The line posted to the chat threads, with their working status kept, when a new Durable Object instance resumes a lost turn that took a person's message. | `LOST_PLACE_TEXT`, `resumeLostTurn` | |
 | transcript | The stored conversation of the orchestrator agent. The only part of the context that persists across agent turns. | `transcript` table, `TranscriptStore` | history, memory |

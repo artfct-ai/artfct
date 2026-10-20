@@ -91,7 +91,7 @@ export function planTools(workflow: WorkflowRuntime) {
           .nullable()
           .optional()
           .describe(
-            "owner/name. Set it whenever the context names one, in every stage, so the harness can read the source. Null only when nothing names one and no stage needs one. Used only with stages.",
+            "owner/name. Set it whenever the context names one, on every call, so the harness can read the source. Null only when nothing names one and no stage needs one.",
           ),
         page_parent: z
           .string()
@@ -159,7 +159,7 @@ export function planTools(workflow: WorkflowRuntime) {
  * Null while it runs.
  */
 export function validateWorkflowRunning(workflow: WorkflowRuntime): string | null {
-  const { status } = workflow.state;
+  const { status } = workflow.store.requireWorkflowRow();
   if (workflowEnding(workflow)) return "The workflow is ending. A workflow that ends stays ended.";
   if (!isWorkflowFinished(status)) return null;
   return `The workflow is ${status}. A finished workflow stays finished.`;
@@ -211,14 +211,17 @@ async function setPlan(workflow: WorkflowRuntime, input: PlanInput): Promise<str
     const names = definitions.map((declared) => declared.name).join(", ");
     return `Unknown workflow definition ${input.definition}. The deployment holds: ${names}.`;
   }
-  const kept = validateDefinitionKept(workflow.state.definition, definition.name);
+  const plan = workflow.store.plan();
+  const kept = validateDefinitionKept(plan?.definition ?? null, definition.name);
   if (kept) return kept;
   const subject = input.subject ? await resolvePlanSubject(workflow, input.subject) : null;
   if (typeof subject === "string") return subject;
   if (!input.stages) {
-    if (workflow.state.definition !== null) {
+    if (plan) {
       return `The workflow already started from workflow definition ${definition.name}. Call set_plan again with the stages.`;
     }
+    const repoError = input.repo ? await validateRepoReachable(workflow, input.repo) : null;
+    if (repoError) return repoError;
     await startWorkflow(workflow, definition, input);
     if (subject) await setWorkflowSubject(workflow, subject);
     return startedAnswer(workflow, definition);
@@ -241,19 +244,24 @@ async function resolvePlanSubject(
   }
   const changed = await validatePlanKeepsSubject(workflow, ref);
   if (changed) return changed;
-  return workflow.state.subject ? null : subjectOfRef(ref);
+  return workflow.store.subject() ? null : subjectOfRef(ref);
 }
 
-/** Store the workflow definition and the name, and start the workflow. The tracker issue moves to started. */
+/** Store the workflow definition, the name and the repository, and start the workflow. The tracker issue moves to started. */
 async function startWorkflow(
   workflow: WorkflowRuntime,
   definition: WorkflowDefinition,
   input: PlanInput,
 ): Promise<void> {
-  workflow.patchState({ definition: definition.name, name: input.name, reason: input.reason });
+  workflow.store.writePlan({
+    definition: definition.name,
+    name: input.name,
+    reason: input.reason,
+    repo: input.repo ?? null,
+  });
   await changeWorkflowStatus(workflow, "running");
   workflow.log(null, `workflow started: definition=${definition.name} (${input.reason})`);
-  const origin = workflow.state.origin;
+  const { origin } = workflow.store.requireWorkflowRow();
   if (origin?.source === "tracker") await workflow.notifier.moveIssue(origin, "started");
 }
 
@@ -291,18 +299,21 @@ async function planStages(
     root_page: input.root_page ?? null,
   });
   if ("error" in pages) return pages.error;
-  if (workflow.state.definition === null) await startWorkflow(workflow, definition, input);
+  if (!workflow.store.plan()) await startWorkflow(workflow, definition, input);
   if (subject) await setWorkflowSubject(workflow, subject);
   const cap = workflow.config().orchestrator.sandbox.max_concurrency;
   const concurrency = Math.min(input.concurrency ?? cap, cap);
-  workflow.patchState({
+  workflow.store.writePlan({
+    definition: definition.name,
     name: input.name,
+    reason: input.reason,
+    repo,
+  });
+  workflow.store.writeStagePlan({
     stages: input.stages,
-    concurrency,
-    repo: repo ? { full: repo } : null,
+    job_slots: concurrency,
     page_parent: pages.page_parent,
     root_page: pages.root_page,
-    reason: input.reason,
   });
   await changeWorkflowStatus(workflow, "running");
   workflow.log(

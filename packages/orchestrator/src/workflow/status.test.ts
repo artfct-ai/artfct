@@ -1,7 +1,13 @@
 import type { WorkflowSummary } from "@artfct-ai/contracts/types";
 import { describe, expect, it } from "bun:test";
 import { freshRuntime } from "../../test/fresh-runtime";
-import { patchModelExecution, seedModelAuthor, seedTask } from "../../test/fake-runtime";
+import {
+  patchModelExecution,
+  seedModelAuthor,
+  seedTask,
+  patchPlan,
+  patchStagePlan,
+} from "../../test/fake-runtime";
 import { scenario } from "../../test/scenario";
 import { debugDump, statusText, summarize } from "./status";
 
@@ -73,12 +79,8 @@ describe("statusText", () => {
 describe("summarize", () => {
   describe("one job in review and one done", () => {
     const summarized = scenario(freshRuntime, (workflow) => {
-      workflow.patchState({
-        stages: ["design", "implement"],
-        concurrency: 2,
-        repo: { full: "acme/app" },
-        reason: "default",
-      });
+      patchPlan(workflow, { reason: "default", repo: "acme/app" });
+      patchStagePlan(workflow, { stages: ["design", "implement"], job_slots: 2 });
       workflow.store.recordModelUsage({
         purpose: "orchestrator",
         model: "m",
@@ -183,17 +185,22 @@ describe("debugDump", () => {
           "log",
           "model_usage",
           "outbox",
+          "plan",
           "queue",
-          "state",
+          "reply_targets",
+          "stage_plan",
+          "subject",
           "tasks",
           "todos",
           "transcript",
+          "workflow",
+          "workflow_end",
         ]);
       }));
 
-    it("dumps the workflow state", () =>
+    it("dumps the workflow row", () =>
       dumped((workflow) => {
-        expect(debugDump(workflow).state.workflow_id).toBe("wf_x");
+        expect(debugDump(workflow).workflow?.workflow_id).toBe("wf_x");
       }));
 
     it("masks the bridge token", () =>

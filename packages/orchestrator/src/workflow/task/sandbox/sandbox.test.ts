@@ -7,13 +7,15 @@ import { describe, expect, it } from "bun:test";
 import { registeredConfig } from "../../../config/register-config";
 import { buildSandboxEnv, buildStartSpec, WORKSPACE, type StartSpecInput } from "./sandbox";
 import type { JobRow, SandboxRow, TaskRow } from "../../store/tasks";
+import { jobInputKey } from "../../store/input-key";
 
 const job: JobRow = {
   job_id: "wf_x-1",
   stage: "design",
   issue_id: null,
   issue_key: null,
-  input_key: null,
+  input_kind: "request",
+  input_key: jobInputKey({ kind: "request", text: "Fix the login redirect." }),
   preceding_job_id: null,
   input_ref: null,
   input_url: null,
@@ -98,7 +100,7 @@ const input: StartSpecInput = {
   adapters: registeredConfig().config.adapters,
   workflowId: "wf_x",
   publicUrl: "https://ao.example.com",
-  repo: { full: "acme/app" },
+  repo: "acme/app",
   commitAuthor: AUTHOR,
   workflowRepoToken: "ghs_1",
   allReposReadToken: null,

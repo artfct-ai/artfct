@@ -1,7 +1,7 @@
 import type { ArtifactStatus } from "@artfct-ai/contracts/types";
 import { and, count, desc, eq, getTableColumns, inArray, ne, notInArray, sql } from "drizzle-orm";
 import type { WorkflowDb } from "./db";
-import { artifactRefKey } from "./input-key";
+import { artifactRefKey, namedArtifactRefKey } from "./input-key";
 import { artifacts, DELIVERY_ERROR, events, jobs, log, outbox, tasks } from "./schema";
 import { FINISHED_TASK_STATUSES, now } from "./state";
 
@@ -19,10 +19,6 @@ const authorTaskOfArtifact = and(eq(tasks.job_id, artifacts.job_id), eq(tasks.ro
 export type ArtifactRow = typeof artifacts.$inferSelect;
 type LogLine = Pick<typeof log.$inferSelect, "at" | "task_id" | "line">;
 
-function sameArtifactAs(row: ArtifactRow): (other: ArtifactRow) => boolean {
-  const key = artifactRefKey({ ref: row.ref, url: row.external_url });
-  return (other) => artifactRefKey({ ref: other.ref, url: other.external_url }) === key;
-}
 export type OutboxEntry = Pick<
   typeof outbox.$inferSelect,
   "channel" | "kind" | "target" | "payload"
@@ -65,14 +61,12 @@ export class RecordStore {
 
   /** The artifact that is this pull request, if any job produced it. */
   artifactByPull(repo: string, number: number): ArtifactRow | null {
-    return this.artifactMatching(
-      ({ ref }) => ref.kind === "pull" && ref.repo === repo && ref.number === number,
-    );
+    return this.artifactWithKey(namedArtifactRefKey({ kind: "pull", repo, number }));
   }
 
   /** The artifact that is this document page, if any job produced it. */
   artifactByPage(pageId: string): ArtifactRow | null {
-    return this.artifactMatching(({ ref }) => ref.kind === "page" && ref.page_id === pageId);
+    return this.artifactWithKey(namedArtifactRefKey({ kind: "page", page_id: pageId }));
   }
 
   /**
@@ -87,18 +81,18 @@ export class RecordStore {
       .where(inArray(artifacts.status, ["drafted", "ready"]))
       .orderBy(tasks.started_at)
       .all()
-      .filter((row) => this.artifactMatching(sameArtifactAs(row))?.job_id === row.job_id);
+      .filter((row) => this.artifactWithKey(row.ref_key)?.job_id === row.job_id);
   }
 
-  /** The row of the artifact that matches. The one whose author task still runs, else the newest. */
-  private artifactMatching(matches: (artifact: ArtifactRow) => boolean): ArtifactRow | null {
+  /** The row of the artifact with this key. The one whose author task still runs, else the newest. */
+  private artifactWithKey(refKey: string): ArtifactRow | null {
     const rows = this.db
       .select({ artifact: artifacts, status: tasks.status })
       .from(artifacts)
       .innerJoin(tasks, authorTaskOfArtifact)
+      .where(eq(artifacts.ref_key, refKey))
       .orderBy(desc(tasks.started_at))
-      .all()
-      .filter((row) => matches(row.artifact));
+      .all();
     const active = rows.find((row) => !FINISHED_TASK_STATUSES.includes(row.status));
     return (active ?? rows[0])?.artifact ?? null;
   }
@@ -107,10 +101,16 @@ export class RecordStore {
   upsertArtifact(
     artifact: Omit<
       ArtifactRow,
-      "updated_at" | "status" | "refiner_task_id" | "delivered_to_humans_at" | "delivered_revision"
+      | "ref_key"
+      | "updated_at"
+      | "status"
+      | "refiner_task_id"
+      | "delivered_to_humans_at"
+      | "delivered_revision"
     >,
   ): void {
-    const row = { ...artifact, updated_at: now() };
+    const refKey = artifactRefKey({ ref: artifact.ref, url: artifact.external_url });
+    const row = { ...artifact, ref_key: refKey, updated_at: now() };
     this.db
       .insert(artifacts)
       .values({ ...row, status: "drafted", refiner_task_id: null })
@@ -186,12 +186,9 @@ export class RecordStore {
   }
 
   /** Record the event id. False when it was seen before. */
-  markEventSeen(event: { id: string; kind: string }): boolean {
-    if (this.eventSeen(event.id)) return false;
-    this.db
-      .insert(events)
-      .values({ ...event, at: now() })
-      .run();
+  markEventSeen(id: string): boolean {
+    if (this.eventSeen(id)) return false;
+    this.db.insert(events).values({ id, at: now() }).run();
     return true;
   }
 

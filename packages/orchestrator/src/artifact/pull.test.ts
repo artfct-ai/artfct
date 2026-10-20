@@ -10,7 +10,7 @@ import type { Artifact, ArtifactTarget, FeedbackHandle } from "./types";
 const REPO = "acme/app";
 const PR_URL = githubPullUrl({ repo: REPO, number: 7 });
 const TARGET: ArtifactTarget = { url: PR_URL, ref: { kind: "pull", repo: REPO, number: 7 } };
-const ACTOR = { person_id: "p1", email: null, display_name: "sam" };
+const ACTOR = { email: null, display_name: "sam" };
 
 type Built = { artifact: Artifact; host: FakeCodeHost | null; lines: string[] };
 

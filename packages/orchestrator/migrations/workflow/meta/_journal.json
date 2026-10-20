@@ -5,64 +5,8 @@
     {
       "idx": 0,
       "version": "6",
-      "when": 1790699035881,
-      "tag": "0000_neat_strong_guy",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "6",
-      "when": 1790879088385,
-      "tag": "0001_rainy_payback",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "6",
-      "when": 1791510448214,
-      "tag": "0002_black_darwin",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "6",
-      "when": 1791595614055,
-      "tag": "0003_strange_terror",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "6",
-      "when": 1792013932264,
-      "tag": "0004_careful_doctor_spectrum",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "6",
-      "when": 1792202009560,
-      "tag": "0005_brainy_stranger",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "6",
-      "when": 1792267965138,
-      "tag": "0006_foamy_war_machine",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "6",
-      "when": 1792376812281,
-      "tag": "0007_perpetual_celestials",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "6",
-      "when": 1792502192640,
-      "tag": "0008_slow_the_order",
+      "when": 1792519986532,
+      "tag": "0000_dark_princess_powerful",
       "breakpoints": true
     }
   ]

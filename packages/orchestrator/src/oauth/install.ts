@@ -84,7 +84,6 @@ async function installFromCode(install: {
     access_token: tokens.access_token,
     refresh_token: tokens.refresh_token ?? null,
     expires_at: tokenExpiryIso(tokens, (options.now ?? Date.now)()),
-    scope: tokens.scope ?? "",
   });
   return { installed: true, organization: appUser.organization.name, app_user_id: appUser.id };
 }

@@ -1132,7 +1132,11 @@ export class HarnessSessionReplay {
     const bridge = this.bridgeAt(index);
     const { workflow } = this.world;
     const dialRequest = new Request(
-      bridgeDialUrl("https://artfct.test", workflow.state.workflow_id, this.taskId),
+      bridgeDialUrl(
+        "https://artfct.test",
+        workflow.store.requireWorkflowRow().workflow_id,
+        this.taskId,
+      ),
       { headers: bridgeTokenHeaders(bridge.token) },
     );
     const sandbox = authorizeBridge(workflow.store, dialRequest);

@@ -5,7 +5,7 @@ import { labeledPageCommentIds } from "../../artifact/page-comment-label";
 import { aboveResources, splitAtResources } from "../../artifact/resources-section";
 import type { ArtifactTarget } from "../../artifact/types";
 import { noteMessage } from "../../agent/transcript/envelope";
-import { stepsUsage } from "../../agent/model/usage";
+import { addReportedCosts, stepsUsage } from "../../agent/model/usage";
 import { runUnderDeadline } from "../../agent/turn/deadline";
 import { registeredConfig } from "../../config/register-config";
 import { skillPromptText } from "../../config/skills";
@@ -24,7 +24,7 @@ import { failTask } from "../lifecycle";
 import { heldForReview, settleRefinersForAuthor } from "../refiner/loop";
 import { newPageParent, rootPageStage } from "../root-page";
 import { markArtifactReady, reopenChangedArtifact } from "../refiner/outcome";
-import { isTaskFinished, workflowName } from "../store/state";
+import { isTaskFinished } from "../store/state";
 import type { JobRow, TaskRow } from "../store/tasks";
 import type { Wake, WorkflowRuntime } from "../types";
 import { taskAtWork } from "./at-work";
@@ -46,7 +46,7 @@ export function modelAuthorPageTitle(name: string, stage: string): string {
 /** The first turn of a model-call author: the produce activity. */
 export async function runModelAuthorTurn(workflow: WorkflowRuntime, task: TaskRow): Promise<void> {
   const documents = await workflow.documents();
-  const parent = newPageParent(workflow.state);
+  const parent = newPageParent(workflow.store.stagePlan());
   if (!documents || !parent) {
     return failTask(
       workflow,
@@ -198,8 +198,8 @@ async function producePage(
   if (text === null) return { target: null };
   if (!text) return { failure: "The model answered with no document text." };
   const stage = workflow.stageForTask(task);
-  const title = modelAuthorPageTitle(workflowName(workflow.state), stage.name);
-  const root = workflow.state.root_page;
+  const title = modelAuthorPageTitle(workflow.store.workflowName(), stage.name);
+  const root = workflow.store.stagePlan()?.root_page;
   if (
     rootPageStage(workflow.workflowDefinition())?.name === stage.name &&
     root?.source === "container"
@@ -239,7 +239,7 @@ async function revisePage(
   }
   const job = workflow.store.requireJob(task.job_id);
   const { revise } = workflow.stageForTask(task).author;
-  const isRootPage = ref.page_id === workflow.state.root_page?.page_id;
+  const isRootPage = ref.page_id === workflow.store.stagePlan()?.root_page?.page_id;
   const pageText = await documents.readPageContent(ref.page_id);
   const prompt = revisePrompt({
     context: taskContext(workflow, task),
@@ -343,7 +343,9 @@ async function callAuthorModel(
   const result = bounded.result;
   const { cost_usd } = stepsUsage(result.steps);
   const counted = workflow.store.requireTask(task.task_id);
-  workflow.store.updateTask(task.task_id, { cost_usd: counted.cost_usd + cost_usd });
+  workflow.store.updateTask(task.task_id, {
+    cost_usd: addReportedCosts(counted.cost_usd, cost_usd),
+  });
   if (isTaskFinished(counted.status)) {
     workflow.log(task.task_id, `model call ended after the task was ${counted.status}. no change.`);
     return null;

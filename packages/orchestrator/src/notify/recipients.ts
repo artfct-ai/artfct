@@ -1,4 +1,5 @@
 import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
+import { replyTargetKey } from "../workflow/store/reply-target-key";
 import type { TaskEvent } from "../workflow/task/events";
 
 /**
@@ -7,12 +8,12 @@ import type { TaskEvent } from "../workflow/task/events";
  */
 export type Recipients = { reply_to: ReplyTarget } | { answering: ReplyTarget[] };
 
-/** The part of the workflow state that decides who hears a post. */
-export type Audience = { origin: ReplyTarget | null; reply_targets: ReplyTarget[] };
+/** What decides who hears a post: where the workflow started, and every place it replies to. */
+export type Audience = { origin: ReplyTarget | null; replyTargets: ReplyTarget[] };
 
 /** True when a chat thread is among the reply targets. Orchestrator conversation then stays there. */
-export function hasChatThread(audience: Audience): boolean {
-  return audience.reply_targets.some((target) => target.source === "chat");
+export function hasChatThread(replyTargets: ReplyTarget[]): boolean {
+  return replyTargets.some((target) => target.source === "chat");
 }
 
 /** True for an event that asks a person to act or tells them work failed. */
@@ -40,13 +41,13 @@ export function recipientsOf(
   event: TaskEvent,
   recipients: Recipients,
 ): ReplyTarget[] {
-  const chatThreads = audience.reply_targets.filter((target) => target.source === "chat");
+  const chatThreads = audience.replyTargets.filter((target) => target.source === "chat");
   if ("reply_to" in recipients) {
     const target = recipients.reply_to;
     if (target.source !== "tracker" || chatThreads.length === 0) return [target];
     return chatThreads;
   }
-  const outsideSessions = audience.reply_targets.filter((target) => target.source !== "tracker");
+  const outsideSessions = audience.replyTargets.filter((target) => target.source !== "tracker");
   if (chatThreads.length > 0) return outsideSessions;
   const { origin } = audience;
   const startingSession = origin?.source === "tracker" && isAskOrFailure(event) ? [origin] : [];
@@ -57,8 +58,7 @@ export function recipientsOf(
 function uniqueTargets(targets: ReplyTarget[]): ReplyTarget[] {
   const seen = new Set<string>();
   return targets.filter((target) => {
-    const key =
-      target.source === "tracker" ? `tracker:${target.session_id}` : JSON.stringify(target);
+    const key = replyTargetKey(target);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;

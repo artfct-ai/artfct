@@ -41,13 +41,13 @@ export async function applyArtifactEvent(
     if (!author) continue;
     const change = await changeFor(workflow, author, workflow.store.artifact(job.job_id), event);
     if (!change) continue;
-    if (isWorkflowFinished(workflow.state.status)) return "handled";
+    if (isWorkflowFinished(workflow.store.requireWorkflowRow().status)) return "handled";
     const task = workflow.store.requireTask(author.task_id);
     const result = await applyChange(workflow, task, workflow.store.artifact(job.job_id), change);
     if (result === "handled") handled = true;
     else results.push(result);
   }
-  const applied = landNotes(workflow, event.kind, results);
+  const applied = landNotes(workflow, results);
   if (!applied.length) {
     if (handled || results.length) return "handled";
     return { notes: [`${event.kind}: nothing to record.`], wake: "none" };
@@ -62,11 +62,11 @@ export async function applyArtifactEvent(
  * Mark seen each feedback whose notes route it, as the notes land. The caller hands the notes to
  * the agent before its next await. Notes of a feedback another delivery routed are dropped.
  */
-function landNotes(workflow: WorkflowRuntime, kind: string, results: JobApplied[]): Applied[] {
+function landNotes(workflow: WorkflowRuntime, results: JobApplied[]): Applied[] {
   return results.flatMap(({ applied, landsUnder }) => {
     if (landsUnder === null) return [applied];
     if (routedAlready(workflow, landsUnder)) return [];
-    workflow.store.markEventSeen({ id: landsUnder, kind });
+    workflow.store.markEventSeen(landsUnder);
     return [applied];
   });
 }
@@ -308,7 +308,7 @@ async function sendFeedbackToAuthor(
     return { applied, landsUnder: key };
   }
   if (routedAlready(workflow, key)) return "handled";
-  workflow.store.markEventSeen({ id: key, kind: "feedback" });
+  workflow.store.markEventSeen(key);
   const who = feedback.from.display_name ?? feedback.from.email ?? "A reviewer";
   await promptTask(workflow, task, feedbackText(who, withHeldComments(feedback, carried)));
   const left = held.length - carried.length;

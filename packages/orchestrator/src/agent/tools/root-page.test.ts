@@ -1,6 +1,11 @@
 import { describe, expect, it } from "bun:test";
 import { freshRuntime } from "../../../test/fresh-runtime";
-import { fakeDocumentsOf, patchNestingHost, type FakeRuntime } from "../../../test/fake-runtime";
+import {
+  fakeDocumentsOf,
+  patchNestingHost,
+  type FakeRuntime,
+  patchStagePlan,
+} from "../../../test/fake-runtime";
 import { scenario } from "../../../test/scenario";
 import { toolText } from "../../../test/tool-result";
 import { linkInputPage, rootPageTools } from "./root-page";
@@ -17,7 +22,7 @@ function seedRootPage(workflow: FakeRuntime, rootText: string) {
   });
   documents.seedPage("root-1", rootText);
   documents.seedPage("directions-1", "# Directions");
-  workflow.patchState({ root_page: ROOT });
+  patchStagePlan(workflow, { root_page: ROOT });
   return documents;
 }
 
@@ -58,7 +63,7 @@ describe("linkInputPage", () => {
     let result: string;
     const named = scenario(freshRuntime, async (workflow) => {
       seedRootPage(workflow, "## Resources");
-      workflow.patchState({ root_page: { ...ROOT, source: "named" } });
+      patchStagePlan(workflow, { root_page: { ...ROOT, source: "named" } });
       result = await linkInputPage(workflow, INPUT_TARGET);
     });
 

@@ -42,7 +42,12 @@ import type { ConnectionState } from "../src/workflow/task/harness/bridge";
 import { TurnCoalescer } from "../src/workflow/task/harness/turn";
 import type { WorkflowDb } from "../src/workflow/store/db";
 import { postToRecipients, releaseChatThreads, showWorking } from "../src/workflow/posts";
-import { initialWorkflowState, type WorkflowState } from "../src/workflow/store/state";
+import {
+  UNPLANNED_JOB_SLOTS,
+  type StagePlan,
+  type WorkflowPlan,
+} from "../src/workflow/store/state";
+import { artifactRefKey, jobInputKey } from "../src/workflow/store/input-key";
 import {
   WorkflowStore,
   type JobRow,
@@ -106,14 +111,17 @@ export function sentMethods(socket: FakeSocket): (string | undefined)[] {
   return socket.sent.map((frame) => (JSON.parse(frame) as { method?: string }).method);
 }
 
+/** The id of the workflow a fake runtime creates. */
+export const FAKE_WORKFLOW_ID = "wf_x";
+
+/**
+ * What a fake runtime's store holds when it opens. `running` is the workflow `wf_x`, started on
+ * the test workflow definition, unless the store already holds a workflow.
+ */
+export type FakeOpening = "running" | "uncreated";
+
 export class FakeRuntime implements WorkflowRuntime {
   env: Env;
-  state: WorkflowState = {
-    ...initialWorkflowState,
-    workflow_id: "wf_x",
-    status: "running",
-    definition: TEST_DEFINITION_NAME,
-  };
   readonly store: WorkflowStore;
   notifier: Notifier;
   readonly transcript: TranscriptStore;
@@ -155,6 +163,7 @@ export class FakeRuntime implements WorkflowRuntime {
   constructor(
     private readonly db: WorkflowDb,
     env: Env,
+    opening: FakeOpening = "running",
   ) {
     this.env = env;
     this.store = new WorkflowStore(db);
@@ -163,6 +172,11 @@ export class FakeRuntime implements WorkflowRuntime {
       { tracker: async () => null, chat: null, documents: async () => null },
       (entry) => this.store.writeOutbox(entry),
     );
+    if (opening === "running" && !this.store.workflowRow()) {
+      createFakeWorkflow(this);
+      this.store.updateWorkflow({ status: "running" });
+      this.store.writePlan({ definition: TEST_DEFINITION_NAME, name: "", reason: "", repo: null });
+    }
   }
 
   /**
@@ -171,14 +185,10 @@ export class FakeRuntime implements WorkflowRuntime {
    * memory are gone.
    */
   restarted(): FakeRuntime {
-    const next = new FakeRuntime(this.db, this.env);
+    const next = new FakeRuntime(this.db, this.env, "uncreated");
     const { sessionFeeds, pageWritesOut, agentTurns } = next;
     Object.assign(next, this, { sessionFeeds, pageWritesOut, agentTurns, turnRunning: false });
     return next;
-  }
-
-  patchState(patch: Partial<WorkflowState>): void {
-    this.state = { ...this.state, ...patch };
   }
 
   config(): Config {
@@ -195,14 +205,24 @@ export class FakeRuntime implements WorkflowRuntime {
   }
 
   workflowDefinition(): WorkflowDefinition {
-    return storedWorkflowDefinition(this.workflowDefinitions(), this.state.definition);
+    return storedWorkflowDefinition(
+      this.workflowDefinitions(),
+      this.store.plan()?.definition ?? null,
+    );
+  }
+
+  /** The workflow definition a test patches: the one the plan named, else the test workflow definition. */
+  patchableWorkflowDefinition(): WorkflowDefinition {
+    const name = this.store.plan()?.definition ?? TEST_DEFINITION_NAME;
+    return storedWorkflowDefinition(this.workflowDefinitions(), name);
   }
 
   /** Change the workflow definition the workflow runs, and keep the others. */
   patchWorkflowDefinition(patch: Partial<WorkflowDefinition>): void {
-    const patched = { ...this.workflowDefinition(), ...patch };
+    const current = this.patchableWorkflowDefinition();
+    const patched = { ...current, ...patch };
     this.workflowDefinitionsOverride = this.workflowDefinitions().map((definition) =>
-      definition.name === this.state.definition ? patched : definition,
+      definition.name === current.name ? patched : definition,
     );
   }
 
@@ -307,7 +327,11 @@ export class FakeRuntime implements WorkflowRuntime {
   ): Promise<void> {
     this.posted.push(event);
     if (destinationFor(event) === "channel") {
-      this.deliveries.push({ event, targets: recipientsOf(this.state, event, to) });
+      const audience = {
+        origin: this.store.requireWorkflowRow().origin,
+        replyTargets: this.store.replyTargets(),
+      };
+      this.deliveries.push({ event, targets: recipientsOf(audience, event, to) });
     }
     await postToRecipients(this, event, to, options);
   }
@@ -382,7 +406,7 @@ export class FakeRuntime implements WorkflowRuntime {
       code: () => this.code(),
       documents: () => this.documents(),
       tracker: () => this.tracker(),
-      repo: () => this.state.repo?.full ?? null,
+      repo: () => this.store.plan()?.repo ?? null,
       log: (line) => this.log(null, line),
     });
   }
@@ -435,8 +459,65 @@ export class FakeRuntime implements WorkflowRuntime {
   }
 }
 
+/** Create the workflow `wf_x` as `new`: before its plan, without an origin or a subject. */
+export function createFakeWorkflow(workflow: FakeRuntime): void {
+  workflow.store.createWorkflow({
+    workflow_id: FAKE_WORKFLOW_ID,
+    request_title: "",
+    request_text: "",
+    request_links: [],
+    origin: null,
+    subject: null,
+  });
+}
+
+/** Merge a patch into the plan. A workflow without one gets the test workflow definition. */
+export function patchPlan(workflow: WorkflowRuntime, patch: Partial<WorkflowPlan>): void {
+  const current = workflow.store.plan() ?? {
+    definition: TEST_DEFINITION_NAME,
+    name: "",
+    reason: "",
+    repo: null,
+  };
+  workflow.store.writePlan({ ...current, ...patch });
+}
+
+/**
+ * Merge a patch into the stage plan. A workflow without one gets the stages of its workflow
+ * definition, the unplanned job slots, and no pages.
+ */
+export function patchStagePlan(workflow: FakeRuntime, patch: Partial<StagePlan>): void {
+  const current = workflow.store.stagePlan() ?? {
+    stages: workflow.patchableWorkflowDefinition().stages.map((stage) => stage.name),
+    job_slots: UNPLANNED_JOB_SLOTS,
+    page_parent: null,
+    root_page: null,
+  };
+  workflow.store.writeStagePlan({ ...current, ...patch });
+}
+
 /** A task row patch, with the fields of the job the seeded task belongs to. */
 export type SeedTaskPatch = Partial<TaskRow> & Partial<NewJob>;
+
+/** The request a seeded job works from when the patch names no other input. */
+const SEEDED_REQUEST = "Seeded request.";
+
+/** The input kind and key of a seeded job, from the input columns the patch sets. */
+export function seededJobInput(job: Partial<NewJob>): Pick<NewJob, "input_kind" | "input_key"> {
+  if (job.issue_id) return { input_kind: "issue", input_key: job.input_key ?? job.issue_id };
+  if (job.preceding_job_id) {
+    const jobId = job.preceding_job_id;
+    return { input_kind: "artifact", input_key: jobInputKey({ kind: "artifact", jobId }) };
+  }
+  if (job.input_ref && job.input_url) {
+    const target = { ref: job.input_ref, url: job.input_url };
+    return { input_kind: "target", input_key: job.input_key ?? artifactRefKey(target) };
+  }
+  return {
+    input_kind: "request",
+    input_key: job.input_key ?? jobInputKey({ kind: "request", text: SEEDED_REQUEST }),
+  };
+}
 
 /** The job id a seeded task belongs to unless the patch names one: `wf_x.3` belongs to `wf_x-3`. */
 function seedJobId(taskId: string): string {
@@ -468,7 +549,7 @@ export function seedTask(
       stage: stage ?? "design",
       issue_id: issue_id ?? null,
       issue_key: issue_key ?? null,
-      input_key: input_key ?? issue_id ?? null,
+      ...seededJobInput({ issue_id, input_key, preceding_job_id, input_ref, input_url }),
       preceding_job_id: preceding_job_id ?? null,
       input_ref: input_ref ?? null,
       input_url: input_url ?? null,
@@ -485,13 +566,6 @@ export function seedTask(
   });
   workflow.store.updateTask(taskId, { status: "working", ...taskPatch });
   workflow.store.updateSandbox(taskId, { generation: 1, ...sandbox });
-  const sequence = Number(taskId.split(".").at(-1));
-  if (Number.isFinite(sequence) && sequence > workflow.state.task_seq) {
-    workflow.patchState({ task_seq: sequence });
-  }
-  if (Number.isFinite(sequence) && sequence > (workflow.state.job_seq ?? 0)) {
-    workflow.patchState({ job_seq: sequence });
-  }
   return workflow.store.requireTask(taskId);
 }
 
@@ -502,7 +576,7 @@ export function seedPullRequestTask(
   patch: SeedTaskPatch = {},
   seed: SeedArtifact = {},
 ): TaskRow {
-  workflow.patchState({ repo: { full: "acme/app" } });
+  patchPlan(workflow, { repo: "acme/app" });
   const task = seedTask(workflow, { stage: "implement", branch: "artfct/wf_x-1-fix", ...patch });
   const number = seed.number ?? 1;
   workflow.store.upsertArtifact({
@@ -581,14 +655,14 @@ function seedRefinerRun(
 /** Replace the reviewer list of every stage, so a test can shrink or grow the refiners. */
 export function patchStageReviewers(workflow: FakeRuntime, reviewers: ReviewerEntry[]): void {
   workflow.patchWorkflowDefinition({
-    stages: workflow.workflowDefinition().stages.map((stage) => ({ ...stage, reviewers })),
+    stages: workflow.patchableWorkflowDefinition().stages.map((stage) => ({ ...stage, reviewers })),
   });
 }
 
 /** Replace the polisher list of every stage, so a test can run refiners that change the artifact. */
 export function patchStagePolishers(workflow: FakeRuntime, polishers: RefinerEntry[]): void {
   workflow.patchWorkflowDefinition({
-    stages: workflow.workflowDefinition().stages.map((stage) => ({ ...stage, polishers })),
+    stages: workflow.patchableWorkflowDefinition().stages.map((stage) => ({ ...stage, polishers })),
   });
 }
 
@@ -596,7 +670,7 @@ export function patchStagePolishers(workflow: FakeRuntime, polishers: RefinerEnt
 export function patchStageResearch(workflow: FakeRuntime): void {
   const research = { skill: "research", harness: "opencode" as const, model: "mock" };
   workflow.patchWorkflowDefinition({
-    stages: workflow.workflowDefinition().stages.map((stage) => ({ ...stage, research })),
+    stages: workflow.patchableWorkflowDefinition().stages.map((stage) => ({ ...stage, research })),
   });
 }
 
@@ -606,11 +680,16 @@ export const MODEL_AUTHOR_MODEL = "openrouter/x-ai/grok-4.6";
 /** The page parent a test plan names. */
 export const PAGE_PARENT = "project-1";
 
-/** Run the author of every stage as a model-call task on a fake document host. */
+/** Run the author of every stage as a model-call task on a fake document host, under the test page parent. */
 export function patchModelExecution(workflow: FakeRuntime): FakeDocuments {
-  workflow.patchState({ page_parent: PAGE_PARENT });
+  patchStagePlan(workflow, { page_parent: PAGE_PARENT });
+  return patchModelAuthors(workflow);
+}
+
+/** Run the author of every stage as a model-call task on a fake document host, before any plan. */
+export function patchModelAuthors(workflow: FakeRuntime): FakeDocuments {
   workflow.patchWorkflowDefinition({
-    stages: workflow.workflowDefinition().stages.map((stage) => ({
+    stages: workflow.patchableWorkflowDefinition().stages.map((stage) => ({
       ...stage,
       author: {
         produce: {
@@ -636,8 +715,8 @@ export function patchNestingHost(
   workflow: FakeRuntime,
   answers: DocumentsAnswers = {},
 ): FakeDocuments {
-  patchModelExecution(workflow);
-  const definition = workflow.workflowDefinition();
+  patchModelAuthors(workflow);
+  const definition = workflow.patchableWorkflowDefinition();
   workflow.patchWorkflowDefinition({ documents: { ...definition.documents, root_page: "design" } });
   const host = new FakeDocuments({ ...answers, nests: true });
   workflow.documentsInstance = host;
@@ -700,11 +779,11 @@ export function seedModelAuthor(workflow: FakeRuntime, job: Partial<NewJob> = {}
     stage: "design",
     issue_id: null,
     issue_key: null,
-    input_key: null,
     preceding_job_id: null,
     branch: null,
     brief: "",
     ...job,
+    ...seededJobInput(job),
   });
   workflow.store.insertTask({
     task_id: "wf_x.1",
@@ -713,7 +792,6 @@ export function seedModelAuthor(workflow: FakeRuntime, job: Partial<NewJob> = {}
     model: MODEL_AUTHOR_MODEL,
     sandbox: null,
   });
-  workflow.patchState({ task_seq: 1, job_seq: 1 });
   return workflow.store.requireTask("wf_x.1");
 }
 

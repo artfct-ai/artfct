@@ -1,3 +1,4 @@
+import { patchPlan } from "../../../test/fake-runtime";
 import type { InboundEvent, PullDetail, ReplyTarget } from "@artfct-ai/contracts/inbound";
 import type { TaskEvent } from "../task/events";
 import { runInDurableObject } from "cloudflare:test";
@@ -8,6 +9,7 @@ import type { Workflow } from "../../workflow";
 import { failWorkflow } from "../lifecycle";
 import { type Scenario, scenario } from "../../../test/scenario";
 import { startWorkflow } from "../../../test/fresh-workflow";
+import { jobInputKey } from "../store/input-key";
 
 type Outbox = Array<{ kind: string; payload: Record<string, unknown> }>;
 
@@ -44,7 +46,7 @@ const chatThread: ReplyTarget = { source: "chat", channel: "C1", thread: "1.0" }
 const start: InboundEvent = {
   id: "evt-start",
   kind: "start",
-  actor: { person_id: "p1", email: "dev@acme.test", display_name: "Dev" },
+  actor: { email: "dev@acme.test", display_name: "Dev" },
   bindings: [],
   links: [],
   text: "fix the flaky test",
@@ -84,11 +86,11 @@ function createdFrom(
 const freshWorkflow = createdFrom(start);
 
 function firstTaskId(workflow: Workflow): string {
-  return `${workflow.state.workflow_id}.1`;
+  return `${workflow.store.requireWorkflowRow().workflow_id}.1`;
 }
 
 function firstJobId(workflow: Workflow): string {
-  return `${workflow.state.workflow_id}-1`;
+  return `${workflow.store.requireWorkflowRow().workflow_id}-1`;
 }
 
 describe("the subject of a new workflow", () => {
@@ -98,12 +100,12 @@ describe("the subject of a new workflow", () => {
       reply_to: { source: "tracker", session_id: "s-1", issue_id: "ENG-1" },
       acknowledge: undefined,
     })((workflow) => {
-      expect(workflow.state.subject).toEqual({ kind: "issue", issue_id: "ENG-1" });
+      expect(workflow.store.subject()).toEqual({ kind: "issue", issue_id: "ENG-1" });
     }));
 
   it("is unset for a workflow from a chat thread", () =>
     freshWorkflow((workflow) => {
-      expect(workflow.state.subject).toBeNull();
+      expect(workflow.store.subject()).toBeNull();
     }));
 });
 
@@ -132,7 +134,7 @@ describe("acknowledge", () => {
 
   describe("a message after the plan named the workflow", () => {
     const named = scenario(freshWorkflow, async (workflow) => {
-      workflow.patchState({ name: "Flaky checkout test" });
+      patchPlan(workflow, { name: "Flaky checkout test" });
       await workflow.handle({
         ...start,
         id: "evt-named",
@@ -158,7 +160,7 @@ describe("acknowledge", () => {
 
     it("titles the request rather than storing the empty string", () =>
       bare((workflow) => {
-        expect(workflow.state.request.title).toBe("task");
+        expect(workflow.store.requireWorkflowRow().request_title).toBe("task");
       }));
 
     it("sends that title to Slack, never an empty one", () =>
@@ -284,7 +286,8 @@ const reviewedTask = scenario(freshWorkflow, async (workflow) => {
     stage: "implement",
     issue_id: null,
     issue_key: null,
-    input_key: null,
+    input_kind: "request",
+    input_key: jobInputKey({ kind: "request", text: "Fix the login redirect." }),
     preceding_job_id: null,
     branch: null,
     brief: "",
@@ -418,7 +421,7 @@ describe("finished workflows", () => {
 
   it("reports the failure", () =>
     failed((workflow) => {
-      expect(workflow.state.status).toBe("failed");
+      expect(workflow.store.requireWorkflowRow().status).toBe("failed");
     }));
 
   describe("a message from a person", () => {
@@ -437,7 +440,7 @@ describe("finished workflows", () => {
 
     it("stays failed", () =>
       answered((workflow) => {
-        expect(workflow.state.status).toBe("failed");
+        expect(workflow.store.requireWorkflowRow().status).toBe("failed");
       }));
 
     it("refuses it with the status, so the router starts the next workflow", () =>
@@ -541,7 +544,7 @@ describe("finished workflows", () => {
 
       it("stays failed", () =>
         stillIgnored((workflow) => {
-          expect(workflow.state.status).toBe("failed");
+          expect(workflow.store.requireWorkflowRow().status).toBe("failed");
         }));
 
       it("posts nothing", () =>
@@ -577,7 +580,7 @@ describe("finished workflows", () => {
 
         it("stays failed, so a question reopens nothing", () =>
           asked((workflow) => {
-            expect(workflow.state.status).toBe("failed");
+            expect(workflow.store.requireWorkflowRow().status).toBe("failed");
           }));
       });
     });
@@ -606,7 +609,7 @@ describe("the thread title between turns", () => {
   const settled = scenario(freshWorkflow, async (workflow) => {
     recorder = new RecordingNotifier(NO_CHANNELS, () => {});
     workflow.notifier = recorder;
-    workflow.patchState({ name: "Flaky checkout test" });
+    patchPlan(workflow, { name: "Flaky checkout test" });
     await workflow.release();
     await workflow.post({ type: "info", text: "Opened the pull request." });
   });
@@ -638,20 +641,20 @@ describe("the thread title between turns", () => {
 describe("idle", () => {
   it("arms the idle alarm on creation", () =>
     freshWorkflow((workflow) => {
-      expect(workflow.state.idle_alarm).toBeTruthy();
+      expect(workflow.store.requireWorkflowRow().idle_schedule).toBeTruthy();
     }));
 
   describe("a message from a person", () => {
     let first: string | null;
     const messaged = scenario(freshWorkflow, async (workflow) => {
-      first = workflow.state.idle_alarm;
+      first = workflow.store.requireWorkflowRow().idle_schedule;
       await workflow.handle({ ...start, id: "evt-idle-prompt", kind: "prompt", text: "hi" });
     });
 
     it("starts the idle alarm over", () =>
       messaged((workflow) => {
-        expect(workflow.state.idle_alarm).toBeTruthy();
-        expect(workflow.state.idle_alarm).not.toBe(first);
+        expect(workflow.store.requireWorkflowRow().idle_schedule).toBeTruthy();
+        expect(workflow.store.requireWorkflowRow().idle_schedule).not.toBe(first);
       }));
 
     it("leaves one idle alarm armed", () =>
@@ -671,7 +674,7 @@ describe("idle", () => {
 
     it("stays new", () =>
       unplanned((workflow) => {
-        expect(workflow.state.status).toBe("new");
+        expect(workflow.store.requireWorkflowRow().status).toBe("new");
       }));
 
     it("posts nothing", () =>
@@ -691,7 +694,7 @@ describe("idle", () => {
 
     it("goes to sleep", () =>
       slept((workflow) => {
-        expect(workflow.state.status).toBe("waiting_input");
+        expect(workflow.store.requireWorkflowRow().status).toBe("waiting_input");
       }));
 
     it("posts one message", () =>
@@ -711,7 +714,7 @@ describe("idle", () => {
 
       it("wakes the workflow up", () =>
         woken((workflow) => {
-          expect(workflow.state.status).toBe("running");
+          expect(workflow.store.requireWorkflowRow().status).toBe("running");
         }));
     });
   });

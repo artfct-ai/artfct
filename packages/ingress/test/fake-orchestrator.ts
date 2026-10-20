@@ -61,6 +61,9 @@ export const FAKE_BINDINGS: BindingRecord[] = [
 /** The workspace the fake is installed in when a test does not choose one. */
 export const DEFAULT_WORKSPACE = "org_acme";
 
+/** A workflow id the fake orchestrator never created, so its status is null. */
+export const UNCREATED_WORKFLOW_ID = "wf_uncreated";
+
 /** The install result the fake answers when a test does not choose one. */
 const DEFAULT_INSTALL: LinearInstallResult = {
   installed: true,
@@ -100,7 +103,7 @@ export function fakeOrchestrator(options: FakeOrchestratorOptions = {}): FakeOrc
     },
     async status(workflowId) {
       fake.statusIds.push(workflowId);
-      return summaryFor(workflowId);
+      return workflowId === UNCREATED_WORKFLOW_ID ? null : summaryFor(workflowId);
     },
     async debug(workflowId) {
       fake.debugIds.push(workflowId);
@@ -135,13 +138,9 @@ function linearInstallHandlers(
 
 function actorFor(query: IdentityQuery): Actor {
   if (query.source === "code") {
-    return { person_id: `p_${query.user.login}`, email: null, display_name: query.user.login };
+    return { email: null, display_name: query.user.login };
   }
-  return {
-    person_id: `p_${query.user.id}`,
-    email: query.user.email ?? null,
-    display_name: query.user.name ?? null,
-  };
+  return { email: query.user.email ?? null, display_name: query.user.name ?? null };
 }
 
 function summaryFor(workflowId: string): WorkflowSummary {
@@ -153,6 +152,6 @@ function summaryFor(workflowId: string): WorkflowSummary {
     concurrency: 1,
     cost_usd: 0.25,
     repo: { full: "acme/app" },
-    reason: "",
+    reason: null,
   };
 }

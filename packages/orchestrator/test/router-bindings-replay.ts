@@ -16,7 +16,7 @@ import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVaria
 import { quintTraces } from "./quint-traces";
 import { runStartStep } from "./restart";
 import { migratedD1Database, sqliteParams } from "./sqlite-d1";
-import { FakeRuntime, seedTask } from "./fake-runtime";
+import { FakeRuntime, seedTask, patchPlan, patchStagePlan } from "./fake-runtime";
 import { openMemoryDb } from "./memory-db";
 import { testEnv } from "./test-env";
 
@@ -473,7 +473,7 @@ function pullTarget(pull: PullKeyName): ArtifactTarget {
   };
 }
 
-const PERSON: Actor = { person_id: "p1", email: "dev@acme.test", display_name: "Dev" };
+const PERSON: Actor = { email: "dev@acme.test", display_name: "Dev" };
 
 /** The spec key of each binding, by source and external id as the router stores them. */
 const BINDING_KEYS: Record<string, KeyName> = {
@@ -615,10 +615,10 @@ export class RouterBindingsReplay {
     }
     const objects: RouterView["objects"] = {};
     for (const [name, runtime] of this.runtimes) {
-      if (!runtime.state.created_at) continue;
+      if (!runtime.store.workflowRow()) continue;
       const view: ObjectView = {
         created: true,
-        ended: isWorkflowFinished(runtime.state.status),
+        ended: isWorkflowFinished(runtime.store.requireWorkflowRow().status),
         hasIssueJob: validateInputNotInWork(runtime, ISSUE_INPUT) !== null,
         openedPulls: runtime.store
           .artifacts()
@@ -708,7 +708,7 @@ export class RouterBindingsReplay {
   ): Promise<string> {
     const name = this.workflowIds[workflow];
     const runtime = name ? this.runtimes.get(name) : undefined;
-    if (!name || !runtime?.state.created_at) {
+    if (!name || !runtime?.store.workflowRow()) {
       throw new Error(`workflow ${workflow} has no created Durable Object`);
     }
     const operation = `o${this.nextOperation}`;
@@ -763,7 +763,7 @@ export class RouterBindingsReplay {
     const status = ENDED_STATUSES[this.nextEndedStatus % ENDED_STATUSES.length]!;
     this.nextEndedStatus += 1;
     await this.endWorkflowWith(runtime, status);
-    this.unbound.add(runtime.state.workflow_id);
+    this.unbound.add(runtime.store.requireWorkflowRow().workflow_id);
   }
 
   private async endWorkflowWith(runtime: FakeRuntime, status: EndedStatus): Promise<void> {
@@ -802,23 +802,23 @@ export class RouterBindingsReplay {
 
   /** The author finds its pull request. One whose earlier find a restart cut off finds it again. */
   private async openPullRequest(runtime: FakeRuntime, pull: PullKeyName): Promise<void> {
-    const taskId = `${runtime.state.workflow_id}.9`;
+    const workflowId = runtime.store.requireWorkflowRow().workflow_id;
+    const taskId = `${workflowId}.9`;
     const author =
       runtime.store.task(taskId) ??
-      seedTask(runtime, {
-        task_id: taskId,
-        job_id: `${runtime.state.workflow_id}-9`,
-        stage: "implement",
-      });
+      seedTask(runtime, { task_id: taskId, job_id: `${workflowId}-9`, stage: "implement" });
     await recordArtifact(runtime, author, pullTarget(pull));
   }
 
   /** The real create path. The subject is the issue, as the plan of a workflow from a thread names it. */
   private async createRuntime(name: string, start: WorkflowStart): Promise<RpcAck> {
     const runtime = this.runtimeOf(name);
-    runtime.patchState({ concurrency: 2 });
     const created = await createWorkflow(runtime, start);
-    runtime.patchState({ subject: { kind: "issue", issue_id: ISSUE.id } });
+    if (!runtime.store.workflowRow() || runtime.store.plan()) return created;
+    runtime.store.updateWorkflow({ status: "running" });
+    patchPlan(runtime, {});
+    patchStagePlan(runtime, { job_slots: 2 });
+    if (!runtime.store.subject()) runtime.store.writeSubject({ kind: "issue", issue_id: ISSUE.id });
     return created;
   }
 
@@ -826,8 +826,7 @@ export class RouterBindingsReplay {
   private runtimeOf(name: string): FakeRuntime {
     const known = this.runtimes.get(name);
     if (known) return known;
-    const runtime = new FakeRuntime(openMemoryDb(), this.env);
-    runtime.patchState({ workflow_id: name });
+    const runtime = new FakeRuntime(openMemoryDb(), this.env, "uncreated");
     runtime.trackerInstance = new FakeTracker({ issues: [ISSUE] });
     this.runtimes.set(name, runtime);
     return runtime;

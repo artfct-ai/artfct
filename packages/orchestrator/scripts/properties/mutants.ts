@@ -43,16 +43,16 @@ export const MUTANTS: Mutant[] = [
     id: "W2",
     invariant: "workflowLifecycle::jobStartsOnlyIntoAFreeSlot",
     path: "src/agent/tools/start/start.ts",
-    find: "if (active.length < state.concurrency) return null;",
-    replace: "if (active.length <= state.concurrency) return null;",
+    find: "if (active.length < slots) return null;",
+    replace: "if (active.length <= slots) return null;",
   },
   {
     id: "W3",
     invariant: "workflowLifecycle::nothingReopensAFinishedWorkflow",
     path: "src/workflow/inbound/events.ts",
-    find: "  if (isWorkflowFinished(workflow.state.status)) {\n    await replyFinished",
+    find: "  if (isWorkflowFinished(workflow.store.requireWorkflowRow().status)) {\n    await replyFinished",
     replace:
-      '  if (isWorkflowFinished(workflow.state.status) && event.kind !== "prompt") {\n    await replyFinished',
+      '  if (isWorkflowFinished(workflow.store.requireWorkflowRow().status) && event.kind !== "prompt") {\n    await replyFinished',
   },
   {
     id: "W4",
@@ -110,7 +110,7 @@ export const MUTANTS: Mutant[] = [
     id: "W11",
     invariant: "sessionRouting::sessionFeedEndsWhenItsAuthorIdles",
     path: "src/workflow/task/harness/turn.ts",
-    find: "  await closeSessionFeed(workflow, task, busy ? null : feedClosingOf(stopReason));\n  if (!busy)",
+    find: "  await closeSessionFeed(workflow, task, busy ? closingWhenTheAuthorGoesOn(closing) : closing);\n  if (!busy)",
     replace: "  if (!busy)",
   },
   {
@@ -445,8 +445,8 @@ export const MUTANTS: Mutant[] = [
     id: "A6",
     invariant: "agentTurns::closingTextAnswersOnlyAPersonWhoWrote",
     path: "src/agent/turn/turn.ts",
-    find: "    turn_board_changed: lostFirstRow !== null && workflow.state.turn_board_changed === true,",
-    replace: "    turn_board_changed: false,",
+    find: "    turn_board_changed:\n      lostFirstRow !== null && workflow.store.requireWorkflowRow().turn_board_changed,\n",
+    replace: "    turn_board_changed: false,\n",
   },
   {
     id: "A7",
@@ -518,8 +518,9 @@ export const MUTANTS: Mutant[] = [
     id: "W184",
     invariant: "agentTurns::theWorkingStatusNeverOutlivesItsTurn (watchdog of a finished workflow)",
     path: "src/agent/turn/watchdog.ts",
-    find: "  if (isWorkflowFinished(workflow.state.status) && !answering.length) return workflow.release();\n",
-    replace: "  if (isWorkflowFinished(workflow.state.status) && !answering.length) return;\n",
+    find: "  if (isWorkflowFinished(workflow.store.requireWorkflowRow().status) && !answering.length)\n    return workflow.release();\n",
+    replace:
+      "  if (isWorkflowFinished(workflow.store.requireWorkflowRow().status) && !answering.length)\n    return;\n",
   },
   {
     id: "W185",
@@ -527,20 +528,21 @@ export const MUTANTS: Mutant[] = [
     path: "src/agent/turn/turn.ts",
     find: '    sent.notes.map((note) => ({ role: "user" as const, content: noteMessage(note) })),\n  );\n',
     replace:
-      '    sent.notes.map((note) => ({ role: "user" as const, content: noteMessage(note) })),\n  );\n  if (sent.prompted.length) workflow.patchState({ turn_board_changed: true });\n',
+      '    sent.notes.map((note) => ({ role: "user" as const, content: noteMessage(note) })),\n  );\n  if (sent.prompted.length) workflow.store.updateWorkflow({ turn_board_changed: true });\n',
   },
   {
     id: "W186",
     invariant: "agentTurns::aPersonsTurnNeverEndsUnanswered (watchdog of a finished workflow)",
     path: "src/agent/turn/watchdog.ts",
-    find: "  if (isWorkflowFinished(workflow.state.status) && !answering.length) return workflow.release();\n",
-    replace: "  if (isWorkflowFinished(workflow.state.status)) return workflow.release();\n",
+    find: "  if (isWorkflowFinished(workflow.store.requireWorkflowRow().status) && !answering.length)\n    return workflow.release();\n",
+    replace:
+      "  if (isWorkflowFinished(workflow.store.requireWorkflowRow().status)) return workflow.release();\n",
   },
   {
     id: "W250",
     invariant: "agentTurns::aStaleTurnAlarmChangesNothing (heads-up)",
     path: "src/agent/turn/watchdog.ts",
-    find: "export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n  if (workflow.state.turn_started_at !== alarm.started_at) return;\n",
+    find: "export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n  if (workflow.store.requireWorkflowRow().turn_started_at !== alarm.started_at) return;\n",
     replace:
       "export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n",
   },
@@ -548,7 +550,7 @@ export const MUTANTS: Mutant[] = [
     id: "W251",
     invariant: "agentTurns::aStaleTurnAlarmChangesNothing (watchdog)",
     path: "src/agent/turn/watchdog.ts",
-    find: "export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n  if (workflow.state.turn_started_at !== alarm.started_at) return;\n",
+    find: "export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n  if (workflow.store.requireWorkflowRow().turn_started_at !== alarm.started_at) return;\n",
     replace:
       "export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {\n",
   },
@@ -570,9 +572,9 @@ export const MUTANTS: Mutant[] = [
     id: "W254",
     invariant: "agentTurns::theHeadsUpPostsOnceToChatInAPersonsTurn (once per turn)",
     path: "src/agent/turn/watchdog.ts",
-    find: '  workflow.patchState({ turn_heads_up: null });\n  workflow.log(null, "agent turn still running, heads-up posted");\n',
+    find: '  workflow.store.updateWorkflow({ turn_heads_up: null });\n  workflow.log(null, "agent turn still running, heads-up posted");\n',
     replace:
-      '  workflow.patchState({\n    turn_heads_up: await workflow.scheduleAlarm(HEADS_UP_SECONDS, "onTurnHeadsUp", alarm),\n  });\n',
+      '  workflow.store.updateWorkflow({\n    turn_heads_up: await workflow.scheduleAlarm(HEADS_UP_SECONDS, "onTurnHeadsUp", alarm),\n  });\n',
   },
   {
     id: "W255",
@@ -586,8 +588,8 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "agentTurns::aPersonsMessageLeavesTheInboxOnlyWithItsTurn (restart of a finished workflow)",
     path: "src/agent/turn/watchdog.ts",
-    find: "  if (isWorkflowFinished(workflow.state.status) && !workflow.transcript.takenMessages().length) {\n",
-    replace: "  if (isWorkflowFinished(workflow.state.status)) {\n",
+    find: "  if (\n    isWorkflowFinished(workflow.store.requireWorkflowRow().status) &&\n    !workflow.transcript.takenMessages().length\n  ) {\n",
+    replace: "  if (isWorkflowFinished(workflow.store.requireWorkflowRow().status)) {\n",
   },
   {
     id: "W257",
@@ -638,15 +640,8 @@ export const MUTANTS: Mutant[] = [
     id: "W239",
     invariant: "routerBindings::theRouterRowMatchesTheWorkflowEnd",
     path: "src/workflow/lifecycle.ts",
-    find: "  await writeWorkflowStatus(workflow, end.status);",
-    replace: "  await changeWorkflowStatus(workflow, end.status);",
-  },
-  {
-    id: "W218",
-    invariant: "routerBindings::aWorkflowGetsEventsOnlyOnceCreated (the create marks it created)",
-    path: "src/workflow/inbound/events.ts",
-    find: "    created_at: now(),\n",
-    replace: "",
+    find: "  await writeWorkflowStatus(workflow, end.ends_as);",
+    replace: "  await changeWorkflowStatus(workflow, end.ends_as);",
   },
   {
     id: "W420",
@@ -845,21 +840,22 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/inbound/events.ts",
     find: "  if (workflow.store.eventSeen(event.id)) return DUPLICATE;\n",
     replace:
-      "  if (!workflow.store.markEventSeen(event)) return DUPLICATE;\n  event = { ...event, id: `${event.id}:landed` };\n",
+      "  if (!workflow.store.markEventSeen(event.id)) return DUPLICATE;\n  event = { ...event, id: `${event.id}:landed` };\n",
   },
   {
     id: "W118",
     invariant: "sessionRouting::everySessionMessageLandsOnce (lands twice)",
     path: "src/workflow/inbound/events.ts",
-    find: "  if (!routesBeforeItIsSeen(workflow, event) && !workflow.store.markEventSeen(event)) {\n    return DUPLICATE;\n  }\n",
-    replace: "  if (!routesBeforeItIsSeen(workflow, event)) workflow.store.markEventSeen(event);\n",
+    find: "  if (!routesBeforeItIsSeen(workflow, event) && !workflow.store.markEventSeen(event.id)) {\n    return DUPLICATE;\n  }\n",
+    replace:
+      "  if (!routesBeforeItIsSeen(workflow, event)) workflow.store.markEventSeen(event.id);\n",
   },
   {
     id: "W115",
     invariant: "feedbackRouting::everyFeedbackIsRoutedOnce (seen on arrival)",
     path: "src/workflow/inbound/events.ts",
     find: "  if (workflow.store.eventSeen(event.id)) return DUPLICATE;\n",
-    replace: "  if (!workflow.store.markEventSeen(event)) return DUPLICATE;\n",
+    replace: "  if (!workflow.store.markEventSeen(event.id)) return DUPLICATE;\n",
   },
   {
     id: "W116",
@@ -879,7 +875,7 @@ export const MUTANTS: Mutant[] = [
     id: "W191",
     invariant: "workflowLifecycle::aPersonsMessageWakesTheWorkflow",
     path: "src/workflow/inbound/events.ts",
-    find: '  if (workflow.state.status === "waiting_input") await changeWorkflowStatus(workflow, "running");\n',
+    find: '  if (workflow.store.requireWorkflowRow().status === "waiting_input")\n    await changeWorkflowStatus(workflow, "running");\n',
     replace: "",
   },
   {
@@ -888,7 +884,7 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/lifecycle.ts",
     find: '      await workflow.post({ type: "workflow_failed", reason: end.reason }, to);\n',
     replace:
-      '      await workflow.post({ type: "workflow_failed", reason: end.reason }, to);\n      for (const target of workflow.state.reply_targets) {\n        if (target.source === "tracker") await workflow.notifier.moveIssue(target, "completed");\n      }\n',
+      '      await workflow.post({ type: "workflow_failed", reason: end.reason }, to);\n      for (const target of workflow.store.replyTargets()) {\n        if (target.source === "tracker") await workflow.notifier.moveIssue(target, "completed");\n      }\n',
   },
   {
     id: "W193",
@@ -945,8 +941,8 @@ export const MUTANTS: Mutant[] = [
     id: "W172",
     invariant: "routerBindings::aWorkflowGetsEventsOnlyOnceCreated",
     path: "src/workflow/inbound/events.ts",
-    find: '  if (!created_at) return { refused: "not_created" };\n',
-    replace: "",
+    find: '  if (!created) return { refused: "not_created" };\n',
+    replace: "  if (!created) return null;\n",
   },
   {
     id: "W173",
@@ -981,7 +977,7 @@ export const MUTANTS: Mutant[] = [
     id: "W177",
     invariant: "sessionRouting::chatWorkflowNeverSetsASessionPlan",
     path: "src/workflow/feed/feed.ts",
-    find: "  if (hasChatThread(workflow.state)) return;\n",
+    find: "  if (hasChatThread(workflow.store.replyTargets())) return;\n",
     replace: "",
   },
   {
@@ -1150,8 +1146,8 @@ export const MUTANTS: Mutant[] = [
     id: "W170",
     invariant: "agentTurns::oneTurnRunsAtATime",
     path: "src/agent/turn/watchdog.ts",
-    find: "  workflow.patchState({\n    turn_started_at: null,\n    turn_watchdog: null,",
-    replace: "  workflow.patchState({\n    turn_watchdog: null,",
+    find: "  workflow.store.updateWorkflow({\n    turn_started_at: null,\n    turn_watchdog: null,",
+    replace: "  workflow.store.updateWorkflow({\n    turn_watchdog: null,",
   },
   {
     id: "W120",
@@ -1164,7 +1160,7 @@ export const MUTANTS: Mutant[] = [
     id: "W121",
     invariant: "workflowLifecycle::sleepMessageOnlyDuringAWorkflow",
     path: "src/workflow/lifecycle.ts",
-    find: '  if (workflow.state.status !== "running") return;\n  workflow.log(null, "idle. going to sleep.");\n',
+    find: '  if (workflow.store.requireWorkflowRow().status !== "running") return;\n  workflow.log(null, "idle. going to sleep.");\n',
     replace: '  workflow.log(null, "idle. going to sleep.");\n',
   },
   {
@@ -1222,7 +1218,7 @@ export const MUTANTS: Mutant[] = [
     id: "W129",
     invariant: "workflowLifecycle::finishedWorkflowKeepsItsStatus",
     path: "src/workflow/lifecycle.ts",
-    find: "  if (workflowEnding(workflow) || isWorkflowFinished(workflow.state.status)) return false;\n",
+    find: "  if (workflowEnding(workflow) || isWorkflowFinished(status)) return false;\n",
     replace: "  if (workflowEnding(workflow)) return false;\n",
   },
   {
@@ -1266,8 +1262,8 @@ export const MUTANTS: Mutant[] = [
     id: "W135",
     invariant: "reviewLoop::oneUnfinishedRefinerRunPerArtifact",
     path: "src/workflow/refiner/loop.ts",
-    find: "  workflow.patchState({ task_seq: sequence });\n  workflow.store.setArtifactRefinerRun(author.job_id, refinerRunId);\n",
-    replace: "  workflow.patchState({ task_seq: sequence });\n",
+    find: "    model: settings.model,\n  });\n  workflow.store.setArtifactRefinerRun(author.job_id, refinerRunId);\n",
+    replace: "    model: settings.model,\n  });\n",
   },
   {
     id: "W136",
@@ -1555,7 +1551,7 @@ export const MUTANTS: Mutant[] = [
     id: "W271",
     invariant: "reviewLoop replay: the store records the send-back of each revision",
     path: "src/workflow/refiner/checks-gate.ts",
-    find: '  return workflow.store.markEventSeen({ id, kind: "checks_sent_back" });\n',
+    find: "  return workflow.store.markEventSeen(id);\n",
     replace: "  return !workflow.store.eventSeen(id);\n",
   },
   {
@@ -1695,9 +1691,9 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "workflowLifecycle::anEndedWorkflowPostsItsEndOnce (recorded posted before the post)",
     path: "src/workflow/lifecycle.ts",
-    find: "  const to = { answering: end.answering };\n  switch (end.status) {\n",
+    find: "  const to = { answering: end.answering };\n  switch (end.ends_as) {\n",
     replace:
-      "  const to = { answering: end.answering };\n  workflow.patchState({ workflow_end: { ...end, posted: true } });\n  switch (end.status) {\n",
+      "  const to = { answering: end.answering };\n  workflow.store.markWorkflowEndPosted();\n  switch (end.ends_as) {\n",
   },
   {
     id: "W295",
@@ -1791,9 +1787,9 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "reviewLoop::theHumansHearOfEachHandoverOnce (the workflow end drops the handover alarm)",
     path: "src/workflow/lifecycle.ts",
-    find: "  await writeWorkflowStatus(workflow, end.status);\n  if (!end.posted)",
+    find: "  await writeWorkflowStatus(workflow, end.ends_as);\n  if (!end.posted)",
     replace:
-      '  await workflow.cancelAlarmsWhere("postHandover", () => true);\n  await writeWorkflowStatus(workflow, end.status);\n  if (!end.posted)',
+      '  await workflow.cancelAlarmsWhere("postHandover", () => true);\n  await writeWorkflowStatus(workflow, end.ends_as);\n  if (!end.posted)',
   },
   {
     id: "W352",
@@ -1802,7 +1798,7 @@ export const MUTANTS: Mutant[] = [
     path: "src/workflow/refiner/outcome.ts",
     find: '  if (artifact?.status !== "ready") return;\n  workflow.log(null, `the handover of job',
     replace:
-      '  if (artifact?.status !== "ready" || workflow.state.status !== "running") return;\n  workflow.log(null, `the handover of job',
+      '  if (artifact?.status !== "ready" || workflow.store.requireWorkflowRow().status !== "running") return;\n  workflow.log(null, `the handover of job',
   },
   {
     id: "W355",
@@ -2142,9 +2138,8 @@ export const MUTANTS: Mutant[] = [
     id: "W383",
     invariant: "sessionFeedInvariants::theReplyNeverPostsAsNarration",
     path: "src/workflow/feed/feed.ts",
-    find: '  const message = workflow.sessionFeeds.get(task.task_id)?.message ?? "";\n  await postWaitingNarration(workflow, task, "now");\n',
-    replace:
-      '  const message = workflow.sessionFeeds.get(task.task_id)?.message ?? "";\n  if (message.trim()) workflow.store.appendNarration(task.task_id, message.trim(), isoNow(workflow));\n  await postWaitingNarration(workflow, task, "now");\n',
+    find: '  const account = closing?.kind === "narrated_account" ? message.trim() : "";\n',
+    replace: "  const account = message.trim();\n",
     propertyFile: "src/workflow/feed/feed.property.ts",
   },
   {
@@ -2160,8 +2155,9 @@ export const MUTANTS: Mutant[] = [
     invariant:
       "sessionFeedInvariants::heartbeatsAreTheOnlyPostsTheQuotaSkips (the closing waits on the quota)",
     path: "src/workflow/feed/feed.ts",
-    find: "  if (!session || !closing) return;\n",
-    replace: "  if (!session || !closing || (await requestQuotaLow(workflow))) return;\n",
+    find: '  if (!session || !closing || closing.kind === "narrated_account") return;\n',
+    replace:
+      '  if (!session || !closing || closing.kind === "narrated_account" || (await requestQuotaLow(workflow))) return;\n',
     propertyFile: "src/workflow/feed/feed.property.ts",
   },
   {
@@ -2198,6 +2194,13 @@ export const MUTANTS: Mutant[] = [
     find: "  if (await requestQuotaLow(workflow)) {\n",
     replace: "  if (false && (await requestQuotaLow(workflow))) {\n",
     propertyFile: "src/workflow/feed/feed.property.ts",
+  },
+  {
+    id: "W395",
+    invariant: "sessionRouting::aTurnEndNeverDropsItsAccount",
+    path: "src/workflow/task/harness/turn.ts",
+    find: "  await closeSessionFeed(workflow, task, busy ? closingWhenTheAuthorGoesOn(closing) : closing);\n",
+    replace: "  await closeSessionFeed(workflow, task, busy ? null : closing);\n",
   },
   {
     id: "W360",

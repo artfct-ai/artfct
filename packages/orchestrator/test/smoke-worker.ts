@@ -3,7 +3,6 @@ import { MockHarness } from "@artfct-ai/adapters/test/mock-harness";
 import type { Actor } from "@artfct-ai/contracts/inbound";
 import type { IdentityQuery } from "@artfct-ai/contracts/types";
 import { registerConfig } from "../src/config/register-config";
-import { createDb } from "../src/db/client";
 import Orchestrator from "../src/index";
 import { resolveActor } from "../src/router/identity";
 import type { WorkflowServices } from "../src/workflow";
@@ -17,7 +16,7 @@ registerConfig(SMOKE_CONFIG);
 /** The entrypoint of the smoke run. It holds no code host credential, so a fake says who may push. */
 export default class SmokeOrchestrator extends Orchestrator {
   override resolveActor(query: IdentityQuery): Promise<Actor | null> {
-    return resolveActor(this.env, createDb(this.env.DB), query, { code: new FakeCodeHost() });
+    return resolveActor(this.env, query, { code: new FakeCodeHost() });
   }
 }
 

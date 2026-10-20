@@ -7,7 +7,7 @@ import { scenario } from "../../../test/scenario";
 
 const TASK = "wf_x.1";
 const PAUSED_AT = "2026-09-03T10:00:00.000Z";
-const actor = { person_id: "p1", email: "dev@acme.test", display_name: "Dev" };
+const actor = { email: "dev@acme.test", display_name: "Dev" };
 
 function controlEvent(
   word: NonNullable<InboundEvent["control"]>,

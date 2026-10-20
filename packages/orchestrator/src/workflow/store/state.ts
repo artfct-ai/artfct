@@ -1,9 +1,5 @@
-import type { Actor, ReplyTarget } from "@artfct-ai/contracts/inbound";
-import type { TaskStatus } from "@artfct-ai/contracts/types";
-import type { WorkflowStatus } from "@artfct-ai/contracts/types";
-
-export type RequestText = { title: string; text: string; links: string[] };
-export type RepoRef = { full: string };
+import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
+import type { TaskStatus, WorkflowStatus } from "@artfct-ai/contracts/types";
 
 /** One message a person wrote in a chat thread, which a reaction is addressed to. */
 export type ChatMessageRef = { channel: string; message: string };
@@ -20,69 +16,8 @@ export type RootPage = { page_id: string; url: string; source: "container" | "na
  */
 export type Subject = { kind: "issue"; issue_id: string } | { kind: "project"; project_id: string };
 
-/** Durable state of one workflow. Small and JSON-shaped. Task rows live in SQLite. */
-export type WorkflowState = {
-  workflow_id: string;
-  status: WorkflowStatus;
-  starter: Actor | null;
-  origin: ReplyTarget | null;
-  reply_targets: ReplyTarget[];
-  request: RequestText;
-  /**
-   * The name of the workflow definition the workflow runs. The plan that starts the workflow sets
-   * it, and a later plan cannot change it. Null before that plan.
-   */
-  definition: string | null;
-  /**
-   * What the workflow works on, written once and never changed. Null until a tracker origin, the
-   * plan, or the breakdown output sets it. Absent in a workflow stored before subjects.
-   */
-  subject?: Subject | null;
-  /** The display name the plan gave the workflow. Empty until the first plan. */
-  name: string;
-  repo: RepoRef | null;
-  /** The page parent the plan named. Absent in a workflow stored before the plan could name one. */
-  page_parent?: string | null;
-  /** The root page, once the plan made or named one. Absent in a workflow stored before root pages. */
-  root_page?: RootPage | null;
-  /** The planned stages in order. A guide for the agent, which may run any configured stage. */
-  stages: string[];
-  /** Tasks that may run at once. Set by the plan, capped by `sandbox.max_concurrency`. */
-  concurrency: number;
-  task_seq: number;
-  /** The sequence of the last job. Absent in a workflow stored before jobs existed. */
-  job_seq?: number;
-  created_at: string;
-  reason: string;
-  /** When the agent turn now running began, or null between turns. Survives eviction. */
-  turn_started_at: string | null;
-  /** The schedule id of the turn watchdog alarm, or null between turns. */
-  turn_watchdog: string | null;
-  /**
-   * The schedule id of the heads-up alarm of a turn on a person's message, or null. Absent in a
-   * workflow stored before this field.
-   */
-  turn_heads_up?: string | null;
-  /**
-   * The id of the running turn's first transcript row, or the lost turn's in a resumed turn.
-   * Compaction keeps it and every row after it. Null once a turn ends. Absent in a workflow
-   * stored before this field.
-   */
-  turn_first_row?: number | null;
-  /**
-   * True once the running turn on a person's message, or the lost turn it resumes, started or
-   * prompted a task in a workflow with a chat thread. A turn that resumes nothing starts it at
-   * false. Absent in a workflow stored before this field.
-   */
-  turn_board_changed?: boolean;
-  /** The schedule id of the idle alarm that posts the sleep note, or null. */
-  idle_alarm: string | null;
-  /**
-   * The workflow end, from its request until the channels heard it. Null when the workflow is not
-   * ending. Absent in a workflow stored before this field.
-   */
-  workflow_end?: WorkflowEnd | null;
-};
+/** The statuses a workflow end ends as. */
+export type WorkflowEndStatus = Extract<WorkflowStatus, "done" | "failed" | "cancelled">;
 
 /**
  * A workflow end. `reason` is the result of a done workflow, or why it failed or was cancelled.
@@ -90,43 +25,34 @@ export type WorkflowState = {
  * `posted` is true once the channels heard the end, so a resumed end does not post again.
  */
 export type WorkflowEnd = {
-  status: Extract<WorkflowStatus, "done" | "failed" | "cancelled">;
+  ends_as: WorkflowEndStatus;
   reason: string;
   answering: ReplyTarget[];
-  posted?: boolean;
+  posted: boolean;
 };
 
-export const initialWorkflowState: WorkflowState = {
-  workflow_id: "",
-  status: "new",
-  starter: null,
-  origin: null,
-  reply_targets: [],
-  request: { title: "", text: "", links: [] },
-  definition: null,
-  subject: null,
-  name: "",
-  repo: null,
-  page_parent: null,
-  root_page: null,
-  stages: [],
-  concurrency: 1,
-  task_seq: 0,
-  job_seq: 0,
-  created_at: "",
-  reason: "",
-  turn_started_at: null,
-  turn_watchdog: null,
-  turn_heads_up: null,
-  turn_first_row: null,
-  turn_board_changed: false,
-  idle_alarm: null,
-  workflow_end: null,
+/** The plan that started the workflow: its workflow definition, its name, and why. */
+export type WorkflowPlan = {
+  definition: string;
+  name: string;
+  reason: string;
+  repo: string | null;
 };
 
-/** What every reader calls the workflow. Never empty. Stored state may lack a name or a title. */
-export function workflowName(state: { name?: string; request: RequestText }): string {
-  return state.name || state.request.title || firstLine(state.request.text);
+/** What a plan with stages set: the stages, the job slots, the page parent, and the root page. */
+export type StagePlan = {
+  stages: string[];
+  job_slots: number;
+  page_parent: string | null;
+  root_page: RootPage | null;
+};
+
+/** The job slots of a workflow whose plan did not set stages yet. */
+export const UNPLANNED_JOB_SLOTS = 2;
+
+/** The job slots of the workflow: those the stage plan set, else `UNPLANNED_JOB_SLOTS`. */
+export function jobSlotsOf(plan: StagePlan | null): number {
+  return plan?.job_slots ?? UNPLANNED_JOB_SLOTS;
 }
 
 /** Workflow statuses a workflow never leaves. */

@@ -14,16 +14,16 @@ const FAILED: TaskEvent = { type: "workflow_failed", reason: "broke" };
 const TURN_FAILED: TaskEvent = { type: "turn_failed", text: "Timed out." };
 
 function audience(origin: ReplyTarget | null, replyTargets: ReplyTarget[]): Audience {
-  return { origin, reply_targets: replyTargets };
+  return { origin, replyTargets };
 }
 
 describe("hasChatThread", () => {
   it("is true with a chat thread among the reply targets", () => {
-    expect(hasChatThread(audience(STARTING, [STARTING, THREAD]))).toBe(true);
+    expect(hasChatThread([STARTING, THREAD])).toBe(true);
   });
 
   it("is false with only tracker sessions", () => {
-    expect(hasChatThread(audience(STARTING, [STARTING, JOB_SESSION]))).toBe(false);
+    expect(hasChatThread([STARTING, JOB_SESSION])).toBe(false);
   });
 });
 

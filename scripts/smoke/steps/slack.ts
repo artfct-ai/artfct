@@ -132,9 +132,13 @@ async function startRequestFromPage(): Promise<void> {
   const stage = STAGE_NAMES[1]!;
   const planned = await waitUntil({ label: "page request planned its stages" }, async () => {
     const debug = await fetchWorkflowDebug(workflowId);
-    return debug.state.stages.length ? debug : null;
+    return debug.stage_plan ? debug : null;
   });
-  assertEqual(planned.state.stages, STAGE_NAMES.slice(1), "the plan starts after the page's stage");
+  assertEqual(
+    planned.stage_plan?.stages,
+    STAGE_NAMES.slice(1),
+    "the plan starts after the page's stage",
+  );
   const job = await waitUntil({ label: `job started for ${stage} from the page` }, async () => {
     const debug = await fetchWorkflowDebug(workflowId);
     return debug.jobs.find((row) => row.stage === stage) ?? null;
@@ -182,7 +186,7 @@ export async function runSlack(): Promise<{ workflowId: string }> {
       return debug.artifacts[0] && hasThreadReply ? debug : null;
     },
   );
-  assertEqual(withDoc.state.stages, STAGE_NAMES, "slack workflow planned every stage");
+  assertEqual(withDoc.stage_plan?.stages, STAGE_NAMES, "slack workflow planned every stage");
   assertEqual(withDoc.artifacts[0]?.external_url, docUrlForStage(firstStage), "artifact url");
   assertEqual(withDoc.artifacts[0]?.kind, "page", "artifact kind");
   assert(
@@ -200,9 +204,9 @@ export async function runSlack(): Promise<{ workflowId: string }> {
   await completeInThread(workflowId, threadTs, 0);
 
   const final = await fetchWorkflowDebug(workflowId);
-  assertEqual(final.state.reply_targets.length, 1, "slack workflow has one reply target");
+  assertEqual(final.reply_targets.length, 1, "slack workflow has one reply target");
   assertEqual(
-    final.state.reply_targets[0],
+    final.reply_targets[0],
     { source: "chat", channel: SLACK_CHANNEL, thread: threadTs },
     "reply target is the thread",
   );

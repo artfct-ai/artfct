@@ -17,6 +17,16 @@ const creator = { id: "u1", email: "dev@acme.test", name: "Dev" };
 
 const APP_USER_ID = "app1";
 
+function contextRecordingUserIds(userIds: string[]): TrackerInboundContext {
+  return {
+    ...context,
+    resolveActor: (user) => {
+      userIds.push(user.id);
+      return fakeUserActor()(user);
+    },
+  };
+}
+
 const resolveEveryoneButTheApp: TrackerActorResolver = (user) =>
   user.id === APP_USER_ID ? Promise.resolve(null) : fakeUserActor()(user);
 
@@ -180,8 +190,9 @@ describe("linear agent sessions", () => {
       const payload = session("created");
       payload.agentSession.creator = null;
       payload.agentSession.creatorId = "u9";
-      const { event } = expectEvent(await linearInbound(payload, context));
-      expect(event.actor?.person_id).toBe("p_u9");
+      const userIds: string[] = [];
+      expectEvent(await linearInbound(payload, contextRecordingUserIds(userIds)));
+      expect(userIds).toEqual(["u9"]);
     });
   });
 
@@ -205,7 +216,6 @@ describe("linear agent sessions", () => {
 
       it("is from the prompt author, not from the session opener", () => {
         expect(event.actor).toEqual({
-          person_id: "p_u2",
           email: "lead@acme.test",
           display_name: "Lead",
         });
@@ -217,8 +227,9 @@ describe("linear agent sessions", () => {
         const payload = session("prompted", "status?");
         payload.agentSession.creator = null;
         payload.agentActivity = { content: { type: "prompt", body: "status?" }, userId: "u3" };
-        const { event } = expectEvent(await linearInbound(payload, context));
-        expect(event.actor?.person_id).toBe("p_u3");
+        const userIds: string[] = [];
+        expectEvent(await linearInbound(payload, contextRecordingUserIds(userIds)));
+        expect(userIds).toEqual(["u3"]);
       });
     });
 
@@ -230,8 +241,9 @@ describe("linear agent sessions", () => {
           content: { type: "prompt", body: "hi" },
           sourceComment: { id: "c9", userId: "u4" },
         };
-        const { event } = expectEvent(await linearInbound(payload, context));
-        expect(event.actor?.person_id).toBe("p_u4");
+        const userIds: string[] = [];
+        expectEvent(await linearInbound(payload, contextRecordingUserIds(userIds)));
+        expect(userIds).toEqual(["u4"]);
       });
     });
   });
@@ -264,7 +276,7 @@ describe("linear agent sessions", () => {
     });
 
     it("names whoever pressed it as the actor", () => {
-      expect(event.actor?.person_id).toBe("p_u1");
+      expect(event.actor?.display_name).toBe("Dev");
     });
   });
 
@@ -347,7 +359,7 @@ describe("linear comments", () => {
     });
 
     it("names the comment author as the actor", () => {
-      expect(event.actor?.person_id).toBe("p_u1");
+      expect(event.actor?.display_name).toBe("Dev");
     });
   });
 
@@ -451,7 +463,7 @@ function describeEndState(state: { id: string; name: string; type: string }) {
     });
 
     it("names whoever moved the issue as the actor", () => {
-      expect(event.actor?.person_id).toBe("p_u1");
+      expect(event.actor?.display_name).toBe("Dev");
     });
   });
 }

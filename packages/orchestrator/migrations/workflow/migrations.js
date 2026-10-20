@@ -1,26 +1,10 @@
 import journal from './meta/_journal.json';
-import m0000 from './0000_neat_strong_guy.sql';
-import m0001 from './0001_rainy_payback.sql';
-import m0002 from './0002_black_darwin.sql';
-import m0003 from './0003_strange_terror.sql';
-import m0004 from './0004_careful_doctor_spectrum.sql';
-import m0005 from './0005_brainy_stranger.sql';
-import m0006 from './0006_foamy_war_machine.sql';
-import m0007 from './0007_perpetual_celestials.sql';
-import m0008 from './0008_slow_the_order.sql';
+import m0000 from './0000_dark_princess_powerful.sql';
 
   export default {
     journal,
     migrations: {
-      m0000,
-m0001,
-m0002,
-m0003,
-m0004,
-m0005,
-m0006,
-m0007,
-m0008
+      m0000
     }
   }
   

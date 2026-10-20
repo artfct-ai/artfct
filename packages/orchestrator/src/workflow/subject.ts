@@ -41,9 +41,9 @@ export async function setWorkflowSubject(
   workflow: WorkflowRuntime,
   subject: Subject,
 ): Promise<void> {
-  workflow.patchState({ subject });
+  workflow.store.writeSubject(subject);
   workflow.log(null, `subject: ${subject.kind} ${subjectId(subject)}`);
-  const { origin } = workflow.state;
+  const { origin } = workflow.store.requireWorkflowRow();
   if (subject.kind !== "issue" || origin?.source !== "chat") return;
   await workflow.notifier.linkChatThread({ issue_id: subject.issue_id }, origin);
 }
@@ -56,7 +56,7 @@ export async function validateOutputIsSubject(
   workflow: WorkflowRuntime,
   ref: TrackerRef,
 ): Promise<string | null> {
-  const subject = workflow.state.subject ?? null;
+  const subject = workflow.store.subject();
   if (!subject || refNamesSubject(subject, ref)) return null;
   const shown = await shownSubject(workflow, subject);
   return `Your output names another ${ref.kind} than the subject of this workflow, ${shown}. A workflow works only its own subject. Put the work in ${shown} and end your turn with its link.`;
@@ -67,7 +67,7 @@ export async function validatePlanKeepsSubject(
   workflow: WorkflowRuntime,
   ref: TrackerRef,
 ): Promise<string | null> {
-  const subject = workflow.state.subject ?? null;
+  const subject = workflow.store.subject();
   if (!subject || refNamesSubject(subject, ref)) return null;
   const shown = await shownSubject(workflow, subject);
   return `The subject of this workflow is ${shown}, and it never changes. Leave subject out, and ask the person to start a new workflow for the other ${ref.kind}.`;
@@ -81,7 +81,7 @@ export async function validateIssueInSubject(
   workflow: WorkflowRuntime,
   issue: TrackerIssue,
 ): Promise<string | null> {
-  const subject = workflow.state.subject ?? null;
+  const subject = workflow.store.subject();
   if (!subject) {
     return `This workflow does not have a subject yet, so a job cannot work on ${issue.identifier}. ${SET_SUBJECT_FIRST}`;
   }
@@ -109,16 +109,17 @@ export async function subjectIssues(tracker: Tracker, subject: Subject): Promise
  * workflow is done once the job on its subject completes the last planned stage.
  */
 export function isSingleIssueWorkflow(workflow: WorkflowRuntime): boolean {
-  if (workflow.state.subject?.kind !== "issue") return false;
+  if (workflow.store.subject()?.kind !== "issue") return false;
   const { stages } = workflow.workflowDefinition();
-  return !workflow.state.stages.some(
+  return !(workflow.store.stagePlan()?.stages ?? []).some(
     (name) => stages.find((stage) => stage.name === name)?.artifact === "issues",
   );
 }
 
 /** True when completing this job ends a single-issue workflow: it works on the subject at the last planned stage. */
 export function jobCompletesSingleIssueWorkflow(workflow: WorkflowRuntime, job: JobRow): boolean {
-  const { subject, stages } = workflow.state;
+  const subject = workflow.store.subject();
+  const stages = workflow.store.stagePlan()?.stages ?? [];
   if (subject?.kind !== "issue" || job.issue_id !== subject.issue_id) return false;
   return stages.at(-1) === job.stage && isSingleIssueWorkflow(workflow);
 }

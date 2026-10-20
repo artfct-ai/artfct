@@ -14,9 +14,8 @@ type EventKind =
 /** The verbal commands a `control` event carries. */
 export type VerbalCommand = "cancel" | "pause" | "resume" | "instruct";
 
-/** The person behind an event, resolved to an internal person ID. */
+/** The person behind an event, with the name and email their vendor reports for it. */
 export type Actor = {
-  person_id: string;
   email: string | null;
   display_name: string | null;
 };

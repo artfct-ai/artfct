@@ -17,7 +17,7 @@ const DECISIONS_DEADLINE_MS = 5;
 const asked: InboundEvent = {
   id: "evt-asked",
   kind: "prompt",
-  actor: { person_id: "p1", email: "dev@acme.test", display_name: "Dev" },
+  actor: { email: "dev@acme.test", display_name: "Dev" },
   bindings: [],
   links: [],
   text: "What is the status?",
@@ -29,7 +29,7 @@ function personWrote(workflow: FakeRuntime, text: string): void {
     { ...asked, text },
     { first: false, job: null, artifact: null, notes: [] },
   );
-  workflow.transcript.enqueue(message, "message");
+  workflow.transcript.enqueue(message, "message", { body: text });
 }
 
 type Stuck = { workflow: FakeRuntime; decisions: HangingDecisions; elapsedMs: number };
@@ -70,7 +70,7 @@ describe("a turn whose decisions call never returns", () => {
 
   it("lets go of the turn", () =>
     stuck(({ workflow }) => {
-      expect(workflow.state.turn_started_at).toBeNull();
+      expect(workflow.store.requireWorkflowRow().turn_started_at).toBeNull();
     }));
 });
 

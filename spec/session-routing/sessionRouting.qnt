@@ -75,8 +75,10 @@ module sessionRoutingTypes {
 
   /// The kind of a closing in the feed. `ReplyActivity` is a response that holds the author's last
   /// message, and `DoneActivity` is the response without one. `StoppedActivity` is the stopped
-  /// reply. The spec does not model the thoughts of the feed: narration, receipts, and heartbeats.
-  type FeedKind = ReplyActivity | DoneActivity | StoppedActivity | ErrorActivity
+  /// reply. `NarratedAccount` is the author's last message as narration, a persistent thought,
+  /// when the author goes straight into its next turn. The spec does not model the other thoughts
+  /// of the feed: the narration before a tool call, receipts, and heartbeats.
+  type FeedKind = ReplyActivity | DoneActivity | StoppedActivity | ErrorActivity | NarratedAccount
 
   /// One feed activity in the job session of a job, and how many activities the tracker stored
   /// across the attempts to post it.
@@ -144,7 +146,9 @@ module sessionRoutingTypes {
   /// `stoppedIn` holds the issue of a session where a person pressed Stop. `health` is how the
   /// tracker answered the step's feed activities. `researchEnded` holds each researcher turn that
   /// ended without a payload its author may take. `startRefusedBesideTheIssuesJob` holds when a
-  /// job start names an issue whose job is not over and is refused.
+  /// job start names an issue whose job is not over and is refused. `accounts` holds the jobs
+  /// whose author's turn ended on its own while the feed kept the author's last message, the
+  /// turn's closing account.
   type StepFacts = {
     wrote: Wrote,
     answered: Set[Target],
@@ -158,6 +162,7 @@ module sessionRoutingTypes {
     health: TrackerHealth,
     researchEnded: Set[{ job: int, ending: ResearchEnding }],
     startRefusedBesideTheIssuesJob: bool,
+    accounts: Set[int],
   }
 
   /// Whether the last step kept each rule that spans a step.
@@ -173,6 +178,7 @@ module sessionRoutingTypes {
     todoListIsFixedAfterFirstArtifact: bool,
     aStopAnswersOnlyInTheFeed: bool,
     aResearcherThatDidNotFinishRestartsOrFails: bool,
+    aTurnEndNeverDropsItsAccount: bool,
   }
 
   /// The state of one step and the feed activities and posts of the turn end that led to it.
@@ -282,6 +288,7 @@ module sessionRouting {
     health: TrackerUp,
     researchEnded: Set(),
     startRefusedBesideTheIssuesJob: false,
+    accounts: Set(),
   }
 
   pure val NO_DELIVERY_WITNESSES: DeliveryWitnesses = {
@@ -539,6 +546,21 @@ module sessionRouting {
       idlesInSession implies feedOfJob(facts, id).length() > 0
     })
 
+  /// Each turn that ended on its own with a closing account posts it. An author that idles in its
+  /// job session ends the feed on the reply that holds it. An author that goes straight into its
+  /// next turn in the same sandbox posts it as narration. A restart or a failure ends the turn on
+  /// its own terms.
+  pure def turnEndKeepsItsAccount(before: Routing, after: Routing, facts: StepFacts): bool =
+    facts.accounts.forall(id => {
+      val job = after.jobs[id]
+      val idles = job.author == Idle or job.author == InReview
+      val goesStraightOn = job.author == InTurn and job.restarts == before.jobs[id].restarts
+      and {
+        idles implies lastFeedIs(facts, id, kind => kind == ReplyActivity),
+        goesStraightOn implies feedOfJob(facts, id).select(posted => posted.kind == NarratedAccount).length() > 0,
+      }
+    })
+
   /// The tracker holds each feed activity at most once, whatever the retries.
   pure def postsOnce(facts: StepFacts): bool = facts.feed.foldl(true, (once, posted) => once and posted.stored <= 1)
 
@@ -601,6 +623,7 @@ module sessionRouting {
     todoListIsFixedAfterFirstArtifact: todosFixedAfterArtifact(before, after),
     aStopAnswersOnlyInTheFeed: stopAnswersOnlyInTheFeed(before, after, facts),
     aResearcherThatDidNotFinishRestartsOrFails: unfinishedResearchRestartsOrFails(before, after, facts),
+    aTurnEndNeverDropsItsAccount: turnEndKeepsItsAccount(before, after, facts),
   }
 
   action moveMessages(
@@ -680,12 +703,22 @@ module sessionRouting {
     cutClosingReplies' = Map(),
   }
 
+  /// `closingWhenTheAuthorGoesOn`: the author goes straight into its next turn, so a reply that
+  /// holds its last message posts as narration. Any other closing does not post.
+  pure def accountWhenGoingOn(state: Routing, id: int, closing: FeedKind): List[FeedPost] =
+    if (closing == ReplyActivity) feedOf(state, id, NarratedAccount, TrackerUp) else List()
+
   /// `settleAndResumeAuthor` and the feed closing after it. The next queued prompt goes out, and
-  /// the feed closes without a post. Without one, or while the author is paused, the author idles,
-  /// or waits in review once its artifact is out, and the feed closes on `closing`.
+  /// the feed posts the turn's account as narration. Without one, or while the author is paused,
+  /// the author idles, or waits in review once its artifact is out, and the feed closes on
+  /// `closing`.
   pure def settleAuthor(state: Routing, id: int, closing: FeedKind): TurnEnd =
     if (state.jobs[id].queued > 0 and not(state.jobs[id].paused))
-      { state: withJob(state, id, job => { ...forgetMessage(job), queued: job.queued - 1 }), feed: List(), posts: List() }
+      {
+        state: withJob(state, id, job => { ...forgetMessage(job), queued: job.queued - 1 }),
+        feed: accountWhenGoingOn(state, id, closing),
+        posts: List(),
+      }
     else {
       val idle = withJob(state, id, job => { ...forgetMessage(job), author: if (job.handedOver) InReview else Idle })
       { state: idle, feed: feedOf(state, id, closing, TrackerUp), posts: List() }
@@ -701,12 +734,17 @@ module sessionRouting {
     { state: withJob(state, id, job => { ...forgetMessage(job), author: Finished, queued: 0, cancelSent: false }), feed: List(), posts: List(post(state, FailedPost, Set())) }
 
   /// `nudgeOrRestartStalledTask` on a stall with nothing queued. A first stall queues the nudge,
-  /// which goes out at once. A stall after the nudge restarts the author, whose feed closes on
-  /// `closing`, or fails it once its restarts are used up.
+  /// which goes out at once, so the feed posts the turn's account as narration. A stall after the
+  /// nudge restarts the author, whose feed closes on `closing`, or fails it once its restarts are
+  /// used up.
   pure def stall(state: Routing, id: int, closing: FeedKind): TurnEnd = {
     val job = state.jobs[id]
     if (not(job.nudged))
-      { state: withJob(state, id, author => { ...forgetMessage(author), nudged: true }), feed: List(), posts: List() }
+      {
+        state: withJob(state, id, author => { ...forgetMessage(author), nudged: true }),
+        feed: accountWhenGoingOn(state, id, closing),
+        posts: List(),
+      }
     else if (job.restarts < MAX_RESTARTS)
       { state: restartAuthor(state, id), feed: feedOf(state, id, closing, TrackerUp), posts: List() }
     else failAuthor(state, id)
@@ -1127,7 +1165,9 @@ module sessionRouting {
 
   /// An author's turn ends, and its board flushes. A turn that got a cancel ends cancelled. The
   /// job session gets the author's todo list as its plan before the closing reply. The Durable
-  /// Object may restart while the closing reply is out, when the turn end posts nothing else.
+  /// Object may restart while the closing reply is out, when the turn end posts nothing else. A
+  /// restart while the narrated account is out is the session feed property's case, since the
+  /// account waits with the narration until its post returns.
   action authorTurnEnds: bool = {
     nondet id = JOB_SLOTS.oneOf()
     nondet turnEnding = Set(Replies, EndsSilently, StopsEarly, GivesUp, PromptFails, Cancelled).oneOf()
@@ -1136,8 +1176,13 @@ module sessionRouting {
       inTurn(routing, id),
       routing.jobs[id].cancelSent iff turnEnding == Cancelled,
       val ended = turnEndOf(routing, id, turnEnding)
+      val spoke = if (Set(Replies, StopsEarly, GivesUp).contains(turnEnding)) says(routing, id) else routing
+      val endsOnItsOwn = Set(Replies, EndsSilently, StopsEarly, GivesUp).contains(turnEnding)
       all {
-        RESTARTS_MID_POST.contains(health) implies ended.posts.length() == 0,
+        RESTARTS_MID_POST.contains(health) implies and {
+          ended.posts.length() == 0,
+          ended.feed.select(posted => posted.kind == NarratedAccount).length() == 0,
+        },
         moveWithFeed(
           flushBoard(ended.state, id),
           {
@@ -1148,6 +1193,7 @@ module sessionRouting {
             turnEnded: Set(id),
             cancelled: if (turnEnding == Cancelled) Set(id) else Set(),
             health: health,
+            accounts: if (endsOnItsOwn and spoke.jobs[id].buffered) Set(id) else Set(),
           },
         ),
       },
@@ -1473,6 +1519,10 @@ module sessionRouting {
   /// The tracker stores each feed activity at most once across retries.
   val feedActivityPostsOnce: bool = lastStepKept.feedActivityPostsOnce
 
+  /// A turn end with a closing account posts it as the closing reply, or as narration when the
+  /// author goes straight on.
+  val aTurnEndNeverDropsItsAccount: bool = lastStepKept.aTurnEndNeverDropsItsAccount
+
   /// A researcher turn that left no payload, gave up, or stopped on a limit does not start the
   /// author. The researcher counts one restart, or fails once its restarts are used up.
   val aResearcherThatDidNotFinishRestartsOrFails: bool = lastStepKept.aResearcherThatDidNotFinishRestartsOrFails
@@ -1636,7 +1686,7 @@ module sessionRouting {
 
   pure def feedHas(facts: StepFacts, kind: FeedKind): bool = facts.feed.foldl(false, (found, posted) => found or posted.kind == kind)
 
-  /// Witness for `sessionFeedEndsWhenItsAuthorIdles`: an author idles in its job session on the reply that holds its message.
+  /// Witness for `sessionFeedEndsWhenItsAuthorIdles` and `aTurnEndNeverDropsItsAccount`: an author idles in its job session on the reply that holds its message.
   val anAuthorRepliesInItsSession: bool = feedHas(lastStep, ReplyActivity) and lastStep.turnEnded.size() > 0
 
   /// Witness for `sessionFeedEndsWhenItsAuthorIdles`: an author whose message the feed lost idles on "Done.".
@@ -1645,6 +1695,10 @@ module sessionRouting {
   /// Witness for `sessionFeedEndsWhenItsAuthorIdles`: a failed prompt leaves an author idle on the error.
   val aFailedPromptEndsTheFeed: bool =
     feedHas(lastStep, ErrorActivity) and lastStep.turnEnded.exists(id => routing.jobs[id].author == Idle)
+
+  /// Witness for `aTurnEndNeverDropsItsAccount`: a turn ends while a prompt waits, and the author's account posts as narration.
+  val aTurnEndNarratesItsAccount: bool =
+    feedHas(lastStep, NarratedAccount) and lastStep.turnEnded.exists(id => routing.jobs[id].author == InTurn)
 
   /// Witness for `sessionFeedEndsWhenItsAuthorIdles`: a turn ends while a prompt waits, so the author goes on.
   val aQueuedPromptKeepsTheFeedOpen: bool =

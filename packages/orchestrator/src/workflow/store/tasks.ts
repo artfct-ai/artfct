@@ -1,8 +1,7 @@
-import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
+import { and, count, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import type { Review } from "../../artifact/types";
 import type { TaskRole } from "../task/events";
 import { TURN_PURPOSE } from "../../agent/model/usage";
-import { BoardStore } from "../board/board-store";
 import {
   jobs,
   modelUsage,
@@ -16,6 +15,7 @@ import {
 } from "./schema";
 import type { RpcPurpose } from "./schema";
 import { FINISHED_TASK_STATUSES, now } from "./state";
+import { WorkflowRowStore } from "./workflow-row";
 
 export type { ArtifactRow } from "./records";
 export type JobRow = typeof jobs.$inferSelect;
@@ -100,7 +100,7 @@ const REFINER_ROLES: TaskRole[] = ["reviewer", "polisher"];
 const HANDSHAKE_PURPOSES: RpcPurpose[] = ["initialize", "session_new", "set_effort"];
 
 /** Typed access to the workflow's task, model usage, rpc, and prompt queue tables. */
-export class WorkflowStore extends BoardStore {
+export class WorkflowStore extends WorkflowRowStore {
   private readonly taskById = this.db
     .select()
     .from(tasks)
@@ -165,6 +165,11 @@ export class WorkflowStore extends BoardStore {
 
   tasks(): TaskRow[] {
     return this.allTasks.all();
+  }
+
+  /** How many tasks the workflow started. The store never deletes a task, so it numbers the next. */
+  taskCount(): number {
+    return this.db.select({ total: count() }).from(tasks).get()?.total ?? 0;
   }
 
   /**
@@ -260,6 +265,11 @@ export class WorkflowStore extends BoardStore {
 
   jobs(): JobRow[] {
     return this.allJobs.all();
+  }
+
+  /** How many jobs the workflow started. The store never deletes a job, so it numbers the next. */
+  jobCount(): number {
+    return this.db.select({ total: count() }).from(jobs).get()?.total ?? 0;
   }
 
   /** The job whose pull request lives on this branch, if any. */
@@ -368,7 +378,7 @@ export class WorkflowStore extends BoardStore {
   workflowCost(): number {
     const calls = this.db.select({ cost_usd: modelUsage.cost_usd }).from(modelUsage).all();
     const harnesses = this.db.select({ cost_usd: tasks.cost_usd }).from(tasks).all();
-    return [...calls, ...harnesses].reduce((total, row) => total + row.cost_usd, 0);
+    return [...calls, ...harnesses].reduce((total, row) => total + (row.cost_usd ?? 0), 0);
   }
 
   modelUsage(): ModelUsageRow[] {

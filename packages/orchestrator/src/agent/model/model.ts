@@ -38,7 +38,10 @@ export function orchestratorModel(
   if (!gateway) {
     throw new Error(`model ${modelName} needs ${GATEWAY_SECRETS[provider]}.`);
   }
-  const metadata = { workflow_id: workflow.state.workflow_id, stage: "orchestrator" };
+  const metadata = {
+    workflow_id: workflow.store.requireWorkflowRow().workflow_id,
+    stage: "orchestrator",
+  };
   const route = gateway.compatRoute(modelName, metadata);
   const sdk = createOpenAICompatible({
     name: PROVIDER_NAME,

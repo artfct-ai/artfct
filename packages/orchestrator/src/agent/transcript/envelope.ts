@@ -38,15 +38,6 @@ export function eventMessage(event: InboundEvent, context: EnvelopeContext): str
   return lines.join("\n");
 }
 
-/** The words the person wrote, read back out of an event message. Empty for a note. */
-export function eventBody(message: string): string {
-  if (!parseHeader(message)) return "";
-  const [, ...blocks] = message.split("\n\n");
-  return blocks
-    .filter((block) => !block.startsWith(LINKS_LABEL) && !block.startsWith(SYSTEM_NOTES_LABEL))
-    .join("\n\n");
-}
-
 /** A message from the system itself: harness progress, timers, executed controls. */
 export function noteMessage(text: string): string {
   return `[note]\n${text}`;
@@ -78,7 +69,7 @@ function fromLine(event: InboundEvent): string {
 
 function actorName(event: InboundEvent): string {
   if (!event.actor) return "the system, not a person";
-  return event.actor.display_name ?? event.actor.email ?? event.actor.person_id;
+  return event.actor.display_name ?? event.actor.email ?? "an unnamed person";
 }
 
 function pullRequestLine(pull: PullEventDetail, action: string): string {

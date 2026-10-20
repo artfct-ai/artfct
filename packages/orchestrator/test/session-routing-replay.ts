@@ -20,7 +20,7 @@ import { onWallClock } from "../src/workflow/task/harness/timers";
 import type { TaskEvent } from "../src/workflow/task/events";
 import type { WorkflowRuntime } from "../src/workflow/types";
 import { Deferred } from "./deferred";
-import { FakeRuntime } from "./fake-runtime";
+import { FakeRuntime, PAGE_PARENT } from "./fake-runtime";
 import { itfBool, itfField, itfInt, itfList, itfOneOf, itfSet, itfText, itfVariant } from "./itf";
 import { quintTraces } from "./quint-traces";
 import type { TrackerHealth } from "./session-tracker";
@@ -82,7 +82,13 @@ const POST_KINDS = [
   "InfoPost",
   "TurnFailedPost",
 ] as const;
-const FEED_KINDS = ["ReplyActivity", "DoneActivity", "StoppedActivity", "ErrorActivity"] as const;
+const FEED_KINDS = [
+  "ReplyActivity",
+  "DoneActivity",
+  "StoppedActivity",
+  "ErrorActivity",
+  "NarratedAccount",
+] as const;
 const SESSION_TEXTS = ["Question", "StatusRequest", "PauseCommand", "CancelCommand"] as const;
 const OUTCOMES = ["Answers", "Asks", "TimesOut"] as const;
 const ENDINGS = ["Finishes", "Fails"] as const;
@@ -467,7 +473,9 @@ function issueKeyOfTarget(target: unknown): string | null {
   return typeof target.issue_id === "string" ? target.issue_id : null;
 }
 
+/** The spec's kind of a feed activity. The only thought the spec's feed takes is a narrated account. */
 function feedKindOf(content: AgentActivityContent): FeedKind {
+  if (content.type === "thought") return "NarratedAccount";
   if (content.type === "error") return "ErrorActivity";
   if (content.type !== "response") throw new Error(`the spec has no feed kind ${content.type}`);
   if (content.body === STOPPED_TEXT) return "StoppedActivity";
@@ -478,6 +486,30 @@ function feedKindOf(content: AgentActivityContent): FeedKind {
 function feedActivityOf(payload: unknown): FeedActivity {
   if (typeof payload !== "object" || payload === null) throw new Error("a feed row has no payload");
   return payload as FeedActivity;
+}
+
+/**
+ * The narration posts of a turn end that carry the closing account. A turn end posts the narration
+ * that waited before it, so a post that carries more holds the account.
+ */
+function narratedAccounts(
+  rows: { channel: string; kind: string; payload: unknown }[],
+  narrationBefore: Map<string, string>,
+): FeedActivity[] {
+  return rows
+    .filter((row) => row.channel === "feed" && row.kind === "thought")
+    .map((row) => row.payload)
+    .filter(isPersistentActivity)
+    .filter(
+      (activity) =>
+        activity.content.type === "thought" &&
+        activity.content.body !== narrationBefore.get(activity.task_id),
+    );
+}
+
+/** A persistent feed activity carries its id. An ephemeral thought does not. */
+function isPersistentActivity(payload: unknown): payload is FeedActivity {
+  return typeof payload === "object" && payload !== null && "id" in payload;
 }
 
 function todosOf(workflow: WorkflowRuntime, task: TaskRow | null): SpecTodos {
@@ -531,12 +563,16 @@ export class SessionRoutingReplay {
       }
       return FakeRuntime.prototype.scheduleAlarm.apply(this, alarm);
     };
-    await world.apply(worldAction("the agent sets the plan", () => setPlan(workflow, {})));
+    const pageParent = SPEC_SETUPS[setup].pageAuthor === "model" ? PAGE_PARENT : undefined;
+    await world.apply(
+      worldAction("the agent sets the plan", () => setPlan(workflow, { page_parent: pageParent })),
+    );
     return replay;
   }
 
   /** Take one spec action, then bring up every sandbox that waits. Returns what the step sent. */
   async take(step: Pick<TraceStep, "action" | "picks">): Promise<SpecOutput> {
+    const narrationBefore = this.waitingNarration();
     const deliveriesBefore = this.world.workflow.deliveries.length;
     const outboxBefore = this.world.lastOutboxId();
     const health = step.picks.health ?? "TrackerUp";
@@ -557,6 +593,7 @@ export class SessionRoutingReplay {
     const feed = rows
       .filter((row) => row.channel === "feed" && !NOT_FEED_ACTIVITIES.includes(row.kind))
       .map((row) => feedActivityOf(row.payload));
+    if (step.action === "authorTurnEnds") feed.push(...narratedAccounts(rows, narrationBefore));
     if (isRestartMidPost(health) && step.action !== "closingReplyAlarmFires") {
       this.cutReplies.push(
         ...this.closingReplyAlarms()
@@ -576,6 +613,18 @@ export class SessionRoutingReplay {
         .map((row) => issueOfKey(issueKeyOfTarget(row.target)))
         .toSorted(),
     };
+  }
+
+  /** The narration that waits for each author, by task. */
+  private waitingNarration(): Map<string, string> {
+    const { store } = this.world.workflow;
+    return new Map(
+      store.jobs().flatMap((job) => {
+        const author = store.authorTask(job.job_id);
+        if (!author) return [];
+        return [[author.task_id, store.sessionFeed(author.task_id)?.narration ?? ""] as const];
+      }),
+    );
   }
 
   /** The session messages as the spec sees them, in the order they were sent. */
@@ -609,11 +658,11 @@ export class SessionRoutingReplay {
   /** The workflow as the spec sees it. */
   project(): SpecRouting {
     const { workflow } = this.world;
-    const { store, state, transcript } = workflow;
+    const { store, transcript } = workflow;
     const jobs = store.jobs();
     return {
-      subject: specSubjectOf(state.subject ?? null),
-      replyTargets: state.reply_targets.map(targetName).toSorted(),
+      subject: specSubjectOf(store.subject()),
+      replyTargets: store.replyTargets().map(targetName).toSorted(),
       jobs: jobs.map((job) => {
         const author = store.authorTask(job.job_id);
         const researcher = store.researcherTask(job.job_id);
@@ -658,8 +707,8 @@ export class SessionRoutingReplay {
         )
         .filter((name, index, names) => names.indexOf(name) === index)
         .toSorted(),
-      waitsForInput: state.status === "waiting_input",
-      ended: isWorkflowFinished(state.status),
+      waitsForInput: store.requireWorkflowRow().status === "waiting_input",
+      ended: isWorkflowFinished(store.requireWorkflowRow().status),
     };
   }
 
@@ -815,7 +864,8 @@ export class SessionRoutingReplay {
       case "idleClockFiresWithoutASleep":
         return worldAction("the idle clock fires", async (world) => {
           const { workflow } = world;
-          if (workflow.state.idle_alarm) await workflow.cancelAlarm(workflow.state.idle_alarm);
+          const idleSchedule = workflow.store.requireWorkflowRow().idle_schedule;
+          if (idleSchedule) await workflow.cancelAlarm(idleSchedule);
           await onIdle(workflow);
         });
       case "boardFlushes":
@@ -894,10 +944,12 @@ export class SessionRoutingReplay {
     world: WorkflowWorld,
     issue: Issue,
   ): Extract<ReplyTarget, { source: "tracker" }> {
-    const session = world.workflow.state.reply_targets.find(
-      (target): target is Extract<ReplyTarget, { source: "tracker" }> =>
-        target.source === "tracker" && target.issue_id === ISSUE_KEY[issue],
-    );
+    const session = world.workflow.store
+      .replyTargets()
+      .find(
+        (target): target is Extract<ReplyTarget, { source: "tracker" }> =>
+          target.source === "tracker" && target.issue_id === ISSUE_KEY[issue],
+      );
     if (!session) throw new Error(`the workflow has no session on ${issue}`);
     return session;
   }
@@ -1070,7 +1122,10 @@ export class SessionRoutingReplay {
 }
 
 /** The agent sets the plan of the one stage, and names `subject` when given. */
-async function setPlan(workflow: WorkflowRuntime, named: { subject?: string }): Promise<void> {
+async function setPlan(
+  workflow: WorkflowRuntime,
+  named: { subject?: string; page_parent?: string },
+): Promise<void> {
   await planTools(workflow).set_plan.execute(
     {
       name: "Fix login",
@@ -1078,7 +1133,7 @@ async function setPlan(workflow: WorkflowRuntime, named: { subject?: string }): 
       reason: "the request asks for a design",
       stages: [STAGE],
       repo: REPO,
-      page_parent: workflow.state.page_parent,
+      page_parent: workflow.store.stagePlan()?.page_parent ?? undefined,
       concurrency: ISSUES.length,
       ...named,
     },

@@ -16,7 +16,8 @@
     "aStopAnswersOnlyInTheFeed",
     "researchReadsCompleteOnceTheAuthorStarts",
     "everySessionMessageLandsOnce",
-    "closingReplyPostsOnceAfterAnInstanceRestart"
+    "closingReplyPostsOnceAfterAnInstanceRestart",
+    "aTurnEndNeverDropsItsAccount"
   ],
   "mainMinutes": {
     "chatThread": 1.1,
@@ -44,6 +45,7 @@
       "anAuthorIdlesOnDone",
       "aFailedPromptEndsTheFeed",
       "aQueuedPromptKeepsTheFeedOpen",
+      "aTurnEndNarratesItsAccount",
       "aRetriedActivityIsStoredOnce",
       "aChatWorkflowReportsTodosBesideASession",
       "anArtifactCompletesTheTodoList",
@@ -75,6 +77,7 @@
       "anAuthorIdlesOnDone",
       "aFailedPromptEndsTheFeed",
       "aQueuedPromptKeepsTheFeedOpen",
+      "aTurnEndNarratesItsAccount",
       "aStalledAuthorRestarts",
       "aRetriedActivityIsStoredOnce",
       "aRestartCutsAClosingReplyBeforeItIsStored",

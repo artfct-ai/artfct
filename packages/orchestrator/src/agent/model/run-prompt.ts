@@ -67,7 +67,7 @@ async function runOnModel(
         prompt: text,
         abortSignal: options.abortSignal ? AbortSignal.any([signal, options.abortSignal]) : signal,
         ...agentTelemetry(
-          orchestratorIdentity(workflow.state.workflow_id),
+          orchestratorIdentity(workflow.store.requireWorkflowRow().workflow_id),
           `prompt:${prompt.name}`,
         ),
       }),

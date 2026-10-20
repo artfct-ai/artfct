@@ -18,7 +18,7 @@ const PAGE_URL = `https://www.notion.so/acme/${PAGE_ID}`;
 const wrote: InboundEvent = {
   id: "evt-reviewed",
   kind: "prompt",
-  actor: { person_id: "p1", email: "dev@acme.test", display_name: "Dev" },
+  actor: { email: "dev@acme.test", display_name: "Dev" },
   bindings: [],
   links: [],
   text: "@artfct left a review",
@@ -44,7 +44,7 @@ function personTurn(answers: Record<string, number>): Scenario<Turned> {
         ref: { kind: "page", page_id: PAGE_ID },
       });
       const message = eventMessage(wrote, { first: false, job: null, artifact: null, notes: [] });
-      workflow.transcript.enqueue(message, "message");
+      workflow.transcript.enqueue(message, "message", { body: wrote.text });
       await runAgentTurn(workflow);
       await run({ workflow, model });
     });

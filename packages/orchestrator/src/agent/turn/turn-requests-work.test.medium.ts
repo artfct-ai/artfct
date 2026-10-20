@@ -12,7 +12,7 @@ import { runAgentTurn } from "./turn";
 const wrote: InboundEvent = {
   id: "evt-wrote",
   kind: "start",
-  actor: { person_id: "p1", email: "dev@acme.test", display_name: "Dev" },
+  actor: { email: "dev@acme.test", display_name: "Dev" },
   bindings: [],
   links: [],
   text: "how does the refiner work?",
@@ -26,7 +26,7 @@ function personTurn(answers: Record<string, number>): Scenario<EchoModel> {
       workflow.modelInstance = model;
       workflow.gatewayInstance = new FakeGateway({ decisions: new FakeDecisions(answers) });
       const message = eventMessage(wrote, { first: true, job: null, artifact: null, notes: [] });
-      workflow.transcript.enqueue(message, "message");
+      workflow.transcript.enqueue(message, "message", { body: wrote.text });
       await runAgentTurn(workflow);
       await run(model);
     });

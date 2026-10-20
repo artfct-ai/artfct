@@ -10,7 +10,6 @@ export type LinearTokenFields = {
   access_token: string;
   refresh_token: string | null;
   expires_at: string;
-  scope: string;
 };
 
 /** Everything an install records besides its timestamps. */

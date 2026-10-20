@@ -54,7 +54,7 @@ export async function runLinearCancel(): Promise<void> {
   const cancelled = await waitUntil({ label: "workflow cancelled from the issue" }, async () => {
     const debug = await fetchWorkflowDebug(workflowId);
     const done =
-      debug.state.status === "cancelled" && taskById(debug, taskId).status === "cancelled";
+      debug.workflow.status === "cancelled" && taskById(debug, taskId).status === "cancelled";
     return done ? debug : null;
   });
   assert(

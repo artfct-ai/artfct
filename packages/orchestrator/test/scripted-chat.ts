@@ -82,5 +82,5 @@ export function attachChat(workflow: FakeRuntime, chat: FakeChat): void {
     { tracker: async () => null, chat, documents: async () => null },
     (entry) => workflow.store.writeOutbox(entry),
   );
-  workflow.state.reply_targets = [BOARD_THREAD];
+  workflow.store.addReplyTarget(BOARD_THREAD);
 }

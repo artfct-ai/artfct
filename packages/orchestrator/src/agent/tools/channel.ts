@@ -124,7 +124,7 @@ export function channelTools(
         "Ask the humans a question and wait for the answer. The question is the last message of this turn. A running workflow shows as waiting for input until a job runs.",
       inputSchema: z.object({ text: z.string().min(1) }),
       execute: async ({ text }) => {
-        const running = workflow.state.status === "running";
+        const running = workflow.store.requireWorkflowRow().status === "running";
         if (running && !workflow.store.activeAuthorAndResearcherTasks().length)
           await changeWorkflowStatus(workflow, "waiting_input");
         await workflow.post({ type: "question", text }, { answering });

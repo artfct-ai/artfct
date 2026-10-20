@@ -9,7 +9,7 @@ import { FakeTracker } from "@artfct-ai/adapters/test/fake-tracker";
 import { describe, expect, it, vi } from "vitest";
 import type { Workflow } from "./workflow";
 import { fakeMcpServerAnswer } from "../test/fake-mcp-server";
-import { fakeConnection, type FakeSocket } from "../test/fake-runtime";
+import { fakeConnection, seededJobInput, type FakeSocket } from "../test/fake-runtime";
 import { scenario, type Scenario } from "../test/scenario";
 
 const FIXED_NOW = Date.UTC(2026, 8, 3, 12, 0, 0);
@@ -19,7 +19,15 @@ let opened = 0;
 
 async function seedProvisioningTask(workflow: Workflow, name: string): Promise<string> {
   await workflow.status();
-  workflow.patchState({ workflow_id: name, status: "running" });
+  workflow.store.createWorkflow({
+    workflow_id: name,
+    request_title: "",
+    request_text: "",
+    request_links: [],
+    origin: null,
+    subject: null,
+  });
+  workflow.store.updateWorkflow({ status: "running" });
   const taskId = `${name}.1`;
   const jobId = `${name}-1`;
   workflow.store.insertJob({
@@ -27,7 +35,7 @@ async function seedProvisioningTask(workflow: Workflow, name: string): Promise<s
     stage: "design",
     issue_id: null,
     issue_key: null,
-    input_key: null,
+    ...seededJobInput({}),
     preceding_job_id: null,
     branch: null,
     brief: "",

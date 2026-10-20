@@ -20,6 +20,7 @@ import {
   STOPPED_TEXT,
   closeAbandonedTurnFeed,
   closeSessionFeed,
+  closingWhenTheAuthorGoesOn,
   feedClosingOf,
   postReceipt,
   publishSessionPlan,
@@ -81,9 +82,11 @@ type Fixture = {
 const linearOnly = (
   run: (fixture: Fixture) => Promise<void>,
   tracker: SessionTracker = new SessionTracker(),
+  origin: ReplyTarget = STARTING,
 ) =>
   freshRuntime(async (workflow) => {
-    workflow.patchState({ origin: STARTING, reply_targets: [STARTING] });
+    workflow.store.updateWorkflow({ origin });
+    workflow.store.addReplyTarget(origin);
     const outbox: OutboxEntry[] = [];
     workflow.notifier = testNotifier(outbox, { tracker });
     workflow.trackerInstance = tracker;
@@ -290,11 +293,14 @@ describe("the session feed", () => {
       }));
 
     it("does not start for an author without a job session", () =>
-      linearOnly(async (fixture) => {
-        fixture.workflow.patchState({ origin: THREAD, reply_targets: [THREAD] });
-        await startSessionFeedTurn(fixture.workflow, fixture.author);
-        expect(fixture.workflow.alarmsFor("tendSessionFeed")).toEqual([]);
-      }));
+      linearOnly(
+        async (fixture) => {
+          await startSessionFeedTurn(fixture.workflow, fixture.author);
+          expect(fixture.workflow.alarmsFor("tendSessionFeed")).toEqual([]);
+        },
+        new SessionTracker(),
+        THREAD,
+      ));
   });
 
   describe("a receipt", () => {
@@ -357,13 +363,41 @@ describe("the session feed", () => {
       }));
   });
 
-  describe("a turn that ends with a prompt queued", () => {
-    it("posts no closing and forgets the last message", () =>
+  describe("a turn whose author goes straight into its next turn", () => {
+    it("posts its closing account as narration after the narration that waits", () =>
       linearOnly(async (fixture) => {
-        await stream(fixture, [say("Opened #12.")]);
-        await closeSessionFeed(fixture.workflow, fixture.author, null);
+        await stream(fixture, [
+          say("First."),
+          edit("c1", "a.ts"),
+          say("Second."),
+          edit("c2", "a.ts"),
+          say("Opened #12."),
+        ]);
+        const closing = closingWhenTheAuthorGoesOn(feedClosingOf("end_turn"));
+        await closeSessionFeed(fixture.workflow, fixture.author, closing);
+        expect(stored(fixture)).toEqual([
+          { type: "thought", body: "First." },
+          { type: "thought", body: "Second.\n\nOpened #12." },
+        ]);
+        expect(ephemeralFlags(fixture)).toEqual([false, false]);
+        expect(fixture.workflow.store.sessionFeed(fixture.author.task_id)?.narration).toBe("");
+      }));
+
+    it("posts no closing after a stopped turn and forgets the last message", () =>
+      linearOnly(async (fixture) => {
+        await stream(fixture, [say("Half done.")]);
+        const closing = closingWhenTheAuthorGoesOn(feedClosingOf("cancelled"));
+        await closeSessionFeed(fixture.workflow, fixture.author, closing);
         await closeSessionFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
         expect(stored(fixture)).toEqual([{ type: "response", body: DONE_TEXT }]);
+      }));
+
+    it("posts no closing after a turn cut off by a limit", () =>
+      linearOnly(async (fixture) => {
+        await stream(fixture, [say("Half done.")]);
+        const closing = closingWhenTheAuthorGoesOn(feedClosingOf("max_tokens"));
+        await closeSessionFeed(fixture.workflow, fixture.author, closing);
+        expect(stored(fixture)).toEqual([]);
       }));
   });
 
@@ -444,12 +478,15 @@ describe("the session feed", () => {
 
   describe("an author without a job session", () => {
     it("posts nothing", () =>
-      linearOnly(async (fixture) => {
-        fixture.workflow.patchState({ origin: THREAD, reply_targets: [THREAD] });
-        await stream(fixture, [say("First."), edit("c1", "a.ts")]);
-        await closeSessionFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
-        expect(stored(fixture)).toEqual([]);
-      }));
+      linearOnly(
+        async (fixture) => {
+          await stream(fixture, [say("First."), edit("c1", "a.ts")]);
+          await closeSessionFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
+          expect(stored(fixture)).toEqual([]);
+        },
+        new SessionTracker(),
+        THREAD,
+      ));
   });
 
   describe("an author whose job's input is not an issue, in a workflow started from a session", () => {
@@ -486,7 +523,7 @@ describe("publishSessionPlan", () => {
 
   it("leaves the session without a plan when a chat thread exists", () =>
     linearOnly(async (fixture) => {
-      fixture.workflow.patchState({ reply_targets: [STARTING, THREAD] });
+      fixture.workflow.store.addReplyTarget(THREAD);
       fixture.workflow.store.setTodos(fixture.author.task_id, { entries: [...entries] });
       await publishSessionPlan(fixture.workflow, fixture.author);
       expect(fixture.tracker.argsOf("setSessionPlan")).toEqual([]);

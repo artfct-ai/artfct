@@ -10,6 +10,7 @@ import {
   patchNestingHost,
   seedModelAuthor,
   FakeRuntime,
+  patchStagePlan,
 } from "../../../test/fake-runtime";
 import { openMemoryDb } from "../../../test/memory-db";
 import { scenario, type Scenario } from "../../../test/scenario";
@@ -529,7 +530,7 @@ describe("reviseModelAuthorPage", () => {
       const documents = patchNestingHost(workflow);
       const author = seedModelAuthor(workflow);
       documents.seedPage("root-1", ROOT_TEXT);
-      workflow.patchState({
+      patchStagePlan(workflow, {
         root_page: { page_id: "root-1", url: "https://docs.test/root-1", source: "container" },
       });
       workflow.store.upsertArtifact({

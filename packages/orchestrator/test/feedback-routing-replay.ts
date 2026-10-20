@@ -437,7 +437,9 @@ export class FeedbackRoutingReplay {
           ? "Running"
           : "Idle";
     return {
-      workflow: isWorkflowFinished(workflow.state.status) ? "WorkflowEnded" : "WorkflowRunning",
+      workflow: isWorkflowFinished(workflow.store.requireWorkflowRow().status)
+        ? "WorkflowEnded"
+        : "WorkflowRunning",
       author: {
         status,
         promptsWaiting: workflow.store.queue().filter((row) => row.task_id === task.task_id).length,
@@ -511,7 +513,7 @@ export class FeedbackRoutingReplay {
     let outcome = null as ArrivalOutcome | null;
     const step = await this.world.apply(
       worldAction(`a host delivers feedback ${id}`, async (world) => {
-        const running = !isWorkflowFinished(world.workflow.state.status);
+        const running = !isWorkflowFinished(world.workflow.store.requireWorkflowRow().status);
         if (!running) feedback.postOnHost();
         const reached = new Promise<() => void>((resolve) => {
           if (running) this.arriving = resolve;

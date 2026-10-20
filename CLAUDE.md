@@ -36,6 +36,7 @@ An orchestrator agent that runs a control loop for software development agents o
   - A harness session gets every skill, so a skill applies another by naming it. A model call reads only its own skill and its activity's `preload_skills`.
 - A workflow definition in `orchestrator/workflows/<name>.yaml` may define any stages, with any names, in any order. Code, schemas, prompts, and tests never assume today's stages. What belongs to a kind of work, such as a document's sections and which comes first, lives in that work's skill, not in the stage.
 - Each database belongs to one package, through Drizzle. Do not write raw SQL in packages. `bun run db:generate` writes the migrations. Never hand-edit one.
+- Until v1, D1 keeps one baseline migration. A D1 schema change deletes the D1 migrations and regenerates the baseline with `bun run db:generate`.
 - Durable Object logic lives in `packages/orchestrator/src/workflow/*` and `packages/orchestrator/src/agent/*` as functions over `WorkflowRuntime`. The `Workflow` class only wires them.
 - Do not build anything in Docker. `SANDBOX_VERSION` in the sandbox `Dockerfile` equals the orchestrator's `@cloudflare/sandbox` version.
 - `packages/orchestrator/sandbox/NOTICES.md` lists each prebuilt program the `Dockerfile` copies or downloads, with its license text. Update it when that list changes.
@@ -80,11 +81,25 @@ Run a model check when a change adds or changes stored state: a column, the shap
 5. Put the list, the needed model, and the decision in the PR body under "Model check".
 
 Judge the model by these rules:
-- A table holds one entity. Every column applies to every row. A fact about only some rows goes in its own table, keyed by the row it describes.
-- A lifecycle is one status column with named values, not a boolean per stage.
-- Store each fact once. Do not store what you can derive.
-- A JSON column holds data that is read and written whole. Code does not branch on it or query into it.
-- On SQLite a column change rebuilds the table, so a schema change is worth it only when the model needs it.
+- A table holds one entity. Every column applies to every row. A group of facts that arrives later, or that only some rows get, goes in its own 0..1 table keyed by the row it describes. A single optional fact known at insert may be a nullable column.
+- A lifecycle is one status column with named values, not a boolean per stage. Data that only some states carry goes in a 0..1 table.
+- Absence is a missing row. NULL means unknown or optional. Never store `""`, `0`, `1` or `[]` to mean "not set".
+- Store each fact once. Do not store what you can derive, such as a count of rows.
+- A JSON column holds data that is read and written whole. Code does not query into it. A lookup gets a key column that one encoder writes.
+- Keep a Durable Object's singleton state in a SQL table. Do not use the SDK state record or the key-value API for it.
+- Store each alarm id the code needs in a column. Do not read the SDK's schedule storage.
+- A restart keeps committed rows and loses memory. Anything the start step resumes goes in a table.
+- Writes in one synchronous block commit together. An `await` splits them.
+- Do not add an index to a per-workflow table. A unique key that deduplicates rows is the exception.
+- Do not declare foreign key constraints. Keep the relationship columns.
+- Use NOT NULL for every value that is always set. Do not add CHECK constraints on value lists or STRICT tables.
+
+Change the schema by these rules:
+- Before v1, the workflow store keeps one baseline migration. A schema change deletes its migrations and regenerates the baseline with `bun run db:generate`. On a merge conflict, merge main and regenerate. Never hand-merge migration SQL or snapshots.
+- After v1, change the schema by ALTER only: create a table, add a nullable column or one with a constant default, or drop a column without a key, index or constraint. Any other change rebuilds the table.
+- After v1, add the new column in one release and drop the old one a release later.
+- After v1, change a persisted shape only by adding to it. That covers alarm method names and payloads, JSON columns, and stored model messages.
+- Keep Durable Object class names fixed.
 
 ## Domain spec
 
