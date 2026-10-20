@@ -47,13 +47,13 @@ jobs:
       matrix:
         include:
           - name: workflow lifecycle
-            replays: workflow_lifecycle
+            replays: workflow-lifecycle
           - name: session routing
-            replays: session_routing
+            replays: session-routing
           - name: harness session and agent turns
-            replays: harness_session agent_turns
+            replays: harness-session agent-turns
           - name: router, review loop, and feedback
-            replays: router_bindings review_loop feedback_routing chat_acknowledgement
+            replays: router-bindings review-loop feedback-routing chat-acknowledgement
     defaults:
       run:
         shell: bash

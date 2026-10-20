@@ -9,13 +9,14 @@
       "includeEntryExports": true
     },
     "packages/ingress": {
+      "entry": ["src/**/*.property.ts"],
       "wrangler": { "config": ["wrangler.test.jsonc"] }
     },
     "packages/orchestrator": {
       "entry": [
         "src/**/*.test.medium.ts",
-        "src/**/*.replay{,.medium}.ts",
-        "vitest.{config,replay.config,setup}.ts",
+        "src/**/*.{replay,property}{,.medium}.ts",
+        "vitest.{config,property.config,setup}.ts",
         "drizzle.*.config.ts",
         "migrations/workflow/migrations.d.ts",
         "scripts/**/*.ts",
@@ -39,7 +40,7 @@
       "ignoreDependencies": [".+"]
     },
     "packages/cli": {
-      "entry": ["src/artfct.ts"]
+      "entry": ["src/artfct.ts", "src/**/*.property.ts"]
     },
     "template": {
       "entry": ["*/index.ts"],

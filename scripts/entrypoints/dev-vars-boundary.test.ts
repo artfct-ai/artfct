@@ -4,7 +4,7 @@ import { dirname, join, relative, resolve } from "node:path";
 
 const REPO_ROOT = join(import.meta.dirname, "../..");
 const CLI_SOURCES = "packages/cli/{src,scripts}/**/*.ts";
-const TEST_FILE = /\.test(\.medium)?\.ts$/;
+const TEST_FILE = /\.(test|property|replay)(\.medium)?\.ts$/;
 const DEV_VARS_MODULE = "packages/cli/src/dev-vars.ts";
 const DEV_VARS_IMPORTERS = [
   "packages/cli/src/check/documents-credential.ts",

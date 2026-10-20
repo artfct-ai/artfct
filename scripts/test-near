@@ -2,7 +2,9 @@
 # Runs the tests next to a source file, or every test under a directory, in its package.
 # Small tests (`*.test.ts`) run under `bun test`. Medium tests (`*.test.medium.ts`) need the
 # Workers runtime and run under vitest with `@cloudflare/vitest-plugin`. A spec replay
-# (`*.replay.ts` or `*.replay.medium.ts`) runs only when it is named.
+# (`*.replay.ts` or `*.replay.medium.ts`) runs only when it is named. A property file
+# (`*.property.ts` or `*.property.medium.ts`) runs at its default count when it is named or
+# next to the named source file.
 # A package with a `template-config` script gets it run first, as turbo does before its tests.
 # Usage: test-near <file-or-dir>...
 set -u
@@ -33,8 +35,8 @@ run_medium() {
   (cd "$1" && bun run --silent --if-present template-config && bunx vitest run "$2") || status=$?
 }
 
-run_medium_replay() {
-  (cd "$1" && bun run --silent --if-present template-config && bunx vitest run --config vitest.replay.config.ts "$2") || status=$?
+run_medium_property() {
+  (cd "$1" && bun run --silent --if-present template-config && bunx vitest run --config vitest.property.config.ts "$2") || status=$?
 }
 
 status=0
@@ -51,21 +53,23 @@ for target in "$@"; do
     status=2
     continue
   fi
+  property=""; property_medium=""
   case $target in
-    *.replay.medium.ts)
-      package_dir=$(package_of "$(dirname "$(absolute "$target")")") || { echo "$target: not inside a package, skipped" >&2; continue; }
-      run_medium_replay "$package_dir" "$(absolute "$target")"
-      continue ;;
-    *.replay.ts) small=$target; medium="" ;;
+    *.replay.medium.ts|*.property.medium.ts) small=""; medium=""; property_medium=$target ;;
+    *.replay.ts|*.property.ts) small=$target; medium="" ;;
     *.test.medium.ts) small=""; medium=$target ;;
     *.test.ts) small=$target; medium="" ;;
-    *.ts) small=${target%.ts}.test.ts; medium=${target%.ts}.test.medium.ts ;;
+    *.ts)
+      small=${target%.ts}.test.ts; medium=${target%.ts}.test.medium.ts
+      property=${target%.ts}.property.ts; property_medium=${target%.ts}.property.medium.ts ;;
     *) echo "$target: not a TypeScript file, skipped" >&2; continue ;;
   esac
   package_dir=$(package_of "$(dirname "$(absolute "$target")")") || { echo "$target: not inside a package, skipped" >&2; continue; }
   found=0
   if [ -n "$small" ] && [ -f "$small" ]; then found=1; run_small "$package_dir" "$(absolute "$small")"; fi
   if [ -n "$medium" ] && [ -f "$medium" ]; then found=1; run_medium "$package_dir" "$(absolute "$medium")"; fi
+  if [ -n "$property" ] && [ -f "$property" ]; then found=1; run_small "$package_dir" "$(absolute "$property")"; fi
+  if [ -n "$property_medium" ] && [ -f "$property_medium" ]; then found=1; run_medium_property "$package_dir" "$(absolute "$property_medium")"; fi
   [ $found -eq 0 ] && echo "$target: no test file next to it, skipped" >&2
 done
 exit $status

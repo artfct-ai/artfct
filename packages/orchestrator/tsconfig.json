@@ -11,7 +11,7 @@
     "drizzle.d1.config.ts",
     "drizzle.workflow.config.ts",
     "vitest.config.ts",
-    "vitest.replay.config.ts",
+    "vitest.property.config.ts",
     "vitest.setup.ts"
   ]
 }
