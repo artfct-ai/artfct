@@ -175,6 +175,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       }
     },
@@ -336,6 +337,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       }
     },
@@ -524,6 +526,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       }
     },
@@ -712,6 +715,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       }
     },
@@ -900,6 +904,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       }
     },
@@ -1088,6 +1093,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       }
     },
@@ -1276,6 +1282,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       }
     },
@@ -1464,6 +1471,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       }
     },
@@ -1652,6 +1660,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       }
     },
@@ -1845,6 +1854,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       }
     },
@@ -2027,6 +2037,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       }
     },
@@ -2209,6 +2220,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [{ "#bigint": "0" }] }
       }
     },
@@ -2391,6 +2403,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [{ "#bigint": "0" }] }
       }
     },
@@ -2573,6 +2586,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [{ "#bigint": "0" }] }
       }
     },
@@ -2755,6 +2769,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [{ "#bigint": "0" }] }
       }
     },
@@ -2937,6 +2952,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [{ "#bigint": "0" }] }
       }
     },
@@ -3145,6 +3161,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [{ "#bigint": "0" }] }
       }
     },
@@ -3358,6 +3375,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [{ "#bigint": "0" }] }
       }
     },
@@ -3576,6 +3594,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [{ "#bigint": "0" }] }
       }
     },
@@ -3778,6 +3797,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [{ "#bigint": "0" }] }
       }
     },
@@ -3989,6 +4009,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [{ "#bigint": "1" }] }
       }
     },
@@ -4191,6 +4212,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [{ "#bigint": "1" }] }
       }
     },
@@ -4393,6 +4415,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [{ "#bigint": "1" }] }
       }
     },
@@ -4595,6 +4618,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [{ "#bigint": "1" }] }
       }
     },
@@ -4803,6 +4827,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       }
     },
@@ -5011,6 +5036,7 @@
         "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
         "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
         "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
+        "researcherEndAlarms": { "#set": [] },
         "turnsToRunAgain": { "#set": [] }
       }
     }

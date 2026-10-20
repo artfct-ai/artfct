@@ -134,7 +134,7 @@ export async function stopAuthor(workflow: WorkflowRuntime, author: TaskRow): Pr
   const connected = workflow.connections(author.task_id).length > 0;
   const cancelled = connected && cancelPromptTurn(workflow, author);
   const unfinished = !isTaskFinished(author.status);
-  const atWork = unfinished && taskAtWork(workflow, author);
+  const atWork = taskAtWork(workflow, author);
   const turnId = workflow.store.requireTask(author.task_id).model_turn_id;
   const writing = atWork && turnId !== null && workflow.pageWritesOut.has(turnId);
   const endsTurn = harnessAuthor ? unfinished : atWork && !writing;

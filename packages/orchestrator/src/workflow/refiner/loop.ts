@@ -261,9 +261,8 @@ export async function startRefiner(
 }
 
 /**
- * A reviewer run finished its turn with `turnText`. Code rules on a judge entry. A findings
- * entry hands its review to the next entry, or settles its segment when it is the last one. A
- * review that cannot be read hands the artifact over blocked.
+ * A reviewer run finished its turn with `turnText`. It ends done once its review is routed, and
+ * its sandbox goes last.
  */
 export async function onReviewerFinished(
   workflow: WorkflowRuntime,
@@ -277,7 +276,20 @@ export async function onReviewerFinished(
     !entry || entry.mode === "judge"
       ? { filedNone: true }
       : await readReview(workflow, reviewer, entry, turnText);
-  await finishTask(workflow, reviewer, "done");
+  await finishTask(workflow, reviewer, () => routeReview(workflow, reviewer, entry, read));
+}
+
+/**
+ * Route the review of a reviewer run that ended done. Code rules on a judge entry. A findings
+ * entry hands its review to the next entry, or settles its segment when it is the last one. A
+ * review that cannot be read hands the artifact over blocked.
+ */
+async function routeReview(
+  workflow: WorkflowRuntime,
+  reviewer: TaskRow,
+  entry: ReviewerEntry | null,
+  read: ReviewRead,
+): Promise<void> {
   if ("readFailed" in read)
     return handOverBlockedFromReviewer(
       workflow,

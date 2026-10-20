@@ -139,13 +139,16 @@ module workflowLifecycleTypes {
   /// nothing. `StoppedTurnGoesOn` is the page write of a model turn that a stop reached. The turn
   /// goes on once the write returns, without the prompt the stop dropped.
   /// `AgentHearsTheFailure` is the failure post of a researcher or author. Once it returns, the
-  /// task end alarm is cancelled and the agent hears of the failure. `DoneSandboxGone` is the
-  /// destroy that the task end alarm of a done author sent. Once it returns, the alarm is
-  /// cancelled.
+  /// task end alarm is cancelled and the agent hears of the failure. `ResearcherSandboxGone` is
+  /// the destroy of the sandbox of a researcher that handed over. Once it returns, the task end
+  /// alarm of the researcher is cancelled. `CompletionResumes` is the destroy that the task end
+  /// alarm of a done author sent. Once it returns, the completion goes on for the caller, and no
+  /// tool call waits on it.
   type Rest =
     | TeardownGoesOn({ teardown: Teardown, caller: Caller })
     | AgentHearsTheFailure
-    | DoneSandboxGone
+    | ResearcherSandboxGone
+    | CompletionResumes(Caller)
     | RestartGoesOn
     | RestartAfterWake
     | CompletionGoesOn
@@ -172,7 +175,8 @@ module workflowLifecycleTypes {
 
   /// `endingPosts` holds the posts that tell the person of an end, in the order they went out.
   /// `taskEndAlarms` holds the jobs whose finished researcher or author has its task end alarm
-  /// armed. The store keeps it across an instance restart. `destroyedSandboxes` holds the jobs
+  /// armed. The store keeps it across an instance restart. `researcherEndAlarms` holds the jobs
+  /// whose researcher handed over and has its task end alarm armed. `destroyedSandboxes` holds the jobs
   /// whose finished harness author had its sandbox destroyed by its teardown.
   /// Only the invariants read it, so the replay does not compare it.
   /// `issueMoves` counts the moves of a tracker issue the workflow made. `endedIssues` holds the
@@ -205,6 +209,7 @@ module workflowLifecycleTypes {
     storedEnd: StoredEnd,
     endCall: EndCall,
     taskEndAlarms: Set[int],
+    researcherEndAlarms: Set[int],
     destroyedSandboxes: Set[int],
   }
 
@@ -393,6 +398,10 @@ module workflowLifecycleTypes {
     aTaskEndAlarmFindsItsTeardownOut: bool,
     aJobCompletesDuringItsReview: bool,
     aHarnessAuthorCompletesAfterItsDestroy: bool,
+    aRestartCutsTheDestroyOfAResearcherThatHandedOver: bool,
+    aResearcherEndAlarmDestroysTheSandboxAgain: bool,
+    aTaskEndAlarmFinishesACompletion: bool,
+    aTaskEndAlarmEndsASingleIssueWorkflow: bool,
     aRestartAlarmDecidesATurnThatWaitedToRunAgain: bool,
     aRestartLandsDuringAWorkflowEnd: bool,
     aWorkflowEndResumesAfterARestart: bool,
@@ -529,6 +538,7 @@ module workflowLifecycle {
     storedEnd: NoStoredEnd,
     endCall: NoEndCall,
     taskEndAlarms: Set(),
+    researcherEndAlarms: Set(),
     destroyedSandboxes: Set(),
   }
 
@@ -889,7 +899,8 @@ module workflowLifecycle {
   }
 
   /// `startAuthorAfterResearch`: the researcher finishes done once its turn ended with the research
-  /// payload, and the author of its job starts.
+  /// payload, with its task end alarm armed, and the author of its job starts. The destroy of the
+  /// researcher's sandbox goes out last.
   pure def researchHandedOver(flow: Workflow, id: int): Workflow = {
     val done = finishTask(
       withTask(flow, id, { ...jobTask(flow, id), turnRunning: false }),
@@ -897,8 +908,27 @@ module workflowLifecycle {
       TaskDone,
     )
     val job = done.jobs[id]
-    sendFirstModelCall(withJob(done, id, { ...job, tasks: job.tasks.append(newTask(done, Author)) }), id)
+    val queued = withJob(done, id, { ...job, tasks: job.tasks.append(newTask(done, Author)) })
+    val destroying = sendCall(
+      { ...queued, researcherEndAlarms: queued.researcherEndAlarms.union(Set(id)) },
+      SandboxDestroy,
+      id,
+      ResearcherSandboxGone,
+    )
+    sendFirstModelCall(destroying, id)
   }
+
+  /// True while the destroy of the sandbox of the job's researcher that handed over is out.
+  pure def researcherDestroyOut(flow: Workflow, id: int): bool =
+    flow.calls.indices().exists(callId =>
+      flow.calls[callId].job == id and flow.calls[callId].rest == ResearcherSandboxGone)
+
+  /// The task end alarm of the job's researcher that handed over fires. While this instance still
+  /// destroys its sandbox, the alarm is armed again and nothing else changes. Otherwise the
+  /// destroy goes out again.
+  pure def resumeResearcherEnd(flow: Workflow, id: int): Outcome =
+    if (researcherDestroyOut(flow, id)) untold(flow)
+    else untold(sendCall(flow, SandboxDestroy, id, ResearcherSandboxGone))
 
   /// `endReviewAndBoard`: the refiner run of the job is cancelled and the humans get the artifact.
   pure def endReview(flow: Workflow, id: int): Workflow = {
@@ -1041,20 +1071,21 @@ module workflowLifecycle {
       match flow.calls[callId].rest {
         | TeardownGoesOn(_) => true
         | AgentHearsTheFailure => true
-        | DoneSandboxGone => true
+        | CompletionResumes(_) => true
         | _ => false
       },
     })
 
   /// The task end alarm of the job fires. While this instance still runs the teardown, the alarm
-  /// is armed again and nothing else changes. A done task only destroys its sandbox again. Any
-  /// other teardown goes on from the destroy of the sandbox, as a tool call or an event would.
+  /// is armed again and nothing else changes. A done author destroys its sandbox again, and its
+  /// completion goes on from there. Any other teardown goes on from the destroy of the sandbox, as
+  /// a tool call or an event would.
   pure def resumeTaskEnd(flow: Workflow, id: int): Outcome = {
     val task = jobTask(flow, id)
     val teardown = if (task.status == TaskFailed) AfterFail else AfterCancel
     if (teardownCallOut(flow, id)) untold(flow)
     else if (task.status == TaskDone)
-      if (destroyIsACall(task)) untold(sendCall(flow, SandboxDestroy, id, DoneSandboxGone))
+      if (destroyIsACall(task)) untold(sendCall(flow, SandboxDestroy, id, CompletionResumes(completionCaller(flow, id))))
       else untold(cancelTaskEndAlarm(flow, id))
     else if (destroyIsACall(task))
       untold(sendCall(flow, SandboxDestroy, id, TeardownGoesOn({ teardown: teardown, caller: ToolOrEvent })))
@@ -1100,11 +1131,14 @@ module workflowLifecycle {
   pure def completesTheWorkflow(flow: Workflow, id: int): bool =
     worksOnTheSingleSubjectIssue(flow, id) and flow.stagePlan != NoStages
 
+  /// Who the completion of the job goes on for: the end of a single-issue workflow when the job
+  /// works on its subject issue, a tool call otherwise.
+  pure def completionCaller(flow: Workflow, id: int): Caller =
+    if (worksOnTheSingleSubjectIssue(flow, id)) SubjectJobCompletes else ToolOrEvent
+
   /// `completeJob` ends the author done with the row it read before the check.
-  pure def completeAuthor(flow: Workflow, id: int): Outcome = {
-    val caller = if (worksOnTheSingleSubjectIssue(flow, id)) SubjectJobCompletes else ToolOrEvent
-    endTask(flow, id, TaskDone, AfterComplete, caller)
-  }
+  pure def completeAuthor(flow: Workflow, id: int): Outcome =
+    endTask(flow, id, TaskDone, AfterComplete, completionCaller(flow, id))
 
   /// `drainModelAuthor` on a model-call author that is not at work. An unpaused author in review
   /// starts a revise turn on its next prompt. An author without its page waits for its provision
@@ -1231,7 +1265,10 @@ module workflowLifecycle {
       | TeardownGoesOn(teardown) =>
         teardownGoesOn(sandboxDestroyed(returned, call.job), call.job, teardown.teardown, teardown.caller)
       | AgentHearsTheFailure => failureHeard(returned, call.job)
-      | DoneSandboxGone => untold(cancelTaskEndAlarm(sandboxDestroyed(returned, call.job), call.job))
+      | ResearcherSandboxGone =>
+        untold({ ...returned, researcherEndAlarms: returned.researcherEndAlarms.exclude(Set(call.job)) })
+      | CompletionResumes(caller) =>
+        teardownGoesOn(sandboxDestroyed(returned, call.job), call.job, AfterComplete, caller)
       | RestartGoesOn => untold(restartGoesOn(returned, call.job))
       | RestartAfterWake => untold(returned)
       | CompletionGoesOn => untold(returned)
@@ -2217,6 +2254,7 @@ module workflowLifecycle {
   /// the subject issue starts.
   pure def completesTheSubjectsJob(call: Call): bool = match call.rest {
     | TeardownGoesOn(teardown) => teardown.caller == SubjectJobCompletes or isEndLoopOf(teardown.caller, Done)
+    | CompletionResumes(caller) => caller == SubjectJobCompletes
     | _ => false
   }
 
@@ -2253,6 +2291,13 @@ module workflowLifecycle {
   action theTaskEndAlarmFires: bool = onJobWhere(
     id => workflow.taskEndAlarms.contains(id),
     id => move(resumeTaskEnd(workflow, id), TaskEndAlarmStep(id)),
+  )
+
+  /// The task end alarm of a researcher that handed over fires, at once or after other events and
+  /// restarts.
+  action theResearcherEndAlarmFires: bool = onJobWhere(
+    id => workflow.researcherEndAlarms.contains(id),
+    id => move(resumeResearcherEnd(workflow, id), OtherStep),
   )
 
   /// The page model answers the model call of a model-call author, also one whose model turn a
@@ -2496,6 +2541,7 @@ module workflowLifecycle {
       workflow.restartAlarms.size() > 0,
       workflow.runAgainAlarms.size() > 0,
       workflow.taskEndAlarms.size() > 0,
+      workflow.researcherEndAlarms.size() > 0,
       workflowEnding(workflow),
     },
     nondet landed = Set(true, false).oneOf()
@@ -2623,6 +2669,7 @@ module workflowLifecycle {
     aModelTurnFails,
     failurePostReturns,
     theTaskEndAlarmFires,
+    theResearcherEndAlarmFires,
     workflowEnds,
     aWorkflowEndCallReturns,
     anOutsideEventLands,
@@ -3055,6 +3102,24 @@ module workflowLifecycle {
       }
     })
 
+  /// True while the destroy that the task end alarm of the job's done author sent is out.
+  pure def resumedCompletionOut(flow: Workflow, id: int): bool =
+    flow.calls.indices().exists(callId => and {
+      flow.calls[callId].job == id,
+      match flow.calls[callId].rest {
+        | CompletionResumes(_) => true
+        | _ => false
+      },
+    })
+
+  /// True when the destroy that the task end alarm of the job's done author sent returned in the
+  /// step.
+  pure def resumedCompletionReturns(step: Transition, id: int): bool = and {
+    step.kind != RestartStep,
+    resumedCompletionOut(step.before, id),
+    not(resumedCompletionOut(step.after, id)),
+  }
+
   /// Whether one step kept each before-and-after rule.
   pure def rulesKeptBy(step: Transition): KeptRules = {
     jobStartsOnlyIntoAFreeSlot: startsOnlyIntoAFreeSlot(step),
@@ -3354,6 +3419,18 @@ module workflowLifecycle {
         finishesACompletion(step, id) and refinerRunning(step.before.jobs[id])),
       aHarnessAuthorCompletesAfterItsDestroy: jobsBefore(step).exists(id =>
         finishesACompletion(step, id) and teardownOut(step.before, id, AfterComplete)),
+      aRestartCutsTheDestroyOfAResearcherThatHandedOver: step.kind == RestartStep and
+        jobsBefore(step).exists(id => researcherDestroyOut(step.before, id)),
+      aResearcherEndAlarmDestroysTheSandboxAgain: jobsBefore(step).exists(id => and {
+        step.before.researcherEndAlarms.contains(id),
+        not(researcherDestroyOut(step.before, id)),
+        researcherDestroyOut(step.after, id),
+      }),
+      aTaskEndAlarmFinishesACompletion: jobsBefore(step).exists(id => resumedCompletionReturns(step, id)),
+      aTaskEndAlarmEndsASingleIssueWorkflow: and {
+        step.kind == SubjectCompletionStep,
+        jobsBefore(step).exists(id => resumedCompletionReturns(step, id)),
+      },
     }
   }
 
@@ -3402,8 +3479,27 @@ module workflowLifecycle {
   }
 
   /// `complete_job` ends the author done and destroys its sandbox. Once that finished, the refiner
-  /// run of the job ended and the humans have the artifact.
-  val aCompletedJobEndsItsReview: bool = lastStepKept.aCompletedJobEndsItsReview
+  /// run of the job ended and the humans have the artifact. Until then, the task end alarm of the
+  /// author stays armed, so an instance restart during the destroy does not leave the review held.
+  val aCompletedJobEndsItsReview: bool = and {
+    lastStepKept.aCompletedJobEndsItsReview,
+    jobIds(workflow).forall(id => {
+      val author = jobTask(workflow, id)
+      (author.role == Author and author.status == TaskDone) implies or {
+        workflow.taskEndAlarms.contains(id),
+        not(refinerRunning(workflow.jobs[id])) and workflow.jobs[id].artifact != Drafted,
+      }
+    }),
+  }
+
+  /// The job of each researcher that handed over has one author, which started as the researcher
+  /// ended done, before the destroy of the researcher's sandbox.
+  val aDoneResearchersJobHasItsAuthor: bool =
+    jobIds(workflow).forall(id => {
+      val started = workflow.jobs[id].tasks
+      val handedOver = started[0].role == Researcher and started[0].status == TaskDone
+      handedOver implies (started.length() == 2 and started[1].role == Author)
+    })
 
   /// A job start leaves at most the plan's number of job slots of jobs active.
   val jobStartsOnlyIntoAFreeSlot: bool = lastStepKept.jobStartsOnlyIntoAFreeSlot
@@ -4045,6 +4141,24 @@ module workflowLifecycle {
   /// Witness for `aCompletedJobEndsItsReview`: the end of a completed harness author finishes once
   /// the destroy of its sandbox returns.
   val aHarnessAuthorCompletesAfterItsDestroy: bool = lastStepReached.aHarnessAuthorCompletesAfterItsDestroy
+
+  /// Witness for `aCompletedJobEndsItsReview`: the destroy that the task end alarm of a done author
+  /// sent returns, and the end of its review goes on from there.
+  val aTaskEndAlarmFinishesACompletion: bool = lastStepReached.aTaskEndAlarmFinishesACompletion
+
+  /// Witness for `aSingleIssueWorkflowIsDoneWithItsSubjectsJob`: the destroy that the task end
+  /// alarm of the subject job's done author sent returns, and the completion goes on toward the
+  /// workflow end.
+  val aTaskEndAlarmEndsASingleIssueWorkflow: bool = lastStepReached.aTaskEndAlarmEndsASingleIssueWorkflow
+
+  /// Witness for `aDoneResearchersJobHasItsAuthor`: an instance restart cuts the destroy of the
+  /// sandbox of a researcher that handed over.
+  val aRestartCutsTheDestroyOfAResearcherThatHandedOver: bool =
+    lastStepReached.aRestartCutsTheDestroyOfAResearcherThatHandedOver
+
+  /// Witness for `aDoneResearchersJobHasItsAuthor`: the task end alarm of a researcher that handed
+  /// over destroys its sandbox again.
+  val aResearcherEndAlarmDestroysTheSandboxAgain: bool = lastStepReached.aResearcherEndAlarmDestroysTheSandboxAgain
 
   /// Witness for `aModelCallAuthorWorksOnlyWhileItsCallIsOut`: a stop left a model-call author at
   /// work without a turn and without a page.

@@ -17,7 +17,6 @@ import { findWorkflow } from "../../../db/workflows";
 import {
   cancelTask,
   completeJob,
-  completeWorkflow,
   startJob,
   type CompleteOutcome,
   type JobInput,
@@ -25,7 +24,7 @@ import {
 } from "../../../workflow/lifecycle";
 import { stageContinuesArtifact } from "../../../workflow/artifact";
 import { newPageParent } from "../../../workflow/root-page";
-import { jobCompletesSingleIssueWorkflow, validateIssueInSubject } from "../../../workflow/subject";
+import { validateIssueInSubject } from "../../../workflow/subject";
 import { artifactRefKey, jobInputFor, jobInputKey } from "../../../workflow/store/input-key";
 import { isTaskFinished, isWorkflowFinished } from "../../../workflow/store/state";
 import type { ArtifactRow, JobRow } from "../../../workflow/store/tasks";
@@ -562,8 +561,7 @@ async function complete(
     return `Job ${jobId} ended while its acceptance was checked: its author task is ${checked.status}.`;
   }
   const outcome = await completeJob(workflow, checked, result);
-  if (jobCompletesSingleIssueWorkflow(workflow, job)) {
-    await completeWorkflow(workflow, result);
+  if (outcome.ended === "workflow") {
     return `${jobDoneText(jobId)} It completed the last planned stage on the subject issue, so the workflow is done.`;
   }
   return whatIsNext(workflow, job, outcome);
@@ -708,7 +706,11 @@ async function checkSelection(
 }
 
 /** What the plan suggests after this job. A job on an issue leaves its stage open. */
-function whatIsNext(workflow: WorkflowRuntime, job: JobRow, outcome: CompleteOutcome): string {
+function whatIsNext(
+  workflow: WorkflowRuntime,
+  job: JobRow,
+  outcome: Extract<CompleteOutcome, { ended: "job" }>,
+): string {
   const done = jobDoneText(job.job_id);
   if (job.issue_id || outcome.running > 0) {
     return `${done} Stage ${job.stage} stays open with ${outcome.running} running and ${outcome.slots} free slots. Start the next ready issues, or move on when the tracker shows none left.`;
