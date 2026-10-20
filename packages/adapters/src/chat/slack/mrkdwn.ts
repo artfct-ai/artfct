@@ -36,30 +36,43 @@ const LINK_SCHEME = /^(https?:\/\/|mailto:)/i;
 const LABEL_BREAKS = /[<>|]/g;
 
 /**
- * Rewrite Markdown as Slack mrkdwn. Text that holds no Markdown comes back unchanged. A Slack
- * tag in the text is escaped, so it shows as written and notifies nobody.
+ * Rewrite Markdown as Slack mrkdwn. Text that holds no Markdown comes back unchanged, so
+ * converting mrkdwn again changes nothing. A Slack tag in the text is escaped, so it shows as
+ * written and notifies nobody.
  */
 export function toSlackMrkdwn(text: string): string {
-  return text
-    .replace(TAG_OPENING, "&lt;")
-    .replace(
-      CODE_OR_MARKDOWN,
-      (
-        match,
-        rawLabel?: string,
-        rawUrl?: string,
-        bold?: string,
-        struck?: string,
-        heading?: string,
-      ) => {
-        if (rawUrl !== undefined && rawLabel !== undefined)
-          return mrkdwnLink(match, rawLabel, rawUrl);
-        if (bold !== undefined) return `*${toSlackMrkdwn(bold)}*`;
-        if (struck !== undefined) return `~${toSlackMrkdwn(struck)}~`;
-        if (heading !== undefined) return `*${toSlackMrkdwn(heading.replaceAll("**", ""))}*`;
-        return match;
-      },
-    );
+  let mrkdwn = text.replace(TAG_OPENING, "&lt;");
+  let previous: string;
+  do {
+    previous = mrkdwn;
+    mrkdwn = markdownToMrkdwnOnce(previous);
+  } while (mrkdwn !== previous);
+  return mrkdwn;
+}
+
+/**
+ * One pass over the Markdown. A wrapper star or tilde can pair with a marker next to it, as in
+ * `***a***`, so `toSlackMrkdwn` repeats the pass until it changes nothing.
+ */
+function markdownToMrkdwnOnce(text: string): string {
+  return text.replace(
+    CODE_OR_MARKDOWN,
+    (
+      match,
+      rawLabel?: string,
+      rawUrl?: string,
+      bold?: string,
+      struck?: string,
+      heading?: string,
+    ) => {
+      if (rawUrl !== undefined && rawLabel !== undefined)
+        return mrkdwnLink(match, rawLabel, rawUrl);
+      if (bold !== undefined) return `*${toSlackMrkdwn(bold)}*`;
+      if (struck !== undefined) return `~${toSlackMrkdwn(struck)}~`;
+      if (heading !== undefined) return `*${toSlackMrkdwn(heading.replaceAll("**", ""))}*`;
+      return match;
+    },
+  );
 }
 
 /** The link as mrkdwn, or the Markdown as written when Slack cannot open its target. */
