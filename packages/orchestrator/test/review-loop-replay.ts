@@ -980,7 +980,10 @@ export class ReviewLoopReplay {
       );
     }
     if (isRulingAction(action)) return this.answerRuling(action, step);
-    if (action === "theHostFailsAModelCallAuthorsWrite") {
+    if (
+      action === "theHostFailsAModelCallAuthorsWrite" ||
+      action === "theHostRefusesAReplyBesideAQueuedComment"
+    ) {
       return this.modelTurnEnds({
         part: pickTag(step, "part"),
         decision: "AgentRoutes",
@@ -998,7 +1001,7 @@ export class ReviewLoopReplay {
     }
     if (this.pageModel && isAuthorTurnEnd(action)) {
       return this.modelTurnEnds({
-        part: action === "authorTurnEndsOnANewRevision" ? pickTag(step, "part") : null,
+        part: action === "authorTurnEndsOnTheSameRevision" ? null : pickTag(step, "part"),
         decision: step.decision,
         failure: null,
         flaw: null,
@@ -1009,6 +1012,8 @@ export class ReviewLoopReplay {
         return this.whileHeldCommentsRead(step, {}, () => this.agentSendsAPrompt());
       case "personAsksForRevision":
         return this.whileHeldCommentsRead(step, {}, () => this.personAsksForRevision());
+      case "personAsksForRevisionOfAnEndedAuthor":
+        return this.personAsksForRevision();
       case "personMentionsTheBot":
         return this.personMentionsTheBot(step);
       case "personCommentsOnThePage":
@@ -1147,17 +1152,27 @@ export class ReviewLoopReplay {
       ]);
     }
     if (action === "personInstructs") return personSendsControl(index, "instruct");
-    if (action === "refinerRunHitsARecoverableFailure") {
+    if (
+      action === "refinerRunHitsARecoverableFailure" ||
+      action === "aRestartedRefinerRunHitsAFailure"
+    ) {
       return this.recoverableFailure(pickTag(step, "cause"), index);
     }
-    if (action === "polisherPushes" || action === "polisherPushesNothing") {
+    if (
+      action === "polisherPushes" ||
+      action === "polisherPushesNothing" ||
+      action === "aPolisherEndsWaitingOnChecks" ||
+      action === "aPolisherSentBackPushesNothing"
+    ) {
       const pushed = action === "polisherPushes";
       if (this.revisions.kind === "pull") return this.polisherTurnEndsOnAPull(step, index, pushed);
       const turnEnd = polisherPushesNothing(index);
       return pushed ? this.afterPageEdit(pickTag(step, "part"), turnEnd) : turnEnd;
     }
 
-    if (action === "checksReport") return this.checksReported(step, index);
+    if (action === "checksReport" || action === "checksSendAWaitingPolisherBack") {
+      return this.checksReported(step, index);
+    }
     const mapped = WORLD_ACTIONS[action];
     if (!mapped) throw new Error(`no world action for spec action ${action}`);
     return mapped(index);
@@ -2231,7 +2246,12 @@ function isRulingAction(action: string): action is RulingAction {
 }
 
 function isAuthorTurnEnd(action: string): boolean {
-  return action === "authorTurnEndsOnANewRevision" || action === "authorTurnEndsOnTheSameRevision";
+  return (
+    action === "authorTurnEndsOnANewRevision" ||
+    action === "authorTurnEndsOnTheSameRevision" ||
+    action === "aModelCallAuthorsReviewAgainCallFails" ||
+    action === "aModelCallTurnEndsBesideAQueuedComment"
+  );
 }
 
 /**

@@ -75,7 +75,8 @@
       "aReviewerRunFailsOnADraftedArtifact",
       "aDraftWasDeliveredBefore",
       "aRulingCallReturnsAfterTheAuthorEnded",
-      "anAuthorTurnEndsOnTheDeliveredRevision"
+      "anAuthorTurnEndsOnTheDeliveredRevision",
+      "aPersonRuled"
     ],
     "reviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -105,7 +106,9 @@
       "aDraftWasDeliveredBefore",
       "anAuthorTurnEndsOnTheDeliveredRevision",
       "anAuthorAnswersAReviewAtTheLimit",
-      "theAgentIsAskedToRoute"
+      "theAgentIsAskedToRoute",
+      "aReviewerApproved",
+      "theAgentFinishedTheReview"
     ],
     "judgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -135,7 +138,10 @@
       "aDraftWasDeliveredBefore",
       "aRulingCallReturnsAfterTheAuthorEnded",
       "anAuthorTurnEndsOnTheDeliveredRevision",
-      "theAgentIsAskedToRoute"
+      "theAgentIsAskedToRoute",
+      "aPersonRuled",
+      "aReviewerApproved",
+      "theAgentFinishedTheReview"
     ],
     "modelCallAuthorWithTwoReviewers": [
       "aRefinerRunIsUnfinished",
@@ -179,7 +185,9 @@
       "anAuthorAnswersAReviewAtTheLimit",
       "theAgentIsAskedToRoute",
       "aMentionCarriesTheHeldComments",
-      "aFailedReplyLeavesAQueuedCommentUnanswered"
+      "aFailedReplyLeavesAQueuedCommentUnanswered",
+      "aReviewerApproved",
+      "theAgentFinishedTheReview"
     ],
     "pageReviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -214,7 +222,9 @@
       "anAuthorTurnEndsOnTheDeliveredRevision",
       "anAuthorAnswersAReviewAtTheLimit",
       "theAgentIsAskedToRoute",
-      "aMentionCarriesTheHeldComments"
+      "aMentionCarriesTheHeldComments",
+      "aReviewerApproved",
+      "theAgentFinishedTheReview"
     ],
     "pageJudgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -254,7 +264,10 @@
       "anAuthorFailsPastItsRestarts",
       "anAuthorTurnEndsOnTheDeliveredRevision",
       "theAgentIsAskedToRoute",
-      "aMentionCarriesTheHeldComments"
+      "aMentionCarriesTheHeldComments",
+      "aPersonRuled",
+      "aReviewerApproved",
+      "theAgentFinishedTheReview"
     ],
     "pausedModelCallAuthor": [
       "aRefinerRunIsUnfinished",
@@ -372,7 +385,8 @@
       "aModelCallAuthorFailsOnALostTurn",
       "anAuthorTurnEndsOnTheDeliveredRevision",
       "aMentionCarriesTheHeldComments",
-      "aFailedReplyLeavesAQueuedCommentUnanswered"
+      "aFailedReplyLeavesAQueuedCommentUnanswered",
+      "aPersonRuled"
     ],
     "checksOnAReviewedPull": [
       "aRefinerRunIsUnfinished",
@@ -413,8 +427,13 @@
       "anAuthorAnswersAReviewAtTheLimit",
       "theAgentIsAskedToRoute",
       "theAgentIsAskedToRouteAgain",
-      "theRecheckAlarmStops"
+      "theRecheckAlarmStops",
+      "aReviewerApproved",
+      "theAgentFinishedTheReview"
     ]
+  },
+  "maxSteps": {
+    "modelCallAuthorWithTwoReviewers": 40
   },
   "tlc": {
     "ignoredVariables": ["lastStepReached", "agentHeard"],
