@@ -18,7 +18,7 @@ mcp_servers:
 - Give a remote server a `url` and optional `headers`. It speaks HTTP unless you set `type: sse`.
 - Give a command server a `command` with optional `args` and `env`. The harness starts it inside the sandbox.
 - Use a unique `name` for each server. A provider's name, such as `linear`, is taken.
-- Reference a secret as `${NAME}` in any value. Put the secret in the orchestrator's `.dev.vars` and upload it with the command in that file's header. A server that references an unset secret is skipped, and the task log names the server and the secret.
+- Reference a secret as `${NAME}` in any value. Put the secret in the orchestrator's `.dev.vars` and upload it with the command in that file's header. A server that references an unset secret is skipped, and the task log names the server and the secret. The config refuses a server that references a secret the Worker keeps for itself, such as `GITHUB_PRIVATE_KEY` or `SLACK_BOT_TOKEN`.
 - Use read-only keys with the least privilege the server needs. The coding agent can read every value its MCP servers receive.
 
 The shipped `orchestrator/artfct.yaml` connects every harness session to the Cloudflare API MCP server with `CF_READ_API_TOKEN`. Create that token as an account API token with two permissions: the Workers role Metadata Read-Only at the Workers product scope, and Account Analytics Read. The agent can then read the logs, traces, and metrics of the deployment. It cannot read script source or secrets, and it cannot change anything.

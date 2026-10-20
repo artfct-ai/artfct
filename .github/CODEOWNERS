@@ -1,0 +1,9 @@
+/packages/orchestrator/src/env.ts @kuritz
+/packages/orchestrator/src/config/mcp-servers.ts @kuritz
+/packages/orchestrator/src/workflow/task/sandbox/mcp-servers.ts @kuritz
+/packages/orchestrator/src/workflow/worker-secret-invariants.test.ts @kuritz
+/packages/orchestrator/test/orchestrator-secret-invariants.ts @kuritz
+/packages/orchestrator/test/secret-watch.ts @kuritz
+/packages/ingress/src/env.ts @kuritz
+/packages/ingress/src/routes/secret-invariants.test.ts @kuritz
+/packages/ingress/test/ingress-secret-invariants.ts @kuritz

@@ -1976,6 +1976,100 @@ export const MUTANTS: Mutant[] = [
     replace: '  return headLines(input).join("\\n");\n',
     propertyFile: STANDALONE_PROPERTY_FILES.task_digest,
   },
+  {
+    id: "W370",
+    invariant:
+      "orchestratorSecretInvariants::secretsReachOnlyTheirDestinations (an MCP server reads a Worker secret)",
+    path: "src/config/mcp-servers.ts",
+    find: "    if (workerSecrets.length) {\n",
+    replace: "    if (workerSecrets.length && !workerSecrets.length) {\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.worker_secrets,
+  },
+  {
+    id: "W371",
+    invariant:
+      "orchestratorSecretInvariants::secretsReachOnlyTheirDestinations (the debug dump shows the bridge token)",
+    path: "src/workflow/status.ts",
+    find: 'bridge_token: "***" }',
+    replace: "bridge_token: sandbox.bridge_token }",
+    propertyFile: STANDALONE_PROPERTY_FILES.worker_secrets,
+  },
+  {
+    id: "W372",
+    invariant:
+      "orchestratorSecretInvariants::secretsReachOnlyTheirDestinations (a failed refresh logs the repo token)",
+    path: "src/workflow/task/sandbox/credential.ts",
+    find: "`credential refresh failed: ${String(error).slice(0, 200)}`",
+    replace:
+      "`credential refresh failed: ${String(error).slice(0, 200)} ${tokens.workflowRepoToken}`",
+    propertyFile: STANDALONE_PROPERTY_FILES.worker_secrets,
+  },
+  {
+    id: "W373",
+    invariant:
+      "orchestratorSecretInvariants::secretsReachOnlyTheirDestinations (the documents CLI gets the chat token)",
+    path: "src/clients.ts",
+    find: "      return env.NOTION_TOKEN || null;\n",
+    replace: "      return env.NOTION_TOKEN || env.SLACK_BOT_TOKEN || null;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.worker_secrets,
+  },
+  {
+    id: "W374",
+    invariant:
+      "orchestratorSecretInvariants::secretsReachOnlyTheirDestinations (a failed start names the bridge token)",
+    path: "src/workflow/task/sandbox/sandbox.ts",
+    find: '      loggedFailureReason(fresh.task_id, "The sandbox start"),\n',
+    replace: "      loggedFailureReason(fresh.task_id, `The sandbox start ${built.spec.token}`),\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.worker_secrets,
+  },
+  {
+    id: "W379",
+    invariant:
+      "orchestratorSecretInvariants::secretsReachOnlyTheirDestinations (a sandbox start logs the private key)",
+    path: "src/workflow/task/sandbox/sandbox.ts",
+    find: "`sandbox started gen=${sandbox.generation} resume=${resume}`",
+    replace:
+      "`sandbox started gen=${sandbox.generation} resume=${resume} ${workflow.env.GITHUB_PRIVATE_KEY}`",
+    propertyFile: STANDALONE_PROPERTY_FILES.worker_secrets,
+  },
+  {
+    id: "W375",
+    invariant:
+      "ingressSecretInvariants::ingressSecretsReachNoOutput (a bad signature echoes the secret)",
+    path: "../ingress/src/routes/github.ts",
+    find: '    return ctx.text("bad signature", 401);\n',
+    replace: "    return ctx.text(`bad signature, expected one made with ${secret}`, 401);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.ingress_secrets,
+  },
+  {
+    id: "W376",
+    invariant:
+      "ingressSecretInvariants::ingressSecretsReachNoOutput (a refused handshake logs the token)",
+    path: "../ingress/src/routes/notion.ts",
+    find: '    console.error("notion handshake refused. NOTION_VERIFICATION_TOKEN is already set.");\n',
+    replace:
+      "    console.error(`notion handshake refused. NOTION_VERIFICATION_TOKEN is already ${secret}.`);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.ingress_secrets,
+  },
+  {
+    id: "W377",
+    invariant:
+      "ingressSecretInvariants::ingressSecretsReachNoOutput (a failed callback logs the bot token)",
+    path: "../ingress/src/routes/slack.ts",
+    find: "    console.error(`slack ${callback.event_id}: ${String(error)}`);\n",
+    replace:
+      "    console.error(`slack ${callback.event_id}: ${String(error)} ${ctx.env.SLACK_BOT_TOKEN}`);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.ingress_secrets,
+  },
+  {
+    id: "W378",
+    invariant:
+      "ingressSecretInvariants::ingressSecretsReachNoOutput (an admin refusal echoes the token)",
+    path: "../ingress/src/routes/admin.ts",
+    find: 'return ctx.text("unauthorized", 401);',
+    replace: "return ctx.text(`unauthorized, use ${ADMIN_TOKEN}`, 401);",
+    propertyFile: STANDALONE_PROPERTY_FILES.ingress_secrets,
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */

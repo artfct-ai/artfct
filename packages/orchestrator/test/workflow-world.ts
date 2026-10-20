@@ -11,7 +11,12 @@ import type {
   PullRequestReview,
   PullRequestReviewComment,
 } from "@artfct-ai/adapters/code/types";
-import { FakeCodeHost, pullRequest } from "@artfct-ai/adapters/test/fake-code-host";
+import {
+  FAKE_ALL_REPOS_READ_TOKEN,
+  FAKE_WORKFLOW_REPO_TOKEN,
+  FakeCodeHost,
+  pullRequest,
+} from "@artfct-ai/adapters/test/fake-code-host";
 import type { Choice, Decisions } from "@artfct-ai/adapters/gateway/types";
 import type { HeldComment } from "@artfct-ai/adapters/documents/types";
 import { FakeDecisions, HangingDecisions } from "@artfct-ai/adapters/test/fake-decisions";
@@ -61,6 +66,8 @@ import {
 } from "./fake-runtime";
 import { openMemoryDb, storeRowsOf, type MemoryDb } from "./memory-db";
 import { WorkBudget } from "./work-budget";
+import { markedSecrets, type Credential } from "./orchestrator-secret-invariants";
+import { SecretWatch } from "./secret-watch";
 import { SessionTracker, type TrackerHealth } from "./session-tracker";
 import { testEnv } from "./test-env";
 import {
@@ -413,6 +420,12 @@ function decidedRulingOf(ruling: RulingState | null): string | null {
   return judgeRuled(ruling) ? JSON.stringify(ruling) : null;
 }
 
+/** The tokens every code host of the world mints. */
+const MINTED_TOKENS: readonly Credential[] = [
+  { kind: "workflow_repo_token", value: FAKE_WORKFLOW_REPO_TOKEN },
+  { kind: "all_repos_read_token", value: FAKE_ALL_REPOS_READ_TOKEN },
+];
+
 /**
  * One workflow with its author tasks, a code host, and the sandboxes of its tasks. Actions change
  * it through the entry points production uses, and every step is recorded for the invariants.
@@ -448,6 +461,8 @@ export class WorkflowWorld {
   private readonly outboxRowsAfterId;
   /** Counts the store statements of each step, and stops a step past its budget. */
   readonly workBudget: WorkBudget;
+  /** Checks after every step that each secret reached only its destinations. */
+  private readonly secretWatch = new SecretWatch();
 
   private constructor(options: {
     workflow: FakeRuntime;
@@ -517,7 +532,7 @@ export class WorkflowWorld {
   static async open(setup: WorldSetup): Promise<WorkflowWorld> {
     const workBudget = new WorkBudget();
     const db = openMemoryDb(workBudget);
-    const workflow = new FakeRuntime(db, { ...testEnv(), DB: sqliteD1() });
+    const workflow = new FakeRuntime(db, { ...testEnv(), ...markedSecrets(), DB: sqliteD1() });
     const lists = REFINER_LISTS[setup.refiners];
     patchStageReviewers(workflow, lists.reviewers);
     patchStagePolishers(workflow, lists.polishers);
@@ -614,7 +629,22 @@ export class WorkflowWorld {
       postedTexts: this.workflow.posted.slice(postedBefore).map(plainText),
     };
     this.steps.push(step);
+    this.checkSecrets();
     return step;
+  }
+
+  /** Every output since the last step carries each secret only to the destinations it exists for. */
+  private checkSecrets(): void {
+    this.secretWatch.check(this.workflow, {
+      db: this.db,
+      bridges: this.bridges,
+      derived: MINTED_TOKENS,
+      outputs: {
+        pull_comment: this.pullComments,
+        tracker_call: this.tracker.calls,
+        documents_call: this.pageHost.calls,
+      },
+    });
   }
 
   /**

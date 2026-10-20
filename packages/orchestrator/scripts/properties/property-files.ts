@@ -174,6 +174,20 @@ export const STANDALONE_PROPERTY_FILES = {
     runner: ["bun", "test"],
     e2eRuns: 20_000,
   },
+  worker_secrets: {
+    title: "orchestrator secret properties",
+    packageDir: "orchestrator",
+    path: "./src/workflow/worker-secret-invariants.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 2_000,
+  },
+  ingress_secrets: {
+    title: "ingress secret properties",
+    packageDir: "ingress",
+    path: "./src/routes/secret-invariants.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 20_000,
+  },
   task_digest: {
     title: "task digest property",
     packageDir: "orchestrator",
