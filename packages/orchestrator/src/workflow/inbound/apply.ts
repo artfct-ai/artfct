@@ -1,6 +1,6 @@
 import type { InboundEvent } from "@artfct-ai/contracts/inbound";
 import { noteMessage } from "../../agent/transcript/envelope";
-import { parseVerbalCommand } from "./verbal-command";
+import { parseVerbalCommand, type ParsedVerbalCommand } from "./verbal-command";
 import { applyVerbalCommand, stopAuthor, type StopOutcome } from "./controls";
 import { authorInSession, runningAuthorInSession } from "./job-session";
 import { promptTask } from "../task/harness/prompt-queue";
@@ -51,20 +51,37 @@ async function onHumanText(
     workflow.log(null, `${event.kind} with no person behind it, dropped`);
     return "handled";
   }
+  const command = verbalCommandToRun(workflow, event);
+  if (command) {
+    return executeVerbalCommand(workflow, {
+      ...event,
+      kind: "control",
+      control: command.control,
+      text: command.rest,
+    });
+  }
   if (event.kind === "prompt") {
     const forwarded = await forwardToRunningAuthor(workflow, event);
     if (forwarded) return forwarded;
   }
+  return { notes: [], wake: "message" };
+}
+
+/**
+ * The verbal command a person's text runs at once. Null when the text goes to the running author
+ * of its job session, holds no verbal command, or holds one that no single job owns.
+ */
+export function verbalCommandToRun(
+  workflow: WorkflowRuntime,
+  event: InboundEvent,
+): ParsedVerbalCommand | null {
+  if (event.kind !== "prompt" && event.kind !== "start") return null;
+  const session = event.reply_to?.source === "tracker" ? event.reply_to : null;
+  if (event.kind === "prompt" && session && runningAuthorInSession(workflow, session)) return null;
   const parsed = parseVerbalCommand(event.text);
-  if (!parsed) return { notes: [], wake: "message" };
+  if (!parsed) return null;
   const active = workflow.store.activeAuthorAndResearcherTasks().length;
-  if (parsed.control !== "cancel" && active !== 1) return { notes: [], wake: "message" };
-  return executeVerbalCommand(workflow, {
-    ...event,
-    kind: "control",
-    control: parsed.control,
-    text: parsed.rest,
-  });
+  return parsed.control === "cancel" || active === 1 ? parsed : null;
 }
 
 /** A session nobody opened becomes a reply target. The orchestrator does not post in it. */

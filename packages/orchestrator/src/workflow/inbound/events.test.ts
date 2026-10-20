@@ -204,6 +204,29 @@ describe("a message a person wrote", () => {
       }));
   });
 
+  describe("a verbal pause in a tracker session", () => {
+    const paused = scenario(freshRuntime, async (workflow) => {
+      workflow.patchState({ status: "running", origin: SESSION, reply_targets: [SESSION] });
+      seedTask(workflow, { issue_id: "iss-2" }, { prompt_in_flight: 1 });
+      await handleEvent(workflow, {
+        ...START,
+        id: "evt-session",
+        kind: "prompt",
+        text: "pause",
+        reply_to: SESSION,
+        acknowledge: undefined,
+      });
+    });
+
+    it("answers with the pause and posts no receipt", () =>
+      paused((workflow) => {
+        expect(workflow.posted).toEqual([
+          { type: "info", text: 'Paused wf_x.1. Reply "resume" to continue.' },
+        ]);
+        expect(feedPayloadsOf(workflow)).toEqual([]);
+      }));
+  });
+
   describe("in a tracker session of a finished workflow", () => {
     const prompted = scenario(freshRuntime, async (workflow) => {
       workflow.patchState({ status: "done", origin: SESSION, reply_targets: [SESSION] });
