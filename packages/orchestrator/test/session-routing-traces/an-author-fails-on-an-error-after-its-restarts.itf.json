@@ -370,7 +370,7 @@
         "cancelled": { "#set": [] },
         "feed": [],
         "health": { "tag": "TrackerUp", "value": { "#tup": [] } },
-        "plans": [{ "tag": "SubjectIssue", "value": { "#tup": [] } }],
+        "plans": [],
         "posts": [],
         "stoppedIn": { "#set": [] },
         "turnEnded": { "#set": [] },
@@ -446,7 +446,7 @@
           }
         ],
         "health": { "tag": "TrackerUp", "value": { "#tup": [] } },
-        "plans": [],
+        "plans": [{ "tag": "SubjectIssue", "value": { "#tup": [] } }],
         "posts": [
           {
             "kind": { "tag": "FailedPost", "value": { "#tup": [] } },

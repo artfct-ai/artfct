@@ -6,6 +6,15 @@ const NOT_RULED_ON =
 /** Uses of a banned word that name a different concept than the glossary term, with the reason. */
 export const ALLOWED_WORDS: AllowedWord[] = [
   { word: "status", paths: "everywhere", reason: "Task, artifact, workflow, and HTTP statuses." },
+  {
+    word: "receipt",
+    paths: [
+      "packages/orchestrator/src/workflow/feed/feed.ts",
+      "packages/orchestrator/src/workflow/inbound/apply.ts",
+    ],
+    reason:
+      "The session feed's receipt for a message that reached a running author. The owner approved the word for the session feed. Acknowledgement stays the chat thread's.",
+  },
   { word: "log", paths: "everywhere", reason: "Logging through `workflow.log` and the console." },
   { word: "write", paths: "everywhere", reason: "Writing files, rows, tokens, and prose." },
   {

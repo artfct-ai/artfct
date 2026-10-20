@@ -130,6 +130,17 @@ export const sandboxes = sqliteTable("sandboxes", {
   stopped_early: integer().notNull().default(0),
 });
 
+/** The session feed of an author whose job has a tracker session: its narration and its clocks. */
+export const sessionFeeds = sqliteTable("session_feeds", {
+  task_id: text().primaryKey(),
+  /** The narration that waits for its post, its lines joined by blank lines. */
+  narration: text().notNull().default(""),
+  /** When narration last posted. Null before the first narration post. */
+  narrated_at: text(),
+  /** When the feed last showed activity: a post, or the start of a turn. */
+  active_at: text().notNull(),
+});
+
 /** One model call the orchestrator made itself: an agent turn step or a named prompt. */
 export const modelUsage = sqliteTable("model_usage", {
   id: integer().primaryKey({ autoIncrement: true }),

@@ -72,6 +72,12 @@ export type ExternalUrl = { url: string; label?: string };
 /** Options for posting an activity. A post with an `id` already used does not add a second one. */
 export type ActivityOptions = { ephemeral?: boolean; externalUrls?: ExternalUrl[]; id?: string };
 
+/**
+ * What the tracker said is left of the request quota of its user, as of its last answer that
+ * said. `resets_at` is when the quota fills again, in epoch milliseconds.
+ */
+export type RequestQuota = { remaining: number; limit: number; resets_at: number };
+
 /** One step of an agent session plan. */
 export type SessionPlanItem = {
   content: string;
@@ -127,4 +133,6 @@ export interface Tracker {
   ): Promise<void>;
   /** Replace the plan of an agent session. */
   setSessionPlan(sessionId: string, plan: SessionPlanItem[]): Promise<void>;
+  /** The request quota as the last answer that named it said. Null before any answer did. */
+  requestQuota(): RequestQuota | null;
 }

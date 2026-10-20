@@ -307,13 +307,7 @@
       "trackerOnly::sessionRouting::lastStep": {
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
-        "feed": [
-          {
-            "job": { "#bigint": "0" },
-            "kind": { "tag": "ActionActivity", "value": { "#tup": [] } },
-            "stored": { "#bigint": "1" }
-          }
-        ],
+        "feed": [],
         "health": { "tag": "TrackerUp", "value": { "#tup": [] } },
         "plans": [],
         "posts": [],

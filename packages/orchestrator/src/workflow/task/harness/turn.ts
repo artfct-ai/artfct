@@ -91,13 +91,12 @@ export async function onSessionUpdate(
     return;
   }
   if (entries) {
-    const stored = workflow.store.setTodos(task.task_id, { entries });
+    workflow.store.setTodos(task.task_id, { entries });
     workflow.log(
       task.task_id,
       `todo list reported: ${openEntryCount({ entries })} of ${entries.length} open`,
     );
     await markBoardDirty(workflow, task.job_id);
-    if (stored) await publishSessionPlan(workflow, task);
   }
   countToolActivity(workflow, task, update);
   const summary = summarizeUpdate(update);
@@ -218,6 +217,7 @@ export async function onTurnEnd(
       ? await authorTurnOutcome(workflow, workflow.store.requireTask(task.task_id))
       : null;
   if (workflow.store.requireSandbox(task.task_id).generation !== generation) return;
+  await publishSessionPlan(workflow, task);
   if (outcome !== null) {
     workflow.store.updateSandbox(task.task_id, {
       stopped_early: outcome === "stopped_early" ? 1 : 0,
@@ -485,6 +485,7 @@ export async function onRpcError(
   await workflow.post({ type: "progress", task_id: task.task_id, text: note });
   workflow.store.patchTodoRow(task.task_id, { note });
   if (task.role !== "author") return endBrokenRun(workflow, task, note);
+  await publishSessionPlan(workflow, task);
   const stoppedEarly = workflow.store.requireSandbox(task.task_id).stopped_early === 1;
   if (stoppedEarly && (await stalledAtTurnEnd(workflow, task)) === "restarted") {
     const failed = isTaskFinished(workflow.store.requireTask(task.task_id).status);

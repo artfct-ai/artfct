@@ -27,7 +27,12 @@ import type { LanguageModelV4 } from "@ai-sdk/provider";
 import type { JSONValue, ToolSet } from "ai";
 import { allowedMcpTools, connectOrchestratorMcp } from "./agent/tools/mcp";
 import { TranscriptStore, type WroteFrom } from "./agent/transcript/transcript";
-import { postClosingReply, type AuthorFeed, type ClosingReplyAlarm } from "./workflow/feed/feed";
+import {
+  postClosingReply,
+  tendSessionFeed,
+  type AuthorFeed,
+  type ClosingReplyAlarm,
+} from "./workflow/feed/feed";
 import {
   onTurnHeadsUp,
   onTurnTimeout,
@@ -335,6 +340,10 @@ export class Workflow extends Agent<Env, WorkflowState> implements WorkflowRunti
 
   recheckChecks(alarm: ChecksAlarm): Promise<void> {
     return this.inSpan("alarm recheckChecks", null, () => recheckChecks(this, alarm));
+  }
+
+  tendSessionFeed(alarm: TaskAlarm): Promise<void> {
+    return this.inSpan("alarm tendSessionFeed", alarm.task_id, () => tendSessionFeed(this, alarm));
   }
 
   resumeWorkflowEnd(): Promise<void> {

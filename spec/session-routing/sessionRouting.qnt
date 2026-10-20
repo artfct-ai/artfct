@@ -73,10 +73,10 @@ module sessionRoutingTypes {
   /// One post and the reply targets it reached.
   type Post = { kind: PostKind, targets: Set[Target] }
 
-  /// The kind of a feed activity. `ReplyActivity` is a response that holds the author's last
+  /// The kind of a closing in the feed. `ReplyActivity` is a response that holds the author's last
   /// message, and `DoneActivity` is the response without one. `StoppedActivity` is the stopped
-  /// reply.
-  type FeedKind = ActionActivity | ReplyActivity | DoneActivity | StoppedActivity | ErrorActivity
+  /// reply. The spec does not model the thoughts of the feed: narration, receipts, and heartbeats.
+  type FeedKind = ReplyActivity | DoneActivity | StoppedActivity | ErrorActivity
 
   /// One feed activity in the job session of a job, and how many activities the tracker stored
   /// across the attempts to post it.
@@ -99,7 +99,7 @@ module sessionRoutingTypes {
   /// How an agent turn ends: closing text that answers, a question, or the watchdog's timeout text.
   type TurnOutcome = Answers | Asks | TimesOut
 
-  /// What an author streams in its turn: a message, or a tool call that completes.
+  /// What an author streams in its turn: a message, or a tool call.
   type Streamed = Message | ToolCall
 
   /// How an author's turn ends. The first four end the turn on its own, with closing text that the
@@ -169,6 +169,7 @@ module sessionRoutingTypes {
     sessionFeedEndsWhenItsAuthorIdles: bool,
     feedActivityPostsOnce: bool,
     chatWorkflowNeverSetsASessionPlan: bool,
+    sessionPlanSetsOnlyWhenATurnEnds: bool,
     todoListIsFixedAfterFirstArtifact: bool,
     aStopAnswersOnlyInTheFeed: bool,
     aResearcherThatDidNotFinishRestartsOrFails: bool,
@@ -436,8 +437,8 @@ module sessionRouting {
     if (hasSession(state, state.jobs[id].issue)) List({ job: id, kind: kind, stored: storedAcrossAttempts(health) })
     else List()
 
-  /// `publishSessionPlan`: the author's todo list goes to its job session as the session plan,
-  /// unless the workflow has a chat thread.
+  /// `publishSessionPlan` when the author's turn ends: the author's todo list goes to its job
+  /// session as the session plan, unless the workflow has a chat thread.
   pure def planOf(state: Routing, id: int): List[Issue] = {
     val job = state.jobs[id]
     if (not(hasChat(state)) and hasSession(state, job.issue) and job.todos != NoTodos) List(job.issue)
@@ -453,8 +454,6 @@ module sessionRouting {
   /// The author says its closing text. The feed keeps it while the author has a job session.
   pure def says(state: Routing, id: int): Routing =
     withJob(state, id, job => { ...job, buffered: job.buffered or hasSession(state, job.issue) })
-
-  pure def isClosing(kind: FeedKind): bool = kind != ActionActivity
 
   pure def feedOfJob(facts: StepFacts, id: int): List[FeedPost] = facts.feed.select(posted => posted.job == id)
 
@@ -537,7 +536,7 @@ module sessionRouting {
     facts.turnEnded.forall(id => {
       val job = after.jobs[id]
       val idlesInSession = (job.author == Idle or job.author == InReview) and hasSession(after, job.issue)
-      idlesInSession implies lastFeedIs(facts, id, isClosing)
+      idlesInSession implies feedOfJob(facts, id).length() > 0
     })
 
   /// The tracker holds each feed activity at most once, whatever the retries.
@@ -546,6 +545,13 @@ module sessionRouting {
   /// With a chat thread, no step sets a session plan.
   pure def neverSetsASessionPlan(after: Routing, facts: StepFacts): bool =
     hasChat(after) implies facts.plans.length() == 0
+
+  /// A step sets a session plan only in the job session of an author whose turn ended in it, and
+  /// at most once for each such turn.
+  pure def plansOnlyAtATurnEnd(after: Routing, facts: StepFacts): bool = and {
+    facts.plans.length() <= facts.turnEnded.size(),
+    facts.plans.foldl(true, (only, issue) => only and facts.turnEnded.exists(id => after.jobs[id].issue == issue)),
+  }
 
   /// Only an author records an artifact. Once its job holds one, the author's todo list stays.
   pure def todosFixedAfterArtifact(before: Routing, after: Routing): bool = and {
@@ -591,6 +597,7 @@ module sessionRouting {
     sessionFeedEndsWhenItsAuthorIdles: feedEndsWhenItsAuthorIdles(after, facts),
     feedActivityPostsOnce: postsOnce(facts),
     chatWorkflowNeverSetsASessionPlan: neverSetsASessionPlan(after, facts),
+    sessionPlanSetsOnlyWhenATurnEnds: plansOnlyAtATurnEnd(after, facts),
     todoListIsFixedAfterFirstArtifact: todosFixedAfterArtifact(before, after),
     aStopAnswersOnlyInTheFeed: stopAnswersOnlyInTheFeed(before, after, facts),
     aResearcherThatDidNotFinishRestartsOrFails: unfinishedResearchRestartsOrFails(before, after, facts),
@@ -651,9 +658,7 @@ module sessionRouting {
   /// alarm a closing reply armed before its post stays armed.
   pure def withCutClosingReplies(replies: int -> CutClosingReply, feed: List[FeedPost]): int -> CutClosingReply =
     feed.foldl(replies, (cut, posted) =>
-      if (isClosing(posted.kind))
-        cut.put(cut.keys().size(), { job: posted.job, kind: posted.kind, stored: posted.stored, armed: true })
-      else cut)
+      cut.put(cut.keys().size(), { job: posted.job, kind: posted.kind, stored: posted.stored, armed: true }))
 
   /// A step that posts one feed activity last. On a restart mid post, the step's state is
   /// written and the Durable Object restarts. The notifier does not retry the activity, and the
@@ -1076,29 +1081,21 @@ module sessionRouting {
   pure def inTurn(state: Routing, id: int): bool = id < state.jobs.length() and state.jobs[id].author == InTurn
 
   /// An author in its turn streams. The feed keeps a message for the closing reply. A tool call
-  /// starts the message over, shows progress, and posts its action once it completes.
+  /// starts the message over and shows progress. A tool call does not post.
   action authorStreams: bool = {
     nondet id = JOB_SLOTS.oneOf()
     nondet streamed = Set(Message, ToolCall).oneOf()
-    nondet health = HEALTHS.union(RESTARTS_MID_POST).oneOf()
     all {
       inTurn(routing, id),
       match streamed {
-        | Message => all {
-            health == TrackerUp,
-            move(says(routing, id), NO_FACTS),
-          }
-        | ToolCall =>
-            moveWithFeed(
-              withJob(routing, id, job => { ...forgetMessage(job), nudged: false }),
-              { ...NO_FACTS, feed: feedOf(routing, id, ActionActivity, health), health: health },
-            )
+        | Message => move(says(routing, id), NO_FACTS)
+        | ToolCall => move(withJob(routing, id, job => { ...forgetMessage(job), nudged: false }), NO_FACTS)
       },
     }
   }
 
-  /// An author in its turn reports its todo list, which shows progress. The list is stored and
-  /// goes to the job session as its plan, unless the job's artifact is out.
+  /// An author in its turn reports its todo list, which shows progress. The list is stored unless
+  /// the job's artifact is out. The job session gets it as its plan when the turn ends.
   action authorReportsTodos: bool = {
     nondet id = JOB_SLOTS.oneOf()
     nondet todos = REPORTED_TODOS.oneOf()
@@ -1107,15 +1104,14 @@ module sessionRouting {
       val shown = withJob(routing, id, job => { ...job, nudged: false })
       if (routing.jobs[id].handedOver) move(shown, NO_FACTS)
       else {
-        val stored = withJob(shown, id, job => { ...job, todos: todos })
-        move(stored, { ...NO_FACTS, plans: planOf(stored, id) })
+        move(withJob(shown, id, job => { ...job, todos: todos }), NO_FACTS)
       },
     }
   }
 
   /// An author in its turn prints the link of its first artifact. The job records it, every entry
-  /// of the author's todo list reads complete and goes to the job session as its plan, and the
-  /// artifact goes to the humans. The author stays in its turn.
+  /// of the author's todo list reads complete, and the artifact goes to the humans. The author
+  /// stays in its turn.
   action authorRecordsArtifact: bool = {
     nondet id = JOB_SLOTS.oneOf()
     all {
@@ -1124,14 +1120,14 @@ module sessionRouting {
       val recorded = withJob(says(routing, id), id, job => { ...job, handedOver: true, todos: completed(job.todos) })
       move(
         flushBoard(recorded, id),
-        { ...NO_FACTS, posts: List(post(routing, ArtifactReadyPost, Set())), plans: planOf(recorded, id) },
+        { ...NO_FACTS, posts: List(post(routing, ArtifactReadyPost, Set())) },
       ),
     }
   }
 
   /// An author's turn ends, and its board flushes. A turn that got a cancel ends cancelled. The
-  /// Durable Object may restart while the closing reply is out, when the turn end posts nothing
-  /// else.
+  /// job session gets the author's todo list as its plan before the closing reply. The Durable
+  /// Object may restart while the closing reply is out, when the turn end posts nothing else.
   action authorTurnEnds: bool = {
     nondet id = JOB_SLOTS.oneOf()
     nondet turnEnding = Set(Replies, EndsSilently, StopsEarly, GivesUp, PromptFails, Cancelled).oneOf()
@@ -1148,6 +1144,7 @@ module sessionRouting {
             ...NO_FACTS,
             posts: ended.posts,
             feed: ended.feed.foldl(List(), (feed, posted) => feed.append({ ...posted, stored: storedAcrossAttempts(health) })),
+            plans: planOf(routing, id),
             turnEnded: Set(id),
             cancelled: if (turnEnding == Cancelled) Set(id) else Set(),
             health: health,
@@ -1460,7 +1457,7 @@ module sessionRouting {
 
   /// A person's message in the job session of a running author reaches that author as a prompt.
   /// A paused author holds it in its queue. The orchestrator does not post and does not wake the
-  /// agent.
+  /// agent. The person's receipt is a thought in the feed, which this spec does not model.
   val sessionMessageReachesItsRunningAuthorSilently: bool =
     lastStepKept.sessionMessageReachesItsRunningAuthorSilently
 
@@ -1482,6 +1479,10 @@ module sessionRouting {
 
   /// A workflow with a chat thread does not set a session plan.
   val chatWorkflowNeverSetsASessionPlan: bool = lastStepKept.chatWorkflowNeverSetsASessionPlan
+
+  /// A session plan is set only when the turn of the author of its job session ends, once for
+  /// that turn. A todo list change does not set it.
+  val sessionPlanSetsOnlyWhenATurnEnds: bool = lastStepKept.sessionPlanSetsOnlyWhenATurnEnds
 
   /// An artifact needs an author on its job. Once the job records it, the author's todo list does
   /// not change.
@@ -1655,9 +1656,6 @@ module sessionRouting {
   /// Witness for `feedActivityPostsOnce`: the tracker stored an activity and then failed, and the retries stored it once.
   val aRetriedActivityIsStoredOnce: bool = lastStep.health == FailsAfterStoring and lastStep.feed.length() > 0
 
-  /// Witness for `feedActivityPostsOnce`: the Durable Object restarts while a tool call's action is out.
-  val aRestartCutsAToolCallPost: bool = RESTARTS_MID_POST.contains(lastStep.health) and feedHas(lastStep, ActionActivity)
-
   /// Witness for `closingReplyPostsOnceAfterAnInstanceRestart`: the Durable Object restarts before the tracker stores a closing reply.
   val aRestartCutsAClosingReplyBeforeItIsStored: bool =
     lastStep.health == RestartsBeforeStoring and lastStep.turnEnded.size() > 0 and lastStep.feed.length() > 0
@@ -1672,13 +1670,17 @@ module sessionRouting {
 
   /// Witness for `closingReplyPostsOnceAfterAnInstanceRestart`: the Durable Object restarts while the alarm of a closing reply posts it.
   val aRestartCutsTheAlarmOfAClosingReply: bool =
-    RESTARTS_MID_POST.contains(lastStep.health) and lastStep.turnEnded.size() == 0 and lastStep.feed.select(posted => isClosing(posted.kind)).length() > 0
-
-  /// Witness for `feedActivityPostsOnce`: a tool call's action reaches the job session.
-  val aToolCallReachesTheFeed: bool = feedHas(lastStep, ActionActivity)
+    RESTARTS_MID_POST.contains(lastStep.health) and lastStep.turnEnded.size() == 0 and lastStep.feed.length() > 0
 
   /// Witness for `chatWorkflowNeverSetsASessionPlan`: a session gets a plan.
   val aSessionGetsAPlan: bool = lastStep.plans.length() > 0
+
+  /// Witness for `sessionPlanSetsOnlyWhenATurnEnds`: an author's turn ends and its job session gets its todo list as the plan.
+  val aTurnEndSetsThePlan: bool = lastStep.plans.length() > 0 and lastStep.turnEnded.size() > 0
+
+  /// Witness for `sessionPlanSetsOnlyWhenATurnEnds`: an author reports its todo list during its turn.
+  val anAuthorReportsTodosInItsTurn: bool =
+    not(hasChat(routing)) and jobIds(routing).exists(id => routing.jobs[id].author == InTurn and routing.jobs[id].todos != NoTodos and hasSession(routing, routing.jobs[id].issue))
 
   /// Witness for `chatWorkflowNeverSetsASessionPlan`: a chat workflow with a job session holds a todo list.
   val aChatWorkflowReportsTodosBesideASession: bool =

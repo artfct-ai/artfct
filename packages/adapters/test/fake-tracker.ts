@@ -3,6 +3,7 @@ import type {
   AgentActivityContent,
   AppUser,
   IssueUpdate,
+  RequestQuota,
   SessionPlanItem,
   TeamMembership,
   Tracker,
@@ -53,6 +54,8 @@ export type TrackerMethod = Exclude<keyof Tracker, "appUserId">;
 /** An in-memory `Tracker` that answers from `TrackerAnswers` and records every call. */
 export class FakeTracker implements Tracker {
   readonly appUserId: string | null;
+  /** The request quota the next read answers with. A test sets it. */
+  quota: RequestQuota | null = null;
   private readonly log: CallLog<TrackerMethod>;
 
   constructor(private readonly answers: TrackerAnswers = {}) {
@@ -132,5 +135,9 @@ export class FakeTracker implements Tracker {
 
   async setSessionPlan(sessionId: string, plan: SessionPlanItem[]): Promise<void> {
     this.log.record("setSessionPlan", sessionId, plan);
+  }
+
+  requestQuota(): RequestQuota | null {
+    return this.quota;
   }
 }

@@ -30,8 +30,16 @@ type OutboxTarget = ReplyTarget | IssueRef | BoardChannel;
 export type OutboxEntry = { channel: string; kind: string; target: OutboxTarget; payload: unknown };
 export type OutboxWriter = (entry: OutboxEntry) => void;
 
-/** One activity of an author's session feed: its task, the id every post of it carries, and its content. */
-export type FeedActivity = { task_id: string; id: string; content: AgentActivityContent };
+/**
+ * One activity of an author's session feed: its task, the id every post of it carries, its
+ * content, and whether the next activity replaces it.
+ */
+export type FeedActivity = {
+  task_id: string;
+  id: string;
+  content: AgentActivityContent;
+  ephemeral: boolean;
+};
 export type IssueTransition = "started" | "completed";
 
 /** One issue update: a state transition, a delegation to the agent, or both. */
@@ -181,16 +189,16 @@ export class Notifier {
     await this.setChatSession(target, finished ? "closed" : "active", { title });
   }
 
-  /** Post one activity of an author's session feed under its id. */
-  async feed(session: TrackerTarget, activity: FeedActivity): Promise<void> {
-    const { id, content } = activity;
+  /** Post one activity of an author's session feed under its id. True once the tracker took it. */
+  async feed(session: TrackerTarget, activity: FeedActivity): Promise<boolean> {
+    const { id, content, ephemeral } = activity;
     this.outbox({ channel: "feed", kind: content.type, target: session, payload: activity });
     const tracker = await this.tracker();
-    if (!tracker) return;
+    if (!tracker) return false;
     for (let attempt = 1; attempt <= FEED_POST_ATTEMPTS; attempt += 1) {
       try {
-        await tracker.activity(session.session_id, content, { id });
-        return;
+        await tracker.activity(session.session_id, content, { id, ephemeral });
+        return true;
       } catch (error) {
         this.outbox({
           channel: "feed",
@@ -200,6 +208,7 @@ export class Notifier {
         });
       }
     }
+    return false;
   }
 
   /** Show a todo list as the plan of a tracker session. */

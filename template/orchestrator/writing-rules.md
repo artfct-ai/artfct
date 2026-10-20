@@ -45,3 +45,6 @@ You are strictly forbidden from using "Oracle Speak"—the tendency to write lik
 
 **3. Banned Vocabulary**
 You must NEVER use the following words/terms: latch, sentinel, land/landed, "smoking gun", "plumb through", "byte for byte", "byte identical", seam, "load bearing", "the wire".
+
+**4. Closing Account**
+When you work in a sandbox session, end each turn with a short account in plain sentences. State what you found, what you chose and why, and what you did. A person reads it in the issue's agent session.
