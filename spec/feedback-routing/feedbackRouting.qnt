@@ -479,6 +479,27 @@ module feedbackRouting {
     }
   }
 
+  /// A delivery in flight is routed while the host marks it read and shows the held comments, so the
+  /// screen and the decisions model pick the route. The step also lists `feedbackIsRouted`, and
+  /// this copy raises how often a feedback reaches each route.
+  action aDeliveryIsRoutedPastTheHost: bool = {
+    val waiting = world.inFlight.keys().filter(id => isInFlight(world, id))
+    all {
+      waiting != Set(),
+      nondet id = waiting.oneOf()
+      nondet screen = Set(Admitted, NotAdmitted, Unreadable).oneOf()
+      nondet ack = Set(AckSucceeds).oneOf()
+      nondet heldRead = Set(HeldReadable).oneOf()
+      nondet answer = Set(ForTheAuthor, AsksForNothing, BeyondTheAuthor, Unsure, CallFails).oneOf()
+      val rest = { ...world, inFlight: world.inFlight.put(id, world.inFlight.get(id) - 1) }
+      val picks = { form: world.forms.get(id), screen: screen, ack: ack, heldRead: heldRead, answer: answer }
+      val result = routed(rest, id, picks)
+      if (isSeen(world, id)) recordStep(rest, DuplicateDropped)
+      else if (world.undelivered.contains(id)) recordRedelivery(result.after, FeedbackArrived(result.arrival))
+      else recordStep(result.after, FeedbackArrived(result.arrival)),
+    }
+  }
+
   /// A person comments on the page without a mention. The comment waits there, held.
   action personLeavesAPageComment: bool = all {
     KIND == Page,
@@ -556,14 +577,18 @@ module feedbackRouting {
     hostDeliversAgain,
     instanceRestarts,
     feedbackIsRouted,
+    aDeliveryIsRoutedPastTheHost,
     personLeavesAPageComment,
     authorRecordsItsPullRequest,
     authorTurnEnds,
-    agentPausesAuthor,
-    agentCancelsJob,
-    workflowEnds,
+    theAuthorIsPausedOrStopped,
     finished,
   }
+
+  /// The agent pauses the author or cancels its job, or a person cancels the workflow. Each is
+  /// enabled from the first step, so they share one pick, and feedback reaches a running author
+  /// more often.
+  action theAuthorIsPausedOrStopped: bool = any { agentPausesAuthor, agentCancelsJob, workflowEnds }
 
   /// Each feedback on a running workflow ends in exactly one of: a prompt to its author, a note
   /// that wakes the agent for the humans, or a note that it asks for nothing.

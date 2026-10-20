@@ -101,17 +101,20 @@ async function restartLostModelTurn(
 /**
  * Restart or fail the task of each lost model turn, without starting a model call. Each restarted
  * author holds a new turn id until its own alarm, due now, runs the turn again. A delivery of an
- * alarm that names the old id again changes nothing.
+ * alarm that names the old id again changes nothing. The turns resume side by side, so the failure
+ * post of one task does not hold up the restart of another.
  */
 export async function resumeLostModelTurns(
   workflow: WorkflowRuntime,
   turns: ModelTurnAlarm[],
 ): Promise<void> {
-  for (const turn of turns) {
-    const rerun: ModelTurnAlarm = { task_id: turn.task_id, turn_id: crypto.randomUUID() };
-    if (!(await restartLostModelTurn(workflow, turn, rerun.turn_id))) continue;
-    await workflow.scheduleAlarm(0, "runLostModelTurnAgain", rerun);
-  }
+  await Promise.all(turns.map((turn) => resumeLostModelTurn(workflow, turn)));
+}
+
+async function resumeLostModelTurn(workflow: WorkflowRuntime, turn: ModelTurnAlarm): Promise<void> {
+  const rerun: ModelTurnAlarm = { task_id: turn.task_id, turn_id: crypto.randomUUID() };
+  if (!(await restartLostModelTurn(workflow, turn, rerun.turn_id))) return;
+  await workflow.scheduleAlarm(0, "runLostModelTurnAgain", rerun);
 }
 
 /**

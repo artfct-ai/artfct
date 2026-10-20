@@ -43,24 +43,26 @@ module routerBindingsTypes {
 
   /// Where a delivery stands: reading the route, joining a running workflow, or starting the next one.
   /// A base move reads the workflows with a pull request bound, then hands the event to each one
-  /// left, the smallest first.
+  /// left, the smallest first. Each phase after the route is read names the workflow the delivery
+  /// joins, creates, or hands the base move to. Checking names the workflow of the binding it
+  /// checks, and restoring names the workflow the binding points back at.
   type DeliveryPhase =
     | ReadingPulls
-    | FanningOut(Set[int])
+    | FanningOut({ workflow: int, left: Set[int] })
     | Reading
-    | Checking
-    | Handling
-    | Rebinding
-    | Claiming
-    | Inserting
-    | Binding
-    | Creating
-    | Unbinding
-    | Restoring
-    | MarkingFailed
+    | Checking(int)
+    | Handling(int)
+    | Rebinding(int)
+    | Claiming(int)
+    | Inserting(int)
+    | Binding(int)
+    | Creating(int)
+    | Unbinding(int)
+    | Restoring({ workflow: int, restoredTo: int })
+    | MarkingFailed(int)
 
-  /// The workflow a delivery joins or creates, once its route is known.
-  type Target = NoTarget | TargetWorkflow(int)
+  /// A binding the route read that pointed at a workflow, by its place in the event's bindings.
+  type BoundPlace = { index: int, workflow: int }
 
   /// The first binding whose workflow ended, by its place in the event's bindings.
   type Replaced = NothingReplaced | ReplacedAt(int)
@@ -76,7 +78,6 @@ module routerBindingsTypes {
     index: int,
     joined: int,
     replaced: Replaced,
-    target: Target,
     won: List[int],
   }
 
@@ -243,11 +244,42 @@ module routerBindings {
 
   pure def isBound(bound: Bound): bool = bound != Unbound
 
-  pure def workflowOf(bound: Bound): int = match bound { | BoundTo(workflow) => workflow | Unbound => -1 }
+  /// The place of the binding the next workflow claims first: the first binding whose workflow
+  /// ended, else the first binding.
+  pure def firstClaimIndex(delivery: Delivery): int = match delivery.replaced { | ReplacedAt(index) => index | NothingReplaced => 0 }
 
-  pure def targetOf(delivery: Delivery): int = match delivery.target { | TargetWorkflow(workflow) => workflow | NoTarget => -1 }
+  /// The bindings that pointed at a workflow when the route read them, in order.
+  pure def boundPlaces(found: List[Bound]): List[BoundPlace] =
+    found.foldl({ index: 0, places: List() }, (walk, bound) => {
+      index: walk.index + 1,
+      places: match bound {
+        | BoundTo(workflow) => walk.places.append({ index: walk.index, workflow: workflow })
+        | Unbound => walk.places
+      },
+    }).places
 
-  pure def replacedIndex(delivery: Delivery): int = match delivery.replaced { | ReplacedAt(index) => index | NothingReplaced => 0 }
+  /// The workflow a delivery joins, creates, or hands a base move to, once its route names one.
+  pure def targetsOf(phase: DeliveryPhase): Set[int] = match phase {
+    | ReadingPulls => Set()
+    | FanningOut(fanOut) => Set(fanOut.workflow)
+    | Reading => Set()
+    | Checking(_) => Set()
+    | Handling(workflow) => Set(workflow)
+    | Rebinding(workflow) => Set(workflow)
+    | Claiming(workflow) => Set(workflow)
+    | Inserting(workflow) => Set(workflow)
+    | Binding(workflow) => Set(workflow)
+    | Creating(workflow) => Set(workflow)
+    | Unbinding(workflow) => Set(workflow)
+    | Restoring(restore) => Set(restore.workflow)
+    | MarkingFailed(workflow) => Set(workflow)
+  }
+
+  pure def isHandling(phase: DeliveryPhase): bool = match phase { | Handling(_) => true | _ => false }
+
+  pure def isRebinding(phase: DeliveryPhase): bool = match phase { | Rebinding(_) => true | _ => false }
+
+  pure def isCreating(phase: DeliveryPhase): bool = match phase { | Creating(_) => true | _ => false }
 
   pure def boundOf(state: World, key: Key): Bound =
     if (state.bindings.keys().contains(key)) BoundTo(state.bindings.get(key)) else Unbound
@@ -305,18 +337,18 @@ module routerBindings {
     val surfaceKeys = keysOf(delivery.surface)
     match delivery.phase {
       | ReadingPulls => FindPullWorkflows
-      | FanningOut(_) => HandleEvent(targetOf(delivery))
+      | FanningOut(fanOut) => HandleEvent(fanOut.workflow)
       | Reading => FindBinding(surfaceKeys[delivery.found.length()])
-      | Checking => FindWorkflow(workflowOf(delivery.found[delivery.index]))
-      | Handling => HandleEvent(targetOf(delivery))
-      | Rebinding => ClaimBinding(surfaceKeys[delivery.index])
-      | Claiming => ClaimBinding(surfaceKeys[delivery.index])
-      | Inserting => InsertWorkflow(targetOf(delivery))
-      | Binding => ClaimBinding(surfaceKeys[delivery.index])
-      | Creating => CreateWorkflow(targetOf(delivery))
-      | Unbinding => DeleteBindings(targetOf(delivery))
-      | Restoring => ClaimBinding(surfaceKeys[delivery.index])
-      | MarkingFailed => SetStatus(targetOf(delivery))
+      | Checking(workflow) => FindWorkflow(workflow)
+      | Handling(workflow) => HandleEvent(workflow)
+      | Rebinding(_) => ClaimBinding(surfaceKeys[delivery.index])
+      | Claiming(_) => ClaimBinding(surfaceKeys[delivery.index])
+      | Inserting(workflow) => InsertWorkflow(workflow)
+      | Binding(_) => ClaimBinding(surfaceKeys[delivery.index])
+      | Creating(workflow) => CreateWorkflow(workflow)
+      | Unbinding(workflow) => DeleteBindings(workflow)
+      | Restoring(_) => ClaimBinding(surfaceKeys[delivery.index])
+      | MarkingFailed(workflow) => SetStatus(workflow)
     }
   }
 
@@ -338,16 +370,16 @@ module routerBindings {
     if (not(startsNext)) finishDelivery(state, id)
     else {
       val workflow = state.nextWorkflow
-      val claiming = { ...delivery, phase: Claiming, index: replacedIndex(delivery), target: TargetWorkflow(workflow), won: List() }
+      val claiming = { ...delivery, phase: Claiming(workflow), index: firstClaimIndex(delivery), won: List() }
       withDelivery({ ...state, nextWorkflow: workflow + 1 }, id, claiming)
     }
   }
 
   /// Check the status of the next bound workflow from `from`, or decide the route once none is left.
   pure def checkFrom(state: World, id: int, delivery: Delivery, from: int): World = {
-    val left = delivery.found.indices().filter(index => index >= from and isBound(delivery.found[index]))
-    if (left.size() == 0) decideRoute(state, id, delivery)
-    else withDelivery(state, id, { ...delivery, phase: Checking, index: smallest(left, delivery.found.length()) })
+    val left = boundPlaces(delivery.found).select(place => place.index >= from)
+    if (left.length() == 0) decideRoute(state, id, delivery)
+    else withDelivery(state, id, { ...delivery, phase: Checking(left[0].workflow), index: left[0].index })
   }
 
   pure def afterRead(state: World, id: int, delivery: Delivery): World = {
@@ -358,10 +390,9 @@ module routerBindings {
   }
 
   /// The first bound workflow whose row has not ended is joined. It gets the event first.
-  pure def afterCheck(state: World, id: int, delivery: Delivery): World = {
-    val workflow = workflowOf(delivery.found[delivery.index])
+  pure def afterCheck(state: World, id: int, delivery: Delivery, workflow: int): World = {
     if (not(rowEnded(state, workflow))) {
-      withDelivery(state, id, { ...delivery, phase: Handling, joined: delivery.index, target: TargetWorkflow(workflow) })
+      withDelivery(state, id, { ...delivery, phase: Handling(workflow), joined: delivery.index })
     } else {
       val replaced = if (delivery.replaced == NothingReplaced) ReplacedAt(delivery.index) else delivery.replaced
       checkFrom(state, id, { ...delivery, replaced: replaced }, delivery.index + 1)
@@ -370,88 +401,95 @@ module routerBindings {
 
   /// A start the joined workflow took points at it, from `from`, each binding that was unbound or whose
   /// workflow ended when the route read it.
-  pure def rebindFrom(state: World, id: int, delivery: Delivery, from: int): World = {
+  pure def rebindFrom(state: World, id: int, delivery: Delivery, workflow: int, from: int): World = {
     val left = delivery.found.indices().filter(index =>
       index >= from and (index < delivery.joined or delivery.found[index] == Unbound))
     if (left.size() == 0) finishDelivery(state, id)
-    else withDelivery(state, id, { ...delivery, phase: Rebinding, index: smallest(left, delivery.found.length()) })
+    else withDelivery(state, id, { ...delivery, phase: Rebinding(workflow), index: smallest(left, delivery.found.length()) })
   }
 
   /// What the Durable Object of the joined workflow answers. It refuses every event before its
   /// create returned, and a person's event once it ended.
-  pure def tookEvent(state: World, delivery: Delivery): bool = {
-    val object = objectOf(state, targetOf(delivery))
+  pure def tookEvent(state: World, delivery: Delivery, workflow: int): bool = {
+    val object = objectOf(state, workflow)
     object.created and not(object.ended and isPersonsEvent(delivery.kind))
   }
 
   /// A workflow not created yet refuses the event, and the delivery drops it. A workflow that
   /// ended refuses a person's event, and the route goes on from the next binding. A start it took,
   /// from a person or not, rebinds.
-  pure def afterHandle(state: World, id: int, delivery: Delivery): World = {
-    val object = objectOf(state, targetOf(delivery))
+  pure def afterHandle(state: World, id: int, delivery: Delivery, workflow: int): World = {
+    val object = objectOf(state, workflow)
     if (not(object.created)) finishDelivery(state, id)
-    else if (not(tookEvent(state, delivery))) {
+    else if (not(tookEvent(state, delivery, workflow))) {
       val replaced = if (delivery.replaced == NothingReplaced) ReplacedAt(delivery.joined) else delivery.replaced
       checkFrom(state, id, { ...delivery, replaced: replaced }, delivery.joined + 1)
-    } else if (isStart(delivery.kind)) rebindFrom(state, id, delivery, 0)
+    } else if (isStart(delivery.kind)) rebindFrom(state, id, delivery, workflow, 0)
     else finishDelivery(state, id)
   }
 
-  pure def afterRebind(state: World, id: int, delivery: Delivery): World = {
+  pure def afterRebind(state: World, id: int, delivery: Delivery, workflow: int): World = {
     val key = keysOf(delivery.surface)[delivery.index]
-    val claimed = claim(state, key, delivery.found[delivery.index], targetOf(delivery))
-    rebindFrom(claimed, id, delivery, delivery.index + 1)
+    val claimed = claim(state, key, delivery.found[delivery.index], workflow)
+    rebindFrom(claimed, id, delivery, workflow, delivery.index + 1)
   }
 
   /// A lost claim on the binding the next workflow starts from reads the route again.
-  pure def afterClaim(state: World, id: int, delivery: Delivery): World = {
+  pure def afterClaim(state: World, id: int, delivery: Delivery, workflow: int): World = {
     val key = keysOf(delivery.surface)[delivery.index]
     val previous = delivery.found[delivery.index]
     if (claimWins(state, key, previous))
-      withDelivery(claim(state, key, previous, targetOf(delivery)), id, { ...delivery, phase: Inserting, won: List(delivery.index) })
-    else withDelivery(state, id, { ...delivery, phase: Reading, found: List(), index: 0, replaced: NothingReplaced, target: NoTarget })
+      withDelivery(claim(state, key, previous, workflow), id, { ...delivery, phase: Inserting(workflow), won: List(delivery.index) })
+    else withDelivery(state, id, { ...delivery, phase: Reading, found: List(), index: 0, replaced: NothingReplaced })
   }
 
   /// Claim, from `from`, each other binding for the next workflow, then create it.
-  pure def bindFrom(state: World, id: int, delivery: Delivery, from: int): World = {
-    val left = delivery.found.indices().filter(index => index >= from and index != replacedIndex(delivery))
-    if (left.size() == 0) withDelivery(state, id, { ...delivery, phase: Creating })
-    else withDelivery(state, id, { ...delivery, phase: Binding, index: smallest(left, delivery.found.length()) })
+  pure def bindFrom(state: World, id: int, delivery: Delivery, workflow: int, from: int): World = {
+    val left = delivery.found.indices().filter(index => index >= from and index != firstClaimIndex(delivery))
+    if (left.size() == 0) withDelivery(state, id, { ...delivery, phase: Creating(workflow) })
+    else withDelivery(state, id, { ...delivery, phase: Binding(workflow), index: smallest(left, delivery.found.length()) })
   }
 
-  pure def afterInsert(state: World, id: int, delivery: Delivery): World = {
-    val inserted = { ...state, rows: state.rows.put(targetOf(delivery), Live) }
-    bindFrom(inserted, id, delivery, 0)
+  pure def afterInsert(state: World, id: int, delivery: Delivery, workflow: int): World = {
+    val inserted = { ...state, rows: state.rows.put(workflow, Live) }
+    bindFrom(inserted, id, delivery, workflow, 0)
   }
 
-  pure def afterBind(state: World, id: int, delivery: Delivery): World = {
+  pure def afterBind(state: World, id: int, delivery: Delivery, workflow: int): World = {
     val key = keysOf(delivery.surface)[delivery.index]
     val previous = delivery.found[delivery.index]
     val won = if (claimWins(state, key, previous)) delivery.won.append(delivery.index) else delivery.won
-    bindFrom(claim(state, key, previous, targetOf(delivery)), id, { ...delivery, won: won }, delivery.index + 1)
+    bindFrom(claim(state, key, previous, workflow), id, { ...delivery, won: won }, workflow, delivery.index + 1)
   }
 
   /// Point the next binding the abandoned workflow claimed back at the workflow it pointed at,
   /// unless another delivery bound it since. Then mark the abandoned workflow failed.
-  pure def restoreNext(state: World, id: int, delivery: Delivery): World = {
-    val left = delivery.won.select(index => isBound(delivery.found[index]))
-    if (left.length() == 0) withDelivery(state, id, { ...delivery, phase: MarkingFailed, won: List() })
-    else withDelivery(state, id, { ...delivery, phase: Restoring, index: left[0], won: left.slice(1, left.length()) })
+  pure def restoreNext(state: World, id: int, delivery: Delivery, workflow: int): World = {
+    val left = delivery.won.foldl(List(), (restorable, index) => match delivery.found[index] {
+      | BoundTo(restoredTo) => restorable.append({ index: index, workflow: restoredTo })
+      | Unbound => restorable
+    })
+    if (left.length() == 0) withDelivery(state, id, { ...delivery, phase: MarkingFailed(workflow), won: List() })
+    else {
+      val rest = left.slice(1, left.length()).foldl(List(), (places, place) => places.append(place.index))
+      val restore = Restoring({ workflow: workflow, restoredTo: left[0].workflow })
+      withDelivery(state, id, { ...delivery, phase: restore, index: left[0].index, won: rest })
+    }
   }
 
-  pure def afterUnbind(state: World, id: int, delivery: Delivery): World = {
+  pure def afterUnbind(state: World, id: int, delivery: Delivery, workflow: int): World = {
     val surfaceKeys = keysOf(delivery.surface)
     val sources = delivery.won.foldl(Set(), (found, index) => found.union(Set(sourceOf(surfaceKeys[index]))))
-    restoreNext(unbind(state, targetOf(delivery), sources), id, delivery)
+    restoreNext(unbind(state, workflow, sources), id, delivery, workflow)
   }
 
-  pure def afterRestore(state: World, id: int, delivery: Delivery): World = {
+  pure def afterRestore(state: World, id: int, delivery: Delivery, workflow: int, restoredTo: int): World = {
     val key = keysOf(delivery.surface)[delivery.index]
-    restoreNext(claim(state, key, Unbound, workflowOf(delivery.found[delivery.index])), id, delivery)
+    restoreNext(claim(state, key, Unbound, restoredTo), id, delivery, workflow)
   }
 
-  pure def afterMarkFailed(state: World, id: int, delivery: Delivery): World =
-    finishDelivery({ ...state, rows: state.rows.put(targetOf(delivery), Ended) }, id)
+  pure def afterMarkFailed(state: World, id: int, workflow: int): World =
+    finishDelivery({ ...state, rows: state.rows.put(workflow, Ended) }, id)
 
   /// The workflows that a pull request binding points at.
   pure def pullWorkflows(state: World): Set[int] =
@@ -460,13 +498,13 @@ module routerBindings {
   /// Hand the base move to the smallest workflow in `left`, or end the fan-out once none is left.
   pure def fanOutTo(state: World, id: int, delivery: Delivery, left: Set[int]): World =
     if (left.size() == 0) finishDelivery(state, id)
-    else withDelivery(state, id, { ...delivery, phase: FanningOut(left), target: TargetWorkflow(smallest(left, state.nextWorkflow)) })
+    else withDelivery(state, id, { ...delivery, phase: FanningOut({ workflow: smallest(left, state.nextWorkflow), left: left }) })
 
   /// The fanned-out call to the current workflow returned or threw. The fan-out goes on to the next one.
   pure def fanOutNext(state: World, id: int): World = {
     val delivery = state.deliveries.get(id)
     match delivery.phase {
-      | FanningOut(left) => fanOutTo(state, id, delivery, left.exclude(Set(targetOf(delivery))))
+      | FanningOut(fanOut) => fanOutTo(state, id, delivery, fanOut.left.exclude(Set(fanOut.workflow)))
       | _ => state
     }
   }
@@ -483,28 +521,33 @@ module routerBindings {
       | ReadingPulls => fanOutTo(state, id, delivery, pullWorkflows(state))
       | FanningOut(_) => fanOutNext(state, id)
       | Reading => afterRead(state, id, delivery)
-      | Checking => afterCheck(state, id, delivery)
-      | Handling => afterHandle(state, id, delivery)
-      | Rebinding => afterRebind(state, id, delivery)
-      | Claiming => afterClaim(state, id, delivery)
-      | Inserting => afterInsert(state, id, delivery)
-      | Binding => afterBind(state, id, delivery)
-      | Creating => state
-      | Unbinding => afterUnbind(state, id, delivery)
-      | Restoring => afterRestore(state, id, delivery)
-      | MarkingFailed => afterMarkFailed(state, id, delivery)
+      | Checking(workflow) => afterCheck(state, id, delivery, workflow)
+      | Handling(workflow) => afterHandle(state, id, delivery, workflow)
+      | Rebinding(workflow) => afterRebind(state, id, delivery, workflow)
+      | Claiming(workflow) => afterClaim(state, id, delivery, workflow)
+      | Inserting(workflow) => afterInsert(state, id, delivery, workflow)
+      | Binding(workflow) => afterBind(state, id, delivery, workflow)
+      | Creating(_) => state
+      | Unbinding(workflow) => afterUnbind(state, id, delivery, workflow)
+      | Restoring(restore) => afterRestore(state, id, delivery, restore.workflow, restore.restoredTo)
+      | MarkingFailed(workflow) => afterMarkFailed(state, id, workflow)
     }
   }
 
   /// The Durable Object of a new workflow took its first event.
   pure def createReturned(state: World, id: int): World = {
-    val workflow = targetOf(state.deliveries.get(id))
-    finishDelivery(withObject(state, workflow, object => { ...object, created: true }), id)
+    val created = targetsOf(state.deliveries.get(id).phase)
+    finishDelivery(created.fold(state, (before, workflow) => withObject(before, workflow, object => { ...object, created: true })), id)
   }
 
   /// The Durable Object create threw, so the router undoes the new workflow.
-  pure def createFailed(state: World, id: int): World =
-    withDelivery(state, id, { ...state.deliveries.get(id), phase: Unbinding })
+  pure def createFailed(state: World, id: int): World = {
+    val delivery = state.deliveries.get(id)
+    match delivery.phase {
+      | Creating(workflow) => withDelivery(state, id, { ...delivery, phase: Unbinding(workflow) })
+      | _ => state
+    }
+  }
 
   /// The job start records its job on the issue. A workflow that ended while the job start
   /// waited refuses it.
@@ -558,7 +601,7 @@ module routerBindings {
   pure def observe(state: World): Key -> Observed =
     ALL_KEYS.mapBy(key => {
       val bound = boundOf(state, key)
-      { bound: bound, ended: isBound(bound) and rowEnded(state, workflowOf(bound)) }
+      { bound: bound, ended: match bound { | BoundTo(workflow) => rowEnded(state, workflow) | Unbound => false } }
     })
 
   /// The bindings a delivery step pointed at another workflow, or removed, while they pointed at a
@@ -567,26 +610,26 @@ module routerBindings {
     before.bindings.keys()
       .filter(key => {
         val bound = before.bindings.get(key)
-        isRunning(before, bound) and workflowOf(boundOf(after, key)) != bound
+        isRunning(before, bound) and boundOf(after, key) != BoundTo(bound)
       })
       .map(key => { key: key, from: before.bindings.get(key) })
 
   /// The history after a delivery step from `before` to `after`.
   pure def recordDeliveryStep(past: History, before: World, after: World, id: int): History = {
     val delivery = before.deliveries.get(id)
-    val workflow = targetOf(delivery)
-    val took = delivery.phase == Handling and tookEvent(before, delivery)
+    val took = match delivery.phase {
+      | Handling(workflow) => if (tookEvent(before, delivery, workflow)) Set(workflow) else Set()
+      | _ => Set()
+    }
     val closes = after.deliveries.keys().size() == 0
     val batch = past.batch
     {
       ...past,
       movedBindings: past.movedBindings.union(movedFromRunning(before, after)),
-      eventsBeforeCreate:
-        if (took and not(objectOf(before, workflow).created)) past.eventsBeforeCreate.union(Set(workflow))
-        else past.eventsBeforeCreate,
+      eventsBeforeCreate: past.eventsBeforeCreate.union(took.filter(workflow => not(objectOf(before, workflow).created))),
       messagesOnEndedWorkflows:
-        if (took and isPersonsEvent(delivery.kind) and objectOf(before, workflow).ended)
-          past.messagesOnEndedWorkflows.union(Set(workflow))
+        if (isPersonsEvent(delivery.kind))
+          past.messagesOnEndedWorkflows.union(took.filter(workflow => objectOf(before, workflow).ended))
         else past.messagesOnEndedWorkflows,
       batch: if (closes) { ...batch, open: false } else batch,
       lastBatch: if (closes) { ...batch, open: false, after: observe(after) } else past.lastBatch,
@@ -613,7 +656,6 @@ module routerBindings {
       index: 0,
       joined: 0,
       replaced: NothingReplaced,
-      target: NoTarget,
       won: List(),
     }
     val routed = if (kind == BaseMoved) Set() else Set(surface)
@@ -631,7 +673,7 @@ module routerBindings {
 
   /// The call a delivery waits on lands, and the delivery runs to its next call.
   action deliveryResumes: bool = {
-    nondet delivery = world.deliveries.keys().filter(id => world.deliveries.get(id).phase != Creating).oneOf()
+    nondet delivery = world.deliveries.keys().filter(id => not(isCreating(world.deliveries.get(id).phase))).oneOf()
     val after = resumeDelivery(world, delivery)
     all {
       world' = after,
@@ -654,18 +696,18 @@ module routerBindings {
 
   /// The Durable Object create of a new workflow returns.
   action workflowCreateReturns: bool = {
-    nondet delivery = world.deliveries.keys().filter(id => world.deliveries.get(id).phase == Creating).oneOf()
+    nondet delivery = world.deliveries.keys().filter(id => isCreating(world.deliveries.get(id).phase)).oneOf()
     val after = createReturned(world, delivery)
     val recorded = recordDeliveryStep(history, world, after, delivery)
-    val created = targetOf(world.deliveries.get(delivery))
+    val created = targetsOf(world.deliveries.get(delivery).phase)
     all {
       world' = after,
       history' = {
         ...recorded,
-        batch: { ...recorded.batch, created: recorded.batch.created.union(Set(created)) },
+        batch: { ...recorded.batch, created: recorded.batch.created.union(created) },
         lastBatch:
           if (after.deliveries.keys().size() == 0)
-            { ...recorded.lastBatch, created: recorded.lastBatch.created.union(Set(created)) }
+            { ...recorded.lastBatch, created: recorded.lastBatch.created.union(created) }
           else recorded.lastBatch,
       },
       stepWitnesses' = NO_STEP_WITNESSES,
@@ -674,7 +716,7 @@ module routerBindings {
 
   /// The Durable Object create of a new workflow throws.
   action workflowCreateFails: bool = {
-    nondet delivery = world.deliveries.keys().filter(id => world.deliveries.get(id).phase == Creating).oneOf()
+    nondet delivery = world.deliveries.keys().filter(id => isCreating(world.deliveries.get(id).phase)).oneOf()
     val after = createFailed(world, delivery)
     val recorded = recordDeliveryStep(history, world, after, delivery)
     all {
@@ -757,14 +799,18 @@ module routerBindings {
     eventArrives,
     deliveryResumes,
     workflowCreateReturns,
-    workflowCreateFails,
     fanOutCallFails,
-    workflowEnds,
+    aWorkflowFailsOrEnds,
     workflowStartsAJobOnTheIssue,
     workflowOpensThePullRequest,
     workflowCallReturns,
-    instanceRestartCutsTheEndStatusWrite,
   }
+
+  /// A workflow's create fails, a workflow ends, or a restart cuts the status write of an end.
+  /// Each takes a workflow out of the route, so they share one pick, and two workflows run at once
+  /// more often.
+  action aWorkflowFailsOrEnds: bool =
+    any { workflowCreateFails, workflowEnds, instanceRestartCutsTheEndStatusWrite }
 
   /// The bindings of `surface` that pointed at a workflow that ended.
   pure def endedKeysIn(observed: Key -> Observed, surface: Surface): Set[Key] =
@@ -796,7 +842,7 @@ module routerBindings {
       personWroteOnlyAfterAnEnd(batch, surface) implies and {
         batch.created.size() == 1,
         batch.created.forall(started =>
-          endedKeysIn(batch.before, surface).forall(key => workflowOf(batch.after.get(key).bound) == started)),
+          endedKeysIn(batch.before, surface).forall(key => batch.after.get(key).bound == BoundTo(started))),
       })
   }
 
@@ -831,8 +877,14 @@ module routerBindings {
     })
 
   /// The router still writes the status of a workflow it creates or abandons.
-  pure def routerCreatesOrAbandons(phase: DeliveryPhase): bool =
-    Set(Binding, Creating, Unbinding, Restoring, MarkingFailed).contains(phase)
+  pure def routerCreatesOrAbandons(phase: DeliveryPhase): bool = match phase {
+    | Binding(_) => true
+    | Creating(_) => true
+    | Unbinding(_) => true
+    | Restoring(_) => true
+    | MarkingFailed(_) => true
+    | _ => false
+  }
 
   /// A write to the workflow's row is out or ahead: the status write of its end, or the router's
   /// create of it.
@@ -840,7 +892,7 @@ module routerBindings {
     state.operations.keys().exists(id =>
       state.operations.get(id).workflow == workflow and state.operations.get(id).phase == EndWritesStatus),
     state.deliveries.keys().exists(id =>
-      targetOf(state.deliveries.get(id)) == workflow and routerCreatesOrAbandons(state.deliveries.get(id).phase)),
+      targetsOf(state.deliveries.get(id).phase).contains(workflow) and routerCreatesOrAbandons(state.deliveries.get(id).phase)),
   }
 
   /// Once neither the workflow's end nor the router's create of it has a status write out, the
@@ -865,27 +917,26 @@ module routerBindings {
 
   /// A delivery joined a workflow and hands it the event.
   val aDeliveryJoinsAWorkflow: bool =
-    world.deliveries.keys().exists(id => world.deliveries.get(id).phase == Handling)
+    world.deliveries.keys().exists(id => isHandling(world.deliveries.get(id).phase))
 
   /// Witness for `aWorkflowGetsEventsOnlyOnceCreated`: a delivery hands the event to a workflow whose
   /// create has not returned.
   val aDeliveryReachesAWorkflowBeforeItsCreate: bool =
-    world.deliveries.keys().exists(id => and {
-      world.deliveries.get(id).phase == Handling,
-      not(objectOf(world, targetOf(world.deliveries.get(id))).created),
+    world.deliveries.keys().exists(id => match world.deliveries.get(id).phase {
+      | Handling(workflow) => not(objectOf(world, workflow).created)
+      | _ => false
     })
 
   /// A delivery hands a person's event to a workflow that ended.
   val aDeliveryReachesAnEndedWorkflow: bool =
-    world.deliveries.keys().exists(id => and {
-      world.deliveries.get(id).phase == Handling,
-      world.deliveries.get(id).kind != OtherEvent,
-      objectOf(world, targetOf(world.deliveries.get(id))).ended,
+    world.deliveries.keys().exists(id => match world.deliveries.get(id).phase {
+      | Handling(workflow) => world.deliveries.get(id).kind != OtherEvent and objectOf(world, workflow).ended
+      | _ => false
     })
 
   /// A start that joined a running workflow points its bindings at it.
   val aStartRebindsItsBindings: bool =
-    world.deliveries.keys().exists(id => world.deliveries.get(id).phase == Rebinding)
+    world.deliveries.keys().exists(id => isRebinding(world.deliveries.get(id).phase))
 
   /// Witness for `messageAfterEndStartsNextWorkflow`: a person's message on an ended binding started the next workflow.
   val aMessageAfterEndStartedTheNextWorkflow: bool = {
@@ -922,7 +973,7 @@ module routerBindings {
   val aStartWithoutAPersonRebinds: bool =
     world.deliveries.keys().exists(id => and {
       world.deliveries.get(id).kind == StartWithoutAPerson,
-      world.deliveries.get(id).phase == Rebinding,
+      isRebinding(world.deliveries.get(id).phase),
     })
 
   /// Witness for `anAbandonedWorkflowKeepsNoBinding`: the router abandoned a workflow whose create failed.
@@ -955,7 +1006,7 @@ module routerBindings {
   /// Witness for `aBaseMoveOnlyHandsTheEventOn`: a base move has two workflows left to hand the event to.
   val aBaseMoveFansOutToTwoWorkflows: bool =
     world.deliveries.keys().exists(id => match world.deliveries.get(id).phase {
-      | FanningOut(left) => left.size() == 2
+      | FanningOut(fanOut) => fanOut.left.size() == 2
       | _ => false
     })
 

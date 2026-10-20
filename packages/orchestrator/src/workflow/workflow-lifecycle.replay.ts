@@ -142,6 +142,12 @@ describe("workflow lifecycle spec", () => {
     await replayTrace("pagesWithAReviewer", traceSteps("pagesWithAReviewer", trace));
   });
 
+  it("does not post a failure again when an instance restart cut the end after its post", async () => {
+    const path = join(PINNED_TRACES, "a-resumed-end-does-not-post-again.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("pagesWithoutRefiners", traceSteps("pagesWithoutRefiners", trace));
+  });
+
   it("cancels the next author when the alarm goes on with a failure an instance restart cut off", async () => {
     const path = join(PINNED_TRACES, "a-resumed-workflow-end-waits-on-the-next-destroy.itf.json");
     const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
@@ -158,6 +164,15 @@ describe("workflow lifecycle spec", () => {
     const path = join(PINNED_TRACES, "a-stop-before-a-lost-turn-runs-again.itf.json");
     const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
     await replayTrace("modelCallPagesForAnIssue", traceSteps("modelCallPagesForAnIssue", trace));
+  });
+
+  it("restarts the author of every job whose model turn an instance restart lost", async () => {
+    const path = join(PINNED_TRACES, "a-restart-loses-the-turns-of-two-jobs.itf.json");
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace(
+      "modelCallPagesWithAReviewer",
+      traceSteps("modelCallPagesWithAReviewer", trace),
+    );
   });
 
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {

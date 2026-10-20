@@ -10,9 +10,9 @@
   "vars": [
     "mbt::actionTaken",
     "mbt::nondetPicks",
-    "trackerPause::sessionRouting::lastStep",
-    "trackerPause::sessionRouting::lastStepKept",
-    "trackerPause::sessionRouting::routing",
+    "trackerOnly::sessionRouting::lastStep",
+    "trackerOnly::sessionRouting::lastStepKept",
+    "trackerOnly::sessionRouting::routing",
     "mbt::actionTaken",
     "mbt::nondetPicks"
   ],
@@ -32,7 +32,7 @@
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
       },
-      "trackerPause::sessionRouting::lastStep": {
+      "trackerOnly::sessionRouting::lastStep": {
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -44,7 +44,7 @@
         "woke": false,
         "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
       },
-      "trackerPause::sessionRouting::lastStepKept": {
+      "trackerOnly::sessionRouting::lastStepKept": {
         "aStopAnswersOnlyInTheFeed": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
@@ -55,7 +55,7 @@
         "sessionMessageWithoutAnAuthorIsAnswered": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
-      "trackerPause::sessionRouting::routing": {
+      "trackerOnly::sessionRouting::routing": {
         "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [] },
         "ended": false,
@@ -85,7 +85,7 @@
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
       },
-      "trackerPause::sessionRouting::lastStep": {
+      "trackerOnly::sessionRouting::lastStep": {
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -106,7 +106,7 @@
         "woke": false,
         "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
       },
-      "trackerPause::sessionRouting::lastStepKept": {
+      "trackerOnly::sessionRouting::lastStepKept": {
         "aStopAnswersOnlyInTheFeed": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
@@ -117,7 +117,7 @@
         "sessionMessageWithoutAnAuthorIsAnswered": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
-      "trackerPause::sessionRouting::routing": {
+      "trackerOnly::sessionRouting::routing": {
         "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [] },
         "ended": false,
@@ -147,7 +147,7 @@
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
       },
-      "trackerPause::sessionRouting::lastStep": {
+      "trackerOnly::sessionRouting::lastStep": {
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -159,7 +159,7 @@
         "woke": false,
         "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
       },
-      "trackerPause::sessionRouting::lastStepKept": {
+      "trackerOnly::sessionRouting::lastStepKept": {
         "aStopAnswersOnlyInTheFeed": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
@@ -170,7 +170,7 @@
         "sessionMessageWithoutAnAuthorIsAnswered": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
-      "trackerPause::sessionRouting::routing": {
+      "trackerOnly::sessionRouting::routing": {
         "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [] },
         "ended": false,
@@ -217,7 +217,7 @@
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
       },
-      "trackerPause::sessionRouting::lastStep": {
+      "trackerOnly::sessionRouting::lastStep": {
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -231,7 +231,7 @@
         "woke": false,
         "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
       },
-      "trackerPause::sessionRouting::lastStepKept": {
+      "trackerOnly::sessionRouting::lastStepKept": {
         "aStopAnswersOnlyInTheFeed": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
@@ -242,7 +242,7 @@
         "sessionMessageWithoutAnAuthorIsAnswered": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
-      "trackerPause::sessionRouting::routing": {
+      "trackerOnly::sessionRouting::routing": {
         "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [] },
         "ended": false,
@@ -289,7 +289,7 @@
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
       },
-      "trackerPause::sessionRouting::lastStep": {
+      "trackerOnly::sessionRouting::lastStep": {
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -301,7 +301,7 @@
         "woke": false,
         "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
       },
-      "trackerPause::sessionRouting::lastStepKept": {
+      "trackerOnly::sessionRouting::lastStepKept": {
         "aStopAnswersOnlyInTheFeed": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
@@ -312,7 +312,7 @@
         "sessionMessageWithoutAnAuthorIsAnswered": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
-      "trackerPause::sessionRouting::routing": {
+      "trackerOnly::sessionRouting::routing": {
         "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [] },
         "ended": false,
@@ -359,7 +359,7 @@
         "todos": { "tag": "Some", "value": { "tag": "Todos", "value": { "#bigint": "1" } } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
       },
-      "trackerPause::sessionRouting::lastStep": {
+      "trackerOnly::sessionRouting::lastStep": {
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -371,7 +371,7 @@
         "woke": false,
         "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
       },
-      "trackerPause::sessionRouting::lastStepKept": {
+      "trackerOnly::sessionRouting::lastStepKept": {
         "aStopAnswersOnlyInTheFeed": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
@@ -382,7 +382,7 @@
         "sessionMessageWithoutAnAuthorIsAnswered": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
-      "trackerPause::sessionRouting::routing": {
+      "trackerOnly::sessionRouting::routing": {
         "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [] },
         "ended": false,
@@ -429,7 +429,7 @@
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "None", "value": { "#tup": [] } }
       },
-      "trackerPause::sessionRouting::lastStep": {
+      "trackerOnly::sessionRouting::lastStep": {
         "answered": { "#set": [] },
         "cancelled": { "#set": [] },
         "feed": [],
@@ -443,7 +443,7 @@
         "woke": false,
         "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
       },
-      "trackerPause::sessionRouting::lastStepKept": {
+      "trackerOnly::sessionRouting::lastStepKept": {
         "aStopAnswersOnlyInTheFeed": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
@@ -454,7 +454,7 @@
         "sessionMessageWithoutAnAuthorIsAnswered": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
-      "trackerPause::sessionRouting::routing": {
+      "trackerOnly::sessionRouting::routing": {
         "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [] },
         "ended": false,
@@ -501,7 +501,7 @@
         "todos": { "tag": "None", "value": { "#tup": [] } },
         "turnEnding": { "tag": "Some", "value": { "tag": "Cancelled", "value": { "#tup": [] } } }
       },
-      "trackerPause::sessionRouting::lastStep": {
+      "trackerOnly::sessionRouting::lastStep": {
         "answered": { "#set": [] },
         "cancelled": { "#set": [{ "#bigint": "0" }] },
         "feed": [],
@@ -513,7 +513,7 @@
         "woke": false,
         "wrote": { "tag": "NobodyWrote", "value": { "#tup": [] } }
       },
-      "trackerPause::sessionRouting::lastStepKept": {
+      "trackerOnly::sessionRouting::lastStepKept": {
         "aStopAnswersOnlyInTheFeed": true,
         "chatWorkflowNeverSetsASessionPlan": true,
         "feedActivityPostsOnce": true,
@@ -524,7 +524,7 @@
         "sessionMessageWithoutAnAuthorIsAnswered": true,
         "todoListIsFixedAfterFirstArtifact": true
       },
-      "trackerPause::sessionRouting::routing": {
+      "trackerOnly::sessionRouting::routing": {
         "subject": { "tag": "IssueSubject", "value": { "#tup": [] } },
         "boards": { "#set": [] },
         "ended": false,

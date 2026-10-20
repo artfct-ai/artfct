@@ -4,8 +4,8 @@
     "format-description": "https://apalache-mc.org/docs/adr/015adr-trace.html",
     "source": "../../spec/workflow-lifecycle/pagesWithAReviewer.qnt",
     "status": "violation",
-    "description": "Created by Quint on Mon Oct 19 2026 09:59:21 GMT-0400 (Eastern Daylight Time)",
-    "timestamp": 1792418361464
+    "description": "Created by Quint on Mon Oct 19 2026 21:51:29 GMT-0400 (Eastern Daylight Time)",
+    "timestamp": 1792461089462
   },
   "vars": [
     "mbt::actionTaken",
@@ -20,136 +20,40 @@
   ],
   "states": [
     {
-      "#meta": {
-        "index": 0
-      },
+      "#meta": { "index": 0 },
       "mbt::actionTaken": "init",
       "mbt::nondetPicks": {
-        "answer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "command": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "endsAs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "jobSlots": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "landed": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outputLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "routerWriteFails": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "withStages": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
+        "answer": { "tag": "None", "value": { "#tup": [] } },
+        "callId": { "tag": "None", "value": { "#tup": [] } },
+        "command": { "tag": "None", "value": { "#tup": [] } },
+        "definition": { "tag": "None", "value": { "#tup": [] } },
+        "ending": { "tag": "None", "value": { "#tup": [] } },
+        "endsAs": { "tag": "None", "value": { "#tup": [] } },
+        "hostMove": { "tag": "None", "value": { "#tup": [] } },
+        "id": { "tag": "None", "value": { "#tup": [] } },
+        "issue": { "tag": "None", "value": { "#tup": [] } },
+        "jobSlots": { "tag": "None", "value": { "#tup": [] } },
+        "landed": { "tag": "None", "value": { "#tup": [] } },
+        "lostJobs": { "tag": "None", "value": { "#tup": [] } },
+        "outputLink": { "tag": "None", "value": { "#tup": [] } },
+        "request": { "tag": "None", "value": { "#tup": [] } },
+        "routerWriteFails": { "tag": "None", "value": { "#tup": [] } },
+        "sandbox": { "tag": "None", "value": { "#tup": [] } },
+        "subjectLink": { "tag": "None", "value": { "#tup": [] } },
+        "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
+        "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
         "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
+        "value": { "#tup": [] }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aCompletedJobEndsItsReview": true,
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
         "aJobStartProvisionsItsTask": true,
+        "aPersonsMessageWakesTheWorkflow": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
@@ -159,6 +63,7 @@
         "artifactStatusMovesAreLegal": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
+        "issuesMoveOnlyAtAStartOrADoneEnd": true,
         "jobStartsOnlyIntoAFreeSlot": true,
         "nothingReopensAFinishedWorkflow": true,
         "onlyAPlanStartsTheWorkflow": true,
@@ -177,12 +82,17 @@
         "aDeadlinePassesDuringAPageWrite": false,
         "aDeadlinePassesDuringAProduceTurn": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessAuthorCompletesAfterItsDestroy": false,
+        "aHarnessAuthorPostsItsFailureAfterItsDestroy": false,
+        "aJobCompletesDuringItsReview": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
         "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageLandsOnAWaitingWorkflow": false,
         "aMessageWakesTheWorkflow": false,
+        "aModelCallHostErrorPostsAFailure": false,
         "aModelTurnOutlivesItsDeadline": false,
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
@@ -194,21 +104,30 @@
         "aPlanStartsTheWorkflow": false,
         "aPromptWaitsForAPausedTask": false,
         "aPromptWaitsForATurn": false,
+        "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aRestartLandsDuringAWorkflowEnd": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aReviseTurnIsCut": false,
         "aRunAgainAlarmFindsAStoppedAuthor": false,
         "aSessionMessageReachesAModelCallAuthorAtWork": false,
         "aStaleAlarmFindsAnEndedModelTurn": false,
         "aStaleAlarmFires": false,
         "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOnAnIssueWhoseJobCompletedIsRefused": false,
         "aStartOutsideTheSubjectIsRefused": false,
         "aStartRecordsARemovedPull": false,
         "aStopEndsAModelCall": false,
@@ -217,6 +136,9 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
         "aWorkflowEndResumesAfterARestart": false,
@@ -233,209 +155,66 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false,
-        "aRestartCutsTheDestroyOfACancelledAuthor": false,
-        "aRestartCutsTheDestroyOfAFailedAuthor": false,
-        "aRestartCutsAFailurePost": false,
-        "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false,
-        "aRestartCutsTheDestroyOfACompletedAuthor": false
+        "theSubjectIssueEndCancelsTheWorkflow": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [],
-        "definition": {
-          "tag": "Unplanned",
-          "value": {
-            "#tup": []
-          }
-        },
-        "endedIssues": {
-          "#set": []
-        },
+        "definition": { "tag": "Unplanned", "value": { "#tup": [] } },
+        "destroyedSandboxes": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "endedIssues": { "#set": [] },
         "endingPosts": [],
         "idleArmed": true,
-        "issueMoves": {
-          "#bigint": "0"
-        },
+        "issueMoves": { "#bigint": "0" },
         "jobs": [],
-        "ranAgain": {
-          "#set": []
-        },
+        "ranAgain": { "#set": [] },
         "restartAlarmFired": false,
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "stagePlan": {
-          "tag": "NoStages",
-          "value": {
-            "#tup": []
-          }
-        },
-        "status": {
-          "tag": "New",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
-          }
-        },
-        "turnsToRunAgain": {
-          "#set": []
-        },
-        "taskEndAlarms": {
-          "#set": []
-        },
-        "destroyedSandboxes": {
-          "#set": []
-        }
+        "restartAlarms": { "#set": [] },
+        "runAgainAlarms": { "#set": [] },
+        "stagePlan": { "tag": "NoStages", "value": { "#tup": [] } },
+        "status": { "tag": "New", "value": { "#tup": [] } },
+        "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
+        "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "turnsToRunAgain": { "#set": [] }
       }
     },
     {
-      "#meta": {
-        "index": 1
-      },
+      "#meta": { "index": 1 },
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
-        "answer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "command": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "1"
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "endsAs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "jobSlots": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "2"
-          }
-        },
-        "landed": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outputLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "routerWriteFails": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subjectLink": {
-          "tag": "Some",
-          "value": {
-            "tag": "NoSubject",
-            "value": {
-              "#tup": []
-            }
-          }
-        },
-        "timer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "withStages": {
-          "tag": "Some",
-          "value": true
-        }
+        "answer": { "tag": "None", "value": { "#tup": [] } },
+        "callId": { "tag": "None", "value": { "#tup": [] } },
+        "command": { "tag": "None", "value": { "#tup": [] } },
+        "definition": { "tag": "Some", "value": { "#bigint": "0" } },
+        "ending": { "tag": "None", "value": { "#tup": [] } },
+        "endsAs": { "tag": "None", "value": { "#tup": [] } },
+        "hostMove": { "tag": "None", "value": { "#tup": [] } },
+        "id": { "tag": "None", "value": { "#tup": [] } },
+        "issue": { "tag": "None", "value": { "#tup": [] } },
+        "jobSlots": { "tag": "Some", "value": { "#bigint": "2" } },
+        "landed": { "tag": "None", "value": { "#tup": [] } },
+        "lostJobs": { "tag": "None", "value": { "#tup": [] } },
+        "outputLink": { "tag": "None", "value": { "#tup": [] } },
+        "request": { "tag": "None", "value": { "#tup": [] } },
+        "routerWriteFails": { "tag": "None", "value": { "#tup": [] } },
+        "sandbox": { "tag": "None", "value": { "#tup": [] } },
+        "subjectLink": { "tag": "Some", "value": { "tag": "NoSubject", "value": { "#tup": [] } } },
+        "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
+        "withStages": { "tag": "Some", "value": true }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
         "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
+        "value": { "#tup": [] }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aCompletedJobEndsItsReview": true,
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
         "aJobStartProvisionsItsTask": true,
+        "aPersonsMessageWakesTheWorkflow": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
@@ -445,6 +224,7 @@
         "artifactStatusMovesAreLegal": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
+        "issuesMoveOnlyAtAStartOrADoneEnd": true,
         "jobStartsOnlyIntoAFreeSlot": true,
         "nothingReopensAFinishedWorkflow": true,
         "onlyAPlanStartsTheWorkflow": true,
@@ -463,12 +243,17 @@
         "aDeadlinePassesDuringAPageWrite": false,
         "aDeadlinePassesDuringAProduceTurn": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessAuthorCompletesAfterItsDestroy": false,
+        "aHarnessAuthorPostsItsFailureAfterItsDestroy": false,
+        "aJobCompletesDuringItsReview": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
         "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageLandsOnAWaitingWorkflow": false,
         "aMessageWakesTheWorkflow": false,
+        "aModelCallHostErrorPostsAFailure": false,
         "aModelTurnOutlivesItsDeadline": false,
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
@@ -480,21 +265,30 @@
         "aPlanStartsTheWorkflow": true,
         "aPromptWaitsForAPausedTask": false,
         "aPromptWaitsForATurn": false,
+        "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aRestartLandsDuringAWorkflowEnd": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aReviseTurnIsCut": false,
         "aRunAgainAlarmFindsAStoppedAuthor": false,
         "aSessionMessageReachesAModelCallAuthorAtWork": false,
         "aStaleAlarmFindsAnEndedModelTurn": false,
         "aStaleAlarmFires": false,
         "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOnAnIssueWhoseJobCompletedIsRefused": false,
         "aStartOutsideTheSubjectIsRefused": false,
         "aStartRecordsARemovedPull": false,
         "aStopEndsAModelCall": false,
@@ -503,6 +297,9 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
         "aWorkflowEndResumesAfterARestart": false,
@@ -519,206 +316,66 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false,
-        "aRestartCutsTheDestroyOfACancelledAuthor": false,
-        "aRestartCutsTheDestroyOfAFailedAuthor": false,
-        "aRestartCutsAFailurePost": false,
-        "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false,
-        "aRestartCutsTheDestroyOfACompletedAuthor": false
+        "theSubjectIssueEndCancelsTheWorkflow": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "1"
-          }
-        },
-        "endedIssues": {
-          "#set": []
-        },
+        "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
+        "destroyedSandboxes": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "endedIssues": { "#set": [] },
         "endingPosts": [],
         "idleArmed": true,
-        "issueMoves": {
-          "#bigint": "0"
-        },
+        "issueMoves": { "#bigint": "0" },
         "jobs": [],
-        "ranAgain": {
-          "#set": []
-        },
+        "ranAgain": { "#set": [] },
         "restartAlarmFired": false,
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "stagePlan": {
-          "tag": "StagesPlanned",
-          "value": {
-            "#bigint": "2"
-          }
-        },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
-          }
-        },
-        "turnsToRunAgain": {
-          "#set": []
-        },
-        "taskEndAlarms": {
-          "#set": []
-        },
-        "destroyedSandboxes": {
-          "#set": []
-        }
+        "restartAlarms": { "#set": [] },
+        "runAgainAlarms": { "#set": [] },
+        "stagePlan": { "tag": "StagesPlanned", "value": { "#bigint": "2" } },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
+        "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "turnsToRunAgain": { "#set": [] }
       }
     },
     {
-      "#meta": {
-        "index": 2
-      },
+      "#meta": { "index": 2 },
       "mbt::actionTaken": "agentStartsJob",
       "mbt::nondetPicks": {
-        "answer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "command": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "endsAs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "jobSlots": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "landed": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outputLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "1"
-          }
-        },
-        "routerWriteFails": {
-          "tag": "Some",
-          "value": false
-        },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "withStages": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
+        "answer": { "tag": "None", "value": { "#tup": [] } },
+        "callId": { "tag": "None", "value": { "#tup": [] } },
+        "command": { "tag": "None", "value": { "#tup": [] } },
+        "definition": { "tag": "None", "value": { "#tup": [] } },
+        "ending": { "tag": "None", "value": { "#tup": [] } },
+        "endsAs": { "tag": "None", "value": { "#tup": [] } },
+        "hostMove": { "tag": "None", "value": { "#tup": [] } },
+        "id": { "tag": "None", "value": { "#tup": [] } },
+        "issue": { "tag": "None", "value": { "#tup": [] } },
+        "jobSlots": { "tag": "None", "value": { "#tup": [] } },
+        "landed": { "tag": "None", "value": { "#tup": [] } },
+        "lostJobs": { "tag": "None", "value": { "#tup": [] } },
+        "outputLink": { "tag": "None", "value": { "#tup": [] } },
+        "request": { "tag": "Some", "value": { "#bigint": "1" } },
+        "routerWriteFails": { "tag": "Some", "value": true },
+        "sandbox": { "tag": "None", "value": { "#tup": [] } },
+        "subjectLink": { "tag": "None", "value": { "#tup": [] } },
+        "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
+        "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
         "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
+        "value": { "#tup": [] }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aCompletedJobEndsItsReview": true,
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
         "aJobStartProvisionsItsTask": true,
+        "aPersonsMessageWakesTheWorkflow": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
@@ -728,6 +385,7 @@
         "artifactStatusMovesAreLegal": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
+        "issuesMoveOnlyAtAStartOrADoneEnd": true,
         "jobStartsOnlyIntoAFreeSlot": true,
         "nothingReopensAFinishedWorkflow": true,
         "onlyAPlanStartsTheWorkflow": true,
@@ -746,12 +404,17 @@
         "aDeadlinePassesDuringAPageWrite": false,
         "aDeadlinePassesDuringAProduceTurn": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessAuthorCompletesAfterItsDestroy": false,
+        "aHarnessAuthorPostsItsFailureAfterItsDestroy": false,
+        "aJobCompletesDuringItsReview": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
-        "aJobStartsPastAFailedRouterWrite": false,
+        "aJobStartsPastAFailedRouterWrite": true,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageLandsOnAWaitingWorkflow": false,
         "aMessageWakesTheWorkflow": false,
+        "aModelCallHostErrorPostsAFailure": false,
         "aModelTurnOutlivesItsDeadline": false,
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
@@ -763,21 +426,30 @@
         "aPlanStartsTheWorkflow": false,
         "aPromptWaitsForAPausedTask": false,
         "aPromptWaitsForATurn": false,
+        "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aRestartLandsDuringAWorkflowEnd": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aReviseTurnIsCut": false,
         "aRunAgainAlarmFindsAStoppedAuthor": false,
         "aSessionMessageReachesAModelCallAuthorAtWork": false,
         "aStaleAlarmFindsAnEndedModelTurn": false,
         "aStaleAlarmFires": false,
         "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOnAnIssueWhoseJobCompletedIsRefused": false,
         "aStartOutsideTheSubjectIsRefused": false,
         "aStartRecordsARemovedPull": false,
         "aStopEndsAModelCall": false,
@@ -786,6 +458,9 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
         "aWorkflowEndResumesAfterARestart": false,
@@ -802,263 +477,87 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false,
-        "aRestartCutsTheDestroyOfACancelledAuthor": false,
-        "aRestartCutsTheDestroyOfAFailedAuthor": false,
-        "aRestartCutsAFailurePost": false,
-        "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false,
-        "aRestartCutsTheDestroyOfACompletedAuthor": false
+        "theSubjectIssueEndCancelsTheWorkflow": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "1"
-          }
-        },
-        "endedIssues": {
-          "#set": []
-        },
+        "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
+        "destroyedSandboxes": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "endedIssues": { "#set": [] },
         "endingPosts": [],
         "idleArmed": true,
-        "issueMoves": {
-          "#bigint": "0"
-        },
+        "issueMoves": { "#bigint": "0" },
         "jobs": [
           {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "pullOnHost": {
-              "tag": "NoPull",
-              "value": {
-                "#tup": []
-              }
-            },
+            "artifact": { "tag": "NoArtifact", "value": { "#tup": [] } },
+            "input": { "tag": "FromRequest", "value": { "#bigint": "1" } },
+            "pullOnHost": { "tag": "NoPull", "value": { "#tup": [] } },
             "refinerRuns": [],
             "tasks": [
               {
                 "generationClosed": false,
                 "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
+                "promptsQueued": { "#bigint": "0" },
+                "promptsSent": { "#bigint": "1" },
+                "restarts": { "#bigint": "0" },
+                "role": { "tag": "Author", "value": { "#tup": [] } },
+                "startOrder": { "#bigint": "0" },
+                "status": { "tag": "Busy", "value": { "#tup": [] } },
                 "stopped": false,
                 "turnRunning": true
               }
             ]
           }
         ],
-        "ranAgain": {
-          "#set": []
-        },
+        "ranAgain": { "#set": [] },
         "restartAlarmFired": false,
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "stagePlan": {
-          "tag": "StagesPlanned",
-          "value": {
-            "#bigint": "2"
-          }
-        },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
-          }
-        },
-        "turnsToRunAgain": {
-          "#set": []
-        },
-        "taskEndAlarms": {
-          "#set": []
-        },
-        "destroyedSandboxes": {
-          "#set": []
-        }
+        "restartAlarms": { "#set": [] },
+        "runAgainAlarms": { "#set": [] },
+        "stagePlan": { "tag": "StagesPlanned", "value": { "#bigint": "2" } },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
+        "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "turnsToRunAgain": { "#set": [] }
       }
     },
     {
-      "#meta": {
-        "index": 3
-      },
+      "#meta": { "index": 3 },
       "mbt::actionTaken": "agentSetsPlan",
       "mbt::nondetPicks": {
-        "answer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "command": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "0"
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "endsAs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "jobSlots": {
-          "tag": "Some",
-          "value": {
-            "#bigint": "2"
-          }
-        },
-        "landed": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outputLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "routerWriteFails": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subjectLink": {
-          "tag": "Some",
-          "value": {
-            "tag": "NoSubject",
-            "value": {
-              "#tup": []
-            }
-          }
-        },
-        "timer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "withStages": {
-          "tag": "Some",
-          "value": true
-        }
+        "answer": { "tag": "None", "value": { "#tup": [] } },
+        "callId": { "tag": "None", "value": { "#tup": [] } },
+        "command": { "tag": "None", "value": { "#tup": [] } },
+        "definition": { "tag": "Some", "value": { "#bigint": "1" } },
+        "ending": { "tag": "None", "value": { "#tup": [] } },
+        "endsAs": { "tag": "None", "value": { "#tup": [] } },
+        "hostMove": { "tag": "None", "value": { "#tup": [] } },
+        "id": { "tag": "None", "value": { "#tup": [] } },
+        "issue": { "tag": "None", "value": { "#tup": [] } },
+        "jobSlots": { "tag": "Some", "value": { "#bigint": "2" } },
+        "landed": { "tag": "None", "value": { "#tup": [] } },
+        "lostJobs": { "tag": "None", "value": { "#tup": [] } },
+        "outputLink": { "tag": "None", "value": { "#tup": [] } },
+        "request": { "tag": "None", "value": { "#tup": [] } },
+        "routerWriteFails": { "tag": "None", "value": { "#tup": [] } },
+        "sandbox": { "tag": "None", "value": { "#tup": [] } },
+        "subjectLink": { "tag": "Some", "value": { "tag": "NoSubject", "value": { "#tup": [] } } },
+        "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
+        "withStages": { "tag": "Some", "value": false }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
         "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
+        "value": { "#tup": [] }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aCompletedJobEndsItsReview": true,
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
         "aJobStartProvisionsItsTask": true,
+        "aPersonsMessageWakesTheWorkflow": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
@@ -1068,6 +567,7 @@
         "artifactStatusMovesAreLegal": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
+        "issuesMoveOnlyAtAStartOrADoneEnd": true,
         "jobStartsOnlyIntoAFreeSlot": true,
         "nothingReopensAFinishedWorkflow": true,
         "onlyAPlanStartsTheWorkflow": true,
@@ -1086,12 +586,17 @@
         "aDeadlinePassesDuringAPageWrite": false,
         "aDeadlinePassesDuringAProduceTurn": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessAuthorCompletesAfterItsDestroy": false,
+        "aHarnessAuthorPostsItsFailureAfterItsDestroy": false,
+        "aJobCompletesDuringItsReview": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
         "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageLandsOnAWaitingWorkflow": false,
         "aMessageWakesTheWorkflow": false,
+        "aModelCallHostErrorPostsAFailure": false,
         "aModelTurnOutlivesItsDeadline": false,
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
@@ -1103,21 +608,30 @@
         "aPlanStartsTheWorkflow": false,
         "aPromptWaitsForAPausedTask": false,
         "aPromptWaitsForATurn": false,
+        "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aRestartLandsDuringAWorkflowEnd": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aReviseTurnIsCut": false,
         "aRunAgainAlarmFindsAStoppedAuthor": false,
         "aSessionMessageReachesAModelCallAuthorAtWork": false,
         "aStaleAlarmFindsAnEndedModelTurn": false,
         "aStaleAlarmFires": false,
         "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOnAnIssueWhoseJobCompletedIsRefused": false,
         "aStartOutsideTheSubjectIsRefused": false,
         "aStartRecordsARemovedPull": false,
         "aStopEndsAModelCall": false,
@@ -1126,6 +640,9 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
         "aWorkflowEndResumesAfterARestart": false,
@@ -1142,265 +659,87 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false,
-        "aRestartCutsTheDestroyOfACancelledAuthor": false,
-        "aRestartCutsTheDestroyOfAFailedAuthor": false,
-        "aRestartCutsAFailurePost": false,
-        "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false,
-        "aRestartCutsTheDestroyOfACompletedAuthor": false
+        "theSubjectIssueEndCancelsTheWorkflow": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "1"
-          }
-        },
-        "endedIssues": {
-          "#set": []
-        },
+        "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
+        "destroyedSandboxes": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "endedIssues": { "#set": [] },
         "endingPosts": [],
         "idleArmed": true,
-        "issueMoves": {
-          "#bigint": "0"
-        },
+        "issueMoves": { "#bigint": "0" },
         "jobs": [
           {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "pullOnHost": {
-              "tag": "NoPull",
-              "value": {
-                "#tup": []
-              }
-            },
+            "artifact": { "tag": "NoArtifact", "value": { "#tup": [] } },
+            "input": { "tag": "FromRequest", "value": { "#bigint": "1" } },
+            "pullOnHost": { "tag": "NoPull", "value": { "#tup": [] } },
             "refinerRuns": [],
             "tasks": [
               {
                 "generationClosed": false,
                 "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "Busy",
-                  "value": {
-                    "#tup": []
-                  }
-                },
+                "promptsQueued": { "#bigint": "0" },
+                "promptsSent": { "#bigint": "1" },
+                "restarts": { "#bigint": "0" },
+                "role": { "tag": "Author", "value": { "#tup": [] } },
+                "startOrder": { "#bigint": "0" },
+                "status": { "tag": "Busy", "value": { "#tup": [] } },
                 "stopped": false,
                 "turnRunning": true
               }
             ]
           }
         ],
-        "ranAgain": {
-          "#set": []
-        },
+        "ranAgain": { "#set": [] },
         "restartAlarmFired": false,
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "stagePlan": {
-          "tag": "StagesPlanned",
-          "value": {
-            "#bigint": "2"
-          }
-        },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
-        "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
-          }
-        },
-        "turnsToRunAgain": {
-          "#set": []
-        },
-        "taskEndAlarms": {
-          "#set": []
-        },
-        "destroyedSandboxes": {
-          "#set": []
-        }
+        "restartAlarms": { "#set": [] },
+        "runAgainAlarms": { "#set": [] },
+        "stagePlan": { "tag": "StagesPlanned", "value": { "#bigint": "2" } },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
+        "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
+        "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [] },
+        "turnsToRunAgain": { "#set": [] }
       }
     },
     {
-      "#meta": {
-        "index": 4
-      },
+      "#meta": { "index": 4 },
       "mbt::actionTaken": "workflowEnds",
       "mbt::nondetPicks": {
-        "answer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "command": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "Some",
-          "value": {
-            "tag": "PersonCancels",
-            "value": {
-              "#tup": []
-            }
-          }
-        },
-        "endsAs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "jobSlots": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "landed": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outputLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "routerWriteFails": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "withStages": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
+        "answer": { "tag": "None", "value": { "#tup": [] } },
+        "callId": { "tag": "None", "value": { "#tup": [] } },
+        "command": { "tag": "None", "value": { "#tup": [] } },
+        "definition": { "tag": "None", "value": { "#tup": [] } },
+        "ending": { "tag": "Some", "value": { "tag": "PersonCancels", "value": { "#tup": [] } } },
+        "endsAs": { "tag": "None", "value": { "#tup": [] } },
+        "hostMove": { "tag": "None", "value": { "#tup": [] } },
+        "id": { "tag": "None", "value": { "#tup": [] } },
+        "issue": { "tag": "None", "value": { "#tup": [] } },
+        "jobSlots": { "tag": "None", "value": { "#tup": [] } },
+        "landed": { "tag": "None", "value": { "#tup": [] } },
+        "lostJobs": { "tag": "None", "value": { "#tup": [] } },
+        "outputLink": { "tag": "None", "value": { "#tup": [] } },
+        "request": { "tag": "None", "value": { "#tup": [] } },
+        "routerWriteFails": { "tag": "None", "value": { "#tup": [] } },
+        "sandbox": { "tag": "None", "value": { "#tup": [] } },
+        "subjectLink": { "tag": "None", "value": { "#tup": [] } },
+        "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
+        "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
         "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
+        "value": { "#tup": [] }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aCompletedJobEndsItsReview": true,
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
         "aJobStartProvisionsItsTask": true,
+        "aPersonsMessageWakesTheWorkflow": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
@@ -1410,6 +749,7 @@
         "artifactStatusMovesAreLegal": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
+        "issuesMoveOnlyAtAStartOrADoneEnd": true,
         "jobStartsOnlyIntoAFreeSlot": true,
         "nothingReopensAFinishedWorkflow": true,
         "onlyAPlanStartsTheWorkflow": true,
@@ -1428,12 +768,17 @@
         "aDeadlinePassesDuringAPageWrite": false,
         "aDeadlinePassesDuringAProduceTurn": false,
         "aFinishedTaskIsInAStep": false,
+        "aHarnessAuthorCompletesAfterItsDestroy": false,
+        "aHarnessAuthorPostsItsFailureAfterItsDestroy": false,
+        "aJobCompletesDuringItsReview": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
         "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageLandsOnAWaitingWorkflow": false,
         "aMessageWakesTheWorkflow": false,
+        "aModelCallHostErrorPostsAFailure": false,
         "aModelTurnOutlivesItsDeadline": false,
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
@@ -1445,21 +790,30 @@
         "aPlanStartsTheWorkflow": false,
         "aPromptWaitsForAPausedTask": false,
         "aPromptWaitsForATurn": false,
+        "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aRestartLandsDuringAWorkflowEnd": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aReviseTurnIsCut": false,
         "aRunAgainAlarmFindsAStoppedAuthor": false,
         "aSessionMessageReachesAModelCallAuthorAtWork": false,
         "aStaleAlarmFindsAnEndedModelTurn": false,
         "aStaleAlarmFires": false,
         "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOnAnIssueWhoseJobCompletedIsRefused": false,
         "aStartOutsideTheSubjectIsRefused": false,
         "aStartRecordsARemovedPull": false,
         "aStopEndsAModelCall": false,
@@ -1468,6 +822,9 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
         "aWorkflowEndResumesAfterARestart": false,
@@ -1484,299 +841,108 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false,
-        "aRestartCutsTheDestroyOfACancelledAuthor": false,
-        "aRestartCutsTheDestroyOfAFailedAuthor": false,
-        "aRestartCutsAFailurePost": false,
-        "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false,
-        "aRestartCutsTheDestroyOfACompletedAuthor": false
+        "theSubjectIssueEndCancelsTheWorkflow": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [
           {
-            "job": {
-              "#bigint": "0"
-            },
-            "kind": {
-              "tag": "SandboxDestroy",
-              "value": {
-                "#tup": []
-              }
-            },
+            "job": { "#bigint": "0" },
+            "kind": { "tag": "SandboxDestroy", "value": { "#tup": [] } },
             "rest": {
               "tag": "TeardownGoesOn",
               "value": {
                 "caller": {
                   "tag": "WorkflowEnd",
                   "value": {
-                    "tag": "Cancelled",
-                    "value": {
-                      "#tup": []
-                    }
+                    "endsAs": { "tag": "Cancelled", "value": { "#tup": [] } },
+                    "waiter": { "tag": "AnEventWaits", "value": { "#tup": [] } }
                   }
                 },
-                "teardown": {
-                  "tag": "AfterCancel",
-                  "value": {
-                    "#tup": []
-                  }
-                }
+                "teardown": { "tag": "AfterCancel", "value": { "#tup": [] } }
               }
             }
           }
         ],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "1"
-          }
-        },
-        "endedIssues": {
-          "#set": []
-        },
+        "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
+        "destroyedSandboxes": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "endedIssues": { "#set": [] },
         "endingPosts": [],
         "idleArmed": true,
-        "issueMoves": {
-          "#bigint": "0"
-        },
+        "issueMoves": { "#bigint": "0" },
         "jobs": [
           {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "pullOnHost": {
-              "tag": "NoPull",
-              "value": {
-                "#tup": []
-              }
-            },
+            "artifact": { "tag": "NoArtifact", "value": { "#tup": [] } },
+            "input": { "tag": "FromRequest", "value": { "#bigint": "1" } },
+            "pullOnHost": { "tag": "NoPull", "value": { "#tup": [] } },
             "refinerRuns": [],
             "tasks": [
               {
                 "generationClosed": false,
                 "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "TaskCancelled",
-                  "value": {
-                    "#tup": []
-                  }
-                },
+                "promptsQueued": { "#bigint": "0" },
+                "promptsSent": { "#bigint": "1" },
+                "restarts": { "#bigint": "0" },
+                "role": { "tag": "Author", "value": { "#tup": [] } },
+                "startOrder": { "#bigint": "0" },
+                "status": { "tag": "TaskCancelled", "value": { "#tup": [] } },
                 "stopped": false,
                 "turnRunning": true
               }
             ]
           }
         ],
-        "ranAgain": {
-          "#set": []
-        },
+        "ranAgain": { "#set": [] },
         "restartAlarmFired": false,
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "stagePlan": {
-          "tag": "StagesPlanned",
-          "value": {
-            "#bigint": "2"
-          }
-        },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
+        "restartAlarms": { "#set": [] },
+        "runAgainAlarms": { "#set": [] },
+        "stagePlan": { "tag": "StagesPlanned", "value": { "#bigint": "2" } },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": {
           "tag": "EndStored",
-          "value": {
-            "tag": "Cancelled",
-            "value": {
-              "#tup": []
-            }
-          }
+          "value": { "tag": "Cancelled", "value": { "#tup": [] } }
         },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
-          }
-        },
-        "turnsToRunAgain": {
-          "#set": []
-        },
-        "taskEndAlarms": {
-          "#set": [
-            {
-              "#bigint": "0"
-            }
-          ]
-        },
-        "destroyedSandboxes": {
-          "#set": []
-        }
+        "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
+        "turnsToRunAgain": { "#set": [] }
       }
     },
     {
-      "#meta": {
-        "index": 5
-      },
+      "#meta": { "index": 5 },
       "mbt::actionTaken": "workflowRestarts",
       "mbt::nondetPicks": {
-        "answer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "command": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "endsAs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "jobSlots": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "landed": {
-          "tag": "Some",
-          "value": false
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outputLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "routerWriteFails": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "withStages": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
+        "answer": { "tag": "None", "value": { "#tup": [] } },
+        "callId": { "tag": "None", "value": { "#tup": [] } },
+        "command": { "tag": "None", "value": { "#tup": [] } },
+        "definition": { "tag": "None", "value": { "#tup": [] } },
+        "ending": { "tag": "None", "value": { "#tup": [] } },
+        "endsAs": { "tag": "None", "value": { "#tup": [] } },
+        "hostMove": { "tag": "None", "value": { "#tup": [] } },
+        "id": { "tag": "None", "value": { "#tup": [] } },
+        "issue": { "tag": "None", "value": { "#tup": [] } },
+        "jobSlots": { "tag": "None", "value": { "#tup": [] } },
+        "landed": { "tag": "Some", "value": true },
+        "lostJobs": { "tag": "None", "value": { "#tup": [] } },
+        "outputLink": { "tag": "None", "value": { "#tup": [] } },
+        "request": { "tag": "None", "value": { "#tup": [] } },
+        "routerWriteFails": { "tag": "None", "value": { "#tup": [] } },
+        "sandbox": { "tag": "None", "value": { "#tup": [] } },
+        "subjectLink": { "tag": "None", "value": { "#tup": [] } },
+        "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
+        "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
         "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
+        "value": { "#tup": [] }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aCompletedJobEndsItsReview": true,
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
         "aJobStartProvisionsItsTask": true,
+        "aPersonsMessageWakesTheWorkflow": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
@@ -1786,6 +952,7 @@
         "artifactStatusMovesAreLegal": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
+        "issuesMoveOnlyAtAStartOrADoneEnd": true,
         "jobStartsOnlyIntoAFreeSlot": true,
         "nothingReopensAFinishedWorkflow": true,
         "onlyAPlanStartsTheWorkflow": true,
@@ -1804,12 +971,17 @@
         "aDeadlinePassesDuringAPageWrite": false,
         "aDeadlinePassesDuringAProduceTurn": false,
         "aFinishedTaskIsInAStep": true,
+        "aHarnessAuthorCompletesAfterItsDestroy": false,
+        "aHarnessAuthorPostsItsFailureAfterItsDestroy": false,
+        "aJobCompletesDuringItsReview": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
         "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageLandsOnAWaitingWorkflow": false,
         "aMessageWakesTheWorkflow": false,
+        "aModelCallHostErrorPostsAFailure": false,
         "aModelTurnOutlivesItsDeadline": false,
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
@@ -1821,21 +993,30 @@
         "aPlanStartsTheWorkflow": false,
         "aPromptWaitsForAPausedTask": false,
         "aPromptWaitsForATurn": false,
+        "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": true,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aRestartLandsDuringAWorkflowEnd": true,
+        "aResumedEndFindsItsPostReturned": false,
         "aReviseTurnIsCut": false,
         "aRunAgainAlarmFindsAStoppedAuthor": false,
         "aSessionMessageReachesAModelCallAuthorAtWork": false,
         "aStaleAlarmFindsAnEndedModelTurn": false,
         "aStaleAlarmFires": false,
         "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOnAnIssueWhoseJobCompletedIsRefused": false,
         "aStartOutsideTheSubjectIsRefused": false,
         "aStartRecordsARemovedPull": false,
         "aStopEndsAModelCall": false,
@@ -1844,6 +1025,9 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
         "aWorkflowEndResumesAfterARestart": false,
@@ -1860,272 +1044,90 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false,
-        "aRestartCutsTheDestroyOfACancelledAuthor": true,
-        "aRestartCutsTheDestroyOfAFailedAuthor": false,
-        "aRestartCutsAFailurePost": false,
-        "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false,
-        "aRestartCutsTheDestroyOfACompletedAuthor": false
+        "theSubjectIssueEndCancelsTheWorkflow": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "1"
-          }
-        },
-        "endedIssues": {
-          "#set": []
-        },
+        "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
+        "destroyedSandboxes": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "endedIssues": { "#set": [] },
         "endingPosts": [],
         "idleArmed": true,
-        "issueMoves": {
-          "#bigint": "0"
-        },
+        "issueMoves": { "#bigint": "0" },
         "jobs": [
           {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "pullOnHost": {
-              "tag": "NoPull",
-              "value": {
-                "#tup": []
-              }
-            },
+            "artifact": { "tag": "NoArtifact", "value": { "#tup": [] } },
+            "input": { "tag": "FromRequest", "value": { "#bigint": "1" } },
+            "pullOnHost": { "tag": "NoPull", "value": { "#tup": [] } },
             "refinerRuns": [],
             "tasks": [
               {
                 "generationClosed": false,
                 "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "TaskCancelled",
-                  "value": {
-                    "#tup": []
-                  }
-                },
+                "promptsQueued": { "#bigint": "0" },
+                "promptsSent": { "#bigint": "1" },
+                "restarts": { "#bigint": "0" },
+                "role": { "tag": "Author", "value": { "#tup": [] } },
+                "startOrder": { "#bigint": "0" },
+                "status": { "tag": "TaskCancelled", "value": { "#tup": [] } },
                 "stopped": false,
                 "turnRunning": true
               }
             ]
           }
         ],
-        "ranAgain": {
-          "#set": []
-        },
+        "ranAgain": { "#set": [] },
         "restartAlarmFired": false,
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "stagePlan": {
-          "tag": "StagesPlanned",
-          "value": {
-            "#bigint": "2"
-          }
-        },
-        "status": {
-          "tag": "Running",
-          "value": {
-            "#tup": []
-          }
-        },
+        "restartAlarms": { "#set": [] },
+        "runAgainAlarms": { "#set": [] },
+        "stagePlan": { "tag": "StagesPlanned", "value": { "#bigint": "2" } },
+        "status": { "tag": "Running", "value": { "#tup": [] } },
         "storedEnd": {
           "tag": "EndStored",
-          "value": {
-            "tag": "Cancelled",
-            "value": {
-              "#tup": []
-            }
-          }
+          "value": { "tag": "Cancelled", "value": { "#tup": [] } }
         },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
-          }
-        },
-        "turnsToRunAgain": {
-          "#set": []
-        },
-        "taskEndAlarms": {
-          "#set": [
-            {
-              "#bigint": "0"
-            }
-          ]
-        },
-        "destroyedSandboxes": {
-          "#set": []
-        }
+        "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
+        "turnsToRunAgain": { "#set": [] }
       }
     },
     {
-      "#meta": {
-        "index": 6
-      },
+      "#meta": { "index": 6 },
       "mbt::actionTaken": "theWorkflowEndResumes",
       "mbt::nondetPicks": {
-        "answer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "callId": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "command": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "definition": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "ending": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "endsAs": {
-          "tag": "Some",
-          "value": {
-            "tag": "Cancelled",
-            "value": {
-              "#tup": []
-            }
-          }
-        },
-        "hostMove": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "id": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "issue": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "jobSlots": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "landed": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "lostJobs": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "outputLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "request": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "routerWriteFails": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "sandbox": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "subjectLink": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "timer": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        },
-        "withStages": {
-          "tag": "None",
-          "value": {
-            "#tup": []
-          }
-        }
+        "answer": { "tag": "None", "value": { "#tup": [] } },
+        "callId": { "tag": "None", "value": { "#tup": [] } },
+        "command": { "tag": "None", "value": { "#tup": [] } },
+        "definition": { "tag": "None", "value": { "#tup": [] } },
+        "ending": { "tag": "None", "value": { "#tup": [] } },
+        "endsAs": { "tag": "Some", "value": { "tag": "Cancelled", "value": { "#tup": [] } } },
+        "hostMove": { "tag": "None", "value": { "#tup": [] } },
+        "id": { "tag": "None", "value": { "#tup": [] } },
+        "issue": { "tag": "None", "value": { "#tup": [] } },
+        "jobSlots": { "tag": "None", "value": { "#tup": [] } },
+        "landed": { "tag": "None", "value": { "#tup": [] } },
+        "lostJobs": { "tag": "None", "value": { "#tup": [] } },
+        "outputLink": { "tag": "None", "value": { "#tup": [] } },
+        "request": { "tag": "None", "value": { "#tup": [] } },
+        "routerWriteFails": { "tag": "None", "value": { "#tup": [] } },
+        "sandbox": { "tag": "None", "value": { "#tup": [] } },
+        "subjectLink": { "tag": "None", "value": { "#tup": [] } },
+        "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "None", "value": { "#tup": [] } },
+        "withStages": { "tag": "None", "value": { "#tup": [] } }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
         "tag": "NotAnswered",
-        "value": {
-          "#tup": []
-        }
+        "value": { "#tup": [] }
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aCompletedJobEndsItsReview": true,
         "aFailedCheckNeverAsksThePersonAgain": true,
         "aFailedCheckNeverCompletesAJob": true,
         "aJobStartProvisionsItsTask": true,
+        "aPersonsMessageWakesTheWorkflow": true,
         "aRestartDoesNotLoseAModelTurn": true,
         "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
         "aStartOutsideTheSubjectStartsNoJob": true,
@@ -2135,6 +1137,7 @@
         "artifactStatusMovesAreLegal": true,
         "finishedTaskKeepsItsStatus": true,
         "finishedWorkflowKeepsItsStatus": true,
+        "issuesMoveOnlyAtAStartOrADoneEnd": true,
         "jobStartsOnlyIntoAFreeSlot": true,
         "nothingReopensAFinishedWorkflow": true,
         "onlyAPlanStartsTheWorkflow": true,
@@ -2153,12 +1156,17 @@
         "aDeadlinePassesDuringAPageWrite": false,
         "aDeadlinePassesDuringAProduceTurn": false,
         "aFinishedTaskIsInAStep": true,
+        "aHarnessAuthorCompletesAfterItsDestroy": false,
+        "aHarnessAuthorPostsItsFailureAfterItsDestroy": false,
+        "aJobCompletesDuringItsReview": false,
         "aJobStartsBesideAResearcher": false,
         "aJobStartsIntoTheLastSlot": false,
         "aJobStartsPastAFailedRouterWrite": false,
         "aLostModelTurnDeadlineFires": false,
         "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageLandsOnAWaitingWorkflow": false,
         "aMessageWakesTheWorkflow": false,
+        "aModelCallHostErrorPostsAFailure": false,
         "aModelTurnOutlivesItsDeadline": false,
         "aPausedAuthorLosesAModelTurn": false,
         "aPausedAuthorResumes": false,
@@ -2170,21 +1178,30 @@
         "aPlanStartsTheWorkflow": false,
         "aPromptWaitsForAPausedTask": false,
         "aPromptWaitsForATurn": false,
+        "aResearcherPostsItsFailure": false,
         "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
         "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
         "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageCreate": false,
         "aRestartCutsAPageWrite": false,
         "aRestartCutsAProduceTurn": false,
         "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsTheEndPost": false,
         "aRestartLandsBeforeALostModelTurnRunsAgain": false,
         "aRestartLandsBeforeTheRestartAlarm": false,
         "aRestartLandsDuringAWorkflowEnd": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aReviseTurnIsCut": false,
         "aRunAgainAlarmFindsAStoppedAuthor": false,
         "aSessionMessageReachesAModelCallAuthorAtWork": false,
         "aStaleAlarmFindsAnEndedModelTurn": false,
         "aStaleAlarmFires": false,
         "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOnAnIssueWhoseJobCompletedIsRefused": false,
         "aStartOutsideTheSubjectIsRefused": false,
         "aStartRecordsARemovedPull": false,
         "aStopEndsAModelCall": false,
@@ -2193,6 +1210,9 @@
         "aStoppedModelCallReturns": false,
         "aSubIssueEndCancelsItsJob": false,
         "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTrackerWorkflowEndsWithoutDone": false,
         "aVerbalCommandFindsSeveralJobs": false,
         "aWorkflowEndCancelsARefinerRun": false,
         "aWorkflowEndResumesAfterARestart": true,
@@ -2209,133 +1229,426 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false,
-        "aRestartCutsTheDestroyOfACancelledAuthor": false,
-        "aRestartCutsTheDestroyOfAFailedAuthor": false,
-        "aRestartCutsAFailurePost": false,
-        "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false,
-        "aRestartCutsTheDestroyOfACompletedAuthor": false
+        "theSubjectIssueEndCancelsTheWorkflow": false
       },
       "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesWithAReviewer::workflowLifecycle::workflow": {
         "calls": [],
-        "definition": {
-          "tag": "Planned",
-          "value": {
-            "#bigint": "1"
-          }
+        "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
+        "destroyedSandboxes": { "#set": [] },
+        "endCall": {
+          "tag": "EndPostOut",
+          "value": { "tag": "NobodyWaits", "value": { "#tup": [] } }
         },
-        "endedIssues": {
-          "#set": []
-        },
+        "endedIssues": { "#set": [] },
         "endingPosts": [],
         "idleArmed": true,
-        "issueMoves": {
-          "#bigint": "0"
-        },
+        "issueMoves": { "#bigint": "0" },
         "jobs": [
           {
-            "artifact": {
-              "tag": "NoArtifact",
-              "value": {
-                "#tup": []
-              }
-            },
-            "input": {
-              "tag": "FromRequest",
-              "value": {
-                "#bigint": "1"
-              }
-            },
-            "pullOnHost": {
-              "tag": "NoPull",
-              "value": {
-                "#tup": []
-              }
-            },
+            "artifact": { "tag": "NoArtifact", "value": { "#tup": [] } },
+            "input": { "tag": "FromRequest", "value": { "#bigint": "1" } },
+            "pullOnHost": { "tag": "NoPull", "value": { "#tup": [] } },
             "refinerRuns": [],
             "tasks": [
               {
                 "generationClosed": false,
                 "paused": false,
-                "promptsQueued": {
-                  "#bigint": "0"
-                },
-                "promptsSent": {
-                  "#bigint": "1"
-                },
-                "restarts": {
-                  "#bigint": "0"
-                },
-                "role": {
-                  "tag": "Author",
-                  "value": {
-                    "#tup": []
-                  }
-                },
-                "startOrder": {
-                  "#bigint": "0"
-                },
-                "status": {
-                  "tag": "TaskCancelled",
-                  "value": {
-                    "#tup": []
-                  }
-                },
+                "promptsQueued": { "#bigint": "0" },
+                "promptsSent": { "#bigint": "1" },
+                "restarts": { "#bigint": "0" },
+                "role": { "tag": "Author", "value": { "#tup": [] } },
+                "startOrder": { "#bigint": "0" },
+                "status": { "tag": "TaskCancelled", "value": { "#tup": [] } },
                 "stopped": false,
                 "turnRunning": true
               }
             ]
           }
         ],
-        "ranAgain": {
-          "#set": []
-        },
+        "ranAgain": { "#set": [] },
         "restartAlarmFired": false,
-        "restartAlarms": {
-          "#set": []
-        },
-        "runAgainAlarms": {
-          "#set": []
-        },
-        "stagePlan": {
-          "tag": "StagesPlanned",
-          "value": {
-            "#bigint": "2"
-          }
-        },
-        "status": {
-          "tag": "Cancelled",
-          "value": {
-            "#tup": []
-          }
-        },
+        "restartAlarms": { "#set": [] },
+        "runAgainAlarms": { "#set": [] },
+        "stagePlan": { "tag": "StagesPlanned", "value": { "#bigint": "2" } },
+        "status": { "tag": "Cancelled", "value": { "#tup": [] } },
         "storedEnd": {
-          "tag": "NoStoredEnd",
-          "value": {
-            "#tup": []
+          "tag": "EndStored",
+          "value": { "tag": "Cancelled", "value": { "#tup": [] } }
+        },
+        "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
+        "turnsToRunAgain": { "#set": [] }
+      }
+    },
+    {
+      "#meta": { "index": 7 },
+      "mbt::actionTaken": "theEndPostReturns",
+      "mbt::nondetPicks": {
+        "answer": { "tag": "None", "value": { "#tup": [] } },
+        "callId": { "tag": "None", "value": { "#tup": [] } },
+        "command": { "tag": "None", "value": { "#tup": [] } },
+        "definition": { "tag": "None", "value": { "#tup": [] } },
+        "ending": { "tag": "None", "value": { "#tup": [] } },
+        "endsAs": { "tag": "None", "value": { "#tup": [] } },
+        "hostMove": { "tag": "None", "value": { "#tup": [] } },
+        "id": { "tag": "None", "value": { "#tup": [] } },
+        "issue": { "tag": "None", "value": { "#tup": [] } },
+        "jobSlots": { "tag": "None", "value": { "#tup": [] } },
+        "landed": { "tag": "None", "value": { "#tup": [] } },
+        "lostJobs": { "tag": "None", "value": { "#tup": [] } },
+        "outputLink": { "tag": "None", "value": { "#tup": [] } },
+        "request": { "tag": "None", "value": { "#tup": [] } },
+        "routerWriteFails": { "tag": "None", "value": { "#tup": [] } },
+        "sandbox": { "tag": "None", "value": { "#tup": [] } },
+        "subjectLink": { "tag": "None", "value": { "#tup": [] } },
+        "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "Some", "value": { "tag": "NobodyWaits", "value": { "#tup": [] } } },
+        "withStages": { "tag": "None", "value": { "#tup": [] } }
+      },
+      "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": { "#tup": [] }
+      },
+      "pagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aCompletedJobEndsItsReview": true,
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aJobStartProvisionsItsTask": true,
+        "aPersonsMessageWakesTheWorkflow": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "aWorkflowEndReachesAFinishedStatus": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "issuesMoveOnlyAtAStartOrADoneEnd": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "pagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": true,
+        "aHarnessAuthorCompletesAfterItsDestroy": false,
+        "aHarnessAuthorPostsItsFailureAfterItsDestroy": false,
+        "aJobCompletesDuringItsReview": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aJobStartsPastAFailedRouterWrite": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageLandsOnAWaitingWorkflow": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelCallHostErrorPostsAFailure": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aResearcherPostsItsFailure": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageCreate": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsTheEndPost": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aRestartLandsDuringAWorkflowEnd": false,
+        "aResumedEndFindsItsPostReturned": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOnAnIssueWhoseJobCompletedIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTrackerWorkflowEndsWithoutDone": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "aWorkflowEndResumesAfterARestart": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesWithAReviewer::workflowLifecycle::workflow": {
+        "calls": [],
+        "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
+        "destroyedSandboxes": { "#set": [] },
+        "endCall": {
+          "tag": "CodeHostUnbindOut",
+          "value": { "tag": "NobodyWaits", "value": { "#tup": [] } }
+        },
+        "endedIssues": { "#set": [] },
+        "endingPosts": [],
+        "idleArmed": true,
+        "issueMoves": { "#bigint": "0" },
+        "jobs": [
+          {
+            "artifact": { "tag": "NoArtifact", "value": { "#tup": [] } },
+            "input": { "tag": "FromRequest", "value": { "#bigint": "1" } },
+            "pullOnHost": { "tag": "NoPull", "value": { "#tup": [] } },
+            "refinerRuns": [],
+            "tasks": [
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": { "#bigint": "0" },
+                "promptsSent": { "#bigint": "1" },
+                "restarts": { "#bigint": "0" },
+                "role": { "tag": "Author", "value": { "#tup": [] } },
+                "startOrder": { "#bigint": "0" },
+                "status": { "tag": "TaskCancelled", "value": { "#tup": [] } },
+                "stopped": false,
+                "turnRunning": true
+              }
+            ]
           }
+        ],
+        "ranAgain": { "#set": [] },
+        "restartAlarmFired": false,
+        "restartAlarms": { "#set": [] },
+        "runAgainAlarms": { "#set": [] },
+        "stagePlan": { "tag": "StagesPlanned", "value": { "#bigint": "2" } },
+        "status": { "tag": "Cancelled", "value": { "#tup": [] } },
+        "storedEnd": {
+          "tag": "EndPosted",
+          "value": { "tag": "Cancelled", "value": { "#tup": [] } }
         },
-        "subject": {
-          "tag": "NoSubject",
-          "value": {
-            "#tup": []
+        "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
+        "turnsToRunAgain": { "#set": [] }
+      }
+    },
+    {
+      "#meta": { "index": 8 },
+      "mbt::actionTaken": "theCodeHostUnbindReturns",
+      "mbt::nondetPicks": {
+        "answer": { "tag": "None", "value": { "#tup": [] } },
+        "callId": { "tag": "None", "value": { "#tup": [] } },
+        "command": { "tag": "None", "value": { "#tup": [] } },
+        "definition": { "tag": "None", "value": { "#tup": [] } },
+        "ending": { "tag": "None", "value": { "#tup": [] } },
+        "endsAs": { "tag": "None", "value": { "#tup": [] } },
+        "hostMove": { "tag": "None", "value": { "#tup": [] } },
+        "id": { "tag": "None", "value": { "#tup": [] } },
+        "issue": { "tag": "None", "value": { "#tup": [] } },
+        "jobSlots": { "tag": "None", "value": { "#tup": [] } },
+        "landed": { "tag": "None", "value": { "#tup": [] } },
+        "lostJobs": { "tag": "None", "value": { "#tup": [] } },
+        "outputLink": { "tag": "None", "value": { "#tup": [] } },
+        "request": { "tag": "None", "value": { "#tup": [] } },
+        "routerWriteFails": { "tag": "None", "value": { "#tup": [] } },
+        "sandbox": { "tag": "None", "value": { "#tup": [] } },
+        "subjectLink": { "tag": "None", "value": { "#tup": [] } },
+        "timer": { "tag": "None", "value": { "#tup": [] } },
+        "waiter": { "tag": "Some", "value": { "tag": "NobodyWaits", "value": { "#tup": [] } } },
+        "withStages": { "tag": "None", "value": { "#tup": [] } }
+      },
+      "pagesWithAReviewer::workflowLifecycle::lastStepAnswered": {
+        "tag": "NotAnswered",
+        "value": { "#tup": [] }
+      },
+      "pagesWithAReviewer::workflowLifecycle::lastStepKept": {
+        "aCompletedJobEndsItsReview": true,
+        "aFailedCheckNeverAsksThePersonAgain": true,
+        "aFailedCheckNeverCompletesAJob": true,
+        "aJobStartProvisionsItsTask": true,
+        "aPersonsMessageWakesTheWorkflow": true,
+        "aRestartDoesNotLoseAModelTurn": true,
+        "aSingleIssueWorkflowIsDoneWithItsSubjectsJob": true,
+        "aStartOutsideTheSubjectStartsNoJob": true,
+        "aWorkflowEndReachesAFinishedStatus": true,
+        "anAcceptedArtifactNeverMovesBack": true,
+        "anUndeclaredPlanChangesNothing": true,
+        "artifactStatusMovesAreLegal": true,
+        "finishedTaskKeepsItsStatus": true,
+        "finishedWorkflowKeepsItsStatus": true,
+        "issuesMoveOnlyAtAStartOrADoneEnd": true,
+        "jobStartsOnlyIntoAFreeSlot": true,
+        "nothingReopensAFinishedWorkflow": true,
+        "onlyAPlanStartsTheWorkflow": true,
+        "pausedAuthorGetsNoPrompt": true,
+        "sleepMessageOnlyDuringAWorkflow": true,
+        "staleAlarmIsIgnored": true,
+        "stoppedModelCallLeavesThePage": true,
+        "subjectNeverChanges": true,
+        "workflowKeepsItsDefinition": true,
+        "workflowWaitsOnlyWhileNoAuthorWorks": true
+      },
+      "pagesWithAReviewer::workflowLifecycle::lastStepReached": {
+        "aCallWasDropped": false,
+        "aCancelWordReachesTheSubjectsAuthor": false,
+        "aCheckFailsAfterItsAuthorEnded": false,
+        "aDeadlinePassesDuringAPageWrite": false,
+        "aDeadlinePassesDuringAProduceTurn": false,
+        "aFinishedTaskIsInAStep": true,
+        "aHarnessAuthorCompletesAfterItsDestroy": false,
+        "aHarnessAuthorPostsItsFailureAfterItsDestroy": false,
+        "aJobCompletesDuringItsReview": false,
+        "aJobStartsBesideAResearcher": false,
+        "aJobStartsIntoTheLastSlot": false,
+        "aJobStartsPastAFailedRouterWrite": false,
+        "aLostModelTurnDeadlineFires": false,
+        "aLostModelTurnRunsAgainOnceMore": false,
+        "aMessageLandsOnAWaitingWorkflow": false,
+        "aMessageWakesTheWorkflow": false,
+        "aModelCallHostErrorPostsAFailure": false,
+        "aModelTurnOutlivesItsDeadline": false,
+        "aPausedAuthorLosesAModelTurn": false,
+        "aPausedAuthorResumes": false,
+        "aPersonPausesAResearcher": false,
+        "aPlanLandsOnAStartedWorkflow": false,
+        "aPlanLeavesFewerSlotsThanJobs": false,
+        "aPlanNamesAnotherSubject": false,
+        "aPlanSetsTheSubject": false,
+        "aPlanStartsTheWorkflow": false,
+        "aPromptWaitsForAPausedTask": false,
+        "aPromptWaitsForATurn": false,
+        "aResearcherPostsItsFailure": false,
+        "aRestartAlarmDecidesATurnThatWaitedToRunAgain": false,
+        "aRestartAlarmFiresAgain": false,
+        "aRestartCutsAFailurePost": false,
+        "aRestartCutsAModelTurn": false,
+        "aRestartCutsAPageCreate": false,
+        "aRestartCutsAPageWrite": false,
+        "aRestartCutsAProduceTurn": false,
+        "aRestartCutsARerunModelTurn": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsTheEndPost": false,
+        "aRestartLandsBeforeALostModelTurnRunsAgain": false,
+        "aRestartLandsBeforeTheRestartAlarm": false,
+        "aRestartLandsDuringAWorkflowEnd": false,
+        "aResumedEndFindsItsPostReturned": false,
+        "aReviseTurnIsCut": false,
+        "aRunAgainAlarmFindsAStoppedAuthor": false,
+        "aSessionMessageReachesAModelCallAuthorAtWork": false,
+        "aStaleAlarmFindsAnEndedModelTurn": false,
+        "aStaleAlarmFires": false,
+        "aStartBeforeTheSubjectIsRefused": false,
+        "aStartOnAnIssueWhoseJobCompletedIsRefused": false,
+        "aStartOutsideTheSubjectIsRefused": false,
+        "aStartRecordsARemovedPull": false,
+        "aStopEndsAModelCall": false,
+        "aStopLandsDuringAPageWrite": false,
+        "aStopTakesATurnThatWaitsToRunAgain": false,
+        "aStoppedModelCallReturns": false,
+        "aSubIssueEndCancelsItsJob": false,
+        "aSubjectsJobEndsTheWorkflow": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTrackerWorkflowEndsWithoutDone": false,
+        "aVerbalCommandFindsSeveralJobs": false,
+        "aWorkflowEndCancelsARefinerRun": false,
+        "aWorkflowEndResumesAfterARestart": false,
+        "anAcceptanceCheckFails": false,
+        "anAuthorFailsOnALostModelTurn": false,
+        "anAuthorTakesAPromptAfterItsPolisher": false,
+        "anEventLandsBeforeALostModelTurnRunsAgain": false,
+        "anEventLandsBeforeTheRestartAlarm": false,
+        "anEventLandsOnAFinishedWorkflow": false,
+        "anIssueEndFindsAnAcceptedArtifact": false,
+        "anOutputNamesAnotherSubject": false,
+        "anOutputSetsTheSubject": false,
+        "anUndeclaredPlanLands": false,
+        "theAcceptanceCheckCompletesTheSubjectsJob": false,
+        "theRestartAlarmFailsAnAuthor": false,
+        "theSleepMessagePosts": false,
+        "theSubjectIssueEndCancelsTheWorkflow": false
+      },
+      "pagesWithAReviewer::workflowLifecycle::lastStepToldTheAgent": false,
+      "pagesWithAReviewer::workflowLifecycle::workflow": {
+        "calls": [],
+        "definition": { "tag": "Planned", "value": { "#bigint": "0" } },
+        "destroyedSandboxes": { "#set": [] },
+        "endCall": { "tag": "NoEndCall", "value": { "#tup": [] } },
+        "endedIssues": { "#set": [] },
+        "endingPosts": [],
+        "idleArmed": true,
+        "issueMoves": { "#bigint": "0" },
+        "jobs": [
+          {
+            "artifact": { "tag": "NoArtifact", "value": { "#tup": [] } },
+            "input": { "tag": "FromRequest", "value": { "#bigint": "1" } },
+            "pullOnHost": { "tag": "NoPull", "value": { "#tup": [] } },
+            "refinerRuns": [],
+            "tasks": [
+              {
+                "generationClosed": false,
+                "paused": false,
+                "promptsQueued": { "#bigint": "0" },
+                "promptsSent": { "#bigint": "1" },
+                "restarts": { "#bigint": "0" },
+                "role": { "tag": "Author", "value": { "#tup": [] } },
+                "startOrder": { "#bigint": "0" },
+                "status": { "tag": "TaskCancelled", "value": { "#tup": [] } },
+                "stopped": false,
+                "turnRunning": true
+              }
+            ]
           }
-        },
-        "turnsToRunAgain": {
-          "#set": []
-        },
-        "taskEndAlarms": {
-          "#set": [
-            {
-              "#bigint": "0"
-            }
-          ]
-        },
-        "destroyedSandboxes": {
-          "#set": []
-        }
+        ],
+        "ranAgain": { "#set": [] },
+        "restartAlarmFired": false,
+        "restartAlarms": { "#set": [] },
+        "runAgainAlarms": { "#set": [] },
+        "stagePlan": { "tag": "StagesPlanned", "value": { "#bigint": "2" } },
+        "status": { "tag": "Cancelled", "value": { "#tup": [] } },
+        "storedEnd": { "tag": "NoStoredEnd", "value": { "#tup": [] } },
+        "subject": { "tag": "NoSubject", "value": { "#tup": [] } },
+        "taskEndAlarms": { "#set": [{ "#bigint": "0" }] },
+        "turnsToRunAgain": { "#set": [] }
       }
     }
   ]

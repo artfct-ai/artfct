@@ -55,8 +55,6 @@ export const SPEC_SETUPS = {
   trackerOnly: { origin: "tracker", research: false, pageAuthor: "harness" },
   trackerResearch: { origin: "tracker", research: true, pageAuthor: "harness" },
   trackerModelCall: { origin: "tracker", research: false, pageAuthor: "model" },
-  trackerPause: { origin: "tracker", research: false, pageAuthor: "harness" },
-  trackerDelivery: { origin: "tracker", research: false, pageAuthor: "harness" },
 } as const satisfies Record<string, Pick<WorldSetup, "origin" | "research" | "pageAuthor">>;
 
 /** The name of one setup module of the spec. */
@@ -702,6 +700,7 @@ export class SessionRoutingReplay {
     const { picks } = step;
     switch (step.action) {
       case "personWritesInSession":
+      case "aPersonWritesWhereNoAuthorRuns":
         return worldAction(
           `a person says ${picks.text} in the session on ${picks.issue}`,
           (world) => this.personWritesInSession(world, required(picks.issue), required(picks.text)),
@@ -805,10 +804,13 @@ export class SessionRoutingReplay {
           picks.researchEnding ?? "LeavesNoPayload",
         );
       case "agentPausesAuthor":
+      case "agentPausesAPausedAuthor":
         return agentHoldsAuthor(this.unfinishedIndexOf(required(picks.id)), "pause_task");
       case "agentResumesAuthor":
+      case "agentResumesAnUnpausedAuthor":
         return agentHoldsAuthor(this.unfinishedIndexOf(required(picks.id)), "resume_task");
       case "idleClockFires":
+      case "idleClockFiresWithoutASleep":
         return worldAction("the idle clock fires", async (world) => {
           const { workflow } = world;
           if (workflow.state.idle_alarm) await workflow.cancelAlarm(workflow.state.idle_alarm);

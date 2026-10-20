@@ -87,11 +87,13 @@ export type WorkflowState = {
 /**
  * A workflow end. `reason` is the result of a done workflow, or why it failed or was cancelled.
  * `answering` is where the people who asked for the end wait. Empty for an end the agent asked for.
+ * `posted` is true once the channels heard the end, so a resumed end does not post again.
  */
 export type WorkflowEnd = {
   status: Extract<WorkflowStatus, "done" | "failed" | "cancelled">;
   reason: string;
   answering: ReplyTarget[];
+  posted?: boolean;
 };
 
 export const initialWorkflowState: WorkflowState = {
