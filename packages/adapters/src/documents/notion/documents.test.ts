@@ -730,12 +730,12 @@ describe("NotionDocuments", () => {
       expect(notion.calls).toEqual([]);
     });
 
-    it("replaces the whole body of a page without text", async () => {
+    it("inserts the whole text at the start of a page read without text", async () => {
       const notion = notionDocuments(() => Response.json(pageMarkdown("# Revised", false)));
       await notion.documents.updatePageContent("p1", { before: "", after: "# Revised" });
       expect(JSON.parse(notion.calls[0]?.body ?? "")).toEqual({
-        type: "replace_content",
-        replace_content: { new_str: "# Revised" },
+        type: "insert_content",
+        insert_content: { content: "# Revised", position: { type: "start" } },
       });
     });
 

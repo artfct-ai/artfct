@@ -290,13 +290,18 @@ export class LinearDocuments implements Documents {
   }
 }
 
-/** The content after the change, applied to the content Linear holds now. */
+/**
+ * The content after the change, applied to the content Linear holds now. A document read without
+ * text gets the whole new text ahead of any text a person wrote since the read.
+ */
 function linearRevisedContent(
   current: string,
   change: PageTextChange,
 ): { text: string } | { error: string } {
   const update = planPageTextUpdate(change, Number.POSITIVE_INFINITY);
-  if ("whole" in update) return { text: update.whole };
+  if ("whole" in update) {
+    return { text: current.trim() ? `${update.whole}\n${current}` : update.whole };
+  }
   return applyPageTextEdits(current, update.edits);
 }
 
