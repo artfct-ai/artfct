@@ -8,14 +8,16 @@ export type FeedStepKind =
   | "turn_end"
   | "stop"
   | "instruction"
-  | "restart";
+  | "restart"
+  | "closing_alarm";
 
 /**
- * One activity the tracker stored. `acknowledged` is false when the orchestrator never saw the
- * tracker take it: a restart cut the post, or the tracker failed after it stored it. `quotaLow`
- * is true when the request quota was low as its step began.
+ * One activity the tracker stored, under its activity id when it has one. `acknowledged` is false
+ * when the orchestrator never saw the tracker take it: a restart cut the post, or the tracker
+ * failed after it stored it. `quotaLow` is true when the request quota was low as its step began.
  */
 export type FeedPost = {
+  id: string | null;
   at: number;
   step: FeedStepKind;
   type: AgentActivityContent["type"];
@@ -49,15 +51,24 @@ export function aToolCallNeverPosts(posts: FeedPost[], toolTitles: string[]): vo
   }
 }
 
+/** The steps that post the narration that waits now: a turn end, a stop, and a closing reply's alarm. */
+function postsNarrationNow(post: FeedPost): boolean {
+  return post.step === "turn_end" || post.step === "stop" || post.step === "closing_alarm";
+}
+
 /**
- * Narration posts at most once per interval. Only the post as a turn ends or stops comes sooner.
- * A post the orchestrator never saw land does not start the interval.
+ * Narration posts at most once per interval. Only the post as a turn ends or stops, or before a
+ * closing reply on its alarm, comes sooner. A post the orchestrator never saw land does not start
+ * the interval.
  */
 export function narrationPostsAtMostOncePerInterval(posts: FeedPost[], intervalMs: number): void {
   let lastAcknowledgedAt: number | null = null;
   for (const post of posts.filter(isNarration)) {
-    const turnEnds = post.step === "turn_end" || post.step === "stop";
-    if (!turnEnds && lastAcknowledgedAt !== null && post.at - lastAcknowledgedAt < intervalMs) {
+    if (
+      !postsNarrationNow(post) &&
+      lastAcknowledgedAt !== null &&
+      post.at - lastAcknowledgedAt < intervalMs
+    ) {
       violated(
         "narrationPostsAtMostOncePerInterval",
         `narration posted ${post.at - lastAcknowledgedAt} ms after the last`,
@@ -69,9 +80,14 @@ export function narrationPostsAtMostOncePerInterval(posts: FeedPost[], intervalM
 
 /**
  * Every narration line the author wrote posts, in the order it was written. A line posts again
- * only after a post that carried it did not land for the orchestrator.
+ * only after a post that carried it did not land for the orchestrator. Only a line that waited as
+ * the feed gave up after its quiet span may never post.
  */
-export function everyNarrationLinePostsInOrder(posts: FeedPost[], written: string[]): void {
+export function everyNarrationLinePostsInOrder(
+  posts: FeedPost[],
+  written: string[],
+  givenUp: string[],
+): void {
   const posted: string[] = [];
   const unacknowledged = new Set<string>();
   for (const post of posts.filter(isNarration)) {
@@ -83,11 +99,86 @@ export function everyNarrationLinePostsInOrder(posts: FeedPost[], written: strin
       if (!post.acknowledged) unacknowledged.add(line);
     }
   }
-  if (posted.join("|") !== written.join("|")) {
+  const expected = written.filter((line) => posted.includes(line) || !givenUp.includes(line));
+  if (posted.join("|") !== expected.join("|")) {
     violated(
       "everyNarrationLinePostsInOrder",
       `posted ${JSON.stringify(posted)}, written ${JSON.stringify(written)}`,
     );
+  }
+}
+
+/** The closing reply of a turn end: its activity id, when its turn ended, and the lines before it. */
+export type ClosingTurn = { id: string; endedAt: number; linesBefore: number };
+
+/**
+ * Every closing reply lands. Only a reply whose tracker refused its posts from its turn end until
+ * the give-up span after it may be lost. `postableAt` holds each moment the tracker took posts.
+ */
+export function everyClosingReplyLands(
+  posts: FeedPost[],
+  closings: ClosingTurn[],
+  postableAt: number[],
+  givesUpAfterMs: number,
+): void {
+  for (const closing of closings) {
+    if (posts.some((post) => post.id === closing.id)) continue;
+    const couldLand = postableAt.some(
+      (at) => at >= closing.endedAt && at <= closing.endedAt + givesUpAfterMs,
+    );
+    if (couldLand) {
+      violated(
+        "everyClosingReplyLands",
+        `the reply of the turn ended at ${closing.endedAt} is lost`,
+      );
+    }
+  }
+}
+
+/** The closing reply is the last line of its turn: every line written before it posts first. */
+export function theReplyIsTheLastLineOfItsTurn(
+  posts: FeedPost[],
+  closings: ClosingTurn[],
+  written: string[],
+): void {
+  for (const closing of closings) {
+    const replyAt = posts.findIndex((post) => post.id === closing.id);
+    if (replyAt < 0) continue;
+    const postedBefore = new Set(
+      posts.slice(0, replyAt).filter(isNarration).flatMap(narrationLines),
+    );
+    const late = written.slice(0, closing.linesBefore).find((line) => !postedBefore.has(line));
+    if (late) {
+      violated("theReplyIsTheLastLineOfItsTurn", `the line ${late} posted after its turn's reply`);
+    }
+  }
+}
+
+/**
+ * What one tick or closing reply alarm after a turn did. `activeAt` is the last turn start, turn
+ * end, or narration post the orchestrator saw land, and `touchedAt` is the later of it and the
+ * last person's message.
+ */
+export type FeedRetry = {
+  at: number;
+  stoppedWhileNarrationWaits: boolean;
+  trackerCalls: number;
+  activeAt: number;
+  touchedAt: number;
+};
+
+/**
+ * After a turn, the feed retries the narration that waits until the feed has been quiet for the
+ * give-up span. Then it stops calling the tracker.
+ */
+export function aQuietFeedStopsRetrying(retry: FeedRetry, givesUpAfterMs: number): void {
+  const quietMs = retry.at - retry.activeAt;
+  if (retry.stoppedWhileNarrationWaits && quietMs < givesUpAfterMs) {
+    violated("aQuietFeedStopsRetrying", `the tick stopped after ${quietMs} ms of quiet`);
+  }
+  const untouchedMs = retry.at - retry.touchedAt;
+  if (retry.trackerCalls > 0 && untouchedMs > givesUpAfterMs) {
+    violated("aQuietFeedStopsRetrying", `the tracker was called after ${untouchedMs} ms of quiet`);
   }
 }
 
@@ -135,15 +226,15 @@ export function heartbeatsAreTheOnlyPostsTheQuotaSkips(
 }
 
 /**
- * While the quota is low, a heartbeat does not post, and narration waits for the turn end. It
- * then posts merged with the lines after it.
+ * While the quota is low, a heartbeat does not post, and narration waits for the turn end or a
+ * closing reply's alarm. It then posts merged with the lines after it.
  */
 export function heartbeatsAndNarrationWaitWhileTheQuotaIsLow(posts: FeedPost[]): void {
   for (const post of posts.filter((posted) => posted.quotaLow)) {
     if (post.ephemeral && post.step === "tick") {
       violated("heartbeatsAndNarrationWaitWhileTheQuotaIsLow", `a heartbeat posted: ${post.body}`);
     }
-    if (isNarration(post) && post.step !== "turn_end" && post.step !== "stop") {
+    if (isNarration(post) && !postsNarrationNow(post)) {
       violated(
         "heartbeatsAndNarrationWaitWhileTheQuotaIsLow",
         `narration posted on a ${post.step} step: ${post.body}`,

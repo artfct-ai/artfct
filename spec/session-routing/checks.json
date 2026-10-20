@@ -16,7 +16,7 @@
     "aStopAnswersOnlyInTheFeed",
     "researchReadsCompleteOnceTheAuthorStarts",
     "everySessionMessageLandsOnce",
-    "closingReplyPostsOnceAfterAnInstanceRestart",
+    "closingReplyLandsOnce",
     "aTurnEndNeverDropsItsAccount"
   ],
   "mainMinutes": {
@@ -84,6 +84,8 @@
       "aRestartFollowsAStoredClosingReply",
       "aCutClosingReplyPostsOnItsAlarm",
       "aRestartCutsTheAlarmOfAClosingReply",
+      "aFailedStopArmsItsClosingReply",
+      "aClosingReplyGivesUp",
       "aSessionGetsAPlan",
       "aTurnEndSetsThePlan",
       "anAuthorReportsTodosInItsTurn",

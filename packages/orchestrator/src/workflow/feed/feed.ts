@@ -29,6 +29,12 @@ export const HEARTBEAT_AFTER_MS = 25 * 60_000;
 /** How often the session feed of a turn in flight looks for narration that is due and for quiet. */
 export const SESSION_FEED_TICK_SECONDS = 60;
 
+/**
+ * How long the session feed retries what did not land after a turn. Narration waits until the feed
+ * has been quiet this long, and a closing reply until this long after its turn ended.
+ */
+export const FEED_GIVES_UP_AFTER_MS = 60 * 60_000;
+
 /** The share of the request quota below which heartbeats are skipped and narration waits. */
 const LOW_QUOTA_SHARE = 0.1;
 
@@ -38,8 +44,15 @@ export const RECEIPT_TEXT = "Got it. Working on your message.";
 /** The heartbeat of a turn whose todo list names no step in progress. */
 export const STILL_WORKING_TEXT = "Still working.";
 
-/** The payload of a closing reply's alarm: the job session and the reply under its activity id. */
-export type ClosingReplyAlarm = { session: TrackerSession; activity: FeedActivity };
+/**
+ * The payload of a closing reply's alarm: the job session, the reply under its activity id, and
+ * when its turn ended.
+ */
+export type ClosingReplyAlarm = {
+  session: TrackerSession;
+  activity: FeedActivity;
+  ended_at: string;
+};
 
 /**
  * What the session feed keeps in memory during one author turn: the text since the last tool
@@ -161,7 +174,8 @@ export async function startSessionFeedTurn(
 
 /**
  * Alarm: post the narration that is due, and a heartbeat after a quiet stretch of a turn. The tick
- * outlives the turn while narration waits, such as after a turn end the tracker failed.
+ * outlives the turn while narration waits, such as after a turn end the tracker failed, until the
+ * feed has been quiet for an hour.
  */
 export async function tendSessionFeed(workflow: WorkflowRuntime, alarm: TaskAlarm): Promise<void> {
   const task = workflow.store.task(alarm.task_id);
@@ -169,8 +183,15 @@ export async function tendSessionFeed(workflow: WorkflowRuntime, alarm: TaskAlar
     !!task &&
     !isTaskFinished(task.status) &&
     workflow.store.sandbox(alarm.task_id)?.prompt_in_flight === 1;
-  const narrationWaits = !!workflow.store.sessionFeed(alarm.task_id)?.narration;
+  const feed = workflow.store.sessionFeed(alarm.task_id);
+  const narrationWaits = !!feed?.narration;
+  const quiet = !!feed && workflow.now() - Date.parse(feed.active_at) >= FEED_GIVES_UP_AFTER_MS;
   if (!task || (!inTurn && !narrationWaits)) {
+    await workflow.stopRepeatingAlarm("tendSessionFeed", alarm);
+    return;
+  }
+  if (!inTurn && quiet) {
+    workflow.log(task.task_id, "narration given up: the session feed was quiet for an hour");
     await workflow.stopRepeatingAlarm("tendSessionFeed", alarm);
     return;
   }
@@ -266,15 +287,19 @@ function closingContent(closing: PostedClosing, message: string): AgentActivityC
 }
 
 /**
- * End the author's session feed for this turn, and post the closing when one is given. A narrated
- * account joins the narration that waits. The reply's alarm is armed before the post and
- * cancelled once it returns, so an instance restart in between does not lose the reply.
+ * End the author's session feed for this turn, and post the closing when one is given. A turn end
+ * counts as activity, and a narrated account joins the narration that waits. The reply's alarm is
+ * armed before the post and cancelled once the reply lands, so a failed post or an instance
+ * restart does not lose the reply.
  */
 export async function closeSessionFeed(
   workflow: WorkflowRuntime,
   task: TaskRow,
   closing: FeedClosing | null,
 ): Promise<void> {
+  if (workflow.store.sessionFeed(task.task_id)) {
+    workflow.store.touchSessionFeed(task.task_id, isoNow(workflow));
+  }
   const message = workflow.sessionFeeds.get(task.task_id)?.message ?? "";
   const account = closing?.kind === "narrated_account" ? message.trim() : "";
   if (account) workflow.store.appendNarration(task.task_id, account, isoNow(workflow));
@@ -286,22 +311,45 @@ export async function closeSessionFeed(
   const reply: ClosingReplyAlarm = {
     session,
     activity: { task_id: task.task_id, id: crypto.randomUUID(), content },
+    ended_at: isoNow(workflow),
   };
   const alarm = await workflow.scheduleAlarm(
     CLOSING_REPLY_ALARM_SECONDS,
     "postClosingReply",
     reply,
   );
-  await postClosingReply(workflow, reply);
-  await workflow.cancelAlarm(alarm);
+  if (await postReplyAfterNarration(workflow, reply)) await workflow.cancelAlarm(alarm);
 }
 
-/** Post a closing reply under its activity id, so the tracker stores it once however often it posts. */
+/**
+ * Alarm: post the narration that waits, then the closing reply under its activity id, so the
+ * tracker stores it once however often it posts. A failed post arms the alarm again, until an
+ * hour after the turn ended.
+ */
 export async function postClosingReply(
   workflow: WorkflowRuntime,
   reply: ClosingReplyAlarm,
 ): Promise<void> {
-  await workflow.notifier.feed(reply.session, reply.activity);
+  const task = workflow.store.task(reply.activity.task_id);
+  if (task) await postWaitingNarration(workflow, task, "now");
+  if (await postReplyAfterNarration(workflow, reply)) return;
+  if (workflow.now() - Date.parse(reply.ended_at) >= FEED_GIVES_UP_AFTER_MS) {
+    workflow.log(reply.activity.task_id, "closing reply given up an hour after its turn ended");
+    return;
+  }
+  await workflow.scheduleAlarm(CLOSING_REPLY_ALARM_SECONDS, "postClosingReply", reply);
+}
+
+/**
+ * Post a closing reply once no narration of its author waits, so the reply is the last line of its
+ * turn. True once the tracker took it.
+ */
+async function postReplyAfterNarration(
+  workflow: WorkflowRuntime,
+  reply: ClosingReplyAlarm,
+): Promise<boolean> {
+  if (workflow.store.sessionFeed(reply.activity.task_id)?.narration) return false;
+  return workflow.notifier.feed(reply.session, reply.activity);
 }
 
 /** Close the session feed of an author task that ends for good in the middle of a turn. */

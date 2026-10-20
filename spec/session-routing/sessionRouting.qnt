@@ -207,9 +207,10 @@ module sessionRoutingTypes {
   /// dropped a second delivery of a message that landed.
   type DeliveryWitnesses = { aRedeliveredMessageLands: bool, aSecondDeliveryIsDropped: bool }
 
-  /// A closing reply whose post an instance restart cut: its job, its kind, how many activities
-  /// the tracker stored under its activity id, and whether its alarm is still armed.
-  type CutClosingReply = { job: int, kind: FeedKind, stored: int, armed: bool }
+  /// A closing reply whose post an instance restart or a tracker failure cut: its job, its kind,
+  /// how many activities the tracker stored under its activity id, whether its alarm is still
+  /// armed, and whether its alarm gave up an hour after its turn ended.
+  type CutClosingReply = { job: int, kind: FeedKind, stored: int, armed: bool, gaveUp: bool }
 }
 
 /// Routing in a workflow that starts from a chat thread or from a tracker session.
@@ -252,6 +253,9 @@ module sessionRouting {
   pure val JOB_SLOTS: Set[int] = 0.to(MAX_JOBS - 1)
 
   pure val HEALTHS: Set[TrackerHealth] = Set(TrackerUp, FailsBeforeStoring, FailsAfterStoring)
+
+  /// The tracker fails every attempt of a feed activity, after it stores the activity or before.
+  pure val TRACKER_FAILURES: Set[TrackerHealth] = Set(FailsBeforeStoring, FailsAfterStoring)
 
   /// The restarts of the Durable Object while a feed activity is out.
   pure val RESTARTS_MID_POST: Set[TrackerHealth] = Set(RestartsBeforeStoring, RestartsAfterStoring)
@@ -316,7 +320,8 @@ module sessionRouting {
   /// What the last step did with a delivery of a session message.
   var lastDelivery: DeliveryWitnesses
 
-  /// The closing replies whose post an instance restart cut, by the order of the cuts.
+  /// The closing replies whose post an instance restart or a tracker failure cut, by the order of
+  /// the cuts.
   var cutClosingReplies: int -> CutClosingReply
 
   pure def isChatThread(target: Target): bool = match target {
@@ -683,20 +688,29 @@ module sessionRouting {
       repliesAfter,
     )
 
-  /// The closing replies whose post a restart cut, with each closing reply of `feed` added. The
-  /// alarm a closing reply armed before its post stays armed.
+  /// The closing replies whose post a restart or a tracker failure cut, with each closing reply of
+  /// `feed` added. The alarm a closing reply armed before its post stays armed.
   pure def withCutClosingReplies(replies: int -> CutClosingReply, feed: List[FeedPost]): int -> CutClosingReply =
     feed.foldl(replies, (cut, posted) =>
-      cut.put(cut.keys().size(), { job: posted.job, kind: posted.kind, stored: posted.stored, armed: true }))
+      cut.put(cut.keys().size(), { job: posted.job, kind: posted.kind, stored: posted.stored, armed: true, gaveUp: false }))
 
-  /// A step that posts one feed activity last. On a restart mid post, the step's state is
-  /// written and the Durable Object restarts. The notifier does not retry the activity, and the
-  /// alarm of a closing reply stays armed.
+  /// A step whose feed activities are closing replies, posted last. On a restart mid post, the
+  /// step's state is written and the Durable Object restarts. The notifier does not retry the
+  /// activity. When the restart or a tracker failure cuts a closing reply, its alarm stays armed.
   action moveWithFeed(after: Routing, facts: StepFacts): bool =
     if (RESTARTS_MID_POST.contains(facts.health)) all {
       facts.feed.length() == 1,
       restartAfter(after, facts, withCutClosingReplies(cutClosingReplies, facts.feed)),
     }
+    else if (TRACKER_FAILURES.contains(facts.health))
+      moveMessages(
+        after,
+        facts,
+        sessionMessages,
+        messagesToLand,
+        NO_DELIVERY_WITNESSES,
+        withCutClosingReplies(cutClosingReplies, facts.feed),
+      )
     else move(after, facts)
 
   action init: bool = all {
@@ -1257,7 +1271,7 @@ module sessionRouting {
     val feed = chosen.fold(List(), (posts, id) => posts.concat(feedOf(routing, id, StoppedActivity, health)))
     all {
       hasSession(routing, issue),
-      move(stopped, { ...NO_FACTS, feed: feed, stoppedIn: Set(issue), health: health }),
+      moveWithFeed(stopped, { ...NO_FACTS, feed: feed, stoppedIn: Set(issue), health: health }),
     }
   }
 
@@ -1278,7 +1292,7 @@ module sessionRouting {
         routing.jobs[id].author == InReview,
         hasSession(routing, issue),
         sessionJob(routing, issue).contains(id),
-        move(
+        moveWithFeed(
           flushBoard(stopped, id),
           {
             ...NO_FACTS,
@@ -1295,12 +1309,13 @@ module sessionRouting {
   /// The Durable Object restarts between steps.
   action workflowRestarts: bool = restartAfter(routing, NO_FACTS, cutClosingReplies)
 
-  /// The alarm of a closing reply whose post a restart cut fires, and posts the reply again under
-  /// its activity id, so the tracker stores it once. The alarm is done once the post returns. A
-  /// restart while the post is out keeps the alarm armed, and it fires again.
+  /// The alarm of a closing reply whose post a restart or a tracker failure cut fires, and posts
+  /// the reply again under its activity id, so the tracker stores it once. The alarm is done once
+  /// the reply lands. A restart while the post is out keeps the alarm armed, and a failed post
+  /// arms it again, so it fires again.
   action closingReplyAlarmFires: bool = {
     nondet reply = cutClosingReplies.keys().oneOf()
-    nondet health = Set(TrackerUp).union(RESTARTS_MID_POST).oneOf()
+    nondet health = Set(TrackerUp).union(RESTARTS_MID_POST).union(TRACKER_FAILURES).oneOf()
     val cut = cutClosingReplies.get(reply)
     val posted = { ...cut, stored: if (cut.stored > 0) cut.stored else storedAcrossAttempts(health) }
     val facts = { ...NO_FACTS, feed: List({ job: cut.job, kind: cut.kind, stored: posted.stored }), health: health }
@@ -1314,8 +1329,28 @@ module sessionRouting {
           sessionMessages,
           messagesToLand,
           NO_DELIVERY_WITNESSES,
-          cutClosingReplies.set(reply, { ...posted, armed: false }),
+          cutClosingReplies.set(reply, { ...posted, armed: TRACKER_FAILURES.contains(health) }),
         ),
+    }
+  }
+
+  /// The alarm of a closing reply that the tracker has not stored fires an hour after the reply's
+  /// turn ended, and the tracker fails its post again before storing it. The alarm gives up and is
+  /// not armed again.
+  action closingReplyGivesUp: bool = {
+    nondet reply = cutClosingReplies.keys().oneOf()
+    val cut = cutClosingReplies.get(reply)
+    all {
+      cut.armed,
+      cut.stored == 0,
+      moveMessages(
+        routing,
+        { ...NO_FACTS, feed: List({ job: cut.job, kind: cut.kind, stored: 0 }), health: FailsBeforeStoring },
+        sessionMessages,
+        messagesToLand,
+        NO_DELIVERY_WITNESSES,
+        cutClosingReplies.set(reply, { ...cut, armed: false, gaveUp: true }),
+      ),
     }
   }
 
@@ -1484,6 +1519,7 @@ module sessionRouting {
     theAgentTurnEndsOrTheInstanceRestarts,
     theTurnTimesOutWhileTheSubIssueSessionWaits,
     closingReplyAlarmFires,
+    closingReplyGivesUp,
     researcherReportsTodos,
     researcherHandsOver,
     researcherLeavesNoPayload,
@@ -1606,17 +1642,18 @@ module sessionRouting {
     }
   })
 
-  /// Every closing reply whose post an instance restart cut is stored once, unless its alarm is
-  /// still armed.
-  val closingReplyPostsOnceAfterAnInstanceRestart: bool = cutClosingReplies.keys().forall(reply => {
+  /// Every closing reply whose post an instance restart or a tracker failure cut is stored once,
+  /// unless its alarm is still armed or gave up an hour after its turn ended.
+  val closingReplyLandsOnce: bool = cutClosingReplies.keys().forall(reply => {
     val cut = cutClosingReplies.get(reply)
     and {
       cut.stored <= 1,
-      not(cut.armed) implies cut.stored == 1,
+      not(cut.armed) implies (cut.stored == 1 or cut.gaveUp),
     }
   })
 
-  /// The closing replies whose post an instance restart cut, which model checking bounds.
+  /// The closing replies whose post an instance restart or a tracker failure cut, which model
+  /// checking bounds.
   val closingRepliesCut: int = cutClosingReplies.keys().size()
 
   /// The session messages sent, which model checking bounds.
@@ -1732,19 +1769,30 @@ module sessionRouting {
   /// Witness for `feedActivityPostsOnce`: the tracker stored an activity and then failed, and the retries stored it once.
   val aRetriedActivityIsStoredOnce: bool = lastStep.health == FailsAfterStoring and lastStep.feed.length() > 0
 
-  /// Witness for `closingReplyPostsOnceAfterAnInstanceRestart`: the Durable Object restarts before the tracker stores a closing reply.
+  /// Witness for `closingReplyLandsOnce`: the Durable Object restarts before the tracker stores a closing reply.
   val aRestartCutsAClosingReplyBeforeItIsStored: bool =
     lastStep.health == RestartsBeforeStoring and lastStep.turnEnded.size() > 0 and lastStep.feed.length() > 0
 
-  /// Witness for `closingReplyPostsOnceAfterAnInstanceRestart`: the Durable Object restarts after the tracker stores a closing reply.
+  /// Witness for `closingReplyLandsOnce`: the Durable Object restarts after the tracker stores a closing reply.
   val aRestartFollowsAStoredClosingReply: bool =
     lastStep.health == RestartsAfterStoring and lastStep.turnEnded.size() > 0 and lastStep.feed.length() > 0
 
-  /// Witness for `closingReplyPostsOnceAfterAnInstanceRestart`: the alarm of a closing reply that a restart cut posts it.
+  /// Witness for `closingReplyLandsOnce`: the alarm of a closing reply that a restart or a tracker failure cut posts it.
   val aCutClosingReplyPostsOnItsAlarm: bool =
-    cutClosingReplies.keys().exists(reply => not(cutClosingReplies.get(reply).armed))
+    cutClosingReplies.keys().exists(reply => {
+      val cut = cutClosingReplies.get(reply)
+      not(cut.armed) and not(cut.gaveUp)
+    })
 
-  /// Witness for `closingReplyPostsOnceAfterAnInstanceRestart`: the Durable Object restarts while the alarm of a closing reply posts it.
+  /// Witness for `closingReplyLandsOnce`: the tracker fails the closing reply of a stop, and its alarm stays armed.
+  val aFailedStopArmsItsClosingReply: bool =
+    TRACKER_FAILURES.contains(lastStep.health) and lastStep.stoppedIn.size() > 0 and lastStep.feed.length() > 0
+
+  /// Witness for `closingReplyLandsOnce`: the alarm of a closing reply gives up an hour after its turn ended.
+  val aClosingReplyGivesUp: bool =
+    cutClosingReplies.keys().exists(reply => cutClosingReplies.get(reply).gaveUp)
+
+  /// Witness for `closingReplyLandsOnce`: the Durable Object restarts while the alarm of a closing reply posts it.
   val aRestartCutsTheAlarmOfAClosingReply: bool =
     RESTARTS_MID_POST.contains(lastStep.health) and lastStep.turnEnded.size() == 0 and lastStep.feed.length() > 0
 

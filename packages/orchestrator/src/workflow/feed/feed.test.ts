@@ -11,6 +11,7 @@ import type { TodoSnapshot } from "../board/types";
 import type { TaskRow } from "../store/tasks";
 import {
   DONE_TEXT,
+  FEED_GIVES_UP_AFTER_MS,
   HEARTBEAT_AFTER_MS,
   NARRATION_INTERVAL_MS,
   RECEIPT_TEXT,
@@ -22,12 +23,14 @@ import {
   closeSessionFeed,
   closingWhenTheAuthorGoesOn,
   feedClosingOf,
+  postClosingReply,
   postReceipt,
   publishSessionPlan,
   sessionPlanOf,
   startSessionFeedTurn,
   streamToSessionFeed,
   tendSessionFeed,
+  type ClosingReplyAlarm,
 } from "./feed";
 
 const STARTING = {
@@ -102,6 +105,13 @@ function stored(fixture: Fixture): AgentActivityContent[] {
 async function stream(fixture: Fixture, updates: SessionUpdate[]): Promise<void> {
   for (const update of updates) {
     await streamToSessionFeed(fixture.workflow, fixture.author, update);
+  }
+}
+
+async function fireClosingReplyAlarms(fixture: Fixture): Promise<void> {
+  for (const alarm of fixture.workflow.alarmsFor("postClosingReply")) {
+    await postClosingReply(fixture.workflow, alarm.payload as ClosingReplyAlarm);
+    await fixture.workflow.cancelAlarm(alarm.id);
   }
 }
 
@@ -292,6 +302,25 @@ describe("the session feed", () => {
         expect(fixture.workflow.alarmsFor("tendSessionFeed")).toEqual([]);
       }));
 
+    it("gives up on the narration that waits once the feed was quiet for an hour", () =>
+      linearOnly(async (fixture) => {
+        await startSessionFeedTurn(fixture.workflow, fixture.author);
+        fixture.tracker.health = "fails_before_storing";
+        await stream(fixture, [say("First."), edit("c1", "a.ts")]);
+        fixture.workflow.store.updateSandbox(fixture.author.task_id, { prompt_in_flight: 0 });
+        at(fixture, FEED_GIVES_UP_AFTER_MS - 1);
+        await tendSessionFeed(fixture.workflow, { task_id: fixture.author.task_id });
+        expect(fixture.workflow.alarmsFor("tendSessionFeed")).toHaveLength(1);
+        at(fixture, FEED_GIVES_UP_AFTER_MS);
+        const callsBefore = fixture.tracker.activityCalls;
+        await tendSessionFeed(fixture.workflow, { task_id: fixture.author.task_id });
+        expect(fixture.workflow.alarmsFor("tendSessionFeed")).toEqual([]);
+        expect(fixture.tracker.activityCalls).toBe(callsBefore);
+        expect(fixture.workflow.store.sessionFeed(fixture.author.task_id)?.narration).toBe(
+          "First.",
+        );
+      }));
+
     it("does not start for an author without a job session", () =>
       linearOnly(
         async (fixture) => {
@@ -301,6 +330,51 @@ describe("the session feed", () => {
         new SessionTracker(),
         THREAD,
       ));
+  });
+
+  describe("a closing reply the tracker fails", () => {
+    it("posts again on its alarm until the tracker takes it", () =>
+      linearOnly(async (fixture) => {
+        await stream(fixture, [say("Opened #12.")]);
+        fixture.tracker.health = "fails_before_storing";
+        await closeSessionFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
+        await fireClosingReplyAlarms(fixture);
+        expect(fixture.workflow.alarmsFor("postClosingReply")).toHaveLength(1);
+        fixture.tracker.health = "up";
+        await fireClosingReplyAlarms(fixture);
+        expect(fixture.workflow.alarmsFor("postClosingReply")).toEqual([]);
+        expect(stored(fixture)).toEqual([{ type: "response", body: "Opened #12." }]);
+      }));
+
+    it("waits for the narration that waits, so it is the last line of its turn", () =>
+      linearOnly(async (fixture) => {
+        await stream(fixture, [
+          say("First."),
+          edit("c1", "a.ts"),
+          say("Second."),
+          edit("c2", "a.ts"),
+          say("Opened #12."),
+        ]);
+        fixture.tracker.refuseNarration(FEED_POST_ATTEMPTS);
+        await closeSessionFeed(fixture.workflow, fixture.author, feedClosingOf("end_turn"));
+        expect(stored(fixture)).toEqual([{ type: "thought", body: "First." }]);
+        await fireClosingReplyAlarms(fixture);
+        expect(stored(fixture)).toEqual([
+          { type: "thought", body: "First." },
+          { type: "thought", body: "Second." },
+          { type: "response", body: "Opened #12." },
+        ]);
+      }));
+
+    it("gives up an hour after its turn ended", () =>
+      linearOnly(async (fixture) => {
+        fixture.tracker.health = "fails_before_storing";
+        await closeSessionFeed(fixture.workflow, fixture.author, STOPPED_CLOSING);
+        at(fixture, FEED_GIVES_UP_AFTER_MS);
+        await fireClosingReplyAlarms(fixture);
+        expect(fixture.workflow.alarmsFor("postClosingReply")).toEqual([]);
+        expect(stored(fixture)).toEqual([]);
+      }));
   });
 
   describe("a receipt", () => {
