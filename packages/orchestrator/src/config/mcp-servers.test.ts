@@ -27,4 +27,25 @@ describe("McpServers", () => {
   it("refuses the name of a provider's server", () => {
     expect(McpServers.safeParse([{ name: "linear", command: "npx" }]).success).toBe(false);
   });
+
+  it("refuses a server that references a secret of the Worker's own", () => {
+    const entry = {
+      name: "vendor",
+      url: "https://mcp.example.com",
+      headers: { Authorization: "Bearer ${GITHUB_PRIVATE_KEY}" },
+    };
+    expect(McpServers.safeParse([entry]).error?.issues[0]?.message).toBe(
+      "vendor references GITHUB_PRIVATE_KEY, a secret only the Worker may use",
+    );
+  });
+
+  it("refuses a command server that passes a secret of the Worker's own in its env", () => {
+    const entry = { name: "vendor", command: "npx", env: { TOKEN: "${SLACK_BOT_TOKEN}" } };
+    expect(McpServers.safeParse([entry]).success).toBe(false);
+  });
+
+  it("reads a server that references a secret of its own", () => {
+    const entry = { name: "vendor", url: "https://mcp.example.com/${CF_READ_API_TOKEN}" };
+    expect(McpServers.safeParse([entry]).success).toBe(true);
+  });
 });
