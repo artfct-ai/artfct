@@ -1716,6 +1716,14 @@ export const MUTANTS: Mutant[] = [
     replace:
       "    const read = await revisionOfTheJobsArtifact(workflow, polisher.job_id);\n    await handOnFromPolisher(workflow, { author, polisher, outcome, revision: read ?? revision });\n",
   },
+  {
+    id: "W345",
+    invariant:
+      "reviewLoop::anEndedAuthorEndsItsReview (review ends after its author ended mid-turn)",
+    path: "src/workflow/refiner/loop.ts",
+    find: "    isTaskFinished(current.status) &&\n    workflow.store.sandbox(current.task_id)?.prompt_in_flight === 1\n",
+    replace: "    false\n",
+  },
 ];
 
 /** The source with the mutant applied, or null when its text no longer occurs exactly once. */

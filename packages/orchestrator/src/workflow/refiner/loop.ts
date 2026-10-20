@@ -504,7 +504,7 @@ export async function applyJudgeRuling(
  * What follows the entry at `index` on `revision`: the list runs on from the next entry. The
  * author row is read again here, because a prompt can reach the author while the segment's
  * review was being settled. A working author stops the refiners, and the list re-runs once its
- * turn ends.
+ * turn ends. An author that ended in the middle of a turn leaves the artifact to its teardown.
  */
 export async function advanceArtifactPastEntry(
   workflow: WorkflowRuntime,
@@ -513,6 +513,13 @@ export async function advanceArtifactPastEntry(
   revision: string | null,
 ): Promise<string> {
   const current = workflow.store.requireTask(author.task_id);
+  if (
+    isTaskFinished(current.status) &&
+    workflow.store.sandbox(current.task_id)?.prompt_in_flight === 1
+  ) {
+    workflow.store.setArtifactRefinerRun(author.job_id, null);
+    return `${author.task_id} ended in the middle of a turn. Its teardown hands the artifact over.`;
+  }
   if (!taskQuiet(workflow, current)) {
     workflow.store.setArtifactRefinerRun(author.job_id, null);
     return `${author.task_id} is still working. The refiners stop and re-run once its turn ends.`;

@@ -196,6 +196,15 @@ describe("workflow lifecycle spec", () => {
     await replayTrace("modelCallPagesForAnIssue", traceSteps("modelCallPagesForAnIssue", trace));
   });
 
+  it("leaves the page to the teardown of an author cancelled mid-turn when its review ends", async () => {
+    const path = join(
+      PINNED_TRACES,
+      "a-review-ends-after-its-author-was-cancelled-mid-turn.itf.json",
+    );
+    const trace: unknown = JSON.parse(readFileSync(path, "utf8"));
+    await replayTrace("pagesWithAReviewer", traceSteps("pagesWithAReviewer", trace));
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,

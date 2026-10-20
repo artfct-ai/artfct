@@ -652,7 +652,10 @@ type HeardInStep = {
 
 /** The page host methods a step can make fail. */
 /** Put back the property `name` of `target` as it is now, own or inherited, after an override. */
-function restorerOf<Target extends object>(target: Target, name: keyof Target & string): () => void {
+function restorerOf<Target extends object>(
+  target: Target,
+  name: keyof Target & string,
+): () => void {
   const own = Object.getOwnPropertyDescriptor(target, name);
   return () => {
     if (own) Object.defineProperty(target, name, own);
