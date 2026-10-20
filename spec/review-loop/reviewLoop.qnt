@@ -81,8 +81,8 @@ module reviewLoopTypes {
   type PagePart = Title | Body | TheBlock
 
   /// Where the author task stands: a turn runs or starts, it is idle in review, or it ended
-  /// cancelled or failed.
-  type AuthorStatus = AtWork | InReview | AuthorCancelled | AuthorFailed
+  /// cancelled, cancelled by the end of the workflow, or failed.
+  type AuthorStatus = AtWork | InReview | AuthorCancelled | AuthorCancelledByTheWorkflowEnd | AuthorFailed
 
   /// How the author ends: the agent cancels its job, it fails the way a sandbox that died fails
   /// it, or the workflow ends.
@@ -189,8 +189,9 @@ module reviewLoopTypes {
   type Asker = TheAgent | APersonsRevisionRequest | AMention(FeedbackRoute)
 
   /// What the agent read in a step: that the held page comments stay held, the text of a held
-  /// one, the text of the mention that came in, or the route note.
-  type AgentNote = HeldCommentsStayHeld | HeldCommentText | MentionText | RouteNote
+  /// one, the text of the mention that came in, the route note, or a conflict that the ended
+  /// author cannot take.
+  type AgentNote = HeldCommentsStayHeld | HeldCommentText | MentionText | RouteNote | EndedAuthorsConflict
 
   /// What happened on the host of the artifact in a step, for the invariants that read it.
   type PageFact =
@@ -217,14 +218,21 @@ module reviewLoopTypes {
 
   /// What a read of the checks did in a step: none ran, the gate settled the polisher that holds
   /// the artifact, the gate settled the revision of the quiet author, failed checks or a conflict
-  /// went to the idle author as a follow-up, or a read for an idle or ended author found the
-  /// checks open.
+  /// went to the idle author as a follow-up, a conflict of the ended author went to the agent, or
+  /// a read for an idle or ended author found the checks open. Failed checks of an ended author
+  /// count as open.
   type ChecksRead =
     | ChecksNotRead
     | GateSettles(GateOutcome)
     | GateSettlesTheAuthor(GateOutcome)
     | AuthorFollowedUp
+    | EndedAuthorsConflictNoted
     | IdleAuthorsChecksOpen
+
+  /// What a new instance cut of a findings reviewer or polisher run that ended done in the last
+  /// step: nothing, the first call its routing awaits after the run's done write, or the destroy
+  /// of its sandbox.
+  type DoneRunCut = NoDoneRunCut | ItsRoutingIsCut | ItsDestroyIsCut
 
   /// The turn that ended in a step, if one did, with the revision the host gave at an author's
   /// turn end. A model-call author's turn starts over when a person changed the page text while
@@ -248,7 +256,7 @@ module reviewLoopTypes {
     write: PageWrite,
     agentHeard: Set[AgentNote],
     instanceRestarted: bool,
-    cutsTheDestroyOfADoneRun: bool,
+    cutOfADoneRun: DoneRunCut,
     recoverableFailure: RecoverableFailure,
     revisionLookup: RevisionLookup,
     checks: ChecksRead,
@@ -324,6 +332,7 @@ module reviewLoopTypes {
     aModelCallTurnStartsOver: bool,
     aRulingCallIsLostWithTheInstance: bool,
     aRestartCutsTheDestroyOfADoneRefinerRun: bool,
+    aRestartCutsTheRoutingOfADoneRefinerRun: bool,
     aRulingCallReturnsAfterTheAuthorEnded: bool,
     aModelTurnIsLostWithTheInstance: bool,
     aPausedAuthorsModelTurnIsLost: bool,
@@ -369,6 +378,7 @@ module reviewLoopTypes {
     theRecheckAlarmStops: bool,
     theIdleAuthorsOpenChecksStopTheRecheckAlarm: bool,
     anEndedAuthorsOpenChecksStopTheRecheckAlarm: bool,
+    theAgentHearsOfAnEndedAuthorsConflict: bool,
     aPersonRuled: bool,
     aReviewerApproved: bool,
     theAgentFinishedTheReview: bool,
@@ -1277,8 +1287,7 @@ module reviewLoop {
 
   /// True when a checks report reads the checks of the revision of an author that is not at work:
   /// the humans hold the artifact or a reviewer reads it, and the host names the revision. The
-  /// author is idle, or it ended. The note the agent gets of a conflict that an ended author
-  /// cannot take is not modeled.
+  /// author is idle, or it ended.
   pure def idleAuthorsChecksRead(loop: ReviewLoop, lookup: RevisionLookup): bool = and {
     CHECKS,
     not(drafted(loop)) or (refinerInFlight(loop) and not(polisherRunning(loop))),
@@ -1295,22 +1304,37 @@ module reviewLoop {
     not(sentBackOnTheRevision(loop)),
   }
 
+  /// True when the agent can hear of a conflict that the ended author cannot take: a report reads
+  /// its checks while the workflow runs, and the revision did not go back yet.
+  pure def endedAuthorsConflictCanBeNoted(loop: ReviewLoop, lookup: RevisionLookup): bool = and {
+    idleAuthorsChecksRead(loop, lookup),
+    not(authorLive(loop)),
+    loop.author.status != AuthorCancelledByTheWorkflowEnd,
+    not(sentBackOnTheRevision(loop)),
+  }
+
+  /// The agent hears of the conflict of the ended author's revision, which counts as gone back.
+  pure def noteTheEndedAuthorsConflict(loop: ReviewLoop): ReviewLoop =
+    { ...loop, artifact: { ...loop.artifact, sentBack: SentBackOn(loop.artifact.revision) } }
+
   /// Failed checks or a conflict go to the author once per revision.
   pure def sendChecksBackToTheAuthor(loop: ReviewLoop): ReviewLoop =
     promptAuthor({ ...loop, artifact: { ...loop.artifact, sentBack: SentBackOn(loop.artifact.revision) } })
 
   /// What a checks report can lead to: the outcomes of the gate on a polisher it holds or on the
-  /// author's revision, a follow-up with the idle author or none, or nothing.
+  /// author's revision, a follow-up with the idle author or none, a conflict of the ended author
+  /// or none, or nothing.
   pure def reportOutcomes(loop: ReviewLoop, lookup: RevisionLookup): Set[GateOutcome] =
     if (polisherWaitsOnChecks(loop)) gateOutcomes(loop, heldRun(loop), lookup)
     else if (authorWaitsOnTheGate(loop)) authorGateOutcomes(loop, lookup)
     else if (authorCanBeFollowedUp(loop, lookup)) Set(GateOpens, GateSendsBack)
+    else if (endedAuthorsConflictCanBeNoted(loop, lookup)) Set(GateOpens, GateSendsBack)
     else Set(GateOpens)
 
   /// The host reports checks, or the recheck alarm reads them. A polisher the gate holds settles,
   /// and so does an author that waits on the gate. Otherwise, failed checks or a conflict go to
-  /// an idle author as a follow-up, or the checks of an idle or ended author open. Either stops
-  /// the recheck alarm. A polisher at work settles at its turn end, so the report changes nothing
+  /// an idle author as a follow-up, the agent hears of a conflict of the ended author, or the
+  /// checks of an idle or ended author open. Each stops the recheck alarm. A polisher at work settles at its turn end, so the report changes nothing
   /// then.
   pure def checksReported(
     loop: ReviewLoop,
@@ -1326,6 +1350,8 @@ module reviewLoop {
       }
     else if (authorCanBeFollowedUp(loop, lookup) and outcome == GateSendsBack)
       { loop: sendChecksBackToTheAuthor(withRecheck(loop, false)), checks: AuthorFollowedUp }
+    else if (endedAuthorsConflictCanBeNoted(loop, lookup) and outcome == GateSendsBack)
+      { loop: noteTheEndedAuthorsConflict(withRecheck(loop, false)), checks: EndedAuthorsConflictNoted }
     else if (idleAuthorsChecksRead(loop, lookup))
       { loop: withRecheck(loop, false), checks: IdleAuthorsChecksOpen }
     else { loop: loop, checks: ChecksNotRead }
@@ -1443,7 +1469,7 @@ module reviewLoop {
       write: WritesLand,
       agentHeard: Set(),
       instanceRestarted: false,
-      cutsTheDestroyOfADoneRun: false,
+      cutOfADoneRun: NoDoneRunCut,
       recoverableFailure: NoRecoverableFailure,
       revisionLookup: RevisionKnown,
       checks: ChecksNotRead,
@@ -1452,8 +1478,9 @@ module reviewLoop {
       agentFinishedTheReview: false,
     }
 
-  /// True when a findings reviewer or polisher run ended done in the step, and the destroy of its
-  /// sandbox is out. Its review is routed first, and the destroy goes out last. A judge run's
+  /// True when a findings reviewer or polisher run ended done in the step, and its routing's calls
+  /// or the destroy of its sandbox are out. Its review is routed in the store first, and the
+  /// destroy goes out last. A judge run's
   /// sandbox goes after its ruling, and a run whose routing prompts a model-call author waits on
   /// that model call.
   pure def aRunEndedDoneIn(step: Transition): bool =
@@ -1814,7 +1841,10 @@ module reviewLoop {
       reported.loop,
       {
         ...quietStep(NoTurnEnd),
-        agentHeard: if (settlesTheAuthor) routeNoteFor(review, outcome, AgentRoutes) else Set(),
+        agentHeard:
+          if (settlesTheAuthor) routeNoteFor(review, outcome, AgentRoutes)
+          else if (reported.checks == EndedAuthorsConflictNoted) Set(EndedAuthorsConflict)
+          else Set(),
         revisionLookup: revisionLookup,
         checks: reported.checks,
         checksReported: true,
@@ -2027,7 +2057,15 @@ module reviewLoop {
 
   /// A new instance takes over while the destroy of the sandbox of a findings reviewer or polisher
   /// run that ended done in the last step is out. The run routed its review before the destroy.
-  action instanceRestartsWhileADoneRunsSandboxIsDestroyed: bool = all {
+  action instanceRestartsWhileADoneRunsSandboxIsDestroyed: bool = restartAfterADoneRun(ItsDestroyIsCut)
+
+  /// A new instance takes over at the first call that the routing of a findings reviewer or
+  /// polisher run that ended done in the last step awaits after the run's done write. The run read
+  /// the revision before that write, so the routing wrote the store before the call.
+  action instanceRestartsWhileADoneRunRoutes: bool = restartAfterADoneRun(ItsRoutingIsCut)
+
+  /// A new instance takes over and makes `cut` of the run that ended done in the last step.
+  action restartAfterADoneRun(cut: DoneRunCut): bool = all {
     INSTANCE_RESTARTS,
     aDoneRunsSandboxIsOut,
     nondet revisionLookup = restartLookups(review).oneOf()
@@ -2036,7 +2074,7 @@ module reviewLoop {
       {
         ...quietStep(NoTurnEnd),
         instanceRestarted: true,
-        cutsTheDestroyOfADoneRun: true,
+        cutOfADoneRun: cut,
         revisionLookup: revisionLookup,
       },
     ),
@@ -2066,7 +2104,10 @@ module reviewLoop {
     authorLive(review),
     nondet ending = AUTHOR_ENDINGS.oneOf()
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
-    val status = if (ending == TheAuthorFails) AuthorFailed else AuthorCancelled
+    val status =
+      if (ending == TheAuthorFails) AuthorFailed
+      else if (ending == TheWorkflowEnds) AuthorCancelledByTheWorkflowEnd
+      else AuthorCancelled
     moveOnLookup(endAuthor(review, status, revisionLookup), NoTurnEnd, revisionLookup),
   }
 
@@ -2162,6 +2203,7 @@ module reviewLoop {
     instanceRestarts,
     instanceRestartsWhileThePageIsWritten,
     instanceRestartsWhileADoneRunsSandboxIsDestroyed,
+    instanceRestartsWhileADoneRunRoutes,
     authorPaused,
     authorResumed,
     personInstructs,
@@ -2325,14 +2367,17 @@ module reviewLoop {
 
 
   /// A send-back records the revision it sent back, which did not go back before, and reaches
-  /// the submitter. Every other step keeps the record.
+  /// the submitter. A conflict of an ended author records its revision the same way, and reaches
+  /// the agent. Every other step keeps the record.
   pure def sendsBackOncePerRevision(step: Transition): bool = {
     val sentNow = SentBackOn(step.after.artifact.revision)
-    if (sendsChecksBack(step)) and {
+    val recordsTheRevision = and {
       step.before.artifact.sentBack != sentNow,
       step.after.artifact.sentBack == sentNow,
-      theSubmitterTookThem(step),
     }
+    if (sendsChecksBack(step)) recordsTheRevision and theSubmitterTookThem(step)
+    else if (step.kind.checks == EndedAuthorsConflictNoted)
+      recordsTheRevision and step.kind.agentHeard.contains(EndedAuthorsConflict)
     else step.after.artifact.sentBack == step.before.artifact.sentBack
   }
 
@@ -2637,12 +2682,14 @@ module reviewLoop {
 
   /// A step where the checks gate waits or sends the revision back leaves the recheck alarm
   /// armed. A step where it opens or blocks, a read for the idle author sends it failed checks,
-  /// or a read for an idle or ended author finds them open, stops it.
+  /// a read for an ended author tells the agent of a conflict, or a read for an idle or ended
+  /// author finds them open, stops it.
   pure def recheckFollowsTheGate(step: Transition): bool = and {
     gateHeld(step.kind.checks) implies step.after.artifact.recheckArmed,
     gateLetsGo(step.kind.checks) implies not(step.after.artifact.recheckArmed),
     step.kind.checks == AuthorFollowedUp implies not(step.after.artifact.recheckArmed),
     step.kind.checks == IdleAuthorsChecksOpen implies not(step.after.artifact.recheckArmed),
+    step.kind.checks == EndedAuthorsConflictNoted implies not(step.after.artifact.recheckArmed),
   }
 
   /// Whether one step kept each before-and-after rule.
@@ -2795,7 +2842,8 @@ module reviewLoop {
     aModelCallTurnStartsOver: step.kind.turnEnd == AuthorTurnStartsOver,
     aRulingCallIsLostWithTheInstance:
       step.kind.instanceRestarted and step.before.judgeRunsCodeRulesOn.exists(id => isOnRun(step.before, id)),
-    aRestartCutsTheDestroyOfADoneRefinerRun: step.kind.cutsTheDestroyOfADoneRun,
+    aRestartCutsTheDestroyOfADoneRefinerRun: step.kind.cutOfADoneRun == ItsDestroyIsCut,
+    aRestartCutsTheRoutingOfADoneRefinerRun: step.kind.cutOfADoneRun == ItsRoutingIsCut,
     aModelTurnIsLostWithTheInstance: step.kind.instanceRestarted and aModelTurnIsOut(step.before),
     aPausedAuthorsModelTurnIsLost:
       step.kind.instanceRestarted and aModelTurnIsOut(step.before) and step.before.author.paused,
@@ -2915,6 +2963,7 @@ module reviewLoop {
       step.before.artifact.recheckArmed,
       not(authorLive(step.before)),
     },
+    theAgentHearsOfAnEndedAuthorsConflict: step.kind.checks == EndedAuthorsConflictNoted,
     aPersonRuled: runIds(step.before).exists(id => and {
       not(isRuling(step.before.refinerRuns[id].result)),
       isRuling(step.after.refinerRuns[id].result),
@@ -3068,8 +3117,9 @@ module reviewLoop {
     }
   }
 
-  /// A done refiner run routes its review before its sandbox goes, so a restart in the destroy
-  /// does not lose it. A drafted artifact stays on a done run only while it waits there.
+  /// A done refiner run reads the revision before its done write and routes its review before it
+  /// awaits a call, so a restart in the routing or in the destroy does not lose it. A drafted
+  /// artifact stays on a done run only while it waits there.
   val aDoneRefinerRunRoutesItsReview: bool = {
     val restsOnADoneRun = and {
       drafted(review),
@@ -3342,6 +3392,10 @@ module reviewLoop {
   /// the sandbox of a findings reviewer or polisher run that ended done is out.
   val aRestartCutsTheDestroyOfADoneRefinerRun: bool = lastStepReached.aRestartCutsTheDestroyOfADoneRefinerRun
 
+  /// Witness for `aDoneRefinerRunRoutesItsReview`: a new instance takes over at the first call the
+  /// routing of a findings reviewer or polisher run that ended done awaits.
+  val aRestartCutsTheRoutingOfADoneRefinerRun: bool = lastStepReached.aRestartCutsTheRoutingOfADoneRefinerRun
+
   /// Witness for `aJudgeRejectionPostsItsReasonOnce`: a ruling call returns after the author
   /// ended, so its ruling does not land.
   val aRulingCallReturnsAfterTheAuthorEnded: bool = lastStepReached.aRulingCallReturnsAfterTheAuthorEnded
@@ -3538,6 +3592,11 @@ module reviewLoop {
   /// finds its checks open while the recheck alarm runs, and the alarm stops.
   val anEndedAuthorsOpenChecksStopTheRecheckAlarm: bool =
     lastStepReached.anEndedAuthorsOpenChecksStopTheRecheckAlarm
+
+  /// Witness for `checksGoBackOncePerRevision`: a read for a cancelled or failed author finds a
+  /// conflict, and the agent hears of it.
+  val theAgentHearsOfAnEndedAuthorsConflict: bool =
+    lastStepReached.theAgentHearsOfAnEndedAuthorsConflict
 
   /// Witness for `judgeRulesAtMostOnce`: a person rules on a judge run through the agent. A ruling
   /// of the decisions model takes the run off the runs the code rules on.

@@ -49,7 +49,7 @@ export async function settleChecks(workflow: WorkflowRuntime, jobId: string): Pr
 
 /**
  * Failed checks and a conflict with the base branch go to the idle author once per revision.
- * The agent hears of a conflict that a finished author cannot take.
+ * A finished author does not take failed checks, and the agent hears of a conflict it cannot take.
  * The recheck alarm repeats while the host has not worked the merge out.
  */
 async function followUpWithIdleAuthor(
@@ -70,7 +70,7 @@ async function followUpWithIdleAuthor(
     return workflow.startRepeatingAlarm(RECHECK_SECONDS, "recheckChecks", alarm);
   }
   await workflow.stopRepeatingAlarm("recheckChecks", alarm);
-  if (checks?.state === "failed") {
+  if (checks?.state === "failed" && !isTaskFinished(author.status)) {
     await sendFailedChecksBack(workflow, author, artifact, {
       support,
       revision,

@@ -239,7 +239,7 @@ module workflowLifecycleTypes {
   /// `RunAgainStep` is the alarm that runs the lost model turn of the job again, also once more.
   /// `LostTurnDeadlineStep` is the deadline alarm of the lost model turn of the job, which fires
   /// while its author waits for the alarm that runs the turn again. `HostErrorStep` is the page
-  /// model failing the model call of the job.
+  /// model failing the model call of the job, or the document host failing its page write.
   /// `EndResumeStep` is the alarm that goes on with a workflow end an instance restart cut off.
   /// `EndPostReturnStep` is the return of the post of a workflow end, and `UnbindReturnStep` the
   /// return of the unbind of its code host bindings.
@@ -1986,28 +1986,44 @@ module workflowLifecycle {
     id => move(untold(researchHandedOver(workflow, id)), OtherStep),
   )
 
+  /// The researcher's turn ends with its research payload written. It is a copy of
+  /// `researcherHandsOver` that a step picks as often as any other kind of step, so the author
+  /// after research runs out of restarts and fails.
+  action theResearcherHandsOverItsResearch: bool = researcherHandsOver
+
   /// The harness author writes its page, or pushes to its pull, and its turn ends. An author that
   /// does not continue a pull opens one on the host. The turn end tells the agent unless a queued
   /// prompt goes out or the stage runs refiners.
-  action authorWritesItsPage: bool = onJobWhere(
-    id => and {
-      not(WRITES_ISSUES),
-      taskWorks(workflow, id),
-      jobTask(workflow, id).role == Author,
-      workflow.jobs[id].artifact == NoArtifact,
-    },
-    id => {
-      val written = pageWritten(workflow, id)
-      val opensAPull = WORKS_ON_PULLS and not(continuesAPull(workflow.jobs[id]))
-      move(
-        {
-          flow: if (opensAPull) withPullOnHost(written, id, PullOpen) else written,
-          told: REFINER == NoRefiner and jobTask(workflow, id).promptsQueued == 0,
-        },
-        OtherStep,
-      )
-    },
+  action authorWritesItsPage: bool = onJobWhere(authorMayWrite, authorWritesThePageOf)
+
+  /// The harness author of a job that continues a pull pushes to it, and its turn ends. It is a
+  /// copy of `authorWritesItsPage` that a step picks as often as any other kind of step, so a
+  /// host close removes the continuing job's pull and leaves the opener's to a later start.
+  action theAuthorOfAContinuingJobPushes: bool = onJobWhere(
+    id => authorMayWrite(id) and continuesAPull(workflow.jobs[id]),
+    authorWritesThePageOf,
   )
+
+  /// True when the harness author of the job `id` works and has not written its page.
+  def authorMayWrite(id: int): bool = and {
+    not(WRITES_ISSUES),
+    taskWorks(workflow, id),
+    jobTask(workflow, id).role == Author,
+    workflow.jobs[id].artifact == NoArtifact,
+  }
+
+  /// The harness author of the job `id` writes its page, or pushes to its pull.
+  action authorWritesThePageOf(id: int): bool = {
+    val written = pageWritten(workflow, id)
+    val opensAPull = WORKS_ON_PULLS and not(continuesAPull(workflow.jobs[id]))
+    move(
+      {
+        flow: if (opensAPull) withPullOnHost(written, id, PullOpen) else written,
+        told: REFINER == NoRefiner and jobTask(workflow, id).promptsQueued == 0,
+      },
+      OtherStep,
+    )
+  }
 
   /// The breakdown author ends its turn with the link of the issues it wrote: the subject issue or
   /// the project. An output that names the subject is recorded as a page is, and it sets the
@@ -2063,8 +2079,18 @@ module workflowLifecycle {
       runsAsModelCalls(jobTask(workflow, id)),
       not(isFinished(jobTask(workflow, id).status)),
     }),
-    any { agentPromptsAuthor, refinerRunFails },
+    any { theAgentPromptsAModelCallAuthorUnderReview, refinerRunFails },
   }
+
+  /// The agent prompts a model-call author whose page a refiner run reads.
+  action theAgentPromptsAModelCallAuthorUnderReview: bool = onJobWhere(
+    id => and {
+      refinerRunning(workflow.jobs[id]),
+      runsAsModelCalls(jobTask(workflow, id)),
+      not(isFinished(jobTask(workflow, id).status)),
+    },
+    id => move(untold(promptTask(workflow, id, false)), PromptStep),
+  )
 
   /// The agent calls `pause_task` on the job's task. A researcher is refused, and a finished or
   /// paused author is left alone.
@@ -2113,6 +2139,27 @@ module workflowLifecycle {
     jobIds(workflow).exists(id => taskStuck(workflow, id) and jobTask(workflow, id).restarts > 0),
     taskStalls,
   }
+
+  /// The harness turn of an author after research stalls. It is a copy of `taskStalls` that a
+  /// step picks as often as any other kind of step, so the author runs out of restarts and fails.
+  action anAuthorAfterResearchStalls: bool = all {
+    RESEARCH,
+    jobIds(workflow).exists(id => taskStuck(workflow, id) and jobTask(workflow, id).role == Author),
+    taskStalls,
+  }
+
+  /// The agent cancels the unfinished job that opened a pull the host holds open. It is a copy
+  /// of `agentCancelsJob` that a step picks as often as any other kind of step, so a later job
+  /// continues the pull.
+  action theAgentCancelsTheOpenerOfAnOpenPull: bool = onJobWhere(
+    id => and {
+      WORK == PullsTheHostMoves,
+      workflow.jobs[id].pullOnHost == PullOpen,
+      not(continuesAPull(workflow.jobs[id])),
+      not(isFinished(jobTask(workflow, id).status)),
+    },
+    id => move(endTask(workflow, id, TaskCancelled, AfterCancel, ToolOrEvent), OtherStep),
+  )
 
   /// The sandbox destroy of a stalled task, of a failed task, or of a task that completes under
   /// review returns. It is a copy of `sandboxDestroyReturns` that a step picks as often as any
@@ -2317,6 +2364,20 @@ module workflowLifecycle {
       not(isStoppedModelCall(workflow.calls[callId])),
       not(isFinished(jobTask(workflow, workflow.calls[callId].job).status)),
     })
+    all {
+      failing.size() > 0,
+      nondet callId = failing.oneOf()
+      val id = workflow.calls[callId].job
+      move(endTask(withoutCall(workflow, callId), id, TaskFailed, AfterFail, ToolOrEvent), HostErrorStep(id)),
+    }
+  }
+
+  /// The document host fails the page write of an unfinished model-call author. The author fails
+  /// at once, and its failure posts.
+  action pageWriteFails: bool = {
+    val failing = outCalls(workflow, PageWrite).filter(callId =>
+      not(isFinished(jobTask(workflow, workflow.calls[callId].job).status))
+    )
     all {
       failing.size() > 0,
       nondet callId = failing.oneOf()
@@ -2694,6 +2755,10 @@ module workflowLifecycle {
     theAgentPlansTheWorkflow,
     theAgentStartsAJobItTakes,
     aRefinerRunFailsDuringAModelTurn,
+    theAuthorOfAContinuingJobPushes,
+    theResearcherHandsOverItsResearch,
+    anAuthorAfterResearchStalls,
+    theAgentCancelsTheOpenerOfAnOpenPull,
   }
 
   /// The agent sets the plan or starts a job. Most of these calls are refused once the plan is
@@ -2716,8 +2781,9 @@ module workflowLifecycle {
   /// The agent cancels or completes a job.
   action theAgentEndsAJob: bool = any { agentCancelsJob, agentCompletesJob }
 
-  /// The page model fails a model call, or the deadline of its model turn passes first.
-  action aModelTurnFails: bool = any { modelCallFails, modelTurnOutlivesItsDeadline }
+  /// The page model fails a model call, the document host fails a page write, or the deadline of
+  /// its model turn passes first.
+  action aModelTurnFails: bool = any { modelCallFails, pageWriteFails, modelTurnOutlivesItsDeadline }
 
   /// A message, an alarm, a stop, or a move on the host or the tracker reaches the workflow.
   action anOutsideEventLands: bool = any {
@@ -4106,8 +4172,8 @@ module workflowLifecycle {
   /// Witness for `eachFailedTaskPostsItsFailureOnce`: a researcher fails past its restarts and posts.
   val aResearcherPostsItsFailure: bool = lastStepReached.aResearcherPostsItsFailure
 
-  /// Witness for `eachFailedTaskPostsItsFailureOnce`: the page model fails a model call, and its
-  /// author sends its failure post.
+  /// Witness for `eachFailedTaskPostsItsFailureOnce`: the page model fails a model call, or the
+  /// document host fails a page write, and its author sends its failure post.
   val aModelCallHostErrorPostsAFailure: bool = lastStepReached.aModelCallHostErrorPostsAFailure
 
   /// Witness for `aFinishedAuthorsSandboxIsDestroyed`: a restart of the Durable Object cuts the

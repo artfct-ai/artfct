@@ -91,6 +91,31 @@ export async function markArtifactReady(
   if (artifact.status !== "drafted") return;
   const revision = await artifactRevision(workflow, artifact);
   if (!workflow.store.advanceArtifact(jobId, ["drafted"], "ready")) return;
+  await announceHandover(workflow, { artifact, close, revision });
+}
+
+/**
+ * Give the drafted artifact to the humans at a revision the caller read before, so the store
+ * moves before any call goes out. The routing of a refiner run that ended done uses it.
+ */
+export async function handOverArtifactAt(
+  workflow: WorkflowRuntime,
+  jobId: string,
+  handover: { close: ArtifactClose; revision: string | null },
+): Promise<void> {
+  const artifact = workflow.store.artifact(jobId);
+  if (!artifact) return;
+  workflow.store.setArtifactRefinerRun(jobId, null);
+  if (!workflow.store.advanceArtifact(jobId, ["drafted"], "ready")) return;
+  await announceHandover(workflow, { artifact, ...handover });
+}
+
+async function announceHandover(
+  workflow: WorkflowRuntime,
+  handover: { artifact: ArtifactRow; close: ArtifactClose; revision: string | null },
+): Promise<void> {
+  const { artifact, close, revision } = handover;
+  const jobId = artifact.job_id;
   workflow.log(null, `the artifact of job ${jobId} is handed over`);
   workflow.store.recordHandover(jobId, revision);
   await markBoardDirty(workflow, jobId);
@@ -122,6 +147,15 @@ export async function reopenChangedArtifact(
     null,
     `the artifact of job ${jobId} changed, so it is a draft again and the refiners run`,
   );
+}
+
+/** The revision of the job's artifact, read before a refiner run ends so its routing awaits nothing first. */
+export async function revisionOfTheJobsArtifact(
+  workflow: WorkflowRuntime,
+  jobId: string,
+): Promise<string | null> {
+  const artifact = workflow.store.artifact(jobId);
+  return artifact ? artifactRevision(workflow, artifact) : null;
 }
 
 /** What the host says the artifact is now. Null when the kind has no revision or the host fails. */

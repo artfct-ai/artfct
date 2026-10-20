@@ -1212,6 +1212,7 @@ export class WorkflowLifecycleReplay {
           this.runStep(() => this.personEndsIssue(world, required(picks.issue))),
         );
       case "researcherHandsOver":
+      case "theResearcherHandsOverItsResearch":
         return worldAction(`researcher of job ${picks.id} hands over`, (world) => {
           const handsOver = researcherTurnEnds(
             this.unfinishedResearcherIndexOf(required(picks.id)),
@@ -1220,6 +1221,7 @@ export class WorkflowLifecycleReplay {
           return this.runStep(() => handsOver.run(world));
         });
       case "authorWritesItsPage":
+      case "theAuthorOfAContinuingJobPushes":
         return worldAction(`author of job ${picks.id} writes its page`, async (world) => {
           const index = this.unfinishedIndexOf(required(picks.id));
           await firstArtifactAppears(index, "author_text").run(world);
@@ -1254,6 +1256,7 @@ export class WorkflowLifecycleReplay {
           }),
         );
       case "agentPromptsAuthor":
+      case "theAgentPromptsAModelCallAuthorUnderReview":
         return worldAction(`agent prompts the task of job ${picks.id}`, (world) =>
           this.runStep(async () => {
             const task = this.taskOf(required(picks.id));
@@ -1278,10 +1281,12 @@ export class WorkflowLifecycleReplay {
       }
       case "taskStalls":
       case "aRestartedTaskStalls":
+      case "anAuthorAfterResearchStalls":
         return worldAction(`task of job ${picks.id} stalls`, (world) =>
           this.taskStalls(world, required(picks.id)),
         );
       case "agentCancelsJob":
+      case "theAgentCancelsTheOpenerOfAnOpenPull":
         return worldAction(`agent cancels job ${picks.id}`, (world) =>
           this.runStep(async () => {
             const { cancel_job } = startTools(world.workflow);
@@ -1337,7 +1342,11 @@ export class WorkflowLifecycleReplay {
         );
       case "modelCallFails":
         return worldAction(`model call ${picks.callId} fails`, () =>
-          this.failModelCall(required(picks.callId)),
+          this.failModelTurnCall(required(picks.callId)),
+        );
+      case "pageWriteFails":
+        return worldAction(`page write ${picks.callId} fails`, () =>
+          this.failModelTurnCall(required(picks.callId)),
         );
       case "pageWriteReturns":
         return worldAction(`page write ${picks.callId} returns`, () =>
@@ -1806,9 +1815,9 @@ export class WorkflowLifecycleReplay {
     this.answeredModelCall = null;
   }
 
-  private async failModelCall(callId: number): Promise<void> {
+  private async failModelTurnCall(callId: number): Promise<void> {
     const [call] = this.calls.splice(callId, 1);
-    if (!call?.fail) throw new Error(`no model call ${callId} is out`);
+    if (!call?.fail) throw new Error(`no model call or page write ${callId} is out`);
     const { fail, step: rest } = call;
     await this.runStep(async () => {
       fail();
@@ -1900,7 +1909,7 @@ export class WorkflowLifecycleReplay {
         answer: () => {
           write().then(resolve, reject);
         },
-        fail: null,
+        fail: () => reject(new Error("the document host is down")),
         turnId: modelCall.turnId,
         revises: modelCall.revises,
         land: async () => {
