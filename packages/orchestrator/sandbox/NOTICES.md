@@ -4,13 +4,13 @@ The sandbox image copies the programs below in as prebuilt files. Each entry giv
 
 The npm packages, the Debian packages, and the Node.js base image keep their own license files in the image. The npm packages hold theirs under `/opt/agents/node_modules`. The Debian packages hold theirs under `/usr/share/doc`.
 
-## Cloudflare Sandbox control server
+## Cloudflare sandbox-shim
 
-License: Apache-2.0
+License: Apache-2.0, with statically linked Rust crates under MIT, Apache-2.0, or Unlicense terms, and the zstd library under BSD-3-Clause
 
 Source: https://github.com/cloudflare/sandbox-sdk
 
-Path: `/sandbox`
+Path: `/usr/local/bin/sandbox-shim`
 
 ```text
                               Apache License

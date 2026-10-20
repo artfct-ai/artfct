@@ -14,7 +14,8 @@
     "todoListIsFixedAfterFirstArtifact",
     "aStopAnswersOnlyInTheFeed",
     "researchReadsCompleteOnceTheAuthorStarts",
-    "everySessionMessageLandsOnce"
+    "everySessionMessageLandsOnce",
+    "closingReplyPostsOnceAfterAnInstanceRestart"
   ],
   "mainMinutes": {
     "chatThread": 1.1,
@@ -78,8 +79,10 @@
       "aStalledAuthorRestarts",
       "aRetriedActivityIsStoredOnce",
       "aRestartCutsAToolCallPost",
-      "aRestartLosesAClosingReply",
+      "aRestartCutsAClosingReplyBeforeItIsStored",
       "aRestartFollowsAStoredClosingReply",
+      "aCutClosingReplyPostsOnItsAlarm",
+      "aRestartCutsTheAlarmOfAClosingReply",
       "aToolCallReachesTheFeed",
       "aSessionGetsAPlan",
       "anArtifactCompletesTheTodoList",
@@ -155,8 +158,10 @@
       "aStalledAuthorRestarts",
       "aRetriedActivityIsStoredOnce",
       "aRestartCutsAToolCallPost",
-      "aRestartLosesAClosingReply",
+      "aRestartCutsAClosingReplyBeforeItIsStored",
       "aRestartFollowsAStoredClosingReply",
+      "aCutClosingReplyPostsOnItsAlarm",
+      "aRestartCutsTheAlarmOfAClosingReply",
       "aToolCallReachesTheFeed",
       "aSessionGetsAPlan",
       "anArtifactCompletesTheTodoList",
@@ -184,7 +189,8 @@
           "authorsWithFeedState": 1,
           "pausedAuthors": 0,
           "sessionMessagesSent": 0,
-          "messageDeliveriesInFlight": 0
+          "messageDeliveriesInFlight": 0,
+          "closingRepliesCut": 1
         },
         "nightly": {
           "jobsStarted": 3,
@@ -193,7 +199,8 @@
           "authorsWithFeedState": 1,
           "pausedAuthors": 0,
           "sessionMessagesSent": 0,
-          "messageDeliveriesInFlight": 0
+          "messageDeliveriesInFlight": 0,
+          "closingRepliesCut": 2
         }
       },
       "trackerOnly": {
@@ -204,7 +211,8 @@
           "authorsWithFeedState": 1,
           "pausedAuthors": 0,
           "sessionMessagesSent": 0,
-          "messageDeliveriesInFlight": 0
+          "messageDeliveriesInFlight": 0,
+          "closingRepliesCut": 1
         },
         "nightly": {
           "jobsStarted": 3,
@@ -213,7 +221,8 @@
           "authorsWithFeedState": 1,
           "pausedAuthors": 0,
           "sessionMessagesSent": 0,
-          "messageDeliveriesInFlight": 0
+          "messageDeliveriesInFlight": 0,
+          "closingRepliesCut": 2
         }
       },
       "trackerResearch": {
@@ -224,7 +233,8 @@
           "authorsWithFeedState": 1,
           "pausedAuthors": 0,
           "sessionMessagesSent": 0,
-          "messageDeliveriesInFlight": 0
+          "messageDeliveriesInFlight": 0,
+          "closingRepliesCut": 1
         },
         "nightly": {
           "jobsStarted": 2,
@@ -233,7 +243,8 @@
           "authorsWithFeedState": 1,
           "pausedAuthors": 0,
           "sessionMessagesSent": 0,
-          "messageDeliveriesInFlight": 0
+          "messageDeliveriesInFlight": 0,
+          "closingRepliesCut": 2
         }
       },
       "trackerModelCall": {
@@ -244,7 +255,8 @@
           "authorsWithFeedState": 1,
           "pausedAuthors": 0,
           "sessionMessagesSent": 1,
-          "messageDeliveriesInFlight": 1
+          "messageDeliveriesInFlight": 1,
+          "closingRepliesCut": 1
         },
         "nightly": {
           "jobsStarted": 3,
@@ -253,7 +265,8 @@
           "authorsWithFeedState": 1,
           "pausedAuthors": 0,
           "sessionMessagesSent": 1,
-          "messageDeliveriesInFlight": 2
+          "messageDeliveriesInFlight": 2,
+          "closingRepliesCut": 2
         }
       },
       "trackerPause": {
@@ -264,7 +277,8 @@
           "authorsWithFeedState": 1,
           "pausedAuthors": 1,
           "sessionMessagesSent": 1,
-          "messageDeliveriesInFlight": 1
+          "messageDeliveriesInFlight": 1,
+          "closingRepliesCut": 1
         },
         "nightly": {
           "jobsStarted": 2,
@@ -273,7 +287,8 @@
           "authorsWithFeedState": 1,
           "pausedAuthors": 1,
           "sessionMessagesSent": 1,
-          "messageDeliveriesInFlight": 2
+          "messageDeliveriesInFlight": 2,
+          "closingRepliesCut": 2
         }
       },
       "trackerDelivery": {
@@ -284,7 +299,8 @@
           "authorsWithFeedState": 1,
           "pausedAuthors": 0,
           "sessionMessagesSent": 1,
-          "messageDeliveriesInFlight": 1
+          "messageDeliveriesInFlight": 1,
+          "closingRepliesCut": 1
         },
         "nightly": {
           "jobsStarted": 1,
@@ -293,7 +309,8 @@
           "authorsWithFeedState": 1,
           "pausedAuthors": 0,
           "sessionMessagesSent": 2,
-          "messageDeliveriesInFlight": 2
+          "messageDeliveriesInFlight": 2,
+          "closingRepliesCut": 2
         }
       }
     }

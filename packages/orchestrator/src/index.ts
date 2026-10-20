@@ -22,7 +22,7 @@ import { deliver } from "./router/deliver";
 import { resolveActor } from "./router/identity";
 import { Workflow } from "./workflow";
 
-export { Sandbox, Sandbox as SandboxLarge } from "@cloudflare/sandbox";
+export { Sandbox, Sandbox as SandboxLarge } from "./sandbox/durable-object";
 export { Workflow };
 
 /**
