@@ -1,9 +1,16 @@
 import { isWorkflowFinished } from "../../workflow/store/state";
+import type { AgentTurnRow } from "../../workflow/store/workflow-row";
 import { noteMessage } from "../transcript/envelope";
 import type { WorkflowRuntime } from "../../workflow/types";
 
 /** The alarm payload. The start time tells a stale alarm from the running turn. */
 export type TurnAlarm = { started_at: string };
+
+/**
+ * What a turn start recorded: its start time, its first transcript row, and its board change. A
+ * resumed turn carries the first row and the board change of the lost turn.
+ */
+export type TurnStart = { startedAt: string; firstRow: number; boardChanged: boolean };
 
 /** Seconds into a turn on a person's message before its chat threads hear that it still runs. */
 export const HEADS_UP_SECONDS = 60;
@@ -20,41 +27,50 @@ export function turnTimeoutText(minutes: number): string {
 }
 
 /**
- * Record a turn's start. Schedule the watchdog alarm, and the heads-up when the turn took a
- * message a person wrote. Returns the start time that identifies the turn.
+ * Record a turn's start, with `takenRow` as its first transcript row unless it resumes a lost
+ * turn. Schedule the watchdog alarm, and the heads-up when the turn took a message a person wrote.
  */
-export async function armTurnWatchdog(workflow: WorkflowRuntime): Promise<string> {
+export async function armTurnWatchdog(
+  workflow: WorkflowRuntime,
+  takenRow: number,
+): Promise<TurnStart> {
   const startedAt = new Date(workflow.now()).toISOString();
-  await cancelTurnAlarms(workflow);
+  const lost = workflow.store.agentTurn();
   const seconds = Math.ceil(workflow.config().orchestrator.turn_timeout_minutes * 60);
   const alarm: TurnAlarm = { started_at: startedAt };
   const watchdog = await workflow.scheduleAlarm(seconds, "onTurnTimeout", alarm);
   const headsUp = workflow.transcript.takenMessages().length
     ? await workflow.scheduleAlarm(HEADS_UP_SECONDS, "onTurnHeadsUp", alarm)
     : null;
-  workflow.store.updateWorkflow({
-    turn_started_at: startedAt,
-    turn_watchdog: watchdog,
-    turn_heads_up: headsUp,
+  const start: TurnStart = {
+    startedAt,
+    firstRow: lost?.first_row ?? takenRow,
+    boardChanged: lost?.board_changed ?? false,
+  };
+  workflow.store.recordRunningTurn({
+    started_at: startedAt,
+    first_row: start.firstRow,
+    board_changed: start.boardChanged,
+    watchdog_schedule: watchdog,
+    heads_up_schedule: headsUp,
   });
-  return startedAt;
+  return start;
 }
 
 /**
- * A turn ends. Cancel its alarms. Returns true when this turn still owes the reply, false when
- * the watchdog already told the humans that it timed out and the turn has only to release them.
+ * A turn ends. Delete its record and cancel its alarms. Returns true when this turn still owes the
+ * reply, false when the watchdog already told the humans that it timed out and the turn has only
+ * to release them.
  */
 export async function disarmTurnWatchdog(
   workflow: WorkflowRuntime,
   startedAt: string,
 ): Promise<boolean> {
-  if (workflow.store.requireWorkflowRow().turn_started_at !== startedAt) return false;
-  await cancelTurnAlarms(workflow);
-  workflow.store.updateWorkflow({
-    turn_started_at: null,
-    turn_first_row: null,
-  });
+  const turn = runningTurnOf(workflow, startedAt);
+  if (!turn) return false;
+  workflow.store.deleteAgentTurn();
   workflow.transcript.deleteTaken();
+  await cancelTurnAlarms(workflow, turn);
   return true;
 }
 
@@ -63,8 +79,8 @@ export async function disarmTurnWatchdog(
  * threads and keep their working status. The turn still owes its reply.
  */
 export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {
-  if (workflow.store.requireWorkflowRow().turn_started_at !== alarm.started_at) return;
-  workflow.store.updateWorkflow({ turn_heads_up: null });
+  if (!runningTurnOf(workflow, alarm.started_at)) return;
+  workflow.store.clearHeadsUpSchedule();
   workflow.log(null, "agent turn still running, heads-up posted");
   await postKeepingWorkingStatus(workflow, HEADS_UP_TEXT);
 }
@@ -75,17 +91,12 @@ export async function onTurnHeadsUp(workflow: WorkflowRuntime, alarm: TurnAlarm)
  * threads out of their working status.
  */
 export async function onTurnTimeout(workflow: WorkflowRuntime, alarm: TurnAlarm): Promise<void> {
-  if (workflow.store.requireWorkflowRow().turn_started_at !== alarm.started_at) return;
-  const headsUp = workflow.store.requireWorkflowRow().turn_heads_up;
-  workflow.store.updateWorkflow({
-    turn_started_at: null,
-    turn_watchdog: null,
-    turn_heads_up: null,
-    turn_first_row: null,
-  });
+  const turn = runningTurnOf(workflow, alarm.started_at);
+  if (!turn) return;
+  workflow.store.deleteAgentTurn();
   const answering = workflow.transcript.answering();
   workflow.transcript.deleteTaken();
-  if (headsUp) await workflow.cancelAlarm(headsUp);
+  if (turn.heads_up_schedule) await workflow.cancelAlarm(turn.heads_up_schedule);
   if (isWorkflowFinished(workflow.store.requireWorkflowRow().status) && !answering.length)
     return workflow.release();
   const minutes = workflow.config().orchestrator.turn_timeout_minutes;
@@ -98,27 +109,25 @@ export const LOST_TURN_TEXT =
   "The orchestrator restarted in the middle of your last turn, most likely for a deploy. Tool calls you made after the restart did not take effect and their results may be missing from this transcript. Read the task state before you act on it, then continue. Answer the person who wrote before the restart when they still wait on a reply.";
 
 /**
- * Forget a turn still marked as running when the Durable Object starts, and wake the agent with
- * an agent note. The resumed turn keeps the lost turn's messages, transcript rows and board
+ * Mark a turn still recorded as running lost when the Durable Object starts, and wake the agent
+ * with an agent note. The resumed turn keeps the lost turn's messages, transcript rows and board
  * change, and a person who waited hears that it starts again. With no lost turn, or with a
  * finished workflow, rows that wait to wake the agent get a `runAgent` alarm. True when a turn
  * was resumed.
  */
 export async function resumeLostTurn(workflow: WorkflowRuntime): Promise<boolean> {
-  const startedAt = workflow.store.workflowRow()?.turn_started_at;
-  if (!startedAt) {
+  const turn = workflow.store.agentTurn();
+  if (turn?.status !== "running") {
     await wakeForWaitingRows(workflow);
     return false;
   }
-  await cancelTurnAlarms(workflow);
-  workflow.store.updateWorkflow({ turn_started_at: null });
+  workflow.store.markTurnLost();
+  await cancelTurnAlarms(workflow, turn);
   if (
     isWorkflowFinished(workflow.store.requireWorkflowRow().status) &&
     !workflow.transcript.takenMessages().length
   ) {
-    workflow.store.updateWorkflow({
-      turn_first_row: null,
-    });
+    workflow.store.deleteAgentTurn();
     workflow.transcript.deleteTaken();
     await workflow.release();
     await wakeForWaitingRows(workflow);
@@ -126,7 +135,7 @@ export async function resumeLostTurn(workflow: WorkflowRuntime): Promise<boolean
   }
   workflow.log(
     null,
-    `the turn started at ${startedAt} was lost with its Durable Object. resuming.`,
+    `the turn started at ${turn.started_at} was lost with its Durable Object. resuming.`,
   );
   if (workflow.transcript.takenMessages().length) {
     await postKeepingWorkingStatus(workflow, LOST_PLACE_TEXT);
@@ -141,11 +150,15 @@ async function wakeForWaitingRows(workflow: WorkflowRuntime): Promise<void> {
   if (waking) await workflow.scheduleAlarm(0, "runAgent", {});
 }
 
-async function cancelTurnAlarms(workflow: WorkflowRuntime): Promise<void> {
-  const { turn_watchdog: watchdog, turn_heads_up: headsUp } = workflow.store.requireWorkflowRow();
-  workflow.store.updateWorkflow({ turn_watchdog: null, turn_heads_up: null });
-  if (watchdog) await workflow.cancelAlarm(watchdog);
-  if (headsUp) await workflow.cancelAlarm(headsUp);
+/** The record of the running turn that started at `startedAt`. Null for a stale start. */
+function runningTurnOf(workflow: WorkflowRuntime, startedAt: string): AgentTurnRow | null {
+  const turn = workflow.store.agentTurn();
+  return turn?.status === "running" && turn.started_at === startedAt ? turn : null;
+}
+
+async function cancelTurnAlarms(workflow: WorkflowRuntime, turn: AgentTurnRow): Promise<void> {
+  if (turn.watchdog_schedule) await workflow.cancelAlarm(turn.watchdog_schedule);
+  if (turn.heads_up_schedule) await workflow.cancelAlarm(turn.heads_up_schedule);
 }
 
 /** Post to every chat thread among the reply targets and keep its working status. */

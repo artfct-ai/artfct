@@ -10,6 +10,16 @@ CREATE TABLE `agent_inbox` (
 	`reacted` integer DEFAULT false NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE `agent_turn` (
+	`workflow_id` text PRIMARY KEY NOT NULL,
+	`status` text NOT NULL,
+	`started_at` text NOT NULL,
+	`first_row` integer NOT NULL,
+	`board_changed` integer NOT NULL,
+	`watchdog_schedule` text,
+	`heads_up_schedule` text
+);
+--> statement-breakpoint
 CREATE TABLE `artifacts` (
 	`job_id` text PRIMARY KEY NOT NULL,
 	`kind` text NOT NULL,
@@ -198,12 +208,7 @@ CREATE TABLE `workflow` (
 	`request_text` text NOT NULL,
 	`request_links` text NOT NULL,
 	`origin` text,
-	`idle_schedule` text,
-	`turn_started_at` text,
-	`turn_watchdog` text,
-	`turn_heads_up` text,
-	`turn_first_row` integer,
-	`turn_board_changed` integer DEFAULT false NOT NULL
+	`idle_schedule` text
 );
 --> statement-breakpoint
 CREATE TABLE `workflow_end` (

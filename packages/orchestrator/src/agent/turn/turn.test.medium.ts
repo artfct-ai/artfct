@@ -21,11 +21,8 @@ const start: InboundEvent = {
 };
 
 type Debug = {
-  workflow: {
-    status: string;
-    turn_started_at: string | null;
-    turn_watchdog: string | null;
-  };
+  workflow: { status: string };
+  agent_turn: { status: string } | null;
   log: Array<{ line: string }>;
   outbox: Array<{ kind: string; payload: { text?: string } | null }>;
   transcript: Array<{ message: { role: string; content: unknown } }>;
@@ -117,14 +114,9 @@ describe("agent turn", () => {
   describe("a silent turn", () => {
     const silent = settledWorkflow(null);
 
-    it("ends the turn", () =>
+    it("ends the turn and deletes its record", () =>
       silent((debug) => {
-        expect(debug.workflow.turn_started_at).toBeNull();
-      }));
-
-    it("disarms the watchdog", () =>
-      silent((debug) => {
-        expect(debug.workflow.turn_watchdog).toBeNull();
+        expect(debug.agent_turn).toBeNull();
       }));
 
     it("releases the Slack session", () =>
@@ -151,7 +143,7 @@ describe("agent turn", () => {
 
     it("ends the turn", () =>
       woken((debug) => {
-        expect(debug.workflow.turn_started_at).toBeNull();
+        expect(debug.agent_turn).toBeNull();
       }));
 
     it("releases the Slack session", () =>
@@ -196,7 +188,7 @@ describe("agent turn", () => {
     it("asks once and then lets the turn end", () =>
       quiet((debug) => {
         expect(unansweredNotes(debug)).toBe(1);
-        expect(debug.workflow.turn_started_at).toBeNull();
+        expect(debug.agent_turn).toBeNull();
       }));
 
     it("posts nothing", () =>
@@ -276,7 +268,7 @@ describe("agent turn", () => {
 
     it("ends the turn", () =>
       stuck((debug) => {
-        expect(debug.workflow.turn_started_at).toBeNull();
+        expect(debug.agent_turn).toBeNull();
       }));
   });
 
@@ -344,9 +336,9 @@ describe("agent turn", () => {
         expect(debug.outbox.map((entry) => entry.payload?.text)).not.toContain(STUCK_TEXT);
       }));
 
-    it("leaves the turn open", () =>
+    it("leaves the turn recorded as running", () =>
       lost((debug) => {
-        expect(debug.workflow.turn_started_at).not.toBeNull();
+        expect(debug.agent_turn?.status).toBe("running");
       }));
 
     describe("once the next instance starts and its turn settles", () => {
@@ -363,14 +355,9 @@ describe("agent turn", () => {
         });
       };
 
-      it("ends the lost turn", () =>
+      it("ends the lost turn and deletes its record", () =>
         resumed((debug) => {
-          expect(debug.workflow.turn_started_at).toBeNull();
-        }));
-
-      it("disarms the watchdog", () =>
-        resumed((debug) => {
-          expect(debug.workflow.turn_watchdog).toBeNull();
+          expect(debug.agent_turn).toBeNull();
         }));
 
       it("wakes the agent with a note about the lost turn", () =>

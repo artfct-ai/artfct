@@ -1,8 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "b5f7c6d4-cdeb-4bc5-88e2-47d40da72188",
-  "prevId": "460a8ec5-29fd-4cab-8470-0aa33db4f9fa",
+  "id": "2311f955-4b38-4bfb-a0ab-8af514938091",
+  "prevId": "de37f357-fc37-422c-b5ab-f2431a62271f",
   "tables": {
     "agent_inbox": {
       "name": "agent_inbox",
@@ -72,6 +72,65 @@
           "notNull": true,
           "autoincrement": false,
           "default": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {}
+    },
+    "agent_turn": {
+      "name": "agent_turn",
+      "columns": {
+        "workflow_id": {
+          "name": "workflow_id",
+          "type": "text",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "started_at": {
+          "name": "started_at",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "first_row": {
+          "name": "first_row",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "board_changed": {
+          "name": "board_changed",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "watchdog_schedule": {
+          "name": "watchdog_schedule",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "heads_up_schedule": {
+          "name": "heads_up_schedule",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {},
@@ -1259,42 +1318,6 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
-        },
-        "turn_started_at": {
-          "name": "turn_started_at",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "turn_watchdog": {
-          "name": "turn_watchdog",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "turn_heads_up": {
-          "name": "turn_heads_up",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "turn_first_row": {
-          "name": "turn_first_row",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": false,
-          "autoincrement": false
-        },
-        "turn_board_changed": {
-          "name": "turn_board_changed",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false,
-          "default": false
         }
       },
       "indexes": {},

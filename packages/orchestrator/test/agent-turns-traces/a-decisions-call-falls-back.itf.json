@@ -31,13 +31,10 @@
         { "tag": "Fails", "value": { "#tup": [] } }
       ],
       "chatThread::agentTurns::workflow": {
-        "isolate": { "rerun": false, "turn": { "tag": "NoTurn", "value": { "#tup": [] } } },
+        "isolate": { "rerun": false, "turn": { "tag": "Idle", "value": { "#tup": [] } } },
         "store": {
           "backupAlarm": false,
-          "boardChanged": false,
           "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "firstRow": { "tag": "NoFirstRow", "value": { "#tup": [] } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [],
           "lastInputOverLimit": false,
           "messagesRead": { "#bigint": "0" },
@@ -48,9 +45,8 @@
           "posts": [],
           "restarts": { "#bigint": "0" },
           "runAgentAlarms": { "#bigint": "0" },
-          "startedAt": { "tag": "NotRunning", "value": { "#tup": [] } },
           "transcript": [],
-          "watchdog": { "tag": "NoAlarm", "value": { "#tup": [] } },
+          "turn": { "tag": "NoTurn", "value": { "#tup": [] } },
           "workflowEnded": false
         }
       },
@@ -95,6 +91,7 @@
               "acknowledged": false,
               "answering": { "#set": [] },
               "attempt": { "#bigint": "1" },
+              "boardChanged": false,
               "decisionsFailed": false,
               "firstReplied": false,
               "olderRows": [],
@@ -132,10 +129,7 @@
         },
         "store": {
           "backupAlarm": true,
-          "boardChanged": false,
           "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "firstRow": { "tag": "FirstRowIs", "value": { "#bigint": "1" } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [
             {
               "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
@@ -153,14 +147,22 @@
           "posts": [],
           "restarts": { "#bigint": "0" },
           "runAgentAlarms": { "#bigint": "0" },
-          "startedAt": { "tag": "StartedAt", "value": { "#bigint": "1" } },
           "transcript": [
             {
               "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
               "id": { "#bigint": "1" }
             }
           ],
-          "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "1" } },
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "1" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "1" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "1" } }
+            }
+          },
           "workflowEnded": false
         }
       },
@@ -199,6 +201,7 @@
               "acknowledged": false,
               "answering": { "#set": [] },
               "attempt": { "#bigint": "1" },
+              "boardChanged": false,
               "decisionsFailed": false,
               "firstReplied": false,
               "olderRows": [],
@@ -236,10 +239,7 @@
         },
         "store": {
           "backupAlarm": true,
-          "boardChanged": false,
           "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "firstRow": { "tag": "FirstRowIs", "value": { "#bigint": "1" } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [
             {
               "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
@@ -263,14 +263,22 @@
           "posts": [],
           "restarts": { "#bigint": "0" },
           "runAgentAlarms": { "#bigint": "0" },
-          "startedAt": { "tag": "StartedAt", "value": { "#bigint": "1" } },
           "transcript": [
             {
               "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
               "id": { "#bigint": "1" }
             }
           ],
-          "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "1" } },
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "1" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "1" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "1" } }
+            }
+          },
           "workflowEnded": false
         }
       },
@@ -309,6 +317,7 @@
               "acknowledged": false,
               "answering": { "#set": [] },
               "attempt": { "#bigint": "1" },
+              "boardChanged": false,
               "decisionsFailed": false,
               "firstReplied": false,
               "olderRows": [],
@@ -348,10 +357,7 @@
         },
         "store": {
           "backupAlarm": true,
-          "boardChanged": false,
           "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "firstRow": { "tag": "FirstRowIs", "value": { "#bigint": "1" } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [
             {
               "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
@@ -381,7 +387,6 @@
           "posts": [],
           "restarts": { "#bigint": "1" },
           "runAgentAlarms": { "#bigint": "1" },
-          "startedAt": { "tag": "StartedAt", "value": { "#bigint": "2" } },
           "transcript": [
             {
               "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
@@ -395,7 +400,16 @@
               "id": { "#bigint": "2" }
             }
           ],
-          "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "2" } },
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "1" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "2" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "2" } }
+            }
+          },
           "workflowEnded": false
         }
       },
@@ -434,6 +448,7 @@
               "acknowledged": false,
               "answering": { "#set": [] },
               "attempt": { "#bigint": "1" },
+              "boardChanged": false,
               "decisionsFailed": false,
               "firstReplied": false,
               "olderRows": [],
@@ -473,10 +488,7 @@
         },
         "store": {
           "backupAlarm": true,
-          "boardChanged": false,
           "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "firstRow": { "tag": "FirstRowIs", "value": { "#bigint": "1" } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [
             {
               "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
@@ -512,7 +524,6 @@
           "posts": [],
           "restarts": { "#bigint": "1" },
           "runAgentAlarms": { "#bigint": "1" },
-          "startedAt": { "tag": "StartedAt", "value": { "#bigint": "2" } },
           "transcript": [
             {
               "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
@@ -526,7 +537,16 @@
               "id": { "#bigint": "2" }
             }
           ],
-          "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "2" } },
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "1" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "2" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "2" } }
+            }
+          },
           "workflowEnded": false
         }
       },
@@ -565,6 +585,7 @@
               "acknowledged": false,
               "answering": { "#set": [] },
               "attempt": { "#bigint": "2" },
+              "boardChanged": false,
               "decisionsFailed": false,
               "firstReplied": false,
               "olderRows": [],
@@ -607,10 +628,7 @@
         },
         "store": {
           "backupAlarm": true,
-          "boardChanged": false,
           "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "firstRow": { "tag": "FirstRowIs", "value": { "#bigint": "1" } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [
             {
               "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
@@ -646,7 +664,6 @@
           "posts": [],
           "restarts": { "#bigint": "1" },
           "runAgentAlarms": { "#bigint": "1" },
-          "startedAt": { "tag": "StartedAt", "value": { "#bigint": "2" } },
           "transcript": [
             {
               "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
@@ -660,7 +677,16 @@
               "id": { "#bigint": "2" }
             }
           ],
-          "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "2" } },
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "1" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "2" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "2" } }
+            }
+          },
           "workflowEnded": false
         }
       },
@@ -699,6 +725,7 @@
               "acknowledged": false,
               "answering": { "#set": [] },
               "attempt": { "#bigint": "2" },
+              "boardChanged": false,
               "decisionsFailed": false,
               "firstReplied": false,
               "olderRows": [],
@@ -753,10 +780,7 @@
         },
         "store": {
           "backupAlarm": true,
-          "boardChanged": false,
           "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "firstRow": { "tag": "FirstRowIs", "value": { "#bigint": "1" } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [
             {
               "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
@@ -792,7 +816,6 @@
           "posts": [],
           "restarts": { "#bigint": "1" },
           "runAgentAlarms": { "#bigint": "1" },
-          "startedAt": { "tag": "StartedAt", "value": { "#bigint": "2" } },
           "transcript": [
             {
               "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
@@ -806,7 +829,16 @@
               "id": { "#bigint": "2" }
             }
           ],
-          "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "2" } },
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "1" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "2" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "2" } }
+            }
+          },
           "workflowEnded": false
         }
       },
@@ -851,6 +883,7 @@
               "acknowledged": false,
               "answering": { "#set": [] },
               "attempt": { "#bigint": "2" },
+              "boardChanged": false,
               "decisionsFailed": false,
               "firstReplied": false,
               "olderRows": [],
@@ -905,10 +938,7 @@
         },
         "store": {
           "backupAlarm": true,
-          "boardChanged": false,
           "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "firstRow": { "tag": "FirstRowIs", "value": { "#bigint": "1" } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [
             {
               "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
@@ -944,7 +974,6 @@
           "posts": [],
           "restarts": { "#bigint": "1" },
           "runAgentAlarms": { "#bigint": "0" },
-          "startedAt": { "tag": "StartedAt", "value": { "#bigint": "2" } },
           "transcript": [
             {
               "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
@@ -958,7 +987,16 @@
               "id": { "#bigint": "2" }
             }
           ],
-          "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "2" } },
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "1" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "2" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "2" } }
+            }
+          },
           "workflowEnded": false
         }
       },
@@ -997,6 +1035,7 @@
               "acknowledged": false,
               "answering": { "#set": [] },
               "attempt": { "#bigint": "2" },
+              "boardChanged": false,
               "decisionsFailed": false,
               "firstReplied": false,
               "olderRows": [],
@@ -1051,10 +1090,7 @@
         },
         "store": {
           "backupAlarm": false,
-          "boardChanged": false,
           "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "firstRow": { "tag": "FirstRowIs", "value": { "#bigint": "1" } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [
             {
               "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
@@ -1090,7 +1126,6 @@
           "posts": [],
           "restarts": { "#bigint": "1" },
           "runAgentAlarms": { "#bigint": "0" },
-          "startedAt": { "tag": "StartedAt", "value": { "#bigint": "2" } },
           "transcript": [
             {
               "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
@@ -1104,7 +1139,16 @@
               "id": { "#bigint": "2" }
             }
           ],
-          "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "2" } },
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "1" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "2" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "2" } }
+            }
+          },
           "workflowEnded": false
         }
       },
@@ -1143,6 +1187,7 @@
               "acknowledged": false,
               "answering": { "#set": [] },
               "attempt": { "#bigint": "1" },
+              "boardChanged": false,
               "decisionsFailed": false,
               "firstReplied": false,
               "olderRows": [],
@@ -1188,10 +1233,7 @@
         },
         "store": {
           "backupAlarm": true,
-          "boardChanged": false,
           "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "firstRow": { "tag": "FirstRowIs", "value": { "#bigint": "1" } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [
             {
               "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
@@ -1233,7 +1275,6 @@
           "posts": [],
           "restarts": { "#bigint": "2" },
           "runAgentAlarms": { "#bigint": "0" },
-          "startedAt": { "tag": "StartedAt", "value": { "#bigint": "3" } },
           "transcript": [
             {
               "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
@@ -1254,7 +1295,16 @@
               "id": { "#bigint": "3" }
             }
           ],
-          "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } },
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "1" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "3" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } }
+            }
+          },
           "workflowEnded": false
         }
       },
@@ -1293,6 +1343,7 @@
               "acknowledged": false,
               "answering": { "#set": [] },
               "attempt": { "#bigint": "1" },
+              "boardChanged": false,
               "decisionsFailed": false,
               "firstReplied": false,
               "olderRows": [],
@@ -1349,10 +1400,7 @@
         },
         "store": {
           "backupAlarm": true,
-          "boardChanged": false,
           "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "firstRow": { "tag": "FirstRowIs", "value": { "#bigint": "1" } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [
             {
               "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
@@ -1394,7 +1442,6 @@
           "posts": [],
           "restarts": { "#bigint": "2" },
           "runAgentAlarms": { "#bigint": "0" },
-          "startedAt": { "tag": "StartedAt", "value": { "#bigint": "3" } },
           "transcript": [
             {
               "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
@@ -1415,7 +1462,16 @@
               "id": { "#bigint": "3" }
             }
           ],
-          "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } },
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "1" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "3" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } }
+            }
+          },
           "workflowEnded": false
         }
       },
@@ -1457,6 +1513,7 @@
               "acknowledged": false,
               "answering": { "#set": [] },
               "attempt": { "#bigint": "1" },
+              "boardChanged": false,
               "decisionsFailed": false,
               "firstReplied": false,
               "olderRows": [],
@@ -1513,10 +1570,7 @@
         },
         "store": {
           "backupAlarm": false,
-          "boardChanged": false,
           "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "firstRow": { "tag": "FirstRowIs", "value": { "#bigint": "1" } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [
             {
               "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
@@ -1558,7 +1612,6 @@
           "posts": [],
           "restarts": { "#bigint": "2" },
           "runAgentAlarms": { "#bigint": "0" },
-          "startedAt": { "tag": "StartedAt", "value": { "#bigint": "3" } },
           "transcript": [
             {
               "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
@@ -1579,7 +1632,16 @@
               "id": { "#bigint": "3" }
             }
           ],
-          "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } },
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "1" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "3" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } }
+            }
+          },
           "workflowEnded": false
         }
       },
@@ -1618,6 +1680,7 @@
               "acknowledged": false,
               "answering": { "#set": [] },
               "attempt": { "#bigint": "1" },
+              "boardChanged": false,
               "decisionsFailed": false,
               "firstReplied": false,
               "olderRows": [],
@@ -1674,10 +1737,7 @@
         },
         "store": {
           "backupAlarm": false,
-          "boardChanged": false,
           "chat": { "tag": "NoStatus", "value": { "#tup": [] } },
-          "firstRow": { "tag": "FirstRowIs", "value": { "#bigint": "1" } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [
             {
               "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
@@ -1719,7 +1779,6 @@
           "posts": [],
           "restarts": { "#bigint": "2" },
           "runAgentAlarms": { "#bigint": "0" },
-          "startedAt": { "tag": "StartedAt", "value": { "#bigint": "3" } },
           "transcript": [
             {
               "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
@@ -1740,7 +1799,16 @@
               "id": { "#bigint": "3" }
             }
           ],
-          "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } },
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "1" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "3" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } }
+            }
+          },
           "workflowEnded": true
         }
       },
@@ -1779,6 +1847,7 @@
               "acknowledged": false,
               "answering": { "#set": [] },
               "attempt": { "#bigint": "1" },
+              "boardChanged": false,
               "decisionsFailed": true,
               "firstReplied": false,
               "olderRows": [],
@@ -1833,10 +1902,7 @@
         },
         "store": {
           "backupAlarm": false,
-          "boardChanged": false,
           "chat": { "tag": "Processing", "value": { "#tup": [] } },
-          "firstRow": { "tag": "FirstRowIs", "value": { "#bigint": "1" } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [
             {
               "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
@@ -1878,7 +1944,6 @@
           "posts": [],
           "restarts": { "#bigint": "2" },
           "runAgentAlarms": { "#bigint": "0" },
-          "startedAt": { "tag": "StartedAt", "value": { "#bigint": "3" } },
           "transcript": [
             {
               "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
@@ -1913,7 +1978,16 @@
               "id": { "#bigint": "5" }
             }
           ],
-          "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } },
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "1" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "3" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } }
+            }
+          },
           "workflowEnded": true
         }
       },
@@ -1952,6 +2026,7 @@
               "acknowledged": false,
               "answering": { "#set": [] },
               "attempt": { "#bigint": "2" },
+              "boardChanged": false,
               "decisionsFailed": true,
               "firstReplied": false,
               "olderRows": [],
@@ -2007,10 +2082,7 @@
         },
         "store": {
           "backupAlarm": false,
-          "boardChanged": false,
           "chat": { "tag": "Processing", "value": { "#tup": [] } },
-          "firstRow": { "tag": "FirstRowIs", "value": { "#bigint": "1" } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [
             {
               "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
@@ -2052,7 +2124,6 @@
           "posts": [],
           "restarts": { "#bigint": "2" },
           "runAgentAlarms": { "#bigint": "0" },
-          "startedAt": { "tag": "StartedAt", "value": { "#bigint": "3" } },
           "transcript": [
             {
               "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
@@ -2087,7 +2158,16 @@
               "id": { "#bigint": "5" }
             }
           ],
-          "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } },
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "1" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "3" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } }
+            }
+          },
           "workflowEnded": true
         }
       },
@@ -2126,6 +2206,7 @@
               "acknowledged": false,
               "answering": { "#set": [] },
               "attempt": { "#bigint": "2" },
+              "boardChanged": false,
               "decisionsFailed": true,
               "firstReplied": false,
               "olderRows": [],
@@ -2181,10 +2262,7 @@
         },
         "store": {
           "backupAlarm": false,
-          "boardChanged": false,
           "chat": { "tag": "Processing", "value": { "#tup": [] } },
-          "firstRow": { "tag": "FirstRowIs", "value": { "#bigint": "1" } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [
             {
               "from": { "tag": "FromWorkflow", "value": { "#tup": [] } },
@@ -2226,7 +2304,6 @@
           "posts": [],
           "restarts": { "#bigint": "2" },
           "runAgentAlarms": { "#bigint": "0" },
-          "startedAt": { "tag": "StartedAt", "value": { "#bigint": "3" } },
           "transcript": [
             {
               "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
@@ -2261,7 +2338,16 @@
               "id": { "#bigint": "5" }
             }
           ],
-          "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } },
+          "turn": {
+            "tag": "TurnRunning",
+            "value": {
+              "boardChanged": false,
+              "firstRow": { "#bigint": "1" },
+              "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
+              "startedAt": { "#bigint": "3" },
+              "watchdog": { "tag": "ArmedFor", "value": { "#bigint": "3" } }
+            }
+          },
           "workflowEnded": true
         }
       },
@@ -2300,6 +2386,7 @@
               "acknowledged": false,
               "answering": { "#set": [] },
               "attempt": { "#bigint": "2" },
+              "boardChanged": false,
               "decisionsFailed": true,
               "firstReplied": false,
               "olderRows": [],
@@ -2355,10 +2442,7 @@
         },
         "store": {
           "backupAlarm": false,
-          "boardChanged": false,
           "chat": { "tag": "Closed", "value": { "#tup": [] } },
-          "firstRow": { "tag": "NoFirstRow", "value": { "#tup": [] } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [],
           "lastInputOverLimit": false,
           "messagesRead": { "#bigint": "2" },
@@ -2369,7 +2453,6 @@
           "posts": [],
           "restarts": { "#bigint": "2" },
           "runAgentAlarms": { "#bigint": "0" },
-          "startedAt": { "tag": "NotRunning", "value": { "#tup": [] } },
           "transcript": [
             {
               "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
@@ -2404,7 +2487,7 @@
               "id": { "#bigint": "5" }
             }
           ],
-          "watchdog": { "tag": "NoAlarm", "value": { "#tup": [] } },
+          "turn": { "tag": "NoTurn", "value": { "#tup": [] } },
           "workflowEnded": true
         }
       },
@@ -2443,6 +2526,7 @@
               "acknowledged": false,
               "answering": { "#set": [] },
               "attempt": { "#bigint": "2" },
+              "boardChanged": false,
               "decisionsFailed": true,
               "firstReplied": false,
               "olderRows": [],
@@ -2498,10 +2582,7 @@
         },
         "store": {
           "backupAlarm": false,
-          "boardChanged": false,
           "chat": { "tag": "Closed", "value": { "#tup": [] } },
-          "firstRow": { "tag": "NoFirstRow", "value": { "#tup": [] } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [],
           "lastInputOverLimit": false,
           "messagesRead": { "#bigint": "2" },
@@ -2512,7 +2593,6 @@
           "posts": [],
           "restarts": { "#bigint": "2" },
           "runAgentAlarms": { "#bigint": "0" },
-          "startedAt": { "tag": "NotRunning", "value": { "#tup": [] } },
           "transcript": [
             {
               "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
@@ -2547,7 +2627,7 @@
               "id": { "#bigint": "5" }
             }
           ],
-          "watchdog": { "tag": "NoAlarm", "value": { "#tup": [] } },
+          "turn": { "tag": "NoTurn", "value": { "#tup": [] } },
           "workflowEnded": true
         }
       },
@@ -2586,6 +2666,7 @@
               "acknowledged": false,
               "answering": { "#set": [] },
               "attempt": { "#bigint": "2" },
+              "boardChanged": false,
               "decisionsFailed": true,
               "firstReplied": false,
               "olderRows": [],
@@ -2644,10 +2725,7 @@
         },
         "store": {
           "backupAlarm": false,
-          "boardChanged": false,
           "chat": { "tag": "Closed", "value": { "#tup": [] } },
-          "firstRow": { "tag": "NoFirstRow", "value": { "#tup": [] } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [],
           "lastInputOverLimit": false,
           "messagesRead": { "#bigint": "2" },
@@ -2658,7 +2736,6 @@
           "posts": [],
           "restarts": { "#bigint": "2" },
           "runAgentAlarms": { "#bigint": "0" },
-          "startedAt": { "tag": "NotRunning", "value": { "#tup": [] } },
           "transcript": [
             {
               "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
@@ -2693,7 +2770,7 @@
               "id": { "#bigint": "5" }
             }
           ],
-          "watchdog": { "tag": "NoAlarm", "value": { "#tup": [] } },
+          "turn": { "tag": "NoTurn", "value": { "#tup": [] } },
           "workflowEnded": true
         }
       },
@@ -2803,13 +2880,10 @@
         { "tag": "Fails", "value": { "#tup": [] } }
       ],
       "chatThread::agentTurns::workflow": {
-        "isolate": { "rerun": false, "turn": { "tag": "NoTurn", "value": { "#tup": [] } } },
+        "isolate": { "rerun": false, "turn": { "tag": "Idle", "value": { "#tup": [] } } },
         "store": {
           "backupAlarm": false,
-          "boardChanged": false,
           "chat": { "tag": "Closed", "value": { "#tup": [] } },
-          "firstRow": { "tag": "NoFirstRow", "value": { "#tup": [] } },
-          "headsUp": { "tag": "NoAlarm", "value": { "#tup": [] } },
           "inbox": [],
           "lastInputOverLimit": false,
           "messagesRead": { "#bigint": "2" },
@@ -2820,7 +2894,6 @@
           "posts": [],
           "restarts": { "#bigint": "2" },
           "runAgentAlarms": { "#bigint": "0" },
-          "startedAt": { "tag": "NotRunning", "value": { "#tup": [] } },
           "transcript": [
             {
               "entry": { "tag": "TakenRows", "value": { "#set": [{ "#bigint": "1" }] } },
@@ -2855,7 +2928,7 @@
               "id": { "#bigint": "5" }
             }
           ],
-          "watchdog": { "tag": "NoAlarm", "value": { "#tup": [] } },
+          "turn": { "tag": "NoTurn", "value": { "#tup": [] } },
           "workflowEnded": true
         }
       },

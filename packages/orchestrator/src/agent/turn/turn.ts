@@ -62,12 +62,14 @@ type Outcome = "replied" | "silent" | "failed" | "timed_out";
 
 /**
  * What one agent turn works from. `firstRow` is the id of the turn's first transcript row, which
- * compaction keeps. `requestText` identifies an ad hoc job started in the turn. `answering` is
- * where the people the turn answers wrote from, read as the turn took its inbox.
+ * compaction keeps. `boardChanged` is the board change of the lost turn it resumes.
+ * `requestText` identifies an ad hoc job started in the turn. `answering` is where the people the
+ * turn answers wrote from, read as the turn took its inbox.
  */
 type TurnInput = {
   rows: TranscriptRow[];
-  firstRow: number | null;
+  firstRow: number;
+  boardChanged: boolean;
   messages: string[];
   requestText: string;
   answering: ReplyTarget[];
@@ -79,8 +81,11 @@ type Reply = PersonMessage | null;
 /**
  * What the turn did so far that a retry or a second pass must not forget. `firstReplied` turns
  * true once a first reply tool worked. Closing text that answers ends the model pass instead.
+ * `boardChanged` turns true once the turn on a person's message, or the lost turn it resumes,
+ * started or prompted a task in a workflow with a chat thread. The turn keeps it after the
+ * watchdog deleted its record.
  */
-type TurnProgress = { firstReplied: boolean };
+type TurnProgress = { firstReplied: boolean; boardChanged: boolean };
 
 /** What every model run of one turn shares. */
 type GenerateInput = {
@@ -125,23 +130,17 @@ export async function runAgentTurn(workflow: WorkflowRuntime): Promise<void> {
     .flatMap((row) => (row.body === null ? [] : [row.body]));
   const prompts = messages.length ? messages : taken.map((row) => row.text);
   workflow.log(null, `agent turn started${messages.length ? " on a person's message" : ""}`);
-  const startedAt = await armTurnWatchdog(workflow);
-  const lostFirstRow = workflow.store.requireWorkflowRow().turn_first_row;
-  const firstRow = lostFirstRow ?? takenRow;
-  workflow.store.updateWorkflow({
-    turn_first_row: firstRow,
-    turn_board_changed:
-      lostFirstRow !== null && workflow.store.requireWorkflowRow().turn_board_changed,
-  });
+  const start = await armTurnWatchdog(workflow, takenRow);
   const answering = workflow.transcript.answering();
   const outcome = await boundedAttempt(workflow, {
     rows: workflow.transcript.all(),
-    firstRow,
+    firstRow: start.firstRow,
+    boardChanged: start.boardChanged,
     messages,
     requestText: prompts.join("\n"),
     answering,
   });
-  const owesTheReply = await disarmTurnWatchdog(workflow, startedAt);
+  const owesTheReply = await disarmTurnWatchdog(workflow, start.startedAt);
   if (!owesTheReply) return workflow.release();
   await conclude(workflow, outcome, answering);
 }
@@ -203,7 +202,7 @@ async function attempt(
     reading,
     loadTools(workflow, turn, { runtimeRequest, decisions, acknowledgement }),
   ]);
-  const progress: TurnProgress = { firstReplied: false };
+  const progress: TurnProgress = { firstReplied: false, boardChanged: turn.boardChanged };
   if (reply?.asksForRevision) {
     await acknowledgeRevisionRequest(workflow, turn.answering, acknowledgement);
     progress.firstReplied = true;
@@ -276,15 +275,14 @@ async function generate(
   const input = { model, tools, signal, turn, progress };
   let pass = await modelPass(workflow, { ...input, stepsBefore: 0 });
   if (signal.aborted) return "timed_out";
-  if (reply && !replied(workflow, pass)) {
+  if (reply && !replied(pass, progress)) {
     workflow.log(null, "agent ended a person's turn with nothing for them, one more pass");
     workflow.transcript.append([{ role: "user", content: noteMessage(UNANSWERED_TEXT) }]);
     pass = await modelPass(workflow, { ...input, stepsBefore: pass.steps });
     if (signal.aborted) return "timed_out";
   }
   if (pass.endedByTool || !pass.text) return "silent";
-  const boardChanged = workflow.store.requireWorkflowRow().turn_board_changed;
-  const withheld = closingTextWithheld(reply ? reply.owed : null, boardChanged);
+  const withheld = closingTextWithheld(reply ? reply.owed : null, progress.boardChanged);
   if (withheld) {
     workflow.log(null, `closing text not posted, ${withheld}: ${pass.text.slice(0, 200)}`);
     return "silent";
@@ -322,10 +320,8 @@ async function sendHeldCommentsForRevision(
  * True when the person got something: text, a turn-ending message, or a board change of this
  * turn or of the lost turn it resumes.
  */
-function replied(workflow: WorkflowRuntime, pass: ModelPass): boolean {
-  return (
-    pass.text !== "" || pass.endedByTool || workflow.store.requireWorkflowRow().turn_board_changed
-  );
+function replied(pass: ModelPass, progress: TurnProgress): boolean {
+  return pass.text !== "" || pass.endedByTool || progress.boardChanged;
 }
 
 /**
@@ -365,7 +361,8 @@ async function modelPass(
           REPLYING_TOOLS.includes(call.toolName) &&
           hasChatThread(workflow.store.replyTargets())
         ) {
-          workflow.store.updateWorkflow({ turn_board_changed: true });
+          progress.boardChanged = true;
+          workflow.store.markTurnBoardChanged();
         }
         if (FIRST_REPLY_TOOLS.includes(call.toolName)) progress.firstReplied = true;
       }

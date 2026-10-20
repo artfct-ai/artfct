@@ -2381,7 +2381,8 @@ export class ReviewLoopReplay {
 
   /**
    * Run `work`, and stop each world action it applies where the action reaches `cut`. A model
-   * turn that `work` lets run on stops there too.
+   * turn that `work` lets run on stops there too. A stopped action never puts the page host back,
+   * so the host takes comments again once `work` ends.
    */
   private async untilCut(
     cut: { reached: () => boolean; out: Promise<void> },
@@ -2400,6 +2401,7 @@ export class ReviewLoopReplay {
       await work();
     } finally {
       world.apply = apply;
+      world.pageHost.commenting = "takes";
       this.cutReached = null;
     }
   }
