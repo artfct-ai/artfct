@@ -99,7 +99,8 @@ describe("completeJob", () => {
 
     it("cancels the wall clock and keepalive alarms", () =>
       completed(({ workflow }) => {
-        expect(workflow.cancelled.toSorted()).toEqual(["k1", "w1"]);
+        expect(workflow.cancelled).toEqual(expect.arrayContaining(["k1", "w1"]));
+        expect(workflow.alarmsFor("resumeTaskEnd")).toEqual([]);
       }));
 
     it("destroys the sandbox", () =>
@@ -170,6 +171,38 @@ describe("completeJob", () => {
       completed(({ workflow }) => {
         expect(workflow.store.artifact(JOB)?.status).toBe("ready");
       }));
+  });
+  describe("a completion whose sandbox destroy an instance restart cut off", () => {
+    const restarted = cutOffDuring(async (workflow, task) => {
+      await completeJob(workflow, task, "designed");
+    }, "destroy");
+
+    it("keeps the task end alarm armed without a reason", () =>
+      restarted((workflow) => {
+        expect(workflow.alarmsFor("resumeTaskEnd").map((alarm) => alarm.payload)).toEqual([
+          { task_id: TASK },
+        ]);
+      }));
+
+    describe("and the task end alarm fires", () => {
+      const resumed = scenario(restarted, fireTaskEndAlarms);
+
+      it("destroys the sandbox again", () =>
+        resumed((workflow) => {
+          expect(workflow.sandboxProvider.calls).toEqual([`destroy ${TASK}`]);
+        }));
+
+      it("does not tell the agent or post", () =>
+        resumed((workflow) => {
+          expect(workflow.notes).toEqual([]);
+          expect(workflow.posted).toEqual([]);
+        }));
+
+      it("cancels the task end alarm", () =>
+        resumed((workflow) => {
+          expect(workflow.alarmsFor("resumeTaskEnd")).toEqual([]);
+        }));
+    });
   });
 });
 

@@ -175,7 +175,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
@@ -397,7 +398,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
@@ -616,7 +618,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
@@ -907,7 +910,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
@@ -1194,7 +1198,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
@@ -1477,7 +1482,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
@@ -1760,7 +1766,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": true,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {
@@ -2039,7 +2046,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "modelCallPagesForAnIssue::workflowLifecycle::lastStepToldTheAgent": false,
       "modelCallPagesForAnIssue::workflowLifecycle::workflow": {

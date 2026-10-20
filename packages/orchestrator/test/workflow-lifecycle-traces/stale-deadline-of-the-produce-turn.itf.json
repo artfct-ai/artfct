@@ -169,7 +169,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesFromModelCalls::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesFromModelCalls::workflowLifecycle::workflow": {
@@ -385,7 +386,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesFromModelCalls::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesFromModelCalls::workflowLifecycle::workflow": {
@@ -598,7 +600,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesFromModelCalls::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesFromModelCalls::workflowLifecycle::workflow": {
@@ -885,7 +888,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesFromModelCalls::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesFromModelCalls::workflowLifecycle::workflow": {
@@ -1172,7 +1176,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesFromModelCalls::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesFromModelCalls::workflowLifecycle::workflow": {
@@ -1459,7 +1464,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesFromModelCalls::workflowLifecycle::lastStepToldTheAgent": true,
       "pagesFromModelCalls::workflowLifecycle::workflow": {
@@ -1728,7 +1734,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesFromModelCalls::workflowLifecycle::lastStepToldTheAgent": true,
       "pagesFromModelCalls::workflowLifecycle::workflow": {
@@ -1998,7 +2005,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesFromModelCalls::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesFromModelCalls::workflowLifecycle::workflow": {
@@ -2267,7 +2275,8 @@
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
         "aTaskEndAlarmResumesATeardown": false,
-        "aTaskEndAlarmFindsItsTeardownOut": false
+        "aTaskEndAlarmFindsItsTeardownOut": false,
+        "aRestartCutsTheDestroyOfACompletedAuthor": false
       },
       "pagesFromModelCalls::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesFromModelCalls::workflowLifecycle::workflow": {
