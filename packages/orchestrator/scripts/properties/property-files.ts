@@ -160,6 +160,13 @@ export const STANDALONE_PROPERTY_FILES = {
     runner: ["bun", "test"],
     e2eRuns: 100_000,
   },
+  bridge_line_reader: {
+    title: "bridge line reader properties",
+    packageDir: "bridge",
+    path: "./src/line-reader-invariants.test.ts",
+    runner: ["bun", "test"],
+    e2eRuns: 100_000,
+  },
   verbal_command: {
     title: "verbal command property",
     packageDir: "orchestrator",

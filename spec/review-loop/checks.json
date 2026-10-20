@@ -21,6 +21,8 @@
     "aModelCallAuthorFailsOnlyOnAHostError",
     "aRestartDoesNotStrandAJudgeRun",
     "aDoneRefinerRunRoutesItsReview",
+    "aRestartDoesNotStrandAReviewerTurnEnd",
+    "theHumansHearOfEachHandoverOnce",
     "aRefinerRunRestartsAtMostTwice",
     "aFinishedRefinerRunKeepsItsStatus",
     "anEndedAuthorEndsItsReview",
@@ -79,7 +81,14 @@
       "anAuthorTurnEndsOnTheDeliveredRevision",
       "aPersonRuled",
       "aRestartCutsTheDestroyOfADoneRefinerRun",
-      "aRestartCutsTheRoutingOfADoneRefinerRun"
+      "aRestartCutsTheRoutingOfADoneRefinerRun",
+      "aRestartCutsAHandoverPost",
+      "theHandoverAlarmPostsAHandover",
+      "aRestartCutsAReviewerTurnEnd",
+      "aCutReviewerTurnEndRuns",
+      "aRestartCutsARejectionPost",
+      "aRestartCutsTheHandoverOfAnEndedAuthor",
+      "aRestartCutsAPolisherTurnEnd"
     ],
     "reviewerThenPolisher": [
       "aRefinerRunIsUnfinished",
@@ -113,7 +122,13 @@
       "aReviewerApproved",
       "theAgentFinishedTheReview",
       "aRestartCutsTheDestroyOfADoneRefinerRun",
-      "aRestartCutsTheRoutingOfADoneRefinerRun"
+      "aRestartCutsTheRoutingOfADoneRefinerRun",
+      "aRestartCutsAHandoverPost",
+      "theHandoverAlarmPostsAHandover",
+      "aRestartCutsAReviewerTurnEnd",
+      "aCutReviewerTurnEndRuns",
+      "aRestartCutsAPolisherTurnEnd",
+      "aRestartCutsTheHandoverOfAnEndedAuthor"
     ],
     "judgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -148,7 +163,13 @@
       "aReviewerApproved",
       "theAgentFinishedTheReview",
       "aRestartCutsTheDestroyOfADoneRefinerRun",
-      "aRestartCutsTheRoutingOfADoneRefinerRun"
+      "aRestartCutsTheRoutingOfADoneRefinerRun",
+      "aRestartCutsAHandoverPost",
+      "theHandoverAlarmPostsAHandover",
+      "aRestartCutsAReviewerTurnEnd",
+      "aCutReviewerTurnEndRuns",
+      "aRestartCutsARejectionPost",
+      "aRestartCutsTheHandoverOfAnEndedAuthor"
     ],
     "modelCallAuthorWithTwoReviewers": [
       "aRefinerRunIsUnfinished",
@@ -233,7 +254,12 @@
       "aReviewerApproved",
       "theAgentFinishedTheReview",
       "aRestartCutsTheDestroyOfADoneRefinerRun",
-      "aRestartCutsTheRoutingOfADoneRefinerRun"
+      "aRestartCutsTheRoutingOfADoneRefinerRun",
+      "aRestartCutsAHandoverPost",
+      "theHandoverAlarmPostsAHandover",
+      "aRestartCutsAReviewerTurnEnd",
+      "aCutReviewerTurnEndRuns",
+      "aRestartCutsAPolisherTurnEnd"
     ],
     "pageJudgeBetweenReviewers": [
       "aRefinerRunIsUnfinished",
@@ -278,7 +304,13 @@
       "aReviewerApproved",
       "theAgentFinishedTheReview",
       "aRestartCutsTheDestroyOfADoneRefinerRun",
-      "aRestartCutsTheRoutingOfADoneRefinerRun"
+      "aRestartCutsTheRoutingOfADoneRefinerRun",
+      "aRestartCutsAHandoverPost",
+      "theHandoverAlarmPostsAHandover",
+      "aRestartCutsAReviewerTurnEnd",
+      "aCutReviewerTurnEndRuns",
+      "aRestartCutsARejectionPost",
+      "aRestartCutsTheHandoverOfAnEndedAuthor"
     ],
     "pausedModelCallAuthor": [
       "aRefinerRunIsUnfinished",
@@ -312,7 +344,9 @@
       "aPausedAuthorsModelTurnIsLost",
       "anAuthorTurnEndsOnTheDeliveredRevision",
       "aRestartCutsTheDestroyOfADoneRefinerRun",
-      "aRestartCutsTheRoutingOfADoneRefinerRun"
+      "aRestartCutsTheRoutingOfADoneRefinerRun",
+      "aRestartCutsAHandoverPost",
+      "theHandoverAlarmPostsAHandover"
     ],
     "checksOnAPolishedPull": [
       "aRefinerRunIsUnfinished",
@@ -403,7 +437,11 @@
       "aFailedReplyLeavesAQueuedCommentUnanswered",
       "aPersonRuled",
       "aRestartCutsTheDestroyOfADoneRefinerRun",
-      "aRestartCutsTheRoutingOfADoneRefinerRun"
+      "aRestartCutsTheRoutingOfADoneRefinerRun",
+      "aRestartCutsAHandoverPost",
+      "theHandoverAlarmPostsAHandover",
+      "aRestartCutsAReviewerTurnEnd",
+      "aCutReviewerTurnEndRuns"
     ],
     "checksOnAReviewedPull": [
       "aRefinerRunIsUnfinished",
@@ -449,7 +487,12 @@
       "aReviewerApproved",
       "theAgentFinishedTheReview",
       "aRestartCutsTheDestroyOfADoneRefinerRun",
-      "aRestartCutsTheRoutingOfADoneRefinerRun"
+      "aRestartCutsTheRoutingOfADoneRefinerRun",
+      "aRestartCutsAHandoverPost",
+      "theHandoverAlarmPostsAHandover",
+      "aRestartCutsAReviewerTurnEnd",
+      "aCutReviewerTurnEndRuns",
+      "aRestartCutsAPolisherTurnEnd"
     ]
   },
   "maxSteps": {
@@ -461,6 +504,8 @@
       "judgeThenPolisher": {
         "pr": {
           "revisions": 2,
+          "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 3,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -470,6 +515,8 @@
         },
         "nightly": {
           "revisions": 3,
+          "handoverPostsMade": 4,
+          "handoversMade": 4,
           "refinerRunsStarted": 4,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -481,6 +528,8 @@
       "reviewerThenPolisher": {
         "pr": {
           "revisions": 2,
+          "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 3,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -490,6 +539,8 @@
         },
         "nightly": {
           "revisions": 3,
+          "handoverPostsMade": 4,
+          "handoversMade": 4,
           "refinerRunsStarted": 4,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -501,6 +552,8 @@
       "judgeBetweenReviewers": {
         "pr": {
           "revisions": 2,
+          "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 3,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -510,6 +563,8 @@
         },
         "nightly": {
           "revisions": 3,
+          "handoverPostsMade": 4,
+          "handoversMade": 4,
           "refinerRunsStarted": 4,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -521,6 +576,8 @@
       "modelCallAuthorWithTwoReviewers": {
         "pr": {
           "revisions": 1,
+          "handoverPostsMade": 2,
+          "handoversMade": 2,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -528,6 +585,8 @@
         },
         "nightly": {
           "revisions": 2,
+          "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 2,
@@ -537,6 +596,8 @@
       "pageReviewerThenPolisher": {
         "pr": {
           "revisions": 1,
+          "handoverPostsMade": 2,
+          "handoversMade": 2,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -545,6 +606,8 @@
         },
         "nightly": {
           "revisions": 2,
+          "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 2,
@@ -555,6 +618,8 @@
       "pageJudgeBetweenReviewers": {
         "pr": {
           "revisions": 1,
+          "handoverPostsMade": 2,
+          "handoversMade": 2,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -564,6 +629,8 @@
         },
         "nightly": {
           "revisions": 2,
+          "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 2,
@@ -575,6 +642,8 @@
       "pausedModelCallAuthor": {
         "pr": {
           "revisions": 1,
+          "handoverPostsMade": 2,
+          "handoversMade": 2,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 0,
           "personCommentsLeft": 1,
@@ -583,6 +652,8 @@
         },
         "nightly": {
           "revisions": 2,
+          "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 0,
           "personCommentsLeft": 2,
@@ -593,6 +664,8 @@
       "checksOnAPolishedPull": {
         "pr": {
           "revisions": 2,
+          "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 0,
           "personCommentsLeft": 1,
@@ -602,6 +675,8 @@
         },
         "nightly": {
           "revisions": 3,
+          "handoverPostsMade": 4,
+          "handoversMade": 4,
           "refinerRunsStarted": 3,
           "reviewCommentsPosted": 0,
           "personCommentsLeft": 1,
@@ -613,6 +688,8 @@
       "modelCallJudgeThenPolisher": {
         "pr": {
           "revisions": 1,
+          "handoverPostsMade": 2,
+          "handoversMade": 2,
           "refinerRunsStarted": 2,
           "reviewCommentsPosted": 1,
           "personCommentsLeft": 1,
@@ -622,6 +699,8 @@
         },
         "nightly": {
           "revisions": 2,
+          "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 3,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 2,
@@ -633,6 +712,8 @@
       "checksOnAReviewedPull": {
         "pr": {
           "revisions": 2,
+          "handoverPostsMade": 3,
+          "handoversMade": 3,
           "refinerRunsStarted": 3,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,
@@ -643,6 +724,8 @@
         },
         "nightly": {
           "revisions": 3,
+          "handoverPostsMade": 4,
+          "handoversMade": 4,
           "refinerRunsStarted": 4,
           "reviewCommentsPosted": 2,
           "personCommentsLeft": 1,

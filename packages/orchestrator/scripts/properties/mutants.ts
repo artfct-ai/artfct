@@ -1286,9 +1286,9 @@ export const MUTANTS: Mutant[] = [
     id: "W139",
     invariant: "reviewLoop::aJudgeRejectionPostsItsReasonOnce",
     path: "src/workflow/refiner/loop.ts",
-    find: "  if (support.postRejection) await support.postRejection(artifact.ref, signedReason);\n",
+    find: "      ? support.postRejection(artifact.ref, signedReason)\n",
     replace:
-      "  if (support.postRejection) {\n    await support.postRejection(artifact.ref, signedReason);\n    await support.postRejection(artifact.ref, signedReason);\n  }\n",
+      "      ? support\n          .postRejection(artifact.ref, signedReason)\n          .then(() => support.postRejection?.(artifact.ref, signedReason))\n",
   },
   {
     id: "W140",
@@ -1745,6 +1745,70 @@ export const MUTANTS: Mutant[] = [
     replace: "    false\n",
   },
   {
+    id: "W346",
+    invariant:
+      "reviewLoop::theHumansHearOfEachHandoverOnce (no alarm is armed before the handover post)",
+    path: "src/workflow/refiner/outcome.ts",
+    find: '  const alarm = await workflow.scheduleAlarm(HANDOVER_POST_ALARM_SECONDS, "postHandover", post);\n  await postTheHandover(workflow, artifact, close);\n  await workflow.cancelAlarm(alarm);\n',
+    replace: "  await postTheHandover(workflow, artifact, close);\n",
+  },
+  {
+    id: "W347",
+    invariant:
+      "reviewLoop::theHumansHearOfEachHandoverOnce (the handover alarm stays armed after its post)",
+    path: "src/workflow/refiner/outcome.ts",
+    find: "  await postTheHandover(workflow, artifact, close);\n  await workflow.cancelAlarm(alarm);\n",
+    replace: "  await postTheHandover(workflow, artifact, close);\n",
+  },
+  {
+    id: "W348",
+    invariant:
+      "reviewLoop::theHumansHearOfEachHandoverOnce (the alarm posts the handover of a draft)",
+    path: "src/workflow/refiner/outcome.ts",
+    find: '  if (artifact?.status !== "ready") return;\n  workflow.log(null, `the handover of job',
+    replace: "  if (!artifact) return;\n  workflow.log(null, `the handover of job",
+  },
+  {
+    id: "W349",
+    invariant:
+      "reviewLoop::theHumansHearOfEachHandoverOnce (a newer handover keeps the older alarm armed)",
+    path: "src/workflow/refiner/outcome.ts",
+    find: '  await workflow.cancelAlarmsWhere(\n    "postHandover",\n    (payload) => (payload as HandoverPostAlarm).job_id === jobId,\n  );\n',
+    replace: "",
+  },
+  {
+    id: "W355",
+    invariant:
+      "reviewLoop::aRestartDoesNotStrandAReviewerTurnEnd (the start step arms no reviewer turn end)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: "    if (!sandbox || !refinerTurnEndWaits(workflow, run)) continue;\n",
+    replace: "    continue;\n",
+  },
+  {
+    id: "W356",
+    invariant:
+      "reviewLoop::aRestartDoesNotStrandAReviewerTurnEnd (a reviewer's turn text goes at its turn end)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: '    turn_text: task.role === "reviewer" ? turnText : "",\n',
+    replace: '    turn_text: "",\n',
+  },
+  {
+    id: "W350",
+    invariant:
+      "reviewLoop::aRestartDoesNotStrandAReviewerTurnEnd (the start step arms no polisher turn end)",
+    path: "src/workflow/task/harness/turn.ts",
+    find: '  if (run.role !== "reviewer" && run.role !== "polisher") return false;\n',
+    replace: '  if (run.role !== "reviewer") return false;\n',
+  },
+  {
+    id: "W357",
+    invariant: "reviewLoop::judgeRulesAtMostOnce (the rejection posts before the author's prompt)",
+    path: "src/workflow/refiner/loop.ts",
+    find: '  await Promise.all([\n    support.postRejection\n      ? support.postRejection(artifact.ref, signedReason)\n      : workflow.post({ type: "info", text: signedReason }),\n    sendRejectionToAuthor(',
+    replace:
+      '  await (support.postRejection\n    ? support.postRejection(artifact.ref, signedReason)\n    : workflow.post({ type: "info", text: signedReason }));\n  await Promise.all([\n    sendRejectionToAuthor(',
+  },
+  {
     id: "W290",
     invariant: "slackTextInvariants::slackTextNeverNotifies",
     path: "../adapters/src/chat/slack/mrkdwn.ts",
@@ -1934,6 +1998,50 @@ export const MUTANTS: Mutant[] = [
     replace:
       "  return Math.abs(Math.floor(nowMs / 1000) - Number(timestamp)) <= REPLAY_WINDOW_SECONDS;\n",
     propertyFile: STANDALONE_PROPERTY_FILES.webhook_signatures,
+  },
+  {
+    id: "W315",
+    invariant:
+      "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (chunk decoded without streaming)",
+    path: "../bridge/src/line-reader.ts",
+    find: "    for (const line of splitter.push(decoder.decode(value, { stream: true }))) onLine(line);\n",
+    replace: "    for (const line of splitter.push(decoder.decode(value))) onLine(line);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.bridge_line_reader,
+  },
+  {
+    id: "W316",
+    invariant:
+      "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (lone carriage return ends a line)",
+    path: "../bridge/src/line-reader.ts",
+    find: "    this.buffer += chunk;\n",
+    replace: '    this.buffer += chunk.replaceAll("\\r", "\\n");\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.bridge_line_reader,
+  },
+  {
+    id: "W317",
+    invariant:
+      "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (unended last line not trimmed)",
+    path: "../bridge/src/line-reader.ts",
+    find: "    const tail = this.buffer.trim();\n",
+    replace: "    const tail = this.buffer;\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.bridge_line_reader,
+  },
+  {
+    id: "W318",
+    invariant: "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (bytes decoded as Latin-1)",
+    path: "../bridge/src/line-reader.ts",
+    find: "  const decoder = new TextDecoder();\n",
+    replace: '  const decoder = new TextDecoder("latin1");\n',
+    propertyFile: STANDALONE_PROPERTY_FILES.bridge_line_reader,
+  },
+  {
+    id: "W319",
+    invariant: "bridgeLineInvariants::bridgeKeepsEveryHarnessLineWhole (fresh decoder per chunk)",
+    path: "../bridge/src/line-reader.ts",
+    find: "    for (const line of splitter.push(decoder.decode(value, { stream: true }))) onLine(line);\n",
+    replace:
+      "    for (const line of splitter.push(new TextDecoder().decode(value, { stream: true }))) onLine(line);\n",
+    propertyFile: STANDALONE_PROPERTY_FILES.bridge_line_reader,
   },
   {
     id: "W335",

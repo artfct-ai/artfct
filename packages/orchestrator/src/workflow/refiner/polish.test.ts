@@ -14,7 +14,8 @@ import { scenario, type Scenario } from "../../../test/scenario";
 import type { RefinerEntry, ReviewerEntry } from "../../config/refiner";
 import { cancelTask, failTask } from "../lifecycle";
 import { drainQueue, promptTask } from "../task/harness/prompt-queue";
-import { onTurnEnd } from "../task/harness/turn";
+import { onTurnEnd, resumeRefinerTurnEnd, resumeRefinerTurnEnds } from "../task/harness/turn";
+import type { GenerationAlarm } from "../task/harness/timers";
 import { CHECKS_GRACE_MS, CHECKS_QUIET_MS } from "./checks-gate";
 import { recheckChecks } from "./checks-recheck";
 import { advanceArtifactPastEntry, settleRefinersForAuthor, startRefiner } from "./loop";
@@ -503,5 +504,32 @@ describe("an eviction between the write that ended a polisher and the hand-on", 
       expect(workflow.lines).toContain(
         "a finished polisher still holds the artifact. the refiners re-run.",
       );
+    }));
+});
+
+describe("a polisher whose turn end a restart cut", () => {
+  const cut = scenario(stageWithPolishers([comments]), async (workflow) => {
+    workflow.clock = NOW;
+    checksReport(workflow, { state: "passed", settled_at: at(-CHECKS_QUIET_MS) });
+    const author = seedPullRequestTask(workflow, { status: "in_review" });
+    await startRefiner(workflow, author, 1);
+    workflow.store.updateTask(POLISHER, { status: "working" });
+    workflow.store.updateSandbox(POLISHER, { first_prompt_at: at(-60_000), prompt_in_flight: 0 });
+    await resumeRefinerTurnEnds(workflow);
+  });
+
+  it("arms the alarm that ends its turn", () =>
+    cut((workflow) => {
+      expect(workflow.alarmsFor("resumeRefinerTurnEnd").map((alarm) => alarm.payload)).toEqual([
+        { task_id: POLISHER, generation: workflow.store.requireSandbox(POLISHER).generation },
+      ]);
+    }));
+
+  it("ends the run done and hands the artifact on once the alarm fires", () =>
+    cut(async (workflow) => {
+      const [alarm] = workflow.alarmsFor("resumeRefinerTurnEnd");
+      await resumeRefinerTurnEnd(workflow, alarm?.payload as GenerationAlarm);
+      expect(workflow.store.requireTask(POLISHER).status).toBe("done");
+      expect(workflow.store.artifact(JOB)?.status).toBe("ready");
     }));
 });
