@@ -584,7 +584,8 @@
       "aJobStartsPastAFailedRouterWrite",
       "aHarnessAuthorPostsItsFailureAfterItsDestroy",
       "aHarnessAuthorCompletesAfterItsDestroy",
-      "aRestartDropsAFailurePost"
+      "aRestartDropsAFailurePost",
+      "aStartRecordsARemovedPull"
     ],
     "pullsForAnEndedSubject": [
       "aPlanStartsTheWorkflow",
@@ -792,6 +793,10 @@
       "aRestartDropsAFailurePost",
       "theWorkflowFailed"
     ]
+  },
+  "maxSteps": {
+    "modelCallPagesAfterResearch": 40,
+    "pagesWithAReviewer": 40
   },
   "tlc": {
     "ignoredVariables": ["lastStepReached", "lastStepToldTheAgent", "lastStepAnswered"],

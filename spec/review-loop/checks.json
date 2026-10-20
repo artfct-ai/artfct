@@ -36,7 +36,7 @@
     "judgeThenPolisher": 2.2,
     "reviewerThenPolisher": 2.3,
     "judgeBetweenReviewers": 2.2,
-    "modelCallAuthorWithTwoReviewers": 2.8,
+    "modelCallAuthorWithTwoReviewers": 4.2,
     "pageReviewerThenPolisher": 2.8,
     "pageJudgeBetweenReviewers": 2.8,
     "pausedModelCallAuthor": 2.4,
