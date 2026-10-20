@@ -16,6 +16,8 @@
     "packages/*/src/**/*.test.ts",
     "packages/*/src/**/*.test.medium.ts",
     "packages/*/src/**/*.replay.ts",
-    "packages/*/src/**/*.replay.medium.ts"
+    "packages/*/src/**/*.replay.medium.ts",
+    "packages/*/src/**/*.property.ts",
+    "packages/*/src/**/*.property.medium.ts"
   ]
 }

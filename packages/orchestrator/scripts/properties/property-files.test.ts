@@ -1,46 +1,59 @@
 import { describe, expect, it } from "bun:test";
 import { join } from "node:path";
-import { SPEC_REPLAY_FILES, STANDALONE_PROPERTY_FILES, propertyParts } from "./property-files";
+import {
+  E2E_RUNS_BY_FILE,
+  SPEC_REPLAY_FILES,
+  STANDALONE_PROPERTY_FILES,
+  propertyParts,
+} from "./property-files";
 
 const PACKAGES_DIR = join(import.meta.dirname, "../../..");
 
+const standalonePaths = STANDALONE_PROPERTY_FILES.map((file) => join(file.packageDir, file.path));
+
 describe("STANDALONE_PROPERTY_FILES", () => {
-  it("lists every test file with a fast-check property, and each property reads its runs through propertyRuns", async () => {
-    const propertyTests: string[] = [];
-    for await (const path of new Bun.Glob("*/src/**/*.{test.ts,test.medium.ts}").scan(
-      PACKAGES_DIR,
-    )) {
+  it("holds every fast-check property outside the spec replays, and each property reads its runs through propertyRuns", async () => {
+    const propertyFiles: string[] = [];
+    for await (const path of new Bun.Glob("*/src/**/*.ts").scan(PACKAGES_DIR)) {
+      if (/\.replay(\.medium)?\.ts$/.test(path)) continue;
       const text = await Bun.file(join(PACKAGES_DIR, path)).text();
       const properties = text.split("fc.assert(").length - 1;
       if (!properties) continue;
-      propertyTests.push(path);
+      propertyFiles.push(path);
       expect({ path, propertyRuns: text.split("propertyRuns(").length - 1 }).toEqual({
         path,
         propertyRuns: properties,
       });
     }
-    const listed = Object.values(STANDALONE_PROPERTY_FILES).map((file) =>
-      join(file.packageDir, file.path),
-    );
-    expect(listed.toSorted()).toEqual(propertyTests.toSorted());
+    expect(standalonePaths).toEqual(propertyFiles.toSorted());
+  });
+});
+
+describe("E2E_RUNS_BY_FILE", () => {
+  it("names only property files the file patterns find", () => {
+    const found = new Set([
+      ...standalonePaths,
+      ...Object.values(SPEC_REPLAY_FILES).map((file) => join(file.packageDir, file.path)),
+    ]);
+    expect(Object.keys(E2E_RUNS_BY_FILE).filter((path) => !found.has(path))).toEqual([]);
   });
 });
 
 describe("propertyParts", () => {
   it("runs a file without setups in one process", () => {
-    expect(propertyParts(SPEC_REPLAY_FILES.session_routing, [])).toEqual([
+    expect(propertyParts(SPEC_REPLAY_FILES["session-routing"]!, [])).toEqual([
       { label: "session routing spec replay", args: [] },
     ]);
   });
 
   it("runs a replay of one setup in one process", () => {
-    expect(propertyParts(SPEC_REPLAY_FILES.review_loop, ["judgeThenPolisher"])).toEqual([
+    expect(propertyParts(SPEC_REPLAY_FILES["review-loop"]!, ["judgeThenPolisher"])).toEqual([
       { label: "review loop spec replay", args: [] },
     ]);
   });
 
   it("runs each setup in its own process, and the tests outside a setup with the first", () => {
-    const parts = propertyParts(SPEC_REPLAY_FILES.harness_session, [
+    const parts = propertyParts(SPEC_REPLAY_FILES["harness-session"]!, [
       "harnessDefaultEffort",
       "stageAsksForEffort",
       "agentPausesRunningTurns",
@@ -69,7 +82,7 @@ describe("propertyParts", () => {
   });
 
   it("keeps a setup apart from another whose name ends with it", () => {
-    const parts = propertyParts(SPEC_REPLAY_FILES.review_loop, [
+    const parts = propertyParts(SPEC_REPLAY_FILES["review-loop"]!, [
       "reviewerThenPolisher",
       "pageReviewerThenPolisher",
     ]);

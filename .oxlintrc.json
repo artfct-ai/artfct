@@ -58,13 +58,15 @@
         "**/*.test.medium.ts",
         "**/*.replay.ts",
         "**/*.replay.medium.ts",
+        "**/*.property.ts",
+        "**/*.property.medium.ts",
         "**/test/**"
       ],
       "rules": { "no-restricted-imports": "off" }
     },
     {
       // bun-types declares the `resolves` and `rejects` matchers as void, though they return promises.
-      "files": ["**/*.test.ts", "**/*.replay.ts"],
+      "files": ["**/*.test.ts", "**/*.replay.ts", "**/*.property.ts"],
       "rules": { "typescript/await-thenable": "off" }
     }
   ],

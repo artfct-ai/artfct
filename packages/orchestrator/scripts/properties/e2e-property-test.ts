@@ -4,7 +4,7 @@
  * `PROPERTY_SEED`, for the main and nightly property jobs.
  * `PROPERTY_RUNS_DIVISOR` divides the run count for a light run.
  * A failure or a hang writes the invariant, seed, path, and replay command to the step summary.
- * Usage: bun scripts/properties/e2e-property-test.ts <standalone|router_bindings|review_loop|workflow_lifecycle|harness_session|agent_turns|chat_acknowledgement|session_routing|feedback_routing>...
+ * Usage: bun scripts/properties/e2e-property-test.ts <standalone|spec name such as workflow-lifecycle>...
  */
 import { appendFileSync } from "node:fs";
 import { propertyFailureReport } from "./failure-report";
@@ -25,9 +25,7 @@ if (
 
 let failed = false;
 const files = names.flatMap((name) =>
-  name === "standalone"
-    ? Object.values(STANDALONE_PROPERTY_FILES)
-    : [SPEC_REPLAY_FILES[name as keyof typeof SPEC_REPLAY_FILES]],
+  name === "standalone" ? STANDALONE_PROPERTY_FILES : (SPEC_REPLAY_FILES[name] ?? []),
 );
 for (const file of files) {
   const run = await runPropertyFile(file, seed);
