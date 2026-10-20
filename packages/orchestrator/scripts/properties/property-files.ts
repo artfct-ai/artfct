@@ -35,6 +35,8 @@ export const E2E_RUNS_BY_FILE: Record<string, number> = {
   "orchestrator/src/db/persons.property.medium.ts": 3_000,
   "orchestrator/src/oauth/token.property.medium.ts": 5_000,
   "orchestrator/src/router/identity.property.medium.ts": 50_000,
+  "orchestrator/src/workflow/secrets.property.ts": 2_000,
+  "ingress/src/routes/secrets.property.ts": 20_000,
 };
 
 function propertyFilesMatching(pattern: string, defaultE2eRuns: number): PropertyFile[] {

@@ -73,6 +73,11 @@ export class FakeBridge {
     return bridge;
   }
 
+  /** Every frame the workflow sent over this socket, in order. */
+  get sentFrames(): readonly string[] {
+    return this.socket.sent;
+  }
+
   /** True until the workflow closes the socket. */
   get open(): boolean {
     return this.socket.closes.length === 0;

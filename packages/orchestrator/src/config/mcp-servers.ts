@@ -1,5 +1,9 @@
 import { z } from "zod";
+import { isWorkerSecret } from "../env";
 import { CodeProvider, DocumentsProvider, TrackerProvider } from "./adapters";
+
+/** How a value of an MCP server entry references a secret: `${NAME}`. */
+export const MCP_SECRET_REFERENCE = /\$\{([A-Za-z_][A-Za-z0-9_]*)\}/g;
 
 /** An MCP server reached over the network. Any value may reference a secret as `${NAME}`. */
 const RemoteMcpServerEntry = z.strictObject({
@@ -28,7 +32,10 @@ const PROVIDER_NAMES: ReadonlySet<string> = new Set([
   ...DocumentsProvider.options,
 ]);
 
-/** The customer's MCP servers, added to every harness session. Names are unique. */
+/**
+ * The customer's MCP servers, added to every harness session. Names are unique. A server may not
+ * reference a secret of the Worker's own, since the harness would hand it to that server.
+ */
 export const McpServers = z.array(McpServerEntry).superRefine((entries, context) => {
   const seen = new Set<string>();
   for (const [index, entry] of entries.entries()) {
@@ -47,5 +54,15 @@ export const McpServers = z.array(McpServerEntry).superRefine((entries, context)
       });
     }
     seen.add(entry.name);
+    const workerSecrets = [...JSON.stringify(entry).matchAll(MCP_SECRET_REFERENCE)]
+      .flatMap(([, name]) => name ?? [])
+      .filter(isWorkerSecret);
+    if (workerSecrets.length) {
+      context.addIssue({
+        code: "custom",
+        path: [index],
+        message: `${entry.name} references ${[...new Set(workerSecrets)].join(", ")}, a secret only the Worker may use`,
+      });
+    }
   }
 });

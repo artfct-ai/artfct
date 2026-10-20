@@ -14,6 +14,7 @@ import type { Web } from "@artfct-ai/adapters/web/types";
 import type { ArtifactKind, ArtifactStatus } from "@artfct-ai/contracts/types";
 import { artifact } from "../src/clients";
 import type { Artifact } from "../src/artifact/types";
+import type { McpCapability } from "../src/config/adapters";
 import type { Config } from "../src/config/config";
 import { orchestratorGateway, type GatewayProvider } from "../src/config/gateway";
 import type { ReplyTarget } from "@artfct-ai/contracts/inbound";
@@ -371,7 +372,7 @@ export class FakeRuntime implements WorkflowRuntime {
     return this.webInstance;
   }
 
-  async mcpCredential(): Promise<string | null> {
+  async mcpCredential(_capability: McpCapability): Promise<string | null> {
     return this.mcpCredentialValue;
   }
 
