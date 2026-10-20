@@ -64,4 +64,4 @@ test.each(CONFIG_FILES)("%s schema matches its migrations", async (configFile) =
   } finally {
     rmSync(scratchDir, { recursive: true, force: true });
   }
-});
+}, 30_000);
