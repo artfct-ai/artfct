@@ -1482,6 +1482,37 @@ export const MUTANTS: Mutant[] = [
     replace: "  return !workflow.store.eventSeen(id);\n",
   },
   {
+    id: "W272",
+    invariant: "workflowLifecycle::aCancelledOrFailedAuthorsSandboxIsDestroyed",
+    path: "src/workflow/lifecycle.ts",
+    find: '    alarmId: await workflow.scheduleAlarm(TASK_END_ALARM_SECONDS, "resumeTaskEnd", alarm),\n',
+    replace: '    alarmId: "",\n',
+  },
+  {
+    id: "W273",
+    invariant:
+      "workflowLifecycle::eachFailedTaskPostsItsFailureOnce (alarm cancelled before the post)",
+    path: "src/workflow/lifecycle.ts",
+    find: "  const ended = workflow.store.requireTask(task.task_id).status;\n",
+    replace:
+      "  await workflow.cancelAlarm(teardown.alarmId);\n  const ended = workflow.store.requireTask(task.task_id).status;\n",
+  },
+  {
+    id: "W274",
+    invariant:
+      "workflowLifecycle::eachFailedTaskPostsItsFailureOnce (alarm reruns a teardown in flight)",
+    path: "src/workflow/lifecycle.ts",
+    find: "  if (running) {\n",
+    replace: "  if (running && !running) {\n",
+  },
+  {
+    id: "W275",
+    invariant: "workflowLifecycle::eachFailedTaskPostsItsFailureOnce (alarm left armed)",
+    path: "src/workflow/lifecycle.ts",
+    find: "  await workflow.cancelAlarm(teardown.alarmId);\n",
+    replace: "",
+  },
+  {
     id: "W240",
     invariant: "workflowLifecycle::oneJobAtATimePerIssueUntilOneCompletes",
     path: "src/agent/tools/start/start.ts",

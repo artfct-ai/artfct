@@ -27,7 +27,12 @@ import { taskTools } from "../src/agent/tools/task";
 import type { SandboxRef } from "../src/sandbox/spec";
 import { artifactRefKey, jobInputKey } from "../src/workflow/store/input-key";
 import type { ArtifactRow } from "../src/workflow/store/records";
-import { failTask, resumeWorkflowEnd } from "../src/workflow/lifecycle";
+import {
+  failTask,
+  resumeTaskEnd,
+  resumeWorkflowEnd,
+  type TaskEndAlarm,
+} from "../src/workflow/lifecycle";
 import { resumeLostCalls, type LostCallsAlarm } from "../src/workflow/restart";
 import { isTaskFinished, type Subject } from "../src/workflow/store/state";
 import type { JobRow, TaskRow } from "../src/workflow/store/tasks";
@@ -260,12 +265,19 @@ const REFINER_RUN_STATUSES = [
   "RefinerCancelled",
   "RefinerFailed",
 ] as const;
-const CALL_KINDS = ["SandboxDestroy", "AcceptanceCheck", "ModelCall", "PageWrite"] as const;
-const ENDING_POSTS = ["TaskFailurePost", "WorkflowFailurePost", "DonePost"] as const;
+const CALL_KINDS = [
+  "SandboxDestroy",
+  "AcceptanceCheck",
+  "ModelCall",
+  "PageWrite",
+  "FailurePost",
+] as const;
+const WORKFLOW_ENDING_POSTS = ["WorkflowFailurePost", "DonePost"] as const;
 
-/** The ending post of the spec that each posted event of an end is. */
-const ENDING_POST_OF: Partial<Record<TaskEvent["type"], (typeof ENDING_POSTS)[number]>> = {
-  failed: "TaskFailurePost",
+/** The ending post of the spec that each posted event of a workflow end is. */
+const WORKFLOW_ENDING_POST_OF: Partial<
+  Record<TaskEvent["type"], (typeof WORKFLOW_ENDING_POSTS)[number]>
+> = {
   workflow_failed: "WorkflowFailurePost",
   done: "DonePost",
 };
@@ -355,14 +367,20 @@ type SpecSubject = { kind: "none" } | { kind: "issue"; issue: number } | { kind:
  * call of a model turn says whether that turn ended: a stop ended it, or its author finished.
  */
 type SpecCall =
-  | { kind: "SandboxDestroy" | "AcceptanceCheck"; job: number }
+  | { kind: "SandboxDestroy" | "AcceptanceCheck" | "FailurePost"; job: number }
   | { kind: "ModelCall" | "PageWrite"; job: number; turnEnded: boolean };
+
+/** An ending post as the spec sees it. The failure post of a task names its job. */
+type SpecEndingPost =
+  | { kind: "TaskFailurePost"; job: number }
+  | { kind: (typeof WORKFLOW_ENDING_POSTS)[number] };
 
 /**
  * The workflow as the spec sees it. `jobSlots` is null until a plan sets the stages. A restart
  * alarm is the jobs whose lost model turn it still decides. `turnsToRunAgain` is the jobs whose
- * author still holds the turn id an armed run-again alarm names. The spec's ended issues only
- * drive the tracker the code reads, so the replay does not compare them.
+ * author still holds the turn id an armed run-again alarm names. `taskEndAlarms` is the jobs whose
+ * task end alarm is armed. The spec's ended issues and destroyed sandboxes only drive the spec's
+ * own rules, so the replay does not compare them.
  */
 export type SpecWorkflow = {
   status: (typeof WORKFLOW_STATUSES)[number];
@@ -372,10 +390,11 @@ export type SpecWorkflow = {
   idleArmed: boolean;
   jobs: SpecJob[];
   calls: SpecCall[];
-  endingPosts: (typeof ENDING_POSTS)[number][];
+  endingPosts: SpecEndingPost[];
   issueMoves: number;
   restartAlarms: number[][];
   runAgainAlarms: number[];
+  taskEndAlarms: number[];
   turnsToRunAgain: number[];
   restartAlarmFired: boolean;
   ranAgain: number[];
@@ -518,14 +537,13 @@ function specWorkflow(value: unknown): SpecWorkflow {
     idleArmed: itfBool(itfField(value, "idleArmed")),
     jobs,
     calls: itfList(itfField(value, "calls")).map((call) => specCall(call, jobs)),
-    endingPosts: itfList(itfField(value, "endingPosts")).map((post) =>
-      itfOneOf(itfVariant(post)!.tag, ENDING_POSTS),
-    ),
+    endingPosts: itfList(itfField(value, "endingPosts")).map(specEndingPost),
     issueMoves: itfInt(itfField(value, "issueMoves")),
     restartAlarms: itfSet(itfField(value, "restartAlarms"))
       .map(sortedInts)
       .toSorted(compareJobLists),
     runAgainAlarms: sortedInts(itfField(value, "runAgainAlarms")),
+    taskEndAlarms: sortedInts(itfField(value, "taskEndAlarms")),
     turnsToRunAgain: sortedInts(itfField(value, "turnsToRunAgain")),
     restartAlarmFired: itfBool(itfField(value, "restartAlarmFired")),
     ranAgain: sortedInts(itfField(value, "ranAgain")),
@@ -542,10 +560,18 @@ const FINISHED_TASK_STATUSES = new Set<SpecTask["status"]>([
   "TaskFailed",
 ]);
 
+function specEndingPost(value: unknown): SpecEndingPost {
+  const post = itfVariant(value)!;
+  if (post.tag === "TaskFailurePost") return { kind: post.tag, job: itfInt(post.value) };
+  return { kind: itfOneOf(post.tag, WORKFLOW_ENDING_POSTS) };
+}
+
 function specCall(call: unknown, jobs: SpecJob[]): SpecCall {
   const kind = itfOneOf(itfVariant(itfField(call, "kind"))!.tag, CALL_KINDS);
   const job = itfInt(itfField(call, "job"));
-  if (kind === "SandboxDestroy" || kind === "AcceptanceCheck") return { kind, job };
+  if (kind === "SandboxDestroy" || kind === "AcceptanceCheck" || kind === "FailurePost") {
+    return { kind, job };
+  }
   const author = jobs[job]?.tasks.find((task) => task.role === "Author");
   if (!author) throw new Error(`the spec holds a ${kind} of job ${job}, which has no author`);
   const stopped = itfVariant(itfField(call, "rest"))!.tag === "ModelCallStopped";
@@ -793,6 +819,7 @@ export class WorkflowLifecycleReplay {
       replay.holdDestroy(taskId),
     );
     replay.holdPullAcceptance();
+    replay.holdFailurePosts();
     replay.showEndedIssues();
     if (modelAuthor) {
       world.workflow.modelsByName[MODEL_AUTHOR_MODEL] = new HoldingPageModel((promptText) =>
@@ -921,15 +948,24 @@ export class WorkflowLifecycleReplay {
         };
       }),
       calls: this.calls.map((call) => this.specCallOf(call, jobs)),
-      endingPosts: workflow.posted.flatMap((event) => {
-        const post = ENDING_POST_OF[event.type];
-        return post ? [post] : [];
+      endingPosts: workflow.posted.flatMap((event): SpecEndingPost[] => {
+        if (event.type === "failed") {
+          return [
+            { kind: "TaskFailurePost", job: jobs.findIndex((job) => job.job_id === event.job_id) },
+          ];
+        }
+        const post = WORKFLOW_ENDING_POST_OF[event.type];
+        return post ? [{ kind: post }] : [];
       }),
       issueMoves: this.world.steps.reduce((total, step) => total + step.issueUpdates, 0),
       restartAlarms: this.restartAlarms(),
       runAgainAlarms: [
         ...new Set(this.runAgainAlarms().map((alarm) => this.jobIndexOfTask(alarm.task_id))),
       ].toSorted((left, right) => left - right),
+      taskEndAlarms: workflow
+        .alarmsFor("resumeTaskEnd")
+        .map((alarm) => this.jobIndexOfTask((alarm.payload as TaskEndAlarm).task_id))
+        .toSorted((left, right) => left - right),
       turnsToRunAgain: this.runAgainAlarms()
         .filter((alarm) => {
           const task = store.requireTask(alarm.task_id);
@@ -946,7 +982,11 @@ export class WorkflowLifecycleReplay {
   /** A held call as the spec sees it. A model turn ended once its author no longer holds it. */
   private specCallOf(call: HeldCall, jobs: JobRow[]): SpecCall {
     const job = jobs.findIndex((candidate) => candidate.job_id === call.jobId);
-    if (call.kind === "SandboxDestroy" || call.kind === "AcceptanceCheck") {
+    if (
+      call.kind === "SandboxDestroy" ||
+      call.kind === "AcceptanceCheck" ||
+      call.kind === "FailurePost"
+    ) {
       return { kind: call.kind, job };
     }
     const author = this.world.workflow.store.authorTaskOf(call.jobId);
@@ -1211,6 +1251,14 @@ export class WorkflowLifecycleReplay {
         return worldAction(`sandbox destroy ${picks.callId} returns`, () =>
           this.returnCall(required(picks.callId), new FakeDecisions(ANSWERS)),
         );
+      case "failurePostReturns":
+        return worldAction(`failure post ${picks.callId} returns`, () =>
+          this.returnCall(required(picks.callId), new FakeDecisions(ANSWERS)),
+        );
+      case "theTaskEndAlarmFires":
+        return worldAction(`the task end alarm of job ${picks.id} fires`, (world) =>
+          this.taskEndAlarmFires(world, required(picks.id)),
+        );
       case "modelCallReturns":
         return worldAction(`model call ${picks.callId} returns`, () =>
           this.returnCall(required(picks.callId), new FakeDecisions(ANSWERS)),
@@ -1403,6 +1451,27 @@ export class WorkflowLifecycleReplay {
     if (opener && world.pullIs(opener, "open")) world.movePull(opener, "merged");
   }
 
+  /** Hold the failure post of each researcher or author until the replay returns it. */
+  private holdFailurePosts(): void {
+    this.world.workflow.post = (event, to, options) => {
+      const post = () => FakeRuntime.prototype.post.call(this.world.workflow, event, to, options);
+      if (event.type !== "failed") return post();
+      return new Promise<void>((resolve, reject) => {
+        this.hold({
+          kind: "FailurePost",
+          jobId: event.job_id,
+          answer: () => {
+            post().then(resolve, reject);
+          },
+          fail: null,
+          turnId: null,
+          revises: null,
+          land: null,
+        });
+      });
+    };
+  }
+
   /** Hold the host's answer to whether it merged a pull, which `complete_job` asks. */
   private holdPullAcceptance(): void {
     this.world.workflow.artifact = (kind) => {
@@ -1487,6 +1556,17 @@ export class WorkflowLifecycleReplay {
     for (const task of world.workflow.store.tasks()) {
       if (task.model_turn_id) this.heldTurns.add(task.model_turn_id);
     }
+  }
+
+  /** The task end alarm of the job's task fires, and leaves the list before it runs. */
+  private async taskEndAlarmFires(world: WorkflowWorld, jobIndex: number): Promise<void> {
+    const taskId = this.taskOf(jobIndex).task_id;
+    const alarm = world.workflow
+      .alarmsFor("resumeTaskEnd")
+      .find((candidate) => (candidate.payload as TaskEndAlarm).task_id === taskId);
+    if (!alarm) throw new Error(`job ${jobIndex} has no task end alarm`);
+    await world.workflow.cancelAlarm(alarm.id);
+    await this.runStep(() => resumeTaskEnd(world.workflow, alarm.payload as TaskEndAlarm));
   }
 
   /** The one alarm the start step armed for the workflow end the store holds fires. */

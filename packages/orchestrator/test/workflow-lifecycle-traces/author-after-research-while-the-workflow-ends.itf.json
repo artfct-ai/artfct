@@ -170,7 +170,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesAfterResearch::workflowLifecycle::workflow": {
@@ -226,6 +231,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     },
@@ -381,7 +392,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesAfterResearch::workflowLifecycle::workflow": {
@@ -437,6 +453,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     },
@@ -592,7 +614,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesAfterResearch::workflowLifecycle::workflow": {
@@ -648,6 +675,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     },
@@ -802,7 +835,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": true,
       "pagesAfterResearch::workflowLifecycle::workflow": {
@@ -858,6 +896,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     },
@@ -1013,7 +1057,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesAfterResearch::workflowLifecycle::workflow": {
@@ -1069,6 +1118,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     },
@@ -1221,7 +1276,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesAfterResearch::workflowLifecycle::workflow": {
@@ -1331,6 +1391,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     },
@@ -1485,7 +1551,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesAfterResearch::workflowLifecycle::workflow": {
@@ -1625,6 +1696,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     },
@@ -1777,7 +1854,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesAfterResearch::workflowLifecycle::workflow": {
@@ -1970,6 +2052,12 @@
           "value": {
             "#tup": []
           }
+        },
+        "taskEndAlarms": {
+          "#set": []
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     },
@@ -2127,7 +2215,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesAfterResearch::workflowLifecycle::workflow": {
@@ -2355,6 +2448,16 @@
               "#tup": []
             }
           }
+        },
+        "taskEndAlarms": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     },
@@ -2509,7 +2612,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesAfterResearch::workflowLifecycle::workflow": {
@@ -2737,6 +2845,16 @@
               "#tup": []
             }
           }
+        },
+        "taskEndAlarms": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     },
@@ -2891,7 +3009,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": false,
       "pagesAfterResearch::workflowLifecycle::workflow": {
@@ -3149,6 +3272,16 @@
               "#tup": []
             }
           }
+        },
+        "taskEndAlarms": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
+        },
+        "destroyedSandboxes": {
+          "#set": []
         }
       }
     },
@@ -3303,7 +3436,12 @@
         "theAcceptanceCheckCompletesTheSubjectsJob": false,
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
-        "theSubjectIssueEndCancelsTheWorkflow": false
+        "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheDestroyOfACancelledAuthor": false,
+        "aRestartCutsTheDestroyOfAFailedAuthor": false,
+        "aRestartCutsAFailurePost": false,
+        "aTaskEndAlarmResumesATeardown": false,
+        "aTaskEndAlarmFindsItsTeardownOut": false
       },
       "pagesAfterResearch::workflowLifecycle::lastStepToldTheAgent": true,
       "pagesAfterResearch::workflowLifecycle::workflow": {
@@ -3561,6 +3699,20 @@
               "#tup": []
             }
           }
+        },
+        "taskEndAlarms": {
+          "#set": [
+            {
+              "#bigint": "1"
+            }
+          ]
+        },
+        "destroyedSandboxes": {
+          "#set": [
+            {
+              "#bigint": "0"
+            }
+          ]
         }
       }
     }

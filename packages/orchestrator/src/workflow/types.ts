@@ -54,6 +54,7 @@ export type ScheduledMethod =
   | "onModelTurnDeadline"
   | "resumeLostCalls"
   | "resumeWorkflowEnd"
+  | "resumeTaskEnd"
   | "runLostModelTurnAgain";
 
 /**
