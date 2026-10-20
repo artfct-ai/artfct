@@ -1424,7 +1424,12 @@
           "paused": false,
           "queuedPrompts": [
             {
-              "#set": []
+              "comments": {
+                "#set": []
+              },
+              "findings": {
+                "#set": []
+              }
             }
           ],
           "rejectedBy": {
