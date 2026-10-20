@@ -29,7 +29,8 @@ async function mergePr(options: MergeOptions): Promise<WorkflowDebug> {
   const done = await waitUntil({ label: "workflow done and linear issue completed" }, async () => {
     const debug = await fetchWorkflowDebug(workflowId);
     const finished =
-      debug.workflow.status === "done" &&
+      debug.workflow.status === "ended" &&
+      debug.workflow_end?.ends_as === "done" &&
       taskById(debug, taskId).status === "done" &&
       hasOutboxMessage(
         debug,

@@ -7,6 +7,7 @@ import { ADMIN_TOKEN, INGRESS_URL, stageHasRefiners } from "./config";
 /** Shape of the Workflow DO debug dump served at `/admin/workflows/:id/debug`. */
 export type WorkflowDebug = {
   workflow: { workflow_id: string; status: string };
+  workflow_end: { ends_as: string } | null;
   plan: { repo: string | null } | null;
   stage_plan: { stages: string[] } | null;
   reply_targets: Array<{ source: string } & Record<string, unknown>>;
