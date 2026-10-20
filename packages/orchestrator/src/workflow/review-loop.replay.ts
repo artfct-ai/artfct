@@ -132,6 +132,20 @@ describe("review loop spec", () => {
     );
   });
 
+  it("asks the agent to route findings when a model-call author's review again call fails", async () => {
+    await replayPinnedTrace(
+      "review-again-call-fails-on-findings",
+      "modelCallAuthorWithTwoReviewers",
+    );
+  });
+
+  it("answers a queued comment in a turn whose page update fails", async () => {
+    await replayPinnedTrace(
+      "update-fails-after-answering-a-queued-comment",
+      "modelCallAuthorWithTwoReviewers",
+    );
+  });
+
   for (const setup of Object.keys(SPEC_SETUPS) as SpecSetup[]) {
     it(
       `replays its traces through the workflow on ${setup}`,

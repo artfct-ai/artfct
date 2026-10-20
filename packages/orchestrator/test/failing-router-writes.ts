@@ -29,3 +29,26 @@ export class FailingRouterWrites {
     this.db = binding as Env["DB"];
   }
 }
+
+/**
+ * A D1 binding over `base` that hands each delete of bindings to `hold`, which runs it now or
+ * later. Every other statement runs on `base`.
+ */
+export function holdingBindingDeletes(
+  base: Env["DB"],
+  hold: (run: () => Promise<unknown>) => Promise<unknown>,
+): Env["DB"] {
+  const binding: object = {
+    prepare: (sql: string) => {
+      const statement = base.prepare(sql);
+      if (!sql.startsWith('delete from "bindings"')) return statement;
+      return {
+        bind: (...values: unknown[]) => {
+          const bound = statement.bind(...values);
+          return { run: () => hold(() => bound.run()) };
+        },
+      };
+    },
+  };
+  return binding as Env["DB"];
+}

@@ -11,7 +11,10 @@ const SESSION_TITLE_LIMIT = 200;
 /** Most characters one Slack message carries. Slack itself refuses text above 4000. */
 const SLACK_TEXT_LIMIT = 3900;
 
-/** Split text into chunks under `limit` at paragraph boundaries, then line boundaries. */
+/**
+ * Split text into chunks under `limit` at paragraph boundaries, then line boundaries. A hard cut
+ * never splits a surrogate pair.
+ */
 export function splitSlackText(text: string, limit = SLACK_TEXT_LIMIT): string[] {
   if (text.length <= limit) return [text];
   const chunks: string[] = [];
@@ -31,7 +34,8 @@ function boundaryBefore(text: string, limit: number): number {
   if (paragraph > 0) return paragraph;
   const line = text.lastIndexOf("\n", limit);
   if (line > 0) return line;
-  return limit;
+  const lastUnit = text.charCodeAt(limit - 1);
+  return lastUnit >= 0xd800 && lastUnit <= 0xdbff ? limit - 1 : limit;
 }
 
 /** Construction options. `apiUrl` and `fetch` are seams for tests. */

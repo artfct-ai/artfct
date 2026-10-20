@@ -91,7 +91,7 @@ const PINNED: { name: string; setup: SpecSetup; file: string }[] = [
   },
   {
     name: "sends the resumed author its prompt once the turn the pause cancelled ends",
-    setup: "trackerPause",
+    setup: "trackerOnly",
     file: "a-resumed-author-goes-on-after-the-cancel",
   },
   {

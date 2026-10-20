@@ -181,9 +181,9 @@ function isNewObject(object: ObjectView): boolean {
 type SpecDelivery = {
   surface: SurfaceName;
   phase: string;
-  found: (number | null)[];
+  bindingsRead: number;
   index: number;
-  target: number | null;
+  workflow: number | null;
 };
 
 function specView(world: unknown): RouterView {
@@ -222,17 +222,27 @@ function specView(world: unknown): RouterView {
 }
 
 function specDelivery(delivery: unknown): SpecDelivery {
-  const target = itfVariant(itfField(delivery, "target"))!;
+  const phase = itfVariant(itfField(delivery, "phase"))!;
   return {
     surface: itfOneOf(itfVariant(itfField(delivery, "surface"))!.tag, SURFACES),
-    phase: itfVariant(itfField(delivery, "phase"))!.tag,
-    found: itfList(itfField(delivery, "found")).map((bound) => {
-      const found = itfVariant(bound)!;
-      return found.tag === "BoundTo" ? itfInt(found.value) : null;
-    }),
+    phase: phase.tag,
+    bindingsRead: itfList(itfField(delivery, "found")).length,
     index: itfInt(itfField(delivery, "index")),
-    target: target.tag === "TargetWorkflow" ? itfInt(target.value) : null,
+    workflow: phaseWorkflow(phase.tag, phase.value),
   };
+}
+
+function phaseWorkflow(tag: string, value: unknown): number | null {
+  switch (tag) {
+    case "ReadingPulls":
+    case "Reading":
+      return null;
+    case "FanningOut":
+    case "Restoring":
+      return itfInt(itfField(value, "workflow"));
+    default:
+      return itfInt(value);
+  }
 }
 
 const SURFACE_KEYS: Record<SurfaceName, KeyName[]> = {
@@ -250,26 +260,26 @@ function deliveryCall(delivery: SpecDelivery): string {
     case "ReadingPulls":
       return "FindPullWorkflows";
     case "FanningOut":
-      return `HandleEvent(${delivery.target})`;
+      return `HandleEvent(${delivery.workflow})`;
     case "Reading":
-      return `FindBinding(${keys[delivery.found.length]})`;
+      return `FindBinding(${keys[delivery.bindingsRead]})`;
     case "Checking":
-      return `FindWorkflow(${delivery.found[delivery.index]})`;
+      return `FindWorkflow(${delivery.workflow})`;
     case "Handling":
-      return `HandleEvent(${delivery.target})`;
+      return `HandleEvent(${delivery.workflow})`;
     case "Rebinding":
     case "Claiming":
     case "Binding":
     case "Restoring":
       return `ClaimBinding(${key})`;
     case "Inserting":
-      return `InsertWorkflow(${delivery.target})`;
+      return `InsertWorkflow(${delivery.workflow})`;
     case "Creating":
-      return `CreateWorkflow(${delivery.target})`;
+      return `CreateWorkflow(${delivery.workflow})`;
     case "Unbinding":
-      return `DeleteBindings(${delivery.target})`;
+      return `DeleteBindings(${delivery.workflow})`;
     case "MarkingFailed":
-      return `SetStatus(${delivery.target})`;
+      return `SetStatus(${delivery.workflow})`;
     default:
       throw new Error(`the trace has the delivery phase ${delivery.phase}`);
   }

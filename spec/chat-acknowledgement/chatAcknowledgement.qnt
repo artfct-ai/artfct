@@ -210,4 +210,12 @@ module chatAcknowledgement {
     messages.get(id).callerGot != Pending,
     not(messages.get(id).slow),
   })
+
+  /// Witness for `theCallerGetsWhatTheDeliveryGave`: every message arrived, waited its delay, and
+  /// its caller got its result, so the model reached its end state.
+  val theDeliveriesFinish: bool = and {
+    messages.keys().size() == MESSAGES,
+    delaysPassed == MESSAGES,
+    messages.keys().forall(id => messages.get(id).callerGot != Pending),
+  }
 }

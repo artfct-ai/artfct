@@ -606,7 +606,8 @@ export async function resumeWorkflowEnd(workflow: WorkflowRuntime): Promise<void
 /**
  * Cancel every active task, author and researcher tasks first, then set the final status and tell
  * the channels. Each cancel reads the active tasks again, so an author that starts after research
- * meanwhile ends too, and so does a task an earlier instance did not reach.
+ * meanwhile ends too, and so does a task an earlier instance did not reach. An end that posted
+ * before an instance restart does not post again.
  */
 async function goOnWithWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEnd): Promise<void> {
   const reason = end.status === "done" ? "the workflow is done" : end.reason;
@@ -616,23 +617,19 @@ async function goOnWithWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEnd):
   }
   for (const task of workflow.store.activeRefinerRuns()) await cancelTask(workflow, task, reason);
   await writeWorkflowStatus(workflow, end.status);
-  await announceWorkflowEnd(workflow, end);
+  if (!end.posted) await postWorkflowEnd(workflow, end);
+  if (end.status === "done") await completeTrackerIssues(workflow);
+  await unbindCodeHost(workflow);
   workflow.patchState({ workflow_end: null });
 }
 
-/**
- * Tell the channels how the workflow ended, and drop its code host bindings. A done workflow
- * completes each session's issue.
- */
-async function announceWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEnd): Promise<void> {
+/** Tell the channels how the workflow ended, and record in the workflow end that it posted. */
+async function postWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEnd): Promise<void> {
   const to = { answering: end.answering };
   switch (end.status) {
     case "done":
       workflow.log(null, `finished: ${end.reason}`);
       await workflow.post({ type: "done", result: end.reason }, to);
-      for (const target of workflow.state.reply_targets) {
-        if (target.source === "tracker") await workflow.notifier.moveIssue(target, "completed");
-      }
       break;
     case "failed":
       await workflow.post({ type: "workflow_failed", reason: end.reason }, to);
@@ -645,7 +642,14 @@ async function announceWorkflowEnd(workflow: WorkflowRuntime, end: WorkflowEnd):
       throw new Error(`unknown workflow end status ${String(unhandled)}`);
     }
   }
-  await unbindCodeHost(workflow);
+  workflow.patchState({ workflow_end: { ...end, posted: true } });
+}
+
+/** A done workflow completes each session's issue. */
+async function completeTrackerIssues(workflow: WorkflowRuntime): Promise<void> {
+  for (const target of workflow.state.reply_targets) {
+    if (target.source === "tracker") await workflow.notifier.moveIssue(target, "completed");
+  }
 }
 
 /** Point an external object (pull, branch, page) at this workflow so ingress can route to it. */

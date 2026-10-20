@@ -1,10 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import fc from "fast-check";
+import { propertyRuns, propertyTimeoutMs } from "../../../test/property-runs";
 import {
   LINEAR_ACKNOWLEDGEMENT_EMOJI,
   linearHeldComments,
   type LinearDocumentComment,
 } from "./held-comments";
+
+const RUNS = 100;
 
 const SELF = "app1";
 
@@ -36,15 +39,20 @@ const anyComments: fc.Arbitrary<LinearDocumentComment[]> = fc
   .map((comments) => comments.map((fields, index) => ({ id: `c${index}`, ...fields })));
 
 describe("linearHeldComments on any list of comments", () => {
-  it("never holds a comment this user wrote", () => {
-    fc.assert(
-      fc.property(anyComments, (comments) => {
-        const ownIds = new Set(
-          comments.filter((listed) => listed.user?.id === SELF).map((listed) => listed.id),
-        );
-        const held = linearHeldComments(comments, SELF).map((comment) => comment.id);
-        expect(held.filter((id) => ownIds.has(id))).toEqual([]);
-      }),
-    );
-  });
+  it(
+    "never holds a comment this user wrote",
+    () => {
+      fc.assert(
+        fc.property(anyComments, (comments) => {
+          const ownIds = new Set(
+            comments.filter((listed) => listed.user?.id === SELF).map((listed) => listed.id),
+          );
+          const held = linearHeldComments(comments, SELF).map((comment) => comment.id);
+          expect(held.filter((id) => ownIds.has(id))).toEqual([]);
+        }),
+        propertyRuns("linear held comments", RUNS),
+      );
+    },
+    propertyTimeoutMs(5_000, RUNS),
+  );
 });

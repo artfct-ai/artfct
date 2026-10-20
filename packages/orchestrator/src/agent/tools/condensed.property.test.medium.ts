@@ -1,3 +1,4 @@
+import { propertyRuns, propertyTimeoutMs } from "@artfct-ai/adapters/test/property-runs";
 import { tool } from "ai";
 import fc from "fast-check";
 import { describe, expect, it } from "vitest";
@@ -9,6 +10,7 @@ import { condensingTools } from "./condensed";
 
 const CALL = { toolCallId: "call-1", messages: [], context: {} };
 const LIMIT = 100;
+const RUNS = 100;
 const SHORTENED = /^\[(condensed result|result too large)\] /;
 
 const resultText = fc.integer({ min: 0, max: LIMIT * 8 }).map((chars) => "x".repeat(chars));
@@ -41,8 +43,9 @@ describe("condensingTools", () => {
             if (estimatedTokens(text) <= LIMIT) expect(read).toBe(returned);
             else expect(String(read)).toMatch(SHORTENED);
           }),
+          propertyRuns("condensed tool results", RUNS),
         );
       }),
-    30_000,
+    propertyTimeoutMs(30_000, RUNS),
   );
 });

@@ -248,6 +248,7 @@ module reviewLoopTypes {
     checks: ChecksRead,
     checksReported: bool,
     reviewRead: ReviewRead,
+    agentFinishedTheReview: bool,
   }
 
   /// One step: the review before it, the review after it, and what an observer knows of it.
@@ -360,6 +361,9 @@ module reviewLoopTypes {
     theAgentIsAskedToRouteAgain: bool,
     anAuthorAnswersAReviewAtTheLimit: bool,
     theRecheckAlarmStops: bool,
+    aPersonRuled: bool,
+    aReviewerApproved: bool,
+    theAgentFinishedTheReview: bool,
   }
 
   /// A model-call author's turn end: the review after it and how the turn ended.
@@ -1426,6 +1430,7 @@ module reviewLoop {
       checks: ChecksNotRead,
       checksReported: false,
       reviewRead: ReviewReadOk,
+      agentFinishedTheReview: false,
     }
 
   /// True when a findings reviewer or polisher run ended done in the step, and the destroy of its
@@ -1493,6 +1498,11 @@ module reviewLoop {
   action anAuthorTurnEnds(changed: bool, part: PagePart): bool = all {
     atWork(review),
     nondet decision = REVIEW_AGAIN_DECISIONS.oneOf()
+    anAuthorTurnEndsOn(changed, part, decision),
+  }
+
+  /// The author's turn ends, and the review again decision says `decision`.
+  action anAuthorTurnEndsOn(changed: bool, part: PagePart, decision: ReviewAgainDecision): bool = {
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val left = authorTurnEndedOn(if (changed) pageChanged(review, part) else review, revisionLookup)
     nondet outcome = authorGateOutcomes(left, revisionLookup).oneOf()
@@ -1510,7 +1520,7 @@ module reviewLoop {
         revisionLookup: revisionLookup,
         checks: authorGateRead(left, outcome, revisionLookup),
       },
-    ),
+    )
   }
 
   /// The author's turn ends after it changed the artifact.
@@ -1522,6 +1532,19 @@ module reviewLoop {
   /// The author's turn ends without a change.
   action authorTurnEndsOnTheSameRevision: bool = anAuthorTurnEnds(false, Body)
 
+  /// A model-call author's turn on a findings review ends after it changed the artifact, and the
+  /// review again call fails, so the agent routes the review. It is a copy of
+  /// `authorTurnEndsOnANewRevision` that a step picks as often as any other action.
+  action aModelCallAuthorsReviewAgainCallFails: bool = all {
+    MODEL_CALL_AUTHOR,
+    atWork(review),
+    holdsARun(review),
+    refinerOf(review.refinerRuns[heldRun(review)]) == FindingsReviewer,
+    nondet part = REVISION_PARTS.oneOf()
+    nondet decision = Set(AgentRoutes).oneOf()
+    anAuthorTurnEndsOn(true, part, decision),
+  }
+
   /// The model call of a model-call author's turn answers with a changed page, and the host fails
   /// one of its writes.
   action theHostFailsAModelCallAuthorsWrite: bool = all {
@@ -1532,10 +1555,48 @@ module reviewLoop {
       if (turnReplies(review, true, part).size() > 0) Set(PageReadFails, RepliesFail, UpdateFails, UpdateLandsThenFails)
       else Set(PageReadFails, UpdateFails, UpdateLandsThenFails)
     nondet failure = failures.oneOf()
+    theHostFailsAModelCallAuthorsWriteOn(part, failure),
+  }
+
+  /// The host fails the write `failure` of a model-call author's turn that changed `part`.
+  action theHostFailsAModelCallAuthorsWriteOn(part: PagePart, failure: HostFailure): bool = {
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val answers = { write: WriteFails(failure), decision: AgentRoutes, lookup: revisionLookup, gate: GateOpens }
     val ended = modelCallTurnEnds(review, true, part, answers)
-    moveWith(ended.loop, { ...quietStep(ended.turnEnd), write: WriteFails(failure), revisionLookup: revisionLookup }),
+    moveWith(ended.loop, { ...quietStep(ended.turnEnd), write: WriteFails(failure), revisionLookup: revisionLookup })
+  }
+
+  /// True when a queued prompt carries a comment that is still on the page and unanswered, and
+  /// the turn in flight does not carry it.
+  pure def anUnansweredCommentWaitsInTheQueue(loop: ReviewLoop): bool =
+    queuedComments(loop).exists(id => and {
+      not(loop.author.turnComments.contains(id)),
+      not(loop.personComments[id].gone),
+      not(loop.personComments[id].answered),
+    })
+
+  /// A model-call author's turn ends after it changed the artifact while a later comment waits in
+  /// the queue. It is a copy of `authorTurnEndsOnANewRevision` that a step picks as often as any
+  /// other action.
+  action aModelCallTurnEndsBesideAQueuedComment: bool = all {
+    MODEL_CALL_AUTHOR,
+    anUnansweredCommentWaitsInTheQueue(review),
+    authorTurnEndsOnANewRevision,
+  }
+
+  /// The host refuses a reply of a model-call author's turn while a later comment waits in the
+  /// queue. It is a copy of `theHostFailsAModelCallAuthorsWrite` that a step picks as often as any
+  /// other action.
+  action theHostRefusesAReplyBesideAQueuedComment: bool = all {
+    MODEL_CALL_AUTHOR,
+    atWork(review),
+    anUnansweredCommentWaitsInTheQueue(review),
+    nondet part = REVISION_PARTS.oneOf()
+    all {
+      turnReplies(review, true, part).size() > 0,
+      nondet failure = Set(RepliesFail).oneOf()
+      theHostFailsAModelCallAuthorsWriteOn(part, failure),
+    },
   }
 
   /// The model call of a model-call author's turn answers, and its answer skips the reply to a
@@ -1662,13 +1723,23 @@ module reviewLoop {
   action polisherTurnEnds(pushed: bool, part: PagePart): bool = all {
     runningRunIs(review, Polisher),
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
-    val id = lastUnfinishedRun(review)
     val left = if (pushed) pageChanged(review, part) else review
-    nondet outcome = gateOutcomes(left, id, revisionLookup).oneOf()
+    nondet outcome = gateOutcomes(left, lastUnfinishedRun(review), revisionLookup).oneOf()
+    polisherTurnEndsOn(pushed, part, revisionLookup, outcome),
+  }
+
+  /// A polisher's turn ends, and the checks gate settles it on `outcome`.
+  action polisherTurnEndsOn(
+    pushed: bool,
+    part: PagePart,
+    revisionLookup: RevisionLookup,
+    outcome: GateOutcome,
+  ): bool = {
+    val id = lastUnfinishedRun(review)
     moveWith(
       polisherFinished(review, id, pushed, part, outcome, revisionLookup),
       { ...quietStep(RefinerTurnEnded(id)), revisionLookup: revisionLookup, checks: GateSettles(outcome) },
-    ),
+    )
   }
 
   /// A polisher changes the artifact, and its turn ends.
@@ -1680,11 +1751,44 @@ module reviewLoop {
   /// A polisher's turn ends without a change.
   action polisherPushesNothing: bool = polisherTurnEnds(false, Body)
 
+  /// A polisher's turn ends without a change, and the checks gate waits on the checks. It is a
+  /// copy of `polisherPushesNothing` that a step picks as often as any other action, so a later
+  /// report can send the waiting polisher back.
+  action aPolisherEndsWaitingOnChecks: bool = all {
+    runningRunIs(review, Polisher),
+    gateOutcomes(review, lastUnfinishedRun(review), RevisionKnown).contains(GateWaits),
+    nondet revisionLookup = Set(RevisionKnown).oneOf()
+    nondet outcome = Set(GateWaits).oneOf()
+    polisherTurnEndsOn(false, Body, revisionLookup, outcome),
+  }
+
+  /// A polisher that failed checks or a conflict sent back ends without a change. It is a copy of
+  /// `polisherPushesNothing` that a step picks as often as any other action.
+  action aPolisherSentBackPushesNothing: bool = all {
+    sentBackOnTheRevision(review),
+    polisherPushesNothing,
+  }
+
   /// The host reports checks on the pull request, or the recheck alarm reads them again.
   action checksReport: bool = all {
     CHECKS,
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     nondet outcome = reportOutcomes(review, revisionLookup).oneOf()
+    checksReportOn(revisionLookup, outcome),
+  }
+
+  /// The host reports failed checks or a conflict while a polisher waits on them. It is a copy of
+  /// `checksReport` that a step picks as often as any other action.
+  action checksSendAWaitingPolisherBack: bool = all {
+    polisherWaitsOnChecks(review),
+    reportOutcomes(review, RevisionKnown).contains(GateSendsBack),
+    nondet revisionLookup = Set(RevisionKnown).oneOf()
+    nondet outcome = Set(GateSendsBack).oneOf()
+    checksReportOn(revisionLookup, outcome),
+  }
+
+  /// The checks the host reports give the gate `outcome`.
+  action checksReportOn(revisionLookup: RevisionLookup, outcome: GateOutcome): bool = {
     val reported = checksReported(review, outcome, revisionLookup)
     val settlesTheAuthor = not(polisherWaitsOnChecks(review)) and authorWaitsOnTheGate(review)
     moveWith(
@@ -1696,7 +1800,7 @@ module reviewLoop {
         checks: reported.checks,
         checksReported: true,
       },
-    ),
+    )
   }
 
   /// The agent runs the open segment again from its first entry that still has a say on the revision.
@@ -1722,7 +1826,10 @@ module reviewLoop {
     refinerOf(review.refinerRuns[heldRun(review)]) != Judge,
     nondet revisionLookup = REVISION_LOOKUPS.oneOf()
     val index = review.refinerRuns[heldRun(review)].refinerIndex
-    moveOnLookup(advancePastEntry(review, index, revisionLookup), NoTurnEnd, revisionLookup),
+    moveWith(
+      advancePastEntry(review, index, revisionLookup),
+      { ...quietStep(NoTurnEnd), revisionLookup: revisionLookup, agentFinishedTheReview: true },
+    ),
   }
 
   /// The agent asks for a review while it may not route the artifact. The code refuses, and the
@@ -1737,6 +1844,14 @@ module reviewLoop {
   action agentFinishesReviewOutOfTurn: bool = all {
     not(agentCanRoute(review)),
     move(review, NoTurnEnd),
+  }
+
+  /// A refiner run that restarted hits another failure it may recover from. It is a copy of
+  /// `refinerRunHitsARecoverableFailure` that a step picks as often as any other action.
+  action aRestartedRefinerRunHitsAFailure: bool = all {
+    aRunningRunExists(review),
+    review.refinerRuns[lastUnfinishedRun(review)].restarts > 0,
+    refinerRunHitsARecoverableFailure,
   }
 
   /// The agent cancels the unfinished refiner run.
@@ -1799,19 +1914,25 @@ module reviewLoop {
     moveOnThePage(handled.loop, handled.page, handled.agentHeard),
   }
 
-  /// A person tells the agent they finished reviewing. The held comments go to a running author.
+  /// A person tells the agent they finished reviewing. The held comments go to the running author.
   action personAsksForRevision: bool = all {
     ON_A_PAGE,
+    authorLive(review),
     roomForComments(review, 1),
     roomForAPrompt(review),
     nondet read = HELD_READS.oneOf()
     nondet meanwhile = WHILE_SCREENED.oneOf()
-    if (not(authorLive(review))) move(review, NoTurnEnd)
-    else {
-      val sent = sendHeldComments(review, read, meanwhile, false)
-      val page = HeldCommentsAsked({ by: APersonsRevisionRequest, read: read, carried: sent.carried })
-      moveOnThePage(sent.loop, page, sent.agentHeard)
-    },
+    val sent = sendHeldComments(review, read, meanwhile, false)
+    val page = HeldCommentsAsked({ by: APersonsRevisionRequest, read: read, carried: sent.carried })
+    moveOnThePage(sent.loop, page, sent.agentHeard),
+  }
+
+  /// A person asks for a revision after the author ended. The code finds no author to send the
+  /// held comments to, and the review stays as it was.
+  action personAsksForRevisionOfAnEndedAuthor: bool = all {
+    ON_A_PAGE,
+    not(authorLive(review)),
+    move(review, NoTurnEnd),
   }
 
   /// A person rewrites a part of the page on the host. A model-call author's turn in flight read
@@ -1970,12 +2091,30 @@ module reviewLoop {
     move(promptAuthor(review), NoTurnEnd),
   }
 
+  /// The author ends or fails. One step picks this group as often as one other action, so the
+  /// author keeps working for more of each trace.
+  action theAuthorEndsOrFails: bool = any {
+    authorEnds,
+    authorRestarts,
+    theHostFailsAModelCallAuthorsWrite,
+    aModelCallAnswerDoesNotValidate,
+  }
+
+  /// A request that the code refuses or that finds nothing to do, so the review stays as it was.
+  action aRequestChangesNothing: bool = any {
+    agentRequestsReviewOutOfTurn,
+    agentFinishesReviewOutOfTurn,
+    personAsksForRevisionOfAnEndedAuthor,
+  }
+
   action step: bool = any {
     agentPromptsAuthor,
     authorTurnEndsOnANewRevision,
     authorTurnEndsOnTheSameRevision,
-    theHostFailsAModelCallAuthorsWrite,
-    aModelCallAnswerDoesNotValidate,
+    aModelCallAuthorsReviewAgainCallFails,
+    theHostRefusesAReplyBesideAQueuedComment,
+    aModelCallTurnEndsBesideAQueuedComment,
+    theAuthorEndsOrFails,
     findingsReviewerLeavesFindings,
     findingsReviewerApproves,
     theReviewReadFails,
@@ -1988,13 +2127,15 @@ module reviewLoop {
     personRejects,
     polisherPushes,
     polisherPushesNothing,
+    aPolisherEndsWaitingOnChecks,
+    aPolisherSentBackPushesNothing,
     agentRequestsReview,
     agentFinishesReview,
-    agentRequestsReviewOutOfTurn,
-    agentFinishesReviewOutOfTurn,
+    aRequestChangesNothing,
     agentCancelsRefinerRun,
     refinerRunFails,
     refinerRunHitsARecoverableFailure,
+    aRestartedRefinerRunHitsAFailure,
     personCommentsOnThePage,
     personMentionsTheBot,
     personAsksForRevision,
@@ -2002,12 +2143,11 @@ module reviewLoop {
     instanceRestarts,
     instanceRestartsWhileThePageIsWritten,
     instanceRestartsWhileADoneRunsSandboxIsDestroyed,
-    authorEnds,
-    authorRestarts,
     authorPaused,
     authorResumed,
     personInstructs,
     checksReport,
+    checksSendAWaitingPolisherBack,
   }
 
 
@@ -2747,6 +2887,20 @@ module reviewLoop {
     anAuthorAnswersAReviewAtTheLimit:
       onADoneReviewAtTheLimit(step.before) and not(isOnRun(step.after, heldRun(step.before))),
     theRecheckAlarmStops: step.before.artifact.recheckArmed and not(step.after.artifact.recheckArmed),
+    aPersonRuled: runIds(step.before).exists(id => and {
+      not(isRuling(step.before.refinerRuns[id].result)),
+      isRuling(step.after.refinerRuns[id].result),
+      step.before.judgeRunsCodeRulesOn.contains(id) implies step.after.judgeRunsCodeRulesOn.contains(id),
+    }),
+    aReviewerApproved: match step.kind.turnEnd {
+      | RefinerTurnEnded(id) => and {
+          refinerOf(step.after.refinerRuns[id]) == FindingsReviewer,
+          isReview(step.after.refinerRuns[id].result),
+          not(reviewHasFindings(step.after.refinerRuns[id].result)),
+        }
+      | _ => false
+    },
+    theAgentFinishedTheReview: step.kind.agentFinishedTheReview,
   }
 
   /// An artifact has at most one unfinished refiner run, and the artifact is on it.
@@ -3345,5 +3499,16 @@ module reviewLoop {
 
   /// Witness for `theRecheckAlarmRunsWhileTheGateHolds`: the recheck alarm stops.
   val theRecheckAlarmStops: bool = lastStepReached.theRecheckAlarmStops
+
+  /// Witness for `judgeRulesAtMostOnce`: a person rules on a judge run through the agent. A ruling
+  /// of the decisions model takes the run off the runs the code rules on.
+  val aPersonRuled: bool = lastStepReached.aPersonRuled
+
+  /// Witness for `reviewerRunsOnlyOnAnUnreviewedRevision`: a findings reviewer approves the revision.
+  val aReviewerApproved: bool = lastStepReached.aReviewerApproved
+
+  /// Witness for `aReviewWaitingForRoutingTellsTheAgent`: the agent ends the open segment, so the
+  /// artifact stops waiting for it.
+  val theAgentFinishedTheReview: bool = lastStepReached.theAgentFinishedTheReview
 
 }

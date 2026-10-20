@@ -71,9 +71,29 @@ jobs:
           read -ra replays <<<"$REPLAYS"
           bunx turbo run spec:replay:e2e --filter=@artfct-ai/orchestrator -- "${replays[@]}"
 
+  standalone_properties:
+    name: standalone properties (light)
+    needs: ci
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: packages/orchestrator
+    env:
+      PROPERTY_RUNS_DIVISOR: 3
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/install
+      - run: bun run template-config
+      - name: Seed the properties from the run id
+        run: echo "PROPERTY_SEED=$(( GITHUB_RUN_ID % 2147483648 ))" >> "$GITHUB_ENV"
+      - name: Run every standalone property at a third of its nightly count
+        timeout-minutes: 15
+        run: bun scripts/properties/e2e-property-test.ts standalone
+
   preview:
     name: preview
-    needs: [ci, spec_changes, quint, spec_replays]
+    needs: [ci, spec_changes, quint, spec_replays, standalone_properties]
     if: ${{ !cancelled() && needs.ci.result == 'success' && !contains(needs.*.result, 'failure') && !contains(needs.*.result, 'cancelled') }}
     # x64, because it builds and publishes the linux/amd64 sandbox image.
     runs-on: ubuntu-latest

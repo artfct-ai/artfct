@@ -38,13 +38,26 @@ export function readSpecChecks(spec: string): SpecChecks {
   return JSON.parse(readFileSync(join(specDir(spec), "checks.json"), "utf8"));
 }
 
-/** Every setup of every spec folder, by the setups its witnesses name. */
-export function listSpecSetups(): SpecSetup[] {
+function listSpecs(): string[] {
   return readdirSync(SPEC_ROOT, { withFileTypes: true })
     .filter((entry) => entry.isDirectory())
     .map((entry) => entry.name)
-    .toSorted()
-    .flatMap((spec) =>
-      Object.keys(readSpecChecks(spec).witnesses).map((setup) => ({ spec, setup })),
-    );
+    .toSorted();
+}
+
+/** Every setup that simulation checks, by the setups each spec's witnesses name. */
+export function listSpecSetups(): SpecSetup[] {
+  return listSpecs().flatMap((spec) =>
+    Object.keys(readSpecChecks(spec).witnesses).map((setup) => ({ spec, setup })),
+  );
+}
+
+/**
+ * Every setup that TLC checks, by the setups each spec bounds. A setup that differs from another
+ * only in its bounds has bounds and no witnesses, since simulation would check the same model.
+ */
+export function listModelCheckedSetups(): SpecSetup[] {
+  return listSpecs().flatMap((spec) =>
+    Object.keys(readSpecChecks(spec).tlc?.bounds ?? {}).map((setup) => ({ spec, setup })),
+  );
 }

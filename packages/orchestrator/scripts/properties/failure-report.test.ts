@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { propertyFailureReport, propertyFailures } from "./failure-report";
-import { SPEC_REPLAY_FILES } from "./property-files";
+import { SPEC_REPLAY_FILES, STANDALONE_PROPERTY_FILES } from "./property-files";
 
 const BUN_OUTPUT = `src/workflow/invariants.test.ts:
 error: Property failed after 19 tests
@@ -25,6 +25,26 @@ Counterexample: [[{"type":"workflow_ends","surface":"session_b","status":"done"}
 Shrunk 6 time(s)
 
 Caused by: Error: messageAfterEndStartsNextWorkflow: 2 workflows started after wf_1 ended | twice
+`;
+
+const BUN_PROPERTY_OUTPUT = `src/chat/slack/inbound-invariants.test.ts:
+error: Property failed after 2 tests
+{ seed: 5, path: "1:1:0", endOnFailure: true }
+Counterexample: [50]
+Shrunk 28 time(s)
+      at throwIfFailed (fast-check.js:2476:49)
+(fail) slack inbound mapper invariants > hold for a JSON value of any shape [1.98ms]
+`;
+
+const VITEST_PROPERTY_OUTPUT = ` FAIL  src/db/persons.property.test.medium.ts > person upserts > keep one row per group
+Error: Property failed after 2 tests
+{ seed: 5, path: "1:1:0", endOnFailure: true }
+Counterexample: [50]
+
+Caused by: AssertionError: expected 50 to be less than 50
+ FAIL  src/router/identity.property.test.medium.ts > the access rules > resolve an actor
+Error: Property failed after 3 tests
+{ seed: 5, path: "2:0", endOnFailure: true }
 `;
 
 describe("propertyFailures", () => {
@@ -53,6 +73,23 @@ describe("propertyFailures", () => {
         seed: -42,
         path: "23:5:8",
       },
+    ]);
+  });
+
+  it("names a bun counterexample without an invariant error by its failing test", () => {
+    expect(propertyFailures(BUN_PROPERTY_OUTPUT)).toEqual([
+      {
+        invariant: "slack inbound mapper invariants > hold for a JSON value of any shape",
+        seed: 5,
+        path: "1:1:0",
+      },
+    ]);
+  });
+
+  it("names a vitest counterexample without an invariant error by its failing test", () => {
+    expect(propertyFailures(VITEST_PROPERTY_OUTPUT)).toEqual([
+      { invariant: "person upserts > keep one row per group", seed: 5, path: "1:1:0" },
+      { invariant: "the access rules > resolve an actor", seed: 5, path: "2:0" },
     ]);
   });
 
@@ -87,6 +124,17 @@ describe("propertyFailureReport", () => {
     expect(report).toContain("fast-check did not report a counterexample. Read the step log.");
     expect(report).toContain(
       "PROPERTY_SEED=9 PROPERTY_RUNS=1000 bun test ./src/workflow/workflow-lifecycle.replay.ts",
+    );
+  });
+
+  it("names the package directory a standalone property replays from", () => {
+    const persons = STANDALONE_PROPERTY_FILES.find(
+      (file) => file.title === "person upserts property",
+    )!;
+    const report = propertyFailureReport(persons, 5, { outcome: "failed", output: "" });
+    expect(report).toContain("Replay it from `packages/orchestrator`:");
+    expect(report).toContain(
+      "PROPERTY_SEED=5 PROPERTY_RUNS=3000 bunx vitest run ./src/db/persons.property.test.medium.ts",
     );
   });
 

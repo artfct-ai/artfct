@@ -133,6 +133,12 @@
             "#tup": []
           }
         },
+        "waiter": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "withStages": {
           "tag": "None",
           "value": {
@@ -234,6 +240,8 @@
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aRestartCutsTheDestroyOfACancelledAuthor": false,
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
@@ -295,6 +303,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
         },
         "taskEndAlarms": {
           "#set": []
@@ -424,6 +438,12 @@
             "#tup": []
           }
         },
+        "waiter": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "withStages": {
           "tag": "Some",
           "value": true
@@ -523,6 +543,8 @@
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aRestartCutsTheDestroyOfACancelledAuthor": false,
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
@@ -584,6 +606,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
         },
         "taskEndAlarms": {
           "#set": []
@@ -708,6 +736,12 @@
             "#tup": []
           }
         },
+        "waiter": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "withStages": {
           "tag": "None",
           "value": {
@@ -809,6 +843,8 @@
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aRestartCutsTheDestroyOfACancelledAuthor": false,
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
@@ -924,6 +960,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
         },
         "taskEndAlarms": {
           "#set": []
@@ -1048,6 +1090,12 @@
             "#tup": []
           }
         },
+        "waiter": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "withStages": {
           "tag": "None",
           "value": {
@@ -1149,6 +1197,8 @@
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aRestartCutsTheDestroyOfACancelledAuthor": false,
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
@@ -1318,6 +1368,12 @@
         "turnsToRunAgain": {
           "#set": []
         },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
+        },
         "taskEndAlarms": {
           "#set": []
         },
@@ -1443,6 +1499,12 @@
             "#tup": []
           }
         },
+        "waiter": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "withStages": {
           "tag": "None",
           "value": {
@@ -1544,6 +1606,8 @@
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aRestartCutsTheDestroyOfACancelledAuthor": false,
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
@@ -1720,6 +1784,12 @@
         "turnsToRunAgain": {
           "#set": []
         },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
+        },
         "taskEndAlarms": {
           "#set": []
         },
@@ -1848,6 +1918,12 @@
             "#tup": []
           }
         },
+        "waiter": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "withStages": {
           "tag": "None",
           "value": {
@@ -1949,6 +2025,8 @@
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aRestartCutsTheDestroyOfACancelledAuthor": false,
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
@@ -1975,9 +2053,17 @@
                 "caller": {
                   "tag": "WorkflowEnd",
                   "value": {
-                    "tag": "Failed",
-                    "value": {
-                      "#tup": []
+                    "endsAs": {
+                      "tag": "Failed",
+                      "value": {
+                        "#tup": []
+                      }
+                    },
+                    "waiter": {
+                      "tag": "NobodyWaits",
+                      "value": {
+                        "#tup": []
+                      }
                     }
                   }
                 },
@@ -2160,6 +2246,12 @@
         "turnsToRunAgain": {
           "#set": []
         },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
+        },
         "taskEndAlarms": {
           "#set": [
             {
@@ -2287,6 +2379,12 @@
             "#tup": []
           }
         },
+        "waiter": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "withStages": {
           "tag": "None",
           "value": {
@@ -2388,6 +2486,8 @@
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aRestartCutsTheDestroyOfACancelledAuthor": true,
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
@@ -2567,6 +2667,12 @@
         "turnsToRunAgain": {
           "#set": []
         },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
+        },
         "taskEndAlarms": {
           "#set": [
             {
@@ -2699,6 +2805,12 @@
             "#tup": []
           }
         },
+        "waiter": {
+          "tag": "None",
+          "value": {
+            "#tup": []
+          }
+        },
         "withStages": {
           "tag": "None",
           "value": {
@@ -2800,6 +2912,8 @@
         "theRestartAlarmFailsAnAuthor": false,
         "theSleepMessagePosts": false,
         "theSubjectIssueEndCancelsTheWorkflow": false,
+        "aRestartCutsTheEndPost": false,
+        "aResumedEndFindsItsPostReturned": false,
         "aRestartCutsTheDestroyOfACancelledAuthor": false,
         "aRestartCutsTheDestroyOfAFailedAuthor": false,
         "aRestartCutsAFailurePost": false,
@@ -2826,9 +2940,17 @@
                 "caller": {
                   "tag": "WorkflowEnd",
                   "value": {
-                    "tag": "Failed",
-                    "value": {
-                      "#tup": []
+                    "endsAs": {
+                      "tag": "Failed",
+                      "value": {
+                        "#tup": []
+                      }
+                    },
+                    "waiter": {
+                      "tag": "NobodyWaits",
+                      "value": {
+                        "#tup": []
+                      }
                     }
                   }
                 },
@@ -3010,6 +3132,12 @@
         },
         "turnsToRunAgain": {
           "#set": []
+        },
+        "endCall": {
+          "tag": "NoEndCall",
+          "value": {
+            "#tup": []
+          }
         },
         "taskEndAlarms": {
           "#set": [

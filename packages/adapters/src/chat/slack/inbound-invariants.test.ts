@@ -1,11 +1,13 @@
 import { describe, expect, it } from "bun:test";
 import fc from "fast-check";
-import { propertyRuns } from "../../../test/property-runs";
+import { propertyRuns, propertyTimeoutMs } from "../../../test/property-runs";
 import { fakeUserActor } from "../../../test/fake-actors";
 import { inboundMapperNeverThrows, mapperOutcome } from "../../../test/inbound-invariants";
 import { anyJsonValue, mutatedPayload } from "../../../test/payload-mutations";
 import { appJoinedChannel, slackInbound } from "./inbound";
 import type { ChatInboundContext, ChatLookup } from "../types";
+
+const RUNS = 100;
 
 const lookup: ChatLookup = {
   user: async (userId) => ({ id: userId, email: "dev@acme.test", member_of_team: "T1" }),
@@ -78,18 +80,26 @@ async function checkPayload(payload: unknown, withBot: boolean): Promise<void> {
 
 describe("slack inbound mapper invariants", () => {
   for (const [name, payload] of Object.entries(realPayloads)) {
-    it(`hold for a ${name} callback with fields removed or retyped`, async () => {
-      await fc.assert(
-        fc.asyncProperty(mutatedPayload(payload), fc.boolean(), checkPayload),
-        propertyRuns(`slack ${name}`, 100),
-      );
-    });
+    it(
+      `hold for a ${name} callback with fields removed or retyped`,
+      async () => {
+        await fc.assert(
+          fc.asyncProperty(mutatedPayload(payload), fc.boolean(), checkPayload),
+          propertyRuns(`slack ${name}`, RUNS),
+        );
+      },
+      propertyTimeoutMs(5_000, RUNS),
+    );
   }
 
-  it("hold for a JSON value of any shape", async () => {
-    await fc.assert(
-      fc.asyncProperty(anyJsonValue, fc.boolean(), checkPayload),
-      propertyRuns("slack any JSON", 100),
-    );
-  });
+  it(
+    "hold for a JSON value of any shape",
+    async () => {
+      await fc.assert(
+        fc.asyncProperty(anyJsonValue, fc.boolean(), checkPayload),
+        propertyRuns("slack any JSON", RUNS),
+      );
+    },
+    propertyTimeoutMs(5_000, RUNS),
+  );
 });
